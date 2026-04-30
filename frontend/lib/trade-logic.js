@@ -1039,6 +1039,18 @@ export function buildPickLookupCandidates(rawLabel) {
       const derivedTier = slot <= 4 ? "Early" : slot <= 8 ? "Mid" : "Late";
       push(`${year} ${derivedTier} ${round}`);
     }
+
+    // 5) Year + round only ("2026 1st", "2027 2nd") — Sleeper's
+    //    /traded_picks endpoint emits these labels for every owned pick
+    //    because slots aren't tracked there.  Without a slot or tier
+    //    the rankings row never matches, so default to the tier-centre
+    //    "Mid" slot used elsewhere in the pipeline (matches the trade
+    //    history valuation convention in _format_trade_pick_label).
+    if (!slot && !tier && roundDigit) {
+      push(`${year} Mid ${round}`);
+      push(`${year} Pick ${roundDigit}.06`);
+      push(`${year} ${roundDigit}.06`);
+    }
   }
 
   return candidates;

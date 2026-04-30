@@ -964,6 +964,15 @@ describe("buildPickLookupCandidates", () => {
     expect(buildPickLookupCandidates("")).toEqual([]);
     expect(buildPickLookupCandidates(null)).toEqual([]);
   });
+
+  it("synthesizes Mid tier-centre fallbacks for bare year+round labels", () => {
+    // Sleeper /traded_picks emits "2027 1st" / "2026 2nd" with no slot
+    // and no tier — without a fallback the rankings row never matches.
+    const c = buildPickLookupCandidates("2027 1st");
+    expect(c).toContain("2027 1st");
+    expect(c).toContain("2027 mid 1st");
+    expect(c).toContain("2027 pick 1.06");
+  });
 });
 
 describe("resolvePickRow", () => {
@@ -1069,6 +1078,27 @@ describe("resolvePickRow", () => {
   it("returns null when nothing matches", () => {
     const lookup = mkLookup([["2026 Pick 1.04", 9000]]);
     expect(resolvePickRow("2099 1.01", lookup)).toBeNull();
+  });
+
+  it("resolves bare year+round Sleeper label to slot-bearing year row", () => {
+    // /traded_picks emits "2026 1st".  Rankings has slot-specific rows
+    // for the current rookie year — resolver should fall back to the
+    // Mid tier-centre slot (1.06).
+    const lookup = mkLookup([["2026 Pick 1.06", 7700]]);
+    const row = resolvePickRow("2026 1st", lookup);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.06");
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("resolves bare year+round Sleeper label to tier-only future-year row", () => {
+    // Future years only have generic tier rows on the board — the bare
+    // Sleeper label should land on the Mid tier row.
+    const lookup = mkLookup([["2027 Mid 2nd", 4200]]);
+    const row = resolvePickRow("2027 2nd", lookup);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2027 Mid 2nd");
+    expect(row.values.full).toBe(4200);
   });
 });
 

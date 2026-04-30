@@ -29,9 +29,7 @@ export default function RostersPage() {
   const { rows, rawData, loading, error } = useApp();
   const { settings, update } = useSettings();
   const [valueMode, setValueMode] = useState("full");
-  const [activeGroups, setActiveGroups] = useState(
-    new Set(["QB", "RB", "WR", "TE", "PICKS"]),
-  );
+  const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
 
   const sleeperTeams = rawData?.sleeper?.teams || [];
   const pickAliases = rawData?.pickAliases || null;
