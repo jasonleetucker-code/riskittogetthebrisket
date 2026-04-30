@@ -132,7 +132,13 @@ export default function FaabRecommendation({
   const [state, setState] = useState("idle"); // idle | loading | done | error
   const [data, setData] = useState(null);
   const [showFactors, setShowFactors] = useState(false);
-  const [showContext, setShowContext] = useState(false);
+  // League FAAB context starts expanded — the stats it surfaces
+  // (your remaining FAAB, league avg/median, comparable bids,
+  // player history) are exactly the "what do I have to spend and
+  // what do others usually pay" question the recommendation panel
+  // is here to answer.  Burying it behind a toggle made the
+  // panel feel half-finished.
+  const [showContext, setShowContext] = useState(true);
   const [err, setErr] = useState("");
 
   useEffect(() => {

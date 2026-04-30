@@ -51,6 +51,57 @@ import { MonteCarloButton, PlayerImage } from "@/components/ui";
 
 // ── helpers ────────────────────────────────────────────────────
 
+/**
+ * Always-visible FAAB header stat — shows the user's current
+ * remaining FAAB + the league's average winning bid even before
+ * any player is picked.  This is the "what do I have to spend
+ * and what do others usually pay" question the calculator
+ * exists to answer; burying it inside a collapsed FAAB panel
+ * meant new users couldn't find it without selecting a player
+ * AND expanding a toggle.
+ */
+function FaabHeaderStat({ selectedTeam, leagueFaab }) {
+  const remaining = selectedTeam?.faabRemaining;
+  const budget = selectedTeam?.faabBudget ?? leagueFaab?.leagueBudget;
+  const avg = leagueFaab?.leagueAvgWinningBid;
+  const median = leagueFaab?.leagueMedianWinningBid;
+  // Skip rendering when neither piece is available — saves a
+  // confusing "—" row when the contract hasn't loaded yet.
+  if (remaining == null && avg == null) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 12,
+        padding: "8px 10px",
+        marginBottom: 12,
+        background: "rgba(52,211,153,0.06)",
+        border: "1px solid rgba(52,211,153,0.18)",
+        borderRadius: 8,
+        fontSize: "0.82rem",
+      }}
+    >
+      {remaining != null && (
+        <span>
+          <strong style={{ color: "var(--green, #34d399)" }}>
+            ${remaining.toLocaleString()}
+          </strong>
+          <span className="muted">
+            {budget ? ` / $${budget.toLocaleString()} FAAB left` : " FAAB left"}
+          </span>
+        </span>
+      )}
+      {avg != null && avg > 0 && (
+        <span className="muted">
+          League avg winning bid: <strong>${Math.round(avg)}</strong>
+          {median != null && median > 0 ? ` · median $${Math.round(median)}` : ""}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function normName(s) {
   return String(s || "")
     .toLowerCase()
@@ -440,6 +491,11 @@ export default function ManualAddDrop({
         </div>
       ) : (
         <>
+          <FaabHeaderStat
+            selectedTeam={selectedTeam}
+            leagueFaab={leagueFaab}
+          />
+
           <div
             style={{
               display: "flex",
