@@ -233,9 +233,16 @@ def _enumerate_owner_ids(
     Order of precedence (first match wins on display order — though
     rows are re-sorted by power score before render):
 
-      1. Owners present in the live team-strength snapshot.  This is
-         the source of truth for "who is on a roster right now",
-         which is what the going-into-2026 table needs to show.
+      1. Owners present in the live team-strength snapshot AND still
+         in the manager registry.  The registry gate is essential: the
+         team-strength file is written by a scheduled scrape that may
+         lag the live Sleeper rosters (e.g. an owner left mid-week
+         and the team-strength file still names them).  Without this
+         filter a stale snapshot would push the table to 13+ rows in
+         a 12-team league.  The registry is built from the rosters
+         the snapshot actually fetched plus the operator-maintained
+         retirement list, so it's the authoritative "who's in the
+         league right now" answer.
       2. Owners on the snapshot's current Sleeper season — covers the
          case where the team-strength file is temporarily empty.
       3. Owners with prior-season career history that the manager
@@ -255,15 +262,18 @@ def _enumerate_owner_ids(
         seen.add(oid)
         ordered.append(oid)
 
+    registry_ids = snapshot.managers.by_owner_id
+
     for row in team_strength_rows:
-        _add(row.get("ownerId"))
+        oid = str(row.get("ownerId") or "").strip()
+        if oid and oid in registry_ids:
+            _add(oid)
 
     current = snapshot.current_season
     if current is not None:
         for roster in current.rosters or []:
             _add(roster.get("owner_id"))
 
-    registry_ids = snapshot.managers.by_owner_id
     for oid in historical_owner_ids:
         # Only include historical owners who are still registered —
         # retired managers are filtered out at registry build time, so

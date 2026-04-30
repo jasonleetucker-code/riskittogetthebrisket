@@ -325,6 +325,26 @@ class TestEnumerateOwnerIds(unittest.TestCase):
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["retired"])
         self.assertNotIn("retired", ids)
 
+    def test_stale_team_strength_owner_filtered_against_registry(self):
+        # The team-strength file is written by a scheduled scrape and
+        # can lag the live snapshot.  If a manager leaves the league
+        # between scrapes, their ownerId stays in
+        # ``team_strength/latest.json`` until the next refresh — but
+        # they're already gone from the snapshot's current season and
+        # have been pruned from ``by_owner_id``.  Without this filter
+        # the rankings table would render an extra row past league
+        # size during the season-transition window.
+        snapshot = _make_snapshot(
+            rosters=[{"owner_id": "alpha", "roster_id": 1}],
+        )
+        ts_rows = [
+            {"ownerId": "alpha"},      # registered, keep
+            {"ownerId": "departed"},   # stale entry, drop
+        ]
+        ids = power_v2._enumerate_owner_ids(snapshot, ts_rows, [])
+        self.assertIn("alpha", ids)
+        self.assertNotIn("departed", ids)
+
 
 class TestBuildSectionPreseason(unittest.TestCase):
     """End-to-end build for a going-into-2026 fixture.
