@@ -400,3 +400,351 @@ def test_build_trades_block_uses_tier_label_for_future_year_picks(monkeypatch):
     assert "Early" in label
     assert "1st" in label
     assert "1.03" not in label, f"future-year label must not be slot-specific: {label!r}"
+
+
+# ── _build_waivers_block shape parity ───────────────────────────────────
+
+
+def test_build_waivers_block_emits_waiver_and_free_agent(monkeypatch):
+    """Sister to the trades parity test.  Both ``waiver`` and
+    ``free_agent`` complete transactions are surfaced; player IDs
+    resolve through ``id_to_player``; FAAB bid lifts from
+    ``settings.waiver_bid``."""
+    league_id = "L1"
+    fresh_ms = _recent_ms()
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": [
+            {"roster_id": 1, "owner_id": "oA"},
+            {"roster_id": 2, "owner_id": "oB"},
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+            {"user_id": "oB", "display_name": "Team B"},
+        ],
+        f"/league/{league_id}/drafts": [],
+    }
+    responses[f"/league/{league_id}/transactions/5"] = [
+        {
+            "transaction_id": "wv-1",
+            "type": "waiver",
+            "status": "complete",
+            "status_updated": fresh_ms,
+            "roster_ids": [1],
+            "adds": {"P-A": 1},
+            "drops": {"P-Z": 1},
+            "settings": {"waiver_bid": 22},
+        },
+        {
+            "transaction_id": "fa-1",
+            "type": "free_agent",
+            "status": "complete",
+            "status_updated": fresh_ms,
+            "roster_ids": [2],
+            "adds": {"P-B": 2},
+            "drops": {},
+            "settings": {},
+        },
+        # A trade should NOT appear in the waiver block.
+        {
+            "transaction_id": "tx-1",
+            "type": "trade",
+            "status": "complete",
+            "status_updated": fresh_ms,
+            "roster_ids": [1, 2],
+            "adds": {"P-A": 1},
+            "drops": {"P-A": 2},
+        },
+    ]
+    for w in range(0, 19):
+        if w == 5:
+            continue
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+
+    id_map = {"P-A": "Player A", "P-B": "Player B", "P-Z": "Player Z"}
+    waivers = sleeper_overlay._build_waivers_block(
+        league_id, window_days=365, id_to_player=id_map,
+    )
+    assert len(waivers) == 2
+    by_id = {w["transactionId"]: w for w in waivers}
+    wv = by_id["wv-1"]
+    assert wv["type"] == "waiver"
+    assert wv["faabBid"] == 22
+    assert wv["added"] == ["Player A"]
+    assert wv["dropped"] == ["Player Z"]
+    assert wv["rosterId"] == 1
+    assert wv["ownerId"] == "oA"
+    assert wv["week"] == 5
+
+    fa = by_id["fa-1"]
+    assert fa["type"] == "free_agent"
+    assert fa["faabBid"] == 0  # FA tx don't carry a bid
+    assert fa["added"] == ["Player B"]
+    assert fa["dropped"] == []
+    assert fa["rosterId"] == 2
+    assert fa["ownerId"] == "oB"
+
+
+def test_build_waivers_block_filters_incomplete_status(monkeypatch):
+    """Pending waiver bids that haven't run yet must NOT appear in
+    the overlay — only ``status == complete`` claims surface."""
+    league_id = "L1"
+    fresh_ms = _recent_ms()
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": [{"roster_id": 1, "owner_id": "oA"}],
+        f"/league/{league_id}/users": [{"user_id": "oA", "display_name": "A"}],
+        f"/league/{league_id}/drafts": [],
+    }
+    responses[f"/league/{league_id}/transactions/4"] = [
+        {
+            "transaction_id": "p-1",
+            "type": "waiver",
+            "status": "pending",
+            "status_updated": fresh_ms,
+            "roster_ids": [1],
+            "adds": {"X": 1},
+            "settings": {"waiver_bid": 5},
+        },
+    ]
+    for w in range(0, 19):
+        if w == 4:
+            continue
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    waivers = sleeper_overlay._build_waivers_block(league_id)
+    assert waivers == []
+
+
+def test_build_waivers_block_dedupes_across_chain(monkeypatch):
+    """A waiver tx that appears in both the current league and a
+    previous_league_id (chain replay) must only be counted once."""
+    cur, prev = "L1", "L0"
+    fresh_ms = _recent_ms()
+    common_tx = {
+        "transaction_id": "wv-shared",
+        "type": "waiver",
+        "status": "complete",
+        "status_updated": fresh_ms,
+        "roster_ids": [1],
+        "adds": {"X": 1},
+        "settings": {"waiver_bid": 7},
+    }
+    responses = {
+        f"/league/{cur}": {"name": "Main", "previous_league_id": prev},
+        f"/league/{prev}": {"name": "Old", "previous_league_id": None},
+    }
+    for lid in (cur, prev):
+        responses[f"/league/{lid}/rosters"] = [{"roster_id": 1, "owner_id": "oA"}]
+        responses[f"/league/{lid}/users"] = [{"user_id": "oA", "display_name": "A"}]
+        responses[f"/league/{lid}/drafts"] = []
+        for w in range(0, 19):
+            responses[f"/league/{lid}/transactions/{w}"] = (
+                [common_tx] if w == 2 else []
+            )
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    waivers = sleeper_overlay._build_waivers_block(cur)
+    assert len(waivers) == 1
+    assert waivers[0]["transactionId"] == "wv-shared"
+
+
+def test_build_waivers_block_filters_outside_window(monkeypatch):
+    """Old waiver claims past ``window_days`` are dropped.  Mirrors
+    the trade-block window-bound test."""
+    league_id = "L1"
+    ancient_ms = int(time.time() * 1000) - 400 * 24 * 3600 * 1000
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": [{"roster_id": 1, "owner_id": "oA"}],
+        f"/league/{league_id}/users": [{"user_id": "oA", "display_name": "A"}],
+        f"/league/{league_id}/drafts": [],
+    }
+    responses[f"/league/{league_id}/transactions/1"] = [
+        {
+            "transaction_id": "old-1",
+            "type": "waiver",
+            "status": "complete",
+            "status_updated": ancient_ms,
+            "roster_ids": [1],
+            "adds": {"X": 1},
+            "settings": {"waiver_bid": 1},
+        },
+    ]
+    for w in range(0, 19):
+        if w == 1:
+            continue
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    waivers = sleeper_overlay._build_waivers_block(league_id, window_days=30)
+    assert waivers == []
+
+
+# ── _build_teams_block FAAB fields ──────────────────────────────────────
+
+
+def test_build_teams_block_includes_faab_fields(monkeypatch):
+    """Each team dict carries ``faabBudget`` (league-level),
+    ``faabUsed`` (per-roster), and computed ``faabRemaining``.
+    """
+    league_id = "L1"
+    responses = {
+        f"/league/{league_id}": {
+            "name": "Main",
+            "previous_league_id": None,
+            "settings": {"waiver_budget": 200},
+        },
+        f"/league/{league_id}/rosters": [
+            {
+                "roster_id": 1,
+                "owner_id": "oA",
+                "players": ["P-1"],
+                "settings": {"waiver_budget_used": 45},
+            },
+            {
+                "roster_id": 2,
+                "owner_id": "oB",
+                "players": ["P-2"],
+                "settings": {"waiver_budget_used": 200},
+            },
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+            {"user_id": "oB", "display_name": "Team B"},
+        ],
+        f"/league/{league_id}/traded_picks": [],
+    }
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    teams = sleeper_overlay._build_teams_block(league_id, id_to_player={"P-1": "P One", "P-2": "P Two"})
+    assert teams is not None
+    by_owner = {t["ownerId"]: t for t in teams}
+    a = by_owner["oA"]
+    assert a["faabBudget"] == 200
+    assert a["faabUsed"] == 45
+    assert a["faabRemaining"] == 155
+    b = by_owner["oB"]
+    assert b["faabBudget"] == 200
+    assert b["faabUsed"] == 200
+    assert b["faabRemaining"] == 0  # exact-spent rosters floor at 0
+
+
+def test_build_teams_block_faab_falls_back_when_missing(monkeypatch):
+    """Sleeper doesn't always populate ``settings.waiver_budget`` (older
+    leagues, dev fixtures).  When either piece is absent the team
+    dict still emits the keys with explicit ``None`` so the frontend
+    can render ``"—"`` instead of crashing on missing fields."""
+    league_id = "L1"
+    responses = {
+        f"/league/{league_id}": {
+            "name": "Main",
+            "previous_league_id": None,
+            "settings": {},  # no waiver_budget
+        },
+        f"/league/{league_id}/rosters": [
+            {
+                "roster_id": 1,
+                "owner_id": "oA",
+                "players": [],
+                "settings": {"waiver_budget_used": 12},
+            },
+            {
+                "roster_id": 2,
+                "owner_id": "oB",
+                "players": [],
+                "settings": {},  # no waiver_budget_used
+            },
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+            {"user_id": "oB", "display_name": "Team B"},
+        ],
+        f"/league/{league_id}/traded_picks": [],
+    }
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    teams = sleeper_overlay._build_teams_block(league_id, id_to_player={})
+    assert teams is not None
+    by_owner = {t["ownerId"]: t for t in teams}
+    a = by_owner["oA"]
+    # Budget missing → faabRemaining stays None even though faabUsed is known.
+    assert a["faabBudget"] is None
+    assert a["faabUsed"] == 12
+    assert a["faabRemaining"] is None
+    b = by_owner["oB"]
+    assert b["faabBudget"] is None
+    assert b["faabUsed"] is None
+    assert b["faabRemaining"] is None
+
+
+# ── fetch_sleeper_overlay end-to-end ───────────────────────────────────
+
+
+def test_fetch_sleeper_overlay_includes_waivers_and_meta(monkeypatch):
+    """End-to-end: ``fetch_sleeper_overlay`` must surface both the
+    new ``waivers`` array and ``meta.waiverCount`` alongside the
+    existing trades data."""
+    league_id = "L1"
+    fresh_ms = _recent_ms()
+    responses = {
+        f"/league/{league_id}": {
+            "name": "Main",
+            "previous_league_id": None,
+            "settings": {"waiver_budget": 100},
+        },
+        f"/league/{league_id}/rosters": [
+            {
+                "roster_id": 1,
+                "owner_id": "oA",
+                "players": [],
+                "settings": {"waiver_budget_used": 10},
+            },
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+        ],
+        f"/league/{league_id}/drafts": [],
+        f"/league/{league_id}/traded_picks": [],
+    }
+    responses[f"/league/{league_id}/transactions/3"] = [
+        {
+            "transaction_id": "wv-1",
+            "type": "waiver",
+            "status": "complete",
+            "status_updated": fresh_ms,
+            "roster_ids": [1],
+            "adds": {"P": 1},
+            "settings": {"waiver_bid": 5},
+        },
+    ]
+    for w in range(0, 19):
+        if w == 3:
+            continue
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    payload = sleeper_overlay.fetch_sleeper_overlay(
+        sleeper_league_id=league_id,
+        id_to_player={"P": "Picked"},
+        force_refresh=True,
+    )
+    assert payload is not None
+    assert "waivers" in payload
+    assert isinstance(payload["waivers"], list)
+    assert len(payload["waivers"]) == 1
+    assert payload["meta"]["waiverCount"] == 1
+    assert payload["meta"]["tradeCount"] == 0
+    # FAAB fields lifted into teams block too.
+    assert payload["teams"][0]["faabRemaining"] == 90

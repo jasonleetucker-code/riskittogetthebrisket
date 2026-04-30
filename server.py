@@ -2259,6 +2259,7 @@ async def get_data(request: Request):
                     **loaded_sleeper,
                     "teams": overlay["teams"],
                     "trades": overlay.get("trades") or [],
+                    "waivers": overlay.get("waivers") or [],
                     "tradeWindowDays": overlay.get("tradeWindowDays")
                         or loaded_sleeper.get("tradeWindowDays"),
                     "tradeWindowStart": overlay.get("tradeWindowStart")
@@ -5715,6 +5716,7 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
             "leagueKey": league_cfg.key,
             "teamCount": len(overlay.get("teams") or []),
             "tradeCount": len(overlay.get("trades") or []),
+            "waiverCount": len(overlay.get("waivers") or []),
             "overlayFetchedAt": overlay.get("overlayFetchedAt"),
         })
 

@@ -250,6 +250,26 @@ def _build_teams_block(
     if not isinstance(rosters, list) or not isinstance(users, list):
         return None
 
+    # League-level settings carry the season's waiver budget; merge
+    # with each roster's ``waiver_budget_used`` to produce remaining
+    # FAAB.  When the league call fails (rare) we still emit the
+    # block — faabRemaining just falls back to None and the
+    # frontend renders "—" instead of a number.
+    league_info = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
+    )
+    league_settings = (
+        league_info.get("settings")
+        if isinstance(league_info, dict)
+        else None
+    )
+    league_faab_budget = None
+    if isinstance(league_settings, dict):
+        try:
+            league_faab_budget = int(league_settings.get("waiver_budget"))
+        except (TypeError, ValueError):
+            league_faab_budget = None
+
     # owner_id → team-display-name.
     user_map: dict[str, str] = {}
     for u in users:
@@ -300,6 +320,24 @@ def _build_teams_block(
             rid_int = 0
         pick_details = pick_ownership.get(rid_int, [])
         pick_labels = [p["label"] for p in pick_details]
+
+        # FAAB used lives at ``roster.settings.waiver_budget_used``
+        # and is reset every season by Sleeper.  Combined with the
+        # league-level budget we derived above, that gives us
+        # ``remaining`` for the FAAB recommender.  When either
+        # piece is missing we surface explicit ``None`` so the
+        # frontend can distinguish "not loaded yet" from "0 left".
+        roster_settings = r.get("settings")
+        faab_used: int | None = None
+        if isinstance(roster_settings, dict):
+            try:
+                faab_used = int(roster_settings.get("waiver_budget_used"))
+            except (TypeError, ValueError):
+                faab_used = None
+        faab_remaining: int | None = None
+        if league_faab_budget is not None and faab_used is not None:
+            faab_remaining = max(0, league_faab_budget - faab_used)
+
         teams.append({
             "name": user_map.get(owner_id, f"Team {roster_id}"),
             "ownerId": owner_id,
@@ -308,6 +346,9 @@ def _build_teams_block(
             "playerIds": [str(pid) for pid in player_ids if pid],
             "picks": pick_labels,
             "pickDetails": pick_details,
+            "faabBudget": league_faab_budget,
+            "faabUsed": faab_used,
+            "faabRemaining": faab_remaining,
         })
     return teams
 
@@ -598,6 +639,146 @@ def _append_trade_side_item(
             arr.append(label)
 
 
+def _build_waivers_block(
+    sleeper_league_id: str,
+    window_days: int = 365,
+    id_to_player: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Sister to ``_build_trades_block`` — collects ``waiver`` and
+    ``free_agent`` transactions across the league chain (same depth-2
+    walk so inter-season activity stays in the rolling window).
+
+    Output shape (one dict per completed waiver/FA tx)::
+
+        {
+            "leagueId":     str,
+            "week":         int,
+            "createdAtMs":  int,        # status_updated, falls back to created
+            "rosterId":     int,
+            "ownerId":      str,
+            "added":        [<player display name>, ...],
+            "dropped":      [<player display name>, ...],
+            "faabBid":      int,        # winning waiver_bid (0 for FA)
+            "type":         "waiver" | "free_agent",
+            "transactionId": str,
+        }
+
+    Sleeper's ``/v1/league/<id>/transactions/<week>`` is the same
+    feed used by trades; we just toggle the type filter.  Failed
+    waiver bids are NOT exposed by the API — only successful claims
+    appear, which is a known limitation we surface in the FAAB
+    recommender's UI copy (B6 / B8).
+
+    ``id_to_player`` is the NFL-wide Sleeper-ID → display-name map,
+    typically reused from the loaded contract.  When absent, player
+    labels fall back to the raw Sleeper id.
+    """
+    cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
+    chain = _walk_league_chain(sleeper_league_id, max_depth=2)
+    if not chain:
+        return []
+
+    id_map = id_to_player if isinstance(id_to_player, dict) else {}
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for lid in chain:
+        rid_to_name, rid_to_owner = _league_rid_lookup(lid)
+
+        for week in range(0, 19):
+            url = (
+                f"https://api.sleeper.app/v1/league/{lid}"
+                f"/transactions/{week}"
+            )
+            txs = _http_get_json(url)
+            if not isinstance(txs, list):
+                continue
+            for tx in txs:
+                if not isinstance(tx, dict):
+                    continue
+                tx_type = tx.get("type")
+                if tx_type not in ("waiver", "free_agent"):
+                    continue
+                if tx.get("status") != "complete":
+                    continue
+                status_ts = tx.get("status_updated") or tx.get("created")
+                ts_ms = _normalize_ts_ms(status_ts)
+                if ts_ms and ts_ms < cutoff_ms:
+                    continue
+                tx_id = str(tx.get("transaction_id") or "")
+                if tx_id and tx_id in seen:
+                    continue
+                if tx_id:
+                    seen.add(tx_id)
+
+                # Sleeper's waiver / FA shape:
+                #   adds:   {player_id: roster_id}
+                #   drops:  {player_id: roster_id}  (optional)
+                # The owning roster is the same across ``adds`` and
+                # ``drops`` — pull it from ``roster_ids`` (single
+                # entry for these tx types).
+                adds = tx.get("adds") if isinstance(tx.get("adds"), dict) else {}
+                drops = tx.get("drops") if isinstance(tx.get("drops"), dict) else {}
+                roster_ids = tx.get("roster_ids") or []
+                rid = roster_ids[0] if roster_ids else None
+                if rid is None:
+                    # Some FA transactions encode the roster on the
+                    # adds map only — pull the first value as a
+                    # fallback.
+                    if adds:
+                        rid = next(iter(adds.values()), None)
+                if rid is None:
+                    continue
+
+                added_names = [
+                    str(id_map.get(str(pid)) or pid)
+                    for pid in adds.keys()
+                ]
+                dropped_names = [
+                    str(id_map.get(str(pid)) or pid)
+                    for pid in drops.keys()
+                ]
+
+                # FAAB bid lives at ``settings.waiver_bid`` for waiver
+                # tx; FA tx don't carry a bid (free pickups).
+                settings = tx.get("settings") or {}
+                bid_raw = settings.get("waiver_bid") if isinstance(settings, dict) else None
+                try:
+                    bid = int(bid_raw) if bid_raw is not None else 0
+                except (TypeError, ValueError):
+                    bid = 0
+
+                rid_key = rid if rid in rid_to_name else _safe_int(rid)
+                owner_id = (
+                    rid_to_owner.get(rid)
+                    or rid_to_owner.get(_safe_int(rid))
+                    or rid_to_owner.get(str(rid))
+                    or ""
+                )
+
+                out.append({
+                    "leagueId": str(lid),
+                    "week": week,
+                    "createdAtMs": ts_ms or 0,
+                    "rosterId": rid,
+                    "ownerId": owner_id,
+                    "added": added_names,
+                    "dropped": dropped_names,
+                    "faabBid": bid,
+                    "type": str(tx_type),
+                    "transactionId": tx_id,
+                })
+
+                # rid_key + rid_to_name unused below but kept for
+                # potential team-name annotation in a downstream
+                # consumer; the frontend maps via ownerId today.
+                _ = rid_key
+
+    out.sort(key=lambda w: -int(w.get("createdAtMs", 0) or 0))
+    return out
+
+
 def _build_trades_block(
     sleeper_league_id: str,
     window_days: int = 365,
@@ -836,6 +1017,11 @@ def fetch_sleeper_overlay(
         window_days=trade_window_days,
         id_to_player=id_to_player,
     )
+    waivers = _build_waivers_block(
+        sleeper_league_id,
+        window_days=trade_window_days,
+        id_to_player=id_to_player,
+    )
 
     cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(
         days=int(trade_window_days)
@@ -845,11 +1031,16 @@ def fetch_sleeper_overlay(
         "leagueName": league_name,
         "teams": teams,
         "trades": trades,
+        "waivers": waivers,
         "tradeWindowDays": int(trade_window_days),
         "tradeWindowStart": cutoff_dt.isoformat(),
         "tradeWindowCutoffMs": int(cutoff_dt.timestamp() * 1000),
         "overlaySource": "live",
         "overlayFetchedAt": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "meta": {
+            "tradeCount": len(trades),
+            "waiverCount": len(waivers),
+        },
     }
 
     with _CACHE_LOCK:
