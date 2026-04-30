@@ -3497,6 +3497,174 @@ async def post_waiver_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/waiver/faab-recommend")
+async def post_waiver_faab_recommend(request: Request):
+    """Recommend a FAAB bid for a single add/drop pair.
+
+    Used by the manual add/drop calculator on /waivers.  Composes
+    the existing _compute_faab_bid baseline with value-gain modifier,
+    Sleeper trending kicker, league-historical analytics calibration,
+    optional KTC crowd blend, and team FAAB cap.
+
+    Request body (JSON):
+      ``leagueKey``       optional — pin to a specific league
+      ``addPlayerName``   required — display name of the add side
+      ``dropPlayerName``  optional — display name of the drop side
+
+    Returns the ``recommend_faab`` payload (see
+    ``src/trade/faab_recommender.py``) with ``conservative``,
+    ``standard``, ``aggressive``, ``max`` bids plus confidence
+    breakdown + warnings + plain-English explanation.
+    """
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    add_name = str(body.get("addPlayerName") or "").strip()
+    drop_name = str(body.get("dropPlayerName") or "").strip()
+    if not add_name:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "addPlayerName is required."},
+        )
+
+    # Resolve player rows + values from the live contract.
+    arr = latest_contract_data.get("playersArray") or []
+
+    def _norm(s: str) -> str:
+        return str(s or "").strip().lower()
+
+    add_row: dict | None = None
+    drop_row: dict | None = None
+    add_target = _norm(add_name)
+    drop_target = _norm(drop_name)
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        rname = _norm(row.get("displayName") or row.get("name"))
+        if rname == add_target:
+            add_row = row
+        elif drop_target and rname == drop_target:
+            drop_row = row
+    if add_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Player not found: {add_name!r}"},
+        )
+
+    add_value = float(add_row.get("rankDerivedValue") or 0)
+    drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
+    add_position = add_row.get("position") or add_row.get("pos") or None
+
+    # Top of the league's free-agent pool — used as the baseline
+    # ``top_value_in_pool`` so a player worth 70% of the top adds
+    # the right share of budget.
+    sleeper = latest_contract_data.get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+    rostered_norms: set[str] = set()
+    for t in sleeper_teams:
+        for n in (t.get("players") or []):
+            rostered_norms.add(_norm(n))
+    top_pool_value = 0.0
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        rname = _norm(row.get("displayName") or row.get("name"))
+        if not rname or rname in rostered_norms:
+            continue
+        v = float(row.get("rankDerivedValue") or 0)
+        if v > top_pool_value:
+            top_pool_value = v
+
+    # League FAAB analytics — reuse the cached public-snapshot
+    # path so this endpoint doesn't pay the multi-season fetch cost
+    # on every recommend request.  When the snapshot isn't loaded
+    # yet the recommender still works (it just degrades to
+    # confidence=low and surfaces a "league analytics missing"
+    # factor row).
+    from src.api import faab_analytics  # noqa: PLC0415
+    league_summary: dict | None = None
+    try:
+        snap_obj = public_snapshot_store.load_snapshot()
+        if snap_obj is not None:
+            league_summary = faab_analytics.summarize_league_faab(snap_obj)
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "faab analytics build failed for %s: %s",
+            league_cfg.key, exc,
+        )
+        league_summary = None
+
+    # Team FAAB remaining — pulled from the resolved league's
+    # sleeper teams block.  When the active user has selected a
+    # specific team, we use that team's remaining; otherwise the
+    # endpoint cannot tell which team is asking and falls back to
+    # the league budget as a soft cap.
+    team_faab_remaining: int | None = None
+    requested_team = body.get("teamOwnerId") or body.get("ownerId")
+    if requested_team:
+        for t in sleeper_teams:
+            if str(t.get("ownerId") or "") == str(requested_team):
+                rem = t.get("faabRemaining")
+                if isinstance(rem, int):
+                    team_faab_remaining = rem
+                break
+
+    league_budget = (
+        league_summary.get("leagueBudget") if isinstance(league_summary, dict) else 100
+    ) or 100
+
+    # Sleeper trending data is collected by an upstream cron and
+    # exposed on the contract under a ``sleeperTrending`` key when
+    # available.  Defensive lookup — missing key just lowers the
+    # recommendation's confidence.
+    trending_for_player: dict | None = None
+    trending_block = latest_contract_data.get("sleeperTrending") or {}
+    if isinstance(trending_block, dict):
+        for pid, rec in trending_block.items():
+            if not isinstance(rec, dict):
+                continue
+            rname = _norm(rec.get("displayName") or rec.get("name"))
+            if rname == add_target:
+                trending_for_player = rec
+                break
+
+    from src.trade.faab_recommender import recommend_faab  # noqa: PLC0415
+
+    rec = recommend_faab(
+        add_player_value=add_value,
+        drop_player_value=drop_value,
+        add_player_position=add_position,
+        add_player_name=add_name,
+        team_faab_remaining=team_faab_remaining,
+        league_faab_summary=league_summary,
+        sleeper_trending=trending_for_player,
+        ktc_crowd_bids=None,  # B7 — wire when KTC bridge ships
+        league_budget=int(league_budget),
+        top_value_in_pool=top_pool_value if top_pool_value > 0 else None,
+    )
+    rec["leagueKey"] = league_cfg.key
+    rec["resolvedAddValue"] = add_value
+    rec["resolvedDropValue"] = drop_value
+    rec["resolvedAddPosition"] = add_position
+    return JSONResponse(content=rec)
+
+
 @app.post("/api/trade/suggestions")
 async def post_trade_suggestions(request: Request):
     """Generate trade suggestions for a given roster.
