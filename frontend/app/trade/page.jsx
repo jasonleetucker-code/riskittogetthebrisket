@@ -1627,6 +1627,18 @@ export default function TradePage() {
   //   * selected league/team changes (incl. picks regenerate)
   //   * loading completes (cold-load arrives after first paint)
   // Debounced via a ref so a rapid roster edit doesn't spam the API.
+  //
+  // Important: the debounce timer must survive effect re-runs that
+  // don't change ``bodyKey`` — e.g. when ``rows`` ref churns mid-load
+  // because ``useSettings`` hydrates from localStorage and triggers
+  // a second ``useDynastyData`` fetch.  An older shape returned a
+  // cleanup that cleared the timer on every dep change; combined with
+  // the ``lastBody === bodyKey`` short-circuit, the timer would be
+  // killed and never re-armed, so ``fetchSuggestions`` never fired and
+  // the rail stayed hidden.  Today's shape lets the inner
+  // ``clearTimeout`` (line below ``setSuggestions(null)``) handle the
+  // bodyKey-changed case and uses a separate unmount-only effect to
+  // tear down a still-pending timer.
   const proactiveFetchRef = useRef({ lastBody: null, timer: null });
   useEffect(() => {
     if (loading || error || leagueMismatch) return;
@@ -1648,15 +1660,26 @@ export default function TradePage() {
       clearTimeout(proactiveFetchRef.current.timer);
     }
     proactiveFetchRef.current.timer = setTimeout(() => {
+      proactiveFetchRef.current.timer = null;
       fetchSuggestions();
     }, 500);
+    // No re-run cleanup: the inner clearTimeout above already cancels
+    // the pending timer when bodyKey actually changes, and the unmount
+    // effect below tears down anything still in flight on teardown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+
+  // Unmount-only cleanup for the proactive-fetch debounce timer — kept
+  // separate from the auto-fetch effect above so a dep-driven re-run
+  // doesn't cancel a pending fetch.
+  useEffect(() => {
     return () => {
       if (proactiveFetchRef.current.timer) {
         clearTimeout(proactiveFetchRef.current.timer);
+        proactiveFetchRef.current.timer = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+  }, []);
 
   async function fetchSuggestions() {
     const roster = parseRoster();
