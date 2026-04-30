@@ -61,10 +61,6 @@ export default function TradeSourceBreakdown({ sides, settings }) {
     return vendorOrder
       .map((vendor) => {
         const subs = vendorSubs.get(vendor);
-        // Picks are included only for KTC (and its TE+ sibling, sourced
-        // from the same scrape).  Every other vendor leaves picks
-        // uncovered and would skew the piece-count math if we counted them.
-        const includePicks = KTC_RAW_NATIVE_VENDORS.has(vendor);
         // Sub-board priority rule: main boards win over rookie-
         // specialty boards.  Once a rookie is promoted onto a
         // vendor's main SF/IDP board (typically post-NFL-draft), the
@@ -118,9 +114,16 @@ export default function TradeSourceBreakdown({ sides, settings }) {
           }
           return covered > 0 ? sum / covered : 0;
         };
+        // Per-piece value resolution.  Both players and picks go
+        // through ``averageCovered`` which returns 0 for any sub-
+        // board that doesn't rank this piece — so a vendor with no
+        // pick coverage naturally contributes 0 for that pick.  The
+        // previous behaviour hard-coded picks to KTC-only, which
+        // zeroed IDPTC's real pick coverage (it does rank picks)
+        // and turned 1v2 trades into 1v1 from IDPTC's perspective,
+        // tripping the 1v1 VA suppression in ``ktcAdjustPackage``.
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
-            if (!includePicks && row.pos === "PICK") return 0;
             const mainAvg = averageCovered(row, mainSubs);
             if (mainAvg > 0) return mainAvg;
             return averageCovered(row, rookieSubs);
