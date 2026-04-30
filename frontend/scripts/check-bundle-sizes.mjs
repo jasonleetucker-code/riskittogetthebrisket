@@ -51,7 +51,7 @@ const BUDGETS_KB = {
   "/edge/page": 30,
   "/finder/page": 20,
   "/angle/page": 30,
-  "/league/page": 165, // public hub bundles every section together
+  "/league/page": 170, // public hub bundles every section together; bumped 165→170 for /league?tab=teamAssignment
   "/rosters/page": 30,
   "/trades/page": 20,
   "/settings/page": 55,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke)

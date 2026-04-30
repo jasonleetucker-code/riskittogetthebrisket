@@ -1,0 +1,528 @@
+"""Map each fantasy team in the league to 1–3 NFL teams.
+
+Two assignment sources, layered in this priority:
+
+  1. **Favorite team** — declared in ``config/team_assignment.json``
+     under ``favorites.<lowercased manager key>``.  Always assigned
+     regardless of roster composition.  ``displayNameAliases``
+     resolves Sleeper display_name variants ("JasonLeeTucker" →
+     "jason") to the favorites key.
+
+  2. **Roster-based correlation** — score every (fantasy team,
+     NFL team) pair using a tiered point model that rewards
+     starting QBs, skill-position starters/committee backs, elite
+     production, rookie draft capital, and IDP starters.  NFL teams
+     scoring ≥ ``assignmentMinPoints`` (default 15) qualify.
+
+Each fantasy team gets at most ``maxTeamsPerOwner`` (default 3) NFL
+teams.  Favorite always counts toward the cap.  When more teams
+qualify than the cap, the highest-scoring non-favorites win.
+
+The section's ``debug`` block carries per-player point contributions
+so the UI can render a breakdown panel ("Buffalo Bills — 22 pts:
+Josh Allen +10 (QB anchor), Stefon Diggs +5 (Starter), …").
+
+Output shape::
+
+    {
+      "assignments": [
+        {
+          "ownerId": str,
+          "displayName": str,
+          "teamName": str,            # current Sleeper team name
+          "favoriteKey": str | None,  # which favorites entry was matched
+          "nflTeams": [
+            {
+              "abbr": str,            # 3-letter abbr, e.g. "KC"
+              "display": str,         # "Kansas City Chiefs"
+              "isFavorite": bool,
+              "score": int,           # 0 for favorite-only when no roster contribution
+              "contributors": [
+                {"player": str, "points": int, "reason": str},
+                ...
+              ],
+            },
+            ...
+          ],
+        },
+        ...
+      ],
+      "config": {
+        "weights": {...},
+        "thresholds": {...},
+        "limits": {...},
+      },
+      "currentSeason": str,
+      "asOf": str,                    # ISO timestamp
+    }
+"""
+from __future__ import annotations
+
+import datetime as _dt
+import json
+import logging
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+from ..public_league.snapshot import PublicLeagueSnapshot
+
+log = logging.getLogger(__name__)
+
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "team_assignment.json"
+
+# Built-in defaults.  A missing or malformed config file falls back
+# to these so the section never crashes — it just degrades to "no
+# favorites configured" + the spec's recommended weights.
+_DEFAULT_CONFIG: dict[str, Any] = {
+    "favorites": {},
+    "displayNameAliases": {},
+    "weights": {
+        "qbAnchor": 10,
+        "skillStarter": 5,
+        "skillCommittee": 2,
+        "eliteProductionTop10": 5,
+        "eliteProductionTop24": 3,
+        "rookieRound1": 4,
+        "rookieRound2": 2,
+        "idpElite": 4,
+        "idpStarter": 2,
+    },
+    "thresholds": {
+        "assignmentMinPoints": 15,
+        "eliteProductionTop10Rank": 10,
+        "eliteProductionTop24Rank": 24,
+        "qbStarterPositionRank": 32,
+        "skillStarterPositionRank": 24,
+        "skillCommitteePositionRank": 60,
+        "idpEliteSourcesPositionRank": 12,
+        "idpStarterPositionRank": 36,
+    },
+    "limits": {
+        "maxTeamsPerOwner": 3,
+    },
+}
+
+_SKILL_POSITIONS = frozenset({"RB", "WR", "TE"})
+_IDP_POSITIONS = frozenset({"DL", "DE", "DT", "LB", "DB", "CB", "S"})
+
+
+def load_config(path: Path | None = None) -> dict[str, Any]:
+    """Read the team-assignment config from disk, falling back to
+    defaults on any error.  ``_doc`` keys are stripped silently —
+    they're inline documentation in the JSON file, not data.
+    """
+    target = path or _CONFIG_PATH
+    if not target.exists():
+        log.info("team_assignment: config not found at %s; using defaults", target)
+        return dict(_DEFAULT_CONFIG)
+    try:
+        raw = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        log.warning("team_assignment: config load failed (%s); using defaults", exc)
+        return dict(_DEFAULT_CONFIG)
+    if not isinstance(raw, dict):
+        log.warning("team_assignment: config is not a dict; using defaults")
+        return dict(_DEFAULT_CONFIG)
+    return _merge_config_with_defaults(raw)
+
+
+def _merge_config_with_defaults(raw: dict[str, Any]) -> dict[str, Any]:
+    """Merge user config over defaults so a partial file still works.
+    Strips inline ``_doc`` keys.
+    """
+    def _strip_doc(d: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in d.items() if k != "_doc"}
+
+    merged: dict[str, Any] = {}
+    for key, default_val in _DEFAULT_CONFIG.items():
+        user_val = raw.get(key)
+        if isinstance(default_val, dict) and isinstance(user_val, dict):
+            merged[key] = {**default_val, **_strip_doc(user_val)}
+        elif user_val is not None:
+            merged[key] = user_val
+        else:
+            merged[key] = default_val
+    # Strip top-level _doc.
+    return _strip_doc(merged)
+
+
+def _resolve_favorite_key(
+    display_name: str,
+    favorites: dict[str, Any],
+    aliases: dict[str, str],
+) -> str | None:
+    """Map a Sleeper display_name to a favorites key.  Lowercased
+    direct match wins; falls back to alias map.  Returns None when
+    no favorite is configured for this manager.
+    """
+    needle = (display_name or "").strip().lower()
+    if not needle:
+        return None
+    if needle in favorites:
+        return needle
+    aliased = aliases.get(needle)
+    if aliased and aliased in favorites:
+        return aliased
+    return None
+
+
+def _normalize_position(raw: str) -> str:
+    """Uppercase + canonical alias fold (DE/DT → DL family kept as
+    raw codes; we don't collapse here because the position-rank
+    thresholds use the canonical Sleeper code).
+    """
+    return str(raw or "").strip().upper()
+
+
+def _player_meta(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, Any]:
+    """Look up Sleeper's player record.  Returns ``{}`` when missing
+    so callers can early-return.  The lookup tolerates ``None`` and
+    non-string ids defensively.
+    """
+    if not player_id:
+        return {}
+    p = snapshot.nfl_players.get(str(player_id))
+    return p if isinstance(p, dict) else {}
+
+
+def _is_rookie(meta: dict[str, Any]) -> bool:
+    """True when the Sleeper record indicates ``years_exp == 0``.
+    Falls back to False on missing fields.
+    """
+    try:
+        return int(meta.get("years_exp") or 0) == 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _draft_round(meta: dict[str, Any]) -> int | None:
+    """Extract NFL draft round from Sleeper's player record.  Returns
+    None when unknown.  Used for rookie capital scoring.
+    """
+    raw = meta.get("draft_round") or meta.get("draftRound")
+    try:
+        n = int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+    return n if isinstance(n, int) and n > 0 else None
+
+
+def _build_position_ranks(
+    snapshot: PublicLeagueSnapshot,
+) -> dict[tuple[str, str], int]:
+    """Build a ``{(nflTeam, position): depth_chart_order}`` map.
+
+    Sleeper's player record carries ``depth_chart_order`` (1 = team's
+    primary at that position, 2 = backup, …).  When missing, the
+    caller falls through to position-rank heuristics elsewhere.
+    """
+    out: dict[tuple[str, str], int] = {}
+    for pid, meta in snapshot.nfl_players.items():
+        if not isinstance(meta, dict):
+            continue
+        team = str(meta.get("team") or "").upper()
+        pos = _normalize_position(meta.get("position"))
+        if not team or not pos:
+            continue
+        order = meta.get("depth_chart_order")
+        try:
+            order_n = int(order) if order is not None else None
+        except (TypeError, ValueError):
+            order_n = None
+        if order_n is None or order_n <= 0:
+            continue
+        # Track the BEST (lowest) order we've seen for this team+pos.
+        prev = out.get((team, pos))
+        if prev is None or order_n < prev:
+            out[(team, pos)] = order_n
+    return out
+
+
+def _score_player(
+    meta: dict[str, Any],
+    *,
+    config: dict[str, Any],
+    league_idp_enabled: bool,
+) -> tuple[int, list[dict[str, Any]]]:
+    """Score one player against their NFL team.  Returns
+    ``(total_points, contributors)`` where contributors is a list of
+    ``{points, reason}`` dicts so the debug UI can show the
+    breakdown.
+
+    All scoring rules layer additively:
+      - QB anchor (T1): primary depth-chart QB → +qbAnchor
+      - Skill starter / committee (T2): RB/WR/TE
+      - Elite production (T3): top-N at position by depth-chart proxy
+      - Rookie capital (T4): NFL draft round 1 / 2
+      - IDP starter (T5): depth-chart-based, only when league has IDP
+    """
+    weights = config["weights"]
+    thresholds = config["thresholds"]
+    pos = _normalize_position(meta.get("position"))
+    if not pos:
+        return 0, []
+
+    contributors: list[dict[str, Any]] = []
+    points = 0
+
+    # Depth-chart order — Sleeper's primary indicator of starter
+    # status.  ``None`` when unknown; the heuristic below falls
+    # through to "no starter credit".
+    order_raw = meta.get("depth_chart_order")
+    try:
+        depth_order = int(order_raw) if order_raw is not None else None
+    except (TypeError, ValueError):
+        depth_order = None
+
+    # T1 — QB anchor.
+    if pos == "QB" and depth_order == 1:
+        pts = int(weights["qbAnchor"])
+        points += pts
+        contributors.append({"points": pts, "reason": "QB anchor"})
+
+    # T2 — Skill position starter / committee.
+    if pos in _SKILL_POSITIONS and depth_order is not None:
+        if depth_order == 1:
+            pts = int(weights["skillStarter"])
+            points += pts
+            contributors.append({"points": pts, "reason": f"{pos} starter"})
+        elif depth_order in (2, 3):
+            pts = int(weights["skillCommittee"])
+            points += pts
+            contributors.append({"points": pts, "reason": f"{pos} committee"})
+        # depth_order >= 4 → 0 (bench / camp body)
+
+    # T3 — Elite production.  Use depth-chart order as a stand-in
+    # for "elite at position" (real top-10/top-24 lists would need
+    # external projections data we don't carry in this snapshot).
+    # The thresholds in config are documented as position-rank-based
+    # so a future drop-in of canonicalConsensusRank can swap this
+    # branch without touching the rest of the formula.
+    if depth_order == 1 and pos in (_SKILL_POSITIONS | {"QB"}):
+        # Primary at a fantasy-relevant position is a reasonable
+        # proxy for "this is one of the best at their position."
+        pts = int(weights["eliteProductionTop24"])
+        points += pts
+        contributors.append({"points": pts, "reason": f"Top {pos} at {meta.get('team', 'NFL team')}"})
+
+    # T4 — Rookie capital.
+    if _is_rookie(meta):
+        rd = _draft_round(meta)
+        if rd == 1:
+            pts = int(weights["rookieRound1"])
+            points += pts
+            contributors.append({"points": pts, "reason": "1st-round rookie"})
+        elif rd == 2:
+            pts = int(weights["rookieRound2"])
+            points += pts
+            contributors.append({"points": pts, "reason": "2nd-round rookie"})
+
+    # T5 — IDP starter.
+    if league_idp_enabled and pos in _IDP_POSITIONS and depth_order is not None:
+        if depth_order == 1:
+            pts = int(weights["idpStarter"])
+            points += pts
+            contributors.append({"points": pts, "reason": f"IDP {pos} starter"})
+        # Elite IDP would need projection data; left as future hook.
+
+    return points, contributors
+
+
+def _league_idp_enabled(snapshot: PublicLeagueSnapshot) -> bool:
+    """Inspect the current season's roster_positions to detect IDP
+    slots.  IDP is enabled when any starting slot is in the IDP
+    family (DL/LB/DB/IDP_FLEX/etc.).  Falls back to False when
+    settings are missing.
+    """
+    season = snapshot.current_season
+    if season is None:
+        return False
+    raw = (season.league.get("roster_positions") or [])
+    for slot in raw:
+        s = str(slot or "").upper()
+        if s in _IDP_POSITIONS or s in ("IDP", "IDP_FLEX", "IDP_DL", "IDP_LB", "IDP_DB"):
+            return True
+    return False
+
+
+def _player_display(meta: dict[str, Any], pid: str) -> str:
+    full = meta.get("full_name")
+    if full:
+        return str(full)
+    first = str(meta.get("first_name") or "").strip()
+    last = str(meta.get("last_name") or "").strip()
+    name = f"{first} {last}".strip()
+    return name or str(pid)
+
+
+def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Assemble the team-assignment payload for the public-league
+    aggregate response.  Always emits a fully-shaped payload so the
+    frontend's destructure-and-map flow never hits ``undefined``.
+    """
+    config = load_config()
+    favorites = config.get("favorites") or {}
+    aliases = {
+        k.lower(): v.lower()
+        for k, v in (config.get("displayNameAliases") or {}).items()
+        if isinstance(k, str) and isinstance(v, str)
+    }
+    threshold = int(config.get("thresholds", {}).get("assignmentMinPoints", 15))
+    max_teams = int(config.get("limits", {}).get("maxTeamsPerOwner", 3))
+    idp_enabled = _league_idp_enabled(snapshot)
+
+    season = snapshot.current_season
+    if season is None:
+        return {
+            "assignments": [],
+            "config": config,
+            "currentSeason": None,
+            "asOf": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        }
+
+    # Walk every roster in the current season.  Score per (owner,
+    # NFL team) pair.  Track contributors so the breakdown panel can
+    # render the per-player point list.
+    assignments: list[dict[str, Any]] = []
+    for roster in season.rosters:
+        if not isinstance(roster, dict):
+            continue
+        owner_id = str(roster.get("owner_id") or "")
+        if not owner_id:
+            continue
+        manager = snapshot.managers.by_owner_id.get(owner_id)
+        display_name = (manager.display_name if manager else "").strip()
+        team_name = (manager.current_team_name if manager else "").strip()
+
+        favorite_key = _resolve_favorite_key(display_name, favorites, aliases)
+        favorite_entry = favorites.get(favorite_key) if favorite_key else None
+
+        # Aggregator: nfl_team_abbr -> (score, contributors_list).
+        scored: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {"score": 0, "contributors": []}
+        )
+
+        player_ids = roster.get("players") or []
+        for pid in player_ids:
+            meta = _player_meta(snapshot, pid)
+            if not meta:
+                continue
+            nfl_team = str(meta.get("team") or "").upper()
+            if not nfl_team:
+                continue
+            pts, contributors = _score_player(
+                meta, config=config, league_idp_enabled=idp_enabled,
+            )
+            if pts <= 0:
+                continue
+            slot = scored[nfl_team]
+            slot["score"] += pts
+            display = _player_display(meta, pid)
+            for c in contributors:
+                slot["contributors"].append({
+                    "player": display,
+                    "points": int(c["points"]),
+                    "reason": str(c["reason"]),
+                })
+
+        # Build the NFL-teams list for this owner.
+        nfl_teams_out: list[dict[str, Any]] = []
+
+        # 1. Always emit the favorite (with whatever roster score it earned).
+        if favorite_entry:
+            fav_abbr = str(favorite_entry.get("abbr") or "").upper()
+            fav_display = str(favorite_entry.get("display") or fav_abbr)
+            slot = scored.get(fav_abbr, {"score": 0, "contributors": []})
+            nfl_teams_out.append({
+                "abbr": fav_abbr,
+                "display": fav_display,
+                "isFavorite": True,
+                "score": int(slot["score"]),
+                "contributors": list(slot["contributors"]),
+            })
+
+        # 2. Roster-based qualifiers — anyone else above threshold,
+        #    sorted by score desc.  Skip the favorite (already added).
+        favorite_abbr = nfl_teams_out[0]["abbr"] if nfl_teams_out else None
+        roster_based = sorted(
+            (
+                {
+                    "abbr": abbr,
+                    "display": _NFL_TEAM_NAMES.get(abbr, abbr),
+                    "isFavorite": False,
+                    "score": int(slot["score"]),
+                    "contributors": list(slot["contributors"]),
+                }
+                for abbr, slot in scored.items()
+                if abbr != favorite_abbr and slot["score"] >= threshold
+            ),
+            key=lambda r: (-int(r["score"]), r["abbr"]),
+        )
+
+        # 3. Cap at max_teams total (favorite counts).
+        remaining_capacity = max(0, max_teams - len(nfl_teams_out))
+        nfl_teams_out.extend(roster_based[:remaining_capacity])
+
+        assignments.append({
+            "ownerId": owner_id,
+            "displayName": display_name or team_name or owner_id,
+            "teamName": team_name,
+            "favoriteKey": favorite_key,
+            "nflTeams": nfl_teams_out,
+        })
+
+    # Sort by display name for stable rendering — alphabetical so
+    # the page is predictable across reloads.
+    assignments.sort(key=lambda a: a["displayName"].lower())
+
+    return {
+        "assignments": assignments,
+        "config": {
+            "weights": config["weights"],
+            "thresholds": config["thresholds"],
+            "limits": config["limits"],
+        },
+        "currentSeason": season.season,
+        "asOf": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+
+
+# Canonical 3-letter abbr -> full team name.  Sleeper's player record
+# carries the abbreviation; this map is the only place the full name
+# is referenced.  The frontend's ``NflTeamLogo`` component takes the
+# abbreviation directly so the image side doesn't need this map.
+_NFL_TEAM_NAMES: dict[str, str] = {
+    "ARI": "Arizona Cardinals",
+    "ATL": "Atlanta Falcons",
+    "BAL": "Baltimore Ravens",
+    "BUF": "Buffalo Bills",
+    "CAR": "Carolina Panthers",
+    "CHI": "Chicago Bears",
+    "CIN": "Cincinnati Bengals",
+    "CLE": "Cleveland Browns",
+    "DAL": "Dallas Cowboys",
+    "DEN": "Denver Broncos",
+    "DET": "Detroit Lions",
+    "GB": "Green Bay Packers",
+    "HOU": "Houston Texans",
+    "IND": "Indianapolis Colts",
+    "JAX": "Jacksonville Jaguars",
+    "KC": "Kansas City Chiefs",
+    "LAC": "Los Angeles Chargers",
+    "LAR": "Los Angeles Rams",
+    "LV": "Las Vegas Raiders",
+    "MIA": "Miami Dolphins",
+    "MIN": "Minnesota Vikings",
+    "NE": "New England Patriots",
+    "NO": "New Orleans Saints",
+    "NYG": "New York Giants",
+    "NYJ": "New York Jets",
+    "PHI": "Philadelphia Eagles",
+    "PIT": "Pittsburgh Steelers",
+    "SEA": "Seattle Seahawks",
+    "SF": "San Francisco 49ers",
+    "TB": "Tampa Bay Buccaneers",
+    "TEN": "Tennessee Titans",
+    "WAS": "Washington Commanders",
+}

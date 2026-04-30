@@ -57,6 +57,7 @@ import RosTradeDeadlineSection from "./sections/ros-trade-deadline.jsx";
 import { useSettings } from "@/components/useSettings";
 import MatchupPreviewSection from "./sections/matchup-preview.jsx";
 import WeeklyRecapSection from "./sections/weekly-recap.jsx";
+import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
 // Tab order + labels for the /league section nav.
 // "Draft Capital" is first so it's the default landing on mobile,
@@ -82,6 +83,7 @@ const SUB_TABS = [
   { key: "weekly", label: "Weekly" },
   { key: "superlatives", label: "Superlatives" },
   { key: "archives", label: "Archives" },
+  { key: "teamAssignment", label: "Team Assignment" },
 ];
 
 const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
@@ -329,6 +331,12 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "weeklyRecap" && (
         <WeeklyRecapSection
           data={sections.weeklyRecap}
+          managers={managers}
+        />
+      )}
+      {activeTab === "teamAssignment" && (
+        <TeamAssignmentSection
+          data={sections.teamAssignment}
           managers={managers}
         />
       )}

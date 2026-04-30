@@ -1,0 +1,55 @@
+{
+  "_doc": "Team Assignment configuration. See src/api/team_assignment.py.  Edit favorites/aliases/weights here without redeploy; the file reloads on each section build.  See README at the bottom for the rule semantics.",
+
+  "favorites": {
+    "joel":     {"abbr": "KC",  "display": "Kansas City Chiefs"},
+    "ty":       {"abbr": "HOU", "display": "Houston Texans"},
+    "michaela": {"abbr": "MIA", "display": "Miami Dolphins"},
+    "ed":       {"abbr": "DAL", "display": "Dallas Cowboys"},
+    "jason":    {"abbr": "MIN", "display": "Minnesota Vikings"},
+    "brent":    {"abbr": "BUF", "display": "Buffalo Bills"},
+    "roy":      {"abbr": "LAC", "display": "Los Angeles Chargers"},
+    "colin":    {"abbr": "GB",  "display": "Green Bay Packers"},
+    "eric":     {"abbr": "HOU", "display": "Houston Texans"},
+    "kitch":    {"abbr": "HOU", "display": "Houston Texans"},
+    "joey":     {"abbr": "HOU", "display": "Houston Texans"},
+    "blaine":   {"abbr": "CIN", "display": "Cincinnati Bengals"}
+  },
+
+  "displayNameAliases": {
+    "_doc": "Sleeper display_name (lowercased) -> favorites key.  Use this when the Sleeper handle does not match the favorites key directly.",
+    "jasonleetucker": "jason",
+    "makayla": "michaela",
+    "collin": "colin",
+    "kich": "kitch",
+    "killakich00": "kitch"
+  },
+
+  "weights": {
+    "qbAnchor": 10,
+    "skillStarter": 5,
+    "skillCommittee": 2,
+    "eliteProductionTop10": 5,
+    "eliteProductionTop24": 3,
+    "rookieRound1": 4,
+    "rookieRound2": 2,
+    "idpElite": 4,
+    "idpStarter": 2
+  },
+
+  "thresholds": {
+    "_doc": "Total points (per fantasy team x NFL team) needed to qualify as a roster-based assignment.  Favorites bypass this threshold.",
+    "assignmentMinPoints": 15,
+    "eliteProductionTop10Rank": 10,
+    "eliteProductionTop24Rank": 24,
+    "qbStarterPositionRank": 32,
+    "skillStarterPositionRank": 24,
+    "skillCommitteePositionRank": 60,
+    "idpEliteSourcesPositionRank": 12,
+    "idpStarterPositionRank": 36
+  },
+
+  "limits": {
+    "maxTeamsPerOwner": 3
+  }
+}

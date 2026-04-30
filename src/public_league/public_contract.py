@@ -36,6 +36,19 @@ from .snapshot import PublicLeagueSnapshot
 PUBLIC_CONTRACT_VERSION = "public-league/2026-04-18.v1"
 
 
+def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-import wrapper for src.api.team_assignment.
+
+    Imports inside the function body (PLC0415-style) so the
+    public-league module graph doesn't reach into ``src.api`` at
+    import time — keeps the public pipeline isolated from the
+    private contract builder, even though this section happens to
+    reuse the snapshot directly.
+    """
+    from src.api import team_assignment  # noqa: PLC0415
+    return team_assignment.build_section(snapshot)
+
+
 # Sections exposed by the public contract.  Each entry maps the public
 # contract key to its section builder.  The order is the order each
 # endpoint walks when assembling the aggregate payload.
@@ -59,6 +72,11 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "power": power.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
+    # Team Assignment — maps each fantasy team to 1–3 NFL teams.  Cheap
+    # to compute (one walk through current rosters + Sleeper player
+    # metadata), so it ships in the eager aggregate response and the
+    # /league?tab=teamAssignment frontend reads it from sections.
+    "teamAssignment": _team_assignment_section,
 }
 
 # Sections that are expensive enough to warrant lazy-loading — they are
