@@ -143,6 +143,31 @@ function rowName(row) {
 }
 
 /**
+ * True when the row carries a synthetic / fallback value but no real
+ * source ranking — the scraper's "must-have rookie guarantee" path
+ * (Dynasty Scraper.py:6072-6081) seeds a value of ~1888 for any
+ * prospect listed in ``rookie_must_have.txt`` so they appear in the
+ * trade calculator even when no source ranks them.  Those entries
+ * have ``rankDerivedValue: null`` + ``confidenceBucket: 'none'`` +
+ * zero real source ranks; comparing them against rostered players
+ * produces nonsense bids ("Side Add wins 39%" when every individual
+ * vendor scores Side Drop at 100%).
+ *
+ * Returns true ONLY when the row is unranked AND carries a synthetic
+ * value — a real low-confidence player with one source still passes.
+ */
+function rowHasNoRealRank(row) {
+  if (!row) return false;
+  const bucket = String(row?.confidenceBucket || "").toLowerCase();
+  if (bucket && bucket !== "none") return false;
+  // Belt-and-suspenders: the bucket label is the canonical signal,
+  // but if it's empty we also check the explicit fallback flag.
+  if (bucket === "none") return true;
+  if (row?.fallbackValue === true) return true;
+  return false;
+}
+
+/**
  * Classify an upgrade by raw value gap.  Higher gap = stronger label.
  */
 export function classifyUpgradeTier(netGain) {
@@ -227,6 +252,7 @@ function buildCandidatePool({
     if (rowAssetClass(row) === "pick") continue;
     if (!idpEnabled && rowAssetClass(row) === "idp") continue;
     if (rowValue(row) <= 0) continue;
+    if (rowHasNoRealRank(row)) continue;  // skip must-have rookie fallbacks
     const norm = normalizeName(rowName(row));
     if (!norm) continue;
     if (myRosterNameSet.has(norm)) continue;  // never compare against self
@@ -640,7 +666,9 @@ export function buildTopWaiverPool(
   const safeMin = Math.max(0, Number.isFinite(minPerPosition) ? minPerPosition : 0);
 
   // Filter to truly-unrostered rows that pass the rookie + IDP
-  // gates.  Picks and zero-value rows always drop.
+  // gates.  Picks, zero-value rows, and synthetic-value-only rows
+  // (the must-have rookie guarantee path — unranked prospects with
+  // no real source data) always drop.
   const eligible = [];
   for (const row of safeRows) {
     if (!row) continue;
@@ -648,6 +676,7 @@ export function buildTopWaiverPool(
     if (cls === "pick") continue;
     if (!idpEnabled && cls === "idp") continue;
     if (rowValue(row) <= 0) continue;
+    if (rowHasNoRealRank(row)) continue;
     if (!includeRookies && row?.rookie) continue;
     const norm = normalizeName(rowName(row));
     if (!norm) continue;

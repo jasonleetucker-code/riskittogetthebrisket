@@ -12,8 +12,9 @@ function row(name, value, opts = {}) {
     position: opts.pos || "WR",
     rookie: Boolean(opts.rookie),
     assetClass: opts.assetClass || "offense",
-    rankDerivedValue: value,
+    rankDerivedValue: opts.rankDerivedValue !== undefined ? opts.rankDerivedValue : value,
     values: { full: value },
+    confidenceBucket: opts.confidenceBucket || "medium",
   };
 }
 
@@ -212,6 +213,56 @@ describe("computeFaabHint — JS port of _compute_faab_bid", () => {
     const out = computeFaabHint(9999, { leagueBudget: 100, topValueInPool: 9999 });
     expect(out.reasonable).toBe(Math.round(out.aggressive * 0.70));
     expect(out.lowball).toBe(Math.round(out.aggressive * 0.35));
+  });
+});
+
+describe("buildTopWaiverPool — must-have rookie fallback filter", () => {
+  it("excludes rows with confidenceBucket=none even if values.full is high", () => {
+    // The scraper's ``must_have_rookie_guarantee`` path seeds
+    // synthetic values around 1888 for unranked prospects.  These
+    // entries have rankDerivedValue=null + confidenceBucket='none'
+    // and should never appear in the add pool — comparing them
+    // against rostered players produces nonsense bids (the per-source
+    // breakdown shows 0 vs N because no real source has them, but
+    // the blended value lies).
+    const rows = [
+      // Real player — should appear.
+      row("Real WR", 6000, { pos: "WR", confidenceBucket: "medium" }),
+      // Must-have rookie fallback — should be filtered out.
+      {
+        name: "Synthetic Rookie",
+        pos: "WR",
+        position: "WR",
+        assetClass: "offense",
+        rookie: false, // some are flagged rookie=false but still synthetic
+        rankDerivedValue: null,
+        values: { full: 1888 },
+        confidenceBucket: "none",
+      },
+    ];
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
+    const names = out.players.map((p) => p.name);
+    expect(names).toContain("Real WR");
+    expect(names).not.toContain("Synthetic Rookie");
+  });
+
+  it("also filters legacy rows that lack confidenceBucket but flag fallbackValue", () => {
+    const rows = [
+      row("Real RB", 5000, { pos: "RB" }),
+      {
+        name: "Legacy Fallback",
+        pos: "RB",
+        position: "RB",
+        assetClass: "offense",
+        rankDerivedValue: null,
+        values: { full: 2000 },
+        // No confidenceBucket field — but explicit fallbackValue.
+        fallbackValue: true,
+      },
+    ];
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
+    expect(out.players.map((p) => p.name)).toContain("Real RB");
+    expect(out.players.map((p) => p.name)).not.toContain("Legacy Fallback");
   });
 });
 
