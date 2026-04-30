@@ -1611,7 +1611,7 @@ export default function TradePage() {
           <TradeMeter sides={sides} sideTotals={sideTotals} flows={sideFlows} valueMode={valueMode} settings={settings} />
 
           {/* ── Per-source winner breakdown (below the fairness meter) ── */}
-          <TradeSourceBreakdown sides={sides} settings={settings} />
+          <TradeSourceBreakdown sides={sides} settings={settings} valueMode={valueMode} />
 
           {/* ── ROS Fit panel (informational; gated by settings) ──── */}
           <RosTradeFitPanel sides={sides} settings={settings} />

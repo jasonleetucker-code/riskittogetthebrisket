@@ -27,18 +27,35 @@
  * "data path missing per-source stamps."
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   RANKING_SOURCES,
   SOURCE_VENDOR_LABELS,
   vendorForSource,
 } from "@/lib/dynasty-data";
-import { valueAdjustmentFromSideArrays } from "@/lib/trade-logic";
+import {
+  effectiveValue,
+  valueAdjustmentFromSideArrays,
+} from "@/lib/trade-logic";
 
 const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep"]);
 
-export default function TradeSourceBreakdown({ sides, settings }) {
+export default function TradeSourceBreakdown({
+  sides,
+  settings,
+  valueMode = "full",
+}) {
+  // When ON (default), pieces uncovered by a vendor's sub-boards
+  // are imputed with our blended canonical value via
+  // ``effectiveValue`` — the same value the main fairness bar
+  // uses.  Lets every vendor render a complete opinion on the
+  // trade so side totals are directly comparable.  Imputed cells
+  // get an italic style + dotted underline + tooltip explaining
+  // the substitution.  Power-user mode (toggle OFF) shows raw
+  // vendor coverage with zero-fill, the previous behavior.
+  const [imputeUncovered, setImputeUncovered] = useState(true);
+
   const rows = useMemo(() => {
     const assetsBySide = sides.map((s) => s.assets || []);
     const hasAny = assetsBySide.some((a) => a.length > 0);
@@ -116,18 +133,37 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         };
         // Per-piece value resolution.  Both players and picks go
         // through ``averageCovered`` which returns 0 for any sub-
-        // board that doesn't rank this piece — so a vendor with no
-        // pick coverage naturally contributes 0 for that pick.  The
-        // previous behaviour hard-coded picks to KTC-only, which
-        // zeroed IDPTC's real pick coverage (it does rank picks)
-        // and turned 1v2 trades into 1v1 from IDPTC's perspective,
-        // tripping the 1v1 VA suppression in ``ktcAdjustPackage``.
-        const sideValues = assetsBySide.map((assets) =>
+        // board that doesn't rank this piece.  When the vendor
+        // genuinely doesn't cover a piece (e.g. DLF on draft picks,
+        // KTC pre-V13 on IDP) the imputeUncovered toggle decides:
+        //   ON  → fall back to our blended value via effectiveValue
+        //          (the same value the main fairness bar uses), so
+        //          every vendor produces a complete opinion the
+        //          user can compare across rows.
+        //   OFF → contribute 0, the strict "what does this vendor
+        //          literally say?" mode for power-user diagnostics.
+        // Imputed pieces are tracked in ``imputedFlags`` so the UI
+        // can italicize + underline the cells that include
+        // imputation.
+        const fallbackForRow = (row) =>
+          imputeUncovered
+            ? Math.max(0, Number(effectiveValue(row, valueMode, settings)) || 0)
+            : 0;
+        const sideValuesAndFlags = assetsBySide.map((assets) =>
           assets.map((row) => {
             const mainAvg = averageCovered(row, mainSubs);
-            if (mainAvg > 0) return mainAvg;
-            return averageCovered(row, rookieSubs);
+            if (mainAvg > 0) return { value: mainAvg, imputed: false };
+            const rookieAvg = averageCovered(row, rookieSubs);
+            if (rookieAvg > 0) return { value: rookieAvg, imputed: false };
+            const fb = fallbackForRow(row);
+            return { value: fb, imputed: fb > 0 };
           }),
+        );
+        const sideValues = sideValuesAndFlags.map((side) =>
+          side.map((p) => p.value),
+        );
+        const imputedCounts = sideValuesAndFlags.map(
+          (side) => side.filter((p) => p.imputed).length,
         );
         const rawTotals = sideValues.map((vs) =>
           vs.reduce((sum, v) => sum + v, 0),
@@ -135,7 +171,10 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         const coverage = sideValues.map(
           (vs) => vs.filter((v) => v > 0).length,
         );
-        // Skip vendors that touch zero pieces across the whole trade.
+        // Skip vendors that touch zero pieces across the whole trade
+        // (this can still happen when imputation is OFF and the
+        // vendor covers nothing — keep the empty-rows diagnostic
+        // path useful).
         if (coverage.reduce((a, b) => a + b, 0) === 0) return null;
 
         const adjustments = valueAdjustmentFromSideArrays(sideValues);
@@ -181,6 +220,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
           adjustments,
           adjustedTotals,
           coverage,
+          imputedCounts,
           winnerIdx: tied ? null : winnerIdx,
           winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
           marginPct,
@@ -190,7 +230,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
     // ``settings`` is kept in the dep list for memo invalidation
     // when source weights / overrides change downstream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sides, settings]);
+  }, [sides, settings, valueMode, imputeUncovered]);
 
   // Empty-rows diagnostic — historically this branch returned null,
   // which made it impossible to distinguish "card not rendering at
@@ -222,6 +262,26 @@ export default function TradeSourceBreakdown({ sides, settings }) {
             shows winner's edge as a percent.
           </span>
         </span>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: "0.72rem",
+            color: "var(--muted, #c7b8dc)",
+            cursor: "pointer",
+            userSelect: "none",
+            marginLeft: "auto",
+          }}
+          title="When ON: vendors that don't rank a piece (e.g. DLF on picks) get our blended value as a stand-in so side totals are comparable across rows.  Imputed cells render in italic.  Toggle OFF for strict 'what does this vendor literally say' mode."
+        >
+          <input
+            type="checkbox"
+            checked={imputeUncovered}
+            onChange={(e) => setImputeUncovered(e.target.checked)}
+          />
+          <span>Fill uncovered pieces with our value</span>
+        </label>
       </div>
       {!hasRows && (
         <div
@@ -266,6 +326,21 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                   </td>
                   {row.adjustedTotals.map((total, i) => {
                     const hasAdj = (row.adjustments[i] || 0) > 0;
+                    const imputedN = row.imputedCounts?.[i] || 0;
+                    const titleParts = [];
+                    titleParts.push(
+                      `raw ${Math.round(row.rawTotals[i]).toLocaleString()}`,
+                    );
+                    if (hasAdj) {
+                      titleParts.push(
+                        `+ VA ${Math.round(row.adjustments[i]).toLocaleString()}`,
+                      );
+                    }
+                    if (imputedN > 0) {
+                      titleParts.push(
+                        `${imputedN} piece${imputedN === 1 ? "" : "s"} imputed with our value (vendor doesn't rank ${imputedN === 1 ? "it" : "them"})`,
+                      );
+                    }
                     return (
                       <td
                         key={`v-${row.key}-${i}`}
@@ -274,12 +349,14 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                           fontFamily: "var(--mono)",
                           opacity: row.coverage[i] === 0 ? 0.35 : 1,
                           fontWeight: row.winnerIdx === i ? 700 : 400,
+                          fontStyle: imputedN > 0 ? "italic" : "normal",
+                          textDecoration:
+                            imputedN > 0 ? "underline dotted" : "none",
+                          textUnderlineOffset: imputedN > 0 ? 2 : undefined,
+                          textDecorationColor:
+                            imputedN > 0 ? "var(--muted, #c7b8dc)" : undefined,
                         }}
-                        title={
-                          hasAdj
-                            ? `raw ${Math.round(row.rawTotals[i]).toLocaleString()} + VA ${Math.round(row.adjustments[i]).toLocaleString()}`
-                            : `raw ${Math.round(row.rawTotals[i]).toLocaleString()}`
-                        }
+                        title={titleParts.join(" ")}
                       >
                         {Math.round(total).toLocaleString()}
                         {hasAdj && (
@@ -288,6 +365,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                               color: "var(--cyan)",
                               fontSize: "0.68rem",
                               marginLeft: 4,
+                              fontStyle: "normal",
                             }}
                           >
                             +VA
