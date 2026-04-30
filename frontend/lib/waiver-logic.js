@@ -723,3 +723,36 @@ export function buildTopWaiverPool(
     cap: safeLimit,
   };
 }
+
+
+// ── Lightweight FAAB hint (client-side baseline) ──────────────────────
+//
+// JS port of ``src/trade/waiver.py::_compute_faab_bid``.  Used by the
+// recommendation tables (bestMoves) where rendering 20 row-level
+// hints client-side is cheap; the heavy ``recommend_faab`` endpoint
+// only fires for the user's manually-selected pair.
+//
+// Returns ``{aggressive, reasonable, lowball}`` integers.  The
+// formula treats the candidate's value as a share of the strongest
+// player in the addable pool: a 9999-value player gets 30% of the
+// budget, a 5000-value player gets ~17.5%, a 1000-value player gets
+// ~7.5%, etc.  ``topValueInPool`` defaults to the candidate's own
+// value (so a single-player query reads as the full 30%); pass the
+// actual top of the pool for relative scaling.
+
+export function computeFaabHint(
+  candidateValue,
+  { leagueBudget = 100, topValueInPool = null } = {},
+) {
+  const v = Number(candidateValue);
+  if (!Number.isFinite(v) || v <= 0 || leagueBudget <= 0) {
+    return { aggressive: 0, reasonable: 0, lowball: 0 };
+  }
+  const top = Math.max(v, Number(topValueInPool) || 0);
+  const share = top > 0 ? v / top : 1.0;
+  const aggressivePct = 0.05 + 0.25 * share;
+  const aggressive = Math.max(1, Math.round(leagueBudget * aggressivePct));
+  const reasonable = Math.max(1, Math.round(aggressive * 0.70));
+  const lowball = Math.max(1, Math.round(aggressive * 0.35));
+  return { aggressive, reasonable, lowball };
+}

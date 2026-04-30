@@ -14,6 +14,7 @@ import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
+import { computeFaabHint } from "@/lib/waiver-logic";
 import { posBadgeClass } from "@/lib/display-helpers";
 
 // ── /waivers — Add/Drop analysis page ─────────────────────────────────
@@ -191,11 +192,22 @@ function BestMovesSection({ moves }) {
       </section>
     );
   }
+  // FAAB hint baseline: derived client-side from each add's value.
+  // Calibrated against the strongest add in this batch so a row's
+  // pct-of-budget reads as "what share of FAAB does this player
+  // command?".  The full recommender (with league analytics +
+  // trending + team cap) only runs for the user's manually-selected
+  // pair on the calculator above.
+  const topAddValue = moves.reduce((acc, m) => {
+    const v = Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0);
+    return v > acc ? v : acc;
+  }, 0);
   return (
     <section className="card waiver-section">
       <h2 className="waiver-section-title">Best Add/Drop Moves</h2>
       <p className="muted text-xs" style={{ margin: "0 0 10px" }}>
         Each add appears once with its lowest-value beaten roster player as the realistic drop.
+        FAAB hint is a quick baseline — use the calculator above for league-aware bid recommendations.
       </p>
       <div className="table-wrap">
         <table>
@@ -205,38 +217,58 @@ function BestMovesSection({ moves }) {
               <th>Add</th>
               <th>Drop</th>
               <th style={{ textAlign: "right", width: 90 }}>Net gain</th>
+              <th style={{ textAlign: "right", width: 80 }}>FAAB hint</th>
               <th style={{ width: 130 }}>Tier</th>
             </tr>
           </thead>
           <tbody>
-            {moves.map((m, i) => (
-              <tr key={`${m.add.name}::${m.drop.name}`}>
-                <td style={{ textAlign: "center", color: "var(--cyan)", fontWeight: 700 }}>{i + 1}</td>
-                <td>
-                  <PlayerCell row={m.add} isRookie={m.isRookie} />
-                  <span style={{ marginLeft: 8 }}>
-                    <PositionChip row={m.add} />
-                  </span>
-                </td>
-                <td>
-                  <PlayerCell row={m.drop} />
-                  <span style={{ marginLeft: 8 }}>
-                    <PositionChip row={m.drop} />
-                  </span>
-                </td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    color: TIER_ACCENT[m.upgradeTier],
-                    fontWeight: 700,
-                    fontFamily: "var(--mono)",
-                  }}
-                >
-                  {fmtGain(m.netGain)}
-                </td>
-                <td>{TIER_LABELS[m.upgradeTier]}</td>
-              </tr>
-            ))}
+            {moves.map((m, i) => {
+              const v = Number(
+                m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0,
+              );
+              const hint = computeFaabHint(v, {
+                leagueBudget: 100,
+                topValueInPool: topAddValue,
+              });
+              return (
+                <tr key={`${m.add.name}::${m.drop.name}`}>
+                  <td style={{ textAlign: "center", color: "var(--cyan)", fontWeight: 700 }}>{i + 1}</td>
+                  <td>
+                    <PlayerCell row={m.add} isRookie={m.isRookie} />
+                    <span style={{ marginLeft: 8 }}>
+                      <PositionChip row={m.add} />
+                    </span>
+                  </td>
+                  <td>
+                    <PlayerCell row={m.drop} />
+                    <span style={{ marginLeft: 8 }}>
+                      <PositionChip row={m.drop} />
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      color: TIER_ACCENT[m.upgradeTier],
+                      fontWeight: 700,
+                      fontFamily: "var(--mono)",
+                    }}
+                  >
+                    {fmtGain(m.netGain)}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                      color: "var(--muted, #c7b8dc)",
+                    }}
+                    title={`Aggressive $${hint.aggressive} / reasonable $${hint.reasonable} / lowball $${hint.lowball}`}
+                  >
+                    ${hint.reasonable}
+                  </td>
+                  <td>{TIER_LABELS[m.upgradeTier]}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -492,6 +524,7 @@ export default function WaiversPage() {
           idpEnabled={Boolean(selectedLeague?.idpEnabled)}
           includeRookies={includeRookies}
           settings={settings}
+          leagueKey={selectedLeague?.key}
         />
       )}
 

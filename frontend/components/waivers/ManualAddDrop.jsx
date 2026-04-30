@@ -46,6 +46,7 @@ import { posBadgeClass } from "@/lib/display-helpers";
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
+import FaabRecommendation from "@/components/waivers/FaabRecommendation";
 import { MonteCarloButton, PlayerImage } from "@/components/ui";
 
 // ── helpers ────────────────────────────────────────────────────
@@ -309,6 +310,7 @@ export default function ManualAddDrop({
   includeRookies = false,
   valueMode = "full",
   settings,
+  leagueKey,
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
@@ -454,6 +456,21 @@ export default function ManualAddDrop({
           <ResilientSection name="Manual add/drop per-source breakdown">
             <SharedTradeSourceBreakdown sides={sides} settings={settings} />
           </ResilientSection>
+
+          {/* FAAB bid recommendation panel — fires when an add is
+              selected (drop optional).  Wrapped in ResilientSection
+              so a recommender API failure can't take down the
+              calculator. */}
+          {addRow && (
+            <ResilientSection name="Manual add/drop FAAB recommendation">
+              <FaabRecommendation
+                addPlayer={addRow}
+                dropPlayer={dropRow}
+                leagueKey={leagueKey}
+                ownerId={selectedTeam?.ownerId}
+              />
+            </ResilientSection>
+          )}
 
           {/* Monte Carlo simulator — disabled when either side is
               empty (the underlying button computes a no-op state).

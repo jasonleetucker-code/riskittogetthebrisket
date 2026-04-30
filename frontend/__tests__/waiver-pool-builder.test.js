@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 
-import { buildTopWaiverPool } from "@/lib/waiver-logic";
+import { buildTopWaiverPool, computeFaabHint } from "@/lib/waiver-logic";
 
 // ── Fixture helpers ────────────────────────────────────────────────────
 
@@ -182,6 +182,36 @@ describe("buildTopWaiverPool — ownership filtering", () => {
     });
     expect(out.players.find((p) => p.name === "My RB")).toBeUndefined();
     expect(out.players.find((p) => p.name === "Owned WR")).toBeUndefined();
+  });
+});
+
+describe("computeFaabHint — JS port of _compute_faab_bid", () => {
+  it("returns zero shape for non-positive value", () => {
+    expect(computeFaabHint(0)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
+    expect(computeFaabHint(-50)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
+    expect(computeFaabHint(NaN)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
+  });
+
+  it("scales bid up with candidate value share", () => {
+    // top = 9999 → share = 1.0 → aggressive = round(100 * 0.30) = 30
+    const top = computeFaabHint(9999, { leagueBudget: 100, topValueInPool: 9999 });
+    const mid = computeFaabHint(5000, { leagueBudget: 100, topValueInPool: 9999 });
+    const low = computeFaabHint(1000, { leagueBudget: 100, topValueInPool: 9999 });
+    expect(top.aggressive).toBeGreaterThan(mid.aggressive);
+    expect(mid.aggressive).toBeGreaterThan(low.aggressive);
+    expect(top.aggressive).toBe(30);
+  });
+
+  it("respects league budget", () => {
+    const std = computeFaabHint(5000, { leagueBudget: 100, topValueInPool: 5000 });
+    const big = computeFaabHint(5000, { leagueBudget: 200, topValueInPool: 5000 });
+    expect(big.aggressive).toBeGreaterThanOrEqual(std.aggressive * 2 - 1);
+  });
+
+  it("derives reasonable + lowball from aggressive", () => {
+    const out = computeFaabHint(9999, { leagueBudget: 100, topValueInPool: 9999 });
+    expect(out.reasonable).toBe(Math.round(out.aggressive * 0.70));
+    expect(out.lowball).toBe(Math.round(out.aggressive * 0.35));
   });
 });
 
