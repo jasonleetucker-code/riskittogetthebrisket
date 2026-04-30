@@ -28,7 +28,17 @@ const ROOT = path.resolve(
   path.dirname(url.fileURLToPath(import.meta.url)),
   "..",
 );
-const NEXT_DIR = path.join(ROOT, ".next");
+// Honor NEXT_DIST_DIR so the post-build check looks at the same
+// dir Next just wrote to.  ``deploy/deploy.sh`` runs the production
+// build with ``NEXT_DIST_DIR=.next.new`` to stage chunks beside
+// the live ``.next/`` for an atomic swap; the previous hardcode of
+// ``.next`` made this script look at the OLD live build (or fail
+// outright if ``.next`` was missing), which silently broke every
+// production deploy after the staging dir was introduced.
+const DIST_DIR_NAME = process.env.NEXT_DIST_DIR || ".next";
+const NEXT_DIR = path.isAbsolute(DIST_DIR_NAME)
+  ? DIST_DIR_NAME
+  : path.join(ROOT, DIST_DIR_NAME);
 const MANIFEST = path.join(NEXT_DIR, "app-build-manifest.json");
 
 // Per-page budgets in KB (raw on-disk size of the page-specific
