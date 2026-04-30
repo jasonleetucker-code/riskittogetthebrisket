@@ -8,15 +8,26 @@ Fields we prune (listed in ``_PRUNED_CONTRACT_FIELDS``):
     poolAudit, methodology, siteStats (verbose per-scrape stats)
 
 Fields we prune per-player (listed in ``_PRUNED_PLAYER_FIELDS``):
-    sourceRankMeta, canonicalSiteValues, droppedSources,
-    effectiveSourceRanks, sourceOriginalRanks, anomalyFlags,
-    confidenceLabel, pickDetails
+    droppedSources, effectiveSourceRanks, sourceOriginalRanks,
+    anomalyFlags, confidenceLabel, pickDetails
+
+Fields slimmed per-player (listed in ``_SLIM_SOURCE_RANK_META_FIELDS``):
+    sourceRankMeta entries are kept but reduced to the subset of
+    fields the mobile UI actually consumes.  Mobile drops the per-
+    source ``percentile`` / ``valueContributionPath`` / ``isAnchor``
+    / ``ladderDepth`` / TEP audit stamps, but keeps the
+    ``valueContribution`` (drives the trade per-source winner row,
+    PlayerPopup, source-contribution graphs, rankings audit cell),
+    ``effectiveWeight``, and ``method`` fields.
 
 Fields KEPT (mobile UI needs them):
     name / canonicalName / displayName / position / team / age /
     rookie / assetClass / values / sourceCount / confidence /
     marketLabel / canonicalConsensusRank / rankDerivedValue /
-    canonicalTierId / rankChange / sleeper (for team-switcher)
+    canonicalTierId / rankChange / sleeper (for team-switcher) /
+    canonicalSiteValues (KTC TE+ row in the trade per-source winner
+    reads the raw native value from this map) / sourceRankMeta
+    (slimmed — see above).
 
 Shape tests in ``tests/api/test_compact_view`` pin the
 contract so adding a field to this list either updates tests
@@ -34,8 +45,6 @@ _PRUNED_CONTRACT_FIELDS = frozenset({
 })
 
 _PRUNED_PLAYER_FIELDS = frozenset({
-    "sourceRankMeta",
-    "canonicalSiteValues",
     "droppedSources",
     "effectiveSourceRanks",
     "sourceOriginalRanks",
@@ -56,12 +65,53 @@ _PRUNED_PLAYER_FIELDS = frozenset({
     "anchorValue",
 })
 
+# Per-source meta fields kept on the compact view.  Drives the trade
+# per-source winner card (``valueContribution``), the rankings audit
+# popover (``valueContribution`` + ``effectiveWeight`` + ``method``),
+# and the PlayerPopup source-contribution graphs (``valueContribution``).
+# Audit-only stamps (percentile, isAnchor, TEP correction flags, etc.)
+# are dropped on mobile to keep the payload small.
+_SLIM_SOURCE_RANK_META_FIELDS = frozenset({
+    "valueContribution",
+    "effectiveWeight",
+    "method",
+})
+
+
+def _slim_source_rank_meta(meta: Any) -> Any:
+    """Return a per-source meta dict reduced to the mobile-consumed
+    subset.  Non-dict inputs pass through untouched."""
+    if not isinstance(meta, dict):
+        return meta
+    slim: dict[str, dict[str, Any]] = {}
+    for src_key, src_meta in meta.items():
+        if isinstance(src_meta, dict):
+            slim[src_key] = {
+                k: v for k, v in src_meta.items()
+                if k in _SLIM_SOURCE_RANK_META_FIELDS
+            }
+        else:
+            # Defensive: preserve unexpected shapes verbatim so tests
+            # that mutate fixtures (and downstream consumers that
+            # tolerate odd shapes) don't break silently.
+            slim[src_key] = src_meta
+    return slim
+
 
 def compact_player(player: dict[str, Any]) -> dict[str, Any]:
-    """Return a shallow-copied player row with pruned fields."""
+    """Return a shallow-copied player row with pruned fields and a
+    slimmed ``sourceRankMeta`` map."""
     if not isinstance(player, dict):
         return player
-    return {k: v for k, v in player.items() if k not in _PRUNED_PLAYER_FIELDS}
+    out: dict[str, Any] = {}
+    for k, v in player.items():
+        if k in _PRUNED_PLAYER_FIELDS:
+            continue
+        if k == "sourceRankMeta":
+            out[k] = _slim_source_rank_meta(v)
+            continue
+        out[k] = v
+    return out
 
 
 def compact_contract(payload: dict[str, Any]) -> dict[str, Any]:
