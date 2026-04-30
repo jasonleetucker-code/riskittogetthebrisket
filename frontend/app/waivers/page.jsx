@@ -7,8 +7,11 @@ import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 import TeamSwitcher from "@/components/TeamSwitcher";
+import ManualAddDrop from "@/components/waivers/ManualAddDrop";
 import { useApp } from "@/components/AppShell";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { useTeam } from "@/components/useTeam";
+import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { posBadgeClass } from "@/lib/display-helpers";
 
@@ -443,8 +446,10 @@ function AddableSection({ rows }) {
 // ── Page entry ─────────────────────────────────────────────────────────
 
 export default function WaiversPage() {
-  const { privateDataEnabled } = useApp();
+  const { privateDataEnabled, rows } = useApp();
   const { authenticated } = useAuthContext();
+  const { selectedTeam } = useTeam();
+  const { settings } = useSettings();
   const [includeRookies, setIncludeRookies] = useState(false);
   const [position, setPosition] = useState("ALL");
   const [minGain, setMinGain] = useState(0);
@@ -475,6 +480,16 @@ export default function WaiversPage() {
             : "Compare every unrostered player against your roster"
         }
       />
+
+      {/* ── Manual add/drop calculator (trade-style fairness bar) ── */}
+      {authenticated !== false && privateDataEnabled !== false && !leagueMismatch && (
+        <ManualAddDrop
+          rows={rows}
+          selectedTeam={selectedTeam}
+          analysis={analysis}
+          settings={settings}
+        />
+      )}
 
       {/* ── Filter rail ─────────────────────────────────────────── */}
       <FilterBar style={{ marginBottom: 12 }}>
