@@ -1627,12 +1627,48 @@ export default function TradePage() {
   //   * selected league/team changes (incl. picks regenerate)
   //   * loading completes (cold-load arrives after first paint)
   // Debounced via a ref so a rapid roster edit doesn't spam the API.
+  //
+  // Two failure modes the cancel logic has to thread:
+  //
+  //   (A) ``rows`` ref churns mid-load (``useSettings`` hydrates and
+  //       triggers a second ``useDynastyData`` fetch) but ``bodyKey``
+  //       is unchanged.  An older shape unconditionally cancelled the
+  //       timer on every dep change; combined with the ``lastBody ===
+  //       bodyKey`` short-circuit, the timer was killed and never
+  //       re-armed, so ``fetchSuggestions`` never fired and the rail
+  //       stayed hidden.
+  //
+  //   (B) The user switches leagues / clears the roster / starts a
+  //       reload, so the preconditions now fail.  An armed timer from
+  //       a prior valid render would otherwise fire ~500ms later and
+  //       dispatch ``fetchSuggestions`` with stale render state.
+  //
+  // The shape below cancels exactly when preconditions newly fail OR
+  // when ``bodyKey`` changes, and otherwise leaves the pending timer
+  // alone.  ``lastBody`` is reset on the precondition-fail branch so a
+  // fresh timer arms when the user returns to a valid state.
   const proactiveFetchRef = useRef({ lastBody: null, timer: null });
   useEffect(() => {
-    if (loading || error || leagueMismatch) return;
-    if (!rows || rows.length === 0) return;
+    const cancelPending = () => {
+      if (proactiveFetchRef.current.timer) {
+        clearTimeout(proactiveFetchRef.current.timer);
+        proactiveFetchRef.current.timer = null;
+      }
+      proactiveFetchRef.current.lastBody = null;
+    };
+    if (loading || error || leagueMismatch) {
+      cancelPending();
+      return;
+    }
+    if (!rows || rows.length === 0) {
+      cancelPending();
+      return;
+    }
     const roster = parseRoster();
-    if (roster.length < 3) return;
+    if (roster.length < 3) {
+      cancelPending();
+      return;
+    }
     const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
     if (proactiveFetchRef.current.lastBody === bodyKey) return;
     proactiveFetchRef.current.lastBody = bodyKey;
@@ -1648,15 +1684,27 @@ export default function TradePage() {
       clearTimeout(proactiveFetchRef.current.timer);
     }
     proactiveFetchRef.current.timer = setTimeout(() => {
+      proactiveFetchRef.current.timer = null;
       fetchSuggestions();
     }, 500);
+    // No re-run cleanup: cancellation is handled inline above so a
+    // benign ``rows`` ref churn doesn't kill the pending fetch, and
+    // the unmount effect below tears down anything still in flight
+    // on teardown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+
+  // Unmount-only cleanup for the proactive-fetch debounce timer — kept
+  // separate from the auto-fetch effect above so a dep-driven re-run
+  // doesn't cancel a pending fetch.
+  useEffect(() => {
     return () => {
       if (proactiveFetchRef.current.timer) {
         clearTimeout(proactiveFetchRef.current.timer);
+        proactiveFetchRef.current.timer = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+  }, []);
 
   async function fetchSuggestions() {
     const roster = parseRoster();
