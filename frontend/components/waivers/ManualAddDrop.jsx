@@ -30,7 +30,7 @@
  * styling so the look matches.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   adjustedSideTotals,
@@ -314,6 +314,42 @@ export default function ManualAddDrop({
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
+  const [leagueFaab, setLeagueFaab] = useState(null);
+
+  // Fetch league FAAB analytics once per leagueKey.  The endpoint
+  // is a lazy public-league section (Phase B5) so it's a one-shot
+  // load — cached client-side until the leagueKey changes or the
+  // page reloads.  The downstream FaabRecommendation panel reads
+  // ``leagueFaab`` to render the historical-context block.  When
+  // the fetch fails we just don't show the context — the bid pills
+  // still work because the recommender does its own analytics
+  // lookup server-side.
+  useEffect(() => {
+    if (!leagueKey) {
+      setLeagueFaab(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/public/league/faabAnalytics?leagueKey=${encodeURIComponent(leagueKey)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        // The /api/public/league/{section} endpoint wraps the
+        // builder output as ``{section, body}`` so unwrap.
+        const body = data?.body || data;
+        setLeagueFaab(body || null);
+      } catch {
+        // Silent failure — context panel just stays hidden.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leagueKey]);
 
   const dropPool = useMemo(
     () => rosterRowsForTeam(rows, selectedTeam?.players),
@@ -468,6 +504,8 @@ export default function ManualAddDrop({
                 dropPlayer={dropRow}
                 leagueKey={leagueKey}
                 ownerId={selectedTeam?.ownerId}
+                selectedTeam={selectedTeam}
+                leagueFaab={leagueFaab}
               />
             </ResilientSection>
           )}

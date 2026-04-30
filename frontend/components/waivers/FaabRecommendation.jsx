@@ -122,10 +122,13 @@ export default function FaabRecommendation({
   dropPlayer,
   leagueKey,
   ownerId,
+  selectedTeam,
+  leagueFaab,
 }) {
   const [state, setState] = useState("idle"); // idle | loading | done | error
   const [data, setData] = useState(null);
   const [showFactors, setShowFactors] = useState(false);
+  const [showContext, setShowContext] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -336,6 +339,242 @@ export default function FaabRecommendation({
           )}
         </div>
       )}
+
+      {leagueFaab && (
+        <LeagueFaabContext
+          analytics={leagueFaab}
+          addPlayer={addPlayer}
+          selectedTeam={selectedTeam}
+          recommendation={data}
+          show={showContext}
+          onToggle={() => setShowContext((s) => !s)}
+        />
+      )}
     </section>
+  );
+}
+
+// ── League FAAB context panel ─────────────────────────────────
+
+function LeagueFaabContext({
+  analytics,
+  addPlayer,
+  selectedTeam,
+  recommendation,
+  show,
+  onToggle,
+}) {
+  const remaining = selectedTeam?.faabRemaining;
+  const budget = analytics?.leagueBudget;
+  const avg = analytics?.leagueAvgWinningBid;
+  const median = analytics?.leagueMedianWinningBid;
+  const totalBids = analytics?.totalBidsAnalyzed || 0;
+
+  // Resolve this player's position-bucket stats from the
+  // analytics block.  Falls back gracefully when the position
+  // hasn't been ranked enough times to surface a bucket.
+  const position = recommendation?.resolvedAddPosition || addPlayer?.pos;
+  const posStats = position
+    ? (analytics?.positionBids?.[String(position).toUpperCase()] ||
+       (position === "DT" || position === "DE" || position === "EDGE"
+         ? analytics?.positionBids?.DL
+         : null) ||
+       (position === "ILB" || position === "OLB" || position === "MLB"
+         ? analytics?.positionBids?.LB
+         : null) ||
+       (position === "CB" || position === "S" || position === "FS" || position === "SS"
+         ? analytics?.positionBids?.DB
+         : null))
+    : null;
+
+  // Per-player history is keyed by Sleeper player_id.
+  const playerHistory = (() => {
+    const pid = addPlayer?.raw?.playerId || addPlayer?.playerId;
+    if (!pid || !analytics?.playerHistory) return [];
+    const entries = analytics.playerHistory[String(pid)] || [];
+    return Array.isArray(entries) ? entries.slice(0, 5) : [];
+  })();
+
+  const fmtPct = (b) =>
+    budget && budget > 0 && Number.isFinite(b)
+      ? `${Math.round((b / budget) * 100)}%`
+      : null;
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: "1px solid var(--border, rgba(255,255,255,0.06))",
+      }}
+    >
+      <button
+        type="button"
+        className="button-reset"
+        onClick={onToggle}
+        style={{
+          fontSize: "0.72rem",
+          color: "var(--muted, #c7b8dc)",
+          cursor: "pointer",
+          border: "none",
+          background: "transparent",
+          padding: 0,
+        }}
+        aria-expanded={show}
+      >
+        {show ? "▾" : "▸"} League FAAB context
+      </button>
+      {show && (
+        <div style={{ marginTop: 8, fontSize: "0.78rem" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <ContextStat
+              label="Your remaining FAAB"
+              value={
+                remaining != null
+                  ? _fmtBid(remaining)
+                  : budget != null
+                    ? `${_fmtBid(budget)} budget`
+                    : "—"
+              }
+              hint={
+                budget && remaining != null
+                  ? `${Math.round((remaining / budget) * 100)}% of $${budget}`
+                  : null
+              }
+            />
+            <ContextStat
+              label="League avg winning bid"
+              value={avg ? _fmtBid(avg) : "—"}
+              hint={fmtPct(avg)}
+            />
+            <ContextStat
+              label="League median winning bid"
+              value={median ? _fmtBid(median) : "—"}
+              hint={
+                totalBids > 0 ? `${totalBids} bids analyzed` : null
+              }
+            />
+          </div>
+
+          {posStats && posStats.count > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div
+                className="muted"
+                style={{
+                  fontSize: "0.7rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 4,
+                }}
+              >
+                Comparable {String(position).toUpperCase()} bids ({posStats.count} historical)
+              </div>
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                }}
+              >
+                Range <strong>{_fmtBid(posStats.min)}</strong>–
+                <strong> {_fmtBid(posStats.max)}</strong>
+                {", avg "}
+                <strong>{_fmtBid(posStats.avg)}</strong>
+                {fmtPct(posStats.avg) ? ` (${fmtPct(posStats.avg)} of budget)` : ""}
+              </div>
+            </div>
+          )}
+
+          {playerHistory.length > 0 && (
+            <div>
+              <div
+                className="muted"
+                style={{
+                  fontSize: "0.7rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 4,
+                }}
+              >
+                {addPlayer?.name || "Player"} — past league waivers
+              </div>
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  fontSize: "0.78rem",
+                }}
+              >
+                {playerHistory.map((h, i) => (
+                  <li
+                    key={`ph-${i}`}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "2px 0",
+                    }}
+                  >
+                    <span className="muted">
+                      {h?.season || "—"}
+                      {h?.type === "free_agent" ? " · FA pickup" : ""}
+                    </span>
+                    <span style={{ fontWeight: 600 }}>
+                      {_fmtBid(h?.bid || 0)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {!posStats && playerHistory.length === 0 && (
+            <div className="muted" style={{ fontSize: "0.78rem" }}>
+              Not enough historical data for {String(position || "this player").toUpperCase()} or this player yet.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContextStat({ label, value, hint }) {
+  return (
+    <div
+      style={{
+        padding: "8px 10px",
+        background: "rgba(255,255,255,0.02)",
+        border: "1px solid var(--border, rgba(255,255,255,0.06))",
+        borderRadius: 6,
+      }}
+    >
+      <div
+        className="muted"
+        style={{
+          fontSize: "0.62rem",
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: "1rem", fontWeight: 700, marginTop: 2 }}>
+        {value}
+      </div>
+      {hint ? (
+        <div
+          className="muted"
+          style={{ fontSize: "0.66rem", marginTop: 1 }}
+        >
+          {hint}
+        </div>
+      ) : null}
+    </div>
   );
 }
