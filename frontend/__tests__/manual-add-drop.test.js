@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  addPoolFromAnalysis,
   normName,
   rosterRowsForTeam,
 } from "@/components/waivers/ManualAddDrop";
@@ -96,31 +95,3 @@ describe("rosterRowsForTeam", () => {
   });
 });
 
-describe("addPoolFromAnalysis", () => {
-  it("filters out rostered candidates and sorts by value desc", () => {
-    const analysis = {
-      addable: [
-        { row: row("Free Agent A", 4000), value: 4000, rosteredBy: null },
-        { row: row("Rostered B", 5000), value: 5000, rosteredBy: "team-7" },
-        { row: row("Free Agent C", 6000), value: 6000, rosteredBy: null },
-        { row: row("Rookie D", 5500), value: 5500, rosteredBy: null },
-      ],
-    };
-    const out = addPoolFromAnalysis(analysis);
-    expect(out.map((a) => a.row.name)).toEqual([
-      "Free Agent C",
-      "Rookie D",
-      "Free Agent A",
-    ]);
-  });
-
-  it("returns an empty array on missing inputs", () => {
-    expect(addPoolFromAnalysis(null)).toEqual([]);
-    expect(addPoolFromAnalysis({})).toEqual([]);
-    expect(addPoolFromAnalysis({ addable: null })).toEqual([]);
-  });
-
-  it("handles empty addable list", () => {
-    expect(addPoolFromAnalysis({ addable: [] })).toEqual([]);
-  });
-});

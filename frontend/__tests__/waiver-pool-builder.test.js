@@ -1,0 +1,200 @@
+// @vitest-environment node
+import { describe, it, expect } from "vitest";
+
+import { buildTopWaiverPool } from "@/lib/waiver-logic";
+
+// ── Fixture helpers ────────────────────────────────────────────────────
+
+function row(name, value, opts = {}) {
+  return {
+    name,
+    pos: opts.pos || "WR",
+    position: opts.pos || "WR",
+    rookie: Boolean(opts.rookie),
+    assetClass: opts.assetClass || "offense",
+    rankDerivedValue: value,
+    values: { full: value },
+  };
+}
+
+/** Build N rows at a position with descending values from start. */
+function descending(prefix, n, start, step, opts = {}) {
+  const out = [];
+  for (let i = 0; i < n; i += 1) {
+    out.push(row(`${prefix} ${i + 1}`, start - i * step, opts));
+  }
+  return out;
+}
+
+describe("buildTopWaiverPool — basic shape", () => {
+  it("returns the top-N rows sorted by value desc when no coverage push needed", () => {
+    const rows = [
+      ...descending("QB", 5, 8000, 100, { pos: "QB" }),
+      ...descending("RB", 5, 7000, 100, { pos: "RB" }),
+      ...descending("WR", 5, 6000, 100, { pos: "WR" }),
+      ...descending("TE", 5, 5000, 100, { pos: "TE" }),
+    ];
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
+    // Top 10 = 5 QBs (8000-7600) + 5 RBs (7000-6600); WR + TE
+    // missing.  Coverage requires ≥1 of each — 2 injections push
+    // the final count to 12.
+    expect(out.cap).toBe(10);
+    expect(out.players).toHaveLength(12);
+    expect(out.injectedCount).toBe(2);
+    expect(out.positionSummary.QB).toBe(5);
+    expect(out.positionSummary.RB).toBe(5);
+    expect(out.positionSummary.WR).toBe(1);
+    expect(out.positionSummary.TE).toBe(1);
+  });
+
+  it("respects limit + minPerPosition + injects to satisfy floors", () => {
+    const rows = [
+      ...descending("QB", 8, 8000, 50, { pos: "QB" }),    // top 8 are all QB
+      row("Rare WR", 1500, { pos: "WR" }),
+      row("Rare WR2", 1400, { pos: "WR" }),
+      row("Rare TE", 1300, { pos: "TE" }),
+      row("Rare RB", 1200, { pos: "RB" }),
+    ];
+    // Top-3 by value: 3 QBs.  Need ≥3 of each of QB/RB/WR/TE per
+    // the default floor (3).  Only 2 WRs in pool (insufficient),
+    // 1 TE, 1 RB — so injection should pull all of them up.
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 3, minPerPosition: 3 });
+    // Head = 3 QBs.  Injected = 2 WRs + 1 TE + 1 RB.  All available.
+    expect(out.cap).toBe(3);
+    expect(out.injectedCount).toBe(4);
+    expect(out.players).toHaveLength(7);
+    expect(out.positionSummary.QB).toBe(3);
+    expect(out.positionSummary.WR).toBe(2);  // pool only had 2
+    expect(out.positionSummary.TE).toBe(1);
+    expect(out.positionSummary.RB).toBe(1);
+  });
+
+  it("breaks the cap only as much as needed for coverage", () => {
+    const rows = [
+      ...descending("QB", 50, 9000, 10, { pos: "QB" }),
+      row("Lone WR", 100, { pos: "WR" }),
+      row("Lone TE", 90, { pos: "TE" }),
+      row("Lone RB", 80, { pos: "RB" }),
+    ];
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
+    // Top 10 are all QB.  Coverage needs 1 each of WR/TE/RB ⇒
+    // 3 injections.
+    expect(out.cap).toBe(10);
+    expect(out.injectedCount).toBe(3);
+    expect(out.players).toHaveLength(13);
+  });
+});
+
+describe("buildTopWaiverPool — IDP gating", () => {
+  const rows = [
+    row("QB1", 8000, { pos: "QB" }),
+    row("QB2", 7900, { pos: "QB" }),
+    row("QB3", 7800, { pos: "QB" }),
+    row("DL1", 6500, { pos: "DL", assetClass: "idp" }),
+    row("LB1", 6400, { pos: "LB", assetClass: "idp" }),
+    row("DB1", 6300, { pos: "DB", assetClass: "idp" }),
+  ];
+
+  it("includes IDP positions in coverage when idpEnabled=true", () => {
+    const out = buildTopWaiverPool(rows, new Set(), {
+      limit: 3,
+      minPerPosition: 1,
+      idpEnabled: true,
+    });
+    // Top 3 = 3 QBs.  IDP coverage requires DL/LB/DB ≥ 1 each ⇒
+    // 3 injections.
+    expect(out.cap).toBe(3);
+    expect(out.injectedCount).toBe(3);
+    expect(out.positionSummary.DL).toBe(1);
+    expect(out.positionSummary.LB).toBe(1);
+    expect(out.positionSummary.DB).toBe(1);
+    expect(out.players.find((p) => p.name === "DL1")).toBeDefined();
+  });
+
+  it("drops IDP rows entirely when idpEnabled=false", () => {
+    const out = buildTopWaiverPool(rows, new Set(), {
+      limit: 3,
+      minPerPosition: 1,
+      idpEnabled: false,
+    });
+    // IDP rows excluded; pool = 3 QBs.
+    expect(out.players).toHaveLength(3);
+    expect(out.players.every((p) => p.assetClass !== "idp")).toBe(true);
+    expect(out.positionSummary.DL).toBeUndefined();
+    expect(out.positionSummary.LB).toBeUndefined();
+    expect(out.positionSummary.DB).toBeUndefined();
+  });
+});
+
+describe("buildTopWaiverPool — rookie gating", () => {
+  const rows = [
+    row("Vet WR1", 6000, { pos: "WR" }),
+    row("Rookie WR1", 5500, { pos: "WR", rookie: true }),
+    row("Rookie RB1", 5400, { pos: "RB", rookie: true }),
+    row("Vet RB1", 4500, { pos: "RB" }),
+  ];
+
+  it("excludes rookies by default", () => {
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
+    expect(out.players.map((p) => p.name)).toEqual(["Vet WR1", "Vet RB1"]);
+  });
+
+  it("includes rookies when includeRookies=true", () => {
+    const out = buildTopWaiverPool(rows, new Set(), {
+      limit: 10,
+      minPerPosition: 1,
+      includeRookies: true,
+    });
+    expect(out.players.map((p) => p.name)).toEqual([
+      "Vet WR1",
+      "Rookie WR1",
+      "Rookie RB1",
+      "Vet RB1",
+    ]);
+  });
+});
+
+describe("buildTopWaiverPool — ownership filtering", () => {
+  const rows = [
+    row("Owned WR", 6000, { pos: "WR" }),
+    row("Free WR", 5500, { pos: "WR" }),
+    row("My RB", 5400, { pos: "RB" }),
+    row("Free RB", 4500, { pos: "RB" }),
+  ];
+
+  it("skips league-rostered names", () => {
+    const owned = new Set(["owned wr"]);
+    const out = buildTopWaiverPool(rows, owned, {
+      limit: 10,
+      minPerPosition: 1,
+    });
+    expect(out.players.find((p) => p.name === "Owned WR")).toBeUndefined();
+    expect(out.players.find((p) => p.name === "Free WR")).toBeDefined();
+  });
+
+  it("skips my-roster names too when myRosterNameSet provided", () => {
+    const owned = new Set(["owned wr"]);
+    const mine = new Set(["my rb"]);
+    const out = buildTopWaiverPool(rows, owned, {
+      limit: 10,
+      minPerPosition: 1,
+      myRosterNameSet: mine,
+    });
+    expect(out.players.find((p) => p.name === "My RB")).toBeUndefined();
+    expect(out.players.find((p) => p.name === "Owned WR")).toBeUndefined();
+  });
+});
+
+describe("buildTopWaiverPool — defensive defaults", () => {
+  it("returns empty pool for non-arrays", () => {
+    expect(buildTopWaiverPool(null, new Set()).players).toEqual([]);
+    expect(buildTopWaiverPool(undefined, new Set()).players).toEqual([]);
+  });
+
+  it("treats non-Set ownedNameSet as empty", () => {
+    const rows = [row("WR1", 5000)];
+    expect(
+      buildTopWaiverPool(rows, null, { limit: 5, minPerPosition: 0 }).players,
+    ).toEqual(rows);
+  });
+});

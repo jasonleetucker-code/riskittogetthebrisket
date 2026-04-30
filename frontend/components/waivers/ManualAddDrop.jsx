@@ -37,6 +37,11 @@ import {
   effectiveValue,
   sideTotal,
 } from "@/lib/trade-logic";
+import {
+  buildOwnedNameSet,
+  buildTopWaiverPool,
+  normalizeName,
+} from "@/lib/waiver-logic";
 import { posBadgeClass } from "@/lib/display-helpers";
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
@@ -83,18 +88,6 @@ export function rosterRowsForTeam(rows, rosterNames) {
     (a, b) =>
       (Number(a.values?.full) || 0) - (Number(b.values?.full) || 0),
   );
-}
-
-/**
- * Build the add-side pool from ``analysis.addable``.  Filters to
- * truly-unrostered candidates (rosteredBy is null/empty) and
- * sorts by value desc so the strongest free agents lead.
- */
-export function addPoolFromAnalysis(analysis) {
-  const addable = Array.isArray(analysis?.addable) ? analysis.addable : [];
-  return addable
-    .filter((a) => !a.rosteredBy && a?.row)
-    .sort((a, b) => (b.value || 0) - (a.value || 0));
 }
 
 /**
@@ -294,17 +287,26 @@ function SelectedCard({ row, valueMode, settings, onClear }) {
  *   rows             — public-contract player rows (from useApp).
  *   selectedTeam     — selected fantasy team object (from useTeam).
  *                      Must have ``.players`` (array of names).
- *   analysis         — the existing computeWaiverAnalysis result.
+ *   sleeperTeams     — array of sleeper team objects (from
+ *                      rawData.sleeper.teams).  Used to compute the
+ *                      league-wide owned name set for the add pool.
+ *   idpEnabled       — whether the league has IDP positions (from
+ *                      selectedLeague.idpEnabled).
+ *   includeRookies   — whether to surface rookies in the add pool
+ *                      (mirrors the page's ``Include rookies``
+ *                      toggle).
  *   valueMode        — "full" / "rookie" / etc. (defaults "full").
  *   settings         — settings context for value-adjustment math.
  *
- * If anything's missing (no team, no analysis, empty roster), the
- * component returns a compact info banner instead of crashing.
+ * If anything's missing (no team, empty rows), the component
+ * returns a compact info banner instead of crashing.
  */
 export default function ManualAddDrop({
   rows,
   selectedTeam,
-  analysis,
+  sleeperTeams,
+  idpEnabled = true,
+  includeRookies = false,
   valueMode = "full",
   settings,
 }) {
@@ -315,7 +317,29 @@ export default function ManualAddDrop({
     () => rosterRowsForTeam(rows, selectedTeam?.players),
     [rows, selectedTeam?.players],
   );
-  const addPool = useMemo(() => addPoolFromAnalysis(analysis), [analysis]);
+
+  // Add side: top-50 league-wide pool with position minimums.  This
+  // is intentionally roster-INDEPENDENT — the user might want to
+  // evaluate a strong waiver target who doesn't strictly upgrade
+  // their lowest-value bench filler but still represents a real
+  // option.  The fairness bar / source breakdown / Monte Carlo
+  // tell the truth about whether the trade is even.
+  const addPoolResult = useMemo(() => {
+    const ownedNameSet = buildOwnedNameSet(sleeperTeams);
+    const myRosterNameSet = new Set(
+      (selectedTeam?.players || [])
+        .map(normalizeName)
+        .filter(Boolean),
+    );
+    return buildTopWaiverPool(rows, ownedNameSet, {
+      limit: 50,
+      minPerPosition: 3,
+      includeRookies,
+      idpEnabled,
+      myRosterNameSet,
+    });
+  }, [rows, sleeperTeams, selectedTeam?.players, includeRookies, idpEnabled]);
+  const addPool = addPoolResult.players;
 
   const sides = useMemo(
     () => [
@@ -347,8 +371,6 @@ export default function ManualAddDrop({
   }, [sides, valueMode, settings]);
 
   const noTeam = !selectedTeam;
-  const noRoster = !noTeam && dropPool.length === 0;
-  const noAnalysis = !noTeam && !noRoster && (!analysis || addPool.length === 0);
 
   return (
     <section
@@ -400,16 +422,20 @@ export default function ManualAddDrop({
             <SidePicker
               label="ADD"
               accent="var(--green, #34d399)"
-              pool={addPool.map((a) => a.row)}
+              pool={addPool}
               selected={addRow}
               onSelect={setAddRow}
               onClear={() => setAddRow(null)}
-              emptyMsg={
-                noAnalysis
-                  ? "Waiver pool not ready yet — pick a team first."
-                  : "No addable upgrades for this roster."
+              emptyMsg="No addable players on the waiver wire."
+              placeholder={
+                addPoolResult.cap > 0
+                  ? `Top ${addPoolResult.cap} waivers${
+                      addPoolResult.injectedCount > 0
+                        ? ` + ${addPoolResult.injectedCount} position-coverage`
+                        : ""
+                    }…`
+                  : "Search free agents…"
               }
-              placeholder="Search free agents…"
               valueMode={valueMode}
               settings={settings}
             />

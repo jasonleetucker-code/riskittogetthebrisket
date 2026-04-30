@@ -561,3 +561,165 @@ export function computeWaiverAnalysis({
     summary,
   };
 }
+
+// ── Top-N waiver pool with position minimums ───────────────────────────
+//
+// ``buildTopWaiverPool`` is a roster-INDEPENDENT view of the waiver
+// wire: "what are the strongest unrostered players right now, with
+// at least N options at every position so the UI doesn't appear
+// empty for, say, TE-needy users on a QB-rich week?"
+//
+// Used by the manual add/drop calculator's add-side default pool
+// when the user hasn't picked a specific upgrade target via the
+// roster-aware ``addable`` path.  The two pools serve different
+// jobs and intentionally do NOT share a code path:
+//
+//   - ``addable``           — beats AT LEAST one of MY roster's
+//                             players.  Roster-aware, drops out
+//                             players that don't represent an
+//                             actual upgrade.
+//   - ``buildTopWaiverPool``— top-N league-wide, regardless of
+//                             roster fit.  The user might want
+//                             to see "the best waiver guy this
+//                             week" even if they don't have an
+//                             obvious drop yet.
+//
+// Returns a stable shape the UI can label transparently:
+//   {
+//     players:         [row, …]   — sorted desc by value
+//     positionSummary: {QB:4,…}    — counts per position in players
+//     injectedCount:   number      — how many pos-coverage extras
+//                                    pushed above ``limit``
+//     cap:             number      — the original ``limit`` so the
+//                                    UI can phrase "Top 50 + 4"
+//   }
+
+const DEFAULT_TOP_POOL_POSITIONS = Object.freeze([
+  "QB", "RB", "WR", "TE",
+]);
+const DEFAULT_TOP_POOL_IDP_POSITIONS = Object.freeze([
+  "DL", "LB", "DB",
+]);
+
+/**
+ * Build the top-N waiver pool with position minimums.
+ *
+ * Args:
+ *   rows           — public-contract player rows.
+ *   ownedNameSet   — Set<normalizedName> of every name rostered
+ *                    in the league (build via buildOwnedNameSet).
+ *                    Use ``new Set()`` to disable league-ownership
+ *                    filtering.
+ *   options:
+ *     limit             default 50
+ *     minPerPosition    default 3
+ *     includeRookies    default false
+ *     idpEnabled        default true
+ *     myRosterNameSet   optional Set; if provided, players on MY
+ *                       roster are also excluded (so the pool
+ *                       represents true add candidates for the
+ *                       active user, not just league-unrostered).
+ */
+export function buildTopWaiverPool(
+  rows,
+  ownedNameSet,
+  {
+    limit = 50,
+    minPerPosition = 3,
+    includeRookies = false,
+    idpEnabled = true,
+    myRosterNameSet = null,
+  } = {},
+) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeOwned =
+    ownedNameSet instanceof Set ? ownedNameSet : new Set();
+  const myOwn =
+    myRosterNameSet instanceof Set ? myRosterNameSet : new Set();
+  const safeLimit = Math.max(0, Number.isFinite(limit) ? limit : 0);
+  const safeMin = Math.max(0, Number.isFinite(minPerPosition) ? minPerPosition : 0);
+
+  // Filter to truly-unrostered rows that pass the rookie + IDP
+  // gates.  Picks and zero-value rows always drop.
+  const eligible = [];
+  for (const row of safeRows) {
+    if (!row) continue;
+    const cls = rowAssetClass(row);
+    if (cls === "pick") continue;
+    if (!idpEnabled && cls === "idp") continue;
+    if (rowValue(row) <= 0) continue;
+    if (!includeRookies && row?.rookie) continue;
+    const norm = normalizeName(rowName(row));
+    if (!norm) continue;
+    if (safeOwned.has(norm)) continue;
+    if (myOwn.has(norm)) continue;
+    eligible.push(row);
+  }
+  eligible.sort(byValueDescThenName);
+
+  // Take the top N.  Then walk the remaining pool to satisfy
+  // per-position minimums.
+  const headRaw = eligible.slice(0, safeLimit);
+  const tail = eligible.slice(safeLimit);
+
+  // Establish which positions we care about for coverage based on
+  // the IDP gate.  Skipping IDP positions when the league is
+  // offense-only avoids injecting players the user never sees.
+  const coveragePositions = idpEnabled
+    ? [...DEFAULT_TOP_POOL_POSITIONS, ...DEFAULT_TOP_POOL_IDP_POSITIONS]
+    : [...DEFAULT_TOP_POOL_POSITIONS];
+
+  // Count per-position in the head.
+  const counts = {};
+  for (const pos of coveragePositions) counts[pos] = 0;
+  for (const r of headRaw) {
+    const p = rowPosition(r);
+    if (p in counts) counts[p] += 1;
+  }
+
+  // Inject highest-value missing position rows from the tail
+  // until each coverage position hits ``minPerPosition``.  We
+  // walk the tail (already sorted desc) and pick up the first
+  // matching row for each undercovered position.  Stop early
+  // for positions that hit the floor.
+  const injected = [];
+  for (const r of tail) {
+    const p = rowPosition(r);
+    if (!(p in counts)) continue;
+    if (counts[p] >= safeMin) continue;
+    counts[p] += 1;
+    injected.push(r);
+    // Early exit when every coverage position satisfies the floor.
+    let allCovered = true;
+    for (const pos of coveragePositions) {
+      if (counts[pos] < safeMin) {
+        allCovered = false;
+        break;
+      }
+    }
+    if (allCovered) break;
+  }
+
+  // Final list = head + injected.  Re-sort so the caller can
+  // render a single clean value-desc list.  The caller can still
+  // identify injected rows via positionSummary if it wants to
+  // distinguish them.
+  const players = [...headRaw, ...injected];
+  players.sort(byValueDescThenName);
+
+  // Recompute positionSummary on the final ``players`` (covers
+  // both head + injected rows for every coverage position).
+  const positionSummary = {};
+  for (const pos of coveragePositions) positionSummary[pos] = 0;
+  for (const r of players) {
+    const p = rowPosition(r);
+    if (p in positionSummary) positionSummary[p] += 1;
+  }
+
+  return {
+    players,
+    positionSummary,
+    injectedCount: injected.length,
+    cap: safeLimit,
+  };
+}

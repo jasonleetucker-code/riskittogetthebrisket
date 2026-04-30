@@ -10,6 +10,7 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
 import { useApp } from "@/components/AppShell";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
@@ -446,8 +447,9 @@ function AddableSection({ rows }) {
 // ── Page entry ─────────────────────────────────────────────────────────
 
 export default function WaiversPage() {
-  const { privateDataEnabled, rows } = useApp();
+  const { privateDataEnabled, rows, rawData } = useApp();
   const { authenticated } = useAuthContext();
+  const { selectedLeague } = useLeague();
   const { selectedTeam } = useTeam();
   const { settings } = useSettings();
   const [includeRookies, setIncludeRookies] = useState(false);
@@ -486,7 +488,9 @@ export default function WaiversPage() {
         <ManualAddDrop
           rows={rows}
           selectedTeam={selectedTeam}
-          analysis={analysis}
+          sleeperTeams={rawData?.sleeper?.teams}
+          idpEnabled={Boolean(selectedLeague?.idpEnabled)}
+          includeRookies={includeRookies}
           settings={settings}
         />
       )}
