@@ -2930,6 +2930,73 @@ async def get_leagues(request: Request):
     return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
 
 
+# ── League Comparison ─────────────────────────────────────────────────
+# Compares one custom-scoring Sleeper league against a "standard"
+# baseline league across multiple historical NFL seasons.  Read-only
+# analysis tool — does NOT route through the league registry; the two
+# league IDs come from config/league_comparison.json server-side, the
+# UI never sends raw Sleeper IDs in requests.  See
+# src/league_comparison/service.py for the full pipeline.
+@app.get("/api/league-comparison")
+async def get_league_comparison(request: Request):
+    """Build the positional-balance comparison between the two
+    configured leagues across the configured seasons.
+
+    Query params:
+      * ``refresh`` — if "1"/"true", bypass the 7-day disk cache and
+        recompute (also bypasses the 1h scoring-settings cache so a
+        commissioner edit propagates immediately).
+
+    Errors:
+      * 503 — Sleeper unreachable or scoring_settings missing for one
+        of the configured leagues.
+      * 500 — internal failure during computation.
+    """
+    refresh_raw = (request.query_params.get("refresh") or "").strip().lower()
+    refresh = refresh_raw in ("1", "true", "yes", "on")
+    try:
+        from src.league_comparison import service as _lc_service
+        payload = await run_in_threadpool(
+            _lc_service.build_comparison, refresh=refresh,
+        )
+    except FileNotFoundError as exc:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "league_comparison_misconfigured",
+                "detail": str(exc),
+            },
+        )
+    except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "sleeper_unreachable",
+                "detail": str(exc),
+            },
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "league_data_unavailable",
+                "detail": str(exc),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger(__name__).exception("league_comparison_failed")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "league_comparison_failed",
+                "detail": str(exc),
+            },
+        )
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=3600"},
+    )
+
 
 @app.get("/api/status")
 async def get_status():
