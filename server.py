@@ -3925,6 +3925,9 @@ async def post_angle_find(request: Request):
         {
           "ownerId": "472206636534984704",       // your sleeper ownerId
           "playerName": "Jayden Daniels",        // canonical name
+          "targetTeamOwnerId": "729547...",      // optional — restrict
+                                                  // candidates to this
+                                                  // single opposing team
           "minMyGainPct": 5.0,                    // optional, default 5
           "maxMarketGainPct": 5.0,                // optional, default 5
           "limit": 50                             // optional, default 50
@@ -3970,6 +3973,13 @@ async def post_angle_find(request: Request):
             content={"error": "Request body must include 'ownerId' and 'playerName'."},
         )
 
+    target_team_owner_id = str(body.get("targetTeamOwnerId") or "").strip() or None
+    if target_team_owner_id and target_team_owner_id == owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "targetTeamOwnerId must differ from ownerId."},
+        )
+
     try:
         min_my = float(body.get("minMyGainPct", 5.0))
         # Accept new key, fall back to legacy for pre-rename clients.
@@ -3985,8 +3995,6 @@ async def post_angle_find(request: Request):
 
     from src.trade.angle import find_angles
 
-    angle_
-
     try:
         result = await run_in_threadpool(
             find_angles,
@@ -3997,6 +4005,7 @@ async def post_angle_find(request: Request):
             min_my_gain_pct=min_my,
             max_market_gain_pct=max_market,
             limit=limit,
+            target_team_owner_id=target_team_owner_id,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle find failed: {exc}")
@@ -4137,8 +4146,6 @@ async def post_angle_packages(request: Request):
         str(p).strip().upper() in _ANGLE_IDP_POSITIONS for p in positions_req
     ):
         include_idp = True
-
-    angle_
 
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
