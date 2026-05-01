@@ -13,9 +13,15 @@ export default function HeaderCard({ data }) {
   const base = meta.baselineLeague || {};
   const available = meta.seasonsAvailable || [];
   const unavailable = meta.seasonsUnavailable || [];
+  const sources = meta.seasonsSources || {};   // { "2025": "sleeper", ... }
   const generatedAt = meta.generatedAt
     ? new Date(meta.generatedAt).toLocaleString()
     : "—";
+
+  // Render seasons as "2022, 2023, 2024 (nflverse) · 2025 (Sleeper)" when
+  // multiple sources fed the result, or just "2022-2025" when they all
+  // came from the same place.
+  const seasonsLabel = formatSeasonsBySource(available, sources);
 
   return (
     <div className="card">
@@ -33,9 +39,7 @@ export default function HeaderCard({ data }) {
           fontSize: "0.85rem",
         }}
       >
-        <Tag label="Seasons included">
-          {available.length > 0 ? available.join(", ") : "—"}
-        </Tag>
+        <Tag label="Seasons included">{seasonsLabel}</Tag>
         {unavailable.length > 0 && (
           <Tag label="Unavailable" tone="amber">
             {unavailable.join(", ")}
@@ -69,6 +73,34 @@ function LeagueBlock({ title, league, accent }) {
       </div>
     </div>
   );
+}
+
+// Build the seasons-included label.  Groups consecutive seasons by
+// source so "2022,2023,2024 (nflverse) · 2025 (Sleeper)" reads cleanly,
+// rather than spelling out the source after each year.
+function formatSeasonsBySource(available, sources) {
+  if (!available?.length) return "—";
+  if (!sources || Object.keys(sources).length === 0) {
+    return available.join(", ");
+  }
+  const SOURCE_LABELS = { nflverse: "nflverse", sleeper: "Sleeper" };
+  const groups = [];   // list of { source, years: [] }
+  for (const yr of available) {
+    const src = sources[String(yr)] || sources[yr] || null;
+    const last = groups[groups.length - 1];
+    if (last && last.source === src) {
+      last.years.push(yr);
+    } else {
+      groups.push({ source: src, years: [yr] });
+    }
+  }
+  return groups
+    .map(({ source, years }) => {
+      const yearsLabel = years.join(", ");
+      const srcLabel = source ? ` (${SOURCE_LABELS[source] || source})` : "";
+      return `${yearsLabel}${srcLabel}`;
+    })
+    .join(" · ");
 }
 
 function Tag({ label, children, tone }) {
