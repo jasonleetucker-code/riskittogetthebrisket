@@ -55,8 +55,7 @@ import RosPowerSection from "./sections/ros-power.jsx";
 import RosChampionshipSection from "./sections/ros-championship.jsx";
 import RosTradeDeadlineSection from "./sections/ros-trade-deadline.jsx";
 import { useSettings } from "@/components/useSettings";
-import MatchupPreviewSection from "./sections/matchup-preview.jsx";
-import WeeklyRecapSection from "./sections/weekly-recap.jsx";
+import ArticlesSection from "./sections/articles.jsx";
 import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
 // Tab order + labels for the /league section nav.
@@ -65,14 +64,18 @@ import TeamAssignmentSection from "./sections/team-assignment.jsx";
 const SUB_TABS = [
   { key: "draft-capital", label: "Draft Capital" },
   { key: "overview", label: "Home" },
-  { key: "matchupPreview", label: "This Week" },
+  // The two AI-article tabs replace the older "This Week" structured
+  // preview tab and the structured "Recaps" tab. The articles surface
+  // the same H2H + form data inline (the brief is built from it), so
+  // the structured-data tabs are redundant once articles are wired in.
+  { key: "previews", label: "Previews" },
+  { key: "recaps", label: "Recaps" },
   { key: "power", label: "Power" },
   { key: "rosTeamStrength", label: "ROS Strength" },
   { key: "rosChampionship", label: "Championship" },
   { key: "rosTradeDeadline", label: "Trade Deadline" },
   { key: "luck", label: "Luck" },
   { key: "streaks", label: "Streaks" },
-  { key: "weeklyRecap", label: "Recaps" },
   { key: "history", label: "History" },
   { key: "rivalries", label: "Rivalries" },
   { key: "awards", label: "Awards" },
@@ -321,19 +324,8 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}
-      {activeTab === "matchupPreview" && (
-        <MatchupPreviewSection
-          data={sections.matchupPreview}
-          managers={managers}
-          onNavigate={setActiveTab}
-        />
-      )}
-      {activeTab === "weeklyRecap" && (
-        <WeeklyRecapSection
-          data={sections.weeklyRecap}
-          managers={managers}
-        />
-      )}
+      {activeTab === "previews" && <ArticlesSection mode="preview" />}
+      {activeTab === "recaps" && <ArticlesSection mode="recap" />}
       {activeTab === "teamAssignment" && (
         <TeamAssignmentSection
           data={sections.teamAssignment}
