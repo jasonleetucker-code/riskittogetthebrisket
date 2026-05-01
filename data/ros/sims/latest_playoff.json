@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-05-01T07:21:35.712563+00:00",
+  "computedAt": "2026-05-01T10:15:36.195519+00:00",
   "playoffOdds": [
     {
       "ownerId": "1012114412049731584",
@@ -176,5 +176,5 @@
   "rosStrengthAvailable": true,
   "rosBlend": 0.2,
   "bestBallVarianceBump": 1.1,
-  "bestBallVarianceMode": "off"
+  "bestBallVarianceMode": "depth_aware"
 }
