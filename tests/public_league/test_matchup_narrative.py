@@ -311,6 +311,72 @@ class PromptAssemblyTests(unittest.TestCase):
         self.assertIn("first one", messages[0]["content"])
 
 
+class BestBallPromptTests(unittest.TestCase):
+    """The format-blurb branch keeps the model from writing
+    'so-and-so started so-and-so' in best-ball leagues. Pin both
+    branches so a future refactor can't silently drop one."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = build_test_snapshot()
+
+    def _brief(self, *, best_ball: bool):
+        brief = mn.build_brief(
+            self.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+        )
+        # build_brief reads best_ball off the Sleeper league settings;
+        # the fixture doesn't set it, so we override on the dataclass
+        # for this targeted test.
+        brief.best_ball = best_ball
+        return brief
+
+    def test_best_ball_blurb_warns_against_lineup_framing(self) -> None:
+        brief = self._brief(best_ball=True)
+        system_blocks, _ = mn.assemble_prompt(brief, prior_articles=[])
+        text = system_blocks[0]["text"]
+        self.assertIn("BEST-BALL", text)
+        self.assertIn("DO NOT", text)
+        self.assertIn("started", text)  # "do not write that any manager started..."
+        self.assertIn("benched", text)
+        self.assertIn("ROSTER CONSTRUCTION", text)
+
+    def test_managed_lineup_blurb_allows_start_sit(self) -> None:
+        brief = self._brief(best_ball=False)
+        system_blocks, _ = mn.assemble_prompt(brief, prior_articles=[])
+        text = system_blocks[0]["text"]
+        self.assertIn("managed-lineup", text)
+        self.assertIn("Lineup decisions", text)
+        # Don't accidentally include the best-ball ban in the
+        # managed-lineup branch.
+        self.assertNotIn("BEST-BALL", text)
+
+    def test_best_ball_brief_skips_bench_misses(self) -> None:
+        # Synthesize a best-ball-shaped fixture: starters + a higher-
+        # scoring "bench" player. In a managed brief that surfaces as
+        # biggestBenchMiss; in best-ball it should be suppressed so the
+        # model isn't tempted to write "left points on the bench."
+        snap = build_test_snapshot()
+        current = snap.seasons[0]
+        current.league = {**(current.league or {}), "settings": {"best_ball": 1}}
+        current.matchups_by_week[17] = [
+            {"matchup_id": 1, "roster_id": 1, "points": 100.0,
+             "starters": ["p-qb1"],
+             "players": ["p-qb1", "p-rb2"],
+             "players_points": {"p-qb1": 30.0, "p-rb2": 50.0}},
+            {"matchup_id": 1, "roster_id": 2, "points": 80.0,
+             "starters": ["p-qb2"],
+             "players": ["p-qb2"],
+             "players_points": {"p-qb2": 25.0}},
+        ]
+        brief = mn.build_brief(
+            snap, season="2025", week=17, matchup_id=1, mode="recap",
+        )
+        self.assertIsNotNone(brief)
+        self.assertTrue(brief.best_ball)
+        self.assertIsNone(brief.home["biggestBenchMiss"])
+        self.assertEqual(brief.home["topBench"], [])
+
+
 # ── Fake Anthropic client for generate_article happy-path ──────────────
 
 

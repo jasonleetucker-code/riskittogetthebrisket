@@ -55,8 +55,7 @@ import RosPowerSection from "./sections/ros-power.jsx";
 import RosChampionshipSection from "./sections/ros-championship.jsx";
 import RosTradeDeadlineSection from "./sections/ros-trade-deadline.jsx";
 import { useSettings } from "@/components/useSettings";
-import MatchupPreviewSection from "./sections/matchup-preview.jsx";
-import WeeklyRecapSection from "./sections/weekly-recap.jsx";
+import ArticlesSection from "./sections/articles.jsx";
 import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
 // Tab order + labels for the /league section nav.
@@ -65,14 +64,18 @@ import TeamAssignmentSection from "./sections/team-assignment.jsx";
 const SUB_TABS = [
   { key: "draft-capital", label: "Draft Capital" },
   { key: "overview", label: "Home" },
-  { key: "matchupPreview", label: "This Week" },
+  // The two AI-article tabs replace the older "This Week" structured
+  // preview tab and the structured "Recaps" tab. The articles surface
+  // the same H2H + form data inline (the brief is built from it), so
+  // the structured-data tabs are redundant once articles are wired in.
+  { key: "previews", label: "Previews" },
+  { key: "recaps", label: "Recaps" },
   { key: "power", label: "Power" },
   { key: "rosTeamStrength", label: "ROS Strength" },
   { key: "rosChampionship", label: "Championship" },
   { key: "rosTradeDeadline", label: "Trade Deadline" },
   { key: "luck", label: "Luck" },
   { key: "streaks", label: "Streaks" },
-  { key: "weeklyRecap", label: "Recaps" },
   { key: "history", label: "History" },
   { key: "rivalries", label: "Rivalries" },
   { key: "awards", label: "Awards" },
@@ -89,6 +92,25 @@ const SUB_TABS = [
 const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
 const DEFAULT_TAB = "draft-capital";
 
+// Old → new tab-key aliases. Two reasons to keep these forever:
+//   1. External deep links (sitemap.js, /league/week/<season>/<week>
+//      back-links, anyone's bookmarks) still use the legacy
+//      ``matchupPreview`` / ``weeklyRecap`` query values. Without the
+//      alias they fall through to DEFAULT_TAB on landing.
+//   2. Internal CTAs (overview.jsx → onNavigate("matchupPreview"))
+//      route through the same setActiveTab path, so aliasing in one
+//      place fixes both classes of caller.
+// Cheap to keep, never removed.
+const TAB_ALIASES = {
+  matchupPreview: "previews",
+  weeklyRecap: "recaps",
+};
+
+function normalizeTabKey(key) {
+  if (!key) return key;
+  return TAB_ALIASES[key] || key;
+}
+
 export default function LeagueClient({ initialContract = null, initialTab = DEFAULT_TAB }) {
   return (
     <Suspense fallback={<LoadingState message="Loading league data..." />}>
@@ -100,7 +122,10 @@ export default function LeagueClient({ initialContract = null, initialTab = DEFA
 function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlTab = searchParams.get("tab");
+  // Apply the tab-key alias on read so legacy ``?tab=matchupPreview``
+  // and ``?tab=weeklyRecap`` URLs land on the new Previews/Recaps
+  // tabs instead of falling through to the default.
+  const urlTab = normalizeTabKey(searchParams.get("tab"));
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
   // Read the ROS feature flags so the Power tab can swap to v2 when
@@ -128,14 +153,18 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   }, [urlTab, activeTab]);
 
   const setActiveTab = useCallback((key, extraParams = {}) => {
-    setActiveTabState(key);
+    // Normalize on write so internal CTAs that still pass legacy
+    // keys (overview.jsx → onNavigate("matchupPreview")) route to
+    // the renamed tabs instead of into a blank-content state.
+    const normalized = normalizeTabKey(key);
+    setActiveTabState(normalized);
     const params = new URLSearchParams(searchParams.toString());
     // Omit ``?tab=`` from the URL when on the default tab for a
     // cleaner shareable link.
-    if (key === DEFAULT_TAB) {
+    if (normalized === DEFAULT_TAB) {
       params.delete("tab");
     } else {
-      params.set("tab", key);
+      params.set("tab", normalized);
     }
     for (const [k, v] of Object.entries(extraParams)) {
       if (v === null || v === undefined || v === "") {
@@ -321,19 +350,8 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}
-      {activeTab === "matchupPreview" && (
-        <MatchupPreviewSection
-          data={sections.matchupPreview}
-          managers={managers}
-          onNavigate={setActiveTab}
-        />
-      )}
-      {activeTab === "weeklyRecap" && (
-        <WeeklyRecapSection
-          data={sections.weeklyRecap}
-          managers={managers}
-        />
-      )}
+      {activeTab === "previews" && <ArticlesSection mode="preview" />}
+      {activeTab === "recaps" && <ArticlesSection mode="recap" />}
       {activeTab === "teamAssignment" && (
         <TeamAssignmentSection
           data={sections.teamAssignment}

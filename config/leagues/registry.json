@@ -8,6 +8,7 @@
       "sleeperLeagueId": "1312006700437352448",
       "scoringProfile": "superflex_tep15_ppr1",
       "idpEnabled": true,
+      "bestBall": true,
       "active": true,
       "aliases": ["main", "idp", "primary"],
       "rosterSettings": {
