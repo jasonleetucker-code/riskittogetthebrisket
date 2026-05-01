@@ -487,6 +487,7 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
             "seasonsRequested": seasons_requested,
             "seasonsAvailable": avail["available"],
             "seasonsUnavailable": avail["unavailable"],
+            "seasonsSources": avail.get("sources") or {},
             "sampleSizes": sample_sizes,
             "computeMs": int((time.time() - t_start) * 1000),
             "cacheHit": False,

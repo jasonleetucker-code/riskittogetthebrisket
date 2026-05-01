@@ -21,11 +21,23 @@ export default function Methodology({ data }) {
       <p className="text-sm" style={{ lineHeight: 1.6 }}>
         For each league, we fetch its actual <code>scoring_settings</code>
         directly from Sleeper, then apply those settings to historical NFL
-        weekly stats from nflverse to compute fantasy points <em>under that
-        league's own rules</em>.  We then sample the top performers per
-        position, summarize the distribution, and compare the two leagues
-        to see whether your custom scoring keeps positional value reasonably
+        weekly stats to compute fantasy points <em>under that league's own
+        rules</em>.  We then sample the top performers per position,
+        summarize the distribution, and compare the two leagues to see
+        whether your custom scoring keeps positional value reasonably
         aligned with a standard baseline.
+      </p>
+
+      <h3 style={{ marginTop: "var(--space-md)" }}>Data sources</h3>
+      <p className="text-sm" style={{ lineHeight: 1.6 }}>
+        Weekly NFL stats are pulled from nflverse where available, with
+        an automatic fallback to the Sleeper stats API for any season
+        nflverse hasn't yet published (typically the most-recent season).
+        Sleeper field names are translated to the nflverse schema so the
+        same scoring engine handles both — every category modeled
+        upstream is honored regardless of which source fed the row.
+        The <em>Seasons included</em> tag at the top shows which source
+        produced each season's data.
       </p>
 
       <h3 style={{ marginTop: "var(--space-md)" }}>Sample sizes</h3>
@@ -116,7 +128,7 @@ export default function Methodology({ data }) {
         <li>Compares fantasy <em>points</em> only — not usage, opportunity, or roster construction.</li>
         <li>Kickers and team defenses are excluded — out of scope for positional balance.</li>
         <li>Sleeper scoring keys not modeled by the engine (rare custom bonuses) are zeroed; these are listed in the warnings panel above when present and non-zero.</li>
-        <li>2025 season availability depends on nflverse publishing — the page degrades gracefully when a season is missing.</li>
+        <li>The most-recent season may use Sleeper as the data source until nflverse publishes — both sources feed the same scoring engine, so results are directly comparable.</li>
         <li>Recommendations are heuristic culprit-hints, not prescriptive — they never auto-modify scoring settings.</li>
       </ul>
     </div>
