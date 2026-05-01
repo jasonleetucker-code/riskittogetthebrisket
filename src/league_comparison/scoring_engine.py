@@ -30,6 +30,53 @@ _IDP_POSITIONS = frozenset({"DL", "LB", "DB"})
 _TRACKED_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS
 
 
+# ── Blended score (volume + pace) ─────────────────────────────────────
+#
+# Every player's season is reduced to one number that mixes total
+# fantasy points (volume — what they actually scored) with their
+# per-game pace extrapolated to a 17-week season (pace — what they'd
+# have done at full availability).  The blend rewards a player who
+# missed a few weeks at an elite pace without erasing the volume signal
+# that a workhorse 17-game starter brings.
+#
+# Formula: ``0.5 * total + 0.5 * (ppg * 17)`` when games_played >=
+# ``MIN_GAMES_FOR_PPG``; otherwise total only.  The min-games gate
+# prevents a 1-game outlier from dominating PPG.
+#
+# At games_played == 17 the two halves agree exactly: ppg*17 == total,
+# so blended == total.  Tests that construct full-season fixtures
+# don't need to know about the blend — they get back the same numbers.
+
+#: Minimum games required for the PPG component to count.  Below this
+#: the blended score equals total points, so a 2-game elite outlier
+#: doesn't get extrapolated to a full-season equivalent.
+MIN_GAMES_FOR_PPG: int = 8
+
+#: Number of weeks we extrapolate per-game pace across.  Matches the
+#: regular-season window from :mod:`historical_stats`.
+FULL_SEASON_WEEKS: int = 17
+
+#: Weight on total points vs ppg-extrapolated.  0.5/0.5 keeps both
+#: signals equally important; tweaking this is a simple knob if the
+#: balance ever needs to lean one way.
+_TOTAL_WEIGHT: float = 0.5
+_PACE_WEIGHT: float = 0.5
+
+
+def compute_blended_score(total_points: float, games_played: int) -> float:
+    """Mix total fantasy points and per-game pace into one number.
+
+    See module docstring for the rationale.  Pure function — exposed at
+    module scope so tests can pin the formula independent of any
+    PlayerSeasonScore instance.
+    """
+    if games_played >= MIN_GAMES_FOR_PPG and games_played > 0:
+        ppg = float(total_points) / float(games_played)
+        extrapolated = ppg * FULL_SEASON_WEEKS
+        return _TOTAL_WEIGHT * float(total_points) + _PACE_WEIGHT * extrapolated
+    return float(total_points)
+
+
 @dataclass(frozen=True)
 class PlayerSeasonScore:
     player_id: str
@@ -39,6 +86,18 @@ class PlayerSeasonScore:
     season: int
     total_points: float
     games_played: int
+
+    @property
+    def blended_score(self) -> float:
+        """The volume+pace composite used for ranking and metrics."""
+        return compute_blended_score(self.total_points, self.games_played)
+
+    @property
+    def points_per_game(self) -> float:
+        """Per-game pace; 0.0 if no games (avoids div-by-zero)."""
+        if not self.games_played:
+            return 0.0
+        return float(self.total_points) / float(self.games_played)
 
 
 def _canonical_position(raw_pos: str | None) -> str | None:

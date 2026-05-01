@@ -309,14 +309,18 @@ function SeasonSide({ title, data, accent }) {
       {top.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div className="muted text-xs" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
-            Top players (this league's scoring)
+            Top players — blended score (volume + pace)
           </div>
           <ol className="text-xs" style={{ marginTop: 4, paddingLeft: 20, lineHeight: 1.7 }}>
             {top.map((p) => (
               <li key={p.playerId}>
                 <strong>{p.name}</strong>{" "}
                 <span className="muted">({p.position})</span>{" "}
-                <span style={{ fontFamily: "var(--mono)" }}>{fmt(p.totalPoints)} pts</span>
+                <span style={{ fontFamily: "var(--mono)" }}>{fmt(p.blendedScore)}</span>
+                <span className="muted" style={{ marginLeft: 6 }}>
+                  · {fmt(p.totalPoints)} pts in {p.gamesPlayed} g{" "}
+                  ({fmt(p.pointsPerGame)} ppg)
+                </span>
               </li>
             ))}
           </ol>

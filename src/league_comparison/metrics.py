@@ -45,30 +45,36 @@ IMPROVED_WEIGHT_REPL_ADJ: float = 0.10
 
 
 # ── Sampling ──────────────────────────────────────────────────────────
+#
+# Ranking is by ``blended_score`` (the volume+pace composite from
+# :func:`src.league_comparison.scoring_engine.compute_blended_score`),
+# not raw ``total_points``.  Players who missed weeks at an elite pace
+# get partial credit; full-season starters score the same as before
+# (blended == total when games_played == 17).
 
 def top_n_by_position(
     scores: Iterable[PlayerSeasonScore], position: str, n: int,
 ) -> list[PlayerSeasonScore]:
-    """Return the top-N season scores for ``position``, sorted DESC.
+    """Return the top-N season scores for ``position``, sorted DESC by
+    blended score.
 
-    Ties on ``total_points`` are broken by ``player_id`` for stable
-    output across runs (so tests pin reliably).
+    Ties are broken by ``player_id`` for stable output across runs
+    (so tests pin reliably).
     """
     pool = [s for s in scores if s.position == position]
-    pool.sort(key=lambda s: (-s.total_points, s.player_id))
+    pool.sort(key=lambda s: (-s.blended_score, s.player_id))
     return pool[: max(0, int(n))]
 
 
 def flex_top_n(
     scores: Iterable[PlayerSeasonScore], n: int = 96,
 ) -> list[PlayerSeasonScore]:
-    """Top-N RB/WR/TE pool, QB excluded.
+    """Top-N RB/WR/TE pool, QB excluded, ranked by blended score.
 
-    Used for the offensive flex comparison.  Same tie-break as
-    :func:`top_n_by_position`.
+    Same tie-break and ranking signal as :func:`top_n_by_position`.
     """
     pool = [s for s in scores if s.position in FLEX_POSITIONS]
-    pool.sort(key=lambda s: (-s.total_points, s.player_id))
+    pool.sort(key=lambda s: (-s.blended_score, s.player_id))
     return pool[: max(0, int(n))]
 
 
@@ -130,12 +136,15 @@ def _percentile(sorted_desc: Sequence[float], pct: float) -> float:
 def position_metrics(samples: Sequence[PlayerSeasonScore]) -> PositionMetrics:
     """Compute the per-position summary stats for a top-N sample.
 
-    Empty samples return zeroed metrics with ``sample_size=0`` rather
-    than raising — the orchestrator surfaces that via warnings instead.
+    Operates on each player's ``blended_score`` (volume+pace composite)
+    so a position whose elite tier missed games-but-played-fast is
+    fairly represented.  Empty samples return zeroed metrics with
+    ``sample_size=0`` rather than raising — the orchestrator surfaces
+    that via warnings instead.
     """
     if not samples:
         return _EMPTY_METRICS
-    pts = [float(s.total_points) for s in samples]
+    pts = [float(s.blended_score) for s in samples]
     pts_desc = sorted(pts, reverse=True)
     avg = mean(pts)
     med = float(median(pts))

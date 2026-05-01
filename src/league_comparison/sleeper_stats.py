@@ -43,10 +43,12 @@ _HTTP_TIMEOUT = 15.0
 _PLAYER_INDEX_TTL = 7 * 24 * 3600   # 7 days
 _WEEKLY_STATS_TTL = 7 * 24 * 3600   # 7 days
 
-# Modern NFL regular season is 18 weeks (since 2021).  We fetch each
-# week independently so a single 404 (e.g. a future week of an
-# in-progress season) doesn't kill the whole pull.
-_REGULAR_WEEK_RANGE = range(1, 19)
+# League-comparison samples weeks 1-17 only.  Modern NFL regular
+# seasons run 18 weeks (since 2021), but week 18 is starter-rest
+# territory for most playoff-bound teams; trimming it makes the
+# multi-year sample more apples-to-apples and shaves one HTTP fetch
+# per season.
+_REGULAR_WEEK_RANGE = range(1, 18)
 
 # Sleeper short stat key → nflverse long key.  Mirrors the inverse of
 # ``src.nfl_data.realized_points._SIMPLE_KEYS`` plus IDP and 2-pt keys

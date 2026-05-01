@@ -49,6 +49,46 @@ export default function Methodology({ data }) {
         <li>Top {samples.FLEX || 96} offensive flex (RB ∪ WR ∪ TE, QBs excluded)</li>
       </ul>
 
+      <h3 style={{ marginTop: "var(--space-md)" }}>Week range</h3>
+      <p className="text-sm" style={{ lineHeight: 1.6 }}>
+        Each season uses regular-season <strong>weeks 1–17 only</strong>.
+        Week 18 is dropped because most playoff-bound teams rest starters,
+        which would distort top-of-the-board scoring.  Postseason rows are
+        also excluded — they're already filtered out by the same gate.
+      </p>
+
+      <h3 style={{ marginTop: "var(--space-md)" }}>Player ranking — blended score</h3>
+      <p className="text-sm" style={{ lineHeight: 1.6 }}>
+        Every player's season is reduced to a single <strong>blended
+        score</strong> that mixes total fantasy points (volume — what they
+        actually scored) with their per-game pace extrapolated to a full
+        17-week season (pace — what they'd have scored at full
+        availability).  This rewards a player who missed weeks at an
+        elite pace without erasing the volume signal a workhorse 17-game
+        starter brings.
+      </p>
+      <ul className="text-sm" style={{ paddingLeft: 20, lineHeight: 1.6 }}>
+        <li>
+          Formula: <code>0.5 × total_points + 0.5 × (ppg × 17)</code>
+          when <em>games_played ≥ 8</em>; otherwise just total points.
+        </li>
+        <li>
+          The 8-game minimum prevents a tiny-sample outlier (e.g. one
+          30-point week) from inflating PPG.  Below 8 games, the player
+          is ranked on volume alone.
+        </li>
+        <li>
+          A 17-game starter has ppg×17 == total, so blended == total.
+          Players who missed weeks slot between their actual total and
+          their full-season-equivalent total.
+        </li>
+      </ul>
+      <p className="text-sm" style={{ lineHeight: 1.6 }}>
+        Top-N samples and all per-position metrics (average, median, P25,
+        P75, replacement, elite, replacement-adj) are computed from
+        blended scores, not raw totals.
+      </p>
+
       <h3 style={{ marginTop: "var(--space-md)" }}>Seasons</h3>
       <p className="text-sm" style={{ lineHeight: 1.6 }}>
         Requested: <strong>{seasonsReq}</strong>. Available: <strong>{seasonsAvail}</strong>.
