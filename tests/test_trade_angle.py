@@ -149,6 +149,66 @@ def test_limit_caps_results():
     assert len(result["candidates"]) == 5
 
 
+def test_target_team_filter_restricts_candidates_to_one_team():
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("Trade Target Good", 6000, 5000),    # Team B
+        _player("Trade Target Gold", 7500, 4800),    # Team C — even better arb
+    ]
+    result = find_angles(
+        players,
+        "Jayden Daniels",
+        "owner-a",
+        _teams(),
+        target_team_owner_id="owner-b",
+    )
+    owners = {c["owner_id"] for c in result["candidates"]}
+    assert owners == {"owner-b"}
+    names = [c["name"] for c in result["candidates"]]
+    assert "Trade Target Good" in names
+    # Team C player should be excluded even though its arb is higher.
+    assert "Trade Target Gold" not in names
+    # Filter is echoed back in thresholds.
+    assert result["thresholds"]["target_team_owner_id"] == "owner-b"
+
+
+def test_target_team_filter_with_unknown_owner_returns_empty():
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("Trade Target Good", 6000, 5000),
+        _player("Trade Target Gold", 7500, 4800),
+    ]
+    result = find_angles(
+        players,
+        "Jayden Daniels",
+        "owner-a",
+        _teams(),
+        target_team_owner_id="owner-does-not-exist",
+    )
+    assert result["candidates"] == []
+    # Selected player still resolves; the filter just excludes everyone.
+    assert result["selected"]["name"] == "Jayden Daniels"
+
+
+def test_target_team_filter_does_not_return_free_agents():
+    # A player who exists in players_array but isn't on any sleeper team.
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("Trade Target Good", 6000, 5000),       # Team B
+        _player("Free Agent Stud", 7500, 5000),         # not rostered anywhere
+    ]
+    result = find_angles(
+        players,
+        "Jayden Daniels",
+        "owner-a",
+        _teams(),
+        target_team_owner_id="owner-b",
+    )
+    names = [c["name"] for c in result["candidates"]]
+    assert "Trade Target Good" in names
+    assert "Free Agent Stud" not in names
+
+
 # ─── find_angle_packages ─────────────────────────────────────────────
 
 

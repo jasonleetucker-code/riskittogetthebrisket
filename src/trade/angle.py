@@ -141,6 +141,7 @@ def find_angles(
     min_my_gain_pct: float = 5.0,
     max_market_gain_pct: float = 5.0,
     limit: int = 50,
+    target_team_owner_id: str | None = None,
 ) -> dict[str, Any]:
     """Find trade-target candidates that lean in the user's favour.
 
@@ -232,6 +233,11 @@ def find_angles(
             and str(owner_team.get("ownerId") or "") == selected_team_owner_id
         ):
             continue
+        if target_team_owner_id:
+            if owner_team is None:
+                continue
+            if str(owner_team.get("ownerId") or "") != target_team_owner_id:
+                continue
         target_pair = _value_pair(target_row)
         if target_pair is None:
             continue
@@ -281,6 +287,7 @@ def find_angles(
             "min_my_gain_pct": min_my_gain_pct,
             "max_market_gain_pct": max_market_gain_pct,
             "limit": limit,
+            "target_team_owner_id": target_team_owner_id or "",
         },
         "warnings": warnings,
     }
