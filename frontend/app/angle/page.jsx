@@ -5,13 +5,12 @@ import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
 
 // ── Trade Finder ─────────────────────────────────────────────────────
-// Simplified single-player flow: pick a player on your roster, pick a
-// target opposing team, get back ranked return-side recommendations
-// from that team's roster where the trade wins on your league's
-// calibrated rankings (≥5%) but still looks fair-or-better on the
-// market the counterparty consults (≤5%). Market is per-position:
-// IDP Trade Calculator for DL/LB/DB, KTC for everyone else — the
-// backend handles routing automatically.
+// Pick one or more players on your roster, optionally pick a target
+// team, get back ranked counter-packages where the trade wins on your
+// league's calibrated rankings (default ≥5%) but still looks fair-or-
+// better on the market the counterparty consults (default ≤5%). Market
+// is per-position: IDP Trade Calculator for DL/LB/DB, KTC for everyone
+// else — backend handles routing automatically.
 
 const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
 
@@ -44,9 +43,8 @@ export default function AnglePage() {
     );
   }, [rawData]);
 
-  // Quick lookup by canonical name → my-value, market-value, position.
-  // Mirrors the source the backend reads via _value_pair, so sort keys
-  // and labels match what the server returns.
+  // canonicalName → my-value, market-value, position. Mirrors the
+  // source the backend reads via _value_pair so labels and order match.
   const valueByName = useMemo(() => {
     const m = new Map();
     for (const r of rows || []) {
@@ -70,19 +68,21 @@ export default function AnglePage() {
   }, [rows]);
 
   const [ownerId, setOwnerId] = useState("");
-  const [playerName, setPlayerName] = useState("");
+  const [playerNames, setPlayerNames] = useState(() => new Set());
   const [playerSearch, setPlayerSearch] = useState("");
-  const [targetOwnerId, setTargetOwnerId] = useState("");
+  const [targetOwnerId, setTargetOwnerId] = useState(""); // "" → any team
+  const [minMyGainPct, setMinMyGainPct] = useState(5);
+  const [maxMarketGainPct, setMaxMarketGainPct] = useState(5);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  // Default to the user's active team. Falls back to first team if
-  // useTeam hasn't resolved yet (e.g. multi-league context still
-  // booting).
   useEffect(() => {
     if (ownerId) return;
-    if (activeOwnerId && teams.some((t) => String(t.ownerId) === String(activeOwnerId))) {
+    if (
+      activeOwnerId &&
+      teams.some((t) => String(t.ownerId) === String(activeOwnerId))
+    ) {
       setOwnerId(String(activeOwnerId));
     } else if (teams.length > 0) {
       setOwnerId(String(teams[0].ownerId || ""));
@@ -99,10 +99,8 @@ export default function AnglePage() {
     [teams, ownerId],
   );
 
-  // Filter + sort the user's roster by the search input. Sorted by
-  // my-value desc with alphabetical tie-break — high-value players
-  // surface first when the search is empty, matching how the user
-  // typically thinks ("who do I trade away?").
+  // Filter + sort the user's roster by the search input — high my-value
+  // first, alpha tie-break.
   const roster = useMemo(() => {
     if (!myTeam) return [];
     const q = playerSearch.trim().toLowerCase();
@@ -116,12 +114,37 @@ export default function AnglePage() {
       });
   }, [myTeam, playerSearch, valueByName]);
 
-  // Reset selection + results when the user changes any input. Stale
-  // results from a different player/team would mislead.
+  // Wipe selected players + stale results when the user switches teams
+  // — an offer from the old team is incoherent with the new roster.
   useEffect(() => {
+    setPlayerNames(new Set());
     setResult(null);
     setErr(null);
-  }, [ownerId, playerName, targetOwnerId]);
+  }, [ownerId]);
+
+  function togglePlayer(name) {
+    setPlayerNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  const playerNameList = useMemo(() => Array.from(playerNames), [playerNames]);
+
+  const offerTotals = useMemo(() => {
+    let my = 0;
+    let market = 0;
+    for (const name of playerNameList) {
+      const info = valueByName.get(name);
+      if (info) {
+        my += info.my_value || 0;
+        market += info.market_value || 0;
+      }
+    }
+    return { my, market };
+  }, [playerNameList, valueByName]);
 
   const targetTeam = useMemo(
     () => teams.find((t) => String(t.ownerId || "") === String(targetOwnerId)),
@@ -133,24 +156,23 @@ export default function AnglePage() {
       setErr("Pick your team.");
       return;
     }
-    if (!playerName) {
-      setErr("Pick a player on your roster to send.");
-      return;
-    }
-    if (!targetOwnerId) {
-      setErr("Pick a target team to trade with.");
+    if (playerNameList.length === 0) {
+      setErr("Pick at least one player on your roster to send.");
       return;
     }
     setLoading(true);
     setErr(null);
     try {
       const body = {
+        mode: "offer",
         ownerId,
-        playerName,
-        targetTeamOwnerId: targetOwnerId,
+        playerNames: playerNameList,
+        minMyGainPct: Number(minMyGainPct),
+        maxMarketGainPct: Number(maxMarketGainPct),
       };
+      if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
-      const res = await fetch("/api/angle/find", {
+      const res = await fetch("/api/angle/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
@@ -192,8 +214,8 @@ export default function AnglePage() {
     );
   }
 
-  const canSubmit = !!ownerId && !!playerName && !!targetOwnerId && !loading;
-  const selected = result?.selected || null;
+  const canSubmit = !!ownerId && playerNameList.length > 0 && !loading;
+  const offer = result?.offer || null;
   const candidates = result?.candidates || [];
   const warnings = result?.warnings || [];
 
@@ -203,9 +225,10 @@ export default function AnglePage() {
         <div>
           <h1 className="page-title">Trade Finder</h1>
           <p className="page-subtitle muted" style={{ marginTop: 4 }}>
-            Pick a player on your roster and a team to trade with — get
-            back ranked return options where your league&apos;s board says
-            you win and the market still looks fair to the other side.
+            Pick one or more players from your roster — optionally pick a
+            team to focus on — and get back ranked return packages where
+            your league&apos;s board says you win and the market still
+            looks fair to the other side.
           </p>
         </div>
       </div>
@@ -213,21 +236,17 @@ export default function AnglePage() {
       <section className="card">
         <div
           style={{
-            display: "flex",
-            flexWrap: "wrap",
+            display: "grid",
+            gridTemplateColumns: "minmax(180px, 1fr) minmax(280px, 2fr) minmax(220px, 1fr)",
             gap: 16,
-            alignItems: "flex-end",
+            alignItems: "flex-start",
           }}
         >
-          <label className="angle-field" style={{ minWidth: 180 }}>
+          <label className="angle-field">
             <span className="muted">Your team</span>
             <select
               value={ownerId}
-              onChange={(e) => {
-                setOwnerId(e.target.value);
-                setPlayerName("");
-                setPlayerSearch("");
-              }}
+              onChange={(e) => setOwnerId(e.target.value)}
               disabled={loading || teams.length === 0}
             >
               {teams.length === 0 ? (
@@ -242,8 +261,13 @@ export default function AnglePage() {
             </select>
           </label>
 
-          <label className="angle-field" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <span className="muted">Your player to send</span>
+          <div className="angle-field">
+            <span className="muted">
+              Your players to send{" "}
+              <span style={{ fontWeight: 400 }}>
+                ({playerNameList.length} selected)
+              </span>
+            </span>
             <input
               type="search"
               placeholder="Search your roster…"
@@ -252,48 +276,154 @@ export default function AnglePage() {
               disabled={loading || !myTeam}
               style={{ marginBottom: 6 }}
             />
-            <select
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              disabled={loading || !myTeam || roster.length === 0}
-              size={Math.min(8, Math.max(4, roster.length))}
-              style={{ height: "auto" }}
+            <div
+              style={{
+                maxHeight: 220,
+                overflowY: "auto",
+                border: "1px solid var(--border, #2a2a3a)",
+                borderRadius: 6,
+                padding: "4px 6px",
+                background: "var(--surface-2, transparent)",
+              }}
             >
               {roster.length === 0 ? (
-                <option value="">No players on this roster</option>
+                <div className="muted" style={{ padding: 8, fontSize: "0.85rem" }}>
+                  {myTeam ? "No matches" : "No players on this roster"}
+                </div>
               ) : (
                 roster.map((name) => {
                   const info = valueByName.get(name);
-                  const pos = info?.position || "—";
-                  const my = info?.my_value
-                    ? `  •  ${fmtValue(info.my_value)}`
-                    : "";
+                  const checked = playerNames.has(name);
                   return (
-                    <option key={name} value={name}>
-                      {`${name}  •  ${pos}${my}`}
-                    </option>
+                    <label
+                      key={name}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 4px",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        borderRadius: 4,
+                        background: checked
+                          ? "rgba(95, 199, 255, 0.08)"
+                          : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePlayer(name)}
+                        disabled={loading}
+                      />
+                      <span style={{ flex: 1 }}>
+                        {name}
+                        <span
+                          className="muted"
+                          style={{ marginLeft: 6, fontSize: "0.78rem" }}
+                        >
+                          {info?.position || "—"}
+                        </span>
+                      </span>
+                      {info?.my_value ? (
+                        <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {fmtValue(info.my_value)}
+                        </span>
+                      ) : null}
+                    </label>
                   );
                 })
               )}
-            </select>
-          </label>
+            </div>
+            {playerNameList.length > 1 && offerTotals.my > 0 && (
+              <div
+                className="muted"
+                style={{ marginTop: 4, fontSize: "0.78rem" }}
+              >
+                Offer total: {fmtValue(offerTotals.my)} my ·{" "}
+                {fmtValue(offerTotals.market)} market
+              </div>
+            )}
+          </div>
 
-          <label className="angle-field" style={{ minWidth: 220 }}>
+          <label className="angle-field">
             <span className="muted">Trade with</span>
             <select
               value={targetOwnerId}
               onChange={(e) => setTargetOwnerId(e.target.value)}
               disabled={loading || opposingTeams.length === 0}
             >
-              <option value="">— pick a team —</option>
+              <option value="">Any team</option>
               {opposingTeams.map((t) => (
                 <option key={t.ownerId} value={String(t.ownerId || "")}>
                   {t.name}
                 </option>
               ))}
             </select>
+            <details style={{ marginTop: 12 }}>
+              <summary
+                className="muted"
+                style={{ cursor: "pointer", fontSize: "0.82rem" }}
+              >
+                Advanced options
+              </summary>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  marginTop: 8,
+                  fontSize: "0.85rem",
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <span className="muted" style={{ fontSize: "0.78rem" }}>
+                    Min my-value gain %{" "}
+                    <span style={{ fontStyle: "italic" }}>
+                      (counter beats offer by ≥)
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={minMyGainPct}
+                    onChange={(e) => setMinMyGainPct(e.target.value)}
+                    disabled={loading}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <span className="muted" style={{ fontSize: "0.78rem" }}>
+                    Max market gap %{" "}
+                    <span style={{ fontStyle: "italic" }}>
+                      (KTC for offense, IDPTC for IDP)
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    value={maxMarketGainPct}
+                    onChange={(e) => setMaxMarketGainPct(e.target.value)}
+                    disabled={loading}
+                  />
+                </label>
+              </div>
+            </details>
           </label>
+        </div>
 
+        <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center" }}>
           <button
             type="button"
             className="button button-primary"
@@ -301,8 +431,20 @@ export default function AnglePage() {
             disabled={!canSubmit}
             style={{ minHeight: 42 }}
           >
-            {loading ? "Searching…" : "Find return options"}
+            {loading
+              ? "Searching…"
+              : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`}
           </button>
+          {playerNameList.length > 0 && !loading && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => setPlayerNames(new Set())}
+              style={{ minHeight: 42 }}
+            >
+              Clear selection
+            </button>
+          )}
         </div>
         {err && (
           <p className="err-text" style={{ marginTop: 12 }}>
@@ -324,7 +466,7 @@ export default function AnglePage() {
         </section>
       )}
 
-      {selected && (
+      {offer && (
         <section className="card">
           <div
             style={{
@@ -335,52 +477,48 @@ export default function AnglePage() {
               justifyContent: "space-between",
             }}
           >
-            <div>
+            <div style={{ flex: 1, minWidth: 220 }}>
               <div className="muted" style={{ fontSize: "0.75rem" }}>
                 You send
               </div>
-              <div
+              <ul
                 style={{
-                  fontSize: "1.15rem",
-                  fontWeight: 600,
-                  marginTop: 2,
+                  margin: "4px 0 0",
+                  paddingLeft: 18,
+                  fontSize: "0.95rem",
                 }}
               >
-                {selected.name}
-                {selected.position && (
-                  <span
-                    className="muted"
-                    style={{ marginLeft: 8, fontWeight: 400, fontSize: "0.85rem" }}
-                  >
-                    {selected.position}
-                  </span>
-                )}
-                {selected.team && (
-                  <span
-                    className="muted"
-                    style={{ marginLeft: 8, fontWeight: 400, fontSize: "0.85rem" }}
-                  >
-                    · {selected.team}
-                  </span>
-                )}
-              </div>
+                {(offer.players || []).map((p) => (
+                  <li key={p.name}>
+                    <strong>{p.name}</strong>{" "}
+                    <span className="muted" style={{ fontSize: "0.78rem" }}>
+                      {p.position}
+                    </span>{" "}
+                    <span style={{ fontSize: "0.82rem" }}>
+                      — {fmtValue(p.my_value)} my ·{" "}
+                      {fmtValue(p.market_value)}{" "}
+                      {marketLabelForSource(p.market_source)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            {selected.market_value != null && (
+            {(offer.my_total || offer.market_total) && (
               <div style={{ display: "flex", gap: 18, fontSize: "0.9rem" }}>
                 <div>
                   <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    My value
+                    My total
                   </div>
                   <div style={{ fontWeight: 600 }}>
-                    {fmtValue(selected.my_value)}
+                    {fmtValue(offer.my_total)}
                   </div>
                 </div>
                 <div>
                   <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    {marketLabelForSource(selected.market_source)}
+                    Market total
                   </div>
                   <div style={{ fontWeight: 600 }}>
-                    {fmtValue(selected.market_value)}
+                    {fmtValue(offer.market_total)}
                   </div>
                 </div>
               </div>
@@ -393,84 +531,94 @@ export default function AnglePage() {
         <section className="card">
           <div style={{ marginBottom: 10 }}>
             <strong style={{ fontSize: "1rem" }}>
-              {targetTeam ? `Get back from ${targetTeam.name}` : "Recommended return"}
+              {targetTeam
+                ? `Return options from ${targetTeam.name}`
+                : "Return options from any team"}
             </strong>
-            <div
-              className="muted"
-              style={{ fontSize: "0.78rem", marginTop: 2 }}
-            >
-              Sorted by best edge for you. Each row clears +5% on your
-              board and stays within ±5% on the market the counterparty
+            <div className="muted" style={{ fontSize: "0.78rem", marginTop: 2 }}>
+              Sorted by best edge. Each package clears +
+              {Number(minMyGainPct)}% on your board and stays within ±
+              {Number(maxMarketGainPct)}% on the market the other side
               consults.
             </div>
           </div>
 
           {candidates.length === 0 ? (
             <p className="muted" style={{ margin: 0 }}>
-              {selected
-                ? `No returns from ${targetTeam?.name || "that team"} where ${selected.name} clears the +5% / ±5% bar. Try a different player or target team.`
-                : "No candidates returned."}
+              No return packages clear the +{Number(minMyGainPct)}% / ±
+              {Number(maxMarketGainPct)}% bar with this offer
+              {targetTeam ? ` against ${targetTeam.name}` : ""}. Try a
+              different selection, loosen the percentages under
+              Advanced, or remove the team filter.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {candidates.map((c) => (
+            <div style={{ display: "grid", gap: 10 }}>
+              {candidates.map((c, idx) => (
                 <div
-                  key={`${c.name}-${c.owner_id}`}
+                  key={`${c.owner_id}-${idx}-${(c.players || []).map((p) => p.name).join("|")}`}
                   style={{
                     display: "grid",
-                    gridTemplateColumns:
-                      "minmax(180px, 2fr) auto auto auto auto",
+                    gridTemplateColumns: "1fr auto",
                     gap: 16,
                     alignItems: "center",
-                    padding: "8px 10px",
+                    padding: "10px 12px",
                     border: "1px solid var(--border, #2a2a3a)",
                     borderRadius: 6,
                     background: "var(--surface, transparent)",
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600 }}>{c.name}</div>
                     <div
                       className="muted"
-                      style={{ fontSize: "0.72rem", marginTop: 2 }}
+                      style={{ fontSize: "0.7rem", marginBottom: 2 }}
                     >
-                      {c.position}
-                      {c.team ? ` · ${c.team}` : ""}
+                      From {c.team || "(unknown)"} · {c.size}{" "}
+                      {c.size === 1 ? "player" : "players"}
                     </div>
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: "0.85rem" }}>
-                    <div className="muted" style={{ fontSize: "0.65rem" }}>
-                      My
-                    </div>
-                    <div style={{ fontWeight: 600 }}>{fmtValue(c.my_value)}</div>
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: "0.85rem" }}>
-                    <div className="muted" style={{ fontSize: "0.65rem" }}>
-                      {marketLabelForSource(c.market_source)}
-                    </div>
-                    <div style={{ fontWeight: 600 }}>
-                      {fmtValue(c.market_value)}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      textAlign: "right",
-                      fontSize: "0.8rem",
-                      color: "var(--cyan, #5fc7ff)",
-                    }}
-                    title="My-value gain (your board)"
-                  >
-                    {fmtSignedPct(c.my_gain_pct)} mine
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {(c.players || []).map((p) => (
+                        <li key={p.name} style={{ fontSize: "0.92rem" }}>
+                          <strong>{p.name}</strong>{" "}
+                          <span
+                            className="muted"
+                            style={{ fontSize: "0.78rem" }}
+                          >
+                            {p.position}
+                          </span>{" "}
+                          <span style={{ fontSize: "0.8rem" }}>
+                            — {fmtValue(p.my_value)} my ·{" "}
+                            {fmtValue(p.market_value)}{" "}
+                            {marketLabelForSource(p.market_source)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                   <div
                     style={{
-                      textAlign: "right",
-                      fontSize: "0.8rem",
-                      color: "var(--green, #6ee07b)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 2,
+                      fontSize: "0.82rem",
+                      minWidth: 130,
                     }}
-                    title="Edge: my-value gain minus market gain"
                   >
-                    arb {fmtSignedPct(c.arb_score)}
+                    <div className="muted" style={{ fontSize: "0.7rem" }}>
+                      {fmtValue(c.my_total)} my · {fmtValue(c.market_total)}{" "}
+                      market
+                    </div>
+                    <div style={{ color: "var(--cyan, #5fc7ff)" }}>
+                      {fmtSignedPct(c.my_gain_pct)} mine
+                    </div>
+                    <div className="muted" style={{ fontSize: "0.78rem" }}>
+                      {fmtSignedPct(c.market_gain_pct)} market
+                    </div>
+                    <div
+                      style={{ color: "var(--green, #6ee07b)", fontWeight: 600 }}
+                    >
+                      arb {fmtSignedPct(c.arb_score)}
+                    </div>
                   </div>
                 </div>
               ))}
