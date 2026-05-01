@@ -3,9 +3,9 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Live, Laugh, Loveland",
-    "teamRosStrength": 458.13,
+    "teamRosStrength": 455.65,
     "startingLineupScore": 580.55,
-    "benchDepthScore": 167.4,
+    "benchDepthScore": 153.62,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -128,14 +128,6 @@
         "depthContribution": 40.08
       },
       {
-        "playerId": "11632",
-        "canonicalName": "malik nabers",
-        "position": "WR",
-        "rosValue": 39.07,
-        "depthFactor": 0.65,
-        "depthContribution": 25.4
-      },
-      {
         "playerId": "3214",
         "canonicalName": "hunter henry",
         "position": "TE",
@@ -148,8 +140,8 @@
         "canonicalName": "stefon diggs",
         "position": "WR",
         "rosValue": 22.07,
-        "depthFactor": 0.423,
-        "depthContribution": 9.32
+        "depthFactor": 0.65,
+        "depthContribution": 14.35
       },
       {
         "playerId": "7002",
@@ -166,6 +158,14 @@
         "rosValue": 15.77,
         "depthFactor": 0.55,
         "depthContribution": 8.67
+      },
+      {
+        "playerId": "11632",
+        "canonicalName": "malik nabers",
+        "position": "WR",
+        "rosValue": 39.07,
+        "depthFactor": 0.423,
+        "depthContribution": 6.6
       },
       {
         "playerId": "4033",
@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Game-Enders",
-    "teamRosStrength": 367.22,
+    "teamRosStrength": 363.3,
     "startingLineupScore": 460.22,
-    "benchDepthScore": 143.7,
+    "benchDepthScore": 121.9,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -308,14 +308,6 @@
         "depthContribution": 28.03
       },
       {
-        "playerId": "5870",
-        "canonicalName": "daniel jones",
-        "position": "QB",
-        "rosValue": 27.98,
-        "depthFactor": 1.0,
-        "depthContribution": 27.98
-      },
-      {
         "playerId": "11620",
         "canonicalName": "rome odunze",
         "position": "WR",
@@ -356,12 +348,20 @@
         "depthContribution": 18.11
       },
       {
-        "playerId": "9753",
-        "canonicalName": "zach charbonnet",
-        "position": "RB",
-        "rosValue": 17.22,
-        "depthFactor": 0.423,
-        "depthContribution": 7.28
+        "playerId": "11625",
+        "canonicalName": "adonai mitchell",
+        "position": "WR",
+        "rosValue": 16.4,
+        "depthFactor": 0.275,
+        "depthContribution": 4.5
+      },
+      {
+        "playerId": "5844",
+        "canonicalName": "tj hockenson",
+        "position": "TE",
+        "rosValue": 16.29,
+        "depthFactor": 0.55,
+        "depthContribution": 8.96
       }
     ],
     "unfilledSlots": [],
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "Taylor and Taylor LawFirm",
-    "teamRosStrength": 321.92,
-    "startingLineupScore": 394.71,
-    "benchDepthScore": 154.07,
+    "teamRosStrength": 315.11,
+    "startingLineupScore": 389.62,
+    "benchDepthScore": 136.6,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -605,12 +605,12 @@
       },
       {
         "slot": "TE",
-        "playerId": "4217",
-        "canonicalName": "george kittle",
+        "playerId": "1466",
+        "canonicalName": "travis kelce",
         "position": "TE",
-        "rosValue": 27.38,
-        "adjustedValue": 27.38,
-        "confidence": 0.94,
+        "rosValue": 22.29,
+        "adjustedValue": 22.29,
+        "confidence": 0.939,
         "flagged": null
       },
       {
@@ -716,14 +716,6 @@
         "depthContribution": 9.73
       },
       {
-        "playerId": "1466",
-        "canonicalName": "travis kelce",
-        "position": "TE",
-        "rosValue": 22.29,
-        "depthFactor": 1.0,
-        "depthContribution": 22.29
-      },
-      {
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
@@ -738,6 +730,14 @@
         "rosValue": 18.93,
         "depthFactor": 0.65,
         "depthContribution": 12.3
+      },
+      {
+        "playerId": "11646",
+        "canonicalName": "jalen coker",
+        "position": "WR",
+        "rosValue": 17.55,
+        "depthFactor": 0.275,
+        "depthContribution": 4.82
       }
     ],
     "unfilledSlots": [],
