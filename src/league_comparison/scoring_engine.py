@@ -98,6 +98,8 @@ def compute_player_season_scores(
         }
     )
 
+    unknown_positions: set[str] = set()
+
     for row in rows or []:
         pid = str(row.get("player_id") or row.get("player_id_gsis") or "").strip()
         if not pid:
@@ -105,6 +107,8 @@ def compute_player_season_scores(
         raw_pos = str(row.get("position") or "").strip().upper()
         canonical = _canonical_position(raw_pos)
         if canonical not in _TRACKED_POSITIONS:
+            if raw_pos:
+                unknown_positions.add(raw_pos)
             continue
         try:
             row_season = int(row.get("season") or season or 0)
@@ -146,4 +150,11 @@ def compute_player_season_scores(
                 games_played=int(b["games"]),
             )
         )
+
+    if unknown_positions:
+        _LOGGER.warning(
+            "scoring_engine.unknown_positions_dropped season=%s positions=%s",
+            season, sorted(unknown_positions),
+        )
+
     return out

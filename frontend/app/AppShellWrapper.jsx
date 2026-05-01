@@ -346,6 +346,7 @@ function MobileTopBar() {
       finder: "Finder",
       angle: "Angle",
       league: "League",
+      "league-comparison": "League Comp",
       rosters: "Rosters",
       trades: "Trades",
       settings: "Settings",

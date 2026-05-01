@@ -48,6 +48,7 @@ export default function PositionalTable({ data, method, setMethod }) {
               <th style={{ textAlign: "right" }}>Diff (pp)</th>
               <th style={{ textAlign: "right" }}>Rel %</th>
               <th>Status</th>
+              <th style={{ minWidth: 240 }}>Recommendation</th>
             </tr>
           </thead>
           <tbody>
@@ -57,7 +58,7 @@ export default function PositionalTable({ data, method, setMethod }) {
                 return (
                   <tr key={pos}>
                     <td>{pos}</td>
-                    <td colSpan={7} className="muted">—</td>
+                    <td colSpan={8} className="muted">—</td>
                   </tr>
                 );
               }
@@ -77,26 +78,14 @@ export default function PositionalTable({ data, method, setMethod }) {
                   <td style={{ ...mono(), color: tone }}>{fmtSigned(diff)}</td>
                   <td style={{ ...mono(), color: tone }}>{fmtSigned(c.relDiffPct)}%</td>
                   <td style={{ color: tone }}>{c.status}</td>
+                  <td className="text-sm" style={{ minWidth: 240, maxWidth: 420, lineHeight: 1.4 }}>
+                    {c.recommendation}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
-
-      <div style={{ marginTop: "var(--space-md)" }}>
-        <h3 className="section-title" style={{ fontSize: "1rem" }}>Recommendations</h3>
-        <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-          {POSITIONS.map((pos) => {
-            const c = positions[pos];
-            if (!c) return null;
-            return (
-              <li key={pos} className="text-sm" style={{ marginBottom: 6 }}>
-                {c.recommendation}
-              </li>
-            );
-          })}
-        </ul>
       </div>
     </div>
   );
