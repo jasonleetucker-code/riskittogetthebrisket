@@ -156,6 +156,86 @@ def test_generate_validates_matchup_id(article_tmpdir, monkeypatch):
     assert res.status_code == 400
 
 
+def test_generate_collapses_sdk_errors_to_502(article_tmpdir, monkeypatch):
+    """Non-RuntimeError exceptions from the SDK (timeout, 429, 5xx,
+    connection refused) must come back as a structured 502, not a
+    generic 500.  Admins use this contract for retry logic; anything
+    else makes operational handling brittle.
+
+    This test stubs every external dependency: the snapshot builder
+    (so we don't hit Sleeper), the brief builder (so the matchup
+    doesn't have to exist on the snapshot), the anthropic SDK module
+    (so we don't need it installed), and ``generate_article`` itself
+    (which raises a TimeoutError to simulate any SDK-layer failure).
+    """
+    monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
+    monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "admin"})
+    monkeypatch.setattr(
+        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"admin"}),
+    )
+    monkeypatch.setenv("SLEEPER_LEAGUE_ID", "test-league-id")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-test")
+
+    # Provide a stand-in anthropic module so ``server.anthropic`` is
+    # truthy and the 503 short-circuit doesn't trigger.  The fake
+    # ``AsyncAnthropic`` constructor returns a sentinel — the real
+    # client object never gets used because ``generate_article`` is
+    # patched to raise before touching it.
+    class _FakeClient:  # noqa: D401 — minimal stub
+        pass
+
+    class _FakeAnthropicModule:
+        AsyncAnthropic = staticmethod(lambda **kwargs: _FakeClient())
+
+    monkeypatch.setattr(server, "anthropic", _FakeAnthropicModule)
+
+    from src.public_league import matchup_narrative as _mn
+    from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
+
+    fake_season = SeasonSnapshot(
+        season="2025", league_id="test", league={}, users=[], rosters=[],
+        matchups_by_week={}, transactions_by_week={}, drafts=[],
+        draft_picks_by_draft={}, traded_picks=[], winners_bracket=[],
+        losers_bracket=[],
+    )
+    fake_snapshot = PublicLeagueSnapshot(
+        root_league_id="test", generated_at="2025-01-01T00:00:00",
+        seasons=[fake_season],
+    )
+    monkeypatch.setattr(
+        "src.public_league.snapshot.build_public_snapshot",
+        lambda *a, **k: fake_snapshot,
+    )
+
+    async def _raising(*args, **kwargs):
+        raise TimeoutError("simulated upstream timeout")
+
+    monkeypatch.setattr(_mn, "build_brief", lambda *a, **k: _StubBrief())
+    monkeypatch.setattr(_mn, "collect_prior_articles", lambda *a, **k: [])
+    monkeypatch.setattr(_mn, "generate_article", _raising)
+
+    body = {"mode": "preview", "matchupId": 1, "season": "2025", "week": 17}
+    with TestClient(server.app, raise_server_exceptions=False) as c:
+        res = c.post("/api/league/articles/generate", json=body)
+    assert res.status_code == 502, res.text
+    payload = res.json()
+    assert payload["error"] == "generation_failed"
+    assert payload["errorType"] == "TimeoutError"
+    assert "timeout" in payload["message"].lower()
+
+
+class _StubBrief:
+    """Minimal brief stub for endpoint tests that bypass build_brief."""
+    mode = "preview"
+    season = "2025"
+    week = 17
+    matchup_id = 1
+    is_championship = True
+    round_label = "Championship"
+    home = {"ownerId": "h", "displayName": "H", "teamName": "Home"}
+    away = {"ownerId": "a", "displayName": "A", "teamName": "Away"}
+
+
 def test_generate_returns_503_when_anthropic_unconfigured(article_tmpdir, monkeypatch):
     """With no API key + no SDK, the generator endpoint refuses to
     pretend it generated something.  Returns 503 so callers know the

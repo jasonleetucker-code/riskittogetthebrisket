@@ -65,27 +65,48 @@ def _resolve_target_week(
     *,
     mode: str,
     explicit_week: int | None,
+    explicit_season: str | None,
 ) -> tuple[str, int]:
     """Return (season, week) for generation.
 
-    With explicit ``--week``, use the current season's snapshot. With
-    no week, derive it from the snapshot's matchup state.
+    Resolution rules:
+      * ``--season`` overrides the snapshot's "current" season for
+        backfills (e.g. ``--season 2024 --week 17``).  When the season
+        isn't on the snapshot's chain, we fail loudly rather than
+        falling back to current — silently writing to the wrong
+        season's directory is the bug class this argument exists to
+        prevent.
+      * ``--week`` overrides the detector.  Any season+week combo is
+        valid as long as the snapshot has data for it.
+      * With neither argument, the detector picks the live week off
+        the current season.
     """
     from src.public_league import matchup_preview
 
-    current = snapshot.current_season
-    if current is None:
-        raise RuntimeError("snapshot has no current season — Sleeper unreachable?")
-    season = current.season
+    if explicit_season:
+        target = snapshot.season_by_year(explicit_season)
+        if target is None:
+            available = ", ".join(s.season for s in snapshot.seasons) or "(none)"
+            raise RuntimeError(
+                f"--season {explicit_season!r} not found on snapshot. "
+                f"Available seasons: {available}"
+            )
+    else:
+        target = snapshot.current_season
+        if target is None:
+            raise RuntimeError("snapshot has no current season — Sleeper unreachable?")
+    season = target.season
 
     if explicit_week is not None:
         return season, explicit_week
 
     # Use the matchup_preview detector — it knows the difference
-    # between unscored and scored weeks.
-    detected_week, detected_mode = matchup_preview._detect_current_week(current)  # noqa: SLF001
+    # between unscored and scored weeks.  The detector runs against
+    # the chosen season, so backfills against a completed prior season
+    # land on its most-recently-scored week (typically Week 17).
+    detected_week, detected_mode = matchup_preview._detect_current_week(target)  # noqa: SLF001
     if detected_week == 0:
-        raise RuntimeError("no scored or unscored week found in current season")
+        raise RuntimeError(f"no scored or unscored week found in season {season}")
 
     if mode == "preview":
         return season, detected_week
@@ -169,9 +190,16 @@ async def _run(args: argparse.Namespace) -> int:
         print("ERROR: snapshot has no seasons (Sleeper chain empty?)", file=sys.stderr)
         return 2
 
-    season, week = _resolve_target_week(
-        snapshot, mode=args.mode, explicit_week=args.week,
-    )
+    try:
+        season, week = _resolve_target_week(
+            snapshot,
+            mode=args.mode,
+            explicit_week=args.week,
+            explicit_season=args.season,
+        )
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     print(f"Target: season={season} week={week} mode={args.mode}")
 
     if args.matchup_id is not None:

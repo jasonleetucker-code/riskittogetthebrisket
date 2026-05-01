@@ -7872,10 +7872,26 @@ async def post_generate_league_article(request: Request):
         article = await _mn.generate_article(
             client=client, brief=brief, prior_articles=prior,
         )
-    except RuntimeError as exc:
+    except Exception as exc:  # noqa: BLE001 — collapse SDK / network / parse to one structured error
+        # generate_article raises RuntimeError for malformed JSON, but
+        # SDK layer can raise APIStatusError / RateLimitError /
+        # APIConnectionError / asyncio.TimeoutError before parsing.
+        # All of these are operational failures the admin caller wants
+        # to retry against, not unstructured 500s.
+        log.warning(
+            "league_article_generation_failed",
+            extra={
+                "season": season, "week": week, "matchupId": matchup_id,
+                "mode": mode, "error_type": type(exc).__name__,
+            },
+        )
         return JSONResponse(
             status_code=502,
-            content={"error": "generation_failed", "message": str(exc)},
+            content={
+                "error": "generation_failed",
+                "errorType": type(exc).__name__,
+                "message": str(exc),
+            },
         )
     _mn.save_article(article)
     return JSONResponse(
