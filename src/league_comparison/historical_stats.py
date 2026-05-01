@@ -6,6 +6,10 @@ which wraps nflverse.  When nflverse hasn't published a season yet
 (typical for the most recent season), we fall back to Sleeper via
 :mod:`.sleeper_stats`.  Both sources emit nflverse-shaped rows so the
 downstream scoring engine doesn't care which fed it.
+
+Both sources are filtered to **regular-season weeks 1-17 only**
+before they leave this module — week 18 is the starter-rest week for
+most playoff-bound teams and would distort the multi-year sample.
 """
 from __future__ import annotations
 
@@ -17,6 +21,13 @@ from src.nfl_data import ingest as _ingest
 from . import sleeper_stats as _sleeper_stats
 
 _LOGGER = logging.getLogger(__name__)
+
+# Inclusive upper bound on regular-season week.  The 2021+ NFL season
+# is 18 weeks, but we drop week 18 to align with pre-2021 17-game
+# seasons and to skip the starter-rest distortion at the top of the
+# rankings.  nflverse postseason rows (week >= 19) are also excluded
+# by this filter as a side benefit.
+_MAX_REGULAR_WEEK = 17
 
 # Which source produced each season's rows in the most recent call.
 # Surfaces through :func:`summarize_availability` so the API meta
@@ -30,6 +41,29 @@ def _set_source(season: int, source: str) -> None:
 
 def get_source_for(season: int) -> str | None:
     return _LAST_SOURCE.get(int(season))
+
+
+def _filter_to_regular_season(
+    rows: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Drop rows past week 17 (and any malformed-week row).
+
+    Applied to BOTH nflverse and Sleeper output so the comparison
+    samples a consistent week range regardless of source.  Postseason
+    rows (week >= 19 in nflverse) and week 18 starter-rest games drop
+    cleanly; rows with a missing/non-numeric week field also drop.
+    """
+    if not rows:
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            week = int(row.get("week") or 0)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= week <= _MAX_REGULAR_WEEK:
+            out.append(row)
+    return out
 
 
 def load_season_rows(season: int) -> list[dict[str, Any]] | None:
@@ -57,6 +91,7 @@ def load_season_rows(season: int) -> list[dict[str, Any]] | None:
             season, exc,
         )
         rows = []
+    rows = _filter_to_regular_season(rows)
     if rows:
         _set_source(season, "nflverse")
         return rows
@@ -74,6 +109,7 @@ def load_season_rows(season: int) -> list[dict[str, Any]] | None:
             season, exc,
         )
         sleeper_rows = []
+    sleeper_rows = _filter_to_regular_season(sleeper_rows)
     if sleeper_rows:
         _set_source(season, "sleeper")
         return sleeper_rows

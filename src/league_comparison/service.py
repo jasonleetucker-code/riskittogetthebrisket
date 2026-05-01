@@ -151,9 +151,10 @@ def _build_league_block(
             rows, league_info.scoring_settings, sample_sizes, season,
         )
         # Top players sample for the UI year-by-year detail panel —
-        # cap at 25 to keep payload light.
+        # cap at 25 to keep payload light.  Sort by blended_score so
+        # the displayed top matches what the ranking math actually used.
         top_players = sorted(
-            sample_union, key=lambda s: -s.total_points,
+            sample_union, key=lambda s: -s.blended_score,
         )[:25]
         per_season[season] = {
             "positions": {pos: m.to_dict() for pos, m in per_pos.items()},
@@ -165,8 +166,10 @@ def _build_league_block(
                     "position": s.position,
                     "rawPosition": s.raw_position,
                     "season": s.season,
-                    "totalPoints": s.total_points,
+                    "totalPoints": round(s.total_points, 2),
                     "gamesPlayed": s.games_played,
+                    "pointsPerGame": round(s.points_per_game, 2),
+                    "blendedScore": round(s.blended_score, 2),
                 }
                 for s in top_players
             ],
