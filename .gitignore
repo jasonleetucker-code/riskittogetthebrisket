@@ -43,7 +43,14 @@ dynasty_data_*.json
 CSVs/dynasty_full.csv
 CSVs/dynasty_values.csv
 data/
-exports/
+# exports/ — generated scrape outputs ignored, narrative articles
+# checked in.  Use a child-glob form (not "exports/") so git still
+# descends into subdirs and the !exports/narratives/ negation can
+# rescue the article tree.  The weekly-narratives cron runs
+# ``git add exports/narratives/`` so new articles auto-commit; league
+# members reading historical articles need them durable across deploys.
+exports/*
+!exports/narratives/
 # ROS pipeline keeps the directory tree + manual mapping overrides
 # in source control so a fresh checkout has the layout in place.
 # Generated scrape outputs (CSVs, run JSONs, aggregate snapshots,

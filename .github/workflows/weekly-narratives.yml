@@ -1,0 +1,171 @@
+name: Weekly Matchup Narratives
+
+# Generates ESPN-style fantasy matchup previews + recaps via Claude.
+#
+# Two scheduled fires per week during the NFL regular season + playoffs:
+#
+#   * Wednesday 13:00 UTC (~9 AM ET) — write previews for the upcoming week.
+#     Picks up the week the Sleeper snapshot considers "live" (matchups
+#     scheduled, not yet scored).
+#
+#   * Tuesday  14:00 UTC (~10 AM ET) — write recaps for the just-completed
+#     week. Picks up the most recently fully-scored week. Tuesday rather
+#     than Monday so Monday Night Football is fully reflected.
+#
+# The script (scripts/generate_weekly_narratives.py) is idempotent: if
+# an article already exists on disk it skips, unless --force is passed.
+#
+# When fresh articles are generated, this workflow commits the new
+# files under exports/narratives/ and pushes to main. The frontend
+# fetches them at request time via /api/league/articles, so a deploy
+# is not strictly required to surface them — but a follow-on push will
+# trigger deploy.yml as a side effect, which is fine.
+#
+# Cost note: each article is ~$0.05–0.30 on Opus 4.7 with the static
+# system prompt cached. Six matchups × two articles per week × 18 weeks
+# ≈ $20–60 / season — well inside the budget.
+
+on:
+  schedule:
+    # Wednesday 13:00 UTC - previews for the coming week.
+    - cron: "0 13 * * 3"
+    # Tuesday 14:00 UTC - recaps for the week that just ended.
+    - cron: "0 14 * * 2"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preview or recap"
+        required: true
+        type: choice
+        options:
+          - preview
+          - recap
+        default: preview
+      season:
+        description: "Season label (default: snapshot's current)"
+        required: false
+        type: string
+        default: ""
+      week:
+        description: "Week number (default: detected by snapshot)"
+        required: false
+        type: string
+        default: ""
+      matchup_id:
+        description: "Single matchup_id (default: every matchup that week)"
+        required: false
+        type: string
+        default: ""
+      force:
+        description: "Regenerate even if article already exists"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: weekly-narratives
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Generate weekly articles
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # The narrative generator needs the Anthropic SDK. It's not in
+          # the runtime requirements.txt because the chat endpoint
+          # treats it as optional; keep that contract by installing it
+          # only here.
+          pip install anthropic
+
+      - name: Resolve mode (manual dispatch vs cron)
+        id: mode
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -n "${{ github.event.inputs.mode }}" ]]; then
+            MODE="${{ github.event.inputs.mode }}"
+          elif [[ "${{ github.event.schedule }}" == "0 13 * * 3" ]]; then
+            MODE="preview"
+          elif [[ "${{ github.event.schedule }}" == "0 14 * * 2" ]]; then
+            MODE="recap"
+          else
+            MODE="preview"
+          fi
+          echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved mode: ${MODE}"
+
+      - name: Generate articles
+        id: generate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ARGS="--mode ${{ steps.mode.outputs.mode }}"
+          if [[ -n "${{ github.event.inputs.season }}" ]]; then
+            ARGS="${ARGS} --season ${{ github.event.inputs.season }}"
+          fi
+          if [[ -n "${{ github.event.inputs.week }}" ]]; then
+            ARGS="${ARGS} --week ${{ github.event.inputs.week }}"
+          fi
+          if [[ -n "${{ github.event.inputs.matchup_id }}" ]]; then
+            ARGS="${ARGS} --matchup-id ${{ github.event.inputs.matchup_id }}"
+          fi
+          if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            ARGS="${ARGS} --force"
+          fi
+          python scripts/generate_weekly_narratives.py ${ARGS} | tee narrative_report.txt
+
+      - name: Append report to job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Weekly narrative generator (${{ steps.mode.outputs.mode }})"
+            echo ""
+            echo '```'
+            cat narrative_report.txt 2>/dev/null || echo "(no report — generator failed before tee)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push new articles
+        if: success()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add exports/narratives/
+          if git diff --cached --quiet; then
+            echo "No new articles to commit."
+            exit 0
+          fi
+          MODE="${{ steps.mode.outputs.mode }}"
+          git commit -m "$(cat <<EOF
+          chore(narratives): auto-generate weekly ${MODE}s
+
+          Articles produced by scripts/generate_weekly_narratives.py at
+          $(date -u +"%Y-%m-%d %H:%M UTC"). Rendered at
+          /league/articles/<season>/<week>.
+          EOF
+          )"
+          git pull --rebase origin main
+          git push

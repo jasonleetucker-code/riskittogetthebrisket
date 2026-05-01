@@ -1,0 +1,33 @@
+{
+  "angleUsed": "comeback-arc",
+  "away": {
+    "displayName": "Brenthany",
+    "ownerId": "1002085133723299840",
+    "teamName": "Karma Cowboy"
+  },
+  "body": "The math is simple, and unforgiving: Karma Cowboy is up 432.87 to 414.44 after the first week of the two-week final. Either Aguilar finds 18.44 more points than Brenthany over the Christmas-week slate, or the trophy gets handed to a 21-5 regular season the rest of this league has been trying to dethrone since training camp. There is no third option. There is no Week 18 to hide in.\n\nHere is what makes the deficit so brutal: Brenthany already cashed the easy win. Puka Nacua is not putting up another 50-burger. Joe Burrow is not throwing for 41 again — wait, yes, he might. Burrow throws to Ja'Marr Chase regardless of opponent and he draws a Cardinals defense in Cincinnati on Sunday. Brenthany is one of the few teams in this league that gets to roll out the same Burrow-and-Lawrence superflex stack every week and not even worry about it. That's how 21-5 happens.\n\nBut the Christmas Day games are where this thing gets cooked. Three slates open the week before most managers have finished their second mug of coffee: **Cowboys at Commanders, Lions at Vikings, Broncos at Chiefs**. Aguilar has *five* starters in the Cowboys-Commanders game alone — Dak Prescott, George Pickens, Brandon Aubrey, and Shavon Revel on the Dallas side, plus a fifth from Carolina later that weekend in Mike Jackson, who has been the most productive cover man in the entire NFL this season. By the time Brenthany even sees the field on Sunday, Aguilar might already have shaved single digits off the 18.43.\n\nThe Lions-Vikings game is the one Brenthany should circle in red. Aidan Hutchinson is on Detroit's side. Andrew Van Ginkel is on Minnesota's side. Brenthany owns *both*. Hutch sits at 11.5 sacks heading in — sniffing the Lions' single-season record — and gets to feast on whichever quarterback Minnesota trots out. Van Ginkel has been playing the best football of his career. There is a real, plausible scenario where one Christmas Day game alone delivers fifty IDP points to Karma Cowboy and the entire chase ends before Aguilar's 49ers even kick off.\n\nWhich brings us to the SNF game and the only moment Brenthany and Aguilar will actually share a field. Brock Purdy versus Caleb Williams in San Francisco. Aguilar starts Purdy. Brenthany starts T.J. Edwards, the Bears middle linebacker who is going to spend three hours trying to undo Purdy completions. Every Purdy throw that gets deflected and picked off is good for Edwards' tackle line and bad for Aguilar's QB1. They are, for one Sunday night, playing the exact same game from opposite sides. If Aguilar is going to mount a comeback, that's the game where the swing has to live.\n\nThe thing about Aguilar's roster — and the reason 18.43 doesn't quite feel like a death sentence even though it should — is that his ceiling is built from variance positions Brenthany cannot match. Two quarterbacks in the superflex (Purdy plus Dak), three IDP starters who all carry realistic 25-point ceilings on any given Sunday (Chase Young in New Orleans, DeMarcus Lawrence in Seattle, Carson Schwesinger in Cleveland), and a kicker in Aubrey who treats 60-yarders like a pre-game warmup. If three of those six hit, the deficit closes. If four hit, Karma Cowboy starts sweating Monday Night. If five hit — and this team has had stretches where five hit — there is no Monday Night to even worry about, because it's already over.\n\nBrenthany's nightmare scenario has a specific shape, and it isn't a disaster. It's a *normal* Sunday. Their offensive stars regress to the mean while Aguilar's ceiling guys all peak in the same week. They do not need to lose. They just need to not be exceptional. And exceptional is the only thing this version of Brenthany has been since September.",
+  "generatedAt": "2025-12-24T13:00:00+00:00",
+  "home": {
+    "displayName": "Aguilar315",
+    "ownerId": "711452264774041600",
+    "teamName": "Still Jerry's Team"
+  },
+  "isChampionship": true,
+  "kicker": "Aguilar erases the 18.43 by Sunday-night kickoff. Brenthany's lone Monday-night dart — Puka Nacua at Atlanta — needs to clear 28 to save it. He doesn't get there.",
+  "lede": "For 432.87 points last week, Brenthany got everything they wanted from a championship Sunday — a 50-burger from Puka Nacua, a top-of-class Burrow-and-Lawrence quarterback room, an 18.43-point cushion to walk into Christmas with. Now they have to do it again.",
+  "matchupId": 1,
+  "mode": "preview",
+  "model": "claude-opus-4-7",
+  "persona": "storyteller",
+  "roundLabel": "Championship",
+  "season": "2025",
+  "title": "Down 18.43, with one week to find it: Aguilar's championship bid",
+  "usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "week": 17,
+  "wordCount": 678
+}

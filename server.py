@@ -1949,6 +1949,13 @@ _SELF_AUTHED_API_EXACT = frozenset({
 })
 _PUBLIC_API_PREFIXES = (
     "/api/public/league",
+    # Article reads are public so the league can share /league/articles
+    # links with people who don't have an account.  The data is already
+    # public-safe: team names, scoring totals, manager display names —
+    # nothing the public-league pipeline doesn't already expose at
+    # /api/public/league.  Generation remains admin-only via the POST
+    # endpoint's own _require_admin_session check.
+    "/api/league/articles",
 )
 
 
@@ -7614,6 +7621,283 @@ async def run_signal_alerts(request: Request):
         result["sourceStalenessAlerts"] = {"error": str(exc)}
 
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+# ── LEAGUE NARRATIVE ARTICLES (preview / recap) ─────────────────────
+# Public read endpoints + admin-only generation trigger.  Articles are
+# persisted to ``exports/narratives/<season>/week-<NN>/<mode>-<id>.json``
+# by the cron generator (see ``scripts/generate_weekly_narratives.py``
+# and ``.github/workflows/weekly-narratives.yml``).  These endpoints
+# serve them — they do NOT generate on read so a slow Anthropic round
+# trip never blocks a page load.
+
+
+@app.get("/api/league/articles")
+async def get_league_articles(request: Request):
+    """List narrative articles, optionally filtered by season/week.
+
+    Query params:
+      * ``season`` (optional) — restrict to one season label.
+      * ``week`` (optional) — restrict to one week within season.
+
+    Returns a flat array of {season, week, mode, matchupId, title,
+    generatedAt, home, away, kicker} so the frontend list page can
+    render a slate without N follow-up requests.  Heavy fields
+    (body, lede) are omitted from the index response — clients fetch
+    them via the single-article endpoint.
+    """
+    from src.public_league import matchup_narrative as _mn
+
+    season = (request.query_params.get("season") or "").strip() or None
+    week_raw = (request.query_params.get("week") or "").strip()
+    try:
+        week_filter = int(week_raw) if week_raw else None
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "week must be an integer"},
+        )
+
+    items = _mn.list_articles(season=season)
+    if week_filter is not None:
+        items = [r for r in items if int(r.get("week") or -1) == week_filter]
+
+    # Hydrate index entries with the small subset of article fields
+    # needed for a slate list (title, kicker, home/away identity).
+    enriched = []
+    for entry in items:
+        full = _mn.load_article(
+            entry["season"], entry["week"], entry["matchupId"], entry["mode"],
+        )
+        if not full:
+            continue
+        enriched.append({
+            "season": entry["season"],
+            "week": entry["week"],
+            "mode": entry["mode"],
+            "matchupId": entry["matchupId"],
+            "title": full.get("title"),
+            "kicker": full.get("kicker"),
+            "angleUsed": full.get("angleUsed"),
+            "isChampionship": full.get("isChampionship", False),
+            "roundLabel": full.get("roundLabel", ""),
+            "home": full.get("home", {}),
+            "away": full.get("away", {}),
+            "generatedAt": full.get("generatedAt"),
+            "wordCount": full.get("wordCount", 0),
+        })
+
+    return JSONResponse(
+        content={
+            "articles": enriched,
+            "total": len(enriched),
+            "season": season,
+            "week": week_filter,
+        },
+        headers={"Cache-Control": "public, max-age=120"},
+    )
+
+
+@app.get("/api/league/articles/{season}/{week}/{matchup_id}/{mode}")
+async def get_league_article(season: str, week: int, matchup_id: int, mode: str):
+    """Single article — full body, ready to render."""
+    from src.public_league import matchup_narrative as _mn
+
+    if mode not in {"preview", "recap"}:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "mode must be preview|recap"},
+        )
+    article = _mn.load_article(season, week, matchup_id, mode)
+    if article is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "not_found",
+                "message": (
+                    f"No {mode} article on disk for {season} W{week} "
+                    f"matchup {matchup_id}"
+                ),
+            },
+        )
+    return JSONResponse(
+        content=article,
+        # Cache for 5 minutes; new articles propagate via cron not on-demand.
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@app.post("/api/league/articles/generate")
+async def post_generate_league_article(request: Request):
+    """Admin trigger: generate a single article on demand.
+
+    Body shape:
+        {
+          "season": "2025",         // optional, defaults to current season
+          "week": 17,                // optional, detector picks live week
+          "matchupId": 1,            // required for single-article runs
+          "mode": "preview" | "recap",
+          "force": true|false        // optional, default false
+        }
+
+    Returns the generated article on success, 404 if the matchup
+    can't be found in the snapshot, 503 if the Anthropic SDK isn't
+    configured.
+
+    NOTE: this is the synchronous, single-matchup path — full slate
+    generation is the cron's job.  Hold a session at the wheel; this
+    will block for 10-30 seconds while Claude generates.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    mode = str(body.get("mode") or "").strip().lower()
+    if mode not in {"preview", "recap"}:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "mode must be preview|recap"},
+        )
+    matchup_id = body.get("matchupId")
+    if matchup_id is None:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "matchupId required"},
+        )
+    try:
+        matchup_id = int(matchup_id)
+    except (TypeError, ValueError):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "matchupId must be an integer"},
+        )
+    explicit_week = body.get("week")
+    if explicit_week is not None:
+        try:
+            explicit_week = int(explicit_week)
+        except (TypeError, ValueError):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "bad_request", "message": "week must be an integer"},
+            )
+    explicit_season = body.get("season")
+    explicit_season = str(explicit_season) if explicit_season else None
+    force = bool(body.get("force"))
+
+    # Resolve league via the standard resolver (so admins can override
+    # via ?leagueKey=).
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    if anthropic is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "anthropic_unavailable", "message": "anthropic SDK not installed"},
+        )
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "anthropic_unavailable", "message": "ANTHROPIC_API_KEY not configured"},
+        )
+
+    # Build the snapshot off the event loop — it does ~85 HTTP GETs
+    # against Sleeper.
+    from src.public_league import matchup_narrative as _mn
+    from src.public_league.snapshot import build_public_snapshot
+
+    snapshot = await run_in_threadpool(
+        build_public_snapshot,
+        league_cfg.sleeper_league_id,
+    )
+    current = snapshot.current_season
+    if current is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "snapshot_unavailable", "message": "Sleeper snapshot empty"},
+        )
+
+    season = explicit_season or current.season
+    if explicit_week is not None:
+        week = explicit_week
+    else:
+        from src.public_league import matchup_preview as _mp
+
+        detected_week, detected_mode = _mp._detect_current_week(current)  # noqa: SLF001
+        if detected_week == 0:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "week_not_found", "message": "no live week detected"},
+            )
+        if mode == "recap" and detected_mode == "preview":
+            week = max(1, detected_week - 1)
+        else:
+            week = detected_week
+
+    if not force:
+        existing = _mn.load_article(season, week, matchup_id, mode)
+        if existing is not None:
+            return JSONResponse(
+                status_code=200,
+                content={"article": existing, "regenerated": False},
+            )
+
+    brief = _mn.build_brief(
+        snapshot,
+        season=season,
+        week=week,
+        matchup_id=matchup_id,
+        mode=mode,
+    )
+    if brief is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "matchup_not_found",
+                "message": f"no matchup_id={matchup_id} in {season} W{week}",
+            },
+        )
+    prior = _mn.collect_prior_articles(season, n=6)
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    try:
+        article = await _mn.generate_article(
+            client=client, brief=brief, prior_articles=prior,
+        )
+    except Exception as exc:  # noqa: BLE001 — collapse SDK / network / parse to one structured error
+        # generate_article raises RuntimeError for malformed JSON, but
+        # SDK layer can raise APIStatusError / RateLimitError /
+        # APIConnectionError / asyncio.TimeoutError before parsing.
+        # All of these are operational failures the admin caller wants
+        # to retry against, not unstructured 500s.
+        log.warning(
+            "league_article_generation_failed",
+            extra={
+                "season": season, "week": week, "matchupId": matchup_id,
+                "mode": mode, "error_type": type(exc).__name__,
+            },
+        )
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "generation_failed",
+                "errorType": type(exc).__name__,
+                "message": str(exc),
+            },
+        )
+    _mn.save_article(article)
+    return JSONResponse(
+        status_code=200,
+        content={"article": article, "regenerated": True},
+    )
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
