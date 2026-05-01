@@ -33,6 +33,7 @@ Section modules:
     power            — Weekly power ranking + time-series chart
     matchup_preview  — Head-to-head preview / recap for the current week
     weekly_recap     — Full-page weekly recap newsletter
+    matchup_narrative — ESPN-style preview/recap article generator (Claude-powered)
 
 Infrastructure modules:
     identity        — Owner-id-keyed manager identity + team aliases
