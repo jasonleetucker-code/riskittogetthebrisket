@@ -477,6 +477,13 @@ class MatchupBrief:
     is_championship: bool
     round_label: str
     league_name: str
+    # ``best_ball`` controls whether the prompt allows lineup-decision
+    # framing.  Best-ball leagues auto-optimize each week — there is no
+    # "started" / "benched" / "biggest bench miss" narrative because
+    # the manager doesn't make those calls.  The brief surfaces the
+    # flag so the prompt template can tell the model to write about
+    # roster construction (drafting / trades / waivers) instead.
+    best_ball: bool
     home: dict[str, Any]
     away: dict[str, Any]
     h2h: dict[str, Any]
@@ -495,6 +502,7 @@ class MatchupBrief:
             "isChampionship": self.is_championship,
             "roundLabel": self.round_label,
             "leagueName": self.league_name,
+            "bestBall": self.best_ball,
             "home": self.home,
             "away": self.away,
             "h2h": self.h2h,
@@ -529,6 +537,14 @@ def build_brief(
     entries = season_snap.matchups_by_week.get(week) or []
     if not entries:
         return None
+
+    # Best-ball flag drives several downstream choices (bench misses
+    # don't apply, prompt template suppresses lineup-decision framing).
+    # Pulled from the Sleeper league settings — same field Sleeper uses
+    # to drive auto-lineups, so we always agree with what actually
+    # happened on the field.
+    league_settings = (season_snap.league or {}).get("settings") or {}
+    best_ball = bool(league_settings.get("best_ball"))
 
     # Find the (home, away) entries for this matchup_id.
     pair_entries = [e for e in entries if e.get("matchup_id") == matchup_id]
@@ -592,22 +608,31 @@ def build_brief(
         away_top = max(
             away_lineup, key=lambda r: r.get("points") or 0.0, default=None,
         )
-        home_bench = _bench_top(home_entry, snapshot, n=5)
-        away_bench = _bench_top(away_entry, snapshot, n=5)
-        home_miss = (
-            home_bench[0]
-            if home_bench
-            and home_top
-            and home_bench[0]["points"] > (home_top.get("points") or 0.0)
-            else None
-        )
-        away_miss = (
-            away_bench[0]
-            if away_bench
-            and away_top
-            and away_bench[0]["points"] > (away_top.get("points") or 0.0)
-            else None
-        )
+        # In best-ball, Sleeper auto-optimizes the lineup so a "bench
+        # miss" (best bench scorer outscoring the worst starter) is by
+        # construction either zero or a tied-points artifact. Skip the
+        # whole computation so the brief doesn't tempt the model with
+        # a narrative that doesn't exist in this format.
+        if best_ball:
+            home_bench = away_bench = []
+            home_miss = away_miss = None
+        else:
+            home_bench = _bench_top(home_entry, snapshot, n=5)
+            away_bench = _bench_top(away_entry, snapshot, n=5)
+            home_miss = (
+                home_bench[0]
+                if home_bench
+                and home_top
+                and home_bench[0]["points"] > (home_top.get("points") or 0.0)
+                else None
+            )
+            away_miss = (
+                away_bench[0]
+                if away_bench
+                and away_top
+                and away_bench[0]["points"] > (away_top.get("points") or 0.0)
+                else None
+            )
         home_points = round(metrics.matchup_points(home_entry), 2)
         away_points = round(metrics.matchup_points(away_entry), 2)
     else:
@@ -722,6 +747,7 @@ def build_brief(
         is_championship=is_championship,
         round_label=round_label,
         league_name=league_name,
+        best_ball=best_ball,
         home=home_block,
         away=away_block,
         h2h=h2h_block,
@@ -742,6 +768,8 @@ who have been together long enough to have real history. Your job: write \
 weekly matchup previews (Wednesday) and recaps (Tuesday) that feel like \
 the league has its own beat writer.
 
+{format_blurb}
+
 Voice this week — {persona}:
 {persona_blurb}
 
@@ -757,8 +785,8 @@ Rules of the road:
   articles list. Do not start with "It's that time of week again," "All eyes \
   on," "When all was said and done," or any variant. Find a fresh way in.
 * When the news context surfaces a real-world NFL detail relevant to a \
-  starter (a Sunday-night injury, a coaching change, a divisional rivalry), \
-  weave it in. When it doesn't, don't fake one.
+  player on either roster (a Sunday-night injury, a coaching change, a \
+  divisional rivalry), weave it in. When it doesn't, don't fake one.
 * Length: 550-750 words. Tight, not padded. One ledetic opener (max 2 \
   sentences), 3-5 body beats, and a one-line bold prediction (preview) or a \
   one-line league-history-stake summary (recap).
@@ -772,6 +800,39 @@ Rules of the road:
     "wordCount": <int — your own count of body+lede>
   }}
 * Do not include any text outside the JSON object.
+"""
+
+
+# Format-specific narrative guardrails. Best-ball leagues auto-optimize
+# the lineup each week — there is no start/sit decision for the manager
+# to make and no "biggest bench miss" arc — so any framing that implies
+# the manager benched a player or chose between two skill-position options
+# is wrong on its face. The model needs to be told this explicitly because
+# its prior on "fantasy football article" is overwhelmingly weighted
+# toward managed-lineup formats.
+_FORMAT_BLURB_BEST_BALL = """\
+This is a BEST-BALL league. Sleeper auto-selects the optimal lineup each \
+week from each manager's roster — managers do not set or change their \
+starting lineups during the week. That means:
+
+* DO NOT write that any manager "started", "benched", or "sat" a player. \
+  They didn't.
+* DO NOT speculate about lineup decisions, roster activations, or last-minute \
+  flex calls. There aren't any.
+* DO NOT reference "biggest bench misses" or "left points on the bench." \
+  Best-ball makes those concepts moot — Sleeper already optimized.
+* DO talk about ROSTER CONSTRUCTION: who they drafted, who they traded \
+  for, who they grabbed off waivers. That's the entire game in best-ball, \
+  and it's where the manager's actual fingerprints are.
+* DO talk about the bottom-line score, who scored what, and how players \
+  on each roster performed in their real NFL games — the brief shows you \
+  the auto-optimized lineup that produced the score.
+"""
+
+_FORMAT_BLURB_MANAGED = """\
+This is a managed-lineup league — managers set their starters each week \
+and live with the consequences. Lineup decisions, biggest bench misses, \
+and start/sit calls are fair game in the narrative.
 """
 
 
@@ -816,8 +877,10 @@ def assemble_prompt(
     aren't cacheable.
     """
     persona = brief.persona
+    format_blurb = _FORMAT_BLURB_BEST_BALL if brief.best_ball else _FORMAT_BLURB_MANAGED
     system_text = _SYSTEM_PROMPT_TEMPLATE.format(
         league_name=brief.league_name or "Risk It To Get The Brisket",
+        format_blurb=format_blurb,
         persona=persona,
         persona_blurb=_PERSONA_BLURBS.get(persona, _PERSONA_BLURBS["analyst"]),
     )
