@@ -353,6 +353,21 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
         k: int(v) for k, v in (config.get("sample_sizes") or {}).items()
     }
 
+    # Fail fast on a malformed config rather than silently producing
+    # zeroed metrics when a position key is missing or non-positive.
+    _required_sample_keys = ("QB", "RB", "WR", "TE", "FLEX")
+    _missing = [k for k in _required_sample_keys if k not in sample_sizes]
+    if _missing:
+        raise ValueError(
+            f"config/league_comparison.json missing sample_sizes keys: {_missing}"
+        )
+    _bad = [k for k in _required_sample_keys if sample_sizes[k] <= 0]
+    if _bad:
+        raise ValueError(
+            f"config/league_comparison.json sample_sizes must be positive, "
+            f"got non-positive values for: {_bad}"
+        )
+
     my_cfg = config["my_league"]
     base_cfg = config["baseline_league"]
 
