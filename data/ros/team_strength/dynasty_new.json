@@ -193,7 +193,7 @@
     "teamName": "Game-Enders",
     "teamRosStrength": 381.07,
     "startingLineupScore": 482.76,
-    "benchDepthScore": 130.46,
+    "benchDepthScore": 130.44,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -319,9 +319,9 @@
         "playerId": "7594",
         "canonicalName": "chuba hubbard",
         "position": "RB",
-        "rosValue": 26.08,
+        "rosValue": 26.06,
         "depthFactor": 1.0,
-        "depthContribution": 26.08
+        "depthContribution": 26.06
       },
       {
         "playerId": "12501",
@@ -335,7 +335,7 @@
         "playerId": "11625",
         "canonicalName": "adonai mitchell",
         "position": "WR",
-        "rosValue": 19.13,
+        "rosValue": 19.12,
         "depthFactor": 0.275,
         "depthContribution": 5.25
       },
@@ -381,7 +381,7 @@
     "teamName": "Prestige Worldwide",
     "teamRosStrength": 365.65,
     "startingLineupScore": 454.97,
-    "benchDepthScore": 155.97,
+    "benchDepthScore": 155.96,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -539,9 +539,9 @@
         "playerId": "7090",
         "canonicalName": "darnell mooney",
         "position": "WR",
-        "rosValue": 18.28,
+        "rosValue": 18.26,
         "depthFactor": 0.65,
-        "depthContribution": 11.88
+        "depthContribution": 11.87
       },
       {
         "playerId": "10213",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "Taylor and Taylor LawFirm",
-    "teamRosStrength": 337.63,
-    "startingLineupScore": 416.85,
-    "benchDepthScore": 152.76,
+    "teamRosStrength": 336.8,
+    "startingLineupScore": 416.82,
+    "benchDepthScore": 148.25,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -658,8 +658,8 @@
         "playerId": "2133",
         "canonicalName": "davante adams",
         "position": "WR",
-        "rosValue": 34.84,
-        "adjustedValue": 34.84,
+        "rosValue": 34.81,
+        "adjustedValue": 34.81,
         "confidence": 0.874,
         "flagged": null
       },
@@ -695,9 +695,9 @@
         "playerId": "1466",
         "canonicalName": "travis kelce",
         "position": "TE",
-        "rosValue": 23.44,
+        "rosValue": 23.46,
         "depthFactor": 1.0,
-        "depthContribution": 23.44
+        "depthContribution": 23.46
       },
       {
         "playerId": "8408",
@@ -711,9 +711,9 @@
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 23.21,
+        "rosValue": 23.23,
         "depthFactor": 0.65,
-        "depthContribution": 15.09
+        "depthContribution": 15.1
       },
       {
         "playerId": "11646",
@@ -732,12 +732,12 @@
         "depthContribution": 8.6
       },
       {
-        "playerId": "1166",
-        "canonicalName": "kirk cousins",
-        "position": "QB",
-        "rosValue": 16.47,
-        "depthFactor": 0.55,
-        "depthContribution": 9.06
+        "playerId": "4035",
+        "canonicalName": "alvin kamara",
+        "position": "RB",
+        "rosValue": 16.43,
+        "depthFactor": 0.275,
+        "depthContribution": 4.51
       }
     ],
     "unfilledSlots": [],
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Linked And Locked In",
-    "teamRosStrength": 324.28,
+    "teamRosStrength": 324.03,
     "startingLineupScore": 403.23,
-    "benchDepthScore": 133.07,
+    "benchDepthScore": 131.68,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -912,20 +912,20 @@
         "depthContribution": 9.1
       },
       {
+        "playerId": "1166",
+        "canonicalName": "kirk cousins",
+        "position": "QB",
+        "rosValue": 16.47,
+        "depthFactor": 0.303,
+        "depthContribution": 4.98
+      },
+      {
         "playerId": "8111",
         "canonicalName": "cade otton",
         "position": "TE",
         "rosValue": 15.64,
         "depthFactor": 1.0,
         "depthContribution": 15.64
-      },
-      {
-        "playerId": "9502",
-        "canonicalName": "tank dell",
-        "position": "WR",
-        "rosValue": 15.09,
-        "depthFactor": 0.423,
-        "depthContribution": 6.38
       }
     ],
     "unfilledSlots": [],
@@ -945,7 +945,7 @@
     "teamName": "Shayders tators ",
     "teamRosStrength": 308.46,
     "startingLineupScore": 385.06,
-    "benchDepthScore": 117.88,
+    "benchDepthScore": 117.89,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1079,9 +1079,9 @@
         "playerId": "4981",
         "canonicalName": "calvin ridley",
         "position": "WR",
-        "rosValue": 22.18,
+        "rosValue": 22.2,
         "depthFactor": 0.65,
-        "depthContribution": 14.42
+        "depthContribution": 14.43
       },
       {
         "playerId": "11655",
@@ -1111,7 +1111,7 @@
         "playerId": "8205",
         "canonicalName": "isiah pacheco",
         "position": "RB",
-        "rosValue": 20.07,
+        "rosValue": 20.08,
         "depthFactor": 0.423,
         "depthContribution": 8.48
       }
@@ -1135,7 +1135,7 @@
     "teamName": "Nixxers",
     "teamRosStrength": 294.41,
     "startingLineupScore": 355.88,
-    "benchDepthScore": 156.51,
+    "benchDepthScore": 156.53,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1245,9 +1245,9 @@
         "playerId": "5967",
         "canonicalName": "tony pollard",
         "position": "RB",
-        "rosValue": 28.08,
+        "rosValue": 28.1,
         "depthFactor": 1.0,
-        "depthContribution": 28.08
+        "depthContribution": 28.1
       },
       {
         "playerId": "9758",
@@ -1321,9 +1321,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Chargers Team Doctor ",
-    "teamRosStrength": 256.47,
+    "teamRosStrength": 256.48,
     "startingLineupScore": 314.88,
-    "benchDepthScore": 109.77,
+    "benchDepthScore": 109.79,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1465,9 +1465,9 @@
         "playerId": "9511",
         "canonicalName": "keaton mitchell",
         "position": "RB",
-        "rosValue": 15.87,
+        "rosValue": 15.89,
         "depthFactor": 1.0,
-        "depthContribution": 15.87
+        "depthContribution": 15.89
       },
       {
         "playerId": "4137",
@@ -1663,7 +1663,7 @@
         "playerId": "9506",
         "canonicalName": "sean tucker",
         "position": "RB",
-        "rosValue": 15.08,
+        "rosValue": 15.07,
         "depthFactor": 0.65,
         "depthContribution": 9.8
       },
@@ -1699,9 +1699,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "Maybe just one more pick",
-    "teamRosStrength": 236.09,
+    "teamRosStrength": 236.1,
     "startingLineupScore": 298.16,
-    "benchDepthScore": 63.44,
+    "benchDepthScore": 63.45,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1819,9 +1819,9 @@
         "playerId": "12535",
         "canonicalName": "isaac teslaa",
         "position": "WR",
-        "rosValue": 14.6,
+        "rosValue": 14.62,
         "depthFactor": 0.65,
-        "depthContribution": 9.49
+        "depthContribution": 9.5
       },
       {
         "playerId": "9486",
