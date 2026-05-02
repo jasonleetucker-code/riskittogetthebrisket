@@ -13,6 +13,7 @@ from typing import Any
 from src.api.data_contract import (
     _MARKET_ANCHOR_BY_ASSET_CLASS,
     _MARKET_ANCHOR_FALLBACKS,
+    _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS,
     _apply_market_corridor_clamp,
     _market_anchor_for_row,
     _market_anchor_value_for_row,
@@ -478,6 +479,186 @@ class TestIdempotence(unittest.TestCase):
         # Second pass mustn't shift the value — the first pass already
         # brought every row inside the band.
         self.assertEqual(rows[0]["rankDerivedValue"], clamped_val)
+
+
+class TestIdpMaxBandCap(unittest.TestCase):
+    """The IDP asset class has a hard ceiling on the corridor band so
+    that wide bucket distributions can't let extreme drifts (the
+    Vikings-LB-at-1900-vs-IDPTC-3600 case) ride through unclamped.
+
+    The cap ceilings the dynamic bucket P90 — it never *widens* the
+    band, only narrows it.  Players whose drift sits inside the
+    bucket P90 are still untouched.
+    """
+
+    def test_idp_cap_constant_is_set(self):
+        """Cap is configured for IDP and lives at 25% by default."""
+        self.assertIn("idp", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
+        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS["idp"], 0.25)
+
+    def test_offense_has_no_cap(self):
+        """Offense's KTC anchor coverage is deep enough that bucket P90
+        already keeps drifts in trade-room range.  No cap configured."""
+        self.assertNotIn("offense", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
+
+    def test_idp_extreme_outlier_clamps_to_max_band(self):
+        """When the bucket P90 would have been wider than 25%, the IDP
+        cap takes over: an IDP at 47% drift below IDPTC clamps to the
+        25% band edge, not the bucket P90 edge.
+
+        Setup mimics the Vikings LB case: 1,900 internal vs 3,600 on
+        IDPTC, plus enough background players with wide drifts that
+        the bucket P90 itself would have allowed the outlier through.
+        """
+        rows = []
+        # 39 background IDPs with ~30% drift — wide enough that the
+        # bucket P90 (~30%) would NOT have clamped a 47%-drift outlier
+        # without the max-band cap.
+        for i in range(39):
+            rows.append(_make_row(
+                name=f"bg_{i}",
+                asset_class="idp",
+                value=int(5000 * 1.30),  # 30% above IDPTC
+                idpTradeCalc=5000,
+                bucket="medium",
+            ))
+        # The Vikings LB: 1,900 internal, 3,600 on IDPTC = 47% drift down.
+        outlier = _make_row(
+            name="vikings_lb",
+            asset_class="idp",
+            value=1900,
+            idpTradeCalc=3600,
+            bucket="medium",
+        )
+        rows.append(outlier)
+        _apply_market_corridor_clamp(rows, players_by_name={})
+
+        # Without the cap, bucket P90 would be ~0.30 → clamp to
+        # 3600 × 0.70 = 2520.  WITH the cap at 0.25, clamp is to
+        # 3600 × 0.75 = 2700.  The cap should bind.
+        self.assertIn("marketCorridorClamp", outlier)
+        stamp = outlier["marketCorridorClamp"]
+        self.assertEqual(stamp["direction"], "up")
+        self.assertEqual(stamp["originalValue"], 1900)
+        self.assertEqual(stamp["marketAnchor"], 3600)
+        self.assertEqual(stamp["bandPct"], 0.25)
+        self.assertTrue(stamp["cappedByMaxBand"])
+        self.assertEqual(stamp["maxBandPct"], 0.25)
+        self.assertEqual(outlier["rankDerivedValue"], 2700)
+
+    def test_idp_inside_cap_uses_bucket_p90(self):
+        """When the bucket P90 is below the cap, the existing dynamic
+        behaviour wins — the cap doesn't widen anything."""
+        rows = []
+        # 39 IDPs with drift 0.10 → bucket P90 = 0.10 (below cap).
+        for i in range(39):
+            rows.append(_make_row(
+                name=f"bg_{i}",
+                asset_class="idp",
+                value=int(5000 * 1.10),
+                idpTradeCalc=5000,
+                bucket="medium",
+            ))
+        # Outlier with 70% drift down.
+        outlier = _make_row(
+            name="outlier",
+            asset_class="idp",
+            value=1500,
+            idpTradeCalc=5000,
+            bucket="medium",
+        )
+        rows.append(outlier)
+        _apply_market_corridor_clamp(rows, players_by_name={})
+        stamp = outlier["marketCorridorClamp"]
+        # Bucket P90 = 0.10 < cap 0.25, so the dynamic band wins.
+        self.assertEqual(stamp["bandPct"], 0.10)
+        self.assertFalse(stamp["cappedByMaxBand"])
+        # Clamp = 5000 × (1 − 0.10) = 4500.
+        self.assertEqual(outlier["rankDerivedValue"], 4500)
+
+    def test_idp_cap_applies_in_both_directions(self):
+        """Over-valued outliers also clamp to the 25% cap edge above
+        IDPTC, not just below it."""
+        rows = []
+        # 39 IDPs with 30% drift to widen the bucket band past 0.25.
+        for i in range(39):
+            rows.append(_make_row(
+                name=f"bg_{i}",
+                asset_class="idp",
+                value=int(5000 * 1.30),
+                idpTradeCalc=5000,
+                bucket="medium",
+            ))
+        # An over-valued outlier 60% above IDPTC.
+        over = _make_row(
+            name="over",
+            asset_class="idp",
+            value=int(5000 * 1.60),
+            idpTradeCalc=5000,
+            bucket="medium",
+        )
+        rows.append(over)
+        _apply_market_corridor_clamp(rows, players_by_name={})
+        stamp = over["marketCorridorClamp"]
+        self.assertEqual(stamp["direction"], "down")
+        self.assertTrue(stamp["cappedByMaxBand"])
+        self.assertEqual(stamp["bandPct"], 0.25)
+        # Clamp = 5000 × 1.25 = 6250.
+        self.assertEqual(over["rankDerivedValue"], 6250)
+
+    def test_offense_with_wide_bucket_not_capped(self):
+        """Offense has no cap: a wide bucket P90 still controls clamp."""
+        rows = []
+        # 39 offense players with 30% drift → bucket P90 ≈ 0.30.
+        for i in range(39):
+            rows.append(_make_row(
+                name=f"bg_{i}",
+                asset_class="offense",
+                value=int(5000 * 1.30),
+                ktc=5000,
+                bucket="medium",
+            ))
+        outlier = _make_row(
+            name="offense_outlier",
+            asset_class="offense",
+            value=int(5000 * 1.80),
+            ktc=5000,
+            bucket="medium",
+        )
+        rows.append(outlier)
+        _apply_market_corridor_clamp(rows, players_by_name={})
+        stamp = outlier["marketCorridorClamp"]
+        # Offense band stays at the dynamic P90 (0.30), not capped.
+        self.assertEqual(stamp["bandPct"], 0.30)
+        self.assertFalse(stamp["cappedByMaxBand"])
+        self.assertIsNone(stamp["maxBandPct"])
+        # Clamp = 5000 × 1.30 = 6500.
+        self.assertEqual(outlier["rankDerivedValue"], 6500)
+
+    def test_idp_cap_still_idempotent(self):
+        """A second clamp pass after the cap has fired must not move
+        the value — the player is already inside the 25% band."""
+        rows = []
+        for i in range(39):
+            rows.append(_make_row(
+                name=f"bg_{i}",
+                asset_class="idp",
+                value=int(5000 * 1.30),
+                idpTradeCalc=5000,
+                bucket="medium",
+            ))
+        outlier = _make_row(
+            name="vikings_lb",
+            asset_class="idp",
+            value=1900,
+            idpTradeCalc=3600,
+            bucket="medium",
+        )
+        rows.append(outlier)
+        _apply_market_corridor_clamp(rows, players_by_name={})
+        first_pass = outlier["rankDerivedValue"]
+        _apply_market_corridor_clamp(rows, players_by_name={})
+        self.assertEqual(outlier["rankDerivedValue"], first_pass)
 
 
 if __name__ == "__main__":

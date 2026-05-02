@@ -3610,6 +3610,23 @@ _MARKET_CORRIDOR_PERCENTILE: float = 0.90
 # can't get an unrepresentative band.
 _MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
 
+# Hard ceiling on the corridor band per asset class.  The dynamic
+# bucket-P90 still controls clamp behaviour for normal cases; this
+# cap is a safety rail that prevents a wide bucket distribution from
+# letting truly-extreme outliers escape the clamp entirely.
+#
+# IDP cap is 0.25 (±25% of IDPTradeCalc): IDPTC is the retail IDP
+# market, so blended values that drift further than that aren't
+# tradeable in real leagues regardless of how many other sources
+# disagree.  Cases like a Vikings LB priced at 1,900 internal vs
+# 3,600 on IDPTC (47% drift) clamp to the band edge (2,700) instead
+# of riding through on a wide bucket P90.  Offense has no cap today
+# because KTC's deeper coverage already keeps offense bucket P90s
+# inside acceptable trade-room ranges.
+_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {
+    "idp": 0.25,
+}
+
 
 def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
     """Return the primary market-anchor source value (KTC for offense,
@@ -3807,6 +3824,12 @@ def _apply_market_corridor_clamp(
     for row, value, anchor, source_key in drifts:
         bucket = str(row.get("confidenceBucket") or "low")
         band = bucket_bands.get(bucket, overall_p90)
+        asset_class = str(row.get("assetClass") or "")
+        max_band = _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS.get(asset_class)
+        capped_by_max = False
+        if max_band is not None and band > max_band:
+            band = max_band
+            capped_by_max = True
         drift = abs(value - anchor) / anchor
         if drift <= band:
             continue
@@ -3831,6 +3854,8 @@ def _apply_market_corridor_clamp(
             "percentile": _MARKET_CORRIDOR_PERCENTILE,
             "confidenceBucket": bucket,
             "direction": direction,
+            "cappedByMaxBand": capped_by_max,
+            "maxBandPct": max_band,
         }
         # Mirror onto the legacy dict payload so the delta + full
         # contract views both see the clamped value.
