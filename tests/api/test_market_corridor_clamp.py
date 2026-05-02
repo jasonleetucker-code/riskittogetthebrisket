@@ -492,9 +492,9 @@ class TestIdpMaxBandCap(unittest.TestCase):
     """
 
     def test_idp_cap_constant_is_set(self):
-        """Cap is configured for IDP and lives at 25% by default."""
+        """Cap is configured for IDP and lives at 15% by default."""
         self.assertIn("idp", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
-        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS["idp"], 0.25)
+        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS["idp"], 0.15)
 
     def test_offense_has_no_cap(self):
         """Offense's KTC anchor coverage is deep enough that bucket P90
@@ -502,9 +502,9 @@ class TestIdpMaxBandCap(unittest.TestCase):
         self.assertNotIn("offense", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
 
     def test_idp_extreme_outlier_clamps_to_max_band(self):
-        """When the bucket P90 would have been wider than 25%, the IDP
+        """When the bucket P90 would have been wider than 15%, the IDP
         cap takes over: an IDP at 47% drift below IDPTC clamps to the
-        25% band edge, not the bucket P90 edge.
+        15% band edge, not the bucket P90 edge.
 
         Setup mimics the Vikings LB case: 1,900 internal vs 3,600 on
         IDPTC, plus enough background players with wide drifts that
@@ -534,17 +534,17 @@ class TestIdpMaxBandCap(unittest.TestCase):
         _apply_market_corridor_clamp(rows, players_by_name={})
 
         # Without the cap, bucket P90 would be ~0.30 → clamp to
-        # 3600 × 0.70 = 2520.  WITH the cap at 0.25, clamp is to
-        # 3600 × 0.75 = 2700.  The cap should bind.
+        # 3600 × 0.70 = 2520.  WITH the cap at 0.15, clamp is to
+        # 3600 × 0.85 = 3060.  The cap should bind.
         self.assertIn("marketCorridorClamp", outlier)
         stamp = outlier["marketCorridorClamp"]
         self.assertEqual(stamp["direction"], "up")
         self.assertEqual(stamp["originalValue"], 1900)
         self.assertEqual(stamp["marketAnchor"], 3600)
-        self.assertEqual(stamp["bandPct"], 0.25)
+        self.assertEqual(stamp["bandPct"], 0.15)
         self.assertTrue(stamp["cappedByMaxBand"])
-        self.assertEqual(stamp["maxBandPct"], 0.25)
-        self.assertEqual(outlier["rankDerivedValue"], 2700)
+        self.assertEqual(stamp["maxBandPct"], 0.15)
+        self.assertEqual(outlier["rankDerivedValue"], 3060)
 
     def test_idp_inside_cap_uses_bucket_p90(self):
         """When the bucket P90 is below the cap, the existing dynamic
@@ -570,17 +570,17 @@ class TestIdpMaxBandCap(unittest.TestCase):
         rows.append(outlier)
         _apply_market_corridor_clamp(rows, players_by_name={})
         stamp = outlier["marketCorridorClamp"]
-        # Bucket P90 = 0.10 < cap 0.25, so the dynamic band wins.
+        # Bucket P90 = 0.10 < cap 0.15, so the dynamic band wins.
         self.assertEqual(stamp["bandPct"], 0.10)
         self.assertFalse(stamp["cappedByMaxBand"])
         # Clamp = 5000 × (1 − 0.10) = 4500.
         self.assertEqual(outlier["rankDerivedValue"], 4500)
 
     def test_idp_cap_applies_in_both_directions(self):
-        """Over-valued outliers also clamp to the 25% cap edge above
+        """Over-valued outliers also clamp to the 15% cap edge above
         IDPTC, not just below it."""
         rows = []
-        # 39 IDPs with 30% drift to widen the bucket band past 0.25.
+        # 39 IDPs with 30% drift to widen the bucket band past 0.15.
         for i in range(39):
             rows.append(_make_row(
                 name=f"bg_{i}",
@@ -602,9 +602,9 @@ class TestIdpMaxBandCap(unittest.TestCase):
         stamp = over["marketCorridorClamp"]
         self.assertEqual(stamp["direction"], "down")
         self.assertTrue(stamp["cappedByMaxBand"])
-        self.assertEqual(stamp["bandPct"], 0.25)
-        # Clamp = 5000 × 1.25 = 6250.
-        self.assertEqual(over["rankDerivedValue"], 6250)
+        self.assertEqual(stamp["bandPct"], 0.15)
+        # Clamp = 5000 × 1.15 = 5750.
+        self.assertEqual(over["rankDerivedValue"], 5750)
 
     def test_offense_with_wide_bucket_not_capped(self):
         """Offense has no cap: a wide bucket P90 still controls clamp."""
@@ -637,7 +637,7 @@ class TestIdpMaxBandCap(unittest.TestCase):
 
     def test_idp_cap_still_idempotent(self):
         """A second clamp pass after the cap has fired must not move
-        the value — the player is already inside the 25% band."""
+        the value — the player is already inside the 15% band."""
         rows = []
         for i in range(39):
             rows.append(_make_row(

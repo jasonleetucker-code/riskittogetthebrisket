@@ -3615,16 +3615,16 @@ _MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
 # cap is a safety rail that prevents a wide bucket distribution from
 # letting truly-extreme outliers escape the clamp entirely.
 #
-# IDP cap is 0.25 (±25% of IDPTradeCalc): IDPTC is the retail IDP
+# IDP cap is 0.15 (±15% of IDPTradeCalc): IDPTC is the retail IDP
 # market, so blended values that drift further than that aren't
 # tradeable in real leagues regardless of how many other sources
 # disagree.  Cases like a Vikings LB priced at 1,900 internal vs
-# 3,600 on IDPTC (47% drift) clamp to the band edge (2,700) instead
+# 3,600 on IDPTC (47% drift) clamp to the band edge (3,060) instead
 # of riding through on a wide bucket P90.  Offense has no cap today
 # because KTC's deeper coverage already keeps offense bucket P90s
 # inside acceptable trade-room ranges.
 _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {
-    "idp": 0.25,
+    "idp": 0.15,
 }
 
 
