@@ -567,8 +567,8 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "Taylor and Taylor LawFirm",
-    "teamRosStrength": 336.6,
-    "startingLineupScore": 416.48,
+    "teamRosStrength": 336.66,
+    "startingLineupScore": 416.56,
     "benchDepthScore": 148.53,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -618,9 +618,9 @@
         "playerId": "6794",
         "canonicalName": "justin jefferson",
         "position": "WR",
-        "rosValue": 47.66,
-        "adjustedValue": 47.66,
-        "confidence": 0.805,
+        "rosValue": 47.74,
+        "adjustedValue": 47.74,
+        "confidence": 0.807,
         "flagged": null
       },
       {
@@ -945,7 +945,7 @@
     "teamName": "Shayders tators ",
     "teamRosStrength": 308.66,
     "startingLineupScore": 385.35,
-    "benchDepthScore": 117.81,
+    "benchDepthScore": 117.83,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1103,9 +1103,9 @@
         "playerId": "12530",
         "canonicalName": "travis hunter",
         "position": "WR",
-        "rosValue": 20.17,
+        "rosValue": 20.25,
         "depthFactor": 0.275,
-        "depthContribution": 5.54
+        "depthContribution": 5.56
       },
       {
         "playerId": "8205",
