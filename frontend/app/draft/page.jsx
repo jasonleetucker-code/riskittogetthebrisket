@@ -2856,165 +2856,85 @@ export default function DraftDashboardPage() {
     }
   }, [workspace, hydrated, draftStorageKey]);
 
-  // Backfill per-vendor dollar values onto existing workspace
-  // players when missing.  ``ktcDollar`` / ``idpTradeCalcDollar``
-  // are the inputs ``nominationCandidates`` reads to compute
-  // vendor-vs-our-board overrate gaps; they're populated by the
-  // manual "Sync from contract" flow but workspaces synced before
-  // the per-vendor field landed have no values, leaving the
-  // "Good to nominate" panel empty.
-  //
-  // This effect runs once after hydration and only when at least
-  // one workspace player is missing both vendor-dollar fields.
-  // It fetches /api/data + /api/draft-capital, mirrors the
-  // rescaling math from ``fetchSyncPreview`` (slot-based when the
-  // workbook is reachable, $1200 rescale fallback), and merges
-  // ``ktcDollar`` / ``idpTradeCalcDollar`` onto matching workspace
-  // players in-place — preserving every other field, including
-  // user tags and recorded picks.
-  const vendorBackfillRanRef = useRef(false);
+  // Auto-sync the rookie pool from /api/draft-capital on every page
+  // load.  The server's per-pick payload now carries every field the
+  // workspace needs (rookieName, rookiePos, rookieKtcValue → preDraft,
+  // rookieKtcDollar, rookieIdpDollar) all on the same $1200 scale
+  // derived from the sheet's Hill-curve formula applied to OUR /
+  // KTC / IDPTradeCalc values respectively.  Calling
+  // ``replacePlayerPool`` swaps the player array in one shot while
+  // preserving user tags, target board, and recorded picks (which
+  // are matched by name-derived id).  Runs once after hydration; the
+  // manual "Sync from contract" button is still available for
+  // mid-session refreshes.
+  const autoSyncRanRef = useRef(false);
   useEffect(() => {
-    if (!hydrated || vendorBackfillRanRef.current) return;
-    const players = Array.isArray(workspace?.players) ? workspace.players : [];
-    if (players.length === 0) return;
-    const needsBackfill = players.some(
-      (p) =>
-        !Number.isFinite(Number(p?.ktcDollar)) &&
-        !Number.isFinite(Number(p?.idpTradeCalcDollar)),
-    );
-    if (!needsBackfill) {
-      vendorBackfillRanRef.current = true;
-      return;
-    }
-    vendorBackfillRanRef.current = true;
-    const url = selectedLeagueKey
-      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-      : "/api/data";
+    if (!hydrated || autoSyncRanRef.current) return;
+    autoSyncRanRef.current = true;
     let cancelled = false;
     (async () => {
       try {
-        const [res, capitalRes] = await Promise.all([
-          fetch(url, { cache: "no-store" }),
-          fetch("/api/draft-capital", { cache: "no-store" }).catch(() => null),
-        ]);
-        if (!res.ok) return;
+        const capitalRes = await fetch("/api/draft-capital", {
+          cache: "no-store",
+        });
+        if (!capitalRes.ok) return;
         if (cancelled) return;
-        const data = await res.json();
-        const capitalData =
-          capitalRes && capitalRes.ok ? await capitalRes.json() : null;
-        let pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
-        if (pa.length === 0 && data?.players && typeof data.players === "object") {
-          pa = Object.values(data.players);
-        }
-        if (pa.length === 0) return;
+        const capitalData = await capitalRes.json();
+        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        if (picks.length === 0) return;
 
-        const slotDollarsByPick = (() => {
-          const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
-          if (picks.length === 0) return null;
-          return [...picks]
-            .sort((a, b) => (a?.overallPick || 0) - (b?.overallPick || 0))
-            .map((p) => Number(p?.originalDollarValue ?? p?.dollarValue))
-            .filter((n) => Number.isFinite(n) && n > 0);
-        })();
-
-        // Prefer server-provided per-rookie vendor dollars (carried on
-        // each pick as ``rookieKtcDollar`` / ``rookieIdpDollar``).  The
-        // server applies the same Hill formula to KTC and IDPTC raw
-        // values that we apply to our own values, so vendor and ours
-        // are on the same \$1200 scale and the gap math is honest.
-        // Fall back to the legacy client-side compute when the server
-        // doesn't carry the new fields (e.g. older deploys).
-        let ktcByName = new Map();
-        let idpByName = new Map();
-        const picksArr = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
-        let serverFieldsPresent = false;
-        for (const pk of picksArr) {
+        const sortedPicks = [...picks].sort(
+          (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
+        );
+        const incoming = [];
+        for (const pk of sortedPicks) {
           if (!pk?.rookieName) continue;
-          const ktc = Number(pk.rookieKtcDollar);
-          const idp = Number(pk.rookieIdpDollar);
-          if (Number.isFinite(ktc) && ktc > 0) {
-            ktcByName.set(String(pk.rookieName), ktc);
-            serverFieldsPresent = true;
-          }
-          if (Number.isFinite(idp) && idp > 0) {
-            idpByName.set(String(pk.rookieName), idp);
-            serverFieldsPresent = true;
-          }
+          const preDraft = Number(pk.rookieKtcValue);
+          if (!Number.isFinite(preDraft) || preDraft <= 0) continue;
+          incoming.push({
+            name: String(pk.rookieName),
+            preDraft,
+            pos: String(pk.rookiePos || "").toUpperCase() || undefined,
+            ktcDollar: Number.isFinite(Number(pk.rookieKtcDollar))
+              ? Number(pk.rookieKtcDollar)
+              : null,
+            idpTradeCalcDollar: Number.isFinite(Number(pk.rookieIdpDollar))
+              ? Number(pk.rookieIdpDollar)
+              : null,
+          });
         }
-        if (!serverFieldsPresent) {
-          const rookiesFromContract = pa
-            .filter((p) => p?.rookie === true)
-            .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
-            .map((p) => ({
-              name: String(p.displayName || p.canonicalName || ""),
-              ktc:
-                typeof p?.canonicalSiteValues?.ktc === "number"
-                  ? p.canonicalSiteValues.ktc
-                  : null,
-              idptc:
-                typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
-                  ? p.canonicalSiteValues.idpTradeCalc
-                  : null,
-            }))
-            .filter((p) => p.name);
-
-          const dollarsForKey = (rawKey) => {
-            const ranked = rookiesFromContract.filter(
-              (r) => Number.isFinite(r[rawKey]) && r[rawKey] > 0,
-            );
-            if (ranked.length === 0) return new Map();
-            ranked.sort((a, b) => b[rawKey] - a[rawKey]);
-            const m = new Map();
-            if (slotDollarsByPick && slotDollarsByPick.length >= ranked.length) {
-              ranked.forEach((r, i) => m.set(r.name, slotDollarsByPick[i]));
-            } else {
-              const total = 1200;
-              const sumRaw = ranked.reduce((a, r) => a + Number(r[rawKey]), 0);
-              ranked.forEach((r) =>
-                m.set(r.name, Math.round((Number(r[rawKey]) / sumRaw) * total)),
-              );
-            }
-            return m;
-          };
-          ktcByName = dollarsForKey("ktc");
-          idpByName = dollarsForKey("idptc");
-        }
+        if (incoming.length === 0) return;
 
         if (cancelled) return;
         setWorkspace((ws) => {
-          if (!ws || !Array.isArray(ws.players)) return ws;
-          let touched = false;
-          const nextPlayers = ws.players.map((p) => {
-            const ktc = ktcByName.get(p.name);
-            const idp = idpByName.get(p.name);
-            const patch = {};
-            if (
-              Number.isFinite(Number(ktc)) &&
-              !Number.isFinite(Number(p?.ktcDollar))
-            ) {
-              patch.ktcDollar = Number(ktc);
-            }
-            if (
-              Number.isFinite(Number(idp)) &&
-              !Number.isFinite(Number(p?.idpTradeCalcDollar))
-            ) {
-              patch.idpTradeCalcDollar = Number(idp);
-            }
-            if (Object.keys(patch).length === 0) return p;
-            touched = true;
-            return { ...p, ...patch };
+          if (!ws) return ws;
+          // Skip re-render if the incoming pool exactly matches what's
+          // already in the workspace (same names, same preDraft, same
+          // vendor dollars).  Avoids a needless write to localStorage
+          // when nothing changed between page loads.
+          const existing = Array.isArray(ws.players) ? ws.players : [];
+          const sameLength = existing.length === incoming.length;
+          const allMatch = sameLength && existing.every((p, i) => {
+            const inc = incoming[i];
+            return (
+              p.name === inc.name &&
+              Number(p.preDraft) === Number(inc.preDraft) &&
+              Number(p.ktcDollar ?? null) === Number(inc.ktcDollar ?? null) &&
+              Number(p.idpTradeCalcDollar ?? null) === Number(inc.idpTradeCalcDollar ?? null)
+            );
           });
-          if (!touched) return ws;
-          return { ...ws, players: nextPlayers };
+          if (allMatch) return ws;
+          const { workspace: next } = replacePlayerPool(ws, incoming);
+          return next;
         });
       } catch {
-        /* network blip; user can still hit "Sync from contract" manually */
+        /* network blip — user can still hit "Sync from contract" manually */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [hydrated, workspace, selectedLeagueKey]);
+  }, [hydrated]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
   // Retrospective inflation trajectory — O(N²) in pick count, but
