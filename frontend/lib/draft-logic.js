@@ -1786,13 +1786,19 @@ export function nextBestTargets(stats, { limit = 5 } = {}) {
 export function nominationCandidates(stats, { limit = 10 } = {}) {
   if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
 
-  // Surfaces rookies a market vendor values much HIGHER than our
-  // board, ranked by *percentage* overrate.  A $20→$30 board-vs-vendor
-  // gap on a cheap player (50% overrate) is a bigger relative tax on
-  // rivals than a $20→$40 gap on an expensive one (only 25%).  Sorting
-  // by percentage keeps low-priced overrates from being buried under
-  // raw-dollar gaps that look big in absolute terms but barely move
-  // the rival's budget needle.
+  // Surfaces rookies a market vendor values HIGHER than our board.
+  // Sort key blends two regimes by draft progress (``leagueSpentPct``):
+  //
+  //   earlyScore = vendorDollar        — raw fair price
+  //   lateScore  = gapPct × 100        — percentage overrate vs us
+  //   score      = (1 − pct) × earlyScore + pct × lateScore
+  //
+  // At pick #1 (pct ≈ 0) we sort by absolute vendor dollar — the
+  // expensive rookies real auctions nominate first to drain rivals.
+  // By draft end (pct ≈ 1) we sort purely by percentage overrate —
+  // surfacing the small-$ inefficiencies that ratchet prices up.
+  // Both panels recompute on every workspace mutation, so the blend
+  // shifts live as picks come in.
   //
   // Vendor split by position:
   //   - Offense rookies (QB/RB/WR/TE) → KTC reference price.
@@ -1806,6 +1812,7 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
   //
   // Sort: ``(vendorDollar - preDraft) / preDraft`` descending.  Cap
   // at ``limit`` (default 10).
+  const phasePct = Math.max(0, Math.min(1, Number(stats.leagueSpentPct) || 0));
   const out = [];
   for (const p of stats.enrichedPlayers) {
     if (p.drafted) continue;
@@ -1827,12 +1834,15 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
     const gap = vendorDollar - ourDollar;
     if (gap < 1) continue;  // vendor must overrate by at least $1
     const gapPct = gap / ourDollar;  // 0.5 → "50% over"
+    const earlyScore = vendorDollar;
+    const lateScore = gapPct * 100;
+    const score = (1 - phasePct) * earlyScore + phasePct * lateScore;
     const drain = Math.min(
       vendorDollar, Math.max(0, stats.topCompetitorMax || 0),
     );
     out.push({
       player: p,
-      score: gapPct,
+      score,
       drain,
       gap,
       gapPct,
@@ -1854,7 +1864,7 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
     });
   }
 
-  out.sort((a, b) => b.gapPct - a.gapPct);
+  out.sort((a, b) => b.score - a.score);
   return out.slice(0, limit);
 }
 
@@ -1889,7 +1899,16 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
 export function bestValueOnBoard(stats, { limit = 10 } = {}) {
   if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
 
-  const out = [];
+  // Two passes:
+  //   1. Qualifying rows — undrafted rookies where our board > vendor by
+  //      at least $1.  Sorted by % gap descending (best edges first).
+  //   2. Backfill — if fewer than ``limit`` qualified, fill the rest
+  //      with the highest-fair-price undrafted rookies regardless of
+  //      vendor gap.  Ensures the panel always shows ``limit`` rows so
+  //      the user can see what's still on the board even if we don't
+  //      strictly outrate the market on every name.
+  const seen = new Set();
+  const qualified = [];
   for (const p of stats.enrichedPlayers) {
     if (p.drafted) continue;
     if (p.userTag === TAG_AVOID) continue;
@@ -1905,7 +1924,8 @@ export function bestValueOnBoard(stats, { limit = 10 } = {}) {
     const gap = ourDollar - vendorDollar;
     if (gap < 1) continue;  // we must value them at least $1 above
     const gapPct = gap / vendorDollar;  // 0.5 → "50% under market"
-    out.push({
+    seen.add(p.id);
+    qualified.push({
       player: p,
       score: gapPct,
       gap,
@@ -1924,9 +1944,49 @@ export function bestValueOnBoard(stats, { limit = 10 } = {}) {
         `following ${vendorLabel} should let this clear at a discount`,
     });
   }
+  qualified.sort((a, b) => b.gapPct - a.gapPct);
 
-  out.sort((a, b) => b.gapPct - a.gapPct);
-  return out.slice(0, limit);
+  if (qualified.length >= limit) return qualified.slice(0, limit);
+
+  // Backfill with highest-fair-price undrafted rookies the qualifying
+  // pass didn't cover.
+  const backfill = [];
+  for (const p of stats.enrichedPlayers) {
+    if (p.drafted) continue;
+    if (p.userTag === TAG_AVOID) continue;
+    if (seen.has(p.id)) continue;
+    const ourDollar = Math.max(0, p.preDraft || 0);
+    if (ourDollar <= 0) continue;
+    const isIdp =
+      p.assetClass === "idp"
+      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+    const vendorKey = isIdp ? "idpTradeCalcDollar" : "ktcDollar";
+    const vendorLabel = isIdp ? "IDPTC" : "KTC";
+    const vendorDollar = Math.max(0, Number(p[vendorKey]) || 0);
+    const gap = ourDollar - vendorDollar;
+    const gapPct = vendorDollar > 0 ? gap / vendorDollar : 0;
+    backfill.push({
+      player: p,
+      score: ourDollar,  // sort key for the backfill tier only
+      gap,
+      gapPct,
+      ourDollar,
+      vendorDollar,
+      vendorKey,
+      vendorLabel,
+      ktcDollar: isIdp ? null : (vendorDollar || null),
+      idpTradeCalcDollar: isIdp ? (vendorDollar || null) : null,
+      expectedPrice: vendorDollar || ourDollar,
+      rationale:
+        vendorDollar > 0
+          ? `Our board $${Math.round(ourDollar)} vs ${vendorLabel} ` +
+            `$${Math.round(vendorDollar)} — top remaining fair price`
+          : `Our board $${Math.round(ourDollar)} (no ${vendorLabel} ` +
+            `comp) — top remaining fair price`,
+    });
+  }
+  backfill.sort((a, b) => b.ourDollar - a.ourDollar);
+  return [...qualified, ...backfill].slice(0, limit);
 }
 
 // ── Inflation history series ───────────────────────────────────────────

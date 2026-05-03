@@ -2196,10 +2196,13 @@ describe("replacePlayerPool", () => {
 });
 
 describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () => {
-  function statsWith(players) {
-    // Minimal stats stub — nominationCandidates only reads
-    // `enrichedPlayers` and `topCompetitorMax` from stats.
-    return { enrichedPlayers: players, topCompetitorMax: 100 };
+  function statsWith(players, { leagueSpentPct = 1 } = {}) {
+    // Minimal stats stub — nominationCandidates reads
+    // `enrichedPlayers`, `topCompetitorMax`, and `leagueSpentPct`
+    // from stats.  Default to leagueSpentPct=1 (end-of-draft) so
+    // the legacy "rank by percentage gap" assertions still hold;
+    // the early-phase blend is exercised by its own test below.
+    return { enrichedPlayers: players, topCompetitorMax: 100, leagueSpentPct };
   }
 
   it("offense rookie surfaces when KTC overrates vs our board", () => {
@@ -2293,20 +2296,48 @@ describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () =>
     expect(lb.rationale).toContain("IDPTC values");
   });
 
-  it("ranks by percentage gap, not dollar gap", () => {
-    // Cheap player (50% over) should beat expensive player (25% over)
-    // even though the dollar gap is identical.
+  it("late draft ranks by percentage gap, not dollar gap", () => {
+    // leagueSpentPct=1 (end of draft) → pure % gap ordering: cheap
+    // player (50% over) beats expensive player (25% over).
     const list = nominationCandidates(
       statsWith([
         // $20 board / $30 vendor → 50% over, $10 gap
         { id: "cheap", name: "Cheap", pos: "WR", preDraft: 20, ktcDollar: 30 },
         // $40 board / $50 vendor → 25% over, $10 gap (same dollars)
         { id: "pricey", name: "Pricey", pos: "WR", preDraft: 40, ktcDollar: 50 },
-      ]),
+      ], { leagueSpentPct: 1 }),
     );
     expect(list.map((e) => e.player.id)).toEqual(["cheap", "pricey"]);
     expect(Math.round(list[0].gapPct * 100)).toBe(50);
     expect(Math.round(list[1].gapPct * 100)).toBe(25);
+  });
+
+  it("early draft ranks by absolute vendor dollar (stars first)", () => {
+    // leagueSpentPct=0 (pick #1) → pure absolute-vendor ordering.
+    // High-dollar overrate ($50) beats high-percentage overrate ($30)
+    // because at the start of the draft, leaguemates nominate
+    // expensive names first to drain rivals' wallets.
+    const list = nominationCandidates(
+      statsWith([
+        { id: "cheap-pct", name: "Cheap %", pos: "WR", preDraft: 20, ktcDollar: 30 },
+        { id: "pricey-star", name: "Pricey Star", pos: "WR", preDraft: 40, ktcDollar: 50 },
+      ], { leagueSpentPct: 0 }),
+    );
+    expect(list.map((e) => e.player.id)).toEqual(["pricey-star", "cheap-pct"]);
+  });
+
+  it("phase blend reweights toward % gap as the draft progresses", () => {
+    // Mid draft (pct=0.5): blended score = 0.5*vendor + 0.5*gapPct*100.
+    //   pricey-star: 0.5*50 + 0.5*25  = 37.5
+    //   cheap-pct:   0.5*30 + 0.5*50  = 40
+    // → cheap-pct narrowly wins on the blended score.
+    const list = nominationCandidates(
+      statsWith([
+        { id: "cheap-pct", name: "Cheap %", pos: "WR", preDraft: 20, ktcDollar: 30 },
+        { id: "pricey-star", name: "Pricey Star", pos: "WR", preDraft: 40, ktcDollar: 50 },
+      ], { leagueSpentPct: 0.5 }),
+    );
+    expect(list[0].player.id).toBe("cheap-pct");
   });
 
   it("repopulates: drafting a top-N candidate surfaces the next-best from the pool", () => {
@@ -2409,32 +2440,55 @@ describe("bestValueOnBoard", () => {
     expect(list.length).toBe(0);
   });
 
-  it("skips when our value is at or below vendor (no edge)", () => {
+  it("backfills rows without an edge so the panel always reaches limit", () => {
+    // No qualifying edges — both fall into the backfill tier and
+    // get sorted by ourDollar desc.
     const list = bestValueOnBoard(
       statsWith([
         { id: "even", name: "Even", pos: "WR", preDraft: 30, ktcDollar: 30 },
         { id: "under", name: "Under", pos: "WR", preDraft: 20, ktcDollar: 30 },
       ]),
     );
-    expect(list.length).toBe(0);
+    expect(list.map((e) => e.player.id)).toEqual(["even", "under"]);
+    expect(list.every((e) => e.gap <= 0)).toBe(true);
   });
 
-  it("skips when vendor dollar is missing", () => {
+  it("backfills rows whose vendor dollar is missing", () => {
     const list = bestValueOnBoard(
       statsWith([
         { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50 },
       ]),
     );
-    expect(list.length).toBe(0);
+    expect(list.length).toBe(1);
+    expect(list[0].player.id).toBe("wr-rook");
+    expect(list[0].vendorDollar).toBe(0);
+    expect(list[0].expectedPrice).toBe(50);
   });
 
-  it("offense rookie with only IDPTradeCalc dollar (no KTC) is skipped", () => {
+  it("offense rookie with only IDPTradeCalc dollar (no KTC) backfills", () => {
+    // Routed to KTC (offense), no KTC comp → backfill tier.
     const list = bestValueOnBoard(
       statsWith([
         { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, idpTradeCalcDollar: 30 },
       ]),
     );
-    expect(list.length).toBe(0);
+    expect(list.length).toBe(1);
+    expect(list[0].player.id).toBe("wr-rook");
+    expect(list[0].vendorDollar).toBe(0);
+  });
+
+  it("qualifying rows always sort ahead of backfill rows", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        // Qualifying: $30 board / $20 vendor → 50% under, $10 gap.
+        { id: "qual", name: "Qual", pos: "WR", preDraft: 30, ktcDollar: 20 },
+        // Backfill: highest absolute fair price but no vendor edge.
+        { id: "rich", name: "Rich", pos: "WR", preDraft: 100, ktcDollar: 100 },
+      ]),
+    );
+    expect(list.map((e) => e.player.id)).toEqual(["qual", "rich"]);
+    expect(list[0].gap).toBe(10);   // qualifying
+    expect(list[1].gap).toBe(0);    // backfill
   });
 
   it("ranks by percentage gap, not dollar gap", () => {
