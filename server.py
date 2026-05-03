@@ -4626,45 +4626,91 @@ def _get_ktc_rookies():
 def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     """Return our top-N rookies from the live canonical contract.
 
-    Filters ``latest_contract_data.players`` to ``_isRookie=true`` AND
-    has a Sleeper ID — drops college / undrafted KTC entries that
-    pollute the workbook's hand-maintained list (e.g. Trinidad
-    Chambliss).  Sorted by ``_finalAdjusted`` descending so the top
-    rookie is at index 0.
+    Reads ``latest_contract_data['playersArray']`` (the post-build view
+    that carries ``rankDerivedValue`` — the rank-curve-smoothed,
+    market-corridor-clamped value the rest of the app uses).  Filters
+    to ``rookie=True`` AND has a Sleeper ``playerId`` so college /
+    undrafted KTC entries (e.g. Trinidad Chambliss) get dropped.
+    Sorted by ``rankDerivedValue`` descending — matches the rankings
+    page and user-facing rookie ordering exactly.
 
-    Returns a list of ``{name, pos, value}`` dicts; ``value`` is our
-    board's blended dollar-equivalent (raw composite, NOT yet on the
-    $1200 scale — that conversion happens in ``_rookie_dollars_from_values``).
+    Returns a list of ``{name, pos, value, ktcRaw, idpRaw}`` dicts.
+    ``value`` is the board's blended raw value (not yet on the $1200
+    scale; conversion happens in ``_rookie_dollars_from_values``).
+    ``ktcRaw`` / ``idpRaw`` are the per-vendor raw values used to
+    derive each rookie's KTC and IDPTradeCalc dollar equivalents on
+    the same $1200 scale (see ``_vendor_dollars_for_rookies``).
     """
     contract = latest_contract_data or {}
     if not isinstance(contract, dict):
         return []
-    players = contract.get("players") or {}
-    if not isinstance(players, dict):
+    pa = contract.get("playersArray")
+    if not isinstance(pa, list) or not pa:
         return []
-    sleeper_block = contract.get("sleeper") or {}
-    positions = (sleeper_block.get("positions") or {}) if isinstance(sleeper_block, dict) else {}
 
     out: list[dict] = []
-    for name, p in players.items():
+    for p in pa:
         if not isinstance(p, dict):
             continue
-        if not p.get("_isRookie"):
+        if not p.get("rookie"):
             continue
-        if not p.get("_sleeperId"):
+        if not p.get("playerId"):
             continue
-        val = p.get("_finalAdjusted")
+        val = p.get("rankDerivedValue")
         if val is None:
-            val = p.get("_composite")
+            vals = p.get("values") or {}
+            val = vals.get("overall") if isinstance(vals, dict) else None
         if val is None or float(val) <= 0:
             continue
+        csv = p.get("canonicalSiteValues") or {}
+        if not isinstance(csv, dict):
+            csv = {}
+        ktc_raw = csv.get("ktcSfTep") or csv.get("ktc")
+        idp_raw = csv.get("idpTradeCalc")
         out.append({
-            "name": str(name),
-            "pos": str(positions.get(name) or "") or None,
+            "name": str(p.get("canonicalName") or p.get("displayName") or ""),
+            "pos": (str(p.get("position") or "").upper() or None),
             "value": float(val),
+            "ktcRaw": float(ktc_raw) if isinstance(ktc_raw, (int, float)) and ktc_raw > 0 else None,
+            "idpRaw": float(idp_raw) if isinstance(idp_raw, (int, float)) and idp_raw > 0 else None,
+            "assetClass": p.get("assetClass"),
         })
+    out = [r for r in out if r["name"]]
     out.sort(key=lambda r: -r["value"])
     return out[:top_n]
+
+
+def _vendor_dollars_for_rookies(
+    rookies: list[dict],
+    total: int = DRAFT_TOTAL_BUDGET,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Derive per-rookie KTC and IDPTradeCalc dollar values on the same
+    $1200 scale as our board, so ``nominationCandidates`` and
+    ``bestValueOnBoard`` can compute apples-to-apples vendor-vs-our gaps.
+
+    For each vendor:
+      1. Take rookies that have a positive raw value for that vendor.
+      2. Sort them by that vendor's raw value desc (the vendor's own
+         ranking, not ours).
+      3. Run ``_rookie_dollars_from_values`` on those sorted values to
+         get the vendor's per-rookie dollar amounts.
+      4. Map back: rookie at vendor's rank N gets dollars[N].
+
+    Returns ``(ktc_by_name, idp_by_name)`` — both maps keyed by lowercase
+    name (case-insensitive) for robust frontend joining.
+    """
+    def _dollars_by_vendor(key: str) -> dict[str, float]:
+        eligible = [r for r in rookies if r.get(key) and r[key] > 0]
+        if not eligible:
+            return {}
+        eligible.sort(key=lambda r: -r[key])
+        # Pad to top_n so the formula stays calibrated against the same
+        # 72-row Hill curve the picks use.  Vendors that don't rank a
+        # full 72 just leave the tail empty.
+        values = [r[key] for r in eligible]
+        dollars = _rookie_dollars_from_values(values, total)
+        return {r["name"].lower(): d for r, d in zip(eligible, dollars)}
+    return _dollars_by_vendor("ktcRaw"), _dollars_by_vendor("idpRaw")
 
 
 def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
@@ -5350,13 +5396,23 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     our_rookies = _our_rookie_pool(_KTC_TOTAL_PICKS)
     rookie_source = "ours_filtered"
     rookie_dollar_overrides: list[float] = []
+    ktc_by_name: dict[str, float] = {}
+    idp_by_name: dict[str, float] = {}
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
         rookie_dollar_overrides = _rookie_dollars_from_values(
             raw_values, DRAFT_TOTAL_BUDGET,
         )
+        # Vendor $ on the same $1200 scale (KTC sorted by KTC raw,
+        # IDPTC sorted by IDPTC raw) so the frontend's gap math is
+        # honest dollar-vs-dollar instead of dollar-vs-raw-thousand.
+        ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
+            our_rookies, DRAFT_TOTAL_BUDGET,
+        )
         rookies = [
-            {"name": r["name"], "pos": r["pos"], "value": d}
+            {"name": r["name"], "pos": r["pos"], "value": d,
+             "ktcDollar": ktc_by_name.get(r["name"].lower()),
+             "idpTradeCalcDollar": idp_by_name.get(r["name"].lower())}
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
     else:
@@ -5365,12 +5421,18 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # Fill rookie rankings into picks (rookie i → pick i; pick i is the
     # i-th overall slot in draft order).  ``rookieKtcValue`` retains its
     # legacy field name for back-compat but now carries our derived
-    # dollar value when the contract-sourced pool is in play.
+    # dollar value when the contract-sourced pool is in play.  New
+    # ``rookieKtcDollar`` / ``rookieIdpDollar`` fields are the per-rookie
+    # vendor dollar values used by the "Good to nominate" + "Best value"
+    # panels.
     for i, pick in enumerate(all_picks):
         if i < len(rookies):
             pick["rookieName"] = rookies[i]["name"]
             pick["rookiePos"] = rookies[i]["pos"]
             pick["rookieKtcValue"] = rookies[i]["value"]
+            if "ktcDollar" in rookies[i]:
+                pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
+                pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
