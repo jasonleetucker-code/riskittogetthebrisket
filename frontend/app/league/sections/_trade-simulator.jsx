@@ -13,8 +13,8 @@ function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
   if (!Number.isFinite(n)) return "$0";
-  if (Number.isInteger(n)) return `$${n}`;
-  return `$${n.toFixed(2).replace(/\.?0+$/, "")}`;
+  // Match the sheet's currency-with-0-decimals display: $1.5 → $2.
+  return `$${Math.round(n)}`;
 }
 
 const simBtnStyle = {

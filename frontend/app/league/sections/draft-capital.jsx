@@ -21,11 +21,11 @@ function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
   if (!Number.isFinite(n)) return "$0";
-  // Show .5 precision when the value is half-integer (e.g. R5 picks at
-  // $1.50 in the sheet's Final Dollar Per Pick column).  Plain integers
-  // render without a trailing ".0" so common cases stay clean.
-  if (Number.isInteger(n)) return `$${n}`;
-  return `$${n.toFixed(2).replace(/\.?0+$/, "")}`;
+  // Match the Google Sheet's display: currency format with 0 decimals
+  // rounds half-dollars up ($1.5 → $2, $28.5 → $29).  The underlying
+  // value the server returns stays half-dollar so team-totals math
+  // remains accurate; only the per-cell display is rounded.
+  return `$${Math.round(n)}`;
 }
 
 export default function DraftCapitalSection() {
