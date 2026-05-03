@@ -4623,6 +4623,185 @@ def _get_ktc_rookies():
     return []
 
 
+def _our_rookie_pool(top_n: int = 72) -> list[dict]:
+    """Return our top-N rookies from the live canonical contract.
+
+    Filters ``latest_contract_data.players`` to ``_isRookie=true`` AND
+    has a Sleeper ID — drops college / undrafted KTC entries that
+    pollute the workbook's hand-maintained list (e.g. Trinidad
+    Chambliss).  Sorted by ``_finalAdjusted`` descending so the top
+    rookie is at index 0.
+
+    Returns a list of ``{name, pos, value}`` dicts; ``value`` is our
+    board's blended dollar-equivalent (raw composite, NOT yet on the
+    $1200 scale — that conversion happens in ``_rookie_dollars_from_values``).
+    """
+    contract = latest_contract_data or {}
+    if not isinstance(contract, dict):
+        return []
+    players = contract.get("players") or {}
+    if not isinstance(players, dict):
+        return []
+    sleeper_block = contract.get("sleeper") or {}
+    positions = (sleeper_block.get("positions") or {}) if isinstance(sleeper_block, dict) else {}
+
+    out: list[dict] = []
+    for name, p in players.items():
+        if not isinstance(p, dict):
+            continue
+        if not p.get("_isRookie"):
+            continue
+        if not p.get("_sleeperId"):
+            continue
+        val = p.get("_finalAdjusted")
+        if val is None:
+            val = p.get("_composite")
+        if val is None or float(val) <= 0:
+            continue
+        out.append({
+            "name": str(name),
+            "pos": str(positions.get(name) or "") or None,
+            "value": float(val),
+        })
+    out.sort(key=lambda r: -r["value"])
+    return out[:top_n]
+
+
+def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
+    """Return (spine[E2:E_n+1], r5_bonus_total) from the workbook so
+    ``_rookie_dollars_from_values`` faithfully matches the sheet's
+    formula.  Spine is the per-pick historical anchor (median + mean
+    of 2023–2025 L values divided by 2).  R5-bonus total is the $12
+    floor injection for picks 5.01–5.12 (== 12 in a 12-team league).
+
+    Falls back to a flat spine and zero R5 bonus if the workbook is
+    unreadable so callers don't blow up.
+    """
+    try:
+        import openpyxl
+        if not DRAFT_DATA_XLSX.exists():
+            return [1.0] * n, 0
+        wb = openpyxl.load_workbook(DRAFT_DATA_XLSX, data_only=True)
+        ws = wb["Draft Data"]
+        spine: list[float] = []
+        for r in range(2, 2 + n):
+            v = ws.cell(r, 5).value  # E = column 5
+            spine.append(float(v) if v is not None else 1.0)
+        wb.close()
+    except Exception:
+        return [1.0] * n, 0
+    return spine, n  # R5 bonus = +$1 × 12 picks = $12 total floor add
+
+
+def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BUDGET) -> list[float]:
+    """Convert raw rookie values to dollar amounts using the sheet's
+    Hill-curve formula (column C → I → J → K → D in Draft Data.xlsx),
+    summing to ``total``.
+
+    Faithful reproduction of the Google Sheet formula:
+
+        decay_rate = clip(0.6 × stdev(B[0..5]) / mean(B[0..5]), 0.03, 0.08)
+        weight[i]  = exp(-decay_rate × i) × (1 − 0.2 × exp(−0.12 × i))
+        term1[i]   = B[i] × weight[i] / Σ B[j] × weight[j]
+        spine[i]   = sheet E[i]  (median+mean of 2023–2025 L values / 2)
+        excess[i]  = max(0, spine[i] − 1)
+        term2[i]   = excess[i] / Σ excess[j]
+        r5_bonus[i] = 1 if 48 ≤ i < 60 else 0     (round-5 floor add)
+        floor[i]    = 1 + r5_bonus[i]              (per-row guaranteed)
+        C[i]       = floor[i] + (total − Σ floor) × (0.6 × term1[i] + 0.4 × term2[i])
+        I[i]       = floor(C[i] × 2)
+        J[i]       = C[i] × 2 − I[i]
+        K[i]       = I[i] + (1 if rank(J[i]) ≤ total × 2 − Σ I[j])
+        L[i]       = K[i] / 2 + (R1 carryover distributed across first M)
+
+    Spine and R5-bonus are draft-slot anchors lifted from the
+    workbook — keeping them lets the formula match the sheet exactly
+    when fed the sheet's own B values, and gives rookies in the R5-
+    equivalent range (positions 49–60) a small kicker the same way
+    real R5 picks are kept above R6.
+    """
+    import math
+    n = len(values)
+    if n == 0:
+        return []
+    M = 12
+
+    spine, r5_bonus_count = _read_sheet_spine_and_floor(n)
+    if len(spine) < n:
+        spine = list(spine) + [1.0] * (n - len(spine))
+
+    head = values[: min(6, n)]
+    head_mean = sum(head) / len(head) if head else 0.0
+    if head_mean > 0 and len(head) >= 2:
+        var = sum((x - head_mean) ** 2 for x in head) / (len(head) - 1)
+        head_std = math.sqrt(var)
+        decay_rate = max(0.03, min(0.08, 0.6 * head_std / head_mean))
+    else:
+        decay_rate = 0.05
+
+    weights = [
+        math.exp(-decay_rate * i) * (1 - 0.2 * math.exp(-0.12 * i))
+        for i in range(n)
+    ]
+    denom_decay = sum(values[i] * weights[i] for i in range(n)) or 1.0
+    term1 = [values[i] * weights[i] / denom_decay for i in range(n)]
+
+    excess = [max(0.0, spine[i] - 1) for i in range(n)]
+    denom_spine = sum(excess) or 1.0
+    term2 = [e / denom_spine for e in excess]
+
+    # Per-row floor: $1 every row + $1 for round-5-equivalent rows.
+    floors_per_row = [1.0 + (1.0 if 48 <= i < 60 else 0.0) for i in range(n)]
+    floor_pool = sum(floors_per_row)
+    pool = float(total) - floor_pool
+    c_vals = [
+        floors_per_row[i] + pool * (0.6 * term1[i] + 0.4 * term2[i])
+        for i in range(n)
+    ]
+
+    # Monotone half-dollar rounding (sheet uses ×2 / /2).
+    doubled = [c * 2 for c in c_vals]
+    i_vals = [math.floor(x) for x in doubled]
+    fracs = [doubled[i] - i_vals[i] for i in range(n)]
+    target = total * 2
+    # Monotone bonus: top (target − Σ I) fractional values get +1.
+    bonus_count = max(0, target - sum(i_vals))
+    rank_order = sorted(range(n), key=lambda i: (-fracs[i], i))
+    bonus_idx = set(rank_order[:bonus_count])
+    monotone_bonus = [1 if i in bonus_idx else 0 for i in range(n)]
+
+    # K column with caps + monotone-non-increasing constraint
+    # (sheet K2 has no cap; K14+ caps at round-5 / round-6 floors and
+    # forces K[i] ≤ K[i-1] so the dollar curve never re-rises).
+    def cap_for(i: int) -> int:
+        if 48 <= i < 60:
+            return 4   # R5 cap → D ≤ $2
+        if 60 <= i < 72:
+            return 2   # R6 cap → D ≤ $1
+        return 10 ** 9
+
+    k_vals: list[int] = []
+    for i in range(n):
+        candidate = i_vals[i] + monotone_bonus[i]
+        if i == 0:
+            k_vals.append(candidate)
+        else:
+            k_vals.append(min(candidate, cap_for(i), k_vals[i - 1]))
+
+    # R1 carryover: D = (K + carryover) / 2 for the first M rookies.
+    # Distributes the residual (target − Σ K) over the first M rows so
+    # the totals still add to ``total`` after the K caps shave value
+    # off R5/R6.
+    carry_total = target - sum(k_vals)
+    base_carry = carry_total // M if M else 0
+    extra = carry_total % M if M else 0
+    dollars = []
+    for i in range(n):
+        carry = (base_carry + (1 if i < extra else 0)) if i < M else 0
+        dollars.append((k_vals[i] + carry) / 2.0)
+    return dollars
+
+
 def _parse_csv_rookies():
     """Parse rookie rankings from the draft data CSV (cols 22-25)."""
     import csv
@@ -4696,6 +4875,18 @@ def _parse_draft_xlsx():
             v = ws.cell(row, col).value
             pick_dollars.append(float(v) if v is not None else 0.0)
 
+    # ── Final per-pick dollar values L2:L73 ──
+    # The "Final Dollar Per Pick" column is the sheet's curve-smoothed,
+    # monotone-rounded, half-dollar-precision value per pick (sums to
+    # exactly $1200 across 72 picks).  It is NOT expansion-pair-averaged
+    # like Q45:Q116, so R5 picks read as $1.50 instead of being floored
+    # to $1 by downstream budget-balancing.  This is the user's chosen
+    # source of truth for displayed pick values.
+    pick_values_l: list[float] = []
+    for row in range(2, 74):
+        v = ws.cell(row, 12).value  # L = column 12
+        pick_values_l.append(float(v) if v is not None else 0.0)
+
     # ── Final pick assignments Q45:R116 ──
     workbook_picks: list[dict] = []
     for row in range(45, 117):
@@ -4730,7 +4921,7 @@ def _parse_draft_xlsx():
             workbook_team_totals[str(team).strip()] = float(val)
 
     wb.close()
-    return pick_dollars, workbook_picks, slot_to_original_owner, workbook_team_totals
+    return pick_dollars, workbook_picks, slot_to_original_owner, workbook_team_totals, pick_values_l
 
 
 def _parse_draft_csv_fallback():
@@ -4808,25 +4999,29 @@ def _parse_draft_csv_fallback():
             except (ValueError, TypeError):
                 in_team = False
 
-    return pick_dollars, workbook_picks, slot_to_original_owner, wb_totals
+    # CSV fallback has no separate "Final Dollar Per Pick" column —
+    # use the grid-derived pick_dollars as the L surrogate so the
+    # downstream pipeline still gets a length-72 list.
+    return pick_dollars, workbook_picks, slot_to_original_owner, wb_totals, list(pick_dollars)
 
 
 def _parse_draft_data():
     """Read draft capital data from the workbook (.xlsx preferred) or CSV.
-    Returns (pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies).
+    Returns (pick_dollars, workbook_picks, slot_to_original, wb_team_totals,
+    rookies, pick_values_l).
     """
     result = _parse_draft_xlsx()
     if result is None:
         result = _parse_draft_csv_fallback()
     if result is None:
-        return [], [], {}, {}, []
+        return [], [], {}, {}, [], []
 
-    pick_dollars, workbook_picks, slot_to_original, wb_totals = result
+    pick_dollars, workbook_picks, slot_to_original, wb_totals, pick_values_l = result
 
     rookies = _get_ktc_rookies()
     rookies = _ktc_decay_curve(rookies, _KTC_TOTAL_PICKS)
 
-    return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies
+    return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies, pick_values_l
 
 
 def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
@@ -4864,7 +5059,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     ``apply_sleeper_trades=False`` preserves the legacy workbook-
     only behavior (used by tests that assert sheet-derived totals).
     """
-    pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies = _parse_draft_data()
+    pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies, pick_values_l = _parse_draft_data()
     if not workbook_picks:
         return {"error": "Draft data workbook not found or empty"}
 
@@ -4876,20 +5071,16 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     league_season = current_year
     num_teams = len(slot_to_original) or 12
     draft_rounds = max(1, len(workbook_picks) // num_teams)
-    raw_values = [wp["value"] for wp in workbook_picks]
-    int_pick_values = _round_to_budget(raw_values, DRAFT_TOTAL_BUDGET)
-    # Original (pre-expansion-averaging) per-slot values from the
-    # workbook's P2:AA7 grid.  workbook_picks Q45:Q116 averages
-    # expansion-pair picks (e.g. 1.01 + 1.02 split equally because both
-    # belong to expansion teams in the user's league), which is correct
-    # for ownership accounting but wrong for valuing individual rookies
-    # at their actual draft slot.  This array preserves the unaveraged
-    # per-slot price so the rookie board can show e.g. 1.01 → $147 and
-    # 1.02 → $112 instead of both at the $130 average.
-    int_original_values = (
-        _round_to_budget(pick_dollars, DRAFT_TOTAL_BUDGET)
-        if pick_dollars and len(pick_dollars) >= len(workbook_picks)
-        else int_pick_values
+    # Per-pick dollar values come from the workbook's L2:L73 column
+    # ("Final Dollar Per Pick") — the sheet's curve-smoothed,
+    # half-dollar-precision figures that already sum to $1200 across
+    # 72 picks.  Using L directly (instead of re-rounding the Q-column
+    # expansion-averaged values) preserves the $1.50 separation between
+    # round 5 and round 6 picks that the user maintains in the sheet.
+    pick_values_per_slot = (
+        list(pick_values_l)
+        if pick_values_l and len(pick_values_l) >= len(workbook_picks)
+        else [wp["value"] for wp in workbook_picks]
     )
 
     # ── First-name → Sleeper team-name mapping ──
@@ -5113,10 +5304,12 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         owner_team = display(owner_first)
         origin_team = display(origin_first)
 
-        dollar = int_pick_values[overall_idx] if overall_idx < len(int_pick_values) else int(round(val))
-        original_dollar = (
-            int_original_values[overall_idx]
-            if overall_idx < len(int_original_values) else dollar
+        # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
+        # dollar from the sheet — half-dollar precision preserved.
+        dollar = (
+            float(pick_values_per_slot[overall_idx])
+            if overall_idx < len(pick_values_per_slot)
+            else float(val)
         )
 
         all_picks.append({
@@ -5126,11 +5319,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             "overallPick": overall_idx + 1,
             "dollarValue": dollar,
             "adjustedDollarValue": dollar,
-            # Unaveraged per-slot value — used by the rookie board on
-            # /draft to value each rookie at their consensus pick slot
-            # (e.g. consensus 1.01 → $147, not the $130 expansion-pair
-            # average).  Sums to 1200 across all 72 picks like dollarValue.
-            "originalDollarValue": original_dollar,
+            # Same source as dollarValue.  The legacy distinction
+            # between expansion-averaged Q and unaveraged grid no
+            # longer applies — L is unaveraged by construction.
+            "originalDollarValue": dollar,
             "originalOwner": origin_team,
             "currentOwner": owner_team,
             "isTraded": str(origin_first).strip() != str(owner_first).strip(),
@@ -5150,7 +5342,30 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     team_totals = {t: v for t, v in zip(team_names, team_int_list)}
     total_budget = sum(team_int_list)
 
-    # Fill rookie rankings (from KTC live or CSV fallback, extended via decay curve)
+    # Rookie pool — prefer our top-72 from the live contract (filtered
+    # to rostered rookies via Sleeper ID), fall back to KTC if the
+    # contract isn't loaded yet.  Each rookie's dollar value comes from
+    # the sheet's Hill-curve formula applied to OUR values, so the pool
+    # totals to $1200 and tail rookies bottom out at $1.
+    our_rookies = _our_rookie_pool(_KTC_TOTAL_PICKS)
+    rookie_source = "ours_filtered"
+    rookie_dollar_overrides: list[float] = []
+    if our_rookies:
+        raw_values = [r["value"] for r in our_rookies]
+        rookie_dollar_overrides = _rookie_dollars_from_values(
+            raw_values, DRAFT_TOTAL_BUDGET,
+        )
+        rookies = [
+            {"name": r["name"], "pos": r["pos"], "value": d}
+            for r, d in zip(our_rookies, rookie_dollar_overrides)
+        ]
+    else:
+        rookie_source = "ktc_fallback"
+
+    # Fill rookie rankings into picks (rookie i → pick i; pick i is the
+    # i-th overall slot in draft order).  ``rookieKtcValue`` retains its
+    # legacy field name for back-compat but now carries our derived
+    # dollar value when the contract-sourced pool is in play.
     for i, pick in enumerate(all_picks):
         if i < len(rookies):
             pick["rookieName"] = rookies[i]["name"]
@@ -5159,7 +5374,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
-    # KTC data source info
+    # KTC data source info — only meaningful when we fell back to KTC.
     ktc_source = "live" if (_ktc_cache["rookies"] is not None and (time.time() - _ktc_cache["fetched_at"]) < _KTC_CACHE_TTL) else "csv"
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
@@ -5173,6 +5388,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "ktcSource": ktc_source,
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),
+        "rookieSource": rookie_source,
     }
 
 
