@@ -47,8 +47,22 @@ import {
   updateSettings,
   updateTeam,
 } from "@/lib/draft-logic";
+import { classifyPos } from "@/lib/dynasty-data";
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
+
+// Per-row market value: KTC dollar for offense rookies, IDPTradeCalc
+// dollar for IDP rookies.  Mirrors the vendor split used by
+// nominationCandidates / bestValueOnBoard so the rookie board's
+// "Market" column tells the same story as those panels.
+function marketDollarFor(player) {
+  if (!player) return null;
+  const isIdp =
+    player.assetClass === "idp"
+    || (player.assetClass !== "offense" && classifyPos(player.pos) === "idp");
+  const v = isIdp ? player.idpTradeCalcDollar : player.ktcDollar;
+  return Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null;
+}
 
 // Short labels + CSS classes for the recommendation chip on each row.
 // Kept in one place so the color language is consistent between the
@@ -1138,6 +1152,12 @@ function RookieBoard({
               </th>
               {th("Player", "name")}
               {th("PreDraft", "preDraft", 82)}
+              <th
+                style={{ width: 76, textAlign: "right" }}
+                title="Market value: KTC for offense, IDPTradeCalc for IDP — same $1200 scale as our PreDraft"
+              >
+                Market
+              </th>
               {th("Fair", "inflatedFair", 70)}
               {th("Enforce", "enforceUpTo", 70)}
               {th("Win at", "myWinningBid", 80)}
@@ -1159,7 +1179,7 @@ function RookieBoard({
                       key={`tier-${p.tier}`}
                       className="draft-tier-divider"
                     >
-                      <td colSpan={13}>
+                      <td colSpan={14}>
                         <span
                           className={`draft-tier-chip draft-tier-${p.tier}`}
                           style={{ marginRight: 8 }}
@@ -1260,6 +1280,21 @@ function RookieBoard({
                     }
                     disabled={p.drafted}
                   />
+                </td>
+                <td
+                  className="draft-money"
+                  title={(() => {
+                    const m = marketDollarFor(p);
+                    if (m == null) return "No market value for this rookie";
+                    const isIdp = p.assetClass === "idp"
+                      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+                    return `${isIdp ? "IDPTradeCalc" : "KTC"} $${Math.round(m)}`;
+                  })()}
+                >
+                  {(() => {
+                    const m = marketDollarFor(p);
+                    return m == null ? "—" : fmt$(m);
+                  })()}
                 </td>
                 <td className="draft-money">{fmt$(p.inflatedFair)}</td>
                 <td className="draft-money">{fmt$(p.enforceUpTo)}</td>
