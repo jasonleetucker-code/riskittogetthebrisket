@@ -975,6 +975,7 @@ function QuickRecordRow({ player, workspace, onSubmit, onCancel }) {
 function RookieBoard({
   stats,
   workspace,
+  marketDollars,
   onDraft,
   onEditPreDraft,
   onRemovePlayer,
@@ -1284,16 +1285,27 @@ function RookieBoard({
                 <td
                   className="draft-money"
                   title={(() => {
-                    const m = marketDollarFor(p);
-                    if (m == null) return "No market value for this rookie";
                     const isIdp = p.assetClass === "idp"
                       || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+                    const m = marketDollarFor(p)
+                      ?? (isIdp
+                        ? marketDollars?.idp?.get(String(p.name).toLowerCase())
+                        : marketDollars?.ktc?.get(String(p.name).toLowerCase()));
+                    if (!Number.isFinite(Number(m)) || Number(m) <= 0) {
+                      return "No market value for this rookie";
+                    }
                     return `${isIdp ? "IDPTradeCalc" : "KTC"} $${Math.round(m)}`;
                   })()}
                 >
                   {(() => {
-                    const m = marketDollarFor(p);
-                    return m == null ? "—" : fmt$(m);
+                    const isIdp = p.assetClass === "idp"
+                      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+                    const m = marketDollarFor(p)
+                      ?? (isIdp
+                        ? marketDollars?.idp?.get(String(p.name).toLowerCase())
+                        : marketDollars?.ktc?.get(String(p.name).toLowerCase()));
+                    return Number.isFinite(Number(m)) && Number(m) > 0
+                      ? fmt$(m) : "—";
                   })()}
                 </td>
                 <td className="draft-money">{fmt$(p.inflatedFair)}</td>
@@ -2811,6 +2823,12 @@ export default function DraftDashboardPage() {
   );
 
   const [workspace, setWorkspace] = useState(() => createDefaultWorkspace());
+  // Live vendor-dollar map keyed by lowercase name, sourced directly
+  // from /api/draft-capital.  Mirrors what the auto-sync writes onto
+  // the workspace, but is independent of workspace state so the
+  // Market column always shows current values even if the workspace
+  // hydrates from stale localStorage before the auto-sync writes back.
+  const [marketDollars, setMarketDollars] = useState({ ktc: new Map(), idp: new Map() });
   const [hydrated, setHydrated] = useState(false);
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
@@ -2922,21 +2940,29 @@ export default function DraftDashboardPage() {
           (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
         );
         const incoming = [];
+        const ktcMap = new Map();
+        const idpMap = new Map();
         for (const pk of sortedPicks) {
           if (!pk?.rookieName) continue;
           const preDraft = Number(pk.rookieKtcValue);
           if (!Number.isFinite(preDraft) || preDraft <= 0) continue;
+          const nameLc = String(pk.rookieName).toLowerCase();
+          const ktc = Number(pk.rookieKtcDollar);
+          const idp = Number(pk.rookieIdpDollar);
+          if (Number.isFinite(ktc) && ktc > 0) ktcMap.set(nameLc, ktc);
+          if (Number.isFinite(idp) && idp > 0) idpMap.set(nameLc, idp);
           incoming.push({
             name: String(pk.rookieName),
             preDraft,
             pos: String(pk.rookiePos || "").toUpperCase() || undefined,
-            ktcDollar: Number.isFinite(Number(pk.rookieKtcDollar))
-              ? Number(pk.rookieKtcDollar)
-              : null,
-            idpTradeCalcDollar: Number.isFinite(Number(pk.rookieIdpDollar))
-              ? Number(pk.rookieIdpDollar)
-              : null,
+            ktcDollar: Number.isFinite(ktc) && ktc > 0 ? ktc : null,
+            idpTradeCalcDollar: Number.isFinite(idp) && idp > 0 ? idp : null,
           });
+        }
+        // Publish the vendor-dollar map immediately so the Market
+        // column has data even before the workspace replace lands.
+        if (!cancelled && (ktcMap.size > 0 || idpMap.size > 0)) {
+          setMarketDollars({ ktc: ktcMap, idp: idpMap });
         }
         if (incoming.length === 0) return;
 
@@ -3976,6 +4002,7 @@ export default function DraftDashboardPage() {
       <RookieBoard
         stats={stats}
         workspace={workspace}
+        marketDollars={marketDollars}
         onDraft={(p) => setModalPlayer(p)}
         onEditPreDraft={onEditPreDraft}
         onRemovePlayer={onRemovePlayer}
