@@ -1212,9 +1212,9 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
       : DEFAULT_INITIAL_SLOTS;
     const initialSlots = picksArray
       ? Number.isFinite(feedSlots)
-        ? feedSlots
+        ? Math.min(feedSlots, DEFAULT_INITIAL_SLOTS)
         : 0
-      : priorSlots;
+      : Math.min(priorSlots, DEFAULT_INITIAL_SLOTS);
     // In sync mode, preserve the user's typed initialBudget when it
     // diverges from the last-seen feed value.  In force mode (or when
     // no prior feedBudget exists), snap initialBudget to the new feed

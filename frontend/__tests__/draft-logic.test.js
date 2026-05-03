@@ -1036,13 +1036,13 @@ describe("mergeDraftCapitalTeams — with picks array", () => {
     ...Array(3).fill({ currentOwner: "jstuedle" }),
   ];
 
-  it("sets initialSlots from the picks array when supplied", () => {
+  it("sets initialSlots from the picks array when supplied, capped at DEFAULT_INITIAL_SLOTS", () => {
     const ws = createDefaultWorkspace();
     const { workspace } = mergeDraftCapitalTeams(ws, teamTotals, { picks });
     const russini = workspace.teams.find((t) => t.name === "Russini Panini");
     const jstu = workspace.teams.find((t) => t.name === "jstuedle");
     const pop = workspace.teams.find((t) => t.name === "Pop Trunk");
-    expect(russini.initialSlots).toBe(8);
+    expect(russini.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
     expect(jstu.initialSlots).toBe(3);
     expect(pop.initialSlots).toBe(0);
   });
