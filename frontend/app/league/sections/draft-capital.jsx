@@ -19,7 +19,13 @@ const TradeSimulator = dynamic(() => import("./_trade-simulator.jsx"), {
 
 function fmtDollar(v) {
   if (v == null) return "$0";
-  return `$${Math.round(v)}`;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "$0";
+  // Show .5 precision when the value is half-integer (e.g. R5 picks at
+  // $1.50 in the sheet's Final Dollar Per Pick column).  Plain integers
+  // render without a trailing ".0" so common cases stay clean.
+  if (Number.isInteger(n)) return `$${n}`;
+  return `$${n.toFixed(2).replace(/\.?0+$/, "")}`;
 }
 
 export default function DraftCapitalSection() {

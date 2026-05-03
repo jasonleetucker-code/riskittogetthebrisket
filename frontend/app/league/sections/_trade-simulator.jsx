@@ -11,7 +11,10 @@ import { useEffect, useMemo, useState } from "react";
 
 function fmtDollar(v) {
   if (v == null) return "$0";
-  return `$${Math.round(v)}`;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "$0";
+  if (Number.isInteger(n)) return `$${n}`;
+  return `$${n.toFixed(2).replace(/\.?0+$/, "")}`;
 }
 
 const simBtnStyle = {
