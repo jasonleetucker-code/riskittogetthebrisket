@@ -541,9 +541,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Russini Panini",
-    "teamRosStrength": 511.16,
-    "startingLineupScore": 660.18,
-    "benchDepthScore": 143.53,
+    "teamRosStrength": 491.19,
+    "startingLineupScore": 635.35,
+    "benchDepthScore": 131.86,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -619,22 +619,22 @@
       },
       {
         "slot": "RB",
-        "playerId": "4866",
-        "canonicalName": "saquon barkley",
-        "position": "RB",
-        "rosValue": 57.23,
-        "adjustedValue": 57.23,
-        "confidence": 0.854,
-        "flagged": null
-      },
-      {
-        "slot": "RB",
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
         "rosValue": 21.65,
         "adjustedValue": 21.65,
         "confidence": 0.947,
+        "flagged": null
+      },
+      {
+        "slot": "RB",
+        "playerId": "8132",
+        "canonicalName": "tyler allgeier",
+        "position": "RB",
+        "rosValue": 18.46,
+        "adjustedValue": 18.46,
+        "confidence": 0.964,
         "flagged": null
       },
       {
@@ -659,6 +659,16 @@
       },
       {
         "slot": "WR",
+        "playerId": "8167",
+        "canonicalName": "christian watson",
+        "position": "WR",
+        "rosValue": 38.75,
+        "adjustedValue": 38.75,
+        "confidence": 0.917,
+        "flagged": null
+      },
+      {
+        "slot": "WR",
         "playerId": "7525",
         "canonicalName": "devonta smith",
         "position": "WR",
@@ -668,7 +678,7 @@
         "flagged": null
       },
       {
-        "slot": "WR",
+        "slot": "FLEX",
         "playerId": "8146",
         "canonicalName": "garrett wilson",
         "position": "WR",
@@ -685,16 +695,6 @@
         "rosValue": 35.11,
         "adjustedValue": 35.11,
         "confidence": 0.87,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
-        "playerId": "8126",
-        "canonicalName": "wandale robinson",
-        "position": "WR",
-        "rosValue": 24.81,
-        "adjustedValue": 24.81,
-        "confidence": 0.965,
         "flagged": null
       },
       {
@@ -738,12 +738,28 @@
         "depthContribution": 29.33
       },
       {
+        "playerId": "9756",
+        "canonicalName": "jordan addison",
+        "position": "WR",
+        "rosValue": 28.24,
+        "depthFactor": 1.0,
+        "depthContribution": 28.24
+      },
+      {
+        "playerId": "8126",
+        "canonicalName": "wandale robinson",
+        "position": "WR",
+        "rosValue": 24.81,
+        "depthFactor": 0.65,
+        "depthContribution": 16.13
+      },
+      {
         "playerId": "7049",
         "canonicalName": "jauan jennings",
         "position": "WR",
         "rosValue": 23.88,
-        "depthFactor": 1.0,
-        "depthContribution": 23.88
+        "depthFactor": 0.423,
+        "depthContribution": 10.09
       },
       {
         "playerId": "12588",
@@ -774,31 +790,13 @@
         "canonicalName": "adonai mitchell",
         "position": "WR",
         "rosValue": 19.12,
-        "depthFactor": 0.65,
-        "depthContribution": 12.43
-      },
-      {
-        "playerId": "11559",
-        "canonicalName": "michael penix",
-        "position": "QB",
-        "rosValue": 17.69,
-        "depthFactor": 1.0,
-        "depthContribution": 17.69
-      },
-      {
-        "playerId": "5844",
-        "canonicalName": "tj hockenson",
-        "position": "TE",
-        "rosValue": 17.37,
-        "depthFactor": 1.0,
-        "depthContribution": 17.37
+        "depthFactor": 0.275,
+        "depthContribution": 5.25
       }
     ],
     "unfilledSlots": [],
-    "unmappedPlayerCount": 1,
-    "unmappedPlayers": [
-      "tanner mckee"
-    ],
+    "unmappedPlayerCount": 0,
+    "unmappedPlayers": [],
     "weights": {
       "starting": 0.72,
       "depth": 0.18,
@@ -2701,10 +2699,10 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "ughb",
-    "teamRosStrength": 301.03,
-    "startingLineupScore": 394.76,
-    "benchDepthScore": 44.06,
-    "positionalCoverageScore": 77.5,
+    "teamRosStrength": 292.93,
+    "startingLineupScore": 382.45,
+    "benchDepthScore": 49.35,
+    "positionalCoverageScore": 73.75,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
       {
@@ -2779,12 +2777,12 @@
       },
       {
         "slot": "RB",
-        "playerId": "8132",
-        "canonicalName": "tyler allgeier",
+        "playerId": "4866",
+        "canonicalName": "saquon barkley",
         "position": "RB",
-        "rosValue": 18.46,
-        "adjustedValue": 18.46,
-        "confidence": 0.964,
+        "rosValue": 57.23,
+        "adjustedValue": 57.23,
+        "confidence": 0.854,
         "flagged": null
       },
       {
@@ -2818,33 +2816,23 @@
         "flagged": null
       },
       {
-        "slot": "WR",
-        "playerId": "8167",
-        "canonicalName": "christian watson",
-        "position": "WR",
-        "rosValue": 38.75,
-        "adjustedValue": 38.75,
-        "confidence": 0.917,
-        "flagged": null
-      },
-      {
-        "slot": "WR",
-        "playerId": "9756",
-        "canonicalName": "jordan addison",
-        "position": "WR",
-        "rosValue": 28.24,
-        "adjustedValue": 28.24,
-        "confidence": 0.897,
+        "slot": "FLEX",
+        "playerId": "9225",
+        "canonicalName": "tank bigsby",
+        "position": "RB",
+        "rosValue": 12.48,
+        "adjustedValue": 12.48,
+        "confidence": 0.955,
         "flagged": null
       },
       {
         "slot": "FLEX",
-        "playerId": "8698",
-        "canonicalName": "jake tonges",
+        "playerId": "6826",
+        "canonicalName": "cole kmet",
         "position": "TE",
-        "rosValue": 5.29,
-        "adjustedValue": 5.29,
-        "confidence": 0.969,
+        "rosValue": 8.72,
+        "adjustedValue": 8.72,
+        "confidence": 0.994,
         "flagged": null
       },
       {
@@ -2912,6 +2900,14 @@
         "depthContribution": 6.32
       },
       {
+        "playerId": "8698",
+        "canonicalName": "jake tonges",
+        "position": "TE",
+        "rosValue": 5.29,
+        "depthFactor": 1.0,
+        "depthContribution": 5.29
+      },
+      {
         "playerId": "12631",
         "canonicalName": "upton stout",
         "position": "CB",
@@ -2926,13 +2922,24 @@
         "rosValue": 3.88,
         "depthFactor": 0.55,
         "depthContribution": 2.13
+      },
+      {
+        "playerId": "9230",
+        "canonicalName": "tanner mckee",
+        "position": "QB",
+        "rosValue": 0.0,
+        "depthFactor": 0.303,
+        "depthContribution": 0.0
       }
     ],
     "unfilledSlots": [
-      "FLEX"
+      "WR",
+      "WR"
     ],
-    "unmappedPlayerCount": 0,
-    "unmappedPlayers": [],
+    "unmappedPlayerCount": 1,
+    "unmappedPlayers": [
+      "tanner mckee"
+    ],
     "weights": {
       "starting": 0.72,
       "depth": 0.18,
