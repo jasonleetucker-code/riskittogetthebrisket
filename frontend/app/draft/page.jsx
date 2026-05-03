@@ -2917,44 +2917,68 @@ export default function DraftDashboardPage() {
             .filter((n) => Number.isFinite(n) && n > 0);
         })();
 
-        const rookiesFromContract = pa
-          .filter((p) => p?.rookie === true)
-          .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
-          .map((p) => ({
-            name: String(p.displayName || p.canonicalName || ""),
-            ktc:
-              typeof p?.canonicalSiteValues?.ktc === "number"
-                ? p.canonicalSiteValues.ktc
-                : null,
-            idptc:
-              typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
-                ? p.canonicalSiteValues.idpTradeCalc
-                : null,
-          }))
-          .filter((p) => p.name);
-
-        const dollarsForKey = (rawKey) => {
-          const ranked = rookiesFromContract.filter(
-            (r) => Number.isFinite(r[rawKey]) && r[rawKey] > 0,
-          );
-          if (ranked.length === 0) return new Map();
-          ranked.sort((a, b) => b[rawKey] - a[rawKey]);
-          const m = new Map();
-          if (slotDollarsByPick && slotDollarsByPick.length >= ranked.length) {
-            ranked.forEach((r, i) => m.set(r.name, slotDollarsByPick[i]));
-          } else {
-            // Same total budget the manual sync uses ($1200) —
-            // keeps the gap math honest across both code paths.
-            const total = 1200;
-            const sumRaw = ranked.reduce((a, r) => a + Number(r[rawKey]), 0);
-            ranked.forEach((r) =>
-              m.set(r.name, Math.round((Number(r[rawKey]) / sumRaw) * total)),
-            );
+        // Prefer server-provided per-rookie vendor dollars (carried on
+        // each pick as ``rookieKtcDollar`` / ``rookieIdpDollar``).  The
+        // server applies the same Hill formula to KTC and IDPTC raw
+        // values that we apply to our own values, so vendor and ours
+        // are on the same \$1200 scale and the gap math is honest.
+        // Fall back to the legacy client-side compute when the server
+        // doesn't carry the new fields (e.g. older deploys).
+        let ktcByName = new Map();
+        let idpByName = new Map();
+        const picksArr = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        let serverFieldsPresent = false;
+        for (const pk of picksArr) {
+          if (!pk?.rookieName) continue;
+          const ktc = Number(pk.rookieKtcDollar);
+          const idp = Number(pk.rookieIdpDollar);
+          if (Number.isFinite(ktc) && ktc > 0) {
+            ktcByName.set(String(pk.rookieName), ktc);
+            serverFieldsPresent = true;
           }
-          return m;
-        };
-        const ktcByName = dollarsForKey("ktc");
-        const idpByName = dollarsForKey("idptc");
+          if (Number.isFinite(idp) && idp > 0) {
+            idpByName.set(String(pk.rookieName), idp);
+            serverFieldsPresent = true;
+          }
+        }
+        if (!serverFieldsPresent) {
+          const rookiesFromContract = pa
+            .filter((p) => p?.rookie === true)
+            .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
+            .map((p) => ({
+              name: String(p.displayName || p.canonicalName || ""),
+              ktc:
+                typeof p?.canonicalSiteValues?.ktc === "number"
+                  ? p.canonicalSiteValues.ktc
+                  : null,
+              idptc:
+                typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
+                  ? p.canonicalSiteValues.idpTradeCalc
+                  : null,
+            }))
+            .filter((p) => p.name);
+
+          const dollarsForKey = (rawKey) => {
+            const ranked = rookiesFromContract.filter(
+              (r) => Number.isFinite(r[rawKey]) && r[rawKey] > 0,
+            );
+            if (ranked.length === 0) return new Map();
+            ranked.sort((a, b) => b[rawKey] - a[rawKey]);
+            const m = new Map();
+            if (slotDollarsByPick && slotDollarsByPick.length >= ranked.length) {
+              ranked.forEach((r, i) => m.set(r.name, slotDollarsByPick[i]));
+            } else {
+              const total = 1200;
+              const sumRaw = ranked.reduce((a, r) => a + Number(r[rawKey]), 0);
+              ranked.forEach((r) =>
+                m.set(r.name, Math.round((Number(r[rawKey]) / sumRaw) * total)),
+              );
+            }
+            return m;
+          };
+          ktcByName = dollarsForKey("ktc");
+          idpByName = dollarsForKey("idptc");
+        }
 
         if (cancelled) return;
         setWorkspace((ws) => {
@@ -3401,27 +3425,68 @@ export default function DraftDashboardPage() {
         }
         return 0;
       };
-      const rookies = pa
-        .filter((p) => p?.rookie === true)
-        .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
-        .map((p) => ({
-          name: p.displayName || p.canonicalName || "",
-          rawValue: readBlendedValue(p),
-          ktcRawValue: typeof p?.canonicalSiteValues?.ktc === "number"
-            ? p.canonicalSiteValues.ktc : null,
-          idpTradeCalcRawValue:
-            typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
-              ? p.canonicalSiteValues.idpTradeCalc : null,
-          pos: String(p?.position || p?.pos || "").toUpperCase(),
-          // Authoritative offense/IDP class from the contract; used
-          // by ``nominationCandidates`` to pick the right vendor when
-          // ``pos`` is missing or unrecognized (some Sleeper rows
-          // arrive without a position string).
-          assetClass: p?.assetClass,
-        }))
-        .filter((p) => p.name && p.rawValue > 0)
-        .sort((a, b) => b.rawValue - a.rawValue)
-        .slice(0, 72);
+      // Server-side rookie pool (preferred): the /api/draft-capital
+      // picks array now carries ``rookieName`` + ``rookieKtcValue``
+      // (our preDraft \$) + ``rookieKtcDollar`` + ``rookieIdpDollar``,
+      // sourced from latest_contract_data.playersArray sorted by
+      // ``rankDerivedValue`` and filtered to has-Sleeper-ID.  Using
+      // it directly keeps a single source of truth for the rookie
+      // pool and matches what the rookie panel on /draft renders.
+      const serverPool = (() => {
+        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        if (picks.length === 0) return null;
+        const sorted = [...picks].sort(
+          (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
+        );
+        const out = [];
+        for (const pk of sorted) {
+          if (!pk?.rookieName) continue;
+          const dollar = Number(pk.rookieKtcValue);
+          if (!Number.isFinite(dollar) || dollar <= 0) continue;
+          out.push({
+            name: String(pk.rookieName),
+            preDraft: dollar,
+            pos: String(pk.rookiePos || "").toUpperCase() || null,
+            ktcDollar: Number.isFinite(Number(pk.rookieKtcDollar))
+              ? Number(pk.rookieKtcDollar) : null,
+            idpTradeCalcDollar: Number.isFinite(Number(pk.rookieIdpDollar))
+              ? Number(pk.rookieIdpDollar) : null,
+          });
+        }
+        return out.length > 0 ? out : null;
+      })();
+
+      const rookies = serverPool
+        ? serverPool.map((r) => ({
+            name: r.name,
+            rawValue: r.preDraft,
+            // The server has already converted KTC/IDPTC raw values
+            // to dollars via the same Hill formula; pass them through.
+            ktcRawValue: null,
+            idpTradeCalcRawValue: null,
+            pos: r.pos,
+            assetClass: null,
+            preDraftFromServer: r.preDraft,
+            ktcDollarFromServer: r.ktcDollar,
+            idpTradeCalcDollarFromServer: r.idpTradeCalcDollar,
+          }))
+        : pa
+            .filter((p) => p?.rookie === true)
+            .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
+            .map((p) => ({
+              name: p.displayName || p.canonicalName || "",
+              rawValue: readBlendedValue(p),
+              ktcRawValue: typeof p?.canonicalSiteValues?.ktc === "number"
+                ? p.canonicalSiteValues.ktc : null,
+              idpTradeCalcRawValue:
+                typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
+                  ? p.canonicalSiteValues.idpTradeCalc : null,
+              pos: String(p?.position || p?.pos || "").toUpperCase(),
+              assetClass: p?.assetClass,
+            }))
+            .filter((p) => p.name && p.rawValue > 0)
+            .sort((a, b) => b.rawValue - a.rawValue)
+            .slice(0, 72);
 
       if (rookies.length === 0) {
         // Diagnostic: report what we DID find so the operator can
@@ -3491,15 +3556,22 @@ export default function DraftDashboardPage() {
 
       const incoming = rookies.map((r, i) => ({
         name: r.name,
-        preDraft: scaled[i],
+        // Server-provided preDraft (Hill-curve dollar from our value)
+        // wins when present; otherwise fall back to slot-mapped scaled[i].
+        preDraft: Number.isFinite(Number(r.preDraftFromServer))
+          ? Number(r.preDraftFromServer)
+          : scaled[i],
         pos: r.pos,
         assetClass: r.assetClass,
         // Per-vendor market dollar values on the same $1200 scale.
-        // Used by ``nominationCandidates`` to compute the
-        // vendor-vs-our-board gap: KTC for offense, IDPTradeCalc for
-        // IDP.  Null when the vendor doesn't rank this rookie.
-        ktcDollar: ktcDollarsByName.get(r.name) ?? null,
-        idpTradeCalcDollar: idpTradeCalcDollarsByName.get(r.name) ?? null,
+        // Server-provided values win when present (single source of
+        // truth); otherwise compute client-side from raw vendor values.
+        ktcDollar: Number.isFinite(Number(r.ktcDollarFromServer))
+          ? Number(r.ktcDollarFromServer)
+          : (ktcDollarsByName.get(r.name) ?? null),
+        idpTradeCalcDollar: Number.isFinite(Number(r.idpTradeCalcDollarFromServer))
+          ? Number(r.idpTradeCalcDollarFromServer)
+          : (idpTradeCalcDollarsByName.get(r.name) ?? null),
       }));
 
       // Dry-run against current workspace to show a preview diff.
