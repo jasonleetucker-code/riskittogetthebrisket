@@ -1,15 +1,48 @@
 "use client";
 
 // ROS Roster Strength section — first surface of the new ROS engine.
-// Reads /api/ros/team-strength and renders one row per team with the
-// composite score + lineup vs depth split + a "why" expandable.
-// Strictly informational; no value math is exposed beyond what the
-// backend already computed.
+// Reads /api/public/league/rosTeamStrength (the public-contract lazy
+// section that wraps the cached ROS team-strength snapshot) and
+// renders one row per team with the composite score + lineup vs
+// depth split + a "why" expandable.  /league is a PUBLIC route, so
+// hitting the private /api/ros/team-strength endpoint here would
+// 401 unauthenticated visitors; the public-contract path serves the
+// same shape via the public allowlist.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
-import { useRosTeamStrength } from "@/lib/ros-data";
+
+// Module-level cache so tab-switching doesn't re-fetch on every mount.
+// Same pattern + 30-min TTL that the other ROS sections use.
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
+
+async function _fetchRosTeamStrength() {
+  const fresh = _cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
+  if (fresh) return { data: _cache.data, error: null };
+  if (_cache.inflight) return _cache.inflight;
+
+  const promise = fetch("/api/public/league/rosTeamStrength")
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((payload) => {
+      const body = payload?.data || payload?.section || payload;
+      _cache.data = body;
+      _cache.error = null;
+      _cache.fetchedAt = Date.now();
+      _cache.inflight = null;
+      return { data: body, error: null };
+    })
+    .catch((err) => {
+      _cache.inflight = null;
+      const message = String(err?.message || err);
+      _cache.error = message;
+      return { data: _cache.data, error: message };
+    });
+
+  _cache.inflight = promise;
+  return promise;
+}
 
 function fmtScore(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
@@ -101,12 +134,27 @@ function TeamRow({ team, expanded, onToggle }) {
   );
 }
 
-export default function RosTeamStrengthSection({ leagueKey }) {
-  const { data, loading, error } = useRosTeamStrength(leagueKey);
+export default function RosTeamStrengthSection() {
+  const [data, setData] = useState(() => _cache.data);
+  const [error, setError] = useState(_cache.error);
+  const [loading, setLoading] = useState(!_cache.data);
   const [expanded, setExpanded] = useState(null);
 
-  if (loading) return <LoadingState message="Loading ROS roster strength..." />;
-  if (error) {
+  useEffect(() => {
+    let active = true;
+    _fetchRosTeamStrength().then(({ data: d, error: e }) => {
+      if (!active) return;
+      setData(d);
+      setError(e);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading && !data) return <LoadingState message="Loading ROS roster strength..." />;
+  if (error && !data) {
     return (
       <div className="card" style={{ marginTop: "var(--space-md)" }}>
         <EmptyState title="ROS roster strength unavailable" message={error} />
