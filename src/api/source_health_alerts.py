@@ -96,6 +96,49 @@ def _iso_to_epoch(ts: str) -> float:
         return 0.0
 
 
+def resolve_threshold(src: str, thresholds: dict[str, float]) -> float:
+    """Look up the staleness threshold for ``src``.
+
+    Match order (matches the contract documented in
+    ``config/source_staleness.json``):
+
+    1. **Exact key** — ``thresholds["dlfSf"]`` wins for
+       ``src="dlfSf"``.  Lets operators pin a single board if a
+       vendor's other boards refresh on a different cadence.
+    2. **Vendor prefix** — ``thresholds["dlf"]`` matches every
+       ``dlfSf`` / ``dlfIdp`` / ``dlfRookieSf`` / ``dlfRookieIdp``
+       registry key.  The prefix must end at a word boundary (the
+       character after the prefix in ``src`` must be uppercase) so
+       ``ktc`` doesn't accidentally swallow a future ``ktcdraft`` —
+       only camel-cased suffixes like ``ktcSfTep`` match.  Longest
+       matching prefix wins so ``dynastyDaddy`` beats a hypothetical
+       ``dynasty``.
+    3. **Default** — 168 hours (one week), matching the comment in
+       ``config/source_staleness.json``.
+
+    Without this resolver every ``dlf*`` source falls back to the
+    default 168h despite the configured 744h vendor entry, which is
+    exactly what triggered the false-positive ``[Brisket Ops] N
+    sources stale`` alerts on the four DLF boards.
+    """
+    if src in thresholds:
+        return thresholds[src]
+    best_prefix = ""
+    for key in thresholds:
+        if not key or not src.startswith(key) or len(src) <= len(key):
+            continue
+        # Word-boundary check: the next char in ``src`` must start a
+        # new camel-case segment so we don't match unrelated keys
+        # that happen to share leading letters.
+        if not src[len(key)].isupper():
+            continue
+        if len(key) > len(best_prefix):
+            best_prefix = key
+    if best_prefix:
+        return thresholds[best_prefix]
+    return 168.0
+
+
 def detect_stale_sources(
     source_health: dict[str, Any],
     *,
@@ -130,7 +173,7 @@ def detect_stale_sources(
         if last_epoch <= 0:
             continue
         hours_stale = (now - last_epoch) / 3600.0
-        threshold = thresholds.get(src, 168.0)  # default 7d
+        threshold = resolve_threshold(src, thresholds)
         if hours_stale > threshold:
             out.append(StaleSourceAlert(
                 source=src, last_seen_iso=last_seen_iso,

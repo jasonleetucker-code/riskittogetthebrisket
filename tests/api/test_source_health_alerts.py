@@ -49,6 +49,58 @@ def test_dlf_monthly_source_not_flagged_at_7d():
     assert alerts == []
 
 
+@pytest.mark.parametrize(
+    "src",
+    ["dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp"],
+)
+def test_dlf_vendor_prefix_threshold_applies_to_each_board(src):
+    """The four real DLF registry keys all inherit the ``dlf`` 31-day
+    threshold via vendor-prefix matching — the bug behind the
+    ``[Brisket Ops] 4 sources stale`` false positive that fired at
+    325h with the 168h default instead of the configured 744h."""
+    health = {src: {"lastFetched": _iso(325.8)}}
+    alerts = sha.detect_stale_sources(health)
+    assert alerts == [], f"{src} flagged stale at 325.8h despite 744h dlf threshold"
+
+
+def test_dlf_board_still_flagged_when_genuinely_stale():
+    """Vendor-prefix matching must NOT silence a real outage: 32 days
+    > 31-day threshold should still produce an alert for ``dlfSf``."""
+    health = {"dlfSf": {"lastFetched": _iso(32 * 24)}}
+    alerts = sha.detect_stale_sources(health)
+    assert len(alerts) == 1
+    assert alerts[0].source == "dlfSf"
+    assert alerts[0].threshold_hours == 744.0
+
+
+def test_resolve_threshold_prefers_exact_over_prefix():
+    """Pinning a single board (e.g. ``dlfSf``) overrides the vendor
+    prefix (``dlf``) so operators can carve out exceptions."""
+    thresholds = {"dlf": 744.0, "dlfSf": 24.0}
+    assert sha.resolve_threshold("dlfSf", thresholds) == 24.0
+    assert sha.resolve_threshold("dlfIdp", thresholds) == 744.0
+
+
+def test_resolve_threshold_prefix_requires_camel_boundary():
+    """A prefix only matches if the next character in the source is
+    uppercase — guards against accidental matches on unrelated
+    keys that share leading letters."""
+    thresholds = {"ktc": 48.0}
+    # camelCase boundary → match
+    assert sha.resolve_threshold("ktcSfTep", thresholds) == 48.0
+    # no boundary → no match, falls back to default
+    assert sha.resolve_threshold("ktcdraft", thresholds) == 168.0
+    # unrelated source falls back to default
+    assert sha.resolve_threshold("somethingElse", thresholds) == 168.0
+
+
+def test_resolve_threshold_picks_longest_prefix():
+    """When multiple vendor prefixes match, the most specific one
+    wins (``dynastyDaddy`` beats ``dynasty``)."""
+    thresholds = {"dynasty": 999.0, "dynastyDaddy": 168.0}
+    assert sha.resolve_threshold("dynastyDaddySf", thresholds) == 168.0
+
+
 def test_sources_nested_under_sources_key():
     """Tolerate both flat + nested shapes."""
     flat = {"ktc": {"lastFetched": _iso(100)}}
