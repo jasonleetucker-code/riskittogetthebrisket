@@ -61,6 +61,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
+from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 
 try:
     from src.scoring import (
@@ -5552,6 +5553,19 @@ async def run(progress_callback=None):
         except Exception:
             return None
 
+    def _player_age_local(pname, pdata):
+        sid = str((pdata or {}).get("_sleeperId") or _player_id_map.get(pname) or "").strip()
+        if not sid:
+            ident = _resolve_identity_cached(pname, preferred_pos=_get_pos(pname))
+            if ident and ident.get("id"):
+                sid = str(ident.get("id"))
+        if not sid:
+            return None
+        row = SLEEPER_ALL_NFL.get(sid)
+        if not isinstance(row, dict):
+            return None
+        return _age_from_birthdate(row.get("birth_date"))
+
     def _median(vals, default_val):
         arr = sorted(v for v in vals if isinstance(v, (int, float)) and v > 0)
         if not arr:
@@ -6109,6 +6123,7 @@ async def run(progress_callback=None):
     # Persist rookie visibility metadata for dashboard filtering/debugging.
     _years_exp_tagged = 0
     _rookie_tagged = 0
+    _age_tagged = 0
     for _name, _pdata in players_json.items():
         if not isinstance(_pdata, dict) or _looks_like_pick_name(_name):
             continue
@@ -6123,6 +6138,10 @@ async def run(progress_callback=None):
             # Must-have rookies that are not in Sleeper's NFL player DB yet.
             _pdata["_isRookie"] = True
             _rookie_tagged += 1
+        _age = _player_age_local(_name, _pdata)
+        if isinstance(_age, int):
+            _pdata["age"] = _age
+            _age_tagged += 1
 
     # Final must-have rookie position enforcement. Do this after fallback creation and
     # rookie tagging so defensive prospects cannot drift back into generic offense entries.
@@ -6140,7 +6159,7 @@ async def run(progress_callback=None):
             _pos_map[_name] = _hint
 
     if DEBUG:
-        print(f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}")
+        print(f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}; age tagged {_age_tagged}")
 
     # Set _rawComposite and _finalAdjusted directly from _composite.
     for name, pdata in players_json.items():

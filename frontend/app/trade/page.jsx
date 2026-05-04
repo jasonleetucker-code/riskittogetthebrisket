@@ -1495,6 +1495,136 @@ export default function TradePage() {
                       );
                     })}
                   </div>
+                  {simResult.teamImpact && (() => {
+                    const ti = simResult.teamImpact;
+                    const verdictColor = {
+                      "accept": "var(--green)",
+                      "lean accept": "var(--green)",
+                      "neutral": "var(--muted)",
+                      "lean decline": "var(--red)",
+                      "decline": "var(--red)",
+                    }[ti.verdict] || "var(--muted)";
+                    const starterPosEntries = Object.entries(ti.starterValueDelta || {})
+                      .filter(([, v]) => v !== 0);
+                    return (
+                      <div style={{
+                        marginTop: 10,
+                        paddingTop: 8,
+                        borderTop: "1px solid var(--border)",
+                      }}>
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 6,
+                        }}>
+                          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.04em" }}>
+                            ROSTER FIT
+                          </div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <span style={{
+                              fontSize: "0.66rem",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: verdictColor,
+                              color: "var(--bg)",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                            }}>
+                              {ti.verdict}
+                            </span>
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: verdictColor }}>
+                              {ti.compositeScore >= 0 ? "+" : ""}{ti.compositeScore.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+                          gap: 6,
+                          fontSize: "0.68rem",
+                          marginBottom: 6,
+                        }}>
+                          <div>
+                            <div className="muted" style={{ fontSize: "0.62rem" }}>Fit</div>
+                            <div style={{
+                              fontWeight: 700,
+                              color: ti.fitScore >= 0 ? "var(--green)" : "var(--red)",
+                            }}>
+                              {ti.fitScore >= 0 ? "+" : ""}{ti.fitScore.toFixed(1)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="muted" style={{ fontSize: "0.62rem" }}>Equity</div>
+                            <div style={{
+                              fontWeight: 700,
+                              color: ti.equityScore >= 0 ? "var(--green)" : "var(--red)",
+                            }}>
+                              {ti.equityScore >= 0 ? "+" : ""}{ti.equityScore.toFixed(1)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="muted" style={{ fontSize: "0.62rem" }}>
+                              {ti.posture}
+                            </div>
+                            <div style={{
+                              fontWeight: 700,
+                              color: ti.windowFit >= 0 ? "var(--green)" : "var(--red)",
+                            }}>
+                              window {ti.windowFit >= 0 ? "+" : ""}{ti.windowFit.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                        {starterPosEntries.length > 0 && (
+                          <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))",
+                            gap: 4,
+                            fontSize: "0.66rem",
+                            marginBottom: 6,
+                          }}>
+                            {starterPosEntries.map(([pos, dv]) => (
+                              <div key={pos} style={{
+                                padding: "2px 6px",
+                                border: "1px solid var(--border)",
+                                borderRadius: 3,
+                              }}>
+                                <span className="muted">{pos} starter </span>
+                                <span style={{
+                                  color: dv > 0 ? "var(--green)" : "var(--red)",
+                                  fontWeight: 600,
+                                }}>
+                                  {dv > 0 ? "+" : ""}{Math.round(dv).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {ti.rationale?.length > 0 && (
+                          <ul style={{
+                            margin: "4px 0 0",
+                            paddingLeft: 18,
+                            fontSize: "0.7rem",
+                            lineHeight: 1.4,
+                          }}>
+                            {ti.rationale.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {ti.redundancy?.length > 0 && (
+                          <div style={{
+                            marginTop: 6,
+                            fontSize: "0.68rem",
+                            color: "var(--red)",
+                          }}>
+                            Redundant:{" "}
+                            {ti.redundancy.map((r) => `${r.name} (${r.pos})`).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {(simResult.unresolvedIn?.length > 0 || simResult.unresolvedOut?.length > 0) && (
                     <div className="muted" style={{ fontSize: "0.7rem", marginTop: 6, color: "var(--red)" }}>
                       Unresolved:{" "}

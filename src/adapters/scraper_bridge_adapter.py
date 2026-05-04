@@ -107,7 +107,7 @@ class ScraperBridgeAdapter:
                         display_name=name,
                         team_raw=str(row.get("team") or ""),
                         position_raw=str(row.get("pos") or row.get("position") or ""),
-                        age_raw="",
+                        age_raw=str(row.get("age") or row.get("age_raw") or ""),
                         rookie_flag_raw="",
                         rank_raw=rank_raw,
                         value_raw=value_raw,

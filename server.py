@@ -7267,6 +7267,7 @@ async def post_trade_simulate(request: Request):
         players_out=_str_list("playersOut"),
         picks_in=_str_list("picksIn"),
         picks_out=_str_list("picksOut"),
+        roster_settings=dict(league_cfg.roster_settings or {}),
     )
     result["leagueKey"] = league_cfg.key
     return JSONResponse(

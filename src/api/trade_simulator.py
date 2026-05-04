@@ -51,12 +51,15 @@ def _resolve_asset(
         return None
     value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
+    age = row.get("age")
     return {
         "name": row.get("displayName") or row.get("canonicalName") or name,
         "pos": pos,
         "value": value,
         "rank": _row_rank(row),
         "tier": _tier_bucket(value),
+        "age": int(age) if isinstance(age, (int, float)) and age else None,
+        "assetClass": row.get("assetClass") or ("pick" if pos == "PICK" else "player"),
     }
 
 
@@ -112,6 +115,7 @@ def simulate_trade(
     players_out: list[str] | None = None,
     picks_in: list[str] | None = None,
     picks_out: list[str] | None = None,
+    roster_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -202,7 +206,7 @@ def simulate_trade(
 
     equity = sum(a["value"] for a in receiving) - sum(a["value"] for a in sending)
 
-    return {
+    response: dict[str, Any] = {
         "team": team_block,
         "before": before,
         "after": after,
@@ -213,3 +217,22 @@ def simulate_trade(
         "unresolvedOut": unresolved_out,
         "equity": int(equity),
     }
+
+    # Roster-shape-aware fit verdict.  Only computed when we have both
+    # a resolved team and league roster settings — free-analysis mode
+    # (no team selected) and contracts without league context skip
+    # this block entirely.
+    if resolved_team and roster_settings:
+        from src.trade import team_impact
+        impact = team_impact.compute(
+            before_assets=before_assets,
+            after_assets=after_assets,
+            receiving=receiving,
+            sending=sending,
+            equity=int(equity),
+            roster_settings=roster_settings,
+        )
+        if impact is not None:
+            response["teamImpact"] = impact
+
+    return response

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "weights": {
+    "fillStarter": 1.0,
+    "depth": 0.25,
+    "overflow": 0.6,
+    "fitNormalization": 4000,
+    "equityNormalization": 2500,
+    "compositeFitWeight": 0.55,
+    "compositeEquityWeight": 0.45
+  },
+  "verdictThresholds": {
+    "accept": 20,
+    "leanAccept": 8,
+    "leanDecline": -8,
+    "decline": -20
+  },
+  "windowFit": {
+    "contendIndexThreshold": 0.15,
+    "youngStarterMaxAge": 23,
+    "primeStarterMinAge": 24,
+    "primeStarterMaxAge": 29
+  }
+}
