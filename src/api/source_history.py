@@ -69,6 +69,70 @@ _IDP_POSITIONS = frozenset(
      "DB", "CB", "S", "FS", "SS"}
 )
 
+# Scope → asset classes that scope can legitimately rank.  Mirrors
+# ``_scope_eligible`` in ``data_contract.py``: overall_offense covers
+# QB/RB/WR/TE plus picks; overall_idp and position_idp cover IDP only.
+# Used to drop scope-mismatched per-source values/ranks when extracting
+# a snapshot from a contract row and when reading the JSONL — without
+# this filter a WR like Ja'Marr Chase can carry a ``draftSharksIdp``
+# rank into the per-player history chart even though the IDP-scope
+# source never legitimately ranked him.
+_SCOPE_TO_ASSET_CLASSES: dict[str, frozenset[str]] = {
+    "overall_offense": frozenset({"offense", "pick"}),
+    "overall_idp": frozenset({"idp"}),
+    "position_idp": frozenset({"idp"}),
+}
+
+
+def _allowed_assets_for_source(source_key: str) -> frozenset[str] | None:
+    """Return the set of asset classes ``source_key`` is allowed to
+    rank, or None when the source isn't in the registry (legacy
+    snapshots with retired keys — preserve their data, don't filter).
+    """
+    cache = _allowed_assets_for_source.__dict__.setdefault("_cache", {})
+    if cache:
+        return cache.get(source_key)
+    # Lazy-import the registry to avoid pulling data_contract.py at
+    # module load (it's ~8k lines of pipeline code).
+    try:
+        from src.api.data_contract import get_ranking_source_registry  # noqa: PLC0415
+    except Exception:
+        return None
+    for src in get_ranking_source_registry():
+        scopes: list[str] = [str(src.get("scope") or "")]
+        scopes.extend(str(s) for s in (src.get("extraScopes") or []))
+        allowed: set[str] = set()
+        for scope in scopes:
+            allowed.update(_SCOPE_TO_ASSET_CLASSES.get(scope, frozenset()))
+        cache[str(src.get("key") or "")] = frozenset(allowed)
+    return cache.get(source_key)
+
+
+def _filter_scope_mismatched(
+    asset_class: str,
+    sources: dict[str, int] | None,
+    source_ranks: dict[str, int] | None,
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Drop entries whose source scope can't legitimately rank
+    ``asset_class``.  Unknown asset classes ("unknown" — pre-asset-
+    class snapshots) and unknown source keys pass through unchanged
+    so legacy data isn't silently erased.
+    """
+    src_out: dict[str, int] = dict(sources or {})
+    rank_out: dict[str, int] = dict(source_ranks or {})
+    if asset_class not in {"offense", "idp", "pick"}:
+        return src_out, rank_out
+    for key in list(src_out.keys()):
+        allowed = _allowed_assets_for_source(key)
+        if allowed is not None and asset_class not in allowed:
+            src_out.pop(key, None)
+            rank_out.pop(key, None)
+    for key in list(rank_out.keys()):
+        allowed = _allowed_assets_for_source(key)
+        if allowed is not None and asset_class not in allowed:
+            rank_out.pop(key, None)
+    return src_out, rank_out
+
 
 def _infer_asset_class(row: dict[str, Any]) -> str:
     """Mirror of ``rank_history._infer_asset_class`` — keep in sync so
@@ -167,6 +231,11 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
                 r = None
             if r is not None and r > 0:
                 source_ranks[str(key)] = r
+
+    asset_class = _infer_asset_class(row)
+    sources, source_ranks = _filter_scope_mismatched(
+        asset_class, sources, source_ranks
+    )
 
     if (
         blended_val is None
@@ -444,8 +513,19 @@ def load_player_history(
         dates.append(date)
         bv = entry.get("blended")
         br = entry.get("blendedRank")
-        sources = entry.get("sources") or {}
-        ranks = entry.get("sourceRanks") or {}
+        sources_raw = entry.get("sources") or {}
+        ranks_raw = entry.get("sourceRanks") or {}
+        # Apply the same scope filter that ``_extract_player_entry``
+        # uses so historical snapshots written before the write-time
+        # gate (or with a pre-fix contract leak) don't surface
+        # scope-mismatched per-source values/ranks on the chart.
+        # Asset class comes from the snapshot key itself.
+        _, snap_asset = _norm_name_key(hit_key)
+        sources, ranks = _filter_scope_mismatched(
+            snap_asset,
+            sources_raw if isinstance(sources_raw, dict) else None,
+            ranks_raw if isinstance(ranks_raw, dict) else None,
+        )
 
         # If the snapshot is pre-contract-builder (no blended value
         # persisted) derive an approximate blend from the median of
@@ -469,24 +549,22 @@ def load_player_history(
             "rank": int(br) if isinstance(br, (int, float)) else None,
             "derived": derived,
         })
-        if isinstance(sources, dict):
-            for key, value in sources.items():
-                try:
-                    v = int(value)
-                except (TypeError, ValueError):
-                    continue
-                sources_accum.setdefault(str(key), []).append({"date": date, "value": v})
-        if isinstance(ranks, dict):
-            for key, rank_val in ranks.items():
-                try:
-                    r = int(rank_val)
-                except (TypeError, ValueError):
-                    continue
-                if r <= 0:
-                    continue
-                source_ranks_accum.setdefault(str(key), []).append(
-                    {"date": date, "rank": r}
-                )
+        for key, value in sources.items():
+            try:
+                v = int(value)
+            except (TypeError, ValueError):
+                continue
+            sources_accum.setdefault(str(key), []).append({"date": date, "value": v})
+        for key, rank_val in ranks.items():
+            try:
+                r = int(rank_val)
+            except (TypeError, ValueError):
+                continue
+            if r <= 0:
+                continue
+            source_ranks_accum.setdefault(str(key), []).append(
+                {"date": date, "rank": r}
+            )
 
     return {
         "dates": dates,

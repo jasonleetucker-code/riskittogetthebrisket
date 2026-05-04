@@ -334,3 +334,154 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
     )
     assert bench_entry["sourceRanks"]["ktcSfTep"] == 3
     assert bench_entry["sourceRanks"]["dlfSf"] == 3
+
+
+def test_scope_filter_drops_idp_source_for_offense_player(path):
+    """An offense WR that somehow carries an ``draftSharksIdp`` value /
+    rank in the contract row (e.g. a downstream cross-market leak)
+    must NOT surface in the per-source history.  IDP-scope sources
+    only legitimately rank IDP players; an offense-classed snapshot
+    entry has those keys filtered both at write time
+    (``_extract_player_entry``) and at read time
+    (``load_player_history``).
+    """
+    contract = _make_contract(
+        [
+            {
+                "name": "Ja'Marr Chase",
+                "pos": "WR",
+                "assetClass": "offense",
+                "blended": 9700,
+                "rank": 5,
+                # Both an offense source (legitimate) and an IDP-scope
+                # source (illegitimate leak) — the filter must drop
+                # only the IDP-scope key.
+                "sources": {"ktcSfTep": 9900, "draftSharksIdp": 1500},
+            },
+        ],
+        date="2026-05-04",
+    )
+    assert source_history.append_snapshot(contract, date="2026-05-04", path=path) is True
+
+    # Read back: only the offense source survives in the history.
+    hist = source_history.load_player_history("Ja'Marr Chase", path=path)
+    assert "ktcSfTep" in hist["sources"]
+    assert "draftSharksIdp" not in hist["sources"]
+
+    # Snapshot on disk is also clean — write-time filter prevents the
+    # IDP-scope contribution from ever landing in the JSONL.
+    raw = path.read_text().strip().splitlines()
+    snap = json.loads(raw[0])
+    chase_entry = next(
+        v for k, v in snap["players"].items() if k.startswith("Ja'Marr Chase")
+    )
+    assert "draftSharksIdp" not in chase_entry["sources"]
+    assert "ktcSfTep" in chase_entry["sources"]
+
+
+def test_scope_filter_drops_offense_source_for_idp_player(path):
+    """Symmetric guard: an IDP player that picks up an offense-scope
+    source value (e.g. ``dlfSf``) must have it filtered out.  IDP
+    sources like IDPTradeCalc that declare ``extra_scopes`` covering
+    offense remain valid for both asset classes; pure-offense scopes
+    do not.
+    """
+    contract = _make_contract(
+        [
+            {
+                "name": "Carson Schwesinger",
+                "pos": "LB",
+                "assetClass": "idp",
+                "blended": 5500,
+                "rank": 80,
+                "sources": {"draftSharksIdp": 4400, "dlfSf": 9000},
+            },
+        ],
+        date="2026-05-04",
+    )
+    source_history.append_snapshot(contract, date="2026-05-04", path=path)
+    hist = source_history.load_player_history("Carson Schwesinger", path=path)
+    assert "draftSharksIdp" in hist["sources"]
+    assert "dlfSf" not in hist["sources"]
+
+
+def test_scope_filter_read_time_strips_legacy_polluted_snapshot(path):
+    """Old snapshots written before the write-time filter could carry
+    scope-mismatched per-source entries.  ``load_player_history``
+    must drop them at read time so the chart never surfaces a
+    ``draftSharksIdp`` rank for a WR even when the JSONL on disk
+    has the legacy pollution.
+    """
+    polluted = {
+        "date": "2026-03-23",
+        "players": {
+            "Ja'Marr Chase::offense": {
+                "blended": 9550,
+                "blendedRank": 5,
+                "sources": {"ktcSfTep": 9849, "draftSharksIdp": 1552},
+                "sourceRanks": {"ktcSfTep": 5, "draftSharksIdp": 414},
+            }
+        },
+    }
+    path.write_text(json.dumps(polluted) + "\n")
+    hist = source_history.load_player_history("Ja'Marr Chase", path=path)
+    assert "ktcSfTep" in hist["sources"]
+    assert "draftSharksIdp" not in hist["sources"]
+    assert "ktcSfTep" in hist["sourceRanks"]
+    assert "draftSharksIdp" not in hist["sourceRanks"]
+
+
+def test_scope_filter_preserves_unknown_source_keys(path):
+    """Source keys not present in the registry (retired sources,
+    custom keys from old exports) pass through unchanged so legacy
+    history isn't silently erased.  Only registry-known keys whose
+    scope mismatches the player's asset class get dropped.
+    """
+    polluted = {
+        "date": "2026-03-23",
+        "players": {
+            "Ja'Marr Chase::offense": {
+                "blended": 9550,
+                "sources": {"someRetiredKey": 8000, "draftSharksIdp": 1500},
+                "sourceRanks": {"someRetiredKey": 7, "draftSharksIdp": 414},
+            }
+        },
+    }
+    path.write_text(json.dumps(polluted) + "\n")
+    hist = source_history.load_player_history("Ja'Marr Chase", path=path)
+    # Unknown key survives — preserves legacy data we can't classify.
+    assert "someRetiredKey" in hist["sources"]
+    # Registry-known IDP-scope key is filtered for the offense entry.
+    assert "draftSharksIdp" not in hist["sources"]
+
+
+def test_scope_filter_keeps_cross_scope_source_for_both_asset_classes(path):
+    """``idpTradeCalc`` declares ``scope=overall_idp`` plus
+    ``extra_scopes=[overall_offense]`` — it's a cross-market
+    source that legitimately ranks both offense and IDP.  The
+    scope filter must accept it for both asset classes.
+    """
+    contract = _make_contract(
+        [
+            {
+                "name": "Top WR",
+                "pos": "WR",
+                "assetClass": "offense",
+                "blended": 9000,
+                "sources": {"idpTradeCalc": 8800},
+            },
+            {
+                "name": "Top LB",
+                "pos": "LB",
+                "assetClass": "idp",
+                "blended": 5000,
+                "sources": {"idpTradeCalc": 4900},
+            },
+        ],
+        date="2026-05-04",
+    )
+    source_history.append_snapshot(contract, path=path)
+    off = source_history.load_player_history("Top WR", path=path)
+    idp = source_history.load_player_history("Top LB", path=path)
+    assert "idpTradeCalc" in off["sources"]
+    assert "idpTradeCalc" in idp["sources"]
