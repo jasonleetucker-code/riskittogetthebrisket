@@ -23,9 +23,13 @@ def age_from_birthdate(bd: str | None, *, today: date | None = None) -> int | No
         return None
     try:
         parts = str(bd).split("-")
-        y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+        if len(parts) != 3:
+            return None
+        # ``date(...)`` validates calendar correctness — Feb 31, month 99,
+        # etc. raise ValueError instead of producing a wrong-but-numeric age.
+        born = date(int(parts[0]), int(parts[1]), int(parts[2]))
     except (ValueError, IndexError, AttributeError, TypeError):
         return None
     ref = today or date.today()
-    age = ref.year - y - ((ref.month, ref.day) < (m, d))
+    age = ref.year - born.year - ((ref.month, ref.day) < (born.month, born.day))
     return age if 15 <= age <= 50 else None

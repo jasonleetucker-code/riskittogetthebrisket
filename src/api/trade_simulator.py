@@ -52,9 +52,16 @@ def _resolve_asset(
     value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
+    # ``pos`` collapses DL/LB/DB to "IDP" for terminal aggregation;
+    # ``basePos`` preserves the distinction so team_impact can apply
+    # per-position starter rules (DL/LB/DB are separate slots in
+    # rosterSettings.starters).
+    from src.utils.name_clean import normalize_position
+    base_pos = normalize_position(row.get("pos") or row.get("position"))
     return {
         "name": row.get("displayName") or row.get("canonicalName") or name,
         "pos": pos,
+        "basePos": base_pos or pos,
         "value": value,
         "rank": _row_rank(row),
         "tier": _tier_bucket(value),

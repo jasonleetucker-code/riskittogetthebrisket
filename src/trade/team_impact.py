@@ -112,7 +112,7 @@ def project_starters(
     slots = _starter_slots(roster_settings)
     pool = [
         a for a in assets
-        if (a.get("pos") or "").upper() in _BASE_POSITIONS
+        if (a.get("basePos") or a.get("pos") or "").upper() in _BASE_POSITIONS
     ]
     pool.sort(key=lambda a: int(a.get("value") or 0), reverse=True)
     used: set[int] = set()
@@ -128,7 +128,7 @@ def project_starters(
                 break
             if idx in used:
                 continue
-            pos = (asset.get("pos") or "").upper()
+            pos = (asset.get("basePos") or asset.get("pos") or "").upper()
             if _eligible(slot, pos, roster_settings):
                 starters[pos].append(asset)
                 used.add(idx)
@@ -151,7 +151,7 @@ def _aggregate_state(
     }
     total_count: dict[str, int] = {p: 0 for p in _BASE_POSITIONS}
     for a in assets:
-        pos = (a.get("pos") or "").upper()
+        pos = (a.get("basePos") or a.get("pos") or "").upper()
         if pos in total_count:
             total_count[pos] += 1
     depth_count = {p: max(0, total_count[p] - starter_count[p]) for p in _BASE_POSITIONS}
@@ -299,7 +299,7 @@ def _redundancy(
     active = set(_league_active_positions(roster_settings))
     out: list[dict[str, Any]] = []
     for asset in receiving:
-        pos = (asset.get("pos") or "").upper()
+        pos = (asset.get("basePos") or asset.get("pos") or "").upper()
         if pos not in active:
             continue
         name_key = str(asset.get("name") or "").lower()

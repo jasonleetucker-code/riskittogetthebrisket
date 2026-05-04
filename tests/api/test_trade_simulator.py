@@ -326,6 +326,46 @@ def test_team_impact_verdict_thresholds_cross_correctly():
     assert -100 <= impact["compositeScore"] <= 100
 
 
+def test_team_impact_idp_trade_in_idp_league_seen():
+    """Codex P1 regression: terminal._normalize_pos collapses DL/LB/DB
+    to ``IDP``, so team_impact must read from ``basePos`` (preserved
+    DL/LB/DB) — otherwise IDP trades are invisible to the analyzer.
+    """
+    contract = _mk_full_roster_contract()
+    contract["playersArray"].extend([
+        # Roster gets two starting LBs + two starting DLs already.
+        {"displayName": "MyLB1", "canonicalName": "MyLB1", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 25,
+         "canonicalConsensusRank": 80, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(80)),
+         "values": {"full": int(rank_to_value(80))}},
+        {"displayName": "MyLB2", "canonicalName": "MyLB2", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 26,
+         "canonicalConsensusRank": 95, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(95)),
+         "values": {"full": int(rank_to_value(95))}},
+        # Trade target — an elite LB upgrade.
+        {"displayName": "EliteLB", "canonicalName": "EliteLB", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 25,
+         "canonicalConsensusRank": 25, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(25)),
+         "values": {"full": int(rank_to_value(25))}},
+    ])
+    # Add the LBs to the roster.
+    contract["sleeper"]["teams"][0]["players"].extend(["MyLB1", "MyLB2"])
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["EliteLB"], players_out=["MyLB2"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    # LB must appear in starterDelta — the trade swaps the team's
+    # weaker LB for an elite one, so starter VALUE at LB should rise.
+    assert "LB" in impact["starterValueDelta"]
+    assert impact["starterValueDelta"]["LB"] > 0
+
+
 def test_team_impact_rationale_bullets_max_five():
     contract = _mk_full_roster_contract()
     team = terminal.resolve_team(contract, owner_id="u1", name=None)
