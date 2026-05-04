@@ -148,3 +148,230 @@ def test_simulate_no_team_returns_empty_before():
     assert result["team"] is None
     assert result["before"]["totalValue"] == 0
     assert result["after"]["totalValue"] == int(rank_to_value(5))
+
+
+# ── Team-aware impact analyzer ─────────────────────────────────────────
+
+_IDP_LEAGUE_SETTINGS = {
+    "teamCount": 12,
+    "starters": {
+        "QB": 1, "RB": 2, "WR": 3, "TE": 1,
+        "FLEX": 2, "SFLEX": 1,
+        "DL": 2, "LB": 2, "DB": 2, "IDP_FLEX": 2,
+    },
+    "flexEligible": ["RB", "WR", "TE"],
+    "sflexEligible": ["QB", "RB", "WR", "TE"],
+    "idpFlexEligible": ["DL", "LB", "DB"],
+}
+
+_NON_IDP_LEAGUE_SETTINGS = {
+    "teamCount": 10,
+    "starters": {
+        "QB": 1, "RB": 2, "WR": 3, "TE": 1,
+        "FLEX": 2, "SFLEX": 1,
+    },
+    "flexEligible": ["RB", "WR", "TE"],
+    "sflexEligible": ["QB", "RB", "WR", "TE"],
+}
+
+
+def _mk_full_roster_contract():
+    """Roster with realistic depth/holes for fit-score tests."""
+    def row(name, rank, pos, age=27, asset="offense"):
+        return {
+            "displayName": name,
+            "canonicalName": name,
+            "assetClass": asset,
+            "position": pos,
+            "pos": pos,
+            "age": age,
+            "canonicalConsensusRank": rank,
+            "rankChange": 0,
+            "rankDerivedValue": int(rank_to_value(rank)),
+            "values": {"full": int(rank_to_value(rank))},
+        }
+    rows = [
+        row("StarQB", 5, "QB", age=27),
+        row("StarQB2", 12, "QB", age=26),
+        row("RB1", 18, "RB", age=25),
+        row("RB2", 35, "RB", age=24),
+        row("RB3", 70, "RB", age=23),
+        row("WR1", 8, "WR", age=24),
+        row("WR2", 22, "WR", age=26),
+        row("WR3", 48, "WR", age=27),
+        row("TE1", 60, "TE", age=28),
+        row("FreeWR", 30, "WR", age=24),
+        row("FreeWR2", 33, "WR", age=25),
+        row("FreeRB", 40, "RB", age=23),
+        row("Pick26", 50, "PICK", age=None, asset="pick"),
+    ]
+    return {
+        "playersArray": rows,
+        "sleeper": {
+            "teams": [{
+                "ownerId": "u1",
+                "name": "User",
+                "roster_id": 1,
+                "players": ["StarQB", "StarQB2", "RB1", "RB2", "RB3",
+                            "WR1", "WR2", "WR3", "TE1"],
+                "picks": [],
+            }],
+        },
+    }
+
+
+def test_team_impact_absent_without_roster_settings():
+    contract = _mk_full_roster_contract()
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["FreeWR"], players_out=["TE1"],
+    )
+    assert "teamImpact" not in result
+
+
+def test_team_impact_absent_without_resolved_team():
+    contract = _mk_full_roster_contract()
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=None,
+        players_in=["FreeWR"], players_out=["TE1"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    assert "teamImpact" not in result
+
+
+def test_team_impact_filling_starter_hole_positive_fit():
+    """Acquiring a starting-quality TE when team has only one
+    weak TE should produce positive fitScore."""
+    contract = _mk_full_roster_contract()
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    # Add a strong TE to acquire.  Inject directly.
+    contract["playersArray"].append({
+        "displayName": "EliteTE", "canonicalName": "EliteTE",
+        "assetClass": "offense", "position": "TE", "pos": "TE", "age": 25,
+        "canonicalConsensusRank": 15, "rankChange": 0,
+        "rankDerivedValue": int(rank_to_value(15)),
+        "values": {"full": int(rank_to_value(15))},
+    })
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["EliteTE"], players_out=["FreeWR"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    assert impact["fitScore"] > 0
+    assert impact["starterValueDelta"]["TE"] > 0
+
+
+def test_team_impact_duplicating_saturated_position_negative():
+    """Acquiring a 4th startable RB onto a 3-RB roster + saturated FLEX
+    should flag redundancy and depress fitScore."""
+    contract = _mk_full_roster_contract()
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["FreeRB"], players_out=["TE1"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    # TE went from 1 to 0 starters (lost a starter); RB total went up
+    # but team was already at the FLEX cap.
+    assert impact["starterDelta"]["TE"] < 0
+
+
+def test_team_impact_redundancy_skipped_in_non_idp_league():
+    """Acquiring an IDP player in a non-IDP league must not generate
+    redundancy flags or starterDelta entries for DL/LB/DB."""
+    contract = _mk_full_roster_contract()
+    contract["playersArray"].append({
+        "displayName": "IDPGuy", "canonicalName": "IDPGuy",
+        "assetClass": "idp", "position": "LB", "pos": "LB", "age": 25,
+        "canonicalConsensusRank": 80, "rankChange": 0,
+        "rankDerivedValue": int(rank_to_value(80)),
+        "values": {"full": int(rank_to_value(80))},
+    })
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["IDPGuy"], players_out=["FreeWR"],
+        roster_settings=_NON_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    assert "LB" not in impact["starterDelta"]
+    assert "DL" not in impact["starterDelta"]
+    assert "DB" not in impact["starterDelta"]
+    assert all(r["pos"] != "LB" for r in impact["redundancy"])
+
+
+def test_team_impact_verdict_thresholds_cross_correctly():
+    """Verdict ladders as compositeScore moves."""
+    contract = _mk_full_roster_contract()
+    contract["playersArray"].append({
+        "displayName": "EliteTE", "canonicalName": "EliteTE",
+        "assetClass": "offense", "position": "TE", "pos": "TE", "age": 25,
+        "canonicalConsensusRank": 8, "rankChange": 0,
+        "rankDerivedValue": int(rank_to_value(8)),
+        "values": {"full": int(rank_to_value(8))},
+    })
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["EliteTE"], players_out=["FreeRB"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    assert impact["verdict"] in {"accept", "lean accept", "neutral", "lean decline", "decline"}
+    assert -100 <= impact["fitScore"] <= 100
+    assert -100 <= impact["equityScore"] <= 100
+    assert -100 <= impact["compositeScore"] <= 100
+
+
+def test_team_impact_idp_trade_in_idp_league_seen():
+    """Codex P1 regression: terminal._normalize_pos collapses DL/LB/DB
+    to ``IDP``, so team_impact must read from ``basePos`` (preserved
+    DL/LB/DB) — otherwise IDP trades are invisible to the analyzer.
+    """
+    contract = _mk_full_roster_contract()
+    contract["playersArray"].extend([
+        # Roster gets two starting LBs + two starting DLs already.
+        {"displayName": "MyLB1", "canonicalName": "MyLB1", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 25,
+         "canonicalConsensusRank": 80, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(80)),
+         "values": {"full": int(rank_to_value(80))}},
+        {"displayName": "MyLB2", "canonicalName": "MyLB2", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 26,
+         "canonicalConsensusRank": 95, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(95)),
+         "values": {"full": int(rank_to_value(95))}},
+        # Trade target — an elite LB upgrade.
+        {"displayName": "EliteLB", "canonicalName": "EliteLB", "assetClass": "idp",
+         "position": "LB", "pos": "LB", "age": 25,
+         "canonicalConsensusRank": 25, "rankChange": 0,
+         "rankDerivedValue": int(rank_to_value(25)),
+         "values": {"full": int(rank_to_value(25))}},
+    ])
+    # Add the LBs to the roster.
+    contract["sleeper"]["teams"][0]["players"].extend(["MyLB1", "MyLB2"])
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["EliteLB"], players_out=["MyLB2"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    impact = result["teamImpact"]
+    # LB must appear in starterDelta — the trade swaps the team's
+    # weaker LB for an elite one, so starter VALUE at LB should rise.
+    assert "LB" in impact["starterValueDelta"]
+    assert impact["starterValueDelta"]["LB"] > 0
+
+
+def test_team_impact_rationale_bullets_max_five():
+    contract = _mk_full_roster_contract()
+    team = terminal.resolve_team(contract, owner_id="u1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team,
+        players_in=["FreeWR2"], players_out=["WR3"],
+        roster_settings=_IDP_LEAGUE_SETTINGS,
+    )
+    assert len(result["teamImpact"]["rationale"]) <= 5

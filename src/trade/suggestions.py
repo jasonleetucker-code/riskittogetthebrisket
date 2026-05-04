@@ -649,7 +649,16 @@ def rank_score(
     # 6. Opponent-fit bonus
     opp_fit = 1.5 if s.__dict__.get("opponent_fit") else 0.0
 
-    return base + fair + conf + need_sev + edge_b + opp_fit
+    # 7. Roster-fit penalty: receiving an asset at a saturated position
+    # is bench bloat in dynasty, even if equity is positive.  Mirrors
+    # the team_impact module's overflow penalty in the trade simulator.
+    overflow_penalty = 0.0
+    if roster is not None:
+        for p in s.receive:
+            if p.position in roster.surplus_positions:
+                overflow_penalty += 1.0
+
+    return base + fair + conf + need_sev + edge_b + opp_fit - overflow_penalty
 
 
 def rank_score_breakdown(
@@ -676,6 +685,12 @@ def rank_score_breakdown(
     edge_b = _EDGE_RANK_BONUS.get(edge, 0.0) if edge else 0.0
     opp_fit = 1.5 if s.__dict__.get("opponent_fit") else 0.0
 
+    overflow_penalty = 0.0
+    if roster is not None:
+        for p in s.receive:
+            if p.position in roster.surplus_positions:
+                overflow_penalty += 1.0
+
     return {
         "base_value": round(base, 2),
         "fairness": round(fair, 2),
@@ -683,7 +698,10 @@ def rank_score_breakdown(
         "need_severity": round(need_sev, 2),
         "edge": round(edge_b, 2),
         "opponent_fit": round(opp_fit, 2),
-        "total": round(base + fair + conf + need_sev + edge_b + opp_fit, 2),
+        "overflow_penalty": round(-overflow_penalty, 2),
+        "total": round(
+            base + fair + conf + need_sev + edge_b + opp_fit - overflow_penalty, 2
+        ),
     }
 
 
