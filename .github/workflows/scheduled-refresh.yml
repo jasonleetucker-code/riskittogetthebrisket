@@ -173,9 +173,14 @@ jobs:
           # dlfRookieSf, dlfRookieIdp).  DLF sits behind a Cloudflare JS
           # challenge + WordPress member login; the scraper uses
           # curl_cffi with Chrome TLS fingerprint impersonation to pass
-          # CF, then POSTs credentials to wp-login.php.  Non-fatal — a
-          # failed DLF fetch leaves the previous CSV in place.
-          python scripts/fetch_dlf.py 2>&1 || echo "::warning title=DLF fetch failed::Non-fatal — continuing with stale CSV"
+          # CF, then POSTs credentials to wp-login.php.  We surface a
+          # red ``::error`` annotation when the script exits non-zero
+          # so the failure is visible in the run summary, but stay
+          # non-fatal *here* so the FP / IDP Show / ROS fetches below
+          # still run.  The ``Assert DLF freshness`` step at the end
+          # of the workflow fails the run when any DLF CSV ages out
+          # past 24h — that's the load-bearing guard.
+          python scripts/fetch_dlf.py 2>&1 || echo "::error title=DLF fetch failed::scripts/fetch_dlf.py exited non-zero — DLF CSVs will go stale; check DLF_USERNAME/DLF_PASSWORD repo secrets and recent fetch_dlf.py output."
 
           # Fetch FantasyPros / Pat Fitzmaurice Dynasty Trade Value
           # Chart.  Monthly article with date-rotating URL; the
@@ -248,6 +253,42 @@ jobs:
             gh workflow run deploy.yml --ref main
           else
             echo "No data changes, skipping deploy trigger"
+          fi
+
+      - name: Assert DLF freshness
+        # Runs after Commit + Deploy so other sources still ship even
+        # when DLF is broken.  Fails the workflow when any of the four
+        # DLF CSVs is older than 24h — the same threshold the source-
+        # health alert engine uses (config/source_staleness.json), but
+        # surfaced as an immediate red X on the workflow run instead of
+        # waiting for the next signal-alert sweep.  ``if: always()`` so
+        # the assertion runs even if an earlier step blew up.
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          THRESHOLD_HOURS=24
+          NOW=$(date +%s)
+          EXIT=0
+          for KEY in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+            CSV="CSVs/site_raw/${KEY}.csv"
+            if [[ ! -f "$CSV" ]]; then
+              echo "::error title=DLF freshness::${CSV} missing entirely"
+              EXIT=1
+              continue
+            fi
+            MTIME=$(stat -c %Y "$CSV")
+            AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
+            if (( AGE_HOURS > THRESHOLD_HOURS )); then
+              echo "::error title=DLF freshness::${KEY}.csv is ${AGE_HOURS}h stale (threshold ${THRESHOLD_HOURS}h)"
+              EXIT=1
+            else
+              echo "ok: ${KEY}.csv is ${AGE_HOURS}h old"
+            fi
+          done
+          if (( EXIT != 0 )); then
+            echo "::error title=DLF fetch broken::scripts/fetch_dlf.py has not produced fresh CSVs in over ${THRESHOLD_HOURS}h.  Check the [DLF] log lines in the 'Run scraper' step above and verify DLF_USERNAME/DLF_PASSWORD are set in repository secrets."
+            exit 1
           fi
 
       - name: Report freshness
