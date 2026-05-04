@@ -5,10 +5,13 @@ configured ``maxStaleHours`` and emits a one-shot alert (email,
 reusing the existing SMTP pipe from signal alerts).
 
 Per-source staleness thresholds live in
-``config/source_staleness.json`` — DLF gets 31 days (monthly
-refresh), KTC 48 hours, FantasyCalc 7 days, etc.  Rationale: a
-DLF source that's "stale" for 30 days is perfectly normal;
-flagging it would be pure alert fatigue.
+``config/source_staleness.json``.  Default policy: every source is
+24h.  The 2h scheduled-refresh cron writes each source's CSV
+unconditionally on a successful fetch, so a >24h gap means
+roughly twelve consecutive fetches failed — actionable, not
+alert fatigue.  Slower vendor cadences are irrelevant because the
+fetcher overwrites the CSV with whatever the page currently
+serves; mtime tracks scrape health, not vendor publish events.
 
 Cooldown: once an alert fires for a source, don't re-fire until
 either (a) the source recovers (fresh fetch observed) or (b)
@@ -40,16 +43,23 @@ _LOGGER = logging.getLogger(__name__)
 _REALERT_COOLDOWN_HOURS = 72.0
 
 _DEFAULT_STALENESS_HOURS: dict[str, float] = {
-    # Daily refresh sources.
-    "ktc": 48,
-    "idpTradeCalc": 48,
-    "fantasyCalc": 168,  # 7 days — updates weekly
-    # Monthly / slow sources.
-    "dlf": 31 * 24,  # 31 days
-    "dynastyDaddy": 168,
-    "dynastyNerds": 168,
-    "fantasyPros": 168,
-    "pff": 168,
+    # Universal 24h policy: every source is fetched on the 2h cron
+    # and overwrites its CSV on success, so a >24h mtime gap means
+    # ~12 consecutive failed fetches and warrants investigation.
+    # Per-source overrides live in ``config/source_staleness.json``.
+    "ktc": 24,
+    "idpTradeCalc": 24,
+    "fantasyCalc": 24,
+    "dlf": 24,
+    "dynastyDaddy": 24,
+    "dynastyNerds": 24,
+    "fantasyPros": 24,
+    "pff": 24,
+    "footballGuys": 24,
+    "draftSharks": 24,
+    "flockFantasy": 24,
+    "yahooBoone": 24,
+    "idpShow": 24,
 }
 
 
@@ -113,13 +123,9 @@ def resolve_threshold(src: str, thresholds: dict[str, float]) -> float:
        only camel-cased suffixes like ``ktcSfTep`` match.  Longest
        matching prefix wins so ``dynastyDaddy`` beats a hypothetical
        ``dynasty``.
-    3. **Default** — 168 hours (one week), matching the comment in
-       ``config/source_staleness.json``.
-
-    Without this resolver every ``dlf*`` source falls back to the
-    default 168h despite the configured 744h vendor entry, which is
-    exactly what triggered the false-positive ``[Brisket Ops] N
-    sources stale`` alerts on the four DLF boards.
+    3. **Default** — 24 hours, matching the universal policy in
+       ``config/source_staleness.json`` (every source is fetched
+       every 2h; >24h means scrape failure).
     """
     if src in thresholds:
         return thresholds[src]
@@ -136,7 +142,7 @@ def resolve_threshold(src: str, thresholds: dict[str, float]) -> float:
             best_prefix = key
     if best_prefix:
         return thresholds[best_prefix]
-    return 168.0
+    return 24.0
 
 
 def detect_stale_sources(

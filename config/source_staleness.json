@@ -1,18 +1,18 @@
 {
-  "_comment": "Per-source stale-threshold hours for the source-health alert engine (src/api/source_health_alerts.py). A source is matched by full registry key (e.g. ``flockFantasySf``) OR by vendor prefix (e.g. ``fantasyPros`` covers ``fantasyProsSf`` + ``fantasyProsIdp`` + ``fantasyProsFitzmaurice``). Default (for any source not listed): 168 hours = 7 days. Daily sources: 48h; weekly sources: 168h; monthly sources: 744h.",
+  "_comment": "Per-source stale-threshold hours for the source-health alert engine (src/api/source_health_alerts.py). The 2h scheduled-refresh cron (.github/workflows/scheduled-refresh.yml) writes every source's CSV unconditionally on a successful fetch, so CSV mtime tracks 'fetch succeeded' rather than 'vendor published new content'. A 24h threshold therefore catches ~12+ consecutive fetch failures and is the policy: the operator wants to know about scrape outages within a day, not weeks. A source is matched by full registry key (e.g. ``flockFantasySf``) OR by vendor prefix (e.g. ``fantasyPros`` covers ``fantasyProsSf`` + ``fantasyProsIdp`` + ``fantasyProsFitzmaurice``). Default (for any source not listed): 24 hours.",
   "thresholds": {
-    "ktc": 48,
-    "idpTradeCalc": 48,
-    "fantasyCalc": 168,
-    "dlf": 744,
-    "dynastyDaddy": 168,
-    "dynastyNerds": 168,
-    "fantasyPros": 168,
-    "pff": 168,
-    "footballGuys": 336,
-    "draftSharks": 168,
-    "flockFantasy": 168,
-    "yahooBoone": 744,
-    "idpShow": 168
+    "ktc": 24,
+    "idpTradeCalc": 24,
+    "fantasyCalc": 24,
+    "dlf": 24,
+    "dynastyDaddy": 24,
+    "dynastyNerds": 24,
+    "fantasyPros": 24,
+    "pff": 24,
+    "footballGuys": 24,
+    "draftSharks": 24,
+    "flockFantasy": 24,
+    "yahooBoone": 24,
+    "idpShow": 24
   }
 }
