@@ -184,8 +184,16 @@ jobs:
           # older than 24h.  Stay non-fatal here so the FP / IDP Show /
           # ROS fetches below still run; the assertion at the end is
           # the load-bearing guard.
+          #
+          # ``mkdir -p`` runs unconditionally so the ``Commit updated
+          # data`` step's ``git add -f data/scrape_state/`` always has a
+          # path to match.  If DLF has never succeeded (first rollout,
+          # or pre-existing outage) the dir exists but is empty — git
+          # add is a no-op, the commit step proceeds, and other source
+          # updates ship.  Without this, a missing pathspec would abort
+          # the commit step under ``set -e`` and block every source.
+          mkdir -p data/scrape_state
           if python scripts/fetch_dlf.py 2>&1; then
-            mkdir -p data/scrape_state
             date -u +%s > data/scrape_state/dlf_last_success
           else
             echo "::error title=DLF fetch failed::scripts/fetch_dlf.py exited non-zero — DLF CSVs will go stale; check DLF_USERNAME/DLF_PASSWORD repo secrets and recent fetch_dlf.py output."
