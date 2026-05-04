@@ -57,7 +57,7 @@ const BUDGETS_KB = {
   "/page": 90, // landing
   "/rankings/page": 65, // dense table + filter bar + popups
   "/trade/page": 75, // calculator + simulator + breakdown
-  "/draft/page": 115, // depth chart + analysis charts
+  "/draft/page": 125, // depth chart + analysis charts; bumped 115→125 for Par Sheet panel (PR #385)
   "/edge/page": 30,
   "/finder/page": 20,
   "/angle/page": 30,
