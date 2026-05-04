@@ -173,14 +173,23 @@ jobs:
           # dlfRookieSf, dlfRookieIdp).  DLF sits behind a Cloudflare JS
           # challenge + WordPress member login; the scraper uses
           # curl_cffi with Chrome TLS fingerprint impersonation to pass
-          # CF, then POSTs credentials to wp-login.php.  We surface a
-          # red ``::error`` annotation when the script exits non-zero
-          # so the failure is visible in the run summary, but stay
-          # non-fatal *here* so the FP / IDP Show / ROS fetches below
-          # still run.  The ``Assert DLF freshness`` step at the end
-          # of the workflow fails the run when any DLF CSV ages out
-          # past 24h — that's the load-bearing guard.
-          python scripts/fetch_dlf.py 2>&1 || echo "::error title=DLF fetch failed::scripts/fetch_dlf.py exited non-zero — DLF CSVs will go stale; check DLF_USERNAME/DLF_PASSWORD repo secrets and recent fetch_dlf.py output."
+          # CF, then POSTs credentials to wp-login.php.
+          #
+          # On full success we stamp ``data/scrape_state/dlf_last_success``
+          # with the current unix epoch and commit it.  The
+          # ``Assert DLF freshness`` step at the end of the workflow
+          # reads the stamp's *content* (not its mtime — ``actions/checkout``
+          # rewrites mtimes on every job, so they cannot detect a
+          # cross-run outage) and fails the run when last success is
+          # older than 24h.  Stay non-fatal here so the FP / IDP Show /
+          # ROS fetches below still run; the assertion at the end is
+          # the load-bearing guard.
+          if python scripts/fetch_dlf.py 2>&1; then
+            mkdir -p data/scrape_state
+            date -u +%s > data/scrape_state/dlf_last_success
+          else
+            echo "::error title=DLF fetch failed::scripts/fetch_dlf.py exited non-zero — DLF CSVs will go stale; check DLF_USERNAME/DLF_PASSWORD repo secrets and recent fetch_dlf.py output."
+          fi
 
           # Fetch FantasyPros / Pat Fitzmaurice Dynasty Trade Value
           # Chart.  Monthly article with date-rotating URL; the
@@ -230,7 +239,7 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/
+          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else
@@ -257,39 +266,45 @@ jobs:
 
       - name: Assert DLF freshness
         # Runs after Commit + Deploy so other sources still ship even
-        # when DLF is broken.  Fails the workflow when any of the four
-        # DLF CSVs is older than 24h — the same threshold the source-
-        # health alert engine uses (config/source_staleness.json), but
-        # surfaced as an immediate red X on the workflow run instead of
-        # waiting for the next signal-alert sweep.  ``if: always()`` so
-        # the assertion runs even if an earlier step blew up.
+        # when DLF is broken.  Fails the workflow when the most recent
+        # successful ``scripts/fetch_dlf.py`` invocation was more than
+        # 24h ago — same threshold the email alert engine uses
+        # (config/source_staleness.json), but surfaced as an immediate
+        # red X on the workflow run.
+        #
+        # ``data/scrape_state/dlf_last_success`` holds a unix epoch
+        # written by the ``Run scraper`` step on full success and
+        # committed in the previous step.  We read its *content*, not
+        # its mtime — ``actions/checkout`` resets every tracked file's
+        # mtime to the checkout instant, so an mtime-based check can
+        # never observe a cross-run outage and would silently pass
+        # while DLF rots.  File contents do survive checkout, so the
+        # epoch stored inside the stamp is the load-bearing signal.
+        #
+        # ``if: always()`` so the assertion runs even when an earlier
+        # step crashed.
         if: always()
         shell: bash
         run: |
           set -Eeuo pipefail
           THRESHOLD_HOURS=24
-          NOW=$(date +%s)
-          EXIT=0
-          for KEY in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
-            CSV="CSVs/site_raw/${KEY}.csv"
-            if [[ ! -f "$CSV" ]]; then
-              echo "::error title=DLF freshness::${CSV} missing entirely"
-              EXIT=1
-              continue
-            fi
-            MTIME=$(stat -c %Y "$CSV")
-            AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
-            if (( AGE_HOURS > THRESHOLD_HOURS )); then
-              echo "::error title=DLF freshness::${KEY}.csv is ${AGE_HOURS}h stale (threshold ${THRESHOLD_HOURS}h)"
-              EXIT=1
-            else
-              echo "ok: ${KEY}.csv is ${AGE_HOURS}h old"
-            fi
-          done
-          if (( EXIT != 0 )); then
-            echo "::error title=DLF fetch broken::scripts/fetch_dlf.py has not produced fresh CSVs in over ${THRESHOLD_HOURS}h.  Check the [DLF] log lines in the 'Run scraper' step above and verify DLF_USERNAME/DLF_PASSWORD are set in repository secrets."
+          STAMP="data/scrape_state/dlf_last_success"
+          if [[ ! -f "$STAMP" ]]; then
+            echo "::error title=DLF freshness::${STAMP} missing — DLF has never produced a successful run since this guard was added.  Check the [DLF] log lines in 'Run scraper' above and verify DLF_USERNAME/DLF_PASSWORD repo secrets."
             exit 1
           fi
+          LAST_SUCCESS="$(tr -dc '0-9' < "$STAMP")"
+          if [[ -z "$LAST_SUCCESS" ]]; then
+            echo "::error title=DLF freshness::${STAMP} contains no parseable epoch — file is corrupt."
+            exit 1
+          fi
+          NOW=$(date +%s)
+          AGE_HOURS=$(( (NOW - LAST_SUCCESS) / 3600 ))
+          if (( AGE_HOURS > THRESHOLD_HOURS )); then
+            echo "::error title=DLF freshness::Last successful fetch_dlf.py run was ${AGE_HOURS}h ago (threshold ${THRESHOLD_HOURS}h).  Check the [DLF] log lines in 'Run scraper' above and verify DLF_USERNAME/DLF_PASSWORD repo secrets."
+            exit 1
+          fi
+          echo "ok: last successful DLF fetch was ${AGE_HOURS}h ago"
 
       - name: Report freshness
         if: always()
