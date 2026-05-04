@@ -4193,6 +4193,30 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   flex: 1;
 }
 
+/* Par Sheet — same look as Target Board, 7-col grid (no Win column) */
+.draft-par-sheet {
+  margin-bottom: 14px;
+}
+.draft-ps-row {
+  grid-template-columns: 34px 1fr 70px 70px 70px 96px 74px;
+}
+.draft-ps-fv-edit {
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+  color: inherit;
+  font: inherit;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.draft-ps-fv-edit:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-ps-add {
+  align-items: center;
+}
+
 /* Nomination logger in draft modal */
 .draft-modal-nom {
   margin-top: 8px;

@@ -16,19 +16,24 @@ import {
   TIER_DEFS,
   TIER_CONFIDENCE_MIN_SAMPLES,
   addPlayer,
+  addToParSheet,
   bidStatus,
+  clearParSheet,
   computeDraftStats,
   createDefaultWorkspace,
   effectiveBudgetFor,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
+  moveInParSheet,
   playerSlug,
   recordPick,
+  removeFromParSheet,
   removePick,
   removePlayer,
   slotsByTeamFromPicks,
   tierForPreDraft,
   undoLastPick,
+  updateParSheetFairValue,
   updatePlayerPreDraft,
   updateSettings,
   updateTeam,
@@ -380,6 +385,220 @@ describe("state mutators", () => {
     next = removePlayer(next, target.id);
     expect(next.players.find((p) => p.id === target.id)).toBeUndefined();
     expect(next.picks).toEqual([]);
+  });
+});
+
+// ── Par Sheet ───────────────────────────────────────────────────────
+
+describe("par sheet", () => {
+  it("createDefaultWorkspace seeds an empty parSheet", () => {
+    const ws = createDefaultWorkspace();
+    expect(Array.isArray(ws.parSheet)).toBe(true);
+    expect(ws.parSheet).toEqual([]);
+  });
+
+  it("addToParSheet appends a row keyed by name slug", () => {
+    const ws = createDefaultWorkspace();
+    const next = addToParSheet(ws, {
+      name: "Jeremiyah Love",
+      fairValue: 120,
+    });
+    expect(next.parSheet.length).toBe(1);
+    expect(next.parSheet[0]).toMatchObject({
+      id: "jeremiyah-love",
+      name: "Jeremiyah Love",
+      fairValue: 120,
+    });
+  });
+
+  it("addToParSheet refuses duplicates by slug", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    ws = addToParSheet(ws, { name: "jeremiyah love", fairValue: 99 });
+    expect(ws.parSheet.length).toBe(1);
+    expect(ws.parSheet[0].fairValue).toBe(120);
+  });
+
+  it("addToParSheet ignores blank names", () => {
+    const ws = createDefaultWorkspace();
+    expect(addToParSheet(ws, { name: "", fairValue: 50 }).parSheet).toEqual(
+      [],
+    );
+    expect(addToParSheet(ws, { name: "   ", fairValue: 50 }).parSheet).toEqual(
+      [],
+    );
+  });
+
+  it("addToParSheet clamps negative / non-numeric FV to 0", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: -50 });
+    ws = addToParSheet(ws, { name: "B", fairValue: "garbage" });
+    expect(ws.parSheet[0].fairValue).toBe(0);
+    expect(ws.parSheet[1].fairValue).toBe(0);
+  });
+
+  it("removeFromParSheet drops a single row", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: 10 });
+    ws = addToParSheet(ws, { name: "B", fairValue: 20 });
+    ws = removeFromParSheet(ws, "a");
+    expect(ws.parSheet.length).toBe(1);
+    expect(ws.parSheet[0].id).toBe("b");
+  });
+
+  it("updateParSheetFairValue patches just one row", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: 10 });
+    ws = addToParSheet(ws, { name: "B", fairValue: 20 });
+    ws = updateParSheetFairValue(ws, "a", 75);
+    expect(ws.parSheet[0].fairValue).toBe(75);
+    expect(ws.parSheet[1].fairValue).toBe(20);
+  });
+
+  it("moveInParSheet reorders a row up or down", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: 1 });
+    ws = addToParSheet(ws, { name: "B", fairValue: 2 });
+    ws = addToParSheet(ws, { name: "C", fairValue: 3 });
+    const movedUp = moveInParSheet(ws, "c", "up");
+    expect(movedUp.parSheet.map((r) => r.id)).toEqual(["a", "c", "b"]);
+    const movedDown = moveInParSheet(ws, "a", "down");
+    expect(movedDown.parSheet.map((r) => r.id)).toEqual(["b", "a", "c"]);
+  });
+
+  it("moveInParSheet is a no-op at the boundary or on a missing id", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: 1 });
+    ws = addToParSheet(ws, { name: "B", fairValue: 2 });
+    expect(moveInParSheet(ws, "a", "up").parSheet[0].id).toBe("a");
+    expect(moveInParSheet(ws, "b", "down").parSheet[1].id).toBe("b");
+    expect(moveInParSheet(ws, "missing", "up")).toBe(ws);
+  });
+
+  it("clearParSheet wipes every row", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "A", fairValue: 10 });
+    expect(clearParSheet(ws).parSheet).toEqual([]);
+  });
+
+  it("hydrateWorkspace rebuilds slugs and drops bad rows", () => {
+    const persisted = {
+      version: 1,
+      settings: {},
+      parSheet: [
+        { name: "Jeremiyah Love", fairValue: 120 },
+        { name: "", fairValue: 50 }, // dropped: blank name
+        { name: "Jeremiyah Love", fairValue: 80 }, // dropped: dup slug
+        { name: "Quinshon Judkins", fairValue: "55" },
+      ],
+    };
+    const ws = hydrateWorkspace(persisted);
+    expect(ws.parSheet.length).toBe(2);
+    expect(ws.parSheet[0]).toMatchObject({
+      id: "jeremiyah-love",
+      fairValue: 120,
+    });
+    expect(ws.parSheet[1]).toMatchObject({
+      id: "quinshon-judkins",
+      fairValue: 55,
+    });
+  });
+
+  it("computeDraftStats classifies open rows with committed FV against headroom", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    ws = addToParSheet(ws, { name: "Quinshon Judkins", fairValue: 60 });
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.totals.targetCount).toBe(2);
+    expect(ps.totals.committedFV).toBe(180);
+    expect(ps.totals.wonCount).toBe(0);
+    expect(ps.totals.lostCount).toBe(0);
+    expect(ps.totals.surplus).toBe(0);
+    // Russini Panini's default budget is 417; nothing spent yet.
+    expect(ps.headroom).toBe(417 - 180);
+    expect(ps.status).toBe("on_track");
+  });
+
+  it("computeDraftStats books surplus when I win at below FV", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    // Winning Love at $115 should bank +$5 surplus and free up
+    // headroom (committedFV drops to 0 since the row is now "won").
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 115,
+    });
+    const ps = computeDraftStats(ws).parSheetStats;
+    const row = ps.rows[0];
+    expect(row.status).toBe("won");
+    expect(row.mine).toBe(true);
+    expect(row.paid).toBe(115);
+    expect(row.surplus).toBe(5);
+    expect(ps.totals.surplus).toBe(5);
+    expect(ps.totals.committedFV).toBe(0);
+    expect(ps.totals.wonFV).toBe(120);
+    expect(ps.totals.wonPaid).toBe(115);
+  });
+
+  it("computeDraftStats books deficit when I overpay vs FV", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 140,
+    });
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.rows[0].surplus).toBe(-20);
+    expect(ps.totals.surplus).toBe(-20);
+  });
+
+  it("computeDraftStats marks rows lost when another team drafts them", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 3, // not me (myTeamIdx defaults to 0)
+      amount: 110,
+    });
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.rows[0].status).toBe("lost");
+    expect(ps.rows[0].mine).toBe(false);
+    expect(ps.totals.lostCount).toBe(1);
+    expect(ps.totals.targetCount).toBe(0);
+    expect(ps.totals.committedFV).toBe(0);
+    expect(ps.totals.wonFV).toBe(0);
+  });
+
+  it("headroom goes negative when committed FV exceeds my remaining $", () => {
+    let ws = createDefaultWorkspace();
+    // My default starting budget is 417; commit FV well above it.
+    ws = addToParSheet(ws, { name: "P1", fairValue: 250 });
+    ws = addToParSheet(ws, { name: "P2", fairValue: 250 });
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.headroom).toBe(417 - 500);
+    expect(ps.status).toBe("short");
+  });
+
+  it("status flips to done when every row is resolved", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToParSheet(ws, { name: "Jeremiyah Love", fairValue: 120 });
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 115,
+    });
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.status).toBe("done");
+    expect(ps.statusLabel).toMatch(/surplus \+\$5/);
+  });
+
+  it("idle status when sheet is empty", () => {
+    const ws = createDefaultWorkspace();
+    const ps = computeDraftStats(ws).parSheetStats;
+    expect(ps.status).toBe("idle");
+    expect(ps.rows).toEqual([]);
   });
 });
 
