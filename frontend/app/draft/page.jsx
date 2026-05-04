@@ -14,9 +14,11 @@ import {
   TARGET_BOARD_MAX,
   TIER_DEFS,
   addPlayer,
+  addToParSheet,
   addToTargetBoard,
   bestValueOnBoard,
   bidStatus,
+  clearParSheet,
   clearTargetBoard,
   computeDraftReview,
   computeDraftStats,
@@ -27,6 +29,7 @@ import {
   draftReviewToCsv,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
+  moveInParSheet,
   moveTargetInBoard,
   nextBestTargets,
   nominationCandidates,
@@ -34,6 +37,7 @@ import {
   playerSlug,
   recordNomination,
   recordPick,
+  removeFromParSheet,
   removeFromTargetBoard,
   removeNomination,
   removePick,
@@ -43,6 +47,7 @@ import {
   setPlayerTag,
   undoLastNomination,
   undoLastPick,
+  updateParSheetFairValue,
   updatePlayerPreDraft,
   updateSettings,
   updateTeam,
@@ -1557,6 +1562,398 @@ function InflationSparkline({ series, width = 140, height = 36 }) {
  *
  * Negative buffer renders red with "SHORT $N — trim a target".
  */
+/* ── Par Sheet ────────────────────────────────────────────────────── */
+
+/**
+ * Pre-draft "shopping list" with a per-row personal Fair Value.  As
+ * picks land, each row classifies into target / won / lost.  Footer
+ * shows committed FV, banked surplus, and how much headroom remains
+ * against my budget if I hit every target at FV.
+ *
+ * Free-text adds are accepted: the row's id is the slug of the typed
+ * name, so it auto-matches a future pick recorded under the same
+ * slug (the rookie pool seeds use the same slug rule).  Quick-add
+ * suggestions surface from the existing player pool when the typed
+ * text matches a pool name; clicking a suggestion pre-fills the FV
+ * with that player's preDraft $ — which the user can then override.
+ */
+function ParSheet({
+  stats,
+  workspace,
+  onAdd,
+  onRemove,
+  onEditFV,
+  onMove,
+  onClear,
+  onDraft,
+}) {
+  const [name, setName] = useState("");
+  const [fv, setFv] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
+  const psStats = stats.parSheetStats || {
+    rows: [],
+    totals: {
+      committedFV: 0,
+      wonFV: 0,
+      wonPaid: 0,
+      lostFV: 0,
+      targetCount: 0,
+      wonCount: 0,
+      lostCount: 0,
+      surplus: 0,
+    },
+    headroom: 0,
+    status: "idle",
+    statusLabel: "",
+  };
+  const rows = psStats.rows;
+
+  // Quick-add suggestions: pool players whose name fuzzy-matches the
+  // typed text.  Excludes anything already on the par sheet.  Limit
+  // the dropdown to a handful so it stays compact.
+  const sheetIds = useMemo(
+    () => new Set(rows.map((r) => r.id)),
+    [rows],
+  );
+  const suggestions = useMemo(() => {
+    const q = name.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return stats.enrichedPlayers
+      .filter((p) => !sheetIds.has(p.id) && p.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [name, sheetIds, stats.enrichedPlayers]);
+
+  const submitAdd = (overrideName, overrideFV) => {
+    const finalName = String(overrideName ?? name).trim();
+    if (!finalName) return;
+    const fvNum = Number(overrideFV ?? fv);
+    onAdd({
+      name: finalName,
+      fairValue: Number.isFinite(fvNum) ? Math.max(0, fvNum) : 0,
+    });
+    setName("");
+    setFv("");
+  };
+
+  const beginEditFV = (row) => {
+    setEditingId(row.id);
+    setEditingValue(String(row.fairValue || 0));
+  };
+  const commitEditFV = () => {
+    if (!editingId) return;
+    const v = Number(editingValue);
+    onEditFV(editingId, Number.isFinite(v) ? Math.max(0, v) : 0);
+    setEditingId(null);
+    setEditingValue("");
+  };
+  const cancelEditFV = () => {
+    setEditingId(null);
+    setEditingValue("");
+  };
+
+  const statusClass =
+    psStats.status === "short"
+      ? "draft-tb-status-short"
+      : psStats.status === "tight"
+        ? "draft-tb-status-tight"
+        : psStats.status === "on_track" || psStats.status === "done"
+          ? "draft-tb-status-ok"
+          : "draft-tb-status-idle";
+
+  const totals = psStats.totals;
+  const surplus = totals.surplus || 0;
+  const surplusClass =
+    surplus > 0
+      ? "draft-vs-fair-win"
+      : surplus < 0
+        ? "draft-vs-fair-lose"
+        : "";
+
+  return (
+    <div className="card draft-target-board draft-par-sheet">
+      <div className="draft-tb-head">
+        <div>
+          <h3 style={{ margin: "0 0 2px" }}>
+            Par Sheet{" "}
+            <span className="muted" style={{ fontSize: "0.72rem" }}>
+              ({rows.length} {rows.length === 1 ? "row" : "rows"} ·{" "}
+              {totals.targetCount} open · {totals.wonCount} won ·{" "}
+              {totals.lostCount} lost)
+            </span>
+          </h3>
+          <div className="muted" style={{ fontSize: "0.7rem" }}>
+            Pre-draft shopping list with your own fair value · surplus
+            on bargains rolls into headroom you can spend elsewhere
+          </div>
+        </div>
+        <div className="draft-tb-actions">
+          {rows.length > 0 && (
+            <button
+              className="button"
+              style={{ fontSize: "0.7rem", padding: "3px 8px" }}
+              onClick={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  window.confirm("Clear the entire par sheet?")
+                ) {
+                  onClear();
+                }
+              }}
+              title="Clear every row on the par sheet"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {rows.length === 0 && (
+        <div
+          className="muted"
+          style={{ fontSize: "0.76rem", padding: "6px 0 4px" }}
+        >
+          Type a player and your fair-value $ below to start your par
+          sheet.  As picks land, each row marks itself "Won" (with
+          surplus vs your FV) or "Lost".  Bottom-line headroom shows
+          what you have left if you hit every open row at your FV.
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="draft-tb-grid draft-ps-grid">
+          <div className="draft-tb-row draft-ps-row draft-tb-row-head">
+            <span>#</span>
+            <span>Player</span>
+            <span>FV</span>
+            <span>Paid</span>
+            <span>Δ</span>
+            <span>Status</span>
+            <span></span>
+          </div>
+          {rows.map((row, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === rows.length - 1;
+            const drafted = row.status !== "target";
+            const status =
+              row.status === "won"
+                ? {
+                    label: `Won $${row.paid}`,
+                    cls: "draft-tb-status-won",
+                  }
+                : row.status === "lost"
+                  ? { label: "Lost", cls: "draft-tb-status-lost" }
+                  : { label: "Open", cls: "draft-tb-status-open" };
+            const surplusRow = row.surplus;
+            const enriched = row.enriched;
+            const isEditing = editingId === row.id;
+            return (
+              <div
+                key={row.id}
+                className={`draft-tb-row draft-ps-row${
+                  drafted ? " draft-tb-row-drafted" : ""
+                }${row.mine ? " draft-tb-row-mine" : ""}`}
+              >
+                <span className="draft-tb-idx">#{idx + 1}</span>
+                <span className="draft-tb-name-cell">
+                  {enriched && (
+                    <span
+                      className={`draft-tier-chip draft-tier-${enriched.tier}`}
+                      style={{ marginRight: 4 }}
+                    >
+                      {enriched.tier}
+                    </span>
+                  )}
+                  <span
+                    className="draft-nbt-name"
+                    onClick={() => {
+                      if (enriched && !drafted) onDraft(enriched);
+                    }}
+                    title={
+                      enriched
+                        ? "Open draft modal"
+                        : "Not in rookie pool yet — sync rookies to enable quick-draft"
+                    }
+                    style={!enriched ? { cursor: "default" } : undefined}
+                  >
+                    {row.name}
+                  </span>
+                </span>
+                <span className="draft-money">
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      className="input draft-money-input"
+                      autoFocus
+                      value={editingValue}
+                      min="0"
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={commitEditFV}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEditFV();
+                        if (e.key === "Escape") cancelEditFV();
+                      }}
+                      style={{ width: 56, fontSize: "0.78rem" }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="button-reset draft-ps-fv-edit"
+                      onClick={() => beginEditFV(row)}
+                      title="Click to edit fair value"
+                    >
+                      {fmt$(row.fairValue)}
+                    </button>
+                  )}
+                </span>
+                <span className="draft-money">
+                  {row.status === "won" ? fmt$(row.paid) : "—"}
+                </span>
+                <span className="draft-money">
+                  {row.status === "won" && Number.isFinite(surplusRow) ? (
+                    <span
+                      className={
+                        surplusRow > 0
+                          ? "draft-vs-fair-win"
+                          : surplusRow < 0
+                            ? "draft-vs-fair-lose"
+                            : ""
+                      }
+                      title={`Fair ${fmt$(row.fairValue)} − paid ${fmt$(row.paid)}`}
+                    >
+                      {surplusRow > 0 ? "+" : ""}
+                      {fmt$(surplusRow)}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </span>
+                <span className={`draft-tb-status ${status.cls}`}>
+                  {status.label}
+                </span>
+                <span className="draft-tb-controls">
+                  <button
+                    className="button-reset draft-tb-ctrl"
+                    onClick={() => onMove(row.id, "up")}
+                    disabled={isFirst}
+                    title="Move up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="button-reset draft-tb-ctrl"
+                    onClick={() => onMove(row.id, "down")}
+                    disabled={isLast}
+                    title="Move down"
+                  >
+                    ▼
+                  </button>
+                  <button
+                    className="button-reset draft-tb-ctrl draft-tb-ctrl-remove"
+                    onClick={() => onRemove(row.id)}
+                    title="Remove from par sheet"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className={`draft-tb-summary ${statusClass}`}>
+        <div className="draft-tb-summary-line">
+          <span className="muted">FV Σ (open)</span>
+          <span className="draft-money">{fmt$(totals.committedFV)}</span>
+          <span className="muted">FV Σ (won)</span>
+          <span className="draft-money">{fmt$(totals.wonFV)}</span>
+          <span className="muted">Paid Σ (won)</span>
+          <span className="draft-money">{fmt$(totals.wonPaid)}</span>
+          <span className="muted">Surplus banked</span>
+          <span className={`draft-money ${surplusClass}`}>
+            {surplus > 0 ? "+" : ""}
+            {fmt$(surplus)}
+          </span>
+        </div>
+        <div className="draft-tb-summary-line">
+          <span className="muted">My remaining</span>
+          <span className="draft-money">{fmt$(stats.myRemaining)}</span>
+          <span className="muted">− open FV</span>
+          <span className="draft-money">{fmt$(totals.committedFV)}</span>
+          <strong>=</strong>
+          <span className="draft-money draft-tb-buffer">
+            {fmt$(psStats.headroom)}
+          </span>
+          <span className="muted" style={{ marginLeft: 6 }}>
+            headroom
+          </span>
+        </div>
+        <div className="draft-tb-status-line">{psStats.statusLabel}</div>
+      </div>
+
+      <div className="draft-tb-add draft-ps-add">
+        <input
+          type="text"
+          className="input"
+          placeholder="Player name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitAdd();
+          }}
+          style={{ flex: "1 1 180px", maxWidth: 220 }}
+        />
+        <input
+          type="number"
+          className="input"
+          placeholder="Fair $"
+          value={fv}
+          min="0"
+          onChange={(e) => setFv(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitAdd();
+          }}
+          style={{ width: 80 }}
+        />
+        <button
+          type="button"
+          className="button"
+          onClick={() => submitAdd()}
+          disabled={!name.trim()}
+          style={{ fontSize: "0.72rem", padding: "3px 10px" }}
+        >
+          Add
+        </button>
+        {suggestions.length > 0 && (
+          <div className="draft-tb-suggest">
+            {suggestions.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="button draft-tb-suggest-btn"
+                onClick={() => submitAdd(p.name, p.preDraft)}
+                title={`Pre-fill ${p.name} with PreDraft ${fmt$(p.preDraft)}`}
+                style={{ fontSize: "0.72rem", padding: "3px 8px" }}
+              >
+                <span
+                  className={`draft-tier-chip draft-tier-${p.tier}`}
+                  style={{ marginRight: 4 }}
+                >
+                  {p.tier}
+                </span>
+                {p.name} ({fmt$(p.preDraft)})
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Target Board ─────────────────────────────────────────────────── */
+
 function TargetBoard({
   stats,
   workspace,
@@ -3297,6 +3694,29 @@ export default function DraftDashboardPage() {
     () => setWorkspace((ws) => clearTargetBoard(ws)),
     [],
   );
+  const onAddToParSheet = useCallback(
+    ({ name, fairValue }) =>
+      setWorkspace((ws) => addToParSheet(ws, { name, fairValue })),
+    [],
+  );
+  const onRemoveFromParSheet = useCallback(
+    (id) => setWorkspace((ws) => removeFromParSheet(ws, id)),
+    [],
+  );
+  const onEditParSheetFV = useCallback(
+    (id, fairValue) =>
+      setWorkspace((ws) => updateParSheetFairValue(ws, id, fairValue)),
+    [],
+  );
+  const onMoveInParSheet = useCallback(
+    (id, direction) =>
+      setWorkspace((ws) => moveInParSheet(ws, id, direction)),
+    [],
+  );
+  const onClearParSheet = useCallback(
+    () => setWorkspace((ws) => clearParSheet(ws)),
+    [],
+  );
   const onRecordNomination = useCallback(
     (playerId, nominatingTeamIdx) =>
       setWorkspace((ws) =>
@@ -3969,6 +4389,17 @@ export default function DraftDashboardPage() {
           </div>
         </div>
       )}
+
+      <ParSheet
+        stats={stats}
+        workspace={workspace}
+        onAdd={onAddToParSheet}
+        onRemove={onRemoveFromParSheet}
+        onEditFV={onEditParSheetFV}
+        onMove={onMoveInParSheet}
+        onClear={onClearParSheet}
+        onDraft={(p) => setModalPlayer(p)}
+      />
 
       <TargetBoard
         stats={stats}

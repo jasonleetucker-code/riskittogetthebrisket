@@ -351,6 +351,16 @@ export function createDefaultWorkspace() {
     // ceiling on any given undrafted player.
     //   { playerId, nominatingTeamIdx, preDraftAtNomination, ts }
     nominations: [],
+    // parSheet: pre-draft "shopping list" of players the user wants
+    // with a personal fairValue $ for each.  Mirrors the auction par-
+    // sheet workflow: populate before the draft, watch surplus/deficit
+    // accumulate as picks land.  Independent of the Target Board so the
+    // user can keep a long pre-draft list (20+) AND a 6-slot focus
+    // board.  Players can be free-text names — slug-matched against
+    // picks at compute time, so a row auto-detects "won" / "lost" once
+    // the matching pick lands.
+    //   { id, name, fairValue, ts }
+    parSheet: [],
   };
 }
 
@@ -860,6 +870,122 @@ export function computeDraftStats(workspace) {
     nonTargetSlotsLeft,
   };
 
+  // ── Par Sheet rollup ────────────────────────────────────────────────
+  // The par sheet is a free-form "shopping list" the user populates
+  // before the draft.  Each row carries a user-entered ``fairValue``
+  // (independent of the rookie pool's preDraft).  As picks land, each
+  // row classifies into one of three states:
+  //
+  //   target:    no pick yet matches ``id`` — committed dollars
+  //              against my remaining budget at fairValue.
+  //   won:       a pick by my team matches ``id`` — surplus =
+  //              fairValue − paid (positive = bargain, negative =
+  //              overpay).  Surplus rolls into my "extra headroom"
+  //              that can fund the next target's FV bump.
+  //   lost:      a pick by another team matches ``id`` — row is
+  //              greyed out, contributes to neither commitment nor
+  //              surplus, but is kept on the list as a record.
+  //
+  // Aggregates surfaced:
+  //
+  //   committedFV    — Σ fairValue across "target" rows.  What I
+  //                    intend to spend if I get everyone left on the
+  //                    list at my own valuation.
+  //   wonFV          — Σ fairValue across "won" rows.  What I'd have
+  //                    paid if I'd hit FV on every win so far.
+  //   wonPaid        — Σ paid across "won" rows.  Actual outlay.
+  //   surplus        — wonFV − wonPaid.  Extra dollars freed up by
+  //                    bargains (positive) or burned by overpays
+  //                    (negative).
+  //   headroom       — myRemaining − committedFV.  Spare $ if I hit
+  //                    every target at my FV.  Surplus is already
+  //                    baked into myRemaining (paid amounts have
+  //                    been subtracted), so headroom shows true
+  //                    breathing room — negative = can't afford the
+  //                    list at FV, raise FVs or trim rows.
+  const parSheetRows = Array.isArray(ws.parSheet) ? ws.parSheet : [];
+  const psTotals = {
+    committedFV: 0,
+    wonFV: 0,
+    wonPaid: 0,
+    lostFV: 0,
+    targetCount: 0,
+    wonCount: 0,
+    lostCount: 0,
+    surplus: 0,
+  };
+  const enrichedParSheet = parSheetRows.map((row) => {
+    const id = String(row?.id || "");
+    const fv = Math.max(0, Number(row?.fairValue) || 0);
+    const pick = id ? pickByPlayer.get(id) : null;
+    let status = "target";
+    let mine = false;
+    let paid = null;
+    let surplus = null;
+    if (pick) {
+      mine = pick.teamIdx === myTeamIdx;
+      paid = Math.max(0, Number(pick.amount) || 0);
+      if (mine) {
+        status = "won";
+        surplus = fv - paid;
+        psTotals.wonCount += 1;
+        psTotals.wonFV += fv;
+        psTotals.wonPaid += paid;
+        psTotals.surplus += surplus;
+      } else {
+        status = "lost";
+        psTotals.lostCount += 1;
+        psTotals.lostFV += fv;
+      }
+    } else {
+      psTotals.targetCount += 1;
+      psTotals.committedFV += fv;
+    }
+    return {
+      id,
+      name: String(row?.name || ""),
+      fairValue: fv,
+      status,
+      mine,
+      paid,
+      surplus,
+      pick: pick || null,
+      enriched: id ? enrichedPlayerById.get(id) || null : null,
+      ts: Number(row?.ts) || 0,
+    };
+  });
+  const psHeadroom = myRemaining - psTotals.committedFV;
+  let psStatus = "idle";
+  let psStatusLabel = "Add players to your par sheet";
+  if (parSheetRows.length > 0) {
+    if (psTotals.targetCount === 0) {
+      psStatus = "done";
+      const surplusSign =
+        psTotals.surplus > 0
+          ? `surplus +$${Math.round(psTotals.surplus)}`
+          : psTotals.surplus < 0
+            ? `deficit −$${Math.abs(Math.round(psTotals.surplus))}`
+            : "even";
+      psStatusLabel = `Par sheet closed — ${surplusSign}`;
+    } else if (psHeadroom < 0) {
+      psStatus = "short";
+      psStatusLabel = `Short $${Math.abs(Math.round(psHeadroom))} — trim a row or raise a price elsewhere`;
+    } else if (psHeadroom < 5) {
+      psStatus = "tight";
+      psStatusLabel = `Tight — $${Math.round(psHeadroom)} of headroom against your fair values`;
+    } else {
+      psStatus = "on_track";
+      psStatusLabel = `On track — $${Math.round(psHeadroom)} of headroom on top of your fair values`;
+    }
+  }
+  const parSheetStats = {
+    rows: enrichedParSheet,
+    totals: psTotals,
+    headroom: psHeadroom,
+    status: psStatus,
+    statusLabel: psStatusLabel,
+  };
+
   // ── Nominations summary ────────────────────────────────────────────
   // Surface the raw nominations plus a per-tier count so the UI can
   // show "Joel has logged 3 S-tier noms" as a quick-read signal.
@@ -908,6 +1034,7 @@ export function computeDraftStats(workspace) {
     teamStats,
     enrichedPlayers,
     targetBoardStats,
+    parSheetStats,
     nominationsCount: nominations.length,
     nominationsByTier,
     nominationsEnriched,
@@ -1041,6 +1168,75 @@ export function moveTargetInBoard(workspace, playerId, direction) {
   const [moved] = board.splice(idx, 1);
   board.splice(to, 0, moved);
   return { ...workspace, targetBoard: board };
+}
+
+// ── Par Sheet mutators ─────────────────────────────────────────────────
+/**
+ * Append a player to the par sheet with a user-entered fair-value $.
+ * Free-text names are accepted — the row's id is the slug of the name,
+ * so a row auto-matches any pick recorded later for the same slug.
+ *
+ * Refuses duplicates (same slug already on the sheet).  Rows are
+ * append-only by default; callers that want to reorder use
+ * ``moveInParSheet``.
+ */
+export function addToParSheet(workspace, { name, fairValue } = {}) {
+  const ws = workspace || createDefaultWorkspace();
+  const cleanName = String(name || "").trim();
+  const id = playerSlug(cleanName);
+  if (!id) return ws;
+  const sheet = Array.isArray(ws.parSheet) ? ws.parSheet : [];
+  if (sheet.some((r) => r.id === id)) return ws;
+  const fv = Math.max(0, Number(fairValue) || 0);
+  return {
+    ...ws,
+    parSheet: [
+      ...sheet,
+      { id, name: cleanName, fairValue: fv, ts: Date.now() },
+    ],
+  };
+}
+
+/** Remove a single row from the par sheet by id. */
+export function removeFromParSheet(workspace, playerId) {
+  const ws = workspace || createDefaultWorkspace();
+  const sheet = Array.isArray(ws.parSheet) ? ws.parSheet : [];
+  return {
+    ...ws,
+    parSheet: sheet.filter((r) => r.id !== playerId),
+  };
+}
+
+/** Update a row's fair-value $ inline. */
+export function updateParSheetFairValue(workspace, playerId, newFairValue) {
+  const ws = workspace || createDefaultWorkspace();
+  const sheet = Array.isArray(ws.parSheet) ? ws.parSheet : [];
+  return {
+    ...ws,
+    parSheet: sheet.map((r) =>
+      r.id === playerId
+        ? { ...r, fairValue: Math.max(0, Number(newFairValue) || 0) }
+        : r,
+    ),
+  };
+}
+
+/** Reorder the par sheet by moving one row up or down by one slot. */
+export function moveInParSheet(workspace, playerId, direction) {
+  const ws = workspace || createDefaultWorkspace();
+  const sheet = [...(Array.isArray(ws.parSheet) ? ws.parSheet : [])];
+  const idx = sheet.findIndex((r) => r.id === playerId);
+  if (idx < 0) return ws;
+  const to = direction === "up" ? idx - 1 : idx + 1;
+  if (to < 0 || to >= sheet.length) return ws;
+  const [moved] = sheet.splice(idx, 1);
+  sheet.splice(to, 0, moved);
+  return { ...ws, parSheet: sheet };
+}
+
+/** Reset the par sheet to empty. */
+export function clearParSheet(workspace) {
+  return { ...(workspace || createDefaultWorkspace()), parSheet: [] };
 }
 
 // ── Nomination mutators ────────────────────────────────────────────────
@@ -1589,6 +1785,29 @@ export function hydrateWorkspace(parsed) {
             ts: Number(n?.ts) || Date.now(),
           }))
           .filter((n) => n.playerId && n.nominatingTeamIdx >= 0)
+      : [],
+    parSheet: Array.isArray(parsed.parSheet)
+      ? (() => {
+          // Drop rows missing a slug-able name; coerce each fairValue
+          // back to a non-negative number.  Rebuild the id from the
+          // name on hydrate so a hand-edited localStorage entry with
+          // a stale id still lines up correctly.
+          const seen = new Set();
+          const out = [];
+          for (const r of parsed.parSheet) {
+            const name = String(r?.name || "").trim();
+            const id = playerSlug(name);
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push({
+              id,
+              name,
+              fairValue: Math.max(0, Number(r?.fairValue) || 0),
+              ts: Number(r?.ts) || Date.now(),
+            });
+          }
+          return out;
+        })()
       : [],
   };
 }
