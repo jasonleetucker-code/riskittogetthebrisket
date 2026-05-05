@@ -3877,8 +3877,21 @@ export default function DraftDashboardPage() {
             .map((p) => ({
               name: p.displayName || p.canonicalName || "",
               rawValue: readBlendedValue(p),
-              ktcRawValue: typeof p?.canonicalSiteValues?.ktc === "number"
-                ? p.canonicalSiteValues.ktc : null,
+              // KTC TE++ is the canonical KTC retail signal (per the
+              // 2026-04-28 registry change in #393).  Prefer the raw
+              // scrape from ``rawSourceValues.ktcSfTep`` so rookie
+              // dollar values match what keeptradecut.com displays
+              // for the TE++ board.  Falls back to TEP-corrected
+              // ``canonicalSiteValues.ktcSfTep`` (which equals raw
+              // for non-TEs anyway), then to the legacy ``ktc`` key
+              // for pre-#393 fixtures.
+              ktcRawValue:
+                (typeof p?.rawSourceValues?.ktcSfTep === "number"
+                  ? p.rawSourceValues.ktcSfTep : null)
+                ?? (typeof p?.canonicalSiteValues?.ktcSfTep === "number"
+                  ? p.canonicalSiteValues.ktcSfTep : null)
+                ?? (typeof p?.canonicalSiteValues?.ktc === "number"
+                  ? p.canonicalSiteValues.ktc : null),
               idpTradeCalcRawValue:
                 typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
                   ? p.canonicalSiteValues.idpTradeCalc : null,

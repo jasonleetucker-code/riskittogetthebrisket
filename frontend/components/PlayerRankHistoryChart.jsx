@@ -97,7 +97,11 @@ const SOURCE_LABELS = (() => {
   map.fantasyPros = "FantasyPros";
   map.idpTradeCalc = "IDPTC";
   map.yahoo = "Yahoo";
-  map.ktc = "KTC";
+  // ``map.ktc`` (standard SF) intentionally absent — the source was
+  // retired from the blend 2026-04-28 and is filtered server-side
+  // by ``_RETIRED_FROM_CHART_KEYS`` in src/api/source_history.py.
+  // ``ktcSfTep`` is the sole KTC voter, picked up by the
+  // RANKING_SOURCES loop above with columnLabel "KTC".
   return map;
 })();
 

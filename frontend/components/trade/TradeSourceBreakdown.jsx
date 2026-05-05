@@ -94,7 +94,7 @@ export default function TradeSourceBreakdown({
         const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
         // Per-source value resolution.
         //
-        // For KTC's TE+ board, the V13 Value Adjustment formula and
+        // For KTC's TE++ board, the V13 Value Adjustment formula and
         // its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
         // V13_SUPPRESS_SAME_SIDE_RAW_DIFF) were calibrated against
         // KTC's raw 0-9999 piece values.  Feeding the formula the
@@ -102,8 +102,15 @@ export default function TradeSourceBreakdown({
         // mis-fire VA — sometimes suppressing a real VA, sometimes
         // inventing one — and the per-source KTC row would disagree
         // with what keeptradecut.com displays for the same trade.
-        // We therefore use the raw KTC value from
-        // ``row.canonicalSites['ktcSfTep']`` as the formula input.
+        //
+        // Read the raw scrape from ``row.rawSourceValues.ktcSfTep``
+        // so TE rows feed the V13 formula the actual KTC TE++ value
+        // (e.g. McBride 9154) rather than the TEP-corrected internal
+        // number stored in ``canonicalSites`` (10527 for McBride —
+        // wrong scale for the formula).  ``canonicalSites.ktcSfTep``
+        // remains a fallback because non-TE rows have it equal to
+        // the raw scrape, and pre-rawSourceValues fixtures still need
+        // a path through.
         //
         // For every other vendor we keep the Hill-normalized
         // ``valueContribution``: rank-only sources don't have a raw
@@ -113,6 +120,8 @@ export default function TradeSourceBreakdown({
         const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
         const sourceValueForRow = (row, sub) => {
           if (useRawNative) {
+            const raw = Number(row.rawSourceValues?.[sub.key]);
+            if (Number.isFinite(raw) && raw > 0) return raw;
             const native = Number(row.canonicalSites?.[sub.key]);
             if (Number.isFinite(native) && native > 0) return native;
           }

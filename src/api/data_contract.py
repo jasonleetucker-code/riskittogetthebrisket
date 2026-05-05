@@ -6748,6 +6748,34 @@ def _source_count(p_data: dict[str, Any], canonical_sites: dict[str, int | None]
     return sum(1 for v in canonical_sites.values() if v is not None and v > 0)
 
 
+# Sources whose 0-9999 published board is the user-meaningful value
+# (e.g. KTC publishes its dynasty rankings publicly on
+# keeptradecut.com — users compare popup chips to the website
+# directly).  ``canonicalSiteValues`` for these keys gets a TEP
+# correction applied for TE rows during blending, which makes the
+# stored value diverge from the raw scrape (e.g. Trey McBride's
+# ``ktcSfTep``: raw 9154, TEP-corrected canonicalSites 10527).  The
+# popup chip render reads ``rawSourceValues`` first for these keys so
+# the displayed number matches the source's website.  Mirrors
+# ``_RAW_VALUE_PREFERRED_KEYS`` in ``src/api/source_history.py``.
+_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcSfTep"})
+
+
+def _raw_source_values(p_data: dict[str, Any]) -> dict[str, int]:
+    """Extract raw scrape values for sources where the source's own
+    published board is the meaningful display number.  Only includes
+    keys that have a positive integer raw value at the top level of
+    ``p_data`` — missing keys are omitted so the frontend can branch
+    on presence cleanly.
+    """
+    out: dict[str, int] = {}
+    for key in _RAW_VALUE_PREFERRED_KEYS:
+        raw = _to_int_or_none(p_data.get(key))
+        if raw is not None and raw > 0:
+            out[key] = raw
+    return out
+
+
 def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
@@ -6863,6 +6891,14 @@ def _derive_player_row(
         "assetClass": "pick" if is_pick else ("idp" if pos in {"DL", "LB", "DB"} else "offense"),
         "values": values,
         "canonicalSiteValues": canonical_sites,
+        # Raw 0-9999 scrape values for sources where the published
+        # board is the user-meaningful display number (see
+        # ``_RAW_VALUE_PREFERRED_KEYS``).  The popup chip render reads
+        # this map first for these keys so the displayed number matches
+        # the source's website (e.g. KTC TE++ shows 9154 for McBride,
+        # not the TEP-corrected 10527 in canonicalSiteValues).  Sparse
+        # by design — only present for the listed keys.
+        "rawSourceValues": _raw_source_values(p_data),
         "sourceCount": source_count,
         "sourcePresence": {k: (v is not None and v > 0) for k, v in canonical_sites.items()},
         "marketConfidence": _safe_num(p_data.get("_marketConfidence")),
