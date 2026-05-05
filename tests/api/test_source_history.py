@@ -485,3 +485,140 @@ def test_scope_filter_keeps_cross_scope_source_for_both_asset_classes(path):
     idp = source_history.load_player_history("Top LB", path=path)
     assert "idpTradeCalc" in off["sources"]
     assert "idpTradeCalc" in idp["sources"]
+
+
+def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
+    """``ktc`` (standard KTC SF) was retired from the blend in favour of
+    ``ktcSfTep`` (KTC SF + TE++) but its raw value is still loaded into
+    the contract so the trade-page arbitrage finder + per-source winner
+    row can keep displaying both side-by-side.  The per-player
+    value-history chart, however, would double-show "KTC" since the
+    legend collapses both keys to the same compact label.
+
+    Both write-time (``_extract_player_entry``) and read-time
+    (``load_player_history``) filters drop ``ktc`` so the chart is
+    deduplicated immediately, including for the 180-day backwards
+    window that has historical ``ktc`` entries.
+    """
+    # Write-time: row carries both ``ktc`` (in canonicalSites + meta)
+    # and ``ktcSfTep`` — only ``ktcSfTep`` should land in the snapshot.
+    contract = {
+        "date": "2026-05-05",
+        "playersArray": [
+            {
+                "displayName": "Brock Bowers",
+                "canonicalName": "Brock Bowers",
+                "position": "TE",
+                "assetClass": "offense",
+                "rankDerivedValue": 9177,
+                "canonicalConsensusRank": 6,
+                # Top-level raw values — ``ktcSfTep`` is preferred over
+                # the meta valueContribution.
+                "ktc": 7932,
+                "ktcSfTep": 9594,
+                "sourceRankMeta": {
+                    "ktc": {"valueContribution": 7950},
+                    "ktcSfTep": {"valueContribution": 9999},
+                    "fp_sf": {"valueContribution": 8500},
+                },
+                "sourceRanks": {"ktc": 14, "ktcSfTep": 6, "fp_sf": 9},
+            }
+        ],
+    }
+    source_history.append_snapshot(contract, date="2026-05-05", path=path)
+
+    # On disk: ``ktc`` is gone from both sources and sourceRanks.
+    snap = json.loads(path.read_text().strip().splitlines()[0])
+    bowers_entry = next(
+        v for k, v in snap["players"].items() if k.startswith("Brock Bowers")
+    )
+    assert "ktc" not in bowers_entry["sources"]
+    assert "ktc" not in bowers_entry.get("sourceRanks", {})
+    # ``ktcSfTep`` is the raw scrape value, not the Hill contribution.
+    assert bowers_entry["sources"]["ktcSfTep"] == 9594
+
+    # Read-time: ``load_player_history`` confirms the chart side too.
+    hist = source_history.load_player_history("Brock Bowers", path=path)
+    assert "ktc" not in hist["sources"]
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 9594
+
+
+def test_retired_ktc_masked_from_legacy_snapshot_at_read_time(path):
+    """Snapshots written *before* the write-time filter landed still
+    have ``ktc`` entries on disk.  The read-time filter masks them so
+    the chart deduplicates immediately, without rewriting the JSONL.
+    """
+    legacy = {
+        "date": "2026-04-27",
+        "players": {
+            "Brock Bowers::offense": {
+                "blended": 9089,
+                "blendedRank": 7,
+                "sources": {"ktc": 7943, "ktcSfTep": 10110, "fp_sf": 8500},
+                "sourceRanks": {"ktc": 13, "ktcSfTep": 7, "fp_sf": 9},
+            }
+        },
+    }
+    path.write_text(json.dumps(legacy) + "\n")
+    hist = source_history.load_player_history("Brock Bowers", path=path)
+    assert "ktc" not in hist["sources"]
+    assert "ktc" not in hist["sourceRanks"]
+    # ``ktcSfTep`` and other sources unaffected.
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 10110
+    assert hist["sources"]["fp_sf"][0]["value"] == 8500
+
+
+def test_ktc_sftep_uses_raw_top_level_value_over_contribution(path):
+    """``ktcSfTep`` is in ``_RAW_VALUE_PREFERRED_KEYS`` because KTC
+    publishes a public 0-9999 dynasty board on keeptradecut.com — users
+    compare popup values to the website directly.  The per-player
+    chart records the raw scrape (``row['ktcSfTep']``) rather than
+    the Hill-curve contribution, even when both are available.
+    """
+    contract = {
+        "date": "2026-05-05",
+        "playersArray": [
+            {
+                "displayName": "Bijan Robinson",
+                "canonicalName": "Bijan Robinson",
+                "position": "RB",
+                "assetClass": "offense",
+                "rankDerivedValue": 9998,
+                "canonicalConsensusRank": 2,
+                "ktcSfTep": 9998,  # raw scrape — matches KTC.com
+                "sourceRankMeta": {
+                    "ktcSfTep": {"valueContribution": 9999},  # Hill contribution
+                },
+            }
+        ],
+    }
+    source_history.append_snapshot(contract, date="2026-05-05", path=path)
+    hist = source_history.load_player_history("Bijan Robinson", path=path)
+    # Raw 9998 wins, not the contribution 9999.
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 9998
+
+
+def test_ktc_sftep_falls_back_to_contribution_when_raw_missing(path):
+    """If a contract row is missing the top-level ``ktcSfTep`` raw
+    value (e.g. legacy export, partial scrape), fall back to the
+    ``valueContribution`` so the chart isn't blank.
+    """
+    contract = {
+        "date": "2026-05-05",
+        "playersArray": [
+            {
+                "displayName": "Some Player",
+                "canonicalName": "Some Player",
+                "position": "WR",
+                "assetClass": "offense",
+                "rankDerivedValue": 7000,
+                # No top-level ``ktcSfTep`` — only the meta entry.
+                "sourceRankMeta": {
+                    "ktcSfTep": {"valueContribution": 7100},
+                },
+            }
+        ],
+    }
+    source_history.append_snapshot(contract, date="2026-05-05", path=path)
+    hist = source_history.load_player_history("Some Player", path=path)
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 7100
