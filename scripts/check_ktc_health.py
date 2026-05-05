@@ -59,7 +59,7 @@ async def check_ktc(full=False):
         context = await browser.new_context(**ctx_opts)
         page = await context.new_page()
 
-        url = "https://keeptradecut.com/dynasty-rankings?sf=true&tep=2&filters=QB|WR|RB|TE|RDP"
+        url = "https://keeptradecut.com/dynasty-rankings?sf=true&tep=3&filters=QB|WR|RB|TE|RDP"
         print(f"Loading: {url}")
 
         # Step 1: Can we reach KTC at all?

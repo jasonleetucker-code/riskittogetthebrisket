@@ -20,7 +20,7 @@
       "ingest_type": "scraper_export",
       "ingest_method": "scraper_bridge",
       "source_url": "https://keeptradecut.com/",
-      "scoring_context": "dynasty superflex TEP (KTC crowdsourced values)",
+      "scoring_context": "dynasty superflex TE++ (KTC crowdsourced values)",
       "includes_sf": true,
       "includes_tep": true,
       "file": "CSVs/site_raw/ktc.csv",
@@ -29,7 +29,7 @@
         "kind": "overall_offense",
         "depth": null
       },
-      "notes": "KTC scraped in SF+TEP mode (?sf=1&tep=1). Crowd values natively include both. Do NOT re-apply."
+      "notes": "KTC scraped in SF+TE++ mode (rankings ?sf=true&tep=3; trade/waiver DB ?sf=1&tep=2). Crowd values natively include both. Do NOT re-apply."
     },
     {
       "enabled": true,
