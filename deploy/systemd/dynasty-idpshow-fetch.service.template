@@ -1,0 +1,19 @@
+[Unit]
+Description=Risk It IDP Show rankings fetch + commit-back to main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=/var/lib/idpshow-fetch
+ExecStart=__APP_DIR__/deploy/idpshow_fetch_and_push.sh
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -65,3 +65,82 @@ def test_source_health_snapshot_includes_sources_block():
     snap = srv._build_source_health_snapshot({"sites": [], "settings": {}})
     assert "sources" in snap
     assert isinstance(snap["sources"], dict)
+
+
+def _redirect_repo_root(monkeypatch, tmp_path, source_key: str, csv_rel: str):
+    """Helper: point ``server._per_source_freshness`` at ``tmp_path``
+    as the fake repo root with a single registered source.  Returns
+    the (csv_path, stamp_path) tuple for the caller to populate."""
+    monkeypatch.setattr(srv, "__file__", str(tmp_path / "server.py"))
+    csv_path = tmp_path / csv_rel
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    stamp_path = tmp_path / "data" / "scrape_state" / f"{source_key}_last_success"
+    from src.api import data_contract as dc
+    monkeypatch.setattr(dc, "_SOURCE_CSV_PATHS", {source_key: csv_rel})
+    return csv_path, stamp_path
+
+
+def test_freshness_prefers_stamp_over_csv_mtime(monkeypatch, tmp_path):
+    """Stamp content (epoch) wins over CSV mtime when both exist - the
+    load-bearing behaviour for monthly-cadence vendors where the CSV
+    is rewritten with byte-identical content most of the month and
+    git checkout --force on prod skips rewriting unchanged files,
+    freezing CSV mtime on the last *content* change rather than the
+    last *fetcher success*."""
+    csv_path, stamp_path = _redirect_repo_root(
+        monkeypatch, tmp_path, "fantasyProsFitzmaurice",
+        "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+    )
+    # CSV mtime: 4 days old
+    csv_path.write_text("name,rank\nfoo,1\n")
+    old = time.time() - 4 * 86400
+    import os as _os
+    _os.utime(csv_path, (old, old))
+    # Stamp: 30 minutes old
+    fresh_epoch = int(time.time() - 1800)
+    stamp_path.parent.mkdir(parents=True, exist_ok=True)
+    stamp_path.write_text(f"{fresh_epoch}\n")
+
+    out = srv._per_source_freshness()
+    entry = out["fantasyProsFitzmaurice"]
+    # ageHours should reflect the 30-min stamp, not the 4-day CSV.
+    assert entry["ageHours"] < 1.0, (
+        f"stamp ignored - ageHours={entry['ageHours']} suggests fall-through to CSV mtime"
+    )
+
+
+def test_freshness_falls_back_to_csv_when_stamp_missing(monkeypatch, tmp_path):
+    """No stamp file ⇒ CSV mtime is used.  Preserves backwards-compat
+    for sources that haven't been wired into the stamp pattern yet."""
+    csv_path, _ = _redirect_repo_root(
+        monkeypatch, tmp_path, "ktc", "CSVs/site_raw/ktc.csv",
+    )
+    csv_path.write_text("name,rank\n")
+    # No stamp file written.
+    out = srv._per_source_freshness()
+    assert "ktc" in out
+    assert out["ktc"]["ageHours"] >= 0
+
+
+def test_freshness_falls_back_to_csv_when_stamp_unparseable(monkeypatch, tmp_path):
+    """Corrupt stamp content (non-numeric) falls through to CSV mtime
+    instead of dropping the source from the freshness map."""
+    csv_path, stamp_path = _redirect_repo_root(
+        monkeypatch, tmp_path, "ktc", "CSVs/site_raw/ktc.csv",
+    )
+    csv_path.write_text("name,rank\n")
+    stamp_path.parent.mkdir(parents=True, exist_ok=True)
+    stamp_path.write_text("not-a-number\n")
+    out = srv._per_source_freshness()
+    assert "ktc" in out
+
+
+def test_freshness_drops_source_when_no_stamp_and_no_csv(monkeypatch, tmp_path):
+    """Source entirely absent from disk ⇒ omitted from output (alert
+    engine has nothing to alert on; the source-registry parity check
+    is the right place to surface "missing CSV")."""
+    _redirect_repo_root(
+        monkeypatch, tmp_path, "missingSource", "CSVs/site_raw/missingSource.csv",
+    )
+    out = srv._per_source_freshness()
+    assert "missingSource" not in out

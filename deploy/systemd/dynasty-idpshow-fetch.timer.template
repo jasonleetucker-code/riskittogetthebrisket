@@ -1,0 +1,14 @@
+[Unit]
+Description=Trigger IDP Show rankings refresh every 2 hours
+Requires=dynasty-idpshow-fetch.service
+
+[Timer]
+# Every 2 hours at minute 32 UTC.  Offset 5 min from DLF (minute 27)
+# and 10 min from CI (minute 42) so the three pushes to main don't
+# pile up on the same minute.
+OnCalendar=*-*-* 00/2:32:00 UTC
+Persistent=true
+AccuracySec=2min
+
+[Install]
+WantedBy=timers.target
