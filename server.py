@@ -4347,6 +4347,202 @@ async def get_scaffold_report():
     return FileResponse(file_path, media_type="text/markdown")
 
 
+# ── TE PREMIUM LAB (research-only sandbox) ─────────────────────────────
+#
+# Read-only "what-if" analysis for the question: "If we drop the TE
+# reception bonus + TE first-down bonus but require teams to start two
+# tight ends, how should TE values shift?".  Outputs are NEVER applied
+# to the live ``latest_contract_data`` — these handlers compute and
+# return; nothing else.  The companion module
+# ``src/research/te_premium.py`` enforces the same contract on its
+# side: no writes to live globals, no mutation of input contracts.
+
+def _te_premium_serialize(payload: dict) -> dict:
+    """Pre-JSON shaping for TE-premium responses.
+
+    The dataclasses returned by ``src.research.te_premium`` are
+    serialised via ``__dict__`` in ``run_analysis``; we just hand the
+    payload back as-is plus the standard meta envelope every other
+    endpoint stamps so the frontend can verify the league + sandbox
+    flag before trusting the body.
+    """
+    return {
+        "ok": True,
+        "sandbox": True,
+        "appliesToLiveValues": False,
+        **payload,
+    }
+
+
+@app.get("/api/te-premium/overview")
+async def get_te_premium_overview(request: Request):
+    """Sandbox overview: data-source availability + league lineup.
+
+    Cheap; intended to populate the page header + controls panel
+    before any heavy analysis is requested.  Never mutates state.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.research import te_premium as _te_premium  # noqa: PLC0415
+
+    overview = _te_premium.build_overview(
+        latest_contract_data, league_cfg=league_cfg,
+    )
+    return JSONResponse(content=_te_premium_serialize(overview))
+
+
+@app.get("/api/te-premium/source-comparison")
+async def get_te_premium_source_comparison(request: Request):
+    """Per-TE normal-vs-TEP boost from the loaded external boards.
+
+    Today the only external source we can compare both ways is KTC
+    (``CSVs/site_raw/ktc.csv`` vs ``CSVs/site_raw/ktcSfTep.csv``);
+    sources without a TEP variant are skipped at the module level
+    rather than guessed.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.research import te_premium as _te_premium  # noqa: PLC0415
+
+    te_rows = _te_premium.extract_te_players_from_contract(latest_contract_data)
+    boards = _te_premium.load_external_ktc_boards()
+    boost_rows = _te_premium.compute_external_market_boost(
+        te_rows, boards=boards, source="ktc",
+    )
+    return JSONResponse(
+        content=_te_premium_serialize({
+            "leagueKey": league_cfg.key,
+            "scoringProfile": league_cfg.scoring_profile,
+            "te_count": len(te_rows),
+            "external_boards": {
+                "ktc_normal_available": bool(boards.get("normal_available")),
+                "ktc_premium_available": bool(boards.get("premium_available")),
+                "ktc_te_plus_plus_available": False,
+            },
+            "boosts": [b.__dict__ for b in boost_rows],
+        })
+    )
+
+
+@app.get("/api/te-premium/league-scenarios")
+async def get_te_premium_league_scenarios(request: Request):
+    """Internal scoring + scarcity comparison: 1-TE vs 2-TE start.
+
+    Reads each TE's pre-computed ``rule_contributions`` block from
+    the live contract (built by ``src/scoring/scoring_delta.py``) and
+    runs the VOR math from ``src/scoring/replacement_level.py``
+    against both lineup environments.  No live values are recomputed.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.research import te_premium as _te_premium  # noqa: PLC0415
+
+    te_rows = _te_premium.extract_te_players_from_contract(latest_contract_data)
+    scoring_rows = _te_premium.compute_internal_scoring_effect(
+        te_rows,
+        remove_te_reception_bonus=True,
+        remove_te_first_down_bonus=True,
+    )
+    lineup = _te_premium._league_lineup_settings(league_cfg)
+    scarcity_rows, scarcity_summary = _te_premium.compute_scarcity_effect(
+        te_rows,
+        one_te_starters=lineup["te_starters_one"],
+        two_te_starters=lineup["te_starters_two"],
+    )
+    return JSONResponse(
+        content=_te_premium_serialize({
+            "leagueKey": league_cfg.key,
+            "scoringProfile": league_cfg.scoring_profile,
+            "lineup": lineup,
+            "scoring_effect": [s.__dict__ for s in scoring_rows],
+            "scarcity_effect": [s.__dict__ for s in scarcity_rows],
+            "scarcity_summary": scarcity_summary,
+        })
+    )
+
+
+@app.post("/api/te-premium/run-analysis")
+async def post_te_premium_run_analysis(request: Request):
+    """Full sandbox analysis with caller-controlled toggles.
+
+    Body (all optional, sensible defaults):
+        {
+            "remove_te_reception_bonus": true,
+            "remove_te_first_down_bonus": true,
+            "use_two_te_starters": true,
+            "include_rookies": true,
+            "persist": false,
+            "leagueKey": "dynasty_main"   // optional override
+        }
+
+    Returns the full per-player + per-tier analysis payload.  When
+    ``persist=true`` the result is also written to
+    ``data/sandbox/te_premium/<run_id>.json`` for later audit; this
+    is additive (a brand-new directory the live pipeline doesn't
+    touch) and never overwrites a live snapshot.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.research import te_premium as _te_premium  # noqa: PLC0415
+
+    payload = _te_premium.run_analysis(
+        latest_contract_data,
+        league_cfg=league_cfg,
+        remove_te_reception_bonus=bool(body.get("remove_te_reception_bonus", True)),
+        remove_te_first_down_bonus=bool(body.get("remove_te_first_down_bonus", True)),
+        use_two_te_starters=bool(body.get("use_two_te_starters", True)),
+        include_rookies=bool(body.get("include_rookies", True)),
+        persist=bool(body.get("persist", False)),
+    )
+    return JSONResponse(content=_te_premium_serialize(payload))
+
+
+@app.get("/api/te-premium/recommendations")
+async def get_te_premium_recommendations(request: Request):
+    """Default-scenario recommendations — sandbox.  Never written to live."""
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.research import te_premium as _te_premium  # noqa: PLC0415
+
+    payload = _te_premium.run_analysis(
+        latest_contract_data, league_cfg=league_cfg, persist=False,
+    )
+    # Trim to the recommendation + tier-summary slices for callers
+    # that only want the bottom-line numbers.
+    return JSONResponse(
+        content=_te_premium_serialize({
+            "leagueKey": payload.get("leagueKey"),
+            "scoringProfile": payload.get("scoringProfile"),
+            "summary": payload.get("summary"),
+            "recommendations": payload.get("recommendations"),
+            "tier_summary": payload.get("tier_summary"),
+            "warnings": payload.get("warnings"),
+        })
+    )
+
+
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────
 # Pick dollar values from CSV, rookie rankings from KTC (live) or CSV (fallback).
 # Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
