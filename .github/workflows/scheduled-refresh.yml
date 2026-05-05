@@ -169,35 +169,24 @@ jobs:
           # proxies if these CSVs are missing or stale.
           python scripts/fetch_draftsharks_ros.py 2>&1 || echo "::warning title=DraftSharks ROS fetch failed::Non-fatal — adapter will fall back to dynasty proxy"
 
-          # Fetch DLF member-only rankings (four boards: dlfSf, dlfIdp,
-          # dlfRookieSf, dlfRookieIdp).  DLF sits behind a Cloudflare JS
-          # challenge + WordPress member login; the scraper uses
-          # curl_cffi with Chrome TLS fingerprint impersonation to pass
-          # CF, then POSTs credentials to wp-login.php.
+          # DLF rankings (dlfSf, dlfIdp, dlfRookieSf, dlfRookieIdp) are
+          # NOT fetched here.  Cloudflare 403s every GET to wp-login.php
+          # from the GitHub Actions IP range before our credentials are
+          # even sent — curl_cffi's chrome131 TLS-fingerprint impersonation
+          # passes CF's JS challenge but cannot beat the IP-reputation
+          # gate.  The same ``scripts/fetch_dlf.py`` succeeds from the
+          # production VPS, so we run it there on a systemd timer
+          # (``deploy/systemd/dynasty-dlf-fetch.timer``) every 2h, push
+          # the four CSVs + the freshness stamp back to main, and let
+          # CI's normal data-refresh cycle pick them up on the next run.
+          # Same pattern that ``fetch_idpshow.py`` already uses (see
+          # the IDP Show comment block below).
           #
-          # On full success we stamp ``data/scrape_state/dlf_last_success``
-          # with the current unix epoch and commit it.  The
-          # ``Assert DLF freshness`` step at the end of the workflow
-          # reads the stamp's *content* (not its mtime — ``actions/checkout``
-          # rewrites mtimes on every job, so they cannot detect a
-          # cross-run outage) and fails the run when last success is
-          # older than 24h.  Stay non-fatal here so the FP / IDP Show /
-          # ROS fetches below still run; the assertion at the end is
-          # the load-bearing guard.
-          #
-          # ``mkdir -p`` runs unconditionally so the ``Commit updated
-          # data`` step's ``git add -f data/scrape_state/`` always has a
-          # path to match.  If DLF has never succeeded (first rollout,
-          # or pre-existing outage) the dir exists but is empty — git
-          # add is a no-op, the commit step proceeds, and other source
-          # updates ship.  Without this, a missing pathspec would abort
-          # the commit step under ``set -e`` and block every source.
+          # The ``Assert DLF freshness`` step at the end of this
+          # workflow still reads ``data/scrape_state/dlf_last_success``
+          # (now written by the prod timer instead of this step) and
+          # red-Xes the run when the stamp is more than 24h old.
           mkdir -p data/scrape_state
-          if python scripts/fetch_dlf.py 2>&1; then
-            date -u +%s > data/scrape_state/dlf_last_success
-          else
-            echo "::error title=DLF fetch failed::scripts/fetch_dlf.py exited non-zero — DLF CSVs will go stale; check DLF_USERNAME/DLF_PASSWORD repo secrets and recent fetch_dlf.py output."
-          fi
 
           # Fetch FantasyPros / Pat Fitzmaurice Dynasty Trade Value
           # Chart.  Monthly article with date-rotating URL; the
