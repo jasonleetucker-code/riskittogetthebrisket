@@ -901,9 +901,18 @@ export function getPlayerEdge(row) {
   // canonical-site value when available, else derive from the rank
   // gap.  The SIGNAL itself is rank-driven — this % is purely a
   // human-readable "how different is the price".
+  //
+  // Read KTC's TE++ raw scrape (``rawSourceValues.ktcSfTep``) so the
+  // gap matches what the user sees on keeptradecut.com.  Falls back
+  // to ``canonicalSites.ktcSfTep`` (TEP-corrected internal value, raw
+  // for non-TEs) if the raw stamp is missing, then to the legacy
+  // ``canonicalSites.ktc`` board for pre-#393 fixtures.
   let edgePct = 0;
   const ourValue = Number(row?.values?.full);
-  const ktcValue = Number(row?.canonicalSites?.ktc);
+  const ktcValue =
+    Number(row?.rawSourceValues?.ktcSfTep) ||
+    Number(row?.canonicalSites?.ktcSfTep) ||
+    Number(row?.canonicalSites?.ktc);
   if (Number.isFinite(ourValue) && ourValue > 0 && Number.isFinite(ktcValue) && ktcValue > 0) {
     edgePct = Math.round(Math.abs(((ourValue - ktcValue) / ktcValue) * 100));
   } else {

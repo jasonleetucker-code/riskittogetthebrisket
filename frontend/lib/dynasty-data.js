@@ -893,6 +893,15 @@ function _materializePlayerArrayRow(player) {
     player.canonicalSiteValues && typeof player.canonicalSiteValues === "object"
       ? player.canonicalSiteValues
       : {};
+  // Raw scrape values for sources whose published board is the
+  // user-meaningful display number (e.g. KTC TE++).  Backend stamps
+  // this sparsely; absent → empty object.  Read by the popup chip
+  // render and the per-player chart for ``_RAW_VALUE_PREFERRED_KEYS``
+  // so the displayed value matches the source's website.
+  const rawSourceValues =
+    player.rawSourceValues && typeof player.rawSourceValues === "object"
+      ? player.rawSourceValues
+      : {};
 
   // Backend-authoritative: these come straight from the contract's
   // override-aware ranking pipeline.
@@ -933,6 +942,7 @@ function _materializePlayerArrayRow(player) {
     confidence: Number(player.marketConfidence ?? 0),
     marketLabel: "",
     canonicalSites,
+    rawSourceValues,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
     canonicalTierId: Number(player.canonicalTierId) || null,
@@ -1023,6 +1033,16 @@ function _materializeLegacyDictRow(name, player, posMap) {
 
   const rawValues = inferValueBundle(player);
   const canonicalSites = player._canonicalSiteValues && typeof player._canonicalSiteValues === "object" ? player._canonicalSiteValues : {};
+  // Legacy dict rows carry raw scrape values at the top level (e.g.
+  // ``player.ktcSfTep``).  Mirror the playersArray materializer's
+  // ``rawSourceValues`` field for the popup chip render — KTC TE++
+  // is the only entry today.  Sparse: only present when the raw
+  // value is a positive integer.
+  const rawSourceValues = {};
+  for (const k of ["ktcSfTep"]) {
+    const v = Number(player?.[k]);
+    if (Number.isFinite(v) && v > 0) rawSourceValues[k] = Math.round(v);
+  }
   const backendRank = Number(player._canonicalConsensusRank) || null;
   const backendValue = Number(player.rankDerivedValue) || null;
   // Mirror the playersArray materializer's single-value pipe: when a
@@ -1045,6 +1065,7 @@ function _materializeLegacyDictRow(name, player, posMap) {
     confidence: Number(player._marketReliabilityScore ?? 0),
     marketLabel: String(player._marketReliabilityLabel || ""),
     canonicalSites,
+    rawSourceValues,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
     canonicalTierId: Number(player._canonicalTierId) || null,

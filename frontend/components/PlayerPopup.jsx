@@ -18,6 +18,23 @@ import { useSettings } from "@/components/useSettings";
 const _rosCache = { byName: null, fetchedAt: 0, inflight: null };
 const _ROS_TTL_MS = 30 * 60 * 1000;
 
+// Sources whose raw 0-9999 published board is the user-meaningful
+// display number (e.g. KTC TE++ at keeptradecut.com).  Read from
+// ``row.rawSourceValues`` instead of the Hill-curve
+// ``valueContribution`` so the chip matches the source's website.
+// Mirrors ``_RAW_VALUE_PREFERRED_KEYS`` in
+// ``src/api/source_history.py`` and ``src/api/data_contract.py``.
+const RAW_VALUE_PREFERRED_KEYS = new Set(["ktcSfTep"]);
+
+// Sources retired from the blend whose canonical replacement covers
+// the same signal (e.g. ``ktc`` standard SF, replaced by
+// ``ktcSfTep``).  Still loaded into ``canonicalSiteValues`` for the
+// trade-page arbitrage finder + per-source winner row but should not
+// appear in the popup chip render — emitting both would render two
+// "KTC" chips for every player.  Mirrors
+// ``_RETIRED_FROM_CHART_KEYS`` in ``src/api/source_history.py``.
+const RETIRED_FROM_CHART_KEYS = new Set(["ktc"]);
+
 async function _loadRosValuesByName() {
   const fresh = _rosCache.byName && Date.now() - _rosCache.fetchedAt < _ROS_TTL_MS;
   if (fresh) return _rosCache.byName;
@@ -368,8 +385,23 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     // — speculative" line on a player that actually had 4 sources
     // contributing.  Using ``sourceRankMeta[key].valueContribution``
     // keeps the popup in lockstep with the rankings table.
+    //
+    // Two exceptions to the contribution-first rule:
+    //   * ``RAW_VALUE_PREFERRED_KEYS`` — sources whose published
+    //     0-9999 board is the user-meaningful display number (e.g.
+    //     KTC TE++).  Read raw scrape from ``row.rawSourceValues``
+    //     so users can cross-check against keeptradecut.com.
+    //   * ``RETIRED_FROM_CHART_KEYS`` — sources retired from the
+    //     blend whose canonical replacement covers the same signal
+    //     (e.g. ``ktc`` standard SF, replaced by ``ktcSfTep``).
+    //     These are still loaded into ``canonicalSiteValues`` for the
+    //     trade-page arbitrage finder + per-source winner row, but
+    //     should not appear in the popup chip render.  Mirrors
+    //     ``_RETIRED_FROM_CHART_KEYS`` in
+    //     ``src/api/source_history.py``.
     const meta = row.sourceRankMeta || {};
     const canonicalSites = row.canonicalSites || {};
+    const rawSourceValues = row.rawSourceValues || {};
     const sourceByKey = Object.fromEntries(
       RANKING_SOURCES.map((s) => [s.key, s]),
     );
@@ -378,12 +410,24 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
         ...(siteKeys.length > 0 ? siteKeys : []),
         ...Object.keys(meta),
         ...Object.keys(canonicalSites),
+        ...Object.keys(rawSourceValues),
       ]),
     );
     const rows = candidateKeys
       .map((key) => {
+        if (RETIRED_FROM_CHART_KEYS.has(key)) return null;
         const src = sourceByKey[key];
         const label = src?.columnLabel || src?.displayName || key;
+        // Raw-preferred sources: read from rawSourceValues first so
+        // the chip matches the source's published board.
+        if (RAW_VALUE_PREFERRED_KEYS.has(key)) {
+          const raw = Number(rawSourceValues[key]);
+          if (Number.isFinite(raw) && raw > 0) {
+            return { key, label, value: raw };
+          }
+          // Fall through to contribution / canonicalSites if the raw
+          // stamp is missing (legacy payload, partial scrape).
+        }
         const contribution = Number(meta[key]?.valueContribution);
         if (Number.isFinite(contribution) && contribution > 0) {
           return { key, label, value: contribution };

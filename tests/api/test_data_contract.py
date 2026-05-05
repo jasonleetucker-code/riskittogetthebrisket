@@ -514,5 +514,113 @@ class TestHillCurvesStamp(unittest.TestCase):
         self.assertAlmostEqual(curves["rookie"]["s"], HILL_ROOKIE_PERCENTILE_S)
 
 
+class TestRawSourceValues(unittest.TestCase):
+    """``rawSourceValues`` carries raw 0-9999 scrape values for sources
+    whose published board is the user-meaningful display number (e.g.
+    KTC TE++).  The PlayerPopup chip render and the trade-page V13
+    Value Adjustment formula read from this map so the displayed
+    value matches the source's website (keeptradecut.com).
+
+    Without this stamp, ``canonicalSiteValues.ktcSfTep`` carries the
+    TEP-corrected internal value for TE rows (e.g. McBride raw 9154
+    becomes 10527 after the TE-only TEP multiplier), which doesn't
+    match what users see on the source.  ``rawSourceValues.ktcSfTep``
+    is the unmodified scrape from
+    ``CSVs/site_raw/ktcSfTep.csv``.
+    """
+
+    def test_raw_source_values_carries_ktc_sf_tep_for_te_row(self):
+        """A TE with a top-level ``ktcSfTep`` raw scrape must surface
+        that value at ``rawSourceValues.ktcSfTep`` on the playersArray
+        row.  ``canonicalSiteValues.ktcSfTep`` may carry the
+        TEP-corrected internal value; rawSourceValues stays raw.
+        """
+        raw = {
+            "players": {
+                "Trey McBride": {
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {
+                        "ktc": 7560,
+                        "ktcSfTep": 10527,  # TEP-corrected internal value
+                    },
+                    "ktc": 7560,
+                    "ktcSfTep": 9154,  # raw scrape — matches keeptradecut.com
+                    "position": "TE",
+                },
+            },
+            "sites": [{"key": "ktcSfTep"}],
+            "maxValues": {"ktcSfTep": 9999},
+            "sleeper": {"positions": {"Trey McBride": "TE"}},
+        }
+        contract = build_api_data_contract(raw)
+        row = next(
+            r for r in contract["playersArray"]
+            if r["canonicalName"] == "Trey McBride"
+        )
+        # rawSourceValues carries the raw scrape, not the
+        # TEP-corrected internal value.
+        self.assertIn("rawSourceValues", row)
+        self.assertEqual(row["rawSourceValues"]["ktcSfTep"], 9154)
+        # canonicalSiteValues continues to carry whatever the upstream
+        # canonical pipeline computed (TEP-corrected for TE rows).
+        self.assertEqual(row["canonicalSiteValues"]["ktcSfTep"], 10527)
+
+    def test_raw_source_values_omits_missing_keys(self):
+        """When a player has no ``ktcSfTep`` raw scrape (e.g. KTC
+        coverage gap), ``rawSourceValues`` is an empty dict — the
+        frontend can branch on key presence cleanly without coercing
+        a zero / null into the display.
+        """
+        raw = {
+            "players": {
+                "Player Without Ktc": {
+                    "_composite": 5000,
+                    "_rawComposite": 5000,
+                    "_finalAdjusted": 5000,
+                    "_canonicalSiteValues": {"idpTradeCalc": 4500},
+                    "position": "WR",
+                },
+            },
+            "sites": [{"key": "idpTradeCalc"}],
+            "maxValues": {},
+            "sleeper": {"positions": {"Player Without Ktc": "WR"}},
+        }
+        contract = build_api_data_contract(raw)
+        row = next(
+            r for r in contract["playersArray"]
+            if r["canonicalName"] == "Player Without Ktc"
+        )
+        self.assertEqual(row["rawSourceValues"], {})
+
+    def test_raw_source_values_skips_zero_and_negative_values(self):
+        """Sentinel zeros / negatives don't make it into
+        ``rawSourceValues`` so consumers can treat presence as
+        "raw value available".
+        """
+        raw = {
+            "players": {
+                "Zeroed Player": {
+                    "_composite": 100,
+                    "_rawComposite": 100,
+                    "_finalAdjusted": 100,
+                    "_canonicalSiteValues": {"ktcSfTep": 0},
+                    "ktcSfTep": 0,  # sentinel
+                    "position": "WR",
+                },
+            },
+            "sites": [{"key": "ktcSfTep"}],
+            "maxValues": {},
+            "sleeper": {"positions": {"Zeroed Player": "WR"}},
+        }
+        contract = build_api_data_contract(raw)
+        row = next(
+            r for r in contract["playersArray"]
+            if r["canonicalName"] == "Zeroed Player"
+        )
+        self.assertNotIn("ktcSfTep", row["rawSourceValues"])
+
+
 if __name__ == "__main__":
     unittest.main()
