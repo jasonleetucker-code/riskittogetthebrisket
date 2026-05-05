@@ -85,22 +85,22 @@ IDP_HILL_SLOPE: float = 0.945
 # coverage).  Used for the anchor source's contributions to every
 # player, regardless of position.
 HILL_GLOBAL_PERCENTILE_C: float = 0.1120
-HILL_GLOBAL_PERCENTILE_S: float = 0.865
+HILL_GLOBAL_PERCENTILE_S: float = 0.855
 #
 # OFFENSE master — fit from offense-only value sources (KTC,
 # DynastyDaddy, DynastyNerds).  Used for every offense-scope source's
 # contributions (KTC, DLF SF, Dynasty Nerds, FantasyPros SF, Dynasty
 # Daddy, Flock Fantasy, FootballGuys SF, Yahoo/Boone, DraftSharks,
 # DLF Rookie SF).
-HILL_PERCENTILE_C: float = 0.1170
-HILL_PERCENTILE_S: float = 1.165
+HILL_PERCENTILE_C: float = 0.1130
+HILL_PERCENTILE_S: float = 1.150
 #
 # IDP master — fit from IDPTradeCalc's IDP slice (the only value-
 # based IDP source).  Used for every IDP-scope source's contributions
 # (DLF IDP, FantasyPros IDP, FootballGuys IDP, DLF Rookie IDP,
 # DraftSharks IDP).
-IDP_HILL_PERCENTILE_C: float = 0.1020
-IDP_HILL_PERCENTILE_S: float = 0.950
+IDP_HILL_PERCENTILE_C: float = 0.1050
+IDP_HILL_PERCENTILE_S: float = 0.990
 #
 # ROOKIE master — fit from KTC + IDPTC rookie slices of the latest
 # snapshot.  Used for every rookie-only source's contributions
@@ -109,8 +109,8 @@ IDP_HILL_PERCENTILE_S: float = 0.950
 # rookie master's flatter shape captures rookie-relative value decay
 # (rookie #1 = 9999, rookie ~#25 ≈ mid-pack) directly, so the prior
 # rookie-ladder translation via reference source is no longer needed.
-HILL_ROOKIE_PERCENTILE_C: float = 0.1710
-HILL_ROOKIE_PERCENTILE_S: float = 0.930
+HILL_ROOKIE_PERCENTILE_C: float = 0.1440
+HILL_ROOKIE_PERCENTILE_S: float = 0.925
 
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units
