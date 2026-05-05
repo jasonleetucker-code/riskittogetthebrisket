@@ -222,9 +222,9 @@ _QUARANTINE_FLAGS = {
 #     sort in _compute_unified_rankings produces the correct ordinal)
 _SOURCE_CSV_PATHS: dict[str, Any] = {
     "ktc": "CSVs/site_raw/ktc.csv",
-    # KeepTradeCut Superflex + TE Premium (level 1 / "TE+") sub-board.
+    # KeepTradeCut Superflex + TE Premium (level 2 / "TE++") sub-board.
     # Sourced from the same scrape as ``ktc`` — the per-player API
-    # response carries ``superflexValues.tep`` alongside the base SF
+    # response carries ``superflexValues.tepp`` alongside the base SF
     # value, so a single Dynasty Scraper run produces both CSVs.
     # Standard ``name,value`` shape on the same 0-9999 scale; signal
     # defaults to "value".
@@ -459,7 +459,7 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 # by hand.
 _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "ktc": 6,
-    # KTC TE+ (level 1) sub-board is sourced from the same scrape as
+    # KTC TE++ (level 2) sub-board is sourced from the same scrape as
     # ``ktc``, so it shares the 6-hour staleness budget.
     "ktcSfTep": 6,
     "idpTradeCalc": 6,
@@ -828,9 +828,9 @@ from src.canonical.idp_backbone import (
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut Superflex + TE Premium board.  KTC publishes both
-        # a standard SF view and a TE+ sub-board from the same per-
+        # a standard SF view and a TE++ sub-board from the same per-
         # player API payload (``superflexValues.value`` and
-        # ``superflexValues.tep`` level 1) — one scrape produces both.
+        # ``superflexValues.tepp`` level 2) — one scrape produces both.
         # Historically we registered both as separate blend sources,
         # which double-counted KTC's signal: for non-TE rows the two
         # values are identical, and for TE rows the TEP-correction step
@@ -842,7 +842,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # finder + per-source winner row on /trade can keep displaying
         # both values side-by-side.  Only the blend vote was removed.
         "key": "ktcSfTep",
-        "display_name": "KeepTradeCut SF-TEP",
+        "display_name": "KeepTradeCut SF-TE++",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": None,

@@ -226,7 +226,7 @@ export const RANKING_SOURCES = [
     // vote was removed.  Mirrors the `is_retail: True` flag on the
     // backend `_RANKING_SOURCES` entry.
     key: "ktcSfTep",
-    displayName: "KeepTradeCut SF-TEP",
+    displayName: "KeepTradeCut SF-TE++",
     // Compact label is just "KTC" since the standard ``ktc`` source
     // was retired from the blend 2026-04-28; ktcSfTep is now the
     // sole KTC voter.  ``displayName`` keeps the SF-TEP suffix for

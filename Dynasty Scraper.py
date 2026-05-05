@@ -709,7 +709,7 @@ _KTC_BLOCKER: str | None = None
 
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
-KTC_CROWD_ALLOWED_TEP_LEVELS = {1, 2}  # TE+ or TE++
+KTC_CROWD_ALLOWED_TEP_LEVELS = {2}  # TE++ only
 
 
 def compute_max(name_map):
@@ -1635,27 +1635,27 @@ async def page_dump(page, label, limit=2500):
 # FantasyCalc — JSON API, TEP + SF
 # ─────────────────────────────────────────
 # KTC's per-player API response carries every TE-premium variant
-# alongside the base SF value (e.g. ``superflexValues.tep`` for TE+
-# level 1 / "TE Premium").  We pluck the level-1 value into a parallel
+# alongside the base SF value (e.g. ``superflexValues.tepp`` for TE++
+# level 2 / "TE Premium ++").  We pluck the level-2 value into a parallel
 # map so the canonical pipeline can register a separate ``ktcSfTep``
 # sub-board.  The field-name list is intentionally generous — KTC has
 # rotated naming a few times and the cost of an extra .get() lookup
 # is negligible against the cost of silently writing an empty CSV.
 _KTC_TEP_FIELD_KEYS = (
-    "tep", "tepValue", "tep_value",
-    "tep1", "tep1Value", "tep1_value",
-    "tepLevel1", "tepValueLevel1",
+    "tepp", "teppValue", "tepp_value",
+    "tep2", "tep2Value", "tep2_value",
+    "tepLevel2", "tepValueLevel2",
 )
 _KTC_TEP_TOPLEVEL_KEYS = (
-    "sfTepValue", "sf_tep_value", "value_sftep",
-    "tepValue", "tep_value",
+    "sfTeppValue", "sf_tepp_value", "value_sftepp",
+    "teppValue", "tepp_value",
 )
 
 
 def _ktc_extract_tep(item):
-    """Return the TE+ (level 1) superflex value from a KTC API item, or None.
+    """Return the TE++ (level 2) superflex value from a KTC API item, or None.
 
-    KTC's playersArray nests the TE+ block as a dict, not a scalar:
+    KTC's playersArray nests the TE++ block as a dict, not a scalar:
 
         superflexValues: {
           value: 8337,                # base SF
@@ -1664,7 +1664,7 @@ def _ktc_extract_tep(item):
           teppp: { ... }                          # TE+++ level 3
         }
 
-    The earlier version of this extractor returned the entire ``tep``
+    The earlier version of this extractor returned the entire ``tepp``
     dict, then later code crashed on ``int(float({}))`` and silently
     skipped — leaving ktcSfTep.csv empty.  Now we handle both shapes:
     if a candidate is a dict, pull ``.value``; if it's a scalar,
@@ -1713,7 +1713,7 @@ async def scrape_ktc(page, players):
     tep_name_map = {}
     try:
         sf  = "true" if SUPERFLEX else "false"
-        url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=2&filters=QB|WR|RB|TE|RDP"
+        url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=3&filters=QB|WR|RB|TE|RDP"
 
         # ── Strategy 1: Intercept KTC API responses ──
         api_data = {}
@@ -1821,7 +1821,7 @@ async def scrape_ktc(page, players):
                     sf_label = "SF API" if SUPERFLEX else "1QB API"
                     print(f"  [KTC] Parsed {len(name_map)} players from API ({sf_label}): {api_url[:60]}")
                     if tep_name_map:
-                        print(f"  [KTC] TE+ values present for {len(tep_name_map)} players")
+                        print(f"  [KTC] TE++ values present for {len(tep_name_map)} players")
                     # Show first item structure for debugging
                     if body and isinstance(body, list) and len(body) > 0:
                         sample = body[0]
@@ -1839,12 +1839,12 @@ async def scrape_ktc(page, players):
 
             # KTC renders values in the DOM after client JS runs.  The
             # JS payload returns ``{name: {value, tep}}`` so the Python
-            # side can split base SF and TE+ into separate maps.
+            # side can split base SF and TE++ into separate maps.
             dom_data = await page.evaluate("""() => {
                 const results = {};
-                const tepKeys = ['tep','tepValue','tep_value','tep1','tep1Value','tep1_value','tepLevel1','tepValueLevel1'];
-                // KTC's playersArray nests the TE+ block as a dict
-                // (e.g. superflexValues.tep = {value: 8337, rank: 9}),
+                const tepKeys = ['tepp','teppValue','tepp_value','tep2','tep2Value','tep2_value','tepLevel2','tepValueLevel2'];
+                // KTC's playersArray nests the TE++ block as a dict
+                // (e.g. superflexValues.tepp = {value: 9113, rank: 8}),
                 // not a scalar.  Resolve the nested .value when the
                 // candidate is an object.
                 const grabTep = (obj) => {
@@ -1925,7 +1925,7 @@ async def scrape_ktc(page, players):
                         except (ValueError, TypeError):
                             pass
                 if DEBUG:
-                    print(f"  [KTC] DOM scrape found {len(name_map)} players ({len(tep_name_map)} with TE+)")
+                    print(f"  [KTC] DOM scrape found {len(name_map)} players ({len(tep_name_map)} with TE++)")
 
         # ── Strategy 3: Full page source parsing ──
         if not name_map:
@@ -2143,7 +2143,7 @@ async def scrape_ktc_trade_database(page):
     global KTC_CROWD_DATA
     trades = []
     sf = 1 if SUPERFLEX else 0
-    tep = TEP if TEP else 0
+    tep = 2 if TEP else 0  # KTC trade-DB tepLevel: 1=TE+, 2=TE++
     url = f"https://keeptradecut.com/dynasty/trade-database?sf={sf}&tep={tep}"
     print(f"  [KTC Trades] Fetching trade database...")
 
@@ -2447,7 +2447,7 @@ async def scrape_ktc_waiver_database(page):
     global KTC_CROWD_DATA
     waivers = []
     sf = 1 if SUPERFLEX else 0
-    tep = TEP if TEP else 0
+    tep = 2 if TEP else 0  # KTC waiver-DB tepLevel: 1=TE+, 2=TE++
     url = f"https://keeptradecut.com/dynasty/waiver-database?sf={sf}&tep={tep}"
     print(f"  [KTC Waivers] Fetching waiver database...")
 
