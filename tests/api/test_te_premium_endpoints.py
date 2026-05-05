@@ -331,6 +331,100 @@ def test_recommendations_does_not_mutate_contract(client_with_te_contract):
 # ── Schema stability ────────────────────────────────────────────────
 
 
+def test_endpoints_503_on_scoring_profile_mismatch(tmp_path, monkeypatch):
+    """Codex P1 fix: when the loaded contract's scoringProfile doesn't
+    match the requested league's profile, every TE-premium endpoint
+    must 503 ``data_not_ready`` rather than serving the wrong data
+    under a misleading leagueKey stamp.
+
+    Mirrors the same guard ``GET /api/data`` enforces (server.py
+    around line 2177)."""
+    # Set up a registry with a "ppr_only" league whose scoring profile
+    # is intentionally distinct from the loaded contract's
+    # ``superflex_tep15_ppr1``.
+    reg_path = tmp_path / "registry.json"
+    reg_path.write_text(
+        json.dumps(
+            {
+                "defaultLeagueKey": "dynasty_main",
+                "leagues": [
+                    {
+                        "key": "dynasty_main",
+                        "displayName": "Risk It (Test)",
+                        "sleeperLeagueId": "L-MAIN",
+                        "scoringProfile": "superflex_tep15_ppr1",
+                        "active": True,
+                        "rosterSettings": {"teamCount": 12, "starters": {"TE": 1}},
+                    },
+                    {
+                        "key": "ppr_only",
+                        "displayName": "PPR Only (Test)",
+                        "sleeperLeagueId": "L-PPR",
+                        "scoringProfile": "ppr_no_tep",
+                        "active": True,
+                        "rosterSettings": {"teamCount": 12, "starters": {"TE": 1}},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(reg_path))
+    _league_registry.reload_registry()
+
+    # Loaded contract is stamped for the dynasty_main scoring profile.
+    rows = [
+        _make_te_row(f"TE Player {i}", f"te_id_{i}", composite=9000 - i * 200)
+        for i in range(5)
+    ]
+    contract = {
+        "meta": {
+            "leagueKey": "dynasty_main",
+            "scoringProfile": "superflex_tep15_ppr1",
+        },
+        "players": {row["displayName"]: row for row in rows},
+        "playersArray": [],
+    }
+    monkeypatch.setattr(server, "latest_contract_data", contract)
+    monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
+    monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "jasonleetucker"})
+
+    client = TestClient(server.app)
+    # All four endpoints should 503 when ``leagueKey=ppr_only`` is requested.
+    for path in (
+        "/api/te-premium/overview",
+        "/api/te-premium/source-comparison",
+        "/api/te-premium/league-scenarios",
+        "/api/te-premium/recommendations",
+    ):
+        res = client.get(f"{path}?leagueKey=ppr_only")
+        assert res.status_code == 503, f"{path} returned {res.status_code}: {res.text}"
+        body = res.json()
+        assert body["error"] == "data_not_ready"
+        assert body["leagueKey"] == "ppr_only"
+        assert "ppr_no_tep" in body.get("message", "") or body.get("scoringProfile") == "ppr_no_tep"
+
+    # POST run-analysis with the mismatched leagueKey in the body too.
+    res = client.post("/api/te-premium/run-analysis", json={"leagueKey": "ppr_only"})
+    assert res.status_code == 503
+    assert res.json()["error"] == "data_not_ready"
+
+    # Restore registry afterwards so later tests don't see this fixture.
+    _league_registry.reload_registry()
+
+
+def test_endpoints_serve_when_scoring_profiles_match(client_with_te_contract):
+    """Same scoring profile but different league keys: the endpoints
+    should still serve (per the architecture rule "rankings follow
+    scoring profile, not league key")."""
+    client, _ = client_with_te_contract
+    # The fixture's only league is ``dynasty_main`` with the matching
+    # profile, so this asserts the positive path.  ``leagueKey`` defaults
+    # to dynasty_main → matches loaded contract → 200.
+    res = client.get("/api/te-premium/overview")
+    assert res.status_code == 200
+
+
 def test_run_analysis_returns_stable_top_level_keys(client_with_te_contract):
     client, _ = client_with_te_contract
     keys_first = set(client.post("/api/te-premium/run-analysis", json={}).json().keys())

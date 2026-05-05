@@ -577,6 +577,61 @@ def test_run_analysis_persist_does_not_overwrite_in_rapid_succession(tmp_path):
     assert len(files) == 2, "second persist run silently overwrote the first"
 
 
+def test_lineup_settings_two_te_is_noop_when_league_already_starts_two():
+    """Codex P2 fix: in a league whose starters.TE is already 2,
+    the "Start 2 TEs" toggle should be a no-op rather than adding
+    another TE per team (which would over-model scarcity)."""
+    class _FakeCfg:
+        roster_settings = {
+            "teamCount": 12,
+            "starters": {
+                "QB": 1, "RB": 2, "WR": 3, "TE": 2,  # already 2
+                "FLEX": 1, "SFLEX": 1,
+            },
+        }
+
+    out = tep._league_lineup_settings(_FakeCfg())
+    assert out["te_starters_one"] == out["te_starters_two"]
+    assert out["two_te_is_noop"] is True
+    assert out["direct_te_per_team_current"] == 2
+
+
+def test_lineup_settings_two_te_adds_one_te_per_team_when_league_starts_one():
+    """Default case: TE=1 → 2-TE toggle adds one direct starter per team."""
+    class _FakeCfg:
+        roster_settings = {
+            "teamCount": 12,
+            "starters": {
+                "QB": 1, "RB": 2, "WR": 3, "TE": 1,
+                "FLEX": 2, "SFLEX": 1,
+            },
+        }
+
+    out = tep._league_lineup_settings(_FakeCfg())
+    assert out["te_starters_two"] == out["te_starters_one"] + 12
+    assert out["two_te_is_noop"] is False
+    assert out["direct_te_per_team_current"] == 1
+    assert out["direct_te_per_team_proposed"] == 2
+
+
+def test_lineup_settings_two_te_handles_zero_direct_te():
+    """Edge: a league with no direct TE slot (TE only via flex).
+    Going to "Start 2 TEs" should add 2 starters per team."""
+    class _FakeCfg:
+        roster_settings = {
+            "teamCount": 10,
+            "starters": {
+                "QB": 1, "RB": 2, "WR": 3, "FLEX": 2, "SFLEX": 1,
+            },
+        }
+
+    out = tep._league_lineup_settings(_FakeCfg())
+    # 2 TEs/team × 10 teams = 20 added on top of flex contributions.
+    assert out["te_starters_two"] - out["te_starters_one"] == 20
+    assert out["two_te_is_noop"] is False
+    assert out["direct_te_per_team_current"] == 0
+
+
 def test_recommendations_use_tier_default_when_no_market():
     rows = [_make_te_row("Bowers", composite=8000)]
     extracted = tep.extract_te_players_from_contract(_make_contract(rows))

@@ -547,7 +547,14 @@ function SummaryTab({ summary, scarcity, sources, tierSummary, lineup }) {
             Team count: <strong>{lineup.team_count}</strong> · TE starters
             today: <strong>{lineup.te_starters_one}</strong> (incl. flex
             contribution) · TE starters under "start 2 TEs":{" "}
-            <strong>{lineup.te_starters_two}</strong>.
+            <strong>{lineup.te_starters_two}</strong>
+            {lineup.two_te_is_noop && (
+              <>
+                {" "}
+                <em>(no-op — league already starts {lineup.direct_te_per_team_current} TEs/team)</em>
+              </>
+            )}
+            .
           </>
         ) : (
           "League settings unavailable."

@@ -4374,6 +4374,51 @@ def _te_premium_serialize(payload: dict) -> dict:
     }
 
 
+def _te_premium_scoring_profile_guard(league_cfg) -> "JSONResponse | None":
+    """Block TE-premium analysis when the loaded contract's scoring
+    profile doesn't match the requested league's profile.
+
+    TE Premium analysis reads player values + per-rule scoring
+    contributions out of ``latest_contract_data``.  Per the
+    architecture rule "rankings follow scoring profile, not league"
+    same-profile leagues legitimately share the loaded contract — but
+    a profile MISMATCH means the rankings + per-player scoring
+    contributions are computed from different scoring rules, so
+    serving them under the requested league's metadata would be
+    materially wrong.  Mirrors the pattern in ``GET /api/data``
+    (server.py around line 2177) which 503s in exactly the same case.
+
+    Codex P1 review on PR #392 commit cac140a flagged that
+    ``post_te_premium_run_analysis`` could return 200 against a
+    different league's loaded contract.  This guard is the fix; the
+    handler has to call it after league resolution succeeds.
+    """
+    if not isinstance(latest_contract_data, dict):
+        return None
+    loaded_meta = latest_contract_data.get("meta") or {}
+    loaded_profile = str(loaded_meta.get("scoringProfile") or "")
+    requested_profile = str(getattr(league_cfg, "scoring_profile", "") or "")
+    # Missing loaded_profile = pre-refactor contract; fall through and
+    # let the handler serve (same lenient behaviour as /api/data).
+    if loaded_profile and requested_profile and loaded_profile != requested_profile:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"League {league_cfg.key!r} uses scoring profile "
+                    f"{requested_profile!r}, but the loaded contract is "
+                    f"{loaded_profile!r}.  TE Premium analysis is not "
+                    f"compatible across scoring profiles."
+                ),
+                "leagueKey": league_cfg.key,
+                "scoringProfile": requested_profile,
+                "loadedScoringProfile": loaded_profile,
+            },
+        )
+    return None
+
+
 @app.get("/api/te-premium/overview")
 async def get_te_premium_overview(request: Request):
     """Sandbox overview: data-source availability + league lineup.
@@ -4385,6 +4430,10 @@ async def get_te_premium_overview(request: Request):
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
+
+    profile_err = _te_premium_scoring_profile_guard(league_cfg)
+    if profile_err is not None:
+        return profile_err
 
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 
@@ -4407,6 +4456,10 @@ async def get_te_premium_source_comparison(request: Request):
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
+
+    profile_err = _te_premium_scoring_profile_guard(league_cfg)
+    if profile_err is not None:
+        return profile_err
 
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 
@@ -4443,6 +4496,10 @@ async def get_te_premium_league_scenarios(request: Request):
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
+
+    profile_err = _te_premium_scoring_profile_guard(league_cfg)
+    if profile_err is not None:
+        return profile_err
 
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 
@@ -4502,6 +4559,10 @@ async def post_te_premium_run_analysis(request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
 
+    profile_err = _te_premium_scoring_profile_guard(league_cfg)
+    if profile_err is not None:
+        return profile_err
+
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 
     payload = _te_premium.run_analysis(
@@ -4523,6 +4584,10 @@ async def get_te_premium_recommendations(request: Request):
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
+
+    profile_err = _te_premium_scoring_profile_guard(league_cfg)
+    if profile_err is not None:
+        return profile_err
 
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 

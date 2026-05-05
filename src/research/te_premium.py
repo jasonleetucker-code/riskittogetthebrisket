@@ -1056,9 +1056,6 @@ def _league_lineup_settings(
     a 12-team league with QB/RB/RB/WR/WR/WR/TE/FLEX/FLEX/SFLEX
     starters — the registry default for ``dynasty_main``.
     """
-    starters: dict[str, int] = {}
-    team_count = fallback_team_count
-    extra_te = 0
     if league_cfg is not None:
         rs = getattr(league_cfg, "roster_settings", None) or {}
         if isinstance(rs, dict):
@@ -1067,6 +1064,14 @@ def _league_lineup_settings(
             except (TypeError, ValueError):
                 team_count = fallback_team_count
             starters_raw = rs.get("starters") or {}
+            # Direct TE slot count per team (e.g. ``starters.TE`` in
+            # the registry; 1 in our default config).  This is the
+            # *direct* count — flex/superflex contributions are added
+            # by ``starter_slot_counts`` below.
+            try:
+                direct_te_per_team = int(starters_raw.get("TE") or 0)
+            except (TypeError, ValueError):
+                direct_te_per_team = 0
             roster_positions: list[str] = []
             for pos, count in starters_raw.items():
                 try:
@@ -1075,18 +1080,34 @@ def _league_lineup_settings(
                     n = 0
                 pos_norm = str(pos).upper()
                 roster_positions.extend([pos_norm] * max(0, n))
-            slots = starter_slot_counts(roster_positions, team_count)
-            te_one = int(slots.get("TE", team_count))
-            te_two = te_one + team_count  # +1 starter per team
+            slots_one = starter_slot_counts(roster_positions, team_count)
+            te_one = int(slots_one.get("TE", team_count))
+
+            # "Start 2 TEs" semantic = exactly 2 direct TE starters
+            # per team (flex contributions are unchanged).  When the
+            # league already starts ≥2 TEs directly, the toggle is a
+            # no-op; we don't keep stacking extra TE slots.  Codex P2
+            # review on PR #392: the prior +team_count formula
+            # over-modeled scarcity for leagues that already
+            # start 2+ TEs.
+            target_te_per_team = 2
+            extra_per_team = max(0, target_te_per_team - direct_te_per_team)
+            te_two = te_one + team_count * extra_per_team
             return {
                 "team_count": team_count,
                 "te_starters_one": te_one,
                 "te_starters_two": te_two,
+                "direct_te_per_team_current": direct_te_per_team,
+                "direct_te_per_team_proposed": max(direct_te_per_team, target_te_per_team),
+                "two_te_is_noop": extra_per_team == 0,
             }
     return {
-        "team_count": team_count,
-        "te_starters_one": team_count,
-        "te_starters_two": team_count * 2,
+        "team_count": fallback_team_count,
+        "te_starters_one": fallback_team_count,
+        "te_starters_two": fallback_team_count * 2,
+        "direct_te_per_team_current": 1,
+        "direct_te_per_team_proposed": 2,
+        "two_te_is_noop": False,
     }
 
 
