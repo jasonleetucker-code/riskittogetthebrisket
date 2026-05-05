@@ -69,6 +69,7 @@ import json
 import math
 import os
 import statistics
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -823,12 +824,22 @@ def build_recommendations(
     scoring_rows: list[TEScoringEffect],
     scarcity_rows: list[TEScarcityRow],
     market_available: bool,
+    remove_te_reception_bonus: bool = True,
+    remove_te_first_down_bonus: bool = True,
 ) -> list[TEPremiumRecommendation]:
     """Combine the three signals into a per-player recommended adjust %.
 
-    Net adjustment = market_boost_pct (sign-flipped — when removing
-    TEP we *give back* whatever TEP added) + scarcity_value_delta_pct
-    + scoring_value_delta_pct.
+    Net adjustment = market_unwind_pct + scarcity_value_delta_pct +
+    scoring_value_delta_pct.
+
+    ``market_unwind_pct`` is ``-market_boost_pct`` ONLY when at least
+    one TE Premium scoring rule (``bonus_rec_te`` or ``bonus_fd_te``)
+    is being removed in this scenario.  When NEITHER is being removed
+    the operator is studying the lineup-only effect (e.g. just
+    "what's the impact of starting two TEs?") and the external KTC
+    TEP premium should not be unwound — TEP is still in the league's
+    scoring rules, so the market premium still applies.  Codex
+    review on PR #392 flagged the missing gate.
 
     Confidence is the geometric mean of the per-source confidences:
     market reliability + internal scoring confidence + a flat 0.7 for
@@ -895,7 +906,18 @@ def build_recommendations(
         # *remove* TEP, we unwind that boost (negative).  The
         # 2-TE-start scarcity demand re-adds value (positive).  Net
         # is: -market_pct + scarcity_pct + scoring_pct.
-        market_unwind_pct = -float(m_signal) if m_signal is not None else 0.0
+        # Only unwind the external TEP market premium when the
+        # operator is actually removing at least one TEP scoring
+        # rule.  Lineup-only scenarios (e.g. 2-TE start with TEP
+        # scoring untouched) leave the market premium intact.
+        any_tep_rule_removed = bool(
+            remove_te_reception_bonus or remove_te_first_down_bonus
+        )
+        market_unwind_pct = (
+            -float(m_signal)
+            if (m_signal is not None and any_tep_rule_removed)
+            else 0.0
+        )
         net_pct = market_unwind_pct + scarcity_value_delta_pct + scoring_value_delta_pct
 
         # Cap the recommended adjustment to ±25% to prevent runaway
@@ -1255,6 +1277,8 @@ def run_analysis(
         scoring_rows=scoring_rows,
         scarcity_rows=scarcity_rows,
         market_available=market_available,
+        remove_te_reception_bonus=remove_te_reception_bonus,
+        remove_te_first_down_bonus=remove_te_first_down_bonus,
     )
     tier_summary = summarise_by_tier(
         te_rows,
@@ -1302,7 +1326,17 @@ def run_analysis(
         "te_starters_proposed": two_te,
     }
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # Sub-second timestamp + 8-char hex suffix so concurrent
+    # ``persist=true`` runs (or rapid retries) never collide on the
+    # filesystem.  Codex P2 review on PR #392: a second-level
+    # timestamp can be hit twice within one wallclock second.
+    _now = datetime.now(timezone.utc)
+    run_id = (
+        _now.strftime("%Y%m%dT%H%M%S")
+        + f"_{_now.microsecond:06d}"
+        + f"_{uuid.uuid4().hex[:8]}"
+        + "Z"
+    )
     payload = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),

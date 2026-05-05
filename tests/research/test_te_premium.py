@@ -480,6 +480,103 @@ def test_recommendations_clip_to_safety_bounds():
     assert any("clipped" in n for n in recs[0].notes)
 
 
+def test_recommendations_skip_market_unwind_when_no_tep_rule_removed():
+    """Codex P1 fix: when neither TEP rule is being removed, the
+    market unwind should be zero so a lineup-only scenario doesn't
+    spuriously knock down TE values via the external KTC TEP signal.
+
+    A 2-TE-start scenario with TEP scoring still in place should
+    produce a positive (or zero) recommendation, not a negative one
+    driven by the KTC premium that's still applicable."""
+    rows = [_make_te_row("Brock Bowers", composite=8000, ppg_league=14.0)]
+    extracted = tep.extract_te_players_from_contract(_make_contract(rows))
+    boards = {
+        "normal": {"brock bowers": 5000.0},
+        "premium": {"brock bowers": 7500.0},  # +50% market boost
+    }
+    boosts = tep.compute_external_market_boost(extracted, boards=boards)
+    scoring_no_removal = tep.compute_internal_scoring_effect(
+        extracted,
+        remove_te_reception_bonus=False,
+        remove_te_first_down_bonus=False,
+    )
+    scarcity, _ = tep.compute_scarcity_effect(extracted)
+    recs = tep.build_recommendations(
+        extracted,
+        boost_rows=boosts,
+        scoring_rows=scoring_no_removal,
+        scarcity_rows=scarcity,
+        market_available=True,
+        remove_te_reception_bonus=False,
+        remove_te_first_down_bonus=False,
+    )
+    # No TEP rule removed → market unwind = 0.  With a single-player
+    # pool the scarcity delta is also ~0, so the rec collapses to ~0
+    # rather than the -25% it would be if the market were unwound.
+    assert recs[0].recommended_adjustment_pct >= -0.05
+    # And the market_boost_pct is still surfaced for transparency.
+    assert recs[0].market_boost_pct is not None
+
+
+def test_recommendations_apply_market_unwind_when_either_tep_rule_removed():
+    """Removing only the reception bonus (not the first-down bonus)
+    is still a TEP-removal scenario, so market unwind should fire."""
+    rows = [_make_te_row("Brock Bowers", composite=8000)]
+    extracted = tep.extract_te_players_from_contract(_make_contract(rows))
+    boards = {
+        "normal": {"brock bowers": 5000.0},
+        "premium": {"brock bowers": 6000.0},
+    }
+    boosts = tep.compute_external_market_boost(extracted, boards=boards)
+    scoring = tep.compute_internal_scoring_effect(extracted)
+    scarcity, _ = tep.compute_scarcity_effect(extracted)
+    recs_only_rec = tep.build_recommendations(
+        extracted,
+        boost_rows=boosts,
+        scoring_rows=scoring,
+        scarcity_rows=scarcity,
+        market_available=True,
+        remove_te_reception_bonus=True,
+        remove_te_first_down_bonus=False,
+    )
+    recs_neither = tep.build_recommendations(
+        extracted,
+        boost_rows=boosts,
+        scoring_rows=scoring,
+        scarcity_rows=scarcity,
+        market_available=True,
+        remove_te_reception_bonus=False,
+        remove_te_first_down_bonus=False,
+    )
+    # The "remove rec only" recommendation must be more negative than
+    # the "remove neither" recommendation (the difference is the
+    # market unwind, which only applies in the first case).
+    assert recs_only_rec[0].recommended_adjustment_pct < recs_neither[0].recommended_adjustment_pct
+
+
+def test_run_analysis_run_id_has_subsecond_entropy():
+    """Codex P2: two analyses started in the same wallclock second
+    must produce distinct run_ids so persist=true never overwrites
+    a prior file."""
+    rows = [_make_te_row(f"TE{i}", composite=9000 - i * 200) for i in range(3)]
+    contract = _make_contract(rows)
+    p1 = tep.run_analysis(contract)
+    p2 = tep.run_analysis(contract)
+    assert p1["run_id"] != p2["run_id"]
+    # Sanity: the new format includes a microsecond block + uuid suffix.
+    parts = p1["run_id"].rstrip("Z").split("_")
+    assert len(parts) == 3, f"unexpected run_id format: {p1['run_id']}"
+
+
+def test_run_analysis_persist_does_not_overwrite_in_rapid_succession(tmp_path):
+    rows = [_make_te_row(f"TE{i}", composite=9000 - i * 200) for i in range(3)]
+    contract = _make_contract(rows)
+    tep.run_analysis(contract, persist=True, sandbox_dir=tmp_path)
+    tep.run_analysis(contract, persist=True, sandbox_dir=tmp_path)
+    files = list(tmp_path.glob("te_premium_*.json"))
+    assert len(files) == 2, "second persist run silently overwrote the first"
+
+
 def test_recommendations_use_tier_default_when_no_market():
     rows = [_make_te_row("Bowers", composite=8000)]
     extracted = tep.extract_te_players_from_contract(_make_contract(rows))

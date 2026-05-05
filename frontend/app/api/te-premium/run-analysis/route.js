@@ -13,6 +13,22 @@ export async function POST(request) {
   } catch {
     body = {};
   }
+  // Forward ``leagueKey`` from the query string when present so this
+  // POST proxy resolves the league the same way the sibling GET
+  // proxies do (overview / source-comparison / league-scenarios all
+  // forward the query param).  The backend's
+  // ``_resolve_league_for_request`` checks the body too, so we merge
+  // it in only when not already set so an explicit body value wins.
+  // Codex P2 review on PR #392.
+  try {
+    const url = new URL(request.url);
+    const leagueKey = url.searchParams.get("leagueKey");
+    if (leagueKey && !body.leagueKey) {
+      body = { ...body, leagueKey };
+    }
+  } catch {
+    // URL parse failure → fall through with the body as-is.
+  }
   try {
     const { data, status } = await proxyPost("/api/te-premium/run-analysis", body, {
       timeoutMs: 15000,
