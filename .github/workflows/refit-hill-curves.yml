@@ -105,6 +105,16 @@ jobs:
       - name: Run test suite on refit
         if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
         shell: bash
+        env:
+          # ``server.py`` raises at import time when JASON_LOGIN_PASSWORD
+          # is unset and ALLOW_DEFAULT_LOGIN_DEV isn't truthy (audit M1
+          # removed the source-code default).  Several tests under
+          # ``tests/api/`` import ``server`` at collection time, so the
+          # full ``pytest tests/`` sweep can't even collect without one
+          # of those.  Match pr-validation.yml: enable the dev escape
+          # hatch on the CI runner.  Without this every Tuesday refit
+          # run that hits drift fails at the test step before commit.
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
           python -m pytest tests/ -q
