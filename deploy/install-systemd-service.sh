@@ -407,8 +407,66 @@ main() {
     log "DLF-fetch timer skipped: DLF_USERNAME / DLF_PASSWORD not set in ${APP_DIR}/.env."
   fi
 
+  # ── IDP Show fetch timer (prod-side replacement for CI fetch_idpshow.py) ──
+  # Substack paywall + CAPTCHA-protected login means CI cannot
+  # re-authenticate.  Same prod-timer pattern as DLF; gate on the
+  # presence of idpshow_session.json (the operator-minted cookie jar)
+  # in the live repo - without it, the fetcher has no auth.
+  local idpshow_fetch_service_template="${APP_DIR}/deploy/systemd/dynasty-idpshow-fetch.service.template"
+  local idpshow_fetch_timer_template="${APP_DIR}/deploy/systemd/dynasty-idpshow-fetch.timer.template"
+  local idpshow_fetch_service_name="${SERVICE_NAME}-idpshow-fetch"
+  local idpshow_fetch_service_path="/etc/systemd/system/${idpshow_fetch_service_name}.service"
+  local idpshow_fetch_timer_path="/etc/systemd/system/${idpshow_fetch_service_name}.timer"
+  local idpshow_fetch_needs_install=false
+  local has_idpshow_session=false
+
+  if [[ -f "${APP_DIR}/idpshow_session.json" ]]; then
+    has_idpshow_session=true
+  fi
+
+  if [[ -f "${idpshow_fetch_service_template}" && -f "${idpshow_fetch_timer_template}" && "${has_idpshow_session}" == "true" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${idpshow_fetch_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${idpshow_fetch_service_path} + timer."
+        idpshow_fetch_needs_install=true
+      else
+        log "IDP Show fetch timer already installed; skipping."
+      fi
+    else
+      log "Installing IDP Show fetch service + timer."
+      idpshow_fetch_needs_install=true
+    fi
+
+    if [[ "${idpshow_fetch_needs_install}" == "true" ]]; then
+      local tmp_idpshow_service tmp_idpshow_timer
+      tmp_idpshow_service="$(mktemp)"
+      tmp_idpshow_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        "${idpshow_fetch_service_template}" > "${tmp_idpshow_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${idpshow_fetch_timer_template}" > "${tmp_idpshow_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_idpshow_service}" "${idpshow_fetch_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_idpshow_timer}" "${idpshow_fetch_timer_path}"
+      rm -f "${tmp_idpshow_service}" "${tmp_idpshow_timer}"
+      log "Installed ${idpshow_fetch_service_name}.service + .timer"
+
+      sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/idpshow-fetch
+      if [[ ! -f /var/lib/idpshow-fetch/idpshow_session.json ]]; then
+        sudo -n "${INSTALL_BIN}" -m 0600 -o "${APP_USER}" -g "${APP_USER}" \
+          "${APP_DIR}/idpshow_session.json" /var/lib/idpshow-fetch/idpshow_session.json
+        log "Seeded /var/lib/idpshow-fetch/idpshow_session.json from live repo."
+      fi
+    fi
+  elif [[ -f "${idpshow_fetch_service_template}" && "${has_idpshow_session}" != "true" ]]; then
+    log "IDP Show fetch timer skipped: ${APP_DIR}/idpshow_session.json missing - operator must mint it via browser first."
+  fi
+
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -432,6 +490,10 @@ main() {
   if [[ "${dlf_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${dlf_fetch_service_name}.timer"
     log "Enabled ${dlf_fetch_service_name}.timer"
+  fi
+  if [[ "${idpshow_fetch_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${idpshow_fetch_service_name}.timer"
+    log "Enabled ${idpshow_fetch_service_name}.timer"
   fi
 
   # ── Backup timer + restore-test timer + logrotate (2026-04-25) ──

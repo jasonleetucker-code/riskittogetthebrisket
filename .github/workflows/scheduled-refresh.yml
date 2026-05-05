@@ -127,6 +127,29 @@ jobs:
           DLF_PASSWORD: ${{ secrets.DLF_PASSWORD }}
         run: |
           set -Eeuo pipefail
+
+          # Stamp helper.  Each fetcher invocation runs through this so
+          # ``data/scrape_state/{key}_last_success`` records the unix
+          # epoch of every successful run, regardless of whether the
+          # CSV content changed.  This is the load-bearing freshness
+          # signal for the alert engine — see _per_source_freshness in
+          # server.py for the read side.  Without it, monthly-cadence
+          # vendors (Fitzmaurice, Yahoo Boone) trip false-positive
+          # stale alerts because git checkout --force on prod skips
+          # rewriting unchanged files, freezing the CSV mtime on the
+          # last *content* change rather than the last *fetcher
+          # success*.
+          mkdir -p data/scrape_state
+          run_fetcher() {
+            local stamp_key="$1"; shift
+            local label="$1"; shift
+            if "$@" 2>&1; then
+              date -u +%s > "data/scrape_state/${stamp_key}_last_success"
+            else
+              echo "::warning title=${label} fetch failed::Non-fatal — continuing with stale CSV"
+            fi
+          }
+
           echo "::group::Scraper output"
           python "Dynasty Scraper.py" 2>&1 || {
             echo "::warning title=Scraper partial failure::Scraper exited non-zero but may have partial data"
@@ -140,25 +163,25 @@ jobs:
           fi
 
           # Fetch Dynasty Daddy SF rankings
-          python scripts/fetch_dynasty_daddy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Dynasty Daddy fetch failed::Non-fatal — continuing"
+          run_fetcher dynastyDaddy "Dynasty Daddy" python scripts/fetch_dynasty_daddy.py --mirror-data-dir
 
           # Fetch Flock Fantasy SF rankings
-          python scripts/fetch_flock_fantasy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy fetch failed::Non-fatal — continuing"
+          run_fetcher flockFantasy "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
 
           # Fetch Flock Fantasy SF ROOKIE rankings (PROSPECTS_SF endpoint)
-          python scripts/fetch_flock_fantasy_rookies.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy rookies fetch failed::Non-fatal — continuing"
+          run_fetcher flockFantasyRookies "Flock Fantasy rookies" python scripts/fetch_flock_fantasy_rookies.py --mirror-data-dir
 
           # Fetch FootballGuys league-synced rankings (offense + IDP)
           # The scraper auto-logs-in via Playwright on session refresh
           # when cached cookies are rejected; non-fatal if the site is
           # unreachable so the rest of the pipeline keeps running.
-          python scripts/fetch_footballguys.py 2>&1 || echo "::warning title=FootballGuys fetch failed::Non-fatal — continuing with stale CSV"
+          run_fetcher footballGuys "FootballGuys" python scripts/fetch_footballguys.py
 
           # Fetch DraftSharks league-synced rankings (offense + IDP).
           # DS requires Playwright because league scoring is applied
           # client-side by a WebAssembly worker; auto-login is wired
           # into the scraper itself.
-          python scripts/fetch_draftsharks.py 2>&1 || echo "::warning title=DraftSharks fetch failed::Non-fatal — continuing with stale CSV"
+          run_fetcher draftSharks "DraftSharks" python scripts/fetch_draftsharks.py
 
           # Fetch DraftSharks rest-of-season rankings (real ROS pages,
           # not the dynasty board).  Reuses the session cookies the
@@ -167,7 +190,7 @@ jobs:
           # adapter prefers these over the dynasty proxies when present.
           # Non-fatal: the ROS adapter falls back to the dynasty
           # proxies if these CSVs are missing or stale.
-          python scripts/fetch_draftsharks_ros.py 2>&1 || echo "::warning title=DraftSharks ROS fetch failed::Non-fatal — adapter will fall back to dynasty proxy"
+          run_fetcher draftSharksRos "DraftSharks ROS" python scripts/fetch_draftsharks_ros.py
 
           # DLF rankings (dlfSf, dlfIdp, dlfRookieSf, dlfRookieIdp) are
           # NOT fetched here.  Cloudflare 403s every GET to wp-login.php
@@ -186,27 +209,31 @@ jobs:
           # workflow still reads ``data/scrape_state/dlf_last_success``
           # (now written by the prod timer instead of this step) and
           # red-Xes the run when the stamp is more than 24h old.
-          mkdir -p data/scrape_state
-
           # Fetch FantasyPros / Pat Fitzmaurice Dynasty Trade Value
           # Chart.  Monthly article with date-rotating URL; the
           # fetcher auto-resolves the current month (falls back up
-          # to 3 months).  Non-fatal — if FP hasn't published the
-          # new month's update yet, the previous CSV stays in place.
-          python scripts/fetch_fantasypros_fitzmaurice.py 2>&1 || echo "::warning title=FP Fitzmaurice fetch failed::Non-fatal — continuing with stale CSV"
+          # to 3 months).  Vendor publishes monthly so the CSV content
+          # stays byte-identical between drops — the stamp is what
+          # tracks that the fetcher itself succeeded each cycle.
+          run_fetcher fantasyProsFitzmaurice "FP Fitzmaurice" python scripts/fetch_fantasypros_fitzmaurice.py
 
-          # Fetch The IDP Show (Adamidp) rankings — Substack paywall
-          # with captcha-protected login, so the scraper reads
-          # cookies from idpshow_session.json (gitignored, set
-          # up locally by the operator).  CI has no session file,
-          # so this step is a soft-no-op in the pipeline until an
-          # encrypted cookie vault is set up.  Locally the scraper
-          # runs on each scheduled server scrape.
-          if [[ -f idpshow_session.json ]]; then
-            python scripts/fetch_idpshow.py 2>&1 || echo "::warning title=IDP Show fetch failed::Non-fatal — continuing with stale CSV"
-          else
-            echo "::notice title=IDP Show skipped::idpshow_session.json missing in CI — scraper runs on the production server where the session file is maintained."
-          fi
+          # Fetch Justin Boone's Yahoo Sports dynasty trade value charts
+          # (QB / RB / WR / TE).  Public web pages, no auth, so the
+          # GitHub Actions runner IPs work fine.  Vendor publishes
+          # monthly via redirect chain — see the script's docstring.
+          # The stamp captures fetcher success on every cycle even when
+          # the resolved article URL hasn't changed.
+          run_fetcher yahooBoone "Yahoo Boone" python scripts/fetch_yahoo_boone.py
+
+          # IDP Show (Adamidp) is a Substack paywalled source with
+          # captcha-protected login, so the scraper reads cached
+          # cookies from idpshow_session.json (gitignored).  CI has no
+          # session file, and Substack's CAPTCHA flow can't be solved
+          # headlessly, so we run fetch_idpshow.py on the production
+          # VPS via systemd timer (``deploy/systemd/dynasty-idpshow-fetch.timer``)
+          # every 2h and push the CSV + stamp back to main — same
+          # pattern as fetch_dlf.py.  Nothing to do here; CI just
+          # consumes whatever the prod timer most recently committed.
 
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then

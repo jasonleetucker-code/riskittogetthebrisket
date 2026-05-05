@@ -1098,20 +1098,39 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
 
 
 def _per_source_freshness() -> dict[str, dict]:
-    """Per-source ``{lastFetched, ageHours}`` derived from the CSV
-    file mtimes in ``CSVs/site_raw/``.  Source key → CSV name mapping
-    follows the convention ``CSVs/site_raw/{key}.csv`` for every
-    source registered in ``_SOURCE_CSV_PATHS``.  Sources without a
-    CSV (rare; only ones backed entirely by adapter modules) report
-    ``lastFetched: None``.
+    """Per-source ``{lastFetched, ageHours}`` for every source registered
+    in ``_SOURCE_CSV_PATHS``.
 
-    Returns ``{}`` if the CSV directory is missing or unreadable.
+    Freshness signal preference, in order:
+
+    1. ``data/scrape_state/{key}_last_success`` — a unix-epoch stamp
+       written by the source's fetcher on a successful run, regardless
+       of whether the CSV content changed.  This is the load-bearing
+       signal for monthly-cadence vendors (Fitzmaurice, Yahoo Boone,
+       etc.) where the fetcher succeeds on every CI cycle but writes
+       byte-identical content most of the month.  ``git checkout
+       --force`` skips rewriting unchanged files, so the CSV mtime on
+       prod gets stuck on the last *content* change instead of the
+       last fetcher *success*.  The stamp tracks success directly, so
+       a silent fetcher failure trips the 24h alert within one cycle
+       even when the vendor hasn't published new content.
+
+    2. CSV mtime — fallback for sources that don't write a stamp yet.
+       Reliable signal for sources whose fetchers produce content that
+       varies on every run (rank jitter, timestamps, etc.) since each
+       run produces a new blob and ``git checkout --force`` does
+       rewrite differing files.
+
+    Sources missing both the stamp and the CSV file are omitted from
+    the output entirely.  Returns ``{}`` if the source registry can't
+    be loaded.
     """
     try:
         from src.api.data_contract import _SOURCE_CSV_PATHS
     except Exception:  # pragma: no cover
         return {}
     repo_root = Path(__file__).resolve().parent
+    state_dir = repo_root / "data" / "scrape_state"
     out: dict[str, dict] = {}
     now_epoch = time.time()
     for src_key, entry in _SOURCE_CSV_PATHS.items():
@@ -1119,13 +1138,29 @@ def _per_source_freshness() -> dict[str, dict]:
         if not csv_rel:
             continue
         csv_path = repo_root / csv_rel
+
+        # Prefer the stamp content over CSV mtime; fall back when the
+        # stamp is missing or unparseable.
+        stamp_path = state_dir / f"{src_key}_last_success"
+        last_epoch: float | None = None
         try:
-            mtime = csv_path.stat().st_mtime
+            stamp_text = stamp_path.read_text().strip()
         except OSError:
-            continue
-        age_hours = max(0.0, (now_epoch - mtime) / 3600.0)
+            stamp_text = ""
+        if stamp_text:
+            try:
+                last_epoch = float(stamp_text)
+            except ValueError:
+                last_epoch = None
+        if last_epoch is None:
+            try:
+                last_epoch = csv_path.stat().st_mtime
+            except OSError:
+                continue
+
+        age_hours = max(0.0, (now_epoch - last_epoch) / 3600.0)
         out[src_key] = {
-            "lastFetched": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(
+            "lastFetched": datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat(
                 timespec="seconds"
             ),
             "ageHours": round(age_hours, 2),
