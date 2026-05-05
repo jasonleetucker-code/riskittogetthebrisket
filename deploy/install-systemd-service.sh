@@ -340,8 +340,75 @@ main() {
     fi
   fi
 
+  # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
+  # CI cannot run scripts/fetch_dlf.py — Cloudflare 403s the GitHub
+  # Actions runner IPs.  The same script succeeds from prod, so this
+  # timer fires every 2h on prod, runs the fetch in a dedicated
+  # /var/lib/dlf-fetch/repo clone, and pushes the four DLF CSVs +
+  # data/scrape_state/dlf_last_success back to main.  Install only
+  # when the credentials are present in .env.
+  local dlf_fetch_service_template="${APP_DIR}/deploy/systemd/dynasty-dlf-fetch.service.template"
+  local dlf_fetch_timer_template="${APP_DIR}/deploy/systemd/dynasty-dlf-fetch.timer.template"
+  local dlf_fetch_service_name="${SERVICE_NAME}-dlf-fetch"
+  local dlf_fetch_service_path="/etc/systemd/system/${dlf_fetch_service_name}.service"
+  local dlf_fetch_timer_path="/etc/systemd/system/${dlf_fetch_service_name}.timer"
+  local dlf_fetch_needs_install=false
+  local has_dlf_creds=false
+
+  if [[ -f "${APP_DIR}/.env" ]] \
+     && grep -Eq '^[[:space:]]*DLF_USERNAME=.+$' "${APP_DIR}/.env" \
+     && grep -Eq '^[[:space:]]*DLF_PASSWORD=.+$' "${APP_DIR}/.env"; then
+    has_dlf_creds=true
+  fi
+
+  if [[ -f "${dlf_fetch_service_template}" && -f "${dlf_fetch_timer_template}" && "${has_dlf_creds}" == "true" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${dlf_fetch_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${dlf_fetch_service_path} + timer."
+        dlf_fetch_needs_install=true
+      else
+        log "DLF-fetch timer already installed; skipping."
+      fi
+    else
+      log "Installing DLF-fetch service + timer."
+      dlf_fetch_needs_install=true
+    fi
+
+    if [[ "${dlf_fetch_needs_install}" == "true" ]]; then
+      local tmp_dlf_service tmp_dlf_timer
+      tmp_dlf_service="$(mktemp)"
+      tmp_dlf_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        "${dlf_fetch_service_template}" > "${tmp_dlf_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${dlf_fetch_timer_template}" > "${tmp_dlf_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_dlf_service}" "${dlf_fetch_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_dlf_timer}" "${dlf_fetch_timer_path}"
+      rm -f "${tmp_dlf_service}" "${tmp_dlf_timer}"
+      log "Installed ${dlf_fetch_service_name}.service + .timer"
+
+      # Provision the work-dir and seed the cookie cache from the live
+      # repo's session file (gitignored, so this is the only place the
+      # cached cookies live on prod).  Idempotent: the script also
+      # creates the dir if missing, but doing it here means the first
+      # timer fire doesn't have to do an unnecessary full WP login.
+      sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/dlf-fetch
+      if [[ -f "${APP_DIR}/dlf_session.json" && ! -f /var/lib/dlf-fetch/dlf_session.json ]]; then
+        sudo -n "${INSTALL_BIN}" -m 0600 -o "${APP_USER}" -g "${APP_USER}" \
+          "${APP_DIR}/dlf_session.json" /var/lib/dlf-fetch/dlf_session.json
+        log "Seeded /var/lib/dlf-fetch/dlf_session.json from live repo."
+      fi
+    fi
+  elif [[ -f "${dlf_fetch_service_template}" && "${has_dlf_creds}" != "true" ]]; then
+    log "DLF-fetch timer skipped: DLF_USERNAME / DLF_PASSWORD not set in ${APP_DIR}/.env."
+  fi
+
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -361,6 +428,10 @@ main() {
   if [[ "${custom_alerts_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${custom_alerts_service_name}.timer"
     log "Enabled ${custom_alerts_service_name}.timer"
+  fi
+  if [[ "${dlf_fetch_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${dlf_fetch_service_name}.timer"
+    log "Enabled ${dlf_fetch_service_name}.timer"
   fi
 
   # ── Backup timer + restore-test timer + logrotate (2026-04-25) ──

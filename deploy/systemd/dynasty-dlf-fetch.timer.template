@@ -1,0 +1,15 @@
+[Unit]
+Description=Trigger DLF rankings refresh every 2 hours
+Requires=dynasty-dlf-fetch.service
+
+[Timer]
+# Every 2 hours at minute 27 UTC.  Offset by 15 minutes from the
+# scheduled-refresh.yml CI cron (``42 */2 * * *``) so the two pushes
+# to main don't pile up on the same minute - DLF's prod commit
+# typically lands first, CI's auto-refresh rebases over it.
+OnCalendar=*-*-* 00/2:27:00 UTC
+Persistent=true
+AccuracySec=2min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,28 @@
+[Unit]
+Description=Risk It DLF rankings fetch + commit-back to main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=/var/lib/dlf-fetch
+# Pull DLF_USERNAME / DLF_PASSWORD from the live repo's .env.  Read
+# permission for user dynasty is sufficient (the file is mode 600
+# owned by dynasty, which the service user is).
+EnvironmentFile=__APP_DIR__/.env
+ExecStart=__APP_DIR__/deploy/dlf_fetch_and_push.sh
+StandardOutput=journal
+StandardError=journal
+# Don't kill the run on a transient git push race - the script
+# already retries internally and exits non-zero only after exhausting
+# retries.  systemd's default RestartSec doesn't apply to oneshot.
+Nice=10
+IOSchedulingClass=idle
+# Allow the script up to 10 min for slow Cloudflare round-trips +
+# four sequential rankings page GETs + WP login + git push.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
