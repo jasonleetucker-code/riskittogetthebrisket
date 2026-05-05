@@ -114,8 +114,11 @@ mkdir -p data/scrape_state
 date -u +%s > data/scrape_state/dlf_last_success
 
 # Stage only the five paths we own.  No -A/-u, no broad globs - if
-# anything else in the dedicated clone got modified, ignore it.
-git add -- \
+# anything else in the dedicated clone got modified, ignore it.  Use
+# -f because data/ is gitignored at the repo level - matches the
+# "Commit updated data" step in scheduled-refresh.yml which also
+# force-adds data/scrape_state/ for the same reason.
+git add -f -- \
   CSVs/site_raw/dlfSf.csv \
   CSVs/site_raw/dlfIdp.csv \
   CSVs/site_raw/dlfRookieSf.csv \
