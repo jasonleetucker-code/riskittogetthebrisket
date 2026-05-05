@@ -7,7 +7,13 @@ from .sleeper_ingest import (
     normalize_scoring_settings,
     persist_scoring_config,
 )
-from .scoring_delta import bucket_rule_contributions, compare_to_baseline, persist_scoring_delta_map
+from .scoring_delta import (
+    RULE_CONTRIBUTION_DETAIL_KEYS,
+    bucket_rule_contributions,
+    bucket_rule_contributions_detail,
+    compare_to_baseline,
+    persist_scoring_delta_map,
+)
 from .feature_engineering import compute_profile_features, infer_scoring_tags
 from .archetype_model import build_scoring_tags, infer_archetype, summarize_archetype_priors
 from .player_adjustment import (
@@ -30,6 +36,8 @@ __all__ = [
     "persist_scoring_config",
     "compare_to_baseline",
     "bucket_rule_contributions",
+    "bucket_rule_contributions_detail",
+    "RULE_CONTRIBUTION_DETAIL_KEYS",
     "persist_scoring_delta_map",
     "compute_profile_features",
     "infer_scoring_tags",

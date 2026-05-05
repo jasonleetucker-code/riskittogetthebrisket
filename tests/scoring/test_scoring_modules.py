@@ -8,7 +8,13 @@ from src.scoring.player_adjustment import (
     build_player_scoring_adjustment,
     ratio_to_multiplier,
 )
-from src.scoring.scoring_delta import compare_to_baseline, persist_scoring_delta_map
+from src.scoring.scoring_delta import (
+    RULE_CONTRIBUTION_DETAIL_KEYS,
+    bucket_rule_contributions,
+    bucket_rule_contributions_detail,
+    compare_to_baseline,
+    persist_scoring_delta_map,
+)
 from src.scoring.sleeper_ingest import normalize_scoring_settings
 
 
@@ -84,6 +90,81 @@ class ScoringModuleTests(unittest.TestCase):
                 payload = json.load(f)
             self.assertEqual(payload["customLeagueId"], "123")
             self.assertTrue(any(r.get("key") == "pass_td" for r in payload.get("rules", [])))
+
+
+    def test_bucket_rule_contributions_detail_isolates_te_bonus(self):
+        """`bucket_rule_contributions` aggregates `bonus_fd_te` and
+        `rec_fd` into a single `first_downs` bucket on TE rows; the
+        `_detail` variant emits each per rule key so the TE Premium
+        Lab can isolate just the TE-bonus portion."""
+        baseline = build_default_baseline_config("b")
+        # League differs from baseline on rec_fd (default 0 → 0.5)
+        # AND on bonus_fd_te (default 0 → 0.5), but NOT on
+        # bonus_rec_te (the default baseline already carries 0.5;
+        # we bump to 1.0 to force a non-zero delta we can read).
+        league = normalize_scoring_settings(
+            {
+                "rec": 1.0,
+                "rec_fd": 0.5,
+                "bonus_rec_te": 1.0,
+                "bonus_fd_te": 0.5,
+            },
+            ["TE"],
+            league_id="l",
+        )
+        delta_rules = compare_to_baseline(baseline, league)
+        stats = {
+            "rec": 6.0,
+            "rec_fd": 1.0,
+            "bonus_rec_te": 6.0,  # same as rec for a TE
+            "bonus_fd_te": 1.0,
+        }
+        agg = bucket_rule_contributions("TE", stats, delta_rules)
+        # Aggregate `first_downs` pools rec_fd (1.0 × 0.5 = 0.5) +
+        # bonus_fd_te (1.0 × 0.5 = 0.5) = 1.0 total.
+        self.assertAlmostEqual(agg.get("first_downs", 0.0), 1.0, places=4)
+
+        detail = bucket_rule_contributions_detail("TE", stats, delta_rules)
+        # Detail keeps them separated by rule key.
+        self.assertAlmostEqual(detail.get("bonus_fd_te", 0.0), 0.5, places=4)
+        # bonus_rec_te delta = 1.0 - 0.5 = 0.5; stat = 6 → 6 × 0.5 = 3.0
+        self.assertAlmostEqual(detail.get("bonus_rec_te", 0.0), 3.0, places=4)
+        self.assertNotIn("rec_fd", detail)  # not in the detail allowlist
+
+    def test_bucket_rule_contributions_detail_skips_irrelevant_buckets(self):
+        baseline = build_default_baseline_config("b")
+        league = normalize_scoring_settings(
+            {"bonus_fd_te": 0.5, "bonus_rec_te": 0.5},
+            ["TE"],
+            league_id="l",
+        )
+        delta_rules = compare_to_baseline(baseline, league)
+        # On a QB row, neither TE-bonus rule is relevant — should be
+        # absent from the detail map.
+        detail = bucket_rule_contributions_detail(
+            "QB", {"bonus_fd_te": 5.0, "bonus_rec_te": 5.0}, delta_rules
+        )
+        self.assertEqual(detail, {})
+
+    def test_player_adjustment_carries_detail_map(self):
+        adj = build_player_scoring_adjustment(
+            baseline_scoring_version="b",
+            league_scoring_version="l",
+            league_id="123",
+            baseline_ppg=12.0,
+            league_ppg=13.0,
+            position_bucket="TE",
+            archetype="chain_mover",
+            confidence=0.7,
+            sample_size_score=0.5,
+            projection_weight=0.2,
+            data_quality_flag="ok",
+            scoring_tags=[],
+            rule_contributions={"te_premium": 0.5, "first_downs": 0.5},
+            rule_contributions_detail={"bonus_rec_te": 0.5, "bonus_fd_te": 0.5},
+        )
+        self.assertEqual(adj.rule_contributions_detail.get("bonus_fd_te"), 0.5)
+        self.assertEqual(adj.rule_contributions_detail.get("bonus_rec_te"), 0.5)
 
 
 if __name__ == "__main__":

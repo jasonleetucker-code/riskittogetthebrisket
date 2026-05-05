@@ -32,19 +32,37 @@ def _make_te_row(
     age: int = 26,
     team: str = "BUF",
     rule_contributions: dict | None = None,
+    rule_contributions_detail: dict | None = None,
     ppg_baseline: float = 12.0,
     ppg_league: float = 11.5,
     ktc: float | None = 6500,
     ktc_sf_tep: float | None = 7000,
     rookie: bool = False,
 ) -> dict:
-    """Build a synthetic players-dict row that mimics the live contract."""
+    """Build a synthetic players-dict row that mimics the live contract.
+
+    By default ``rule_contributions_detail`` is omitted (matching the
+    pre-refactor contract shape) so most tests exercise the
+    sandbox's fallback path.  Tests that want to exercise the
+    precise per-rule path pass an explicit ``rule_contributions_detail``."""
     if rule_contributions is None:
         rule_contributions = {
             "te_premium": -0.4,
             "first_downs": 2.5,
             "receptions": -2.0,
         }
+    scoring_adj = {
+        "final_scoring_delta_points": (
+            rule_contributions.get("te_premium", 0.0)
+            + rule_contributions.get("first_downs", 0.0)
+            + rule_contributions.get("receptions", 0.0)
+        ),
+        "rule_contributions": dict(rule_contributions),
+        "archetype": "chain_mover",
+        "confidence": 0.7,
+    }
+    if rule_contributions_detail is not None:
+        scoring_adj["rule_contributions_detail"] = dict(rule_contributions_detail)
     return {
         "displayName": name,
         "_sleeperId": sleeper_id or name.lower().replace(" ", "_"),
@@ -58,16 +76,7 @@ def _make_te_row(
         "_formatFitPPGTest": ppg_baseline,
         "_formatFitPPGCustom": ppg_league,
         "rookie": rookie,
-        "_scoringAdjustment": {
-            "final_scoring_delta_points": (
-                rule_contributions.get("te_premium", 0.0)
-                + rule_contributions.get("first_downs", 0.0)
-                + rule_contributions.get("receptions", 0.0)
-            ),
-            "rule_contributions": dict(rule_contributions),
-            "archetype": "chain_mover",
-            "confidence": 0.7,
-        },
+        "_scoringAdjustment": scoring_adj,
     }
 
 
@@ -266,6 +275,118 @@ def test_scoring_effect_removes_both_rules():
     # Drop both: +0.4 (rec) + -2.5 (1d) → swing -2.1
     assert eff[0].scoring_swing_ppg == pytest.approx(-2.1)
     assert eff[0].proposed_ppg_delta == pytest.approx(0.1 - 2.1)
+
+
+def test_scoring_effect_uses_detail_map_when_available():
+    """When the contract carries `rule_contributions_detail.bonus_fd_te`,
+    the sandbox isolates ONLY that rule for the first-down toggle —
+    not the aggregate `first_downs` category which on TE rows pools
+    `rec_fd` / `rush_fd` contributions too.
+
+    This is the fix for the Codex P1 review: removing the entire
+    `first_downs` category over-removes when league rec_fd/rush_fd
+    differs from baseline."""
+    rows = [
+        _make_te_row(
+            "Bowers",
+            rule_contributions={
+                "te_premium": -0.4,
+                # Aggregate `first_downs` of 2.5 = bonus_fd_te (1.5)
+                # + rec_fd contribution (1.0) for a league with
+                # non-zero rec_fd delta.  Removing the aggregate
+                # would over-remove by 1.0 PPG.
+                "first_downs": 2.5,
+                "receptions": -2.0,
+            },
+            rule_contributions_detail={
+                "bonus_fd_te": 1.5,
+                "bonus_rec_te": -0.4,
+            },
+        )
+    ]
+    extracted = tep.extract_te_players_from_contract(_make_contract(rows))
+    eff = tep.compute_internal_scoring_effect(
+        extracted,
+        remove_te_reception_bonus=False,
+        remove_te_first_down_bonus=True,
+    )
+    # Removing only the TE first-down BONUS (not the rec_fd portion)
+    # should swing PPG by exactly bonus_fd_te = -1.5, not the
+    # aggregate -2.5.
+    assert eff[0].te_first_down_ppg == pytest.approx(1.5)
+    assert eff[0].scoring_swing_ppg == pytest.approx(-1.5)
+    assert eff[0].te_fd_estimated is False
+    assert eff[0].te_fd_source == "rule_contributions_detail.bonus_fd_te"
+
+
+def test_scoring_effect_falls_back_with_estimation_flag_when_detail_missing():
+    """When the detail map isn't in the contract (older scrape), the
+    sandbox falls back to the aggregate `first_downs` category and
+    flags the row `te_fd_estimated=True` so the operator sees the
+    precision is limited."""
+    rows = [
+        _make_te_row(
+            "Legacy",
+            rule_contributions={
+                "te_premium": -0.4,
+                "first_downs": 2.5,
+                "receptions": -2.0,
+            },
+            # No rule_contributions_detail — older contract shape.
+            rule_contributions_detail=None,
+        )
+    ]
+    extracted = tep.extract_te_players_from_contract(_make_contract(rows))
+    eff = tep.compute_internal_scoring_effect(
+        extracted, remove_te_first_down_bonus=True,
+    )
+    assert eff[0].te_fd_estimated is True
+    assert "estimated" in eff[0].te_fd_source.lower()
+    # Falls back to aggregate first_downs.
+    assert eff[0].te_first_down_ppg == pytest.approx(2.5)
+
+
+def test_run_analysis_warns_when_any_te_uses_estimated_first_down():
+    rows = [
+        _make_te_row(f"Legacy {i}", composite=9000 - i * 200) for i in range(5)
+    ]
+    contract = _make_contract(rows)
+    payload = tep.run_analysis(contract)
+    warnings_text = " ".join(payload.get("warnings") or [])
+    assert "rule_contributions_detail" in warnings_text or "estimated" in warnings_text.lower()
+
+
+def test_run_analysis_does_not_warn_when_detail_present():
+    rows = [
+        _make_te_row(
+            f"Modern {i}",
+            composite=9000 - i * 200,
+            rule_contributions_detail={"bonus_fd_te": 0.5, "bonus_rec_te": -0.4},
+        )
+        for i in range(5)
+    ]
+    contract = _make_contract(rows)
+    boards = {
+        "normal": {f"modern {i}": 9000 - i * 200 for i in range(5)},
+        "premium": {f"modern {i}": (9000 - i * 200) * 1.1 for i in range(5)},
+        "normal_available": True,
+        "premium_available": True,
+    }
+    payload = tep.run_analysis(contract, boards=boards)
+    warnings_text = " ".join(payload.get("warnings") or [])
+    assert "estimated" not in warnings_text.lower()
+    assert "rule_contributions_detail" not in warnings_text
+
+
+def test_overview_warns_when_detail_map_missing():
+    rows = [_make_te_row("Legacy", composite=8000)]
+    contract = _make_contract(rows)
+    ov = tep.build_overview(
+        contract,
+        boards={"normal": {"legacy": 8000}, "premium": {"legacy": 8500},
+                "normal_available": True, "premium_available": True},
+    )
+    assert any("rule_contributions_detail" in w for w in ov["warnings"])
 
 
 def test_scoring_effect_removes_neither_is_noop():

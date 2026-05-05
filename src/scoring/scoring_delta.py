@@ -77,7 +77,33 @@ def compare_to_baseline(baseline_config: ScoringConfig, league_config: ScoringCo
     return out
 
 
-def bucket_rule_contributions(bucket: str, stats_per_game: Dict[str, float], delta_rules: List[ScoringRule]) -> Dict[str, float]:
+# Rule keys whose per-rule contribution is preserved separately
+# alongside the category aggregate.  Sandbox / research consumers (the
+# TE Premium Lab) need to isolate these specific TE-bonus rules from
+# the broader category buckets they share — e.g. ``bonus_fd_te`` is in
+# the ``first_downs`` category, but the category aggregate also pools
+# ``rec_fd`` and ``rush_fd``.  Removing the category-level aggregate
+# when the operator only meant to remove the TE bonus would
+# over-remove.  Keeping per-rule entries is additive — the existing
+# category aggregate is unchanged.
+RULE_CONTRIBUTION_DETAIL_KEYS: tuple[str, ...] = (
+    "bonus_rec_te",
+    "bonus_fd_te",
+)
+
+
+def bucket_rule_contributions(
+    bucket: str,
+    stats_per_game: Dict[str, float],
+    delta_rules: List[ScoringRule],
+) -> Dict[str, float]:
+    """Aggregate per-bucket rule contributions by category.
+
+    The aggregated map is what the live valuation pipeline has
+    historically consumed.  For per-rule precision (e.g. isolating
+    ``bonus_fd_te`` from the ``first_downs`` category), use
+    ``bucket_rule_contributions_detail`` alongside this function.
+    """
     if not isinstance(stats_per_game, dict):
         return {}
     out: Dict[str, float] = {}
@@ -91,6 +117,48 @@ def bucket_rule_contributions(bucket: str, stats_per_game: Dict[str, float], del
             continue
         out[rule.category] = out.get(rule.category, 0.0) + contrib
     return {k: round(float(v), 6) for k, v in out.items()}
+
+
+def bucket_rule_contributions_detail(
+    bucket: str,
+    stats_per_game: Dict[str, float],
+    delta_rules: List[ScoringRule],
+    *,
+    rule_keys: tuple[str, ...] = RULE_CONTRIBUTION_DETAIL_KEYS,
+) -> Dict[str, float]:
+    """Per-rule (rule.key) contributions for the selected rule keys.
+
+    Same math as ``bucket_rule_contributions`` (stat × delta), but
+    keyed by ``rule.key`` rather than ``rule.category`` so the
+    operator can read each rule independently.  By default only the
+    TE-bonus-specific rules in ``RULE_CONTRIBUTION_DETAIL_KEYS`` are
+    emitted — keeping the surface area small for the contract.
+
+    Every rule listed in ``rule_keys`` that's relevant to ``bucket``
+    is included in the output, even when the contribution is zero,
+    so a downstream consumer can deterministically tell "this rule
+    has zero impact" apart from "this rule wasn't computed".  Rules
+    irrelevant to the bucket (e.g. ``bonus_fd_te`` on a QB row) are
+    skipped.
+    """
+    if not isinstance(stats_per_game, dict):
+        return {}
+    selected = set(rule_keys or ())
+    if not selected:
+        return {}
+    b = str(bucket or "").upper()
+    rule_by_key: Dict[str, ScoringRule] = {}
+    for rule in delta_rules or []:
+        if rule.key not in selected:
+            continue
+        if rule.relevant_buckets and b not in rule.relevant_buckets:
+            continue
+        rule_by_key[rule.key] = rule
+    out: Dict[str, float] = {}
+    for key, rule in rule_by_key.items():
+        stat_value = float(stats_per_game.get(key, 0.0) or 0.0)
+        out[key] = round(stat_value * float(rule.delta), 6)
+    return out
 
 
 def persist_scoring_delta_map(

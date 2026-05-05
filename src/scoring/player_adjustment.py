@@ -71,6 +71,7 @@ def build_player_scoring_adjustment(
     archetype_prior_ratio: float = 1.0,
     value_anchor: float = 1000.0,
     source: str = "scoring_translation_hybrid",
+    rule_contributions_detail: Optional[Dict[str, float]] = None,
 ) -> PlayerScoringAdjustment:
     p_base = max(0.0, float(baseline_ppg or 0.0))
     p_league = max(0.0, float(league_ppg or 0.0))
@@ -106,6 +107,9 @@ def build_player_scoring_adjustment(
         scoring_tags=list(scoring_tags or []),
         source=str(source or "scoring_translation_hybrid"),
         rule_contributions={k: round(float(v), 6) for k, v in (rule_contributions or {}).items()},
+        rule_contributions_detail={
+            k: round(float(v), 6) for k, v in (rule_contributions_detail or {}).items()
+        },
     )
 
 

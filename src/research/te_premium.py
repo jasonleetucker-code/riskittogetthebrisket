@@ -144,7 +144,23 @@ class TEPremiumBoost:
 
 @dataclass(frozen=True)
 class TEScoringEffect:
-    """Per-player effect of removing the TE premium scoring rules."""
+    """Per-player effect of removing the TE premium scoring rules.
+
+    ``te_first_down_ppg`` is the TE-bonus-specific first-down
+    contribution (``bonus_fd_te``), NOT the broader ``first_downs``
+    category aggregate (which on TE rows also pools ``rec_fd`` /
+    ``rush_fd`` from positional first-down rules common to RB/WR/TE).
+    When the live contract carries the per-rule detail map at
+    ``_scoringAdjustment.rule_contributions_detail.bonus_fd_te`` we
+    use it directly; otherwise we fall back to a conservative
+    estimate and flag ``te_fd_estimated=True`` so the operator knows
+    the precision is limited.
+
+    ``te_premium_ppg`` is always the ``te_premium`` category — that
+    category is TE-only by construction (driven by the ``bonus_rec_te``
+    rule, whose ``relevant_buckets`` is ``["TE"]``), so no aggregate
+    pollution is possible there.
+    """
 
     player_id: str
     display_name: str
@@ -155,6 +171,8 @@ class TEScoringEffect:
     scoring_swing_ppg: float
     confidence: float
     archetype: str = ""
+    te_fd_estimated: bool = False
+    te_fd_source: str = ""
 
 
 @dataclass(frozen=True)
@@ -362,6 +380,9 @@ def extract_te_players_from_contract(contract: dict | None) -> list[dict]:
         rule_contribs = (
             scoring_adj.get("rule_contributions") if isinstance(scoring_adj, dict) else {}
         ) or {}
+        rule_contribs_detail = (
+            scoring_adj.get("rule_contributions_detail") if isinstance(scoring_adj, dict) else {}
+        ) or {}
 
         rows[key] = {
             "player_id": key,
@@ -400,6 +421,9 @@ def extract_te_players_from_contract(contract: dict | None) -> list[dict]:
             "ppg_league": ppg_custom,
             "scoring_adjustment": dict(scoring_adj) if isinstance(scoring_adj, dict) else {},
             "rule_contributions": dict(rule_contribs) if isinstance(rule_contribs, dict) else {},
+            "rule_contributions_detail": (
+                dict(rule_contribs_detail) if isinstance(rule_contribs_detail, dict) else {}
+            ),
             "archetype": str(scoring_adj.get("archetype") or "") if isinstance(scoring_adj, dict) else "",
             "scoring_confidence": _coerce_float(
                 scoring_adj.get("confidence") if isinstance(scoring_adj, dict) else None
@@ -562,37 +586,59 @@ def compute_internal_scoring_effect(
 ) -> list[TEScoringEffect]:
     """Project the PPG impact of removing TE premium components.
 
-    Reads each TE's pre-computed ``rule_contributions`` map (already
-    on every offensive row in the live contract via
-    ``src/scoring/scoring_delta.py::bucket_rule_contributions``).
-    The relevant categories:
+    Reads each TE's pre-computed ``rule_contributions`` map.  TE
+    Premium consists of two distinct rules:
 
-        * ``te_premium``  — bonus for extra TE receptions (``bonus_rec_te``)
-        * ``first_downs`` — TE-specific portion is ``bonus_fd_te``,
-          but the contribution dict aggregates QB/RB/WR/TE first-down
-          bonuses into a single ``first_downs`` key.  For TEs the only
-          first-down rule that contributes is the TE one, so the full
-          category contribution attributed to a TE row IS the TE
-          first-down bonus.  This holds because
-          ``bucket_rule_contributions`` filters rules by
-          ``relevant_buckets`` before summing.
+        * ``bonus_rec_te`` — extra-PPR-for-TE.  Tracked under the
+          ``te_premium`` category, which is TE-bucket-only by
+          construction (only ``bonus_rec_te`` belongs to it), so
+          ``rule_contributions["te_premium"]`` is precisely the
+          TE reception-bonus contribution.
 
-    Removing one or both of those rules takes the player's existing
-    ``final_scoring_delta_points`` and adds the offsetting amount.
+        * ``bonus_fd_te`` — extra TE first-down bonus.  Tracked
+          under the ``first_downs`` category, which on TE rows ALSO
+          aggregates positional first-down rules ``rec_fd`` and
+          ``rush_fd`` (both relevant to TE).  Subtracting the
+          aggregate would over-remove if the league differs from
+          baseline on ``rec_fd`` / ``rush_fd``.
+
+    To avoid that over-removal we prefer the per-rule detail map at
+    ``rule_contributions_detail["bonus_fd_te"]`` when the contract
+    carries it (post-PR-392-fix).  When the detail map is absent
+    (older contracts) we fall back to a conservative position:
+
+      * If a non-zero ``first_downs`` aggregate exists we attribute
+        no more than its absolute value to ``bonus_fd_te`` and flag
+        ``te_fd_estimated=True``.  This preserves the current
+        behaviour when ``rec_fd``/``rush_fd`` deltas are zero (the
+        common Sleeper-baseline case) but is signalled clearly so
+        the operator can read the warning rather than trust an
+        unverified number.
     """
     out: list[TEScoringEffect] = []
     for row in te_rows:
         sa = row.get("scoring_adjustment") or {}
         rules = row.get("rule_contributions") or {}
+        rules_detail = row.get("rule_contributions_detail") or {}
         current_delta = _coerce_float(sa.get("final_scoring_delta_points")) or 0.0
 
+        # te_premium category is TE-only — safe to read directly.
         te_premium_ppg = _coerce_float(rules.get("te_premium")) or 0.0
-        te_fd_ppg = _coerce_float(rules.get("first_downs")) or 0.0
+
+        # bonus_fd_te: prefer the per-rule detail map.  Fall back to
+        # the aggregate ``first_downs`` category and mark estimated.
+        te_fd_estimated = False
+        te_fd_source = "rule_contributions_detail.bonus_fd_te"
+        te_fd_ppg = _coerce_float(rules_detail.get("bonus_fd_te"))
+        if te_fd_ppg is None:
+            te_fd_ppg = _coerce_float(rules.get("first_downs")) or 0.0
+            te_fd_estimated = True
+            te_fd_source = "rule_contributions.first_downs (estimated)"
 
         # Removing a rule means subtracting its delta contribution
-        # from the league side (not the baseline side).  The rule_contributions
-        # map carries (league - baseline) per category, so dropping the
-        # rule entirely zeros that category's contribution.
+        # from the league side (not the baseline side).  The
+        # contribution map carries (league - baseline), so dropping
+        # the rule entirely zeros its contribution.
         offset = 0.0
         if remove_te_reception_bonus:
             offset -= te_premium_ppg
@@ -613,6 +659,8 @@ def compute_internal_scoring_effect(
                 scoring_swing_ppg=round(scoring_swing, 4),
                 confidence=float(row.get("scoring_confidence") or 0.0),
                 archetype=str(row.get("archetype") or ""),
+                te_fd_estimated=te_fd_estimated,
+                te_fd_source=te_fd_source,
             )
         )
     return out
@@ -1020,6 +1068,31 @@ def _league_lineup_settings(
     }
 
 
+def _collect_run_warnings(
+    boards: dict, scoring_rows: list[TEScoringEffect]
+) -> list[str]:
+    """Build the warnings list for ``run_analysis`` output.
+
+    Surfaces:
+      * external boards missing (recommendations use tier defaults)
+      * any TE row's first-down bonus contribution was estimated
+        from the aggregate ``first_downs`` category rather than the
+        per-rule ``bonus_fd_te`` detail (precision warning — see the
+        ``compute_internal_scoring_effect`` docstring for context).
+    """
+    out: list[str] = []
+    if not (boards.get("normal_available") and boards.get("premium_available")):
+        out.append("External market boards unavailable; recommendations use tier defaults.")
+    estimated_count = sum(1 for s in scoring_rows if getattr(s, "te_fd_estimated", False))
+    if estimated_count > 0:
+        out.append(
+            f"TE first-down bonus impact estimated from aggregate first_downs "
+            f"category for {estimated_count} TE row(s).  Re-scrape to populate "
+            f"rule_contributions_detail.bonus_fd_te for exact isolation."
+        )
+    return out
+
+
 def build_overview(
     contract: dict | None,
     league_cfg: Any | None = None,
@@ -1093,6 +1166,23 @@ def build_overview(
             "No scoring rule contributions found on TE rows; the internal "
             "scoring effect tab will read zero.  Likely the live contract "
             "predates the per-rule scoring delta refactor."
+        )
+    elif te_rows and not any(
+        (r.get("rule_contributions_detail") or {}).get("bonus_fd_te") is not None
+        for r in te_rows
+    ):
+        # Detail map is missing — the sandbox falls back to the
+        # aggregate `first_downs` category for the TE first-down
+        # bonus, which on TE rows can also pool `rec_fd` / `rush_fd`
+        # contributions.  Safe in the common case where league
+        # `rec_fd`/`rush_fd` deltas are zero, but surface so the
+        # operator knows the precision is limited until the next
+        # scrape rebuilds the contract with the per-rule detail.
+        warnings.append(
+            "Contract lacks per-rule scoring detail (rule_contributions_detail). "
+            "TE first-down bonus impact is estimated from the aggregate "
+            "first_downs category and may over-remove if league rec_fd/rush_fd "
+            "deltas are non-zero.  Re-scrape to refresh."
         )
     if not boards.get("premium_available"):
         warnings.append(
@@ -1248,11 +1338,7 @@ def run_analysis(
             {**r.__dict__, "notes": list(r.notes)} for r in recommendations
         ],
         "tier_summary": tier_summary,
-        "warnings": (
-            []
-            if (boards.get("normal_available") and boards.get("premium_available"))
-            else ["External market boards unavailable; recommendations use tier defaults."]
-        ),
+        "warnings": _collect_run_warnings(boards, scoring_rows),
     }
 
     if persist:

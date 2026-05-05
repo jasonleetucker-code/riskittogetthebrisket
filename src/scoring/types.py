@@ -78,6 +78,15 @@ class PlayerScoringAdjustment:
     scoring_tags: List[str] = field(default_factory=list)
     source: str = "scoring_translation_hybrid"
     rule_contributions: Dict[str, float] = field(default_factory=dict)
+    # Per-rule-key contribution for selected rules where the
+    # category-level aggregate is too coarse to be useful (e.g. the
+    # ``first_downs`` category aggregates ``rec_fd``, ``rush_fd``,
+    # and ``bonus_fd_te`` for TE rows; the TE Premium Lab needs to
+    # isolate ``bonus_fd_te`` from the others).  Optional, additive,
+    # populated only for the rules listed in
+    # ``RULE_CONTRIBUTION_DETAIL_KEYS`` in ``scoring_delta.py``.
+    # Older contracts simply won't carry this field.
+    rule_contributions_detail: Dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)

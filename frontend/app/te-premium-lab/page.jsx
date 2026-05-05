@@ -211,6 +211,15 @@ export default function TEPremiumLabPage() {
       const s = scoringById.get(p.player_id) || {};
       const sc = scarcityById.get(p.player_id) || {};
       const r = recById.get(p.player_id) || {};
+      // Surface the per-row "TE first-down bonus is estimated"
+      // flag (set by the backend when the contract lacks
+      // rule_contributions_detail.bonus_fd_te) as an inline note so
+      // the operator sees per-player precision, not just the global
+      // warning banner.
+      const notes = [...(r.notes || [])];
+      if (s.te_fd_estimated) {
+        notes.push("TE 1D bonus estimated from first_downs aggregate");
+      }
       return {
         player_id: p.player_id,
         display_name: p.display_name,
@@ -224,6 +233,7 @@ export default function TEPremiumLabPage() {
         market_boost_pct: b.boost_pct ?? null,
         market_reliable: b.reliable ?? null,
         scoring_swing_ppg: s.scoring_swing_ppg ?? null,
+        te_fd_estimated: s.te_fd_estimated ?? false,
         ppg_baseline: p.ppg_baseline,
         ppg_league: p.ppg_league,
         rep_one_te: sc.replacement_one_te_ppg ?? null,
@@ -235,7 +245,7 @@ export default function TEPremiumLabPage() {
         recommended_value: r.recommended_value ?? null,
         confidence: r.confidence ?? null,
         tier: r.tier ?? p.tier?.tier_label ?? "—",
-        notes: r.notes || [],
+        notes,
       };
     });
   }, [analysis]);
