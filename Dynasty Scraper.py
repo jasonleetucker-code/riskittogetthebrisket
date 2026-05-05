@@ -709,7 +709,7 @@ _KTC_BLOCKER: str | None = None
 
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
-KTC_CROWD_ALLOWED_TEP_LEVELS = {2}  # TE++ only
+KTC_CROWD_ALLOWED_TEP_LEVELS = {1, 2}  # accept TE+ and TE++ league signal — bool-only TEP settings normalize to level 1 even for genuinely-TE++ leagues, so restricting to {2} drops valid samples.  Rankings URL is fetched at TE++ exclusively.
 
 
 def compute_max(name_map):
