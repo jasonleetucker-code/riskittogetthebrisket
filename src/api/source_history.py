@@ -83,6 +83,37 @@ _SCOPE_TO_ASSET_CLASSES: dict[str, frozenset[str]] = {
     "position_idp": frozenset({"idp"}),
 }
 
+# Sources whose scrape data is still loaded into the contract (for the
+# trade-page arbitrage finder + per-source winner row) but should not
+# appear in the per-player value-history chart, because a canonical
+# replacement source covers the same signal and emitting both
+# double-counts.
+#
+#   ``ktc`` (standard KTC SuperFlex) was retired from the blend
+#   2026-04-28 in favour of ``ktcSfTep`` (KTC SF + TE++).  Its raw
+#   value still rides into ``canonicalSiteValues`` as a free side-effect
+#   of the same scrape (one API payload yields both boards) — the
+#   trade-page features depend on that.  But the chart double-shows
+#   "KTC" since both ``ktc`` and ``ktcSfTep`` carry per-player series.
+#
+# Filtered at write-time (new snapshots omit these) AND at read-time
+# (historical snapshots are masked) so the chart deduplicates
+# immediately without a destructive rewrite of the JSONL.
+_RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset({"ktc"})
+
+# Sources whose per-player chart series should record the *raw* scrape
+# value (top-level ``row[key]`` from the contract) rather than the
+# Hill-curve ``valueContribution``.  The contribution scale is uniform
+# across sources for blending; the raw scale is more interpretable
+# when a source publishes its own widely-recognized 0-9999 board.
+#
+#   ``ktcSfTep`` publishes a public 0-9999 dynasty board on
+#   keeptradecut.com — users compare popup values to the website
+#   directly.  Recording the contribution (e.g. 9999 for a player KTC
+#   ranks at 9594) confused users.  This flag pulls the raw value
+#   from ``row['ktcSfTep']`` instead.
+_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcSfTep"})
+
 
 def _allowed_assets_for_source(source_key: str) -> frozenset[str] | None:
     """Return the set of asset classes ``source_key`` is allowed to
@@ -193,9 +224,30 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
         blended_rank_val = None
 
     sources: dict[str, int] = {}
+    # Pre-fill raw scrape values for sources where the published 0-9999
+    # board is the meaningful number to chart (see
+    # ``_RAW_VALUE_PREFERRED_KEYS``).  These take precedence over
+    # ``valueContribution`` from the meta loop below.
+    for key in _RAW_VALUE_PREFERRED_KEYS:
+        raw = row.get(key)
+        try:
+            v = int(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            v = None
+        if v is not None and v > 0:
+            sources[str(key)] = v
+    # ``meta_yielded_any`` tracks whether the contract-builder meta
+    # was populated for *any* source — gates the canonicalSites
+    # fallback below.  Tracking this separately from ``sources``
+    # truthiness preserves the original "meta XOR canonicalSites"
+    # semantics even when raw pre-fill above has already filled in
+    # one or two keys.
+    meta_yielded_any = False
     meta = row.get("sourceRankMeta")
     if isinstance(meta, dict):
         for key, entry in meta.items():
+            if str(key) in sources:
+                continue  # raw-preferred source already filled
             if not isinstance(entry, dict):
                 continue
             contribution = entry.get("valueContribution")
@@ -205,18 +257,29 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
                 v = None
             if v is not None and v > 0:
                 sources[str(key)] = v
+                meta_yielded_any = True
     # Fallback: legacy ``canonicalSiteValues`` (raw per-source values).
     # Not normalized but still useful for pre-contract-builder rows.
-    if not sources:
+    # Fires only when the contract-builder meta produced nothing —
+    # raw pre-fill (Layer 1 above) is allowed to coexist with this
+    # fallback so a partial export with both ``ktcSfTep`` raw and
+    # ``_canonicalSiteValues`` keeps the rest of the legacy keys.
+    if not meta_yielded_any:
         canonical = row.get("canonicalSiteValues") or row.get("_canonicalSiteValues")
         if isinstance(canonical, dict):
             for key, value in canonical.items():
+                if str(key) in sources:
+                    continue
                 try:
                     v = int(value) if value is not None else None
                 except (TypeError, ValueError):
                     v = None
                 if v is not None and v > 0:
                     sources[str(key)] = v
+    # Drop sources that are kept around in the contract but should not
+    # appear in the per-player chart (see ``_RETIRED_FROM_CHART_KEYS``).
+    for key in _RETIRED_FROM_CHART_KEYS:
+        sources.pop(key, None)
 
     # Per-source ranks (1 = best).  ``row.sourceRanks`` is the
     # primary source; falls back to ``effectiveSourceRanks`` (the
@@ -236,6 +299,10 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
     sources, source_ranks = _filter_scope_mismatched(
         asset_class, sources, source_ranks
     )
+    # Same retired-from-chart filter for ranks so legacy ``ktc`` rank
+    # entries don't surface either.
+    for key in _RETIRED_FROM_CHART_KEYS:
+        source_ranks.pop(key, None)
 
     if (
         blended_val is None
@@ -526,6 +593,13 @@ def load_player_history(
             sources_raw if isinstance(sources_raw, dict) else None,
             ranks_raw if isinstance(ranks_raw, dict) else None,
         )
+        # Mask retired-from-chart sources at read time too so historical
+        # snapshots written before the write-time filter landed don't
+        # double-show their canonical replacement (e.g. ``ktc`` next to
+        # ``ktcSfTep``).
+        for key in _RETIRED_FROM_CHART_KEYS:
+            sources.pop(key, None)
+            ranks.pop(key, None)
 
         # If the snapshot is pre-contract-builder (no blended value
         # persisted) derive an approximate blend from the median of
