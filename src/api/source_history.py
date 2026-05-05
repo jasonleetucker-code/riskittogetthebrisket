@@ -228,8 +228,21 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
     # board is the meaningful number to chart (see
     # ``_RAW_VALUE_PREFERRED_KEYS``).  These take precedence over
     # ``valueContribution`` from the meta loop below.
+    #
+    # Two row shapes need to flow through this lookup:
+    #   * playersArray contract rows — backend stamps the raw scrape
+    #     under ``row['rawSourceValues'][key]`` (preferred path; see
+    #     ``src/api/data_contract.py::_derive_player_row``).
+    #   * legacy ``players`` dict rows — raw scrape is at the row's
+    #     top level ``row[key]`` (used by ``backfill_from_exports``
+    #     against pre-contract-builder ``dynasty_data_*.json`` files).
+    raw_source_values = row.get("rawSourceValues")
+    if not isinstance(raw_source_values, dict):
+        raw_source_values = {}
     for key in _RAW_VALUE_PREFERRED_KEYS:
-        raw = row.get(key)
+        raw = raw_source_values.get(key)
+        if raw is None:
+            raw = row.get(key)
         try:
             v = int(raw) if raw is not None else None
         except (TypeError, ValueError):

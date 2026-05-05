@@ -598,6 +598,46 @@ def test_ktc_sftep_uses_raw_top_level_value_over_contribution(path):
     assert hist["sources"]["ktcSfTep"][0]["value"] == 9998
 
 
+def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
+    """Production ``playersArray`` rows from ``_derive_player_row``
+    stamp the raw scrape under ``row['rawSourceValues']['ktcSfTep']``,
+    NOT at the top level.  This is the path the live snapshot writer
+    takes — verify the extractor reads it correctly so today's
+    snapshot reflects KTC.com's published value, not the Hill-curve
+    contribution.
+
+    Regression guard: between PR #395 and the follow-up, the writer
+    was checking top-level ``row['ktcSfTep']`` (a key never set by the
+    contract builder), so live snapshots were silently falling
+    through to the meta loop and recording valueContribution.
+    """
+    # Contract row matches what _derive_player_row actually emits: no
+    # top-level ktcSfTep; raw lives only under rawSourceValues.
+    contract = {
+        "date": "2026-05-05",
+        "playersArray": [
+            {
+                "displayName": "Colston Loveland",
+                "canonicalName": "Colston Loveland",
+                "position": "TE",
+                "assetClass": "offense",
+                "rankDerivedValue": 7527,
+                "canonicalConsensusRank": 23,
+                "canonicalSiteValues": {"ktcSfTep": 8434},  # TEP-corrected
+                "rawSourceValues": {"ktcSfTep": 7334},      # raw scrape
+                "sourceRankMeta": {
+                    "ktcSfTep": {"valueContribution": 7648},  # Hill contribution
+                },
+            }
+        ],
+    }
+    source_history.append_snapshot(contract, date="2026-05-05", path=path)
+    hist = source_history.load_player_history("Colston Loveland", path=path)
+    # The raw scrape (7334) wins — not the contribution (7648) or the
+    # TEP-corrected canonicalSites value (8434).
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 7334
+
+
 def test_ktc_sftep_falls_back_to_contribution_when_raw_missing(path):
     """If a contract row is missing the top-level ``ktcSfTep`` raw
     value (e.g. legacy export, partial scrape), fall back to the
