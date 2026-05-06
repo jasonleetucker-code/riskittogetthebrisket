@@ -12,21 +12,18 @@ export const SETTINGS_DEFAULTS = {
 
   // Value adjustment strengths
   //
-  // tepMultiplier: null means "auto from league" — the backend derives
-  // the TE-premium multiplier from the operator's Sleeper league
-  // ``bonus_rec_te`` scoring setting and applies that value during the
-  // blend.  A standard TEP-1.5 league (bonus_rec_te=0.5) yields 1.15;
-  // a non-TEP league yields 1.0 (a no-op).  When the user drags the
+  // tepMultiplier: null means "use the backend default" — currently
+  // the operator-set non-TEP TE multiplier (1.25), applied to TE
+  // values from sources that don't already bake in a TE-premium board
+  // (DLF, FBG, FP consensus, Flock, etc.).  When the user drags the
   // slider on /settings, this flips from null to a finite number,
   // which ``fetchDynastyData`` then POSTs to the override endpoint as
-  // an explicit override on top of the derived default.  "Reset"
-  // returns it to null so the derived baseline kicks back in.
-  //
-  // Pre-2026-04 this defaulted to 1.15 — which silently applied a TE
-  // boost to every cold-start user regardless of whether their league
-  // even had a TE premium.  Moving the default to null fixes that
-  // mismatch: the board you see reflects your Sleeper league.
-  tepMultiplier: null,               // null = auto from Sleeper bonus_rec_te; 1.0..2.0 = explicit
+  // an explicit override on top of that default.  "Reset" returns it
+  // to null so the default kicks back in.  TEP-native sources (KTC
+  // SfTep, IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) are pinned at
+  // 1.10× backend-side and are not affected by this slider; KTC
+  // standard SF is exempt entirely.
+  tepMultiplier: null,               // null = backend default (1.25); 1.0..1.5 = explicit operator override
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"

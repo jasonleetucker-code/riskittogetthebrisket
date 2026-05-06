@@ -32,6 +32,7 @@ import json
 from src.api.data_contract import (
     _DELTA_PLAYER_FIELDS,
     _RANKING_SOURCES,
+    _TE_BLANKET_NON_NATIVE_MULTIPLIER,
     _TEP_DERIVATION_SLOPE,
     _compute_unified_rankings,
     _derive_tep_multiplier_from_league,
@@ -800,7 +801,7 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
 
     def test_out_of_range_values_clamp(self) -> None:
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 0.5}), 1.0)
-        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 3.0}), 2.0)
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 3.0}), 1.5)
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": -1}), 1.0)
 
     def test_non_numeric_values_return_none(self) -> None:
@@ -902,36 +903,53 @@ class TestTepMultiplierDerivation(unittest.TestCase):
         self.assertAlmostEqual(_TEP_DERIVATION_SLOPE, 0.30)
 
 
-class TestBuildContractTepFixed(unittest.TestCase):
-    """TEP is a fixed 1.15 (2026-04-20 simplification).
+class TestBuildContractTepSlider(unittest.TestCase):
+    """TEP slider is operator-tunable (2026-05-06 repurpose).
 
-    The prior league-derivation / explicit-override / clamp tests
-    exercised a variance knob that no longer exists.  The one
-    invariant we still pin: every contract's summary block shows
-    tepMultiplier = 1.15 and source = "fixed", regardless of
-    league context or caller-supplied value.
+    ``tep_multiplier=None`` → use the hardcoded default
+    (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, currently 1.25), source
+    stamped ``"default"``.  An explicit float (clamped to [1.0, 1.5]
+    by ``normalize_tep_multiplier``) is used verbatim, source stamped
+    ``"override"``.  TEP-native (1.10) and KTC exemption are hardcoded
+    inside ``_compute_unified_rankings`` and not exposed here.
     """
 
-    def test_summary_always_reports_fixed_1_15(self) -> None:
+    def test_summary_default_is_non_tep_constant(self) -> None:
         contract = build_api_data_contract(_fixture_raw_payload())
         rov = contract.get("rankingsOverride") or {}
-        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15)
-        self.assertEqual(rov.get("tepMultiplierSource"), "fixed")
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0),
+            _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "default")
 
-    def test_caller_supplied_tep_is_ignored(self) -> None:
-        """Passing any explicit tep_multiplier is a no-op — the
-        contract still reflects the fixed 1.15 boost.
-        """
-        for v in (1.0, 1.30, 2.0, None):
+    def test_explicit_override_reflected_in_summary(self) -> None:
+        for v in (1.0, 1.10, 1.25, 1.40, 1.5):
             contract = build_api_data_contract(
                 _fixture_raw_payload(), tep_multiplier=v
             )
             rov = contract.get("rankingsOverride") or {}
             self.assertAlmostEqual(
                 float(rov.get("tepMultiplier") or 0),
-                1.15,
-                msg=f"tep_multiplier={v} produced unexpected effective value",
+                v,
+                msg=f"tep_multiplier={v} did not propagate to summary",
             )
+            self.assertEqual(
+                rov.get("tepMultiplierSource"),
+                "override",
+                msg=f"tep_multiplier={v} did not stamp source=override",
+            )
+
+    def test_none_falls_back_to_default(self) -> None:
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=None
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0),
+            _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "default")
 
 
 

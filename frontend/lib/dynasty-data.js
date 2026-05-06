@@ -262,9 +262,11 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: true,
     isRetail: false,
-    // IDPTradeCalc's offense board is a standard SF calculator — no
-    // TE premium baked in.
-    isTepPremium: false,
+    // IDPTradeCalc is scraped with TEP=True (see Dynasty Scraper.py):
+    // raw values come from ``value_sftep`` columns, which already bake
+    // in a TE-premium board.  Treated as TEP-native so it gets the
+    // small 1.10× nudge instead of the full non-TEP boost.
+    isTepPremium: true,
   },
   {
     // DLF Dynasty Superflex rankings — offense expert consensus.

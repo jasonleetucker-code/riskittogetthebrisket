@@ -886,9 +886,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # source's contribution.  See the blend loop in
         # ``_compute_unified_rankings`` for the exact math.
         "is_cross_market": True,
-        # IDPTradeCalc's offense autocomplete is a standard SF board,
-        # not TE-premium.  The frontend TEP boost applies.
-        "is_tep_premium": False,
+        # IDPTradeCalc is scraped with TEP=True (see Dynasty Scraper.py),
+        # pulling ``value_sftep`` rather than the vanilla SF column.
+        # That means the raw values are already a TE-premium board, so
+        # we treat IDPTC like the other TEP-native sources (Yahoo Boone,
+        # FP Fitzmaurice, DN SfTep) — only the small 1.10× nudge toward
+        # the operator's TE++ baseline, never the full non-TEP 1.25×.
+        "is_tep_premium": True,
     },
     {
         # DLF Dynasty Superflex rankings — the offense counterpart of
@@ -1827,8 +1831,9 @@ def normalize_tep_multiplier(raw: Any) -> float | None:
         back to the league-derived default".  ``build_api_data_contract``
         and ``build_rankings_delta_payload`` both treat ``None`` as
         "derive from Sleeper" via :func:`_derive_tep_multiplier_from_league`.
-      * A ``float`` clamped to ``[1.0, 2.0]`` when the key IS present
-        and parses as a finite number.  The clamped value is what the
+      * A ``float`` clamped to ``[1.0, 1.5]`` (matching the slider's
+        UI bounds) when the key IS present and parses as a finite
+        number.  The clamped value is what the
         pipeline applies verbatim (no derivation layered on top).
       * ``None`` when the key is present but unparseable / infinite —
         treated the same as "absent" so a garbled body falls back to
@@ -1850,7 +1855,7 @@ def normalize_tep_multiplier(raw: Any) -> float | None:
                 return None
             if not math.isfinite(v):
                 return None
-            return max(1.0, min(2.0, v))
+            return max(1.0, min(1.5, v))
     return None
 
 
@@ -4619,22 +4624,25 @@ _TEP_DERIVED_CLAMP_MAX = 2.0
 # have no such source so a single module-level constant suffices.
 _TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
 
-# Blanket TE-value multipliers (operator decision 2026-05-06).  Replaces
-# the league-derived ``tep_multiplier`` / ``tep_native_correction`` for
-# TE rows specifically.  KTC is the canonical TE++ retail signal and is
-# left untouched; every other source's TE values are scaled at blend
-# time to align with KTC's TE++ baseline:
+# Blanket TE-value multipliers.  KTC is the canonical TE++ retail signal
+# and is left untouched; every other source's TE values are scaled at
+# blend time to align with KTC's TE++ baseline:
 #
-#   * TEP-native sources (DN SfTep, Yahoo Boone, FP Fitzmaurice) — the
-#     source already publishes some TEP boost, so a small additional
-#     ``1.10×`` brings them up toward our league's TE++ scoring.
+#   * TEP-native sources (KTC SfTep, IDPTC, DN SfTep, Yahoo Boone, FP
+#     Fitzmaurice) — the source already publishes a TE-premium board,
+#     so a small additional ``1.10×`` brings them up toward our league's
+#     TE++ scoring.  This factor is hardcoded.
 #   * Non-TEP sources (DLF, FBG, FP consensus, Flock, etc.) — no TEP
-#     bake at all, so they need the full ``1.25×`` boost.
+#     bake at all, so they need a larger boost.  The factor defaults
+#     to ``1.25×`` but is operator-tunable from ``/settings`` via the
+#     "TE Premium" slider; the slider value flows through
+#     ``tep_multiplier`` on POST /api/rankings/overrides and overrides
+#     the default for the duration of that request.
 #
-# Operator's instruction was "leave KTC alone" — both ``ktc`` (standard
-# SF) and ``ktcSfTep`` (KTC TE++) skip the correction entirely.  ktc
-# is mathematically `is_tep_premium=False` and would normally pick up
-# the 1.25 boost; the exemption set below short-circuits that.
+# KTC is exempt regardless: both ``ktc`` (standard SF) and ``ktcSfTep``
+# (KTC TE++) skip both factors.  ktc is mathematically
+# ``is_tep_premium=False`` and would normally pick up the non-TEP
+# multiplier; the exemption set below short-circuits that.
 _TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.25
 _TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
 _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
@@ -5099,7 +5107,7 @@ def _compute_unified_rankings(
     csv_index: dict[str, dict[str, dict[str, Any]]] | None = None,
     *,
     source_overrides: dict[str, dict[str, Any]] | None = None,
-    tep_multiplier: float = 1.0,
+    tep_multiplier: float | None = None,
     tep_native_correction: float = 1.0,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
@@ -5217,16 +5225,19 @@ def _compute_unified_rankings(
     def _percentile_denom_for_source(src_def: dict, source_key: str) -> int:
         return _PERCENTILE_REFERENCE_N
 
-    # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
-    # a generous upper bound (the slider UI caps at 1.5 today).  The
-    # TEP (2026-04-20, simplified): one fixed 15% boost on TE rows
-    # for non-TEP-native sources.  TEP-native sources pass through
-    # unchanged (no correction factor).  The ``tep_multiplier``
-    # parameter is accepted for API compat but ignored — derivation
-    # from league, slider, and clamp all retired per user directive.
-    _ = tep_multiplier  # acknowledged-unused, kept for backwards-compat
+    # Resolve the non-TEP-source TE multiplier.  ``None`` means the
+    # caller did not supply a slider override, so use the operator's
+    # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25).  An
+    # explicit float comes from the ``/settings`` "TE Premium" slider
+    # via :func:`normalize_tep_multiplier`, which clamps to [1.0, 1.5].
+    # The TEP-native (1.10) factor and KTC exemption are hardcoded —
+    # only the non-TEP boost is operator-tunable.
     _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
-    tep_multiplier_effective = 1.15
+    effective_non_tep_multiplier: float = (
+        float(tep_multiplier)
+        if tep_multiplier is not None
+        else _TE_BLANKET_NON_NATIVE_MULTIPLIER
+    )
 
     # Build the active source list honoring user-supplied overrides.
     # This is the only place ranks + weights are gated, so downstream
@@ -5802,10 +5813,6 @@ def _compute_unified_rankings(
         row_is_pick = (
             players_array[row_idx].get("assetClass") == "pick"
         )
-        apply_tep = row_is_te and tep_multiplier_effective > 1.0
-        apply_tep_native_correction = (
-            row_is_te and abs(tep_native_correction - 1.0) > 1e-6
-        )
 
         # Framework step 2–3: for each source, compute
         # percentile-to-value using the source's scope-appropriate
@@ -5880,10 +5887,11 @@ def _compute_unified_rankings(
                 )
             tep_applied = False
             tep_native_corrected = False
-            # Blanket TE-value multipliers (see
-            # ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` / ``..._NATIVE_...``).
-            # Replaces the legacy league-derived ``tep_multiplier`` /
-            # ``tep_native_correction`` for TE rows.  KTC is exempt
+            # Blanket TE-value multipliers (see the constants block
+            # near ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``).  Non-TEP
+            # sources scale by ``effective_non_tep_multiplier`` (the
+            # operator's slider value, default 1.25).  TEP-native
+            # sources scale by the hardcoded 1.10×.  KTC is exempt
             # because its TE++ board is already the canonical reference
             # we're aligning everyone else to.
             if (
@@ -5891,7 +5899,7 @@ def _compute_unified_rankings(
                 and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS
             ):
                 if source_key in tep_boosted_source_keys:
-                    value *= _TE_BLANKET_NON_NATIVE_MULTIPLIER
+                    value *= effective_non_tep_multiplier
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
                     value *= _TE_BLANKET_NATIVE_MULTIPLIER
@@ -5918,7 +5926,7 @@ def _compute_unified_rankings(
             meta["isAnchor"] = bool(source_key in cross_market_keys)
             if tep_applied:
                 meta["tepBoostApplied"] = True
-                meta["tepMultiplier"] = round(_TE_BLANKET_NON_NATIVE_MULTIPLIER, 4)
+                meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)
             if tep_native_corrected:
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(_TE_BLANKET_NATIVE_MULTIPLIER, 4)
@@ -7083,21 +7091,28 @@ def build_api_data_contract(
     this to ``True`` so overrides round-trips don't pay for output
     blocks the wire shape drops.
     """
-    # TEP (2026-04-20, simplified): TE rows get a fixed 1.15× boost
-    # from non-TEP-native sources.  No league derivation, no slider,
-    # no TEP-native correction.  The ``tep_multiplier`` parameter is
-    # accepted for API compat but ignored.
-    _ = tep_multiplier  # intentionally ignored
-    tep_multiplier_derived = 1.15
-    tep_multiplier_effective = 1.15
-    tep_multiplier_source = "fixed"
+    # TEP slider repurposed (2026-05-06): ``tep_multiplier`` is the
+    # operator-tunable boost applied to non-TEP-native source TE
+    # contributions.  ``None`` → use the default
+    # (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25); a finite float
+    # (clamped to [1.0, 1.5] by ``normalize_tep_multiplier``) → use
+    # the operator's slider value verbatim.  The TEP-native (1.10)
+    # correction and KTC exemption are hardcoded; only this
+    # non-TEP boost is operator-tunable.
+    if tep_multiplier is None:
+        tep_multiplier_effective = _TE_BLANKET_NON_NATIVE_MULTIPLIER
+        tep_multiplier_source = "default"
+    else:
+        tep_multiplier_effective = float(tep_multiplier)
+        tep_multiplier_source = "override"
+    tep_multiplier_derived = _TE_BLANKET_NON_NATIVE_MULTIPLIER
     # League context still resolved for other uses (roster count,
-    # logging); TEP derivation is a stable constant now.
+    # logging); TEP derivation no longer drives the multiplier.
     league_context = _resolve_league_context()
 
-    # TEP-native correction retired (2026-04-20): tep_multiplier is
-    # now a fixed 1.15, and TEP-native sources pass through unchanged.
-    # The correction factor is the identity (1.0) from here on.
+    # TEP-native correction retired: TEP-native sources are hardcoded
+    # at 1.10× inside ``_compute_unified_rankings``; this field is
+    # the identity (1.0) at this layer.
     tep_native_correction = 1.0
 
     # Two-level copy of raw_payload: shallow at the top, one-deep for
