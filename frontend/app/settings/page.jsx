@@ -219,12 +219,14 @@ export default function SettingsPage() {
           <input
             type="number"
             min={1.0}
-            max={2.0}
+            max={1.5}
             step={0.01}
             value={tepSliderValue}
             onChange={(e) => {
               const n = parseFloat(e.target.value);
-              if (Number.isFinite(n)) update("tepMultiplier", n);
+              if (Number.isFinite(n)) {
+                update("tepMultiplier", Math.max(1.0, Math.min(1.5, n)));
+              }
             }}
             style={{
               width: 90,
