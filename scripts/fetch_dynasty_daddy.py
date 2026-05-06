@@ -58,13 +58,22 @@ except ImportError:  # pragma: no cover
 
 
 DD_URL = "https://dynasty-daddy.com/api/v1/player/all/today?market=14"
+# Sister endpoint: market=15 is Dynasty Daddy's non-TEP variant of the
+# same SF dynasty board.  Empirically (probed 2026-05-06): a top TE
+# like Brock Bowers comes back at sf_trade_value=8142 from market=14
+# (TEP-tuned) and 6109 from market=15 (non-TEP).  The TE Premium Lab
+# pairs these two markets to compute Dynasty Daddy's TEP boost
+# per-player.  Read by ``src/research/te_premium.py::_SOURCE_PAIRS``.
+DD_URL_BASE = "https://dynasty-daddy.com/api/v1/player/all/today?market=15"
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "dynastyDaddySf.csv"
+DEFAULT_BASE_DST = REPO_ROOT / "CSVs" / "site_raw" / "dynastyDaddySfBase.csv"
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyDaddySf.csv"
+DATA_DIR_BASE_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyDaddySfBase.csv"
 
 # Minimum row count.  The Dynasty Daddy API currently carries ~641
 # players across all positions; after filtering to offense-only with
@@ -166,6 +175,16 @@ def main(argv: list[str] | None = None) -> int:
         help="CSV path to write (default: CSVs/site_raw/dynastyDaddySf.csv).",
     )
     parser.add_argument(
+        "--dest-base",
+        type=Path,
+        default=DEFAULT_BASE_DST,
+        help=(
+            "Sister CSV for the non-TEP market=15 variant "
+            "(default: CSVs/site_raw/dynastyDaddySfBase.csv).  Powers "
+            "the TE Premium Lab's per-source boost comparison."
+        ),
+    )
+    parser.add_argument(
         "--mirror-data-dir",
         action="store_true",
         help="Also mirror to data/exports/latest/site_raw/.",
@@ -242,6 +261,44 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(
                 f"[fetch_dynasty_daddy] mirror failed: {exc}",
+                file=sys.stderr,
+            )
+
+    # Sister non-TEP fetch (market=15).  Soft-fail: if the base fetch
+    # falls over, the primary TEP CSV is still written successfully.
+    if not args.from_file:
+        try:
+            base_data = _fetch_json(DD_URL_BASE)
+            base_rows = _parse_players(base_data)
+            if base_rows and len(base_rows) >= _DD_ROW_COUNT_FLOOR:
+                _write_csv(args.dest_base, base_rows)
+                print(
+                    f"[fetch_dynasty_daddy] wrote {len(base_rows)} non-TEP "
+                    f"rows -> {args.dest_base}"
+                )
+                if args.mirror_data_dir:
+                    try:
+                        _write_csv(DATA_DIR_BASE_DST, base_rows)
+                        print(
+                            f"[fetch_dynasty_daddy] mirrored non-TEP -> "
+                            f"{DATA_DIR_BASE_DST}"
+                        )
+                    except Exception as exc:
+                        print(
+                            f"[fetch_dynasty_daddy] base mirror failed: {exc}",
+                            file=sys.stderr,
+                        )
+            else:
+                print(
+                    f"[fetch_dynasty_daddy] non-TEP market=15 returned "
+                    f"{len(base_rows)} rows (floor={_DD_ROW_COUNT_FLOOR}); "
+                    f"skipping base CSV",
+                    file=sys.stderr,
+                )
+        except Exception as exc:
+            print(
+                f"[fetch_dynasty_daddy] non-TEP market=15 fetch failed: {exc}; "
+                f"skipping base CSV (TEP CSV still written)",
                 file=sys.stderr,
             )
 

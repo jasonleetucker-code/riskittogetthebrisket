@@ -4445,12 +4445,19 @@ async def get_te_premium_overview(request: Request):
 
 @app.get("/api/te-premium/source-comparison")
 async def get_te_premium_source_comparison(request: Request):
-    """Per-TE normal-vs-TEP boost from the loaded external boards.
+    """Per-TE normal-vs-TEP boost across every configured external pair.
 
-    Today the only external source we can compare both ways is KTC
-    (``CSVs/site_raw/ktc.csv`` vs ``CSVs/site_raw/ktcSfTep.csv``);
-    sources without a TEP variant are skipped at the module level
-    rather than guessed.
+    Returns the top-N TEs (capped via ``?top_n=`` query param, default
+    24) with each source's normal value, premium value, and percentage
+    boost.  Sources whose CSV pair isn't loaded are surfaced in the
+    ``sources`` meta block with ``available=false`` so the UI can
+    explain "this site is in the registry but the scrape isn't wired
+    yet" instead of silently dropping them.
+
+    Backwards-compat: the legacy KTC-only ``boosts`` array + the
+    ``external_boards`` summary are still emitted alongside the new
+    multi-source ``comparison`` block so the existing Sources-tab UI
+    keeps working until the frontend migrates.
     """
     try:
         league_cfg = _resolve_league_for_request(request)
@@ -4463,22 +4470,54 @@ async def get_te_premium_source_comparison(request: Request):
 
     from src.research import te_premium as _te_premium  # noqa: PLC0415
 
+    # Top-N override via query param.  Clamp to a sane band so a
+    # caller can't request 100,000 and force a giant payload.
+    try:
+        top_n_raw = request.query_params.get("top_n")
+        top_n = int(top_n_raw) if top_n_raw else 24
+    except (TypeError, ValueError):
+        top_n = 24
+    top_n = max(1, min(60, top_n))
+
     te_rows = _te_premium.extract_te_players_from_contract(latest_contract_data)
-    boards = _te_premium.load_external_ktc_boards()
-    boost_rows = _te_premium.compute_external_market_boost(
-        te_rows, boards=boards, source="ktc",
+    pair_data = _te_premium.load_external_source_pairs()
+    comparison = _te_premium.compute_top_te_source_comparison(
+        te_rows, pair_data=pair_data, top_n=top_n,
     )
+
+    # Legacy KTC-only block — derived from the same pair_data so it
+    # can't drift from the multi-source view.  Drop in a future
+    # cleanup once the frontend migrates fully.
+    ktc_pair = next((p for p in pair_data if p["key"] == "ktc"), None)
+    legacy_boosts: list[dict[str, Any]] = []
+    legacy_meta = {
+        "ktc_normal_available": False,
+        "ktc_premium_available": False,
+        "ktc_te_plus_plus_available": False,
+    }
+    if ktc_pair is not None:
+        legacy_meta["ktc_normal_available"] = bool(ktc_pair["normal_available"])
+        legacy_meta["ktc_premium_available"] = bool(ktc_pair["premium_available"])
+        legacy_boosts = [
+            b.__dict__
+            for b in _te_premium.compute_external_market_boost(
+                te_rows,
+                boards={
+                    "normal": ktc_pair["normal"],
+                    "premium": ktc_pair["premium"],
+                },
+                source="ktc",
+            )
+        ]
+
     return JSONResponse(
         content=_te_premium_serialize({
             "leagueKey": league_cfg.key,
             "scoringProfile": league_cfg.scoring_profile,
             "te_count": len(te_rows),
-            "external_boards": {
-                "ktc_normal_available": bool(boards.get("normal_available")),
-                "ktc_premium_available": bool(boards.get("premium_available")),
-                "ktc_te_plus_plus_available": False,
-            },
-            "boosts": [b.__dict__ for b in boost_rows],
+            "external_boards": legacy_meta,
+            "boosts": legacy_boosts,
+            "comparison": comparison,
         })
     )
 

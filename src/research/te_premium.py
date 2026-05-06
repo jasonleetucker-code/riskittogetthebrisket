@@ -93,7 +93,17 @@ from src.scoring.replacement_level import (
 # Below this raw source value, percentage boosts become unstable.
 # Reported as ``None`` + flagged unreliable instead of producing wild
 # multipliers on near-zero bench rows.
+#
+# The absolute floor (200) was tuned against KTC's 0-9999 scale.  For
+# sources on a smaller native scale (e.g. FantasyPros Fitzmaurice runs
+# 0-100, where Brock Bowers is 83), 200 would mark every row
+# unreliable and zero out the aggregate.  ``compute_external_market_boost``
+# now scales this against the board's max value via
+# ``_MIN_VALUE_FLOOR_RATIO`` so the effective floor is ~2% of the
+# source's top number — works on any scale.
 _MIN_VALUE_FLOOR: float = 200.0
+_MIN_VALUE_FLOOR_RATIO: float = 0.02  # 2% of the board's max value
+_MIN_VALUE_FLOOR_ABSOLUTE: float = 5.0  # never go below 5 regardless of scale
 
 # Default repo paths — overridable via kwargs for testing.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -101,6 +111,88 @@ _DEFAULT_KTC_NORMAL_CSV = _REPO_ROOT / "CSVs" / "site_raw" / "ktc.csv"
 _DEFAULT_KTC_TEP_CSV = _REPO_ROOT / "CSVs" / "site_raw" / "ktcSfTep.csv"
 _DEFAULT_LEAGUE_REGISTRY = _REPO_ROOT / "config" / "leagues" / "registry.json"
 _DEFAULT_SANDBOX_DIR = _REPO_ROOT / "data" / "sandbox" / "te_premium"
+
+# Top-N TE comparison cap — the user-facing comparison view focuses on
+# starter-tier TEs.  Beyond ~24 the per-source signal becomes thin
+# (most boards stop publishing values past the top 20-30 TEs) and
+# the percentage gaps blow up against tiny denominators.
+_DEFAULT_TOP_N_TES_FOR_COMPARISON: int = 24
+
+# Source-pair config for the multi-source TE Premium comparison.
+# Each entry pairs a non-TEP CSV path against its TEP counterpart,
+# tagged with whether the source publishes values directly or only
+# rankings.
+#
+#   ``mode='value'`` — both CSVs carry 0-9999 numeric values from the
+#   source's published board.  Comparison is value-vs-value.
+#
+#   ``mode='rank'`` — both CSVs carry rank-only data; the comparison
+#   converts each rank to a Hill-curve value (via
+#   ``src.canonical.player_valuation.rank_to_value``) and reports the
+#   delta on the unified scale.  The frontend annotates these rows so
+#   the operator knows the % is our curve's interpretation, not the
+#   source's own valuation.
+#
+# Sources whose pair isn't yet scraped are included with ``available``
+# resolved at runtime — when either CSV is absent the loader marks
+# the pair unavailable and the API skips it cleanly.  Add a new
+# pair by appending here + ensuring the scraper writes both CSVs.
+_SOURCE_PAIRS: tuple[dict[str, Any], ...] = (
+    {
+        "key": "ktc",
+        "label": "KeepTradeCut",
+        "mode": "value",
+        "normal_csv": "CSVs/site_raw/ktc.csv",
+        "premium_csv": "CSVs/site_raw/ktcSfTep.csv",
+        "premium_label": "TE++",
+        "note": "KTC SF (standard) vs KTC SF + TE++ overlay",
+    },
+    {
+        "key": "dynastyDaddy",
+        "label": "Dynasty Daddy",
+        "mode": "value",
+        "normal_csv": "CSVs/site_raw/dynastyDaddySfBase.csv",
+        "premium_csv": "CSVs/site_raw/dynastyDaddySf.csv",
+        "premium_label": "TEP",
+        "note": "DD market 15 (non-TEP) vs market 14 (TEP-tuned)",
+    },
+    {
+        "key": "dynastyNerds",
+        "label": "Dynasty Nerds",
+        "mode": "value",
+        "normal_csv": "CSVs/site_raw/dynastyNerdsSf.csv",
+        "premium_csv": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+        "premium_label": "TEP",
+        "note": "DN SF (standard) vs DN SF + TEP overlay (same scrape)",
+    },
+    {
+        "key": "fantasyProsFitzmaurice",
+        "label": "FantasyPros Fitzmaurice",
+        "mode": "value",
+        "normal_csv": "CSVs/site_raw/fantasyProsFitzmauriceBase.csv",
+        "premium_csv": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+        "premium_label": "TEP",
+        "note": "Fitz baseline value vs TEP value (same chart)",
+    },
+    {
+        "key": "fantasyProsConsensus",
+        "label": "FantasyPros Consensus",
+        "mode": "rank",
+        "normal_csv": "CSVs/site_raw/fantasyProsSf.csv",
+        "premium_csv": "CSVs/site_raw/fantasyProsSfTep.csv",
+        "premium_label": "TEP",
+        "note": "Consensus dynasty SF rankings — TEP variant scraped separately",
+    },
+    {
+        "key": "flockFantasy",
+        "label": "Flock Fantasy",
+        "mode": "rank",
+        "normal_csv": "CSVs/site_raw/flockFantasySf.csv",
+        "premium_csv": "CSVs/site_raw/flockFantasySfTep.csv",
+        "premium_label": "TEP",
+        "note": "Flock SF rankings — TEP format variant scraped separately",
+    },
+)
 
 # TE tier definitions — combine TE rank + age so "young upside" and
 # "older productive" surface as distinct buckets.  Boundaries are
@@ -211,11 +303,14 @@ class TEPremiumRecommendation:
 
 
 def _read_ktc_csv(path: Path) -> dict[str, float]:
-    """Read a KTC CSV (``name,value`` rows) into a name→value dict.
+    """Read a value-shaped CSV (``name,value`` rows) into a name→value
+    dict.  Column names are matched case-insensitively because the
+    fetchers in ``scripts/`` are inconsistent: KTC's CSV uses lowercase
+    ``name,value``; DynastyNerds' CSV uses ``Name,Rank,Value,...``.
+    Both must round-trip through this loader cleanly.
 
-    The current scrape format is a flat two-column CSV with no
-    position metadata; we filter out picks (anything starting with a
-    year prefix) at the caller and rely on the contract's own TE list
+    Picks (anything starting with a year prefix) are filtered at the
+    caller; the comparison code relies on the contract's own TE list
     for matching.  Missing file → empty dict; the comparison code
     flags the source as unavailable in that case.
     """
@@ -226,11 +321,14 @@ def _read_ktc_csv(path: Path) -> dict[str, float]:
         with path.open("r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                name = (row.get("name") or "").strip()
+                # Case-insensitive lookup — fetchers use a mix of
+                # ``name``/``Name``/``value``/``Value``.
+                lower = {str(k).lower(): v for k, v in row.items() if k is not None}
+                name = (lower.get("name") or "").strip()
                 if not name:
                     continue
                 try:
-                    val = float(row.get("value") or 0)
+                    val = float(lower.get("value") or 0)
                 except (TypeError, ValueError):
                     continue
                 if val <= 0:
@@ -297,6 +395,289 @@ def load_external_ktc_boards(
         "premium_path": str(pp_path),
         "normal_available": bool(normal),
         "premium_available": bool(premium),
+    }
+
+
+def _read_rank_csv(path: Path) -> dict[str, int]:
+    """Read a rankings CSV (``name,rank`` rows or ``name,value``-as-rank
+    rows where the integer value is the rank, not a 0-9999 score) into
+    a name→rank dict.  Column names are matched case-insensitively to
+    handle fetcher inconsistencies (some emit ``name``, others ``Name``).
+
+    Used by ``mode='rank'`` source pairs where the source publishes
+    per-player ordinal rankings; the comparison code converts these to
+    Hill-curve values before computing the boost.  Missing / unparsable
+    rows are silently dropped — the comparison flags missing players
+    individually.
+    """
+    out: dict[str, int] = {}
+    if not path.exists():
+        return out
+    try:
+        with path.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                lower = {str(k).lower(): v for k, v in row.items() if k is not None}
+                name = (lower.get("name") or "").strip()
+                if not name:
+                    continue
+                # Try ``rank`` first, then fall back to ``value`` since
+                # the rank-based fetchers historically emit a ``value``
+                # column where the value IS the rank.
+                raw = lower.get("rank") if lower.get("rank") else lower.get("value")
+                try:
+                    rank = int(float(raw or 0))
+                except (TypeError, ValueError):
+                    continue
+                if rank <= 0:
+                    continue
+                out[_normalize_name_for_match(name)] = rank
+    except (OSError, csv.Error):
+        return {}
+    return out
+
+
+def _ranks_to_values(rank_map: dict[str, int]) -> dict[str, float]:
+    """Translate a rank-only board into Hill-curve values on the
+    project's unified 0-9999 scale via
+    ``src.canonical.player_valuation.rank_to_value``.
+
+    This is the same translator the live blend uses for rank-signal
+    sources, so a "rank N → value V" mapping here matches what
+    ``_compute_unified_rankings`` would derive for the same source.
+    The frontend annotates rank-mode comparisons so users know the
+    delta is our curve's interpretation, not the source's own
+    valuation.
+    """
+    out: dict[str, float] = {}
+    for name, rank in rank_map.items():
+        try:
+            v = float(rank_to_value(int(rank)))
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            out[name] = v
+    return out
+
+
+def load_external_source_pairs(
+    *,
+    repo_root: Path | None = None,
+    pairs: tuple[dict[str, Any], ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Load every configured TEP/non-TEP source pair into name→value maps.
+
+    Returns a list of dicts (one per source) shaped::
+
+        {
+            "key": "ktc",
+            "label": "KeepTradeCut",
+            "mode": "value" | "rank",
+            "premium_label": "TE++",
+            "note": "...",
+            "normal": {normalized_name: value, ...},
+            "premium": {normalized_name: value, ...},
+            "normal_path": "...",
+            "premium_path": "...",
+            "normal_available": bool,
+            "premium_available": bool,
+            "available": bool,           # both sides loaded
+        }
+
+    For ``mode='rank'`` pairs the underlying CSVs are rank-only; the
+    loader reads them as ranks and converts to Hill-curve values via
+    ``_ranks_to_values`` so downstream comparison math is uniform
+    across modes.  The mode flag is preserved on the returned dict so
+    callers can annotate the UI accordingly.
+
+    Sources whose CSVs are absent are returned with empty maps and
+    ``available=False`` so the API can skip them cleanly.
+    """
+    root = repo_root or _REPO_ROOT
+    cfgs = pairs if pairs is not None else _SOURCE_PAIRS
+    out: list[dict[str, Any]] = []
+    for cfg in cfgs:
+        n_path = root / cfg["normal_csv"]
+        p_path = root / cfg["premium_csv"]
+        mode = str(cfg.get("mode") or "value").lower()
+        if mode == "rank":
+            normal = _ranks_to_values(_read_rank_csv(n_path))
+            premium = _ranks_to_values(_read_rank_csv(p_path))
+        else:
+            normal = _read_ktc_csv(n_path)
+            premium = _read_ktc_csv(p_path)
+        n_avail = bool(normal)
+        p_avail = bool(premium)
+        out.append(
+            {
+                "key": str(cfg["key"]),
+                "label": str(cfg["label"]),
+                "mode": mode,
+                "premium_label": str(cfg.get("premium_label") or "TEP"),
+                "note": str(cfg.get("note") or ""),
+                "normal": normal,
+                "premium": premium,
+                "normal_path": str(n_path),
+                "premium_path": str(p_path),
+                "normal_available": n_avail,
+                "premium_available": p_avail,
+                "available": n_avail and p_avail,
+            }
+        )
+    return out
+
+
+def compute_top_te_source_comparison(
+    te_rows: list[dict],
+    *,
+    pair_data: list[dict[str, Any]] | None = None,
+    top_n: int = _DEFAULT_TOP_N_TES_FOR_COMPARISON,
+) -> dict[str, Any]:
+    """Build the multi-source TEP/non-TEP comparison for the top-N TEs.
+
+    For each TE in the top-``top_n`` slice (by ``te_pool_rank``), pull
+    every available source's normal + premium values and compute the
+    per-source % boost.  Aggregate by source for a per-source mean
+    boost across the top-N as the headline number.
+
+    Returns::
+
+        {
+            "top_n": 24,
+            "te_count": <num TEs evaluated, capped to top_n>,
+            "sources": [{key, label, mode, available, ...}, ...],
+            "rows": [
+                {
+                    "player_id": "...",
+                    "display_name": "...",
+                    "te_pool_rank": 1,
+                    "current_value": 9999.0,
+                    "by_source": {
+                        "ktc": {"normal": 7932, "premium": 9594, "boost_pct": 0.21, ...},
+                        "dynastyDaddy": {...},
+                        ...
+                    },
+                },
+                ...
+            ],
+            "source_aggregates": {
+                "ktc": {"avg_boost_pct": 0.18, "median_boost_pct": 0.17, "n": 22, ...},
+                ...
+            },
+        }
+
+    Every numeric output is JSON-safe (plain int/float/None, no
+    dataclasses), so the API endpoint can return it directly.
+    """
+    pairs = pair_data if pair_data is not None else load_external_source_pairs()
+    available_pairs = [p for p in pairs if p.get("available")]
+    sources_meta = [
+        {
+            "key": p["key"],
+            "label": p["label"],
+            "mode": p["mode"],
+            "premium_label": p["premium_label"],
+            "note": p["note"],
+            "available": p["available"],
+            "normal_available": p["normal_available"],
+            "premium_available": p["premium_available"],
+        }
+        for p in pairs
+    ]
+
+    if not te_rows or not available_pairs:
+        return {
+            "top_n": int(top_n),
+            "te_count": 0,
+            "sources": sources_meta,
+            "rows": [],
+            "source_aggregates": {},
+        }
+
+    # ``te_rows`` is already ranked by ``current_value`` desc inside
+    # ``extract_te_players_from_contract``; trust ``te_pool_rank``
+    # but slice defensively.
+    sorted_te = sorted(te_rows, key=lambda r: int(r.get("te_pool_rank") or 9999))
+    top_slice = sorted_te[: max(1, int(top_n))]
+
+    # Collect per-source boost rows once, then bucket by player.
+    by_source_then_player: dict[str, dict[str, dict[str, Any]]] = {}
+    for pair in available_pairs:
+        boosts = compute_external_market_boost(
+            top_slice,
+            boards={
+                "normal": pair["normal"],
+                "premium": pair["premium"],
+            },
+            source=pair["key"],
+        )
+        bucket: dict[str, dict[str, Any]] = {}
+        for b in boosts:
+            bucket[b.player_id] = {
+                "normal": b.normal_value,
+                "premium": b.premium_value,
+                "normal_rank": b.normal_rank,
+                "premium_rank": b.premium_rank,
+                "boost_abs": b.boost_abs,
+                "boost_pct": b.boost_pct,
+                "rank_change": b.rank_change,
+                "log_ratio": b.log_ratio,
+                "reliable": b.reliable,
+                "note": b.note,
+            }
+        by_source_then_player[pair["key"]] = bucket
+
+    rows: list[dict[str, Any]] = []
+    for te in top_slice:
+        pid = str(te.get("player_id") or te.get("display_name") or "")
+        per_source: dict[str, dict[str, Any]] = {}
+        for src_key, bucket in by_source_then_player.items():
+            entry = bucket.get(pid)
+            if entry is not None:
+                per_source[src_key] = entry
+        rows.append(
+            {
+                "player_id": pid,
+                "display_name": str(te.get("display_name") or ""),
+                "team": te.get("team"),
+                "age": te.get("age"),
+                "te_pool_rank": int(te.get("te_pool_rank") or 0),
+                "current_value": te.get("current_value"),
+                "by_source": per_source,
+            }
+        )
+
+    # Per-source aggregates across the top-N (only reliable rows count).
+    aggregates: dict[str, Any] = {}
+    for src_key, bucket in by_source_then_player.items():
+        boosts_pct = [
+            float(v["boost_pct"])
+            for v in bucket.values()
+            if v.get("reliable") and v.get("boost_pct") is not None
+        ]
+        if not boosts_pct:
+            aggregates[src_key] = {
+                "n": 0,
+                "avg_boost_pct": None,
+                "median_boost_pct": None,
+                "min_boost_pct": None,
+                "max_boost_pct": None,
+            }
+            continue
+        aggregates[src_key] = {
+            "n": len(boosts_pct),
+            "avg_boost_pct": sum(boosts_pct) / len(boosts_pct),
+            "median_boost_pct": statistics.median(boosts_pct),
+            "min_boost_pct": min(boosts_pct),
+            "max_boost_pct": max(boosts_pct),
+        }
+
+    return {
+        "top_n": int(top_n),
+        "te_count": len(rows),
+        "sources": sources_meta,
+        "rows": rows,
+        "source_aggregates": aggregates,
     }
 
 
@@ -491,6 +872,22 @@ def compute_external_market_boost(
     if not normal_map or not premium_map:
         return out
 
+    # Source-relative reliability floor.  KTC publishes 0-9999, but
+    # Fitzmaurice publishes 0-100 — using a fixed 200 floor would
+    # flag every Fitz row unreliable and zero out the aggregate.
+    # Scaling against the board's max value (capped against an
+    # absolute minimum) gives a sensible floor on any scale.
+    max_normal = max(normal_map.values()) if normal_map else _MIN_VALUE_FLOOR
+    if max_normal >= _MIN_VALUE_FLOOR / _MIN_VALUE_FLOOR_RATIO:
+        # Boards on the canonical 0-9999 scale (KTC, DD) keep the
+        # legacy 200 floor for backwards compat with existing tests.
+        effective_floor = _MIN_VALUE_FLOOR
+    else:
+        effective_floor = max(
+            _MIN_VALUE_FLOOR_RATIO * float(max_normal),
+            _MIN_VALUE_FLOOR_ABSOLUTE,
+        )
+
     # Pre-compute per-board ranks so we can report rank movement.
     normal_ranked = sorted(normal_map.items(), key=lambda kv: -kv[1])
     premium_ranked = sorted(premium_map.items(), key=lambda kv: -kv[1])
@@ -520,13 +917,13 @@ def compute_external_market_boost(
             reliable = False
         else:
             boost_abs = float(p_val) - float(n_val)
-            denom = max(float(n_val), _MIN_VALUE_FLOOR)
+            denom = max(float(n_val), effective_floor)
             boost_pct = boost_abs / denom
-            if float(n_val) < _MIN_VALUE_FLOOR:
+            if float(n_val) < effective_floor:
                 reliable = False
                 note = (
                     f"normal value {n_val:.0f} below floor "
-                    f"{_MIN_VALUE_FLOOR:.0f}; pct unreliable"
+                    f"{effective_floor:.0f}; pct unreliable"
                 )
             if n_val and p_val and n_val > 0 and p_val > 0:
                 log_ratio = math.log(float(p_val) / float(n_val))
@@ -1413,6 +1810,8 @@ __all__ = [
     "TEScarcityRow",
     "TEPremiumRecommendation",
     "load_external_ktc_boards",
+    "load_external_source_pairs",
+    "compute_top_te_source_comparison",
     "extract_te_players_from_contract",
     "compute_external_market_boost",
     "compute_internal_scoring_effect",

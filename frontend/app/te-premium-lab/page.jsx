@@ -114,15 +114,18 @@ export default function TEPremiumLabPage() {
   });
   const [tableFilter, setTableFilter] = useState("");
 
+  const [sourceComparison, setSourceComparison] = useState(null);
+
   // Fetch overview + initial analysis on mount.  Sequential (not
   // parallel) because the analysis is a superset of overview signal —
   // if overview 503s the analysis would too, and we'd rather show one
-  // clear error than two competing ones.
+  // clear error than two competing ones.  Source-comparison fetched
+  // in parallel (independent endpoint, no scenario knobs).
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [ovRes, anRes] = await Promise.all([
+      const [ovRes, anRes, scRes] = await Promise.all([
         fetch("/api/te-premium/overview", { cache: "no-store" }),
         fetch("/api/te-premium/run-analysis", {
           method: "POST",
@@ -130,6 +133,7 @@ export default function TEPremiumLabPage() {
           body: JSON.stringify(scenario),
           cache: "no-store",
         }),
+        fetch("/api/te-premium/source-comparison?top_n=24", { cache: "no-store" }),
       ]);
       if (!ovRes.ok) {
         const body = await ovRes.json().catch(() => ({}));
@@ -141,6 +145,13 @@ export default function TEPremiumLabPage() {
       }
       setOverview(await ovRes.json());
       setAnalysis(await anRes.json());
+      // Source comparison is non-fatal — the analysis runs even when
+      // every external pair is missing.  Just clear the panel.
+      if (scRes.ok) {
+        setSourceComparison(await scRes.json());
+      } else {
+        setSourceComparison(null);
+      }
     } catch (err) {
       setError(err?.message || "Failed to load TE Premium Lab.");
     } finally {
@@ -384,6 +395,7 @@ export default function TEPremiumLabPage() {
             analysis?.external_boards?.ktc_premium_available &&
             analysis?.external_boards?.ktc_normal_available
           }
+          comparison={sourceComparison?.comparison || null}
         />
       )}
 
@@ -621,17 +633,230 @@ function TierTable({ tierSummary }) {
 
 // ── Sources tab ─────────────────────────────────────────────────────
 
-function SourcesTab({ sources, boostRows, marketAvailable }) {
+// ── Multi-source TE Premium comparison ─────────────────────────────
+//
+// Renders the top-24 TE side-by-side across every available external
+// source pair (KTC, DynastyDaddy, DynastyNerds, FantasyPros
+// Fitzmaurice, etc.).  Each cell shows the per-player TEP boost
+// percentage; hovering surfaces the underlying non-TEP and TEP
+// values.  Footer row shows per-source aggregate (mean across
+// reliable rows) so the operator can compare how aggressive each
+// source is at rewarding TEs in a TEP scoring environment.
+//
+// "Unavailable" sources (CSV pair not loaded) render as a chip in the
+// header explaining what's missing rather than disappearing silently.
+function MultiSourceComparison({ comparison }) {
+  if (!comparison) {
+    return (
+      <div
+        className="muted"
+        style={{ fontSize: 13, padding: 12 }}
+        role="status"
+      >
+        Source comparison unavailable — the backend hasn't loaded any
+        TEP/non-TEP source pairs yet.
+      </div>
+    );
+  }
+  const rows = comparison.rows || [];
+  const sources = comparison.sources || [];
+  const aggregates = comparison.source_aggregates || {};
+  const availableSources = sources.filter((s) => s.available);
+  const unavailableSources = sources.filter((s) => !s.available);
+
+  if (availableSources.length === 0) {
+    return (
+      <div
+        className="muted"
+        style={{ fontSize: 13, padding: 12 }}
+        role="status"
+      >
+        No source pairs available — no fetcher has emitted both a non-TEP
+        and TEP CSV yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="multi-source-comparison" style={{ marginTop: 12 }}>
+      <h3 style={{ marginBottom: 6 }}>
+        TEP vs non-TEP per-source — top {comparison.top_n} TEs
+      </h3>
+      <p className="muted" style={{ fontSize: 12, margin: "0 0 10px 0" }}>
+        Each cell is the source's TEP boost (premium − non-TEP, scaled by
+        non-TEP).  Hover for raw values.  Source aggregates are mean across
+        reliable rows.
+      </p>
+
+      {unavailableSources.length > 0 && (
+        <div
+          className="muted"
+          style={{
+            fontSize: 11,
+            padding: "6px 10px",
+            margin: "0 0 8px 0",
+            borderRadius: 6,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <strong>Configured but unavailable:</strong>{" "}
+          {unavailableSources.map((s, idx) => (
+            <span key={s.key}>
+              {idx > 0 ? " · " : ""}
+              <span title={s.note}>{s.label}</span>
+            </span>
+          ))}
+          .  These sources publish a TEP toggle but their fetchers haven't
+          landed yet — both CSVs need to be on disk for the pair to surface.
+        </div>
+      )}
+
+      <div className="table-wrap" style={{ overflowX: "auto" }}>
+        <table className="data-table" style={{ width: "100%", fontSize: 12 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>TE#</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>Player</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>Team</th>
+              <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Age</th>
+              {availableSources.map((s) => (
+                <th
+                  key={s.key}
+                  style={{
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                    padding: "4px 8px",
+                  }}
+                  title={s.note}
+                >
+                  {s.label}
+                  {s.mode === "rank" && (
+                    <span
+                      className="muted"
+                      style={{ fontSize: 10, marginLeft: 4 }}
+                      title="Rank-only source — % is our Hill-curve interpretation, not the source's own valuation"
+                    >
+                      (rank)
+                    </span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.player_id}>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  {r.te_pool_rank}
+                </td>
+                <td style={{ whiteSpace: "nowrap" }}>{r.display_name}</td>
+                <td className="muted" style={{ whiteSpace: "nowrap" }}>
+                  {r.team || "—"}
+                </td>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  {r.age ?? "—"}
+                </td>
+                {availableSources.map((s) => {
+                  const cell = r.by_source?.[s.key];
+                  if (!cell || cell.boost_pct == null) {
+                    return (
+                      <td
+                        key={s.key}
+                        style={{ textAlign: "right", whiteSpace: "nowrap" }}
+                        className="muted"
+                        title={cell?.note || "no comparison data for this player on this source"}
+                      >
+                        —
+                      </td>
+                    );
+                  }
+                  const tip =
+                    `Non-TEP ${fmtNum(cell.normal, 0)} → ` +
+                    `TEP ${fmtNum(cell.premium, 0)}` +
+                    (cell.normal_rank && cell.premium_rank
+                      ? `  (rank ${cell.normal_rank} → ${cell.premium_rank})`
+                      : "") +
+                    (cell.reliable ? "" : `  ⚠ ${cell.note || "flagged unreliable"}`);
+                  return (
+                    <td
+                      key={s.key}
+                      style={{
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        opacity: cell.reliable ? 1 : 0.55,
+                        fontStyle: cell.reliable ? "normal" : "italic",
+                      }}
+                      title={tip}
+                    >
+                      {fmtSignedPct(cell.boost_pct)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4} style={{ fontWeight: 600, paddingTop: 8 }}>
+                Mean across top-{comparison.top_n}
+              </td>
+              {availableSources.map((s) => {
+                const agg = aggregates[s.key];
+                if (!agg || agg.avg_boost_pct == null) {
+                  return (
+                    <td
+                      key={s.key}
+                      className="muted"
+                      style={{ textAlign: "right", paddingTop: 8 }}
+                    >
+                      —
+                    </td>
+                  );
+                }
+                return (
+                  <td
+                    key={s.key}
+                    style={{
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                      fontWeight: 600,
+                      paddingTop: 8,
+                    }}
+                    title={
+                      `n=${agg.n} reliable rows  ·  ` +
+                      `min ${fmtSignedPct(agg.min_boost_pct)}  ·  ` +
+                      `median ${fmtSignedPct(agg.median_boost_pct)}  ·  ` +
+                      `max ${fmtSignedPct(agg.max_boost_pct)}`
+                    }
+                  >
+                    {fmtSignedPct(agg.avg_boost_pct)}
+                  </td>
+                );
+              })}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+function SourcesTab({ sources, boostRows, marketAvailable, comparison }) {
   const reliable = (boostRows || []).filter((b) => b.reliable);
   const unreliable = (boostRows || []).filter((b) => !b.reliable);
   return (
     <div className="sources-tab">
       <p className="muted" style={{ fontSize: 13 }}>
-        For every external source that exposes both a normal and a TE-Premium
-        board, we compute per-player percentage boost. Today only KTC ships
-        both boards from the same scrape; other sources show as unavailable
-        and would need a CSV upload or scraper update.
+        For every external source that exposes both a non-TEP and a TE-Premium
+        board, we compute per-player percentage boost across the top-24 TE
+        slice.  Sources that only publish ranks (no values) get rank→value
+        translated through our Hill curve so the % is comparable to the
+        value-based sources; rank-mode rows are annotated.
       </p>
+
+      <MultiSourceComparison comparison={comparison} />
 
       {!marketAvailable && (
         <div
@@ -651,7 +876,7 @@ function SourcesTab({ sources, boostRows, marketAvailable }) {
         </div>
       )}
 
-      <h3>KTC normal vs KTC TE+ — reliable rows</h3>
+      <h3 style={{ marginTop: 24 }}>KTC normal vs KTC TE+ — reliable rows</h3>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
           <thead>

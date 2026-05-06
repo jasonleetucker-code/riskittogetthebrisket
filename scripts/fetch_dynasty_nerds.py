@@ -61,8 +61,14 @@ UA = (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Authoritative CSV location — read by src/api/data_contract.py
 DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
+# Sister CSV: the non-TEP SFLEX board.  Same scrape carries it as a
+# parallel array in DR_DATA — emitting both lets the TE Premium Lab
+# compare DN's TEP boost per-player without a second HTTP fetch.
+# Read by ``src/research/te_premium.py::_SOURCE_PAIRS``.
+DEFAULT_BASE_DST = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSf.csv"
 # Mirror location — populated by the legacy scraper pipeline
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep.csv"
+DATA_DIR_BASE_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyNerdsSf.csv"
 
 # Minimum row count.  DN SFLEXTEP currently publishes ~294 rows; the
 # row-count floor in src/api/data_contract.py demands ≥230.  Fail hard
@@ -123,6 +129,10 @@ def _extract_dr_data(html: str) -> dict:
             "DR_DATA shape changed: missing SFLEXTEP key "
             f"(available keys: {sorted(parsed.keys())[:10]})"
         )
+    # ``SFLEX`` (non-TEP) is also expected; the TE Premium Lab pairs
+    # the two boards.  Missing the SFLEX key is a softer regression
+    # than missing SFLEXTEP — we still write the TEP CSV but skip the
+    # base CSV with a warning rather than failing the whole scrape.
     return parsed
 
 
@@ -182,6 +192,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=DEFAULT_DST,
         help="CSV path to write (default: CSVs/site_raw/dynastyNerdsSfTep.csv).",
+    )
+    parser.add_argument(
+        "--dest-base",
+        type=Path,
+        default=DEFAULT_BASE_DST,
+        help=(
+            "Sister CSV path for the non-TEP SFLEX board "
+            "(default: CSVs/site_raw/dynastyNerdsSf.csv).  Powers the "
+            "TE Premium Lab's per-source boost comparison."
+        ),
     )
     parser.add_argument(
         "--mirror-data-dir",
@@ -249,6 +269,46 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[fetch_dynasty_nerds] mirrored -> {DATA_DIR_DST}")
         except Exception as exc:
             print(f"[fetch_dynasty_nerds] mirror failed: {exc}", file=sys.stderr)
+
+    # Sister non-TEP CSV.  Same scrape, different array — soft-fail if
+    # ``SFLEX`` is absent so the primary TEP path still ships clean.
+    if "SFLEX" in data:
+        try:
+            base_rows = _build_rows(data, "SFLEX")
+            if base_rows:
+                _write_csv(args.dest_base, base_rows)
+                print(
+                    f"[fetch_dynasty_nerds] wrote {len(base_rows)} non-TEP rows "
+                    f"-> {args.dest_base}"
+                )
+                if args.mirror_data_dir:
+                    try:
+                        _write_csv(DATA_DIR_BASE_DST, base_rows)
+                        print(
+                            f"[fetch_dynasty_nerds] mirrored non-TEP -> "
+                            f"{DATA_DIR_BASE_DST}"
+                        )
+                    except Exception as exc:
+                        print(
+                            f"[fetch_dynasty_nerds] base mirror failed: {exc}",
+                            file=sys.stderr,
+                        )
+            else:
+                print(
+                    "[fetch_dynasty_nerds] SFLEX array empty — skipping base CSV",
+                    file=sys.stderr,
+                )
+        except Exception as exc:
+            print(
+                f"[fetch_dynasty_nerds] base parse failed: {exc}",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            "[fetch_dynasty_nerds] SFLEX key absent — skipping non-TEP CSV "
+            "(TEP CSV still written)",
+            file=sys.stderr,
+        )
 
     return 0
 
