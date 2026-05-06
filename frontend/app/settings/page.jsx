@@ -108,31 +108,23 @@ export default function SettingsPage() {
     reset();
   }
 
-  // Derived TE-premium multiplier from the backend.  Comes from
-  // ``rankingsOverride.tepMultiplierDerived`` which the backend
-  // stamps on every /api/data + override response.  The number is
-  // computed from the operator's Sleeper league ``bonus_rec_te``
-  // (0.0 → 1.0, 0.5 → 1.15, 1.0 → 1.30, ...) and represents the
-  // "auto" baseline the slider shows when the user has not
-  // explicitly overridden it.
-  const tepDerivedFromLeague = (() => {
+  // TE Premium slider value.  The backend stamps the operator's
+  // current default (``rankingsOverride.tepMultiplierDerived``, which
+  // post-2026-05-06 is just the hardcoded non-TEP default 1.25 and no
+  // longer comes from Sleeper's ``bonus_rec_te``); we use that as the
+  // displayed value when the user has not set an explicit override,
+  // falling back to 1.25 if the field is missing.
+  const tepDefault = (() => {
     const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
-    return Number.isFinite(v) ? v : 1.0;
+    return Number.isFinite(v) ? v : 1.25;
   })();
-  const bonusRecTeFromLeague = (() => {
-    const v = Number(rawData?.rankingsOverride?.bonusRecTe);
-    return Number.isFinite(v) && v >= 0 ? v : 0.0;
-  })();
-  // Effective slider value.  null/undefined in settings → show the
-  // derived value (auto); a finite number → show the user's override.
-  // Coerce any noise (strings, NaN) back to the derived baseline.
   const tepSliderValue = (() => {
     const raw = settings?.tepMultiplier;
-    if (raw === null || raw === undefined) return tepDerivedFromLeague;
+    if (raw === null || raw === undefined) return tepDefault;
     const n = Number(raw);
-    return Number.isFinite(n) ? n : tepDerivedFromLeague;
+    return Number.isFinite(n) ? n : tepDefault;
   })();
-  const tepIsAuto =
+  const tepIsDefault =
     settings?.tepMultiplier === null ||
     settings?.tepMultiplier === undefined;
 
@@ -228,12 +220,12 @@ export default function SettingsPage() {
           min={1.0} max={1.5} step={0.05}
           onChange={(v) => update("tepMultiplier", v)}
           hint={
-            tepIsAuto
-              ? `Auto: ${tepDerivedFromLeague.toFixed(3)}× (Sleeper bonus_rec_te = ${bonusRecTeFromLeague.toFixed(2)})`
-              : `Custom override (auto would be ${tepDerivedFromLeague.toFixed(3)}× from bonus_rec_te = ${bonusRecTeFromLeague.toFixed(2)})`
+            tepIsDefault
+              ? `Default ${tepDefault.toFixed(2)}× — applied to non-TEP sources on TE rows`
+              : `Custom ${Number(tepSliderValue).toFixed(2)}× — non-TEP sources on TE rows`
           }
         />
-        {!tepIsAuto && (
+        {!tepIsDefault && (
           <div style={{ marginTop: 4, marginBottom: 6 }}>
             <button
               type="button"
@@ -247,20 +239,14 @@ export default function SettingsPage() {
               }}
               onClick={() => update("tepMultiplier", null)}
             >
-              Reset to Auto (derive from my Sleeper league)
+              Reset to default ({tepDefault.toFixed(2)}×)
             </button>
           </div>
         )}
         <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
-          By default, this is <strong>derived from your Sleeper league&apos;s{" "}
-          <span style={{ fontFamily: "var(--mono)", fontSize: "0.64rem" }}>
-            bonus_rec_te
-          </span></strong>{" "}
-          scoring setting: 0.0 (standard) → 1.00, 0.5 (TEP-1.5) → 1.15,
-          1.0 (TEP-2.0) → 1.30.  Dragging the slider opts into a manual
-          override on top of that.  Applied on the backend to every TE&apos;s
-          per-source contributions from rankings sources that don&apos;t
-          already bake TE premium into their ranks.  Sources tagged{" "}
+          Multiplier applied to TE values from sources that don&apos;t
+          already publish a TE-premium board (DLF, FBG, FP consensus,
+          Flock, etc.).  Sources tagged{" "}
           <span
             style={{
               fontFamily: "var(--mono)",
@@ -273,10 +259,12 @@ export default function SettingsPage() {
           >
             TEP NATIVE
           </span>{" "}
-          in the Ranking Sources table below pass through unchanged, so there is
-          no double-boost. Changing the slider re-runs the canonical ranking
-          pipeline with the new multiplier, so every page (rankings, trade
-          calculator, edge) sees the same TEP-adjusted values.
+          (KTC SfTep, IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) get
+          a smaller fixed 1.10× nudge instead, since their boards
+          already bake in a TE premium.  KTC standard SF is the
+          reference baseline and passes through unchanged.  Changing
+          the slider re-runs the canonical ranking pipeline so every
+          page (rankings, trade calculator, edge) sees the same values.
         </p>
       </Section>
 
