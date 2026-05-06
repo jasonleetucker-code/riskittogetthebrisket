@@ -792,7 +792,7 @@ def test_load_external_source_pairs_marks_missing_pairs_unavailable(tmp_path):
     by_key = {p["key"]: p for p in pairs}
     assert all(p["available"] is False for p in pairs)
     assert by_key["ktc"]["normal"] == {}
-    assert by_key["dynastyDaddy"]["premium"] == {}
+    assert by_key["dynastyNerds"]["premium"] == {}
 
 
 def test_compute_top_te_source_comparison_aggregates_per_source():

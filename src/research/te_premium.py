@@ -147,15 +147,16 @@ _SOURCE_PAIRS: tuple[dict[str, Any], ...] = (
         "premium_label": "TE++",
         "note": "KTC SF (standard) vs KTC SF + TE++ overlay",
     },
-    {
-        "key": "dynastyDaddy",
-        "label": "Dynasty Daddy",
-        "mode": "value",
-        "normal_csv": "CSVs/site_raw/dynastyDaddySfBase.csv",
-        "premium_csv": "CSVs/site_raw/dynastyDaddySf.csv",
-        "premium_label": "TEP",
-        "note": "DD market 15 (non-TEP) vs market 14 (TEP-tuned)",
-    },
+    # DynastyDaddy intentionally not paired here — see investigation
+    # below.  The ``market=14`` and ``market=15`` endpoints we
+    # initially paired turned out to be different vendor sources
+    # (probably KTC vs FantasyCalc), not a TEP toggle within DD's
+    # own valuation.  Symptoms: top TEs like Mark Andrews and Kyle
+    # Pitts came back *negative* under the "TEP boost" math, and
+    # QB/WR positions — which TEP shouldn't affect at all — also
+    # shifted between markets.  The DD public API doesn't appear to
+    # expose a per-player non-TEP/TEP value pair via this endpoint
+    # family.  Add back here when a real DD TEP signal is identified.
     {
         "key": "dynastyNerds",
         "label": "Dynasty Nerds",
