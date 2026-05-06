@@ -304,7 +304,7 @@ export default function FinderPage() {
                             </span>
                             {(row.team || row.age) && (
                               <span className="muted text-xs" style={{ marginLeft: 6 }}>
-                                {row.team || ""}{row.age ? `, ${row.age}` : ""}
+                                {[row.team, row.age].filter(Boolean).join(" · ")}
                               </span>
                             )}
                             {chips.length > 0 && (
