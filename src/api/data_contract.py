@@ -4619,6 +4619,26 @@ _TEP_DERIVED_CLAMP_MAX = 2.0
 # have no such source so a single module-level constant suffices.
 _TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
 
+# Blanket TE-value multipliers (operator decision 2026-05-06).  Replaces
+# the league-derived ``tep_multiplier`` / ``tep_native_correction`` for
+# TE rows specifically.  KTC is the canonical TE++ retail signal and is
+# left untouched; every other source's TE values are scaled at blend
+# time to align with KTC's TE++ baseline:
+#
+#   * TEP-native sources (DN SfTep, Yahoo Boone, FP Fitzmaurice) — the
+#     source already publishes some TEP boost, so a small additional
+#     ``1.10×`` brings them up toward our league's TE++ scoring.
+#   * Non-TEP sources (DLF, FBG, FP consensus, Flock, etc.) — no TEP
+#     bake at all, so they need the full ``1.25×`` boost.
+#
+# Operator's instruction was "leave KTC alone" — both ``ktc`` (standard
+# SF) and ``ktcSfTep`` (KTC TE++) skip the correction entirely.  ktc
+# is mathematically `is_tep_premium=False` and would normally pick up
+# the 1.25 boost; the exemption set below short-circuits that.
+_TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.25
+_TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
+_TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,
@@ -5860,15 +5880,22 @@ def _compute_unified_rankings(
                 )
             tep_applied = False
             tep_native_corrected = False
-            if apply_tep and source_key in tep_boosted_source_keys:
-                value *= tep_multiplier_effective
-                tep_applied = True
-            elif (
-                apply_tep_native_correction
-                and source_key in tep_native_source_keys
+            # Blanket TE-value multipliers (see
+            # ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` / ``..._NATIVE_...``).
+            # Replaces the legacy league-derived ``tep_multiplier`` /
+            # ``tep_native_correction`` for TE rows.  KTC is exempt
+            # because its TE++ board is already the canonical reference
+            # we're aligning everyone else to.
+            if (
+                row_is_te
+                and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS
             ):
-                value *= tep_native_correction
-                tep_native_corrected = True
+                if source_key in tep_boosted_source_keys:
+                    value *= _TE_BLANKET_NON_NATIVE_MULTIPLIER
+                    tep_applied = True
+                elif source_key in tep_native_source_keys:
+                    value *= _TE_BLANKET_NATIVE_MULTIPLIER
+                    tep_native_corrected = True
             all_values.append(value)
             is_anchor_source = source_key in cross_market_keys
             all_value_pairs.append((source_key, value, is_anchor_source))
@@ -5891,10 +5918,10 @@ def _compute_unified_rankings(
             meta["isAnchor"] = bool(source_key in cross_market_keys)
             if tep_applied:
                 meta["tepBoostApplied"] = True
-                meta["tepMultiplier"] = round(tep_multiplier_effective, 4)
+                meta["tepMultiplier"] = round(_TE_BLANKET_NON_NATIVE_MULTIPLIER, 4)
             if tep_native_corrected:
                 meta["tepNativeCorrectionApplied"] = True
-                meta["tepNativeCorrection"] = round(tep_native_correction, 4)
+                meta["tepNativeCorrection"] = round(_TE_BLANKET_NATIVE_MULTIPLIER, 4)
 
         # ── Per-player Hampel outlier rejection (K=2.75) ──
         # Drop source values that sit more than 2.75 MADs from the

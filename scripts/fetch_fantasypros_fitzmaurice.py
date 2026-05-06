@@ -61,13 +61,6 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 OUT_PATH = REPO / "CSVs" / "site_raw" / "fantasyProsFitzmaurice.csv"
-# Sister CSV: the baseline (non-TEP) variant of the Fitzmaurice chart.
-# Identical to the TEP CSV for QB/RB/WR (Fitzmaurice doesn't publish
-# different non-TEP values for those positions); for TE it picks
-# ``Trade Value``/``Value`` instead of ``TEP Value``.  Read by
-# ``src/research/te_premium.py::_SOURCE_PAIRS`` so the TE Premium Lab
-# can compute Fitzmaurice's TEP boost per-player.
-OUT_PATH_BASE = REPO / "CSVs" / "site_raw" / "fantasyProsFitzmauriceBase.csv"
 
 # Per-position column to use for our Superflex + TE-Premium league.
 # Keys are the position label we stamp onto each row; values are
@@ -78,16 +71,6 @@ _POSITION_VALUE_COLUMNS = {
     "RB": ("Trade Value", "Value"),
     "WR": ("Trade Value", "Value"),
     "TE": ("TEP Value", "TE Premium Value", "Trade Value", "Value"),
-}
-
-# Same chart, baseline (non-TEP) column for TE.  Used for the
-# parallel ``fantasyProsFitzmauriceBase.csv`` output.  QB/RB/WR rows
-# are unchanged — Fitzmaurice only publishes a TEP variant for TE.
-_POSITION_VALUE_COLUMNS_BASE = {
-    "QB": ("SF Value", "Superflex Value", "2QB Value", "Trade Value"),
-    "RB": ("Trade Value", "Value"),
-    "WR": ("Trade Value", "Value"),
-    "TE": ("Trade Value", "Value"),  # explicitly skip TEP Value column
 }
 
 # Datawrapper chart IDs sometimes appear multiple times per article;
@@ -235,28 +218,17 @@ def _fetch_chart_csv(chart_id: str) -> str | None:
     return r.text
 
 
-def _parse_chart_rows(
-    csv_text: str,
-    position: str,
-    *,
-    column_table: dict[str, tuple[str, ...]] | None = None,
-) -> list[dict]:
+def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
     """Parse one Datawrapper TSV and return ``[{name, team, value}]``.
 
     Picks the value column per the per-position priority list.  Rows
     whose value does not parse as a positive number (e.g. FP's
     trailing "All Other <POS>s	1" row with value 1 — a filler bucket
     that should not enter the blend) are dropped.
-
-    ``column_table`` overrides the column-priority dict so the same
-    parser can produce both the TEP and baseline (non-TEP) outputs
-    from the same TSV.  Defaults to the TEP table for backwards
-    compatibility.
     """
     # Datawrapper's CSV is tab-separated despite the .csv extension.
     rdr = csv.DictReader(csv_text.splitlines(), delimiter="\t")
-    table = column_table if column_table is not None else _POSITION_VALUE_COLUMNS
-    col_choices = table.get(position, ("Trade Value",))
+    col_choices = _POSITION_VALUE_COLUMNS.get(position, ("Trade Value",))
     rows_out: list[dict] = []
     for row in rdr:
         name = (row.get("Name") or row.get("name") or "").strip()
@@ -391,7 +363,6 @@ def main() -> int:
             return 1
 
     all_rows: list[dict] = []
-    all_rows_base: list[dict] = []
     for position in ("QB", "RB", "WR", "TE"):
         chart_id = chart_ids.get(position)
         if chart_id is None:
@@ -404,19 +375,9 @@ def main() -> int:
                 file=sys.stderr,
             )
             continue
-        # Two passes over the same TSV: TEP value column for the
-        # primary output, baseline value column for the sister CSV
-        # consumed by the TE Premium Lab.
         rows = _parse_chart_rows(csv_text, position)
-        rows_base = _parse_chart_rows(
-            csv_text, position, column_table=_POSITION_VALUE_COLUMNS_BASE,
-        )
-        print(
-            f"[fitzmaurice] {position} ({chart_id}): "
-            f"parsed {len(rows)} TEP rows, {len(rows_base)} baseline rows"
-        )
+        print(f"[fitzmaurice] {position} ({chart_id}): parsed {len(rows)} rows")
         all_rows.extend(rows)
-        all_rows_base.extend(rows_base)
 
     if not all_rows:
         print("[fitzmaurice] ERROR: no rows extracted from any position",
@@ -452,19 +413,6 @@ def main() -> int:
 
     count = _write_csv(OUT_PATH, all_rows)
     print(f"[fitzmaurice] wrote {count} rows → {OUT_PATH.relative_to(REPO)}")
-
-    if all_rows_base:
-        count_base = _write_csv(OUT_PATH_BASE, all_rows_base)
-        print(
-            f"[fitzmaurice] wrote {count_base} non-TEP rows → "
-            f"{OUT_PATH_BASE.relative_to(REPO)}"
-        )
-    else:
-        print(
-            "[fitzmaurice] no baseline rows extracted — non-TEP CSV "
-            "skipped (TEP CSV still written)",
-            file=sys.stderr,
-        )
     return 0
 
 
