@@ -108,7 +108,7 @@ export default function SettingsPage() {
     reset();
   }
 
-  // TE Premium slider value.  The backend stamps the operator's
+  // TE Premium input value.  The backend stamps the operator's
   // current default (``rankingsOverride.tepMultiplierDerived``, which
   // post-2026-05-06 is just the hardcoded non-TEP default 1.25 and no
   // longer comes from Sleeper's ``bonus_rec_te``); we use that as the
@@ -214,17 +214,33 @@ export default function SettingsPage() {
             <option value="standard">Standard (1QB)</option>
           </select>
         </div>
-        <SliderRow
-          label="TE Premium"
-          value={tepSliderValue}
-          min={1.0} max={1.5} step={0.05}
-          onChange={(v) => update("tepMultiplier", v)}
-          hint={
-            tepIsDefault
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <label style={{ minWidth: 100, fontSize: "0.82rem" }}>TE Premium</label>
+          <input
+            type="number"
+            min={1.0}
+            max={1.5}
+            step={0.01}
+            value={tepSliderValue}
+            onChange={(e) => {
+              const n = parseFloat(e.target.value);
+              if (Number.isFinite(n)) {
+                update("tepMultiplier", Math.max(1.0, Math.min(1.5, n)));
+              }
+            }}
+            style={{
+              width: 90,
+              padding: "4px 8px",
+              fontSize: "0.82rem",
+              fontFamily: "var(--mono)",
+            }}
+          />
+          <span className="muted" style={{ fontSize: "0.66rem" }}>
+            {tepIsDefault
               ? `Default ${tepDefault.toFixed(2)}× — applied to non-TEP sources on TE rows`
-              : `Custom ${Number(tepSliderValue).toFixed(2)}× — non-TEP sources on TE rows`
-          }
-        />
+              : `Custom ${Number(tepSliderValue).toFixed(2)}× — non-TEP sources on TE rows`}
+          </span>
+        </div>
         {!tepIsDefault && (
           <div style={{ marginTop: 4, marginBottom: 6 }}>
             <button
@@ -263,7 +279,7 @@ export default function SettingsPage() {
           a smaller fixed 1.10× nudge instead, since their boards
           already bake in a TE premium.  KTC standard SF is the
           reference baseline and passes through unchanged.  Changing
-          the slider re-runs the canonical ranking pipeline so every
+          the value re-runs the canonical ranking pipeline so every
           page (rankings, trade calculator, edge) sees the same values.
         </p>
       </Section>
@@ -620,7 +636,7 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       {src.isTepPremium && (
                         <span
                           className="badge"
-                          title="This source's raw ranks already bake in TE premium, so the global TE Premium slider does not need to compensate for it."
+                          title="This source's raw ranks already bake in TE premium, so the global TE Premium multiplier does not need to compensate for it."
                           style={{
                             fontSize: "0.58rem",
                             padding: "1px 5px",
