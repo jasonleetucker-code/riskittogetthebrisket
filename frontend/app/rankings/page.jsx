@@ -1319,7 +1319,7 @@ export default function RankingsPage() {
                             </span>
                             {(row.team || row.age) && (
                               <span className="rankings-player-meta">
-                                {row.team || ""}{row.age ? `, ${row.age}` : ""}
+                                {[row.team, row.age].filter(Boolean).join(" · ")}
                               </span>
                             )}
                             <RankChangeGlyph

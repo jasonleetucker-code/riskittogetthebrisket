@@ -112,7 +112,7 @@ function PlayerCell({ row, isRookie, rosteredBy }) {
       <span style={{ fontWeight: 600 }}>{row?.name || "—"}</span>
       {row?.team || row?.age ? (
         <span className="muted text-xs" style={{ marginLeft: 6 }}>
-          {row?.team || ""}{row?.age ? `, ${row.age}` : ""}
+          {[row?.team, row?.age].filter(Boolean).join(" · ")}
         </span>
       ) : null}
       {isRookie ? <RookieBadge /> : null}
