@@ -107,13 +107,24 @@ if [[ -f "${REPO_DIR}/dlf_session.json" ]]; then
 fi
 
 # Stamp last-successful-fetch epoch.  ``Assert DLF freshness`` in
-# scheduled-refresh.yml reads this file's CONTENT (not its mtime,
-# which actions/checkout resets) and red-Xes the workflow when the
-# epoch is more than 24h behind ``date +%s``.
+# scheduled-refresh.yml reads ``dlf_last_success``'s CONTENT (not its
+# mtime, which actions/checkout resets) and red-Xes the workflow when
+# the epoch is more than 24h behind ``date +%s``.
+#
+# We also stamp per-registry-key files (dlfSf / dlfIdp / dlfRookieSf
+# / dlfRookieIdp) so ``server._per_source_freshness`` — which looks
+# up stamps by registry key, not vendor name — finds them.  Without
+# the per-key stamps, the freshness reader falls through to CSV
+# mtime, which freezes on prod's ``git checkout --force`` whenever
+# DLF re-publishes byte-identical content (common for rookie boards
+# in the off-season), tripping false-positive 24h stale alerts.
 mkdir -p data/scrape_state
-date -u +%s > data/scrape_state/dlf_last_success
+NOW_EPOCH="$(date -u +%s)"
+for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  printf '%s\n' "${NOW_EPOCH}" > "data/scrape_state/${key}_last_success"
+done
 
-# Stage only the five paths we own.  No -A/-u, no broad globs - if
+# Stage only the paths we own.  No -A/-u, no broad globs - if
 # anything else in the dedicated clone got modified, ignore it.  Use
 # -f because data/ is gitignored at the repo level - matches the
 # "Commit updated data" step in scheduled-refresh.yml which also
@@ -123,7 +134,11 @@ git add -f -- \
   CSVs/site_raw/dlfIdp.csv \
   CSVs/site_raw/dlfRookieSf.csv \
   CSVs/site_raw/dlfRookieIdp.csv \
-  data/scrape_state/dlf_last_success
+  data/scrape_state/dlf_last_success \
+  data/scrape_state/dlfSf_last_success \
+  data/scrape_state/dlfIdp_last_success \
+  data/scrape_state/dlfRookieSf_last_success \
+  data/scrape_state/dlfRookieIdp_last_success
 
 if git diff --cached --quiet; then
   log "no changes after fetch - exiting clean"

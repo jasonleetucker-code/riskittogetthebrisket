@@ -139,12 +139,31 @@ jobs:
           # rewriting unchanged files, freezing the CSV mtime on the
           # last *content* change rather than the last *fetcher
           # success*.
+          #
+          # ``stamp_keys`` is a colon-separated list so a single
+          # fetcher that produces multiple registry-keyed CSVs (e.g.
+          # ``fetch_footballguys.py`` writes both ``footballGuysSf``
+          # and ``footballGuysIdp``) stamps every registry key its
+          # output feeds.  ``_per_source_freshness`` in server.py
+          # looks up stamps by *registry key*, not vendor name, so a
+          # single ``footballGuys`` stamp left ``footballGuysSf`` /
+          # ``footballGuysIdp`` falling back to CSV mtime — which
+          # freezes whenever Vendor PDFs / rookie consensus stay
+          # byte-identical for >24h.  Legacy vendor stamps stay in
+          # the list for backward compatibility (e.g. the
+          # ``Assert DLF freshness`` step still reads ``dlf_last_success``).
           mkdir -p data/scrape_state
           run_fetcher() {
-            local stamp_key="$1"; shift
+            local stamp_keys="$1"; shift
             local label="$1"; shift
             if "$@" 2>&1; then
-              date -u +%s > "data/scrape_state/${stamp_key}_last_success"
+              local now_epoch
+              now_epoch="$(date -u +%s)"
+              local IFS=':'
+              for key in $stamp_keys; do
+                [[ -z "$key" ]] && continue
+                printf '%s\n' "$now_epoch" > "data/scrape_state/${key}_last_success"
+              done
             else
               echo "::warning title=${label} fetch failed::Non-fatal — continuing with stale CSV"
             fi
@@ -163,25 +182,25 @@ jobs:
           fi
 
           # Fetch Dynasty Daddy SF rankings
-          run_fetcher dynastyDaddy "Dynasty Daddy" python scripts/fetch_dynasty_daddy.py --mirror-data-dir
+          run_fetcher dynastyDaddy:dynastyDaddySf "Dynasty Daddy" python scripts/fetch_dynasty_daddy.py --mirror-data-dir
 
           # Fetch Flock Fantasy SF rankings
-          run_fetcher flockFantasy "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
+          run_fetcher flockFantasy:flockFantasySf "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
 
           # Fetch Flock Fantasy SF ROOKIE rankings (PROSPECTS_SF endpoint)
-          run_fetcher flockFantasyRookies "Flock Fantasy rookies" python scripts/fetch_flock_fantasy_rookies.py --mirror-data-dir
+          run_fetcher flockFantasyRookies:flockFantasySfRookies "Flock Fantasy rookies" python scripts/fetch_flock_fantasy_rookies.py --mirror-data-dir
 
           # Fetch FootballGuys league-synced rankings (offense + IDP)
           # The scraper auto-logs-in via Playwright on session refresh
           # when cached cookies are rejected; non-fatal if the site is
           # unreachable so the rest of the pipeline keeps running.
-          run_fetcher footballGuys "FootballGuys" python scripts/fetch_footballguys.py
+          run_fetcher footballGuys:footballGuysSf:footballGuysIdp "FootballGuys" python scripts/fetch_footballguys.py
 
           # Fetch DraftSharks league-synced rankings (offense + IDP).
           # DS requires Playwright because league scoring is applied
           # client-side by a WebAssembly worker; auto-login is wired
           # into the scraper itself.
-          run_fetcher draftSharks "DraftSharks" python scripts/fetch_draftsharks.py
+          run_fetcher draftSharks:draftSharksIdp "DraftSharks" python scripts/fetch_draftsharks.py
 
           # Fetch DraftSharks rest-of-season rankings (real ROS pages,
           # not the dynasty board).  Reuses the session cookies the

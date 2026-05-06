@@ -289,5 +289,126 @@ class TestSourceStalenessCoverage(unittest.TestCase):
         )
 
 
+# ── G8: every CSV source has a freshness-stamp writer ────────────────────
+class TestSourceFreshnessStampCoverage(unittest.TestCase):
+    """``server._per_source_freshness`` looks up each registered source's
+    freshness via ``data/scrape_state/{registry_key}_last_success`` and
+    only falls back to CSV mtime when the stamp is missing.  On
+    production, ``deploy.sh`` does ``git checkout --force`` which
+    skips rewriting byte-identical files, so CSV mtime freezes on the
+    last *content* change instead of the last *fetcher success* —
+    fine for sources whose content jitters every fetch (KTC values),
+    but a 24h false-positive stale alert for sources whose CSV often
+    repeats verbatim (rookie consensus, FootballGuys monthly PDFs).
+
+    Every registry key in ``_SOURCE_CSV_PATHS`` must therefore either
+    (a) be stamped by the scheduled-refresh workflow or one of the
+    side fetch-and-push scripts, or (b) appear in
+    ``MTIME_RELIABLE_SOURCES`` — the explicit allowlist of sources
+    whose CSV content provably changes every fetch (Dynasty
+    Scraper.py outputs).
+    """
+
+    # Sources written by ``Dynasty Scraper.py`` (no per-source stamp).
+    # Their CSVs include continuously-jittering values from the live KTC
+    # API or KTC-derived feeds, so CSV mtime is a reliable freshness
+    # signal even after ``git checkout --force``.  If a source migrates
+    # off the scraper to its own fetcher, give it a stamp writer and
+    # remove it from this set.
+    MTIME_RELIABLE_SOURCES: set[str] = {
+        "ktc",
+        "ktcSfTep",
+        "idpTradeCalc",
+        "dynastyNerdsSfTep",
+        "fantasyProsSf",
+        "fantasyProsIdp",
+    }
+
+    @staticmethod
+    def _collect_stamp_writers() -> set[str]:
+        """Scan the workflow YAML + deploy scripts for every stamp key
+        that gets written to ``data/scrape_state/{key}_last_success``.
+
+        Three writer patterns are recognised:
+
+        1. ``run_fetcher <stamp_keys> ...`` in scheduled-refresh.yml,
+           where ``stamp_keys`` is a colon-separated list (the helper
+           writes one stamp per key on success).
+        2. ``data/scrape_state/{key}_last_success`` literal paths in
+           shell scripts (``deploy/dlf_fetch_and_push.sh``,
+           ``deploy/idpshow_fetch_and_push.sh``) - matches both
+           ``date ... > data/scrape_state/X_last_success`` and the
+           loop-driven multi-key form.
+        3. ``for key in a b c ...`` loops that emit per-key stamps.
+        """
+        out: set[str] = set()
+        # Pattern 1: workflow run_fetcher invocations.
+        wf_path = REPO_ROOT / ".github" / "workflows" / "scheduled-refresh.yml"
+        if wf_path.exists():
+            wf_text = wf_path.read_text(encoding="utf-8")
+            # ``run_fetcher <stamp_keys> "<label>" python ...``
+            run_fetcher_re = re.compile(
+                r"run_fetcher\s+([A-Za-z0-9_:]+)\s+\"",
+            )
+            for match in run_fetcher_re.findall(wf_text):
+                for key in match.split(":"):
+                    if key:
+                        out.add(key)
+
+        # Pattern 2 + 3: deploy shell scripts (literal paths + for-loops).
+        for script_name in ("dlf_fetch_and_push.sh", "idpshow_fetch_and_push.sh"):
+            script_path = REPO_ROOT / "deploy" / script_name
+            if not script_path.exists():
+                continue
+            text = script_path.read_text(encoding="utf-8")
+            # Literal: data/scrape_state/<key>_last_success
+            for match in re.findall(
+                r"data/scrape_state/([A-Za-z0-9_]+)_last_success",
+                text,
+            ):
+                out.add(match)
+            # ``for key in dlf dlfSf dlfIdp ...`` style loops feeding
+            # the literal pattern above are caught by reading the
+            # iterated tokens explicitly.
+            for match in re.findall(
+                r"for\s+\w+\s+in\s+([A-Za-z0-9_ \t]+);",
+                text,
+            ):
+                for token in match.split():
+                    if token and not token.startswith("$"):
+                        out.add(token)
+        return out
+
+    def test_every_csv_source_has_stamp_writer_or_is_mtime_reliable(self) -> None:
+        from src.api.data_contract import _SOURCE_CSV_PATHS
+
+        stamp_writers = self._collect_stamp_writers()
+        registry_keys = {str(k) for k in _SOURCE_CSV_PATHS}
+
+        missing: list[str] = []
+        for key in sorted(registry_keys):
+            if key in self.MTIME_RELIABLE_SOURCES:
+                continue
+            if key in stamp_writers:
+                continue
+            missing.append(key)
+
+        self.assertEqual(
+            missing,
+            [],
+            "Registry source(s) with no freshness-stamp writer:\n  "
+            + "\n  ".join(missing)
+            + "\n\nThese sources will fall back to CSV mtime in "
+            "server._per_source_freshness, which freezes on prod's "
+            "git checkout --force whenever the vendor re-publishes "
+            "byte-identical content — tripping false-positive 24h "
+            "stale alerts.  Add a stamp writer in "
+            ".github/workflows/scheduled-refresh.yml (run_fetcher "
+            "stamp_keys list) or the relevant deploy/*.sh script, or "
+            "add the key to MTIME_RELIABLE_SOURCES if its CSV content "
+            "provably changes every fetch.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
