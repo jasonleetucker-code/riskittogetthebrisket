@@ -64,6 +64,12 @@ SESSION_PATH = REPO / "draftsharks_session.json"
 ENV_PATH = REPO / ".env"
 OUT_SF = REPO / "CSVs" / "site_raw" / "draftSharksSf.csv"
 OUT_IDP = REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv"
+# Sister CSV: DS public baseline values (no league applied = non-TEP).
+# Powers the TE Premium Lab's per-source TEP boost comparison via
+# ``src/research/te_premium.py::_SOURCE_PAIRS``.  Only written when
+# the ``--capture-baseline`` flag is passed, since the second scrape
+# pass doubles browser time.
+OUT_SF_BASELINE = REPO / "CSVs" / "site_raw" / "draftSharksSfBase.csv"
 
 HOME_URL = "https://www.draftsharks.com/"
 LOGIN_URL = "https://www.draftsharks.com/login"
@@ -299,13 +305,23 @@ _EXTRACT_JS = r"""() => {
 }"""
 
 
-async def _scrape_one(page) -> list[dict]:
-    """Load the DS offense-combined rankings page, activate the
-    league so the WASM worker applies league scoring, scroll to
+async def _scrape_one(page, *, apply_league: bool = True) -> list[dict]:
+    """Load the DS offense-combined rankings page, optionally activate
+    the league so the WASM worker applies league scoring, scroll to
     load the full ~874-row DOM, and return every row (hidden
     included).  Rows carry their cross-universe dsValue and
     DS-assigned ``.rank-index``, which the caller splits into
-    offense / IDP CSVs."""
+    offense / IDP CSVs.
+
+    ``apply_league=True`` (default) — selects the league dropdown and
+    waits for the WASM worker to apply league scoring (TE Premium +
+    IDP boost).  Mahomes ~81 once applied.
+
+    ``apply_league=False`` — skips the dropdown.  Returns DS's
+    "public" baseline values (non-TEP, IDP-light).  Mahomes ~74.
+    Used by the TE Premium Lab to compute DraftSharks' per-TE TEP
+    boost as an additional source pair alongside KTC / DN / Fitz.
+    """
     print(f"[DS] navigating to {RANKINGS_URL}", flush=True)
     await page.goto(RANKINGS_URL, wait_until="domcontentloaded", timeout=45_000)
     # Best-effort modal dismiss.
@@ -326,33 +342,36 @@ async def _scrape_one(page) -> list[dict]:
         # Sentinel string picked up by _scrape() to trigger auto-login.
         raise RuntimeError("unauthenticated_session")
 
-    print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
-    try:
-        await page.select_option(
-            "#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000
-        )
-    except Exception as exc:
-        raise RuntimeError(
-            f"Failed to select league {LEAGUE_ID}: {exc}"
-        )
+    if apply_league:
+        print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
+        try:
+            await page.select_option(
+                "#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to select league {LEAGUE_ID}: {exc}"
+            )
 
-    # Wait for the WASM worker to apply the league scoring.  Mahomes
-    # public value is 74, league-synced ~81 in a TE-premium + IDP-
-    # heavy league; poll until his dsValue crosses 78 so we know the
-    # worker has finished reshuffling.
-    async def _applied() -> bool:
-        val = await page.evaluate(r"""() => {
-            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
-            const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
-            if (!probe) return null;
-            const el = probe.querySelector('[data-attribute="dsValue"]');
-            return el ? parseFloat(el.textContent.trim()) : null;
-        }""")
-        return val is not None and val >= 78
-    for _ in range(30):
-        if await _applied():
-            break
-        await page.wait_for_timeout(1_000)
+        # Wait for the WASM worker to apply the league scoring.
+        # Mahomes public value is 74, league-synced ~81 in a TE-
+        # premium + IDP-heavy league; poll until his dsValue crosses
+        # 78 so we know the worker has finished reshuffling.
+        async def _applied() -> bool:
+            val = await page.evaluate(r"""() => {
+                const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
+                const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
+                if (!probe) return null;
+                const el = probe.querySelector('[data-attribute="dsValue"]');
+                return el ? parseFloat(el.textContent.trim()) : null;
+            }""")
+            return val is not None and val >= 78
+        for _ in range(30):
+            if await _applied():
+                break
+            await page.wait_for_timeout(1_000)
+    else:
+        print("[DS] skipping league apply — capturing public baseline values", flush=True)
 
     print("[DS] scrolling to load all rows …", flush=True)
     last_count = 0
@@ -378,23 +397,33 @@ async def _scrape_one(page) -> list[dict]:
     return rows
 
 
-async def _scrape_with_autologin(context, page) -> list[dict]:
+async def _scrape_with_autologin(
+    context, page, *, apply_league: bool = True,
+) -> list[dict]:
     """Wrapper around ``_scrape_one`` that catches the
     ``unauthenticated_session`` sentinel, runs the browser login
     once, then retries the scrape with the fresh cookies that
     Playwright now holds in-context."""
     try:
-        return await _scrape_one(page)
+        return await _scrape_one(page, apply_league=apply_league)
     except RuntimeError as exc:
         if str(exc) != "unauthenticated_session":
             raise
         await _browser_login(context, page)
         # After login the context already carries the fresh cookies,
         # so re-navigating the URL picks up the authenticated view.
-        return await _scrape_one(page)
+        return await _scrape_one(page, apply_league=apply_league)
 
 
-async def _scrape(*, headless: bool) -> list[dict]:
+async def _scrape(*, headless: bool, capture_baseline: bool = False) -> tuple[list[dict], list[dict] | None]:
+    """Returns ``(league_rows, baseline_rows | None)``.
+
+    When ``capture_baseline=True`` the same browser session runs the
+    scrape twice — once with league applied (TEP values, the live-
+    blend signal) and once without (DS public baseline, used by the
+    TE Premium Lab as a non-TEP comparison).  The second pass reuses
+    the authenticated context so the login flow only runs once.
+    """
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -418,7 +447,19 @@ async def _scrape(*, headless: bool) -> list[dict]:
             if cookies:
                 await context.add_cookies(cookies)
             page = await context.new_page()
-            return await _scrape_with_autologin(context, page)
+            league_rows = await _scrape_with_autologin(
+                context, page, apply_league=True,
+            )
+            baseline_rows: list[dict] | None = None
+            if capture_baseline:
+                # Reuse the same context (already authenticated) for
+                # the second pass; just re-navigate without applying
+                # the league dropdown so we capture DS's public
+                # baseline values.
+                baseline_rows = await _scrape_with_autologin(
+                    context, page, apply_league=False,
+                )
+            return league_rows, baseline_rows
         finally:
             await browser.close()
 
@@ -486,10 +527,22 @@ def main() -> int:
         "--headful", action="store_true",
         help="Launch the browser visibly (useful for debugging).",
     )
+    parser.add_argument(
+        "--capture-baseline", action="store_true",
+        help=(
+            "Also run a second scrape pass without applying the league "
+            "dropdown, capturing DS's public baseline (non-TEP) values "
+            "to ``CSVs/site_raw/draftSharksSfBase.csv``.  Used by the TE "
+            "Premium Lab as a non-TEP comparison against the league-"
+            "applied (TEP) values.  Roughly doubles scrape time."
+        ),
+    )
     args = parser.parse_args()
 
     _load_env_dotfile(ENV_PATH)
-    rows = asyncio.run(_scrape(headless=not args.headful))
+    rows, baseline_rows = asyncio.run(
+        _scrape(headless=not args.headful, capture_baseline=args.capture_baseline)
+    )
 
     if not rows:
         print("[DS] ERROR: no rows extracted", file=sys.stderr)
@@ -579,6 +632,25 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Optional second pass — DS public baseline values (no league
+    # applied).  TE Premium Lab uses this as the non-TEP side of the
+    # DS source pair.
+    if baseline_rows is not None:
+        baseline_written = _write_csv(
+            OUT_SF_BASELINE, baseline_rows, include_families=_OFFENSE_FAMILIES,
+        )
+        print(
+            f"[DS] wrote {OUT_SF_BASELINE} ({baseline_written} non-TEP rows)"
+        )
+        if baseline_written == 0:
+            print(
+                "[DS] WARN: zero baseline rows — the public scrape "
+                "didn't return data; non-TEP comparison will be "
+                "unavailable in the TE Premium Lab.",
+                file=sys.stderr,
+            )
+
     return 0
 
 

@@ -176,6 +176,19 @@ _SOURCE_PAIRS: tuple[dict[str, Any], ...] = (
         "note": "Fitz baseline value vs TEP value (same chart)",
     },
     {
+        "key": "draftSharks",
+        "label": "Draft Sharks",
+        "mode": "value",
+        "normal_csv": "CSVs/site_raw/draftSharksSfBase.csv",
+        "premium_csv": "CSVs/site_raw/draftSharksSf.csv",
+        "premium_label": "TEP",
+        "note": (
+            "DS public baseline (no league applied) vs DS league-synced "
+            "(our TE Premium league).  Run the fetcher with "
+            "``--capture-baseline`` to populate the baseline CSV."
+        ),
+    },
+    {
         "key": "fantasyProsConsensus",
         "label": "FantasyPros Consensus",
         "mode": "rank",
