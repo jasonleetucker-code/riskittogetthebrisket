@@ -500,7 +500,7 @@ function SummaryTab({ summary, scarcity, sources, tierSummary, lineup }) {
     {
       label: "Avg external TE Premium boost",
       value: fmtSignedPct(summary.avg_market_boost_pct),
-      hint: "KTC normal vs KTC TE+ board",
+      hint: "KTC SF (standard) vs KTC SF + TE++",
     },
     {
       label: "Avg internal scoring penalty",
@@ -876,7 +876,7 @@ function SourcesTab({ sources, boostRows, marketAvailable, comparison }) {
         </div>
       )}
 
-      <h3 style={{ marginTop: 24 }}>KTC normal vs KTC TE+ — reliable rows</h3>
+      <h3 style={{ marginTop: 24 }}>KTC SF (standard) vs KTC SF + TE++ — reliable rows</h3>
       <div className="table-wrap" style={{ overflowX: "auto" }}>
         <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
           <thead>
