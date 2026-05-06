@@ -378,11 +378,9 @@ def load_external_ktc_boards(
 
     Both paths default to the canonical scraper outputs at
     ``CSVs/site_raw/ktc.csv`` and ``CSVs/site_raw/ktcSfTep.csv``.
-    The "premium" board is KTC's TE+ Level 1 ("TE Premium") sub-board.
-    KTC's TE++ (Level 2) board is structurally available in the API
-    response but is NOT currently extracted by ``Dynasty Scraper.py``
-    (see ``_KTC_TEP_FIELD_KEYS`` — only level 1 is plucked); when
-    requested it's flagged unavailable.
+    The "premium" board is KTC's TE++ Level 2 sub-board (per #393,
+    2026-05-05 — the file name ``ktcSfTep.csv`` predates the rename
+    and is kept for compatibility with the live data_contract path).
     """
     np_path = Path(normal_path) if normal_path else _DEFAULT_KTC_NORMAL_CSV
     pp_path = Path(premium_path) if premium_path else _DEFAULT_KTC_TEP_CSV
@@ -1555,11 +1553,12 @@ def build_overview(
             "label": "KeepTradeCut",
             "supports_normal": True,
             "supports_te_premium": bool(boards.get("premium_available")),
-            "supports_te_plus_plus": False,
+            "supports_te_plus_plus": bool(boards.get("premium_available")),
             "note": (
-                "KTC ships normal SF + TE+ Level 1 boards from the same scrape. "
-                "TE++ (Level 2) is in the API response but not currently "
-                "extracted by Dynasty Scraper.py — see _KTC_TEP_FIELD_KEYS."
+                "KTC ships SF (standard) + SF+TE++ Level 2 boards from the "
+                "same scrape.  The 'premium' file is named ``ktcSfTep.csv`` "
+                "for backwards compatibility with the live data_contract path "
+                "but contains TE++ values as of #393 (2026-05-05)."
             ),
             "available": bool(boards.get("normal_available") and boards.get("premium_available")),
         },
