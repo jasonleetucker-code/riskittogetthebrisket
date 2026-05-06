@@ -798,8 +798,8 @@ function MultiSourceComparison({ comparison }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4} style={{ fontWeight: 600, paddingTop: 8 }}>
-                Mean across top-{comparison.top_n}
+              <td colSpan={4} style={{ fontWeight: 600, paddingTop: 10 }}>
+                Mean boost across top-{comparison.top_n}
               </td>
               {availableSources.map((s) => {
                 const agg = aggregates[s.key];
@@ -808,7 +808,7 @@ function MultiSourceComparison({ comparison }) {
                     <td
                       key={s.key}
                       className="muted"
-                      style={{ textAlign: "right", paddingTop: 8 }}
+                      style={{ textAlign: "right", paddingTop: 10 }}
                     >
                       —
                     </td>
@@ -821,7 +821,7 @@ function MultiSourceComparison({ comparison }) {
                       textAlign: "right",
                       whiteSpace: "nowrap",
                       fontWeight: 600,
-                      paddingTop: 8,
+                      paddingTop: 10,
                     }}
                     title={
                       `n=${agg.n} reliable rows  ·  ` +
@@ -831,6 +831,48 @@ function MultiSourceComparison({ comparison }) {
                     }
                   >
                     {fmtSignedPct(agg.avg_boost_pct)}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr>
+              <td
+                colSpan={4}
+                className="muted"
+                style={{ fontSize: 11, paddingTop: 4, paddingBottom: 8 }}
+              >
+                Implied TEP multiplier{" "}
+                <span title="Multiply a TE's non-TEP value by this number to approximate their TEP value at this source">
+                  ⓘ
+                </span>
+              </td>
+              {availableSources.map((s) => {
+                const agg = aggregates[s.key];
+                if (!agg || agg.avg_boost_pct == null) {
+                  return (
+                    <td
+                      key={s.key}
+                      className="muted"
+                      style={{ textAlign: "right", paddingTop: 4, paddingBottom: 8 }}
+                    >
+                      —
+                    </td>
+                  );
+                }
+                const mult = 1 + Number(agg.avg_boost_pct);
+                return (
+                  <td
+                    key={s.key}
+                    className="muted"
+                    style={{
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                      fontSize: 11,
+                      paddingTop: 4,
+                      paddingBottom: 8,
+                    }}
+                  >
+                    {mult.toFixed(2)}×
                   </td>
                 );
               })}
