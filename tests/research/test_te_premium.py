@@ -175,12 +175,22 @@ def test_boost_near_zero_flagged_unreliable():
     # name-normaliser doesn't strip it (it strips " te"/" rb"/etc.).
     rows = [_make_te_row("Deep Reserve", composite=400)]
     extracted = tep.extract_te_players_from_contract(_make_contract(rows))
+    # Board max=9999 puts us in the legacy 200-floor branch (the
+    # board is on the canonical KTC-style scale), so a deep-reserve
+    # value of 50 is well below the floor and should be flagged.
+    # Including a top player anchors the board's scale.
     boards = {
-        "normal": {"deep reserve": 50.0},  # below floor 200
-        "premium": {"deep reserve": 250.0},
+        "normal": {
+            "deep reserve": 50.0,        # below floor 200
+            "elite te": 9999.0,           # anchors scale to 0-9999
+        },
+        "premium": {
+            "deep reserve": 250.0,
+            "elite te": 9999.0,
+        },
     }
     boosts = tep.compute_external_market_boost(extracted, boards=boards)
-    b = boosts[0]
+    b = next(b for b in boosts if b.player_id == "deep_reserve")
     assert b.reliable is False
     assert "below floor" in b.note
     # boost_pct uses floor as denominator, never returns infinity
@@ -745,3 +755,183 @@ def test_load_external_ktc_boards_reads_real_files(tmp_path):
     assert boards["premium_available"] is True
     assert boards["normal"]["brock bowers"] == 9000.0
     assert boards["premium"]["sam laporta"] == 8200.0
+
+
+# ── Multi-source comparison ───────────────────────────────────────────
+
+
+def test_load_external_source_pairs_handles_capitalized_columns(tmp_path):
+    """DynastyNerds' fetcher emits ``Name,Rank,Value`` (uppercase
+    headers); the loader must read it case-insensitively to round-trip
+    through the comparison cleanly.
+    """
+    csv_dir = tmp_path / "CSVs" / "site_raw"
+    csv_dir.mkdir(parents=True)
+    (csv_dir / "dynastyNerdsSf.csv").write_text(
+        "Name,Rank,Value,SleeperId,Pos,Team\n"
+        "Brock Bowers,1,8500,11604,TE,LV\n"
+    )
+    (csv_dir / "dynastyNerdsSfTep.csv").write_text(
+        "Name,Rank,Value,SleeperId,Pos,Team\n"
+        "Brock Bowers,1,9700,11604,TE,LV\n"
+    )
+    pairs = tep.load_external_source_pairs(repo_root=tmp_path)
+    dn = next(p for p in pairs if p["key"] == "dynastyNerds")
+    assert dn["available"] is True
+    assert dn["normal"]["brock bowers"] == 8500.0
+    assert dn["premium"]["brock bowers"] == 9700.0
+
+
+def test_load_external_source_pairs_marks_missing_pairs_unavailable(tmp_path):
+    """Pairs whose CSVs aren't on disk surface with ``available=False``
+    so the API can skip them without raising; downstream UI then shows
+    them as "configured but unavailable" instead of dropping them
+    silently.
+    """
+    pairs = tep.load_external_source_pairs(repo_root=tmp_path)
+    by_key = {p["key"]: p for p in pairs}
+    assert all(p["available"] is False for p in pairs)
+    assert by_key["ktc"]["normal"] == {}
+    assert by_key["dynastyDaddy"]["premium"] == {}
+
+
+def test_compute_top_te_source_comparison_aggregates_per_source():
+    """End-to-end: pair_data + te_rows in, comparison out with per-row
+    boost data and per-source aggregates.  Sources with at least one
+    reliable row contribute to the aggregate; missing pairs are
+    surfaced in ``sources`` meta with ``available=False``.
+    """
+    pair_data = [
+        {
+            "key": "ktc",
+            "label": "KeepTradeCut",
+            "mode": "value",
+            "premium_label": "TE++",
+            "note": "test",
+            "normal_path": "ktc.csv",
+            "premium_path": "ktcSfTep.csv",
+            "normal_available": True,
+            "premium_available": True,
+            "available": True,
+            "normal": {
+                "brock bowers": 7800.0,
+                "sam laporta": 6500.0,
+                "tyler warren": 5500.0,
+            },
+            "premium": {
+                "brock bowers": 9500.0,
+                "sam laporta": 8200.0,
+                "tyler warren": 6800.0,
+            },
+        },
+        {
+            "key": "dynastyDaddy",
+            "label": "Dynasty Daddy",
+            "mode": "value",
+            "premium_label": "TEP",
+            "note": "test",
+            "normal_path": "ddBase.csv",
+            "premium_path": "dd.csv",
+            "normal_available": False,
+            "premium_available": False,
+            "available": False,
+            "normal": {},
+            "premium": {},
+        },
+    ]
+    te_rows = [
+        {
+            "player_id": "p1",
+            "display_name": "Brock Bowers",
+            "te_pool_rank": 1,
+            "current_value": 9999,
+            "team": "LV",
+            "age": 23,
+        },
+        {
+            "player_id": "p2",
+            "display_name": "Sam LaPorta",
+            "te_pool_rank": 2,
+            "current_value": 7000,
+            "team": "DET",
+            "age": 25,
+        },
+        {
+            "player_id": "p3",
+            "display_name": "Tyler Warren",
+            "te_pool_rank": 3,
+            "current_value": 6500,
+            "team": "IND",
+            "age": 24,
+        },
+    ]
+    result = tep.compute_top_te_source_comparison(
+        te_rows, pair_data=pair_data, top_n=3,
+    )
+    assert result["te_count"] == 3
+    assert result["top_n"] == 3
+    keys = [s["key"] for s in result["sources"]]
+    assert "ktc" in keys and "dynastyDaddy" in keys
+    dd_meta = next(s for s in result["sources"] if s["key"] == "dynastyDaddy")
+    assert dd_meta["available"] is False
+
+    # KTC ran successfully on all 3 rows.
+    bowers = next(r for r in result["rows"] if r["display_name"] == "Brock Bowers")
+    ktc_cell = bowers["by_source"]["ktc"]
+    assert abs(ktc_cell["boost_pct"] - ((9500 - 7800) / 7800)) < 1e-6
+    assert ktc_cell["normal"] == 7800
+    assert ktc_cell["premium"] == 9500
+
+    # DynastyDaddy is unavailable so by_source has no entry for it.
+    assert "dynastyDaddy" not in bowers["by_source"]
+
+    assert "ktc" in result["source_aggregates"]
+    ktc_agg = result["source_aggregates"]["ktc"]
+    assert ktc_agg["n"] == 3
+    assert ktc_agg["avg_boost_pct"] is not None
+
+
+def test_compute_external_market_boost_floor_scales_for_small_boards():
+    """Fitzmaurice publishes 0-100 — the legacy 200 floor would flag
+    every row unreliable and zero out the aggregate.  The
+    scale-relative floor lets small-scale boards contribute.
+    """
+    boards = {
+        "normal": {"brock bowers": 70, "sam laporta": 44},
+        "premium": {"brock bowers": 83, "sam laporta": 53},
+    }
+    te_rows = [
+        {"player_id": "p1", "display_name": "Brock Bowers"},
+        {"player_id": "p2", "display_name": "Sam LaPorta"},
+    ]
+    boosts = tep.compute_external_market_boost(
+        te_rows, boards=boards, source="fitzmaurice",
+    )
+    assert all(b.reliable for b in boosts)
+    assert all(b.boost_pct is not None and b.boost_pct > 0 for b in boosts)
+
+
+def test_compute_top_te_source_comparison_empty_when_no_pairs_available():
+    """When no pair_data is available the comparison still returns a
+    well-formed payload with empty rows + an empty aggregate; the API
+    + UI should handle this case without errors.
+    """
+    pair_data = [
+        {
+            "key": "ktc", "label": "KTC", "mode": "value",
+            "premium_label": "TE++", "note": "",
+            "normal_path": "", "premium_path": "",
+            "normal_available": False, "premium_available": False,
+            "available": False,
+            "normal": {}, "premium": {},
+        },
+    ]
+    result = tep.compute_top_te_source_comparison(
+        [{"player_id": "p1", "display_name": "Bowers", "te_pool_rank": 1}],
+        pair_data=pair_data, top_n=24,
+    )
+    assert result["rows"] == []
+    assert result["te_count"] == 0
+    assert result["source_aggregates"] == {}
+    # Sources meta still surfaces the unavailable source.
+    assert any(s["key"] == "ktc" for s in result["sources"])

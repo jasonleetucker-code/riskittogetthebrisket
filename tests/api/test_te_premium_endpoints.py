@@ -156,18 +156,44 @@ def test_overview_does_not_mutate_contract(client_with_te_contract):
 
 
 def test_source_comparison_shape(client_with_te_contract, monkeypatch):
-    # Force the boards to be available so the response carries data.
+    # Stub the multi-source loader so the response carries deterministic
+    # KTC data plus a couple of unavailable sources to exercise the
+    # mixed-availability shape the frontend relies on.
+    fake_normal = {f"te player {i}": 9000 - i * 200 for i in range(20)}
+    fake_premium = {f"te player {i}": (9000 - i * 200) * 1.1 for i in range(20)}
     monkeypatch.setattr(
         tep,
-        "load_external_ktc_boards",
-        lambda **_: {
-            "normal": {f"te player {i}": 9000 - i * 200 for i in range(20)},
-            "premium": {f"te player {i}": (9000 - i * 200) * 1.1 for i in range(20)},
-            "normal_path": "test",
-            "premium_path": "test",
-            "normal_available": True,
-            "premium_available": True,
-        },
+        "load_external_source_pairs",
+        lambda **_: [
+            {
+                "key": "ktc",
+                "label": "KeepTradeCut",
+                "mode": "value",
+                "premium_label": "TE++",
+                "note": "test",
+                "normal_path": "test_ktc.csv",
+                "premium_path": "test_ktcSfTep.csv",
+                "normal_available": True,
+                "premium_available": True,
+                "available": True,
+                "normal": fake_normal,
+                "premium": fake_premium,
+            },
+            {
+                "key": "dynastyDaddy",
+                "label": "Dynasty Daddy",
+                "mode": "value",
+                "premium_label": "TEP",
+                "note": "test",
+                "normal_path": "test.csv",
+                "premium_path": "test.csv",
+                "normal_available": False,
+                "premium_available": False,
+                "available": False,
+                "normal": {},
+                "premium": {},
+            },
+        ],
     )
     client, _ = client_with_te_contract
     res = client.get("/api/te-premium/source-comparison")
@@ -175,12 +201,24 @@ def test_source_comparison_shape(client_with_te_contract, monkeypatch):
     body = res.json()
     assert body["sandbox"] is True
     assert body["te_count"] == 20
+    # Legacy KTC-only block (kept for backwards compat).
     assert isinstance(body.get("boosts"), list)
     assert len(body["boosts"]) == 20
-    # Every boost has the documented fields
     for b in body["boosts"]:
         assert {"source", "player_id", "display_name", "normal_value",
                 "premium_value", "boost_pct", "reliable"}.issubset(b.keys())
+    # New multi-source comparison block.
+    comparison = body.get("comparison")
+    assert comparison is not None
+    assert comparison["te_count"] == 20
+    keys = [s["key"] for s in comparison["sources"]]
+    assert "ktc" in keys
+    assert "dynastyDaddy" in keys
+    dd = next(s for s in comparison["sources"] if s["key"] == "dynastyDaddy")
+    assert dd["available"] is False
+    # KTC's per-source aggregate is non-empty.
+    assert "ktc" in comparison["source_aggregates"]
+    assert comparison["source_aggregates"]["ktc"]["n"] > 0
 
 
 def test_source_comparison_does_not_mutate_contract(client_with_te_contract):
