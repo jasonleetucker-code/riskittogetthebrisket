@@ -353,7 +353,6 @@ function MobileTopBar() {
       login: "Login",
       more: "More",
       "draft-capital": "Draft Capital",
-      "te-premium-lab": "TE Premium Lab",
       tools: "Tools",
       admin: "Admin",
     };

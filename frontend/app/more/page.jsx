@@ -38,16 +38,6 @@ const SECTIONS = [
     ],
   },
   {
-    title: "Research",
-    items: [
-      {
-        href: "/te-premium-lab",
-        label: "Tight End Premium Lab",
-        desc: "Sandbox: simulate removing TE Premium scoring + starting two TEs (does not affect live values)",
-      },
-    ],
-  },
-  {
     title: "League",
     items: [
       { href: "/rosters", label: "Roster Dashboard", desc: "Team strength rankings with position breakdowns" },
