@@ -718,6 +718,42 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           </div>
         )}
 
+        {/* Pick value projection — surfaces the package-now-or-wait
+            decision the operator faces on every offseason trade
+            involving forward picks.  ``pickProjectedDraftValue`` is
+            stamped on every valued pick row by the contract builder
+            (``_stamp_pick_value_projections``); we render it only when
+            there's a positive gain to show, i.e. future-year picks.
+            Baseline-year picks have zero gain and would render a
+            no-op line.  Non-pick rows leave these fields undefined. */}
+        {row?.assetClass === "pick"
+          && Number.isFinite(row?.pickProjectedDraftValue)
+          && Number(row?.pickProjectedDraftValueGain) > 0 && (
+            <div style={{
+              marginTop: 10,
+              padding: "6px 10px",
+              borderRadius: 6,
+              background: "rgba(96, 165, 250, 0.08)",
+              border: "1px solid rgba(96, 165, 250, 0.22)",
+            }}>
+              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--text)" }}>
+                📅 Projected at draft
+              </span>
+              <span className="muted" style={{ marginLeft: 8, fontSize: "0.76rem" }}>
+                ~{Number(row.pickProjectedDraftValue).toLocaleString()} by the {row.pickProjectedDraftYear} draft
+                {Number(row.pickProjectedDraftValueGainPct) > 0 && (
+                  <>
+                    {" · "}
+                    <span style={{ color: "var(--green)" }}>
+                      ▲ {row.pickProjectedDraftValueGainPct}%
+                    </span>
+                    {" gain"}
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
         {/* 180-day rank-history mini-chart */}
         <div style={{ marginTop: 14 }}>
           <PlayerRankHistoryChart row={row} />

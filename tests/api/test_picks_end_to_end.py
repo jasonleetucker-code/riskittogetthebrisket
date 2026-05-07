@@ -472,5 +472,128 @@ class TestRepresentativePicks(unittest.TestCase):
         )
 
 
+class TestPickValueProjections(unittest.TestCase):
+    """``pickProjectedDraftValue`` and friends pin the on-draft value
+    estimate for every pick.
+
+    The pick year discount deflates future picks below their on-draft
+    equivalent (a 2027 1st today is 82% of a 2026 1.01 because of one
+    year of uncertainty + opportunity cost).  ``_stamp_pick_value_projections``
+    inverts that discount to project the on-draft value:
+
+        projected = rankDerivedValue / pickYearDiscount
+
+    The frontend reads these stamps to render
+    "projected ~X,XXX at the 2027 draft (▲21%)" annotations on pick
+    rows in the player popup.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _load_contract()
+        if self.contract is None:
+            self.skipTest("No live scraper export available")
+        self.picks = _pick_rows(self.contract)
+        if not self.picks:
+            self.skipTest("No pick rows in the contract")
+
+    def test_every_pick_carries_projection_stamps(self) -> None:
+        """Every pick row with a positive ``rankDerivedValue`` carries
+        all four projection fields.  A pick whose ``rankDerivedValue``
+        is zero or missing has no projection — that's the documented
+        boundary (e.g. extremely deep tier-generic rows that fell off
+        the OVERALL_RANK_LIMIT cap)."""
+        missing_stamps: list[str] = []
+        for row in self.picks:
+            rdv = row.get("rankDerivedValue")
+            if not isinstance(rdv, (int, float)) or rdv <= 0:
+                continue
+            for field in (
+                "pickProjectedDraftValue",
+                "pickProjectedDraftYear",
+                "pickProjectedDraftValueGain",
+                "pickProjectedDraftValueGainPct",
+            ):
+                if row.get(field) is None:
+                    missing_stamps.append(
+                        f"{row.get('canonicalName')}: missing {field}"
+                    )
+        self.assertEqual(
+            missing_stamps, [],
+            "Every valued pick must stamp the full projection block:\n"
+            + "\n".join(missing_stamps[:10]),
+        )
+
+    def test_baseline_year_picks_project_to_current_value(self) -> None:
+        """Baseline-year picks (2026, the current draft) have
+        ``pickYearDiscount == 1.0`` (or unstamped, equivalent), so the
+        projection equals today's value with zero gain."""
+        baseline_picks = [
+            r for r in self.picks
+            if int(r.get("pickProjectedDraftYear") or 0) == 2026
+            and (r.get("rankDerivedValue") or 0) > 0
+        ]
+        if not baseline_picks:
+            self.skipTest("No 2026 picks with positive value in contract")
+        for row in baseline_picks:
+            with self.subTest(pick=row.get("canonicalName")):
+                rdv = int(row["rankDerivedValue"])
+                self.assertEqual(
+                    int(row["pickProjectedDraftValue"]),
+                    rdv,
+                    "2026 pick projection must equal today's value (no discount to invert)",
+                )
+                self.assertEqual(int(row["pickProjectedDraftValueGain"]), 0)
+                self.assertEqual(int(row["pickProjectedDraftValueGainPct"]), 0)
+
+    def test_future_year_picks_project_above_today(self) -> None:
+        """Future-year picks (2027+) have ``pickYearDiscount < 1.0``
+        applied, so the projection inverts to a value strictly above
+        today's.  Pin the math: projected = round(rdv / discount)."""
+        future_picks = [
+            r for r in self.picks
+            if int(r.get("pickProjectedDraftYear") or 0) >= 2027
+            and (r.get("rankDerivedValue") or 0) > 0
+            and r.get("pickYearDiscount") is not None
+        ]
+        if not future_picks:
+            self.skipTest("No future-year picks with discount in contract")
+        for row in future_picks:
+            with self.subTest(pick=row.get("canonicalName")):
+                rdv = float(row["rankDerivedValue"])
+                discount = float(row["pickYearDiscount"])
+                expected = int(round(rdv / discount))
+                actual = int(row["pickProjectedDraftValue"])
+                # Allow ±1 for rounding noise around the int boundary.
+                self.assertLessEqual(
+                    abs(actual - expected),
+                    1,
+                    f"projection math drifted: rdv={rdv}, discount={discount}, "
+                    f"expected≈{expected}, got {actual}",
+                )
+                self.assertGreater(
+                    actual, int(rdv),
+                    f"future-year pick must project ABOVE today's value: "
+                    f"rdv={rdv}, projected={actual}",
+                )
+                self.assertGreater(int(row["pickProjectedDraftValueGain"]), 0)
+                self.assertGreater(int(row["pickProjectedDraftValueGainPct"]), 0)
+
+    def test_projection_year_matches_canonical_name(self) -> None:
+        """``pickProjectedDraftYear`` extracts the year from the
+        canonical name (e.g. ``"2027 Mid 1st"`` → 2027)."""
+        for row in self.picks:
+            year_stamp = row.get("pickProjectedDraftYear")
+            if year_stamp is None:
+                continue
+            with self.subTest(pick=row.get("canonicalName")):
+                name = str(row.get("canonicalName") or "")
+                m = re.search(r"\b(20\d{2})\b", name)
+                self.assertIsNotNone(
+                    m, f"pick name lacks a year but has projection stamp: {name}"
+                )
+                assert m is not None
+                self.assertEqual(int(year_stamp), int(m.group(1)))
+
+
 if __name__ == "__main__":
     unittest.main()
