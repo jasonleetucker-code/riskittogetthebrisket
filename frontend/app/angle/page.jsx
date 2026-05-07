@@ -137,9 +137,12 @@ export default function AnglePage() {
       });
   }, [targetTeam, targetPlayerSearch, valueByName]);
 
-  // Wipe selected players + stale results when the user switches their own team.
+  // Wipe all selections + stale results when the user switches their own team.
+  // targetPlayerNames must also be cleared — the new team may own some of those
+  // players, and the backend silently drops self-owned acquire targets.
   useEffect(() => {
     setPlayerNames(new Set());
+    setTargetPlayerNames(new Set());
     setResult(null);
     setErr(null);
   }, [ownerId]);
@@ -285,9 +288,12 @@ export default function AnglePage() {
     (isAcquireMode || playerNameList.length > 0) &&
     !loading;
 
-  // In offer mode the fixed side is result.offer (what you send).
-  // In acquire mode the fixed side is result.acquire (what you receive).
-  const fixedSide = isAcquireMode ? (result?.acquire || null) : (result?.offer || null);
+  // Drive result rendering from the mode stamped on the response, not the
+  // current UI selection.  This prevents re-labelling stale results when the
+  // user clears their selection after a search without re-running.
+  const resultMode = result?.mode ?? null;
+  const resultIsAcquire = resultMode === "acquire";
+  const fixedSide = resultIsAcquire ? (result?.acquire || null) : (result?.offer || null);
   const candidates = result?.candidates || [];
   const warnings = result?.warnings || [];
 
@@ -652,7 +658,7 @@ export default function AnglePage() {
           >
             <div style={{ flex: 1, minWidth: 220 }}>
               <div className="muted" style={{ fontSize: "0.75rem" }}>
-                {isAcquireMode ? "You receive" : "You send"}
+                {resultIsAcquire ? "You receive" : "You send"}
               </div>
               <ul
                 style={{
@@ -704,7 +710,7 @@ export default function AnglePage() {
         <section className="card">
           <div style={{ marginBottom: 10 }}>
             <strong style={{ fontSize: "1rem" }}>
-              {isAcquireMode
+              {resultIsAcquire
                 ? `What to give up${targetTeam ? ` to ${targetTeam.name}` : ""}`
                 : targetTeam
                   ? `Return options from ${targetTeam.name}`
@@ -747,8 +753,8 @@ export default function AnglePage() {
                       className="muted"
                       style={{ fontSize: "0.7rem", marginBottom: 2 }}
                     >
-                      {isAcquireMode
-                        ? `Give to ${targetTeam?.name || myTeam?.name || "them"}`
+                      {resultIsAcquire
+                        ? `Give to ${targetTeam?.name || "them"}`
                         : `From ${c.team || "(unknown)"}`}{" "}
                       · {c.size} {c.size === 1 ? "player" : "players"}
                     </div>
