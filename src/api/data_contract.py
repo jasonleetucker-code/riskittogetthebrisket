@@ -2113,15 +2113,22 @@ def _summarize_source_overrides(
         else:
             effective_weights[key] = default_weight
 
-    # Clamp the TEP multiplier identically to the blend path so the
-    # summary reflects what was actually applied, not what was sent.
+    # Clamp the TEP multiplier to the same [1.0, 1.5] range the
+    # ``normalize_tep_multiplier`` ingress and the /settings slider
+    # enforce, so a non-normalize caller (direct ``build_api_data_contract``
+    # invocation, malformed body, etc.) can't pump TE values off the
+    # board through the summary stamp.  Live derivations land at the
+    # hardcoded default 1.25; the wider [1.0, 2.0] range that historically
+    # accommodated ``_derive_tep_multiplier_from_league`` outputs is no
+    # longer needed (that derivation is no longer wired into the live
+    # build_api_data_contract path — see line ~7190).
     try:
         tep_eff = float(tep_multiplier)
     except (TypeError, ValueError):
         tep_eff = 1.0
     if not math.isfinite(tep_eff):
         tep_eff = 1.0
-    tep_eff = max(1.0, min(2.0, tep_eff))
+    tep_eff = max(1.0, min(1.5, tep_eff))
 
     try:
         tep_derived = float(tep_multiplier_derived)
@@ -2129,7 +2136,7 @@ def _summarize_source_overrides(
         tep_derived = 1.0
     if not math.isfinite(tep_derived):
         tep_derived = 1.0
-    tep_derived = max(1.0, min(2.0, tep_derived))
+    tep_derived = max(1.0, min(1.5, tep_derived))
 
     # isCustomized flips only when the user-facing effective value
     # diverges from the league-derived baseline.  A league with
@@ -2141,14 +2148,15 @@ def _summarize_source_overrides(
         is_customized = True
 
     # TEP-native: clamp + customization check, mirroring the non-TEP
-    # multiplier above.
+    # multiplier above.  Same [1.0, 1.5] range as the
+    # ``normalize_tep_native_multiplier`` ingress.
     try:
         tep_native_eff = float(tep_native_multiplier)
     except (TypeError, ValueError):
         tep_native_eff = 1.0
     if not math.isfinite(tep_native_eff):
         tep_native_eff = 1.0
-    tep_native_eff = max(1.0, min(2.0, tep_native_eff))
+    tep_native_eff = max(1.0, min(1.5, tep_native_eff))
 
     try:
         tep_native_derived = float(tep_native_multiplier_derived)
@@ -2156,7 +2164,7 @@ def _summarize_source_overrides(
         tep_native_derived = 1.0
     if not math.isfinite(tep_native_derived):
         tep_native_derived = 1.0
-    tep_native_derived = max(1.0, min(2.0, tep_native_derived))
+    tep_native_derived = max(1.0, min(1.5, tep_native_derived))
 
     if abs(tep_native_eff - tep_native_derived) > 1e-6:
         is_customized = True
@@ -5222,9 +5230,11 @@ def _compute_unified_rankings(
     the correction lifts them ~13%.
 
     Non-TE positions are untouched by either multiplier.  Expected
-    range for ``tep_multiplier`` is ``[1.0, 2.0]``; ``1.0`` is a
-    no-op for non-TEP sources but still triggers the correction
-    (drops TEP-native values to match).
+    range for ``tep_multiplier`` is ``[1.0, 1.5]`` — the same range
+    enforced at the API ingress (``normalize_tep_multiplier``) and at
+    the contract-summary stamp (``_summarize_source_overrides``).
+    ``1.0`` is a no-op for non-TEP sources but still triggers the
+    correction (drops TEP-native values to match).
 
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
@@ -7142,9 +7152,11 @@ def build_api_data_contract(
         league (``bonus_rec_te == 0.5``) yields ``1.15``; a non-TEP
         league yields ``1.0`` (a no-op).  This is the production
         cold-start path.
-      * an explicit ``float`` — use the caller's value verbatim (after
-        the same ``[1.0, 2.0]`` clamp the derivation applies).  Used by
-        the override endpoint when the user moves the TEP slider.
+      * an explicit ``float`` — use the caller's value verbatim (the
+        contract-summary stamp clamps to ``[1.0, 1.5]``, matching the
+        API-ingress ``normalize_tep_multiplier`` and the /settings
+        slider).  Used by the override endpoint when the user moves
+        the TEP slider.
 
     Previously this parameter defaulted to ``1.0``, which meant every
     cold start produced a "clean" board regardless of league setup
