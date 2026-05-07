@@ -325,7 +325,7 @@ export default function SettingsPage() {
           Two parallel TE Premium multipliers, both applied at blend
           time on TE rows only.  <strong>Non-native</strong> covers
           sources whose published board doesn&apos;t already bake in
-          TE premium (DLF, FBG, FP consensus, Flock, etc.).{" "}
+          TE premium (DLF, FBG, FP consensus, Flock, DD, DraftSharks).{" "}
           <strong>Native</strong> covers sources tagged{" "}
           <span
             style={{
@@ -339,12 +339,12 @@ export default function SettingsPage() {
           >
             TEP NATIVE
           </span>{" "}
-          (DN SfTep, Yahoo Boone, FP Fitzmaurice) — their boards
-          already publish some TE premium so the smaller default
-          (1.10×) is a calibration nudge, not a fresh boost.  KTC
-          (standard SF and SF-TE++) is the canonical baseline and
-          passes through both knobs unchanged.  Changing either value
-          re-runs the canonical ranking pipeline so every page
+          (IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) — their
+          boards already publish some TE premium so the smaller
+          default (1.10×) is a calibration nudge, not a fresh boost.
+          KTC (standard SF and SF-TE++) is the canonical baseline
+          and passes through both knobs unchanged.  Changing either
+          value re-runs the canonical ranking pipeline so every page
           (rankings, trade calculator, edge) sees the same values.
         </p>
       </Section>
