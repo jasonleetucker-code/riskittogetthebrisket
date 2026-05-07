@@ -26,6 +26,7 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 from typing import Any
+from unittest.mock import patch
 
 import json
 
@@ -951,12 +952,19 @@ class TestTepMultiplierDerivation(unittest.TestCase):
 class TestBuildContractTepSlider(unittest.TestCase):
     """TEP slider is operator-tunable (2026-05-06 repurpose).
 
-    ``tep_multiplier=None`` → use the hardcoded default
-    (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, currently 1.25), source
-    stamped ``"default"``.  An explicit float (clamped to [1.0, 1.5]
-    by ``normalize_tep_multiplier``) is used verbatim, source stamped
+    ``tep_multiplier=None`` triggers the auto-derive path (see
+    :class:`TestBuildContractTepAutoDerive` below).  When Sleeper
+    context is unavailable or non-TEP, the default falls back to
+    ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.25), source stamped
+    ``"default"``.  An explicit float (clamped to [1.0, 1.5] by
+    ``normalize_tep_multiplier``) is used verbatim, source stamped
     ``"override"``.  TEP-native (1.10) and KTC exemption are hardcoded
     inside ``_compute_unified_rankings`` and not exposed here.
+
+    These tests run in the conftest-cleared environment (no
+    ``SLEEPER_LEAGUE_ID``), so ``_resolve_league_context()`` returns
+    its fallback dict and the auto-derive path correctly defers to
+    the hardcoded default.
     """
 
     def test_summary_default_is_non_tep_constant(self) -> None:
@@ -995,6 +1003,133 @@ class TestBuildContractTepSlider(unittest.TestCase):
             _TE_BLANKET_NON_NATIVE_MULTIPLIER,
         )
         self.assertEqual(rov.get("tepMultiplierSource"), "default")
+
+
+class TestBuildContractTepAutoDerive(unittest.TestCase):
+    """Auto-derive ``tep_multiplier`` from the operator's Sleeper league
+    when the slider isn't overridden.
+
+    Trigger conditions (all must hold):
+      1. ``tep_multiplier=None`` on the call (no slider override).
+      2. ``_resolve_league_context()`` returned ``fetched_from_sleeper=True``
+         (i.e. Sleeper actually responded with scoring data).
+      3. The league's ``bonus_rec_te > 0`` (the league has TE premium
+         scoring; non-TEP leagues take the hardcoded default path).
+
+    When all three hold, the contract stamps:
+      * ``tepMultiplier``: derived value (e.g. 1.15 for TEP-1.5)
+      * ``tepMultiplierDerived``: same as above (frontend reads this
+        for the slider's "Auto" baseline)
+      * ``tepMultiplierSource``: ``"derived"``
+
+    These tests patch ``_resolve_league_context`` to simulate live
+    Sleeper data; the real resolver is exercised by
+    ``TestTepMultiplierDerivation`` above.
+    """
+
+    _RESOLVER_PATH = "src.api.data_contract._resolve_league_context"
+
+    def _patch_context(
+        self, *, bonus_rec_te: float, fetched: bool = True, roster_count: int = 12
+    ) -> Any:
+        return patch(
+            self._RESOLVER_PATH,
+            return_value={
+                "roster_count": roster_count,
+                "bonus_rec_te": bonus_rec_te,
+                "fetched_from_sleeper": fetched,
+            },
+        )
+
+    def test_tep_15_league_derives_115(self) -> None:
+        """TEP-1.5 league (``bonus_rec_te == 0.5``) → derived 1.15."""
+        with self._patch_context(bonus_rec_te=0.5):
+            contract = build_api_data_contract(_fixture_raw_payload())
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15, places=4)
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "derived")
+        # Reverse-derive bonusRecTe lands back at 0.5 (round-trip
+        # through the summary stamp).
+        self.assertAlmostEqual(float(rov.get("bonusRecTe") or 0), 0.5, places=2)
+
+    def test_tep_20_league_derives_130(self) -> None:
+        """TEP-2.0 league (``bonus_rec_te == 1.0``) → derived 1.30."""
+        with self._patch_context(bonus_rec_te=1.0):
+            contract = build_api_data_contract(_fixture_raw_payload())
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.30, places=4)
+        self.assertEqual(rov.get("tepMultiplierSource"), "derived")
+
+    def test_non_tep_league_falls_back_to_default(self) -> None:
+        """``bonus_rec_te == 0`` (non-TEP league) → hardcoded 1.25
+        default, not the derived 1.0.  Preserves predictable behavior
+        for leagues whose Sleeper config legitimately has no TE bonus.
+        """
+        with self._patch_context(bonus_rec_te=0.0):
+            contract = build_api_data_contract(_fixture_raw_payload())
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0),
+            _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "default")
+
+    def test_no_sleeper_context_falls_back_to_default(self) -> None:
+        """When ``_resolve_league_context`` returns its fallback dict
+        (Sleeper fetch failed, env var unset, registry miss), even a
+        positive ``bonus_rec_te`` in the dict can't be trusted —
+        ``fetched_from_sleeper=False`` blocks the auto-derive.
+        """
+        with self._patch_context(bonus_rec_te=0.5, fetched=False):
+            contract = build_api_data_contract(_fixture_raw_payload())
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0),
+            _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "default")
+
+    def test_explicit_override_beats_derived(self) -> None:
+        """Explicit slider override wins over the auto-derived value
+        even when Sleeper context is live.  Stamps ``"override"``,
+        not ``"derived"``.  ``tepMultiplierDerived`` still carries
+        the auto value so the frontend can show "you overrode 1.15
+        with 1.40" semantics.
+        """
+        with self._patch_context(bonus_rec_te=0.5):
+            contract = build_api_data_contract(
+                _fixture_raw_payload(), tep_multiplier=1.40
+            )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.40, places=4)
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "override")
+
+    def test_tep_native_default_unchanged_by_derivation(self) -> None:
+        """Auto-deriving ``tep_multiplier`` does NOT touch the parallel
+        ``tep_native_multiplier`` knob — it stays at the hardcoded
+        default (1.10) until the operator overrides it explicitly.
+        Native-source calibration is a separate concern from league
+        TEP detection.
+        """
+        with self._patch_context(bonus_rec_te=1.0):
+            contract = build_api_data_contract(_fixture_raw_payload())
+        rov = contract.get("rankingsOverride") or {}
+        # Non-TEP slider auto-derives to 1.30 for TEP-2.0
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0), 1.30, places=4
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "derived")
+        # TEP-native stays at 1.10 default — unaffected
+        self.assertAlmostEqual(
+            float(rov.get("tepNativeMultiplier") or 0), 1.10, places=4
+        )
+        self.assertEqual(rov.get("tepNativeMultiplierSource"), "default")
 
 
 class TestTepMultipliersEndToEnd(unittest.TestCase):
