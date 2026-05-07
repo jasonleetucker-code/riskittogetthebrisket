@@ -285,7 +285,9 @@ export default function AnglePage() {
     (isAcquireMode || playerNameList.length > 0) &&
     !loading;
 
-  const offer = result?.offer || null;
+  // In offer mode the fixed side is result.offer (what you send).
+  // In acquire mode the fixed side is result.acquire (what you receive).
+  const fixedSide = isAcquireMode ? (result?.acquire || null) : (result?.offer || null);
   const candidates = result?.candidates || [];
   const warnings = result?.warnings || [];
 
@@ -637,7 +639,7 @@ export default function AnglePage() {
         </section>
       )}
 
-      {offer && (
+      {fixedSide && (
         <section className="card">
           <div
             style={{
@@ -659,7 +661,7 @@ export default function AnglePage() {
                   fontSize: "0.95rem",
                 }}
               >
-                {(offer.players || []).map((p) => (
+                {(fixedSide.players || []).map((p) => (
                   <li key={p.name}>
                     <strong>{p.name}</strong>{" "}
                     <span className="muted" style={{ fontSize: "0.78rem" }}>
@@ -674,14 +676,14 @@ export default function AnglePage() {
                 ))}
               </ul>
             </div>
-            {(offer.my_total || offer.market_total) && (
+            {(fixedSide.my_total || fixedSide.market_total) && (
               <div style={{ display: "flex", gap: 18, fontSize: "0.9rem" }}>
                 <div>
                   <div className="muted" style={{ fontSize: "0.7rem" }}>
                     My total
                   </div>
                   <div style={{ fontWeight: 600 }}>
-                    {fmtValue(offer.my_total)}
+                    {fmtValue(fixedSide.my_total)}
                   </div>
                 </div>
                 <div>
@@ -689,7 +691,7 @@ export default function AnglePage() {
                     Market total
                   </div>
                   <div style={{ fontWeight: 600 }}>
-                    {fmtValue(offer.market_total)}
+                    {fmtValue(fixedSide.market_total)}
                   </div>
                 </div>
               </div>
@@ -745,8 +747,10 @@ export default function AnglePage() {
                       className="muted"
                       style={{ fontSize: "0.7rem", marginBottom: 2 }}
                     >
-                      {isAcquireMode ? "Give to" : "From"} {c.team || "(unknown)"} · {c.size}{" "}
-                      {c.size === 1 ? "player" : "players"}
+                      {isAcquireMode
+                        ? `Give to ${targetTeam?.name || myTeam?.name || "them"}`
+                        : `From ${c.team || "(unknown)"}`}{" "}
+                      · {c.size} {c.size === 1 ? "player" : "players"}
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                       {(c.players || []).map((p) => (
