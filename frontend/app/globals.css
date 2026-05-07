@@ -1325,6 +1325,138 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   MOBILE QUICK ADD (sticky one-tap player search at the top of /trade)
+   ══════════════════════════════════════════════════════════════════════════ */
+.mobile-quick-add {
+  position: sticky;
+  /* The mobile topbar is ~44px tall; offset so the quick-add lands
+     just below it without overlapping. */
+  top: 44px;
+  z-index: 9;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(8, 19, 44, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.mobile-quick-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-quick-add-side-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 199, 4, 0.06);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  /* Mobile tap-target minimum */
+  min-height: 40px;
+  min-width: 56px;
+}
+
+.mobile-quick-add-side-badge:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.mobile-quick-add-side-arrow {
+  color: var(--subtext);
+  font-size: 0.82rem;
+}
+
+.mobile-quick-add-side-letter {
+  color: var(--cyan);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.mobile-quick-add-side-toggle {
+  color: var(--subtext);
+  font-size: 0.78rem;
+  margin-left: 2px;
+}
+
+.mobile-quick-add-input {
+  flex: 1;
+  min-height: 40px;
+}
+
+.mobile-quick-add-results {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(8, 19, 44, 0.96);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.mobile-quick-add-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  /* Mobile tap-target minimum */
+  min-height: 44px;
+}
+
+.mobile-quick-add-result:last-child {
+  border-bottom: none;
+}
+
+.mobile-quick-add-result:active {
+  background: rgba(255, 199, 4, 0.10);
+}
+
+.mobile-quick-add-result-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-quick-add-result-name {
+  font-weight: 600;
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-quick-add-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.mobile-quick-add-empty {
+  padding: 12px;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    BOTTOM SHEET (mobile modals)
    ══════════════════════════════════════════════════════════════════════════ */
 .sheet-overlay {

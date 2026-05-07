@@ -82,6 +82,134 @@ const SUGGESTION_RAIL_LABELS = {
   positionalUpgrades: { label: "Upgrade", color: "var(--purple)", hint: "Direct positional swaps that net you value." },
 };
 
+// Mobile-only sticky quick-add bar.  The full per-side search inputs
+// live deep in the page (after the suggestions rail, controls bar,
+// and side headers) — on a 390px viewport that's ~600-800px of scroll
+// before a user can type a name.  This bar surfaces a single search
+// at the top with an explicit "active side" indicator and a one-tap
+// side toggle, so dynasty owners tinkering on the couch can populate
+// both sides without scrolling away from the live verdict bar above.
+//
+// Hidden on desktop (CSS ``mobile-only``); the per-side search inputs
+// stay there because their position next to each side's asset list
+// makes them more discoverable on a wide layout.
+function MobileQuickAddBar({
+  activeSide,
+  sides,
+  onAddToActiveSide,
+  searchAssets,
+  settings,
+  onSetActiveSide,
+}) {
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
+
+  const trimmed = query.trim();
+  const results = focused && trimmed ? searchAssets(query) : [];
+  const showResults = focused && trimmed.length > 0;
+
+  const sideLabel = sides[activeSide]?.label || sides[0]?.label || "A";
+
+  function handleAdd(row) {
+    onAddToActiveSide(row);
+    setQuery("");
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function cycleSide() {
+    if (sides.length < 2) return;
+    onSetActiveSide((activeSide + 1) % sides.length);
+  }
+
+  return (
+    <div className="mobile-quick-add mobile-only" role="region" aria-label="Quick add player to trade">
+      <div className="mobile-quick-add-row">
+        <button
+          type="button"
+          className="mobile-quick-add-side-badge"
+          onClick={cycleSide}
+          aria-label={`Currently adding to Side ${sideLabel}. Tap to switch sides.`}
+          title={
+            sides.length >= 2
+              ? `Adding to Side ${sideLabel} — tap to switch`
+              : `Adding to Side ${sideLabel}`
+          }
+          disabled={sides.length < 2}
+        >
+          <span className="mobile-quick-add-side-arrow" aria-hidden="true">→</span>
+          <span className="mobile-quick-add-side-letter">{sideLabel}</span>
+          {sides.length >= 2 && (
+            <span className="mobile-quick-add-side-toggle" aria-hidden="true">⇄</span>
+          )}
+        </button>
+        <input
+          ref={inputRef}
+          className="input mobile-quick-add-input"
+          placeholder={`Quick add to Side ${sideLabel}…`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            // Delay so a tap on a result registers before the dropdown
+            // unmounts (mirrors the per-side search inputs).
+            setTimeout(() => setFocused(false), 120);
+          }}
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck="false"
+        />
+      </div>
+      {showResults && (
+        <div className="mobile-quick-add-results">
+          {results.length === 0 ? (
+            <div className="mobile-quick-add-empty muted">No matches.</div>
+          ) : (
+            results.map((r) => (
+              <button
+                key={`mobile-quick-${r.name}`}
+                type="button"
+                className="button-reset mobile-quick-add-result"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleAdd(r);
+                }}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  handleAdd(r);
+                }}
+              >
+                <PlayerImage
+                  playerId={r.raw?.playerId}
+                  team={r.team}
+                  position={r.pos}
+                  name={r.name}
+                  size={26}
+                />
+                <div className="mobile-quick-add-result-body">
+                  <div className="mobile-quick-add-result-name">{r.name}</div>
+                  <div className="mobile-quick-add-result-meta">
+                    <span className={posBadgeClass(r)}>{r.pos}</span>
+                    <span className="muted">
+                      {r.blendedSourceRank != null ? `#${r.blendedSourceRank.toFixed(1)}` : "—"}
+                      {" · "}
+                      {Math.round(displayValue(r, settings)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProactiveSuggestionsRail({ suggestions, onApply }) {
   // For each category, take the top suggestion (already sorted by
   // the engine).  Skip categories with zero results.
@@ -1305,6 +1433,22 @@ export default function TradePage() {
           first.  Switch back to the primary league from the nav to use those
           features.
         </div>
+      )}
+
+      {/* Mobile-only sticky quick-add bar.  Sits above the suggestions
+          rail so the search input is the FIRST interactive element a
+          mobile user reaches — no scrolling needed to start populating
+          a trade.  Hidden on desktop where the per-side search inputs
+          inside each side's card are more discoverable. */}
+      {!loading && !error && (
+        <MobileQuickAddBar
+          activeSide={activeSide}
+          sides={sides}
+          onAddToActiveSide={addToActiveSide}
+          searchAssets={searchAssets}
+          settings={settings}
+          onSetActiveSide={setActiveSide}
+        />
       )}
 
       {/* Proactive "Recommended right now" rail.  Surfaces top
