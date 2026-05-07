@@ -45,6 +45,7 @@ from src.api.data_contract import (
     get_ranking_source_registry,
     normalize_source_overrides,
     normalize_tep_multiplier,
+    normalize_tep_native_multiplier,
 )
 
 
@@ -841,6 +842,48 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         self.assertEqual(overrides, {"ktcSfTep": {"include": False}})
         self.assertEqual(warnings, [])
         self.assertEqual(normalize_tep_multiplier(body), 1.2)
+
+
+class TestNormalizeTepNativeMultiplier(unittest.TestCase):
+    """``tep_native_multiplier`` mirrors ``tep_multiplier`` exactly —
+    same validation contract (None for absent / invalid, clamp to
+    [1.0, 1.5] otherwise) but for the TEP-native bucket whose default
+    is 1.10 rather than 1.25.
+    """
+
+    def test_missing_field_returns_none(self) -> None:
+        self.assertIsNone(normalize_tep_native_multiplier(None))
+        self.assertIsNone(normalize_tep_native_multiplier({}))
+        self.assertIsNone(normalize_tep_native_multiplier({"ktcSfTep": {"include": False}}))
+        # The non-native key must NOT satisfy the native lookup.
+        self.assertIsNone(normalize_tep_native_multiplier({"tep_multiplier": 1.2}))
+
+    def test_both_key_styles_accepted(self) -> None:
+        self.assertEqual(normalize_tep_native_multiplier({"tep_native_multiplier": 1.10}), 1.10)
+        self.assertEqual(normalize_tep_native_multiplier({"tepNativeMultiplier": 1.20}), 1.20)
+
+    def test_snake_case_wins_when_both_present(self) -> None:
+        self.assertEqual(
+            normalize_tep_native_multiplier(
+                {"tep_native_multiplier": 1.10, "tepNativeMultiplier": 1.30}
+            ),
+            1.10,
+        )
+
+    def test_clamps_to_supported_range(self) -> None:
+        self.assertEqual(normalize_tep_native_multiplier({"tep_native_multiplier": 0.5}), 1.0)
+        self.assertEqual(normalize_tep_native_multiplier({"tep_native_multiplier": 3.0}), 1.5)
+        self.assertEqual(normalize_tep_native_multiplier({"tep_native_multiplier": -1}), 1.0)
+
+    def test_unparseable_returns_none(self) -> None:
+        self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": "nope"}))
+        self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": None}))
+        self.assertIsNone(
+            normalize_tep_native_multiplier({"tep_native_multiplier": float("inf")})
+        )
+        self.assertIsNone(
+            normalize_tep_native_multiplier({"tep_native_multiplier": float("nan")})
+        )
 
 
 class TestTepMultiplierDerivation(unittest.TestCase):

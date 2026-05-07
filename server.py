@@ -63,6 +63,7 @@ from src.api.data_contract import (
     get_ranking_source_registry,
     normalize_source_overrides,
     normalize_tep_multiplier,
+    normalize_tep_native_multiplier,
     validate_api_data_contract,
 )
 from src.api import guest_passes as _guest_passes
@@ -2713,6 +2714,7 @@ async def post_rankings_overrides(request: Request):
 
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
+    tep_native_multiplier = normalize_tep_native_multiplier(body)
 
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
@@ -2724,6 +2726,7 @@ async def post_rankings_overrides(request: Request):
                 data_source=latest_data_source,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
+                tep_native_multiplier=tep_native_multiplier,
             )
         else:
             contract_payload = build_api_data_contract(
@@ -2731,6 +2734,7 @@ async def post_rankings_overrides(request: Request):
                 data_source=latest_data_source,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
+                tep_native_multiplier=tep_native_multiplier,
             )
     except Exception as exc:
         log.exception("Failed to rebuild contract with overrides: %s", exc)

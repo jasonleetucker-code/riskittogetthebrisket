@@ -4816,9 +4816,6 @@ async def run(progress_callback=None):
     # Site mode mapping
     _rank_sites = {"dynastyNerds", "pffIdp", "draftSharksIdp", "fantasyProsIdp", "draftSharks"}
     _idp_rank_sites = set()  # currently none use idpRank mode in scraper (handled in dashboard)
-    # DynastyDaddy values are treated as non-TEP and get TEP_MULT applied for TEs.
-    _tep_sites = {"ktc", "fantasyCalc", "fantasyPros", "draftSharks",
-                  "yahoo", "dynastyNerds", "idpTradeCalc"}
     # Z-score parameters
     Z_FLOOR, Z_CEILING = -2.0, 4.0
     RANK_OFFSET, RANK_DIVISOR, RANK_EXPONENT = 27, 28, -0.66
@@ -4924,7 +4921,6 @@ async def run(progress_callback=None):
     IDP_RANK_OFFSET = 15     # Controls curve flatness near the top
     IDP_RANK_DIVISOR = 16    # Paired with offset so rank 1 → exactly IDP_ANCHOR_TOP
     IDP_RANK_EXPONENT = -0.72  # Steeper than offense (-0.66) since IDP value drops faster
-    TEP_MULT = 1.15
     SINGLE_SOURCE_DISCOUNT = 0.85  # 15% discount for players on only 1 site
     COMPOSITE_SCALE = 9999
     OUTLIER_TRIM_GAP = 0.18       # Trim only true outliers, not legitimate elite values
@@ -5360,11 +5356,6 @@ async def run(progress_callback=None):
                 site_raw = min(raw_val, IDP_ANCHOR_TOP)
             else:
                 site_raw = raw_val
-
-            # TEP boost for TEs on non-TEP sites
-            is_te = _is_te(name)
-            if is_te and dash_key not in _tep_sites and TEP_MULT > 1:
-                site_raw *= TEP_MULT
 
             if site_raw <= 0:
                 continue
