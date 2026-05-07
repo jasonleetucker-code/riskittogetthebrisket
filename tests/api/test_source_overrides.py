@@ -1148,12 +1148,11 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
         directly to ``build_api_data_contract`` is still clamped at
         the contract-layer summary.
 
-        ``_summarize_source_overrides`` clamps to ``[1.0, 2.0]`` —
-        intentionally wider than the ingress so league-derived values
-        from ``_derive_tep_multiplier_from_league`` (which can reach
-        ``2.0`` on heavy-TEP leagues) pass through unchanged.  Values
-        above ``2.0`` are pinned at ``2.0``; the test uses ``3.0``
-        unambiguously past both ranges to exercise the clamp.
+        ``_summarize_source_overrides`` clamps to ``[1.0, 1.5]`` —
+        the same range as the API ingress and the /settings slider,
+        so every layer of the system enforces the same bound.  Values
+        above ``1.5`` are pinned at ``1.5``; the test uses ``3.0``
+        unambiguously past the range to exercise the clamp.
         """
         contract = build_api_data_contract(
             _fixture_raw_payload(),
@@ -1161,8 +1160,8 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
             tep_native_multiplier=3.0,
         )
         rov = contract.get("rankingsOverride") or {}
-        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 2.0)
-        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 2.0)
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.5)
+        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 1.5)
         # Lower-bound clamp: negative or sub-1.0 inputs floor at 1.0.
         contract = build_api_data_contract(
             _fixture_raw_payload(),
