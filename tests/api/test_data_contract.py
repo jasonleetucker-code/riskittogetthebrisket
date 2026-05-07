@@ -521,19 +521,24 @@ class TestRawSourceValues(unittest.TestCase):
     Value Adjustment formula read from this map so the displayed
     value matches the source's website (keeptradecut.com).
 
-    Without this stamp, ``canonicalSiteValues.ktcSfTep`` carries the
-    TEP-corrected internal value for TE rows (e.g. McBride raw 9154
-    becomes 10527 after the TE-only TEP multiplier), which doesn't
-    match what users see on the source.  ``rawSourceValues.ktcSfTep``
-    is the unmodified scrape from
+    Post PR #406 (the 2026-05 TEP split), ``ktcSfTep`` is exempt from
+    blend-time TE multipliers and the scraper-side ×1.15 has been
+    removed, so ``canonicalSiteValues.ktcSfTep`` equals the raw
+    scrape in production.  These tests still feed divergent values
+    to prove the contract layer's pass-through is faithful in BOTH
+    fields independently — that resilience is what protects the
+    display layer if a future correction is reintroduced upstream.
+    ``rawSourceValues.ktcSfTep`` mirrors
     ``CSVs/site_raw/ktcSfTep.csv``.
     """
 
     def test_raw_source_values_carries_ktc_sf_tep_for_te_row(self):
         """A TE with a top-level ``ktcSfTep`` raw scrape must surface
         that value at ``rawSourceValues.ktcSfTep`` on the playersArray
-        row.  ``canonicalSiteValues.ktcSfTep`` may carry the
-        TEP-corrected internal value; rawSourceValues stays raw.
+        row.  ``canonicalSiteValues.ktcSfTep`` is passed through
+        verbatim from the upstream canonical pipeline — the test
+        deliberately uses divergent inputs to assert independent
+        pass-through of both fields.
         """
         raw = {
             "players": {
@@ -543,7 +548,7 @@ class TestRawSourceValues(unittest.TestCase):
                     "_finalAdjusted": 9000,
                     "_canonicalSiteValues": {
                         "ktc": 7560,
-                        "ktcSfTep": 10527,  # TEP-corrected internal value
+                        "ktcSfTep": 10527,  # synthetic divergent value (production: equals raw)
                     },
                     "ktc": 7560,
                     "ktcSfTep": 9154,  # raw scrape — matches keeptradecut.com
@@ -559,12 +564,15 @@ class TestRawSourceValues(unittest.TestCase):
             r for r in contract["playersArray"]
             if r["canonicalName"] == "Trey McBride"
         )
-        # rawSourceValues carries the raw scrape, not the
-        # TEP-corrected internal value.
+        # rawSourceValues carries the raw scrape from the top-level
+        # ``ktcSfTep`` field (the synthetic input mimics the legacy
+        # divergence between raw and canonicalSites).
         self.assertIn("rawSourceValues", row)
         self.assertEqual(row["rawSourceValues"]["ktcSfTep"], 9154)
-        # canonicalSiteValues continues to carry whatever the upstream
-        # canonical pipeline computed (TEP-corrected for TE rows).
+        # canonicalSiteValues passes through whatever the upstream
+        # canonical pipeline emitted (post PR #406 these match in
+        # production; the test asserts the contract layer doesn't
+        # collapse the two fields).
         self.assertEqual(row["canonicalSiteValues"]["ktcSfTep"], 10527)
 
     def test_raw_source_values_omits_missing_keys(self):
