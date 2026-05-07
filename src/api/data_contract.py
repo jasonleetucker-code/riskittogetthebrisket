@@ -5057,6 +5057,67 @@ def _apply_pick_year_discount_to_blend(
     return out, discount_applied
 
 
+def _stamp_pick_value_projections(
+    players_array: list[dict[str, Any]],
+) -> None:
+    """Stamp draft-day value projections on every pick row.
+
+    The pick year discount (``config/weights/pick_year_discount.json``)
+    deflates future-year picks below their on-draft equivalent — a
+    2027 1st today is 82% of a 2026 1.01 because of one year of
+    uncertainty + opportunity cost.  As the draft approaches, that
+    discount unwinds: when 2027 becomes the baseline year, the same
+    pick will be valued at 100% of a 1.01.
+
+    This pass projects the on-draft value by inverting the discount:
+
+        projected = rankDerivedValue / pickYearDiscount
+
+    Stamps on each pick row:
+
+      * ``pickProjectedDraftValue``     (int) — value at its own draft
+      * ``pickProjectedDraftYear``      (int) — the year the pick is drafted
+      * ``pickProjectedDraftValueGain`` (int) — projected − today (always ≥ 0)
+      * ``pickProjectedDraftValueGainPct`` (int) — gain as percent of today
+
+    Current-year picks (2026 baseline) project to their current value
+    with zero gain — the discount is already 1.0, the pick is *at*
+    its draft already.
+
+    Tier-generic picks (e.g. ``2026 Early 1st``) get a projection too;
+    the year is extracted from the name regardless of slot specificity.
+
+    Run AFTER ``_anchor_current_year_picks_to_rookies`` so the
+    projection sees the final ``rankDerivedValue`` (post-discount and
+    post-rookie-anchor) for current-year slot picks.
+    """
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        rdv = row.get("rankDerivedValue")
+        if not isinstance(rdv, (int, float)) or rdv <= 0:
+            continue
+        year = _pick_year_from_name(row.get("canonicalName") or "")
+        if year is None:
+            continue
+        # ``pickYearDiscount`` is only stamped when the multiplier
+        # diverges from 1.0; current-year picks land here with no
+        # stamp and an effective discount of 1.0.
+        try:
+            discount = float(row.get("pickYearDiscount") or 1.0)
+        except (TypeError, ValueError):
+            discount = 1.0
+        if discount <= 0 or discount > 1.0:
+            discount = 1.0
+        projected = int(round(float(rdv) / discount))
+        gain = max(0, projected - int(rdv))
+        gain_pct = int(round((gain / float(rdv)) * 100)) if rdv > 0 else 0
+        row["pickProjectedDraftValue"] = projected
+        row["pickProjectedDraftYear"] = int(year)
+        row["pickProjectedDraftValueGain"] = gain
+        row["pickProjectedDraftValueGainPct"] = gain_pct
+
+
 def _hampel_filter_per_player(
     pairs: list[tuple[str, float]],
     *,
@@ -6573,6 +6634,16 @@ def _compute_unified_rankings(
     _anchor_year = int(_load_pick_year_discount().get("baselineYear") or 2026)
     _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
 
+    # 2c) Stamp draft-day value projections on every pick row.
+    #     Inverts the year-discount so the frontend can show "this
+    #     2027 pick is worth ~5,800 today, projected ~7,000 at the
+    #     2027 draft (▲21%)" — operationalises the package-now-or-
+    #     wait decision the user has to make on every offseason
+    #     trade involving forward picks.  Runs AFTER the anchor pass
+    #     so current-year slot picks project off their final rookie-
+    #     tethered ``rankDerivedValue``.
+    _stamp_pick_value_projections(players_array)
+
     # 2a) Compact ranks after suppression/anchor so the ranked board is
     #     still contiguous 1..N and value-monotonic.  Sort primarily by
     #     rankDerivedValue desc so anchored picks naturally bubble to the
@@ -7600,6 +7671,18 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "quarantined",
     "ktcRank",
     "idpRank",
+    # Pick-specific stamps.  ``pickYearDiscount`` and
+    # ``pickProjectedDraft*`` derive directly from the post-blend
+    # ``rankDerivedValue`` — when an override changes the blend, the
+    # projection has to update on the same response so the popup's
+    # "projected at draft" line stays in sync with the value bar
+    # next to it.  Non-pick rows leave these undefined; the frontend
+    # branches on ``assetClass === "pick"`` before reading them.
+    "pickYearDiscount",
+    "pickProjectedDraftValue",
+    "pickProjectedDraftYear",
+    "pickProjectedDraftValueGain",
+    "pickProjectedDraftValueGainPct",
 )
 
 
