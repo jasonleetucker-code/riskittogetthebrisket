@@ -3881,10 +3881,11 @@ export default function DraftDashboardPage() {
               // 2026-04-28 registry change in #393).  Prefer the raw
               // scrape from ``rawSourceValues.ktcSfTep`` so rookie
               // dollar values match what keeptradecut.com displays
-              // for the TE++ board.  Falls back to TEP-corrected
-              // ``canonicalSiteValues.ktcSfTep`` (which equals raw
-              // for non-TEs anyway), then to the legacy ``ktc`` key
-              // for pre-#393 fixtures.
+              // for the TE++ board.  Falls back to
+              // ``canonicalSiteValues.ktcSfTep`` (post PR #406 this
+              // equals the raw scrape verbatim — KTC is exempt from
+              // the blend-time TE multiplier), then to the legacy
+              // ``ktc`` key for pre-#393 fixtures.
               ktcRawValue:
                 (typeof p?.rawSourceValues?.ktcSfTep === "number"
                   ? p.rawSourceValues.ktcSfTep : null)

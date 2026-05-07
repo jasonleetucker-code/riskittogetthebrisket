@@ -32,6 +32,8 @@ import json
 from src.api.data_contract import (
     _DELTA_PLAYER_FIELDS,
     _RANKING_SOURCES,
+    _TE_BLANKET_KTC_EXEMPT_KEYS,
+    _TE_BLANKET_NATIVE_MULTIPLIER,
     _TE_BLANKET_NON_NATIVE_MULTIPLIER,
     _TEP_DERIVATION_SLOPE,
     _compute_unified_rankings,
@@ -994,6 +996,182 @@ class TestBuildContractTepSlider(unittest.TestCase):
         )
         self.assertEqual(rov.get("tepMultiplierSource"), "default")
 
+
+class TestTepMultipliersEndToEnd(unittest.TestCase):
+    """End-to-end coverage for the operator-tunable TEP split (PR #406).
+
+    The input-validation classes ``TestNormalizeTepMultiplier`` and
+    ``TestNormalizeTepNativeMultiplier`` above pin the API ingress.
+    This class pins the wiring downstream of that ingress: how the
+    arguments to ``build_api_data_contract`` flow into
+    ``rankingsOverride`` and into per-source meta stamps on TE rows,
+    plus the KTC exemption that keeps the TE++ board off both
+    multiplier paths.
+
+    The fixture's Brock Bowers row is a TE covered by all four offense
+    sources, one from each bucket:
+
+      * ``dlfSf``                 — non-TEP-native (gets ``tep_multiplier``)
+      * ``dynastyNerdsSfTep``     — TEP-native     (gets ``tep_native_multiplier``)
+      * ``ktcSfTep``              — KTC exempt
+      * ``idpTradeCalc``          — TEP-native     (cross-market anchor)
+    """
+
+    def test_default_path_stamps_module_constants(self) -> None:
+        """``tep_multiplier=None`` and ``tep_native_multiplier=None``
+        fall back to the module-level defaults (``1.25`` and ``1.10``).
+        Both must surface verbatim in ``rankingsOverride`` — the
+        frontend reads them to render the slider's ``"Auto"`` baseline.
+        """
+        contract = build_api_data_contract(
+            _fixture_raw_payload(),
+            tep_multiplier=None,
+            tep_native_multiplier=None,
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplier") or 0),
+            _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+        )
+        self.assertAlmostEqual(
+            float(rov.get("tepNativeMultiplier") or 0),
+            _TE_BLANKET_NATIVE_MULTIPLIER,
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "default")
+        self.assertEqual(rov.get("tepNativeMultiplierSource"), "default")
+        # Pin the actual numeric defaults so a registry tweak that
+        # silently shifts either constant fails this test.
+        self.assertAlmostEqual(_TE_BLANKET_NON_NATIVE_MULTIPLIER, 1.25)
+        self.assertAlmostEqual(_TE_BLANKET_NATIVE_MULTIPLIER, 1.10)
+
+    def test_override_path_propagates_to_summary_and_per_source_meta(self) -> None:
+        """Explicit ``tep_multiplier`` and ``tep_native_multiplier``
+        arrive verbatim in ``rankingsOverride`` AND on the per-source
+        ``sourceRankMeta`` entries for the TE row's non-exempt sources.
+        """
+        contract = build_api_data_contract(
+            _fixture_raw_payload(),
+            tep_multiplier=1.30,
+            tep_native_multiplier=1.05,
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.30)
+        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 1.05)
+        self.assertEqual(rov.get("tepMultiplierSource"), "override")
+        self.assertEqual(rov.get("tepNativeMultiplierSource"), "override")
+
+        bowers = _by_name(contract).get("Brock Bowers")
+        self.assertIsNotNone(bowers, "fixture must include the Brock Bowers TE row")
+        meta = bowers.get("sourceRankMeta") or {}
+
+        # Non-TEP-native source: dlfSf carries the boost flag and the
+        # effective multiplier.
+        dlf_meta = meta.get("dlfSf") or {}
+        self.assertTrue(
+            dlf_meta.get("tepBoostApplied"),
+            "dlfSf on a TE row must be marked as TEP-boosted",
+        )
+        self.assertAlmostEqual(
+            float(dlf_meta.get("tepMultiplier") or 0), 1.30
+        )
+
+        # TEP-native source: dynastyNerdsSfTep carries the native flag
+        # and the effective correction.
+        dn_meta = meta.get("dynastyNerdsSfTep") or {}
+        self.assertTrue(
+            dn_meta.get("tepNativeCorrectionApplied"),
+            "dynastyNerdsSfTep on a TE row must be marked as TEP-native-corrected",
+        )
+        self.assertAlmostEqual(
+            float(dn_meta.get("tepNativeCorrection") or 0), 1.05
+        )
+
+        # The non-native and native paths are mutually exclusive — a
+        # source flagged as one bucket must not pick up the other.
+        self.assertNotIn("tepNativeCorrectionApplied", dlf_meta)
+        self.assertNotIn("tepBoostApplied", dn_meta)
+
+    def test_ktc_exemption_holds_under_default_and_override(self) -> None:
+        """The KTC variants in ``_TE_BLANKET_KTC_EXEMPT_KEYS`` (``ktc``,
+        ``ktcSfTep``) stay exempt from BOTH TEP correction paths, with
+        or without an explicit override.  KTC's TE++ board is the
+        canonical reference the rest of the blend aligns to — letting
+        either multiplier touch it would double-boost.
+        """
+        # Sanity: pin the exempt set so a registry refactor that drops
+        # ktcSfTep from the exemption fails this test before the
+        # behavioural assertions below would.
+        self.assertIn("ktcSfTep", _TE_BLANKET_KTC_EXEMPT_KEYS)
+        self.assertIn("ktc", _TE_BLANKET_KTC_EXEMPT_KEYS)
+
+        for label, kwargs in (
+            ("default", {}),
+            (
+                "override",
+                {"tep_multiplier": 1.45, "tep_native_multiplier": 1.20},
+            ),
+        ):
+            contract = build_api_data_contract(
+                _fixture_raw_payload(), **kwargs
+            )
+            bowers = _by_name(contract).get("Brock Bowers")
+            self.assertIsNotNone(
+                bowers, f"{label}: fixture must include the Brock Bowers TE row"
+            )
+            ktc_meta = (bowers.get("sourceRankMeta") or {}).get("ktcSfTep") or {}
+            # The exempt source carries no boost / correction flag, so
+            # ``valueContribution`` is the raw curve value untouched.
+            self.assertNotIn(
+                "tepBoostApplied",
+                ktc_meta,
+                f"{label}: ktcSfTep must not be marked TEP-boosted on a TE row",
+            )
+            self.assertNotIn(
+                "tepNativeCorrectionApplied",
+                ktc_meta,
+                f"{label}: ktcSfTep must not be marked TEP-native-corrected on a TE row",
+            )
+            self.assertNotIn(
+                "tepMultiplier",
+                ktc_meta,
+                f"{label}: ktcSfTep meta must not stamp a tepMultiplier value",
+            )
+            self.assertNotIn(
+                "tepNativeCorrection",
+                ktc_meta,
+                f"{label}: ktcSfTep meta must not stamp a tepNativeCorrection value",
+            )
+
+    def test_out_of_range_overrides_are_clamped_in_summary(self) -> None:
+        """A caller bypassing the ``normalize_*`` ingress (which
+        clamps to ``[1.0, 1.5]``) and passing an out-of-range value
+        directly to ``build_api_data_contract`` is still clamped at
+        the contract-layer summary.
+
+        ``_summarize_source_overrides`` clamps to ``[1.0, 2.0]`` —
+        intentionally wider than the ingress so league-derived values
+        from ``_derive_tep_multiplier_from_league`` (which can reach
+        ``2.0`` on heavy-TEP leagues) pass through unchanged.  Values
+        above ``2.0`` are pinned at ``2.0``; the test uses ``3.0``
+        unambiguously past both ranges to exercise the clamp.
+        """
+        contract = build_api_data_contract(
+            _fixture_raw_payload(),
+            tep_multiplier=3.0,
+            tep_native_multiplier=3.0,
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 2.0)
+        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 2.0)
+        # Lower-bound clamp: negative or sub-1.0 inputs floor at 1.0.
+        contract = build_api_data_contract(
+            _fixture_raw_payload(),
+            tep_multiplier=-1.0,
+            tep_native_multiplier=0.5,
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.0)
+        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 1.0)
 
 
 if __name__ == "__main__":

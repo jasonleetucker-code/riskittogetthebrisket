@@ -623,7 +623,7 @@ def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
                 "assetClass": "offense",
                 "rankDerivedValue": 7527,
                 "canonicalConsensusRank": 23,
-                "canonicalSiteValues": {"ktcSfTep": 8434},  # TEP-corrected
+                "canonicalSiteValues": {"ktcSfTep": 8434},  # synthetic divergent value
                 "rawSourceValues": {"ktcSfTep": 7334},      # raw scrape
                 "sourceRankMeta": {
                     "ktcSfTep": {"valueContribution": 7648},  # Hill contribution
@@ -634,7 +634,9 @@ def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
     source_history.append_snapshot(contract, date="2026-05-05", path=path)
     hist = source_history.load_player_history("Colston Loveland", path=path)
     # The raw scrape (7334) wins — not the contribution (7648) or the
-    # TEP-corrected canonicalSites value (8434).
+    # canonicalSites value (8434).  Post PR #406 the canonicalSites
+    # entry equals the raw scrape in production; this fixture uses
+    # divergent values to prove the priority order is enforced.
     assert hist["sources"]["ktcSfTep"][0]["value"] == 7334
 
 

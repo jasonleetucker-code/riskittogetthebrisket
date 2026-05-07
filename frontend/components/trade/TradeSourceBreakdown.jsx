@@ -105,12 +105,12 @@ export default function TradeSourceBreakdown({
         //
         // Read the raw scrape from ``row.rawSourceValues.ktcSfTep``
         // so TE rows feed the V13 formula the actual KTC TE++ value
-        // (e.g. McBride 9154) rather than the TEP-corrected internal
-        // number stored in ``canonicalSites`` (10527 for McBride —
-        // wrong scale for the formula).  ``canonicalSites.ktcSfTep``
-        // remains a fallback because non-TE rows have it equal to
-        // the raw scrape, and pre-rawSourceValues fixtures still need
-        // a path through.
+        // straight from keeptradecut.com.  Post PR #406 the canonical
+        // ``canonicalSites.ktcSfTep`` stamp matches the raw scrape
+        // (KTC is in ``_TE_BLANKET_KTC_EXEMPT_KEYS`` and the scraper-
+        // side ×1.15 has been removed), so the two paths agree — the
+        // canonical fallback stays in place for legacy fixtures and
+        // as a defense against any future canonical-pipeline drift.
         //
         // For every other vendor we keep the Hill-normalized
         // ``valueContribution``: rank-only sources don't have a raw

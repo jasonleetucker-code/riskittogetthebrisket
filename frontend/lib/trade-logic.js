@@ -904,9 +904,10 @@ export function getPlayerEdge(row) {
   //
   // Read KTC's TE++ raw scrape (``rawSourceValues.ktcSfTep``) so the
   // gap matches what the user sees on keeptradecut.com.  Falls back
-  // to ``canonicalSites.ktcSfTep`` (TEP-corrected internal value, raw
-  // for non-TEs) if the raw stamp is missing, then to the legacy
-  // ``canonicalSites.ktc`` board for pre-#393 fixtures.
+  // to ``canonicalSites.ktcSfTep`` (post PR #406 this equals the raw
+  // scrape verbatim — KTC is exempt from the blend-time TE
+  // multiplier) if the rawSourceValues stamp is missing, then to the
+  // legacy ``canonicalSites.ktc`` board for pre-#393 fixtures.
   let edgePct = 0;
   const ourValue = Number(row?.values?.full);
   const ktcValue =

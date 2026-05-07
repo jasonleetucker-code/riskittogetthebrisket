@@ -6847,12 +6847,14 @@ def _source_count(p_data: dict[str, Any], canonical_sites: dict[str, int | None]
 # Sources whose 0-9999 published board is the user-meaningful value
 # (e.g. KTC publishes its dynasty rankings publicly on
 # keeptradecut.com — users compare popup chips to the website
-# directly).  ``canonicalSiteValues`` for these keys gets a TEP
-# correction applied for TE rows during blending, which makes the
-# stored value diverge from the raw scrape (e.g. Trey McBride's
-# ``ktcSfTep``: raw 9154, TEP-corrected canonicalSites 10527).  The
-# popup chip render reads ``rawSourceValues`` first for these keys so
-# the displayed number matches the source's website.  Mirrors
+# directly).  After the 2026-05 TEP split (PR #406), the scraper-
+# side ×1.15 is gone and ``ktcSfTep`` is in
+# ``_TE_BLANKET_KTC_EXEMPT_KEYS``, so ``canonicalSiteValues.ktcSfTep``
+# now equals the raw scrape verbatim for both TE and non-TE rows.
+# ``rawSourceValues`` is preserved as a parallel read path: the popup
+# chip render and per-player source-history chart read from it first,
+# which keeps display robust against any future divergence between
+# the canonical pipeline and the raw scrape.  Mirrors
 # ``_RAW_VALUE_PREFERRED_KEYS`` in ``src/api/source_history.py``.
 _RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcSfTep"})
 
@@ -6991,9 +6993,12 @@ def _derive_player_row(
         # board is the user-meaningful display number (see
         # ``_RAW_VALUE_PREFERRED_KEYS``).  The popup chip render reads
         # this map first for these keys so the displayed number matches
-        # the source's website (e.g. KTC TE++ shows 9154 for McBride,
-        # not the TEP-corrected 10527 in canonicalSiteValues).  Sparse
-        # by design — only present for the listed keys.
+        # the source's website (KTC TE++ at keeptradecut.com).  Post
+        # the 2026-05 TEP split (PR #406), this stamp equals the
+        # corresponding ``canonicalSiteValues`` entry — the parallel
+        # path remains as a robustness guarantee against future
+        # canonical-pipeline corrections.  Sparse by design — only
+        # present for the listed keys.
         "rawSourceValues": _raw_source_values(p_data),
         "sourceCount": source_count,
         "sourcePresence": {k: (v is not None and v > 0) for k, v in canonical_sites.items()},
