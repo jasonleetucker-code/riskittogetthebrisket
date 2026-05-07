@@ -54,6 +54,7 @@ import { MonteCarloButton, ValueBandBadge, PlayerImage } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
+import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -1883,6 +1884,12 @@ export default function TradePage() {
 
           {/* ── Trade Meter (inline fairness visualization) ──────── */}
           <TradeMeter sides={sides} sideTotals={sideTotals} flows={sideFlows} valueMode={valueMode} settings={settings} />
+
+          {/* ── Why this trade is fair: 1-2 sentence explanation that
+              calls out the biggest source driver / dissenter so users
+              don't have to scan the per-vendor table below to figure
+              out *why* the verdict is what it is. */}
+          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
 
           {/* ── Per-source winner breakdown (below the fairness meter) ── */}
           <TradeSourceBreakdown sides={sides} settings={settings} valueMode={valueMode} />
