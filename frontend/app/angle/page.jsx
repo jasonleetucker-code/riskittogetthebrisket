@@ -11,6 +11,10 @@ import { useTeam } from "@/components/useTeam";
 // better on the market the counterparty consults (default ≤5%). Market
 // is per-position: IDP Trade Calculator for DL/LB/DB, KTC for everyone
 // else — backend handles routing automatically.
+//
+// When players from the target team are selected the page switches to
+// "acquire" mode: the backend finds what to give up from your roster
+// to get those specific players back.
 
 const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
 
@@ -43,8 +47,7 @@ export default function AnglePage() {
     );
   }, [rawData]);
 
-  // canonicalName → my-value, market-value, position. Mirrors the
-  // source the backend reads via _value_pair so labels and order match.
+  // canonicalName → my-value, market-value, position.
   const valueByName = useMemo(() => {
     const m = new Map();
     for (const r of rows || []) {
@@ -70,7 +73,9 @@ export default function AnglePage() {
   const [ownerId, setOwnerId] = useState("");
   const [playerNames, setPlayerNames] = useState(() => new Set());
   const [playerSearch, setPlayerSearch] = useState("");
-  const [targetOwnerId, setTargetOwnerId] = useState(""); // "" → any team
+  const [targetOwnerId, setTargetOwnerId] = useState("");
+  const [targetPlayerNames, setTargetPlayerNames] = useState(() => new Set());
+  const [targetPlayerSearch, setTargetPlayerSearch] = useState("");
   const [minMyGainPct, setMinMyGainPct] = useState(5);
   const [maxMarketGainPct, setMaxMarketGainPct] = useState(5);
   const [result, setResult] = useState(null);
@@ -99,8 +104,12 @@ export default function AnglePage() {
     [teams, ownerId],
   );
 
-  // Filter + sort the user's roster by the search input — high my-value
-  // first, alpha tie-break.
+  const targetTeam = useMemo(
+    () => teams.find((t) => String(t.ownerId || "") === String(targetOwnerId)),
+    [teams, targetOwnerId],
+  );
+
+  // Filter + sort the user's roster.
   const roster = useMemo(() => {
     if (!myTeam) return [];
     const q = playerSearch.trim().toLowerCase();
@@ -114,13 +123,34 @@ export default function AnglePage() {
       });
   }, [myTeam, playerSearch, valueByName]);
 
-  // Wipe selected players + stale results when the user switches teams
-  // — an offer from the old team is incoherent with the new roster.
+  // Filter + sort the target team's roster.
+  const targetRoster = useMemo(() => {
+    if (!targetTeam) return [];
+    const q = targetPlayerSearch.trim().toLowerCase();
+    return [...(targetTeam.players || [])]
+      .filter((name) => !q || name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const av = valueByName.get(a)?.my_value || 0;
+        const bv = valueByName.get(b)?.my_value || 0;
+        if (bv !== av) return bv - av;
+        return a.localeCompare(b);
+      });
+  }, [targetTeam, targetPlayerSearch, valueByName]);
+
+  // Wipe selected players + stale results when the user switches their own team.
   useEffect(() => {
     setPlayerNames(new Set());
     setResult(null);
     setErr(null);
   }, [ownerId]);
+
+  // Wipe target player selection when target team changes.
+  useEffect(() => {
+    setTargetPlayerNames(new Set());
+    setTargetPlayerSearch("");
+    setResult(null);
+    setErr(null);
+  }, [targetOwnerId]);
 
   function togglePlayer(name) {
     setPlayerNames((prev) => {
@@ -131,7 +161,21 @@ export default function AnglePage() {
     });
   }
 
+  function toggleTargetPlayer(name) {
+    setTargetPlayerNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
   const playerNameList = useMemo(() => Array.from(playerNames), [playerNames]);
+  const targetPlayerNameList = useMemo(() => Array.from(targetPlayerNames), [targetPlayerNames]);
+
+  // Acquire mode when the user has picked target players to receive.
+  // Offer mode otherwise (find what to get back for your send players).
+  const isAcquireMode = targetPlayerNameList.length > 0;
 
   const offerTotals = useMemo(() => {
     let my = 0;
@@ -146,31 +190,53 @@ export default function AnglePage() {
     return { my, market };
   }, [playerNameList, valueByName]);
 
-  const targetTeam = useMemo(
-    () => teams.find((t) => String(t.ownerId || "") === String(targetOwnerId)),
-    [teams, targetOwnerId],
-  );
+  const targetTotals = useMemo(() => {
+    let my = 0;
+    let market = 0;
+    for (const name of targetPlayerNameList) {
+      const info = valueByName.get(name);
+      if (info) {
+        my += info.my_value || 0;
+        market += info.market_value || 0;
+      }
+    }
+    return { my, market };
+  }, [targetPlayerNameList, valueByName]);
 
   async function findTrades() {
     if (!ownerId) {
       setErr("Pick your team.");
       return;
     }
-    if (playerNameList.length === 0) {
-      setErr("Pick at least one player on your roster to send.");
+    if (isAcquireMode) {
+      // Acquire mode: find what to give up from your roster to get the target players.
+    } else if (playerNameList.length === 0) {
+      setErr("Pick at least one player on your roster to send, or select players from the target team to acquire.");
       return;
     }
     setLoading(true);
     setErr(null);
     try {
-      const body = {
-        mode: "offer",
-        ownerId,
-        playerNames: playerNameList,
-        minMyGainPct: Number(minMyGainPct),
-        maxMarketGainPct: Number(maxMarketGainPct),
-      };
-      if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
+      let body;
+      if (isAcquireMode) {
+        body = {
+          mode: "acquire",
+          ownerId,
+          acquirePlayerNames: targetPlayerNameList,
+          minMyGainPct: Number(minMyGainPct),
+          maxMarketGainPct: Number(maxMarketGainPct),
+        };
+        if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
+      } else {
+        body = {
+          mode: "offer",
+          ownerId,
+          playerNames: playerNameList,
+          minMyGainPct: Number(minMyGainPct),
+          maxMarketGainPct: Number(maxMarketGainPct),
+        };
+        if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
+      }
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/angle/packages", {
         method: "POST",
@@ -214,10 +280,20 @@ export default function AnglePage() {
     );
   }
 
-  const canSubmit = !!ownerId && playerNameList.length > 0 && !loading;
+  const canSubmit =
+    !!ownerId &&
+    (isAcquireMode || playerNameList.length > 0) &&
+    !loading;
+
   const offer = result?.offer || null;
   const candidates = result?.candidates || [];
   const warnings = result?.warnings || [];
+
+  const submitLabel = loading
+    ? "Searching…"
+    : isAcquireMode
+      ? `Find what to give up (${targetPlayerNameList.length})`
+      : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`;
 
   return (
     <div className="page-shell angle-page">
@@ -225,23 +301,16 @@ export default function AnglePage() {
         <div>
           <h1 className="page-title">Trade Finder</h1>
           <p className="page-subtitle muted" style={{ marginTop: 4 }}>
-            Pick one or more players from your roster — optionally pick a
-            team to focus on — and get back ranked return packages where
-            your league&apos;s board says you win and the market still
-            looks fair to the other side.
+            Pick players from your roster to send and get back ranked return
+            packages — or select players from the target team you want to
+            acquire and find what you&apos;d need to give up.
           </p>
         </div>
       </div>
 
       <section className="card">
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(180px, 1fr) minmax(280px, 2fr) minmax(220px, 1fr)",
-            gap: 16,
-            alignItems: "flex-start",
-          }}
-        >
+        <div className="angle-form-grid">
+          {/* ── Column 1: Your team ───────────────────────────── */}
           <label className="angle-field">
             <span className="muted">Your team</span>
             <select
@@ -261,12 +330,18 @@ export default function AnglePage() {
             </select>
           </label>
 
+          {/* ── Column 2: Your players to send ───────────────── */}
           <div className="angle-field">
             <span className="muted">
               Your players to send{" "}
               <span style={{ fontWeight: 400 }}>
                 ({playerNameList.length} selected)
               </span>
+              {isAcquireMode && (
+                <span className="muted" style={{ fontSize: "0.75rem", marginLeft: 6 }}>
+                  — optional in acquire mode
+                </span>
+              )}
             </span>
             <input
               type="search"
@@ -346,7 +421,8 @@ export default function AnglePage() {
             )}
           </div>
 
-          <label className="angle-field">
+          {/* ── Column 3: Trade with + optional target roster ── */}
+          <div className="angle-field">
             <span className="muted">Trade with</span>
             <select
               value={targetOwnerId}
@@ -360,6 +436,95 @@ export default function AnglePage() {
                 </option>
               ))}
             </select>
+
+            {/* Target team roster — appears when a team is selected */}
+            {targetTeam && (
+              <div style={{ marginTop: 10 }}>
+                <div className="muted" style={{ fontSize: "0.78rem", marginBottom: 4 }}>
+                  Players to acquire from {targetTeam.name}
+                  {targetPlayerNameList.length > 0 && (
+                    <span> ({targetPlayerNameList.length} selected)</span>
+                  )}
+                </div>
+                <input
+                  type="search"
+                  placeholder={`Search ${targetTeam.name}…`}
+                  value={targetPlayerSearch}
+                  onChange={(e) => setTargetPlayerSearch(e.target.value)}
+                  disabled={loading}
+                  style={{ marginBottom: 6, width: "100%" }}
+                />
+                <div
+                  style={{
+                    maxHeight: 220,
+                    overflowY: "auto",
+                    border: "1px solid var(--border, #2a2a3a)",
+                    borderRadius: 6,
+                    padding: "4px 6px",
+                    background: "var(--surface-2, transparent)",
+                  }}
+                >
+                  {targetRoster.length === 0 ? (
+                    <div className="muted" style={{ padding: 8, fontSize: "0.85rem" }}>
+                      No matches
+                    </div>
+                  ) : (
+                    targetRoster.map((name) => {
+                      const info = valueByName.get(name);
+                      const checked = targetPlayerNames.has(name);
+                      return (
+                        <label
+                          key={name}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "4px 4px",
+                            cursor: "pointer",
+                            fontSize: "0.85rem",
+                            borderRadius: 4,
+                            background: checked
+                              ? "rgba(110, 224, 123, 0.08)"
+                              : "transparent",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleTargetPlayer(name)}
+                            disabled={loading}
+                          />
+                          <span style={{ flex: 1 }}>
+                            {name}
+                            <span
+                              className="muted"
+                              style={{ marginLeft: 6, fontSize: "0.78rem" }}
+                            >
+                              {info?.position || "—"}
+                            </span>
+                          </span>
+                          {info?.my_value ? (
+                            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                              {fmtValue(info.my_value)}
+                            </span>
+                          ) : null}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                {targetPlayerNameList.length > 1 && targetTotals.my > 0 && (
+                  <div
+                    className="muted"
+                    style={{ marginTop: 4, fontSize: "0.78rem" }}
+                  >
+                    Target total: {fmtValue(targetTotals.my)} my ·{" "}
+                    {fmtValue(targetTotals.market)} market
+                  </div>
+                )}
+              </div>
+            )}
+
             <details style={{ marginTop: 12 }}>
               <summary
                 className="muted"
@@ -420,10 +585,10 @@ export default function AnglePage() {
                 </label>
               </div>
             </details>
-          </label>
+          </div>
         </div>
 
-        <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center" }}>
+        <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <button
             type="button"
             className="button button-primary"
@@ -431,21 +596,27 @@ export default function AnglePage() {
             disabled={!canSubmit}
             style={{ minHeight: 42 }}
           >
-            {loading
-              ? "Searching…"
-              : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`}
+            {submitLabel}
           </button>
-          {playerNameList.length > 0 && !loading && (
+          {(playerNameList.length > 0 || targetPlayerNameList.length > 0) && !loading && (
             <button
               type="button"
               className="button"
-              onClick={() => setPlayerNames(new Set())}
+              onClick={() => {
+                setPlayerNames(new Set());
+                setTargetPlayerNames(new Set());
+              }}
               style={{ minHeight: 42 }}
             >
               Clear selection
             </button>
           )}
         </div>
+        {isAcquireMode && (
+          <p className="muted" style={{ marginTop: 8, fontSize: "0.8rem" }}>
+            Acquire mode — finding what you&apos;d need to give up for the selected players.
+          </p>
+        )}
         {err && (
           <p className="err-text" style={{ marginTop: 12 }}>
             {err}
@@ -479,7 +650,7 @@ export default function AnglePage() {
           >
             <div style={{ flex: 1, minWidth: 220 }}>
               <div className="muted" style={{ fontSize: "0.75rem" }}>
-                You send
+                {isAcquireMode ? "You receive" : "You send"}
               </div>
               <ul
                 style={{
@@ -531,9 +702,11 @@ export default function AnglePage() {
         <section className="card">
           <div style={{ marginBottom: 10 }}>
             <strong style={{ fontSize: "1rem" }}>
-              {targetTeam
-                ? `Return options from ${targetTeam.name}`
-                : "Return options from any team"}
+              {isAcquireMode
+                ? `What to give up${targetTeam ? ` to ${targetTeam.name}` : ""}`
+                : targetTeam
+                  ? `Return options from ${targetTeam.name}`
+                  : "Return options from any team"}
             </strong>
             <div className="muted" style={{ fontSize: "0.78rem", marginTop: 2 }}>
               Sorted by best edge. Each package clears +
@@ -545,8 +718,8 @@ export default function AnglePage() {
 
           {candidates.length === 0 ? (
             <p className="muted" style={{ margin: 0 }}>
-              No return packages clear the +{Number(minMyGainPct)}% / ±
-              {Number(maxMarketGainPct)}% bar with this offer
+              No packages clear the +{Number(minMyGainPct)}% / ±
+              {Number(maxMarketGainPct)}% bar with this selection
               {targetTeam ? ` against ${targetTeam.name}` : ""}. Try a
               different selection, loosen the percentages under
               Advanced, or remove the team filter.
@@ -572,7 +745,7 @@ export default function AnglePage() {
                       className="muted"
                       style={{ fontSize: "0.7rem", marginBottom: 2 }}
                     >
-                      From {c.team || "(unknown)"} · {c.size}{" "}
+                      {isAcquireMode ? "Give to" : "From"} {c.team || "(unknown)"} · {c.size}{" "}
                       {c.size === 1 ? "player" : "players"}
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
