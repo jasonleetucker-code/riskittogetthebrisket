@@ -140,9 +140,12 @@ export default function AnglePage() {
   // Wipe all selections + stale results when the user switches their own team.
   // targetPlayerNames must also be cleared — the new team may own some of those
   // players, and the backend silently drops self-owned acquire targets.
+  // targetOwnerId is cleared when it now points at the newly selected team,
+  // which would render the user's own roster as "players to acquire."
   useEffect(() => {
     setPlayerNames(new Set());
     setTargetPlayerNames(new Set());
+    setTargetOwnerId((prev) => (prev === ownerId ? "" : prev));
     setResult(null);
     setErr(null);
   }, [ownerId]);
