@@ -43,6 +43,8 @@ export default function PullToRefresh() {
 
     function onTouchStart(e) {
       if (refreshing) return;
+      // Pinch-zoom uses two fingers — don't capture it as a pull gesture.
+      if (e.touches && e.touches.length > 1) return;
       // Only start tracking when the page is genuinely at the top.
       if ((window.scrollY || window.pageYOffset || 0) > 0) return;
       const t = e.touches?.[0];
@@ -53,6 +55,11 @@ export default function PullToRefresh() {
     }
 
     function onTouchMove(e) {
+      // If a second finger appears mid-gesture (pinch), abort the pull.
+      if (e.touches && e.touches.length > 1) {
+        reset();
+        return;
+      }
       if (!trackingRef.current || refreshing) return;
       if ((window.scrollY || window.pageYOffset || 0) > 0) {
         reset();

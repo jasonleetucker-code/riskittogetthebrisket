@@ -1489,6 +1489,22 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .login-error { margin: 0; color: var(--red); font-size: 0.8rem; }
 .login-button { width: 100%; padding: 9px 12px; }
 
+/* Counter-pitch / angle page form — 3-col on desktop, stacks on mobile. */
+.angle-form-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 2fr) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* angle-field label wrapper — flex column so the <span> sits above the
+   input/select without needing inline styles on every callsite. */
+.angle-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    TABLET BREAKPOINT (≤ 1024px)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -1676,6 +1692,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     padding: 10px 14px;
     min-height: 40px;
   }
+
+  /* Angle form: collapse 3-column desktop grid to single column. */
+  .angle-form-grid { grid-template-columns: 1fr; }
 
   /* Angle filter pills — 23px tall in the wild is too small to tap
      reliably.  Bump to 36px and tighten wrap gap. */
