@@ -7144,25 +7144,28 @@ def build_api_data_contract(
 
     ``tep_multiplier`` is the league-wide TE premium boost, applied
     value-level inside the canonical blend (see
-    ``_compute_unified_rankings`` docstring).  Two modes:
+    ``_compute_unified_rankings`` docstring).  Three modes:
 
-      * ``None`` (default) — derive the multiplier from the operator's
-        Sleeper league context via
-        :func:`_derive_tep_multiplier_from_league`.  A standard TEP-1.5
-        league (``bonus_rec_te == 0.5``) yields ``1.15``; a non-TEP
-        league yields ``1.0`` (a no-op).  This is the production
-        cold-start path.
+      * ``None`` + Sleeper league context with ``bonus_rec_te > 0`` —
+        auto-derive the multiplier via
+        :func:`_derive_tep_multiplier_from_league`.  TEP-1.5
+        (``bonus_rec_te == 0.5``) → ``1.15``; TEP-2.0
+        (``bonus_rec_te == 1.0``) → ``1.30``.  Stamped as
+        ``rankingsOverride.tepMultiplierSource = "derived"``.
+      * ``None`` + no Sleeper context (cold start, offline, registry
+        miss) OR non-TEP league (``bonus_rec_te == 0``) — fall back
+        to the hardcoded ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``
+        (1.25).  Stamped as ``tepMultiplierSource = "default"``.
       * an explicit ``float`` — use the caller's value verbatim (the
         contract-summary stamp clamps to ``[1.0, 1.5]``, matching the
         API-ingress ``normalize_tep_multiplier`` and the /settings
         slider).  Used by the override endpoint when the user moves
-        the TEP slider.
+        the TEP slider.  Stamped as ``tepMultiplierSource = "override"``.
 
-    Previously this parameter defaulted to ``1.0``, which meant every
-    cold start produced a "clean" board regardless of league setup
-    and the frontend had to stamp its own ``tepMultiplier=1.15``
-    default on top.  That path is now symmetric: absent override →
-    league-derived, explicit override → user value.
+    The /settings page reads ``rankingsOverride.tepMultiplierDerived``
+    to render the "Auto" baseline next to the slider, so users in a
+    TEP-1.5 league see the slider default at 1.15 (their league's
+    actual setting) rather than the generic 1.25 fallback.
 
     ``_for_delta`` (internal) skips work that only feeds fields the
     delta payload discards (trust-mirror into legacy players dict,
@@ -7182,13 +7185,44 @@ def build_api_data_contract(
     # Each is clamped to [1.0, 1.5] at the normalize layer.  KTC
     # variants stay exempt regardless — see
     # ``_TE_BLANKET_KTC_EXEMPT_KEYS``.
+    # Resolve league context once, then use it for both TEP derivation
+    # and the roster-count / logging consumers further down.
+    league_context = _resolve_league_context()
+
+    # Auto-derive ``tep_multiplier_derived`` from the league's
+    # ``bonus_rec_te`` when Sleeper actually returned scoring data AND
+    # the league has a positive TE bonus.  Otherwise fall back to the
+    # hardcoded ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.25) so cold-
+    # start, offline, and non-TEP leagues keep predictable behavior.
+    #
+    # Examples:
+    #   * TEP-1.5 league (bonus_rec_te=0.5) → derived 1.15
+    #   * TEP-2.0 league (bonus_rec_te=1.0) → derived 1.30
+    #   * Non-TEP / no Sleeper context       → derived 1.25 (default)
+    #
+    # When the operator hasn't explicitly overridden via the slider
+    # (``tep_multiplier=None``), the derived value becomes the
+    # effective multiplier and the summary stamps the source as
+    # ``"derived"`` so the frontend can label the slider state
+    # ("Auto from league" vs "Custom override").
+    try:
+        sleeper_bonus = float(league_context.get("bonus_rec_te") or 0.0)
+    except (TypeError, ValueError):
+        sleeper_bonus = 0.0
+    sleeper_real = bool(league_context.get("fetched_from_sleeper"))
+    if sleeper_real and sleeper_bonus > 0.0:
+        tep_multiplier_derived = _derive_tep_multiplier_from_league(league_context)
+        tep_default_source: str = "derived"
+    else:
+        tep_multiplier_derived = _TE_BLANKET_NON_NATIVE_MULTIPLIER
+        tep_default_source = "default"
+
     if tep_multiplier is None:
-        tep_multiplier_effective = _TE_BLANKET_NON_NATIVE_MULTIPLIER
-        tep_multiplier_source = "default"
+        tep_multiplier_effective = tep_multiplier_derived
+        tep_multiplier_source = tep_default_source
     else:
         tep_multiplier_effective = float(tep_multiplier)
         tep_multiplier_source = "override"
-    tep_multiplier_derived = _TE_BLANKET_NON_NATIVE_MULTIPLIER
 
     if tep_native_multiplier is None:
         tep_native_multiplier_effective = _TE_BLANKET_NATIVE_MULTIPLIER
@@ -7197,10 +7231,6 @@ def build_api_data_contract(
         tep_native_multiplier_effective = float(tep_native_multiplier)
         tep_native_multiplier_source = "override"
     tep_native_multiplier_derived = _TE_BLANKET_NATIVE_MULTIPLIER
-
-    # League context still resolved for other uses (roster count,
-    # logging); TEP derivation no longer drives the multiplier.
-    league_context = _resolve_league_context()
 
     # TEP-native correction retired: TEP-native sources are now scaled
     # via ``tep_native_multiplier_effective`` inside
