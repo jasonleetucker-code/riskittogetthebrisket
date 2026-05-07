@@ -2737,6 +2737,41 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-bottom: var(--space-md);
 }
 
+/* ── Trade Fairness Explanation (1-2 sentence prose summary that
+   sits between the TradeMeter verdict bar and the per-vendor table) ── */
+.trade-fairness-explanation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: var(--space-md);
+  border: 1px solid rgba(255, 199, 4, 0.18);
+  background: rgba(255, 199, 4, 0.05);
+  border-radius: var(--radius);
+}
+
+.trade-fairness-explanation-icon {
+  font-size: 1.05rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.trade-fairness-explanation-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+@media (max-width: 520px) {
+  .trade-fairness-explanation {
+    padding: 10px 12px;
+  }
+  .trade-fairness-explanation-text {
+    font-size: 0.78rem;
+  }
+}
+
 .trade-meter-values {
   display: flex;
   align-items: baseline;
