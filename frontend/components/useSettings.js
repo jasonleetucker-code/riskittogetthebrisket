@@ -12,18 +12,22 @@ export const SETTINGS_DEFAULTS = {
 
   // Value adjustment strengths
   //
-  // tepMultiplier: null means "use the backend default" — currently
-  // the operator-set non-TEP TE multiplier (1.25), applied to TE
-  // values from sources that don't already bake in a TE-premium board
-  // (DLF, FBG, FP consensus, Flock, etc.).  When the user drags the
-  // slider on /settings, this flips from null to a finite number,
-  // which ``fetchDynastyData`` then POSTs to the override endpoint as
-  // an explicit override on top of that default.  "Reset" returns it
-  // to null so the default kicks back in.  TEP-native sources (KTC
-  // SfTep, IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) are pinned at
-  // 1.10× backend-side and are not affected by this slider; KTC
-  // standard SF is exempt entirely.
+  // tepMultiplier / tepNativeMultiplier: two parallel knobs for the
+  // TE Premium boost applied at blend time.
+  //
+  //   * ``tepMultiplier`` → non-TEP sources (DLF, FBG, FP consensus,
+  //     Flock, etc.).  Default 1.25 backend-side.
+  //   * ``tepNativeMultiplier`` → TEP-native sources (DN SF-TEP,
+  //     Yahoo Boone, FP Fitzmaurice).  Default 1.10 backend-side.
+  //
+  // KTC variants (ktc, ktcSfTep) stay exempt regardless — KTC's TE++
+  // board is the canonical reference.  ``null`` means "use the
+  // backend default"; when the user types a value on /settings this
+  // flips to a finite number, which ``fetchDynastyData`` POSTs to
+  // the override endpoint as an explicit override.  "Reset" returns
+  // it to null so the default kicks back in.
   tepMultiplier: null,               // null = backend default (1.25); 1.0..1.5 = explicit operator override
+  tepNativeMultiplier: null,         // null = backend default (1.10); 1.0..1.5 = explicit operator override
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"

@@ -1814,6 +1814,8 @@ _RESERVED_OVERRIDE_BODY_KEYS: frozenset[str] = frozenset(
     {
         "tep_multiplier",
         "tepMultiplier",
+        "tep_native_multiplier",
+        "tepNativeMultiplier",
         "enabled_sources",
         "enabledSources",
         "weights",
@@ -1848,6 +1850,31 @@ def normalize_tep_multiplier(raw: Any) -> float | None:
     if not isinstance(raw, dict):
         return None
     for key in ("tep_multiplier", "tepMultiplier"):
+        if key in raw:
+            try:
+                v = float(raw[key])
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(v):
+                return None
+            return max(1.0, min(1.5, v))
+    return None
+
+
+def normalize_tep_native_multiplier(raw: Any) -> float | None:
+    """Extract + clamp the TEP-native multiplier from a POST override body.
+
+    Mirrors :func:`normalize_tep_multiplier` but for the parallel knob
+    that controls the boost applied to TEP-native sources (DN SF-TEP,
+    Yahoo Boone, FP Fitzmaurice).  Returns ``None`` when the key is
+    absent / unparseable so the pipeline falls back to the hardcoded
+    default (``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10).
+    """
+    import math
+
+    if not isinstance(raw, dict):
+        return None
+    for key in ("tep_native_multiplier", "tepNativeMultiplier"):
         if key in raw:
             try:
                 v = float(raw[key])
@@ -2015,6 +2042,9 @@ def _summarize_source_overrides(
     tep_multiplier: float = 1.0,
     tep_multiplier_derived: float = 1.0,
     tep_multiplier_source: str = "default",
+    tep_native_multiplier: float = 1.0,
+    tep_native_multiplier_derived: float = 1.0,
+    tep_native_multiplier_source: str = "default",
     tep_native_correction: float = 1.0,
 ) -> dict[str, Any]:
     """Produce the ``rankingsOverride`` contract summary block.
@@ -2110,6 +2140,27 @@ def _summarize_source_overrides(
     if abs(tep_eff - tep_derived) > 1e-6:
         is_customized = True
 
+    # TEP-native: clamp + customization check, mirroring the non-TEP
+    # multiplier above.
+    try:
+        tep_native_eff = float(tep_native_multiplier)
+    except (TypeError, ValueError):
+        tep_native_eff = 1.0
+    if not math.isfinite(tep_native_eff):
+        tep_native_eff = 1.0
+    tep_native_eff = max(1.0, min(2.0, tep_native_eff))
+
+    try:
+        tep_native_derived = float(tep_native_multiplier_derived)
+    except (TypeError, ValueError):
+        tep_native_derived = 1.0
+    if not math.isfinite(tep_native_derived):
+        tep_native_derived = 1.0
+    tep_native_derived = max(1.0, min(2.0, tep_native_derived))
+
+    if abs(tep_native_eff - tep_native_derived) > 1e-6:
+        is_customized = True
+
     # Clamp the TEP-native correction for display purposes only; the
     # pipeline already consumed it as-is during the blend.
     try:
@@ -2139,6 +2190,10 @@ def _summarize_source_overrides(
         "tepMultiplierDefault": round(tep_derived, 4),
         "tepMultiplierDerived": round(tep_derived, 4),
         "tepMultiplierSource": str(tep_multiplier_source or "default"),
+        "tepNativeMultiplier": round(tep_native_eff, 4),
+        "tepNativeMultiplierDefault": round(tep_native_derived, 4),
+        "tepNativeMultiplierDerived": round(tep_native_derived, 4),
+        "tepNativeMultiplierSource": str(tep_native_multiplier_source or "default"),
         "tepNativeCorrection": round(tep_native_corr, 4),
         # Underlying Sleeper TE-bonus value driving the derivation.
         # Empty / non-TEP leagues return 0.0; standard "TEP-1.5" is 0.5.
@@ -5108,6 +5163,7 @@ def _compute_unified_rankings(
     *,
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
+    tep_native_multiplier: float | None = None,
     tep_native_correction: float = 1.0,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
@@ -5228,15 +5284,20 @@ def _compute_unified_rankings(
     # Resolve the non-TEP-source TE multiplier.  ``None`` means the
     # caller did not supply a slider override, so use the operator's
     # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25).  An
-    # explicit float comes from the ``/settings`` "TE Premium" slider
+    # explicit float comes from the ``/settings`` "TE Premium" input
     # via :func:`normalize_tep_multiplier`, which clamps to [1.0, 1.5].
-    # The TEP-native (1.10) factor and KTC exemption are hardcoded —
-    # only the non-TEP boost is operator-tunable.
+    # The TEP-native default (1.10) is now operator-tunable too via
+    # :func:`normalize_tep_native_multiplier`; KTC stays exempt.
     _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
     effective_non_tep_multiplier: float = (
         float(tep_multiplier)
         if tep_multiplier is not None
         else _TE_BLANKET_NON_NATIVE_MULTIPLIER
+    )
+    effective_native_multiplier: float = (
+        float(tep_native_multiplier)
+        if tep_native_multiplier is not None
+        else _TE_BLANKET_NATIVE_MULTIPLIER
     )
 
     # Build the active source list honoring user-supplied overrides.
@@ -5902,7 +5963,7 @@ def _compute_unified_rankings(
                     value *= effective_non_tep_multiplier
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
-                    value *= _TE_BLANKET_NATIVE_MULTIPLIER
+                    value *= effective_native_multiplier
                     tep_native_corrected = True
             all_values.append(value)
             is_anchor_source = source_key in cross_market_keys
@@ -5929,7 +5990,7 @@ def _compute_unified_rankings(
                 meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)
             if tep_native_corrected:
                 meta["tepNativeCorrectionApplied"] = True
-                meta["tepNativeCorrection"] = round(_TE_BLANKET_NATIVE_MULTIPLIER, 4)
+                meta["tepNativeCorrection"] = round(effective_native_multiplier, 4)
 
         # ── Per-player Hampel outlier rejection (K=2.75) ──
         # Drop source values that sit more than 2.75 MADs from the
@@ -7053,6 +7114,7 @@ def build_api_data_contract(
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
+    tep_native_multiplier: float | None = None,
     _for_delta: bool = False,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
@@ -7091,14 +7153,18 @@ def build_api_data_contract(
     this to ``True`` so overrides round-trips don't pay for output
     blocks the wire shape drops.
     """
-    # TEP slider repurposed (2026-05-06): ``tep_multiplier`` is the
-    # operator-tunable boost applied to non-TEP-native source TE
-    # contributions.  ``None`` → use the default
-    # (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25); a finite float
-    # (clamped to [1.0, 1.5] by ``normalize_tep_multiplier``) → use
-    # the operator's slider value verbatim.  The TEP-native (1.10)
-    # correction and KTC exemption are hardcoded; only this
-    # non-TEP boost is operator-tunable.
+    # TEP inputs: two parallel knobs control the per-bucket TE boost,
+    # both operator-tunable and both falling back to hardcoded
+    # defaults when ``None``.
+    #
+    #   * ``tep_multiplier``        — non-TEP sources (default 1.25,
+    #     ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``)
+    #   * ``tep_native_multiplier`` — TEP-native sources (default 1.10,
+    #     ``_TE_BLANKET_NATIVE_MULTIPLIER``)
+    #
+    # Each is clamped to [1.0, 1.5] at the normalize layer.  KTC
+    # variants stay exempt regardless — see
+    # ``_TE_BLANKET_KTC_EXEMPT_KEYS``.
     if tep_multiplier is None:
         tep_multiplier_effective = _TE_BLANKET_NON_NATIVE_MULTIPLIER
         tep_multiplier_source = "default"
@@ -7106,13 +7172,23 @@ def build_api_data_contract(
         tep_multiplier_effective = float(tep_multiplier)
         tep_multiplier_source = "override"
     tep_multiplier_derived = _TE_BLANKET_NON_NATIVE_MULTIPLIER
+
+    if tep_native_multiplier is None:
+        tep_native_multiplier_effective = _TE_BLANKET_NATIVE_MULTIPLIER
+        tep_native_multiplier_source = "default"
+    else:
+        tep_native_multiplier_effective = float(tep_native_multiplier)
+        tep_native_multiplier_source = "override"
+    tep_native_multiplier_derived = _TE_BLANKET_NATIVE_MULTIPLIER
+
     # League context still resolved for other uses (roster count,
     # logging); TEP derivation no longer drives the multiplier.
     league_context = _resolve_league_context()
 
-    # TEP-native correction retired: TEP-native sources are hardcoded
-    # at 1.10× inside ``_compute_unified_rankings``; this field is
-    # the identity (1.0) at this layer.
+    # TEP-native correction retired: TEP-native sources are now scaled
+    # via ``tep_native_multiplier_effective`` inside
+    # ``_compute_unified_rankings``; this field is the identity at
+    # this layer.
     tep_native_correction = 1.0
 
     # Two-level copy of raw_payload: shallow at the top, one-deep for
@@ -7210,6 +7286,7 @@ def build_api_data_contract(
         csv_index=csv_index,
         source_overrides=source_overrides,
         tep_multiplier=tep_multiplier_effective,
+        tep_native_multiplier=tep_native_multiplier_effective,
         tep_native_correction=tep_native_correction,
     )
 
@@ -7392,6 +7469,9 @@ def build_api_data_contract(
         tep_multiplier=tep_multiplier_effective,
         tep_multiplier_derived=tep_multiplier_derived,
         tep_multiplier_source=tep_multiplier_source,
+        tep_native_multiplier=tep_native_multiplier_effective,
+        tep_native_multiplier_derived=tep_native_multiplier_derived,
+        tep_native_multiplier_source=tep_native_multiplier_source,
         tep_native_correction=tep_native_correction,
     )
 
@@ -7482,6 +7562,7 @@ def build_rankings_delta_payload(
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
+    tep_native_multiplier: float | None = None,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -7523,6 +7604,7 @@ def build_rankings_delta_payload(
         data_source=data_source,
         source_overrides=source_overrides,
         tep_multiplier=tep_multiplier,
+        tep_native_multiplier=tep_native_multiplier,
         _for_delta=True,
     )
 

@@ -32,6 +32,13 @@ export function useDynastyData() {
       : Number.isFinite(Number(rawTep))
         ? Number(rawTep)
         : null;
+  const rawTepNative = settings?.tepNativeMultiplier;
+  const tepNativeMultiplier =
+    rawTepNative === null || rawTepNative === undefined
+      ? null
+      : Number.isFinite(Number(rawTepNative))
+        ? Number(rawTepNative)
+        : null;
   // Serialize the override map so the effect's dependency array
   // fires on semantic changes, not reference churn, without forcing
   // callers to memoize on their side.  The tepMultiplier is part of
@@ -77,6 +84,7 @@ export function useDynastyData() {
         const payload = await fetchDynastyData({
           siteOverrides,
           tepMultiplier,
+          tepNativeMultiplier,
         });
         if (!active) return;
 
@@ -134,7 +142,7 @@ export function useDynastyData() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteOverridesKey, tepMultiplier, leagueRefreshKey]);
+  }, [siteOverridesKey, tepMultiplier, tepNativeMultiplier, leagueRefreshKey]);
 
   const rows = useMemo(() => {
     try {

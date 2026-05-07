@@ -845,6 +845,18 @@ export function tepMultiplierIsCustomized(tepMultiplier) {
   return Number.isFinite(n);
 }
 
+/**
+ * Same predicate as ``tepMultiplierIsCustomized`` but for the
+ * parallel ``tepNativeMultiplier`` knob.  Treated identically: ``null``
+ * / ``undefined`` / non-finite values mean "use the backend default
+ * (1.10)" so ``fetchDynastyData`` skips posting the field.
+ */
+export function tepNativeMultiplierIsCustomized(tepNativeMultiplier) {
+  if (tepNativeMultiplier === null || tepNativeMultiplier === undefined) return false;
+  const n = Number(tepNativeMultiplier);
+  return Number.isFinite(n);
+}
+
 // ── Row materialization ──────────────────────────────────────────────
 // ``buildRows`` materializes the backend contract (``playersArray``
 // or legacy ``players`` dict) into the flat row shape every frontend
@@ -1440,9 +1452,17 @@ export async function fetchDynastyData(opts = {}) {
       : Number.isFinite(Number(rawTep))
         ? Number(rawTep)
         : null;
+  const rawTepNative = opts.tepNativeMultiplier;
+  const tepNativeMultiplier =
+    rawTepNative === null || rawTepNative === undefined
+      ? null
+      : Number.isFinite(Number(rawTepNative))
+        ? Number(rawTepNative)
+        : null;
   const sitesCustomized = siteOverridesAreCustomized(siteOverrides);
   const tepCustomized = tepMultiplierIsCustomized(tepMultiplier);
-  const customized = sitesCustomized || tepCustomized;
+  const tepNativeCustomized = tepNativeMultiplierIsCustomized(tepNativeMultiplier);
+  const customized = sitesCustomized || tepCustomized || tepNativeCustomized;
 
   // Default path (no overrides): fetch + cache the base contract.
   // The backend will derive tep_multiplier from the operator's
@@ -1469,6 +1489,9 @@ export async function fetchDynastyData(opts = {}) {
   const body = { ...(siteOverrides || {}) };
   if (tepCustomized) {
     body.tep_multiplier = tepMultiplier;
+  }
+  if (tepNativeCustomized) {
+    body.tep_native_multiplier = tepNativeMultiplier;
   }
 
   try {

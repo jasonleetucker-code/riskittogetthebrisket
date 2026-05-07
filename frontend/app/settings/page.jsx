@@ -128,6 +128,23 @@ export default function SettingsPage() {
     settings?.tepMultiplier === null ||
     settings?.tepMultiplier === undefined;
 
+  // Parallel "TEP-native" multiplier — the per-bucket boost applied
+  // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
+  // on TE rows.  Mirrors the non-TEP knob above; default 1.10.
+  const tepNativeDefault = (() => {
+    const v = Number(rawData?.rankingsOverride?.tepNativeMultiplierDerived);
+    return Number.isFinite(v) ? v : 1.1;
+  })();
+  const tepNativeInputValue = (() => {
+    const raw = settings?.tepNativeMultiplier;
+    if (raw === null || raw === undefined) return tepNativeDefault;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : tepNativeDefault;
+  })();
+  const tepNativeIsDefault =
+    settings?.tepNativeMultiplier === null ||
+    settings?.tepNativeMultiplier === undefined;
+
   // Split the canonical registry into offense / IDP groups by the
   // declared scope field.  idpTradeCalc is listed under IDP (its
   // primary backbone scope) even though its `extraScopes` also
@@ -215,7 +232,7 @@ export default function SettingsPage() {
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <label style={{ minWidth: 100, fontSize: "0.82rem" }}>TE Premium</label>
+          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>TEP — non-native</label>
           <input
             type="number"
             min={1.0}
@@ -259,10 +276,57 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>TEP — native</label>
+          <input
+            type="number"
+            min={1.0}
+            max={1.5}
+            step={0.01}
+            value={tepNativeInputValue}
+            onChange={(e) => {
+              const n = parseFloat(e.target.value);
+              if (Number.isFinite(n)) {
+                update("tepNativeMultiplier", Math.max(1.0, Math.min(1.5, n)));
+              }
+            }}
+            style={{
+              width: 90,
+              padding: "4px 8px",
+              fontSize: "0.82rem",
+              fontFamily: "var(--mono)",
+            }}
+          />
+          <span className="muted" style={{ fontSize: "0.66rem" }}>
+            {tepNativeIsDefault
+              ? `Default ${tepNativeDefault.toFixed(2)}× — applied to TEP-native sources on TE rows`
+              : `Custom ${Number(tepNativeInputValue).toFixed(2)}× — TEP-native sources on TE rows`}
+          </span>
+        </div>
+        {!tepNativeIsDefault && (
+          <div style={{ marginTop: 4, marginBottom: 6 }}>
+            <button
+              type="button"
+              className="button-reset"
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--accent-gold, #FFC704)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+              }}
+              onClick={() => update("tepNativeMultiplier", null)}
+            >
+              Reset to default ({tepNativeDefault.toFixed(2)}×)
+            </button>
+          </div>
+        )}
         <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
-          Multiplier applied to TE values from sources that don&apos;t
-          already publish a TE-premium board (DLF, FBG, FP consensus,
-          Flock, etc.).  Sources tagged{" "}
+          Two parallel TE Premium multipliers, both applied at blend
+          time on TE rows only.  <strong>Non-native</strong> covers
+          sources whose published board doesn&apos;t already bake in
+          TE premium (DLF, FBG, FP consensus, Flock, etc.).{" "}
+          <strong>Native</strong> covers sources tagged{" "}
           <span
             style={{
               fontFamily: "var(--mono)",
@@ -275,12 +339,13 @@ export default function SettingsPage() {
           >
             TEP NATIVE
           </span>{" "}
-          (KTC SfTep, IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) get
-          a smaller fixed 1.10× nudge instead, since their boards
-          already bake in a TE premium.  KTC standard SF is the
-          reference baseline and passes through unchanged.  Changing
-          the value re-runs the canonical ranking pipeline so every
-          page (rankings, trade calculator, edge) sees the same values.
+          (DN SfTep, Yahoo Boone, FP Fitzmaurice) — their boards
+          already publish some TE premium so the smaller default
+          (1.10×) is a calibration nudge, not a fresh boost.  KTC
+          (standard SF and SF-TE++) is the canonical baseline and
+          passes through both knobs unchanged.  Changing either value
+          re-runs the canonical ranking pipeline so every page
+          (rankings, trade calculator, edge) sees the same values.
         </p>
       </Section>
 
