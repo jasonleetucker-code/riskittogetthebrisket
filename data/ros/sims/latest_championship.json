@@ -1,51 +1,51 @@
 {
-  "computedAt": "2026-05-07T15:22:13.201189+00:00",
+  "computedAt": "2026-05-07T18:18:16.385222+00:00",
   "championshipOdds": [
     {
       "ownerId": "1012114412049731584",
       "displayName": "jcardsjr",
-      "championshipOdds": 0.5425,
-      "finalsOdds": 0.6925,
-      "semifinalOdds": 0.6975,
+      "championshipOdds": 0.5354,
+      "finalsOdds": 0.6829,
+      "semifinalOdds": 0.6882,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.67,
+      "expectedFinish": 2.72,
       "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "468418790212759552",
+      "displayName": "JasonLeeTucker",
+      "championshipOdds": 0.1994,
+      "finalsOdds": 0.3062,
+      "semifinalOdds": 0.3118,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.56,
+      "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "EricLeeC",
-      "championshipOdds": 0.1949,
-      "finalsOdds": 0.6391,
+      "championshipOdds": 0.1907,
+      "finalsOdds": 0.6379,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 2.17,
       "contenderTier": "Serious Contender"
     },
     {
-      "ownerId": "468418790212759552",
-      "displayName": "JasonLeeTucker",
-      "championshipOdds": 0.1902,
-      "finalsOdds": 0.2974,
-      "semifinalOdds": 0.3025,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.6,
-      "contenderTier": "Serious Contender"
-    },
-    {
       "ownerId": "714912789268865024",
       "displayName": "MaKaylaChristy",
-      "championshipOdds": 0.0718,
-      "finalsOdds": 0.3609,
+      "championshipOdds": 0.0739,
+      "finalsOdds": 0.3621,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.57,
+      "expectedFinish": 2.56,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "TyBWell",
       "championshipOdds": 0.0006,
-      "finalsOdds": 0.0101,
+      "finalsOdds": 0.0109,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 2.99,
