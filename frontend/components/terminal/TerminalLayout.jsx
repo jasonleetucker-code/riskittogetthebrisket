@@ -4,6 +4,7 @@ import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import TeamCommandHeader from "./TeamCommandHeader";
 import MarketTicker from "./MarketTicker";
+import TopSignalsRail from "./TopSignalsRail";
 import PlayerMarketMovement from "./PlayerMarketMovement";
 import BuySellHold from "./BuySellHold";
 import MoversPanel from "./MoversPanel";
@@ -56,6 +57,7 @@ export default function TerminalLayout() {
       <StaleBanner />
       <TeamCommandHeader />
       <MarketTicker />
+      <TopSignalsRail />
 
       <div className="terminal-grid">
         <div className="terminal-col terminal-col--left">

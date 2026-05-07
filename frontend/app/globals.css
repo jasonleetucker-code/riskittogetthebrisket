@@ -5303,6 +5303,142 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   white-space: nowrap;
 }
 
+/* ─ TopSignalsRail (your-roster top 3 sells / top 3 buys) ─ */
+.top-signals-rail {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(8, 19, 44, 0.55);
+}
+
+.top-signals-rail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.top-signals-rail-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.top-signals-rail-subtitle {
+  font-size: 0.7rem;
+}
+
+.top-signals-rail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.top-signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(8, 19, 44, 0.7);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  /* Mobile tap-target minimum */
+  min-height: 80px;
+}
+
+.top-signal-card:hover,
+.top-signal-card:focus-visible {
+  background: rgba(8, 19, 44, 0.95);
+  outline: none;
+}
+
+.top-signal-card--down:hover,
+.top-signal-card--down:focus-visible {
+  border-color: var(--red);
+}
+
+.top-signal-card--up:hover,
+.top-signal-card--up:focus-visible {
+  border-color: var(--green);
+}
+
+.top-signal-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.top-signal-card-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.top-signal-card-tag--down {
+  color: var(--red);
+}
+
+.top-signal-card-tag--up {
+  color: var(--green);
+}
+
+.top-signal-card-delta {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.top-signal-card-delta--down {
+  color: var(--red);
+}
+
+.top-signal-card-delta--up {
+  color: var(--green);
+}
+
+.top-signal-card-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-signal-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+}
+
+.top-signal-card-pos {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.top-signal-card-evidence {
+  font-size: 0.7rem;
+  color: var(--subtext);
+  line-height: 1.3;
+  /* Two-line clamp keeps card height predictable */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ─ Responsive grid (mobile-first) ─ */
 .terminal-grid {
   display: flex;
