@@ -755,8 +755,8 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Linked And Locked In",
-    "teamRosStrength": 324.83,
-    "startingLineupScore": 404.07,
+    "teamRosStrength": 324.85,
+    "startingLineupScore": 404.09,
     "benchDepthScore": 132.78,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -856,8 +856,8 @@
         "playerId": "5045",
         "canonicalName": "courtland sutton",
         "position": "WR",
-        "rosValue": 32.32,
-        "adjustedValue": 32.32,
+        "rosValue": 32.34,
+        "adjustedValue": 32.34,
         "confidence": 0.927,
         "flagged": null
       }

@@ -151,7 +151,7 @@ Chris Brazzell II,183,WR56,CAR,22,R
 Parker Washington,184,WR57,JAX,24,3
 Kenneth Gainwell,185,RB48,TB,27,5
 Jalen Coker,186,WR58,CAR,24,2
-Jauan Jennings,187,WR59,FA,28,6
+Jauan Jennings,187,WR59,MIN,28,6
 Germie Bernard,188,WR60,PIT,22,R
 Romeo Doubs,189,WR61,NE,26,4
 Tyjae Spears,190,RB49,TEN,24,3
@@ -272,7 +272,7 @@ Aaron Anderson,304,WR116,FA,23,R
 Tai Felton,311,WR117,MIN,23,1
 Justin Joly,312,TE35,DEN,21,R
 DJ Giddens,313,RB88,IND,22,1
-Vinny Anthony II,317,WR118,FA,22,R
+Vinny Anthony II,317,WR118,ATL,22,R
 Evan Engram,321,TE36,DEN,31,9
 Andrei Iosivas,325,WR119,CIN,26,3
 CJ Donaldson,326,RB89,NO,21,R
@@ -287,7 +287,7 @@ Oscar Delp,347,TE39,NO,22,R
 Konata Mumpfield,352,WR123,LAR,23,1
 Will Shipley,354,RB92,PHI,23,2
 Ja'Tavion Sanders,356,TE40,CAR,23,2
-Robert Henry Jr.,357,RB93,FA,24,R
+Robert Henry Jr.,357,RB93,WAS,24,R
 Malik Washington,359,WR124,MIA,25,2
 Trevor Etienne,362,RB94,CAR,21,1
 Jalen Royals,366,WR125,KC,23,1
@@ -394,7 +394,7 @@ Khalil Herbert,664,RB160,FA,28,5
 Evan Hull,665,RB161,FA,25,3
 Terrell Jennings,666,RB162,NE,25,2
 D'Ernest Johnson,667,RB163,FA,30,7
-Cashion Jones,668,RB164,FA,24,R
+Cashion Jones,668,RB164,ATL,24,R
 Corey Kiner,669,RB165,ARI,24,1
 Hunter Luepke,670,RB166,FA,-,3
 Damien Martinez,671,RB167,GB,22,1
@@ -406,7 +406,7 @@ Jordan Mims,676,RB172,FA,26,3
 Raheem Mostert,677,RB173,FA,34,11
 Dare Ogunbowale,678,RB174,FA,32,9
 Kejon Owens,679,RB175,MIN,-,R
-Lincoln Pare,680,RB176,FA,24,R
+Lincoln Pare,680,RB176,IND,24,R
 Cordarrelle Patterson,681,RB177,FA,35,13
 Jaret Patterson,682,RB178,LAC,26,5
 Craig Reynolds,683,RB179,FA,29,7
@@ -447,7 +447,7 @@ Savion Williams,762,WR151,GB,24,1
 Tyson Bagent,784,QB46,CHI,25,3
 Malik Benson,798,WR152,LV,23,R
 Emmanuel Henderson Jr.,799,WR153,SEA,22,R
-Chris Hilton Jr.,800,WR154,FA,23,R
+Chris Hilton Jr.,800,WR154,WAS,23,R
 Keandre Lambert-Smith,801,WR155,LAC,23,1
 Colbie Young,802,WR156,CIN,23,R
 Luke McCaffrey,804,WR157,WAS,25,2
@@ -504,14 +504,14 @@ Brycen Tremayne,892,WR205,CAR,26,3
 Trey Palmer,893,WR206,NO,25,3
 KaVontae Turpin,894,WR207,DAL,29,4
 Andrel Anthony,903,WR208,FA,24,R
-Le'Meke Brockington,904,WR209,FA,-,R
+Le'Meke Brockington,904,WR209,ATL,-,R
 Camden Brown,905,WR210,DAL,-,R
 Sincere Brown,906,WR211,LAC,-,R
 Kolbe Katsis,907,WR212,FA,-,R
 Omari Kelly,908,WR213,FA,22,R
 Dane Key,909,WR214,DEN,22,R
 Shaleak Knotts,910,WR215,MIN,-,R
-Keelan Marion,911,WR216,FA,-,R
+Keelan Marion,911,WR216,ATL,-,R
 Malick Meiga,912,WR217,FA,-,R
 Rondale Moore,913,WR218,FA,25,5
 Cam Ross,914,WR219,FA,-,R
@@ -540,7 +540,7 @@ Noah Brown,941,WR241,FA,30,9
 Tim Patrick,942,WR242,FA,32,9
 Curtis Samuel,946,WR243,FA,29,9
 Zach Ertz,959,TE59,FA,35,13
-Ashton Dulin,960,WR244,IND,28,7
+Ashton Dulin,960,WR244,IND,29,7
 Trinidad Chambliss,964,QB48,FA,23,R
 Gage Larvadain,974,WR245,CLE,23,1
 Dominic Lovett,975,WR246,DET,23,1

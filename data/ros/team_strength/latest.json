@@ -541,9 +541,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Russini Panini",
-    "teamRosStrength": 496.46,
-    "startingLineupScore": 642.32,
-    "benchDepthScore": 133.3,
+    "teamRosStrength": 502.01,
+    "startingLineupScore": 646.67,
+    "benchDepthScore": 146.7,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -619,22 +619,22 @@
       },
       {
         "slot": "RB",
-        "playerId": "10219",
-        "canonicalName": "chris rodriguez",
+        "playerId": "8408",
+        "canonicalName": "jordan mason",
         "position": "RB",
-        "rosValue": 22.59,
-        "adjustedValue": 22.59,
-        "confidence": 0.945,
+        "rosValue": 23.13,
+        "adjustedValue": 23.13,
+        "confidence": 0.92,
         "flagged": null
       },
       {
         "slot": "RB",
-        "playerId": "8132",
-        "canonicalName": "tyler allgeier",
+        "playerId": "4199",
+        "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 18.86,
-        "adjustedValue": 18.86,
-        "confidence": 0.965,
+        "rosValue": 22.67,
+        "adjustedValue": 22.67,
+        "confidence": 0.909,
         "flagged": null
       },
       {
@@ -786,12 +786,12 @@
         "depthContribution": 11.06
       },
       {
-        "playerId": "11625",
-        "canonicalName": "adonai mitchell",
-        "position": "WR",
-        "rosValue": 19.86,
-        "depthFactor": 0.275,
-        "depthContribution": 5.45
+        "playerId": "8132",
+        "canonicalName": "tyler allgeier",
+        "position": "RB",
+        "rosValue": 18.86,
+        "depthFactor": 1.0,
+        "depthContribution": 18.86
       }
     ],
     "unfilledSlots": [],
@@ -1347,9 +1347,9 @@
     "ownerId": "714912789268865024",
     "rosterId": 5,
     "teamName": "Rage Against The Achane ",
-    "teamRosStrength": 466.57,
+    "teamRosStrength": 466.21,
     "startingLineupScore": 604.95,
-    "benchDepthScore": 116.69,
+    "benchDepthScore": 114.72,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1536,14 +1536,6 @@
     ],
     "benchDepth": [
       {
-        "playerId": "8408",
-        "canonicalName": "jordan mason",
-        "position": "RB",
-        "rosValue": 23.13,
-        "depthFactor": 1.0,
-        "depthContribution": 23.13
-      },
-      {
         "playerId": "4037",
         "canonicalName": "chris godwin",
         "position": "WR",
@@ -1552,20 +1544,20 @@
         "depthContribution": 23.07
       },
       {
-        "playerId": "4199",
-        "canonicalName": "aaron jones",
-        "position": "RB",
-        "rosValue": 22.67,
-        "depthFactor": 0.65,
-        "depthContribution": 14.74
-      },
-      {
         "playerId": "12533",
         "canonicalName": "jacory croskey merritt",
         "position": "RB",
         "rosValue": 22.62,
-        "depthFactor": 0.423,
-        "depthContribution": 9.56
+        "depthFactor": 1.0,
+        "depthContribution": 22.62
+      },
+      {
+        "playerId": "10219",
+        "canonicalName": "chris rodriguez",
+        "position": "RB",
+        "rosValue": 22.59,
+        "depthFactor": 0.65,
+        "depthContribution": 14.68
       },
       {
         "playerId": "3257",
@@ -1576,28 +1568,36 @@
         "depthContribution": 21.85
       },
       {
+        "playerId": "11625",
+        "canonicalName": "adonai mitchell",
+        "position": "WR",
+        "rosValue": 19.86,
+        "depthFactor": 0.65,
+        "depthContribution": 12.91
+      },
+      {
         "playerId": "11632",
         "canonicalName": "malik nabers",
         "position": "WR",
         "rosValue": 47.17,
-        "depthFactor": 0.65,
-        "depthContribution": 12.26
+        "depthFactor": 0.423,
+        "depthContribution": 7.97
       },
       {
         "playerId": "11627",
         "canonicalName": "troy franklin",
         "position": "WR",
         "rosValue": 18.56,
-        "depthFactor": 0.423,
-        "depthContribution": 7.84
+        "depthFactor": 0.275,
+        "depthContribution": 5.1
       },
       {
         "playerId": "9511",
         "canonicalName": "keaton mitchell",
         "position": "RB",
         "rosValue": 15.43,
-        "depthFactor": 0.275,
-        "depthContribution": 4.24
+        "depthFactor": 0.423,
+        "depthContribution": 6.52
       }
     ],
     "unfilledSlots": [],
@@ -1618,8 +1618,8 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "TyBWell",
-    "teamRosStrength": 420.9,
-    "startingLineupScore": 543.77,
+    "teamRosStrength": 420.92,
+    "startingLineupScore": 543.79,
     "benchDepthScore": 107.72,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1739,8 +1739,8 @@
         "playerId": "5045",
         "canonicalName": "courtland sutton",
         "position": "WR",
-        "rosValue": 32.32,
-        "adjustedValue": 32.32,
+        "rosValue": 32.34,
+        "adjustedValue": 32.34,
         "confidence": 0.927,
         "flagged": null
       },
