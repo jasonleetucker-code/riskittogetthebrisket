@@ -2701,7 +2701,7 @@
     "teamName": "ughb",
     "teamRosStrength": 291.82,
     "startingLineupScore": 380.71,
-    "benchDepthScore": 50.11,
+    "benchDepthScore": 50.12,
     "positionalCoverageScore": 73.75,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2895,9 +2895,9 @@
         "playerId": "12568",
         "canonicalName": "jalon walker",
         "position": "DL",
-        "rosValue": 6.32,
+        "rosValue": 6.33,
         "depthFactor": 1.0,
-        "depthContribution": 6.32
+        "depthContribution": 6.33
       },
       {
         "playerId": "12631",
