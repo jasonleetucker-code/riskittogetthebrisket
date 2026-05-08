@@ -1,30 +1,30 @@
 Player,Composite,Sites,ktc,idpTradeCalc
-2026 Early 1st,6128,2,5714,5765
+2026 Early 1st,6126,2,5714,5765
 2026 Early 2nd,3200,2,3307,3280
-2026 Early 3rd,2657,2,2273,2305
+2026 Early 3rd,2657,2,2274,2305
 2026 Early 4th,2022,2,1701,1761
 2026 Early 5th,1816,1,1816,
 2026 Early 6th,1444,1,1444,
 2026 Late 1st,3816,2,3887,3960
-2026 Late 2nd,2780,2,2767,2824
+2026 Late 2nd,2780,2,2770,2824
 2026 Late 3rd,2397,2,2013,2112
 2026 Late 4th,1893,2,1478,1517
 2026 Late 5th,1479,1,1479,
-2026 Late 6th,1180,1,1180,
-2026 Mid 1st,4840,2,4609,4663
-2026 Mid 2nd,2959,2,3020,2982
-2026 Mid 3rd,2554,2,2125,2172
+2026 Late 6th,1181,1,1181,
+2026 Mid 1st,4839,2,4606,4663
+2026 Mid 2nd,2960,2,3020,2982
+2026 Mid 3rd,2556,2,2125,2172
 2026 Mid 4th,1934,2,1622,1630
 2026 Mid 5th,1632,1,1632,
 2026 Mid 6th,1440,1,1440,
 2026 Pick 1.01,7672,2,6857,8013
-2026 Pick 1.02,5827,2,6095,8323
-2026 Pick 1.03,5665,2,5333,6647
+2026 Pick 1.02,5824,2,6095,8323
+2026 Pick 1.03,5662,2,5333,6647
 2026 Pick 1.04,5347,2,4571,6486
-2026 Pick 1.05,5105,2,5254,5961
-2026 Pick 1.06,5053,2,4824,5575
-2026 Pick 1.07,4695,2,4394,5312
-2026 Pick 1.08,4506,2,3964,5200
+2026 Pick 1.05,5105,2,5251,5961
+2026 Pick 1.06,5050,2,4821,5575
+2026 Pick 1.07,4695,2,4391,5312
+2026 Pick 1.08,4506,2,3961,5200
 2026 Pick 1.09,4307,2,4353,4908
 2026 Pick 1.10,3855,2,4042,4845
 2026 Pick 1.11,3640,2,3732,4553
@@ -36,18 +36,18 @@ Player,Composite,Sites,ktc,idpTradeCalc
 2026 Pick 2.05,3011,2,3443,3430
 2026 Pick 2.06,3010,2,3161,3308
 2026 Pick 2.07,2942,2,2879,3261
-2026 Pick 2.08,2872,2,2597,3144
-2026 Pick 2.09,2866,2,3099,3088
-2026 Pick 2.10,2758,2,2878,3031
-2026 Pick 2.11,2755,2,2656,2925
-2026 Pick 2.12,2742,2,2435,2749
-2026 Pick 3.01,2693,2,2728,2631
-2026 Pick 3.02,2680,2,2425,2476
-2026 Pick 3.03,2634,2,2121,2388
-2026 Pick 3.04,2622,2,1818,2350
+2026 Pick 2.08,2875,2,2597,3144
+2026 Pick 2.09,2866,2,3102,3088
+2026 Pick 2.10,2755,2,2881,3031
+2026 Pick 2.11,2755,2,2659,2925
+2026 Pick 2.12,2742,2,2438,2749
+2026 Pick 3.01,2693,2,2729,2631
+2026 Pick 3.02,2680,2,2426,2476
+2026 Pick 3.03,2634,2,2122,2388
+2026 Pick 3.04,2622,2,1819,2350
 2026 Pick 3.05,2607,2,2422,2328
-2026 Pick 3.06,2596,2,2224,2285
-2026 Pick 3.07,2565,2,2026,2243
+2026 Pick 3.06,2599,2,2224,2285
+2026 Pick 3.07,2568,2,2026,2243
 2026 Pick 3.08,2448,2,1828,2140
 2026 Pick 3.09,2447,2,2255,2062
 2026 Pick 3.10,2414,2,2094,1962
@@ -87,7 +87,7 @@ Player,Composite,Sites,ktc,idpTradeCalc
 2026 Pick 6.08,1439,1,1439,
 2026 Pick 6.09,1212,1,1212,
 2026 Pick 6.10,1212,1,1212,
-2026 Pick 6.11,1166,1,1166,
+2026 Pick 6.11,1169,1,1169,
 2026 Pick 6.12,1130,1,1130,
 2027 Early 1st,6732,2,7112,6936
 2027 Early 2nd,3661,2,3918,3804
@@ -100,28 +100,28 @@ Player,Composite,Sites,ktc,idpTradeCalc
 2027 Late 3rd,2231,2,2175,2248
 2027 Late 4th,1702,2,1666,1629
 2027 Late 5th,1405,1,1405,
-2027 Late 6th,1121,1,1121,
+2027 Late 6th,1122,1,1122,
 2027 Mid 1st,5358,2,5612,5612
 2027 Mid 2nd,3271,2,3410,3443
-2027 Mid 3rd,2432,2,2468,2393
-2027 Mid 4th,1786,2,1770,1745
+2027 Mid 3rd,2433,2,2468,2393
+2027 Mid 4th,1788,2,1773,1745
 2027 Mid 5th,1551,1,1551,
 2027 Mid 6th,1368,1,1368,
-2028 Early 1st,4966,2,4960,4972
+2028 Early 1st,4970,2,4968,4972
 2028 Early 2nd,3000,2,3129,3142
 2028 Early 3rd,2154,2,2134,2179
 2028 Early 4th,1630,2,1648,1595
 2028 Early 5th,1473,1,1473,
 2028 Early 6th,1171,1,1171,
 2028 Late 1st,3700,2,3920,3877
-2028 Late 2nd,2614,2,2726,2743
+2028 Late 2nd,2612,2,2723,2743
 2028 Late 3rd,1911,2,1858,1938
 2028 Late 4th,1378,2,1294,1292
 2028 Late 5th,1200,1,1200,
-2028 Late 6th,957,1,957,
+2028 Late 6th,958,1,958,
 2028 Mid 1st,4316,2,4412,4491
 2028 Mid 2nd,2794,2,2924,2926
-2028 Mid 3rd,2072,2,2076,2069
+2028 Mid 3rd,2073,2,2076,2069
 2028 Mid 4th,1541,2,1504,1555
 2028 Mid 5th,1324,1,1324,
 2028 Mid 6th,1168,1,1168,
@@ -131,7 +131,7 @@ A.J. Haulcy,1986,1,,2063
 AJ Barner,3588,3,2834,3278
 AJ Dillon,802,1,,802
 Aaron Anderson,1445,1,,
-Aaron Jones,2273,3,2273,2207
+Aaron Jones,2270,3,2270,2207
 Aaron Rodgers,1904,3,1765,1904
 Abdul Carter,4215,1,,5414
 Adam Randall,791,2,791,
@@ -144,7 +144,7 @@ Aidan O'Connell,985,3,834,985
 Ainias Smith,878,3,833,878
 Akeem Davis-Gaither,1430,1,,1228
 Akheem Mesidor,1888,1,,1916
-Alec Pierce,4200,3,4090,4200
+Alec Pierce,4200,3,4093,4200
 Alex Anzalone,1439,1,,1241
 Alex Highsmith,2615,1,,3009
 Alex Singleton,1464,1,,1279
@@ -162,7 +162,7 @@ Anfernee Jennings,1131,1,,779
 Anthony Hill,1976,1,,2048
 Anthony Richardson,2477,3,2320,2477
 Antoine Winfield,1892,1,,1923
-Antonio Williams,2565,3,2565,1276
+Antonio Williams,2568,3,2568,1276
 Arden Key,1128,1,,774
 Arian Smith,1055,3,1038,1055
 Arvell Reese,3387,1,,4169
@@ -173,7 +173,7 @@ Austin Booker,1887,1,,1915
 Austin Ekeler,747,1,,
 Azeez Al-Shaair,2022,1,,2118
 Azeez Ojulari,1130,1,,777
-Baker Mayfield,4840,3,4722,4840
+Baker Mayfield,4840,3,4725,4840
 Barika Kpeenu,131,1,,
 Barion Brown,1986,1,,
 Baron Browning,1428,1,,1225
@@ -185,13 +185,13 @@ Billy Bowman,1443,1,,1247
 Blake Cashman,2574,1,,2948
 Blake Corum,3205,3,3204,3205
 Bo Melton,1115,3,1020,1115
-Bo Nix,6177,3,6143,6177
+Bo Nix,6177,3,6146,6177
 Bobby Okereke,1462,1,,1276
 Bobby Wagner,1433,1,,1233
 Boye Mafe,1916,1,,1958
 Braden Fiske,1487,1,,1314
 Bradley Chubb,1431,1,,1230
-Braelon Allen,2692,3,2692,2683
+Braelon Allen,2691,3,2691,2683
 Bralen Trice,1121,1,,763
 Brandin Cooks,514,2,514,
 Brandon Aiyuk,2544,3,2439,2544
@@ -203,13 +203,13 @@ Brashard Smith,2096,3,1856,2096
 Breece Hall,5345,3,5345,5333
 Brenden Rice,813,3,742,813
 Brenen Thompson,1212,2,1212,
-Brenton Strange,3813,3,3032,3542
+Brenton Strange,3816,3,3035,3542
 Brevin Jordan,1526,3,952,1394
 Brian Branch,2960,1,,3527
 Brian Burns,3007,1,,3599
 Brian Robinson,2458,3,2378,2458
-Brian Thomas,4919,3,4919,4878
-Brock Bowers,8951,3,7927,8647
+Brian Thomas,4923,3,4923,4878
+Brock Bowers,8949,3,7925,8647
 Brock Purdy,5970,3,5830,5970
 Brock Wright,1594,3,1021,1370
 Bryan Bresee,1203,1,,886
@@ -234,7 +234,7 @@ Calais Campbell,534,1,,
 Caleb Banks,70,1,,
 Caleb Douglas,808,2,808,
 Caleb Downs,3015,1,,3611
-Caleb Williams,7948,3,7948,7812
+Caleb Williams,7944,3,7944,7812
 Calen Bullock,1165,1,,829
 Calijah Kancey,2009,1,,2098
 Calvin Austin,1641,3,1509,1641
@@ -242,14 +242,14 @@ Calvin Ridley,1907,3,1907,1906
 Cam Akers,1008,3,707,1008
 Cam Bynum,1429,1,,1227
 Cam Little,377,1,,
-Cam Skattebo,4561,3,4561,4317
+Cam Skattebo,4563,3,4563,4317
 Cam Taylor-Britt,1170,1,,837
 Cam Ward,5215,3,5215,5150
 Cameron Dicker,377,1,,
 Cameron Heyward,1200,1,,882
 Cameron Jordan,534,1,,
 Carl Granderson,1902,1,,1938
-Carnell Tate,5827,3,5827,5360
+Carnell Tate,5824,3,5824,5360
 Carson Beck,1212,2,1212,
 Carson Schwesinger,4373,1,,5651
 Carson Wentz,828,1,,828
@@ -263,7 +263,7 @@ Charlie Kolar,1556,3,981,1411
 Chase Brown,4884,3,4884,4843
 Chase McLaughlin,377,1,,
 Chase Young,1991,1,,2071
-Chig Okonkwo,3480,3,2738,3202
+Chig Okonkwo,3484,3,2741,3202
 Chimere Dike,2736,3,2560,2736
 Chip Trayanum,313,1,,
 Chop Robinson,1918,1,,1961
@@ -272,10 +272,10 @@ Chris Boswell,377,1,,
 Chris Braswell,1133,1,,781
 Chris Brazzell,2634,3,2634,2307
 Chris Brooks,1188,3,1188,1181
-Chris Godwin,2953,3,2953,2923
+Chris Godwin,2950,3,2950,2923
 Chris Hilton,703,1,,
 Chris Jones,1885,1,,1912
-Chris Olave,5655,3,5571,5655
+Chris Olave,5655,3,5568,5655
 Chris Rodriguez,2517,3,2512,2517
 Christian Barmore,1163,1,,827
 Christian Benford,1173,1,,842
@@ -296,9 +296,9 @@ Colby Parkinson,2612,3,1954,2485
 Cole Bishop,1886,1,,1913
 Cole Kmet,2663,3,2000,2452
 Cole Payton,703,2,703,
-Colston Loveland,7056,3,6042,6712
+Colston Loveland,7058,3,6045,6712
 Cooper DeJean,2646,1,,3055
-Cooper Kupp,1838,3,1815,1838
+Cooper Kupp,1838,3,1818,1838
 Cooper McDonald,1122,1,,765
 Courtland Sutton,3212,3,3212,3130
 Craig Woodson,1151,1,,809
@@ -314,8 +314,8 @@ DK Metcalf,3690,3,3690,3618
 DaRon Bland,501,1,,
 Dadrion Taylor-Demerson,1890,1,,1919
 Daiyan Henley,1951,1,,2011
-Dak Prescott,5025,3,4977,5025
-Dallas Goedert,3295,3,2570,3100
+Dak Prescott,5025,3,4974,5025
+Dallas Goedert,3292,3,2567,3100
 Dallas Turner,3389,1,,4173
 Dalton Kincaid,4027,3,3217,3755
 Dalton Schultz,2968,3,2276,2675
@@ -338,7 +338,7 @@ Daron Payne,1148,1,,804
 Darren Waller,1472,3,902,1455
 Davante Adams,3485,3,3420,3485
 David Bailey,3011,1,,3605
-David Bell,948,3,948,766
+David Bell,944,3,944,766
 David Montgomery,3443,3,3345,3443
 David Njoku,3141,3,2432,3001
 David Walker,1124,1,,768
@@ -396,20 +396,20 @@ Donovan Edwards,1175,3,1175,1141
 Donovan Ezeiruaku,1924,1,,1970
 Donoven McCulley,259,1,,
 Dont'e Thornton,2113,3,2094,2113
-Dontayvion Wicks,2700,3,2619,2700
+Dontayvion Wicks,2700,3,2613,2700
 Dorance Armstrong,1428,1,,1225
 Dorian Williams,1242,1,,945
 Drake London,6931,3,6903,6931
-Drake Maye,9442,3,9387,9442
+Drake Maye,9442,3,9390,9442
 Drake Thomas,1527,1,,1373
 Dre Greenlaw,1435,1,,1235
-Drew Allar,1166,2,1166,
+Drew Allar,1169,2,1169,
 Drew Lock,1029,3,964,1029
 Drew Sanders,1127,1,,772
 Dru Phillips,1429,1,,1227
 Drue Tranquill,1220,1,,913
 Dyami Brown,1477,3,1417,1477
-Dylan Sampson,2769,3,2722,2769
+Dylan Sampson,2769,3,2716,2769
 E.J. Speed,1121,1,,763
 Ed Oliver,1456,1,,1267
 Edgerrin Cooper,3009,1,,3602
@@ -417,16 +417,16 @@ Efton Chism,1420,3,1314,1420
 Eli Heidenreich,831,2,831,
 Eli Raridon,1640,2,1062,
 Eli Stowers,4307,3,3527,3352
-Elic Ayomanor,2764,3,2708,2764
+Elic Ayomanor,2764,3,2699,2764
 Elijah Arroyo,3223,3,2507,2948
 Elijah Higgins,1874,3,1282,1622
 Elijah Mitchell,962,3,617,962
 Elijah Molden,1139,1,,790
 Elijah Moore,1294,3,1294,1275
-Elijah Sarratt,2758,3,2758,2498
+Elijah Sarratt,2755,3,2755,2498
 Emanuel Wilson,2233,3,2067,2233
 Emari Demercado,1214,3,1159,1214
-Emeka Egbuka,6191,3,6191,6033
+Emeka Egbuka,6187,3,6187,6033
 Emmanuel Henderson,228,1,,
 Emmanuel McNeil-Warren,1997,1,,2080
 Emmett Johnson,2448,3,2448,2167
@@ -438,7 +438,7 @@ Ernest Jones,3007,1,,3598
 Evan Engram,2570,3,1917,2215
 Evan McPherson,377,1,,
 Evan Williams,1123,1,,767
-Fernando Mendoza,5665,3,5665,5630
+Fernando Mendoza,5662,3,5662,5630
 Foster Moreau,1032,2,515,
 Foyesade Oluokun,2037,1,,2141
 Frank Gore,931,3,871,931
@@ -447,15 +447,15 @@ Fred Warner,4212,1,,5409
 Gabe Davis,1200,3,1132,1200
 Gardner Minshew,1255,3,1162,1255
 Garrett Nussmeier,2101,3,1722,2101
-Garrett Wilson,5801,3,5709,5801
+Garrett Wilson,5801,3,5715,5801
 Geno Smith,2181,3,2159,2181
 Geno Stone,501,1,,
 George Holani,1395,3,1326,1395
 George Karlaftis,1942,1,,1997
 George Kittle,4067,3,3251,3732
-George Pickens,5995,3,5954,5995
+George Pickens,5995,3,5948,5995
 Germaine Pratt,1214,1,,903
-Germie Bernard,2872,3,2872,1858
+Germie Bernard,2875,3,2875,1858
 Gervon Dexter,1429,1,,1227
 Grant Calcaterra,1302,3,705,1302
 Grant Delpit,1433,1,,1232
@@ -464,7 +464,7 @@ Greg Dulcich,2322,3,1692,2026
 Greg Rousseau,1948,1,,2006
 Gunnar Helm,3380,3,2645,3058
 Haason Reddick,1185,1,,860
-Harold Fannin,5909,3,4919,5485
+Harold Fannin,5903,3,4912,5485
 Harold Landry,1888,1,,1916
 Harold Perkins,1441,1,,1245
 Harrison Butker,377,1,,
@@ -478,12 +478,12 @@ Isaac TeSlaa,2819,3,2785,2819
 Isaiah Bond,2160,3,2056,2160
 Isaiah Davis,1909,3,1788,1909
 Isaiah Hodgins,1005,3,979,1005
-Isaiah Likely,4149,3,3323,3961
+Isaiah Likely,4153,3,3326,3961
 Isaiah McDuffie,1430,1,,1228
 Isaiah McGuire,1429,1,,1226
 Isaiah Pola-Mao,501,1,,
 Isaiah Williams,764,1,,
-Isiah Pacheco,2337,3,2282,2337
+Isiah Pacheco,2337,3,2285,2337
 Israel Abanikanda,1013,3,1008,1013
 Ivan Pace,1885,1,,1912
 J'Mari Taylor,952,3,718,952
@@ -493,7 +493,7 @@ J.K. Dobbins,3050,3,3017,3050
 JT Tuimoloau,1548,1,,1406
 Ja'Kobi Lane,2318,3,2318,1677
 Ja'Lynn Polk,1632,3,1431,1632
-Ja'Marr Chase,9979,3,9979,9988
+Ja'Marr Chase,9980,3,9982,9988
 Ja'Tavion Sanders,2750,3,2079,2482
 Jack Bech,2436,3,2436,2403
 Jack Campbell,4363,1,,5637
@@ -507,22 +507,22 @@ Jacob Cowing,1117,3,1078,1117
 Jacob Parrish,1554,1,,1415
 Jacob Rodriguez,3010,1,,3603
 Jacoby Brissett,2756,3,2717,2756
-Jacory Croskey-Merritt,2945,3,2945,2818
+Jacory Croskey-Merritt,2948,3,2948,2818
 Jadarian Price,4695,3,4695,3283
 Jadeveon Clowney,534,1,,
 Jaelan Phillips,1981,1,,2056
 Jahan Dotson,1801,3,1707,1801
 Jahdae Barron,1474,1,,1294
 Jahdae Walker,764,1,,
-Jahmyr Gibbs,9654,3,9572,9654
+Jahmyr Gibbs,9654,3,9575,9654
 Jaishawn Barham,1445,1,,1250
 Jake Bates,377,1,,
-Jake Bobo,1199,3,1128,1199
+Jake Bobo,1199,3,1125,1199
 Jake Browning,852,1,,852
 Jake Elliott,377,1,,
-Jake Ferguson,4108,3,3286,3741
+Jake Ferguson,4105,3,3283,3741
 Jake Golday,2742,1,,3200
-Jake Tonges,2999,3,2304,2710
+Jake Tonges,2996,3,2301,2710
 Jakobe Thomas,1447,1,,1253
 Jakobi Meyers,3289,3,3216,3289
 Jaleel McLaughlin,1497,3,1497,1449
@@ -554,35 +554,35 @@ James Pearce,1930,1,,1980
 Jameson Williams,4726,3,4691,4726
 Jamien Sherwood,2565,1,,2934
 Jaquan Brisker,1433,1,,1232
-Jared Goff,4701,3,4634,4701
+Jared Goff,4701,3,4635,4701
 Jared Verse,3014,1,,3609
 Jared Wiley,1562,3,987,1427
 Jarquez Hunter,1754,3,1675,1754
 Jarrett Stidham,856,1,,
 Jason Myers,377,1,,
-Jauan Jennings,2725,3,2718,2725
+Jauan Jennings,2725,3,2724,2725
 Javon Baker,1129,3,1103,1129
 Javon Bullard,1152,1,,810
 Javon Hargrave,1120,1,,762
 Javon Solomon,1131,1,,778
-Javonte Williams,4521,3,4422,4521
+Javonte Williams,4521,3,4425,4521
 Jawhar Jordan,950,3,894,950
-Jaxon Smith-Njigba,9902,3,9902,9890
+Jaxon Smith-Njigba,9895,3,9895,9890
 Jaxson Dart,6703,3,6668,6703
 Jaycee Horn,1217,1,,908
 Jayden Daniels,7843,3,7840,7843
 Jayden Higgins,3596,3,3447,3596
-Jayden Reed,3502,3,3502,3397
+Jayden Reed,3499,3,3499,3397
 Jaydn Ott,1130,1,,
 Jaydon Blue,2046,3,1979,2046
 Jaylen Waddle,4843,3,4831,4843
 Jaylen Warren,3201,3,3201,3200
 Jaylen Watson,501,1,,
 Jaylen Wright,2361,3,2237,2361
-Jaylin Lane,1913,3,1913,1852
+Jaylin Lane,1916,3,1916,1852
 Jaylin Noel,2780,3,2780,2776
 Jaylon Carlies,1160,1,,822
-Jeff Caldwell,1166,1,,
+Jeff Caldwell,1169,1,,
 Jeffery Simmons,2769,1,,3241
 Jeffrey Bassa,1126,1,,771
 Jeremiah Trotter,1129,1,,776
@@ -592,7 +592,7 @@ Jeremy McNichols,880,1,,880
 Jeremy Ruckert,1292,1,,1292
 Jermaine Johnson,1494,1,,1324
 Jerome Ford,1611,3,1551,1611
-Jerry Jeudy,2739,3,2678,2739
+Jerry Jeudy,2739,3,2685,2739
 Jessie Bates,1886,1,,1914
 Jevon Holland,1183,1,,857
 Jihaad Campbell,3008,1,,3600
@@ -616,7 +616,7 @@ Jonas Sanker,1431,1,,1230
 Jonathan Allen,1147,1,,802
 Jonathan Greenard,2596,1,,2980
 Jonathan Mingo,1138,3,1089,1138
-Jonathan Taylor,6040,3,6040,6013
+Jonathan Taylor,6043,3,6043,6013
 Jonathon Brooks,3065,3,3065,2940
 Jonathon Cooper,1904,1,,1941
 Jonnu Smith,1726,3,1143,1691
@@ -626,9 +626,9 @@ Jordan Burch,1449,1,,1257
 Jordan Davis,534,1,,
 Jordan Hudson,1212,1,,
 Jordan James,2165,3,2104,2165
-Jordan Love,5712,3,5649,5712
+Jordan Love,5712,3,5652,5712
 Jordan Magee,1127,1,,772
-Jordan Mason,2701,3,2660,2701
+Jordan Mason,2701,3,2657,2701
 Jordan Watkins,1116,3,1076,1116
 Jordan Whittington,1606,3,1527,1606
 Jordyn Brooks,2630,1,,3031
@@ -640,7 +640,7 @@ Josh Cameron,1976,1,,
 Josh Cuevas,276,1,,
 Josh Downs,3532,3,3532,3437
 Josh Hines-Allen,3003,1,,3593
-Josh Jacobs,4561,3,4466,4561
+Josh Jacobs,4561,3,4469,4561
 Josh Newton,1561,1,,1425
 Josh Oliver,1073,1,,1073
 Josh Reynolds,513,2,513,
@@ -654,7 +654,7 @@ Julius Chestnut,521,2,521,
 Junior Colson,1246,1,,951
 Justice Hill,1349,3,1349,1343
 Justin Fields,2267,3,2114,2267
-Justin Herbert,6859,3,6800,6859
+Justin Herbert,6859,3,6803,6859
 Justin Jefferson,7779,3,7779,7765
 Justin Joly,1850,2,1260,
 Justin Madubuike,1225,1,,1225
@@ -677,7 +677,7 @@ Kamari Ramsey,58,1,,
 Kameron Johnson,1209,3,1209,1181
 Kamren Kinchens,1157,1,,818
 Kareem Hunt,1055,3,992,1055
-Kayshon Boutte,2862,3,2749,2862
+Kayshon Boutte,2862,3,2746,2862
 Kaytron Allen,2414,3,2414,1910
 Kayvon Thibodeaux,1967,1,,2035
 KeAndre Lambert-Smith,1588,3,1588,1559
@@ -700,7 +700,7 @@ Kenny McIntosh,1007,3,1007,971
 Kenny Moore,1429,1,,1227
 Kenny Pickett,1177,3,1103,1177
 Kentrel Bullock,178,1,,
-Kenyon Sadiq,5053,3,4099,4831
+Kenyon Sadiq,5050,3,4096,4831
 Keon Coleman,2532,3,2478,2532
 Kerby Joseph,1208,1,,894
 Kevin Byard,1430,1,,1228
@@ -720,12 +720,12 @@ Kwity Paye,1887,1,,1915
 Kyle Dugger,501,1,,
 Kyle Hamilton,3012,1,,3606
 Kyle Louis,1439,1,,1242
-Kyle Monangai,3592,3,3592,3542
+Kyle Monangai,3595,3,3595,3542
 Kyle Pitts,5385,3,4387,4964
 Kyle Van Noy,1123,1,,766
 Kyle Williams,2582,3,2457,2582
 Kyler Gordon,1428,1,,1225
-Kyler Murray,4344,3,4108,4344
+Kyler Murray,4344,3,4105,4344
 Kyren Williams,4862,3,4839,4862
 L'Jarius Sneed,1144,1,,798
 LT Overton,46,1,,
@@ -747,11 +747,11 @@ Luke Musgrave,2530,3,1880,2299
 Luke Schoonmaker,1832,3,1243,1642
 Luther Burden,5396,3,5223,5396
 Mac Jones,2825,3,2697,2825
-Mack Hollins,1245,3,1192,1245
+Mack Hollins,1245,3,1195,1245
 Mack Wilson,1435,1,,1236
-Makai Lemon,5105,3,5002,5105
+Makai Lemon,5105,3,4999,5105
 Malachi Corley,1261,3,1237,1261
-Malachi Fields,2596,3,2596,1885
+Malachi Fields,2599,3,2599,1885
 Malachi Lawrence,1914,1,,1956
 Malachi Moore,501,1,,
 Malaki Starks,1890,1,,1920
@@ -767,11 +767,11 @@ MarShawn Lloyd,1898,3,1852,1898
 Marcus Jones,1479,1,,1302
 Marcus Mariota,1539,3,1397,1539
 Marist Liufau,1121,1,,764
-Mark Andrews,3520,3,2774,3170
+Mark Andrews,3524,3,2777,3170
 Marlin Klein,1444,1,,
 Marlon Humphrey,501,1,,
 Marlowe Wax,1121,1,,763
-Marquise Brown,1874,3,1773,1874
+Marquise Brown,1874,3,1770,1874
 Marvin Harrison,5087,3,5087,5032
 Marvin Mims,2337,3,2217,2337
 Mason Graham,1482,1,,1306
@@ -782,19 +782,19 @@ Matayo Uiagalelei,43,1,,
 Matt Milano,1125,1,,769
 Matthew Golden,3721,3,3721,3682
 Matthew Hibner,123,1,,
-Matthew Stafford,3671,3,3671,3611
+Matthew Stafford,3668,3,3668,3611
 Max Klare,2680,3,2016,1684
 Maxx Crosby,3013,1,,3608
 Mecole Hardman,811,1,,811
 Micah McFadden,1434,1,,1234
 Micah Parsons,4208,1,,5404
-Michael Carter,1263,3,1068,1263
+Michael Carter,1263,3,1065,1263
 Michael Mayer,2812,3,2137,2713
-Michael Penix,3156,3,3139,3156
+Michael Penix,3156,3,3136,3156
 Michael Pittman,3492,3,3387,3492
 Michael Taaffe,23,1,,
 Michael Trigg,1771,3,1185,1531
-Michael Wilson,3700,3,3680,3700
+Michael Wilson,3700,3,3683,3700
 Mikail Kamara,26,1,,
 Mike Evans,3300,3,3298,3300
 Mike Gesicki,1952,3,1353,1824
@@ -827,8 +827,8 @@ Nick Cross,1890,1,,1920
 Nick Emmanwori,4205,1,,5399
 Nick Herbig,2602,1,,2989
 Nick Martin,1884,1,,1911
-Nick Westbrook-Ikhine,969,3,953,969
-Nico Collins,5659,3,5659,5615
+Nick Westbrook-Ikhine,969,3,956,969
+Nico Collins,5661,3,5661,5615
 Nik Bonitto,3005,1,,3596
 Noah Brown,517,2,517,
 Noah Fant,2028,3,1423,1852
@@ -842,7 +842,7 @@ Ollie Gordon,2488,3,2408,2488
 Oluwafemi Oladejo,1437,1,,1238
 Omar Cooper,3855,3,3855,3725
 Omar Speights,1129,1,,775
-Omarion Hampton,6755,3,6692,6755
+Omarion Hampton,6755,3,6695,6755
 Omarr Norman-Lott,1429,1,,1226
 Oronde Gadsden,4768,3,3856,4367
 Oscar Delp,1556,2,979,
@@ -860,7 +860,7 @@ Peter Woods,66,1,,
 Phil Mafah,1249,3,1231,1249
 Philip Rivers,856,1,,
 Princely Umanmielen,1224,1,,918
-Puka Nacua,8754,3,8601,8754
+Puka Nacua,8754,3,8605,8754
 Quan Martin,1181,1,,854
 Quay Walker,2705,1,,3144
 Quentin Johnston,3332,3,3332,3324
@@ -877,17 +877,17 @@ Rachaad White,2747,3,2747,2742
 Raheim Sanders,1412,3,1387,1412
 Rahsul Faison,1556,1,,
 Rashan Gary,1884,1,,1910
-Rashee Rice,5245,3,5245,5139
+Rashee Rice,5247,3,5247,5139
 Rasheen Ali,1196,3,1162,1196
-Rashid Shaheed,2970,3,2961,2970
+Rashid Shaheed,2970,3,2958,2970
 Rashod Bateman,2124,3,2085,2124
 Ray Davis,2007,3,1996,2007
 Reed Blankenship,1179,1,,851
 Reggie Virgil,1670,1,,
 Rhamondre Stevenson,2967,3,2925,2967
-Ricky Pearsall,3606,3,3543,3606
+Ricky Pearsall,3606,3,3540,3606
 Rico Dowdle,3214,3,3188,3214
-Riley Leonard,1803,3,1786,1803
+Riley Leonard,1803,3,1783,1803
 Riley Moss,1188,1,,864
 Riley Nowakowski,401,1,,
 Rob Henry,1440,1,,
@@ -908,7 +908,7 @@ Sam Howell,1149,3,1045,1149
 Sam LaPorta,5501,3,4500,5089
 Sam Roush,1640,1,,
 Samaje Perine,909,3,575,909
-Saquon Barkley,4901,3,4901,4886
+Saquon Barkley,4894,3,4894,4886
 Sauce Gardner,1137,1,,787
 Savion Williams,1726,3,1710,1726
 Sean Tucker,2418,3,2209,2418
@@ -936,7 +936,7 @@ Tahj Washington,1551,3,1551,1473
 Tai Felton,1333,3,1271,1333
 Talanoa Hufanga,1894,1,,1925
 Tank Bigsby,2496,3,2456,2496
-Tank Dell,2536,3,2398,2536
+Tank Dell,2536,3,2401,2536
 Tanner Koziol,1447,1,,
 Tanner McKee,1347,3,1235,1347
 Tarheeb Still,1139,1,,791
@@ -947,14 +947,14 @@ Taylor Rapp,1138,1,,789
 Taysom Hill,1055,3,522,1055
 Ted Hurst,1934,3,1934,1064
 Teddye Buchanan,1435,1,,1235
-Tee Higgins,4882,3,4879,4882
+Tee Higgins,4882,3,4876,4882
 Terion Stewart,514,2,514,
-Terrance Ferguson,3472,3,2729,3264
+Terrance Ferguson,3475,3,2732,3264
 Terrel Bernard,1936,1,,1988
 Terrell Jennings,878,1,,878
 Terrion Arnold,1140,1,,792
 Terry McLaurin,3479,3,3420,3479
-Tetairoa McMillan,6694,3,6558,6694
+Tetairoa McMillan,6694,3,6555,6694
 Tez Johnson,2296,3,2141,2296
 Theo Johnson,3012,3,2316,2834
 Theo Wease,764,1,,
@@ -963,14 +963,14 @@ Tim Patrick,513,2,513,
 Tommy Eichenberg,1129,1,,775
 Tommy Tremble,1955,3,1357,1823
 Tony Pollard,2845,3,2845,2668
-Tory Horton,2704,3,2704,2660
-Travis Etienne,4634,3,4464,4634
+Tory Horton,2701,3,2701,2660
+Travis Etienne,4634,3,4461,4634
 Travis Hunter,4830,3,3289,6444
 Travis Kelce,3103,3,2396,2885
 Travon Walker,1926,1,,1973
 Trayveon Williams,531,2,531,
-Tre Tucker,2547,3,2523,2547
-Tre' Harris,2924,3,2729,2924
+Tre Tucker,2547,3,2526,2547
+Tre' Harris,2924,3,2741,2924
 Tre'von Moehrig,1893,1,,1924
 TreVeyon Henderson,5630,3,5386,5630
 Tremaine Edmunds,2015,1,,2108
@@ -978,19 +978,19 @@ Trent McDuffie,1491,1,,1319
 Trenton Simpson,1125,1,,770
 Trevin Wallace,1460,1,,1273
 Trevor Etienne,2155,3,2155,2110
-Trevor Lawrence,6256,3,6231,6256
+Trevor Lawrence,6256,3,6228,6256
 Trey Benson,2739,3,2292,2739
 Trey Hendrickson,2579,1,,2955
 Trey Lance,1243,3,1135,1243
-Trey McBride,8584,3,7544,8311
+Trey McBride,8584,3,7545,8311
 Trey Palmer,1242,3,1227,1242
 Treylon Burks,1627,3,1606,1627
 Trinidad Chambliss,1850,1,,1859
 Troy Andersen,1125,1,,769
 Troy Dye,1234,1,,934
 Troy Franklin,2758,3,2737,2758
-Tua Tagovailoa,2768,3,2708,2768
-Tucker Kraft,5803,3,4781,5451
+Tua Tagovailoa,2768,3,2702,2768
+Tucker Kraft,5803,3,4780,5451
 Tuli Tuipulotu,2817,1,,3313
 Tutu Atwell,1715,3,1650,1715
 Ty Chandler,911,3,862,911
@@ -1012,7 +1012,7 @@ Tyler Lockett,764,1,,
 Tyler Loop,377,1,,
 Tyler Nubin,1485,1,,1310
 Tyler Scott,965,3,965,940
-Tyler Shough,4887,3,4887,4679
+Tyler Shough,4890,3,4890,4679
 Tyler Warren,6737,3,5708,6424
 Tyquan Thornton,1858,3,1779,1858
 Tyree Wilson,1429,1,,1226
@@ -1021,7 +1021,7 @@ Tyrel Dodson,1911,1,,1951
 Tyrell Shavers,1094,3,1002,1094
 Tyren Montgomery,1121,1,,
 Tyrice Knight,1429,1,,1226
-Tyrone Tracy,2622,3,2622,2521
+Tyrone Tracy,2625,3,2625,2521
 Tyson Bagent,1531,3,1469,1531
 Tyson Campbell,1145,1,,799
 Uchenna Nwosu,1428,1,,1225
@@ -1031,7 +1031,7 @@ Ventrell Miller,1521,1,,1365
 Vinny Anthony,831,1,,
 Wade Woodaz,1441,1,,1244
 Walter Nolen,1509,1,,1346
-Wan'Dale Robinson,3672,3,3580,3672
+Wan'Dale Robinson,3672,3,3583,3672
 Whit Weeks,32,1,,
 Wil Lutz,377,1,,
 Will Anderson,4580,1,,5963
@@ -1043,17 +1043,17 @@ Will Levis,1495,3,1492,1495
 Will McDonald,1920,1,,1964
 Will Shipley,1685,3,1685,1664
 Willie Gay,1124,1,,768
-Woody Marks,2897,3,2897,2823
+Woody Marks,2894,3,2894,2823
 Xavier Gipson,926,3,908,926
 Xavier Hutchinson,1799,3,1767,1799
-Xavier Legette,2066,3,1990,2066
+Xavier Legette,2066,3,1987,2066
 Xavier McKinney,1432,1,,1231
 Xavier Restrepo,1422,3,1343,1422
 Xavier Watts,1898,1,,1931
 Xavier Worthy,3385,3,3385,3375
 Yaya Diaby,1933,1,,1984
 Zach Allen,2029,1,,2129
-Zach Charbonnet,3603,3,3351,3603
+Zach Charbonnet,3603,3,3348,3603
 Zach Ertz,1682,3,1101,1409
 Zach Harrison,1428,1,,1225
 Zach Sieler,1428,1,,1225
@@ -1065,6 +1065,6 @@ Zamir White,517,2,517,
 Zaven Collins,1429,1,,1226
 Zavier Scott,930,3,837,930
 Zavion Thomas,1130,2,1130,
-Zay Flowers,4792,3,4695,4792
+Zay Flowers,4792,3,4698,4792
 Zion Young,1445,1,,1251
 Zyon McCollum,501,1,,
