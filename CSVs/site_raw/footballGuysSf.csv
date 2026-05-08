@@ -235,7 +235,7 @@ Seth McGowan,267,RB77,IND,24,R
 Skyler Bell,268,WR102,BUF,23,R
 Theo Johnson,269,TE24,NYG,25,2
 Xavier Legette,270,WR103,CAR,25,2
-Le'Veon Moss,271,RB78,FA,23,R
+Le'Veon Moss,271,RB78,MIA,23,R
 Ollie Gordon II,272,RB79,MIA,22,1
 Diontae Johnson,273,WR104,FA,29,7
 Chig Okonkwo,274,TE25,WAS,26,4
@@ -308,7 +308,7 @@ Jack Endries,409,TE44,CIN,22,R
 Bo Melton,413,WR131,GB,26,4
 Audric Estimé,424,RB100,NO,22,2
 CJ Daniels,429,WR132,LAR,24,R
-Ja'Mori Maclin,434,WR133,FA,-,R
+Ja'Mori Maclin,434,WR133,BUF,-,R
 Darnell Washington,438,TE45,PIT,24,3
 Phil Mafah,439,RB101,DAL,23,1
 Mack Hollins,440,WR134,NE,32,9
@@ -326,7 +326,7 @@ Joshua Palmer,596,WR140,BUF,26,5
 Raheim Sanders,597,RB106,CLE,23,1
 Roman Wilson,598,WR141,PIT,24,2
 Jaylin Lane,599,WR142,WAS,24,1
-Max Tomczak,600,WR143,FA,-,R
+Max Tomczak,600,WR143,BUF,-,R
 Cole Kmet,601,TE47,CHI,27,6
 Devontez Walker,602,WR144,BAL,24,2
 Eli Raridon,603,TE48,NE,22,R
@@ -374,8 +374,8 @@ Cam Akers,644,RB140,FA,26,6
 Devon Allen,645,RB141,FA,31,5
 Tyler Badie,646,RB142,DEN,26,4
 Coleman Bennett,647,RB143,CHI,-,R
-Davon Booth,648,RB144,FA,24,R
-Kentrel Bullock,649,RB145,FA,24,R
+Davon Booth,648,RB144,CLE,24,R
+Kentrel Bullock,649,RB145,CIN,24,R
 Nathan Carter,650,RB146,ATL,23,1
 Ty Chandler,651,RB147,NO,28,4
 Julius Chestnut,652,RB148,TEN,25,4
@@ -463,7 +463,7 @@ Alex Bullock,823,WR165,JAX,-,R
 Joseph Manjack IV,824,WR166,FA,-,R
 Ben Patterson,825,WR167,JAX,-,R
 Trebor Peña,826,WR168,JAX,24,R
-Kole Wilson,827,WR169,FA,-,R
+Kole Wilson,827,WR169,CLE,-,R
 Tutu Atwell,829,WR170,MIA,26,5
 Olamide Zaccheaus,830,WR171,ATL,28,7
 Jamison Crowder,831,WR172,FA,32,11
@@ -481,7 +481,7 @@ Dillon Bell,866,WR182,MIN,22,R
 Jeff Caldwell,867,WR183,KC,23,R
 Darius Cooper,868,WR184,PHI,24,1
 Jordan Hudson,869,WR185,DAL,22,R
-Caullin Lacy,870,WR186,FA,24,R
+Caullin Lacy,870,WR186,NYJ,24,R
 Tyren Montgomery,871,WR187,TEN,24,R
 Chase Roberts,872,WR188,LV,25,R
 Anthony Smith,873,WR189,DAL,24,R
@@ -544,8 +544,8 @@ Ashton Dulin,960,WR244,IND,29,7
 Trinidad Chambliss,964,QB48,FA,23,R
 Gage Larvadain,974,WR245,CLE,23,1
 Dominic Lovett,975,WR246,DET,23,1
-Donaven McCulley,976,WR247,FA,23,R
-Noah Thomas,977,WR248,FA,22,R
+Donaven McCulley,976,WR247,MIA,23,R
+Noah Thomas,977,WR248,CIN,22,R
 Devin Voisin,978,WR249,FA,24,R
 Jalen Walthall,979,WR250,HOU,23,R
 Jordan Watkins,980,WR251,SF,24,1
