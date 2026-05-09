@@ -35,13 +35,23 @@ from src.api.terminal import (
 )
 
 
+_IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
+
+
 def _resolve_asset(
     name: str,
     *,
     row_index: dict[str, dict[str, Any]],
+    offense_only: bool = False,
 ) -> dict[str, Any] | None:
     """Resolve a single display name to a summary dict for the
     simulator output.  Matches ``terminal.py``'s rowValue semantics.
+
+    When ``offense_only`` is True and the row carries a pre-computed
+    ``offenseOnlyRankDerivedValue`` (set by the IDP-disabled pipeline
+    pre-pass), that value is used instead of the full-source
+    ``rankDerivedValue``.  This ensures trades involving only offense
+    players and picks aren't influenced by IDP source calibration.
     """
     if not name:
         return None
@@ -49,7 +59,11 @@ def _resolve_asset(
     row = row_index.get(key)
     if not row:
         return None
-    value = int(_row_value(row))
+    if offense_only:
+        oo = row.get("offenseOnlyRankDerivedValue")
+        value = int(oo) if isinstance(oo, (int, float)) and oo > 0 else int(_row_value(row))
+    else:
+        value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
     # ``pos`` collapses DL/LB/DB to "IDP" for terminal aggregation;
@@ -166,11 +180,25 @@ def simulate_trade(
         }
         current_players = [str(p) for p in (resolved_team.get("players") or [])]
 
+    # Determine whether any asset in the trade is an IDP player.
+    # When the entire trade is offense + picks, use offense-only values
+    # that exclude IDP source calibration from the blend.
+    all_trade_names = [*players_in, *players_out, *picks_in, *picks_out]
+    trade_has_idp = any(
+        _normalize_pos(
+            (row_index.get(n.strip().lower()) or {}).get("pos") or
+            (row_index.get(n.strip().lower()) or {}).get("position") or ""
+        ) == "IDP"
+        for n in all_trade_names
+        if n.strip()
+    )
+    offense_only = not trade_has_idp
+
     def _resolve_many(names: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         resolved: list[dict[str, Any]] = []
         missing: list[str] = []
         for n in names:
-            hit = _resolve_asset(n, row_index=row_index)
+            hit = _resolve_asset(n, row_index=row_index, offense_only=offense_only)
             if hit is None:
                 missing.append(n)
             else:
@@ -180,7 +208,7 @@ def simulate_trade(
     # BEFORE state: the team's current roster + picks, resolved.
     before_assets: list[dict[str, Any]] = []
     for name in current_players:
-        hit = _resolve_asset(name, row_index=row_index)
+        hit = _resolve_asset(name, row_index=row_index, offense_only=offense_only)
         if hit is not None:
             before_assets.append(hit)
     current_picks = (
@@ -189,7 +217,7 @@ def simulate_trade(
         else []
     )
     for pick in current_picks:
-        hit = _resolve_asset(pick, row_index=row_index)
+        hit = _resolve_asset(pick, row_index=row_index, offense_only=offense_only)
         if hit is not None:
             before_assets.append(hit)
 

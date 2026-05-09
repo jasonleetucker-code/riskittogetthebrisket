@@ -61,6 +61,7 @@ class Asset:
     is_pick: bool = False
     source_count: int = 0   # Number of valuation sources
     ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
+    offense_only_model_value: int | None = None  # model_value excluding IDP sources
 
     @property
     def has_ktc(self) -> bool:
@@ -97,15 +98,27 @@ class TradeCandidate:
     flags: list[str] = field(default_factory=list)        # Active guards/bonuses
 
     def to_dict(self) -> dict[str, Any]:
+        trade_has_idp = any(
+            a.position in IDP_POSITIONS for a in [*self.give, *self.receive]
+        )
+
+        def _asset_dict(a: Asset) -> dict[str, Any]:
+            d: dict[str, Any] = {
+                "name": a.name,
+                "position": a.position,
+                "team": a.team,
+                "modelValue": a.model_value,
+                "ktcValue": a.ktc_value,
+                "ktcRank": a.ktc_rank,
+            }
+            if not trade_has_idp and a.offense_only_model_value is not None:
+                d["modelValue"] = a.offense_only_model_value
+                d["modelValueFull"] = a.model_value
+            return d
+
         return {
-            "give": [{"name": a.name, "position": a.position, "team": a.team,
-                       "modelValue": a.model_value,
-                       "ktcValue": a.ktc_value,
-                       "ktcRank": a.ktc_rank} for a in self.give],
-            "receive": [{"name": a.name, "position": a.position, "team": a.team,
-                         "modelValue": a.model_value,
-                         "ktcValue": a.ktc_value,
-                         "ktcRank": a.ktc_rank} for a in self.receive],
+            "give": [_asset_dict(a) for a in self.give],
+            "receive": [_asset_dict(a) for a in self.receive],
             "giveModelTotal": self.give_model_total,
             "receiveModelTotal": self.receive_model_total,
             "giveKtcTotal": self.give_ktc_total,
@@ -199,10 +212,17 @@ def build_asset_pool(
         if model is None or model < 1:
             continue
 
+        # Offense-only model value: uses the value computed with IDP
+        # sources excluded.  Applied to trades where no side has an IDP
+        # player, so IDP source calibration doesn't influence the score.
+        oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
+
         # Apply single-source discount to match frontend behavior
         source_count = _int_or_none(pdata.get("_sites")) or 0
         if source_count == 1:
             model = int(model * SINGLE_SOURCE_DISCOUNT)
+            if oo_raw is not None and oo_raw >= 1:
+                oo_raw = int(oo_raw * SINGLE_SOURCE_DISCOUNT)
 
         # KTC value from canonical site values.  Prefer the TE+ board
         # (``ktcSfTep``) — that's the canonical KTC retail signal as of
@@ -243,6 +263,7 @@ def build_asset_pool(
             ktc_value=ktc,
             is_pick=is_pick,
             source_count=source_count,
+            offense_only_model_value=oo_raw if oo_raw is not None and oo_raw >= 1 else None,
         ))
 
     # ── Assign KTC rank and apply top-N filter ────────────────────
@@ -328,8 +349,20 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         if len(idp_no_ktc) > 0 and len(idp_no_ktc) >= len(side) / 2:
             return None
 
-    give_model = sum(a.model_value for a in give)
-    recv_model = sum(a.model_value for a in receive)
+    # Use offense-only model values when neither side has IDP players.
+    # This excludes IDP source calibration from trade scoring so that
+    # an all-offense trade isn't influenced by IDP-relative rankings.
+    trade_has_idp = any(
+        a.position in IDP_POSITIONS for a in [*give, *receive]
+    )
+
+    def _mv(a: Asset) -> int:
+        if not trade_has_idp and a.offense_only_model_value is not None:
+            return a.offense_only_model_value
+        return a.model_value
+
+    give_model = sum(_mv(a) for a in give)
+    recv_model = sum(_mv(a) for a in receive)
     board_delta = recv_model - give_model
 
     # Must be positive on our board (we receive more model value than we give)
@@ -346,7 +379,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
             return None
         # ── Elite target protection (tighter ratio) ──────────────────
-        max_recv = max(a.model_value for a in receive)
+        max_recv = max(_mv(a) for a in receive)
         if max_recv >= ELITE_THRESHOLD:
             if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
                 return None
@@ -354,7 +387,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         # ── Package anchor quality ───────────────────────────────────
         # At least one give piece must be a real starter-quality asset,
         # not just two bench stashes that happen to sum high enough.
-        max_give = max(a.model_value for a in give)
+        max_give = max(_mv(a) for a in give)
         if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
             return None
         flags.append("anchor_verified")
@@ -388,9 +421,9 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         return None
 
     # Filter out junk trades: at least one meaningful asset on each side
-    if all(a.model_value < JUNK_THRESHOLD for a in give):
+    if all(_mv(a) < JUNK_THRESHOLD for a in give):
         return None
-    if all(a.model_value < JUNK_THRESHOLD for a in receive):
+    if all(_mv(a) < JUNK_THRESHOLD for a in receive):
         return None
 
     # Arbitrage score: how much we gain on our board while the opponent
