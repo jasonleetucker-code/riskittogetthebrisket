@@ -512,6 +512,16 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     return tc
 
 
+def _peak_value(a: Asset) -> int:
+    """Return the higher of full-board and offense-only model value.
+
+    Used for MIN_ASSET_VALUE eligibility so that an offense player who
+    qualifies under offense-only scoring (IDP sources excluded) isn't
+    silently dropped from candidate generation.
+    """
+    return max(a.model_value, a.offense_only_model_value or 0)
+
+
 def _generate_1for1(
     my_assets: list[Asset],
     opp_assets: list[Asset],
@@ -519,10 +529,10 @@ def _generate_1for1(
     """Generate all viable 1-for-1 trades."""
     results: list[TradeCandidate] = []
     for mine in my_assets:
-        if mine.model_value < MIN_ASSET_VALUE:
+        if _peak_value(mine) < MIN_ASSET_VALUE:
             continue
         for theirs in opp_assets:
-            if theirs.model_value < MIN_ASSET_VALUE:
+            if _peak_value(theirs) < MIN_ASSET_VALUE:
                 continue
             tc = _score_trade([mine], [theirs])
             if tc is not None:
@@ -537,8 +547,8 @@ def _generate_2for1(
     """Generate viable 2-for-1 trades (I give 2, get 1)."""
     results: list[TradeCandidate] = []
     # Limit combinations for performance
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
+    my_tradeable = [a for a in my_assets if _peak_value(a) >= MIN_ASSET_VALUE]
+    opp_tradeable = [a for a in opp_assets if _peak_value(a) >= MIN_ASSET_VALUE]
     if len(my_tradeable) < 2:
         return results
 
@@ -556,8 +566,8 @@ def _generate_1for2(
 ) -> list[TradeCandidate]:
     """Generate viable 1-for-2 trades (I give 1, get 2)."""
     results: list[TradeCandidate] = []
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
+    my_tradeable = [a for a in my_assets if _peak_value(a) >= MIN_ASSET_VALUE]
+    opp_tradeable = [a for a in opp_assets if _peak_value(a) >= MIN_ASSET_VALUE]
     if len(opp_tradeable) < 2:
         return results
 
