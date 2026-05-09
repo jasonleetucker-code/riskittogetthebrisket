@@ -187,8 +187,15 @@ def simulate_trade(
     # requests must resolve before/after with the same full-board values
     # as the terminal panel (parity requirement).
     all_trade_names = [*players_in, *players_out, *picks_in, *picks_out]
-    trade_has_assets = bool(all_trade_names)
-    trade_has_idp = trade_has_assets and any(
+    # Only activate offense-only mode when at least one name resolves to
+    # a known row.  A request where every name is unresolvable (e.g. all
+    # typos) should still return full-board before/after totals that match
+    # the terminal panel, not offense-only baselines.
+    trade_has_resolved = any(
+        row_index.get(n.strip().lower()) is not None
+        for n in all_trade_names if n.strip()
+    )
+    trade_has_idp = trade_has_resolved and any(
         _normalize_pos(
             (row_index.get(n.strip().lower()) or {}).get("pos") or
             (row_index.get(n.strip().lower()) or {}).get("position") or ""
@@ -196,7 +203,7 @@ def simulate_trade(
         for n in all_trade_names
         if n.strip()
     )
-    offense_only = trade_has_assets and not trade_has_idp
+    offense_only = trade_has_resolved and not trade_has_idp
 
     def _resolve_many(names: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         resolved: list[dict[str, Any]] = []
