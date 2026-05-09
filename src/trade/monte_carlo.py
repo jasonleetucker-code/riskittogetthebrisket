@@ -226,7 +226,7 @@ def simulate_trade(
     the per-player band is preserved on average.
     """
     rng = random.Random(seed)
-    va_info: dict[str, Any] = {"side": 0, "value": 0, "applied": False}
+    va_info: dict[str, Any] = {"side": 0, "value": 0, "effectiveValue": 0, "applied": False}
     if apply_consolidation_adjustment and side_a and side_b:
         side_a, side_b, va_info = _apply_consolidation_adjustment(side_a, side_b)
     players = list(side_a) + list(side_b)
