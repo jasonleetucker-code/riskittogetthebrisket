@@ -886,10 +886,7 @@ def _generate_buy_low(
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
                 need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
-                tradeable = [
-                    p for p in depth[need:]
-                    if _eff_val(p, surplus_pos not in _IDP_BASE_POSITIONS) >= MIN_RELEVANT_VALUE
-                ]
+                tradeable = [p for p in depth[need:] if p.display_value >= MIN_RELEVANT_VALUE]
                 for sell in tradeable[:2]:
                     oo = _trade_is_idp_free([sell], [target])
                     give_val = _eff_val(sell, oo)
@@ -1508,7 +1505,7 @@ def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = No
     result["rankScore"] = rank_score_breakdown(s, roster)
     balancers = s.__dict__.get("balancers", [])
     if balancers:
-        result["suggestedBalancers"] = [_serialize_player(b) for b in balancers]
+        result["suggestedBalancers"] = [_serialize_player(b, offense_only=oo) for b in balancers]
         bal_side = s.__dict__.get("balancer_side", "")
         if bal_side:
             result["balancerSide"] = bal_side
