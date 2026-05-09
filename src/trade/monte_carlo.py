@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 _DEFAULT_SIMS = 50_000
@@ -69,6 +69,7 @@ class SimResult:
     side_b_mean: float
     n_sims: int
     method: str  # "consensus_based_win_rate"
+    va_adjustment: dict[str, Any] | None = field(default=None)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -92,6 +93,7 @@ class SimResult:
                 "where side A's total exceeds side B's — NOT a "
                 "real-world win probability."
             ),
+            "vaAdjustment": self.va_adjustment or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         }
 
 
@@ -126,6 +128,78 @@ def _triangular_draw(p10: float, p50: float, p90: float, u: float) -> float:
     return p90 + t * slope
 
 
+def _apply_consolidation_adjustment(
+    side_a: list[TradePlayer],
+    side_b: list[TradePlayer],
+) -> tuple[list[TradePlayer], list[TradePlayer], dict[str, Any]]:
+    """Apply KTC consolidation premium to whichever side earns it.
+
+    Uses each player's p50 as the raw value fed to ktc_adjust_package.
+    When VA is awarded, the bonus is distributed proportionally (by p50
+    share) across the receiving side's players as an additive band shift
+    — p10/p50/p90 all move up by the same amount per player, preserving
+    the absolute spread (source disagreement is unchanged).
+
+    Returns ``(adjusted_side_a, adjusted_side_b, va_info)`` where
+    ``va_info`` is a diagnostic dict with keys ``side`` (0/1/2),
+    ``value`` (int), and ``applied`` (bool).  When VA is suppressed
+    (1v1, < 3.3% variance, or equal packages) the original lists are
+    returned unchanged and ``applied`` is False.
+    """
+    from src.trade.ktc_va import ktc_adjust_package
+
+    a_p50s = [p.p50 for p in side_a]
+    b_p50s = [p.p50 for p in side_b]
+    result = ktc_adjust_package(a_p50s, b_p50s)
+
+    applied = result.displayed and result.value > 0
+    va_info: dict[str, Any] = {
+        "side": result.side,
+        "value": result.value,
+        "effectiveValue": 0,
+        "applied": applied,
+    }
+
+    if not applied:
+        return side_a, side_b, va_info
+
+    def _shift_side(
+        players: list[TradePlayer], p50s: list[float]
+    ) -> tuple[list[TradePlayer], int]:
+        """Shift the band for each player proportionally.
+
+        Returns the shifted list and the *actual* total p50 shift after
+        clamping — which may be less than ``result.value`` when players
+        are already near 9999.  The caller stamps this as
+        ``effectiveValue`` so the reported diagnostic matches what the
+        simulation actually experienced.
+        """
+        total = sum(p50s) or 1.0
+        out = []
+        effective_total = 0.0
+        for p, pv in zip(players, p50s):
+            shift = result.value * (pv / total)
+            new_p50 = max(0.0, min(9999.0, p.p50 + shift))
+            effective_total += new_p50 - p.p50
+            out.append(TradePlayer(
+                name=p.name,
+                team=p.team,
+                position_group=p.position_group,
+                p10=max(0.0, min(9999.0, p.p10 + shift)),
+                p50=new_p50,
+                p90=max(0.0, min(9999.0, p.p90 + shift)),
+            ))
+        return out, int(round(effective_total))
+
+    if result.side == 1:
+        new_a, eff = _shift_side(side_a, a_p50s)
+        va_info["effectiveValue"] = eff
+        return new_a, side_b, va_info
+    new_b, eff = _shift_side(side_b, b_p50s)
+    va_info["effectiveValue"] = eff
+    return side_a, new_b, va_info
+
+
 def simulate_trade(
     side_a: list[TradePlayer],
     side_b: list[TradePlayer],
@@ -134,6 +208,7 @@ def simulate_trade(
     same_team_rho: float = 0.25,
     same_pos_group_rho: float = 0.10,
     seed: int | None = None,
+    apply_consolidation_adjustment: bool = False,
 ) -> SimResult:
     """Run the simulation and return the result.
 
@@ -151,6 +226,9 @@ def simulate_trade(
     the per-player band is preserved on average.
     """
     rng = random.Random(seed)
+    va_info: dict[str, Any] = {"side": 0, "value": 0, "effectiveValue": 0, "applied": False}
+    if apply_consolidation_adjustment and side_a and side_b:
+        side_a, side_b, va_info = _apply_consolidation_adjustment(side_a, side_b)
     players = list(side_a) + list(side_b)
     if not players:
         return SimResult(
@@ -158,6 +236,7 @@ def simulate_trade(
             delta_p10=0.0, delta_p50=0.0, delta_p90=0.0,
             side_a_mean=0.0, side_b_mean=0.0,
             n_sims=0, method="consensus_based_win_rate",
+            va_adjustment={"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         )
 
     # Sanity clamp on correlation params.
@@ -218,6 +297,7 @@ def simulate_trade(
         side_b_mean=b_mean,
         n_sims=n_sims,
         method="consensus_based_win_rate",
+        va_adjustment=va_info,
     )
 
 

@@ -134,3 +134,73 @@ def test_triangular_draw_covers_full_range():
     # u=0.5 → exactly p50 (200).
     mid = mc._triangular_draw(100, 200, 300, 0.5)  # noqa: SLF001
     assert abs(mid - 200) < 0.01
+
+
+# --- Consolidation adjustment tests ---
+
+def test_consolidation_adjustment_stud_beats_fillers():
+    """1 stud vs 4 equal-valued fillers: raw totals favor fillers, VA flips it."""
+    stud = [_p("Elite", 3500)]
+    fillers = [_p(f"F{i}", 1000) for i in range(4)]  # raw total 4000 > 3500
+
+    no_adj = mc.simulate_trade(stud, fillers, n_sims=10000, seed=42)
+    assert no_adj.win_prob_a < 0.5, "fillers should lead on raw totals"
+
+    with_adj = mc.simulate_trade(
+        stud, fillers, n_sims=10000, seed=42,
+        apply_consolidation_adjustment=True,
+    )
+    assert with_adj.win_prob_a > no_adj.win_prob_a, "VA must shift odds toward stud"
+    assert with_adj.va_adjustment is not None
+    assert with_adj.va_adjustment["applied"] is True
+    assert with_adj.va_adjustment["side"] == 1   # stud is side_a
+    assert with_adj.va_adjustment["value"] > 0
+
+
+def test_consolidation_adjustment_symmetric_regardless_of_side():
+    """VA value is the same magnitude whichever side the stud is placed on."""
+    stud = [_p("Elite", 3500)]
+    fillers = [_p(f"F{i}", 1000) for i in range(4)]
+
+    ab = mc.simulate_trade(stud, fillers, n_sims=10000, seed=1,
+                           apply_consolidation_adjustment=True)
+    ba = mc.simulate_trade(fillers, stud, n_sims=10000, seed=1,
+                           apply_consolidation_adjustment=True)
+
+    assert ab.va_adjustment["value"] == ba.va_adjustment["value"]
+    assert ab.va_adjustment["side"] == 1  # stud received bonus as side_a
+    assert ba.va_adjustment["side"] == 2  # stud received bonus as side_b
+    assert ab.win_prob_a > 0.5            # stud wins when it's side A
+    assert ba.win_prob_a < 0.5            # stud wins when it's side B
+
+
+def test_consolidation_no_adjustment_on_1v1():
+    """KTC suppresses VA for 1v1 trades — no shift applied."""
+    result = mc.simulate_trade(
+        [_p("Star", 5000)], [_p("Good", 4500)],
+        n_sims=5000, seed=42,
+        apply_consolidation_adjustment=True,
+    )
+    assert result.va_adjustment["applied"] is False
+    assert result.va_adjustment["side"] == 0
+    assert result.va_adjustment["value"] == 0
+
+
+def test_consolidation_no_adjustment_equal_packages():
+    """Identical value on each side → VA within 5% variance → suppressed."""
+    a = [_p("A1", 3000), _p("A2", 2000)]
+    b = [_p("B1", 3000), _p("B2", 2000)]
+    result = mc.simulate_trade(a, b, n_sims=5000, seed=42,
+                               apply_consolidation_adjustment=True)
+    assert result.va_adjustment["applied"] is False
+
+
+def test_consolidation_default_off_preserves_existing_behavior():
+    """Default flag=False must produce identical results to explicit False."""
+    stud = [_p("Elite", 3500)]
+    fillers = [_p(f"F{i}", 1000) for i in range(4)]
+    default_result = mc.simulate_trade(stud, fillers, n_sims=5000, seed=99)
+    explicit_off = mc.simulate_trade(stud, fillers, n_sims=5000, seed=99,
+                                     apply_consolidation_adjustment=False)
+    assert default_result.win_prob_a == explicit_off.win_prob_a
+    assert default_result.va_adjustment["applied"] is False
