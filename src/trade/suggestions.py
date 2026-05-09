@@ -816,16 +816,23 @@ def _generate_sell_high(
 
         for sell in sell_candidates[:3]:
             for need_pos in roster.need_positions:
+                # Pre-compute oo so target filtering and sorting use the same
+                # value scale as the gap calculation below.
+                trade_oo = (
+                    sell.position not in _IDP_BASE_POSITIONS
+                    and need_pos not in _IDP_BASE_POSITIONS
+                )
+                sell_ev = _eff_val(sell, trade_oo)
                 targets = [
                     a for a in asset_pool
                     if a.position == need_pos
                     and a.name.lower() not in roster_names_set
-                    and a.display_value >= MIN_RELEVANT_VALUE
-                    and abs(a.display_value - sell.display_value) < FAIRNESS_TOLERANCE
+                    and _eff_val(a, trade_oo) >= MIN_RELEVANT_VALUE
+                    and abs(_eff_val(a, trade_oo) - sell_ev) < FAIRNESS_TOLERANCE
                 ]
                 if not targets:
                     continue
-                targets.sort(key=lambda t: abs(t.display_value - sell.display_value))
+                targets.sort(key=lambda t: abs(_eff_val(t, trade_oo) - sell_ev))
                 target = targets[0]
                 oo = _trade_is_idp_free([sell], [target])
                 give_val = _eff_val(sell, oo)
@@ -933,28 +940,32 @@ def _generate_consolidation(
     for i in range(min(len(tradeable), 6)):
         for j in range(i + 1, min(len(tradeable), 8)):
             p1, p2 = tradeable[i], tradeable[j]
-            combined = p1.display_value + p2.display_value
             pair_key = f"{p1.name}|{p2.name}"
             if pair_key in tried:
                 continue
             tried.add(pair_key)
 
+            # Pre-compute oo from the give side so range filtering and
+            # sorting use the same value scale as the final gap calc.
+            pair_oo = _trade_is_idp_free([p1, p2], [])
+            combined = _eff_val(p1, pair_oo) + _eff_val(p2, pair_oo)
             min_target = int(combined * CONSOLIDATION_MIN_UPGRADE_RATIO)
             max_target = combined + FAIRNESS_TOLERANCE
+            give_max = max(_eff_val(p1, pair_oo), _eff_val(p2, pair_oo))
 
             for prefer_need in [True, False]:
                 targets = [
                     a for a in asset_pool
                     if a.name.lower() not in roster_names_set
-                    and min_target <= a.display_value <= max_target
-                    and a.display_value > max(p1.display_value, p2.display_value)
+                    and min_target <= _eff_val(a, pair_oo) <= max_target
+                    and _eff_val(a, pair_oo) > give_max
                     and (not prefer_need or a.position in roster.need_positions)
                 ]
                 if not targets:
                     continue
                 # Pick the closest-value target (smallest gap) rather than
                 # the most expensive one.  This produces fairer packages.
-                targets.sort(key=lambda t: abs(combined - t.display_value))
+                targets.sort(key=lambda t: abs(combined - _eff_val(t, pair_oo)))
                 target = targets[0]
                 oo = _trade_is_idp_free([p1, p2], [target])
                 give_total = _eff_val(p1, oo) + _eff_val(p2, oo)
