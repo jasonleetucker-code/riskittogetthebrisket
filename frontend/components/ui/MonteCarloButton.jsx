@@ -127,7 +127,7 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
     try {
       setState("running");
       setErr("");
-      const body = { ..._payloadFromSides(sides, valueMode, settings), nSims: 20000 };
+      const body = { ..._payloadFromSides(sides, valueMode, settings), nSims: 20000, applyConsolidationAdjustment: true };
       const res = await fetch("/api/trade/simulate-mc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
