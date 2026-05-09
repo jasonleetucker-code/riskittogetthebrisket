@@ -866,15 +866,18 @@ def _generate_buy_low(
     suggestions: list[TradeSuggestion] = []
 
     for need_pos in roster.need_positions:
+        # Pre-compute target-side oo from need_pos so candidate gating
+        # uses the same value scale as the final gap calculation.
+        pos_oo = need_pos not in _IDP_BASE_POSITIONS
         current = roster.by_position.get(need_pos, [])
-        current_best = current[0].display_value if current else 0
+        current_best = _eff_val(current[0], pos_oo) if current else 0
         target_floor = max(MIN_RELEVANT_VALUE, current_best)
 
         targets = [
             a for a in asset_pool
             if a.position == need_pos
             and a.name.lower() not in roster_names_set
-            and a.display_value > target_floor
+            and _eff_val(a, pos_oo) > target_floor
         ]
         if not targets:
             continue
@@ -883,7 +886,10 @@ def _generate_buy_low(
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
                 need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
-                tradeable = [p for p in depth[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+                tradeable = [
+                    p for p in depth[need:]
+                    if _eff_val(p, surplus_pos not in _IDP_BASE_POSITIONS) >= MIN_RELEVANT_VALUE
+                ]
                 for sell in tradeable[:2]:
                     oo = _trade_is_idp_free([sell], [target])
                     give_val = _eff_val(sell, oo)
@@ -959,6 +965,9 @@ def _generate_consolidation(
                     if a.name.lower() not in roster_names_set
                     and min_target <= _eff_val(a, pair_oo) <= max_target
                     and _eff_val(a, pair_oo) > give_max
+                    # When the give pair is offense-only, restrict to offense
+                    # targets so pair_oo matches the final oo (no scale flip).
+                    and (not pair_oo or a.position not in _IDP_BASE_POSITIONS)
                     and (not prefer_need or a.position in roster.need_positions)
                 ]
                 if not targets:
