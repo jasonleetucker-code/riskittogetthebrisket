@@ -3,6 +3,10 @@ from __future__ import annotations
 
 import os
 
+# Allow ``import server`` in tests without a real JASON_LOGIN_PASSWORD.
+# The placeholder "changeme" is acceptable for unit/integration tests;
+# production rejects ALLOW_DEFAULT_LOGIN_DEV=1 by design.
+os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
 
 # ── Sleeper league context isolation ──────────────────────────────────
 # ``src/api/data_contract.py::_resolve_league_context`` reads the

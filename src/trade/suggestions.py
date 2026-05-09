@@ -103,6 +103,9 @@ KTC_TOP_N_FILTER = 150
 
 # ── Data structures ─────────────────────────────────────────────────
 
+_IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
+
+
 @dataclass
 class PlayerAsset:
     """A player or pick with canonical values."""
@@ -117,6 +120,7 @@ class PlayerAsset:
     universe: str = ""
     dispersion_cv: float | None = None
     ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
+    offense_only_value: int | None = None  # display_value excluding IDP sources
 
 
 @dataclass
@@ -440,6 +444,11 @@ def build_asset_pool_from_contract(
                 except (TypeError, ValueError):
                     years_exp = None
 
+        oo_rdv = row.get("offenseOnlyRankDerivedValue")
+        oo_int: int | None = None
+        if isinstance(oo_rdv, (int, float)) and oo_rdv > 0:
+            oo_int = int(oo_rdv)
+
         pool.append(PlayerAsset(
             name=name,
             position=pos,
@@ -451,6 +460,7 @@ def build_asset_pool_from_contract(
             years_exp=years_exp,
             universe=_universe_from_row(row),
             dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
+            offense_only_value=oo_int,
         ))
     pool.sort(key=lambda x: -x.display_value)
 
@@ -545,6 +555,25 @@ def analyze_roster(
         need_positions=need_positions,
         starter_counts=starter_counts,
         depth_counts=depth_counts,
+    )
+
+
+def _eff_val(p: PlayerAsset, offense_only: bool) -> int:
+    """Return the effective value for a player in the context of a trade.
+
+    When ``offense_only`` is True and the player carries a pre-computed
+    offense-only value, that value is returned.  This ensures trades
+    with no IDP players are not influenced by IDP source calibration.
+    """
+    if offense_only and p.offense_only_value is not None:
+        return p.offense_only_value
+    return p.display_value
+
+
+def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> bool:
+    return all(
+        p.position not in _IDP_BASE_POSITIONS
+        for p in [*give, *receive]
     )
 
 
@@ -787,24 +816,34 @@ def _generate_sell_high(
 
         for sell in sell_candidates[:3]:
             for need_pos in roster.need_positions:
+                # Pre-compute oo so target filtering and sorting use the same
+                # value scale as the gap calculation below.
+                trade_oo = (
+                    sell.position not in _IDP_BASE_POSITIONS
+                    and need_pos not in _IDP_BASE_POSITIONS
+                )
+                sell_ev = _eff_val(sell, trade_oo)
                 targets = [
                     a for a in asset_pool
                     if a.position == need_pos
                     and a.name.lower() not in roster_names_set
-                    and a.display_value >= MIN_RELEVANT_VALUE
-                    and abs(a.display_value - sell.display_value) < FAIRNESS_TOLERANCE
+                    and _eff_val(a, trade_oo) >= MIN_RELEVANT_VALUE
+                    and abs(_eff_val(a, trade_oo) - sell_ev) < FAIRNESS_TOLERANCE
                 ]
                 if not targets:
                     continue
-                targets.sort(key=lambda t: abs(t.display_value - sell.display_value))
+                targets.sort(key=lambda t: abs(_eff_val(t, trade_oo) - sell_ev))
                 target = targets[0]
-                gap = sell.display_value - target.display_value
+                oo = _trade_is_idp_free([sell], [target])
+                give_val = _eff_val(sell, oo)
+                recv_val = _eff_val(target, oo)
+                gap = give_val - recv_val
                 suggestions.append(TradeSuggestion(
                     type="sell_high",
                     give=[sell],
                     receive=[target],
-                    give_total=sell.display_value,
-                    receive_total=target.display_value,
+                    give_total=give_val,
+                    receive_total=recv_val,
                     gap=gap,
                     fairness=_fairness_label(gap),
                     rationale=f"You have {pos} surplus ({len(players)} rostered, need {need}). "
@@ -827,15 +866,18 @@ def _generate_buy_low(
     suggestions: list[TradeSuggestion] = []
 
     for need_pos in roster.need_positions:
+        # Pre-compute target-side oo from need_pos so candidate gating
+        # uses the same value scale as the final gap calculation.
+        pos_oo = need_pos not in _IDP_BASE_POSITIONS
         current = roster.by_position.get(need_pos, [])
-        current_best = current[0].display_value if current else 0
+        current_best = _eff_val(current[0], pos_oo) if current else 0
         target_floor = max(MIN_RELEVANT_VALUE, current_best)
 
         targets = [
             a for a in asset_pool
             if a.position == need_pos
             and a.name.lower() not in roster_names_set
-            and a.display_value > target_floor
+            and _eff_val(a, pos_oo) > target_floor
         ]
         if not targets:
             continue
@@ -846,14 +888,17 @@ def _generate_buy_low(
                 need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
                 tradeable = [p for p in depth[need:] if p.display_value >= MIN_RELEVANT_VALUE]
                 for sell in tradeable[:2]:
-                    gap = sell.display_value - target.display_value
+                    oo = _trade_is_idp_free([sell], [target])
+                    give_val = _eff_val(sell, oo)
+                    recv_val = _eff_val(target, oo)
+                    gap = give_val - recv_val
                     if abs(gap) < FAIRNESS_TOLERANCE:
                         suggestions.append(TradeSuggestion(
                             type="buy_low",
                             give=[sell],
                             receive=[target],
-                            give_total=sell.display_value,
-                            receive_total=target.display_value,
+                            give_total=give_val,
+                            receive_total=recv_val,
                             gap=gap,
                             fairness=_fairness_label(gap),
                             rationale=f"Target {target.name} ({need_pos}) fills your roster need. "
@@ -898,37 +943,47 @@ def _generate_consolidation(
     for i in range(min(len(tradeable), 6)):
         for j in range(i + 1, min(len(tradeable), 8)):
             p1, p2 = tradeable[i], tradeable[j]
-            combined = p1.display_value + p2.display_value
             pair_key = f"{p1.name}|{p2.name}"
             if pair_key in tried:
                 continue
             tried.add(pair_key)
 
+            # Pre-compute oo from the give side so range filtering and
+            # sorting use the same value scale as the final gap calc.
+            pair_oo = _trade_is_idp_free([p1, p2], [])
+            combined = _eff_val(p1, pair_oo) + _eff_val(p2, pair_oo)
             min_target = int(combined * CONSOLIDATION_MIN_UPGRADE_RATIO)
             max_target = combined + FAIRNESS_TOLERANCE
+            give_max = max(_eff_val(p1, pair_oo), _eff_val(p2, pair_oo))
 
             for prefer_need in [True, False]:
                 targets = [
                     a for a in asset_pool
                     if a.name.lower() not in roster_names_set
-                    and min_target <= a.display_value <= max_target
-                    and a.display_value > max(p1.display_value, p2.display_value)
+                    and min_target <= _eff_val(a, pair_oo) <= max_target
+                    and _eff_val(a, pair_oo) > give_max
+                    # When the give pair is offense-only, restrict to offense
+                    # targets so pair_oo matches the final oo (no scale flip).
+                    and (not pair_oo or a.position not in _IDP_BASE_POSITIONS)
                     and (not prefer_need or a.position in roster.need_positions)
                 ]
                 if not targets:
                     continue
                 # Pick the closest-value target (smallest gap) rather than
                 # the most expensive one.  This produces fairer packages.
-                targets.sort(key=lambda t: abs(combined - t.display_value))
+                targets.sort(key=lambda t: abs(combined - _eff_val(t, pair_oo)))
                 target = targets[0]
-                gap = combined - target.display_value
+                oo = _trade_is_idp_free([p1, p2], [target])
+                give_total = _eff_val(p1, oo) + _eff_val(p2, oo)
+                recv_total = _eff_val(target, oo)
+                gap = give_total - recv_total
                 pos_note = f" at a position of need ({target.position})" if target.position in roster.need_positions else ""
                 suggestions.append(TradeSuggestion(
                     type="consolidation",
                     give=[p1, p2],
                     receive=[target],
-                    give_total=combined,
-                    receive_total=target.display_value,
+                    give_total=give_total,
+                    receive_total=recv_total,
                     gap=gap,
                     fairness=_fairness_label(gap),
                     rationale=f"Package {p1.name} + {p2.name} into {target.name}{pos_note}. "
@@ -961,29 +1016,33 @@ def _generate_positional_upgrades(
             continue
 
         starters = players[:need]
-        depth = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+        # pos is always an offense position in DEFAULT_STARTER_NEEDS; using
+        # pos_oo=True means IDP sweeteners fall back to display_value safely.
+        pos_oo = pos not in _IDP_BASE_POSITIONS
+        depth = [p for p in players[need:] if _eff_val(p, pos_oo) >= MIN_RELEVANT_VALUE]
         if not starters or not depth:
             continue
 
         weakest_starter = starters[-1]
-        upgrade_floor = weakest_starter.display_value + 500
+        ws_ev = _eff_val(weakest_starter, pos_oo)
+        upgrade_floor = ws_ev + 500
 
         targets = [
             a for a in asset_pool
             if a.position == pos
             and a.name.lower() not in roster_names_set
-            and a.display_value >= upgrade_floor
+            and _eff_val(a, pos_oo) >= upgrade_floor
         ]
         if not targets:
             continue
 
-        targets.sort(key=lambda t: t.display_value)  # closest upgrade first
+        targets.sort(key=lambda t: _eff_val(t, pos_oo))  # closest upgrade first
         for target in targets[:5]:
-            gap_needed = target.display_value - weakest_starter.display_value
+            gap_needed = _eff_val(target, pos_oo) - ws_ev
             sweeteners = [
                 p for p in depth
                 if p.name != weakest_starter.name
-                and abs(p.display_value - gap_needed) < FAIRNESS_TOLERANCE
+                and abs(_eff_val(p, pos_oo) - gap_needed) < FAIRNESS_TOLERANCE
             ]
             if not sweeteners:
                 # Widen tolerance for surplus-position sweeteners — these
@@ -993,15 +1052,18 @@ def _generate_positional_upgrades(
                     sp_depth = roster.by_position.get(sp, [])
                     sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
                     for p in sp_depth[sp_need:]:
-                        if p.display_value >= MIN_RELEVANT_VALUE and abs(p.display_value - gap_needed) < surplus_tol:
+                        sp_ev = _eff_val(p, pos_oo)
+                        if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
                             sweeteners.append(p)
             if not sweeteners:
                 continue
 
-            sweeteners.sort(key=lambda s: abs(s.display_value - gap_needed))
+            sweeteners.sort(key=lambda s: abs(_eff_val(s, pos_oo) - gap_needed))
             sweetener = sweeteners[0]
-            give_total = weakest_starter.display_value + sweetener.display_value
-            gap = give_total - target.display_value
+            oo = _trade_is_idp_free([weakest_starter, sweetener], [target])
+            give_total = _eff_val(weakest_starter, oo) + _eff_val(sweetener, oo)
+            recv_total = _eff_val(target, oo)
+            gap = give_total - recv_total
 
             if abs(gap) > FAIRNESS_TOLERANCE * 1.5:
                 continue
@@ -1011,7 +1073,7 @@ def _generate_positional_upgrades(
                 give=[weakest_starter, sweetener],
                 receive=[target],
                 give_total=give_total,
-                receive_total=target.display_value,
+                receive_total=recv_total,
                 gap=gap,
                 fairness=_fairness_label(gap),
                 rationale=f"Upgrade {pos} starter: move {weakest_starter.name} + {sweetener.name} "
@@ -1404,11 +1466,16 @@ def generate_suggestions(
 
 # ── Serializers ──────────────────────────────────────────────────────
 
-def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
+def _serialize_player(p: PlayerAsset, *, offense_only: bool = False) -> dict[str, Any]:
+    dv = (
+        p.offense_only_value
+        if offense_only and p.offense_only_value is not None
+        else p.display_value
+    )
     result: dict[str, Any] = {
         "name": p.name,
         "position": p.position,
-        "displayValue": p.display_value,
+        "displayValue": dv,
         "team": p.team,
         "rookie": p.rookie,
     }
@@ -1420,10 +1487,11 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
 
 
 def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = None) -> dict[str, Any]:
+    oo = _trade_is_idp_free(s.give, s.receive)
     result: dict[str, Any] = {
         "type": s.type,
-        "give": [_serialize_player(p) for p in s.give],
-        "receive": [_serialize_player(p) for p in s.receive],
+        "give": [_serialize_player(p, offense_only=oo) for p in s.give],
+        "receive": [_serialize_player(p, offense_only=oo) for p in s.receive],
         "giveTotal": s.give_total,
         "receiveTotal": s.receive_total,
         "gap": s.gap,
@@ -1437,7 +1505,7 @@ def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = No
     result["rankScore"] = rank_score_breakdown(s, roster)
     balancers = s.__dict__.get("balancers", [])
     if balancers:
-        result["suggestedBalancers"] = [_serialize_player(b) for b in balancers]
+        result["suggestedBalancers"] = [_serialize_player(b, offense_only=oo) for b in balancers]
         bal_side = s.__dict__.get("balancer_side", "")
         if bal_side:
             result["balancerSide"] = bal_side

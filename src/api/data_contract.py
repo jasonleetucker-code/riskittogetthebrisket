@@ -7389,6 +7389,40 @@ def build_api_data_contract(
     # the DB-tagged row.
     _strip_mismatched_family_tags(players_array)
 
+    # Pre-pass: compute offense-only values by disabling all IDP-scoped
+    # sources.  The result is stored as ``offenseOnlyRankDerivedValue``
+    # on each row and used by trade evaluation endpoints when none of
+    # the players in a trade are IDP (DL/LB/DB).  The main pass below
+    # then overwrites ``rankDerivedValue`` with the full-source board.
+    # Skipped on delta/override builds since those don't feed the
+    # trade evaluation path.
+    if not source_overrides and not _for_delta:
+        _idp_off_overrides: dict[str, dict[str, Any]] = {
+            src["key"]: {"include": False}
+            for src in _RANKING_SOURCES
+            if src.get("scope") in (SOURCE_SCOPE_OVERALL_IDP, SOURCE_SCOPE_POSITION_IDP)
+        }
+        if _idp_off_overrides:
+            # Use shallow copies of both rows and legacy dicts so the
+            # pre-pass never stamps canonicalConsensusRank /
+            # sourceRankMeta / _canonicalConsensusRank etc. onto the
+            # originals.  The main pass below must see unmodified state.
+            _pa_copy = [dict(r) for r in players_array]
+            _pbn_copy = {k: dict(v) if isinstance(v, dict) else v for k, v in players_by_name.items()}
+            _compute_unified_rankings(
+                _pa_copy,
+                _pbn_copy,
+                csv_index=csv_index,
+                source_overrides=_idp_off_overrides,
+                tep_multiplier=tep_multiplier_effective,
+                tep_native_multiplier=tep_native_multiplier_effective,
+                tep_native_correction=tep_native_correction,
+            )
+            for _orig, _copy in zip(players_array, _pa_copy):
+                _rdv = _copy.get("rankDerivedValue")
+                if isinstance(_rdv, (int, float)) and _rdv > 0:
+                    _orig["offenseOnlyRankDerivedValue"] = int(_rdv)
+
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
     # block describing which CSV row matched each player and why.
@@ -7435,6 +7469,18 @@ def build_api_data_contract(
     # delta payload drops the legacy ``players`` dict entirely.
     if not _for_delta:
         _mirror_trust_to_legacy(players_array, players_by_name)
+        # Mirror offenseOnlyRankDerivedValue to the legacy players dict so
+        # the trade finder (which reads from the players dict) can use it.
+        for _row in players_array:
+            _ordv = _row.get("offenseOnlyRankDerivedValue")
+            if not isinstance(_ordv, int):
+                continue
+            _legacy_ref = _row.get("legacyRef")
+            if not _legacy_ref or _legacy_ref not in players_by_name:
+                continue
+            _pdata = players_by_name[_legacy_ref]
+            if isinstance(_pdata, dict):
+                _pdata["_offenseOnlyFinalAdjusted"] = _ordv
 
     data_source = data_source or {}
     generated_at = utc_now_iso()
