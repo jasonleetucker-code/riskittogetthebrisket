@@ -1019,29 +1019,33 @@ def _generate_positional_upgrades(
             continue
 
         starters = players[:need]
-        depth = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+        # pos is always an offense position in DEFAULT_STARTER_NEEDS; using
+        # pos_oo=True means IDP sweeteners fall back to display_value safely.
+        pos_oo = pos not in _IDP_BASE_POSITIONS
+        depth = [p for p in players[need:] if _eff_val(p, pos_oo) >= MIN_RELEVANT_VALUE]
         if not starters or not depth:
             continue
 
         weakest_starter = starters[-1]
-        upgrade_floor = weakest_starter.display_value + 500
+        ws_ev = _eff_val(weakest_starter, pos_oo)
+        upgrade_floor = ws_ev + 500
 
         targets = [
             a for a in asset_pool
             if a.position == pos
             and a.name.lower() not in roster_names_set
-            and a.display_value >= upgrade_floor
+            and _eff_val(a, pos_oo) >= upgrade_floor
         ]
         if not targets:
             continue
 
-        targets.sort(key=lambda t: t.display_value)  # closest upgrade first
+        targets.sort(key=lambda t: _eff_val(t, pos_oo))  # closest upgrade first
         for target in targets[:5]:
-            gap_needed = target.display_value - weakest_starter.display_value
+            gap_needed = _eff_val(target, pos_oo) - ws_ev
             sweeteners = [
                 p for p in depth
                 if p.name != weakest_starter.name
-                and abs(p.display_value - gap_needed) < FAIRNESS_TOLERANCE
+                and abs(_eff_val(p, pos_oo) - gap_needed) < FAIRNESS_TOLERANCE
             ]
             if not sweeteners:
                 # Widen tolerance for surplus-position sweeteners — these
@@ -1051,12 +1055,13 @@ def _generate_positional_upgrades(
                     sp_depth = roster.by_position.get(sp, [])
                     sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
                     for p in sp_depth[sp_need:]:
-                        if p.display_value >= MIN_RELEVANT_VALUE and abs(p.display_value - gap_needed) < surplus_tol:
+                        sp_ev = _eff_val(p, pos_oo)
+                        if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
                             sweeteners.append(p)
             if not sweeteners:
                 continue
 
-            sweeteners.sort(key=lambda s: abs(s.display_value - gap_needed))
+            sweeteners.sort(key=lambda s: abs(_eff_val(s, pos_oo) - gap_needed))
             sweetener = sweeteners[0]
             oo = _trade_is_idp_free([weakest_starter, sweetener], [target])
             give_total = _eff_val(weakest_starter, oo) + _eff_val(sweetener, oo)
