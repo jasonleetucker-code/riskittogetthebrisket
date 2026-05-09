@@ -664,3 +664,69 @@ def test_ktc_sftep_falls_back_to_contribution_when_raw_missing(path):
     source_history.append_snapshot(contract, date="2026-05-05", path=path)
     hist = source_history.load_player_history("Some Player", path=path)
     assert hist["sources"]["ktcSfTep"][0]["value"] == 7100
+
+
+def test_idp_show_ranks_written_and_read_for_idp_player(path):
+    """Regression guard for the IDP Show rank round-trip.
+
+    The live contract builder stamps ``sourceRanks["idpShow"]`` on IDP
+    player rows (the shared-market-translated effective rank, e.g. 40
+    for the #1 IDP player).  This test simulates two consecutive daily
+    scrape snapshots — the minimum needed for the rank chart to render
+    a line — and confirms:
+
+    1. ``append_snapshot`` writes ``sourceRanks["idpShow"]`` into the
+       JSONL when the contract row carries it.
+    2. ``load_player_history`` returns ``sourceRanks["idpShow"]`` with
+       two data points so the chart line can be drawn.
+    3. The scope filter does NOT drop ``idpShow`` for an IDP-class player
+       (it would be wrong to drop it — ``idpShow`` has scope=overall_idp
+       which legitimately covers the "idp" asset class).
+    """
+
+    def _idp_contract(date, rank):
+        return {
+            "date": date,
+            "playersArray": [
+                {
+                    "displayName": "Travis Hunter",
+                    "canonicalName": "Travis Hunter",
+                    "position": "CB",
+                    "assetClass": "idp",
+                    "rankDerivedValue": 5800,
+                    "canonicalConsensusRank": rank,
+                    # Simulates what the contract builder stamps after Phase 1
+                    # (idpShow effective rank = shared-market translated rank)
+                    # and Phase 3 (valueContribution from the Hill curve).
+                    "sourceRanks": {
+                        "idpShow": 40,
+                        "fantasyProsIdp": 38,
+                        "idpTradeCalc": 42,
+                    },
+                    "sourceRankMeta": {
+                        "idpShow": {"valueContribution": 5800},
+                        "fantasyProsIdp": {"valueContribution": 6100},
+                        "idpTradeCalc": {"valueContribution": 5500},
+                    },
+                }
+            ],
+        }
+
+    source_history.append_snapshot(_idp_contract("2026-05-01", 40), date="2026-05-01", path=path)
+    source_history.append_snapshot(_idp_contract("2026-05-02", 41), date="2026-05-02", path=path)
+
+    hist = source_history.load_player_history("Travis Hunter", asset_class="idp", path=path)
+
+    # Values appear for idpShow (the Hill-curve contribution).
+    assert "idpShow" in hist["sources"], "idpShow must be in value history"
+    assert len(hist["sources"]["idpShow"]) == 2
+
+    # Ranks also appear — the chart requires 2+ data points to draw a line.
+    assert "idpShow" in hist["sourceRanks"], "idpShow must be in rank history"
+    assert len(hist["sourceRanks"]["idpShow"]) == 2
+    assert hist["sourceRanks"]["idpShow"][0]["rank"] == 40
+    assert hist["sourceRanks"]["idpShow"][1]["rank"] == 40
+
+    # Blended rank appears too — needed for the "Our rank" line on the chart.
+    blended_ranks = [p["rank"] for p in hist["blended"] if p["rank"] is not None]
+    assert len(blended_ranks) == 2, "blended rank must accumulate for rank chart to render"
