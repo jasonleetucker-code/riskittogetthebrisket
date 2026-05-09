@@ -1444,11 +1444,16 @@ def generate_suggestions(
 
 # ── Serializers ──────────────────────────────────────────────────────
 
-def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
+def _serialize_player(p: PlayerAsset, *, offense_only: bool = False) -> dict[str, Any]:
+    dv = (
+        p.offense_only_value
+        if offense_only and p.offense_only_value is not None
+        else p.display_value
+    )
     result: dict[str, Any] = {
         "name": p.name,
         "position": p.position,
-        "displayValue": p.display_value,
+        "displayValue": dv,
         "team": p.team,
         "rookie": p.rookie,
     }
@@ -1460,10 +1465,11 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
 
 
 def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = None) -> dict[str, Any]:
+    oo = _trade_is_idp_free(s.give, s.receive)
     result: dict[str, Any] = {
         "type": s.type,
-        "give": [_serialize_player(p) for p in s.give],
-        "receive": [_serialize_player(p) for p in s.receive],
+        "give": [_serialize_player(p, offense_only=oo) for p in s.give],
+        "receive": [_serialize_player(p, offense_only=oo) for p in s.receive],
         "giveTotal": s.give_total,
         "receiveTotal": s.receive_total,
         "gap": s.gap,
