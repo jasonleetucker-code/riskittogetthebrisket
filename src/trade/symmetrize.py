@@ -96,6 +96,7 @@ def simulate_symmetric(
     same_team_rho: float = 0.25,
     same_pos_group_rho: float = 0.10,
     seed: int | None = None,
+    apply_consolidation_adjustment: bool = False,
 ) -> dict[str, Any]:
     """Run the sim in both directions and return the symmetrized
     result dict.  Uses different seeds (seed, seed+1) for the two
@@ -104,14 +105,21 @@ def simulate_symmetric(
         side_a, side_b,
         n_sims=n_sims, same_team_rho=same_team_rho,
         same_pos_group_rho=same_pos_group_rho, seed=seed,
+        apply_consolidation_adjustment=apply_consolidation_adjustment,
     )
     ba = _mc.simulate_trade(
         side_b, side_a,
         n_sims=n_sims, same_team_rho=same_team_rho,
         same_pos_group_rho=same_pos_group_rho,
         seed=(seed + 1) if seed is not None else None,
+        apply_consolidation_adjustment=apply_consolidation_adjustment,
     )
-    return _average_results(ab, ba)
+    result = _average_results(ab, ba)
+    # AB pass is canonical for VA metadata: its side=1/2 labels already
+    # use the caller's convention (1=sideA, 2=sideB).  The BA pass has
+    # swapped arguments so its va_side would need re-mapping.
+    result["vaAdjustment"] = ab.va_adjustment or {"side": 0, "value": 0, "applied": False}
+    return result
 
 
 def enrich_with_decision_shape(
@@ -134,20 +142,28 @@ def enrich_with_decision_shape(
     b_p50 = sum(p.p50 for p in side_b)
     raw_delta = a_p50 - b_p50
 
-    # Adjusted delta: shrink by the spread-to-value ratio on each
-    # side.  If side A is 20k with 30% internal spread but side B
-    # is 20k with 5% spread, A is effectively worth less — adjust
-    # down.  Heuristic, not a formal adjustment.
-    def _spread_ratio(side):
-        total = sum(p.p50 for p in side) or 1.0
-        spread = sum((p.p90 - p.p10) for p in side)
-        return spread / total if total > 0 else 0.0
-    a_spread = _spread_ratio(side_a)
-    b_spread = _spread_ratio(side_b)
-    # Shrink the less-confident side's valuation proportionally.
-    a_adjusted = a_p50 * (1.0 - 0.3 * a_spread)
-    b_adjusted = b_p50 * (1.0 - 0.3 * b_spread)
-    adjusted_delta = a_adjusted - b_adjusted
+    # Adjusted delta: when the consolidation adjustment was applied,
+    # use the VA bonus directly — it reflects the package-level premium
+    # KTC awards to the consolidated side.  Without VA, fall back to the
+    # spread-ratio heuristic (shrinks the less-confident side's valuation).
+    va_adj = symmetric_result.get("vaAdjustment") or {}
+    if va_adj.get("applied"):
+        va_val = float(va_adj.get("value") or 0)
+        va_side = va_adj.get("side", 0)
+        if va_side == 1:
+            adjusted_delta = (a_p50 + va_val) - b_p50
+        else:
+            adjusted_delta = a_p50 - (b_p50 + va_val)
+    else:
+        def _spread_ratio(side):
+            total = sum(p.p50 for p in side) or 1.0
+            spread = sum((p.p90 - p.p10) for p in side)
+            return spread / total if total > 0 else 0.0
+        a_spread = _spread_ratio(side_a)
+        b_spread = _spread_ratio(side_b)
+        a_adjusted = a_p50 * (1.0 - 0.3 * a_spread)
+        b_adjusted = b_p50 * (1.0 - 0.3 * b_spread)
+        adjusted_delta = a_adjusted - b_adjusted
 
     win_pct = symmetric_result.get("winProbA", 0.5) * 100.0
 

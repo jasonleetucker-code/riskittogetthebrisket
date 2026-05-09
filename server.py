@@ -7700,10 +7700,11 @@ async def post_trade_simulate_mc(request: Request):
                      "team": "...", "pos": "...",
                      "valueBand": {"p10":, "p50":, "p90":}}],
           "sideB": [...],
-          "nSims": 50000,          # optional, default 50000
-          "sameTeamRho": 0.25,     # optional correlation knob
-          "samePosGroupRho": 0.10, # optional correlation knob
-          "seed": 42               # optional for reproducible runs
+          "nSims": 50000,                        # optional, default 50000
+          "sameTeamRho": 0.25,                   # optional correlation knob
+          "samePosGroupRho": 0.10,               # optional correlation knob
+          "seed": 42,                            # optional for reproducible runs
+          "applyConsolidationAdjustment": false  # optional, default false
         }
 
     Response (on success)::
@@ -7768,6 +7769,7 @@ async def post_trade_simulate_mc(request: Request):
         seed = int(seed) if seed is not None else None
     except (TypeError, ValueError):
         seed = None
+    apply_ca = bool(body.get("applyConsolidationAdjustment", False))
     # Symmetrize the direction (A→B averaged with B→A) so ordering
     # never biases the result — critical invariant per the Phase 11
     # integration pass.  Then enrich with the decision-layer fields
@@ -7778,6 +7780,7 @@ async def post_trade_simulate_mc(request: Request):
         side_a, side_b,
         n_sims=n_sims, same_team_rho=rho_t,
         same_pos_group_rho=rho_p, seed=seed,
+        apply_consolidation_adjustment=apply_ca,
     )
     enriched = _sym.enrich_with_decision_shape(base, side_a, side_b)
     return JSONResponse(content=enriched)
