@@ -118,7 +118,7 @@ def simulate_symmetric(
     # AB pass is canonical for VA metadata: its side=1/2 labels already
     # use the caller's convention (1=sideA, 2=sideB).  The BA pass has
     # swapped arguments so its va_side would need re-mapping.
-    result["vaAdjustment"] = ab.va_adjustment or {"side": 0, "value": 0, "applied": False}
+    result["vaAdjustment"] = ab.va_adjustment or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False}
     return result
 
 
@@ -148,7 +148,10 @@ def enrich_with_decision_shape(
     # spread-ratio heuristic (shrinks the less-confident side's valuation).
     va_adj = symmetric_result.get("vaAdjustment") or {}
     if va_adj.get("applied"):
-        va_val = float(va_adj.get("value") or 0)
+        # Use effectiveValue (post-clamp actual shift) so adjustedDelta
+        # matches what the simulation actually experienced, not the raw
+        # KTC award which may have been partially absorbed by the 9999 cap.
+        va_val = float(va_adj.get("effectiveValue") or va_adj.get("value") or 0)
         va_side = va_adj.get("side", 0)
         if va_side == 1:
             adjusted_delta = (a_p50 + va_val) - b_p50

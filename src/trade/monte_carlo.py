@@ -93,7 +93,7 @@ class SimResult:
                 "where side A's total exceeds side B's — NOT a "
                 "real-world win probability."
             ),
-            "vaAdjustment": self.va_adjustment or {"applied": False},
+            "vaAdjustment": self.va_adjustment or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         }
 
 
@@ -152,33 +152,52 @@ def _apply_consolidation_adjustment(
     b_p50s = [p.p50 for p in side_b]
     result = ktc_adjust_package(a_p50s, b_p50s)
 
+    applied = result.displayed and result.value > 0
     va_info: dict[str, Any] = {
         "side": result.side,
         "value": result.value,
-        "applied": result.displayed and result.value > 0,
+        "effectiveValue": 0,
+        "applied": applied,
     }
 
-    if not va_info["applied"]:
+    if not applied:
         return side_a, side_b, va_info
 
-    def _shift_side(players: list[TradePlayer], p50s: list[float]) -> list[TradePlayer]:
+    def _shift_side(
+        players: list[TradePlayer], p50s: list[float]
+    ) -> tuple[list[TradePlayer], int]:
+        """Shift the band for each player proportionally.
+
+        Returns the shifted list and the *actual* total p50 shift after
+        clamping — which may be less than ``result.value`` when players
+        are already near 9999.  The caller stamps this as
+        ``effectiveValue`` so the reported diagnostic matches what the
+        simulation actually experienced.
+        """
         total = sum(p50s) or 1.0
         out = []
+        effective_total = 0.0
         for p, pv in zip(players, p50s):
             shift = result.value * (pv / total)
+            new_p50 = max(0.0, min(9999.0, p.p50 + shift))
+            effective_total += new_p50 - p.p50
             out.append(TradePlayer(
                 name=p.name,
                 team=p.team,
                 position_group=p.position_group,
                 p10=max(0.0, min(9999.0, p.p10 + shift)),
-                p50=max(0.0, min(9999.0, p.p50 + shift)),
+                p50=new_p50,
                 p90=max(0.0, min(9999.0, p.p90 + shift)),
             ))
-        return out
+        return out, int(round(effective_total))
 
     if result.side == 1:
-        return _shift_side(side_a, a_p50s), side_b, va_info
-    return side_a, _shift_side(side_b, b_p50s), va_info
+        new_a, eff = _shift_side(side_a, a_p50s)
+        va_info["effectiveValue"] = eff
+        return new_a, side_b, va_info
+    new_b, eff = _shift_side(side_b, b_p50s)
+    va_info["effectiveValue"] = eff
+    return side_a, new_b, va_info
 
 
 def simulate_trade(
@@ -217,7 +236,7 @@ def simulate_trade(
             delta_p10=0.0, delta_p50=0.0, delta_p90=0.0,
             side_a_mean=0.0, side_b_mean=0.0,
             n_sims=0, method="consensus_based_win_rate",
-            va_adjustment={"side": 0, "value": 0, "applied": False},
+            va_adjustment={"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         )
 
     # Sanity clamp on correlation params.

@@ -7769,7 +7769,10 @@ async def post_trade_simulate_mc(request: Request):
         seed = int(seed) if seed is not None else None
     except (TypeError, ValueError):
         seed = None
-    apply_ca = bool(body.get("applyConsolidationAdjustment", False))
+    # Strict boolean check: only JSON `true` enables this.  Strings like
+    # "false" or "0" must not accidentally activate consolidation adjustment.
+    _raw_ca = body.get("applyConsolidationAdjustment", False)
+    apply_ca = _raw_ca is True
     # Symmetrize the direction (A→B averaged with B→A) so ordering
     # never biases the result — critical invariant per the Phase 11
     # integration pass.  Then enrich with the decision-layer fields
