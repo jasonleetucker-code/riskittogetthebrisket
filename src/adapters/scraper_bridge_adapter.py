@@ -8,7 +8,7 @@ suitable for the canonical pipeline, without performing any live scraping.
 Supports two signal types:
 
 * ``value`` (default) — higher numbers are better (KTC, FantasyCalc, etc.)
-* ``rank`` — lower numbers are better (DynastyNerds, PFF IDP, etc.)
+* ``rank`` — lower numbers are better (DynastyNerds, FantasyPros IDP, etc.)
 
 When ``signal_type="value"``, the CSV's ``value`` column is stored as
 ``value_raw`` on the record.  When ``signal_type="rank"``, it is stored

@@ -1419,7 +1419,6 @@ SITES = {
     "IDPTradeCalc": True,
     "Flock":        False,
     # IDP-specific sites — disabled in scope reduction
-    "PFF_IDP":          False,
     "DraftSharks_IDP":  False,
     "FantasyPros_IDP":  False,
 }
@@ -3142,9 +3141,6 @@ async def scrape_idptradecalc(page, players):
     return results
 
 
-# ─────────────────────────────────────────
-# PFF IDP — scrape latest IDP dynasty article
-# ─────────────────────────────────────────
 @retry(max_attempts=2, delay=3)
 def print_health_report():
     """Print a summary of data quality across all scraped sites."""
@@ -3250,7 +3246,6 @@ async def run(progress_callback=None):
         "Yahoo": _env_int("SCRAPER_SOURCE_TIMEOUT_YAHOO", source_timeout_default),
         "DynastyNerds": _env_int("SCRAPER_SOURCE_TIMEOUT_DYNASTYNERDS", max(360, source_timeout_default)),
         "IDPTradeCalc": _env_int("SCRAPER_SOURCE_TIMEOUT_IDPTRADECALC", max(480, source_timeout_default)),
-        "PFF_IDP": _env_int("SCRAPER_SOURCE_TIMEOUT_PFF_IDP", source_timeout_default),
         "DraftSharks_IDP": _env_int("SCRAPER_SOURCE_TIMEOUT_DRAFTSHARKS_IDP", max(360, source_timeout_default)),
         "FantasyPros_IDP": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYPROS_IDP", source_timeout_default),
         "Flock": _env_int("SCRAPER_SOURCE_TIMEOUT_FLOCK", max(420, source_timeout_default)),
@@ -3269,7 +3264,6 @@ async def run(progress_callback=None):
         "Yahoo": bool(SITES.get("Yahoo")),
         "DynastyNerds": bool(SITES.get("DynastyNerds")),
         "IDPTradeCalc": bool(SITES.get("IDPTradeCalc")),
-        "PFF_IDP": bool(SITES.get("PFF_IDP")),
         "DraftSharks_IDP": bool(SITES.get("DraftSharks_IDP")),
         "FantasyPros_IDP": bool(SITES.get("FantasyPros_IDP")),
         "Flock": bool(SITES.get("Flock")),
@@ -3358,12 +3352,12 @@ async def run(progress_callback=None):
     enabled_browser_sites = [
         s for s in (
             "KTC", "DynastyDaddy", "FantasyPros", "DraftSharks", "Yahoo", "DynastyNerds",
-            "IDPTradeCalc", "PFF_IDP", "DraftSharks_IDP", "FantasyPros_IDP"
+            "IDPTradeCalc", "DraftSharks_IDP", "FantasyPros_IDP"
         ) if SITES.get(s)
     ]
     browser_needed = any(SITES.get(s) for s in (
         "KTC", "DynastyDaddy", "FantasyPros", "DraftSharks", "Yahoo", "DynastyNerds",
-        "IDPTradeCalc", "PFF_IDP", "DraftSharks_IDP", "FantasyPros_IDP"
+        "IDPTradeCalc", "DraftSharks_IDP", "FantasyPros_IDP"
     )) or SITES.get("Flock")
     planned_total_steps = (
         1  # bootstrap
@@ -3760,7 +3754,7 @@ async def run(progress_callback=None):
     # ── Trim sites to top N players before building JSON ──
     _OFFENSIVE_SITES = {"KTC", "KTC_TEP", "FantasyCalc", "DynastyDaddy", "FantasyPros",
                         "DraftSharks", "Yahoo", "DynastyNerds", "DLF_SF"}
-    _DEFENSIVE_SITES = {"PFF_IDP", "FantasyPros_IDP", "DLF_IDP"}
+    _DEFENSIVE_SITES = {"FantasyPros_IDP", "DLF_IDP"}
     _ROOKIE_ONLY_DLF_SITES = {"DLF_RSF", "DLF_RIDP"}
     _COMBINED_SITES = {"IDPTradeCalc"}  # has both OFF and IDP
     _SITE_CAPS = {}
@@ -3785,7 +3779,7 @@ async def run(progress_callback=None):
         if len(full_map) > cap:
             # Keep top N by value (higher = better for value sites, lower = better for rank sites)
             dash_key = site_key_map.get(site_name, site_name)
-            rank_sites = {"Flock", "DynastyNerds", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+            rank_sites = {"Flock", "DynastyNerds", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
             if site_name in rank_sites:
                 # Rank-based: lower values are better
                 sorted_players = sorted(full_map.items(), key=lambda x: x[1] if x[1] is not None else 99999)
@@ -4005,7 +3999,7 @@ async def run(progress_callback=None):
     # IDP-only sites should not contribute values to offensive players
     _OFF_POSITIONS = {"QB", "RB", "WR", "TE", "K"}
     _IDP_POSITIONS = {"LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"}
-    _IDP_ONLY_SITES = {"pffIdp", "fantasyProsIdp", "dlfIdp", "dlfRidp"}  # IDPTradeCalc removed — it has both OFF and IDP
+    _IDP_ONLY_SITES = {"fantasyProsIdp", "dlfIdp", "dlfRidp"}  # IDPTradeCalc removed — it has both OFF and IDP
     _OFF_ONLY_SITES = {"dlfSf", "dlfRsf"}
     _pos_map = dict(SLEEPER_ROSTER_DATA.get("positions", {}))
     _player_id_map = dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))
@@ -4172,7 +4166,7 @@ async def run(progress_callback=None):
     # Backfill IDP positions for players that only came in through IDP-specific feeds.
     # This keeps IDP filters/coverage accurate even for deep-tier defenders not rostered.
     # Rookie-only DLF feeds are not treated as primary cross-source identity/evidence signals.
-    _IDP_SIGNAL_KEYS = {"pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp"}
+    _IDP_SIGNAL_KEYS = {"fantasyProsIdp", "draftSharksIdp", "dlfIdp"}
     _OFF_SIGNAL_KEYS = {"ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf"}
     _idp_pos_backfilled = 0
     for pname, entry in players_json.items():
@@ -4485,7 +4479,7 @@ async def run(progress_callback=None):
     current_year = datetime.date.today().year
     target_pick_years = [current_year, current_year + 1, current_year + 2]
     # Explicitly exclude non-pick sources from pick values.
-    PICK_VALUE_EXCLUDED_SITES = {"draftSharks", "pffIdp"}
+    PICK_VALUE_EXCLUDED_SITES = {"draftSharks"}
     pick_anchors = {}
     pick_anchors_raw = {}
     for scraper_name, full_map in FULL_DATA.items():
@@ -4814,7 +4808,7 @@ async def run(progress_callback=None):
     # [NEW] Compute per-site mean and stdev for z-score normalization
     site_stats = {}
     # Site mode mapping
-    _rank_sites = {"dynastyNerds", "pffIdp", "draftSharksIdp", "fantasyProsIdp", "draftSharks"}
+    _rank_sites = {"dynastyNerds", "draftSharksIdp", "fantasyProsIdp", "draftSharks"}
     _idp_rank_sites = set()  # currently none use idpRank mode in scraper (handled in dashboard)
     # Z-score parameters
     Z_FLOOR, Z_CEILING = -2.0, 4.0
@@ -4937,7 +4931,7 @@ async def run(progress_callback=None):
     SINGLE_SOURCE_DISCOUNT_MAX = 0.82
 
     # IDP rank sites get their own rank→value curve anchored at IDP_ANCHOR_TOP
-    _idp_rank_sites = {"pffIdp", "fantasyProsIdp"}
+    _idp_rank_sites = {"fantasyProsIdp"}
     # IDPTradeCalc is value-based but we cap it at IDP_ANCHOR_TOP
     _idp_value_cap_sites = {"idpTradeCalc"}
     # DLF IDP exports are rank-derived synthetic values (converted to canonical scale),
@@ -4950,12 +4944,12 @@ async def run(progress_callback=None):
         "fantasyPros": 0.8, "draftSharks": 0.9, "yahoo": 0.8,
         "dynastyNerds": 0.8, "idpTradeCalc": 1.0,
         "dlfSf": 0.8, "dlfIdp": 0.8, "dlfRsf": 0.7, "dlfRidp": 0.7,
-        "pffIdp": 0.7, "fantasyProsIdp": 0.7,
+        "fantasyProsIdp": 0.7,
     }
     # Rookie-only DLF exports remain visible as source signals, but are quarantined
     # from normal dynasty composite math so rookie rank lists cannot inflate market value.
     _ROOKIE_ONLY_DLF_SITE_KEYS = {"dlfRsf", "dlfRidp"}
-    _REAL_IDP_MARKET_SITE_KEYS = {"idpTradeCalc", "pffIdp", "fantasyProsIdp", "dlfIdp", "draftSharksIdp"}
+    _REAL_IDP_MARKET_SITE_KEYS = {"idpTradeCalc", "fantasyProsIdp", "dlfIdp", "draftSharksIdp"}
     IDP_ROOKIE_ONLY_NO_MARKET_CAP = 2600
 
     _curve_pos_map = SLEEPER_ROSTER_DATA.get("positions", {}) if isinstance(SLEEPER_ROSTER_DATA, dict) else {}
@@ -5643,7 +5637,7 @@ async def run(progress_callback=None):
         k for k in (
             "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo",
             "dynastyNerds", "dlfSf", "dlfIdp", "dlfRsf", "dlfRidp",
-            "idpTradeCalc", "pffIdp", "fantasyProsIdp"
+            "idpTradeCalc", "fantasyProsIdp"
         )
     )
 
@@ -5723,7 +5717,7 @@ async def run(progress_callback=None):
         sk for sk in (
             "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo",
             "dynastyNerds", "dlfSf", "dlfIdp", "dlfRsf", "dlfRidp",
-            "idpTradeCalc", "pffIdp", "fantasyProsIdp"
+            "idpTradeCalc", "fantasyProsIdp"
         )
         if sk in _legacy_pick_anchors
     ]
@@ -6196,7 +6190,7 @@ async def run(progress_callback=None):
                 continue
             if _get_pos(n) in _IDP_POSITIONS:
                 continue
-            has_idp_signal = any(isinstance(pdata.get(k), (int, float)) for k in ("pffIdp", "fantasyProsIdp", "draftSharksIdp"))
+            has_idp_signal = any(isinstance(pdata.get(k), (int, float)) for k in ("fantasyProsIdp", "draftSharksIdp"))
             has_off_signal = any(
                 isinstance(pdata.get(k), (int, float))
                 for k in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf")

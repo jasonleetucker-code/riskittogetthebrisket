@@ -54,7 +54,6 @@ _DEFAULT_STALENESS_HOURS: dict[str, float] = {
     "dynastyDaddy": 24,
     "dynastyNerds": 24,
     "fantasyPros": 24,
-    "pff": 24,
     "footballGuys": 24,
     "draftSharks": 24,
     "flockFantasy": 24,
