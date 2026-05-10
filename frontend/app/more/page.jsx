@@ -78,6 +78,16 @@ export default function MorePage() {
         </div>
       ))}
 
+      <div style={{ marginTop: "var(--space-lg)", textAlign: "right" }}>
+        <Link
+          href="/idptc-rookies"
+          className="muted text-xs"
+          style={{ opacity: 0.4, textDecoration: "none" }}
+        >
+          ·
+        </Link>
+      </div>
+
       {authenticated && (
         <div style={{ marginTop: "var(--space-lg)", paddingTop: "var(--space-md)", borderTop: "1px solid var(--border)" }}>
           <button className="button button-danger" onClick={logout} style={{ width: "100%" }}>
