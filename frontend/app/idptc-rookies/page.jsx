@@ -7,15 +7,17 @@ import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 import { useDynastyData } from "@/components/useDynastyData";
 
-// ── /idptc-rookies — Hidden tab: top 72 rookies by IDPTC value ───────
-// Linked discreetly from /more.  Lists every player flagged ``rookie``
-// in the live contract, ranked by their raw ``canonicalSites.idpTradeCalc``
-// value (descending), capped at 72.  Each row optionally shows a short
-// fantasy-relevance blurb sourced from
-// ``/public/idptc-rookies-blurbs.json`` (curated separately).  Includes
-// CSV + Markdown exports.
+// ── /idptc-rookies — Combined IDPTC + KTC rookie board ───────────────
+// Linked from /more → Lab.  Lists every player flagged ``rookie`` in
+// the live contract that is actually on an NFL roster (has a Sleeper
+// ID), ranked by ``max(idpTradeCalc, ktc)`` so KTC-only offensive
+// rookies are interleaved with IDP-tilted IDPTC rookies and nothing
+// gets dropped.  Each row optionally shows a short fantasy-relevance
+// blurb sourced from ``/public/idptc-rookies-blurbs.json``.  Exports
+// the full ranked list with both KTC + IDPTC values as CSV or
+// Markdown.
 
-const TOP_N = 72;
+const TOP_N = 120; // generous soft cap; current universe ~85 rookies
 const BLURBS_URL = "/idptc-rookies-blurbs.json";
 
 function csvEscape(s) {
@@ -35,13 +37,24 @@ function downloadFile(filename, content, mime) {
   URL.revokeObjectURL(url);
 }
 
+function fmtVal(v) {
+  return v > 0 ? v.toLocaleString() : "—";
+}
+
 function downloadCsv(rows) {
-  const header = "Rank,Name,Pos,IDPTC Value,Fantasy Blurb";
+  const header = "Rank,Name,Pos,KTC Value,IDPTC Value,Fantasy Blurb";
   const lines = rows.map((r, i) =>
-    [i + 1, csvEscape(r.name), csvEscape(r.pos), r.value, csvEscape(r.blurb || "")].join(","),
+    [
+      i + 1,
+      csvEscape(r.name),
+      csvEscape(r.pos),
+      r.ktc || "",
+      r.idptc || "",
+      csvEscape(r.blurb || ""),
+    ].join(","),
   );
   downloadFile(
-    `idptc-top-${rows.length}-rookies.csv`,
+    `dynasty-rookie-board-${rows.length}.csv`,
     [header, ...lines].join("\n"),
     "text/csv;charset=utf-8;",
   );
@@ -49,19 +62,25 @@ function downloadCsv(rows) {
 
 function downloadMarkdown(rows) {
   const lines = [
-    "# Top IDPTC Rookies — Fantasy Outlook",
+    "# Dynasty Rookie Board — IDPTC + KTC",
     "",
-    `Generated ${new Date().toISOString().slice(0, 10)} · ${rows.length} players · sorted by raw IDPTC value`,
+    `Generated ${new Date().toISOString().slice(0, 10)} · ${rows.length} players · sorted by max(IDPTC, KTC) value`,
     "",
   ];
   rows.forEach((r, i) => {
-    lines.push(`## ${i + 1}. ${r.name} — ${r.pos || "?"} (IDPTC ${r.value.toLocaleString()})`);
+    const vals = [
+      r.ktc > 0 ? `KTC ${r.ktc.toLocaleString()}` : null,
+      r.idptc > 0 ? `IDPTC ${r.idptc.toLocaleString()}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    lines.push(`## ${i + 1}. ${r.name} — ${r.pos || "?"} (${vals})`);
     lines.push("");
     lines.push(r.blurb ? r.blurb : "_No blurb available._");
     lines.push("");
   });
   downloadFile(
-    `idptc-top-${rows.length}-rookies.md`,
+    `dynasty-rookie-board-${rows.length}.md`,
     lines.join("\n"),
     "text/markdown;charset=utf-8;",
   );
@@ -96,28 +115,39 @@ export default function IdptcRookiesPage() {
     const candidates = [];
     for (const r of rows) {
       if (!r?.rookie) continue;
-      // Filter out players who carry the rookie flag (yearsExp===0) but
-      // are not actually on an NFL roster — e.g. college players who
-      // remain on IDPTC's prospect board after returning to school
-      // (Trinidad Chambliss).  A Sleeper ID is only minted once the
-      // player joins an NFL team, so its presence is the cleanest
-      // "actually-in-the-NFL" signal we have.
+      // Sleeper ID is the cleanest "actually-on-an-NFL-roster" signal —
+      // filters out college players who linger on prospect boards
+      // (e.g. Trinidad Chambliss returning to Ole Miss).
       const sleeperId = r?.raw?._sleeperId || r?.raw?.playerId;
       if (!sleeperId) continue;
-      const raw = Number(r?.canonicalSites?.idpTradeCalc);
-      if (!Number.isFinite(raw) || raw <= 0) continue;
+      const idptc = Math.max(0, Math.round(Number(r?.canonicalSites?.idpTradeCalc) || 0));
+      // ``ktcSfTep`` is the post-2026-04-28 KTC source; ``ktc`` is the
+      // legacy key kept for robustness.  Use the max so a player with
+      // either stamp is captured.
+      const ktc = Math.max(
+        0,
+        Math.round(
+          Math.max(
+            Number(r?.canonicalSites?.ktcSfTep) || 0,
+            Number(r?.canonicalSites?.ktc) || 0,
+          ),
+        ),
+      );
+      if (idptc <= 0 && ktc <= 0) continue;
       candidates.push({
         name: r.name,
         pos: r.pos || "?",
-        value: Math.round(raw),
+        idptc,
+        ktc,
+        sortValue: Math.max(idptc, ktc),
         blurb: blurbs?.[r.name] || "",
       });
     }
-    candidates.sort((a, b) => b.value - a.value);
+    candidates.sort((a, b) => b.sortValue - a.sortValue);
     return candidates.slice(0, TOP_N);
   }, [rows, blurbs]);
 
-  if (loading) return <LoadingState message="Loading IDPTC rookies..." />;
+  if (loading) return <LoadingState message="Loading rookie board..." />;
   if (error) return <ErrorState message={`Failed to load: ${error}`} />;
 
   const blurbCount = ranked.filter((r) => r.blurb).length;
@@ -125,11 +155,11 @@ export default function IdptcRookiesPage() {
   return (
     <section>
       <PageHeader
-        title="IDPTC Rookies — Top 72"
+        title="Dynasty Rookie Board — IDPTC + KTC"
         subtitle={
           blurbsLoading
-            ? "Rookies ranked by raw IDPTC value (descending)."
-            : `Rookies ranked by raw IDPTC value (descending). ${blurbCount}/${ranked.length} have fantasy blurbs.`
+            ? "Every rookie on either source, ranked by max(IDPTC, KTC) value."
+            : `Every rookie on either source, ranked by max(IDPTC, KTC) value. ${blurbCount}/${ranked.length} have fantasy blurbs.`
         }
         actions={
           <div style={{ display: "flex", gap: 8 }}>
@@ -137,7 +167,7 @@ export default function IdptcRookiesPage() {
               className="button"
               onClick={() => downloadMarkdown(ranked)}
               disabled={ranked.length === 0}
-              title="Export ranked list + blurbs as Markdown"
+              title="Export ranked list + both values + blurbs as Markdown"
             >
               Export Markdown
             </button>
@@ -145,7 +175,7 @@ export default function IdptcRookiesPage() {
               className="button button-primary"
               onClick={() => downloadCsv(ranked)}
               disabled={ranked.length === 0}
-              title="Export rank, name, pos, value, blurb as CSV"
+              title="Export rank, name, pos, both values, blurb as CSV"
             >
               Export CSV
             </button>
@@ -154,7 +184,7 @@ export default function IdptcRookiesPage() {
       />
 
       {ranked.length === 0 ? (
-        <EmptyState message="No rookies have an IDPTC value yet." />
+        <EmptyState message="No rookies on either source yet." />
       ) : (
         <div className="card" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -163,7 +193,8 @@ export default function IdptcRookiesPage() {
                 <th style={{ textAlign: "left", padding: "8px 12px", width: 48 }}>#</th>
                 <th style={{ textAlign: "left", padding: "8px 12px" }}>Player</th>
                 <th style={{ textAlign: "left", padding: "8px 12px", width: 64 }}>Pos</th>
-                <th style={{ textAlign: "right", padding: "8px 12px", width: 120 }}>IDPTC Value</th>
+                <th style={{ textAlign: "right", padding: "8px 12px", width: 100 }}>KTC</th>
+                <th style={{ textAlign: "right", padding: "8px 12px", width: 100 }}>IDPTC</th>
               </tr>
             </thead>
             <tbody>
@@ -188,9 +219,21 @@ export default function IdptcRookiesPage() {
                       textAlign: "right",
                       fontVariantNumeric: "tabular-nums",
                       verticalAlign: "top",
+                      color: r.ktc > 0 ? "var(--text)" : "var(--subtext)",
                     }}
                   >
-                    {r.value.toLocaleString()}
+                    {fmtVal(r.ktc)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "8px 12px",
+                      textAlign: "right",
+                      fontVariantNumeric: "tabular-nums",
+                      verticalAlign: "top",
+                      color: r.idptc > 0 ? "var(--text)" : "var(--subtext)",
+                    }}
+                  >
+                    {fmtVal(r.idptc)}
                   </td>
                 </tr>
               ))}

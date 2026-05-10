@@ -53,7 +53,7 @@ const SECTIONS = [
   {
     title: "Lab",
     items: [
-      { href: "/idptc-rookies", label: "IDPTC Rookies", desc: "Top 72 rookies by raw IDPTC value with fantasy blurbs + CSV/Markdown export" },
+      { href: "/idptc-rookies", label: "Rookie Board (IDPTC + KTC)", desc: "Every rookie on IDPTC or KTC, sorted by max value, with fantasy blurbs + CSV/Markdown export" },
     ],
   },
 ];
