@@ -50,6 +50,12 @@ const SECTIONS = [
       { href: "/settings", label: "Settings", desc: "Tuning controls for valuations and display" },
     ],
   },
+  {
+    title: "Lab",
+    items: [
+      { href: "/idptc-rookies", label: "IDPTC Rookies", desc: "Top 72 rookies by raw IDPTC value with fantasy blurbs + CSV/Markdown export" },
+    ],
+  },
 ];
 
 export default function MorePage() {
@@ -77,16 +83,6 @@ export default function MorePage() {
           </div>
         </div>
       ))}
-
-      <div style={{ marginTop: "var(--space-lg)", textAlign: "right" }}>
-        <Link
-          href="/idptc-rookies"
-          className="muted text-xs"
-          style={{ opacity: 0.4, textDecoration: "none" }}
-        >
-          ·
-        </Link>
-      </div>
 
       {authenticated && (
         <div style={{ marginTop: "var(--space-lg)", paddingTop: "var(--space-md)", borderTop: "1px solid var(--border)" }}>

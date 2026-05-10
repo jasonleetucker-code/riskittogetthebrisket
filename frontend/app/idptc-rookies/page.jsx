@@ -96,6 +96,14 @@ export default function IdptcRookiesPage() {
     const candidates = [];
     for (const r of rows) {
       if (!r?.rookie) continue;
+      // Filter out players who carry the rookie flag (yearsExp===0) but
+      // are not actually on an NFL roster — e.g. college players who
+      // remain on IDPTC's prospect board after returning to school
+      // (Trinidad Chambliss).  A Sleeper ID is only minted once the
+      // player joins an NFL team, so its presence is the cleanest
+      // "actually-in-the-NFL" signal we have.
+      const sleeperId = r?.raw?._sleeperId || r?.raw?.playerId;
+      if (!sleeperId) continue;
       const raw = Number(r?.canonicalSites?.idpTradeCalc);
       if (!Number.isFinite(raw) || raw <= 0) continue;
       candidates.push({
