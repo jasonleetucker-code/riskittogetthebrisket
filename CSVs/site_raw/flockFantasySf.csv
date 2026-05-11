@@ -4,8 +4,8 @@ Jaxon Smith-Njigba,3.5
 Ja'Marr Chase,4.13
 Drake Maye,4.38
 Bijan Robinson,4.88
-Puka Nacua,5.75
 Jahmyr Gibbs,5.75
+Puka Nacua,5.75
 Jayden Daniels,9.38
 Amon-Ra St. Brown,10.75
 Caleb Williams,12.63
@@ -44,8 +44,8 @@ Jordyn Tyson,46.29
 Makai Lemon,49.0
 Fernando Mendoza,51.86
 Dak Prescott,55.13
-Ladd McConkey,55.75
 Luther Burden,55.75
+Ladd McConkey,55.75
 Chase Brown,56.38
 Jadarian Price,56.71
 Breece Hall,57.63
@@ -93,10 +93,10 @@ Derrick Henry,109.38
 Michael Wilson,109.75
 Alec Pierce,110.0
 Daniel Jones,111.13
-Oronde Gadsden,113.0
 Davante Adams,113.63
 Bryce Young,114.25
 Terry McLaurin,115.75
+Oronde Gadsden,116.38
 D'Andre Swift,116.63
 Christian Watson,116.88
 Jonah Coleman,120.86
@@ -112,20 +112,20 @@ Xavier Worthy,131.13
 Ricky Pearsall,132.13
 Denzel Boston,133.71
 Quentin Johnston,133.88
-Eli Stowers,135.14
+Eli Stowers,134.0
 Matthew Golden,138.88
 Jayden Higgins,139.13
 Chuba Hubbard,140.75
 Dalton Kincaid,141.63
 Jaylen Warren,142.75
+George Kittle,145.0
 Jakobi Meyers,146.25
-George Kittle,146.88
 Kyle Monangai,148.0
 Jake Ferguson,148.38
 Chris Godwin,149.38
 Courtland Sutton,150.13
 Josh Downs,150.25
-Isaiah Likely,151.5
+Isaiah Likely,151.0
 Parker Washington,151.63
 Romeo Doubs,154.38
 Rico Dowdle,156.63
@@ -188,8 +188,8 @@ Tre Harris,225.25
 Ja'Kobi Lane,225.67
 Kayshon Boutte,225.75
 Chris Brazzell II,226.33
-Travis Kelce,227.25
 Terrance Ferguson,227.25
+Travis Kelce,227.25
 Elic Ayomanor,228.25
 Shedeur Sanders,228.38
 Jerry Jeudy,231.25
@@ -221,8 +221,8 @@ Adonai Mitchell,253.75
 Aaron Rodgers,254.13
 Anthony Richardson,254.63
 Malachi Fields,255.67
-Mike Washington Jr.,256.2
 Adam Randall,256.2
+Mike Washington Jr.,256.2
 Theo Johnson,256.25
 Devin Neal,256.38
 Trey Benson,256.43
@@ -332,10 +332,10 @@ MarShawn Lloyd,333.33
 Roschon Johnson,334.33
 Darren Waller,335.0
 C.J. Daniels,335.0
-Roman Wilson,336.0
-Adam Thielen,336.0
 Amari Cooper,336.0
 Sam Howell,336.0
+Adam Thielen,336.0
+Roman Wilson,336.0
 Efton Chism,336.67
 Jameis Winston,337.86
 Damien Martinez,338.67
@@ -351,8 +351,8 @@ Lewis Bond,343.0
 Ryan Flournoy,343.5
 Justice Hill,343.83
 Will Levis,344.33
-Cyrus Allen,345.0
 Tai Felton,345.0
+Cyrus Allen,345.0
 Noah Brown,346.5
 Devin Singletary,348.83
 Andrei Iosivas,349.0
@@ -367,11 +367,11 @@ Antonio Gibson,356.0
 Kalel Mullings,356.0
 Daniel Bellinger,356.5
 Raheem Mostert,357.0
-Noah Fant,357.5
 Miles Sanders,357.5
+Noah Fant,357.5
 Cole Payton,357.67
-Jalin Hyatt,358.0
 Xavier Restrepo,358.0
+Jalin Hyatt,358.0
 Deuce Vaughn,359.5
 DeAndre Hopkins,359.67
 Will Shipley,360.2
@@ -392,8 +392,8 @@ Rondale Moore,367.0
 Samaje Perine,367.0
 Dyami Brown,367.33
 Darius Slayton,368.6
-Jalon Daniels,369.0
 Tyler Higbee,369.0
+Jalon Daniels,369.0
 Davis Mills,370.0
 Reggie Virgil,371.5
 Javon Baker,372.0
@@ -408,8 +408,8 @@ Will Dissly,377.0
 Josh Cuevas,378.0
 Luke McCaffrey,378.33
 Tutu Atwell,378.5
-Jaheim Bell,379.0
 Malik Benson,379.0
+Jaheim Bell,379.0
 Luke Schoonmaker,379.5
 Tyler Conklin,381.0
 Brandin Cooks,381.5
@@ -424,12 +424,12 @@ Zack Moss,394.0
 Jermaine Burton,397.0
 Jeremy McNichols,400.0
 AJ Dillon,402.0
-Rasheen Ali,403.0
 Kenny Pickett,403.0
+Rasheen Ali,403.0
 Ty Johnson,404.0
 Zay Jones,404.0
-Demarcus Robinson,406.0
 Greg Dortch,406.0
+Demarcus Robinson,406.0
 Xavier Hutchinson,407.0
 Odell Beckham,408.0
 Mike Williams,409.0
