@@ -64,14 +64,14 @@ Bryce Young,73,QB24,CAR,24,3
 Rome Odunze,75,WR22,CHI,23,2
 Saquon Barkley,76,RB14,PHI,29,8
 Jameson Williams,77,WR23,DET,25,4
-Tucker Kraft,78,TE5,GB,25,3
+Harold Fannin Jr.,78,TE5,CLE,21,1
 Christian McCaffrey,80,RB15,SF,29,9
 DeVonta Smith,81,WR24,PHI,27,5
 Daniel Jones,83,QB25,IND,28,7
 Jordyn Tyson,85,WR25,NO,21,R
 Kyren Williams,86,RB16,LAR,25,4
 Marvin Harrison Jr.,87,WR26,ARI,23,2
-Harold Fannin Jr.,88,TE6,CLE,21,1
+Tucker Kraft,88,TE6,GB,25,3
 Bucky Irving,89,RB17,TB,23,2
 Travis Etienne Jr.,90,RB18,NO,27,5
 Brian Thomas Jr.,93,WR27,JAX,23,2
@@ -90,32 +90,32 @@ Ty Simpson,109,QB28,LAR,23,R
 KC Concepcion,110,WR32,CLE,21,R
 D'Andre Swift,111,RB22,CHI,27,6
 Terry McLaurin,112,WR33,WAS,30,7
-Oronde Gadsden,113,TE9,LAC,22,1
+Kenyon Sadiq,113,TE9,NYJ,21,R
 Derrick Henry,114,RB23,BAL,32,10
 Jadarian Price,115,RB24,SEA,22,R
 DK Metcalf,116,WR34,PIT,28,7
 RJ Harvey,117,RB25,DEN,25,1
-Kyle Monangai,120,RB26,CHI,24,1
-Kenyon Sadiq,121,TE10,NYJ,21,R
+Dalton Kincaid,120,TE10,BUF,26,3
+Kyle Monangai,121,RB26,CHI,24,1
 Alec Pierce,122,WR35,IND,26,4
 Michael Penix Jr.,123,QB29,ATL,26,2
 Bhayshul Tuten,124,RB27,JAX,24,1
 Wan'Dale Robinson,125,WR36,TEN,25,4
 Zach Charbonnet,127,RB28,SEA,25,3
-Dalton Kincaid,128,TE11,BUF,26,3
+Oronde Gadsden,128,TE11,LAC,22,1
 Denzel Boston,130,WR37,CLE,22,R
 Jaylen Warren,131,RB29,PIT,27,4
 J.J. McCarthy,132,QB30,MIN,23,2
 Ricky Pearsall,133,WR38,SF,25,2
 Blake Corum,134,RB30,LAR,25,2
-George Kittle,135,TE12,SF,32,9
+Eli Stowers,135,TE12,PHI,23,R
 David Montgomery,136,RB31,HOU,28,7
 Michael Wilson,138,WR39,ARI,26,3
 Jonah Coleman,139,RB32,DEN,22,R
 Michael Pittman Jr,140,WR40,PIT,28,6
 Rico Dowdle,141,RB33,PIT,27,6
 Courtland Sutton,142,WR41,DEN,30,8
-Eli Stowers,144,TE13,PHI,23,R
+George Kittle,143,TE13,SF,32,9
 Tua Tagovailoa,146,QB31,ATL,28,6
 Christian Watson,147,WR42,GB,27,4
 Quentin Johnston,149,WR43,LAC,24,3
@@ -349,7 +349,7 @@ Zamir White,619,RB132,FA,26,4
 Devin Singletary,620,RB133,NYG,28,7
 Ty Johnson,621,RB134,BUF,28,7
 Samaje Perine,622,RB135,CIN,30,9
-Ameer Abdullah,623,RB136,FA,32,11
+Ameer Abdullah,623,RB136,JAX,32,11
 Antonio Gibson,624,RB137,FA,27,6
 Dylan Laube,625,RB138,LV,26,2
 Kaden Wetjen,626,WR137,PIT,24,R
