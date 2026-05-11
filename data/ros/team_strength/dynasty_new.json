@@ -193,7 +193,7 @@
     "teamName": "Game-Enders",
     "teamRosStrength": 393.38,
     "startingLineupScore": 497.19,
-    "benchDepthScore": 141.14,
+    "benchDepthScore": 141.12,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -335,9 +335,9 @@
         "playerId": "10236",
         "canonicalName": "dalton kincaid",
         "position": "TE",
-        "rosValue": 22.37,
+        "rosValue": 22.35,
         "depthFactor": 1.0,
-        "depthContribution": 22.37
+        "depthContribution": 22.35
       },
       {
         "playerId": "8132",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "Cuffs and Stuff",
-    "teamRosStrength": 338.54,
+    "teamRosStrength": 338.55,
     "startingLineupScore": 418.56,
-    "benchDepthScore": 150.99,
+    "benchDepthScore": 151.02,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -687,9 +687,9 @@
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
-        "rosValue": 27.67,
+        "rosValue": 27.7,
         "depthFactor": 1.0,
-        "depthContribution": 27.67
+        "depthContribution": 27.7
       },
       {
         "playerId": "1466",
@@ -945,7 +945,7 @@
     "teamName": "Shayders tators ",
     "teamRosStrength": 311.53,
     "startingLineupScore": 388.52,
-    "benchDepthScore": 121.1,
+    "benchDepthScore": 121.07,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1079,9 +1079,9 @@
         "playerId": "9228",
         "canonicalName": "bryce young",
         "position": "QB",
-        "rosValue": 22.26,
+        "rosValue": 22.23,
         "depthFactor": 1.0,
-        "depthContribution": 22.26
+        "depthContribution": 22.23
       },
       {
         "playerId": "4981",
@@ -1133,8 +1133,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Nixxers",
-    "teamRosStrength": 294.02,
-    "startingLineupScore": 355.03,
+    "teamRosStrength": 294.0,
+    "startingLineupScore": 355.0,
     "benchDepthScore": 157.77,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1211,22 +1211,22 @@
       },
       {
         "slot": "FLEX",
-        "playerId": "11624",
-        "canonicalName": "xavier worthy",
-        "position": "WR",
-        "rosValue": 28.75,
-        "adjustedValue": 28.75,
-        "confidence": 0.959,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
         "playerId": "9756",
         "canonicalName": "jordan addison",
         "position": "WR",
         "rosValue": 28.75,
         "adjustedValue": 28.75,
         "confidence": 0.895,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
+        "playerId": "11624",
+        "canonicalName": "xavier worthy",
+        "position": "WR",
+        "rosValue": 28.72,
+        "adjustedValue": 28.72,
+        "confidence": 0.96,
         "flagged": null
       },
       {
@@ -1511,8 +1511,8 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "Maybe just one more pick",
-    "teamRosStrength": 254.27,
-    "startingLineupScore": 321.41,
+    "teamRosStrength": 254.29,
+    "startingLineupScore": 321.44,
     "benchDepthScore": 71.41,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1592,9 +1592,9 @@
         "playerId": "12534",
         "canonicalName": "kyle monangai",
         "position": "RB",
-        "rosValue": 26.6,
-        "adjustedValue": 26.6,
-        "confidence": 0.963,
+        "rosValue": 26.63,
+        "adjustedValue": 26.63,
+        "confidence": 0.964,
         "flagged": null
       },
       {
@@ -1699,9 +1699,9 @@
     "ownerId": "1033502330853302272",
     "rosterId": 8,
     "teamName": "The Schedule",
-    "teamRosStrength": 252.0,
-    "startingLineupScore": 311.48,
-    "benchDepthScore": 98.51,
+    "teamRosStrength": 252.01,
+    "startingLineupScore": 311.5,
+    "benchDepthScore": 98.52,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1750,9 +1750,9 @@
         "playerId": "13298",
         "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 29.28,
-        "adjustedValue": 29.28,
-        "confidence": 0.88,
+        "rosValue": 29.2,
+        "adjustedValue": 29.2,
+        "confidence": 0.879,
         "flagged": null
       },
       {
@@ -1760,8 +1760,8 @@
         "playerId": "10232",
         "canonicalName": "michael wilson",
         "position": "WR",
-        "rosValue": 28.76,
-        "adjustedValue": 28.76,
+        "rosValue": 28.86,
+        "adjustedValue": 28.86,
         "confidence": 0.988,
         "flagged": null
       },
@@ -1851,7 +1851,7 @@
         "playerId": "6149",
         "canonicalName": "darius slayton",
         "position": "WR",
-        "rosValue": 17.58,
+        "rosValue": 17.59,
         "depthFactor": 0.275,
         "depthContribution": 4.83
       },
@@ -1859,9 +1859,9 @@
         "playerId": "12536",
         "canonicalName": "jaylin noel",
         "position": "WR",
-        "rosValue": 16.38,
+        "rosValue": 16.4,
         "depthFactor": 0.179,
-        "depthContribution": 2.92
+        "depthContribution": 2.93
       },
       {
         "playerId": "11435",
