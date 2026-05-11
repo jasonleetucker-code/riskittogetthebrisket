@@ -2,10 +2,10 @@
   {
     "ownerId": "1002085133723299840",
     "rosterId": 7,
-    "teamName": "Live, Laugh, Loveland",
-    "teamRosStrength": 460.41,
+    "teamName": "Got a real Purdy Penix ",
+    "teamRosStrength": 460.75,
     "startingLineupScore": 585.93,
-    "benchDepthScore": 158.58,
+    "benchDepthScore": 160.43,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -160,20 +160,20 @@
         "depthContribution": 8.01
       },
       {
+        "playerId": "11559",
+        "canonicalName": "michael penix",
+        "position": "QB",
+        "rosValue": 18.02,
+        "depthFactor": 0.55,
+        "depthContribution": 9.91
+      },
+      {
         "playerId": "6768",
         "canonicalName": "tua tagovailoa",
         "position": "QB",
         "rosValue": 15.71,
-        "depthFactor": 0.55,
-        "depthContribution": 8.64
-      },
-      {
-        "playerId": "4033",
-        "canonicalName": "david njoku",
-        "position": "TE",
-        "rosValue": 13.8,
         "depthFactor": 0.303,
-        "depthContribution": 4.17
+        "depthContribution": 4.75
       }
     ],
     "unfilledSlots": [],
@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Game-Enders",
-    "teamRosStrength": 390.51,
-    "startingLineupScore": 493.36,
-    "benchDepthScore": 140.51,
+    "teamRosStrength": 391.67,
+    "startingLineupScore": 497.15,
+    "benchDepthScore": 131.79,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -269,22 +269,22 @@
       },
       {
         "slot": "FLEX",
-        "playerId": "8151",
-        "canonicalName": "kenneth walker",
+        "playerId": "13287",
+        "canonicalName": "jeremiyah love",
         "position": "RB",
-        "rosValue": 44.43,
-        "adjustedValue": 44.43,
-        "confidence": 0.87,
+        "rosValue": 49.41,
+        "adjustedValue": 49.41,
+        "confidence": 0.853,
         "flagged": null
       },
       {
         "slot": "FLEX",
-        "playerId": "13279",
-        "canonicalName": "carnell tate",
+        "playerId": "11631",
+        "canonicalName": "brian thomas",
         "position": "WR",
-        "rosValue": 34.81,
-        "adjustedValue": 34.81,
-        "confidence": 0.85,
+        "rosValue": 33.62,
+        "adjustedValue": 33.62,
+        "confidence": 0.984,
         "flagged": null
       },
       {
@@ -300,28 +300,20 @@
     ],
     "benchDepth": [
       {
-        "playerId": "11631",
-        "canonicalName": "brian thomas",
-        "position": "WR",
-        "rosValue": 33.62,
-        "depthFactor": 1.0,
-        "depthContribution": 33.62
-      },
-      {
         "playerId": "11620",
         "canonicalName": "rome odunze",
         "position": "WR",
         "rosValue": 33.21,
-        "depthFactor": 0.65,
-        "depthContribution": 21.59
+        "depthFactor": 1.0,
+        "depthContribution": 33.21
       },
       {
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
         "rosValue": 28.29,
-        "depthFactor": 0.423,
-        "depthContribution": 11.95
+        "depthFactor": 0.65,
+        "depthContribution": 18.39
       },
       {
         "playerId": "7594",
@@ -332,28 +324,28 @@
         "depthContribution": 27.11
       },
       {
-        "playerId": "13330",
-        "canonicalName": "kenyon sadiq",
-        "position": "TE",
-        "rosValue": 24.13,
-        "depthFactor": 1.0,
-        "depthContribution": 24.13
-      },
-      {
         "playerId": "12501",
         "canonicalName": "matthew golden",
         "position": "WR",
         "rosValue": 22.89,
-        "depthFactor": 0.275,
-        "depthContribution": 6.29
+        "depthFactor": 0.423,
+        "depthContribution": 9.67
+      },
+      {
+        "playerId": "10236",
+        "canonicalName": "dalton kincaid",
+        "position": "TE",
+        "rosValue": 22.32,
+        "depthFactor": 1.0,
+        "depthContribution": 22.32
       },
       {
         "playerId": "11625",
         "canonicalName": "adonai mitchell",
         "position": "WR",
         "rosValue": 19.82,
-        "depthFactor": 0.179,
-        "depthContribution": 3.54
+        "depthFactor": 0.275,
+        "depthContribution": 5.44
       },
       {
         "playerId": "8132",
@@ -362,6 +354,14 @@
         "rosValue": 18.9,
         "depthFactor": 0.65,
         "depthContribution": 12.29
+      },
+      {
+        "playerId": "12509",
+        "canonicalName": "tre harris",
+        "position": "WR",
+        "rosValue": 18.85,
+        "depthFactor": 0.179,
+        "depthContribution": 3.36
       }
     ],
     "unfilledSlots": [],
@@ -379,9 +379,9 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Prestige Worldwide",
-    "teamRosStrength": 380.84,
-    "startingLineupScore": 470.26,
-    "benchDepthScore": 179.2,
+    "teamRosStrength": 378.68,
+    "startingLineupScore": 465.28,
+    "benchDepthScore": 187.1,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -397,22 +397,22 @@
       },
       {
         "slot": "RB",
-        "playerId": "13287",
-        "canonicalName": "jeremiyah love",
-        "position": "RB",
-        "rosValue": 49.41,
-        "adjustedValue": 49.41,
-        "confidence": 0.853,
-        "flagged": null
-      },
-      {
-        "slot": "RB",
         "playerId": "9224",
         "canonicalName": "chase brown",
         "position": "RB",
         "rosValue": 45.05,
         "adjustedValue": 45.05,
         "confidence": 0.903,
+        "flagged": null
+      },
+      {
+        "slot": "RB",
+        "playerId": "8151",
+        "canonicalName": "kenneth walker",
+        "position": "RB",
+        "rosValue": 44.43,
+        "adjustedValue": 44.43,
+        "confidence": 0.87,
         "flagged": null
       },
       {
@@ -496,20 +496,28 @@
         "depthContribution": 34.83
       },
       {
+        "playerId": "13279",
+        "canonicalName": "carnell tate",
+        "position": "WR",
+        "rosValue": 34.81,
+        "depthFactor": 1.0,
+        "depthContribution": 34.81
+      },
+      {
         "playerId": "13281",
         "canonicalName": "jordyn tyson",
         "position": "WR",
         "rosValue": 34.23,
-        "depthFactor": 1.0,
-        "depthContribution": 34.23
+        "depthFactor": 0.65,
+        "depthContribution": 22.25
       },
       {
         "playerId": "5846",
         "canonicalName": "dk metcalf",
         "position": "WR",
         "rosValue": 32.31,
-        "depthFactor": 0.65,
-        "depthContribution": 21.0
+        "depthFactor": 0.423,
+        "depthContribution": 13.65
       },
       {
         "playerId": "5892",
@@ -528,28 +536,20 @@
         "depthContribution": 18.25
       },
       {
+        "playerId": "13330",
+        "canonicalName": "kenyon sadiq",
+        "position": "TE",
+        "rosValue": 24.13,
+        "depthFactor": 1.0,
+        "depthContribution": 24.13
+      },
+      {
         "playerId": "6806",
         "canonicalName": "jk dobbins",
         "position": "RB",
         "rosValue": 22.81,
         "depthFactor": 0.423,
         "depthContribution": 9.64
-      },
-      {
-        "playerId": "10236",
-        "canonicalName": "dalton kincaid",
-        "position": "TE",
-        "rosValue": 22.32,
-        "depthFactor": 1.0,
-        "depthContribution": 22.32
-      },
-      {
-        "playerId": "8134",
-        "canonicalName": "khalil shakir",
-        "position": "WR",
-        "rosValue": 22.23,
-        "depthFactor": 0.423,
-        "depthContribution": 9.39
       }
     ],
     "unfilledSlots": [],
@@ -566,7 +566,7 @@
   {
     "ownerId": "360184624380633088",
     "rosterId": 1,
-    "teamName": "Taylor and Taylor LawFirm",
+    "teamName": "Cuffs and Stuff",
     "teamRosStrength": 338.18,
     "startingLineupScore": 418.07,
     "benchDepthScore": 150.94,
