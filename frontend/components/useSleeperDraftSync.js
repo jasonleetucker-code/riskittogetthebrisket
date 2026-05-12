@@ -118,11 +118,24 @@ export function useSleeperDraftSync({ leagueKey, enabled, onPickArrived }) {
         for (const pick of picks) {
           if (!pick || typeof pick.pickNo !== "number") continue;
           if (pick.pickNo <= cursorRef.current) continue;
+          // The handler returns ``false`` when it couldn't apply the
+          // pick for a TRANSIENT reason (e.g. the /api/data sleeper
+          // teams fetch is still in flight on first load).  In that
+          // case we hold the cursor so the same pick re-delivers on
+          // the next poll — otherwise a brief mapping gap would
+          // silently drop real picks.  Permanent failures (player
+          // not in pool, owner unmappable) are surfaced via alerts
+          // by the handler and DO advance the cursor.  A throw
+          // counts as permanent so a buggy handler can't deadlock
+          // the loop forever.
+          let applied = true;
           try {
-            onPickArrivedRef.current?.(pick);
+            const result = onPickArrivedRef.current?.(pick);
+            if (result === false) applied = false;
           } catch {
-            /* swallow — never let one bad handler kill the loop */
+            applied = true;
           }
+          if (!applied) break;
           cursorRef.current = pick.pickNo;
         }
 

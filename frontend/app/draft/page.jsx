@@ -3899,10 +3899,25 @@ export default function DraftDashboardPage() {
       sleeperTeams || [],
     );
   }, [workspace?.teams, sleeperTeams]);
+  // ``sleeperTeams === null`` means the /api/data fetch is still in
+  // flight; an empty array means it loaded and the league has no
+  // Sleeper roster data.  The handler distinguishes "not yet" (retry)
+  // from "really empty" (skip + alert) via this ref.
+  const sleeperTeamsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (sleeperTeams !== null) sleeperTeamsLoadedRef.current = true;
+  }, [sleeperTeams]);
 
   const handleLivePick = useCallback(
     (pick) => {
-      if (!pick) return;
+      if (!pick) return true;
+      // Transient: the sleeper.teams fetch hasn't resolved yet on
+      // first load.  Return false so the hook holds the cursor and
+      // re-delivers this pick on the next poll.  Without this guard
+      // a pick that lands during initial hydration would be silently
+      // dropped because the owner-id lookup is empty.
+      if (!sleeperTeamsLoadedRef.current) return false;
+
       const playerName = String(pick.playerName || "").trim();
       const sleeperPlayerId = String(pick.playerId || "");
       const amount = Math.max(0, Number(pick.amount) || 0);
@@ -3935,7 +3950,7 @@ export default function DraftDashboardPage() {
             ts: Date.now(),
           },
         ]);
-        return;
+        return true;
       }
 
       // Resolve workspace player: match by name slug.  If the player
@@ -3994,6 +4009,7 @@ export default function DraftDashboardPage() {
           amount,
         });
       });
+      return true;
     },
     [],
   );
