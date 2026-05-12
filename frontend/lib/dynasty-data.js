@@ -1167,11 +1167,20 @@ export function buildRows(data) {
     return [];
   }
 
+  // 2026 rookie draft has passed — suppress current-year slot picks
+  // from the board so they no longer appear in rankings or the trade
+  // calculator picker.  Rookies from the 2026 class are unaffected
+  // (they are players, not picks).
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].assetClass === "pick" && /^2026\b/.test(rows[i].name)) {
+      rows.splice(i, 1);
+    }
+  }
+
   // Sort by rankDerivedValue desc so rows that intentionally carry
-  // null canonicalConsensusRank (e.g. anchor-year slot picks — 2026
-  // picks anchored to the matching rookie by value) still interleave
-  // with players at the right position instead of collapsing to the
-  // end of the table. For ranked rows this ordering matches the
+  // null canonicalConsensusRank (e.g. anchor-year slot picks) still
+  // interleave with players at the right position instead of collapsing
+  // to the end of the table. For ranked rows this ordering matches the
   // integer-rank order because the backend has already made value
   // monotonic with rank; the change only affects null-rank rows.
   rows.sort((a, b) => {
