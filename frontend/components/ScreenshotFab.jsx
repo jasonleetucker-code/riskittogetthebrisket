@@ -15,10 +15,12 @@ export default function ScreenshotFab() {
       // Hide the FAB itself so it doesn't appear in the capture
       if (btnRef.current) btnRef.current.style.visibility = "hidden";
 
-      // Compute a scale that stays within the iOS canvas area limit (~16.8 MP).
+      // Compute a scale that stays within Safari/WKWebView's practical canvas
+      // area limit (~5 MP per html2canvas docs; 16.8 MP is the theoretical max
+      // but real iOS devices produce empty captures well below that).
       // allowTaint is intentionally omitted (default false) — a tainted canvas
       // cannot be exported via toBlob(), so we skip non-CORS images instead.
-      const MAX_CANVAS_AREA = 16_777_216;
+      const MAX_CANVAS_AREA = 5_000_000;
       const rawW = document.documentElement.scrollWidth;
       const rawH = document.body.scrollHeight;
       const dprScale = Math.min(window.devicePixelRatio || 1, 2);
