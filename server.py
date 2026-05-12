@@ -5249,17 +5249,32 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 continue
         if not league_meta_season and draft_seasons:
             league_season = max(draft_seasons)
-        # The slot-to-roster map MUST come from the active-season
-        # draft.  Falling back to a prior-season draft is unsafe
-        # because rookie draft slots are reverse-standings of the
-        # PRIOR season (so slot order shifts year to year), and a
-        # cross-year mapping would mis-route traded picks to the
-        # wrong workbook slot and shift dollars to the wrong team.
-        # When the active-season draft hasn't been created yet
-        # (offseason rollover gap), we leave slot_to_roster empty
-        # and let the overlay degrade to workbook ownership — the
-        # workbook is freshly hand-maintained for the new season
-        # in that window, so dollars are still defensible.
+        # Once the current-season rookie draft is complete, the
+        # workbook is hand-maintained to track NEXT year's picks
+        # (slot dollar values, ownership column, projected standings).
+        # Bump ``league_season`` so the display label and the Sleeper
+        # ``traded_picks`` filter both target the upcoming draft year.
+        # The slot_to_roster join below intentionally keeps using the
+        # most-recent COMPLETE draft (slot order from the prior year's
+        # final standings) because the workbook's standings carry the
+        # same placeholder ordering until the new NFL season finishes.
+        current_draft_complete = any(
+            isinstance(d, dict)
+            and str(d.get("status", "")).lower() == "complete"
+            and (str(d.get("season", "")) == str(league_season))
+            for d in all_drafts
+        )
+        slot_lookup_season = league_season
+        if current_draft_complete:
+            league_season = league_season + 1
+        # The slot-to-roster map MUST come from a real draft.  Use the
+        # most-recent-completed draft (``slot_lookup_season``) so the
+        # first_name → roster_id bridge keeps working into the
+        # offseason while we track next-year picks.  This is safe as
+        # long as the workbook's standings reflect the same prior-year
+        # final order that produced this draft's slot map — once the
+        # upcoming NFL season is played, the user updates both the
+        # workbook standings AND a new Sleeper draft will exist.
         slot_to_roster: dict[int, int] = {}
         for draft in all_drafts:
             try:
@@ -5267,7 +5282,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             except (TypeError, ValueError):
                 continue
             draft_id = draft.get("draft_id")
-            if season != league_season or not draft_id:
+            if season != slot_lookup_season or not draft_id:
                 continue
             try:
                 detail_resp = urllib.request.urlopen(
