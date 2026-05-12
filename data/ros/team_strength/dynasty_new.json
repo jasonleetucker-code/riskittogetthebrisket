@@ -1111,7 +1111,7 @@
         "playerId": "12530",
         "canonicalName": "travis hunter",
         "position": "WR",
-        "rosValue": 20.11,
+        "rosValue": 20.1,
         "depthFactor": 0.179,
         "depthContribution": 3.59
       }
@@ -1164,8 +1164,8 @@
         "playerId": "8155",
         "canonicalName": "breece hall",
         "position": "RB",
-        "rosValue": 39.27,
-        "adjustedValue": 39.27,
+        "rosValue": 39.33,
+        "adjustedValue": 39.33,
         "confidence": 0.892,
         "flagged": null
       },
@@ -1234,8 +1234,8 @@
         "playerId": "12545",
         "canonicalName": "tyler shough",
         "position": "QB",
-        "rosValue": 30.32,
-        "adjustedValue": 30.32,
+        "rosValue": 30.26,
+        "adjustedValue": 30.26,
         "confidence": 0.916,
         "flagged": null
       }

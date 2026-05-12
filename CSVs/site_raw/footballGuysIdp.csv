@@ -1,66 +1,66 @@
 name,rank,position,team,age,years_exp
 Jack Campbell,24,LB1,DET,25,3
-Jordyn Brooks,32,LB2,MIA,28,6
-Roquan Smith,35,LB3,BAL,29,8
+Jordyn Brooks,33,LB2,MIA,28,6
+Roquan Smith,34,LB3,BAL,29,8
 Zack Baun,44,LB4,PHI,29,6
-Ernest Jones IV,48,LB5,SEA,26,5
+Ernest Jones IV,49,LB5,SEA,26,5
 Fred Warner,51,LB6,SF,29,8
 Sonny Styles,57,LB7,WAS,21,R
-Edgerrin Cooper,58,LB8,GB,24,2
-Quay Walker,61,LB9,LV,26,4
-Foyesade Oluokun,67,LB10,JAX,30,8
-Nick Bolton,72,LB11,KC,26,5
-T.J. Edwards,74,LB12,CHI,29,7
-Jamien Sherwood,79,LB13,NYJ,26,5
+Edgerrin Cooper,59,LB8,GB,24,2
+Quay Walker,62,LB9,LV,26,4
+Foyesade Oluokun,68,LB10,JAX,30,8
+Nick Bolton,71,LB11,KC,26,5
+T.J. Edwards,73,LB12,CHI,29,7
+Jamien Sherwood,80,LB13,NYJ,26,5
 Cedric Gray,82,LB14,TEN,23,2
-Blake Cashman,84,LB15,MIN,30,7
-Devin Lloyd,91,LB16,CAR,27,4
-CJ Allen,92,LB17,IND,21,R
-Daiyan Henley,95,LB18,LAC,26,3
-Carson Schwesinger,100,LB19,CLE,23,1
-Tremaine Edmunds,104,LB20,NYG,28,8
-Azeez Al-Shaair,108,LB21,HOU,28,7
+Blake Cashman,86,LB15,MIN,30,7
+Devin Lloyd,90,LB16,CAR,27,4
+CJ Allen,91,LB17,IND,21,R
+Daiyan Henley,96,LB18,LAC,26,3
+Carson Schwesinger,101,LB19,CLE,23,1
+Tremaine Edmunds,105,LB20,NYG,28,8
+Azeez Al-Shaair,109,LB21,HOU,28,7
 Kyle Hamilton,118,S1,BAL,25,4
 Nate Landman,119,LB22,LAR,27,4
-Nakobe Dean,126,LB23,LV,25,4
+Nakobe Dean,127,LB23,LV,25,4
 Patrick Queen,129,LB24,PIT,26,6
-Jihaad Campbell,137,LB25,PHI,22,1
+Jihaad Campbell,138,LB25,PHI,22,1
 Myles Garrett,144,DE1,CLE,30,9
-Jeffery Simmons,145,DT1,TEN,28,7
-Payton Wilson,148,LB26,PIT,26,2
-Zaire Franklin,152,LB27,GB,29,8
-Will Anderson Jr.,155,DE2,HOU,24,3
-Jalen Carter,158,DT2,PHI,25,3
+Jeffery Simmons,146,DT1,TEN,28,7
+Payton Wilson,149,LB26,PIT,26,2
+Zaire Franklin,155,LB27,GB,29,8
+Will Anderson Jr.,158,DE2,HOU,24,3
+Jalen Carter,160,DT2,PHI,25,3
 Kobie Turner,163,DT3,LAR,27,3
 Aidan Hutchinson,165,DE3,DET,25,4
 Maxx Crosby,303,DE4,LV,28,7
 Caleb Downs,304,S2,DAL,21,R
-Derwin James Jr.,305,S3,LAC,29,8
+Derwin James Jr.,306,S3,LAC,29,8
 Tykee Smith,307,S4,TB,25,2
 Brian Burns,308,DE5,NYG,28,7
-DeForest Buckner,311,DT4,IND,32,10
-Micah Parsons,312,DE6,GB,26,5
-Budda Baker,313,S5,ARI,30,9
-Jared Verse,315,DE7,LAR,25,2
+DeForest Buckner,310,DT4,IND,32,10
+Micah Parsons,313,DE6,GB,26,5
+Budda Baker,314,S5,ARI,30,9
+Jared Verse,316,DE7,LAR,25,2
 Nick Bosa,317,DE8,SF,28,7
-Byron Murphy II,318,DT5,SEA,23,2
-Nick Emmanwori,319,S6,SEA,22,1
+Byron Murphy II,319,DT5,SEA,23,2
+Nick Emmanwori,320,S6,SEA,22,1
 Brian Branch,321,S7,DET,24,3
 Abdul Carter,322,DE9,NYG,22,1
-Kam Curl,324,S8,LAR,27,6
-Quinnen Williams,327,DT6,DAL,28,7
-Antoine Winfield Jr,328,S9,TB,27,6
+Kam Curl,323,S8,LAR,27,6
+Quinnen Williams,326,DT6,DAL,28,7
+Antoine Winfield Jr,327,S9,TB,27,6
 T.J. Watt,329,DE10,PIT,31,9
 Dallas Turner,330,DE11,MIN,23,2
-Nik Bonitto,332,DE12,DEN,26,4
-Tuli Tuipulotu,333,DE13,LAC,23,3
-Derrick Brown,334,DT7,CAR,28,6
+Nik Bonitto,333,DE12,DEN,26,4
+Tuli Tuipulotu,334,DE13,LAC,23,3
+Derrick Brown,335,DT7,CAR,28,6
 Jessie Bates III,336,S10,ATL,29,8
 David Bailey,338,DE14,NYJ,22,R
-Josh Hines-Allen,341,DE15,JAX,28,7
+Josh Hines-Allen,340,DE15,JAX,28,7
 Leonard Williams,342,DT8,SEA,31,11
 Jordan Battle,343,S11,CIN,25,3
-Laiatu Latu,346,DE16,IND,25,2
+Laiatu Latu,347,DE16,IND,25,2
 Zach Allen,348,DT9,DEN,28,7
 Talanoa Hufanga,349,S12,DEN,26,5
 Danielle Hunter,350,DE17,HOU,31,11
@@ -69,42 +69,42 @@ Travis Hunter,352,CB1,JAX,23,1
 Walter Nolen III,354,DT10,ARI,22,1
 Derrick Harmon,357,DT11,PIT,22,1
 Arvell Reese,359,LB28,NYG,20,R
-Devon Witherspoon,360,CB2,SEA,25,3
-Byron Young,361,DE18,LAR,28,3
-Terrel Bernard,362,LB29,BUF,27,4
-Zach Sieler,363,DT12,MIA,30,8
-Andrew Van Ginkel,366,DE19,MIN,30,7
+Devon Witherspoon,361,CB2,SEA,25,3
+Byron Young,362,DE18,LAR,28,3
+Terrel Bernard,363,LB29,BUF,27,4
+Zach Sieler,364,DT12,MIA,30,8
+Andrew Van Ginkel,367,DE19,MIN,30,7
 Tre'von Moehrig,369,S14,CAR,26,5
 Calijah Kancey,370,DT13,TB,25,3
 Jalon Walker,371,DE20,ATL,22,1
 Devin Bush,372,LB30,CHI,27,7
 Malaki Starks,373,S15,BAL,22,1
 Nick Cross,376,S16,WAS,24,4
-Ed Oliver,378,DT14,BUF,28,7
-Barrett Carter,380,LB31,CIN,23,1
-Josiah Trotter,381,LB32,TB,21,R
-Eric Rivers Jr.,382,DE21,TB,23,R
-Trey Hendrickson,384,DE22,BAL,31,9
-DeMarvion Overshown,386,LB33,DAL,25,3
-Robert Spillane,387,LB34,NE,30,8
+Ed Oliver,377,DT14,BUF,28,7
+Barrett Carter,381,LB31,CIN,23,1
+Josiah Trotter,382,LB32,TB,21,R
+Trey Hendrickson,383,DE21,BAL,31,9
+DeMarvion Overshown,384,LB33,DAL,25,3
+Robert Spillane,385,LB34,NE,30,8
 Quincy Williams,388,LB35,CLE,29,7
-Jeremy Chinn,390,S17,LV,28,6
+Jeremy Chinn,389,S17,LV,28,6
 Kamari Lassiter,391,CB3,HOU,23,2
-Jaquan Brisker,393,S18,PIT,27,4
-Anthony Hill Jr.,394,LB36,TEN,21,R
-Cooper DeJean,395,CB4,PHI,23,2
+Jaquan Brisker,392,S18,PIT,27,4
+Anthony Hill Jr.,393,LB36,TEN,21,R
+Cooper DeJean,394,CB4,PHI,23,2
+Eric Rivers Jr.,395,DE22,TB,23,R
 Chamarri Conner,397,S19,KC,25,3
-Alex Highsmith,399,DE23,PIT,28,6
-Jacob Rodriguez,400,LB37,MIA,23,R
-Jordan Davis,401,DT15,PHI,26,4
-Mike Sainristil,402,CB5,WAS,25,2
-Jaelan Phillips,403,DE24,CAR,26,5
+Alex Highsmith,398,DE23,PIT,28,6
+Jacob Rodriguez,399,LB37,MIA,23,R
+Jordan Davis,400,DT15,PHI,26,4
+Mike Sainristil,401,CB5,WAS,25,2
+Jaelan Phillips,402,DE24,CAR,26,5
 Kaden Elliss,404,LB38,NO,30,7
 Demetrius Knight Jr.,406,LB39,CIN,25,1
 Alex Singleton,407,LB40,DEN,32,11
-Kool-Aid McKinstry,409,CB6,NO,23,2
-Minkah Fitzpatrick,410,S20,NYJ,29,8
-Tyrel Dodson,411,LB41,MIA,27,7
+Kool-Aid McKinstry,408,CB6,NO,23,2
+Minkah Fitzpatrick,409,S20,NYJ,29,8
+Tyrel Dodson,410,LB41,MIA,27,7
 Dillon Thieneman,412,S21,CHI,21,R
 Marlon Humphrey,413,CB7,BAL,29,9
 Christian Gonzalez,414,CB8,NE,23,3
@@ -123,17 +123,17 @@ Mike Jackson,428,CB12,CAR,29,7
 Logan Wilson,429,LB46,FA,29,6
 Cody Simon,430,LB47,ARI,24,1
 Nate Wiggins,431,CB13,BAL,22,2
-Jalen Ramsey,432,CB14,PIT,31,10
-Bobby Okereke,433,LB48,FA,29,7
-Xavier Watts,434,S26,ATL,24,1
-Lavonte David,438,LB49,FA,36,14
-Teddye Buchanan,439,LB50,BAL,23,1
-SirVocea Dennis,441,LB51,TB,26,3
-Cole Bishop,442,S27,BUF,23,2
-Tyson Campbell,443,CB15,CLE,26,5
-Leo Chenal,445,LB52,WAS,25,4
-Frankie Luvu,446,LB53,WAS,29,8
-Trent McDuffie,447,CB16,LAR,25,4
+Jalen Ramsey,433,CB14,PIT,31,10
+Bobby Okereke,434,LB48,FA,29,7
+Xavier Watts,435,S26,ATL,24,1
+Lavonte David,439,LB49,FA,36,14
+Teddye Buchanan,440,LB50,BAL,23,1
+SirVocea Dennis,442,LB51,TB,26,3
+Cole Bishop,443,S27,BUF,23,2
+Tyson Campbell,444,CB15,CLE,26,5
+Leo Chenal,446,LB52,WAS,25,4
+Frankie Luvu,447,LB53,WAS,29,8
+Trent McDuffie,448,CB16,LAR,25,4
 Rueben Bain Jr.,449,DE25,TB,21,R
 Quinyon Mitchell,450,CB17,PHI,24,2
 Yaya Diaby,451,DE26,TB,26,3
@@ -144,9 +144,9 @@ Kevin Winston Jr.,455,S28,TEN,22,1
 Demario Davis,456,LB55,NYJ,37,14
 Nahshon Wright,457,CB18,NYJ,27,5
 Chop Robinson,458,DE28,MIA,23,2
-Riley Moss,460,CB19,DEN,26,3
-Taron Johnson,461,CB20,LV,29,8
-Divine Deablo,462,LB56,ATL,27,5
+Riley Moss,459,CB19,DEN,26,3
+Taron Johnson,460,CB20,LV,29,8
+Divine Deablo,461,LB56,ATL,27,5
 L'Jarius Sneed,463,CB21,FA,29,6
 Dax Hill,464,CB22,CIN,25,4
 Jarvis Brownlee Jr.,465,CB23,NYJ,24,2
@@ -157,7 +157,7 @@ Marcus Jones,469,CB24,NE,27,4
 Eric Wilson,470,LB59,MIN,31,9
 Braden Fiske,471,DT18,LAR,26,2
 Drue Tranquill,472,LB60,KC,30,7
-Jaycee Horn,474,CB25,CAR,26,5
+Jaycee Horn,473,CB25,CAR,26,5
 Kyler Gordon,475,CB26,CHI,26,4
 Jonathon Cooper,476,DE29,DEN,28,5
 Greg Rousseau,477,DE30,BUF,26,5
@@ -171,8 +171,8 @@ Jahdae Barron,484,CB30,DEN,24,1
 Jonathan Greenard,485,DE32,PHI,28,6
 Chase Young,486,DE33,NO,27,6
 Derek Stingley Jr,487,CB31,HOU,24,4
-A.J. Terrell Jr.,489,CB32,ATL,27,6
-Jacob Parrish,490,CB33,TB,22,1
+A.J. Terrell Jr.,488,CB32,ATL,27,6
+Jacob Parrish,489,CB33,TB,22,1
 Tyrique Stevenson,491,CB34,CHI,25,3
 Derrick Barnes,492,DE34,DET,26,5
 Harold Landry III,493,DE35,NE,29,8
@@ -184,18 +184,18 @@ D.J. Reed,498,CB35,DET,29,8
 Carlton Davis III,499,CB36,NE,29,8
 Patrick Surtain II,500,CB37,DEN,26,5
 Joey Porter Jr.,501,CB38,PIT,25,3
-Sauce Gardner,503,CB39,IND,24,4
-Mason Graham,504,DT21,CLE,22,1
-Chris Jones,505,DT22,KC,31,10
-Odafe Oweh,506,DE38,WAS,27,5
-Milton Williams,507,DT23,NE,27,5
-DaRon Bland,508,CB40,DAL,26,4
+Sauce Gardner,502,CB39,IND,24,4
+Mason Graham,503,DT21,CLE,22,1
+Chris Jones,504,DT22,KC,31,10
+Odafe Oweh,505,DE38,WAS,27,5
+Milton Williams,506,DT23,NE,27,5
+DaRon Bland,507,CB40,DAL,26,4
 Chris Johnson,509,CB41,MIA,21,R
 Trevin Wallace,510,LB63,CAR,23,2
 Darius Robinson,511,DT24,ARI,24,2
-Deommodore Lenoir,512,CB42,SF,26,5
-Terrion Arnold,513,CB43,DET,23,2
-Dre Greenlaw,514,LB64,SF,28,7
+Deommodore Lenoir,513,CB42,SF,26,5
+Terrion Arnold,514,CB43,DET,23,2
+Dre Greenlaw,515,LB64,SF,28,7
 Cody Barton,516,LB65,TEN,29,7
 Bryan Bresee,518,DT25,NO,24,3
 Mike Green,519,DE39,BAL,22,1
@@ -277,14 +277,14 @@ Kayvon Thibodeaux,715,DE43,NYG,25,4
 Austin Booker,716,DE44,CHI,23,2
 Charvarius Ward,717,CB53,IND,30,8
 Reed Blankenship,718,S32,HOU,27,4
-Ja'Quan McMillian,719,CB54,DEN,25,4
-John Franklin-Myers,720,DT27,TEN,29,8
-Cameron Heyward,721,DT28,PIT,37,15
-George Karlaftis,722,DE45,KC,25,4
-James Pearce Jr.,723,DE46,ATL,22,1
-Josh Sweat,724,DE47,ARI,29,8
-Kamren Kinchens,725,S33,LAR,23,2
-Jaylen Watson,726,CB55,LAR,27,4
+Ja'Quan McMillian,720,CB54,DEN,25,4
+John Franklin-Myers,721,DT27,TEN,29,8
+Cameron Heyward,722,DT28,PIT,37,15
+George Karlaftis,723,DE45,KC,25,4
+James Pearce Jr.,724,DE46,ATL,22,1
+Josh Sweat,725,DE47,ARI,29,8
+Kamren Kinchens,726,S33,LAR,23,2
+Jaylen Watson,727,CB55,LAR,27,4
 Mansoor Delane,728,CB56,KC,22,R
 Isaiah Rodgers,730,CB57,MIN,28,6
 Gervon Dexter Sr,731,DT29,CHI,24,3
@@ -350,9 +350,9 @@ Harrison Phillips,793,DT44,NYJ,30,8
 Shemar Stewart,794,DE69,CIN,22,1
 T'Vondre Sweat,795,DT45,NYJ,24,2
 Coby Bryant,796,S47,CHI,27,4
-Cam Bynum,798,S48,IND,27,5
-A.J. Haulcy,799,S49,IND,22,R
-Mike Hughes,800,CB68,ATL,29,8
+Cam Bynum,797,S48,IND,27,5
+A.J. Haulcy,798,S49,IND,22,R
+Mike Hughes,799,CB68,ATL,29,8
 K'Lavon Chaisson,801,DE70,WAS,26,6
 Justin Eboigbe,802,DT46,LAC,25,2
 Patrick Jones II,803,DE71,CAR,27,5
@@ -361,8 +361,8 @@ Derrick Moore,805,DE72,DET,23,R
 Tershawn Wharton,806,DT48,CAR,27,6
 Isaiah Pola-Mao,807,S50,LV,26,4
 Tarheeb Still,808,CB69,LAC,23,2
-Nate Hobbs,811,CB70,SF,26,5
-Billy Bowman Jr.,812,S51,ATL,23,1
+Nate Hobbs,810,CB70,SF,26,5
+Billy Bowman Jr.,811,S51,ATL,23,1
 Kenny Clark,813,DT49,DAL,30,10
 Dre'Mont Jones,814,DE73,NE,29,7
 Arden Key,815,DE74,IND,30,8
@@ -386,25 +386,25 @@ Grover Stewart,832,DT54,IND,32,9
 D.J. Wonnum,833,DE80,DET,28,6
 Zion Young,834,DE81,BAL,22,R
 Geno Stone,835,S56,BUF,27,6
-Zach Harrison,836,DE82,ATL,24,3
-Quan Martin,837,S57,WAS,26,3
+Zach Harrison,842,DE82,ATL,24,3
+Quan Martin,844,S57,WAS,26,3
 Shavon Revel Jr.,845,CB74,DAL,25,1
-Jamel Dean,847,CB75,PIT,29,7
-Jaylinn Hawkins,848,S58,BAL,28,6
-Adam Butler,852,DT55,LV,32,9
-Grady Jarrett,853,DT56,CHI,33,11
-Sheldon Rankins,854,DT57,HOU,32,10
-Jack Sawyer,855,DE83,PIT,24,1
-Sam Williams,856,DE84,DAL,27,4
-Tyree Wilson,857,DE85,NO,25,3
-Jaylen Reed,859,S59,HOU,23,1
-Justin Reid,862,S60,NO,29,8
-Bryan Cook,868,S61,CIN,26,4
-Renardo Green,869,CB76,SF,25,2
-Chris Braswell,870,LB124,TB,24,2
-Keith Abney II,882,CB77,DET,21,R
-Brandon Cisse,883,CB78,GB,20,R
-Xavier Woods,884,S62,FA,30,9
+Jamel Dean,849,CB75,PIT,29,7
+Jaylinn Hawkins,850,S58,BAL,28,6
+Adam Butler,854,DT55,LV,32,9
+Grady Jarrett,855,DT56,CHI,33,11
+Sheldon Rankins,856,DT57,HOU,32,10
+Jack Sawyer,857,DE83,PIT,24,1
+Sam Williams,858,DE84,DAL,27,4
+Tyree Wilson,859,DE85,NO,25,3
+Jaylen Reed,860,S59,HOU,23,1
+Justin Reid,869,S60,NO,29,8
+Bryan Cook,876,S61,CIN,26,4
+Renardo Green,877,CB76,SF,25,2
+Chris Braswell,878,LB124,TB,24,2
+Keith Abney II,883,CB77,DET,21,R
+Brandon Cisse,884,CB78,GB,20,R
+Xavier Woods,885,S62,FA,30,9
 Dorance Armstrong,886,DE86,WAS,28,8
 Logan Hall,887,DT58,HOU,26,4
 D.J. Jones,888,DT59,DEN,31,9
@@ -416,37 +416,35 @@ Ji'Ayir Brown,893,S63,SF,26,3
 Ronnie Hickman,894,S64,CLE,24,3
 Nick Scott,895,S65,CAR,31,7
 Derick Hall,896,DE89,SEA,25,3
-Ashtyn Davis,897,S66,FA,29,6
-Mekhi Blackmon,913,CB80,IND,27,3
-Alohi Gilman,914,S67,KC,28,6
-Shemar James,915,LB125,DAL,21,1
-Bobby Brown III,921,DT61,CAR,25,5
-A.J. Epenesa,922,DE90,FA,27,6
-Chris McClellan,923,DT62,GB,22,R
-Isaiah McGuire,924,DE91,CLE,24,3
-Jarran Reed,925,DT63,SEA,33,10
-Darrell Taylor,926,DE92,FA,29,6
-JT Tuimoloau,927,DE93,IND,23,1
-Kyle Van Noy,928,DE94,FA,35,12
-Elijah Molden,929,S68,LAC,27,5
-DJ Turner II,935,CB81,CIN,25,3
-Jonas Sanker,955,S69,NO,23,1
-Darious Williams,962,CB82,FA,33,8
-Craig Woodson,963,S70,NE,25,1
-Karl Brooks,971,DT64,GB,26,3
-Jordan Fuller,975,S71,FA,28,6
+Ashtyn Davis,915,S66,FA,29,6
+Mekhi Blackmon,920,CB80,IND,27,3
+Alohi Gilman,921,S67,KC,28,6
+Shemar James,922,LB125,DAL,21,1
+Bobby Brown III,927,DT61,CAR,25,5
+A.J. Epenesa,928,DE90,FA,27,6
+Chris McClellan,929,DT62,GB,22,R
+Isaiah McGuire,930,DE91,CLE,24,3
+Jarran Reed,931,DT63,SEA,33,10
+Darrell Taylor,932,DE92,FA,29,6
+JT Tuimoloau,933,DE93,IND,23,1
+Kyle Van Noy,934,DE94,FA,35,12
+Elijah Molden,935,S68,LAC,27,5
+DJ Turner II,954,CB81,CIN,25,3
+Jonas Sanker,960,S69,NO,23,1
+Darious Williams,972,CB82,FA,33,8
+Craig Woodson,973,S70,NE,25,1
+Karl Brooks,977,DT64,GB,26,3
+Jordan Fuller,978,S71,FA,28,6
 Maliek Collins,980,DT65,CLE,31,10
 Arnold Ebiketie,981,DE95,PHI,27,4
 DaVon Hamilton,982,DT66,JAX,29,6
 Javon Kinlaw,983,DT67,WAS,28,6
 Deone Walker,984,DT68,BUF,22,1
 Deatrich Wise Jr,985,DE96,WAS,31,9
-Reddy Steward,987,CB83,DAL,25,2
-Jaden Hicks,988,S72,KC,23,2
-Jack Jones,989,CB84,SF,28,4
-Ruke Orhorhoro,990,DT69,JAX,24,2
-Andre Cisco,991,S73,NYJ,26,5
-Malcolm Rodriguez,992,LB126,DET,27,4
-Noah Sewell,993,LB127,CHI,24,3
-Bud Clark,994,S74,SEA,24,R
-Garrett Williams,995,CB85,ARI,24,3
+Reddy Steward,986,CB83,DAL,25,2
+Jaden Hicks,987,S72,KC,23,2
+Jack Jones,988,CB84,SF,28,4
+Ruke Orhorhoro,989,DT69,JAX,24,2
+Andre Cisco,990,S73,NYJ,26,5
+Malcolm Rodriguez,999,LB126,DET,27,4
+Noah Sewell,1000,LB127,CHI,24,3
