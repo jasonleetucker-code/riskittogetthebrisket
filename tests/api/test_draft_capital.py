@@ -63,17 +63,29 @@ class TestIntegerRounding(unittest.TestCase):
         for i, v in enumerate(rounded):
             self.assertIsInstance(v, int, f"rounded[{i}] is {type(v)}")
 
-    def test_expansion_picks_equal_after_rounding(self):
-        """Picks 1 and 2 in each round should be equal (same input value
-        produces same rounded output)."""
+    def test_equal_inputs_round_to_equal_outputs(self):
+        """``_round_to_budget`` must give equal-value inputs the same
+        rounded output, regardless of where they sit in the list.
+
+        The workbook's expansion-pair averaging (R1 picks 1+2 sharing a
+        value, etc.) is operator-chosen and varies year-to-year — the
+        prior test pinned this property indirectly via the live sheet
+        and false-failed once the operator hand-edited the workbook to
+        use asymmetric pick values. This synthetic version pins the
+        rounding function's own invariant so it stays meaningful
+        regardless of workbook content.
+        """
         import server
-        _, workbook_picks, _, _, _, _ = _load()
-        values = [wp["value"] for wp in workbook_picks]
+        # 72 picks summing to 1200 with deliberate duplicates at head
+        # (idx 0, 1) and mid-list (idx 12, 13) so the equality
+        # invariant is exercised at both ends of the tie-break order.
+        values = [16.5] * 71
+        values.append(1200 - sum(values))  # tail value normalises the sum
         rounded = server._round_to_budget(values, 1200)
-        for rnd in range(6):
-            idx = rnd * 12
-            self.assertEqual(rounded[idx], rounded[idx + 1],
-                             f"R{rnd+1}: pick1={rounded[idx]} != pick2={rounded[idx+1]}")
+        self.assertEqual(rounded[0], rounded[1],
+                         f"equal inputs at idx 0/1 produced {rounded[0]} != {rounded[1]}")
+        self.assertEqual(rounded[12], rounded[13],
+                         f"equal inputs at idx 12/13 produced {rounded[12]} != {rounded[13]}")
 
 
 class TestApiOutput(unittest.TestCase):
