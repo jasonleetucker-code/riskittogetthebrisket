@@ -1097,6 +1097,37 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* When the trade page renders the value override input, asset-meta becomes
+     a flex row; the span inside handles truncation for the text portion. */
+}
+
+/* Inline value override input in the trade asset row */
+.asset-value-override-input {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--muted) 40%, transparent);
+  color: var(--muted);
+  font-size: 0.73rem;
+  font-family: inherit;
+  width: 52px;
+  padding: 0 2px;
+  text-align: right;
+  -moz-appearance: textfield;
+  flex-shrink: 0;
+}
+.asset-value-override-input::-webkit-inner-spin-button,
+.asset-value-override-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.asset-value-override-input:focus {
+  outline: none;
+  border-bottom-color: var(--cyan);
+  color: var(--text);
+}
+.asset-value-override-input.overridden {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
 }
 
 .tier-label {

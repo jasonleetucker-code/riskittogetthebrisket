@@ -183,6 +183,10 @@ export function pickYearDiscount(pickName, currentYear) {
  * @returns {number}
  */
 export function effectiveValue(row, valueMode, settings) {
+  // Trade-specific value override set via the per-player override input.
+  // Returns the override directly, bypassing the pick-year discount so
+  // the user's typed number is the exact value used in the trade math.
+  if (row.customValue != null && row.customValue > 0) return row.customValue;
   let raw = Number(row.values?.[valueMode] || 0);
 
   if (!settings || raw <= 0) return raw;
