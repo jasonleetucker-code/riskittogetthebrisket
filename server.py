@@ -5242,7 +5242,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 continue
             _settings = _r.get("settings") or {}
             try:
-                roster_fppts[int(_rid)] = float(_settings.get("fppts", 0) or 0)
+                # Sleeper exposes points-for as fpts (integer) +
+                # fpts_decimal (0-99, the sub-point decimal part).
+                _fpts_int = int(_settings.get("fpts", 0) or 0)
+                _fpts_dec = int(_settings.get("fpts_decimal", 0) or 0)
+                roster_fppts[int(_rid)] = _fpts_int + _fpts_dec / 100
             except (TypeError, ValueError):
                 roster_fppts[int(_rid)] = 0.0
 
