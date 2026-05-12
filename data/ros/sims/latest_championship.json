@@ -1,22 +1,22 @@
 {
-  "computedAt": "2026-05-12T07:36:07.466745+00:00",
+  "computedAt": "2026-05-12T11:09:45.035836+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "JasonLeeTucker",
-      "championshipOdds": 0.4517,
-      "finalsOdds": 0.5252,
-      "semifinalOdds": 0.5275,
+      "championshipOdds": 0.4511,
+      "finalsOdds": 0.5278,
+      "semifinalOdds": 0.529,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.44,
+      "expectedFinish": 3.43,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "jcardsjr",
-      "championshipOdds": 0.3833,
-      "finalsOdds": 0.4681,
-      "semifinalOdds": 0.4725,
+      "championshipOdds": 0.3856,
+      "finalsOdds": 0.468,
+      "semifinalOdds": 0.471,
       "playoffOdds": 1.0,
       "expectedFinish": 3.73,
       "contenderTier": "Favorite"
@@ -24,18 +24,18 @@
     {
       "ownerId": "609821340567941120",
       "displayName": "EricLeeC",
-      "championshipOdds": 0.0993,
-      "finalsOdds": 0.5586,
+      "championshipOdds": 0.1006,
+      "finalsOdds": 0.5527,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.34,
-      "contenderTier": "Dangerous Playoff Team"
+      "expectedFinish": 2.35,
+      "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKaylaChristy",
-      "championshipOdds": 0.0651,
-      "finalsOdds": 0.4414,
+      "championshipOdds": 0.0625,
+      "finalsOdds": 0.4473,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 2.49,
@@ -44,11 +44,11 @@
     {
       "ownerId": "473973924808355840",
       "displayName": "TyBWell",
-      "championshipOdds": 0.0006,
-      "finalsOdds": 0.0067,
+      "championshipOdds": 0.0002,
+      "finalsOdds": 0.0042,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.99,
+      "expectedFinish": 3.0,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
