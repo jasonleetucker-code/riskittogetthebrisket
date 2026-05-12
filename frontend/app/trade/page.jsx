@@ -562,6 +562,7 @@ export default function TradePage() {
           if (VALUE_MODES.some((m) => m.key === nextMode)) setValueMode(nextMode);
           setActiveSide(restored.activeSide);
           setSides(restored.sides);
+          setValueOverrides({});
         }
       }
     } catch { /* ignore */ } finally { setHydrated(true); }
@@ -634,6 +635,7 @@ export default function TradePage() {
           return { ...side, assets: resolved, destinations: nextDestinations };
         });
       });
+      setValueOverrides({});
       setShareStatus("Loaded shared trade from link.");
     } catch {
       setShareStatus("Share link was malformed — ignored.");
@@ -1147,6 +1149,7 @@ export default function TradePage() {
         }
         return { ...s, assets: replacement, destinations: nextDestinations };
       }));
+      setValueOverrides({});
 
       const warnings = [];
       if (unresolvedOne.length) warnings.push(`unknown KTC id(s) on side A: ${unresolvedOne.join(", ")}`);
@@ -1440,6 +1443,7 @@ export default function TradePage() {
         return { ...side, assets: [], destinations: {} };
       });
     });
+    setValueOverrides({});
   }
 
   // Count per category
