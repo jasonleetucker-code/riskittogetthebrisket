@@ -5176,6 +5176,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # (round, slot) → new-owner first name from Sleeper traded_picks.
     # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
+    # slot → display name for the team originally assigned that slot.
+    # Populated inside the try block; overridden by live standings when
+    # at least one team has non-zero fppts for the current season.
+    roster_fppts: dict[int, float] = {}
+    slot_to_origin_display: dict[int, str] = {}
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -5230,6 +5235,16 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 owner_to_roster_id[str(oid)] = rid
             roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
         all_team_names = list(roster_name_by_id.values())
+
+        for _r in rosters:
+            _rid = _r.get("roster_id")
+            if _rid is None:
+                continue
+            _settings = _r.get("settings") or {}
+            try:
+                roster_fppts[int(_rid)] = float(_settings.get("fppts", 0) or 0)
+            except (TypeError, ValueError):
+                roster_fppts[int(_rid)] = 0.0
 
         drafts_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
@@ -5317,6 +5332,20 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if rid is not None and first_name:
                 first_name_to_team[str(first_name).strip()] = roster_name_by_id[rid]
 
+        # Build default slot → display-name mapping from the workbook bridge.
+        for slot, fn in slot_to_original.items():
+            slot_to_origin_display[int(slot)] = first_name_to_team.get(
+                str(fn).strip(), str(fn).strip()
+            )
+        # Override with live Sleeper standings when the season has started:
+        # sort all rosters by fppts ascending (fewest points → slot 1).
+        # This replaces the workbook's O30:R42 standings table at runtime
+        # without touching pick ownership (R45:R116) or traded-pick records.
+        if any(v > 0 for v in roster_fppts.values()):
+            _sorted_rids = sorted(roster_fppts, key=lambda r: roster_fppts[r])
+            for _i, _rid in enumerate(_sorted_rids[:len(slot_to_original)], start=1):
+                slot_to_origin_display[_i] = roster_name_by_id.get(_rid, f"Team {_rid}")
+
         # roster_id → slot (inverse of slot_to_roster) and
         # roster_id → original-owner first name.  Both bridges are
         # needed to translate Sleeper traded_picks (keyed by
@@ -5402,7 +5431,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             owner_first = sleeper_owner
 
         owner_team = display(owner_first)
-        origin_team = display(origin_first)
+        origin_team = slot_to_origin_display.get(slot) or display(origin_first)
 
         # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
         # dollar from the sheet — half-dollar precision preserved.
@@ -5425,7 +5454,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             "originalDollarValue": dollar,
             "originalOwner": origin_team,
             "currentOwner": owner_team,
-            "isTraded": str(origin_first).strip() != str(owner_first).strip(),
+            "isTraded": origin_team != owner_team,
             "isExpansion": slot <= 2,
             "rookieName": None,
             "rookiePos": None,
