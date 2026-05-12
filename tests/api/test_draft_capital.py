@@ -63,17 +63,50 @@ class TestIntegerRounding(unittest.TestCase):
         for i, v in enumerate(rounded):
             self.assertIsInstance(v, int, f"rounded[{i}] is {type(v)}")
 
-    def test_expansion_picks_equal_after_rounding(self):
-        """Picks 1 and 2 in each round should be equal (same input value
-        produces same rounded output)."""
+    def test_equal_inputs_round_to_equal_outputs(self):
+        """``_round_to_budget`` must give equal-value inputs the same
+        rounded output, both inside and outside the deficit-incremented
+        block.
+
+        The workbook's expansion-pair averaging (R1 picks 1+2 sharing a
+        value, etc.) is operator-chosen and varies year-to-year — the
+        prior test pinned this property indirectly via the live sheet
+        and false-failed once the operator hand-edited the workbook to
+        use asymmetric pick values. This synthetic version pins the
+        rounding function's own invariant so it stays meaningful
+        regardless of workbook content.
+
+        Two scenarios are exercised:
+          1. A high-remainder pair that sits INSIDE the +1 allocation
+             block (both indices receive the deficit increment).
+          2. A low-remainder pair that sits OUTSIDE the +1 allocation
+             block (neither index receives it). The prior version only
+             covered case 1, which let a position-dependent regression
+             for later indices slip through.
+        """
         import server
-        _, workbook_picks, _, _, _, _ = _load()
-        values = [wp["value"] for wp in workbook_picks]
+
+        # Scenario 1 — pair inside the +1 block, pair outside.
+        # 72 picks: 36 with remainder 0.9 (idx 0..35, top of sort),
+        # 36 with remainder 0.1 (idx 36..71, bottom of sort).
+        # floors sum = 36*10 + 36*10 = 720. Pad with a flat pick value
+        # so the deficit allocation lands exactly at the boundary
+        # between the two remainder tiers: top 36 indices get +1.
+        values = [10.9] * 36 + [10.1] * 36
+        # Normalise to exactly 1200.
+        deficit = 1200 - sum(values)
+        values[-1] += deficit
         rounded = server._round_to_budget(values, 1200)
-        for rnd in range(6):
-            idx = rnd * 12
-            self.assertEqual(rounded[idx], rounded[idx + 1],
-                             f"R{rnd+1}: pick1={rounded[idx]} != pick2={rounded[idx+1]}")
+
+        # Pair at the head — both indices fall inside the +1 block.
+        self.assertEqual(rounded[0], rounded[1],
+                         f"head-pair: {rounded[0]} != {rounded[1]}")
+        # Pair near the middle of the +1 block.
+        self.assertEqual(rounded[20], rounded[21],
+                         f"mid-block: {rounded[20]} != {rounded[21]}")
+        # Pair outside the +1 block — equal inputs at low remainders.
+        self.assertEqual(rounded[50], rounded[51],
+                         f"outside-block: {rounded[50]} != {rounded[51]}")
 
 
 class TestApiOutput(unittest.TestCase):
