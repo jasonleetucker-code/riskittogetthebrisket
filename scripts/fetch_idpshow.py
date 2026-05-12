@@ -320,6 +320,25 @@ def main() -> int:
 
     rows = _parse_dataset(csv_text)
     print(f"[idpshow] parsed {len(rows)} rows")
+
+    # Guard: if parsing produced zero rows the CSV format almost certainly
+    # changed (column rename, empty response, etc.).  Overwriting the
+    # existing CSV with an empty file destroys the last-good data and
+    # causes the data-quality gate to fail on every subsequent CI run.
+    # Exit 1 so the VPS timer marks the run as failed; the existing CSV
+    # is left intact and will continue to serve until a human investigates
+    # the column change and updates _parse_dataset accordingly.
+    if len(rows) == 0:
+        # Print the raw CSV header line so the runner log makes the issue
+        # immediately obvious without needing a separate manual fetch.
+        first_line = csv_text.splitlines()[0] if csv_text.strip() else "(empty response)"
+        print(
+            f"[idpshow] ERROR: 0 rows parsed — CSV header was: {first_line!r}\n"
+            f"  Check whether PLAYER / POS / OVR column names changed.",
+            file=sys.stderr,
+        )
+        return 1
+
     if len(rows) < 100:
         print(
             f"[idpshow] WARN: only {len(rows)} rows — expected ~400.  "
