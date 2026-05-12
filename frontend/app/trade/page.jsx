@@ -366,6 +366,11 @@ export default function TradePage() {
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
 
+  // Per-player value overrides for this trade only.
+  // Keyed by player name → number (the final effective value to use in trade math).
+  // Cleared when the trade is cleared or a player is removed.
+  const [valueOverrides, setValueOverrides] = useState({});
+
   // Suggestions state
   const [rosterInput, setRosterInput] = useState("");
   const [suggestions, setSuggestions] = useState(null);
@@ -637,32 +642,46 @@ export default function TradePage() {
     }
   }, [hydrated, shareHydrated, rows, rowByName]);
 
+  // Apply per-player value overrides to the sides for all value calculations.
+  // Only modifies the asset rows that have an override; everything else passes through.
+  const sidesWithOverrides = useMemo(() => {
+    if (!Object.keys(valueOverrides).length) return sides;
+    return sides.map((s) => ({
+      ...s,
+      assets: s.assets.map((r) => {
+        const ov = valueOverrides[r.name];
+        if (ov == null) return r;
+        return { ...r, customValue: ov };
+      }),
+    }));
+  }, [sides, valueOverrides]);
+
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the KTC-style Value Adjustment.
   // For N ≥ 3, each side's VA is computed against the merged opposition
   // (every other side's assets flattened) — see
   // ``computeMultiSideAdjustments`` in trade-logic.js.
   const sideTotals = useMemo(() => {
-    if (sides.length === 2) {
-      const [a, b] = adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings);
+    if (sidesWithOverrides.length === 2) {
+      const [a, b] = adjustedSideTotals(sidesWithOverrides[0].assets, sidesWithOverrides[1].assets, valueMode, settings);
       return [a, b];
     }
-    if (sides.length > 2) {
-      return multiAdjustedSideTotals(sides.map((s) => s.assets), valueMode, settings);
+    if (sidesWithOverrides.length > 2) {
+      return multiAdjustedSideTotals(sidesWithOverrides.map((s) => s.assets), valueMode, settings);
     }
-    return sides.map((s) => {
+    return sidesWithOverrides.map((s) => {
       const raw = sideTotal(s.assets, valueMode, settings);
       return { raw, adjustment: 0, adjusted: raw };
     });
-  }, [sides, valueMode, settings]);
+  }, [sidesWithOverrides, valueMode, settings]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
   // the destinations map is ignored (assets implicitly go to the other
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () => computeSideFlows(sides, valueMode, settings),
-    [sides, valueMode, settings],
+    () => computeSideFlows(sidesWithOverrides, valueMode, settings),
+    [sidesWithOverrides, valueMode, settings],
   );
 
   // Per-side incoming / outgoing asset lists.  This is the
@@ -867,6 +886,28 @@ export default function TradePage() {
     return () => registerAddToTrade?.(null);
   }, [registerAddToTrade, activeSide]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function setValueOverride(name, rawInput) {
+    const num = parseFloat(String(rawInput).replace(/,/g, ""));
+    setValueOverrides((prev) => {
+      if (!Number.isFinite(num) || num <= 0) {
+        if (!(name in prev)) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      }
+      return { ...prev, [name]: num };
+    });
+  }
+
+  function clearValueOverride(name) {
+    setValueOverrides((prev) => {
+      if (!(name in prev)) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  }
+
   function removeFromSide(name, sideIdx) {
     setSides((prev) => prev.map((s, i) => {
       if (i !== sideIdx) return s;
@@ -878,10 +919,12 @@ export default function TradePage() {
         destinations: nextDestinations,
       };
     }));
+    clearValueOverride(name);
   }
 
   function clearTrade() {
     setSides((prev) => prev.map((s) => ({ ...s, assets: [], destinations: {} })));
+    setValueOverrides({});
   }
 
   function swapSides() {
@@ -2137,7 +2180,28 @@ export default function TradePage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                              <div className="asset-meta" style={{ display: "flex", alignItems: "center", gap: 2, overflow: "hidden" }}>
+                                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 }}>
+                                  {r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} ·
+                                </span>
+                                <input
+                                  type="number"
+                                  className={`asset-value-override-input${valueOverrides[r.name] != null ? " overridden" : ""}`}
+                                  value={valueOverrides[r.name] != null ? valueOverrides[r.name] : ""}
+                                  placeholder={Math.round(effectiveValue(r, valueMode, settings))}
+                                  onChange={(e) => setValueOverride(r.name, e.target.value)}
+                                  onBlur={(e) => { if (e.target.value === "") clearValueOverride(r.name); }}
+                                  title="Override this player's value for this trade only"
+                                />
+                                {valueOverrides[r.name] != null && (
+                                  <button
+                                    className="button-reset"
+                                    onClick={() => clearValueOverride(r.name)}
+                                    title="Reset to default value"
+                                    style={{ color: "var(--muted)", fontSize: "0.7rem", lineHeight: 1, padding: "0 1px", flexShrink: 0 }}
+                                  >×</button>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2239,7 +2303,9 @@ export default function TradePage() {
                                   </div>
                                   <div className="asset-meta">
                                     {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
-                                    {Math.round(effectiveValue(asset, valueMode, settings)).toLocaleString()}
+                                    <span style={valueOverrides[asset.name] != null ? { color: "var(--amber)" } : undefined}>
+                                      {Math.round(valueOverrides[asset.name] ?? effectiveValue(asset, valueMode, settings)).toLocaleString()}
+                                    </span>
                                   </div>
                                 </div>
                                 </div>
