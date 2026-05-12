@@ -3745,6 +3745,13 @@ export default function DraftDashboardPage() {
   // don't need playersArray here.
   useEffect(() => {
     if (!hydrated || authenticated !== true) return;
+    // Reset to null at the start of every league-key fetch.  The
+    // live-sync handler keys its readiness gate off "sleeperTeams !==
+    // null", so leaving the old league's array in state during a
+    // switch would treat the new league's incoming picks as if the
+    // team map were ready (against stale data) and silently drop
+    // them.
+    setSleeperTeams(null);
     let cancelled = false;
     const url = selectedLeagueKey
       ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
@@ -3902,10 +3909,12 @@ export default function DraftDashboardPage() {
   // ``sleeperTeams === null`` means the /api/data fetch is still in
   // flight; an empty array means it loaded and the league has no
   // Sleeper roster data.  The handler distinguishes "not yet" (retry)
-  // from "really empty" (skip + alert) via this ref.
+  // from "really empty" (skip + alert) via this ref.  Strict tracking
+  // (always set, never one-way) so a league switch correctly flips
+  // it back to false until the new league's fetch resolves.
   const sleeperTeamsLoadedRef = useRef(false);
   useEffect(() => {
-    if (sleeperTeams !== null) sleeperTeamsLoadedRef.current = true;
+    sleeperTeamsLoadedRef.current = sleeperTeams !== null;
   }, [sleeperTeams]);
 
   const handleLivePick = useCallback(

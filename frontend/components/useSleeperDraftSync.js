@@ -115,6 +115,7 @@ export function useSleeperDraftSync({ leagueKey, enabled, onPickArrived }) {
         if (cancelled) return;
 
         const picks = Array.isArray(data?.picks) ? data.picks : [];
+        let appliedAll = true;
         for (const pick of picks) {
           if (!pick || typeof pick.pickNo !== "number") continue;
           if (pick.pickNo <= cursorRef.current) continue;
@@ -135,18 +136,27 @@ export function useSleeperDraftSync({ leagueKey, enabled, onPickArrived }) {
           } catch {
             applied = true;
           }
-          if (!applied) break;
+          if (!applied) {
+            appliedAll = false;
+            break;
+          }
           cursorRef.current = pick.pickNo;
         }
 
         const latest = Number(data?.latestPickNo) || cursorRef.current;
         const status = data?.status || "unknown";
+        // Caught-up := the cursor has reached the snapshot's latest
+        // pick AND no pick in this batch was transient-skipped.
+        // ``status === "complete"`` alone is not enough to terminate
+        // polling: a completed draft can still have pending picks
+        // the handler held back during a brief readiness gap (e.g.
+        // /api/data fetch in flight on first load).  Terminating
+        // early there would leave the board permanently short of
+        // those picks.
+        const caughtUp = appliedAll && cursorRef.current >= latest;
         consecutiveErrors = 0;
 
         setState((s) => {
-          // ``complete`` is terminal — auto-stop polling once Sleeper
-          // marks the draft done so we don't pound the endpoint
-          // forever post-draft.
           const next = {
             ...s,
             draftId: data?.draftId || s.draftId,
@@ -155,7 +165,7 @@ export function useSleeperDraftSync({ leagueKey, enabled, onPickArrived }) {
             lastSyncAt: Date.now(),
             error: null,
           };
-          if (status === "complete") {
+          if (status === "complete" && caughtUp) {
             next.status = "complete";
           } else if (status === "drafting" || status === "pre_draft") {
             next.status = "connected";
@@ -165,7 +175,7 @@ export function useSleeperDraftSync({ leagueKey, enabled, onPickArrived }) {
           return next;
         });
 
-        if (status === "complete") {
+        if (status === "complete" && caughtUp) {
           // Terminal — don't reschedule.
           return;
         }
