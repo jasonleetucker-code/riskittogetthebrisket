@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, createContext, useContext } from "react";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
-import ChatDrawer from "@/components/ChatDrawer";
+import ScreenshotFab from "@/components/ScreenshotFab";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
@@ -398,7 +398,7 @@ export default function AppShellWrapper({ children }) {
         <StaleDataBanner />
         <main className="main-shell">{children}</main>
         <MobileNav />
-        <ChatDrawer />
+        <ScreenshotFab />
       </AppShell>
     </AuthContext.Provider>
   );
