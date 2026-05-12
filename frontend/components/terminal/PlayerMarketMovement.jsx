@@ -33,7 +33,7 @@ const SORTS = {
   vol: { key: "vol", label: "Most Volatile" },
 };
 
-const MAX_ROWS = 40;
+const MAX_ROWS = 80;
 
 function toSet(names) {
   const s = new Set();
