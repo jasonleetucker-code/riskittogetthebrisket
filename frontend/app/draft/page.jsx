@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useLeague } from "@/components/useLeague";
 import {
+  buildTeamIndexLookup,
+  useSleeperDraftSync,
+} from "@/components/useSleeperDraftSync";
+import {
   DRAFT_STORAGE_KEY,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
@@ -98,6 +102,71 @@ function fmtPct(n) {
 function fmtMultiplier(n) {
   if (n == null || !Number.isFinite(n)) return "—";
   return `${n.toFixed(2)}×`;
+}
+
+/* ── Live Sleeper sync toggle ─────────────────────────────────────── */
+
+function LiveSyncToggle({ enabled, onToggle, status, error, lastSyncAt, latestPickNo }) {
+  // Colored status dot maps directly to the hook's derived status.
+  //   connected → green   stale → amber   error → red
+  //   complete  → cyan    idle → grey
+  const dotColor = !enabled
+    ? "#666"
+    : status === "connected"
+    ? "var(--green, #4ade80)"
+    : status === "stale"
+    ? "#f59e0b"
+    : status === "error"
+    ? "#ef4444"
+    : status === "complete"
+    ? "var(--cyan)"
+    : "#888";
+  const label = !enabled
+    ? "Live sync: OFF"
+    : status === "connected"
+    ? `Live · pick ${latestPickNo || 0}`
+    : status === "stale"
+    ? "Live · waiting"
+    : status === "error"
+    ? "Live · error"
+    : status === "complete"
+    ? "Live · complete"
+    : "Live · idle";
+  const title = !enabled
+    ? "Auto-import picks from your Sleeper auction draft. OFF — toggle to start polling."
+    : error
+    ? `Live sync error: ${error}`
+    : lastSyncAt
+    ? `Last sync ${Math.round((Date.now() - lastSyncAt) / 1000)}s ago`
+    : "Live sync ON";
+  return (
+    <button
+      type="button"
+      className="button"
+      onClick={onToggle}
+      title={title}
+      style={{
+        borderColor: enabled ? "var(--green, #4ade80)" : undefined,
+        color: enabled ? "var(--green, #4ade80)" : undefined,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          display: "inline-block",
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          backgroundColor: dotColor,
+          boxShadow: enabled && status === "connected" ? `0 0 4px ${dotColor}` : undefined,
+        }}
+      />
+      {label}
+    </button>
+  );
 }
 
 /* ── Inflation stats strip ────────────────────────────────────────── */
@@ -3254,6 +3323,38 @@ export default function DraftDashboardPage() {
   // ``allPlayersArray`` (from /api/data) so we can look up positions.
   const [rosterPlayers, setRosterPlayers] = useState(null);
   const [allPlayersArray, setAllPlayersArray] = useState(null);
+  // Sleeper teams for live-draft team mapping — Sleeper picks come
+  // back with ``ownerId``/``rosterId``; we resolve those to a
+  // workspace.teams idx via name-match against this list.
+  const [sleeperTeams, setSleeperTeams] = useState(null);
+  // Per-league localStorage flag — survives ``Reset`` (which wipes
+  // workspace) but stays scoped so toggling sync on the rookie draft
+  // doesn't bleed into the startup draft.  Defaults OFF; the user
+  // opts in via the toggle.
+  const liveSyncStorageKey = useMemo(
+    () => `next_draft_live_sync__${selectedLeagueKey || "default"}`,
+    [selectedLeagueKey],
+  );
+  const [liveSyncEnabled, setLiveSyncEnabledState] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(liveSyncStorageKey);
+      setLiveSyncEnabledState(raw === "1");
+    } catch {
+      setLiveSyncEnabledState(false);
+    }
+  }, [liveSyncStorageKey]);
+  const setLiveSyncEnabled = useCallback(
+    (v) => {
+      setLiveSyncEnabledState(v);
+      try {
+        localStorage.setItem(liveSyncStorageKey, v ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+    },
+    [liveSyncStorageKey],
+  );
   const [capitalStatus, setCapitalStatus] = useState({
     loading: false,
     error: "",
@@ -3636,6 +3737,31 @@ export default function DraftDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, authenticated]);
 
+  // Auto-fetch the Sleeper teams list on mount.  Independent of the
+  // manual "Sync rookies" path (which also reads /api/data) so the
+  // live-sync hook can resolve picks to workspace team idx as soon
+  // as the toggle flips on — no extra click required.  Each live pick
+  // also arrives pre-stamped with ``playerName`` server-side, so we
+  // don't need playersArray here.
+  useEffect(() => {
+    if (!hydrated || authenticated !== true) return;
+    let cancelled = false;
+    const url = selectedLeagueKey
+      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+      : "/api/data";
+    fetch(url, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const teams = data?.sleeper?.teams || [];
+        setSleeperTeams(teams);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, authenticated, selectedLeagueKey]);
+
   const onSettings = useCallback(
     (patch) => setWorkspace((ws) => updateSettings(ws, patch)),
     [],
@@ -3756,6 +3882,127 @@ export default function DraftDashboardPage() {
     },
     [],
   );
+
+  // Live Sleeper auction sync: a pick arrives from the polling hook
+  // and we auto-record it on the workspace.  Resolves Sleeper
+  // ownerId → workspace teamIdx via name-match against ``sleeperTeams``
+  // (built from the /api/data sleeper.teams block, which carries the
+  // same display names the workspace teams were merged from).
+  // Conflicts (a manual entry that disagrees with the live feed) are
+  // overwritten silently when amount + team match, or pushed to the
+  // alert stack with a descriptive message when they don't — letting
+  // the user hit "↶ Undo last" if Sleeper is wrong.
+  const teamLookupRef = useRef({ byOwner: new Map(), byRoster: new Map() });
+  useEffect(() => {
+    teamLookupRef.current = buildTeamIndexLookup(
+      workspace?.teams || [],
+      sleeperTeams || [],
+    );
+  }, [workspace?.teams, sleeperTeams]);
+
+  const handleLivePick = useCallback(
+    (pick) => {
+      if (!pick) return;
+      const playerName = String(pick.playerName || "").trim();
+      const sleeperPlayerId = String(pick.playerId || "");
+      const amount = Math.max(0, Number(pick.amount) || 0);
+
+      // Resolve team idx: prefer ownerId (the human winner); fall
+      // back to rosterId (covers commish picks / co-managers where
+      // picked_by may be blank).
+      const lookup = teamLookupRef.current || {};
+      let teamIdx = null;
+      const ownerId = String(pick.ownerId || "");
+      if (ownerId && lookup.byOwner?.has(ownerId)) {
+        teamIdx = lookup.byOwner.get(ownerId);
+      } else if (lookup.byRoster && Number.isFinite(Number(pick.rosterId))) {
+        const ri = Number(pick.rosterId);
+        if (lookup.byRoster.has(ri)) teamIdx = lookup.byRoster.get(ri);
+      }
+
+      if (!Number.isInteger(teamIdx)) {
+        // No team match — push an alert so the user knows a pick
+        // landed they need to record manually.
+        const msg = playerName
+          ? `Live pick ${playerName} for $${amount}: couldn't map Sleeper team — record manually`
+          : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount}: couldn't map Sleeper team — record manually`;
+        setAlerts((prior) => [
+          ...prior,
+          {
+            id: `live-unmapped-${pick.pickNo}`,
+            message: msg,
+            level: "warn",
+            ts: Date.now(),
+          },
+        ]);
+        return;
+      }
+
+      // Resolve workspace player: match by name slug.  If the player
+      // isn't in the workspace pool, surface an alert so the user
+      // knows they need a "Sync rookies" or to add the player.
+      const slug = playerName ? playerSlug(playerName) : "";
+      setWorkspace((ws) => {
+        const players = Array.isArray(ws?.players) ? ws.players : [];
+        const row = slug
+          ? players.find((p) => p.id === slug)
+          : null;
+        if (!row) {
+          setAlerts((prior) => [
+            ...prior,
+            {
+              id: `live-unknown-${pick.pickNo}`,
+              message: playerName
+                ? `Live pick ${playerName} for $${amount} — not in rookie pool; click "Sync rookies"`
+                : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount} — player not in pool`,
+              level: "warn",
+              ts: Date.now(),
+            },
+          ]);
+          return ws;
+        }
+        // Conflict detection: existing pick with different amount or
+        // team idx.  Keep recordPick's de-dupe (Sleeper wins) and
+        // push a banner so the user can sanity-check + undo if needed.
+        const existing = (ws.picks || []).find((p) => p.playerId === row.id);
+        const conflict =
+          existing &&
+          (existing.teamIdx !== teamIdx ||
+            Math.abs((existing.amount || 0) - amount) > 0);
+        if (conflict) {
+          const prevTeamName =
+            ws.teams?.[existing.teamIdx]?.name || `Team ${existing.teamIdx + 1}`;
+          const newTeamName =
+            ws.teams?.[teamIdx]?.name || `Team ${teamIdx + 1}`;
+          setAlerts((prior) => [
+            ...prior,
+            {
+              id: `live-conflict-${pick.pickNo}-${row.id}`,
+              message: `Live sync corrected ${row.name}: $${existing.amount} → $${amount}${
+                existing.teamIdx !== teamIdx
+                  ? ` · ${prevTeamName} → ${newTeamName}`
+                  : ""
+              } — hit ↶ Undo last to revert`,
+              level: "warn",
+              ts: Date.now(),
+            },
+          ]);
+        }
+        return recordPick(ws, {
+          playerId: row.id,
+          teamIdx,
+          amount,
+        });
+      });
+    },
+    [],
+  );
+
+  const liveSync = useSleeperDraftSync({
+    leagueKey: selectedLeagueKey,
+    enabled: liveSyncEnabled && hydrated && authenticated === true,
+    onPickArrived: handleLivePick,
+  });
 
   // Pre-draft sync: fetch /api/data, shape rookies, show a preview
   // modal.  User confirms → replacePlayerPool applies; cancels →
@@ -4029,6 +4276,10 @@ export default function DraftDashboardPage() {
         .then((r) => r.json())
         .then((data) => {
           const teams = data?.sleeper?.teams || [];
+          // Capture the full Sleeper teams list so the live-draft
+          // sync hook can resolve ``picked_by`` (Sleeper user_id) to
+          // a workspace team idx by name match.
+          setSleeperTeams(teams);
           const mine = teams.find(
             (t) =>
               String(t.name || "").toLowerCase() ===
@@ -4213,6 +4464,14 @@ export default function DraftDashboardPage() {
           </p>
         </div>
         <div className="draft-page-actions">
+          <LiveSyncToggle
+            enabled={liveSyncEnabled}
+            onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
+            status={liveSync.status}
+            error={liveSync.error}
+            lastSyncAt={liveSync.lastSyncAt}
+            latestPickNo={liveSync.latestPickNo}
+          />
           <button
             className="button"
             onClick={fetchSyncPreview}
