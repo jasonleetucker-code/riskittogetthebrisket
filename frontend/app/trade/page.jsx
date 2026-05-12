@@ -730,9 +730,10 @@ export default function TradePage() {
     const behindTeam = inferTeamForSide(behindSide);
     let pool;
     let teamName = null;
+    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
     if (behindTeam) {
       const roster = teamRosterNames(behindTeam);
-      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name));
+      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r));
       teamName = behindTeam.name || null;
     }
     // Fallback when no team can be inferred (or the inferred team
@@ -740,7 +741,7 @@ export default function TradePage() {
     // trade).  Preserves existing behaviour when Sleeper data is
     // unavailable.
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
       teamName = null;
     }
     const list = findBalancers(pwGap, pool, valueMode);
@@ -770,13 +771,14 @@ export default function TradePage() {
     const underpayingTeam = inferTeamForSide(underpayingSide);
     let pool;
     let teamName = null;
+    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
     if (underpayingTeam) {
       const roster = teamRosterNames(underpayingTeam);
-      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name));
+      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r));
       teamName = underpayingTeam.name || null;
     }
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
       teamName = null;
     }
     const suggestions = findBalancers(gap, pool, valueMode);
@@ -802,7 +804,9 @@ export default function TradePage() {
     const q = (query || "").trim().toLowerCase();
     if (!q) return [];
     const list = rows.filter(
-      (r) => !allTradeNames.has(r.name) && r.name.toLowerCase().includes(q),
+      (r) => !allTradeNames.has(r.name) &&
+        !(r.assetClass === "pick" && /^2026\b/.test(r.name)) &&
+        r.name.toLowerCase().includes(q),
     );
     list.sort((a, b) => (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity));
     return list.slice(0, 5);

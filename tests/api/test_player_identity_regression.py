@@ -362,7 +362,6 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "Marlon Humphrey":  "Veteran CB only ranked by FootballGuys IDP",
     "Mike Jackson":     "Veteran CB only ranked by FootballGuys IDP",
     "Nahshon Wright":   "Veteran CB only ranked by FootballGuys IDP",
-    "Zyon McCollum":    "Veteran CB only ranked by FootballGuys IDP",
 }
 
 

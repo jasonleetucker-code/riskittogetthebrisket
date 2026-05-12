@@ -533,7 +533,11 @@ export default function RankingsPage() {
   // leagues don't render any IDP rows, tabs, or summary counts —
   // nothing the user of a non-IDP league can trade.
   const eligibleRaw = useMemo(() => {
-    const filtered = rows.filter(isEligibleForBoard);
+    // 2026 rookie draft has passed — hide current-year slot picks from
+    // the board.  Rows stay in buildRows so value resolution still
+    // works for trade history; we filter only at display time.
+    let filtered = rows.filter(isEligibleForBoard)
+      .filter((r) => !(r.assetClass === "pick" && /^2026\b/.test(r.name)));
     if (!idpEnabled) {
       return filtered.filter((r) => r?.assetClass !== "idp");
     }

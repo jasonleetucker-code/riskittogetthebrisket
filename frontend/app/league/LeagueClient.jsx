@@ -59,10 +59,7 @@ import ArticlesSection from "./sections/articles.jsx";
 import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
 // Tab order + labels for the /league section nav.
-// "Draft Capital" is first so it's the default landing on mobile,
-// which is what public (unauth) visitors most commonly arrive to see.
 const SUB_TABS = [
-  { key: "draft-capital", label: "Draft Capital" },
   { key: "overview", label: "Home" },
   // The two AI-article tabs replace the older "This Week" structured
   // preview tab and the structured "Recaps" tab. The articles surface
@@ -87,10 +84,11 @@ const SUB_TABS = [
   { key: "superlatives", label: "Superlatives" },
   { key: "archives", label: "Archives" },
   { key: "teamAssignment", label: "Team Assignment" },
+  { key: "draft-capital", label: "Draft Capital" },
 ];
 
 const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
-const DEFAULT_TAB = "draft-capital";
+const DEFAULT_TAB = "overview";
 
 // Old → new tab-key aliases. Two reasons to keep these forever:
 //   1. External deep links (sitemap.js, /league/week/<season>/<week>
