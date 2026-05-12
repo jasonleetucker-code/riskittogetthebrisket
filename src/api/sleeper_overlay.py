@@ -56,6 +56,23 @@ _CACHE_TTL_SEC = 15 * 60
 _HTTP_TIMEOUT_SEC = 8.0
 _USER_AGENT = "brisket-sleeper-overlay/1.0"
 
+# Live-draft caches.  These are deliberately separate from the overlay
+# cache so a 2-3s polling loop on /api/sleeper/draft/picks never poisons
+# the 15-minute team/trade overlay cache and vice versa.
+#
+# ``_DRAFT_ID_CACHE`` keys on the *Sleeper league id* (not draft id),
+# since draft-id discovery is the first step of every live poll.
+#   key: sleeper_league_id (str)
+#   value: {"draft_id": str | None, "_cached_at": float}
+#
+# ``_DRAFT_PICKS_CACHE`` keys on the *draft id* and stores the most
+# recent full picks list.  A 2s TTL keeps the auctioneer's tab from
+# DDoSing Sleeper while still feeling instantaneous to the user.
+_DRAFT_ID_CACHE: dict[str, dict[str, Any]] = {}
+_DRAFT_ID_CACHE_TTL_SEC = 60.0
+_DRAFT_PICKS_CACHE: dict[str, dict[str, Any]] = {}
+_DRAFT_PICKS_CACHE_TTL_SEC = 2.0
+
 
 def _utc_now_ms() -> int:
     return int(time.time() * 1000)
@@ -1055,3 +1072,263 @@ def invalidate_overlay_cache(sleeper_league_id: str | None = None) -> None:
             _CACHE.clear()
             return
         _CACHE.pop(str(sleeper_league_id), None)
+
+
+# ── Live draft sync ─────────────────────────────────────────────────────
+# Auction draft companion: the /draft route polls
+# ``/api/sleeper/draft/picks`` every 2-3s while a draft is in progress
+# and feeds new picks into the workspace via ``recordPick`` on the
+# frontend, eliminating manual entry while the auctioneer's calling
+# bids.  Lives in this module because it shares the urllib + circuit
+# breaker plumbing with the overlay; isolated caches keep the two paths
+# from interfering.
+#
+# Out of scope (mentioned for the reader, not implemented here):
+#   * Live nomination state (who's currently on the block, mid-bid
+#     amounts).  Not exposed by Sleeper's public REST API — only by an
+#     undocumented WebSocket used by browser extensions.  We stick to
+#     the documented endpoints.
+#   * Sub-second latency.  Polling at 2.5s gives ~3s worst-case lag
+#     which fully addresses "I can't manually keep up while drafting".
+
+
+def _current_season_year() -> int:
+    return _dt.datetime.now(_dt.timezone.utc).year
+
+
+def _resolve_active_draft_id(sleeper_league_id: str) -> str | None:
+    """Pick the most relevant draft for a league.
+
+    Sleeper exposes drafts via ``/v1/league/{id}/drafts`` — a league
+    can have multiple drafts across seasons (startup + every annual
+    rookie draft), so we filter to the current season and prefer
+    ``status == "drafting"``, falling back to ``"pre_draft"``, and
+    finally ``"complete"`` (so a freshly-finished draft still serves
+    its picks for review).  Ties broken by newest ``start_time``.
+
+    Returns ``None`` when no candidate draft exists or the league
+    fetch failed.  Cached for 60s per league — long enough to stay
+    cheap during a 2-hour auction, short enough that toggling the
+    draft live during a session is reflected within a minute.
+    """
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    if not sleeper_league_id:
+        return None
+
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _DRAFT_ID_CACHE.get(sleeper_league_id)
+        if cached and (now - float(cached.get("_cached_at") or 0)) < _DRAFT_ID_CACHE_TTL_SEC:
+            return cached.get("draft_id")
+
+    drafts = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/drafts"
+    )
+    draft_id: str | None = None
+    if isinstance(drafts, list):
+        season = str(_current_season_year())
+        # Status precedence: drafting > pre_draft > complete.  Lower is
+        # better.  Within the same status, newest start_time wins.
+        rank = {"drafting": 0, "pre_draft": 1, "complete": 2}
+        best: tuple[int, int, str] | None = None
+        for d in drafts:
+            if not isinstance(d, dict):
+                continue
+            if str(d.get("sport") or "nfl") != "nfl":
+                continue
+            d_season = str(d.get("season") or "").strip()
+            if d_season != season:
+                continue
+            status = str(d.get("status") or "").strip()
+            if status not in rank:
+                continue
+            d_id = str(d.get("draft_id") or "").strip()
+            if not d_id:
+                continue
+            try:
+                start = int(d.get("start_time") or 0)
+            except (TypeError, ValueError):
+                start = 0
+            key = (rank[status], -start, d_id)
+            if best is None or key < best:
+                best = key
+                draft_id = d_id
+
+    with _CACHE_LOCK:
+        _DRAFT_ID_CACHE[sleeper_league_id] = {
+            "draft_id": draft_id,
+            "_cached_at": now,
+        }
+    return draft_id
+
+
+def _fetch_draft_meta(draft_id: str) -> dict[str, Any] | None:
+    """Fetch ``/v1/draft/{id}`` — used to surface the draft's current
+    status (``drafting``/``pre_draft``/``complete``) so the frontend
+    knows when to stop polling.  Result is not cached separately;
+    draft-meta TTL piggybacks on ``_DRAFT_PICKS_CACHE_TTL_SEC`` via
+    its parent caller.
+    """
+    if not draft_id:
+        return None
+    data = _http_get_json(f"https://api.sleeper.app/v1/draft/{draft_id}")
+    return data if isinstance(data, dict) else None
+
+
+def _normalize_live_pick(pick: dict[str, Any]) -> dict[str, Any] | None:
+    """Project one Sleeper pick dict into the compact shape the
+    frontend hook consumes.
+
+    Returns ``None`` when required fields (pick_no, player_id) are
+    missing or unparseable — those picks are skipped so a malformed
+    row never breaks the whole stream.
+
+    Output shape::
+
+        {
+            "pickNo":  int,     # monotonic cursor
+            "playerId": str,    # Sleeper player_id (matches workspace.players[].id)
+            "amount":  int,     # auction price; 0 for snake-draft picks
+            "ownerId": str,     # Sleeper user_id of the winner ("" when unknown)
+            "rosterId": int|None,
+            "round":   int|None,
+            "pickedAt": int|None,  # epoch seconds when Sleeper recorded the pick
+        }
+    """
+    pick_no = _safe_int(pick.get("pick_no"))
+    pid = pick.get("player_id")
+    if pick_no is None or pick_no < 1 or pid is None:
+        return None
+
+    metadata = pick.get("metadata") if isinstance(pick.get("metadata"), dict) else {}
+    amount_raw = metadata.get("amount") if isinstance(metadata, dict) else None
+    # Auction picks stamp ``metadata.amount`` as a string ("$23" or
+    # "23" depending on draft type).  Strip a leading $ and coerce.
+    amount = 0
+    if amount_raw is not None:
+        try:
+            amount = int(str(amount_raw).lstrip("$").strip())
+        except (TypeError, ValueError):
+            amount = 0
+
+    owner = pick.get("picked_by")
+    owner_id = str(owner).strip() if owner else ""
+
+    return {
+        "pickNo": pick_no,
+        "playerId": str(pid),
+        "amount": amount,
+        "ownerId": owner_id,
+        "rosterId": _safe_int(pick.get("roster_id")),
+        "round": _safe_int(pick.get("round")),
+        "pickedAt": _safe_int(pick.get("picked_at")),
+    }
+
+
+def fetch_live_draft_picks(
+    sleeper_league_id: str,
+    after_pick_no: int = 0,
+    *,
+    force_refresh: bool = False,
+) -> dict[str, Any] | None:
+    """Return the current live-draft snapshot for a league.
+
+    Shape::
+
+        {
+            "draftId":      str,
+            "status":       "drafting" | "pre_draft" | "complete" | "unknown",
+            "latestPickNo": int,
+            "picks":        [<normalized pick>, ...],  # only those with pick_no > after_pick_no
+            "fetchedAt":    iso-str,
+        }
+
+    Returns ``None`` when no draft can be resolved for the league
+    (no current-season draft, league fetch failed).  Callers
+    typically degrade to a "live sync not available" UI in that case.
+
+    Caching: the FULL picks list is cached per draft id for 2s so a
+    burst of polling tabs against the same draft only round-trips
+    Sleeper at most every 2s.  Cursor filtering (``after_pick_no``)
+    happens on the cached list.
+    """
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    if not sleeper_league_id:
+        return None
+
+    draft_id = _resolve_active_draft_id(sleeper_league_id)
+    if not draft_id:
+        return None
+
+    now = time.time()
+    cache_key = f"draft_picks:{draft_id}"
+    snapshot: dict[str, Any] | None = None
+    if not force_refresh:
+        with _CACHE_LOCK:
+            cached = _DRAFT_PICKS_CACHE.get(cache_key)
+            if cached and (now - float(cached.get("_cached_at") or 0)) < _DRAFT_PICKS_CACHE_TTL_SEC:
+                snapshot = cached.get("snapshot")
+
+    if snapshot is None:
+        meta = _fetch_draft_meta(draft_id)
+        status = str(meta.get("status") if isinstance(meta, dict) else "").strip() or "unknown"
+        raw_picks = _http_get_json(
+            f"https://api.sleeper.app/v1/draft/{draft_id}/picks"
+        )
+        if not isinstance(raw_picks, list):
+            # Hard fetch failure.  Don't poison the cache — let the
+            # next poll retry.  Return None so the route surfaces a
+            # graceful "couldn't load" state without 500ing.
+            return None
+        normalized: list[dict[str, Any]] = []
+        for p in raw_picks:
+            if not isinstance(p, dict):
+                continue
+            row = _normalize_live_pick(p)
+            if row is not None:
+                normalized.append(row)
+        normalized.sort(key=lambda r: r["pickNo"])
+        latest = normalized[-1]["pickNo"] if normalized else 0
+        snapshot = {
+            "draftId": draft_id,
+            "status": status,
+            "latestPickNo": latest,
+            "picks": normalized,
+            "fetchedAt": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        }
+        with _CACHE_LOCK:
+            _DRAFT_PICKS_CACHE[cache_key] = {
+                "snapshot": snapshot,
+                "_cached_at": now,
+            }
+
+    # Apply the cursor outside the cache.  The full list lives in the
+    # cache; per-client slicing is cheap.
+    try:
+        after = max(0, int(after_pick_no))
+    except (TypeError, ValueError):
+        after = 0
+    delta_picks = [p for p in snapshot["picks"] if p["pickNo"] > after]
+    return {
+        "draftId": snapshot["draftId"],
+        "status": snapshot["status"],
+        "latestPickNo": snapshot["latestPickNo"],
+        "picks": delta_picks,
+        "fetchedAt": snapshot["fetchedAt"],
+    }
+
+
+def invalidate_live_draft_cache(sleeper_league_id: str | None = None) -> None:
+    """Drop the live-draft caches.  Used by tests + a potential future
+    admin "force refresh" endpoint.  ``None`` clears everything."""
+    with _CACHE_LOCK:
+        if sleeper_league_id is None:
+            _DRAFT_ID_CACHE.clear()
+            _DRAFT_PICKS_CACHE.clear()
+            return
+        key = str(sleeper_league_id)
+        cached = _DRAFT_ID_CACHE.pop(key, None)
+        if cached:
+            did = cached.get("draft_id")
+            if did:
+                _DRAFT_PICKS_CACHE.pop(f"draft_picks:{did}", None)

@@ -5550,6 +5550,120 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         )
 
 
+@app.get("/api/sleeper/draft/picks")
+async def get_sleeper_draft_picks(
+    request: Request,
+    afterPickNo: int = 0,
+):
+    """Live auction-draft picks stream for the /draft companion.
+
+    The /draft page polls this every 2-3 seconds while the user has
+    live sync toggled ON.  Each response carries only the picks with
+    ``pickNo > afterPickNo`` (the client passes its latest known
+    cursor) so steady-state polls return tiny payloads.
+
+    Accepts ``?leagueKey=...`` — picks are league-scoped (rosters/
+    draft data), so this follows the CLAUDE.md leagueKey routing
+    pattern rather than scoring-profile routing.  Auto-discovers the
+    in-progress draft for the league via ``/v1/league/{id}/drafts``;
+    no draft id needs to be stored in the registry.
+
+    Response shape::
+
+        {
+            "leagueKey":    str,
+            "draftId":      str,
+            "status":       "drafting" | "pre_draft" | "complete" | "unknown",
+            "latestPickNo": int,
+            "picks":        [{
+                "pickNo":  int,
+                "playerId": str,   # Sleeper player_id
+                "amount":  int,    # $ paid (0 for snake)
+                "ownerId": str,    # Sleeper user_id of winner
+                "rosterId": int|null,
+                "round":   int|null,
+                "pickedAt": int|null,
+            }, ...],
+            "fetchedAt":    iso-str,
+        }
+
+    Error responses (clean JSON, never 500):
+
+    * 400 ``unknown_league`` / ``inactive_league`` — bad ``leagueKey``
+    * 404 ``no_active_draft`` — league has no current-season draft
+    * 503 ``sleeper_unavailable`` — Sleeper fetch failed (circuit
+      breaker open, network error)
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    try:
+        snapshot = _sleeper_overlay.fetch_live_draft_picks(
+            league_cfg.sleeper_league_id,
+            after_pick_no=int(afterPickNo or 0),
+        )
+    except Exception as e:  # noqa: BLE001 — never 500 a live-poll endpoint
+        logging.warning("sleeper draft picks fetch failed: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "sleeper_unavailable",
+                "message": "Sleeper draft fetch failed; try again shortly.",
+            },
+        )
+
+    # Stamp each pick with the canonical display name so the
+    # frontend can match it to a workspace row (which is keyed by
+    # ``playerSlug(displayName)``) without re-fetching the full
+    # 4MB /api/data contract.  Reads ``latest_contract_data``'s in-
+    # process ``playersArray`` — already loaded, zero extra network
+    # cost.  When the contract isn't loaded (cold boot), the field
+    # is left null and the frontend falls back to surfacing the raw
+    # Sleeper player_id so the user can record manually.
+    if isinstance(snapshot, dict) and snapshot.get("picks"):
+        id_to_name: dict[str, str] = {}
+        try:
+            pa = (latest_contract_data or {}).get("playersArray") or []
+            if isinstance(pa, list):
+                for p in pa:
+                    if not isinstance(p, dict):
+                        continue
+                    pid = str(p.get("playerId") or "").strip()
+                    name = str(p.get("displayName") or p.get("canonicalName") or "").strip()
+                    if pid and name:
+                        id_to_name[pid] = name
+        except Exception:  # noqa: BLE001
+            id_to_name = {}
+        for pick in snapshot["picks"]:
+            pid = str(pick.get("playerId") or "")
+            pick["playerName"] = id_to_name.get(pid) or None
+
+    if snapshot is None:
+        # Two distinguishable cases collapse here: no active draft, or
+        # a Sleeper fetch failure inside ``fetch_live_draft_picks``.
+        # The frontend treats both as "live sync unavailable" — it
+        # auto-stops polling and shows an amber dot.  Probing
+        # ``/v1/league/{id}/drafts`` again to split the cases would
+        # cost a round-trip on every cold poll, which isn't worth it
+        # for a diagnostic the user can't act on.
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "no_active_draft",
+                "message": (
+                    "No active draft for this league, or Sleeper is "
+                    "unreachable right now."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    snapshot["leagueKey"] = league_cfg.key
+    return JSONResponse(content=snapshot)
+
+
 # ── PUBLIC LEAGUE ROUTES ───────────────────────────────────────────────
 # The /api/public/league* endpoints serve the public /league page.
 # They are intentionally fork-isolated from the private canonical
