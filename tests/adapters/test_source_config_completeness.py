@@ -21,6 +21,7 @@ ALLOWED_SOURCES = {
     "DLF_IDP",
     "FANTASYPROS_SF",
     "DYNASTY_DADDY_SF",
+    "FANTASYCALC",
     "FLOCK_FANTASY_SF",
     "FOOTBALLGUYS_SF",
     "FOOTBALLGUYS_IDP",
@@ -33,6 +34,7 @@ EXPECTED_SCRAPER_EXPORTS = {
     "dlfIdp.csv",
     "fantasyProsSf.csv",
     "dynastyDaddySf.csv",
+    "fantasyCalc.csv",
     "flockFantasySf.csv",
     "footballGuysSf.csv",
     "footballGuysIdp.csv",
@@ -41,7 +43,7 @@ EXPECTED_SCRAPER_EXPORTS = {
 
 # Sources whose scraper_bridge export is a ``name,value`` CSV (signal=value).
 # The rank-signal sources get synthetic value from monotonic rank conversion.
-VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC", "DYNASTY_DADDY_SF"}
+VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC", "DYNASTY_DADDY_SF", "FANTASYCALC"}
 RANK_SIGNAL_SOURCES = {
     "DLF_IDP",
     "FANTASYPROS_SF",
