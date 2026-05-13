@@ -12,18 +12,20 @@ data backs the public board at https://www.fantasycalc.com/dynasty-rankings.
 Query parameters
 ----------------
 
-Dynasty Superflex + TE Premium scoring is requested via::
+Dynasty Superflex scoring is requested via::
 
     isDynasty=true   — dynasty (vs redraft) values
     numQbs=2         — Superflex (two QB slots)
     numTeams=12      — 12-team league context
     ppr=1            — full PPR
 
-FantasyCalc's standard dynasty/SF crowd values natively bake in the
-Superflex QB premium.  We do NOT re-apply SF adjustments downstream —
-``includes_sf=True`` in ``config/sources``, and the registry entry
-sets ``is_tep_premium=True`` so the global TEP multiplier does not
-compound on top of FantasyCalc's blended contribution.
+FantasyCalc's dynasty SF crowd values natively bake in the Superflex
+QB premium (numQbs=2), so ``includes_sf=True`` in ``config/sources``
+and no extra SF adjustment is applied downstream.  The crowd does
+NOT natively price in TE premium, so the registry entry sets
+``is_tep_premium=False`` and the global ``tepMultiplier`` boost
+applies to this source's blended contribution like any other non-
+TEP-native SF board (Dynasty Daddy, FlockFantasy, etc.).
 
 Output CSV
 ----------
