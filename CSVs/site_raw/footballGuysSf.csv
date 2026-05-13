@@ -243,10 +243,10 @@ Mac Jones,275,QB33,SF,27,5
 LeQuint Allen Jr.,276,RB78,JAX,21,1
 Cedric Tillman,277,WR106,CLE,26,3
 Kendre Miller,278,RB79,NO,23,3
-Max Klare,279,TE27,LAR,22,R
+Chig Okonkwo,279,TE27,WAS,26,4
 Tez Johnson,280,WR107,TB,24,1
 Bryce Lance,281,WR108,NO,23,R
-Chig Okonkwo,282,TE28,WAS,26,4
+Max Klare,282,TE28,LAR,22,R
 Jalen Nailor,283,WR109,LV,27,4
 Desmond Reid,284,RB80,BUF,21,R
 Cade Otton,285,TE29,TB,27,4
@@ -290,11 +290,11 @@ Jarquez Hunter,357,RB91,LAR,23,1
 CJ Daniels,358,WR125,LAR,24,R
 Josh Cameron,364,WR126,JAX,23,R
 Rahsul Faison,365,RB92,FA,26,R
-Michael Trigg,367,TE41,DAL,23,R
+Eli Raridon,367,TE41,NE,22,R
 Gunner Olszewski,371,WR127,NYG,29,7
 Xavier Restrepo,374,WR128,TEN,24,1
-Eli Raridon,375,TE42,NE,22,R
-Will Shipley,378,RB93,PHI,23,2
+Will Shipley,377,RB93,PHI,23,2
+Michael Trigg,378,TE42,DAL,23,R
 CJ Donaldson,380,RB94,NO,21,R
 Darius Slayton,384,WR129,NYG,29,7
 John Metchie III,388,WR130,CAR,25,4
@@ -464,7 +464,7 @@ Mecole Hardman,825,WR219,BUF,28,7
 Kalif Raymond,826,WR220,CHI,31,10
 Demarcus Robinson,827,WR221,SF,31,10
 Noah Brown,829,WR222,FA,30,9
-Tim Patrick,830,WR223,FA,32,9
+Tim Patrick,830,WR223,NYJ,32,9
 Ray-Ray McCloud III,832,WR224,FA,29,8
 JuJu Smith-Schuster,833,WR225,FA,29,9
 Jackson Hawes,834,TE58,BUF,25,1
