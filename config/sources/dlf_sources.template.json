@@ -129,6 +129,30 @@
     },
     {
       "enabled": true,
+      "source": "FANTASYCALC",
+      "contract_key": "fantasyCalc",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "api_fetch",
+      "ingest_method": "json_api",
+      "source_url": "https://www.fantasycalc.com/dynasty-rankings",
+      "scoring_context": "dynasty superflex TE-premium (FantasyCalc crowd-sourced trade values via api.fantasycalc.com)",
+      "includes_sf": true,
+      "includes_tep": true,
+      "file": "CSVs/site_raw/fantasyCalc.csv",
+      "signal_type": "value",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 450,
+        "is_backbone": false
+      },
+      "notes": "FantasyCalc dynasty SF + TEP crowd values via public JSON API (api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1). Natively includes both Superflex and TE-premium pricing — do NOT re-apply SF or TEP adjustments. Picks (position PICK) are dropped at fetch time; player rows cover QB/RB/WR/TE."
+    },
+    {
+      "enabled": true,
       "source": "FLOCK_FANTASY_SF",
       "contract_key": "flockFantasySf",
       "adapter": "scraper_bridge",

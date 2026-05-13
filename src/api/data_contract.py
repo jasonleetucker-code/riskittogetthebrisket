@@ -293,6 +293,22 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
     },
+    # FantasyCalc dynasty Superflex + TE-premium trade values —
+    # fetched from the public JSON API at
+    # https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1
+    # via ``scripts/fetch_fantasycalc.py``.  Same crowd-sourced board
+    # that powers https://www.fantasycalc.com/dynasty-rankings.  We
+    # filter to offensive positions (QB/RB/WR/TE) and write a
+    # ``name,value,rank`` CSV.  Signal=value — FantasyCalc's value
+    # distribution is well-spread (no display ceiling like Dynasty
+    # Daddy or Yahoo Boone), so the value-direct path scales the
+    # board's top to 9999 linearly and preserves cross-position
+    # separation.  Picks (position "PICK") are dropped here and
+    # tethered to rookie values in a dedicated downstream phase.
+    "fantasyCalc": {
+        "path": "CSVs/site_raw/fantasyCalc.csv",
+        "signal": "value",
+    },
     # Dynasty Daddy Superflex trade values — fetched from
     # https://dynasty-daddy.com/api/v1/player/all/today?market=14
     # via ``scripts/fetch_dynasty_daddy.py``.  The API returns crowd-
@@ -466,6 +482,11 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "dynastyNerdsSfTep": 6,
     "fantasyProsIdp": 6,
     "dynastyDaddySf": 6,
+    # FantasyCalc public JSON API refreshes continuously as crowd
+    # votes come in; the scheduled fetcher runs on the standard 3-hour
+    # refresh cadence, so the same 6-hour freshness budget as ktc /
+    # dynastyDaddySf applies.
+    "fantasyCalc": 6,
     "flockFantasySf": 168,
     # Flock Fantasy rookie board updates as experts refresh ranks
     # through the offseason; same 1-week window as the vet board.
@@ -510,6 +531,14 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # ~75% of live baseline so a scrape regression trips a warning.
     "fantasyProsIdp": 75,
     "dynastyDaddySf": 250,
+    # ``fantasyCalc``: floor intentionally NOT set here yet.  The
+    # fetcher in scripts/fetch_fantasycalc.py was added 2026-05-13;
+    # floors per the comment policy above are pinned at ~80% of the
+    # *current live baseline*, and the source has no live baseline
+    # until the next scheduled-refresh cycle generates the first CSV.
+    # Add an entry here (target ~340 — ~75% of the 2026-03-25
+    # historical 458-row snapshot) once a stable baseline is observed
+    # in production.
     "flockFantasySf": 250,
     # FootballGuys SF/IDP: after the PDF parse + offense/IDP split,
     # raw rows are ~548 offense and ~406 IDP.  Actual canonical-name
@@ -1084,6 +1113,43 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``settings.tepMultiplier`` boost is compensating for the
         # OTHER (non-TEP) sources in the blend, not this one.
         "is_tep_premium": True,
+    },
+    {
+        # FantasyCalc Dynasty Superflex + TE-premium trade values —
+        # crowd-sourced community values fetched from the public JSON
+        # API at https://api.fantasycalc.com/values/current
+        # (?isDynasty=true&numQbs=2&numTeams=12&ppr=1) via
+        # ``scripts/fetch_fantasycalc.py``.  Same board that powers
+        # https://www.fantasycalc.com/dynasty-rankings.  The API
+        # returns ~450+ offensive players (QB/RB/WR/TE) plus picks;
+        # the fetcher filters to offense-only and writes a
+        # ``name,value,rank`` CSV (picks are tethered to rookie
+        # values in a dedicated downstream phase, not via this CSV).
+        #
+        # Weight normalized to 1.0 — see the registry note at the top
+        # of this list.  depth=450 reflects the typical offensive-only
+        # count (~458 rows in the 2026-03-25 historical snapshot);
+        # ``_expected_sources_for_position`` multiplies this by 1.25
+        # so FantasyCalc is not expected for players ranked deeper
+        # than ~562.
+        #
+        # FantasyCalc's standard dynasty SF crowd values natively bake
+        # in both Superflex and TE-premium pricing (the API params set
+        # numQbs=2 and the crowd is voting under TE-premium scoring),
+        # so this is a TEP-native source: only the small 1.10× nudge
+        # toward the operator's TE++ baseline applies, never the full
+        # non-TEP 1.25×.
+        "key": "fantasyCalc",
+        "display_name": "FantasyCalc Dynasty SF-TEP",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 450,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": True,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
     },
     {
         # Dynasty Daddy Superflex trade values — crowd-sourced community
@@ -4368,6 +4434,14 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     # + per-source winner display, but it no longer votes).
     "ktcSfTep",
     "idpTradeCalc",
+    # ``fantasyCalc`` carries the FantasyCalc public API's crowd-sourced
+    # dynasty SF+TEP values.  Unlike Dynasty Daddy / Yahoo Boone /
+    # Fitzmaurice, FantasyCalc's value distribution is well-spread
+    # across the board with no display-cap clustering at the top, so
+    # the value-direct path preserves cross-position separation
+    # faithfully (e.g. top WR's value vs top RB's value carries real
+    # signal, not just an arbitrary cap).
+    "fantasyCalc",
     # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
     # were moved to the rank-signal path 2026-04-22 after the Hampel
     # audit flagged 61% / 47% / 19% drop rates respectively — all three
