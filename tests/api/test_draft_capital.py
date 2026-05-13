@@ -502,7 +502,8 @@ class TestLiveStandingsOverride(unittest.TestCase):
         return TestSleeperTradeOverlay._stub_urlopen(self, url_to_payload)
 
     def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
-                       empty_draft_detail=False):
+                       empty_draft_detail=False,
+                       drop_slots_from_draft_detail=None):
         """Mocked Sleeper fixture with explicit per-roster fpts so the
         live-standings override fires.
 
@@ -513,9 +514,12 @@ class TestLiveStandingsOverride(unittest.TestCase):
         entries that get rendered into /traded_picks.
         ``empty_draft_detail`` returns a draft payload with no
         ``slot_to_roster_id`` / ``draft_order`` keys so server-side
-        ``slot_to_roster`` stays empty — simulates the regression
-        Codex flagged where live fpts exists but Sleeper's draft
-        endpoint can't supply a slot↔roster bridge.
+        ``slot_to_roster`` stays empty — simulates Sleeper's draft
+        endpoint returning an unusable payload.
+        ``drop_slots_from_draft_detail`` is an iterable of slot
+        numbers to OMIT from the ``slot_to_roster_id`` mapping —
+        simulates a partial draft payload (some slots present, some
+        missing) that the Codex P1 follow-up flagged.
 
         Returns ``(url_map, workbook_picks, slot_to_original,
         first_name_by_rid)`` or None when the workbook is
@@ -552,7 +556,10 @@ class TestLiveStandingsOverride(unittest.TestCase):
         if empty_draft_detail:
             draft_detail: dict[str, object] = {}
         else:
-            draft_detail = {"slot_to_roster_id": slot_to_roster}
+            partial_map = dict(slot_to_roster)
+            for s in (drop_slots_from_draft_detail or ()):
+                partial_map.pop(str(s), None)
+            draft_detail = {"slot_to_roster_id": partial_map}
         traded_picks_payload = []
         for t in (trades or []):
             traded_picks_payload.append({
@@ -676,6 +683,36 @@ class TestLiveStandingsOverride(unittest.TestCase):
         self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
         self.assertFalse(slot1_pick["isTraded"])
 
+
+    def test_live_override_skipped_on_partial_slot_to_roster(self):
+        """Codex P1 follow-up: a partial draft payload (some slots
+        missing from ``slot_to_roster_id``) leaves
+        ``roster_id_to_first_name`` incomplete, so any slot whose
+        roster isn't in the join stays unmapped at owner-remap time.
+        Pre-fix that produced ``isTraded: true`` for every untraded
+        pick at the missing slots — the override must be gated on a
+        COMPLETE bridge, not just a non-empty one.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Drop two slots from the draft detail to simulate a partial
+        # bridge (10 of 12 workbook slots covered).
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        drop_slots_from_draft_detail=[7, 8])
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded under partial slot_to_roster "
+            "coverage (live-standings override should require complete bridge)",
+        )
 
     def test_live_override_skipped_when_slot_to_roster_empty(self):
         """Codex P1: when live fpts data is present but Sleeper's

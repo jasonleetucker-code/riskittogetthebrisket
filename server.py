@@ -5364,20 +5364,24 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # original roster sits AFTER the standings shuffle, not by
         # its historical workbook slot.
         #
-        # Both fppts AND a populated slot_to_roster are required.
-        # ``roster_id_to_first_name`` below is built by joining
-        # ``slot_to_original`` against ``slot_to_roster``; with an
-        # empty bridge it stays empty, so the picks loop's owner
-        # remap falls back to the workbook value while
+        # Both fppts AND a complete slot_to_roster bridge are
+        # required.  ``roster_id_to_first_name`` below is built by
+        # joining ``slot_to_original`` against ``slot_to_roster``;
+        # if the bridge is empty or only partially populated, any
+        # slot whose roster isn't in the join stays unmapped and
+        # owner_first falls back to the workbook value while
         # ``slot_to_origin_display`` still flips to live names —
-        # every untraded pick would then read as ``isTraded: true``.
-        # Falling back to the workbook ordering when the bridge is
-        # missing preserves the pre-season invariant
-        # (originalOwner == currentOwner for untraded picks) even
-        # when Sleeper's draft endpoint returns an empty payload.
+        # those slots' picks then read as ``isTraded: true``
+        # spuriously.  Require the bridge to cover at least every
+        # workbook slot before activating the override; partial
+        # coverage falls back to the workbook ordering the same
+        # way a totally-missing bridge does, preserving the
+        # invariant that an untraded pick has originalOwner ==
+        # currentOwner.
         live_standings_active = (
             any(v > 0 for v in roster_fppts.values())
-            and bool(slot_to_roster)
+            and len(slot_to_roster) >= len(slot_to_original)
+            and bool(slot_to_original)
         )
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
         if live_standings_active:
