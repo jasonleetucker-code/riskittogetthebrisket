@@ -5378,14 +5378,36 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # way a totally-missing bridge does, preserving the
         # invariant that an untraded pick has originalOwner ==
         # currentOwner.
+        #
+        # Additionally, restrict the live-fpts reshuffle to the
+        # roster IDs that are actually in ``slot_to_roster`` —
+        # Sleeper sometimes exposes more rosters than the workbook
+        # tracks (expansion/inactive rosters), and pulling one of
+        # those into ``effective_slot_to_rid`` would leave the
+        # affected slot without a first_name bridge and re-trigger
+        # the isTraded false-positive on untraded picks at that
+        # slot.  Filtering to the bridged set guarantees every
+        # slot in ``effective_slot_to_rid`` has a corresponding
+        # entry in ``roster_id_to_first_name`` after the join.
+        _bridged_rids: set[int] = {
+            int(rid) for rid in slot_to_roster.values()
+        }
+        _bridged_fppts: dict[int, float] = {
+            int(rid): pts
+            for rid, pts in roster_fppts.items()
+            if int(rid) in _bridged_rids
+        }
         live_standings_active = (
-            any(v > 0 for v in roster_fppts.values())
+            any(v > 0 for v in _bridged_fppts.values())
             and len(slot_to_roster) >= len(slot_to_original)
+            and len(_bridged_fppts) >= len(slot_to_original)
             and bool(slot_to_original)
         )
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
         if live_standings_active:
-            _sorted_rids = sorted(roster_fppts, key=lambda r: roster_fppts[r])
+            _sorted_rids = sorted(
+                _bridged_fppts, key=lambda r: _bridged_fppts[r]
+            )
             effective_slot_to_rid = {
                 int(i): int(rid)
                 for i, rid in enumerate(

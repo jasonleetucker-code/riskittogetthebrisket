@@ -503,7 +503,8 @@ class TestLiveStandingsOverride(unittest.TestCase):
 
     def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
                        empty_draft_detail=False,
-                       drop_slots_from_draft_detail=None):
+                       drop_slots_from_draft_detail=None,
+                       extra_unbridged_rosters=None):
         """Mocked Sleeper fixture with explicit per-roster fpts so the
         live-standings override fires.
 
@@ -520,6 +521,13 @@ class TestLiveStandingsOverride(unittest.TestCase):
         numbers to OMIT from the ``slot_to_roster_id`` mapping —
         simulates a partial draft payload (some slots present, some
         missing) that the Codex P1 follow-up flagged.
+        ``extra_unbridged_rosters`` is an iterable of
+        ``(rid, fpts)`` tuples to append to ``/rosters`` WITHOUT
+        adding them to the draft slot_to_roster_id map — simulates
+        the Codex regression where Sleeper exposes more rosters
+        than the workbook bridges (expansion / inactive), and a
+        low-scoring extra would otherwise hijack slot 1 in the
+        reshuffle.
 
         Returns ``(url_map, workbook_picks, slot_to_original,
         first_name_by_rid)`` or None when the workbook is
@@ -551,6 +559,23 @@ class TestLiveStandingsOverride(unittest.TestCase):
             })
             slot_to_roster[str(slot)] = rid
             first_name_by_rid[rid] = first_name
+
+        # Append any "extra" Sleeper rosters that the workbook
+        # doesn't bridge.  These get a real /rosters entry (so they
+        # show up in roster_fppts) but are intentionally absent
+        # from the slot_to_roster_id draft map.
+        for rid, fpts in (extra_unbridged_rosters or ()):
+            owner_uid = f"u{rid}"
+            rosters.append({
+                "roster_id": int(rid),
+                "owner_id": owner_uid,
+                "settings": {"fpts": int(fpts), "fpts_decimal": 0},
+            })
+            users.append({
+                "user_id": owner_uid,
+                "display_name": f"Extra-{rid}",
+                "metadata": {},
+            })
 
         drafts = [{"draft_id": "D1", "season": draft_season}]
         if empty_draft_detail:
@@ -683,6 +708,50 @@ class TestLiveStandingsOverride(unittest.TestCase):
         self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
         self.assertFalse(slot1_pick["isTraded"])
 
+
+    def test_live_override_excludes_unbridged_extra_rosters(self):
+        """Codex P1 follow-up: when Sleeper exposes more rosters
+        than the workbook bridges (expansion / inactive rosters
+        with their own fpts), the live-fpts sort must NOT pull
+        those unbridged rosters into ``effective_slot_to_rid``.
+        Pre-fix, the reshuffle source set was all of
+        ``roster_fppts`` and a low-scoring extra would land in
+        slot 1 with no ``roster_id_to_first_name`` entry,
+        triggering the same isTraded false-positive as the
+        partial-bridge case.  The reshuffle must be restricted to
+        roster IDs in ``slot_to_roster``.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # All 12 workbook rosters have meaningful fpts.
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Inject one "extra" Sleeper roster (rid 99) with the
+        # absolute fewest points so it would otherwise be sorted
+        # into live-slot 1 and break the bridge.
+        run = self._run(
+            season,
+            fpts_by_rid=fpts,
+            trades=[],
+            extra_unbridged_rosters=[(99, 1)],
+        )
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded when Sleeper exposed extra "
+            "unbridged rosters (live reshuffle must restrict to bridged rids)",
+        )
+        # And the extra roster's display name must never appear as an
+        # originalOwner — confirms rid 99 didn't sneak into the
+        # slot assignment.
+        owners = {p["originalOwner"] for p in result["picks"]}
+        self.assertNotIn("Extra-99", owners)
 
     def test_live_override_skipped_on_partial_slot_to_roster(self):
         """Codex P1 follow-up: a partial draft payload (some slots
