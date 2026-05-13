@@ -11,7 +11,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 10,NYJ,Jamien Sherwood,LB,N/A,9,26.3,199,479,759,"1,293",,20
 11,CHI,Dillon Thieneman,DB,N/A,5,21.8,152,428,700,"1,330",,20
 12,DAL,Caleb Downs,DB,N/A,10,21.4,139,423,694,"1,346",,20
-13,LVR,Nakobe Dean,LB,N/A,8,25.3,189,447,719,"1,261",,18
+13,LVR,Nakobe Dean,LB,N/A,8,25.4,189,447,719,"1,261",,18
 14,KC,Nick Bolton,LB,N/A,10,26.2,183,459,726,"1,237",,18
 15,MIA,Jordyn Brooks,LB,N/A,12,28.5,211,456,704,"1,123",,18
 16,SEA,Ernest Jones,LB,N/A,8,26.4,186,433,686,"1,169",,17
@@ -29,23 +29,23 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 28,TB,Tykee Smith,DB,N/A,9,25.2,166,313,501,870,,9
 29,HOU,Will Anderson Jr.,DL,N/A,6,24.7,133,282,473,776,,9
 30,BAL,Roquan Smith,LB,N/A,7,29.1,185,346,527,799,,8
-31,DAL,DeMarvion Overshown,LB,N/A,10,25.7,177,329,521,888,,8
+31,DAL,DeMarvion Overshown,LB,N/A,10,25.8,177,329,521,888,,8
 32,BUF,Terrel Bernard,LB,N/A,7,27,172,336,527,868,,8
 33,MIN,Blake Cashman,LB,N/A,6,30,205,340,509,754,,8
 34,BAL,Kyle Hamilton,DB,N/A,7,25.1,162,304,482,833,,8
 35,BUF,Kaleb Elarms-Orr,LB,N/A,7,22.7,114,328,542,"1,015",,8
 36,KC,Chamarri Conner,DB,N/A,10,25.8,182,295,467,781,,8
 37,DET,Aidan Hutchinson,DL,N/A,8,25.8,134,267,440,671,,8
-38,PIT,Patrick Queen,LB,N/A,5,26.7,139,335,524,863,,7
+38,PIT,Patrick Queen,LB,N/A,5,26.8,139,335,524,863,,7
 39,NYG,Brian Burns,DL,N/A,14,28,133,285,409,573,,7
 40,LAC,Tuli Tuipulotu,DL,N/A,12,23.7,122,244,410,734,,7
 41,ARI,Cody Simon,LB,N/A,8,24.1,121,323,522,947,,7
 42,NYG,Tremaine Edmunds,LB,N/A,14,28,173,325,501,800,,7
-43,NYJ,Malachi Moore,DB,N/A,9,24.6,139,296,475,820,,7
+43,NYJ,Malachi Moore,DB,N/A,9,24.7,139,296,475,820,,7
 44,TB,Sirvocea Dennis,LB,N/A,9,26.2,112,328,520,885,,7
 45,NYG,Abdul Carter,DL,N/A,14,22.6,94,245,407,765,,7
 46,ATL,Xavier Watts,DB,N/A,5,24.4,131,292,473,852,,6
-47,BAL,Malaki Starks,DB,N/A,7,22.4,104,292,479,909,,6
+47,BAL,Malaki Starks,DB,N/A,7,22.5,104,292,479,909,,6
 48,NYJ,David Bailey,LB,N/A,9,22.7,94,309,521,991,,6
 49,DEN,Nik Bonitto,DL,N/A,12,26.6,123,261,406,580,,6
 50,CAR,Nic Scourton,DL,N/A,14,21.7,99,238,394,772,,6
@@ -76,12 +76,12 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 75,NO,Jonas Sanker,DB,N/A,11,23.4,107,262,426,769,,3
 76,IND,A.J. Haulcy,DB,N/A,11,22.3,98,261,426,798,,3
 77,KC,George Karlaftis,DL,N/A,10,25.1,92,204,343,561,,3
-78,PHI,Jalyx Hunt,DL,N/A,9,25.1,82,207,348,570,,3
+78,PHI,Jalyx Hunt,DL,N/A,9,25.2,82,207,348,570,,3
 79,NO,Kaden Elliss,LB,N/A,11,30.8,165,287,420,599,,3
 80,JAC,Travon Walker,DL,N/A,8,25.3,90,202,339,556,,3
 81,GB,Evan Williams,DB,N/A,5,24.8,139,255,408,708,,3
 82,NO,Kool-Aid McKinstry,DB,N/A,11,23.6,128,260,405,710,,3
-83,LAR,Byron Young,DL,N/A,8,28.1,111,224,321,450,,3
+83,LAR,Byron Young,DL,N/A,8,28.2,111,224,321,450,,3
 84,PHI,Andrew Mukuba,DB,N/A,9,23.4,102,257,422,786,,3
 85,TEN,Anthony Hill Jr.,LB,N/A,10,21.2,88,258,446,898,,3
 86,CIN,Jordan Battle,DB,N/A,10,25.3,142,250,400,694,,2
@@ -124,7 +124,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 123,TEN,Alontae Taylor,DB,N/A,10,27.4,145,230,363,598,,0
 124,PHI,Jordan Davis,DL,N/A,9,26.3,80,177,278,444,,0
 125,CLE,Grant Delpit,DB,N/A,9,27.6,161,230,356,546,,0
-126,TEN,Cody Barton,LB,N/A,10,29.4,108,260,396,600,,0
+126,TEN,Cody Barton,LB,N/A,10,29.5,108,260,396,600,,0
 127,KC,Mansoor Delane,DB,N/A,10,22.3,97,238,386,695,,0
 128,PHI,Jonathan Greenard,DL,N/A,9,28.9,95,192,259,361,,0
 129,KC,Drue Tranquill,LB,N/A,10,30.7,151,250,366,523,,-0
@@ -210,7 +210,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 209,LVR,Isaiah Pola-Mao,DB,N/A,8,26.8,128,204,319,517,,-3
 210,NYG,Micah McFadden,LB,N/A,14,26.3,114,199,315,537,,-3
 211,ATL,Kendal Daniels,LB,N/A,5,23.3,70,203,336,630,,-3
-212,LAR,Trent McDuffie,DB,N/A,8,25.6,134,199,307,519,,-3
+212,LAR,Trent McDuffie,DB,N/A,8,25.7,134,199,307,519,,-3
 213,CIN,Daxton Hill,DB,N/A,10,25.6,134,193,310,525,,-3
 214,ARI,Mack Wilson,LB,N/A,8,28.2,119,203,313,500,,-3
 215,WAS,Dorance Armstrong,DL,N/A,12,28.9,88,139,187,261,,-3
@@ -228,7 +228,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 227,DAL,Jalen Thompson,DB,N/A,10,27.8,132,199,307,472,,-4
 228,DAL,DaRon Bland,DB,N/A,10,26.8,132,190,301,495,,-4
 229,NO,Pete Werner,LB,N/A,11,27.9,85,206,318,508,,-4
-230,SF,Osa Odighizuwa,DL,N/A,14,27.7,58,131,199,289,,-4
+230,SF,Osa Odighizuwa,DL,N/A,14,27.8,58,131,199,289,,-4
 231,HOU,Derek Stingley,DB,N/A,6,24.8,112,198,306,527,,-4
 232,BAL,Trey Hendrickson,DL,N/A,7,31.4,110,119,154,221,,-4
 233,NE,Craig Woodson,DB,N/A,14,25.2,94,198,317,550,,-4
@@ -304,13 +304,13 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 303,JAC,Wesley Williams,DL,N/A,8,21.6,29,77,132,267,,-7
 304,MIN,Isaiah Rodgers,DB,N/A,6,28.3,127,160,250,392,,-7
 305,CAR,Jaycee Horn,DB,N/A,14,26.4,102,167,266,451,,-7
-306,SF,Romello Height,DL,N/A,14,25,35,78,131,214,,-7
+306,SF,Romello Height,DL,N/A,14,25.1,35,78,131,214,,-7
 307,JAC,Davon Hamilton,DL,N/A,8,29.3,0,103,153,213,,-7
 308,DAL,Kenny Clark,DL,N/A,10,30.6,53,82,109,153,,-8
 309,LAR,Poona Ford,DL,N/A,8,30.4,0,105,146,205,,-8
 310,SF,Deommodore Lenoir,DB,N/A,14,26.6,102,165,256,423,,-8
 311,IND,Ahmad Gardner,DB,N/A,11,24.7,92,166,262,457,,-8
-312,JAC,Ruke Orhorhoro,DL,N/A,8,24.5,25,79,127,213,,-8
+312,JAC,Ruke Orhorhoro,DL,N/A,8,24.6,25,79,127,213,,-8
 313,CHI,Kyler Gordon,DB,N/A,5,26.3,111,157,249,424,,-8
 314,UNS,Kenny Moore,DB,N/A,18,30.7,101,180,257,352,,-8
 315,SF,Alfred Collins,DL,N/A,14,24.6,30,76,121,203,,-8
@@ -371,7 +371,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 370,UNS,D.J. Jones,DL,N/A,18,31.3,0,0,0,0,,-14
 371,UNS,Levi Onwuzurike,DL,N/A,18,28.2,0,0,0,0,,-14
 372,KC,Felix Anudike-Uzomah,DL,N/A,10,24.3,0,0,0,0,,-14
-373,ARI,Darius Robinson,DL,N/A,8,24.6,0,0,0,0,,-14
+373,ARI,Darius Robinson,DL,N/A,8,24.7,0,0,0,0,,-14
 374,LAC,Justin Eboigbe,DL,N/A,12,25.1,0,0,0,0,,-14
 375,ATL,Da'Shawn Hand,DL,N/A,5,30.4,0,0,0,0,,-14
 376,CHI,Shemar Turner,DL,N/A,5,23.3,0,0,0,0,,-14
