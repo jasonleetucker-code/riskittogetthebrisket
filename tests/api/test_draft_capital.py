@@ -709,6 +709,61 @@ class TestLiveStandingsOverride(unittest.TestCase):
         self.assertFalse(slot1_pick["isTraded"])
 
 
+    def test_traded_pick_detected_when_two_rosters_share_display_name(self):
+        """Codex P2: ``isTraded`` must use stable roster_ids, not the
+        rendered display names.  Sleeper doesn't enforce unique
+        ``team_name`` / ``display_name``, and a display-only compare
+        would silently mark a real trade as untraded when both rosters
+        render to the same string.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # No fpts → live override doesn't fire; this exercises the
+        # workbook + Sleeper trade overlay path where the display-only
+        # comparison was the pre-fix isTraded source.
+        fpts = {rid: 0 for rid in range(1, 13)}
+        # Trade roster 1's R1 pick to roster 12; we'll force their
+        # display_names to match below by monkeypatching the fixture.
+        trades = [{"round": 1, "original_rid": 1, "new_rid": 12}]
+
+        # Build the fixture, then collapse both rosters' display_name
+        # onto a single shared string to simulate the duplicate-name
+        # regression.
+        fixture = self._build_fixture(season, fpts_by_rid=fpts, trades=trades)
+        if fixture is None:
+            self.skipTest("Workbook unavailable")
+        url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
+        shared_label = "Duplicate Team Name"
+        for user in url_map["/users"]:
+            if user["user_id"] in ("u1", "u12"):
+                user["display_name"] = shared_label
+
+        import server
+        with patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            self.skipTest(f"Unavailable: {result['error']}")
+
+        # The pick at roster 1's slot (workbook slot 1, since live
+        # override is off) should report the trade.  Both sides now
+        # render to ``shared_label``, but the roster_ids differ —
+        # post-fix isTraded must still be True.
+        traded_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.01"),
+            None,
+        )
+        self.assertIsNotNone(traded_pick, "Expected pick 1.01 in result")
+        self.assertEqual(traded_pick["originalOwner"], shared_label)
+        self.assertEqual(traded_pick["currentOwner"], shared_label)
+        self.assertTrue(
+            traded_pick["isTraded"],
+            "Trade between two rosters with the same display name must "
+            "still be reported isTraded=True (compare roster_ids, not strings)",
+        )
+
     def test_live_override_excludes_unbridged_extra_rosters(self):
         """Codex P1 follow-up: when Sleeper exposes more rosters
         than the workbook bridges (expansion / inactive rosters

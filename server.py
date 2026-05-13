@@ -5181,12 +5181,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # at least one team has non-zero fppts for the current season.
     roster_fppts: dict[int, float] = {}
     slot_to_origin_display: dict[int, str] = {}
-    # ``effective_slot_to_rid`` and ``live_standings_active`` are
-    # populated inside the try block alongside the Sleeper joins;
-    # initialise them here so the picks loop below (outside the try)
-    # never NameErrors when the Sleeper fetch raises early.
+    # ``effective_slot_to_rid``, ``live_standings_active``, and
+    # ``first_name_to_rid`` are populated inside the try block
+    # alongside the Sleeper joins; initialise them here so the
+    # picks loop below (outside the try) never NameErrors when
+    # the Sleeper fetch raises early.
     effective_slot_to_rid: dict[int, int] = {}
     live_standings_active: bool = False
+    first_name_to_rid: dict[str, int] = {}
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -5452,6 +5454,18 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             rid = slot_to_roster.get(int(slot))
             if rid is not None and first_name:
                 roster_id_to_first_name[int(rid)] = str(first_name).strip()
+        # Inverse: workbook first_name → roster_id.  Used by the
+        # picks loop to resolve currentOwner's roster_id (whether
+        # from the workbook hand-entry, the live-standings remap,
+        # or a Sleeper trade override) so isTraded can be computed
+        # against stable identifiers instead of display strings —
+        # Sleeper doesn't enforce unique ``display_name``/
+        # ``team_name`` across rosters, so a display-only compare
+        # silently hides genuine trades between two rosters that
+        # happen to share the same rendered name.
+        first_name_to_rid: dict[str, int] = {}
+        for rid, fn in roster_id_to_first_name.items():
+            first_name_to_rid.setdefault(fn, rid)
 
         if apply_sleeper_trades:
             try:
@@ -5540,6 +5554,27 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         owner_team = display(owner_first)
         origin_team = slot_to_origin_display.get(slot) or display(origin_first)
 
+        # ``isTraded`` compares stable roster_ids when both sides
+        # resolve through the workbook bridge — Sleeper doesn't
+        # enforce unique display names across rosters, so a
+        # display-string compare silently misses a trade between
+        # two rosters that happen to share the same rendered
+        # team_name/display_name.  Fall back to the display-name
+        # comparison only when an id can't be derived (e.g.
+        # pre-season + workbook-only flow where the Sleeper
+        # bridge is empty), since that's the only correctness-
+        # preserving signal available in that path.
+        origin_rid = effective_slot_to_rid.get(slot)
+        owner_rid = (
+            first_name_to_rid.get(str(owner_first).strip())
+            if owner_first
+            else None
+        )
+        if origin_rid is not None and owner_rid is not None:
+            is_traded = origin_rid != owner_rid
+        else:
+            is_traded = origin_team != owner_team
+
         # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
         # dollar from the sheet — half-dollar precision preserved.
         dollar = (
@@ -5561,7 +5596,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             "originalDollarValue": dollar,
             "originalOwner": origin_team,
             "currentOwner": owner_team,
-            "isTraded": origin_team != owner_team,
+            "isTraded": is_traded,
             "isExpansion": slot <= 2,
             "rookieName": None,
             "rookiePos": None,
