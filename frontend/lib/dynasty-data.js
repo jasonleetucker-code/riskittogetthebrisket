@@ -418,24 +418,24 @@ export const RANKING_SOURCES = [
     isTepPremium: true,
   },
   {
-    // FantasyCalc Dynasty Superflex + TE-premium trade values —
-    // crowd-sourced community values fetched from the public JSON API
-    // at api.fantasycalc.com/values/current
+    // FantasyCalc Dynasty Superflex trade values — crowd-sourced
+    // community values fetched from the public JSON API at
+    // api.fantasycalc.com/values/current
     // (?isDynasty=true&numQbs=2&numTeams=12&ppr=1) via
     // scripts/fetch_fantasycalc.py.  Same board that powers
     // https://www.fantasycalc.com/dynasty-rankings.  ~450+ offensive
     // players (QB/RB/WR/TE) after filtering.  Mirrors the backend
     // `_RANKING_SOURCES` entry in src/api/data_contract.py.
     //
-    // FantasyCalc's dynasty SF crowd is voting under TE-premium
-    // scoring with numQbs=2 baked in, so this is a TEP-native source.
-    // Flagged `isTepPremium: true` so the frontend surfaces a "TEP
-    // NATIVE" badge and the global tepMultiplier boost does NOT
-    // compound on top of this source.  Signal=value: FantasyCalc's
-    // value distribution is well-spread (no display ceiling), so the
-    // value-direct path preserves cross-position separation.
+    // FantasyCalc is standard Superflex (numQbs=2) but does NOT
+    // natively account for TE premium — declared `isTepPremium:
+    // false` so the global tepMultiplier boost applies to its
+    // contribution, just like Dynasty Daddy SF or FlockFantasy SF.
+    // Signal=value: FantasyCalc's value distribution is well-spread
+    // (no display ceiling), so the value-direct path preserves
+    // cross-position separation.
     key: "fantasyCalc",
-    displayName: "FantasyCalc Dynasty SF-TEP",
+    displayName: "FantasyCalc Dynasty SF",
     columnLabel: "FC",
     scope: "overall_offense",
     extraScopes: [],
@@ -445,7 +445,7 @@ export const RANKING_SOURCES = [
     isBackbone: false,
     isRetail: false,
     isRankSignal: false,
-    isTepPremium: true,
+    isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
   },

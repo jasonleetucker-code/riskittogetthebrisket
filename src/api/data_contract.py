@@ -293,10 +293,10 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
     },
-    # FantasyCalc dynasty Superflex + TE-premium trade values —
-    # fetched from the public JSON API at
-    # https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1
-    # via ``scripts/fetch_fantasycalc.py``.  Same crowd-sourced board
+    # FantasyCalc dynasty Superflex trade values — fetched from the
+    # public JSON API at https://api.fantasycalc.com/values/current
+    # (?isDynasty=true&numQbs=2&numTeams=12&ppr=1) via
+    # ``scripts/fetch_fantasycalc.py``.  Same crowd-sourced board
     # that powers https://www.fantasycalc.com/dynasty-rankings.  We
     # filter to offensive positions (QB/RB/WR/TE) and write a
     # ``name,value,rank`` CSV.  Signal=value — FantasyCalc's value
@@ -305,6 +305,9 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # board's top to 9999 linearly and preserves cross-position
     # separation.  Picks (position "PICK") are dropped here and
     # tethered to rookie values in a dedicated downstream phase.
+    # Standard SF scoring — values are NOT TE-premium native, so the
+    # frontend ``tepMultiplier`` boost applies on top of the blended
+    # contribution (registry entry sets ``is_tep_premium=False``).
     "fantasyCalc": {
         "path": "CSVs/site_raw/fantasyCalc.csv",
         "signal": "value",
@@ -1115,9 +1118,9 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": True,
     },
     {
-        # FantasyCalc Dynasty Superflex + TE-premium trade values —
-        # crowd-sourced community values fetched from the public JSON
-        # API at https://api.fantasycalc.com/values/current
+        # FantasyCalc Dynasty Superflex trade values — crowd-sourced
+        # community values fetched from the public JSON API at
+        # https://api.fantasycalc.com/values/current
         # (?isDynasty=true&numQbs=2&numTeams=12&ppr=1) via
         # ``scripts/fetch_fantasycalc.py``.  Same board that powers
         # https://www.fantasycalc.com/dynasty-rankings.  The API
@@ -1133,21 +1136,22 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # so FantasyCalc is not expected for players ranked deeper
         # than ~562.
         #
-        # FantasyCalc's standard dynasty SF crowd values natively bake
-        # in both Superflex and TE-premium pricing (the API params set
-        # numQbs=2 and the crowd is voting under TE-premium scoring),
-        # so this is a TEP-native source: only the small 1.10× nudge
-        # toward the operator's TE++ baseline applies, never the full
-        # non-TEP 1.25×.
+        # FantasyCalc's crowd values are standard Superflex (numQbs=2)
+        # but DO NOT bake in TE-premium pricing — there's no
+        # ``teBonus`` knob on the API that meaningfully tracks our
+        # TE++ league, and crowd voting on the underlying board is
+        # standard SF.  Declared ``is_tep_premium=False`` so the
+        # frontend ``settings.tepMultiplier`` boost applies to its
+        # blended contribution like Dynasty Daddy SF or FlockFantasy.
         "key": "fantasyCalc",
-        "display_name": "FantasyCalc Dynasty SF-TEP",
+        "display_name": "FantasyCalc Dynasty SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 450,
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
-        "is_tep_premium": True,
+        "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
     },
