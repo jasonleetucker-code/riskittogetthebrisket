@@ -483,5 +483,190 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         self.assertEqual(with_overlay["season"], sleeper_season)
 
 
+class TestLiveStandingsOverride(unittest.TestCase):
+    """Mid-season live-standings reshuffle: fewest fpts → slot 1,
+    second-fewest → slot 2, etc.  Validates that every slot-derived
+    field stays consistent under the override:
+
+      • originalOwner follows the new mapping (the feature itself);
+      • for untraded picks, currentOwner follows the same mapping
+        (regression test for Codex P1 #2 — otherwise untraded picks
+        get mis-flagged isTraded because only originalOwner shifted);
+      • Sleeper traded_picks key to the slot the ORIGINAL roster now
+        occupies post-reshuffle, not its historical workbook slot
+        (regression test for Codex P1 #3 — otherwise trades land on
+        the wrong slot once standings diverge from draft order).
+    """
+
+    def _stub_urlopen(self, url_to_payload):
+        return TestSleeperTradeOverlay._stub_urlopen(self, url_to_payload)
+
+    def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None):
+        """Mocked Sleeper fixture with explicit per-roster fpts so the
+        live-standings override fires.
+
+        ``fpts_by_rid`` maps roster_id (1..N) → integer fpts.  At
+        least one entry must be > 0 to trigger the override.
+        ``trades`` is an optional list of
+        ``{"round": int, "original_rid": int, "new_rid": int}``
+        entries that get rendered into /traded_picks.
+
+        Returns ``(url_map, workbook_picks, slot_to_original,
+        first_name_by_rid)`` or None when the workbook is
+        unavailable.
+        """
+        _, workbook_picks, slot_to_original, _, _, _ = _load()
+        if not workbook_picks or not slot_to_original:
+            return None
+
+        rosters, users = [], []
+        slot_to_roster: dict[str, int] = {}
+        first_name_by_rid: dict[int, str] = {}
+        for slot, first_name in slot_to_original.items():
+            rid = int(slot)
+            owner_uid = f"u{rid}"
+            settings = {
+                "fpts": int(fpts_by_rid.get(rid, 0)),
+                "fpts_decimal": 0,
+            }
+            rosters.append({
+                "roster_id": rid,
+                "owner_id": owner_uid,
+                "settings": settings,
+            })
+            users.append({
+                "user_id": owner_uid,
+                "display_name": f"Team-{first_name}",
+                "metadata": {},
+            })
+            slot_to_roster[str(slot)] = rid
+            first_name_by_rid[rid] = first_name
+
+        drafts = [{"draft_id": "D1", "season": draft_season}]
+        draft_detail = {"slot_to_roster_id": slot_to_roster}
+        traded_picks_payload = []
+        for t in (trades or []):
+            traded_picks_payload.append({
+                "season": draft_season,
+                "round": t["round"],
+                "roster_id": t["original_rid"],
+                "owner_id": t["new_rid"],
+                "previous_owner_id": t["original_rid"],
+            })
+
+        url_map: dict[str, object] = {
+            "/rosters": rosters,
+            "/users": users,
+            "/drafts": drafts,
+            "/traded_picks": traded_picks_payload,
+            "/draft/D1": draft_detail,
+            "__LEAGUE_META__": {"season": str(draft_season)},
+        }
+        return url_map, workbook_picks, slot_to_original, first_name_by_rid
+
+    def _run(self, draft_season, **fixture_kwargs):
+        import server
+        fixture = self._build_fixture(draft_season, **fixture_kwargs)
+        if fixture is None:
+            return None
+        url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
+        with patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            return None
+        return result, workbook_picks, slot_to_original, first_name_by_rid
+
+    def test_untraded_pick_does_not_get_misflagged_isTraded(self):
+        """Codex P1: when standings reshuffle the slot order, an
+        untraded pick must keep originalOwner == currentOwner.  Pre-
+        fix, currentOwner stayed bound to the workbook's
+        pre-reshuffle slot owner while originalOwner shifted, so
+        every untraded pick read ``isTraded: true`` mid-season.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # Reverse the standings: roster 12 fewest points → slot 1,
+        # roster 11 next → slot 2, ..., roster 1 most → slot 12.
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        run = self._run(season, fpts_by_rid=fpts, trades=[])
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        # With no trades at all, every pick must report
+        # originalOwner == currentOwner (regardless of which slot
+        # the live reshuffle moved each team to).
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged as traded after live-standings reshuffle"
+        )
+
+    def test_traded_pick_follows_original_roster_to_its_new_slot(self):
+        """Codex P1: Sleeper traded_picks must key to the slot the
+        original roster occupies AFTER the live-standings reshuffle.
+        Pre-fix, the override map used the historical draft slot, so
+        a trade by roster X (workbook slot 5) landed on whatever
+        roster the reshuffle now placed in slot 5 — corrupting an
+        unrelated pick's currentOwner and leaving X's actual pick
+        untouched.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # Same reversed standings: rid r → slot (13 - r).
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Trade: roster 1's round-1 pick goes to roster 5.  After
+        # the reshuffle, roster 1 has the MOST points so it occupies
+        # workbook slot 12; roster 12 has the FEWEST and occupies
+        # slot 1; roster 5 sits in slot 8.  Recipient is roster 5
+        # (not roster 12) so the assertions discriminate pre-fix
+        # behavior — pre-fix keyed the override at the historical
+        # slot 1, which post-reshuffle is roster 12's pick, leaving
+        # both slot 1 and slot 12 with wrong currentOwners.
+        trades = [{"round": 1, "original_rid": 1, "new_rid": 5}]
+        run = self._run(season, fpts_by_rid=fpts, trades=trades)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        rid_1_team = f"Team-{first_name_by_rid[1]}"
+        rid_5_team = f"Team-{first_name_by_rid[5]}"
+        rid_12_team = f"Team-{first_name_by_rid[12]}"
+
+        # Roster 1's pick lands at slot 12 after the reshuffle:
+        # originalOwner = Team-1, currentOwner = Team-5, isTraded.
+        # Pre-fix this row would have shown currentOwner = Team-12
+        # (workbook static for slot 12, no override applied) because
+        # the override mis-keyed to slot 1.
+        traded_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.12"),
+            None,
+        )
+        self.assertIsNotNone(traded_pick, "Expected pick 1.12 in result")
+        self.assertEqual(traded_pick["originalOwner"], rid_1_team)
+        self.assertEqual(traded_pick["currentOwner"], rid_5_team)
+        self.assertTrue(traded_pick["isTraded"])
+
+        # Slot 1 (now occupied by roster 12) had NO trade, so it
+        # must read as untraded with currentOwner = Team-12.  Pre-
+        # fix the misapplied override would have set currentOwner =
+        # Team-5 (the new owner from roster 1's trade), corrupting
+        # this unrelated pick.
+        slot1_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.01"),
+            None,
+        )
+        self.assertIsNotNone(slot1_pick, "Expected pick 1.01 in result")
+        self.assertEqual(slot1_pick["originalOwner"], rid_12_team)
+        self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
+        self.assertFalse(slot1_pick["isTraded"])
+
+
 if __name__ == "__main__":
     unittest.main()
