@@ -184,6 +184,9 @@ jobs:
           # Fetch Dynasty Daddy SF rankings
           run_fetcher dynastyDaddy:dynastyDaddySf "Dynasty Daddy" python scripts/fetch_dynasty_daddy.py --mirror-data-dir
 
+          # Fetch FantasyCalc dynasty SF + TEP rankings (public JSON API)
+          run_fetcher fantasyCalc "FantasyCalc" python scripts/fetch_fantasycalc.py --mirror-data-dir
+
           # Fetch Flock Fantasy SF rankings
           run_fetcher flockFantasy:flockFantasySf "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
 
