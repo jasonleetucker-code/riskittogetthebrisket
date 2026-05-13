@@ -501,7 +501,8 @@ class TestLiveStandingsOverride(unittest.TestCase):
     def _stub_urlopen(self, url_to_payload):
         return TestSleeperTradeOverlay._stub_urlopen(self, url_to_payload)
 
-    def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None):
+    def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
+                       empty_draft_detail=False):
         """Mocked Sleeper fixture with explicit per-roster fpts so the
         live-standings override fires.
 
@@ -510,6 +511,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
         ``trades`` is an optional list of
         ``{"round": int, "original_rid": int, "new_rid": int}``
         entries that get rendered into /traded_picks.
+        ``empty_draft_detail`` returns a draft payload with no
+        ``slot_to_roster_id`` / ``draft_order`` keys so server-side
+        ``slot_to_roster`` stays empty — simulates the regression
+        Codex flagged where live fpts exists but Sleeper's draft
+        endpoint can't supply a slot↔roster bridge.
 
         Returns ``(url_map, workbook_picks, slot_to_original,
         first_name_by_rid)`` or None when the workbook is
@@ -543,7 +549,10 @@ class TestLiveStandingsOverride(unittest.TestCase):
             first_name_by_rid[rid] = first_name
 
         drafts = [{"draft_id": "D1", "season": draft_season}]
-        draft_detail = {"slot_to_roster_id": slot_to_roster}
+        if empty_draft_detail:
+            draft_detail: dict[str, object] = {}
+        else:
+            draft_detail = {"slot_to_roster_id": slot_to_roster}
         traded_picks_payload = []
         for t in (trades or []):
             traded_picks_payload.append({
@@ -666,6 +675,40 @@ class TestLiveStandingsOverride(unittest.TestCase):
         self.assertEqual(slot1_pick["originalOwner"], rid_12_team)
         self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
         self.assertFalse(slot1_pick["isTraded"])
+
+
+    def test_live_override_skipped_when_slot_to_roster_empty(self):
+        """Codex P1: when live fpts data is present but Sleeper's
+        ``/draft/{id}`` endpoint returns an empty payload (no
+        ``slot_to_roster_id`` / ``draft_order``), the
+        live-standings override must NOT fire.  Without the slot↔
+        roster bridge, ``roster_id_to_first_name`` stays empty and
+        the picks loop can't remap ``owner_first`` to match the
+        reshuffled origin — every untraded pick would otherwise
+        read ``isTraded: true``.  Falling back to the workbook
+        ordering in that case preserves correctness.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        empty_draft_detail=True)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        # With slot_to_roster empty, the override must be skipped and
+        # the workbook's slot ordering preserved.  Untraded picks
+        # must keep originalOwner == currentOwner.
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded when slot_to_roster was empty "
+            "(live-standings override should have been gated off)",
+        )
 
 
 if __name__ == "__main__":
