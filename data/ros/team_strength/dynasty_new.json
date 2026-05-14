@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Linked And Locked In",
-    "teamRosStrength": 324.83,
+    "teamRosStrength": 325.04,
     "startingLineupScore": 405.25,
-    "benchDepthScore": 128.04,
+    "benchDepthScore": 129.21,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -912,20 +912,20 @@
         "depthContribution": 12.87
       },
       {
+        "playerId": "10213",
+        "canonicalName": "tre tucker",
+        "position": "WR",
+        "rosValue": 19.68,
+        "depthFactor": 0.423,
+        "depthContribution": 8.31
+      },
+      {
         "playerId": "13417",
         "canonicalName": "dezhaun stribling",
         "position": "WR",
         "rosValue": 15.99,
-        "depthFactor": 0.423,
-        "depthContribution": 6.76
-      },
-      {
-        "playerId": "12524",
-        "canonicalName": "shedeur sanders",
-        "position": "QB",
-        "rosValue": 15.81,
-        "depthFactor": 0.303,
-        "depthContribution": 4.78
+        "depthFactor": 0.275,
+        "depthContribution": 4.39
       }
     ],
     "unfilledSlots": [],
