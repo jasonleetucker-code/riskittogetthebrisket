@@ -1,54 +1,54 @@
 {
-  "computedAt": "2026-05-14T11:08:07.011141+00:00",
+  "computedAt": "2026-05-14T15:15:29.347270+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "JasonLeeTucker",
-      "championshipOdds": 0.4057,
-      "finalsOdds": 0.5021,
-      "semifinalOdds": 0.5034,
+      "championshipOdds": 0.409,
+      "finalsOdds": 0.495,
+      "semifinalOdds": 0.4963,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.58,
+      "expectedFinish": 3.61,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "jcardsjr",
-      "championshipOdds": 0.3955,
-      "finalsOdds": 0.4946,
-      "semifinalOdds": 0.4966,
+      "championshipOdds": 0.3966,
+      "finalsOdds": 0.4999,
+      "semifinalOdds": 0.5037,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.62,
+      "expectedFinish": 3.59,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "EricLeeC",
-      "championshipOdds": 0.1546,
-      "finalsOdds": 0.6688,
+      "championshipOdds": 0.1518,
+      "finalsOdds": 0.6736,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.18,
+      "expectedFinish": 2.17,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKaylaChristy",
-      "championshipOdds": 0.0441,
-      "finalsOdds": 0.3312,
+      "championshipOdds": 0.0424,
+      "finalsOdds": 0.3264,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.62,
+      "expectedFinish": 2.63,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "TyBWell",
-      "championshipOdds": 0.0001,
-      "finalsOdds": 0.0033,
+      "championshipOdds": 0.0002,
+      "finalsOdds": 0.0051,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.0,
+      "expectedFinish": 2.99,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
