@@ -5408,11 +5408,27 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             for rid, pts in roster_fppts.items()
             if int(rid) in _bridged_rids
         }
+        # Codex P1: a pure count gate (``len(slot_to_roster) >=
+        # len(slot_to_original)``) still activates when Sleeper's
+        # ``slot_to_roster_id`` has enough entries but keyed on slots
+        # that don't cover the workbook's slot set (e.g. 12 entries
+        # keyed 1..10,13,14 against a 1..12 workbook).  The
+        # ``slot_to_original`` ↔ ``slot_to_roster`` join below then
+        # leaves the uncovered workbook slots' rosters out of
+        # ``roster_id_to_first_name``, so originalOwner (live mapping)
+        # and currentOwner (stale workbook fallback) disagree and
+        # untraded picks at those slots read isTraded=false with
+        # originalOwner != currentOwner.  Require the workbook slot
+        # set to be a SUBSET of the bridged slot keys — that
+        # guarantees every workbook slot joins and the first-name
+        # bridge is complete for every roster the reshuffle can place.
+        _workbook_slots: set[int] = {int(s) for s in slot_to_original}
+        _bridged_slot_keys: set[int] = {int(s) for s in slot_to_roster}
         live_standings_active = (
             any(v > 0 for v in _bridged_fppts.values())
-            and len(slot_to_roster) >= len(slot_to_original)
-            and len(_bridged_fppts) >= len(slot_to_original)
             and bool(slot_to_original)
+            and _workbook_slots.issubset(_bridged_slot_keys)
+            and len(_bridged_fppts) >= len(slot_to_original)
         )
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
         if live_standings_active:

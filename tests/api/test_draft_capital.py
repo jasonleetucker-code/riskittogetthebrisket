@@ -504,6 +504,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
     def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
                        empty_draft_detail=False,
                        drop_slots_from_draft_detail=None,
+                       remap_slot_keys=None,
                        extra_unbridged_rosters=None):
         """Mocked Sleeper fixture with explicit per-roster fpts so the
         live-standings override fires.
@@ -584,6 +585,14 @@ class TestLiveStandingsOverride(unittest.TestCase):
             partial_map = dict(slot_to_roster)
             for s in (drop_slots_from_draft_detail or ()):
                 partial_map.pop(str(s), None)
+            # ``remap_slot_keys`` rewrites slot KEYS to out-of-range
+            # values WITHOUT changing the entry count — simulates
+            # Sleeper returning a full-size slot_to_roster_id map that
+            # nonetheless doesn't cover the workbook's slot set (Codex
+            # P1: a count-only gate would still activate here).
+            for old_s, new_s in (remap_slot_keys or {}).items():
+                if str(old_s) in partial_map:
+                    partial_map[str(new_s)] = partial_map.pop(str(old_s))
             draft_detail = {"slot_to_roster_id": partial_map}
         traded_picks_payload = []
         for t in (trades or []):
@@ -869,6 +878,40 @@ class TestLiveStandingsOverride(unittest.TestCase):
             misflagged, [],
             "Untraded picks were flagged traded when slot_to_roster was empty "
             "(live-standings override should have been gated off)",
+        )
+
+    def test_live_override_skipped_when_slot_keys_dont_cover_workbook(self):
+        """Codex P1 follow-up: a full-size ``slot_to_roster_id`` whose
+        KEYS don't cover the workbook slot set must not enable the
+        override.  Pre-fix the gate only compared counts
+        (``len(slot_to_roster) >= len(slot_to_original)``), so a
+        12-entry map keyed e.g. 1..10,101,102 against a 1..12 workbook
+        passed the gate while workbook slots 11/12 had no roster
+        bridge — leaving roster_id_to_first_name incomplete and
+        producing rows where originalOwner (live) != currentOwner
+        (stale workbook) on untraded picks.  The gate now requires
+        the workbook slot set to be a subset of the bridged slot
+        keys; partial coverage falls back to the workbook ordering.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Same entry count (12) but slots 11 & 12 re-keyed to
+        # out-of-range 101/102 so they no longer cover the workbook.
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        remap_slot_keys={11: 101, 12: 102})
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks mis-flagged when slot_to_roster keys did not "
+            "cover the workbook slot set (count-only gate regression)",
         )
 
     def test_isTraded_correct_when_two_rosters_share_workbook_first_name(self):
