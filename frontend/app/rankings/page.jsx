@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES, getRetailLabel, siteOverridesAreCustomized } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
@@ -425,8 +425,39 @@ function CustomMixBadge({ rankingsOverride }) {
 
 export default function RankingsPage() {
   const { loading, error, source, rows, rawData } = useDynastyData();
-  const { settings, update: updateSetting } = useSettings();
+  const { settings, update: updateSetting, updateSiteWeight, resetSiteWeights } = useSettings();
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [sourcesMenuOpen, setSourcesMenuOpen] = useState(false);
+  // Per-source blend inclusion.  ``siteWeights[key].include === false``
+  // removes a source from the average; anything else keeps it in.
+  // useDynastyData already observes ``settings.siteWeights`` and
+  // re-fetches through POST /api/rankings/overrides, which filters
+  // disabled sources in _compute_unified_rankings — so flipping a
+  // checkbox here transparently rebuilds the blend with no extra
+  // wiring and no parallel ranking path.
+  const siteWeights = settings.siteWeights || {};
+  const includedSourceKeys = useMemo(
+    () =>
+      RANKING_SOURCES.filter(
+        (s) => siteWeights[s.key]?.include !== false,
+      ).map((s) => s.key),
+    [siteWeights],
+  );
+  const excludedSourceCount = RANKING_SOURCES.length - includedSourceKeys.length;
+  // Reset clears BOTH exclusions and custom weights, so its enabled
+  // state must track any override — not just excluded sources — or a
+  // weights-only customization (set on /settings) can't be cleared
+  // here even though the tooltip promises it (Codex PR #438 P2).
+  const hasSourceOverrides = useMemo(
+    () => siteOverridesAreCustomized(siteWeights),
+    [siteWeights],
+  );
+  const toggleSourceIncluded = useCallback(
+    (key, included) => {
+      updateSiteWeight(key, "include", included);
+    },
+    [updateSiteWeight],
+  );
   const hiddenSiteCols = settings.hiddenSiteCols || {};
   const visibleSources = useMemo(
     () => RANKING_SOURCES.filter((s) => !hiddenSiteCols[s.key]),
@@ -886,6 +917,96 @@ export default function RankingsPage() {
           <button className="button" onClick={exportCsv} title="Download the current rows as a CSV file">
             Export CSV
           </button>
+          {/* Sources toggle — opens an inline popover with one
+              checkbox per ranking source.  Unchecking a source writes
+              ``siteWeights[key].include = false``; useDynastyData
+              re-fetches through the override pipeline so the source
+              drops out of the blended average.  Distinct from the
+              Columns popover, which only controls per-source column
+              VISIBILITY (display), not blend membership (math). */}
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <button
+              className="button"
+              onClick={() => setSourcesMenuOpen((v) => !v)}
+              title="Choose which sources are factored into the blended rankings"
+            >
+              Sources
+              {excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
+            </button>
+            {sourcesMenuOpen && (
+              <div
+                className="rankings-columns-popover"
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  right: 0,
+                  minWidth: 280,
+                  maxHeight: 420,
+                  overflowY: "auto",
+                  background: "var(--panel-bg, #1a1e2a)",
+                  border: "1px solid var(--border, #2e3442)",
+                  borderRadius: 6,
+                  padding: "8px 12px",
+                  fontSize: "0.85rem",
+                  zIndex: 30,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <strong>Sources in blend</strong>
+                  <button
+                    className="button button-small"
+                    onClick={resetSiteWeights}
+                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                    title="Re-include every source and clear custom weights"
+                    disabled={!hasSourceOverrides}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <p className="muted" style={{ fontSize: "0.72rem", margin: "0 0 6px" }}>
+                  Unchecking a source removes it from the blended average.
+                </p>
+                {RANKING_SOURCES.map((src) => {
+                  const included = siteWeights[src.key]?.include !== false;
+                  // Never let the user disable the last source — the
+                  // blend needs at least one. Disable the final
+                  // remaining checkbox rather than silently ignoring.
+                  const isLastIncluded =
+                    included && includedSourceKeys.length === 1;
+                  return (
+                    <label
+                      key={src.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 0",
+                        cursor: isLastIncluded ? "not-allowed" : "pointer",
+                        opacity: isLastIncluded ? 0.6 : 1,
+                      }}
+                      title={
+                        isLastIncluded
+                          ? "At least one source must stay in the blend"
+                          : undefined
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={included}
+                        disabled={isLastIncluded}
+                        onChange={(e) =>
+                          toggleSourceIncluded(src.key, e.target.checked)
+                        }
+                      />
+                      <span>{src.columnLabel}</span>
+                      <span className="muted" style={{ marginLeft: "auto", fontSize: "0.72rem" }}>{src.displayName}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {/* Columns toggle — opens an inline popover with a master
               on/off for the per-source columns plus one checkbox per
               source so the user can hide clutter from sources they
