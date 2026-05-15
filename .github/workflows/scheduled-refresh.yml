@@ -343,7 +343,19 @@ jobs:
             echo "No stamps changed"
           else
             git commit -m "chore: freshness stamps $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git pull --rebase origin main
+            # ``--autostash`` is load-bearing here: on the failure
+            # path that this step is meant to recover from, the
+            # workspace still has unstaged tracked CSV/export
+            # changes from the partially-completed scrape.  A plain
+            # ``git pull --rebase`` refuses to start with unstaged
+            # tracked changes ("cannot pull with rebase: You have
+            # unstaged changes") and the stamp commit would never
+            # get pushed, defeating the whole stamps-survive-failure
+            # contract.  Autostash stashes the working tree before
+            # the rebase and pops it after, leaving the CSV churn
+            # in place for the next step (Commit updated data) to
+            # find.
+            git pull --rebase --autostash origin main
             git push
           fi
 
@@ -358,7 +370,11 @@ jobs:
             echo "No data changes to commit"
           else
             git commit -m "chore: automated data refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git pull --rebase origin main
+            # ``--autostash`` mirrors the Persist freshness stamps
+            # step above so this pull also tolerates any working-tree
+            # leftovers (e.g. uncommitted ROS scrape outputs that
+            # didn't match the staged paths).
+            git pull --rebase --autostash origin main
             git push
           fi
 
