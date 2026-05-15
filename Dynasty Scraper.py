@@ -62,6 +62,7 @@ if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
+from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
 
 try:
     from src.scoring import (
@@ -761,10 +762,7 @@ def fetch_sleeper_rosters(league_id):
         users_resp.raise_for_status()
         for u in users_resp.json():
             uid = u.get("user_id")
-            name = (u.get("metadata", {}).get("team_name")
-                    or u.get("display_name")
-                    or f"Team {uid}")
-            user_map[uid] = name
+            user_map[uid] = _owner_label(u) or f"Team {uid}"
     except Exception:
         pass
 
@@ -1163,10 +1161,7 @@ def fetch_sleeper_rosters(league_id):
                     l_users = l_users_json if isinstance(l_users_json, list) else []
                     for u in l_users:
                         uid = u.get("user_id")
-                        name = (u.get("metadata", {}).get("team_name")
-                                or u.get("display_name")
-                                or f"Team {uid}")
-                        l_user_map[uid] = name
+                        l_user_map[uid] = _owner_label(u) or f"Team {uid}"
                 for r in l_rosters:
                     rid = r.get("roster_id")
                     oid = r.get("owner_id", "")

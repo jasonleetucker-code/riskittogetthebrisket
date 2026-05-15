@@ -117,6 +117,26 @@ export function buildOwnerByName(sleeperTeams) {
   return out;
 }
 
+/**
+ * Build a Map<normalizedName, team> mapping each rostered player to the
+ * full team object (name, ownerId, players, roster_id).  Sibling to
+ * ``buildOwnerByName`` — kept separate so existing callers of that
+ * helper keep their lightweight string return.  Used by PlayerPopup to
+ * surface owner + franchise-page link + position depth chart.
+ */
+export function buildTeamByPlayer(sleeperTeams) {
+  const out = new Map();
+  if (!Array.isArray(sleeperTeams)) return out;
+  for (const t of sleeperTeams) {
+    const players = Array.isArray(t?.players) ? t.players : [];
+    for (const name of players) {
+      const norm = normalizeName(name);
+      if (norm && !out.has(norm)) out.set(norm, t);
+    }
+  }
+  return out;
+}
+
 // ── Internal helpers ────────────────────────────────────────────────────
 
 function rowValue(row) {
