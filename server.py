@@ -5176,6 +5176,28 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # (round, slot) → new-owner first name from Sleeper traded_picks.
     # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
+    # Parallel to ``sleeper_trade_overrides`` but carrying the stable
+    # roster_id of the pick's new owner.  ``isTraded`` keys off this
+    # instead of round-tripping the new owner's first name back
+    # through ``first_name_to_rid`` — that reverse map is ambiguous
+    # whenever two rosters share a workbook first name (Codex P1:
+    # ``first_name_to_rid.setdefault`` silently keeps only the first
+    # roster, so the other roster's traded picks resolve to the
+    # wrong id and isTraded flips).
+    sleeper_trade_override_rids: dict[tuple[int, int], int] = {}
+    # slot → display name for the team originally assigned that slot.
+    # Populated inside the try block; overridden by live standings when
+    # at least one team has non-zero fppts for the current season.
+    roster_fppts: dict[int, float] = {}
+    slot_to_origin_display: dict[int, str] = {}
+    # ``effective_slot_to_rid``, ``live_standings_active``, and
+    # ``first_name_to_rid`` are populated inside the try block
+    # alongside the Sleeper joins; initialise them here so the
+    # picks loop below (outside the try) never NameErrors when
+    # the Sleeper fetch raises early.
+    effective_slot_to_rid: dict[int, int] = {}
+    live_standings_active: bool = False
+    first_name_to_rid: dict[str, int] = {}
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -5230,6 +5252,20 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 owner_to_roster_id[str(oid)] = rid
             roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
         all_team_names = list(roster_name_by_id.values())
+
+        for _r in rosters:
+            _rid = _r.get("roster_id")
+            if _rid is None:
+                continue
+            _settings = _r.get("settings") or {}
+            try:
+                # Sleeper exposes points-for as fpts (integer) +
+                # fpts_decimal (0-99, the sub-point decimal part).
+                _fpts_int = int(_settings.get("fpts", 0) or 0)
+                _fpts_dec = int(_settings.get("fpts_decimal", 0) or 0)
+                roster_fppts[int(_rid)] = _fpts_int + _fpts_dec / 100
+            except (TypeError, ValueError):
+                roster_fppts[int(_rid)] = 0.0
 
         drafts_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
@@ -5317,19 +5353,157 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if rid is not None and first_name:
                 first_name_to_team[str(first_name).strip()] = roster_name_by_id[rid]
 
-        # roster_id → slot (inverse of slot_to_roster) and
-        # roster_id → original-owner first name.  Both bridges are
-        # needed to translate Sleeper traded_picks (keyed by
-        # roster_id) into the workbook's (round, slot, first-name)
-        # space.
-        roster_id_to_slot: dict[int, int] = {
-            int(rid): int(slot) for slot, rid in slot_to_roster.items()
+        # ── Effective slot → roster_id mapping ──────────────────────
+        # Pre-season we trust the most-recent completed draft's
+        # slot→roster_id map (also the workbook's slot ordering).
+        # Once any team has non-zero points (= the season has
+        # started), we reorder so the team with the fewest points
+        # occupies slot 1, second-fewest slot 2, etc.
+        #
+        # This single mapping is the source of truth for EVERY
+        # slot-keyed downstream view:
+        #   • slot_to_origin_display  (originalOwner per slot)
+        #   • roster_id_to_slot       (used to key trade overrides)
+        #   • the per-slot default owner_first inside the picks loop
+        #
+        # Driving all three off the same dict prevents the desyncs
+        # Codex flagged: if standings shift mid-season, an untraded
+        # pick must NOT be reported as ``isTraded`` (currentOwner
+        # has to follow the same slot reshuffle as originalOwner),
+        # and a traded pick must follow the traded roster to its
+        # NEW slot — i.e. the override is keyed by where the
+        # original roster sits AFTER the standings shuffle, not by
+        # its historical workbook slot.
+        #
+        # Both fppts AND a complete slot_to_roster bridge are
+        # required.  ``roster_id_to_first_name`` below is built by
+        # joining ``slot_to_original`` against ``slot_to_roster``;
+        # if the bridge is empty or only partially populated, any
+        # slot whose roster isn't in the join stays unmapped and
+        # owner_first falls back to the workbook value while
+        # ``slot_to_origin_display`` still flips to live names —
+        # those slots' picks then read as ``isTraded: true``
+        # spuriously.  Require the bridge to cover at least every
+        # workbook slot before activating the override; partial
+        # coverage falls back to the workbook ordering the same
+        # way a totally-missing bridge does, preserving the
+        # invariant that an untraded pick has originalOwner ==
+        # currentOwner.
+        #
+        # Additionally, restrict the live-fpts reshuffle to the
+        # roster IDs that are actually in ``slot_to_roster`` —
+        # Sleeper sometimes exposes more rosters than the workbook
+        # tracks (expansion/inactive rosters), and pulling one of
+        # those into ``effective_slot_to_rid`` would leave the
+        # affected slot without a first_name bridge and re-trigger
+        # the isTraded false-positive on untraded picks at that
+        # slot.  Filtering to the bridged set guarantees every
+        # slot in ``effective_slot_to_rid`` has a corresponding
+        # entry in ``roster_id_to_first_name`` after the join.
+        _bridged_rids: set[int] = {
+            int(rid) for rid in slot_to_roster.values()
         }
+        _bridged_fppts: dict[int, float] = {
+            int(rid): pts
+            for rid, pts in roster_fppts.items()
+            if int(rid) in _bridged_rids
+        }
+        # Codex P1: a pure count gate (``len(slot_to_roster) >=
+        # len(slot_to_original)``) still activates when Sleeper's
+        # ``slot_to_roster_id`` has enough entries but keyed on slots
+        # that don't cover the workbook's slot set (e.g. 12 entries
+        # keyed 1..10,13,14 against a 1..12 workbook).  The
+        # ``slot_to_original`` ↔ ``slot_to_roster`` join below then
+        # leaves the uncovered workbook slots' rosters out of
+        # ``roster_id_to_first_name``, so originalOwner (live mapping)
+        # and currentOwner (stale workbook fallback) disagree and
+        # untraded picks at those slots read isTraded=false with
+        # originalOwner != currentOwner.  Require the workbook slot
+        # set to be a SUBSET of the bridged slot keys — that
+        # guarantees every workbook slot joins and the first-name
+        # bridge is complete for every roster the reshuffle can place.
+        _workbook_slots: set[int] = {int(s) for s in slot_to_original}
+        _bridged_slot_keys: set[int] = {int(s) for s in slot_to_roster}
+        live_standings_active = (
+            any(v > 0 for v in _bridged_fppts.values())
+            and bool(slot_to_original)
+            and _workbook_slots.issubset(_bridged_slot_keys)
+            and len(_bridged_fppts) >= len(slot_to_original)
+        )
+        effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
+        if live_standings_active:
+            _sorted_rids = sorted(
+                _bridged_fppts, key=lambda r: _bridged_fppts[r]
+            )
+            effective_slot_to_rid = {
+                int(i): int(rid)
+                for i, rid in enumerate(
+                    _sorted_rids[:len(slot_to_original)], start=1
+                )
+            }
+
+        # slot → display name, derived from the effective mapping.
+        for slot, rid in effective_slot_to_rid.items():
+            slot_to_origin_display[int(slot)] = roster_name_by_id.get(
+                rid, f"Team {rid}"
+            )
+        # Slots in the workbook that the effective mapping didn't
+        # cover (e.g. a 14-team workbook joined against a 12-roster
+        # Sleeper league) fall back to the workbook's first-name →
+        # team-name join.
+        for slot, fn in slot_to_original.items():
+            slot_to_origin_display.setdefault(
+                int(slot),
+                first_name_to_team.get(str(fn).strip(), str(fn).strip()),
+            )
+
+        # roster_id → slot (inverse of effective_slot_to_rid) and
+        # roster_id → workbook first-name.  Both bridges are needed
+        # to translate Sleeper traded_picks (keyed by roster_id)
+        # into the workbook's (round, slot, first-name) space.
+        #
+        # roster_id_to_slot follows ``effective_slot_to_rid`` so a
+        # traded pick is applied to the slot the original roster
+        # occupies AFTER the live-standings reshuffle — Codex P1:
+        # otherwise the override mutates the wrong slot and
+        # corrupts currentOwner for unrelated picks.
+        roster_id_to_slot: dict[int, int] = {
+            int(rid): int(slot) for slot, rid in effective_slot_to_rid.items()
+        }
+        # roster_id_to_first_name stays anchored to the HISTORICAL
+        # slot_to_roster: the workbook stamps a first_name per
+        # historical slot, and that name is a stable label per
+        # roster regardless of where standings move them.
         roster_id_to_first_name: dict[int, str] = {}
         for slot, first_name in slot_to_original.items():
             rid = slot_to_roster.get(int(slot))
             if rid is not None and first_name:
                 roster_id_to_first_name[int(rid)] = str(first_name).strip()
+        # Inverse: workbook first_name → roster_id.  Used by the
+        # picks loop to resolve currentOwner's roster_id (whether
+        # from the workbook hand-entry, the live-standings remap,
+        # or a Sleeper trade override) so isTraded can be computed
+        # against stable identifiers instead of display strings —
+        # Sleeper doesn't enforce unique ``display_name``/
+        # ``team_name`` across rosters, so a display-only compare
+        # silently hides genuine trades between two rosters that
+        # happen to share the same rendered name.
+        # Collision-aware: if two distinct rosters carry the same
+        # workbook first name, the name is NOT a usable identifier —
+        # mark it ambiguous (None) so the picks loop falls back to the
+        # safe display compare instead of silently attributing one
+        # roster's picks to the other (Codex P1: the prior
+        # ``setdefault`` kept only the first roster and mis-flagged
+        # isTraded for every duplicate-name roster's untraded picks).
+        # Common-case owner resolution (live-standings reshuffle and
+        # Sleeper trade overrides) no longer touches this map at all —
+        # those branches carry the roster_id directly.
+        first_name_to_rid: dict[str, int | None] = {}
+        for rid, fn in roster_id_to_first_name.items():
+            if fn in first_name_to_rid and first_name_to_rid[fn] != rid:
+                first_name_to_rid[fn] = None  # ambiguous → unresolvable
+            else:
+                first_name_to_rid.setdefault(fn, rid)
 
         if apply_sleeper_trades:
             try:
@@ -5359,6 +5533,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                     if original_slot is None or not new_first:
                         continue
                     sleeper_trade_overrides[(round_n, original_slot)] = new_first
+                    # Stable id for the isTraded compare — never derived
+                    # from the (ambiguous) first name.
+                    sleeper_trade_override_rids[(round_n, original_slot)] = new_rid
 
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
@@ -5394,15 +5571,71 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         val = wp["value"]
         owner_first = wp["owner"]
         origin_first = slot_to_original.get(slot, owner_first)
+        # When live standings have reshuffled the slot order, the
+        # workbook's R45:R116 owner column refers to the slot's
+        # PRE-shuffle occupant — keeping it would mis-flag untraded
+        # picks as ``isTraded`` (currentOwner ≠ originalOwner)
+        # because only originalOwner followed the reshuffle.  Reset
+        # owner_first to the roster now occupying this slot under
+        # the effective mapping; the Sleeper traded-picks override
+        # below still has the final say for actually-traded picks.
+        # ``origin_rid`` is the roster the slot's pick belongs to
+        # under the effective (post-reshuffle) mapping; an untraded
+        # pick's owner is, by definition, that same roster — so seed
+        # ``owner_rid`` from it and only move it when a trade actually
+        # reassigns the pick.  This keeps the common untraded case
+        # off the ambiguous first-name reverse map entirely.
+        origin_rid = effective_slot_to_rid.get(slot)
+        owner_rid: int | None = origin_rid
+        if live_standings_active:
+            _slot_rid = effective_slot_to_rid.get(slot)
+            if _slot_rid is not None:
+                owner_first = roster_id_to_first_name.get(
+                    _slot_rid, owner_first
+                )
+                owner_rid = _slot_rid
+        elif (
+            owner_first
+            and origin_first
+            and str(owner_first).strip() != str(origin_first).strip()
+        ):
+            # Workbook-recorded (hand-entered) trade with no live
+            # reshuffle: the only path that must resolve owner →
+            # roster_id through the name map.  ``first_name_to_rid``
+            # is collision-aware (ambiguous names map to None), so a
+            # duplicate workbook first name yields owner_rid=None and
+            # the safe display compare below — never a silent
+            # mis-attribution to the wrong roster.
+            owner_rid = first_name_to_rid.get(str(owner_first).strip())
         # Sleeper traded_picks wins over the workbook's R45:R116
         # column when both are available — Sleeper is the system of
         # record for trades, the workbook is hand-edited and lags.
+        # The new owner's roster_id comes straight from the Sleeper
+        # payload (``sleeper_trade_override_rids``), never re-derived
+        # from the new owner's first name.
         sleeper_owner = sleeper_trade_overrides.get((rnd, slot))
         if sleeper_owner:
             owner_first = sleeper_owner
+            owner_rid = sleeper_trade_override_rids.get((rnd, slot))
 
         owner_team = display(owner_first)
-        origin_team = display(origin_first)
+        origin_team = slot_to_origin_display.get(slot) or display(origin_first)
+
+        # ``isTraded`` compares stable roster_ids when both sides
+        # resolve through the workbook bridge — Sleeper doesn't
+        # enforce unique display names across rosters, so a
+        # display-string compare silently misses a trade between
+        # two rosters that happen to share the same rendered
+        # team_name/display_name.  Fall back to the display-name
+        # comparison only when an id can't be derived (e.g.
+        # pre-season + workbook-only flow where the Sleeper
+        # bridge is empty, or an ambiguous duplicate workbook
+        # first name), since that's the only correctness-
+        # preserving signal available in that path.
+        if origin_rid is not None and owner_rid is not None:
+            is_traded = origin_rid != owner_rid
+        else:
+            is_traded = origin_team != owner_team
 
         # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
         # dollar from the sheet — half-dollar precision preserved.
@@ -5425,7 +5658,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             "originalDollarValue": dollar,
             "originalOwner": origin_team,
             "currentOwner": owner_team,
-            "isTraded": str(origin_first).strip() != str(owner_first).strip(),
+            "isTraded": is_traded,
             "isExpansion": slot <= 2,
             "rookieName": None,
             "rookiePos": None,

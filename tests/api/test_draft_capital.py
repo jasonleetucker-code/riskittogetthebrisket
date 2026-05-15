@@ -483,5 +483,545 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         self.assertEqual(with_overlay["season"], sleeper_season)
 
 
+class TestLiveStandingsOverride(unittest.TestCase):
+    """Mid-season live-standings reshuffle: fewest fpts → slot 1,
+    second-fewest → slot 2, etc.  Validates that every slot-derived
+    field stays consistent under the override:
+
+      • originalOwner follows the new mapping (the feature itself);
+      • for untraded picks, currentOwner follows the same mapping
+        (regression test for Codex P1 #2 — otherwise untraded picks
+        get mis-flagged isTraded because only originalOwner shifted);
+      • Sleeper traded_picks key to the slot the ORIGINAL roster now
+        occupies post-reshuffle, not its historical workbook slot
+        (regression test for Codex P1 #3 — otherwise trades land on
+        the wrong slot once standings diverge from draft order).
+    """
+
+    def _stub_urlopen(self, url_to_payload):
+        return TestSleeperTradeOverlay._stub_urlopen(self, url_to_payload)
+
+    def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
+                       empty_draft_detail=False,
+                       drop_slots_from_draft_detail=None,
+                       remap_slot_keys=None,
+                       extra_unbridged_rosters=None):
+        """Mocked Sleeper fixture with explicit per-roster fpts so the
+        live-standings override fires.
+
+        ``fpts_by_rid`` maps roster_id (1..N) → integer fpts.  At
+        least one entry must be > 0 to trigger the override.
+        ``trades`` is an optional list of
+        ``{"round": int, "original_rid": int, "new_rid": int}``
+        entries that get rendered into /traded_picks.
+        ``empty_draft_detail`` returns a draft payload with no
+        ``slot_to_roster_id`` / ``draft_order`` keys so server-side
+        ``slot_to_roster`` stays empty — simulates Sleeper's draft
+        endpoint returning an unusable payload.
+        ``drop_slots_from_draft_detail`` is an iterable of slot
+        numbers to OMIT from the ``slot_to_roster_id`` mapping —
+        simulates a partial draft payload (some slots present, some
+        missing) that the Codex P1 follow-up flagged.
+        ``extra_unbridged_rosters`` is an iterable of
+        ``(rid, fpts)`` tuples to append to ``/rosters`` WITHOUT
+        adding them to the draft slot_to_roster_id map — simulates
+        the Codex regression where Sleeper exposes more rosters
+        than the workbook bridges (expansion / inactive), and a
+        low-scoring extra would otherwise hijack slot 1 in the
+        reshuffle.
+
+        Returns ``(url_map, workbook_picks, slot_to_original,
+        first_name_by_rid)`` or None when the workbook is
+        unavailable.
+        """
+        _, workbook_picks, slot_to_original, _, _, _ = _load()
+        if not workbook_picks or not slot_to_original:
+            return None
+
+        rosters, users = [], []
+        slot_to_roster: dict[str, int] = {}
+        first_name_by_rid: dict[int, str] = {}
+        for slot, first_name in slot_to_original.items():
+            rid = int(slot)
+            owner_uid = f"u{rid}"
+            settings = {
+                "fpts": int(fpts_by_rid.get(rid, 0)),
+                "fpts_decimal": 0,
+            }
+            rosters.append({
+                "roster_id": rid,
+                "owner_id": owner_uid,
+                "settings": settings,
+            })
+            users.append({
+                "user_id": owner_uid,
+                "display_name": f"Team-{first_name}",
+                "metadata": {},
+            })
+            slot_to_roster[str(slot)] = rid
+            first_name_by_rid[rid] = first_name
+
+        # Append any "extra" Sleeper rosters that the workbook
+        # doesn't bridge.  These get a real /rosters entry (so they
+        # show up in roster_fppts) but are intentionally absent
+        # from the slot_to_roster_id draft map.
+        for rid, fpts in (extra_unbridged_rosters or ()):
+            owner_uid = f"u{rid}"
+            rosters.append({
+                "roster_id": int(rid),
+                "owner_id": owner_uid,
+                "settings": {"fpts": int(fpts), "fpts_decimal": 0},
+            })
+            users.append({
+                "user_id": owner_uid,
+                "display_name": f"Extra-{rid}",
+                "metadata": {},
+            })
+
+        drafts = [{"draft_id": "D1", "season": draft_season}]
+        if empty_draft_detail:
+            draft_detail: dict[str, object] = {}
+        else:
+            partial_map = dict(slot_to_roster)
+            for s in (drop_slots_from_draft_detail or ()):
+                partial_map.pop(str(s), None)
+            # ``remap_slot_keys`` rewrites slot KEYS to out-of-range
+            # values WITHOUT changing the entry count — simulates
+            # Sleeper returning a full-size slot_to_roster_id map that
+            # nonetheless doesn't cover the workbook's slot set (Codex
+            # P1: a count-only gate would still activate here).
+            for old_s, new_s in (remap_slot_keys or {}).items():
+                if str(old_s) in partial_map:
+                    partial_map[str(new_s)] = partial_map.pop(str(old_s))
+            draft_detail = {"slot_to_roster_id": partial_map}
+        traded_picks_payload = []
+        for t in (trades or []):
+            traded_picks_payload.append({
+                "season": draft_season,
+                "round": t["round"],
+                "roster_id": t["original_rid"],
+                "owner_id": t["new_rid"],
+                "previous_owner_id": t["original_rid"],
+            })
+
+        url_map: dict[str, object] = {
+            "/rosters": rosters,
+            "/users": users,
+            "/drafts": drafts,
+            "/traded_picks": traded_picks_payload,
+            "/draft/D1": draft_detail,
+            "__LEAGUE_META__": {"season": str(draft_season)},
+        }
+        return url_map, workbook_picks, slot_to_original, first_name_by_rid
+
+    def _run(self, draft_season, **fixture_kwargs):
+        import server
+        fixture = self._build_fixture(draft_season, **fixture_kwargs)
+        if fixture is None:
+            return None
+        url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
+        with patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            return None
+        return result, workbook_picks, slot_to_original, first_name_by_rid
+
+    def test_untraded_pick_does_not_get_misflagged_isTraded(self):
+        """Codex P1: when standings reshuffle the slot order, an
+        untraded pick must keep originalOwner == currentOwner.  Pre-
+        fix, currentOwner stayed bound to the workbook's
+        pre-reshuffle slot owner while originalOwner shifted, so
+        every untraded pick read ``isTraded: true`` mid-season.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # Reverse the standings: roster 12 fewest points → slot 1,
+        # roster 11 next → slot 2, ..., roster 1 most → slot 12.
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        run = self._run(season, fpts_by_rid=fpts, trades=[])
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        # With no trades at all, every pick must report
+        # originalOwner == currentOwner (regardless of which slot
+        # the live reshuffle moved each team to).
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged as traded after live-standings reshuffle"
+        )
+
+    def test_traded_pick_follows_original_roster_to_its_new_slot(self):
+        """Codex P1: Sleeper traded_picks must key to the slot the
+        original roster occupies AFTER the live-standings reshuffle.
+        Pre-fix, the override map used the historical draft slot, so
+        a trade by roster X (workbook slot 5) landed on whatever
+        roster the reshuffle now placed in slot 5 — corrupting an
+        unrelated pick's currentOwner and leaving X's actual pick
+        untouched.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # Same reversed standings: rid r → slot (13 - r).
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Trade: roster 1's round-1 pick goes to roster 5.  After
+        # the reshuffle, roster 1 has the MOST points so it occupies
+        # workbook slot 12; roster 12 has the FEWEST and occupies
+        # slot 1; roster 5 sits in slot 8.  Recipient is roster 5
+        # (not roster 12) so the assertions discriminate pre-fix
+        # behavior — pre-fix keyed the override at the historical
+        # slot 1, which post-reshuffle is roster 12's pick, leaving
+        # both slot 1 and slot 12 with wrong currentOwners.
+        trades = [{"round": 1, "original_rid": 1, "new_rid": 5}]
+        run = self._run(season, fpts_by_rid=fpts, trades=trades)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        rid_1_team = f"Team-{first_name_by_rid[1]}"
+        rid_5_team = f"Team-{first_name_by_rid[5]}"
+        rid_12_team = f"Team-{first_name_by_rid[12]}"
+
+        # Roster 1's pick lands at slot 12 after the reshuffle:
+        # originalOwner = Team-1, currentOwner = Team-5, isTraded.
+        # Pre-fix this row would have shown currentOwner = Team-12
+        # (workbook static for slot 12, no override applied) because
+        # the override mis-keyed to slot 1.
+        traded_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.12"),
+            None,
+        )
+        self.assertIsNotNone(traded_pick, "Expected pick 1.12 in result")
+        self.assertEqual(traded_pick["originalOwner"], rid_1_team)
+        self.assertEqual(traded_pick["currentOwner"], rid_5_team)
+        self.assertTrue(traded_pick["isTraded"])
+
+        # Slot 1 (now occupied by roster 12) had NO trade, so it
+        # must read as untraded with currentOwner = Team-12.  Pre-
+        # fix the misapplied override would have set currentOwner =
+        # Team-5 (the new owner from roster 1's trade), corrupting
+        # this unrelated pick.
+        slot1_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.01"),
+            None,
+        )
+        self.assertIsNotNone(slot1_pick, "Expected pick 1.01 in result")
+        self.assertEqual(slot1_pick["originalOwner"], rid_12_team)
+        self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
+        self.assertFalse(slot1_pick["isTraded"])
+
+
+    def test_traded_pick_detected_when_two_rosters_share_display_name(self):
+        """Codex P2: ``isTraded`` must use stable roster_ids, not the
+        rendered display names.  Sleeper doesn't enforce unique
+        ``team_name`` / ``display_name``, and a display-only compare
+        would silently mark a real trade as untraded when both rosters
+        render to the same string.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # No fpts → live override doesn't fire; this exercises the
+        # workbook + Sleeper trade overlay path where the display-only
+        # comparison was the pre-fix isTraded source.
+        fpts = {rid: 0 for rid in range(1, 13)}
+        # Trade roster 1's R1 pick to roster 12; we'll force their
+        # display_names to match below by monkeypatching the fixture.
+        trades = [{"round": 1, "original_rid": 1, "new_rid": 12}]
+
+        # Build the fixture, then collapse both rosters' display_name
+        # onto a single shared string to simulate the duplicate-name
+        # regression.
+        fixture = self._build_fixture(season, fpts_by_rid=fpts, trades=trades)
+        if fixture is None:
+            self.skipTest("Workbook unavailable")
+        url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
+        shared_label = "Duplicate Team Name"
+        for user in url_map["/users"]:
+            if user["user_id"] in ("u1", "u12"):
+                user["display_name"] = shared_label
+
+        import server
+        with patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            self.skipTest(f"Unavailable: {result['error']}")
+
+        # The pick at roster 1's slot (workbook slot 1, since live
+        # override is off) should report the trade.  Both sides now
+        # render to ``shared_label``, but the roster_ids differ —
+        # post-fix isTraded must still be True.
+        traded_pick = next(
+            (p for p in result["picks"] if p["pick"] == "1.01"),
+            None,
+        )
+        self.assertIsNotNone(traded_pick, "Expected pick 1.01 in result")
+        self.assertEqual(traded_pick["originalOwner"], shared_label)
+        self.assertEqual(traded_pick["currentOwner"], shared_label)
+        self.assertTrue(
+            traded_pick["isTraded"],
+            "Trade between two rosters with the same display name must "
+            "still be reported isTraded=True (compare roster_ids, not strings)",
+        )
+
+    def test_live_override_excludes_unbridged_extra_rosters(self):
+        """Codex P1 follow-up: when Sleeper exposes more rosters
+        than the workbook bridges (expansion / inactive rosters
+        with their own fpts), the live-fpts sort must NOT pull
+        those unbridged rosters into ``effective_slot_to_rid``.
+        Pre-fix, the reshuffle source set was all of
+        ``roster_fppts`` and a low-scoring extra would land in
+        slot 1 with no ``roster_id_to_first_name`` entry,
+        triggering the same isTraded false-positive as the
+        partial-bridge case.  The reshuffle must be restricted to
+        roster IDs in ``slot_to_roster``.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        # All 12 workbook rosters have meaningful fpts.
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Inject one "extra" Sleeper roster (rid 99) with the
+        # absolute fewest points so it would otherwise be sorted
+        # into live-slot 1 and break the bridge.
+        run = self._run(
+            season,
+            fpts_by_rid=fpts,
+            trades=[],
+            extra_unbridged_rosters=[(99, 1)],
+        )
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded when Sleeper exposed extra "
+            "unbridged rosters (live reshuffle must restrict to bridged rids)",
+        )
+        # And the extra roster's display name must never appear as an
+        # originalOwner — confirms rid 99 didn't sneak into the
+        # slot assignment.
+        owners = {p["originalOwner"] for p in result["picks"]}
+        self.assertNotIn("Extra-99", owners)
+
+    def test_live_override_skipped_on_partial_slot_to_roster(self):
+        """Codex P1 follow-up: a partial draft payload (some slots
+        missing from ``slot_to_roster_id``) leaves
+        ``roster_id_to_first_name`` incomplete, so any slot whose
+        roster isn't in the join stays unmapped at owner-remap time.
+        Pre-fix that produced ``isTraded: true`` for every untraded
+        pick at the missing slots — the override must be gated on a
+        COMPLETE bridge, not just a non-empty one.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Drop two slots from the draft detail to simulate a partial
+        # bridge (10 of 12 workbook slots covered).
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        drop_slots_from_draft_detail=[7, 8])
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded under partial slot_to_roster "
+            "coverage (live-standings override should require complete bridge)",
+        )
+
+    def test_live_override_skipped_when_slot_to_roster_empty(self):
+        """Codex P1: when live fpts data is present but Sleeper's
+        ``/draft/{id}`` endpoint returns an empty payload (no
+        ``slot_to_roster_id`` / ``draft_order``), the
+        live-standings override must NOT fire.  Without the slot↔
+        roster bridge, ``roster_id_to_first_name`` stays empty and
+        the picks loop can't remap ``owner_first`` to match the
+        reshuffled origin — every untraded pick would otherwise
+        read ``isTraded: true``.  Falling back to the workbook
+        ordering in that case preserves correctness.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        empty_draft_detail=True)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        # With slot_to_roster empty, the override must be skipped and
+        # the workbook's slot ordering preserved.  Untraded picks
+        # must keep originalOwner == currentOwner.
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks were flagged traded when slot_to_roster was empty "
+            "(live-standings override should have been gated off)",
+        )
+
+    def test_live_override_skipped_when_slot_keys_dont_cover_workbook(self):
+        """Codex P1 follow-up: a full-size ``slot_to_roster_id`` whose
+        KEYS don't cover the workbook slot set must not enable the
+        override.  Pre-fix the gate only compared counts
+        (``len(slot_to_roster) >= len(slot_to_original)``), so a
+        12-entry map keyed e.g. 1..10,101,102 against a 1..12 workbook
+        passed the gate while workbook slots 11/12 had no roster
+        bridge — leaving roster_id_to_first_name incomplete and
+        producing rows where originalOwner (live) != currentOwner
+        (stale workbook) on untraded picks.  The gate now requires
+        the workbook slot set to be a subset of the bridged slot
+        keys; partial coverage falls back to the workbook ordering.
+        """
+        from datetime import datetime, timezone
+        season = datetime.now(timezone.utc).year
+        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        # Same entry count (12) but slots 11 & 12 re-keyed to
+        # out-of-range 101/102 so they no longer cover the workbook.
+        run = self._run(season, fpts_by_rid=fpts, trades=[],
+                        remap_slot_keys={11: 101, 12: 102})
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        result, workbook_picks, slot_to_original, first_name_by_rid = run
+
+        misflagged = [
+            p for p in result["picks"]
+            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+        ]
+        self.assertEqual(
+            misflagged, [],
+            "Untraded picks mis-flagged when slot_to_roster keys did not "
+            "cover the workbook slot set (count-only gate regression)",
+        )
+
+    def test_isTraded_correct_when_two_rosters_share_workbook_first_name(self):
+        """Codex P1 (#8): two rosters carrying the same workbook first
+        name must not collapse through ``first_name_to_rid``.
+
+        Synthesises a 2-slot workbook where BOTH slots' owner first
+        name is ``"Mike"`` so the prior ``first_name_to_rid.setdefault``
+        kept only roster 1.  A Sleeper trade moves roster 1's R1 pick
+        to roster 2 (the other "Mike").
+
+        Pre-fix failure modes this locks out:
+          • the traded 1.01 pick resolved owner_rid via the collapsed
+            name map → roster 1 → ``isTraded`` False (real trade
+            silently hidden);
+          • the untraded 1.02 pick (roster 2) resolved owner_rid to
+            roster 1 → ``isTraded`` True (untraded pick mis-flagged).
+
+        Post-fix: the Sleeper override carries the new owner's
+        roster_id directly and the untraded baseline owner_rid is the
+        slot's own roster, so neither path touches the ambiguous name
+        map.
+        """
+        from datetime import datetime, timezone
+        import copy
+        import server
+
+        season = datetime.now(timezone.utc).year
+        base = server._parse_draft_data()
+        if not base or not base[1] or not base[2]:
+            self.skipTest("Workbook unavailable")
+        pick_dollars, wb_picks, slot_to_original, wb_totals, rookies, pv_l = base
+
+        # Pick two real slots and force slot ``dup_slot``'s owner first
+        # name to equal slot ``keep_slot``'s, so the workbook now has a
+        # genuine duplicate first name across two distinct rosters.
+        slots_sorted = sorted(slot_to_original)
+        keep_slot, dup_slot = slots_sorted[0], slots_sorted[1]
+        shared_first = slot_to_original[keep_slot]
+
+        slot_to_original = dict(slot_to_original)
+        slot_to_original[dup_slot] = shared_first
+        wb_picks = copy.deepcopy(wb_picks)
+        for p in wb_picks:
+            if p["pick"] == dup_slot:
+                p["owner"] = shared_first
+        mutated = (pick_dollars, wb_picks, slot_to_original,
+                   wb_totals, rookies, pv_l)
+
+        # Full 12-roster Sleeper fixture aligned to the (mutated)
+        # slot_to_original — rid == slot, distinct display names so the
+        # discriminating signal is the roster_id path, not the
+        # display-string fallback.  No fpts → live override off; this
+        # exercises the workbook + Sleeper-trade path where
+        # first_name_to_rid was the pre-fix owner_rid source.
+        rosters, users, slot_to_roster = [], [], {}
+        for slot in slot_to_original:
+            rid = int(slot)
+            rosters.append({"roster_id": rid, "owner_id": f"u{rid}",
+                             "settings": {"fpts": 0, "fpts_decimal": 0}})
+            users.append({"user_id": f"u{rid}",
+                          "display_name": f"Team-{rid}", "metadata": {}})
+            slot_to_roster[str(slot)] = rid
+        keep_rid, dup_rid = int(keep_slot), int(dup_slot)
+        url_map = {
+            "/rosters": rosters,
+            "/users": users,
+            "/drafts": [{"draft_id": "D1", "season": season}],
+            "/draft/D1": {"slot_to_roster_id": slot_to_roster},
+            # Trade keep_slot roster's round-1 pick to dup_slot roster
+            # (the other roster carrying ``shared_first``).
+            "/traded_picks": [
+                {
+                    "season": season,
+                    "round": 1,
+                    "roster_id": keep_rid,
+                    "owner_id": dup_rid,
+                    "previous_owner_id": keep_rid,
+                }
+            ],
+            "__LEAGUE_META__": {"season": str(season)},
+        }
+        with patch.object(server, "_parse_draft_data", return_value=mutated), \
+             patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            self.skipTest(f"Unavailable: {result['error']}")
+
+        by_pick = {p["pick"]: p for p in result["picks"]}
+        keep_pick = f"1.{str(keep_slot).zfill(2)}"
+        dup_pick = f"1.{str(dup_slot).zfill(2)}"
+        self.assertIn(keep_pick, by_pick)
+        self.assertIn(dup_pick, by_pick)
+        # keep_slot's R1 pick was traded to dup_slot's roster — must be
+        # flagged even though both rosters' workbook first name matches.
+        self.assertTrue(
+            by_pick[keep_pick]["isTraded"],
+            "Sleeper-traded pick hidden because both rosters share the "
+            "workbook first name (first_name_to_rid collapse)",
+        )
+        # dup_slot's own R1 pick was NOT traded — must stay unflagged.
+        self.assertFalse(
+            by_pick[dup_pick]["isTraded"],
+            "Untraded pick mis-flagged traded due to duplicate-first-name "
+            "roster_id collapse",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

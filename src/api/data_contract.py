@@ -1617,6 +1617,7 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "jaylen watson": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
     "kentrel bullock": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FootballGuys SF",
     "nahshon wright": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
+    "rahsul faison": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros+flock — deep RB only ranked by FootballGuys SF",
     "upton stout": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
     "zavion thomas": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FootballGuys SF",
     "zyon mccollum": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
