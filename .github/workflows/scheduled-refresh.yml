@@ -379,7 +379,19 @@ jobs:
           fi
 
       - name: Trigger deploy
-        if: success()
+        # ``!cancelled()`` rather than ``success()``: the Persist
+        # freshness stamps step runs and pushes a stamp commit even
+        # when Run scraper failed partway (the exact partial-failure
+        # mode this hardening targets).  Gating deploy on success()
+        # would leave production's source_health frozen on the prior
+        # deploy's timestamps while main keeps receiving stamp commits
+        # — defeating the freshness-visibility goal.  Safe because the
+        # grep guard below only dispatches when the latest pushed
+        # commit is an actual data-refresh or stamp commit, and a
+        # failed scrape never commits CSV content (Commit updated data
+        # is success()-gated), so a failure-path deploy ships fresh
+        # stamps over unchanged last-good data — never bad data.
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
