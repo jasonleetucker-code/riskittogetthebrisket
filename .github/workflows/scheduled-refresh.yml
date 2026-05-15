@@ -323,8 +323,11 @@ jobs:
         # ``lastFetched`` on the prior good commit and silently
         # stretching the 44h-stale-everywhere outage the operator
         # flagged.  Only stages ``data/scrape_state/`` — bad CSVs
-        # cannot get committed via this step.
-        if: ${{ !cancelled() }}
+        # cannot get committed via this step.  ``always() &&
+        # !cancelled()`` is explicit about the intent: ignore the
+        # implicit success() gate (we WANT to run on failure) but
+        # still skip if the operator cancelled the run.
+        if: ${{ always() && !cancelled() }}
         shell: bash
         run: |
           set -Eeuo pipefail
