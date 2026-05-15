@@ -221,6 +221,11 @@ jobs:
           # Fetch FantasyCalc dynasty SF + TEP rankings (public JSON API)
           run_fetcher fantasyCalc "FantasyCalc" python scripts/fetch_fantasycalc.py --mirror-data-dir
 
+          # Fetch OTC Fantasy Football Superflex trade-derived values
+          # (public JSON API at otcffb.com/api/trade-values?format=sf).
+          # No auth, no Playwright — see fetch_otcffb.py for details.
+          run_fetcher otcffbSf "OTCFFB SF" python scripts/fetch_otcffb.py --mirror-data-dir
+
           # Fetch Flock Fantasy SF rankings
           run_fetcher flockFantasy:flockFantasySf "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
 

@@ -118,23 +118,34 @@ export function buildOwnerByName(sleeperTeams) {
 }
 
 /**
- * Build a Map<normalizedName, team> mapping each rostered player to the
- * full team object (name, ownerId, players, roster_id).  Sibling to
- * ``buildOwnerByName`` — kept separate so existing callers of that
- * helper keep their lightweight string return.  Used by PlayerPopup to
- * surface owner + franchise-page link + position depth chart.
+ * Build dual-key indexes mapping rostered players to their full team
+ * object (name, ownerId, players, roster_id, playerIds).  Returns
+ * ``{ byId: Map<sleeperId, team>, byName: Map<normalizedName, team> }``
+ * so callers can prefer the stable Sleeper playerId — required to
+ * avoid the offense/IDP cross-universe name-collision case where two
+ * distinct players share a display name — and fall back to name when
+ * the row doesn't carry an id (legacy rows, picks, FAs).
+ *
+ * Sibling to ``buildOwnerByName`` — kept separate so that helper's
+ * lightweight string return survives for its existing callers.
  */
 export function buildTeamByPlayer(sleeperTeams) {
-  const out = new Map();
-  if (!Array.isArray(sleeperTeams)) return out;
+  const byName = new Map();
+  const byId = new Map();
+  if (!Array.isArray(sleeperTeams)) return { byId, byName };
   for (const t of sleeperTeams) {
     const players = Array.isArray(t?.players) ? t.players : [];
+    const playerIds = Array.isArray(t?.playerIds) ? t.playerIds : [];
     for (const name of players) {
       const norm = normalizeName(name);
-      if (norm && !out.has(norm)) out.set(norm, t);
+      if (norm && !byName.has(norm)) byName.set(norm, t);
+    }
+    for (const pid of playerIds) {
+      const key = String(pid || "").trim();
+      if (key && !byId.has(key)) byId.set(key, t);
     }
   }
-  return out;
+  return { byId, byName };
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────

@@ -462,7 +462,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
         # ktc + ktcSfTep + idpTradeCalc + dlfIdp + idpShow + dlfSf +
-        # dynastyNerdsSfTep + fantasyCalc + fantasyProsSf +
+        # dynastyNerdsSfTep + fantasyCalc + otcffbSf + fantasyProsSf +
         # dynastyDaddySf + fantasyProsIdp + flockFantasySf +
         # footballGuysSf + footballGuysIdp + yahooBoone +
         # fantasyProsFitzmaurice + dlfRookieSf + flockFantasySfRookies +
@@ -470,8 +470,8 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # ``ktc`` was retired from the blend 2026-04-28 in favor of
         # ``ktcSfTep`` alone (the prior 20-source count included both
         # KTC variants as separate blend votes); ``fantasyCalc`` was
-        # added 2026-05-13.
-        self.assertEqual(len(meth["sources"]), 20)
+        # added 2026-05-13; ``otcffbSf`` added 2026-05-15.
+        self.assertEqual(len(meth["sources"]), 21)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -483,6 +483,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "dlfSf",
                 "dynastyNerdsSfTep",
                 "fantasyCalc",
+                "otcffbSf",
                 "fantasyProsSf",
                 "dynastyDaddySf",
                 "fantasyProsIdp",

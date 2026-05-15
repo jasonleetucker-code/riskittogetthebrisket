@@ -350,26 +350,52 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   // popup just surfaces it.  Position rank is computed by walking the
   // team's roster, restricting to the player's position, and counting
   // how many same-position teammates outrank them on
-  // ``rankDerivedValue``.
+  // ``rankDerivedValue``.  Looks up by Sleeper playerId first (avoids
+  // the offense/IDP cross-universe name-collision case), falling back
+  // to normalized name for rows that don't carry a playerId stamp.
   const { rows: allRows, rawData } = useApp();
   const ownership = useMemo(() => {
     if (!row) return null;
     const sleeperTeams = rawData?.sleeper?.teams;
     if (!Array.isArray(sleeperTeams) || sleeperTeams.length === 0) return null;
-    const teamByPlayer = buildTeamByPlayer(sleeperTeams);
-    const team = teamByPlayer.get(normalizeName(row.name));
+    const { byId, byName } = buildTeamByPlayer(sleeperTeams);
+    const playerId = String(row.raw?.playerId || row.playerId || "").trim();
+    let team = playerId ? byId.get(playerId) : null;
+    if (!team) team = byName.get(normalizeName(row.name));
     if (!team) return null;
 
     const pos = String(row.pos || "").toUpperCase().split("/")[0];
     let positionLabel = "";
     if (pos && Array.isArray(allRows) && allRows.length > 0) {
-      const rowsByName = new Map(
-        allRows.map((r) => [normalizeName(r.name), r]),
-      );
-      const samePositionRanks = (team.players || [])
-        .map((n) => rowsByName.get(normalizeName(n)))
+      // Build both id and name indexes over the row pool so position
+      // rank uses the same identity disambiguation as the team lookup.
+      const rowsById = new Map();
+      const rowsByName = new Map();
+      for (const r of allRows) {
+        const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+        if (rid && !rowsById.has(rid)) rowsById.set(rid, r);
+        const rname = normalizeName(r?.name);
+        if (rname && !rowsByName.has(rname)) rowsByName.set(rname, r);
+      }
+      const teamPlayerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
+      const teamPlayerNames = Array.isArray(team.players) ? team.players : [];
+      const resolved = [];
+      // Prefer the id list when the team has one (newer contract); fall
+      // back to names when only the name list is present.
+      const idsToUse = teamPlayerIds.length > 0 ? teamPlayerIds : null;
+      if (idsToUse) {
+        for (const id of idsToUse) {
+          const r = rowsById.get(String(id || "").trim());
+          if (r) resolved.push(r);
+        }
+      } else {
+        for (const n of teamPlayerNames) {
+          const r = rowsByName.get(normalizeName(n));
+          if (r) resolved.push(r);
+        }
+      }
+      const samePositionRanks = resolved
         .filter((r) => {
-          if (!r) return false;
           const p = String(r.pos || "").toUpperCase().split("/")[0];
           if (p !== pos) return false;
           const v = Number(r.rankDerivedValue);
@@ -379,9 +405,14 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           (a, b) =>
             Number(b.rankDerivedValue) - Number(a.rankDerivedValue),
         );
-      const idx = samePositionRanks.findIndex(
-        (r) => normalizeName(r.name) === normalizeName(row.name),
-      );
+      const matchesRow = (r) => {
+        if (playerId) {
+          const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+          if (rid && rid === playerId) return true;
+        }
+        return normalizeName(r.name) === normalizeName(row.name);
+      };
+      const idx = samePositionRanks.findIndex(matchesRow);
       if (idx >= 0) positionLabel = `${pos}${idx + 1}`;
     }
 

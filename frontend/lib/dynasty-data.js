@@ -450,6 +450,32 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // OTC Fantasy Football Superflex trade-derived values — fetched
+    // from otcffb.com/api/trade-values?format=sf via
+    // scripts/fetch_otcffb.py.  Public JSON, no auth.  ~470 offensive
+    // players covering QB/RB/WR/TE on a 0-100 value scale derived
+    // from OTCFFB's tracked community trades.  Mirrors the backend
+    // _RANKING_SOURCES entry in src/api/data_contract.py.
+    //
+    // Standard Superflex — no TE premium baked in.  The frontend
+    // settings.tepMultiplier boost applies to its contribution like
+    // FantasyCalc / Dynasty Daddy SF / Flock Fantasy SF.
+    key: "otcffbSf",
+    displayName: "OTC Fantasy Football SF",
+    columnLabel: "OTC",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 460,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // Dynasty Daddy Superflex trade values — crowd-sourced community
     // values fetched from the public JSON API at
     // dynasty-daddy.com/api/v1/player/all/today?market=14 via
