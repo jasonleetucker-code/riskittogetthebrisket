@@ -21,6 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from src.utils.owner_names import owner_label
+
 # ── Retired owner IDs ────────────────────────────────────────────────
 # Sleeper owner_ids of former league members who have left the league
 # entirely.  Their historical aliases (team names, avatars, roster
@@ -168,12 +170,19 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
 
             user = user_by_id.get(owner_id) or {}
             metadata = user.get("metadata") or {}
+            # Historical ``team_name`` preserves the season-specific
+            # franchise label (so archived alias lists like "AAron Classic"
+            # → "Brisket Bandits" still tell the rename story).  The
+            # user-facing ``display_name`` is the owner's first name so
+            # franchise pages and manager dropdowns show the human.
             team_name = (
                 metadata.get("team_name")
                 or user.get("display_name")
                 or f"Team {rid_int if rid_int is not None else owner_id}"
             )
-            display_name = user.get("display_name") or team_name
+            display_name = (
+                owner_label(user) or user.get("display_name") or team_name
+            )
             avatar = str(user.get("avatar") or metadata.get("avatar") or "")
 
             alias = TeamAlias(

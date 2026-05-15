@@ -153,6 +153,30 @@
     },
     {
       "enabled": true,
+      "source": "OTCFFB_SF",
+      "contract_key": "otcffbSf",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "api_fetch",
+      "ingest_method": "json_api",
+      "source_url": "https://otcffb.com/api/trade-values?format=sf",
+      "scoring_context": "dynasty superflex (OTCFFB community trade-derived values)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "CSVs/site_raw/otcffbSf.csv",
+      "signal_type": "value",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 460,
+        "is_backbone": false
+      },
+      "notes": "OTC Fantasy Football SF trade-derived values via public JSON API. ~470 offensive players (QB/RB/WR/TE) on a 0-100 value scale derived from ~350k tracked community trades. Standard SF — does NOT natively price in TE premium, so the global TEP multiplier applies."
+    },
+    {
+      "enabled": true,
       "source": "FLOCK_FANTASY_SF",
       "contract_key": "flockFantasySf",
       "adapter": "scraper_bridge",

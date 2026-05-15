@@ -312,6 +312,20 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/fantasyCalc.csv",
         "signal": "value",
     },
+    # OTC Fantasy Football Superflex trade-derived values — fetched
+    # from https://otcffb.com/api/trade-values?format=sf via
+    # ``scripts/fetch_otcffb.py``.  Public JSON, no auth.  ~471
+    # offensive players with a 0-100 value scale (Bijan=100), derived
+    # from OTCFFB's tracked league trades (354k+ trades observed).
+    # Independent signal from KTC / FantasyCalc — same crowd-sourced
+    # spirit as FantasyCalc but pulled from a different community.
+    # Signal=value: the 0-100 distribution is well-spread, no display
+    # ceiling clustering.  Standard SF scoring — not TE-premium
+    # native, so the frontend ``tepMultiplier`` boost applies.
+    "otcffbSf": {
+        "path": "CSVs/site_raw/otcffbSf.csv",
+        "signal": "value",
+    },
     # Dynasty Daddy Superflex trade values — fetched from
     # https://dynasty-daddy.com/api/v1/player/all/today?market=14
     # via ``scripts/fetch_dynasty_daddy.py``.  The API returns crowd-
@@ -490,6 +504,10 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # refresh cadence, so the same 6-hour freshness budget as ktc /
     # dynastyDaddySf applies.
     "fantasyCalc": 6,
+    # OTCFFB public JSON API refreshes as community trades roll in; the
+    # scheduled fetcher runs every 2 hours so the same 6-hour budget as
+    # the other trade-derived sources applies.
+    "otcffbSf": 6,
     "flockFantasySf": 168,
     # Flock Fantasy rookie board updates as experts refresh ranks
     # through the offseason; same 1-week window as the vet board.
@@ -1148,6 +1166,31 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 450,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # OTC Fantasy Football Superflex trade-derived values — fetched
+        # from https://otcffb.com/api/trade-values?format=sf via
+        # ``scripts/fetch_otcffb.py``.  Public JSON, no auth.  ~471
+        # offensive players covering QB/RB/WR/TE with a 0-100 value
+        # scale derived from OTCFFB's tracked league trades.
+        #
+        # Conservative starting weight of 1.0 matches the other crowd-
+        # sourced trade boards (FantasyCalc, Dynasty Daddy).  depth=460
+        # reflects the typical offensive count just under playerCount.
+        # OTCFFB is standard Superflex — no TE premium baked in — so
+        # the frontend ``settings.tepMultiplier`` boost applies to its
+        # blended contribution.
+        "key": "otcffbSf",
+        "display_name": "OTC Fantasy Football SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 460,
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
@@ -4447,6 +4490,11 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     # faithfully (e.g. top WR's value vs top RB's value carries real
     # signal, not just an arbitrary cap).
     "fantasyCalc",
+    # ``otcffbSf`` carries OTCFFB's trade-derived 0-100 SF values.
+    # Same shape rationale as FantasyCalc: well-spread distribution,
+    # no top-of-curve display cap (Bijan=100, Allen=96, Gibbs=95.1
+    # cleanly differentiate), so the value-direct path is appropriate.
+    "otcffbSf",
     # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
     # were moved to the rank-signal path 2026-04-22 after the Hampel
     # audit flagged 61% / 47% / 19% drop rates respectively — all three

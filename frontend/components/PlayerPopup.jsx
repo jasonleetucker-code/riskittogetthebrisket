@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
+import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
+import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
@@ -341,6 +344,85 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   const edge = useMemo(() => (row ? getPlayerEdge(row) : null), [row]);
   const valueChain = useMemo(() => computeValueChain(row), [row]);
 
+  // ── Ownership: which team holds this player + their depth-chart slot.
+  // ``rawData.sleeper.teams[].name`` is already the owner's first name
+  // (resolved server-side via ``src/utils/owner_names.py``), so the
+  // popup just surfaces it.  Position rank is computed by walking the
+  // team's roster, restricting to the player's position, and counting
+  // how many same-position teammates outrank them on
+  // ``rankDerivedValue``.  Looks up by Sleeper playerId first (avoids
+  // the offense/IDP cross-universe name-collision case), falling back
+  // to normalized name for rows that don't carry a playerId stamp.
+  const { rows: allRows, rawData } = useApp();
+  const ownership = useMemo(() => {
+    if (!row) return null;
+    const sleeperTeams = rawData?.sleeper?.teams;
+    if (!Array.isArray(sleeperTeams) || sleeperTeams.length === 0) return null;
+    const { byId, byName } = buildTeamByPlayer(sleeperTeams);
+    const playerId = String(row.raw?.playerId || row.playerId || "").trim();
+    let team = playerId ? byId.get(playerId) : null;
+    if (!team) team = byName.get(normalizeName(row.name));
+    if (!team) return null;
+
+    const pos = String(row.pos || "").toUpperCase().split("/")[0];
+    let positionLabel = "";
+    if (pos && Array.isArray(allRows) && allRows.length > 0) {
+      // Build both id and name indexes over the row pool so position
+      // rank uses the same identity disambiguation as the team lookup.
+      const rowsById = new Map();
+      const rowsByName = new Map();
+      for (const r of allRows) {
+        const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+        if (rid && !rowsById.has(rid)) rowsById.set(rid, r);
+        const rname = normalizeName(r?.name);
+        if (rname && !rowsByName.has(rname)) rowsByName.set(rname, r);
+      }
+      const teamPlayerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
+      const teamPlayerNames = Array.isArray(team.players) ? team.players : [];
+      const resolved = [];
+      // Prefer the id list when the team has one (newer contract); fall
+      // back to names when only the name list is present.
+      const idsToUse = teamPlayerIds.length > 0 ? teamPlayerIds : null;
+      if (idsToUse) {
+        for (const id of idsToUse) {
+          const r = rowsById.get(String(id || "").trim());
+          if (r) resolved.push(r);
+        }
+      } else {
+        for (const n of teamPlayerNames) {
+          const r = rowsByName.get(normalizeName(n));
+          if (r) resolved.push(r);
+        }
+      }
+      const samePositionRanks = resolved
+        .filter((r) => {
+          const p = String(r.pos || "").toUpperCase().split("/")[0];
+          if (p !== pos) return false;
+          const v = Number(r.rankDerivedValue);
+          return Number.isFinite(v) && v > 0;
+        })
+        .sort(
+          (a, b) =>
+            Number(b.rankDerivedValue) - Number(a.rankDerivedValue),
+        );
+      const matchesRow = (r) => {
+        if (playerId) {
+          const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+          if (rid && rid === playerId) return true;
+        }
+        return normalizeName(r.name) === normalizeName(row.name);
+      };
+      const idx = samePositionRanks.findIndex(matchesRow);
+      if (idx >= 0) positionLabel = `${pos}${idx + 1}`;
+    }
+
+    return {
+      ownerId: String(team.ownerId || ""),
+      ownerLabel: String(team.name || "").trim(),
+      positionLabel,
+    };
+  }, [row, rawData, allRows]);
+
   // Injury impact lookup from the server-side signals block.
   // Only populated for roster players today — non-roster players
   // won't have impact data, and the chip simply doesn't render.
@@ -487,6 +569,35 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                 <span className="muted" style={{ fontSize: "0.72rem" }}>Rank #{rank}</span>
               )}
             </div>
+            {ownership && ownership.ownerLabel && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  marginTop: 4,
+                  alignItems: "center",
+                  fontSize: "0.76rem",
+                }}
+              >
+                <span className="muted">Owned by</span>
+                {ownership.ownerId ? (
+                  <Link
+                    href={`/league/franchise/${encodeURIComponent(ownership.ownerId)}`}
+                    onClick={() => onClose?.()}
+                    style={{ color: "var(--cyan)", textDecoration: "none", fontWeight: 600 }}
+                  >
+                    {ownership.ownerLabel}
+                  </Link>
+                ) : (
+                  <strong>{ownership.ownerLabel}</strong>
+                )}
+                {ownership.positionLabel && (
+                  <span className="muted" style={{ fontSize: "0.72rem" }}>
+                    · {ownership.positionLabel} on roster
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button

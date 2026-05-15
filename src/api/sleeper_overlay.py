@@ -48,6 +48,8 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from src.utils.owner_names import owner_label
+
 log = logging.getLogger(__name__)
 
 _CACHE: dict[str, dict[str, Any]] = {}
@@ -287,20 +289,33 @@ def _build_teams_block(
         except (TypeError, ValueError):
             league_faab_budget = None
 
-    # owner_id → team-display-name.
+    # owner_id → team-display-name.  Routes Sleeper username →
+    # owner first name via ``config/leagues/owner_names.json`` so the
+    # UI shows "Jason", not "JasonLeeTucker".  Sleeper usernames win
+    # over league-set ``team_name`` because the mapping is meant to
+    # surface the human, not the franchise label.
     user_map: dict[str, str] = {}
+    # owner_id → the PRE-rename label (Sleeper league ``team_name``,
+    # else ``display_name``).  Not displayed anywhere — it exists so
+    # ``useTeam`` can still resolve a legacy name-only stored
+    # selection (``settings.selectedTeam`` with no ownerId) after the
+    # displayed ``name`` flipped to the owner first name.  Without it
+    # those users' saved team silently fails to restore until they
+    # re-pick (Codex PR #437 P2).
+    legacy_name_map: dict[str, str] = {}
     for u in users:
         if not isinstance(u, dict):
             continue
         uid = str(u.get("user_id") or "")
         if not uid:
             continue
-        name = (
+        label = owner_label(u) or f"Team {uid}"
+        user_map[uid] = label
+        legacy_name_map[uid] = str(
             (u.get("metadata") or {}).get("team_name")
             or u.get("display_name")
             or f"Team {uid}"
         )
-        user_map[uid] = str(name)
 
     id_map = id_to_player or {}
     roster_ids: list[int] = []
@@ -357,6 +372,10 @@ def _build_teams_block(
 
         teams.append({
             "name": user_map.get(owner_id, f"Team {roster_id}"),
+            # Backward-compat only — never rendered.  See legacy_name_map.
+            "sleeperTeamName": legacy_name_map.get(
+                owner_id, f"Team {roster_id}"
+            ),
             "ownerId": owner_id,
             "roster_id": roster_id,
             "players": names,
