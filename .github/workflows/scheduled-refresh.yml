@@ -387,7 +387,14 @@ jobs:
           set -Eeuo pipefail
           # deploy.yml uses paths-ignore for data/** and exports/**, so
           # data-only pushes will NOT auto-trigger a deploy. Dispatch manually.
-          if git log -1 --pretty=%B | grep -q "automated data refresh"; then
+          # ``freshness stamps`` matches the stamp-only commit the
+          # Persist freshness stamps step creates when a partial scrape
+          # failure or a slow-vendor cycle produces no CSV content
+          # change but still bumps ``data/scrape_state``.  Without this
+          # alternative, prod's source_health would freeze on the
+          # previous deploy's stamps even though the cron has been
+          # running and stamps have been pushed every cycle.
+          if git log -1 --pretty=%B | grep -qE "automated data refresh|freshness stamps"; then
             echo "Data updated, dispatching deploy workflow explicitly"
             gh workflow run deploy.yml --ref main
           else
