@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES, getRetailLabel, siteOverridesAreCustomized } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
@@ -444,6 +444,14 @@ export default function RankingsPage() {
     [siteWeights],
   );
   const excludedSourceCount = RANKING_SOURCES.length - includedSourceKeys.length;
+  // Reset clears BOTH exclusions and custom weights, so its enabled
+  // state must track any override — not just excluded sources — or a
+  // weights-only customization (set on /settings) can't be cleared
+  // here even though the tooltip promises it (Codex PR #438 P2).
+  const hasSourceOverrides = useMemo(
+    () => siteOverridesAreCustomized(siteWeights),
+    [siteWeights],
+  );
   const toggleSourceIncluded = useCallback(
     (key, included) => {
       updateSiteWeight(key, "include", included);
@@ -951,7 +959,7 @@ export default function RankingsPage() {
                     onClick={resetSiteWeights}
                     style={{ fontSize: "0.7rem", padding: "2px 8px" }}
                     title="Re-include every source and clear custom weights"
-                    disabled={excludedSourceCount === 0}
+                    disabled={!hasSourceOverrides}
                   >
                     Reset
                   </button>
