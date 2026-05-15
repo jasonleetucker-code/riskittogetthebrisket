@@ -756,6 +756,11 @@ def fetch_sleeper_rosters(league_id):
         return [], {}
 
     user_map = {}
+    # owner_id → PRE-rename label (Sleeper team_name, else display_name).
+    # Not displayed; lets the frontend resolve a legacy name-only
+    # stored team selection after ``name`` flipped to the owner first
+    # name (Codex PR #437 P2).
+    legacy_name_map = {}
     try:
         users_resp = _req.get(
             f"https://api.sleeper.app/v1/league/{league_id}/users", timeout=15)
@@ -763,6 +768,11 @@ def fetch_sleeper_rosters(league_id):
         for u in users_resp.json():
             uid = u.get("user_id")
             user_map[uid] = _owner_label(u) or f"Team {uid}"
+            legacy_name_map[uid] = (
+                (u.get("metadata", {}) or {}).get("team_name")
+                or u.get("display_name")
+                or f"Team {uid}"
+            )
     except Exception:
         pass
 
@@ -1036,6 +1046,10 @@ def fetch_sleeper_rosters(league_id):
 
         teams.append({
             "name": team_name,
+            # Backward-compat only — never rendered.  See legacy_name_map.
+            "sleeperTeamName": legacy_name_map.get(
+                owner_id, f"Team {roster.get('roster_id', '?')}"
+            ),
             "roster_id": roster_id,
             # Stable Sleeper user id for the current owner of this roster.
             # The frontend uses ownerId (not roster_id) as the aggregation

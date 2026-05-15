@@ -135,7 +135,19 @@ export function useTeam() {
     }
     if (storedName) {
       const needle = normalize(storedName);
-      return availableTeams.find((t) => normalize(t?.name) === needle) || null;
+      // Match the displayed name first.  A legacy ``settings.
+      // selectedTeam`` (name-only, no ownerId) stores the OLD Sleeper
+      // team name, which no longer equals ``name`` now that it renders
+      // the owner first name — fall back to the non-displayed
+      // ``sleeperTeamName`` so those saved selections still resolve
+      // instead of silently going null until a manual re-pick.
+      return (
+        availableTeams.find((t) => normalize(t?.name) === needle) ||
+        availableTeams.find(
+          (t) => normalize(t?.sleeperTeamName) === needle,
+        ) ||
+        null
+      );
     }
     return null;
   }, [availableTeams, storedName, storedOwnerId]);
