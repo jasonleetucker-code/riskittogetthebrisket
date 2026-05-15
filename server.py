@@ -5176,6 +5176,15 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # (round, slot) → new-owner first name from Sleeper traded_picks.
     # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
+    # Parallel to ``sleeper_trade_overrides`` but carrying the stable
+    # roster_id of the pick's new owner.  ``isTraded`` keys off this
+    # instead of round-tripping the new owner's first name back
+    # through ``first_name_to_rid`` — that reverse map is ambiguous
+    # whenever two rosters share a workbook first name (Codex P1:
+    # ``first_name_to_rid.setdefault`` silently keeps only the first
+    # roster, so the other roster's traded picks resolve to the
+    # wrong id and isTraded flips).
+    sleeper_trade_override_rids: dict[tuple[int, int], int] = {}
     # slot → display name for the team originally assigned that slot.
     # Populated inside the try block; overridden by live standings when
     # at least one team has non-zero fppts for the current season.
@@ -5463,9 +5472,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # ``team_name`` across rosters, so a display-only compare
         # silently hides genuine trades between two rosters that
         # happen to share the same rendered name.
-        first_name_to_rid: dict[str, int] = {}
+        # Collision-aware: if two distinct rosters carry the same
+        # workbook first name, the name is NOT a usable identifier —
+        # mark it ambiguous (None) so the picks loop falls back to the
+        # safe display compare instead of silently attributing one
+        # roster's picks to the other (Codex P1: the prior
+        # ``setdefault`` kept only the first roster and mis-flagged
+        # isTraded for every duplicate-name roster's untraded picks).
+        # Common-case owner resolution (live-standings reshuffle and
+        # Sleeper trade overrides) no longer touches this map at all —
+        # those branches carry the roster_id directly.
+        first_name_to_rid: dict[str, int | None] = {}
         for rid, fn in roster_id_to_first_name.items():
-            first_name_to_rid.setdefault(fn, rid)
+            if fn in first_name_to_rid and first_name_to_rid[fn] != rid:
+                first_name_to_rid[fn] = None  # ambiguous → unresolvable
+            else:
+                first_name_to_rid.setdefault(fn, rid)
 
         if apply_sleeper_trades:
             try:
@@ -5495,6 +5517,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                     if original_slot is None or not new_first:
                         continue
                     sleeper_trade_overrides[(round_n, original_slot)] = new_first
+                    # Stable id for the isTraded compare — never derived
+                    # from the (ambiguous) first name.
+                    sleeper_trade_override_rids[(round_n, original_slot)] = new_rid
 
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
@@ -5538,18 +5563,44 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # owner_first to the roster now occupying this slot under
         # the effective mapping; the Sleeper traded-picks override
         # below still has the final say for actually-traded picks.
+        # ``origin_rid`` is the roster the slot's pick belongs to
+        # under the effective (post-reshuffle) mapping; an untraded
+        # pick's owner is, by definition, that same roster — so seed
+        # ``owner_rid`` from it and only move it when a trade actually
+        # reassigns the pick.  This keeps the common untraded case
+        # off the ambiguous first-name reverse map entirely.
+        origin_rid = effective_slot_to_rid.get(slot)
+        owner_rid: int | None = origin_rid
         if live_standings_active:
             _slot_rid = effective_slot_to_rid.get(slot)
             if _slot_rid is not None:
                 owner_first = roster_id_to_first_name.get(
                     _slot_rid, owner_first
                 )
+                owner_rid = _slot_rid
+        elif (
+            owner_first
+            and origin_first
+            and str(owner_first).strip() != str(origin_first).strip()
+        ):
+            # Workbook-recorded (hand-entered) trade with no live
+            # reshuffle: the only path that must resolve owner →
+            # roster_id through the name map.  ``first_name_to_rid``
+            # is collision-aware (ambiguous names map to None), so a
+            # duplicate workbook first name yields owner_rid=None and
+            # the safe display compare below — never a silent
+            # mis-attribution to the wrong roster.
+            owner_rid = first_name_to_rid.get(str(owner_first).strip())
         # Sleeper traded_picks wins over the workbook's R45:R116
         # column when both are available — Sleeper is the system of
         # record for trades, the workbook is hand-edited and lags.
+        # The new owner's roster_id comes straight from the Sleeper
+        # payload (``sleeper_trade_override_rids``), never re-derived
+        # from the new owner's first name.
         sleeper_owner = sleeper_trade_overrides.get((rnd, slot))
         if sleeper_owner:
             owner_first = sleeper_owner
+            owner_rid = sleeper_trade_override_rids.get((rnd, slot))
 
         owner_team = display(owner_first)
         origin_team = slot_to_origin_display.get(slot) or display(origin_first)
@@ -5562,14 +5613,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # team_name/display_name.  Fall back to the display-name
         # comparison only when an id can't be derived (e.g.
         # pre-season + workbook-only flow where the Sleeper
-        # bridge is empty), since that's the only correctness-
+        # bridge is empty, or an ambiguous duplicate workbook
+        # first name), since that's the only correctness-
         # preserving signal available in that path.
-        origin_rid = effective_slot_to_rid.get(slot)
-        owner_rid = (
-            first_name_to_rid.get(str(owner_first).strip())
-            if owner_first
-            else None
-        )
         if origin_rid is not None and owner_rid is not None:
             is_traded = origin_rid != owner_rid
         else:

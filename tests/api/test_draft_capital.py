@@ -871,6 +871,114 @@ class TestLiveStandingsOverride(unittest.TestCase):
             "(live-standings override should have been gated off)",
         )
 
+    def test_isTraded_correct_when_two_rosters_share_workbook_first_name(self):
+        """Codex P1 (#8): two rosters carrying the same workbook first
+        name must not collapse through ``first_name_to_rid``.
+
+        Synthesises a 2-slot workbook where BOTH slots' owner first
+        name is ``"Mike"`` so the prior ``first_name_to_rid.setdefault``
+        kept only roster 1.  A Sleeper trade moves roster 1's R1 pick
+        to roster 2 (the other "Mike").
+
+        Pre-fix failure modes this locks out:
+          • the traded 1.01 pick resolved owner_rid via the collapsed
+            name map → roster 1 → ``isTraded`` False (real trade
+            silently hidden);
+          • the untraded 1.02 pick (roster 2) resolved owner_rid to
+            roster 1 → ``isTraded`` True (untraded pick mis-flagged).
+
+        Post-fix: the Sleeper override carries the new owner's
+        roster_id directly and the untraded baseline owner_rid is the
+        slot's own roster, so neither path touches the ambiguous name
+        map.
+        """
+        from datetime import datetime, timezone
+        import copy
+        import server
+
+        season = datetime.now(timezone.utc).year
+        base = server._parse_draft_data()
+        if not base or not base[1] or not base[2]:
+            self.skipTest("Workbook unavailable")
+        pick_dollars, wb_picks, slot_to_original, wb_totals, rookies, pv_l = base
+
+        # Pick two real slots and force slot ``dup_slot``'s owner first
+        # name to equal slot ``keep_slot``'s, so the workbook now has a
+        # genuine duplicate first name across two distinct rosters.
+        slots_sorted = sorted(slot_to_original)
+        keep_slot, dup_slot = slots_sorted[0], slots_sorted[1]
+        shared_first = slot_to_original[keep_slot]
+
+        slot_to_original = dict(slot_to_original)
+        slot_to_original[dup_slot] = shared_first
+        wb_picks = copy.deepcopy(wb_picks)
+        for p in wb_picks:
+            if p["pick"] == dup_slot:
+                p["owner"] = shared_first
+        mutated = (pick_dollars, wb_picks, slot_to_original,
+                   wb_totals, rookies, pv_l)
+
+        # Full 12-roster Sleeper fixture aligned to the (mutated)
+        # slot_to_original — rid == slot, distinct display names so the
+        # discriminating signal is the roster_id path, not the
+        # display-string fallback.  No fpts → live override off; this
+        # exercises the workbook + Sleeper-trade path where
+        # first_name_to_rid was the pre-fix owner_rid source.
+        rosters, users, slot_to_roster = [], [], {}
+        for slot in slot_to_original:
+            rid = int(slot)
+            rosters.append({"roster_id": rid, "owner_id": f"u{rid}",
+                             "settings": {"fpts": 0, "fpts_decimal": 0}})
+            users.append({"user_id": f"u{rid}",
+                          "display_name": f"Team-{rid}", "metadata": {}})
+            slot_to_roster[str(slot)] = rid
+        keep_rid, dup_rid = int(keep_slot), int(dup_slot)
+        url_map = {
+            "/rosters": rosters,
+            "/users": users,
+            "/drafts": [{"draft_id": "D1", "season": season}],
+            "/draft/D1": {"slot_to_roster_id": slot_to_roster},
+            # Trade keep_slot roster's round-1 pick to dup_slot roster
+            # (the other roster carrying ``shared_first``).
+            "/traded_picks": [
+                {
+                    "season": season,
+                    "round": 1,
+                    "roster_id": keep_rid,
+                    "owner_id": dup_rid,
+                    "previous_owner_id": keep_rid,
+                }
+            ],
+            "__LEAGUE_META__": {"season": str(season)},
+        }
+        with patch.object(server, "_parse_draft_data", return_value=mutated), \
+             patch.object(server.urllib.request, "urlopen",
+                          self._stub_urlopen(url_map)), \
+             patch.object(server, "_sleeper_league_id_for_draft",
+                          return_value="TEST_LEAGUE"):
+            result = server._fetch_draft_capital(apply_sleeper_trades=True)
+        if "error" in result:
+            self.skipTest(f"Unavailable: {result['error']}")
+
+        by_pick = {p["pick"]: p for p in result["picks"]}
+        keep_pick = f"1.{str(keep_slot).zfill(2)}"
+        dup_pick = f"1.{str(dup_slot).zfill(2)}"
+        self.assertIn(keep_pick, by_pick)
+        self.assertIn(dup_pick, by_pick)
+        # keep_slot's R1 pick was traded to dup_slot's roster — must be
+        # flagged even though both rosters' workbook first name matches.
+        self.assertTrue(
+            by_pick[keep_pick]["isTraded"],
+            "Sleeper-traded pick hidden because both rosters share the "
+            "workbook first name (first_name_to_rid collapse)",
+        )
+        # dup_slot's own R1 pick was NOT traded — must stay unflagged.
+        self.assertFalse(
+            by_pick[dup_pick]["isTraded"],
+            "Untraded pick mis-flagged traded due to duplicate-first-name "
+            "roster_id collapse",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
