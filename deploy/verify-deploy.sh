@@ -318,8 +318,15 @@ main() {
   # Escape hatch: VERIFY_SOURCE_COVERAGE=0 (emergencies only).
   if [[ "${VERIFY_SOURCE_COVERAGE:-1}" != "0" ]]; then
     local cov_python="python3"
-    if [[ -x "${VENV_DIR}/bin/python" ]]; then
-      cov_python="${VENV_DIR}/bin/python"
+    # verify-deploy.sh runs under ``set -u``; ``VENV_DIR`` is not
+    # guaranteed in the environment (deploy.sh's verify_deploy() did
+    # not export it, and the 6h health-check workflow runs this
+    # standalone).  Default to deploy.sh's own convention
+    # (``${APP_DIR}/.venv``) so an unset VENV_DIR can't abort the
+    # whole deploy with an "unbound variable" before the gate runs.
+    local cov_venv_dir="${VENV_DIR:-${APP_DIR:-.}/.venv}"
+    if [[ -x "${cov_venv_dir}/bin/python" ]]; then
+      cov_python="${cov_venv_dir}/bin/python"
     fi
     log "Verifying served-board source coverage via /api/status"
     if ( cd "${APP_DIR}" && "${cov_python}" \

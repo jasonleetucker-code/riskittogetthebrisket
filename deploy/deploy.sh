@@ -758,6 +758,7 @@ verify_deploy() {
     APP_HOST="${APP_HOST}" \
     APP_PORT="${APP_PORT}" \
     APP_DIR="${APP_DIR}" \
+    VENV_DIR="${VENV_DIR}" \
     FRONTEND_HOST="${FRONTEND_HOST}" \
     FRONTEND_PORT="${FRONTEND_PORT}" \
     FRONTEND_BUILD_DIR="${APP_DIR}/frontend/.next" \
