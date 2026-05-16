@@ -226,16 +226,40 @@ def _fetch_dataset_csv(session, chart_id: str, version: str) -> str:
 def _parse_dataset(csv_text: str) -> list[dict]:
     """Parse the Datawrapper CSV; keep name / normalised position /
     rank and drop every other column (combine metrics, college
-    notes, etc. are out of scope for a ranking source)."""
+    notes, etc. are out of scope for a ranking source).
+
+    The IDP Show republishes the chart periodically and has renamed
+    its columns at least once:
+
+      * old schema: ``PLAYER``, ``POS`` (bare code, e.g. ``ED``),
+        ``OVR`` (overall rank)
+      * new schema (2026-05): ``PLAYER``, ``POSITION RANK``
+        (position code with the positional rank glued on, e.g.
+        ``ED1`` / ``S69`` / ``DT46``), ``OVERALL`` (overall rank)
+
+    We accept either schema so a future revert / re-rename doesn't
+    silently re-break the feed (the 0-rows guard in :func:`main`
+    would still catch a *third* unknown schema).
+    """
     reader = csv.DictReader(csv_text.splitlines())
     rows_out: list[dict] = []
     for row in reader:
         name = str(row.get("PLAYER") or "").strip()
         if not name:
             continue
-        pos_raw = str(row.get("POS") or "").strip().upper()
+        # Position: old ``POS`` is a bare code; new ``POSITION RANK``
+        # is the code with the positional rank concatenated
+        # (``ED1``).  Strip everything from the first digit on.
+        pos_src = str(
+            row.get("POS") or row.get("POSITION RANK") or ""
+        ).strip().upper()
+        m = re.match(r"[A-Z]+", pos_src)
+        pos_raw = m.group(0) if m else pos_src
         pos_norm = _POS_NORM.get(pos_raw, pos_raw)
-        ovr_raw = str(row.get("OVR") or "").strip().lstrip("0")
+        # Overall rank: old ``OVR`` → new ``OVERALL``.
+        ovr_raw = str(
+            row.get("OVR") or row.get("OVERALL") or ""
+        ).strip().lstrip("0")
         try:
             rank = int(ovr_raw) if ovr_raw else None
         except (TypeError, ValueError):
