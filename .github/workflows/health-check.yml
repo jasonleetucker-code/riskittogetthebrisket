@@ -91,3 +91,54 @@ jobs:
           except Exception as e:
               print(f"Could not parse status: {e}")
           PY
+
+      - name: Check served-board source coverage
+        # Continuous defense-in-depth for the silent-degraded-board
+        # failure: the running process can serve the bare 3-source
+        # legacy export instead of the ~11-source enriched blend while
+        # every other health signal stays green (sites/source_health
+        # only ever list the 3 legacy sources, player_count looks
+        # normal).  ``served_source_coverage`` is the real per-source
+        # player count of the board being served right now.  A healthy
+        # board has ~16-21 covered sources; a degraded one has ~3.  A
+        # floor of 8 cleanly separates them with wide margin and
+        # tolerates a few legitimately-stale sources (e.g. idpShow).
+        # Dependency-free so this lean workflow needs no checkout.
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/status_cov.json \
+            --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
+          if [[ "${HTTP_CODE}" != "200" ]]; then
+            echo "::warning title=Status Unreachable::Coverage check skipped (HTTP ${HTTP_CODE})."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json, sys
+          MIN_PER_SOURCE = 5   # mirrors watchdog_contract_coverage._MIN_COVERAGE
+          MIN_SOURCES = 8      # healthy ~16-21; degraded ~3
+          with open("/tmp/status_cov.json") as f:
+              data = json.load(f)
+          cov = data.get("served_source_coverage")
+          if not isinstance(cov, dict) or not cov:
+              print("::error title=Degraded board::/api/status has no "
+                    "served_source_coverage — the live board is the bare "
+                    "3-source legacy export, not the enriched blend. The "
+                    "process did not re-prime from the CSVs.")
+              sys.exit(1)
+          covered = sorted(k for k, v in cov.items()
+                           if isinstance(v, (int, float)) and v >= MIN_PER_SOURCE)
+          print(f"Served sources (>= {MIN_PER_SOURCE} players): "
+                f"{len(covered)} -> {covered}")
+          if len(covered) < MIN_SOURCES:
+              print(f"::error title=Degraded live board::Only {len(covered)} "
+                    f"source(s) meaningfully cover the served board (need "
+                    f">= {MIN_SOURCES}). The process is serving a degraded "
+                    f"board (missing OTCFFB et al.). Restart the backend to "
+                    f"force a re-prime and investigate the deploy/prime path.")
+              sys.exit(1)
+          print("Served-board source coverage OK.")
+          PY

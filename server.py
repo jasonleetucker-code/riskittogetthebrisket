@@ -303,6 +303,39 @@ contract_health: dict = {
     "contractVersion": API_DATA_CONTRACT_VERSION,
     "playerCount": 0,
 }
+# Per-source coverage of the CURRENTLY-SERVED contract:
+# ``{sourceKey: playerCount}`` counted from
+# ``playersArray[*].sourceRankMeta`` — how many players each source
+# actually contributed to the live board.  Recomputed once per prime
+# (not per request).  This is the ONLY reliable "is the served board
+# fully enriched?" signal: ``sites`` / ``siteStats`` only ever list
+# the 3 legacy-scraper sources even when the contract is fully
+# CSV-enriched, so they cannot tell a healthy ~11-source board apart
+# from a degraded 3-source one (the exact silent failure that left
+# OTCFFB — and ~8 other sources — off the live board for days).  The
+# deploy-gate (deploy/verify-deploy.sh) and the scheduled health
+# check assert on this so a non-re-primed/degraded board fails
+# loudly instead of silently serving wrong values.
+served_source_coverage: dict = {}
+
+
+def _compute_served_source_coverage(contract: dict | None) -> dict:
+    """Count, per source, how many served players carry it in
+    ``sourceRankMeta`` (== "contributed to the blend").  Defensive:
+    any shape surprise yields ``{}`` rather than raising inside the
+    prime path."""
+    cov: dict[str, int] = {}
+    try:
+        for row in (contract or {}).get("playersArray") or []:
+            srm = row.get("sourceRankMeta") if isinstance(row, dict) else None
+            if isinstance(srm, dict):
+                for k in srm:
+                    cov[str(k)] = cov.get(str(k), 0) + 1
+    except Exception:  # noqa: BLE001
+        return {}
+    return cov
+
+
 # ── NEWS SERVICE ───────────────────────────────────────────────────────
 # Lazy-built singleton.  Built on first request rather than at import
 # so unit tests can monkey-patch the factory and the server can boot
@@ -1186,6 +1219,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
     global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
     global contract_health
+    global served_source_coverage
+    served_source_coverage = {}
     latest_data_bytes = None
     latest_data_gzip_bytes = None
     latest_data_etag = None
@@ -1267,6 +1302,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             pass
         latest_contract_data = contract_payload
         contract_health = contract_report
+        served_source_coverage = _compute_served_source_coverage(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -3077,6 +3113,11 @@ async def get_status():
         "has_data": latest_contract_data is not None,
         "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
         "data_date": (latest_contract_data or {}).get("date"),
+        # Real per-source coverage of the served board (see the
+        # ``served_source_coverage`` global).  Monitoring asserts on
+        # this; ``source_health`` above is derived from the 3-source
+        # legacy ``sites`` list and cannot detect a degraded board.
+        "served_source_coverage": served_source_coverage,
         # R-4: Scrape success rate tracking
         "scrape_success_rate_24h": _scrape_success_rate_24h(),
         "last_n_scrapes": scrape_history[-20:],

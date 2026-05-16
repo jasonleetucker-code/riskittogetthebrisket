@@ -307,6 +307,35 @@ main() {
     fi
   fi
 
+  # ── Served-board source-coverage gate ────────────────────────────
+  # The strongest guard against the silent-degraded-board failure:
+  # health/smoke checks all pass even when the process is serving the
+  # bare 3-source legacy export instead of the ~11-source enriched
+  # blend (OTCFFB et al. missing).  Assert the SERVED board actually
+  # carries every fresh registered source.  A failure here fails the
+  # deploy, which trips deploy.sh's existing auto-rollback — so a
+  # deploy can no longer "succeed" while serving wrong values.
+  # Escape hatch: VERIFY_SOURCE_COVERAGE=0 (emergencies only).
+  if [[ "${VERIFY_SOURCE_COVERAGE:-1}" != "0" ]]; then
+    local cov_python="python3"
+    if [[ -x "${VENV_DIR}/bin/python" ]]; then
+      cov_python="${VENV_DIR}/bin/python"
+    fi
+    log "Verifying served-board source coverage via /api/status"
+    if ( cd "${APP_DIR}" && "${cov_python}" \
+          scripts/verify_live_source_coverage.py \
+          "http://${APP_HOST}:${APP_PORT}" ); then
+      log "Served-board source coverage OK."
+    else
+      error "Served board is degraded (missing fresh registered sources)."
+      error "The process did not re-prime/enrich after restart.  Failing"
+      error "the deploy so auto-rollback runs; investigate the prime path."
+      exit 1
+    fi
+  else
+    warn "Source-coverage gate skipped (VERIFY_SOURCE_COVERAGE=0)."
+  fi
+
   log "Deploy verification checks passed."
 }
 
