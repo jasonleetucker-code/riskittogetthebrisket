@@ -132,6 +132,29 @@ class TestFindLatestExport(unittest.TestCase):
                 wcc._REPO_ROOT = orig
             self.assertEqual(got, chosen_path)
 
+    def test_data_dir_wins_over_exports_latest(self):
+        # server.load_from_disk / _latest_cached_contract_from_disk read
+        # data/ FIRST, so a data/ snapshot must win even when
+        # exports/latest has a lexically-newer file (Codex PR #444 P2).
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "data").mkdir()
+            (root / "exports" / "latest").mkdir(parents=True)
+            (root / "exports" / "latest" / "dynasty_data_2999-12-31.json").write_text("{}")
+            chosen_path = root / "data" / "dynasty_data_2026-05-15.json"
+            chosen_path.write_text("{}")
+
+            orig = wcc._REPO_ROOT
+            wcc._REPO_ROOT = root
+            try:
+                got = wcc._find_latest_export()
+            finally:
+                wcc._REPO_ROOT = orig
+            self.assertEqual(got, chosen_path)
+
     def test_repo_root_fallback_when_exports_latest_empty(self):
         import tempfile
         from pathlib import Path

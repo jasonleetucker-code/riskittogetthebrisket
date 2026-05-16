@@ -80,18 +80,34 @@ _MIN_COVERAGE = 5
 def _find_latest_export() -> Path | None:
     """Newest ``dynasty_data_*.json`` the server would prime from.
 
-    Mirrors ``server.py``'s lookup order *exactly*: it tries the
-    ``exports/latest`` directory first and only falls back to the
-    repo root when that directory yields nothing — a strict
-    precedence, not a global newest-wins.  Pooling both locations
-    and taking the global max would let a repo-root snapshot (which
-    some scraper runs also write) shadow the ``exports/latest``
-    artifact the runtime actually serves, so the watchdog would
-    validate the wrong contract.  Within the chosen directory the
-    newest filename wins (the date is embedded in the name); mtime
-    breaks ties.
+    Mirrors ``server.py``'s real disk-bootstrap precedence — a strict
+    first-non-empty-wins, not a global newest-across-all-locations:
+
+      1. ``data/`` (``server.DATA_DIR``) — what ``load_from_disk`` and
+         ``_latest_cached_contract_from_disk`` read FIRST; the live
+         runtime source the deployed server actually primes from.
+      2. ``exports/latest/`` — the git-committed snapshot.  PR-CI
+         never runs a scrape, so ``data/`` is empty there and this is
+         the only artifact present; it is also what
+         ``tests/api/test_player_identity_regression.py`` and the
+         project docs treat as "the file the live server reads".
+      3. repo root (``server.BASE_DIR``) — ``load_from_disk``'s
+         documented fallback for standalone scraper runs.
+
+    Earlier revisions checked ``exports/latest`` before ``data/`` (or
+    pooled locations and took a global max).  Both are wrong: the
+    server reads ``data/`` first, so a ``data/``-only snapshot must
+    win, and a stray repo-root file must never shadow the prioritized
+    artifact — otherwise the watchdog validates the wrong contract or
+    false-fails the workflow when a valid board exists only under
+    ``data/``.  Within the chosen directory the newest filename wins
+    (the date is embedded in the name); mtime breaks ties.
     """
-    for base in (_REPO_ROOT / "exports" / "latest", _REPO_ROOT):
+    for base in (
+        _REPO_ROOT / "data",
+        _REPO_ROOT / "exports" / "latest",
+        _REPO_ROOT,
+    ):
         if not base.is_dir():
             continue
         found = list(base.glob("dynasty_data_*.json"))
