@@ -144,6 +144,57 @@ def resolve_threshold(src: str, thresholds: dict[str, float]) -> float:
     return 24.0
 
 
+def _matches_source(src: str, keys: "set[str] | dict[str, Any]") -> bool:
+    """True when ``src`` matches ``keys`` by the same exact-then-
+    vendor-prefix rule :func:`resolve_threshold` uses, so soft-source
+    membership and threshold lookup never drift apart."""
+    if src in keys:
+        return True
+    for key in keys:
+        if not key or not src.startswith(key) or len(src) <= len(key):
+            continue
+        if not src[len(key)].isupper():
+            continue
+        return True
+    return False
+
+
+def load_soft_sources(path: Path | None = None) -> set[str]:
+    """Sources listed under ``soft`` in ``config/source_staleness.json``.
+
+    A *soft* source is one whose staleness is expected to recur for
+    reasons outside the cron's control — e.g. ``idpShow`` authenticates
+    with a browser-minted cookie that the operator must periodically
+    re-mint, unlike credential/API sources that never lapse.  Soft
+    sources are still surfaced everywhere (on-site banner, email
+    alerts with their existing cooldown, the freshness-watchdog
+    summary) so the outage is never hidden — they are only exempted
+    from *hard-failing* the scheduled-refresh workflow, so one
+    expiring cookie can't turn every 2h run red and open a failure
+    issue each cycle.  Matched by exact key or vendor prefix, same as
+    thresholds.
+    """
+    if path is None:
+        repo = Path(__file__).resolve().parents[2]
+        path = repo / "config" / "source_staleness.json"
+    if not path.exists():
+        return set()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return set()
+    soft = raw.get("soft") if isinstance(raw, dict) else None
+    if not isinstance(soft, list):
+        return set()
+    return {str(s) for s in soft if s}
+
+
+def is_soft_source(src: str, soft_sources: "set[str]") -> bool:
+    """True when ``src`` is operator-flagged soft (see
+    :func:`load_soft_sources`)."""
+    return _matches_source(src, soft_sources)
+
+
 def detect_stale_sources(
     source_health: dict[str, Any],
     *,

@@ -14,5 +14,7 @@
     "flockFantasy": 24,
     "yahooBoone": 24,
     "idpShow": 24
-  }
+  },
+  "_comment_soft": "Sources listed in 'soft' are still reported everywhere (on-site stale banner, email alerts with their existing cooldown, the freshness-watchdog summary) but do NOT hard-fail the scheduled-refresh workflow or open a failure issue. Use this only for sources whose staleness recurs for reasons outside the cron's control. idpShow authenticates with a browser-minted cookie (deploy/idpshow_fetch_and_push.sh) that the operator must periodically re-mint by hand; when it lapses, one expiring cookie should not turn every 2h run red. Matched by exact key or vendor prefix, same as thresholds.",
+  "soft": ["idpShow"]
 }
