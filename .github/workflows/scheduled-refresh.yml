@@ -486,6 +486,23 @@ jobs:
           set -Eeuo pipefail
           python scripts/watchdog_freshness.py
 
+      - name: Contract coverage watchdog
+        # Sibling to the freshness watchdog.  Freshness asks "did the
+        # fetcher run?"; this asks "did the fetched data actually land
+        # in the board the server will serve?".  Builds the contract
+        # exactly as ``server._prime_latest_payload`` does and fails
+        # the run if a *fresh* registered source covers ~0 players —
+        # the silent registry / enrich / prime-timing regression that
+        # let ``otcffbSf`` be fetched + committed yet absent from the
+        # live board with no error anywhere.  ``if: always()`` so a
+        # partial earlier failure still gets the red X plus the
+        # failure-handler issue.
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/watchdog_contract_coverage.py
+
       - name: Alert on workflow failure
         # When the run fails (scrape crash, DLF guard tripped,
         # staleness watchdog red, etc.) open or update a tracking
