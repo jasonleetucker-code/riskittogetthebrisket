@@ -104,5 +104,52 @@ class TestEvaluateCoverage(unittest.TestCase):
         self.assertIn(_KEY, skipped)
 
 
+class TestFindLatestExport(unittest.TestCase):
+    """exports/latest must win over a repo-root snapshot even when the
+    root file has a newer name — strict precedence, mirroring the
+    server's lookup order (Codex PR #444 P2)."""
+
+    def test_exports_latest_takes_strict_precedence(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            latest = root / "exports" / "latest"
+            latest.mkdir(parents=True)
+            # Root snapshot has a LEXICALLY-NEWER name than the
+            # exports/latest artifact; a global-max picker would
+            # wrongly choose it.
+            (root / "dynasty_data_2999-12-31.json").write_text("{}")
+            chosen_path = latest / "dynasty_data_2026-05-15.json"
+            chosen_path.write_text("{}")
+
+            orig = wcc._REPO_ROOT
+            wcc._REPO_ROOT = root
+            try:
+                got = wcc._find_latest_export()
+            finally:
+                wcc._REPO_ROOT = orig
+            self.assertEqual(got, chosen_path)
+
+    def test_repo_root_fallback_when_exports_latest_empty(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "exports" / "latest").mkdir(parents=True)  # empty
+            fallback = root / "dynasty_data_2026-05-15.json"
+            fallback.write_text("{}")
+
+            orig = wcc._REPO_ROOT
+            wcc._REPO_ROOT = root
+            try:
+                got = wcc._find_latest_export()
+            finally:
+                wcc._REPO_ROOT = orig
+            self.assertEqual(got, fallback)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -80,17 +80,24 @@ _MIN_COVERAGE = 5
 def _find_latest_export() -> Path | None:
     """Newest ``dynasty_data_*.json`` the server would prime from.
 
-    Mirrors ``server.py``'s lookup order: the ``exports/latest``
-    directory first, then a repo-root fallback.  Newest filename wins
-    (the date is embedded in the name); mtime breaks ties.
+    Mirrors ``server.py``'s lookup order *exactly*: it tries the
+    ``exports/latest`` directory first and only falls back to the
+    repo root when that directory yields nothing — a strict
+    precedence, not a global newest-wins.  Pooling both locations
+    and taking the global max would let a repo-root snapshot (which
+    some scraper runs also write) shadow the ``exports/latest``
+    artifact the runtime actually serves, so the watchdog would
+    validate the wrong contract.  Within the chosen directory the
+    newest filename wins (the date is embedded in the name); mtime
+    breaks ties.
     """
-    candidates: list[Path] = []
     for base in (_REPO_ROOT / "exports" / "latest", _REPO_ROOT):
-        if base.is_dir():
-            candidates.extend(base.glob("dynasty_data_*.json"))
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda p: (p.name, p.stat().st_mtime))[-1]
+        if not base.is_dir():
+            continue
+        found = list(base.glob("dynasty_data_*.json"))
+        if found:
+            return sorted(found, key=lambda p: (p.name, p.stat().st_mtime))[-1]
+    return None
 
 
 def _source_coverage(contract: dict) -> dict[str, int]:
