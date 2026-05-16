@@ -1323,7 +1323,7 @@
     "teamName": "Roy",
     "teamRosStrength": 256.43,
     "startingLineupScore": 312.91,
-    "benchDepthScore": 117.42,
+    "benchDepthScore": 117.43,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1457,9 +1457,9 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 18.75,
+        "rosValue": 18.76,
         "depthFactor": 1.0,
-        "depthContribution": 18.75
+        "depthContribution": 18.76
       },
       {
         "playerId": "1479",

@@ -1869,9 +1869,9 @@
         "playerId": "8111",
         "canonicalName": "cade otton",
         "position": "TE",
-        "rosValue": 15.68,
+        "rosValue": 15.69,
         "depthFactor": 1.0,
-        "depthContribution": 15.68
+        "depthContribution": 15.69
       }
     ],
     "unfilledSlots": [],
@@ -2435,9 +2435,9 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "Blaine",
-    "teamRosStrength": 340.49,
-    "startingLineupScore": 437.36,
-    "benchDepthScore": 86.62,
+    "teamRosStrength": 340.4,
+    "startingLineupScore": 437.23,
+    "benchDepthScore": 86.63,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2536,9 +2536,9 @@
         "playerId": "4033",
         "canonicalName": "david njoku",
         "position": "TE",
-        "rosValue": 14.45,
-        "adjustedValue": 14.45,
-        "confidence": 0.979,
+        "rosValue": 14.32,
+        "adjustedValue": 14.32,
+        "confidence": 0.981,
         "flagged": null
       },
       {
@@ -2635,9 +2635,9 @@
         "playerId": "7042",
         "canonicalName": "tyler bass",
         "position": "K",
-        "rosValue": 11.68,
+        "rosValue": 11.69,
         "depthFactor": 1.0,
-        "depthContribution": 11.68
+        "depthContribution": 11.69
       },
       {
         "playerId": "4177",
@@ -2918,9 +2918,9 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 18.75,
+        "rosValue": 18.76,
         "depthFactor": 0.55,
-        "depthContribution": 10.31
+        "depthContribution": 10.32
       },
       {
         "playerId": "12524",
