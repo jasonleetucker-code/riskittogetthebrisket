@@ -35,7 +35,12 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.api.source_health_alerts import load_thresholds, resolve_threshold  # noqa: E402
+from src.api.source_health_alerts import (  # noqa: E402
+    is_soft_source,
+    load_soft_sources,
+    load_thresholds,
+    resolve_threshold,
+)
 
 
 def _read_freshness() -> dict[str, dict]:
@@ -84,8 +89,42 @@ def _read_freshness() -> dict[str, dict]:
     return out
 
 
+def classify_freshness(
+    freshness: dict[str, dict],
+    thresholds: dict[str, float],
+    soft_sources: set[str],
+) -> tuple[
+    list[tuple[str, float, float, str]],
+    list[tuple[str, float, float, str]],
+    list[tuple[str, float, float]],
+]:
+    """Pure split into ``(hard_stale, soft_stale, fresh)``.
+
+    A stale source goes to ``soft_stale`` (reported, non-fatal) when
+    it is operator-flagged soft in ``config/source_staleness.json``;
+    otherwise to ``hard_stale`` (fails the workflow).  Kept IO-free so
+    the policy is unit-testable.
+    """
+    hard_stale: list[tuple[str, float, float, str]] = []
+    soft_stale: list[tuple[str, float, float, str]] = []
+    fresh: list[tuple[str, float, float]] = []
+    for src, info in sorted(freshness.items()):
+        age = float(info.get("ageHours", 0.0))
+        threshold = resolve_threshold(src, thresholds)
+        if age > threshold:
+            row = (src, age, threshold, str(info.get("lastFetched", "")))
+            if is_soft_source(src, soft_sources):
+                soft_stale.append(row)
+            else:
+                hard_stale.append(row)
+        else:
+            fresh.append((src, age, threshold))
+    return hard_stale, soft_stale, fresh
+
+
 def main() -> int:
     thresholds = load_thresholds()
+    soft_sources = load_soft_sources()
     freshness = _read_freshness()
 
     if not freshness:
@@ -95,24 +134,31 @@ def main() -> int:
               "_SOURCE_CSV_PATHS.  The data contract registry is broken.")
         return 1
 
-    stale: list[tuple[str, float, float, str]] = []
-    fresh: list[tuple[str, float, float]] = []
-    for src, info in sorted(freshness.items()):
-        age = float(info.get("ageHours", 0.0))
-        threshold = resolve_threshold(src, thresholds)
-        if age > threshold:
-            stale.append((src, age, threshold, str(info.get("lastFetched", ""))))
-        else:
-            fresh.append((src, age, threshold))
+    hard_stale, soft_stale, fresh = classify_freshness(
+        freshness, thresholds, soft_sources
+    )
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     summary_lines: list[str] = ["## Source freshness watchdog", ""]
-    if stale:
+    if hard_stale:
         summary_lines.append("### Stale sources (exceeded threshold)")
         summary_lines.append("")
         summary_lines.append("| source | age (h) | threshold (h) | last fetched |")
         summary_lines.append("|---|---|---|---|")
-        for src, age, threshold, last in stale:
+        for src, age, threshold, last in hard_stale:
+            summary_lines.append(f"| `{src}` | {age:.1f} | {threshold:.1f} | {last} |")
+        summary_lines.append("")
+    if soft_stale:
+        summary_lines.append("### Soft-stale sources (reported, non-fatal)")
+        summary_lines.append("")
+        summary_lines.append(
+            "_Operator-flagged soft (e.g. manual-cookie auth) — surfaced "
+            "but does not fail the run.  Re-mint / fix the fetcher to clear._"
+        )
+        summary_lines.append("")
+        summary_lines.append("| source | age (h) | threshold (h) | last fetched |")
+        summary_lines.append("|---|---|---|---|")
+        for src, age, threshold, last in soft_stale:
             summary_lines.append(f"| `{src}` | {age:.1f} | {threshold:.1f} | {last} |")
         summary_lines.append("")
     summary_lines.append("### Fresh sources")
@@ -129,11 +175,25 @@ def main() -> int:
         except OSError:
             pass
 
-    if not stale:
-        print(f"ok: {len(fresh)} sources fresh, 0 stale")
+    # Soft-stale sources are surfaced as warnings (visible on the run
+    # page, but non-fatal) so a known manual-auth lapse stays visible
+    # without turning every 2h run red.
+    for src, age, threshold, last in soft_stale:
+        print(
+            f"::warning title=Soft-stale source: {src}::Last fetched "
+            f"{last} ({age:.1f}h ago, threshold {threshold:.1f}h).  "
+            f"Operator-flagged soft (manual auth) — non-fatal, but "
+            f"re-mint / fix the fetcher to clear it."
+        )
+
+    if not hard_stale:
+        soft_note = (
+            f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
+        )
+        print(f"ok: {len(fresh)} sources fresh, 0 hard-stale{soft_note}")
         return 0
 
-    for src, age, threshold, last in stale:
+    for src, age, threshold, last in hard_stale:
         print(
             f"::error title=Stale source: {src}::Last fetched {last} "
             f"({age:.1f}h ago, threshold {threshold:.1f}h).  "
@@ -141,8 +201,9 @@ def main() -> int:
             f"'Run scraper' step above."
         )
     print(
-        f"\nfail: {len(stale)} stale source(s), {len(fresh)} fresh.  "
-        f"Stale: {', '.join(s for s, *_ in stale)}"
+        f"\nfail: {len(hard_stale)} stale source(s), {len(fresh)} fresh"
+        f"{f', {len(soft_stale)} soft-stale' if soft_stale else ''}.  "
+        f"Stale: {', '.join(s for s, *_ in hard_stale)}"
     )
     return 1
 
