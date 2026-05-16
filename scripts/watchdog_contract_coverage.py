@@ -167,7 +167,24 @@ def evaluate_coverage(
       * skipped    — source keys not evaluated because they are stale
         (owned by the freshness watchdog) or have an empty/missing CSV.
     """
-    cov = _source_coverage(contract)
+    return evaluate_coverage_map(
+        _source_coverage(contract), freshness, thresholds
+    )
+
+
+def evaluate_coverage_map(
+    cov: dict[str, int],
+    freshness: dict[str, dict],
+    thresholds: dict,
+) -> tuple[list[tuple[str, int]], list[tuple[str, int]], list[str]]:
+    """Same decision core as :func:`evaluate_coverage` but driven by a
+    pre-computed ``{sourceKey: playerCount}`` map instead of a contract.
+
+    Lets the live deploy-gate / health check feed the SERVED board's
+    ``served_source_coverage`` (from ``/api/status``) through the
+    identical fresh-but-absent logic the CI watchdog uses — one
+    decision core, so the pre-merge and runtime gates can never drift.
+    """
     registered = [str(s.get("key") or "") for s in _RANKING_SOURCES]
 
     violations: list[tuple[str, int]] = []
