@@ -502,6 +502,37 @@ class AwardOrderingTests(unittest.TestCase):
                 self.assertEqual(ks[1], "manager_of_the_year")
 
 
+class FeaturedSeasonRolloverTests(unittest.TestCase):
+    """Sleeper flips dynasty leagues to ``in_season`` in the offseason —
+    before any NFL games.  The last completed season's full award board
+    must stay featured until the new season actually plays games."""
+
+    def test_in_season_but_no_games_keeps_prior_complete_featured(self) -> None:
+        # Deep-copy: build_test_snapshot() shares module-level fixture
+        # dicts/lists; mutating them in place would pollute other tests.
+        snap = copy.deepcopy(build_test_snapshot())  # [2025 complete, 2024 complete]
+        newest = snap.seasons[0]
+        # Simulate the live 2026 offseason: status in_season, zero games.
+        newest.league["status"] = "in_season"
+        for entries in newest.matchups_by_week.values():
+            for m in entries:
+                m["points"] = 0
+                m.pop("players_points", None)
+                m.pop("starters", None)
+        section = awards.build_section(snap)
+        # Fixture seasons are [2025, 2024]; treating the newest (2025)
+        # as the empty offseason league, the prior complete season
+        # (2024) must be featured, with 2025 marked upcoming.
+        self.assertEqual(section["featuredSeason"], snap.seasons[1].season)
+        self.assertEqual(section["upcomingSeason"], newest.season)
+
+    def test_played_games_promote_new_season(self) -> None:
+        snap = _with_player_points(build_test_snapshot())
+        snap.seasons[0].league["status"] = "in_season"  # has real points
+        section = awards.build_section(snap)
+        self.assertEqual(section["featuredSeason"], snap.seasons[0].season)
+
+
 class AwardsSectionIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
