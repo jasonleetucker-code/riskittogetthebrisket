@@ -285,28 +285,28 @@ class TestClampFires(unittest.TestCase):
     def test_inside_band_no_clamp(self):
         """Rows with drifts below the bucket P90 must be untouched."""
         rows = []
-        # 40 medium rows with uniform drift 0.20
+        # 40 medium rows with uniform drift 0.10
         for i in range(40):
             rows.append(_make_row(
                 name=f"p_{i}",
-                asset_class="offense",
-                value=int(5000 * 1.20),
-                ktc=5000,
+                asset_class="idp",
+                value=int(5000 * 1.10),
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
         _apply_market_corridor_clamp(rows, players_by_name={})
         for row in rows:
             self.assertNotIn("marketCorridorClamp", row)
-            self.assertEqual(row["rankDerivedValue"], 6000)
+            self.assertEqual(row["rankDerivedValue"], 5500)
 
     def test_no_anchor_no_clamp(self):
-        """Rows without a market anchor value (e.g. pre-draft rookies
-        with no KTC entry) get left alone."""
+        """Rows without a market anchor value (e.g. an IDP not listed
+        by any anchor-chain source) get left alone."""
         rows = [_make_row(
-            name="rookie_no_ktc",
-            asset_class="offense",
+            name="idp_no_anchor",
+            asset_class="idp",
             value=5000,
-            ktc=None,
+            idpTradeCalc=None,
             bucket="low",
         )]
         # Pad with anchored rows so the function has a distribution to
@@ -314,9 +314,9 @@ class TestClampFires(unittest.TestCase):
         for i in range(40):
             rows.append(_make_row(
                 name=f"anchored_{i}",
-                asset_class="offense",
+                asset_class="idp",
                 value=5500,
-                ktc=5000,
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
         _apply_market_corridor_clamp(rows, players_by_name={})
@@ -335,25 +335,25 @@ class TestClampFires(unittest.TestCase):
         for i in range(50):
             rows.append(_make_row(
                 name=f"m_{i}",
-                asset_class="offense",
+                asset_class="idp",
                 value=int(5000 * 1.15),  # medium drift 0.15
-                ktc=5000,
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
         # 5 high-confidence rows, one with extreme drift
         for i in range(4):
             rows.append(_make_row(
                 name=f"h_{i}",
-                asset_class="offense",
+                asset_class="idp",
                 value=int(5000 * 1.05),  # small drift 0.05
-                ktc=5000,
+                idpTradeCalc=5000,
                 bucket="high",
             ))
         high_outlier = _make_row(
             name="h_outlier",
-            asset_class="offense",
+            asset_class="idp",
             value=int(5000 * 2.50),  # 150% drift
-            ktc=5000,
+            idpTradeCalc=5000,
             bucket="high",
         )
         rows.append(high_outlier)
@@ -367,9 +367,9 @@ class TestClampFires(unittest.TestCase):
     def test_unranked_rows_are_skipped(self):
         rows = [_make_row(
             name="unranked",
-            asset_class="offense",
+            asset_class="idp",
             value=100,
-            ktc=5000,
+            idpTradeCalc=5000,
             bucket="low",
         )]
         # Clear canonicalConsensusRank to simulate an unranked row.
@@ -378,9 +378,9 @@ class TestClampFires(unittest.TestCase):
         for i in range(40):
             rows.append(_make_row(
                 name=f"p_{i}",
-                asset_class="offense",
+                asset_class="idp",
                 value=int(5000 * 1.10),
-                ktc=5000,
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
         _apply_market_corridor_clamp(rows, players_by_name={})
@@ -433,18 +433,18 @@ class TestClampStamps(unittest.TestCase):
     def test_mirror_onto_legacy_dict(self):
         row = _make_row(
             name="Clamped",
-            asset_class="offense",
+            asset_class="idp",
             value=100,
-            ktc=5000,
+            idpTradeCalc=5000,
             bucket="low",
         )
         rows = [row]
         for i in range(40):
             rows.append(_make_row(
                 name=f"p_{i}",
-                asset_class="offense",
+                asset_class="idp",
                 value=int(5000 * 1.10),
-                ktc=5000,
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
         legacy = {"Clamped": {"rankDerivedValue": 100}}
@@ -497,8 +497,8 @@ class TestIdpMaxBandCap(unittest.TestCase):
         self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS["idp"], 0.15)
 
     def test_offense_has_no_cap(self):
-        """Offense's KTC anchor coverage is deep enough that bucket P90
-        already keeps drifts in trade-room range.  No cap configured."""
+        """Offense has no cap because offense rows are not clamped at
+        all — see ``test_offense_rows_are_never_clamped``."""
         self.assertNotIn("offense", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
 
     def test_idp_extreme_outlier_clamps_to_max_band(self):
@@ -606,34 +606,53 @@ class TestIdpMaxBandCap(unittest.TestCase):
         # Clamp = 5000 × 1.15 = 5750.
         self.assertEqual(over["rankDerivedValue"], 5750)
 
-    def test_offense_with_wide_bucket_not_capped(self):
-        """Offense has no cap: a wide bucket P90 still controls clamp."""
+    def test_offense_rows_are_never_clamped(self):
+        """Offense is fully exempt from the corridor clamp.
+
+        The clamp exists solely to contain the IDP calibration
+        post-pass's runaway DB-bucket multipliers.  Offense has no
+        calibration post-pass, and anchoring offense to KTC (which
+        bakes in its own TE premium) would fight the league
+        TE-premium multiplier — a non-TEP single source plus the
+        1.25x TE boost would drift past the KTC band and get clamped
+        straight back, silently cancelling the premium.  An offense
+        row with an extreme drift must pass through untouched even
+        when IDP rows in the same build are clamped.
+        """
         rows = []
-        # 39 offense players with 30% drift → bucket P90 ≈ 0.30.
+        # IDP background so the function has a band distribution.
         for i in range(39):
             rows.append(_make_row(
-                name=f"bg_{i}",
-                asset_class="offense",
-                value=int(5000 * 1.30),
-                ktc=5000,
+                name=f"idp_bg_{i}",
+                asset_class="idp",
+                value=int(5000 * 1.10),
+                idpTradeCalc=5000,
                 bucket="medium",
             ))
-        outlier = _make_row(
-            name="offense_outlier",
+        idp_outlier = _make_row(
+            name="idp_outlier",
+            asset_class="idp",
+            value=1500,  # 70% below IDPTC → should clamp
+            idpTradeCalc=5000,
+            bucket="medium",
+        )
+        offense_outlier = _make_row(
+            name="te_premium_boosted",
             asset_class="offense",
-            value=int(5000 * 1.80),
+            value=int(5000 * 1.80),  # 80% above KTC → would clamp if offense
             ktc=5000,
             bucket="medium",
         )
-        rows.append(outlier)
+        rows.append(idp_outlier)
+        rows.append(offense_outlier)
         _apply_market_corridor_clamp(rows, players_by_name={})
-        stamp = outlier["marketCorridorClamp"]
-        # Offense band stays at the dynamic P90 (0.30), not capped.
-        self.assertEqual(stamp["bandPct"], 0.30)
-        self.assertFalse(stamp["cappedByMaxBand"])
-        self.assertIsNone(stamp["maxBandPct"])
-        # Clamp = 5000 × 1.30 = 6500.
-        self.assertEqual(outlier["rankDerivedValue"], 6500)
+
+        # IDP outlier is still clamped — the safety net is intact.
+        self.assertIn("marketCorridorClamp", idp_outlier)
+
+        # Offense outlier is untouched: no stamp, value preserved.
+        self.assertNotIn("marketCorridorClamp", offense_outlier)
+        self.assertEqual(offense_outlier["rankDerivedValue"], int(5000 * 1.80))
 
     def test_idp_cap_still_idempotent(self):
         """A second clamp pass after the cap has fired must not move

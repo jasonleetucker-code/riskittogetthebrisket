@@ -3821,9 +3821,10 @@ _MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
 # tradeable in real leagues regardless of how many other sources
 # disagree.  Cases like a Vikings LB priced at 1,900 internal vs
 # 3,600 on IDPTC (47% drift) clamp to the band edge (3,060) instead
-# of riding through on a wide bucket P90.  Offense has no cap today
-# because KTC's deeper coverage already keeps offense bucket P90s
-# inside acceptable trade-room ranges.
+# of riding through on a wide bucket P90.  Offense has no cap
+# because offense rows are not clamped at all (see
+# ``_apply_market_corridor_clamp`` — the clamp only contains the
+# IDP calibration runaway; offense has no calibration post-pass).
 _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {
     "idp": 0.15,
 }
@@ -3984,6 +3985,16 @@ def _apply_market_corridor_clamp(
     Stamps ``marketCorridorClamp`` on every clamped row so the UI
     and audit code can see original value, clamped value, anchor,
     direction, and which source provided the anchor.
+
+    Offense is exempt.  The corridor clamp exists solely to contain
+    the IDP calibration post-pass's 3-4x DB-bucket multipliers (the
+    Shavon-Revel / Vikings-LB runaway).  The offense path has no
+    post-blend calibration, so anchoring offense to KTC (which bakes
+    in its own TE-premium) only fights the league TE-premium
+    multiplier: a non-TEP single source + the 1.25x TE boost would
+    drift past the KTC band and get clamped straight back, silently
+    cancelling the premium.  Offense values are the pure blend
+    output; only IDP rows are clamped.
     """
     # Gather drift values per confidence bucket.
     by_bucket: dict[str, list[float]] = {}
@@ -3991,6 +4002,8 @@ def _apply_market_corridor_clamp(
     drifts: list[tuple[dict[str, Any], float, float, str]] = []
     for row in players_array:
         if not row.get("canonicalConsensusRank"):
+            continue
+        if str(row.get("assetClass") or "") == "offense":
             continue
         anchor, anchor_source = _market_anchor_for_row(row)
         if anchor is None:
