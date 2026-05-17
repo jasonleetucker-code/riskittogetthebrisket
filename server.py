@@ -1804,6 +1804,18 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 f"{site_count}/{total_sites} sites, {elapsed:.1f}s"
             )
 
+            # Best-effort disk retention.  Regenerable raw/export
+            # archives accumulate every scrape and would otherwise fill
+            # the disk.  A prune failure must never fail the scrape.
+            try:
+                from src.maintenance.retention import prune_data_dir
+
+                _ret = prune_data_dir(BASE_DIR)
+                if _ret.total_deleted or _ret.total_errors:
+                    log.info("retention: %s", _ret.summary())
+            except Exception as _ret_exc:  # noqa: BLE001
+                log.warning("retention prune skipped: %s", _ret_exc)
+
             return result
         except Exception as e:
             elapsed = time.time() - start
