@@ -239,6 +239,11 @@ export default function SettingsPage() {
             max={1.5}
             step={0.01}
             value={tepSliderValue}
+            // Wheel-scrolling a focused number input silently mutates
+            // it (and a stray tick here pins TEP to an explicit
+            // override that overrides the league default).  Blur on
+            // wheel so only deliberate typing changes the value.
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => {
               const n = parseFloat(e.target.value);
               if (Number.isFinite(n)) {
@@ -284,6 +289,7 @@ export default function SettingsPage() {
             max={1.5}
             step={0.01}
             value={tepNativeInputValue}
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => {
               const n = parseFloat(e.target.value);
               if (Number.isFinite(n)) {
