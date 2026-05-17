@@ -1,81 +1,99 @@
-"""Tests for the extended awards engine.
+"""Tests for the reworked awards engine.
 
-These tests exercise every award formula against the fixture in
-``tests/public_league/fixtures.py`` and extend the fixture with
-``players_points`` where a calculation depends on per-player scoring
-data (Trader of the Year, Waiver King, Playoff MVP).
+Covers the 2026 rework: removed awards, the 2026-05-12 trader/waiver
+tracking cutoff, starting-lineup-only Waiver King, champion-only
+Playoff MVP, the weighted Manager of the Year, Off/Def Rookie of the
+Year, Mr. Consistent, and canonical award ordering.
 """
 from __future__ import annotations
 
 import copy
 import unittest
+from unittest import mock
 
 from src.public_league import awards
 from src.public_league.awards import (
     AWARD_DESCRIPTIONS,
     _bad_beat_scores,
-    _chaos_agent_scores,
-    _most_active_scores,
-    _pick_hoarder_scores,
-    _playoff_mvp_scores,
+    _manager_of_the_year_scores,
+    _manager_unit_points,
+    _mr_consistent_scores,
+    _order_awards,
+    _playoff_mvp_player_rows,
     _rivalry_of_the_year,
+    _rookie_of_year_rows,
     _silent_assassin_scores,
+    _starter_scoring_walk,
+    _top_nfl_team_scores,
     _trader_of_the_year_scores,
+    _vorp_rows,
+    _vorp_starter_slots,
     _waiver_king_scores,
     _weekly_hammer_scores,
     _best_rebuild_scores,
+    _OFF_ROY_POSITIONS,
+    _DEF_ROY_POSITIONS,
+    _TOP_OFFENSE_POSITIONS,
+    _DEFENSIVE_POSITIONS,
+    _VORP_FIXED_STARTER_SLOTS,
+    _FLEX_RBWR_POOL,
 )
 from src.public_league.public_contract import assert_public_payload_safe, build_public_contract
 
 from tests.public_league.fixtures import build_test_snapshot
 
 
+# Fixture transactions are stamped in 2024; the real cutoff is
+# 2026-05-12.  Patch it to 0 when validating the *math* so the fixture
+# transactions count; leave it real when validating the *gating*.
+_NO_CUTOFF = mock.patch.object(awards, "TRADER_WAIVER_TRACKING_START_MS", 0)
+
+_REMOVED_KEYS = {
+    "chaos_agent", "most_active", "pick_hoarder",
+    "runner_up", "points_black_hole", "toilet_bowl",
+}
+
+
 def _with_player_points(snapshot):
-    """Return a deep-copy of snapshot with rich players_points / starters
-    stamps so awards relying on per-player scoring have data."""
+    """Deep-copy snapshot with rich players_points / starters stamps."""
     snap = copy.deepcopy(snapshot)
 
-    # 2025 season — manufacture per-player scoring for each matchup so
-    # trader/waiver/playoff-MVP calculations have numbers to crunch.
     def _stamp(entry, players_points, starters=None):
         entry["players_points"] = players_points
         if starters is not None:
             entry["starters"] = starters
 
     s2025 = snap.seasons[0]
-    # wk1 roster 1 started p-qb1 (40pts), p-rb1 (30), p-wr1 (20) etc.
     for wk, per_rid in {
         1: {
-            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 15.5}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
-            2: ({"p-qb2": 45.0, "p-rb3": 35.0, "p-wr2": 25.0, "p-te1": 15.0, "p-rookie-b": 15.2}, ["p-qb2","p-rb3","p-wr2","p-te1","p-rookie-b"]),
-            3: ({"p-wr1": 20.0, "p-wr2": 20.0, "p-wr3": 15.0, "p-rb1": 20.0, "p-qb1": 20.0}, ["p-wr1","p-wr2","p-wr3","p-rb1","p-qb1"]),
-            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 20.0, "p-idp3": 25.0, "p-qb2": 15.3}, ["p-te1","p-te2","p-idp1","p-idp2","p-idp3","p-qb2"]),
+            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 15.5}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
+            2: ({"p-qb2": 45.0, "p-rb3": 35.0, "p-wr2": 25.0, "p-te1": 15.0, "p-rookie-b": 15.2}, ["p-qb2", "p-rb3", "p-wr2", "p-te1", "p-rookie-b"]),
+            3: ({"p-wr1": 20.0, "p-wr2": 20.0, "p-wr3": 15.0, "p-rb1": 20.0, "p-qb1": 20.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
+            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 20.0, "p-idp3": 25.0, "p-qb2": 15.3}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
         },
         2: {
-            1: ({"p-qb1": 40.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
-            3: ({"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0}, ["p-wr1","p-wr2","p-wr3","p-rb1","p-qb1"]),
-            2: ({"p-qb2": 50.0, "p-rb2": 40.0, "p-wr2": 35.0, "p-te1": 20.0, "p-rookie-b": 20.0}, ["p-qb2","p-rb2","p-wr2","p-te1","p-rookie-b"]),
-            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 15.0, "p-idp3": 15.0, "p-qb2": 15.6}, ["p-te1","p-te2","p-idp1","p-idp2","p-idp3","p-qb2"]),
+            1: ({"p-qb1": 40.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
+            3: ({"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
+            2: ({"p-qb2": 50.0, "p-rb2": 40.0, "p-wr2": 35.0, "p-te1": 20.0, "p-rookie-b": 20.0}, ["p-qb2", "p-rb2", "p-wr2", "p-te1", "p-rookie-b"]),
+            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 15.0, "p-idp3": 15.0, "p-qb2": 15.6}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
         },
         15: {
-            2: ({"p-rb2": 55.5, "p-wr2": 35.0, "p-qb2": 40.0, "p-te1": 15.0, "p-rookie-b": 10.0}, ["p-rb2","p-wr2","p-qb2","p-te1","p-rookie-b"]),
-            4: ({"p-te1": 15.0, "p-te2": 30.0, "p-idp1": 30.0, "p-idp2": 25.0, "p-idp3": 20.0, "p-qb2": 10.0}, ["p-te1","p-te2","p-idp1","p-idp2","p-idp3","p-qb2"]),
-            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 35.0, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
-            3: ({"p-wr1": 40.0, "p-wr2": 30.0, "p-wr3": 25.0, "p-rb1": 25.0, "p-qb1": 20.0}, ["p-wr1","p-wr2","p-wr3","p-rb1","p-qb1"]),
+            2: ({"p-rb2": 55.5, "p-wr2": 35.0, "p-qb2": 40.0, "p-te1": 15.0, "p-rookie-b": 10.0}, ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"]),
+            4: ({"p-te1": 15.0, "p-te2": 30.0, "p-idp1": 30.0, "p-idp2": 25.0, "p-idp3": 20.0, "p-qb2": 10.0}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
+            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 35.0, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
+            3: ({"p-wr1": 40.0, "p-wr2": 30.0, "p-wr3": 25.0, "p-rb1": 25.0, "p-qb1": 20.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
         },
         16: {
-            2: ({"p-rb2": 50.0, "p-wr2": 30.0, "p-qb2": 35.0, "p-te1": 15.0, "p-rookie-b": 15.0}, ["p-rb2","p-wr2","p-qb2","p-te1","p-rookie-b"]),
-            1: ({"p-qb1": 30.0, "p-rb1": 25.0, "p-wr1": 25.0, "p-te1": 15.0, "p-rookie-a": 25.0}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
+            2: ({"p-rb2": 50.0, "p-wr2": 30.0, "p-qb2": 35.0, "p-te1": 15.0, "p-rookie-b": 15.0}, ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"]),
+            1: ({"p-qb1": 30.0, "p-rb1": 25.0, "p-wr1": 25.0, "p-te1": 15.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
         },
     }.items():
-        entries = s2025.matchups_by_week.get(wk, [])
-        for e in entries:
+        for e in s2025.matchups_by_week.get(wk, []):
             rid = int(e.get("roster_id"))
             if rid in per_rid:
                 pp, st = per_rid[rid]
                 _stamp(e, pp, starters=st)
 
-    # 2024 season — simpler but sufficient for tests.
     s2024 = snap.seasons[1]
     for wk in s2024.matchups_by_week.keys():
         for entry in s2024.matchups_by_week[wk]:
@@ -86,15 +104,49 @@ def _with_player_points(snapshot):
 
 
 class AwardDescriptionsTests(unittest.TestCase):
-    def test_every_award_has_a_description(self):
+    def test_active_awards_have_descriptions(self) -> None:
         for key in (
-            "trader_of_the_year", "best_trade_of_the_year", "waiver_king",
-            "chaos_agent", "most_active", "pick_hoarder", "silent_assassin",
-            "weekly_hammer", "playoff_mvp", "bad_beat", "best_rebuild",
-            "rivalry_of_the_year",
+            "champion", "manager_of_the_year", "trader_of_the_year",
+            "best_trade_of_the_year", "waiver_king", "silent_assassin",
+            "weekly_hammer", "playoff_mvp", "bad_beat", "mr_consistent",
+            "best_rebuild", "rivalry_of_the_year", "off_roy", "def_roy",
+            "league_mvp", "top_qb", "top_offense", "top_defense",
         ):
             self.assertIn(key, AWARD_DESCRIPTIONS)
             self.assertTrue(AWARD_DESCRIPTIONS[key])
+
+    def test_removed_awards_have_no_description(self) -> None:
+        for key in _REMOVED_KEYS:
+            self.assertNotIn(key, AWARD_DESCRIPTIONS)
+
+
+class TrackingCutoffTests(unittest.TestCase):
+    """Trader of the Year / Waiver King only start 2026-05-12."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_pre_cutoff_transactions_are_excluded(self) -> None:
+        # Fixture txs are stamped in 2024 — before the real cutoff.
+        rows, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
+        self.assertEqual(rows, [])
+        self.assertIsNone(best)
+        self.assertEqual(_waiver_king_scores(self.snapshot, self.snapshot.seasons[0]), [])
+
+    def test_section_omits_trader_and_waiver_pre_cutoff(self) -> None:
+        section = awards.build_section(self.snapshot)
+        for season_row in section["bySeason"]:
+            keys = {a["key"] for a in season_row["awards"]}
+            self.assertNotIn("trader_of_the_year", keys)
+            self.assertNotIn("waiver_king", keys)
+            self.assertNotIn("best_trade_of_the_year", keys)
+
+    def test_post_cutoff_transactions_count(self) -> None:
+        with _NO_CUTOFF:
+            rows, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
+        self.assertTrue(rows)
+        self.assertIsNotNone(best)
 
 
 class TraderAndBestTradeTests(unittest.TestCase):
@@ -103,21 +155,37 @@ class TraderAndBestTradeTests(unittest.TestCase):
         cls.snapshot = _with_player_points(build_test_snapshot())
 
     def test_trader_rows_sort_by_points_gained(self) -> None:
-        rows, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
+        with _NO_CUTOFF:
+            rows, _ = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
         self.assertTrue(rows)
-        # Descending order by pointsGained.
         for a, b in zip(rows, rows[1:]):
             self.assertGreaterEqual(a["pointsGained"], b["pointsGained"])
-        # Every row includes human-friendly display name.
         for r in rows:
             self.assertTrue(r["displayName"])
 
-    def test_best_trade_has_a_winner_when_trade_exists(self) -> None:
-        _, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
+    def test_best_trade_is_four_tuple_with_tx(self) -> None:
+        with _NO_CUTOFF:
+            _, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
         self.assertIsNotNone(best)
-        gain, owner_id, payload = best
+        gain, owner_id, payload, tx = best
         self.assertIn(owner_id, {"owner-A", "owner-B"})
         self.assertIn("transactionId", payload)
+        self.assertEqual(tx.get("type"), "trade")
+
+    def test_best_trade_award_carries_full_trade_detail(self) -> None:
+        with _NO_CUTOFF:
+            section = awards.build_section(self.snapshot)
+        found = None
+        for season_row in section["bySeason"]:
+            for a in season_row["awards"]:
+                if a["key"] == "best_trade_of_the_year":
+                    found = a
+        self.assertIsNotNone(found)
+        trade = found["value"].get("trade")
+        self.assertIsNotNone(trade)
+        self.assertIn("sides", trade)
+        self.assertGreaterEqual(len(trade["sides"]), 2)
+        self.assertIn("receivedAssets", trade["sides"][0])
 
 
 class WaiverKingTests(unittest.TestCase):
@@ -125,52 +193,26 @@ class WaiverKingTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.snapshot = _with_player_points(build_test_snapshot())
 
-    def test_waiver_rows_have_faab_efficiency_when_bid_present(self) -> None:
-        rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[0])
+    def test_value_shape_has_no_faab(self) -> None:
+        with _NO_CUTOFF:
+            rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[0])
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertIn("pointsGained", r)
+            self.assertIn("usefulAdds", r)
+            self.assertNotIn("faabEfficiency", r)
+            self.assertNotIn("faabSpent", r)
+
+    def test_only_started_weeks_count(self) -> None:
+        # wv-2025-a adds p-wr3 to roster 3 at leg 1.  Post-add weeks are
+        # >1: roster 3 starts p-wr3 in wk2 (30.0) and wk15 (25.0) only —
+        # week 1 is pre-add and bench weeks never count → exactly 55.0.
+        with _NO_CUTOFF:
+            rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[0])
         cole = next((r for r in rows if r["ownerId"] == "owner-C"), None)
         self.assertIsNotNone(cole)
-        self.assertIsNotNone(cole["faabEfficiency"])
-
-    def test_missing_bids_do_not_crash(self) -> None:
-        rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[1])
-        # 2024 season has a free_agent add with no bid — should not explode.
-        for r in rows:
-            self.assertIn("faabEfficiency", r)
-
-
-class ChaosAgentTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.snapshot = _with_player_points(build_test_snapshot())
-
-    def test_chaos_formula_matches_spec(self) -> None:
-        rows = _chaos_agent_scores(self.snapshot, self.snapshot.seasons[0])
-        # 2025 has one trade (owner-A ↔ owner-B).  Each side should earn:
-        #   3 * 1 trade + 1 * 1 partner + 1 * 1 player + 1 * 1 pick = 6
-        # plus owner-A's side has 1 pick received; owner-B has 1 pick too.
-        owner_a = next(r for r in rows if r["ownerId"] == "owner-A")
-        self.assertEqual(owner_a["trades"], 1)
-        self.assertEqual(owner_a["distinctPartners"], 1)
-        # players_moved includes received players only — 1 for each side.
-        self.assertEqual(owner_a["playersMoved"], 1)
-        self.assertEqual(owner_a["picksMoved"], 1)
-        self.assertEqual(owner_a["score"], 3 * 1 + 1 * 1 + 1 * 1 + 1 * 1)
-
-    def test_sort_descending(self) -> None:
-        rows = _chaos_agent_scores(self.snapshot, self.snapshot.seasons[0])
-        for a, b in zip(rows, rows[1:]):
-            self.assertGreaterEqual(a["score"], b["score"])
-
-
-class MostActiveTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.snapshot = _with_player_points(build_test_snapshot())
-
-    def test_total_sums_all_activity(self) -> None:
-        rows = _most_active_scores(self.snapshot, self.snapshot.seasons[0])
-        for r in rows:
-            self.assertEqual(r["total"], r["trades"] + r["waivers"] + r["freeAgents"] + r["drops"])
+        self.assertEqual(cole["pointsGained"], 55.0)
+        self.assertEqual(cole["usefulAdds"], 1)
 
 
 class SilentAssassinTests(unittest.TestCase):
@@ -186,7 +228,6 @@ class SilentAssassinTests(unittest.TestCase):
 
     def test_close_games_only_count_under_ten(self) -> None:
         rows = _silent_assassin_scores(self.snapshot, self.snapshot.seasons[0], min_eligible=1)
-        # No row should ever record a loss from a blowout as a "close game".
         for r in rows:
             self.assertLessEqual(r["avgCloseMargin"], 10.0 + 1e-6)
 
@@ -199,32 +240,129 @@ class WeeklyHammerTests(unittest.TestCase):
     def test_high_score_finishes_count(self) -> None:
         rows = _weekly_hammer_scores(self.snapshot, self.snapshot.seasons[0])
         by_owner = {r["ownerId"]: r for r in rows}
-        # Weeks 1 & 2 regular season.  Week 1 top: owner-B 135.2,
-        # week 2 top: owner-B 165.0.  Owner-B should have 2 high-score
-        # finishes.  No one else should have 2.
         self.assertEqual(by_owner["owner-B"]["highScoreFinishes"], 2)
         for owner_id, r in by_owner.items():
             if owner_id != "owner-B":
                 self.assertLessEqual(r["highScoreFinishes"], 1)
 
 
-class PlayoffMvpTests(unittest.TestCase):
+class PlayoffMvpChampionOnlyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.snapshot = _with_player_points(build_test_snapshot())
 
-    def test_playoff_points_accumulate(self) -> None:
-        rows = _playoff_mvp_scores(self.snapshot, self.snapshot.seasons[0])
-        by_owner = {r["ownerId"]: r for r in rows}
-        # owner-B played week 15 (155.5) + week 16 (145.0) = 300.5.
-        self.assertAlmostEqual(by_owner["owner-B"]["playoffPoints"], 300.5, places=1)
+    def test_only_champion_roster_players(self) -> None:
+        # 2025 champion = roster 2 (owner-B).  Every candidate must
+        # attribute to owner-B.
+        rows = _playoff_mvp_player_rows(self.snapshot, self.snapshot.seasons[0])
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertEqual(r["ownerId"], "owner-B")
+        # Sorted by VORP desc.
+        for a, b in zip(rows, rows[1:]):
+            self.assertGreaterEqual(a["vorp"], b["vorp"])
 
-    def test_top_player_populated(self) -> None:
-        rows = _playoff_mvp_scores(self.snapshot, self.snapshot.seasons[0])
+    def test_no_champion_returns_empty(self) -> None:
+        snap = copy.deepcopy(self.snapshot)
+        snap.seasons[0].winners_bracket = []
+        self.assertEqual(_playoff_mvp_player_rows(snap, snap.seasons[0]), [])
+
+
+class TopOffenseExcludesKickerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_offense_defense_partition_matches_position_sets(self) -> None:
+        season = self.snapshot.seasons[0]
+        units = _manager_unit_points(self.snapshot, season, regular_season_only=True)
+        expected: dict[str, dict[str, float]] = {}
+        for _wk, _rid, owner_id, _pid, pos, pts, _is_p in _starter_scoring_walk(
+            self.snapshot, season, regular_season_only=True
+        ):
+            rec = expected.setdefault(owner_id, {"offense": 0.0, "defense": 0.0})
+            if pos in _TOP_OFFENSE_POSITIONS:
+                rec["offense"] += pts
+            elif pos in _DEFENSIVE_POSITIONS:
+                rec["defense"] += pts
+            # K / unmapped contribute to neither.
+        for owner_id, rec in units.items():
+            self.assertAlmostEqual(rec["offense"], expected[owner_id]["offense"], places=2)
+            self.assertAlmostEqual(rec["defense"], expected[owner_id]["defense"], places=2)
+
+    def test_kicker_excluded_from_offense_and_off_roy(self) -> None:
+        self.assertNotIn("K", _TOP_OFFENSE_POSITIONS)
+        self.assertNotIn("K", _OFF_ROY_POSITIONS)
+
+
+class ManagerOfTheYearTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_composite_in_unit_range_and_sorted(self) -> None:
+        with _NO_CUTOFF:
+            trader_rows, _ = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
+            waiver_rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[0])
+            rows = _manager_of_the_year_scores(
+                self.snapshot, self.snapshot.seasons[0], trader_rows, waiver_rows
+            )
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertGreaterEqual(r["compositeScore"], 0.0)
+            self.assertLessEqual(r["compositeScore"], 1.0)
+            self.assertIn("finishRank", r)
+            self.assertIn("tradePointsGained", r)
+            self.assertIn("waiverPointsGained", r)
+        for a, b in zip(rows, rows[1:]):
+            self.assertGreaterEqual(a["compositeScore"], b["compositeScore"])
+
+    def test_champion_has_best_finish_rank(self) -> None:
+        rows = _manager_of_the_year_scores(
+            self.snapshot, self.snapshot.seasons[0], [], []
+        )
         by_owner = {r["ownerId"]: r for r in rows}
-        # owner-B's stamp has p-rb2 as 55.5 in wk15; we overwrite
-        # starters/players_points so the top player should be p-rb2.
-        self.assertTrue(by_owner["owner-B"]["topPlayerName"])
+        # 2025 champion = owner-B → finishRank 1.
+        self.assertEqual(by_owner["owner-B"]["finishRank"], 1)
+
+
+class RookieOfTheYearTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_off_roy_only_offensive_rookies(self) -> None:
+        rows = _rookie_of_year_rows(
+            self.snapshot, self.snapshot.seasons[0], _OFF_ROY_POSITIONS
+        )
+        for r in rows:
+            self.assertIn(r["position"], _OFF_ROY_POSITIONS)
+            meta = self.snapshot.nfl_players.get(r["playerId"]) or {}
+            self.assertEqual(int(meta.get("years_exp")), 0)
+
+    def test_def_roy_only_defensive_rookies(self) -> None:
+        rows = _rookie_of_year_rows(
+            self.snapshot, self.snapshot.seasons[0], _DEF_ROY_POSITIONS
+        )
+        for r in rows:
+            self.assertIn(r["position"], _DEF_ROY_POSITIONS)
+            meta = self.snapshot.nfl_players.get(r["playerId"]) or {}
+            self.assertEqual(int(meta.get("years_exp")), 0)
+
+
+class MrConsistentTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_sorted_ascending_cv_and_nonnegative(self) -> None:
+        rows = _mr_consistent_scores(self.snapshot, self.snapshot.seasons[0], min_weeks=1)
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertGreaterEqual(r["cv"], 0.0)
+            self.assertGreater(r["meanScore"], 0.0)
+        for a, b in zip(rows, rows[1:]):
+            self.assertLessEqual(a["cv"], b["cv"])
 
 
 class BadBeatTests(unittest.TestCase):
@@ -235,25 +373,7 @@ class BadBeatTests(unittest.TestCase):
     def test_points_in_loss_only(self) -> None:
         rows = _bad_beat_scores(self.snapshot, self.snapshot.seasons[0])
         by_owner = {r["ownerId"]: r for r in rows}
-        # owner-C lost wk1 (95.0 vs owner-D 110.3) and wk2 (142.1 vs
-        # owner-A 145.8).  biggestLoss=142.1.
         self.assertAlmostEqual(by_owner["owner-C"]["biggestLoss"], 142.1, places=1)
-
-
-class PickHoarderTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.snapshot = _with_player_points(build_test_snapshot())
-
-    def test_weighted_score_nonzero(self) -> None:
-        rows = _pick_hoarder_scores(self.snapshot)
-        self.assertTrue(rows)
-        self.assertGreater(rows[0]["weightedScore"], 0)
-
-    def test_sort_descending(self) -> None:
-        rows = _pick_hoarder_scores(self.snapshot)
-        for a, b in zip(rows, rows[1:]):
-            self.assertGreaterEqual(a["weightedScore"], b["weightedScore"])
 
 
 class BestRebuildTests(unittest.TestCase):
@@ -263,12 +383,9 @@ class BestRebuildTests(unittest.TestCase):
 
     def test_composite_populated_for_known_owners(self) -> None:
         rows = _best_rebuild_scores(
-            self.snapshot,
-            self.snapshot.seasons[0],
-            self.snapshot.seasons[1],
+            self.snapshot, self.snapshot.seasons[0], self.snapshot.seasons[1]
         )
         owners = {r["ownerId"] for r in rows}
-        # Only owners present in BOTH seasons should appear.
         self.assertEqual(owners, {"owner-A", "owner-B", "owner-C"})
 
 
@@ -281,11 +398,108 @@ class RivalryOfTheYearTests(unittest.TestCase):
         r = _rivalry_of_the_year(self.snapshot, self.snapshot.seasons[0])
         self.assertIsNotNone(r)
         self.assertIn("rivalryIndex", r)
-        # A vs C meets in wk2 (margin 3.7 — both close-bands) and wk15
-        # playoff semifinal (margin 10.0 — within 10-band).  Their
-        # rivalry_index 14 beats A-B's 7 (one playoff game, no close
-        # bands).
         self.assertEqual(sorted(r["ownerIds"]), sorted(["owner-A", "owner-C"]))
+
+
+class VorpFloorAndSlotsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_no_negative_vorp_regular_season(self) -> None:
+        rows = _vorp_rows(self.snapshot, self.snapshot.seasons[0], regular_season_only=True)
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertGreaterEqual(r["vorp"], 0.0)
+
+    def test_no_negative_vorp_playoffs(self) -> None:
+        rows = _playoff_mvp_player_rows(self.snapshot, self.snapshot.seasons[0])
+        for r in rows:
+            self.assertGreaterEqual(r["vorp"], 0.0)
+
+    def test_fixed_slots_exact(self) -> None:
+        slots = _vorp_starter_slots({})
+        self.assertEqual(slots["QB"], 24)
+        self.assertEqual(slots["TE"], 24)
+        self.assertEqual(slots["K"], 12)
+        self.assertEqual(slots["DL"], 36)
+        self.assertEqual(slots["LB"], 36)
+        self.assertEqual(slots["DB"], 36)
+        self.assertEqual(_VORP_FIXED_STARTER_SLOTS["QB"], 24)
+
+    def test_rbwr_split_from_top_84(self) -> None:
+        rb = [{"position": "RB", "starterPoints": float(200 - i)} for i in range(60)]
+        wr = [{"position": "WR", "starterPoints": float(150 - i)} for i in range(60)]
+        slots = _vorp_starter_slots({"RB": rb, "WR": wr})
+        # 120 RB+WR total → top 84 by points splits into RB+WR == 84.
+        self.assertEqual(slots["RB"] + slots["WR"], _FLEX_RBWR_POOL)
+        self.assertGreater(slots["RB"], 0)
+        self.assertGreater(slots["WR"], 0)
+
+    def test_rbwr_split_smaller_than_pool(self) -> None:
+        rb = [{"position": "RB", "starterPoints": 50.0} for _ in range(10)]
+        wr = [{"position": "WR", "starterPoints": 40.0} for _ in range(5)]
+        slots = _vorp_starter_slots({"RB": rb, "WR": wr})
+        self.assertEqual(slots["RB"], 10)
+        self.assertEqual(slots["WR"], 5)
+
+
+class TopNflTeamTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        snap = _with_player_points(build_test_snapshot())
+        # Fixture stub has no NFL team tags — assign a few so the
+        # aggregation has data (nfl_players is deep-copied, safe).
+        for pid, team in {
+            "p-qb1": "DET", "p-rb1": "DET", "p-wr1": "SF",
+            "p-qb2": "KC", "p-rb2": "KC",
+        }.items():
+            if pid in snap.nfl_players:
+                snap.nfl_players[pid] = {**snap.nfl_players[pid], "team": team}
+        cls.snapshot = snap
+
+    def test_scores_sorted_and_positive(self) -> None:
+        rows = _top_nfl_team_scores(self.snapshot, self.snapshot.seasons[0])
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertGreater(r["points"], 0)
+            self.assertTrue(r["team"])
+        for a, b in zip(rows, rows[1:]):
+            self.assertGreaterEqual(a["points"], b["points"])
+
+    def test_award_emitted_with_team_value(self) -> None:
+        section = awards.build_section(self.snapshot)
+        found = None
+        for season_row in section["bySeason"]:
+            for a in season_row["awards"]:
+                if a["key"] == "top_nfl_team":
+                    found = a
+        self.assertIsNotNone(found)
+        self.assertEqual(found["ownerId"], "")
+        self.assertIn("team", found["value"])
+        self.assertIn("points", found["value"])
+        self.assertEqual(found["displayName"], found["value"]["team"])
+
+
+class AwardOrderingTests(unittest.TestCase):
+    def test_champion_then_moty_lead(self) -> None:
+        keys = [
+            "rivalry_of_the_year", "manager_of_the_year", "top_qb",
+            "champion", "bad_beat",
+        ]
+        awarded = [{"key": k} for k in keys]
+        ordered = [a["key"] for a in _order_awards(awarded)]
+        self.assertEqual(ordered[0], "champion")
+        self.assertEqual(ordered[1], "manager_of_the_year")
+
+    def test_section_orders_champion_first_moty_second(self) -> None:
+        snapshot = _with_player_points(build_test_snapshot())
+        section = awards.build_section(snapshot)
+        for season_row in section["bySeason"]:
+            ks = [a["key"] for a in season_row["awards"]]
+            if "champion" in ks and "manager_of_the_year" in ks:
+                self.assertEqual(ks[0], "champion")
+                self.assertEqual(ks[1], "manager_of_the_year")
 
 
 class AwardsSectionIntegrationTests(unittest.TestCase):
@@ -294,7 +508,7 @@ class AwardsSectionIntegrationTests(unittest.TestCase):
         cls.snapshot = _with_player_points(build_test_snapshot())
         cls.section = awards.build_section(cls.snapshot)
 
-    def test_each_historical_award_has_required_fields(self) -> None:
+    def test_each_award_has_required_fields(self) -> None:
         for season_row in self.section["bySeason"]:
             for a in season_row["awards"]:
                 self.assertIn("key", a)
@@ -302,17 +516,19 @@ class AwardsSectionIntegrationTests(unittest.TestCase):
                 self.assertIn("description", a)
                 self.assertIn("ownerId", a)
 
-    def test_live_races_empty_when_current_season_complete(self) -> None:
-        # Fixture marks both seasons "complete" → zero live races.
-        self.assertEqual(self.section["awardRaces"], [])
-
-    def test_every_award_has_a_description_in_the_payload(self) -> None:
+    def test_removed_awards_absent(self) -> None:
         for season_row in self.section["bySeason"]:
             for a in season_row["awards"]:
-                self.assertEqual(
-                    a["description"],
-                    AWARD_DESCRIPTIONS.get(a["key"], ""),
-                )
+                self.assertNotIn(a["key"], _REMOVED_KEYS)
+
+    def test_descriptions_match(self) -> None:
+        for season_row in self.section["bySeason"]:
+            for a in season_row["awards"]:
+                self.assertEqual(a["description"], AWARD_DESCRIPTIONS.get(a["key"], ""))
+
+    def test_featured_season_keys_present(self) -> None:
+        self.assertIn("featuredSeason", self.section)
+        self.assertIn("upcomingSeason", self.section)
 
     def test_no_private_fields_leak(self) -> None:
         contract = build_public_contract(self.snapshot)
@@ -320,14 +536,12 @@ class AwardsSectionIntegrationTests(unittest.TestCase):
 
 
 class AwardsLiveRaceTests(unittest.TestCase):
-    """In-progress season → live races populated + top-3 only."""
-
     @classmethod
     def setUpClass(cls) -> None:
         base = _with_player_points(build_test_snapshot())
-        # Mark 2025 as in_progress so the live-race branch fires.
         base.seasons[0].league["status"] = "in_season"
-        cls.section = awards.build_section(base)
+        with _NO_CUTOFF:
+            cls.section = awards.build_section(base)
 
     def test_has_award_races(self) -> None:
         self.assertGreater(len(self.section["awardRaces"]), 0)
@@ -338,50 +552,16 @@ class AwardsLiveRaceTests(unittest.TestCase):
             for i, leader in enumerate(race["leaders"]):
                 self.assertEqual(leader["rank"], i + 1)
 
-    def test_hottest_race_populated(self) -> None:
-        self.assertIsNotNone(self.section["hottestRace"])
-        self.assertIn("topLeader", self.section["hottestRace"])
-
-    def test_race_catalog_covers_expected_keys(self) -> None:
+    def test_race_catalog_covers_expected_and_excludes_removed(self) -> None:
         keys = {r["key"] for r in self.section["awardRaces"]}
-        expected = {
-            "trader_of_the_year", "waiver_king", "chaos_agent",
-            "most_active", "weekly_hammer", "bad_beat", "pick_hoarder",
-        }
-        # silent_assassin and playoff_mvp are conditional (eligibility /
-        # playoff-only).  Must still include the core races above.
-        self.assertTrue(expected.issubset(keys))
-
-
-class EdgeCaseTests(unittest.TestCase):
-    """Defensive tests: renamed teams, missing FAAB, tied values."""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.snapshot = _with_player_points(build_test_snapshot())
-
-    def test_renamed_team_attributes_to_single_owner(self) -> None:
-        # owner-A renamed team between 2024 and 2025.  The Trader of
-        # the Year row must appear ONCE per season, keyed by owner-A.
-        section = awards.build_section(self.snapshot)
-        for season_row in section["bySeason"]:
-            owners_in_toy = [
-                a["ownerId"] for a in season_row["awards"] if a["key"] == "trader_of_the_year"
-            ]
-            # Either one winner or none (if no trades that season).
-            self.assertLessEqual(len(owners_in_toy), 1)
-
-    def test_no_faab_bid_returns_none_efficiency(self) -> None:
-        rows = _waiver_king_scores(self.snapshot, self.snapshot.seasons[1])
-        for r in rows:
-            if r["faabSpent"] == 0:
-                self.assertIsNone(r["faabEfficiency"])
-
-    def test_ties_are_deterministic(self) -> None:
-        # Running twice must produce identical ordering.
-        a = _most_active_scores(self.snapshot, self.snapshot.seasons[0])
-        b = _most_active_scores(self.snapshot, self.snapshot.seasons[0])
-        self.assertEqual([r["ownerId"] for r in a], [r["ownerId"] for r in b])
+        # mr_consistent / silent_assassin / playoff_mvp are conditional
+        # (week-count / eligibility / champion); the core set is always
+        # present once the cutoff lets trades/waivers through.
+        self.assertTrue(
+            {"trader_of_the_year", "waiver_king", "weekly_hammer",
+             "bad_beat", "manager_of_the_year"}.issubset(keys)
+        )
+        self.assertEqual(keys & _REMOVED_KEYS, set())
 
 
 if __name__ == "__main__":

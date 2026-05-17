@@ -148,8 +148,6 @@ export function renderAwardValue(key, value) {
   if (!value) return "";
   switch (key) {
     case "champion":
-    case "runner_up":
-    case "toilet_bowl":
       return "";
     case "top_seed":
       return `Win% ${fmtPercent(value.winPct)}`;
@@ -157,8 +155,6 @@ export function renderAwardValue(key, value) {
       return value.record || "";
     case "points_king":
       return `${fmtNumber(value.pointsFor, 1)} PF`;
-    case "points_black_hole":
-      return `${fmtNumber(value.pointsAgainst, 1)} PA`;
     case "highest_single_week":
     case "lowest_single_week":
       return `Wk ${value.week} · ${fmtPoints(value.points)} pts`;
@@ -168,18 +164,11 @@ export function renderAwardValue(key, value) {
       return `+${fmtPoints(value.pointsGained)} pts · Wk ${value.week}`;
     case "waiver_king":
       return `+${fmtPoints(value.pointsGained)} pts · ${value.adds} adds`;
-    case "chaos_agent":
-      return `Score ${value.score} · ${value.trades} trades · ${value.partners} partners`;
-    case "most_active":
-      return `${value.total} moves`;
     case "silent_assassin":
       return `${fmtPercent(value.winPct)} in ${value.closeGames} close games`;
     case "weekly_hammer":
       return `${value.highScoreFinishes} high-score wks`;
     case "playoff_mvp": {
-      // Player-based VORP MVP (new format).  Older shape carried
-      // playoffPoints; both are tolerated here so old cached payloads
-      // still render.
       if (value.playerName) {
         return `${value.playerName} (${value.position}) · VORP ${fmtPoints(value.vorp)}`;
       }
@@ -187,19 +176,23 @@ export function renderAwardValue(key, value) {
     }
     case "bad_beat":
       return `${fmtPoints(value.points)} in loss · Wk ${value.week}`;
+    case "mr_consistent":
+      return `CV ${fmtNumber(value.cv, 3)} · ${fmtNumber(value.meanScore, 1)} avg · ${value.weeks} wks`;
     case "best_rebuild":
       return `Composite ${value.compositeScore}`;
     case "rivalry_of_the_year":
       return `${value.displayNames[0]} vs ${value.displayNames[1]} · Index ${value.rivalryIndex}`;
-    case "pick_hoarder":
-      return `Weighted ${value.weightedScore} · ${value.totalPicks} picks`;
     // ── Manager awards ──
     case "top_offense":
       return `${fmtNumber(value.offensePoints, 1)} starter pts`;
     case "top_defense":
       return `${fmtNumber(value.defensePoints, 1)} starter pts`;
-    case "manager_of_the_year":
-      return `${value.wins}-${value.losses} · ${fmtNumber(value.pointsFor, 1)} PF · score ${fmtNumber(value.compositeScore, 3)}`;
+    case "top_nfl_team":
+      return `${value.team} · ${fmtNumber(value.points, 1)} starter pts`;
+    case "manager_of_the_year": {
+      const finish = value.finishRank ? ` · #${value.finishRank} finish` : "";
+      return `Score ${fmtNumber(value.compositeScore, 3)}${finish} · ${value.wins}-${value.losses} · ${fmtNumber(value.pointsFor, 1)} PF`;
+    }
     // ── Player awards ──
     case "top_qb":
     case "top_rb":
@@ -213,6 +206,8 @@ export function renderAwardValue(key, value) {
         ? `${value.playerName} · ${fmtPoints(value.starterPoints)} pts in ${value.gamesStarted} starts`
         : `${fmtPoints(value.starterPoints)} pts`;
     case "league_mvp":
+    case "off_roy":
+    case "def_roy":
       return value.playerName
         ? `${value.playerName} (${value.position}) · VORP ${fmtPoints(value.vorp)}`
         : `VORP ${fmtPoints(value.vorp)}`;

@@ -106,7 +106,7 @@ function ActivitySection({ managers, data, onNavigate }) {
   );
 }
 
-function TradeCard({ trade, managers, onNavigate }) {
+export function TradeCard({ trade, managers, onNavigate }) {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
       <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>

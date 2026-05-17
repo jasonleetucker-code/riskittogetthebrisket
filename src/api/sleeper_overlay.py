@@ -1115,6 +1115,23 @@ def _current_season_year() -> int:
     return _dt.datetime.now(_dt.timezone.utc).year
 
 
+def _league_season(sleeper_league_id: str) -> str:
+    """Authoritative season for a league: the Sleeper league object's
+    ``season`` field (single source of truth, same as the public-league
+    pipeline).  Falls back to the calendar year only if the league fetch
+    fails — never hard-code or assume the year so season rollover is
+    automatic when the league advances.
+    """
+    info = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
+    )
+    if isinstance(info, dict):
+        season = str(info.get("season") or "").strip()
+        if season:
+            return season
+    return str(_current_season_year())
+
+
 def _resolve_active_draft_id(sleeper_league_id: str) -> str | None:
     """Pick the most relevant draft for a league.
 
@@ -1145,7 +1162,7 @@ def _resolve_active_draft_id(sleeper_league_id: str) -> str | None:
     )
     draft_id: str | None = None
     if isinstance(drafts, list):
-        season = str(_current_season_year())
+        season = _league_season(sleeper_league_id)
         # Status precedence: drafting > pre_draft > complete.  Lower is
         # better.  Within the same status, newest start_time wins.
         rank = {"drafting": 0, "pre_draft": 1, "complete": 2}
