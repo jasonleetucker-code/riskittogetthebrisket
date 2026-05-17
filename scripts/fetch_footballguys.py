@@ -104,6 +104,15 @@ _POS_MAP: dict[str, str] = {
 _OFFENSE_POS: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 _IDP_POS: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
+# Contract-aligned row-count floors (== _DEFAULT_SOURCE_ROW_FLOORS in
+# src/api/data_contract.py).  Previously the only guard was a post-
+# write ``==0`` check, so a structurally-short scrape (stale session,
+# changed HTML, a family collapsing) overwrote the last-good CSVs and
+# then hard-failed the contract floor on a clean checkout.  Now: fail
+# loud + preserve last-good if either side is below its floor.
+_FBG_SF_ROW_FLOOR: int = 375
+_FBG_IDP_ROW_FLOOR: int = 230
+
 
 def _load_env_dotfile(path: Path) -> None:
     """Parse ``.env`` and populate ``os.environ`` for any keys it
@@ -458,18 +467,26 @@ def main() -> int:
         print(f"first IDP row: {first_idp}")
         return 0
 
+    # Floor check BEFORE writing: a partial scrape must not overwrite
+    # the last-good CSVs with a structurally-degraded board that would
+    # then hard-fail the downstream contract floor on a clean
+    # checkout.  Fail loud, preserve last-good.
+    off_n = sum(1 for r in all_rows if r["family"] in _OFFENSE_POS)
+    idp_n = sum(1 for r in all_rows if r["family"] in _IDP_POS)
+    if off_n < _FBG_SF_ROW_FLOOR or idp_n < _FBG_IDP_ROW_FLOOR:
+        print(
+            f"[FBG] ERROR: degraded scrape — offense={off_n} "
+            f"(floor {_FBG_SF_ROW_FLOOR}) idp={idp_n} (floor "
+            f"{_FBG_IDP_ROW_FLOOR}); session likely stale or HTML "
+            f"changed.  Preserving last-good CSVs; not overwriting.",
+            file=sys.stderr,
+        )
+        return 2
+
     off_written = _write_csv(OUT_SF, all_rows, include_families=_OFFENSE_POS)
     print(f"[FBG] wrote {OUT_SF} ({off_written} rows)")
     idp_written = _write_csv(OUT_IDP, all_rows, include_families=_IDP_POS)
     print(f"[FBG] wrote {OUT_IDP} ({idp_written} rows)")
-
-    if off_written == 0 or idp_written == 0:
-        print(
-            "[FBG] ERROR: zero rows written for one or both sides — "
-            "session likely stale or HTML structure changed",
-            file=sys.stderr,
-        )
-        return 1
     return 0
 
 
