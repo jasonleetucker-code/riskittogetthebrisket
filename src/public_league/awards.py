@@ -2055,10 +2055,16 @@ def _current_season_races(
 
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     by_season: list[dict[str, Any]] = []
+    races_by_season: dict[str, list[dict[str, Any]]] = {}
     for idx, season in enumerate(snapshot.seasons):
         prev = snapshot.seasons[idx + 1] if idx + 1 < len(snapshot.seasons) else None
         canonical = _season_canonical_awards(snapshot, season)
         activity_based = _activity_awards_for_season(snapshot, season, prev)
+        # Per-season races double as that year's "finalists" board so the
+        # award-history modal can show the ranked runner-ups, not just the
+        # winner.  Reused below for the featured season's live awardRaces.
+        season_races = _current_season_races(snapshot, season)
+        races_by_season[season.season] = season_races
         by_season.append({
             "season": season.season,
             "leagueId": season.league_id,
@@ -2066,6 +2072,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "isComplete": season.is_complete,
             "hasPlayerScoring": _season_has_player_scoring(season),
             "awards": _order_awards(canonical + activity_based),
+            "finalists": {r["key"]: r["leaders"] for r in season_races},
         })
 
     # Featured season = the newest season that has actually *begun*.
@@ -2093,7 +2100,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     races: list[dict[str, Any]] = []
     current = featured
     if current is not None and not current.is_complete:
-        races = _current_season_races(snapshot, current)
+        races = races_by_season.get(current.season) or _current_season_races(snapshot, current)
 
     hottest = None
     for race in races:

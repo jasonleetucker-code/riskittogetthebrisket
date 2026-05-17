@@ -22,6 +22,45 @@ const PLAYER_AWARD_KEYS = new Set([
   "league_mvp", "off_mvp", "def_mvp", "playoff_mvp", "off_roy", "def_roy",
 ]);
 
+// One ranked row in a race / finalists list.  Shared by the live
+// "Award races" card and the per-year finalists in the history modal so
+// both render an identical ranked board.
+function LeaderRow({ awardKey, leader, managers, onNavigate }) {
+  const isPlayer = PLAYER_AWARD_KEYS.has(awardKey);
+  return (
+    <div
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", gap: 6 }}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", minWidth: 16 }}>
+          {leader.rank}.
+        </span>
+        {isPlayer && leader.value?.playerId && (
+          <PlayerImage
+            playerId={leader.value.playerId}
+            team={leader.value.team}
+            position={leader.value.position}
+            name={leader.value.playerName}
+            size={18}
+          />
+        )}
+        {leader.ownerId && (
+          <Avatar managers={managers} ownerId={leader.ownerId} size={18} />
+        )}
+        <span
+          style={{ cursor: leader.ownerId ? "pointer" : "default", color: leader.ownerId ? "var(--cyan)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis" }}
+          onClick={leader.ownerId ? () => onNavigate("franchise", { owner: leader.ownerId }) : undefined}
+        >
+          {isPlayer && leader.value?.playerName ? leader.value.playerName : leader.displayName}
+        </span>
+      </span>
+      <span style={{ fontFamily: "var(--mono)", color: "var(--text)", flexShrink: 0 }}>
+        {renderAwardValue(awardKey, leader.value)}
+      </span>
+    </div>
+  );
+}
+
 function AwardWinner({ a, managers, size = 24 }) {
   const isPlayer = PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId;
   return (
@@ -65,6 +104,15 @@ function AwardWinner({ a, managers, size = 24 }) {
 }
 
 function AwardHistoryModal({ awardKey, label, description, history, managers, onNavigate, onClose }) {
+  const [expanded, setExpanded] = useState(() => new Set());
+  const toggle = (season) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(season)) next.delete(season);
+      else next.add(season);
+      return next;
+    });
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -129,27 +177,85 @@ function AwardHistoryModal({ awardKey, label, description, history, managers, on
               No prior winners on record yet.
             </div>
           )}
-          {history.map(({ season, award }) => (
-            <div
-              key={season}
-              style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}
-            >
-              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>
-                {season}
+          {history.map(({ season, award, finalists }) => {
+            const fin = finalists || [];
+            const hasFinalists = fin.length > 1;
+            const isOpen = expanded.has(season);
+            return (
+              <div
+                key={season}
+                style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}
+              >
+                <div
+                  role={hasFinalists ? "button" : undefined}
+                  tabIndex={hasFinalists ? 0 : undefined}
+                  onClick={hasFinalists ? () => toggle(season) : undefined}
+                  onKeyDown={
+                    hasFinalists
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggle(season);
+                          }
+                        }
+                      : undefined
+                  }
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                    cursor: hasFinalists ? "pointer" : "default",
+                  }}
+                >
+                  <div style={{ fontSize: "0.66rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>
+                    {season}
+                  </div>
+                  {hasFinalists && (
+                    <div style={{ fontSize: "0.62rem", color: "var(--cyan)", fontWeight: 600 }}>
+                      {isOpen ? "Hide finalists ▴" : `Finalists (${fin.length}) ▾`}
+                    </div>
+                  )}
+                </div>
+                <AwardWinner a={award} managers={managers} size={22} />
+                {award.value && (
+                  <div style={{ fontFamily: "var(--mono)", fontSize: "0.76rem", color: "var(--cyan)", marginTop: 6 }}>
+                    {renderAwardValue(award.key, award.value)}
+                  </div>
+                )}
+                {award.key === "best_trade_of_the_year" && award.value?.trade && (
+                  <div style={{ marginTop: 8 }}>
+                    <TradeCard trade={award.value.trade} managers={managers} onNavigate={onNavigate} />
+                  </div>
+                )}
+                {hasFinalists && isOpen && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      borderTop: "1px solid var(--border)",
+                      paddingTop: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: "0.58rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      {season} finalists
+                    </div>
+                    {fin.map((leader) => (
+                      <LeaderRow
+                        key={leader.ownerId || leader.value?.playerId || `${award.key}-${leader.rank}`}
+                        awardKey={award.key}
+                        leader={leader}
+                        managers={managers}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              <AwardWinner a={award} managers={managers} size={22} />
-              {award.value && (
-                <div style={{ fontFamily: "var(--mono)", fontSize: "0.76rem", color: "var(--cyan)", marginTop: 6 }}>
-                  {renderAwardValue(award.key, award.value)}
-                </div>
-              )}
-              {award.key === "best_trade_of_the_year" && award.value?.trade && (
-                <div style={{ marginTop: 8 }}>
-                  <TradeCard trade={award.value.trade} managers={managers} onNavigate={onNavigate} />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -167,7 +273,11 @@ function AwardsSection({ managers, data, onNavigate }) {
     for (const s of seasons) {
       for (const a of s.awards || []) {
         if (!map.has(a.key)) map.set(a.key, []);
-        map.get(a.key).push({ season: s.season, award: a });
+        map.get(a.key).push({
+          season: s.season,
+          award: a,
+          finalists: s.finalists?.[a.key] || [],
+        });
       }
     }
     return map;
@@ -201,39 +311,13 @@ function AwardsSection({ managers, data, onNavigate }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {race.leaders.map((leader) => (
-                    <div
+                    <LeaderRow
                       key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", gap: 6 }}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                        <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", minWidth: 16 }}>
-                          {leader.rank}.
-                        </span>
-                        {PLAYER_AWARD_KEYS.has(race.key) && leader.value?.playerId && (
-                          <PlayerImage
-                            playerId={leader.value.playerId}
-                            team={leader.value.team}
-                            position={leader.value.position}
-                            name={leader.value.playerName}
-                            size={18}
-                          />
-                        )}
-                        {leader.ownerId && (
-                          <Avatar managers={managers} ownerId={leader.ownerId} size={18} />
-                        )}
-                        <span
-                          style={{ cursor: leader.ownerId ? "pointer" : "default", color: leader.ownerId ? "var(--cyan)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis" }}
-                          onClick={leader.ownerId ? () => onNavigate("franchise", { owner: leader.ownerId }) : undefined}
-                        >
-                          {PLAYER_AWARD_KEYS.has(race.key) && leader.value?.playerName
-                            ? leader.value.playerName
-                            : leader.displayName}
-                        </span>
-                      </span>
-                      <span style={{ fontFamily: "var(--mono)", color: "var(--text)", flexShrink: 0 }}>
-                        {renderAwardValue(race.key, leader.value)}
-                      </span>
-                    </div>
+                      awardKey={race.key}
+                      leader={leader}
+                      managers={managers}
+                      onNavigate={onNavigate}
+                    />
                   ))}
                 </div>
               </div>

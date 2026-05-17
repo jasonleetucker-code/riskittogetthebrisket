@@ -643,6 +643,25 @@ class AwardsLiveRaceTests(unittest.TestCase):
         )
         self.assertEqual(keys & _REMOVED_KEYS, set())
 
+    def test_every_season_has_finalists_board(self) -> None:
+        for row in self.section["bySeason"]:
+            self.assertIn("finalists", row)
+            self.assertIsInstance(row["finalists"], dict)
+            for key, leaders in row["finalists"].items():
+                self.assertNotIn(key, _REMOVED_KEYS)
+                for i, leader in enumerate(leaders):
+                    self.assertEqual(leader["rank"], i + 1)
+                    self.assertIn("value", leader)
+
+    def test_featured_finalists_reuse_award_races(self) -> None:
+        # The featured (in-progress) season's finalists board must be the
+        # exact same object set as the live awardRaces — same compute,
+        # surfaced twice.
+        featured = self.section["featuredSeason"]
+        row = next(r for r in self.section["bySeason"] if r["season"] == featured)
+        race_by_key = {r["key"]: r["leaders"] for r in self.section["awardRaces"]}
+        self.assertEqual(row["finalists"], race_by_key)
+
 
 if __name__ == "__main__":
     unittest.main()
