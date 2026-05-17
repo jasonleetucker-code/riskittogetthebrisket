@@ -874,7 +874,7 @@ def fetch_sleeper_rosters(league_id):
     draft_rounds = _safe_int((league_settings or {}).get("draft_rounds")) or 4
     draft_rounds = max(1, min(6, draft_rounds))
     current_year = datetime.date.today().year
-    pick_years = [current_year, current_year + 1, current_year + 2]
+    pick_years = [current_year, current_year + 1, current_year + 2, current_year + 3]
 
     pick_owner = {}  # (season, round, original_roster_id) -> owner_roster_id
     # Canonical pick identity map so trade-history can reference the exact pick label
@@ -962,7 +962,8 @@ def fetch_sleeper_rosters(league_id):
     for (season, round_num, origin_rid), owner_rid in pick_owner.items():
         slot_num = draft_slot_by_origin.get((season, origin_rid))
         # Keep current-year picks as slot-specific when available.
-        # For future years (2027/2028), normalize to Early/Mid/Late buckets.
+        # For all future years (current+1 .. current+3), normalize to
+        # Early/Mid/Late buckets.
         if season >= current_year + 1:
             tier_label = _slot_to_tier_label(slot_num)
             base_label = f"{season} {tier_label} {round_num}{_round_suffix(round_num)}"
@@ -4522,7 +4523,7 @@ async def run(progress_callback=None):
         return out
 
     current_year = datetime.date.today().year
-    target_pick_years = [current_year, current_year + 1, current_year + 2]
+    target_pick_years = [current_year, current_year + 1, current_year + 2, current_year + 3]
     # Explicitly exclude non-pick sources from pick values.
     PICK_VALUE_EXCLUDED_SITES = {"draftSharks"}
     pick_anchors = {}
