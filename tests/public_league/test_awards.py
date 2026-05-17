@@ -593,9 +593,21 @@ class AwardsLiveRaceTests(unittest.TestCase):
     def test_has_award_races(self) -> None:
         self.assertGreater(len(self.section["awardRaces"]), 0)
 
-    def test_race_top_three_only(self) -> None:
+    # Player-category races show top 5; team/manager (and NFL-team)
+    # races show top 3.
+    _PLAYER_RACE_KEYS = {
+        "league_mvp", "playoff_mvp", "off_roy", "def_roy",
+        "top_qb", "top_rb", "top_wr", "top_te", "top_k",
+        "top_dl", "top_lb", "top_db",
+    }
+
+    def test_race_leader_caps(self) -> None:
         for race in self.section["awardRaces"]:
-            self.assertLessEqual(len(race["leaders"]), 3)
+            cap = 5 if race["key"] in self._PLAYER_RACE_KEYS else 3
+            self.assertLessEqual(
+                len(race["leaders"]), cap,
+                f"{race['key']} has {len(race['leaders'])} leaders (cap {cap})",
+            )
             for i, leader in enumerate(race["leaders"]):
                 self.assertEqual(leader["rank"], i + 1)
 

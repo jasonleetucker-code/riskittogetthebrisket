@@ -1925,7 +1925,7 @@ def _current_season_races(
                         "starterPoints": r["starterPoints"],
                     },
                 }
-                for i, r in enumerate(playoff_mvp_rows[:3])
+                for i, r in enumerate(playoff_mvp_rows[:5])
             ],
         }
         _add(race)
@@ -1987,7 +1987,7 @@ def _current_season_races(
         },
     ))
 
-    # ── Player-award races (top 3 per position) ──
+    # ── Player-award races (top 5 per position) ──
     player_rows_by_pos = _top_player_per_position_scores(
         snapshot, season, regular_season_only=True
     )
@@ -2014,7 +2014,7 @@ def _current_season_races(
                         "gamesStarted": r["gamesStarted"],
                     },
                 }
-                for i, r in enumerate(rows[:3])
+                for i, r in enumerate(rows[:5])
             ],
         }
         _add(race)
@@ -2041,7 +2041,7 @@ def _current_season_races(
                         "gamesStarted": r["gamesStarted"],
                     },
                 }
-                for i, r in enumerate(mvp_rows[:3])
+                for i, r in enumerate(mvp_rows[:5])
             ],
         }
         _add(race)
@@ -2070,7 +2070,7 @@ def _current_season_races(
                         "gamesStarted": r["gamesStarted"],
                     },
                 }
-                for i, r in enumerate(rows[:3])
+                for i, r in enumerate(rows[:5])
             ],
         }
 
