@@ -56,7 +56,11 @@ def _module_int_const(rel_path: str, const_name: str) -> int | None:
     importing it (scrapers do import-time work / require network libs).
     Mirrors the static-parsing approach in test_source_registry_parity.
     """
+    # scripts/<rel_path> first; fall back to the repo root so legacy
+    # root-level modules (e.g. "Dynasty Scraper.py") resolve too.
     path = _SCRIPTS / rel_path
+    if not path.exists():
+        path = _REPO / rel_path
     if not path.exists():
         return None
     tree = ast.parse(path.read_text())
@@ -144,10 +148,15 @@ _SCRAPER_FLOOR_RESOLVERS = {
     "fantasyProsIdp": lambda: _module_int_const(
         "fetch_fantasypros_idp.py", "_FP_WRITTEN_ROW_FLOOR"
     ),
-    # A3 (legacy Dynasty Scraper.py FULL_DATA export) — still no
-    # aligned floor; allowlisted below until A3 lands.
-    "ktc": lambda: None,
-    "idpTradeCalc": lambda: None,
+    # A3 (2026-05-17) — legacy Dynasty Scraper.py FULL_DATA->site_raw
+    # export now skips the write below its contract-aligned floor so
+    # the existing restore-previous pass preserves last-good.
+    "ktc": lambda: _module_int_const(
+        "Dynasty Scraper.py", "_KTC_SITE_RAW_FLOOR"
+    ),
+    "idpTradeCalc": lambda: _module_int_const(
+        "Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"
+    ),
 }
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:
@@ -155,13 +164,15 @@ _SCRAPER_FLOOR_RESOLVERS = {
 # REMOVE this entry.  This allowlist can only shrink (enforced by
 # ``test_known_gaps_are_still_real_gaps``).
 _KNOWN_FLOOR_GAPS: dict[str, str] = {
-    # A2 closed footballGuys{Sf,Idp} / draftSharks{,Idp} /
-    # fantasyProsFitzmaurice / fantasyProsIdp on 2026-05-17 — each
-    # now has a contract-aligned fail-loud floor; entries removed so
-    # test_known_gaps_are_still_real_gaps enforces the burn-down.
-    # Only the legacy Dynasty Scraper.py sources remain (A3).
-    "ktc": "legacy Dynasty Scraper.py FULL_DATA export has no per-source floor; add a >=400 floor (audit PR A3)",
-    "idpTradeCalc": "legacy Dynasty Scraper.py — add a >=700 floor + per-sheet guard (audit PR A3/B)",
+    # FULLY BURNED DOWN 2026-05-17.  Every source in
+    # _DEFAULT_SOURCE_ROW_FLOORS now has a contract-aligned, fail-loud,
+    # preserve-last-good internal floor (A2 closed the 6 modular
+    # scrapers; A3 closed the 2 legacy Dynasty Scraper.py sources).
+    # This dict MUST stay empty: a new entry means a new source
+    # shipped without an aligned scraper floor — fix the scraper
+    # instead of allowlisting it.  test_scraper_floor_meets_or_
+    # exceeds_contract_floor now enforces the invariant for ALL
+    # sources with no exceptions.
 }
 
 
