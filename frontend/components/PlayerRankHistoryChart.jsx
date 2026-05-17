@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { rankFromValue } from "@/lib/value-history";
 
 /**
  * PlayerRankHistoryChart — 180-day per-source + blended value chart.
@@ -257,20 +258,59 @@ export default function PlayerRankHistoryChart({
      for SOMETHING, we surface the empty-state copy below the title
      instead of an empty axis. */
   const rankGeometry = useMemo(() => {
-    const sourceRanks = {};
-    for (const [key, series] of Object.entries(state.sourceRanks || {})) {
-      if (!Array.isArray(series)) continue;
-      sourceRanks[key] = series
-        .map((p) => ({ t: parseMs(p.date), rank: Number(p.rank) }))
+    // Build one rank line: start from PERSISTED ranks, then DERIVE a
+    // rank from the value-history series for any snapshot date that
+    // has a value but no persisted rank.  Per-source ranks only began
+    // persisting 2026-04-29 while value history goes back further, so
+    // without this the rank chart was empty/short even when the value
+    // chart spanned the full 180d window.  Derived points reuse the
+    // same Hill curve (rankFromValue = closed-form inverse of
+    // valueFromRank) so they are exactly consistent with the rest of
+    // the app, and are flagged ``derived`` so the legend can note the
+    // approximation (mirrors the value chart's ``anyDerived``).
+    const buildRankSeries = (persistedRaw, valueRaw) => {
+      const persisted = (Array.isArray(persistedRaw) ? persistedRaw : [])
+        .map((p) => ({
+          t: parseMs(p.date),
+          rank: Number(p.rank),
+          derived: false,
+        }))
         .filter((p) => p.t != null && Number.isFinite(p.rank) && p.rank > 0);
+      const haveRankAt = new Set(persisted.map((p) => p.t));
+      const derived = [];
+      for (const p of Array.isArray(valueRaw) ? valueRaw : []) {
+        const t = parseMs(p.date);
+        if (t == null || haveRankAt.has(t)) continue;
+        const r = rankFromValue(Number(p.value));
+        if (r == null || !Number.isFinite(r) || r <= 0) continue;
+        derived.push({ t, rank: r, derived: true });
+      }
+      return [...persisted, ...derived].sort((a, b) => a.t - b.t);
+    };
+
+    const sourceRanks = {};
+    const sourceKeysAll = new Set([
+      ...Object.keys(state.sourceRanks || {}),
+      ...Object.keys(state.sources || {}),
+    ]);
+    for (const key of sourceKeysAll) {
+      const merged = buildRankSeries(
+        (state.sourceRanks || {})[key],
+        (state.sources || {})[key],
+      );
+      if (merged.length) sourceRanks[key] = merged;
     }
     // Our (blended) rank — the bold main line, mirroring "Our blend"
-    // on the value chart.  ``state.blended[].rank`` is the
-    // backend-stamped consensus rank for each historical snapshot;
-    // present alongside ``value`` since the schema's earliest write.
-    const blendedRanks = (state.blended || [])
-      .map((p) => ({ t: parseMs(p.date), rank: Number(p.rank) }))
-      .filter((p) => p.t != null && Number.isFinite(p.rank) && p.rank > 0);
+    // on the value chart.  Persisted ``state.blended[].rank`` where
+    // the backend stamped it; derived from ``state.blended[].value``
+    // for older snapshots that only carry a value.
+    const blendedRanks = buildRankSeries(
+      (state.blended || []).map((p) => ({ date: p.date, rank: p.rank })),
+      (state.blended || []).map((p) => ({ date: p.date, value: p.value })),
+    );
+    const anyRankDerived =
+      blendedRanks.some((p) => p.derived) ||
+      Object.values(sourceRanks).some((s) => s.some((p) => p.derived));
 
     const allTimes = [];
     const allRanks = [];
@@ -370,6 +410,7 @@ export default function PlayerRankHistoryChart({
       chartH,
       rMin,
       rMax,
+      anyDerived: anyRankDerived,
     };
   }, [state, width, height]);
 
@@ -490,6 +531,15 @@ export default function PlayerRankHistoryChart({
           >
             <span className="player-rank-chart-label">
               Rank history · 180d (per source)
+              {rankGeometry.anyDerived && (
+                <span
+                  className="player-rank-chart-asterisk"
+                  title="Ranks for snapshots before per-source ranks began persisting (2026-04-29) are derived from each source's value via the same Hill curve, so the rank line spans the full value-history window."
+                >
+                  {" "}
+                  *
+                </span>
+              )}
             </span>
             <span
               className={`player-rank-chart-delta player-rank-chart-delta--${
