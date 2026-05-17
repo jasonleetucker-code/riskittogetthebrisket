@@ -359,6 +359,22 @@ jobs:
             git push
           fi
 
+      - name: Validate scrape sanity (pre-commit gate)
+        # Roadmap 1.4: block a corrupted scrape (row count collapsed
+        # > 50% vs the prior commit, no numeric signal in any column,
+        # or below the source's registered min line count) from being
+        # committed/deployed.  Plain step → default ``if: success()``,
+        # so a non-zero exit fails the job and the success()-gated
+        # "Commit updated data" below is SKIPPED; the existing "Alert
+        # on workflow failure" step then opens a tracking issue.  A
+        # 30-50% drop is a non-fatal ::warning (exits 0, still ships).
+        # HEAD here is prior main (Persist freshness stamps already
+        # pulled), so ``git show HEAD:`` is the previous scrape.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/validate_scrape_sanity.py
+
       - name: Commit updated data
         shell: bash
         run: |
