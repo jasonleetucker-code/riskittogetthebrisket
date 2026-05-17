@@ -110,6 +110,13 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "fantasy
 # silently publishing a degraded CSV.
 _FP_COMBINED_ROW_FLOOR: int = 50
 _FP_INDIVIDUAL_ROW_FLOOR: int = 25
+# The two floors above gate the INPUT pages.  The merged/written
+# board can still come up short (overlap dedup, anchor-fit dropping
+# rows) without tripping either input floor — which then overwrote
+# last-good and hard-failed the downstream contract floor on a clean
+# checkout.  This is the WRITTEN-total floor, == _DEFAULT_SOURCE_ROW_
+# FLOORS["fantasyProsIdp"] in src/api/data_contract.py.
+_FP_WRITTEN_ROW_FLOOR: int = 75
 
 # Safety cap for extrapolation past the last anchor — never emit an
 # effective rank deeper than this, regardless of the individual page
@@ -544,6 +551,21 @@ def main(argv: list[str] | None = None) -> int:
         for r in rows[:5]:
             print("  ", r)
         return 0
+
+    # Written-total floor BEFORE writing: input floors above gate the
+    # source pages, but the merged board can still be short.  A short
+    # merged board must not overwrite last-good (it would then hard-
+    # fail the contract floor on a clean checkout).  Fail loud,
+    # preserve last-good.
+    if len(rows) < _FP_WRITTEN_ROW_FLOOR:
+        print(
+            f"[fetch_fantasypros_idp] ERROR: merged board only "
+            f"{len(rows)} rows < written floor {_FP_WRITTEN_ROW_FLOOR} "
+            f"(== contract).  Preserving last-good CSV; not "
+            f"overwriting.",
+            file=sys.stderr,
+        )
+        return 2
 
     _write_csv(args.dest, rows)
     print(f"[fetch_fantasypros_idp] wrote {len(rows)} rows -> {args.dest}")
