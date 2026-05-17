@@ -33,6 +33,7 @@ Degradation
 * Network error → cached prior + warning log.
 * Schema drift → empty + warning log.
 """
+
 from __future__ import annotations
 
 import json
@@ -56,12 +57,42 @@ _TIMEOUT_SEC = 6.0
 
 # NFL team IDs on ESPN — used by fetch_all().  Hardcoded because
 # this list is stable (32 teams, no new teams added since 2002).
-NFL_TEAM_IDS: list[str] = sorted({
-    "22", "1", "33", "2", "29", "3", "4", "5",    # ARI, ATL, BAL, BUF, CAR, CHI, CIN, CLE
-    "6", "7", "8", "9", "34", "11", "30", "12",   # DAL, DEN, DET, GB, HOU, IND, JAX, KC
-    "24", "14", "13", "15", "16", "17", "18", "19",  # LAC, LAR, LV, MIA, MIN, NE, NO, NYG
-    "20", "21", "23", "26", "25", "27", "10", "28",  # NYJ, PHI, PIT, SEA, SF, TB, TEN, WAS
-})
+NFL_TEAM_IDS: list[str] = sorted(
+    {
+        "22",
+        "1",
+        "33",
+        "2",
+        "29",
+        "3",
+        "4",
+        "5",  # ARI, ATL, BAL, BUF, CAR, CHI, CIN, CLE
+        "6",
+        "7",
+        "8",
+        "9",
+        "34",
+        "11",
+        "30",
+        "12",  # DAL, DEN, DET, GB, HOU, IND, JAX, KC
+        "24",
+        "14",
+        "13",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",  # LAC, LAR, LV, MIA, MIN, NE, NO, NYG
+        "20",
+        "21",
+        "23",
+        "26",
+        "25",
+        "27",
+        "10",
+        "28",  # NYJ, PHI, PIT, SEA, SF, TB, TEN, WAS
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -107,9 +138,11 @@ def fetch_team_depth_chart(
     bp = None
     try:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(
             "espn_depth_charts",
-            failure_threshold=5, failure_window_sec=180.0,
+            failure_threshold=5,
+            failure_window_sec=180.0,
             open_duration_sec=180.0,
         )
         if not bp.can_call():
@@ -179,16 +212,16 @@ def _parse_depth_payload(payload: Any) -> list[DepthChartEntry]:
             espn_id = str(athlete.get("id") or "").strip()
             if not espn_id:
                 continue
-            full_name = str(
-                athlete.get("displayName") or athlete.get("fullName") or ""
+            full_name = str(athlete.get("displayName") or athlete.get("fullName") or "")
+            out.append(
+                DepthChartEntry(
+                    team_abbrev=team_abbr,
+                    position=pos,
+                    slot=i + 1,
+                    espn_athlete_id=espn_id,
+                    full_name=full_name,
+                )
             )
-            out.append(DepthChartEntry(
-                team_abbrev=team_abbr,
-                position=pos,
-                slot=i + 1,
-                espn_athlete_id=espn_id,
-                full_name=full_name,
-            ))
     return out
 
 
@@ -216,27 +249,31 @@ def detect_slot_changes(
         key = (e.team_abbrev, e.position, e.espn_athlete_id)
         prev_slot = prior_by.get(key)
         if prev_slot is None:
-            out.append({
+            out.append(
+                {
+                    "espnAthleteId": e.espn_athlete_id,
+                    "fullName": e.full_name,
+                    "position": e.position,
+                    "team": e.team_abbrev,
+                    "oldSlot": None,
+                    "newSlot": e.slot,
+                    "direction": "debut",
+                }
+            )
+            continue
+        if prev_slot == e.slot:
+            continue
+        out.append(
+            {
                 "espnAthleteId": e.espn_athlete_id,
                 "fullName": e.full_name,
                 "position": e.position,
                 "team": e.team_abbrev,
-                "oldSlot": None,
+                "oldSlot": prev_slot,
                 "newSlot": e.slot,
-                "direction": "debut",
-            })
-            continue
-        if prev_slot == e.slot:
-            continue
-        out.append({
-            "espnAthleteId": e.espn_athlete_id,
-            "fullName": e.full_name,
-            "position": e.position,
-            "team": e.team_abbrev,
-            "oldSlot": prev_slot,
-            "newSlot": e.slot,
-            "direction": "promoted" if e.slot < prev_slot else "demoted",
-        })
+                "direction": "promoted" if e.slot < prev_slot else "demoted",
+            }
+        )
     return out
 
 

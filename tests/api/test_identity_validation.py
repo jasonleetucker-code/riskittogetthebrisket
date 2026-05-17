@@ -11,6 +11,7 @@ Covers:
   - Identity confidence scoring
   - Validation summary in contract payload
 """
+
 from __future__ import annotations
 
 import unittest
@@ -25,8 +26,8 @@ from src.api.data_contract import (
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _make_player(name, position, *, ktc=None, idp=None, team="TST",
-                 sleeper_id=None):
+
+def _make_player(name, position, *, ktc=None, idp=None, team="TST", sleeper_id=None):
     """Build a minimal raw player dict for contract builder tests."""
     sites = {}
     if ktc is not None:
@@ -75,6 +76,7 @@ def _build_and_find(payload, player_name):
 
 # ── Offense-to-IDP contamination ────────────────────────────────────────────
 
+
 class TestOffenseToIdpContamination(unittest.TestCase):
     """An offense-position player with only IDP source values should be flagged."""
 
@@ -102,6 +104,7 @@ class TestOffenseToIdpContamination(unittest.TestCase):
 
 # ── IDP-to-offense contamination ────────────────────────────────────────────
 
+
 class TestIdpToOffenseContamination(unittest.TestCase):
     """An IDP-position player with only offense source values should be flagged."""
 
@@ -126,6 +129,7 @@ class TestIdpToOffenseContamination(unittest.TestCase):
 
 
 # ── Cross-universe name collisions ──────────────────────────────────────────
+
 
 class TestCrossUniverseCollision(unittest.TestCase):
     """Same name appearing in both offense and IDP should be flagged."""
@@ -239,6 +243,7 @@ class TestCrossUniverseCollision(unittest.TestCase):
 # behavior so the noise can never come back without a deliberate
 # code change.
 
+
 class TestNearNameMismatch(unittest.TestCase):
     """The legacy ``near_name_value_mismatch`` flag is permanently disabled.
 
@@ -314,8 +319,8 @@ class TestNearNameMismatch(unittest.TestCase):
 
 # ── Unsupported position ────────────────────────────────────────────────────
 
-class TestUnsupportedPosition(unittest.TestCase):
 
+class TestUnsupportedPosition(unittest.TestCase):
     def test_ol_position_flagged_as_unsupported(self):
         rows = [
             {
@@ -352,14 +357,17 @@ class TestUnsupportedPosition(unittest.TestCase):
                 },
             ]
             _validate_and_quarantine_rows(rows)
-            self.assertNotIn("unsupported_position", rows[0]["anomalyFlags"],
-                             f"{pos} should not be flagged as unsupported")
+            self.assertNotIn(
+                "unsupported_position",
+                rows[0]["anomalyFlags"],
+                f"{pos} should not be flagged as unsupported",
+            )
 
 
 # ── Quarantine degradation ──────────────────────────────────────────────────
 
-class TestQuarantineDegradation(unittest.TestCase):
 
+class TestQuarantineDegradation(unittest.TestCase):
     def test_high_confidence_degraded_when_quarantined(self):
         rows = [
             {
@@ -419,8 +427,8 @@ class TestQuarantineDegradation(unittest.TestCase):
 
 # ── Identity confidence ─────────────────────────────────────────────────────
 
-class TestIdentityConfidence(unittest.TestCase):
 
+class TestIdentityConfidence(unittest.TestCase):
     def test_canonical_id_gives_1_0(self):
         row = {
             "playerId": "SLEEPER123",
@@ -469,8 +477,8 @@ class TestIdentityConfidence(unittest.TestCase):
 
 # ── Contract-level validation summary ───────────────────────────────────────
 
-class TestValidationSummaryInContract(unittest.TestCase):
 
+class TestValidationSummaryInContract(unittest.TestCase):
     def test_validation_summary_present_in_contract(self):
         payload = _payload_with_players(
             _make_player("Zzz Test QB Only", "QB", ktc=8000),
@@ -497,6 +505,7 @@ class TestValidationSummaryInContract(unittest.TestCase):
 
 # ── Single-source false positives ───────────────────────────────────────────
 
+
 class TestSingleSourceFalsePositive(unittest.TestCase):
     """A player with only one source should be flagged as low confidence
     but not quarantined unless there's an additional identity issue."""
@@ -514,8 +523,8 @@ class TestSingleSourceFalsePositive(unittest.TestCase):
 
 # ── Normalize for collision ─────────────────────────────────────────────────
 
-class TestNormalizeForCollision(unittest.TestCase):
 
+class TestNormalizeForCollision(unittest.TestCase):
     def test_basic_normalization(self):
         self.assertEqual(
             _normalize_for_collision("Jameson Williams"),
@@ -530,6 +539,7 @@ class TestNormalizeForCollision(unittest.TestCase):
 
 
 # ── Exception-set gap: IDP with only offense source ───────────────────────
+
 
 class TestExceptionSetCoverage(unittest.TestCase):
     """IDP players with only offense source data should be quarantined unless
@@ -555,6 +565,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
         collisions only, not a blanket suppression of evidence errors.
         """
         from src.api.data_contract import OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+
         if not OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
             self.skipTest("Exception set is empty")
         exc_name = next(iter(sorted(OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS)))
@@ -607,6 +618,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
         data-quality error and must be quarantined.
         """
         from src.api.data_contract import OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+
         if not OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
             self.skipTest("Exception set is empty")
         exc_name = next(iter(sorted(OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS)))
@@ -631,8 +643,8 @@ class TestExceptionSetCoverage(unittest.TestCase):
 
 # ── Age field scaffolding ──────────────────────────────────────────────────
 
-class TestAgeFieldScaffolding(unittest.TestCase):
 
+class TestAgeFieldScaffolding(unittest.TestCase):
     def test_age_null_when_not_provided(self):
         payload = _payload_with_players(
             _make_player("Zzz No Age Player", "QB", ktc=8000),
@@ -653,6 +665,7 @@ class TestAgeFieldScaffolding(unittest.TestCase):
 
 
 # ── Name collision guardrail: sleeper map tagging conflicts source signals ──
+
 
 class TestSleeperMapCollisionGuardrail(unittest.TestCase):
     """When the sleeper positions map is contaminated by a name collision

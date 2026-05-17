@@ -8,6 +8,7 @@ Historical matchup/trade data that references their old roster
 slot falls through to the orphaned-roster path already handled by
 the section modules.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -27,14 +28,8 @@ def _season(
 ) -> dict:
     return {
         "league": {"league_id": league_id, "season": season},
-        "users": [
-            {"user_id": uid, "display_name": name}
-            for uid, name in user_names.items()
-        ],
-        "rosters": [
-            {"roster_id": rid, "owner_id": owner}
-            for rid, owner in roster_owner_pairs
-        ],
+        "users": [{"user_id": uid, "display_name": name} for uid, name in user_names.items()],
+        "rosters": [{"roster_id": rid, "owner_id": owner} for rid, owner in roster_owner_pairs],
     }
 
 

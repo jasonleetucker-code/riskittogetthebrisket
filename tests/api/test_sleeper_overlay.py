@@ -7,6 +7,7 @@ reflect Sleeper activity within ~15 min instead of the next 2h
 scrape cadence — the previous overlay returned raw Sleeper
 transactions which the frontend's trade-grading couldn't parse.
 """
+
 from __future__ import annotations
 
 import time
@@ -49,6 +50,7 @@ def _stub_http_responses(mapping):
             if url.endswith(suffix):
                 return mapping[suffix]
         return None
+
     return _resolve
 
 
@@ -88,8 +90,13 @@ def test_build_trades_block_emits_processed_sides_shape(monkeypatch):
             "adds": {"P-A": 1, "P-B": 2},
             "drops": {"P-A": 2, "P-B": 1},
             "draft_picks": [
-                {"season": "2026", "round": 1, "roster_id": 1,
-                 "owner_id": 2, "previous_owner_id": 1},
+                {
+                    "season": "2026",
+                    "round": 1,
+                    "roster_id": 1,
+                    "owner_id": 2,
+                    "previous_owner_id": 1,
+                },
             ],
         },
     ]
@@ -100,12 +107,16 @@ def test_build_trades_block_emits_processed_sides_shape(monkeypatch):
         responses[f"/league/{league_id}/transactions/{w}"] = []
 
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
 
     id_to_player = {"P-A": "Player A", "P-B": "Player B"}
     trades = sleeper_overlay._build_trades_block(
-        league_id, window_days=365, id_to_player=id_to_player,
+        league_id,
+        window_days=365,
+        id_to_player=id_to_player,
     )
 
     assert len(trades) == 1
@@ -148,15 +159,25 @@ def test_build_trades_block_filters_incomplete_trades(monkeypatch):
     for w in range(0, 19):
         responses[f"/league/{league_id}/transactions/{w}"] = []
     responses[f"/league/{league_id}/transactions/2"] = [
-        {"transaction_id": "tx-pending", "type": "trade",
-         "status": "pending", "roster_ids": [1],
-         "status_updated": 1730000000000},
-        {"transaction_id": "tx-failed", "type": "trade",
-         "status": "failed", "roster_ids": [1],
-         "status_updated": 1730000000000},
+        {
+            "transaction_id": "tx-pending",
+            "type": "trade",
+            "status": "pending",
+            "roster_ids": [1],
+            "status_updated": 1730000000000,
+        },
+        {
+            "transaction_id": "tx-failed",
+            "type": "trade",
+            "status": "failed",
+            "roster_ids": [1],
+            "status_updated": 1730000000000,
+        },
     ]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
     assert trades == []
@@ -176,12 +197,18 @@ def test_build_trades_block_filters_outside_window(monkeypatch):
     for w in range(0, 19):
         responses[f"/league/{league_id}/transactions/{w}"] = []
     responses[f"/league/{league_id}/transactions/1"] = [
-        {"transaction_id": "tx-ancient", "type": "trade",
-         "status": "complete", "status_updated": very_old_ms,
-         "roster_ids": [1]},
+        {
+            "transaction_id": "tx-ancient",
+            "type": "trade",
+            "status": "complete",
+            "status_updated": very_old_ms,
+            "roster_ids": [1],
+        },
     ]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(league_id, window_days=30)
     assert trades == []
@@ -216,7 +243,9 @@ def test_build_trades_block_dedupes_across_chain(monkeypatch):
     responses[f"/league/{cur}/transactions/4"] = [base_tx]
     responses[f"/league/{prev}/transactions/4"] = [base_tx]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(cur, window_days=365)
     assert len(trades) == 1
@@ -266,13 +295,20 @@ def test_build_trades_block_uses_draft_slot_when_available(monkeypatch):
             "adds": {},
             "drops": {},
             "draft_picks": [
-                {"season": "2026", "round": 1, "roster_id": 1,
-                 "owner_id": 2, "previous_owner_id": 1},
+                {
+                    "season": "2026",
+                    "round": 1,
+                    "roster_id": 1,
+                    "owner_id": 2,
+                    "previous_owner_id": 1,
+                },
             ],
         },
     ]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
     assert len(trades) == 1
@@ -321,13 +357,20 @@ def test_build_trades_block_resolves_slot_via_draft_order(monkeypatch):
             "status_updated": _recent_ms(),
             "roster_ids": [1, 2],
             "draft_picks": [
-                {"season": "2026", "round": 2, "roster_id": 1,
-                 "owner_id": 2, "previous_owner_id": 1},
+                {
+                    "season": "2026",
+                    "round": 2,
+                    "roster_id": 1,
+                    "owner_id": 2,
+                    "previous_owner_id": 1,
+                },
             ],
         },
     ]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
     assert len(trades) == 1
@@ -346,17 +389,13 @@ def test_build_trades_block_uses_tier_label_for_future_year_picks(monkeypatch):
     bug this whole code path is fixing.
     """
     import datetime as _dt
+
     league_id = "L1"
     next_year = _dt.datetime.now(_dt.timezone.utc).year + 1
     # 12-team league so the Early/Mid/Late thirds (per_tier=4) match
     # the realistic boundaries: slots 1-4 Early, 5-8 Mid, 9-12 Late.
-    rosters = [
-        {"roster_id": i + 1, "owner_id": f"o{i + 1}"} for i in range(12)
-    ]
-    users = [
-        {"user_id": f"o{i + 1}", "display_name": f"Team {i + 1}"}
-        for i in range(12)
-    ]
+    rosters = [{"roster_id": i + 1, "owner_id": f"o{i + 1}"} for i in range(12)]
+    users = [{"user_id": f"o{i + 1}", "display_name": f"Team {i + 1}"} for i in range(12)]
     responses = {
         f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
         f"/league/{league_id}/rosters": rosters,
@@ -382,13 +421,20 @@ def test_build_trades_block_uses_tier_label_for_future_year_picks(monkeypatch):
             "status_updated": _recent_ms(),
             "roster_ids": [1, 2],
             "draft_picks": [
-                {"season": str(next_year), "round": 1, "roster_id": 1,
-                 "owner_id": 2, "previous_owner_id": 1},
+                {
+                    "season": str(next_year),
+                    "round": 1,
+                    "roster_id": 1,
+                    "owner_id": 2,
+                    "previous_owner_id": 1,
+                },
             ],
         },
     ]
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
     assert len(trades) == 1
@@ -462,12 +508,16 @@ def test_build_waivers_block_emits_waiver_and_free_agent(monkeypatch):
         responses[f"/league/{league_id}/transactions/{w}"] = []
 
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
 
     id_map = {"P-A": "Player A", "P-B": "Player B", "P-Z": "Player Z"}
     waivers = sleeper_overlay._build_waivers_block(
-        league_id, window_days=365, id_to_player=id_map,
+        league_id,
+        window_days=365,
+        id_to_player=id_map,
     )
     assert len(waivers) == 2
     by_id = {w["transactionId"]: w for w in waivers}
@@ -516,7 +566,9 @@ def test_build_waivers_block_filters_incomplete_status(monkeypatch):
             continue
         responses[f"/league/{league_id}/transactions/{w}"] = []
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     waivers = sleeper_overlay._build_waivers_block(league_id)
     assert waivers == []
@@ -545,11 +597,11 @@ def test_build_waivers_block_dedupes_across_chain(monkeypatch):
         responses[f"/league/{lid}/users"] = [{"user_id": "oA", "display_name": "A"}]
         responses[f"/league/{lid}/drafts"] = []
         for w in range(0, 19):
-            responses[f"/league/{lid}/transactions/{w}"] = (
-                [common_tx] if w == 2 else []
-            )
+            responses[f"/league/{lid}/transactions/{w}"] = [common_tx] if w == 2 else []
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     waivers = sleeper_overlay._build_waivers_block(cur)
     assert len(waivers) == 1
@@ -583,7 +635,9 @@ def test_build_waivers_block_filters_outside_window(monkeypatch):
             continue
         responses[f"/league/{league_id}/transactions/{w}"] = []
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     waivers = sleeper_overlay._build_waivers_block(league_id, window_days=30)
     assert waivers == []
@@ -624,9 +678,13 @@ def test_build_teams_block_includes_faab_fields(monkeypatch):
         f"/league/{league_id}/traded_picks": [],
     }
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
-    teams = sleeper_overlay._build_teams_block(league_id, id_to_player={"P-1": "P One", "P-2": "P Two"})
+    teams = sleeper_overlay._build_teams_block(
+        league_id, id_to_player={"P-1": "P One", "P-2": "P Two"}
+    )
     assert teams is not None
     by_owner = {t["ownerId"]: t for t in teams}
     a = by_owner["oA"]
@@ -672,7 +730,9 @@ def test_build_teams_block_faab_falls_back_when_missing(monkeypatch):
         f"/league/{league_id}/traded_picks": [],
     }
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     teams = sleeper_overlay._build_teams_block(league_id, id_to_player={})
     assert teams is not None
@@ -733,7 +793,9 @@ def test_fetch_sleeper_overlay_includes_waivers_and_meta(monkeypatch):
             continue
         responses[f"/league/{league_id}/transactions/{w}"] = []
     monkeypatch.setattr(
-        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
     )
     payload = sleeper_overlay.fetch_sleeper_overlay(
         sleeper_league_id=league_id,

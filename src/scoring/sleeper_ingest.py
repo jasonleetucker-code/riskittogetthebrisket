@@ -100,7 +100,9 @@ def _to_float(value, default: Optional[float] = 0.0) -> Optional[float]:
         return default
 
 
-def fetch_league(league_id: str, timeout: int = 12, session: Optional[requests.Session] = None) -> Optional[Dict[str, object]]:
+def fetch_league(
+    league_id: str, timeout: int = 12, session: Optional[requests.Session] = None
+) -> Optional[Dict[str, object]]:
     if not league_id:
         return None
     http = session or requests
@@ -187,7 +189,9 @@ def persist_scoring_config(path: str, config: ScoringConfig) -> None:
         json.dump(config.to_dict(), f, ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def build_league_scoring_config(league_id: str, timeout: int = 12, session: Optional[requests.Session] = None) -> Tuple[Optional[ScoringConfig], Optional[Dict[str, object]]]:
+def build_league_scoring_config(
+    league_id: str, timeout: int = 12, session: Optional[requests.Session] = None
+) -> Tuple[Optional[ScoringConfig], Optional[Dict[str, object]]]:
     league = fetch_league(league_id, timeout=timeout, session=session)
     if not isinstance(league, dict):
         return None, None
@@ -204,4 +208,3 @@ def build_league_scoring_config(league_id: str, timeout: int = 12, session: Opti
         season=season,
     )
     return config, league
-

@@ -1,4 +1,5 @@
 """Tests for the ESPN injury feed parser + signal diff."""
+
 from __future__ import annotations
 
 import io
@@ -75,9 +76,11 @@ def test_flag_off_returns_empty(monkeypatch, tmp_path):
     feature_flags.reload()
     # No network call: opener should never be invoked.
     calls = []
+
     def opener(req, timeout=None):
         calls.append(req)
         return io.BytesIO(b"{}")
+
     out = injury_feed.fetch_injuries(_url_opener=opener, cache_dir=tmp_path)
     assert out == []
     assert calls == []
@@ -87,9 +90,11 @@ def test_flag_on_parses_and_caches(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
     feature_flags.reload()
     calls = []
+
     def opener(req, timeout=None):
         calls.append(req)
         return io.BytesIO(json.dumps(_sample_payload()).encode("utf-8"))
+
     out = injury_feed.fetch_injuries(_url_opener=opener, cache_dir=tmp_path)
     names = {e.full_name for e in out}
     # Questionable + Out = both active; Probable (→ DAY_TO_DAY) is active too.
@@ -111,8 +116,10 @@ def test_status_normalization():
 def test_malformed_payload_returns_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
     feature_flags.reload()
+
     def opener(req, timeout=None):
         return io.BytesIO(b'{"not": "expected shape"}')
+
     out = injury_feed.fetch_injuries(_url_opener=opener, cache_dir=tmp_path)
     assert out == []
 
@@ -120,8 +127,10 @@ def test_malformed_payload_returns_empty(monkeypatch, tmp_path):
 def test_network_error_returns_empty_not_crash(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
     feature_flags.reload()
+
     def opener(req, timeout=None):
         raise TimeoutError("upstream")
+
     out = injury_feed.fetch_injuries(_url_opener=opener, cache_dir=tmp_path)
     assert out == []
 
@@ -130,9 +139,15 @@ def test_diff_new_injury_fires():
     prior = []
     current = [
         injury_feed.InjuryEntry(
-            espn_athlete_id="X", full_name="X Y", position="WR",
-            team_abbrev="SF", status="OUT", body_part="Knee",
-            description="", date_reported="", returning="",
+            espn_athlete_id="X",
+            full_name="X Y",
+            position="WR",
+            team_abbrev="SF",
+            status="OUT",
+            body_part="Knee",
+            description="",
+            date_reported="",
+            returning="",
         )
     ]
     signals = injury_feed.diff_for_signals(prior, current)
@@ -141,16 +156,32 @@ def test_diff_new_injury_fires():
 
 
 def test_diff_worsened_fires():
-    prior = [injury_feed.InjuryEntry(
-        espn_athlete_id="X", full_name="X Y", position="WR",
-        team_abbrev="SF", status="QUESTIONABLE", body_part="",
-        description="", date_reported="", returning="",
-    )]
-    current = [injury_feed.InjuryEntry(
-        espn_athlete_id="X", full_name="X Y", position="WR",
-        team_abbrev="SF", status="OUT", body_part="",
-        description="", date_reported="", returning="",
-    )]
+    prior = [
+        injury_feed.InjuryEntry(
+            espn_athlete_id="X",
+            full_name="X Y",
+            position="WR",
+            team_abbrev="SF",
+            status="QUESTIONABLE",
+            body_part="",
+            description="",
+            date_reported="",
+            returning="",
+        )
+    ]
+    current = [
+        injury_feed.InjuryEntry(
+            espn_athlete_id="X",
+            full_name="X Y",
+            position="WR",
+            team_abbrev="SF",
+            status="OUT",
+            body_part="",
+            description="",
+            date_reported="",
+            returning="",
+        )
+    ]
     signals = injury_feed.diff_for_signals(prior, current)
     assert len(signals) == 1
     assert signals[0]["transition"] == "injury_worsened"
@@ -158,9 +189,15 @@ def test_diff_worsened_fires():
 
 def test_diff_unchanged_does_not_fire():
     e = injury_feed.InjuryEntry(
-        espn_athlete_id="X", full_name="X Y", position="WR",
-        team_abbrev="SF", status="OUT", body_part="",
-        description="", date_reported="", returning="",
+        espn_athlete_id="X",
+        full_name="X Y",
+        position="WR",
+        team_abbrev="SF",
+        status="OUT",
+        body_part="",
+        description="",
+        date_reported="",
+        returning="",
     )
     signals = injury_feed.diff_for_signals([e], [e])
     assert signals == []
@@ -169,11 +206,19 @@ def test_diff_unchanged_does_not_fire():
 def test_diff_recovered_does_not_fire_sell_signal():
     """A player who GETS BETTER → we DON'T emit a SELL transition.
     Recovery is a different signal class covered elsewhere."""
-    prior = [injury_feed.InjuryEntry(
-        espn_athlete_id="X", full_name="X Y", position="WR",
-        team_abbrev="SF", status="OUT", body_part="",
-        description="", date_reported="", returning="",
-    )]
+    prior = [
+        injury_feed.InjuryEntry(
+            espn_athlete_id="X",
+            full_name="X Y",
+            position="WR",
+            team_abbrev="SF",
+            status="OUT",
+            body_part="",
+            description="",
+            date_reported="",
+            returning="",
+        )
+    ]
     current: list[injury_feed.InjuryEntry] = []
     signals = injury_feed.diff_for_signals(prior, current)
     assert signals == []

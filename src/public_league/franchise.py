@@ -10,6 +10,7 @@ Per-manager summaries within the 2-season window:
     * current draft capital summary (owned picks + weighted stockpile)
     * award shelf placeholder (later prompt wires real awards)
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -123,11 +124,14 @@ def _awards_won_by_owner(awards_section: dict[str, Any]) -> dict[str, list[dict[
             if not owner_id:
                 continue  # team/pair awards (rivalry, top NFL team) have no owner
             rec = by_owner.setdefault(owner_id, {})
-            slot = rec.setdefault(a["key"], {
-                "key": a["key"],
-                "label": a.get("label", a["key"]),
-                "seasons": [],
-            })
+            slot = rec.setdefault(
+                a["key"],
+                {
+                    "key": a["key"],
+                    "label": a.get("label", a["key"]),
+                    "seasons": [],
+                },
+            )
             if season and season not in slot["seasons"]:
                 slot["seasons"].append(season)
     out: dict[str, list[dict[str, Any]]] = {}
@@ -152,6 +156,7 @@ def build_section(
         # full-contract path passes the already-built awards section to
         # avoid recomputing it.
         from . import awards as _awards
+
         awards_section = _awards.build_section(snapshot)
     awards_by_owner = _awards_won_by_owner(awards_section)
 
@@ -176,35 +181,40 @@ def build_section(
             owner_id = row["ownerId"]
             final_place = placement.get(row["rosterId"])
             made_playoffs = row["rosterId"] in playoff_rids
-            per_owner_season.setdefault(owner_id, []).append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                "rosterId": row["rosterId"],
-                "teamName": metrics.team_name(snapshot, season.league_id, row["rosterId"]),
-                "wins": row["wins"],
-                "losses": row["losses"],
-                "ties": row["ties"],
-                "pointsFor": row["pointsFor"],
-                "pointsAgainst": row["pointsAgainst"],
-                "standing": row["standing"],
-                "finalPlace": final_place,
-                "madePlayoffs": made_playoffs,
-            })
+            per_owner_season.setdefault(owner_id, []).append(
+                {
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "rosterId": row["rosterId"],
+                    "teamName": metrics.team_name(snapshot, season.league_id, row["rosterId"]),
+                    "wins": row["wins"],
+                    "losses": row["losses"],
+                    "ties": row["ties"],
+                    "pointsFor": row["pointsFor"],
+                    "pointsAgainst": row["pointsAgainst"],
+                    "standing": row["standing"],
+                    "finalPlace": final_place,
+                    "madePlayoffs": made_playoffs,
+                }
+            )
 
-            cum = cumulative.setdefault(owner_id, {
-                "wins": 0,
-                "losses": 0,
-                "ties": 0,
-                "pointsFor": 0.0,
-                "pointsAgainst": 0.0,
-                "seasonsPlayed": 0,
-                "championships": 0,
-                "finalsAppearances": 0,
-                "playoffAppearances": 0,
-                "regularSeasonFirstPlace": 0,
-                "bestFinish": None,
-                "worstFinish": None,
-            })
+            cum = cumulative.setdefault(
+                owner_id,
+                {
+                    "wins": 0,
+                    "losses": 0,
+                    "ties": 0,
+                    "pointsFor": 0.0,
+                    "pointsAgainst": 0.0,
+                    "seasonsPlayed": 0,
+                    "championships": 0,
+                    "finalsAppearances": 0,
+                    "playoffAppearances": 0,
+                    "regularSeasonFirstPlace": 0,
+                    "bestFinish": None,
+                    "worstFinish": None,
+                },
+            )
             cum["wins"] += row["wins"]
             cum["losses"] += row["losses"]
             cum["ties"] += row["ties"]
@@ -259,17 +269,19 @@ def build_section(
             "awardsWon": awards_by_owner.get(owner_id, []),
         }
         detail[owner_id] = fr
-        index.append({
-            "ownerId": owner_id,
-            "displayName": fr["displayName"],
-            "currentTeamName": fr["currentTeamName"],
-            "avatar": fr.get("avatar") or "",
-            "seasonsPlayed": fr["cumulative"]["seasonsPlayed"],
-            "wins": fr["cumulative"]["wins"],
-            "losses": fr["cumulative"]["losses"],
-            "championships": fr["cumulative"]["championships"],
-            "bestFinish": fr["cumulative"]["bestFinish"],
-        })
+        index.append(
+            {
+                "ownerId": owner_id,
+                "displayName": fr["displayName"],
+                "currentTeamName": fr["currentTeamName"],
+                "avatar": fr.get("avatar") or "",
+                "seasonsPlayed": fr["cumulative"]["seasonsPlayed"],
+                "wins": fr["cumulative"]["wins"],
+                "losses": fr["cumulative"]["losses"],
+                "championships": fr["cumulative"]["championships"],
+                "bestFinish": fr["cumulative"]["bestFinish"],
+            }
+        )
 
     index.sort(
         key=lambda r: (

@@ -6,6 +6,7 @@ the season-targeting logic, which the cron uses for live runs and a
 human uses for backfills.  Both paths must agree on which season's
 files get written.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -50,7 +51,10 @@ class ResolveTargetWeekTests(unittest.TestCase):
     def test_no_season_no_week_picks_current_recap_week(self) -> None:
         # Fixture's 2025 is fully scored through wk-16.
         season, week = self.script._resolve_target_week(  # noqa: SLF001
-            self.snapshot, mode="recap", explicit_week=None, explicit_season=None,
+            self.snapshot,
+            mode="recap",
+            explicit_week=None,
+            explicit_season=None,
         )
         self.assertEqual(season, "2025")
         self.assertEqual(week, 16)
@@ -58,7 +62,10 @@ class ResolveTargetWeekTests(unittest.TestCase):
     def test_explicit_season_routes_to_that_season(self) -> None:
         # Fixture has 2024 + 2025; backfill should target 2024.
         season, week = self.script._resolve_target_week(  # noqa: SLF001
-            self.snapshot, mode="recap", explicit_week=None, explicit_season="2024",
+            self.snapshot,
+            mode="recap",
+            explicit_week=None,
+            explicit_season="2024",
         )
         self.assertEqual(season, "2024")
         # 2024 fixture is scored through wk-3.
@@ -66,7 +73,10 @@ class ResolveTargetWeekTests(unittest.TestCase):
 
     def test_explicit_season_and_week_overrides_detector(self) -> None:
         season, week = self.script._resolve_target_week(  # noqa: SLF001
-            self.snapshot, mode="preview", explicit_week=14, explicit_season="2024",
+            self.snapshot,
+            mode="preview",
+            explicit_week=14,
+            explicit_season="2024",
         )
         self.assertEqual(season, "2024")
         self.assertEqual(week, 14)
@@ -74,8 +84,10 @@ class ResolveTargetWeekTests(unittest.TestCase):
     def test_unknown_season_raises_with_helpful_message(self) -> None:
         with self.assertRaises(RuntimeError) as ctx:
             self.script._resolve_target_week(  # noqa: SLF001
-                self.snapshot, mode="recap",
-                explicit_week=None, explicit_season="1999",
+                self.snapshot,
+                mode="recap",
+                explicit_week=None,
+                explicit_season="1999",
             )
         self.assertIn("1999", str(ctx.exception))
         self.assertIn("2025", str(ctx.exception))  # available seasons listed
@@ -83,7 +95,10 @@ class ResolveTargetWeekTests(unittest.TestCase):
     def test_explicit_week_only_uses_current_season(self) -> None:
         # No --season but explicit --week → current (2025) season.
         season, week = self.script._resolve_target_week(  # noqa: SLF001
-            self.snapshot, mode="preview", explicit_week=10, explicit_season=None,
+            self.snapshot,
+            mode="preview",
+            explicit_week=10,
+            explicit_season=None,
         )
         self.assertEqual(season, "2025")
         self.assertEqual(week, 10)

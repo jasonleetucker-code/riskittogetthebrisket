@@ -8,6 +8,7 @@ walk (no eval) and diffs each entry against
 Adding a new ROS source REQUIRES updating both registries — this test
 fails loudly when they drift.
 """
+
 from __future__ import annotations
 
 import re

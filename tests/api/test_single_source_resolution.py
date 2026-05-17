@@ -8,6 +8,7 @@ These tests guarantee that:
 3. Cross-source name aliases resolve correctly.
 4. The allowlist build check catches unexplained 1-src cases.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -26,6 +27,7 @@ from src.utils.name_clean import (
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
+
 
 def _row(
     name: str,
@@ -51,7 +53,12 @@ def _row(
         "position": position,
         "assetClass": "idp" if position in ("DL", "LB", "DB") else "offense",
         "canonicalSiteValues": sites,
-        "values": {"overall": max(v or 0 for v in sites.values()), "rawComposite": None, "finalAdjusted": None, "displayValue": None},
+        "values": {
+            "overall": max(v or 0 for v in sites.values()),
+            "rawComposite": None,
+            "finalAdjusted": None,
+            "displayValue": None,
+        },
         "sourceCount": 0,
         "sourcePresence": {},
         "rookie": rookie,
@@ -59,6 +66,7 @@ def _row(
 
 
 # ── Test: Name alias resolution ─────────────────────────────────────────
+
 
 class TestNameAliases(unittest.TestCase):
     """Verify cross-source name aliases collapse correctly."""
@@ -133,6 +141,7 @@ class TestNameAliases(unittest.TestCase):
 
 # ── Test: Top offense players must NOT be semantic 1-src ─────────────────
 
+
 class TestTopOffenseNotSemantic1Src(unittest.TestCase):
     """Regression guard: known top offensive players must never be flagged
     as ``isSingleSource=True`` (semantic 1-src / matching failure).
@@ -191,14 +200,19 @@ class TestTopOffenseNotSemantic1Src(unittest.TestCase):
         ]
         _compute_unified_rankings(rows, {})
         for row in rows:
-            self.assertFalse(row.get("isSingleSource"), f"{row['canonicalName']} should not be 1-src")
-            self.assertFalse(row.get("isStructurallySingleSource"), f"{row['canonicalName']} should not be structural 1-src")
+            self.assertFalse(
+                row.get("isSingleSource"), f"{row['canonicalName']} should not be 1-src"
+            )
+            self.assertFalse(
+                row.get("isStructurallySingleSource"),
+                f"{row['canonicalName']} should not be structural 1-src",
+            )
 
 
 # ── Test: IDP 1-src for rookies/depth is structural, not semantic ────────
 
-class TestIdpStructural1Src(unittest.TestCase):
 
+class TestIdpStructural1Src(unittest.TestCase):
     def test_idp_rookie_without_dlf_or_fp_or_fbg_is_structural(self):
         """IDP rookies missing from DLF, FP, AND FootballGuys are structural
         1-src (not semantic).  DLF and FP exclude rookies structurally;
@@ -223,13 +237,14 @@ class TestIdpStructural1Src(unittest.TestCase):
 
 # ── Test: Allowlist completeness ─────────────────────────────────────────
 
-class TestAllowlistCompleteness(unittest.TestCase):
 
+class TestAllowlistCompleteness(unittest.TestCase):
     def test_all_allowlist_keys_are_normalized(self):
         """Every allowlist key must be a valid normalized name."""
         for key in SINGLE_SOURCE_ALLOWLIST:
             self.assertEqual(
-                key, normalize_player_name(key),
+                key,
+                normalize_player_name(key),
                 f"Allowlist key '{key}' is not in normalized form",
             )
 
@@ -250,8 +265,8 @@ class TestAllowlistCompleteness(unittest.TestCase):
 
 # ── Test: Build check function ───────────────────────────────────────────
 
-class TestBuildCheck(unittest.TestCase):
 
+class TestBuildCheck(unittest.TestCase):
     def test_no_unexplained_1src_with_allowlist(self):
         """Players on the allowlist should not appear as unexplained.
 

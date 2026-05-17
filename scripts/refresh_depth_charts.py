@@ -21,6 +21,7 @@ Exit codes
     0  all 32 teams fetched (or flag off → no-op)
     1  partial failure (some teams failed; see logs)
 """
+
 from __future__ import annotations
 
 import argparse

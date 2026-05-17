@@ -64,6 +64,7 @@ Usage
         --archive-dir /tmp/fake_archive \\
         --history-path /tmp/fake_history.jsonl
 """
+
 from __future__ import annotations
 
 import argparse
@@ -312,8 +313,7 @@ def backfill(
             # before-cutoff day is expected and shouldn't pollute
             # the report.
             non_since_failures = [
-                (p, reason) for p, reason in attempt_failures
-                if reason != "before-since"
+                (p, reason) for p, reason in attempt_failures if reason != "before-since"
             ]
             if not non_since_failures:
                 continue
@@ -321,7 +321,11 @@ def backfill(
                 label = "unreadable" if reason == "unreadable" else "build-err"
                 _print(
                     f"  {filename_date:<12} {'?':>5}  {label:<9}  {path.name}"
-                    + (f": {reason[len('build-err: '):]}" if reason.startswith("build-err: ") else "")
+                    + (
+                        f": {reason[len('build-err: '):]}"
+                        if reason.startswith("build-err: ")
+                        else ""
+                    )
                 )
                 results.append(
                     {
@@ -353,9 +357,7 @@ def backfill(
             )
             status = "appended" if appended else "skipped"
 
-        _print(
-            f"  {effective_date:<12} {row_count:>5d}  {status:<9}  {zip_path.name}"
-        )
+        _print(f"  {effective_date:<12} {row_count:>5d}  {status:<9}  {zip_path.name}")
         results.append(
             {
                 "date": effective_date,

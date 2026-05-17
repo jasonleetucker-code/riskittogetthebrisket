@@ -15,6 +15,7 @@ Covers every link in the DLF pipeline end-to-end:
       config / weights shape (those assertions live in the adapters
       test file; this module covers the data-flow contract).
 """
+
 from __future__ import annotations
 
 import csv
@@ -51,8 +52,7 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None) -> dict:
         "legacyRef": name,
         "position": pos,
         "assetClass": "offense" if pos in {"QB", "RB", "WR", "TE"} else "idp",
-        "values": {"overall": 0, "rawComposite": 0,
-                   "finalAdjusted": 0, "displayValue": None},
+        "values": {"overall": 0, "rawComposite": 0, "finalAdjusted": 0, "displayValue": None},
         "canonicalSiteValues": sites,
         "sourceCount": 1,
     }
@@ -104,8 +104,8 @@ class TestDlfCsvPreprocessor(unittest.TestCase):
             src.write_text(
                 "Rank,Avg,Pos,Name,Team\n"
                 "1,1.00,DE (DL1),Hutch,DET\n"
-                ",,,,\n"             # entirely blank row
-                "2,0,LB1,,KC\n"      # blank name
+                ",,,,\n"  # entirely blank row
+                "2,0,LB1,,KC\n"  # blank name
                 "3,-1,LB2,NegRank,KC\n"  # non-positive rank
                 "4,4.00,LB3,Jack Campbell,DET\n",
                 encoding="utf-8",
@@ -219,9 +219,7 @@ class TestDlfCsvEnrichment(unittest.TestCase):
             players,
             [("Aidan Hutchinson", 1)],
         )
-        self.assertEqual(
-            players[0]["canonicalSiteValues"]["dlfIdp"], 12345
-        )
+        self.assertEqual(players[0]["canonicalSiteValues"]["dlfIdp"], 12345)
 
     def test_missing_rank_column_skips_row(self):
         players = [_row("Ghost Player", "DL")]
@@ -317,10 +315,7 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         best IDP in the backbone."""
         # 10 offense rows all price higher in IDPTradeCalc than any IDP,
         # so the combined-pool rank of the top IDP in IDPTC is 11.
-        rows = [
-            _row(f"off{i}", "QB" if i % 2 else "WR", idp=9999 - i * 10)
-            for i in range(10)
-        ]
+        rows = [_row(f"off{i}", "QB" if i % 2 else "WR", idp=9999 - i * 10) for i in range(10)]
         rows += [
             _row("dl1", "DL", idp=5500, dlf=9995),
             _row("lb1", "LB", idp=5000, dlf=9990),
@@ -355,12 +350,8 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         self.assertLess(dl1["rankDerivedValue"], 9999)
         # And the unified board agrees: the best offense player still
         # outranks the best IDP.
-        top_off = next(
-            r for r in rows if r["canonicalName"] == "off0"
-        )
-        self.assertLess(
-            top_off["canonicalConsensusRank"], dl1["canonicalConsensusRank"]
-        )
+        top_off = next(r for r in rows if r["canonicalName"] == "off0")
+        self.assertLess(top_off["canonicalConsensusRank"], dl1["canonicalConsensusRank"])
 
     def test_dlf_disagreement_with_idptradecalc_blends_not_overrides(self):
         # IDPTradeCalc says dl1 > dl2; DLF disagrees and puts dl2 first.
@@ -391,7 +382,7 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
     def test_dlf_only_player_still_gets_ranked_via_overall_idp_scope(self):
         rows = [
             _row("idp_anchor", "DL", idp=900),  # IDPTradeCalc-only
-            _row("dlf_only", "DL", dlf=9950),   # DLF-only
+            _row("dlf_only", "DL", dlf=9950),  # DLF-only
         ]
         _compute_unified_rankings(rows, {})
         dlf_only = next(r for r in rows if r["canonicalName"] == "dlf_only")

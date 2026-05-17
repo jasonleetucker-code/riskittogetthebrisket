@@ -34,6 +34,7 @@ silently updating prod.
 
 Pure-Python.  No numpy.
 """
+
 from __future__ import annotations
 
 import json
@@ -153,8 +154,10 @@ def detect_tiers(
             # Everyone in one tier.
             for r in group_sorted:
                 result_map[id(r)] = TierEntry(
-                    tier_id=1, player_name=str(r.get("name") or ""),
-                    value=_value_of(r), position=pos,
+                    tier_id=1,
+                    player_name=str(r.get("name") or ""),
+                    value=_value_of(r),
+                    position=pos,
                 )
             continue
 
@@ -175,7 +178,8 @@ def detect_tiers(
             result_map[id(r)] = TierEntry(
                 tier_id=tier_id,
                 player_name=str(r.get("name") or ""),
-                value=val, position=pos,
+                value=val,
+                position=pos,
             )
 
     # Return in input order.

@@ -1,4 +1,5 @@
 """Tests for the backtesting harness."""
+
 from __future__ import annotations
 
 from src.backtesting import harness as bh
@@ -6,8 +7,11 @@ from src.backtesting import harness as bh
 
 def _record(tid, date, a, b, win_a):
     return bh.TradeRecord(
-        trade_id=tid, date=date, side_a_names=a,
-        side_b_names=b, win_prob_a=win_a,
+        trade_id=tid,
+        date=date,
+        side_a_names=a,
+        side_b_names=b,
+        win_prob_a=win_a,
     )
 
 
@@ -21,8 +25,10 @@ def test_empty_records_returns_zero_summary():
 def test_correct_prediction_increments_both_counts():
     """Calc said A wins (0.65), A's value went up more → correct."""
     snapshots = {
-        ("A", "2024-01-01"): 8000, ("B", "2024-01-01"): 7500,
-        ("A", "2024-06-29"): 8500, ("B", "2024-06-29"): 7200,
+        ("A", "2024-01-01"): 8000,
+        ("B", "2024-01-01"): 7500,
+        ("A", "2024-06-29"): 8500,
+        ("B", "2024-06-29"): 7200,
     }
     records = [_record("t1", "2024-01-01", ["A"], ["B"], 0.65)]
     s = bh.run_backtest(records, snapshots, horizon_days=180)
@@ -35,8 +41,10 @@ def test_correct_prediction_increments_both_counts():
 def test_wrong_prediction_still_counted():
     """Calc said A wins (0.65), B actually gained more → incorrect."""
     snapshots = {
-        ("A", "2024-01-01"): 8000, ("B", "2024-01-01"): 7500,
-        ("A", "2024-06-29"): 7000, ("B", "2024-06-29"): 8500,
+        ("A", "2024-01-01"): 8000,
+        ("B", "2024-01-01"): 7500,
+        ("A", "2024-06-29"): 7000,
+        ("B", "2024-06-29"): 8500,
     }
     records = [_record("t1", "2024-01-01", ["A"], ["B"], 0.65)]
     s = bh.run_backtest(records, snapshots, horizon_days=180)
@@ -63,8 +71,10 @@ def test_below_50_win_prob_maps_to_inverse_bucket():
 
 def test_format_report_has_bucket_lines():
     snapshots = {
-        ("A", "2024-01-01"): 8000, ("B", "2024-01-01"): 7500,
-        ("A", "2024-06-29"): 8500, ("B", "2024-06-29"): 7200,
+        ("A", "2024-01-01"): 8000,
+        ("B", "2024-01-01"): 7500,
+        ("A", "2024-06-29"): 8500,
+        ("B", "2024-06-29"): 7200,
     }
     records = [_record("t1", "2024-01-01", ["A"], ["B"], 0.85)]
     s = bh.run_backtest(records, snapshots)
@@ -83,8 +93,10 @@ def test_bad_date_format_skip():
 
 def test_horizon_days_configurable():
     snapshots = {
-        ("A", "2024-01-01"): 8000, ("B", "2024-01-01"): 7500,
-        ("A", "2024-04-01"): 8500, ("B", "2024-04-01"): 7000,
+        ("A", "2024-01-01"): 8000,
+        ("B", "2024-01-01"): 7500,
+        ("A", "2024-04-01"): 8500,
+        ("B", "2024-04-01"): 7000,
     }
     records = [_record("t1", "2024-01-01", ["A"], ["B"], 0.65)]
     # Use 91-day horizon (2024 Q1 → Q2).
@@ -94,8 +106,10 @@ def test_horizon_days_configurable():
 
 def test_to_dict_round_trips():
     snapshots = {
-        ("A", "2024-01-01"): 8000, ("B", "2024-01-01"): 7500,
-        ("A", "2024-06-29"): 8500, ("B", "2024-06-29"): 7200,
+        ("A", "2024-01-01"): 8000,
+        ("B", "2024-01-01"): 7500,
+        ("A", "2024-06-29"): 8500,
+        ("B", "2024-06-29"): 7200,
     }
     records = [_record("t1", "2024-01-01", ["A"], ["B"], 0.65)]
     s = bh.run_backtest(records, snapshots)

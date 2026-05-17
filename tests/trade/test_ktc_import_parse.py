@@ -4,6 +4,7 @@
 KTC uses either ``,`` or ``|`` to separate multiple player IDs in
 ``teamOne`` / ``teamTwo``.  The parser must accept both forms.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -21,8 +22,7 @@ class TestParseTradeUrl(unittest.TestCase):
     def test_comma_separated_multi_ids(self):
         """Legacy KTC URL form — comma-delimited."""
         url = (
-            "https://keeptradecut.com/trade-calculator"
-            "?teamOne=1274,542&teamTwo=1555,1751&tep=0"
+            "https://keeptradecut.com/trade-calculator" "?teamOne=1274,542&teamTwo=1555,1751&tep=0"
         )
         one, two = parse_trade_url(url)
         self.assertEqual(one, [1274, 542])
@@ -44,10 +44,7 @@ class TestParseTradeUrl(unittest.TestCase):
         """Defensive: if KTC ever generates mixed ``,`` and ``|``, we
         still handle it.  Not observed in the wild, but cheap to
         support with a single regex split."""
-        url = (
-            "https://keeptradecut.com/trade-calculator"
-            "?teamOne=100,200|300&teamTwo=400|500,600"
-        )
+        url = "https://keeptradecut.com/trade-calculator" "?teamOne=100,200|300&teamTwo=400|500,600"
         one, two = parse_trade_url(url)
         self.assertEqual(one, [100, 200, 300])
         self.assertEqual(two, [400, 500, 600])

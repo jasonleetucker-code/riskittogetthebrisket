@@ -7,6 +7,7 @@ JSON-serializable block consumed by:
   1. /api/public/league/faabAnalytics  (waivers page UI)
   2. src.trade.faab_recommender         (per-pair recommender — B6)
 """
+
 from __future__ import annotations
 
 from src.api import faab_analytics
@@ -107,15 +108,19 @@ def test_uses_league_settings_waiver_budget():
 
 
 def test_avg_and_median_are_computed_correctly():
-    snap = _snap([
-        _season(txs_by_week={
-            1: [
-                _waiver_tx(bid=10, adds={"P1": 1}),
-                _waiver_tx(bid=20, adds={"P2": 1}),
-                _waiver_tx(bid=30, adds={"P3": 1}),
-            ],
-        }),
-    ])
+    snap = _snap(
+        [
+            _season(
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=10, adds={"P1": 1}),
+                        _waiver_tx(bid=20, adds={"P2": 1}),
+                        _waiver_tx(bid=30, adds={"P3": 1}),
+                    ],
+                }
+            ),
+        ]
+    )
     out = faab_analytics.summarize_league_faab(snap)
     assert out["totalBidsAnalyzed"] == 3
     assert out["leagueAvgWinningBid"] == 20.0
@@ -125,15 +130,19 @@ def test_avg_and_median_are_computed_correctly():
 def test_zero_bid_free_agents_excluded_from_avg():
     """Zero-bid FA pickups don't pull the average down — they
     represent free pickups, not bids the league competed on."""
-    snap = _snap([
-        _season(txs_by_week={
-            1: [
-                _waiver_tx(bid=20, adds={"P1": 1}),
-                _waiver_tx(bid=0, adds={"P2": 1}, type_="free_agent"),
-                _waiver_tx(bid=0, adds={"P3": 1}, type_="free_agent"),
-            ],
-        }),
-    ])
+    snap = _snap(
+        [
+            _season(
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=20, adds={"P1": 1}),
+                        _waiver_tx(bid=0, adds={"P2": 1}, type_="free_agent"),
+                        _waiver_tx(bid=0, adds={"P3": 1}, type_="free_agent"),
+                    ],
+                }
+            ),
+        ]
+    )
     out = faab_analytics.summarize_league_faab(snap)
     assert out["totalBidsAnalyzed"] == 1
     assert out["leagueAvgWinningBid"] == 20.0
@@ -144,19 +153,21 @@ def test_zero_bid_free_agents_excluded_from_avg():
 
 def test_tier_bucketing_by_pct_of_budget():
     """20+% → tier1, 10-20% → tier2, 3-10% → tier3, ≤3% → tier4."""
-    snap = _snap([
-        _season(
-            settings={"waiver_budget": 100},
-            txs_by_week={
-                1: [
-                    _waiver_tx(bid=25, adds={"P1": 1}),  # tier1
-                    _waiver_tx(bid=15, adds={"P2": 1}),  # tier2
-                    _waiver_tx(bid=5,  adds={"P3": 1}),  # tier3
-                    _waiver_tx(bid=2,  adds={"P4": 1}),  # tier4
-                ],
-            },
-        ),
-    ])
+    snap = _snap(
+        [
+            _season(
+                settings={"waiver_budget": 100},
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=25, adds={"P1": 1}),  # tier1
+                        _waiver_tx(bid=15, adds={"P2": 1}),  # tier2
+                        _waiver_tx(bid=5, adds={"P3": 1}),  # tier3
+                        _waiver_tx(bid=2, adds={"P4": 1}),  # tier4
+                    ],
+                },
+            ),
+        ]
+    )
     out = faab_analytics.summarize_league_faab(snap)
     assert out["tierBids"]["tier1"]["count"] == 1
     assert out["tierBids"]["tier2"]["count"] == 1
@@ -173,12 +184,16 @@ def test_position_bids_resolve_via_nfl_players():
         "RB1": {"position": "RB", "full_name": "RB Guy"},
     }
     snap = _snap(
-        [_season(txs_by_week={
-            1: [
-                _waiver_tx(bid=15, adds={"WR1": 1}),
-                _waiver_tx(bid=8, adds={"RB1": 1}),
-            ],
-        })],
+        [
+            _season(
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=15, adds={"WR1": 1}),
+                        _waiver_tx(bid=8, adds={"RB1": 1}),
+                    ],
+                }
+            )
+        ],
         nfl_players=nfl,
     )
     out = faab_analytics.summarize_league_faab(snap)
@@ -197,15 +212,19 @@ def test_idp_positions_normalize_to_base_buckets():
         "S1": {"position": "S"},
     }
     snap = _snap(
-        [_season(txs_by_week={
-            1: [
-                _waiver_tx(bid=5, adds={"DT1": 1}),
-                _waiver_tx(bid=4, adds={"EDGE1": 1}),
-                _waiver_tx(bid=3, adds={"ILB1": 1}),
-                _waiver_tx(bid=2, adds={"CB1": 1}),
-                _waiver_tx(bid=1, adds={"S1": 1}),
-            ],
-        })],
+        [
+            _season(
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=5, adds={"DT1": 1}),
+                        _waiver_tx(bid=4, adds={"EDGE1": 1}),
+                        _waiver_tx(bid=3, adds={"ILB1": 1}),
+                        _waiver_tx(bid=2, adds={"CB1": 1}),
+                        _waiver_tx(bid=1, adds={"S1": 1}),
+                    ],
+                }
+            )
+        ],
         nfl_players=nfl,
     )
     out = faab_analytics.summarize_league_faab(snap)
@@ -223,20 +242,21 @@ def test_team_aggression_aggregates_per_owner():
         {"roster_id": 1, "owner_id": "ownerA"},
         {"roster_id": 2, "owner_id": "ownerB"},
     ]
-    snap = _snap([
-        _season(
-            rosters=rosters,
-            txs_by_week={
-                1: [
-                    _waiver_tx(bid=20, adds={"P1": 1}, roster_id=1),
-                    _waiver_tx(bid=10, adds={"P2": 1}, roster_id=1),
-                    _waiver_tx(bid=5, adds={"P3": 1}, roster_id=2),
-                    _waiver_tx(bid=0, adds={"P4": 1}, roster_id=2,
-                               type_="free_agent"),
-                ],
-            },
-        ),
-    ])
+    snap = _snap(
+        [
+            _season(
+                rosters=rosters,
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=20, adds={"P1": 1}, roster_id=1),
+                        _waiver_tx(bid=10, adds={"P2": 1}, roster_id=1),
+                        _waiver_tx(bid=5, adds={"P3": 1}, roster_id=2),
+                        _waiver_tx(bid=0, adds={"P4": 1}, roster_id=2, type_="free_agent"),
+                    ],
+                },
+            ),
+        ]
+    )
     out = faab_analytics.summarize_league_faab(snap)
     a = out["teamAggression"]["ownerA"]
     assert a["totalSpent"] == 30
@@ -253,18 +273,20 @@ def test_team_aggression_aggregates_per_owner():
 
 def test_player_history_records_each_add():
     rosters = [{"roster_id": 1, "owner_id": "ownerA"}]
-    snap = _snap([
-        _season(
-            season="2025",
-            rosters=rosters,
-            txs_by_week={1: [_waiver_tx(bid=15, adds={"PX": 1})]},
-        ),
-        _season(
-            season="2026",
-            rosters=rosters,
-            txs_by_week={1: [_waiver_tx(bid=22, adds={"PX": 1})]},
-        ),
-    ])
+    snap = _snap(
+        [
+            _season(
+                season="2025",
+                rosters=rosters,
+                txs_by_week={1: [_waiver_tx(bid=15, adds={"PX": 1})]},
+            ),
+            _season(
+                season="2026",
+                rosters=rosters,
+                txs_by_week={1: [_waiver_tx(bid=22, adds={"PX": 1})]},
+            ),
+        ]
+    )
     out = faab_analytics.summarize_league_faab(snap)
     history = out["playerHistory"]["PX"]
     assert len(history) == 2
@@ -278,15 +300,18 @@ def test_player_history_records_each_add():
 def test_recent_wins_skip_zero_bid_pickups():
     """Recent-wins timeline excludes free-agent pickups so the UI
     only surfaces actual bidding activity."""
-    snap = _snap([
-        _season(txs_by_week={
-            1: [
-                _waiver_tx(bid=15, adds={"WR1": 1}, created=1000),
-                _waiver_tx(bid=0, adds={"P0": 1}, type_="free_agent",
-                           created=2000),
-                _waiver_tx(bid=10, adds={"WR2": 1}, created=3000),
-            ],
-        })],
+    snap = _snap(
+        [
+            _season(
+                txs_by_week={
+                    1: [
+                        _waiver_tx(bid=15, adds={"WR1": 1}, created=1000),
+                        _waiver_tx(bid=0, adds={"P0": 1}, type_="free_agent", created=2000),
+                        _waiver_tx(bid=10, adds={"WR2": 1}, created=3000),
+                    ],
+                }
+            )
+        ],
     )
     out = faab_analytics.summarize_league_faab(snap)
     bids = [w["bid"] for w in out["recentWins"]]
@@ -302,6 +327,7 @@ def test_recent_wins_skip_zero_bid_pickups():
 
 def test_section_registered_in_public_contract():
     from src.public_league.public_contract import PUBLIC_SECTION_KEYS
+
     assert "faabAnalytics" in PUBLIC_SECTION_KEYS
 
 

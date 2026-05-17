@@ -15,6 +15,7 @@ Usage:
     python3 scripts/fit_hill_curve_from_market.py          # offense (default)
     python3 scripts/fit_hill_curve_from_market.py --universe idp
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,10 +25,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
-    "KTC":          ("CSVs/site_raw/ktc.csv",                 "value"),
-    "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv",        "value"),
-    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",      "value"),
-    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv",   "Value"),
+    "KTC": ("CSVs/site_raw/ktc.csv", "value"),
+    "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
+    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv", "value"),
+    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
 }
 
 # IDP market sources.  IDPTradeCalc is the retail IDP authority and
@@ -138,7 +139,9 @@ def _fit(normed_points: list[tuple[int, float]]) -> tuple[float, float, float]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--universe", choices=["offense", "idp"], default="offense",
+        "--universe",
+        choices=["offense", "idp"],
+        default="offense",
         help="Which market to fit (default: offense)",
     )
     args = parser.parse_args()
@@ -176,7 +179,9 @@ def main() -> int:
         normed = [(i + 1, v / top * 9999.0) for i, v in enumerate(values[:300])]
         m, s, mse = _fit(normed)
         fits.append((label, len(values), m, s, mse))
-        print(f"  {label:14s}  n={len(values):4d}  midpoint={m:6.2f}  slope={s:5.3f}  mse/pt={mse:.1f}")
+        print(
+            f"  {label:14s}  n={len(values):4d}  midpoint={m:6.2f}  slope={s:5.3f}  mse/pt={mse:.1f}"
+        )
 
     if not fits:
         print("No sources loaded; aborting.")
@@ -190,8 +195,12 @@ def main() -> int:
     weighted_s = sum(n * s for _, n, _, s, _ in fits) / total
 
     print()
-    print(f"  {'Simple mean':14s}                   midpoint={simple_m:6.2f}  slope={simple_s:5.3f}")
-    print(f"  {'n-Weighted':14s}                   midpoint={weighted_m:6.2f}  slope={weighted_s:5.3f}")
+    print(
+        f"  {'Simple mean':14s}                   midpoint={simple_m:6.2f}  slope={simple_s:5.3f}"
+    )
+    print(
+        f"  {'n-Weighted':14s}                   midpoint={weighted_m:6.2f}  slope={weighted_s:5.3f}"
+    )
     print(f"  {'Current (ours)':14s}                   midpoint=45.00          slope=1.100")
 
     print()
@@ -202,8 +211,13 @@ def main() -> int:
     for label, _, m, s, _ in fits:
         row = "".join(f"{int(_hill(r, m, s)):>9}" for r in ranks)
         print(f"  {label[:14]:<14}" + row)
-    print(f"  {'SIMPLE_AVG':<14}" + "".join(f"{int(_hill(r, simple_m, simple_s)):>9}" for r in ranks))
-    print(f"  {'N_WEIGHTED':<14}" + "".join(f"{int(_hill(r, weighted_m, weighted_s)):>9}" for r in ranks))
+    print(
+        f"  {'SIMPLE_AVG':<14}" + "".join(f"{int(_hill(r, simple_m, simple_s)):>9}" for r in ranks)
+    )
+    print(
+        f"  {'N_WEIGHTED':<14}"
+        + "".join(f"{int(_hill(r, weighted_m, weighted_s)):>9}" for r in ranks)
+    )
     print(f"  {'CURRENT':<14}" + "".join(f"{int(_hill(r, 45, 1.1)):>9}" for r in ranks))
     return 0
 

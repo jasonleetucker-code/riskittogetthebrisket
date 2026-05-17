@@ -50,7 +50,9 @@ def _confidence_for_record(rec: RawAssetRecord) -> tuple[float, str]:
     return 0.85, "exact_name_only"
 
 
-def build_master_players(records: list[RawAssetRecord]) -> tuple[dict[str, MasterPlayer], list[str]]:
+def build_master_players(
+    records: list[RawAssetRecord],
+) -> tuple[dict[str, MasterPlayer], list[str]]:
     players: dict[str, MasterPlayer] = {}
     conflicts: list[str] = []
     seen_positions: dict[str, set[str]] = defaultdict(set)
@@ -135,7 +137,9 @@ def build_identity_resolution(
                     position=rec.position_normalized_guess or rec.position_raw,
                     position_group=rec.position_normalized_guess or rec.position_raw,
                     rookie_class_year=rec.pick_year_guess if rec.rookie_flag else None,
-                    age=float(rec.age_raw) if str(rec.age_raw).strip().replace(".", "", 1).isdigit() else None,
+                    age=float(rec.age_raw)
+                    if str(rec.age_raw).strip().replace(".", "", 1).isdigit()
+                    else None,
                     is_active=True,
                     created_at=now,
                     updated_at=now,
@@ -189,7 +193,9 @@ def build_identity_resolution(
         elif rec.asset_type == "pick":
             year = rec.pick_year_guess or 0
             rnd = rec.pick_round_guess or 0
-            slot_known = bool(rec.pick_slot_guess and rec.pick_slot_guess.replace(".", "").isdigit())
+            slot_known = bool(
+                rec.pick_slot_guess and rec.pick_slot_guess.replace(".", "").isdigit()
+            )
             slot_number = None
             if slot_known:
                 try:
@@ -279,4 +285,3 @@ def build_identity_report(records: list[RawAssetRecord]) -> dict:
     Backward-compatible alias for existing scaffold call sites.
     """
     return build_identity_resolution(records)
-

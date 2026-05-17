@@ -1,4 +1,5 @@
 """Tests for the Sleeper scoring fetcher's caching + parsing behavior."""
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,10 @@ def test_fetch_parses_scoring_settings(monkeypatch):
     assert info.name == "Test League"
     assert info.season == "2025"
     assert info.scoring_settings == {
-        "pass_yd": 0.04, "pass_td": 5.0, "rec": 0.75, "bonus_rec_te": 0.38,
+        "pass_yd": 0.04,
+        "pass_td": 5.0,
+        "rec": 0.75,
+        "bonus_rec_te": 0.38,
     }
     assert len(info.scoring_hash) == 12
 

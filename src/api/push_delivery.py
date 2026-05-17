@@ -38,6 +38,7 @@ include in delivery failures.  When any of the three is missing,
 ``is_configured()`` returns False and the dispatch path falls back
 to email-only.
 """
+
 from __future__ import annotations
 
 import json
@@ -84,9 +85,7 @@ def list_subscriptions(user_state: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
-def upsert_subscription(
-    user_state: dict[str, Any], sub: dict[str, Any]
-) -> list[dict[str, Any]]:
+def upsert_subscription(user_state: dict[str, Any], sub: dict[str, Any]) -> list[dict[str, Any]]:
     """Add ``sub`` to the user's list, replacing any record with the
     same endpoint.  Returns the new full list (caller persists)."""
     endpoint = str(sub.get("endpoint") or "").strip()
@@ -108,9 +107,7 @@ def upsert_subscription(
     return deduped
 
 
-def remove_subscription(
-    user_state: dict[str, Any], endpoint: str
-) -> list[dict[str, Any]]:
+def remove_subscription(user_state: dict[str, Any], endpoint: str) -> list[dict[str, Any]]:
     current = list_subscriptions(user_state)
     return [s for s in current if s.get("endpoint") != endpoint]
 

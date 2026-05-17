@@ -1,4 +1,5 @@
 """Tests for the Monte Carlo correlation matrix builder."""
+
 from __future__ import annotations
 
 from src.trade import correlation_matrix as cm
@@ -109,9 +110,9 @@ def test_shrink_to_pd_falls_back_to_identity_when_stuck():
 
 def test_build_axes_from_trade_players():
     from src.trade.monte_carlo import TradePlayer
+
     players = [
-        TradePlayer(name="A", team="BUF", position_group="offense",
-                    p10=100, p50=200, p90=300),
+        TradePlayer(name="A", team="BUF", position_group="offense", p10=100, p50=200, p90=300),
     ]
     axes = cm.build_axes_from_trade_players(players)
     assert len(axes) == 1

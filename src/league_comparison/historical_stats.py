@@ -11,6 +11,7 @@ Both sources are filtered to **regular-season weeks 1-17 only**
 before they leave this module — week 18 is the starter-rest week for
 most playoff-bound teams and would distort the multi-year sample.
 """
+
 from __future__ import annotations
 
 import logging
@@ -88,7 +89,8 @@ def load_season_rows(season: int) -> list[dict[str, Any]] | None:
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "league_compare.nflverse_fetch_failed season=%s err=%r",
-            season, exc,
+            season,
+            exc,
         )
         rows = []
     rows = _filter_to_regular_season(rows)
@@ -106,7 +108,8 @@ def load_season_rows(season: int) -> list[dict[str, Any]] | None:
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "league_compare.sleeper_fetch_failed season=%s err=%r",
-            season, exc,
+            season,
+            exc,
         )
         sleeper_rows = []
     sleeper_rows = _filter_to_regular_season(sleeper_rows)

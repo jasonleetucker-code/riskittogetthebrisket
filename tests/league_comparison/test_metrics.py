@@ -1,4 +1,5 @@
 """Unit tests for src.league_comparison.metrics — the pure stat math."""
+
 from __future__ import annotations
 
 import math
@@ -23,10 +24,14 @@ def _score(pts: float, pos: str = "QB", pid: str | None = None) -> PlayerSeasonS
 
 # ── top_n_by_position / flex_top_n ────────────────────────────────────
 
+
 def test_top_n_filters_by_position_and_sorts_desc():
     pool = [
-        _score(100, "QB"), _score(200, "RB"), _score(300, "QB"),
-        _score(150, "QB"), _score(50, "QB"),
+        _score(100, "QB"),
+        _score(200, "RB"),
+        _score(300, "QB"),
+        _score(150, "QB"),
+        _score(50, "QB"),
     ]
     out = m.top_n_by_position(pool, "QB", 3)
     assert [s.total_points for s in out] == [300, 150, 100]
@@ -50,7 +55,7 @@ def test_top_n_handles_oversized_request():
 
 def test_flex_excludes_qb():
     pool = [
-        _score(500, "QB"),    # would be #1 by points but excluded
+        _score(500, "QB"),  # would be #1 by points but excluded
         _score(200, "RB"),
         _score(150, "WR"),
         _score(100, "TE"),
@@ -69,6 +74,7 @@ def test_flex_top_n_with_size_limit():
 
 
 # ── position_metrics ─────────────────────────────────────────────────
+
 
 def test_position_metrics_basic():
     pts = [300, 250, 200, 150, 100]
@@ -101,26 +107,38 @@ def test_position_metrics_single_value():
 
 # ── blended scores ───────────────────────────────────────────────────
 
+
 def test_legacy_blended_is_avg_median_average():
     metrics = m.PositionMetrics(
-        average=200, median=180, p25=150, p75=250,
-        replacement_level=100, elite=300, replacement_adj=100, sample_size=5,
+        average=200,
+        median=180,
+        p25=150,
+        p75=250,
+        replacement_level=100,
+        elite=300,
+        replacement_adj=100,
+        sample_size=5,
     )
     assert m.legacy_blended(metrics) == pytest.approx(190.0)
 
 
 def test_improved_blended_uses_documented_weights():
     metrics = m.PositionMetrics(
-        average=200, median=180, p25=120, p75=240,
-        replacement_level=100, elite=300, replacement_adj=100, sample_size=5,
+        average=200,
+        median=180,
+        p25=120,
+        p75=240,
+        replacement_level=100,
+        elite=300,
+        replacement_adj=100,
+        sample_size=5,
     )
-    expected = (
-        0.35 * 180 + 0.25 * 200 + 0.20 * 240 + 0.10 * 120 + 0.10 * 100
-    )
+    expected = 0.35 * 180 + 0.25 * 200 + 0.20 * 240 + 0.10 * 120 + 0.10 * 100
     assert m.improved_blended(metrics) == pytest.approx(expected)
 
 
 # ── shares ───────────────────────────────────────────────────────────
+
 
 def test_position_shares_sum_to_100():
     inp = {"QB": 100, "RB": 200, "WR": 300, "TE": 400}
@@ -139,10 +157,11 @@ def test_position_shares_treats_negative_as_zero():
     shares = m.position_shares({"QB": -50, "RB": 100, "WR": 100, "TE": 100})
     # Negative QB drops to zero in the total; RB/WR/TE split 100% three ways
     assert shares["QB"] == 0
-    assert shares["RB"] == pytest.approx(100/3)
+    assert shares["RB"] == pytest.approx(100 / 3)
 
 
 # ── status_label ─────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "diff,expected",
@@ -164,6 +183,7 @@ def test_status_label_bands(diff, expected):
 
 
 # ── similarity score ─────────────────────────────────────────────────
+
 
 def test_similarity_score_perfect_match_is_100():
     shares = {"QB": 25, "RB": 25, "WR": 30, "TE": 20}
@@ -202,7 +222,8 @@ def test_similarity_score_handles_zero_baseline_flex():
     out = m.similarity_score(
         {"QB": 25, "RB": 25, "WR": 30, "TE": 20},
         {"QB": 25, "RB": 25, "WR": 30, "TE": 20},
-        my_flex=200, baseline_flex=0,
+        my_flex=200,
+        baseline_flex=0,
     )
     # No NaN, no crash; flex deviation simply zero
     assert math.isfinite(out.score)
@@ -210,6 +231,7 @@ def test_similarity_score_handles_zero_baseline_flex():
 
 
 # ── recommendations ──────────────────────────────────────────────────
+
 
 def test_recommendation_aligned_says_no_adjustment():
     text = m.recommendation("QB", 0.3, my_share=25.0, baseline_share=24.7)

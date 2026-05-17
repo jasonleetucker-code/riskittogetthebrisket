@@ -23,6 +23,7 @@ Output shape
 ``matchups``         — list of ``{home, away, h2h, form, scores}``.
 ``generatedAt``      — iso timestamp for cache debugging.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -90,22 +91,22 @@ def _build_h2h_index(
             winner = sideB_oid
         else:
             winner = None
-        idx[key].append({
-            "season": season.season,
-            "leagueId": season.league_id,
-            "week": wk,
-            "isPlayoff": is_playoff,
-            "sideAOwnerId": sideA_oid,
-            "sideBOwnerId": sideB_oid,
-            "sideAPoints": round(sideA_pts, 2),
-            "sideBPoints": round(sideB_pts, 2),
-            "winnerOwnerId": winner,
-            "margin": round(abs(sideA_pts - sideB_pts), 2),
-        })
-    for meetings in idx.values():
-        meetings.sort(
-            key=lambda m: (_season_sort(m["season"]), m["week"])
+        idx[key].append(
+            {
+                "season": season.season,
+                "leagueId": season.league_id,
+                "week": wk,
+                "isPlayoff": is_playoff,
+                "sideAOwnerId": sideA_oid,
+                "sideBOwnerId": sideB_oid,
+                "sideAPoints": round(sideA_pts, 2),
+                "sideBPoints": round(sideB_pts, 2),
+                "winnerOwnerId": winner,
+                "margin": round(abs(sideA_pts - sideB_pts), 2),
+            }
         )
+    for meetings in idx.values():
+        meetings.sort(key=lambda m: (_season_sort(m["season"]), m["week"]))
     return idx
 
 
@@ -131,10 +132,7 @@ def _recent_form_for_owner(
         # Strictly-before test.
         if _season_sort(season.season) > _season_sort(before_season):
             continue
-        if (
-            _season_sort(season.season) == _season_sort(before_season)
-            and wk >= before_week
-        ):
+        if _season_sort(season.season) == _season_sort(before_season) and wk >= before_week:
             continue
         for me, foe in ((a, b), (b, a)):
             rid = metrics.roster_id_of(me)
@@ -153,13 +151,15 @@ def _recent_form_for_owner(
                 result = "L"
             else:
                 result = "T"
-            events.append({
-                "season": season.season,
-                "week": wk,
-                "points": round(my_pts, 2),
-                "opponentPoints": round(opp_pts, 2),
-                "result": result,
-            })
+            events.append(
+                {
+                    "season": season.season,
+                    "week": wk,
+                    "points": round(my_pts, 2),
+                    "opponentPoints": round(opp_pts, 2),
+                    "result": result,
+                }
+            )
     events.sort(key=lambda e: (_season_sort(e["season"]), e["week"]))
     recent = events[-n:]
     wins = sum(1 for e in recent if e["result"] == "W")
@@ -218,7 +218,9 @@ def _meetings_recent(meetings: list[dict[str, Any]], n: int = 5) -> list[dict[st
     return list(reversed(meetings[-n:])) if meetings else []
 
 
-def _narrative(summary: dict[str, Any], sideA_name: str, sideB_name: str, last: dict[str, Any] | None) -> str:
+def _narrative(
+    summary: dict[str, Any], sideA_name: str, sideB_name: str, last: dict[str, Any] | None
+) -> str:
     """Short 1-2 sentence summary."""
     total = summary["totalMeetings"]
     if total == 0:
@@ -274,12 +276,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         summary["_sideA_oid"] = sideA_oid
         summary["_sideB_oid"] = sideB_oid
         recent = _meetings_recent(meetings, n=5)
-        form_a = _recent_form_for_owner(
-            snapshot, sideA_oid, current.season, week, n=3
-        )
-        form_b = _recent_form_for_owner(
-            snapshot, sideB_oid, current.season, week, n=3
-        )
+        form_a = _recent_form_for_owner(snapshot, sideA_oid, current.season, week, n=3)
+        form_b = _recent_form_for_owner(snapshot, sideB_oid, current.season, week, n=3)
 
         home_rid = metrics.roster_id_of(a) if oa == sideA_oid else metrics.roster_id_of(b)
         away_rid = metrics.roster_id_of(b) if oa == sideA_oid else metrics.roster_id_of(a)
@@ -287,45 +285,51 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         home_entry = a if oa == sideA_oid else b
         away_entry = b if oa == sideA_oid else a
 
-        out_matchups.append({
-            "matchupId": a.get("matchup_id"),
-            "home": {
-                "ownerId": sideA_oid,
-                "displayName": metrics.display_name_for(snapshot, sideA_oid),
-                "teamName": metrics.team_name(snapshot, current.league_id, home_rid),
-                "rosterId": home_rid,
-                "points": round(metrics.matchup_points(home_entry), 2) if mode == "recap" else None,
-            },
-            "away": {
-                "ownerId": sideB_oid,
-                "displayName": metrics.display_name_for(snapshot, sideB_oid),
-                "teamName": metrics.team_name(snapshot, current.league_id, away_rid),
-                "rosterId": away_rid,
-                "points": round(metrics.matchup_points(away_entry), 2) if mode == "recap" else None,
-            },
-            "h2h": {
-                "totalMeetings": summary["totalMeetings"],
-                "homeWins": summary["sideAWins"],
-                "awayWins": summary["sideBWins"],
-                "ties": summary["ties"],
-                "avgMargin": summary["avgMargin"],
-                "biggestMargin": summary["biggestMargin"],
-                "biggestMarginWinnerOwnerId": summary["biggestMarginWinner"],
-                "playoffMeetings": summary["playoffMeetings"],
-                "last5": recent,
-                "lastMeeting": recent[0] if recent else None,
-                "narrative": _narrative(
-                    summary,
-                    metrics.display_name_for(snapshot, sideA_oid),
-                    metrics.display_name_for(snapshot, sideB_oid),
-                    recent[0] if recent else None,
-                ),
-            },
-            "form": {
-                "home": form_a,
-                "away": form_b,
-            },
-        })
+        out_matchups.append(
+            {
+                "matchupId": a.get("matchup_id"),
+                "home": {
+                    "ownerId": sideA_oid,
+                    "displayName": metrics.display_name_for(snapshot, sideA_oid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, home_rid),
+                    "rosterId": home_rid,
+                    "points": round(metrics.matchup_points(home_entry), 2)
+                    if mode == "recap"
+                    else None,
+                },
+                "away": {
+                    "ownerId": sideB_oid,
+                    "displayName": metrics.display_name_for(snapshot, sideB_oid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, away_rid),
+                    "rosterId": away_rid,
+                    "points": round(metrics.matchup_points(away_entry), 2)
+                    if mode == "recap"
+                    else None,
+                },
+                "h2h": {
+                    "totalMeetings": summary["totalMeetings"],
+                    "homeWins": summary["sideAWins"],
+                    "awayWins": summary["sideBWins"],
+                    "ties": summary["ties"],
+                    "avgMargin": summary["avgMargin"],
+                    "biggestMargin": summary["biggestMargin"],
+                    "biggestMarginWinnerOwnerId": summary["biggestMarginWinner"],
+                    "playoffMeetings": summary["playoffMeetings"],
+                    "last5": recent,
+                    "lastMeeting": recent[0] if recent else None,
+                    "narrative": _narrative(
+                        summary,
+                        metrics.display_name_for(snapshot, sideA_oid),
+                        metrics.display_name_for(snapshot, sideB_oid),
+                        recent[0] if recent else None,
+                    ),
+                },
+                "form": {
+                    "home": form_a,
+                    "away": form_b,
+                },
+            }
+        )
 
     return {
         "currentSeason": current.season,

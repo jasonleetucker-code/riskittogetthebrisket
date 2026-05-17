@@ -10,6 +10,7 @@ rarely (commissioner edits) — a 1h TTL means a refresh after a settings
 change picks up the next hit, while normal traffic doesn't repeatedly
 hit Sleeper.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -123,7 +124,10 @@ def fetch_league_scoring(league_id: str, *, refresh: bool = False) -> LeagueScor
 
     _LOGGER.info(
         "league_compare.scoring_fetched league_id=%s name=%s keys=%d hash=%s",
-        league_id, info.name, len(scoring), info.scoring_hash,
+        league_id,
+        info.name,
+        len(scoring),
+        info.scoring_hash,
     )
     return info
 

@@ -131,7 +131,10 @@ def main() -> int:
                     )
 
             ext_id = str(rec.get("external_asset_id", "")).strip()
-            key_asset = str(rec.get("asset_key", "")).strip() or str(rec.get("name_normalized_guess", "")).strip()
+            key_asset = (
+                str(rec.get("asset_key", "")).strip()
+                or str(rec.get("name_normalized_guess", "")).strip()
+            )
             if key_asset:
                 current_metrics[(source, key_asset)] = {
                     "rank_raw": rec.get("rank_raw"),
@@ -183,7 +186,10 @@ def main() -> int:
         for snap in prev_payload.get("snapshots", []):
             psource = str(snap.get("source", ""))
             for rec in snap.get("records", []):
-                pkey = str(rec.get("asset_key", "")).strip() or str(rec.get("name_normalized_guess", "")).strip()
+                pkey = (
+                    str(rec.get("asset_key", "")).strip()
+                    or str(rec.get("name_normalized_guess", "")).strip()
+                )
                 if not pkey:
                     continue
                 prev_metrics[(psource, pkey)] = {
@@ -206,7 +212,9 @@ def main() -> int:
             if isinstance(cur_val, (int, float)) and isinstance(prev_val, (int, float)):
                 value_jump = float(cur_val) - float(prev_val)
 
-            if (rank_jump is not None and abs(rank_jump) >= 100) or (value_jump is not None and abs(value_jump) >= 1500):
+            if (rank_jump is not None and abs(rank_jump) >= 100) or (
+                value_jump is not None and abs(value_jump) >= 1500
+            ):
                 suspicious_rank_value_jumps.append(
                     {
                         "source": k[0],

@@ -6,6 +6,7 @@ pure functions: HTML table parsing (``_parse_rankings``), rank
 column preference (``_rank_of``), paywall detection
 (``_looks_like_preview``), and CSV write (``_write_csv``).
 """
+
 from __future__ import annotations
 
 import csv
@@ -87,7 +88,8 @@ DLF_PAYWALL_HTML = """
 # articles, ad widgets) that have fewer than 10 rows and no
 # Rank/Avg headers.  The parser must walk past them and find the
 # real rankings table.
-DLF_WITH_SIDEBAR_HTML = """
+DLF_WITH_SIDEBAR_HTML = (
+    """
 <html><body>
 <table class="sidebar-ads">
   <tr><th>Ad</th></tr>
@@ -101,15 +103,18 @@ DLF_WITH_SIDEBAR_HTML = """
     </tr>
   </thead>
   <tbody>
-""" + "\n".join(
-    f"<tr><td>{i}</td><td>{i + 0.17:.2f}</td><td>QB{i}</td>"
-    f"<td>Player {i}</td><td>{i}</td><td>{i + 1}</td></tr>"
-    for i in range(1, 13)
-) + """
+"""
+    + "\n".join(
+        f"<tr><td>{i}</td><td>{i + 0.17:.2f}</td><td>QB{i}</td>"
+        f"<td>Player {i}</td><td>{i}</td><td>{i + 1}</td></tr>"
+        for i in range(1, 13)
+    )
+    + """
   </tbody>
 </table>
 </body></html>
 """
+)
 
 
 def test_parse_rankings_extracts_name_avg_rank_pos(dlf_module):
@@ -173,8 +178,8 @@ def test_write_csv_dedups_and_sorts_by_rank(dlf_module, tmp_path: Path):
         {"name": "Player A", "avg": "1.17"},
         {"name": "Player C", "avg": "2.83"},
         {"name": "Player A", "avg": "1.17"},  # duplicate — should be dropped
-        {"name": "", "avg": "4.00"},           # empty name — dropped
-        {"name": "Player D", "avg": "N/A"},    # invalid rank — dropped
+        {"name": "", "avg": "4.00"},  # empty name — dropped
+        {"name": "Player D", "avg": "N/A"},  # invalid rank — dropped
     ]
     count = dlf_module._write_csv(out, rows)
     assert count == 3
@@ -204,7 +209,10 @@ def test_boards_registry_covers_all_four_sources(dlf_module):
     _SOURCE_CSV_PATHS will silently lose coverage — this test
     trips before that happens."""
     assert set(dlf_module.BOARDS) == {
-        "dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp",
+        "dlfSf",
+        "dlfIdp",
+        "dlfRookieSf",
+        "dlfRookieIdp",
     }
     for key, cfg in dlf_module.BOARDS.items():
         assert cfg["url"].startswith("https://dynastyleaguefootball.com/")
@@ -221,14 +229,11 @@ def test_boards_match_registered_csv_paths(dlf_module):
     otherwise the ranking pipeline reads a stale CSV instead of
     the freshly-fetched one."""
     from src.api.data_contract import _SOURCE_CSV_PATHS
+
     for key, cfg in dlf_module.BOARDS.items():
         reg_cfg = _SOURCE_CSV_PATHS.get(key)
-        assert reg_cfg is not None, (
-            f"Source {key} missing from _SOURCE_CSV_PATHS"
-        )
-        reg_path = (
-            reg_cfg["path"] if isinstance(reg_cfg, dict) else reg_cfg
-        )
+        assert reg_cfg is not None, f"Source {key} missing from _SOURCE_CSV_PATHS"
+        reg_path = reg_cfg["path"] if isinstance(reg_cfg, dict) else reg_cfg
         assert reg_path == cfg["out"], (
             f"Path mismatch for {key}: scraper writes {cfg['out']!r}, "
             f"registry expects {reg_path!r}"

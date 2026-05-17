@@ -45,6 +45,7 @@ when False, the existing ``power.py`` v1 still drives /league → Power.
 When True, /league → ROS Power renders this version side-by-side as
 the new "ROS Power" tab.
 """
+
 from __future__ import annotations
 
 import json
@@ -325,9 +326,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
     team_strength_rows = _load_team_strength_rows()
     preseason = _is_preseason(snapshot)
-    if not seasons_sorted and not team_strength_rows and (
-        snapshot.current_season is None
-        or not (snapshot.current_season.rosters or [])
+    if (
+        not seasons_sorted
+        and not team_strength_rows
+        and (snapshot.current_season is None or not (snapshot.current_season.rosters or []))
     ):
         return {
             "currentRanking": [],
@@ -377,9 +379,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 ap = all_play.get(oid) or {}
                 last_season_allplay_share[oid] = float(ap.get("expectedShare", 0.0))
 
-    owner_ids = _enumerate_owner_ids(
-        snapshot, team_strength_rows, sorted(career_state.keys())
-    )
+    owner_ids = _enumerate_owner_ids(snapshot, team_strength_rows, sorted(career_state.keys()))
     if not owner_ids:
         return {
             "currentRanking": [],
@@ -428,7 +428,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                     ap = ap_week.get(oid) or {}
                     expected_share_running += float(ap.get("expectedShare", 0.0))
         luck_delta = (wins - expected_share_running) / games if games else 0.0
-        luck_score = max(0.0, min(1.0, 0.5 - luck_delta))  # underperformers get higher score (regression boost)
+        luck_score = max(
+            0.0, min(1.0, 0.5 - luck_delta)
+        )  # underperformers get higher score (regression boost)
 
         inputs[oid] = {
             "ppg": ppg,
@@ -462,9 +464,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         for component in _HISTORICAL_RESULTS_COMPONENTS:
             if component not in missing_inputs:
                 missing_inputs.append(component)
-    active_weights = {
-        k: v for k, v in WEIGHTS.items() if k not in missing_inputs
-    }
+    active_weights = {k: v for k, v in WEIGHTS.items() if k not in missing_inputs}
     weight_total = sum(active_weights.values()) or 1.0
 
     rankings: list[dict[str, Any]] = []
@@ -480,18 +480,14 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         }
         if ros_available:
             components["team_ros_strength"] = ros_pct.get(oid, 0.0)
-        components["schedule_adjusted"] = (
-            i["schedule_adjusted"] if schedule_available else 0.0
-        )
-        components["roster_health"] = (
-            i["roster_health"] if health_available else 0.0
-        )
+        components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else 0.0
+        components["roster_health"] = i["roster_health"] if health_available else 0.0
 
         # Active weighted score in [0, 1], then scale to 100.
-        score_unit = sum(
-            active_weights.get(k, 0.0) * components.get(k, 0.0)
-            for k in active_weights
-        ) / weight_total
+        score_unit = (
+            sum(active_weights.get(k, 0.0) * components.get(k, 0.0) for k in active_weights)
+            / weight_total
+        )
         score = round(score_unit * 100, 2)
 
         ros_strength_pct = ros_pct.get(oid, None) if ros_available else None

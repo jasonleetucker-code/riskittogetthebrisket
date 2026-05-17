@@ -17,6 +17,7 @@ already incorporate ROS context (their internal model blends them),
 so the 1.25 weight is still reasonable for PR 1.  Document the proxy
 status in run JSON so the source-health UI flags it.
 """
+
 from __future__ import annotations
 
 import csv
@@ -109,10 +110,8 @@ def _read_dynasty_proxy_csv(path: Path) -> list[dict[str, Any]]:
                 if not name:
                     continue
                 position = (
-                    raw.get("Fantasy Position")
-                    or raw.get("position")
-                    or ""
-                ).strip().upper()
+                    (raw.get("Fantasy Position") or raw.get("position") or "").strip().upper()
+                )
                 position = position.split("/")[0]
                 team = (raw.get("Team") or raw.get("team") or "").strip()
                 rank_field = raw.get("Rank") or raw.get("rank")
@@ -177,7 +176,10 @@ def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
     rows = sf_rows + idp_rows
     LOG.info(
         "[ros] DraftSharks: %d rows (sf=%d, idp=%d, mode=%s)",
-        len(rows), len(sf_rows), len(idp_rows), source_mode,
+        len(rows),
+        len(sf_rows),
+        len(idp_rows),
+        source_mode,
     )
 
     completed = datetime.now(timezone.utc).isoformat()

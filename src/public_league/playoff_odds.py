@@ -52,6 +52,7 @@ The simulator degrades gracefully:
 Constants live at the top of the module so audits can see them in
 one place.
 """
+
 from __future__ import annotations
 
 import random
@@ -178,7 +179,9 @@ def _regular_season_record_to_date(
                     continue
                 pts_me = metrics.matchup_points(side)
                 pts_opp = metrics.matchup_points(opp)
-                rec = out.setdefault(owner_id, {"wins": 0, "losses": 0, "ties": 0, "pointsFor": 0.0})
+                rec = out.setdefault(
+                    owner_id, {"wins": 0, "losses": 0, "ties": 0, "pointsFor": 0.0}
+                )
                 rec["pointsFor"] += pts_me
                 if pts_me > pts_opp:
                     rec["wins"] += 1
@@ -279,9 +282,7 @@ def _infer_schedule_from_posted(
     if len(posted_pairs) < 2:
         return None
     posted_weeks = sorted(posted_pairs.keys())
-    canonical = {
-        w: frozenset(frozenset(p) for p in posted_pairs[w]) for w in posted_weeks
-    }
+    canonical = {w: frozenset(frozenset(p) for p in posted_pairs[w]) for w in posted_weeks}
     anchor = posted_weeks[0]
 
     cycle_length = _detect_cycle_length(posted_weeks, canonical)
@@ -383,7 +384,7 @@ def _round_robin_schedule(
     rotators = ring[1:]
     for i, wk in enumerate(weeks):
         pairs: list[tuple[str, str]] = []
-        rot = rotators[-i % len(rotators):] + rotators[: -i % len(rotators)]
+        rot = rotators[-i % len(rotators) :] + rotators[: -i % len(rotators)]
         # Pair fixed vs rot[0]; then pair rot[1..] inward.
         half = [fixed] + rot
         for j in range(n // 2):
@@ -490,7 +491,9 @@ def compute_playoff_odds(
     settings = season.league.get("settings") or {}
     cfg_spots = settings.get("playoff_teams") if isinstance(settings, dict) else None
     try:
-        spots = int(playoff_spots if playoff_spots is not None else cfg_spots or DEFAULT_PLAYOFF_SPOTS)
+        spots = int(
+            playoff_spots if playoff_spots is not None else cfg_spots or DEFAULT_PLAYOFF_SPOTS
+        )
     except (TypeError, ValueError):
         spots = DEFAULT_PLAYOFF_SPOTS
     spots = max(1, spots)
@@ -577,7 +580,9 @@ def compute_playoff_odds(
             }
         wins_snapshot = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
         ties_snapshot = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
-        pf_snapshot = {o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league}
+        pf_snapshot = {
+            o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league
+        }
         ordered = _standings_from_sim(
             wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot
         )
@@ -609,9 +614,7 @@ def compute_playoff_odds(
     # league will never face.  Fall back to round-robin only when
     # fewer than 2 posted weeks exist (helper returns ``None``) or
     # when the observed block has gaps that block inference.
-    inferred_full = (
-        _infer_schedule_from_posted(season, registry) if missing_weeks else None
-    )
+    inferred_full = _infer_schedule_from_posted(season, registry) if missing_weeks else None
     if missing_weeks and inferred_full is not None:
         inferred = {wk: inferred_full.get(wk, []) for wk in missing_weeks}
         used_posted_inference = True
@@ -667,9 +670,7 @@ def compute_playoff_odds(
                     # 0.5 * ties`` key in ``_standings_from_sim``.
                     sim_ties[a] = sim_ties.get(a, 0) + 1
                     sim_ties[b] = sim_ties.get(b, 0) + 1
-        ordered = _standings_from_sim(
-            sim_wins, sim_pf, owners_in_league, ties=sim_ties
-        )
+        ordered = _standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties)
         for o in ordered[:spots]:
             made_counter[o] += 1
 

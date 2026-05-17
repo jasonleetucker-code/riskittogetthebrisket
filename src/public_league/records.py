@@ -15,6 +15,7 @@ Single-week records use individual-week side rows (no combined-finals
 fusion) so the highest single-week always reflects exactly one NFL week
 of scoring.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -94,32 +95,32 @@ def _weekly_side_rows_individual(snapshot: PublicLeagueSnapshot) -> list[dict[st
                     opp_pts = metrics.matchup_points(foe)
                     if my_pts <= 0:
                         continue
-                    owner_id = metrics.resolve_owner(
-                        snapshot.managers, season.league_id, rid
-                    )
+                    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
                     if not owner_id:
                         continue
                     margin = my_pts - opp_pts
                     result = "W" if margin > 0 else ("L" if margin < 0 else "T")
-                    rows.append({
-                        "season": season.season,
-                        "leagueId": season.league_id,
-                        "week": week,
-                        "isPlayoff": is_playoff,
-                        "ownerId": owner_id,
-                        "rosterId": rid,
-                        "teamName": metrics.team_name(
-                            snapshot, season.league_id, rid
-                        ),
-                        "points": round(my_pts, 2),
-                        "opponentPoints": round(opp_pts, 2),
-                        "margin": round(margin, 2),
-                        "result": result,
-                    })
+                    rows.append(
+                        {
+                            "season": season.season,
+                            "leagueId": season.league_id,
+                            "week": week,
+                            "isPlayoff": is_playoff,
+                            "ownerId": owner_id,
+                            "rosterId": rid,
+                            "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                            "points": round(my_pts, 2),
+                            "opponentPoints": round(opp_pts, 2),
+                            "margin": round(margin, 2),
+                            "result": result,
+                        }
+                    )
     return rows
 
 
-def _top_n(rows: list[dict[str, Any]], key: str, reverse: bool = True, n: int = 10) -> list[dict[str, Any]]:
+def _top_n(
+    rows: list[dict[str, Any]], key: str, reverse: bool = True, n: int = 10
+) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: r[key], reverse=reverse)[:n]
 
 
@@ -145,17 +146,21 @@ def _streaks(snapshot: PublicLeagueSnapshot) -> tuple[list[dict[str, Any]], list
                 result = "L"
             else:
                 result = "T"
-            by_owner.setdefault(owner_id, []).append((
-                season.season, week, result,
-                {
-                    "season": season.season,
-                    "leagueId": season.league_id,
-                    "week": week,
-                    "result": result,
-                    "rosterId": rid,
-                    "teamName": metrics.team_name(snapshot, season.league_id, rid),
-                },
-            ))
+            by_owner.setdefault(owner_id, []).append(
+                (
+                    season.season,
+                    week,
+                    result,
+                    {
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": week,
+                        "result": result,
+                        "rosterId": rid,
+                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                    },
+                )
+            )
 
     # Sort each owner's games chronologically.  We order by (season-year,
     # week) — seasons are snapshot order current → previous, so convert
@@ -199,17 +204,21 @@ def _streaks(snapshot: PublicLeagueSnapshot) -> tuple[list[dict[str, Any]], list
                 cur_loss = {"length": 0, "start": None, "end": None}
 
         if best_win["length"] > 0:
-            win_streaks.append({
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id),
-                **best_win,
-            })
+            win_streaks.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id),
+                    **best_win,
+                }
+            )
         if best_loss["length"] > 0:
-            loss_streaks.append({
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id),
-                **best_loss,
-            })
+            loss_streaks.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id),
+                    **best_loss,
+                }
+            )
 
     win_streaks.sort(key=lambda r: -r["length"])
     loss_streaks.sort(key=lambda r: -r["length"])
@@ -238,7 +247,11 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
                 player_id = player_ids[0] if player_ids else ""
                 roster_ids = tx.get("roster_ids") or []
                 rid = int(roster_ids[0]) if roster_ids else None
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid) if rid is not None else ""
+                owner_id = (
+                    metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                    if rid is not None
+                    else ""
+                )
                 max_faab_row = {
                     "season": season.season,
                     "leagueId": season.league_id,
@@ -248,13 +261,15 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
                     "playerId": player_id,
                     "playerName": snapshot.player_display(player_id),
                 }
-        out.append({
-            "season": season.season,
-            "leagueId": season.league_id,
-            "tradeCount": trades,
-            "waiverCount": waivers,
-            "maxFaab": max_faab_row,
-        })
+        out.append(
+            {
+                "season": season.season,
+                "leagueId": season.league_id,
+                "tradeCount": trades,
+                "waiverCount": waivers,
+                "maxFaab": max_faab_row,
+            }
+        )
     return out
 
 
@@ -271,11 +286,7 @@ def _season_scoring_totals(
     """
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for season in snapshot.seasons:
-        weeks = (
-            season.regular_season_weeks
-            if regular_season_only
-            else season.all_weeks
-        )
+        weeks = season.regular_season_weeks if regular_season_only else season.all_weeks
         for wk in weeks:
             for a, b in metrics.matchup_pairs(season.matchups_by_week.get(wk) or []):
                 for me, foe in ((a, b), (b, a)):
@@ -288,14 +299,17 @@ def _season_scoring_totals(
                     if not owner_id:
                         continue
                     key = (owner_id, season.season)
-                    rec = by_key.setdefault(key, {
-                        "ownerId": owner_id,
-                        "season": season.season,
-                        "leagueId": season.league_id,
-                        "weeksPlayed": 0,
-                        "totalPoints": 0.0,
-                        "totalPointsAgainst": 0.0,
-                    })
+                    rec = by_key.setdefault(
+                        key,
+                        {
+                            "ownerId": owner_id,
+                            "season": season.season,
+                            "leagueId": season.league_id,
+                            "weeksPlayed": 0,
+                            "totalPoints": 0.0,
+                            "totalPointsAgainst": 0.0,
+                        },
+                    )
                     rec["weeksPlayed"] += 1
                     rec["totalPoints"] += metrics.matchup_points(me)
                     rec["totalPointsAgainst"] += metrics.matchup_points(foe)
@@ -330,9 +344,7 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                 rid = metrics.roster_id_of(entry)
                 if rid is None:
                     continue
-                owner_id = metrics.resolve_owner(
-                    snapshot.managers, season.league_id, rid
-                )
+                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
                 if not owner_id:
                     continue
                 pp = entry.get("players_points")
@@ -357,20 +369,22 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                     # when the headshot 403s for an obscure player.
                     nfl_player = snapshot.nfl_players.get(str(pid)) or {}
                     nfl_team = str(nfl_player.get("team") or "").upper()
-                    by_position[pos].append({
-                        "season": season.season,
-                        "leagueId": season.league_id,
-                        "week": week,
-                        "ownerId": owner_id,
-                        "rosterId": rid,
-                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
-                        "displayName": metrics.display_name_for(snapshot, owner_id),
-                        "playerId": pid,
-                        "playerName": snapshot.player_display(pid),
-                        "team": nfl_team,
-                        "position": pos,
-                        "points": round(pts, 2),
-                    })
+                    by_position[pos].append(
+                        {
+                            "season": season.season,
+                            "leagueId": season.league_id,
+                            "week": week,
+                            "ownerId": owner_id,
+                            "rosterId": rid,
+                            "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                            "displayName": metrics.display_name_for(snapshot, owner_id),
+                            "playerId": pid,
+                            "playerName": snapshot.player_display(pid),
+                            "team": nfl_team,
+                            "position": pos,
+                            "points": round(pts, 2),
+                        }
+                    )
 
     out: dict[str, list[dict[str, Any]]] = {}
     for pos, rows in by_position.items():
@@ -380,7 +394,9 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
     return out
 
 
-def _playoff_records(side_rows: list[dict[str, Any]], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+def _playoff_records(
+    side_rows: list[dict[str, Any]], snapshot: PublicLeagueSnapshot
+) -> dict[str, Any]:
     playoff_rows = [r for r in side_rows if r["isPlayoff"]]
     most_points = _top_n(playoff_rows, "points", reverse=True, n=5)
 

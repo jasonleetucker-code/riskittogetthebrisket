@@ -4,6 +4,7 @@ Reuses the existing CSV at ``CSVs/site_raw/footballGuysIdp.csv``.  FBG
 scrapes are authenticated via Playwright in
 ``scripts/fetch_footballguys.py`` — we just read the resulting CSV.
 """
+
 from __future__ import annotations
 
 import csv

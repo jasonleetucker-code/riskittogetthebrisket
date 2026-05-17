@@ -17,6 +17,7 @@ This module produces a *fit score alongside* a player's value.  It
 NEVER mutates ``row.value`` per team.  The retired LAM module proved
 that path is wrong — do not re-introduce it here.
 """
+
 from __future__ import annotations
 
 import json
@@ -111,8 +112,7 @@ def project_starters(
     """
     slots = _starter_slots(roster_settings)
     pool = [
-        a for a in assets
-        if (a.get("basePos") or a.get("pos") or "").upper() in _BASE_POSITIONS
+        a for a in assets if (a.get("basePos") or a.get("pos") or "").upper() in _BASE_POSITIONS
     ]
     pool.sort(key=lambda a: int(a.get("value") or 0), reverse=True)
     used: set[int] = set()
@@ -145,10 +145,7 @@ def _aggregate_state(
     """
     starters = project_starters(assets, roster_settings)
     starter_count = {p: len(starters[p]) for p in _BASE_POSITIONS}
-    starter_value = {
-        p: sum(int(a.get("value") or 0) for a in starters[p])
-        for p in _BASE_POSITIONS
-    }
+    starter_value = {p: sum(int(a.get("value") or 0) for a in starters[p]) for p in _BASE_POSITIONS}
     total_count: dict[str, int] = {p: 0 for p in _BASE_POSITIONS}
     for a in assets:
         pos = (a.get("basePos") or a.get("pos") or "").upper()
@@ -225,13 +222,15 @@ def _classify_window(
     top10_share = top10_value / total_value
 
     pick_value = sum(
-        int(a.get("value") or 0) for a in before_assets
+        int(a.get("value") or 0)
+        for a in before_assets
         if (a.get("assetClass") or "").lower() == "pick"
     )
     pick_share = pick_value / total_value
 
     young_value = sum(
-        int(a.get("value") or 0) for a in before_assets
+        int(a.get("value") or 0)
+        for a in before_assets
         if isinstance(a.get("age"), int) and a["age"] <= young_max
     )
     young_share = young_value / total_value
@@ -292,9 +291,7 @@ def _redundancy(
     the league doesn't start (no false-positives in non-IDP leagues).
     """
     starter_names = {
-        str(a.get("name") or "").lower()
-        for assets in after_starters.values()
-        for a in assets
+        str(a.get("name") or "").lower() for assets in after_starters.values() for a in assets
     }
     active = set(_league_active_positions(roster_settings))
     out: list[dict[str, Any]] = []
@@ -308,11 +305,13 @@ def _redundancy(
         before_count = before_state["totalCount"].get(pos, 0)
         needed = _needed_at(pos, roster_settings)
         if before_count >= int(needed) + 1:
-            out.append({
-                "name": asset.get("name"),
-                "pos": pos,
-                "reason": "duplicate at saturated position",
-            })
+            out.append(
+                {
+                    "name": asset.get("name"),
+                    "pos": pos,
+                    "reason": "duplicate at saturated position",
+                }
+            )
     return out
 
 
@@ -358,7 +357,9 @@ def _rationale(
         bullets.append((300, f"Acquired {r['name']} ({r['pos']}) doesn't start — duplicate"))
     if abs(window_fit) >= 0.4:
         word = "aligns with" if window_fit > 0 else "fights"
-        bullets.append((abs(window_fit) * 1000, f"Trade {word} a {posture} window ({window_fit:+.1f})"))
+        bullets.append(
+            (abs(window_fit) * 1000, f"Trade {word} a {posture} window ({window_fit:+.1f})")
+        )
     if abs(equity) >= 500:
         bullets.append((abs(equity) * 0.3, f"Net KTC equity {equity:+d}"))
     if abs(fit_score) >= 5:
@@ -391,8 +392,12 @@ def compute(
     after = _aggregate_state(after_assets, roster_settings)
     active = _league_active_positions(roster_settings)
 
-    starter_delta = {p: after["starterCount"][p] - before["starterCount"][p] for p in _BASE_POSITIONS}
-    starter_value_delta = {p: after["starterValue"][p] - before["starterValue"][p] for p in _BASE_POSITIONS}
+    starter_delta = {
+        p: after["starterCount"][p] - before["starterCount"][p] for p in _BASE_POSITIONS
+    }
+    starter_value_delta = {
+        p: after["starterValue"][p] - before["starterValue"][p] for p in _BASE_POSITIONS
+    }
     depth_delta = {p: after["depthCount"][p] - before["depthCount"][p] for p in _BASE_POSITIONS}
 
     # Overflow detection — anything above (needed + 1) is bench bloat.
@@ -406,10 +411,9 @@ def compute(
     # Average starter value per pos, for normalization.
     avg_starter_val: dict[str, float] = {}
     for p in _BASE_POSITIONS:
-        combined = (
-            [int(a.get("value") or 0) for a in before["starters"][p]]
-            + [int(a.get("value") or 0) for a in after["starters"][p]]
-        )
+        combined = [int(a.get("value") or 0) for a in before["starters"][p]] + [
+            int(a.get("value") or 0) for a in after["starters"][p]
+        ]
         avg_starter_val[p] = _avg(combined) or 1500.0
 
     w_fill = float(weights.get("fillStarter", 1.0))
@@ -456,8 +460,14 @@ def compute(
     # shift for the user.  This is reporting only, never re-prices.
     scarcity_delta: dict[str, float] = {}
     for p in active:
-        before_avg = (before["starterValue"][p] / before["starterCount"][p]) if before["starterCount"][p] else 0
-        after_avg = (after["starterValue"][p] / after["starterCount"][p]) if after["starterCount"][p] else 0
+        before_avg = (
+            (before["starterValue"][p] / before["starterCount"][p])
+            if before["starterCount"][p]
+            else 0
+        )
+        after_avg = (
+            (after["starterValue"][p] / after["starterCount"][p]) if after["starterCount"][p] else 0
+        )
         scarcity_delta[p] = round(after_avg - before_avg, 1)
 
     redundancy = _redundancy(receiving, after["starters"], before, roster_settings)

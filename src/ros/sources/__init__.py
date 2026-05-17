@@ -37,6 +37,7 @@ The registry is import-time stable and read-only.  Per-source overrides
 ``frontend/components/useSettings.js`` and arrive at the orchestrator as
 a separate ``settings`` dict — they NEVER mutate this list.
 """
+
 from __future__ import annotations
 
 from typing import Any

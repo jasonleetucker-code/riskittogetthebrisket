@@ -23,3 +23,10 @@ pytest~=9.0.0
 # TestClient importable but unusable.  Pin httpx here so every test
 # job has it.
 httpx~=0.28.0
+
+# Lint + format + type tooling (config in pyproject.toml).  ruff format
+# is hard-gated in CI as of the A1 sweep; ruff-check and mypy gates are
+# introduced report-only/ratcheted in later phases.  Production never
+# installs requirements-dev.txt, so these stay out of the runtime image.
+ruff~=0.6.0
+mypy~=1.13.0

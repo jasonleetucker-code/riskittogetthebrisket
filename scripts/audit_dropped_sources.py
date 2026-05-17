@@ -29,6 +29,7 @@ Usage:
                                             [--top N]
                                             [--json]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -156,21 +157,15 @@ def _summarise(players: list[dict[str, Any]]) -> dict[str, Any]:
             }
         )
 
-    biggest_offenders.sort(
-        key=lambda o: (-len(o["dropped"]), o["rank"] or 1_000_000)
-    )
+    biggest_offenders.sort(key=lambda o: (-len(o["dropped"]), o["rank"] or 1_000_000))
 
     return {
         "total_rows": total_rows,
         "rows_with_drops": rows_with_drops,
         "drop_count_histogram": dict(sorted(drop_count_histogram.items())),
-        "dropped_by_source": dict(
-            sorted(dropped_by_source.items(), key=lambda kv: -kv[1])
-        ),
+        "dropped_by_source": dict(sorted(dropped_by_source.items(), key=lambda kv: -kv[1])),
         "eligible_rows_per_source": eligible,
-        "dropped_by_position": dict(
-            sorted(dropped_by_position.items(), key=lambda kv: -kv[1])
-        ),
+        "dropped_by_position": dict(sorted(dropped_by_position.items(), key=lambda kv: -kv[1])),
         "biggest_offenders": biggest_offenders,
     }
 
@@ -228,9 +223,7 @@ def _print_report(summary: dict[str, Any], *, top: int) -> None:
         )
         for o in offenders:
             rank = str(o["rank"]) if o["rank"] is not None else "-"
-            spread = (
-                f"{o['spread']:.3f}" if isinstance(o["spread"], (int, float)) else "-"
-            )
+            spread = f"{o['spread']:.3f}" if isinstance(o["spread"], (int, float)) else "-"
             dropped = ", ".join(o["dropped"])
             print(
                 f"  {rank:>5s}  {o['name']:<30s} {o['position']:<5s} "

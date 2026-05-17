@@ -4,6 +4,7 @@
 
 The resulting files live under ``data/public_league/``.
 """
+
 from __future__ import annotations
 
 import argparse

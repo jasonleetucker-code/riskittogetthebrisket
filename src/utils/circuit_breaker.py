@@ -34,6 +34,7 @@ whatever HTTP client / caching layer each call site already uses.
 A global registry indexes breakers by name so ``/api/status`` can
 report the state of every external dependency in one snapshot.
 """
+
 from __future__ import annotations
 
 import logging
@@ -131,9 +132,7 @@ class CircuitBreaker:
             # CLOSED: push failure into the sliding window.
             self._failure_timestamps.append(now)
             cutoff = now - self.failure_window_sec
-            self._failure_timestamps = [
-                t for t in self._failure_timestamps if t > cutoff
-            ]
+            self._failure_timestamps = [t for t in self._failure_timestamps if t > cutoff]
             if len(self._failure_timestamps) >= self.failure_threshold:
                 self._transition(OPEN, now)
 
@@ -169,22 +168,25 @@ class CircuitBreaker:
         if new_state == OPEN:
             self._counters.opens += 1
             _LOGGER.warning(
-                "circuit_breaker=open name=%s threshold=%d window=%.0fs "
-                "last_error=%r",
-                self.name, self.failure_threshold,
-                self.failure_window_sec, self._last_error,
+                "circuit_breaker=open name=%s threshold=%d window=%.0fs " "last_error=%r",
+                self.name,
+                self.failure_threshold,
+                self.failure_window_sec,
+                self._last_error,
             )
         elif new_state == CLOSED:
             self._counters.closes += 1
             self._failure_timestamps.clear()
             _LOGGER.info(
                 "circuit_breaker=closed name=%s from=%s",
-                self.name, old_state,
+                self.name,
+                old_state,
             )
         elif new_state == HALF_OPEN:
             _LOGGER.info(
                 "circuit_breaker=half_open name=%s probing after %.0fs",
-                self.name, self.open_duration_sec,
+                self.name,
+                self.open_duration_sec,
             )
 
     def force_close(self) -> None:

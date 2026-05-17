@@ -10,6 +10,7 @@ Covers:
   * Registry metadata: rookie translation, scope, non-TEP, non-retail
   * Dry-run mode
 """
+
 from __future__ import annotations
 
 import csv
@@ -227,9 +228,7 @@ class TestCsvOutputShape(unittest.TestCase):
             orig_floor = ffr._FF_ROOKIE_ROW_COUNT_FLOOR
             ffr._FF_ROOKIE_ROW_COUNT_FLOOR = 1
             try:
-                rc = ffr.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = ffr.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 ffr._FF_ROOKIE_ROW_COUNT_FLOOR = orig_floor
 
@@ -263,9 +262,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = ffr._FF_ROOKIE_ROW_COUNT_FLOOR
             ffr._FF_ROOKIE_ROW_COUNT_FLOOR = 1
             try:
-                rc = ffr.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = ffr.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 ffr._FF_ROOKIE_ROW_COUNT_FLOOR = orig_floor
 
@@ -367,9 +364,7 @@ class TestRegistryMetadata(unittest.TestCase):
         return None
 
     def test_source_registered(self):
-        self.assertIsNotNone(
-            self._entry(), "flockFantasySfRookies not in registry"
-        )
+        self.assertIsNotNone(self._entry(), "flockFantasySfRookies not in registry")
 
     def test_scope_overall_offense(self):
         entry = self._entry()
@@ -392,9 +387,7 @@ class TestRegistryMetadata(unittest.TestCase):
         self.assertIn("flockFantasySfRookies", _SOURCE_CSV_PATHS)
         cfg = _SOURCE_CSV_PATHS["flockFantasySfRookies"]
         self.assertEqual(cfg.get("signal"), "rank")
-        self.assertEqual(
-            cfg.get("path"), "CSVs/site_raw/flockFantasySfRookies.csv"
-        )
+        self.assertEqual(cfg.get("path"), "CSVs/site_raw/flockFantasySfRookies.csv")
 
     def test_needs_rookie_translation_flag(self):
         from src.api.data_contract import _RANKING_SOURCES

@@ -1,4 +1,5 @@
 """Tests for the operator alerting hook."""
+
 from __future__ import annotations
 
 import pytest
@@ -33,28 +34,42 @@ def test_scrape_rate_below_25_critical():
 
 
 def test_circuit_breaker_open_briefly_not_alerted():
-    alerts = oa._check_circuit_breakers([{  # noqa: SLF001
-        "name": "sleeper", "state": "open", "stateAgeSec": 60,
-    }])
+    alerts = oa._check_circuit_breakers(
+        [
+            {  # noqa: SLF001
+                "name": "sleeper",
+                "state": "open",
+                "stateAgeSec": 60,
+            }
+        ]
+    )
     assert alerts == []
 
 
 def test_circuit_breaker_open_long_alerts():
-    alerts = oa._check_circuit_breakers([{  # noqa: SLF001
-        "name": "sleeper", "state": "open", "stateAgeSec": 900,
-        "lastError": "Connection refused",
-        "counters": {"fastFail": 50},
-    }])
+    alerts = oa._check_circuit_breakers(
+        [
+            {  # noqa: SLF001
+                "name": "sleeper",
+                "state": "open",
+                "stateAgeSec": 900,
+                "lastError": "Connection refused",
+                "counters": {"fastFail": 50},
+            }
+        ]
+    )
     assert len(alerts) == 1
     assert alerts[0].category == "circuit_open:sleeper"
     assert "sleeper" in alerts[0].title
 
 
 def test_contract_unhealthy_fires():
-    a = oa._check_contract_health({  # noqa: SLF001
-        "ok": False,
-        "errors": ["partial_run_critical:KTC", "schema_drift"],
-    })
+    a = oa._check_contract_health(
+        {  # noqa: SLF001
+            "ok": False,
+            "errors": ["partial_run_critical:KTC", "schema_drift"],
+        }
+    )
     assert a is not None
     assert a.severity == "critical"
 
@@ -73,17 +88,23 @@ def test_data_freshness_over_threshold_warns():
 
 def test_cooldown_prevents_re_fire(kv):
     delivered = []
+
     def _send(to, subj, body):
         delivered.append((to, subj))
         return True
+
     status = {"scrape_success_rate_24h": 0.1}
     s1 = oa.check_and_alert(
-        status_payload=status, delivery=_send,
-        to_email="a@b.com", kv_path=kv,
+        status_payload=status,
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
     )
     s2 = oa.check_and_alert(
-        status_payload=status, delivery=_send,
-        to_email="a@b.com", kv_path=kv,
+        status_payload=status,
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
     )
     assert s1["fired"] == 1
     assert s2["fired"] == 0  # cooled down
@@ -92,20 +113,26 @@ def test_cooldown_prevents_re_fire(kv):
 
 def test_recovery_alert_fires_when_condition_clears(kv):
     delivered = []
+
     def _send(to, subj, body):
         delivered.append((to, subj, body))
         return True
+
     # First pass: scrape rate low → alert.
     oa.check_and_alert(
         status_payload={"scrape_success_rate_24h": 0.1},
-        delivery=_send, to_email="a@b.com", kv_path=kv,
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
     )
     assert len(delivered) == 1
     assert "critical" in delivered[0][1].lower()
     # Second pass: scrape rate healthy → recovery alert.
     s = oa.check_and_alert(
         status_payload={"scrape_success_rate_24h": 0.95},
-        delivery=_send, to_email="a@b.com", kv_path=kv,
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
     )
     assert s["recovered"] == 1
     assert len(delivered) == 2
@@ -127,12 +154,16 @@ def test_format_ops_email_has_sections():
 
 def test_no_alerts_no_delivery(kv):
     delivered = []
+
     def _send(to, subj, body):
         delivered.append(1)
         return True
+
     s = oa.check_and_alert(
         status_payload={"scrape_success_rate_24h": 0.99},
-        delivery=_send, to_email="a@b.com", kv_path=kv,
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
     )
     assert s["fired"] == 0
     assert delivered == []
@@ -142,7 +173,8 @@ def test_never_crashes_on_missing_delivery(kv):
     # No delivery callable → just returns summary.
     s = oa.check_and_alert(
         status_payload={"scrape_success_rate_24h": 0.1},
-        delivery=None, kv_path=kv,
+        delivery=None,
+        kv_path=kv,
     )
     assert s["delivered"] is False
     assert s["fired"] == 1

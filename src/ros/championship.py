@@ -29,6 +29,7 @@ Returns:
         "rosStrengthAvailable": bool,
     }
 """
+
 from __future__ import annotations
 
 import json
@@ -201,12 +202,8 @@ def simulate_championship_odds(
     playoff_count: dict[str, int] = {o: 0 for o in owners}
 
     for _ in range(n_simulations):
-        sim_wins: dict[str, float] = {
-            o: float(record.get(o, {}).get("wins", 0)) for o in owners
-        }
-        sim_pf: dict[str, float] = {
-            o: float(pf_by_owner.get(o, 0.0)) for o in owners
-        }
+        sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
+        sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
         for week, owner_a, owner_b in schedule:
             dist_a = distributions.get(owner_a)
             dist_b = distributions.get(owner_b)
@@ -279,6 +276,7 @@ def _load_cached_payload() -> dict[str, Any] | None:
     """Read ``data/ros/sims/latest_championship.json`` if fresh; else None."""
     import os
     import time
+
     path = ROS_DATA_DIR / "sims" / "latest_championship.json"
     if not path.exists():
         return None

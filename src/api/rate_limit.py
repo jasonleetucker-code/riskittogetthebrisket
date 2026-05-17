@@ -16,6 +16,7 @@ Per-IP bucket stores (tokens, last_refill_epoch).  O(1) per-request.
 A background LRU-ish evict runs when the bucket dict exceeds
 _MAX_TRACKED_IPS — keeps memory bounded.
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,8 +49,7 @@ _RATE_PER_HOUR = float(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
 # IPs that bypass rate limiting (uptime monitors, operator IPs, etc.).
 # Comma-separated in env.
 _BYPASS_IPS = frozenset(
-    s.strip() for s in (os.getenv("RATE_LIMIT_BYPASS_IPS") or "").split(",")
-    if s.strip()
+    s.strip() for s in (os.getenv("RATE_LIMIT_BYPASS_IPS") or "").split(",") if s.strip()
 )
 
 

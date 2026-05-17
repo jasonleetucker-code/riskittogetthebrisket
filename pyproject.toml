@@ -1,0 +1,30 @@
+# Tooling config for the lint/format/type gate (introduced in phases —
+# see /home/dynasty/.claude/plans/write-me-a-plan-temporal-harp.md).
+#
+# This PR (A1) only activates `ruff format` (a mechanical, AST-preserving
+# sweep + a hard-blocking format check in CI). The lint rules and mypy
+# blocks below are defined now but NOT yet gated in CI — the lint gate
+# lands report-only then changed-files-only in a later PR (A2/A3), and
+# mypy is ratcheted per-module later (A4). Defining them here keeps the
+# eventual config in one place without enabling enforcement early.
+
+[tool.ruff]
+line-length = 100  # matches the observed ~89% ≤100 baseline
+target-version = "py312"
+extend-exclude = ["data", "exports", ".next", "node_modules", "frontend"]
+
+[tool.ruff.lint]
+# Default ruleset (pyflakes F + pycodestyle E/W). Enforcement is added
+# in a later phase; present here only so A2/A3 don't churn this file.
+select = ["E", "F", "W"]
+
+[tool.ruff.format]
+# Black-compatible defaults (double quotes, magic trailing comma).
+# No overrides — deterministic output is what makes the CI check safe
+# to hard-block once the sweep has landed.
+
+[tool.mypy]
+# Scaffold only — no CI step runs mypy until phase A4, which ratchets
+# strictness in per-module via [[tool.mypy.overrides]].
+python_version = "3.12"
+ignore_missing_imports = true

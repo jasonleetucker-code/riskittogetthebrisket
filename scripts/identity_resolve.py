@@ -74,14 +74,19 @@ def main() -> int:
                 )
             )
 
-    identity = build_identity_resolution(all_records, quarantine_threshold=args.quarantine_threshold)
+    identity = build_identity_resolution(
+        all_records, quarantine_threshold=args.quarantine_threshold
+    )
     identity["input_snapshot"] = raw_file.name
     identity["run_id"] = str(raw_payload.get("run_id", ""))
     identity["generated_at"] = datetime.now(timezone.utc).isoformat()
 
     out_dir = repo / "data" / "identity"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / f"identity_resolution_{identity.get('run_id') or datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    out_file = (
+        out_dir
+        / f"identity_resolution_{identity.get('run_id') or datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    )
     save_json(out_file, identity)
 
     print(
@@ -97,4 +102,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

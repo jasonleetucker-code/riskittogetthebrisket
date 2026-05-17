@@ -5,6 +5,7 @@ The fixture's 2025 season is fully scored through week 16, so
 recently scored week.  We also test the preview path by manually
 unscoring a matchup row.
 """
+
 from __future__ import annotations
 
 import copy

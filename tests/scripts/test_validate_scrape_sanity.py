@@ -2,6 +2,7 @@
 
 Exercises the pure ``evaluate()`` decision function — no git / IO.
 """
+
 from __future__ import annotations
 
 import importlib.util

@@ -105,4 +105,3 @@ class BacktestRow:
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
-

@@ -21,6 +21,7 @@ Coverage:
        sourceRankMeta, confidence) is stamped on both paths.
     7. Backbone fallback when the backbone source is disabled.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -244,9 +245,7 @@ class TestNormalizeSourceOverrides(unittest.TestCase):
         self.assertTrue(any("fakeSource" in w for w in warnings))
 
     def test_invalid_weight_is_rejected(self) -> None:
-        out, warnings = normalize_source_overrides(
-            {"ktcSfTep": {"weight": "not a number"}}
-        )
+        out, warnings = normalize_source_overrides({"ktcSfTep": {"weight": "not a number"}})
         self.assertNotIn("weight", out.get("ktcSfTep", {}))
         self.assertTrue(warnings)
         out, warnings = normalize_source_overrides({"ktcSfTep": {"weight": -1}})
@@ -327,9 +326,7 @@ class TestBuildApiDataContractDefaultPath(unittest.TestCase):
         self.assertIsNotNone(rov)
         self.assertFalse(rov.get("isCustomized"))
         # Every registered source should be enabled in the default state.
-        self.assertEqual(
-            set(rov["enabledSources"]), set(get_ranking_source_keys())
-        )
+        self.assertEqual(set(rov["enabledSources"]), set(get_ranking_source_keys()))
         # Every effective weight should match the default (1.0 across the board).
         for key, weight in rov["weights"].items():
             self.assertEqual(weight, rov["defaults"].get(key))
@@ -337,9 +334,7 @@ class TestBuildApiDataContractDefaultPath(unittest.TestCase):
     def test_default_path_equals_explicit_none(self) -> None:
         """Passing ``source_overrides=None`` must be identical to omitting it."""
         a = build_api_data_contract(_fixture_raw_payload())
-        b = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=None
-        )
+        b = build_api_data_contract(_fixture_raw_payload(), source_overrides=None)
         # Strip generatedAt (timestamp differs) before comparing.
         a.pop("generatedAt", None)
         b.pop("generatedAt", None)
@@ -389,9 +384,7 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
         # we disable one of the sources that scores him highly, his
         # blended rank-derived value should move.
         override = {"dlfSf": {"include": False}}
-        overridden = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        overridden = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         by_name = _by_name(overridden)
         allen_baseline = self.baseline_by_name["Josh Allen"]
         allen_overridden = by_name["Josh Allen"]
@@ -410,9 +403,7 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
             "dlfSf": {"weight": 0},
             "dynastyNerdsSfTep": {"weight": 0},
         }
-        overridden = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        overridden = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         by_name = _by_name(overridden)
         # With every other offense source at weight 0, the blend
         # collapses to KTC.  Rookie Wonder (KTC-only, rank 3) should
@@ -424,9 +415,7 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
 
     def test_override_rankings_override_block_reflects_config(self) -> None:
         override = {"ktcSfTep": {"include": False}, "dlfSf": {"weight": 0.5}}
-        contract = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         rov = contract.get("rankingsOverride") or {}
         self.assertTrue(rov.get("isCustomized"))
         self.assertNotIn("ktcSfTep", rov.get("enabledSources") or [])
@@ -434,12 +423,8 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
         self.assertEqual(rov.get("defaults", {}).get("dlfSf"), 1.0)
 
     def test_disabling_all_sources_produces_empty_ranks(self) -> None:
-        every_off = {
-            key: {"include": False} for key in get_ranking_source_keys()
-        }
-        contract = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=every_off
-        )
+        every_off = {key: {"include": False} for key in get_ranking_source_keys()}
+        contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=every_off)
         # Every row's sourceRanks should be empty.
         for row in contract.get("playersArray", []):
             self.assertEqual(row.get("sourceRanks") or {}, {})
@@ -477,9 +462,7 @@ class TestRankingsTradeCalculatorAlignment(unittest.TestCase):
 
     def test_override_response_stamps_consistent_fields(self) -> None:
         override = {"dlfSf": {"include": False}, "ktcSfTep": {"weight": 2.0}}
-        contract = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         for row in contract.get("playersArray", []):
             source_ranks = row.get("sourceRanks") or {}
             source_meta = row.get("sourceRankMeta") or {}
@@ -500,15 +483,9 @@ class TestRankingsTradeCalculatorAlignment(unittest.TestCase):
         """The final board's canonicalConsensusRank must be monotonic
         by rankDerivedValue under any override."""
         override = {"dlfSf": {"weight": 0}}
-        contract = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         ranked_rows = sorted(
-            [
-                r
-                for r in contract.get("playersArray") or []
-                if r.get("canonicalConsensusRank")
-            ],
+            [r for r in contract.get("playersArray") or [] if r.get("canonicalConsensusRank")],
             key=lambda r: int(r["canonicalConsensusRank"]),
         )
         # Walk adjacent rows: rank i → rank i+1, value should be
@@ -531,9 +508,7 @@ class TestSummarizeSourceOverrides(unittest.TestCase):
     def test_none_input_produces_defaults_summary(self) -> None:
         summary = _summarize_source_overrides(None)
         self.assertFalse(summary["isCustomized"])
-        self.assertEqual(
-            set(summary["enabledSources"]), set(get_ranking_source_keys())
-        )
+        self.assertEqual(set(summary["enabledSources"]), set(get_ranking_source_keys()))
 
     def test_explicit_default_weight_is_not_customized(self) -> None:
         summary = _summarize_source_overrides({"ktcSfTep": {"weight": 1.0}})
@@ -564,9 +539,7 @@ class TestOffenseAndIdpResponseToOverrides(unittest.TestCase):
         # Disabling dlfSf should drop the source from an offense row's
         # stamp.
         self.assertIn("dlfSf", base_by_name["Josh Allen"].get("sourceRanks") or {})
-        self.assertNotIn(
-            "dlfSf", override_by_name["Josh Allen"].get("sourceRanks") or {}
-        )
+        self.assertNotIn("dlfSf", override_by_name["Josh Allen"].get("sourceRanks") or {})
 
     def test_idp_player_responds_to_idp_override(self) -> None:
         base = build_api_data_contract(_fixture_raw_payload())
@@ -577,9 +550,7 @@ class TestOffenseAndIdpResponseToOverrides(unittest.TestCase):
         base_by_name = _by_name(base)
         override_by_name = _by_name(override)
         self.assertIn("dlfIdp", base_by_name["Myles Garrett"].get("sourceRanks") or {})
-        self.assertNotIn(
-            "dlfIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {}
-        )
+        self.assertNotIn("dlfIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {})
 
 
 class TestBuildRankingsDeltaPayload(unittest.TestCase):
@@ -726,12 +697,8 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         """
         override = {"idpTradeCalc": {"weight": 2.0}}
         base = build_api_data_contract(_fixture_raw_payload())
-        full_overridden = build_api_data_contract(
-            _fixture_raw_payload(), source_overrides=override
-        )
-        delta = build_rankings_delta_payload(
-            _fixture_raw_payload(), source_overrides=override
-        )
+        full_overridden = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
+        delta = build_rankings_delta_payload(_fixture_raw_payload(), source_overrides=override)
 
         # Manually merge in Python — mirrors the JS mergeRankingsDelta.
         delta_by_id = {e["id"]: e for e in delta["rankingsDelta"]["players"]}
@@ -798,9 +765,7 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
     def test_snake_case_wins_over_camel_case(self) -> None:
         # Both forms present: snake_case is the canonical spelling and
         # should win if a caller mixes them.
-        result = normalize_tep_multiplier(
-            {"tep_multiplier": 1.15, "tepMultiplier": 1.5}
-        )
+        result = normalize_tep_multiplier({"tep_multiplier": 1.15, "tepMultiplier": 1.5})
         self.assertEqual(result, 1.15)
 
     def test_out_of_range_values_clamp(self) -> None:
@@ -813,12 +778,8 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         # not to a silent 1.0 (which would mask garbled bodies).
         self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": "nope"}))
         self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": None}))
-        self.assertIsNone(
-            normalize_tep_multiplier({"tep_multiplier": float("inf")})
-        )
-        self.assertIsNone(
-            normalize_tep_multiplier({"tep_multiplier": float("nan")})
-        )
+        self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": float("inf")}))
+        self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": float("nan")}))
 
     def test_non_dict_input_returns_none(self) -> None:
         self.assertIsNone(normalize_tep_multiplier("1.15"))
@@ -881,12 +842,8 @@ class TestNormalizeTepNativeMultiplier(unittest.TestCase):
     def test_unparseable_returns_none(self) -> None:
         self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": "nope"}))
         self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": None}))
-        self.assertIsNone(
-            normalize_tep_native_multiplier({"tep_native_multiplier": float("inf")})
-        )
-        self.assertIsNone(
-            normalize_tep_native_multiplier({"tep_native_multiplier": float("nan")})
-        )
+        self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": float("inf")}))
+        self.assertIsNone(normalize_tep_native_multiplier({"tep_native_multiplier": float("nan")}))
 
 
 class TestTepMultiplierDerivation(unittest.TestCase):
@@ -926,15 +883,9 @@ class TestTepMultiplierDerivation(unittest.TestCase):
 
     def test_derive_floors_at_one(self) -> None:
         """Negative / invalid bonuses floor at 1.0 (no TE discount)."""
-        self.assertEqual(
-            _derive_tep_multiplier_from_league({"bonus_rec_te": -0.5}), 1.0
-        )
-        self.assertEqual(
-            _derive_tep_multiplier_from_league({"bonus_rec_te": None}), 1.0
-        )
-        self.assertEqual(
-            _derive_tep_multiplier_from_league({"bonus_rec_te": "nope"}), 1.0
-        )
+        self.assertEqual(_derive_tep_multiplier_from_league({"bonus_rec_te": -0.5}), 1.0)
+        self.assertEqual(_derive_tep_multiplier_from_league({"bonus_rec_te": None}), 1.0)
+        self.assertEqual(_derive_tep_multiplier_from_league({"bonus_rec_te": "nope"}), 1.0)
 
     def test_derive_with_none_context_falls_back_to_default(self) -> None:
         """No context (offline / no SLEEPER_LEAGUE_ID) → no-op."""
@@ -978,9 +929,7 @@ class TestBuildContractTepSlider(unittest.TestCase):
 
     def test_explicit_override_reflected_in_summary(self) -> None:
         for v in (1.0, 1.10, 1.25, 1.40, 1.5):
-            contract = build_api_data_contract(
-                _fixture_raw_payload(), tep_multiplier=v
-            )
+            contract = build_api_data_contract(_fixture_raw_payload(), tep_multiplier=v)
             rov = contract.get("rankingsOverride") or {}
             self.assertAlmostEqual(
                 float(rov.get("tepMultiplier") or 0),
@@ -994,9 +943,7 @@ class TestBuildContractTepSlider(unittest.TestCase):
             )
 
     def test_none_falls_back_to_default(self) -> None:
-        contract = build_api_data_contract(
-            _fixture_raw_payload(), tep_multiplier=None
-        )
+        contract = build_api_data_contract(_fixture_raw_payload(), tep_multiplier=None)
         rov = contract.get("rankingsOverride") or {}
         self.assertAlmostEqual(
             float(rov.get("tepMultiplier") or 0),
@@ -1047,9 +994,7 @@ class TestBuildContractTepAutoDerive(unittest.TestCase):
             contract = build_api_data_contract(_fixture_raw_payload())
         rov = contract.get("rankingsOverride") or {}
         self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15, places=4)
-        self.assertAlmostEqual(
-            float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4
-        )
+        self.assertAlmostEqual(float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4)
         self.assertEqual(rov.get("tepMultiplierSource"), "derived")
         # Reverse-derive bonusRecTe lands back at 0.5 (round-trip
         # through the summary stamp).
@@ -1101,14 +1046,10 @@ class TestBuildContractTepAutoDerive(unittest.TestCase):
         with 1.40" semantics.
         """
         with self._patch_context(bonus_rec_te=0.5):
-            contract = build_api_data_contract(
-                _fixture_raw_payload(), tep_multiplier=1.40
-            )
+            contract = build_api_data_contract(_fixture_raw_payload(), tep_multiplier=1.40)
         rov = contract.get("rankingsOverride") or {}
         self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.40, places=4)
-        self.assertAlmostEqual(
-            float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4
-        )
+        self.assertAlmostEqual(float(rov.get("tepMultiplierDerived") or 0), 1.15, places=4)
         self.assertEqual(rov.get("tepMultiplierSource"), "override")
 
     def test_tep_native_default_unchanged_by_derivation(self) -> None:
@@ -1122,14 +1063,10 @@ class TestBuildContractTepAutoDerive(unittest.TestCase):
             contract = build_api_data_contract(_fixture_raw_payload())
         rov = contract.get("rankingsOverride") or {}
         # Non-TEP slider auto-derives to 1.30 for TEP-2.0
-        self.assertAlmostEqual(
-            float(rov.get("tepMultiplier") or 0), 1.30, places=4
-        )
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.30, places=4)
         self.assertEqual(rov.get("tepMultiplierSource"), "derived")
         # TEP-native stays at 1.10 default — unaffected
-        self.assertAlmostEqual(
-            float(rov.get("tepNativeMultiplier") or 0), 1.10, places=4
-        )
+        self.assertAlmostEqual(float(rov.get("tepNativeMultiplier") or 0), 1.10, places=4)
         self.assertEqual(rov.get("tepNativeMultiplierSource"), "default")
 
 
@@ -1210,9 +1147,7 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
             dlf_meta.get("tepBoostApplied"),
             "dlfSf on a TE row must be marked as TEP-boosted",
         )
-        self.assertAlmostEqual(
-            float(dlf_meta.get("tepMultiplier") or 0), 1.30
-        )
+        self.assertAlmostEqual(float(dlf_meta.get("tepMultiplier") or 0), 1.30)
 
         # TEP-native source: dynastyNerdsSfTep carries the native flag
         # and the effective correction.
@@ -1221,9 +1156,7 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
             dn_meta.get("tepNativeCorrectionApplied"),
             "dynastyNerdsSfTep on a TE row must be marked as TEP-native-corrected",
         )
-        self.assertAlmostEqual(
-            float(dn_meta.get("tepNativeCorrection") or 0), 1.05
-        )
+        self.assertAlmostEqual(float(dn_meta.get("tepNativeCorrection") or 0), 1.05)
 
         # The non-native and native paths are mutually exclusive — a
         # source flagged as one bucket must not pick up the other.
@@ -1250,13 +1183,9 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
                 {"tep_multiplier": 1.45, "tep_native_multiplier": 1.20},
             ),
         ):
-            contract = build_api_data_contract(
-                _fixture_raw_payload(), **kwargs
-            )
+            contract = build_api_data_contract(_fixture_raw_payload(), **kwargs)
             bowers = _by_name(contract).get("Brock Bowers")
-            self.assertIsNotNone(
-                bowers, f"{label}: fixture must include the Brock Bowers TE row"
-            )
+            self.assertIsNotNone(bowers, f"{label}: fixture must include the Brock Bowers TE row")
             ktc_meta = (bowers.get("sourceRankMeta") or {}).get("ktcSfTep") or {}
             # The exempt source carries no boost / correction flag, so
             # ``valueContribution`` is the raw curve value untouched.

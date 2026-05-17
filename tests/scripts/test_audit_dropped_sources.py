@@ -5,6 +5,7 @@ These tests pin the shape of its summary output so a future refactor
 can't silently break the histogram / per-source / biggest-offender
 sections consumers rely on.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,9 +19,7 @@ SCRIPT = REPO / "scripts" / "audit_dropped_sources.py"
 
 
 def _load_module():
-    spec = importlib.util.spec_from_file_location(
-        "audit_dropped_sources", SCRIPT
-    )
+    spec = importlib.util.spec_from_file_location("audit_dropped_sources", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     assert spec.loader is not None
@@ -121,12 +120,16 @@ class TestSummariseShape:
     def test_drops_surface_in_every_facet(self):
         players = [
             _row(
-                "A", "WR", 1,
+                "A",
+                "WR",
+                1,
                 {"ktc": 1, "dlfSf": 1, "dynastyNerdsSfTep": 300},
                 dropped=["dynastyNerdsSfTep"],
             ),
             _row(
-                "B", "LB", 50,
+                "B",
+                "LB",
+                50,
                 {"idpTradeCalc": 50, "dlfIdp": 50, "footballGuysIdp": 400},
                 dropped=["footballGuysIdp"],
                 spread=0.25,
@@ -170,7 +173,9 @@ class TestSummariseShape:
             dropped = ["footballGuysIdp"] if i < 3 else []
             players.append(
                 _row(
-                    f"P{i}", "LB", i + 1,
+                    f"P{i}",
+                    "LB",
+                    i + 1,
                     {"idpTradeCalc": i + 1, "dlfIdp": i + 1, "footballGuysIdp": i + 1},
                     dropped=dropped,
                 )

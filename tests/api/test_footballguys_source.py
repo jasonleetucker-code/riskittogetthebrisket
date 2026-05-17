@@ -9,6 +9,7 @@ Verifies:
     * The live export carries enriched ``canonicalSiteValues`` for
       players in both sub-boards.
 """
+
 from __future__ import annotations
 
 import csv
@@ -55,7 +56,8 @@ class TestCsvExports(unittest.TestCase):
         # With IDP rows removed from this CSV, the max rank is larger
         # than len(rows) (missing slots = IDPs in the sibling CSV).
         self.assertGreater(
-            max(ranks), len(rows),
+            max(ranks),
+            len(rows),
             "SF CSV max rank should exceed row count — IDP slots live "
             "in footballGuysIdp.csv and their ranks are skipped here.",
         )
@@ -74,7 +76,8 @@ class TestCsvExports(unittest.TestCase):
         # players occupy the very top of the combined ordering, so the
         # first IDP sits somewhere in the teens-to-twenties range.
         self.assertGreater(
-            ranks[0], 1,
+            ranks[0],
+            1,
             "first IDP rank should be > 1 (offense occupies the top of "
             "FBG's combined cross-market ordering).",
         )
@@ -97,10 +100,13 @@ class TestCsvExports(unittest.TestCase):
         # carries position="IDP" now.  The enrichment path resolves
         # the real DL/LB/DB family via the sleeper positions map.
         allowed_idp = {"DE", "DT", "LB", "CB", "S", "IDP"}
-        self.assertTrue(sf_families <= {"QB", "RB", "WR", "TE"},
-                        f"Non-offense families in SF: {sf_families - {'QB','RB','WR','TE'}}")
-        self.assertTrue(idp_families <= allowed_idp,
-                        f"Non-IDP families in IDP: {idp_families - allowed_idp}")
+        self.assertTrue(
+            sf_families <= {"QB", "RB", "WR", "TE"},
+            f"Non-offense families in SF: {sf_families - {'QB','RB','WR','TE'}}",
+        )
+        self.assertTrue(
+            idp_families <= allowed_idp, f"Non-IDP families in IDP: {idp_families - allowed_idp}"
+        )
 
 
 class TestRegistryWiring(unittest.TestCase):
@@ -173,19 +179,23 @@ class TestLiveEnrichment(unittest.TestCase):
             self.skipTest("No live data")
         pa = self.contract.get("playersArray") or []
         count = sum(
-            1 for r in pa
+            1
+            for r in pa
             if isinstance((r.get("canonicalSiteValues") or {}).get("footballGuysSf"), (int, float))
             and (r.get("canonicalSiteValues") or {}).get("footballGuysSf") > 0
         )
         # Expect >= 400 matched rows (raw CSV is ~548, match rate ~85%).
-        self.assertGreater(count, 400, f"Only {count} SF matches — likely a name-normalization regression")
+        self.assertGreater(
+            count, 400, f"Only {count} SF matches — likely a name-normalization regression"
+        )
 
     def test_idp_source_matches_are_plausible(self) -> None:
         if self.contract is None:
             self.skipTest("No live data")
         pa = self.contract.get("playersArray") or []
         count = sum(
-            1 for r in pa
+            1
+            for r in pa
             if isinstance((r.get("canonicalSiteValues") or {}).get("footballGuysIdp"), (int, float))
             and (r.get("canonicalSiteValues") or {}).get("footballGuysIdp") > 0
         )
@@ -197,7 +207,9 @@ class TestLiveEnrichment(unittest.TestCase):
         # the high 240s.  The elite-stamp canary
         # (test_source_ranks_stamped_for_elite_players) is the real
         # name-normalization sentinel.
-        self.assertGreater(count, 220, f"Only {count} IDP matches — likely a name-normalization regression")
+        self.assertGreater(
+            count, 220, f"Only {count} IDP matches — likely a name-normalization regression"
+        )
 
     def test_source_ranks_stamped_for_elite_players(self) -> None:
         if self.contract is None:

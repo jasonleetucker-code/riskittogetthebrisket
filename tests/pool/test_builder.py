@@ -1,4 +1,5 @@
 """Tests for the canonical player pool builder."""
+
 from __future__ import annotations
 
 import json
@@ -25,6 +26,7 @@ from src.pool.builder import (
 
 # ── Fixtures ──
 
+
 def _sleeper_data(names_positions: dict[str, str], ids: dict[str, str] | None = None) -> dict:
     return {
         "positions": names_positions,
@@ -37,6 +39,7 @@ def _ktc_data(players: list[tuple[str, float]]) -> dict[str, float]:
 
 
 # ── Pool builder: membership tests ──
+
 
 class TestPoolMembership:
     def test_sleeper_fringe_player_outside_ktc_is_included(self):
@@ -138,6 +141,7 @@ class TestPoolMembership:
 
 # ── KTC structured ingestion ──
 
+
 class TestKtcStructured:
     def test_ktc_rows_have_rank_and_value(self):
         ktc = _ktc_data([("A", 9000), ("B", 8000), ("C", 7000)])
@@ -157,16 +161,32 @@ class TestKtcStructured:
 
 # ── Adamidp PDF extraction ──
 
+
 class TestAdamidpExtraction:
     def test_split_line_names_dedupe(self):
         """Overlapping PDF segments dedupe correctly."""
         rows = [
-            AdamidpRow(overall_rank=1, player_name="Will Anderson", position="DL",
-                       position_rank=1, source_pdf="a.pdf"),
-            AdamidpRow(overall_rank=1, player_name="Will Anderson", position="DL",
-                       position_rank=1, source_pdf="b.pdf"),
-            AdamidpRow(overall_rank=2, player_name="Micah Parsons", position="LB",
-                       position_rank=1, source_pdf="a.pdf"),
+            AdamidpRow(
+                overall_rank=1,
+                player_name="Will Anderson",
+                position="DL",
+                position_rank=1,
+                source_pdf="a.pdf",
+            ),
+            AdamidpRow(
+                overall_rank=1,
+                player_name="Will Anderson",
+                position="DL",
+                position_rank=1,
+                source_pdf="b.pdf",
+            ),
+            AdamidpRow(
+                overall_rank=2,
+                player_name="Micah Parsons",
+                position="LB",
+                position_rank=1,
+                source_pdf="a.pdf",
+            ),
         ]
         unique, ambig = dedupe_adamidp_rows(rows)
         assert len(unique) == 2
@@ -190,10 +210,20 @@ class TestAdamidpExtraction:
         """Read from a JSON artifact file."""
         data = {
             "rows": [
-                {"overallRank": 1, "playerName": "Will Anderson", "position": "DL",
-                 "positionRank": 1, "tradeValueText": "Tier 1"},
-                {"overallRank": 2, "playerName": "Micah Parsons", "position": "LB",
-                 "positionRank": 1, "tradeValueText": "Tier 1"},
+                {
+                    "overallRank": 1,
+                    "playerName": "Will Anderson",
+                    "position": "DL",
+                    "positionRank": 1,
+                    "tradeValueText": "Tier 1",
+                },
+                {
+                    "overallRank": 2,
+                    "playerName": "Micah Parsons",
+                    "position": "LB",
+                    "positionRank": 1,
+                    "tradeValueText": "Tier 1",
+                },
             ]
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -207,9 +237,12 @@ class TestAdamidpExtraction:
 
 # ── Name matching/identity tests ──
 
+
 class TestNameMatching:
     def test_jr_sr_normalization(self):
-        assert pool_normalize_lookup("Patrick Mahomes Jr.") == pool_normalize_lookup("Patrick Mahomes")
+        assert pool_normalize_lookup("Patrick Mahomes Jr.") == pool_normalize_lookup(
+            "Patrick Mahomes"
+        )
         assert pool_normalize_lookup("Odell Beckham Jr") == pool_normalize_lookup("Odell Beckham")
 
     def test_ii_iii_normalization(self):
@@ -220,7 +253,9 @@ class TestNameMatching:
         assert pool_normalize_lookup("Ja\u2019Marr Chase") == pool_normalize_lookup("JaMarr Chase")
 
     def test_hyphen_handling(self):
-        assert pool_normalize_lookup("Amon-Ra St. Brown") == pool_normalize_lookup("Amon Ra St Brown")
+        assert pool_normalize_lookup("Amon-Ra St. Brown") == pool_normalize_lookup(
+            "Amon Ra St Brown"
+        )
 
     def test_initial_handling(self):
         assert pool_normalize_lookup("T.J. Watt") == pool_normalize_lookup("TJ Watt")
@@ -231,6 +266,7 @@ class TestNameMatching:
 
 
 # ── Position safety ──
+
 
 class TestPositionSafety:
     def test_offense_cannot_become_idp(self):
@@ -255,6 +291,7 @@ class TestPositionSafety:
 
 # ── IDPTradeCalc crosswalk ──
 
+
 class TestIDPTradeCalcCrosswalk:
     def test_every_union_player_is_queried(self):
         sleeper = _sleeper_data({"A": "QB", "B": "RB"})
@@ -269,7 +306,10 @@ class TestIDPTradeCalcCrosswalk:
         assert report.idp_trade_calc_queried_count == 3
         assert report.idp_trade_calc_matched_count == 2  # A and C
         assert report.idp_trade_calc_unmatched_count == 1  # B
-        assert report.idp_trade_calc_matched_count + report.idp_trade_calc_unmatched_count == report.idp_trade_calc_queried_count
+        assert (
+            report.idp_trade_calc_matched_count + report.idp_trade_calc_unmatched_count
+            == report.idp_trade_calc_queried_count
+        )
 
     def test_unmatched_names_reported(self):
         sleeper = _sleeper_data({"A": "QB", "B": "RB"})
@@ -284,6 +324,7 @@ class TestIDPTradeCalcCrosswalk:
 
 
 # ── Audit report ──
+
 
 class TestAuditReport:
     def test_report_has_all_counts(self):
@@ -312,6 +353,7 @@ class TestAuditReport:
 
 # ── Integration: Adamidp IDP players survive downstream ──
 
+
 class TestAdamidpIntegration:
     """Integration tests: IDP players from Adamidp survive through pool builder."""
 
@@ -333,8 +375,12 @@ class TestAdamidpIntegration:
         )
         names = {r.canonical_name for r in rows}
         # All Adamidp IDP players should be in the pool
-        for expected in ["Travis Hunter", "Will Anderson", "Aidan Hutchinson",
-                         "Carson Schwesinger"]:
+        for expected in [
+            "Travis Hunter",
+            "Will Anderson",
+            "Aidan Hutchinson",
+            "Carson Schwesinger",
+        ]:
             assert expected in names, f"{expected} missing from pool"
         # Rueben Bain Jr. should match after suffix stripping
         assert any("Rueben Bain" in n for n in names), "Rueben Bain Jr. missing from pool"
@@ -362,10 +408,12 @@ class TestAdamidpIntegration:
 
     def test_offense_players_not_emitted_as_idp(self):
         """DJ Moore and Elijah Mitchell cannot be reclassified as IDP."""
-        sleeper = _sleeper_data({
-            "DJ Moore": "WR",
-            "Elijah Mitchell": "RB",
-        })
+        sleeper = _sleeper_data(
+            {
+                "DJ Moore": "WR",
+                "Elijah Mitchell": "RB",
+            }
+        )
         ktc = _ktc_data([("DJ Moore", 5000), ("Elijah Mitchell", 3000)])
         # Even if somehow an Adamidp row matches these offense players,
         # position safety prevents reclassification.
@@ -380,7 +428,9 @@ class TestAdamidpIntegration:
         moore = next(r for r in rows if "moore" in r.canonical_name.lower())
         mitchell = next(r for r in rows if "mitchell" in r.canonical_name.lower())
         assert moore.position == "WR", f"DJ Moore wrongly classified as {moore.position}"
-        assert mitchell.position == "RB", f"Elijah Mitchell wrongly classified as {mitchell.position}"
+        assert (
+            mitchell.position == "RB"
+        ), f"Elijah Mitchell wrongly classified as {mitchell.position}"
 
     def test_adamidp_artifact_reads_correctly(self):
         """The artifact file format is correctly parsed."""

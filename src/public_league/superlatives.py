@@ -23,6 +23,7 @@ Tiebreaks use additional roster-composition counts, then weighted
 pick score, then owner_id alpha order for determinism.  No private
 rank / value is ever exposed on the output.
 """
+
 from __future__ import annotations
 
 import math
@@ -121,7 +122,9 @@ def _pick_weight_totals(snapshot: PublicLeagueSnapshot) -> dict[str, int]:
     }
 
 
-def _ranking(rows: list[dict[str, Any]], key_primary, key_tiebreak_1=None, key_tiebreak_2=None) -> list[dict[str, Any]]:
+def _ranking(
+    rows: list[dict[str, Any]], key_primary, key_tiebreak_1=None, key_tiebreak_2=None
+) -> list[dict[str, Any]]:
     def sort_key(row):
         tb1 = key_tiebreak_1(row) if key_tiebreak_1 else 0
         tb2 = key_tiebreak_2(row) if key_tiebreak_2 else 0
@@ -137,33 +140,49 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     rows = []
     for owner_id, comp in composition.items():
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "rosterSize": comp["rosterSize"],
-            "qb": comp["qb"],
-            "rb": comp["rb"],
-            "wr": comp["wr"],
-            "te": comp["te"],
-            "idp": comp["idp"],
-            "rookies": comp["rookies"],
-            "trades": activity.get(owner_id, {}).get("trades", 0),
-            "waivers": activity.get(owner_id, {}).get("waivers", 0),
-            "weightedPickScore": weighted.get(owner_id, 0),
-            "balanceScore": round(_balance_score(comp), 4),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "rosterSize": comp["rosterSize"],
+                "qb": comp["qb"],
+                "rb": comp["rb"],
+                "wr": comp["wr"],
+                "te": comp["te"],
+                "idp": comp["idp"],
+                "rookies": comp["rookies"],
+                "trades": activity.get(owner_id, {}).get("trades", 0),
+                "waivers": activity.get(owner_id, {}).get("waivers", 0),
+                "weightedPickScore": weighted.get(owner_id, 0),
+                "balanceScore": round(_balance_score(comp), 4),
+            }
+        )
 
     def _winner(ranked: list[dict[str, Any]]) -> dict[str, Any] | None:
         return ranked[0] if ranked else None
 
-    by_qb = _ranking(rows, lambda r: r["qb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
-    by_rb = _ranking(rows, lambda r: r["rb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
-    by_wr = _ranking(rows, lambda r: r["wr"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
-    by_te = _ranking(rows, lambda r: r["te"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
-    by_idp = _ranking(rows, lambda r: r["idp"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
+    by_qb = _ranking(
+        rows, lambda r: r["qb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
+    by_rb = _ranking(
+        rows, lambda r: r["rb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
+    by_wr = _ranking(
+        rows, lambda r: r["wr"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
+    by_te = _ranking(
+        rows, lambda r: r["te"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
+    by_idp = _ranking(
+        rows, lambda r: r["idp"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
     by_picks = _ranking(rows, lambda r: r["weightedPickScore"], lambda r: r["rosterSize"])
-    by_rookies = _ranking(rows, lambda r: r["rookies"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"])
-    by_active = _ranking(rows, lambda r: r["trades"] + r["waivers"], lambda r: r["trades"], lambda r: r["waivers"])
+    by_rookies = _ranking(
+        rows, lambda r: r["rookies"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    )
+    by_active = _ranking(
+        rows, lambda r: r["trades"] + r["waivers"], lambda r: r["trades"], lambda r: r["waivers"]
+    )
     # future-focused: pick-heavy + rookie-heavy blended
     by_future = _ranking(
         rows,

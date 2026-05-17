@@ -43,6 +43,7 @@ Public API
         frontend changes needed to activate sparklines once the
         log has >=2 entries.
 """
+
 from __future__ import annotations
 
 import json
@@ -353,7 +354,7 @@ def load_history(
     if not entries:
         return {}
     entries.sort(key=lambda e: e.get("date") or "")
-    windowed = entries[-max(1, int(days)):]
+    windowed = entries[-max(1, int(days)) :]
 
     per_player: dict[str, list[dict[str, Any]]] = {}
     for e in windowed:
@@ -374,18 +375,16 @@ def load_history(
                 # Hill curve.  Asset class is encoded in the key suffix
                 # ("::idp" / "::offense" / "::pick").
                 idx = str(name).rfind("::")
-                scope = str(name)[idx + 2:].lower() if idx >= 0 else ""
+                scope = str(name)[idx + 2 :].lower() if idx >= 0 else ""
                 val = _value_from_rank(rank, scope)
             else:
                 try:
                     val = int(stored_val)
                 except (TypeError, ValueError):
                     idx = str(name).rfind("::")
-                    scope = str(name)[idx + 2:].lower() if idx >= 0 else ""
+                    scope = str(name)[idx + 2 :].lower() if idx >= 0 else ""
                     val = _value_from_rank(rank, scope)
-            per_player.setdefault(str(name), []).append(
-                {"date": date, "rank": rank, "val": val}
-            )
+            per_player.setdefault(str(name), []).append({"date": date, "rank": rank, "val": val})
     return per_player
 
 

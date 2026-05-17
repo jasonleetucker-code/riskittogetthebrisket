@@ -4,11 +4,23 @@ These assertions pin concrete expected values against the rich
 fixture in ``tests/public_league/fixtures.py``.  Changing the
 fixture (or a metric) will fail here — by design.
 """
+
 from __future__ import annotations
 
 import unittest
 
-from src.public_league import activity, archives, awards, draft, franchise, history, records, rivalries, superlatives, weekly
+from src.public_league import (
+    activity,
+    archives,
+    awards,
+    draft,
+    franchise,
+    history,
+    records,
+    rivalries,
+    superlatives,
+    weekly,
+)
 from src.public_league.metrics import (
     matchup_pairs,
     playoff_placement,
@@ -276,7 +288,9 @@ class DraftTests(_BaseFixture):
 
     def test_pick_ownership_applies_traded_picks(self) -> None:
         section = draft.build_section(self.snapshot)
-        owner_a_picks = {(p["season"], p["round"], p["isTraded"]) for p in section["pickOwnership"]["owner-A"]}
+        owner_a_picks = {
+            (p["season"], p["round"], p["isTraded"]) for p in section["pickOwnership"]["owner-A"]
+        }
         # owner-A traded away their 2026 R2 (to owner-B) and received 2026 R4 from owner-B.
         self.assertNotIn(("2026", 2, False), owner_a_picks)
         self.assertIn(("2026", 4, True), owner_a_picks)

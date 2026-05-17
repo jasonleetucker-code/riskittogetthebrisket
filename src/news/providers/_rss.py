@@ -10,6 +10,7 @@ differ between the two adapters.
 Nothing here issues network I/O; the default stdlib fetcher lives
 on the subclasses so tests can inject a fake fetcher.
 """
+
 from __future__ import annotations
 
 import re

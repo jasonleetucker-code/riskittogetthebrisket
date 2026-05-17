@@ -7,6 +7,7 @@ Covers:
   * Hill curve value formula byte match
   * End-to-end fixture build: ``--from-dir`` with tiny HTML blobs
 """
+
 from __future__ import annotations
 
 import json
@@ -18,10 +19,7 @@ from scripts import fetch_fantasypros_idp as fp
 
 
 def _wrap_html(data_obj: dict) -> str:
-    return (
-        "<html><body><script>var ecrData = "
-        f"{json.dumps(data_obj)};</script></body></html>"
-    )
+    return "<html><body><script>var ecrData = " f"{json.dumps(data_obj)};</script></body></html>"
 
 
 def _make_players(*entries: tuple[int, str, str, str]) -> list[dict]:
@@ -210,6 +208,7 @@ class TestBuildRowsFromFixture(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue(dest.exists())
             import csv
+
             rows = list(csv.DictReader(dest.open(encoding="utf-8-sig")))
             names = {r["name"]: r for r in rows}
             # All 3 combined + 3 extension = 6 total rows.
@@ -242,12 +241,8 @@ class TestMainExitCodes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             # 1 player on combined — below the 50-row floor.
-            combined = _wrap_html(
-                {"players": _make_players((1, "Solo", "DE1", "DE"))}
-            )
-            fam = _wrap_html(
-                {"players": _make_players((1, "Solo", "DE1", "DE"))}
-            )
+            combined = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
+            fam = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
             (tmp / "combined.html").write_text(combined)
             (tmp / "dl.html").write_text(fam)
             (tmp / "lb.html").write_text(fam)

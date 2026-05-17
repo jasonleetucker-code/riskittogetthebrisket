@@ -17,6 +17,7 @@ Callers opt IN to retry; a safe default is "no retry, just log and
 return on failure" — preserves existing behavior across the
 codebase where retry would be a surprising change.
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,16 +74,21 @@ def fetch(
     bp = None
     if breaker:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(breaker)
         if not bp.can_call():
             _LOGGER.warning(
                 "http_fetch=circuit_open label=%s breaker=%s url=%s",
-                label or "unlabeled", breaker, _truncate(url),
+                label or "unlabeled",
+                breaker,
+                _truncate(url),
             )
             return FetchResult(
-                status_code=0, body=b"",
+                status_code=0,
+                body=b"",
                 error_kind="circuit_open",
-                attempts=0, elapsed_sec=0.0,
+                attempts=0,
+                elapsed_sec=0.0,
             )
 
     last_error_kind = "retries_exhausted"
@@ -96,14 +102,21 @@ def fetch(
             elapsed = time.time() - started
             _LOGGER.info(
                 "http_fetch=ok label=%s url=%s status=%d bytes=%d attempts=%d elapsed=%.3fs",
-                label or "unlabeled", _truncate(url), status, len(body),
-                attempt + 1, elapsed,
+                label or "unlabeled",
+                _truncate(url),
+                status,
+                len(body),
+                attempt + 1,
+                elapsed,
             )
             if bp is not None:
                 bp.report_success()
             return FetchResult(
-                status_code=status, body=body, error_kind="ok",
-                attempts=attempt + 1, elapsed_sec=elapsed,
+                status_code=status,
+                body=body,
+                error_kind="ok",
+                attempts=attempt + 1,
+                elapsed_sec=elapsed,
             )
         except urllib.error.HTTPError as exc:
             last_status = getattr(exc, "code", 0)
@@ -116,52 +129,72 @@ def fetch(
             if 500 <= last_status < 600 and attempt < retries:
                 _LOGGER.warning(
                     "http_fetch=retry label=%s url=%s status=%d attempt=%d",
-                    label or "unlabeled", _truncate(url), last_status, attempt + 1,
+                    label or "unlabeled",
+                    _truncate(url),
+                    last_status,
+                    attempt + 1,
                 )
-                time.sleep(retry_delay_base * (2 ** attempt))
+                time.sleep(retry_delay_base * (2**attempt))
                 continue
             elapsed = time.time() - started
             _LOGGER.warning(
                 "http_fetch=http label=%s url=%s status=%d attempts=%d elapsed=%.3fs",
-                label or "unlabeled", _truncate(url), last_status,
-                attempt + 1, elapsed,
+                label or "unlabeled",
+                _truncate(url),
+                last_status,
+                attempt + 1,
+                elapsed,
             )
             return FetchResult(
-                status_code=last_status, body=body, error_kind="http",
-                attempts=attempt + 1, elapsed_sec=elapsed,
+                status_code=last_status,
+                body=body,
+                error_kind="http",
+                attempts=attempt + 1,
+                elapsed_sec=elapsed,
             )
         except (TimeoutError,) as exc:
             last_error_kind = "timeout"
             if attempt < retries:
                 _LOGGER.warning(
                     "http_fetch=retry label=%s url=%s kind=timeout attempt=%d",
-                    label or "unlabeled", _truncate(url), attempt + 1,
+                    label or "unlabeled",
+                    _truncate(url),
+                    attempt + 1,
                 )
-                time.sleep(retry_delay_base * (2 ** attempt))
+                time.sleep(retry_delay_base * (2**attempt))
                 continue
         except urllib.error.URLError as exc:
             last_error_kind = "network"
             if attempt < retries:
                 _LOGGER.warning(
                     "http_fetch=retry label=%s url=%s kind=network err=%r attempt=%d",
-                    label or "unlabeled", _truncate(url), exc, attempt + 1,
+                    label or "unlabeled",
+                    _truncate(url),
+                    exc,
+                    attempt + 1,
                 )
-                time.sleep(retry_delay_base * (2 ** attempt))
+                time.sleep(retry_delay_base * (2**attempt))
                 continue
         except Exception as exc:  # noqa: BLE001 — catch everything; never raise
             last_error_kind = "network"
             if attempt < retries:
                 _LOGGER.warning(
                     "http_fetch=retry label=%s url=%s kind=unexpected err=%r attempt=%d",
-                    label or "unlabeled", _truncate(url), exc, attempt + 1,
+                    label or "unlabeled",
+                    _truncate(url),
+                    exc,
+                    attempt + 1,
                 )
-                time.sleep(retry_delay_base * (2 ** attempt))
+                time.sleep(retry_delay_base * (2**attempt))
                 continue
     elapsed = time.time() - started
     _LOGGER.warning(
         "http_fetch=%s label=%s url=%s attempts=%d elapsed=%.3fs",
-        last_error_kind, label or "unlabeled", _truncate(url),
-        retries + 1, elapsed,
+        last_error_kind,
+        label or "unlabeled",
+        _truncate(url),
+        retries + 1,
+        elapsed,
     )
     # Report terminal failure to the breaker (network/timeout errors
     # only — HTTP errors reported above inside the 5xx branch when
@@ -169,9 +202,11 @@ def fetch(
     if bp is not None and last_error_kind in ("timeout", "network", "retries_exhausted"):
         bp.report_failure(last_error_kind)
     return FetchResult(
-        status_code=last_status, body=b"",
+        status_code=last_status,
+        body=b"",
         error_kind=last_error_kind,
-        attempts=retries + 1, elapsed_sec=elapsed,
+        attempts=retries + 1,
+        elapsed_sec=elapsed,
     )
 
 

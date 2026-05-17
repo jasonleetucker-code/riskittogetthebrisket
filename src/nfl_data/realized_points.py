@@ -53,6 +53,7 @@ Degradation
 * Zero or negative stats → included verbatim (a −1 INT
   contribution is real).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -109,11 +110,24 @@ _IDP_KEYS: dict[str, tuple[str, str]] = {
 # Position labels that count as IDP scoring eligible.  nflverse uses
 # both the abstract group (DL/LB/DB) and the specific listing
 # (DT/DE/EDGE/ILB/OLB/CB/S/FS/SS/NT) — accept both.
-_IDP_POSITIONS = frozenset({
-    "DL", "DT", "DE", "EDGE", "NT",
-    "LB", "ILB", "OLB", "MLB",
-    "DB", "CB", "S", "FS", "SS",
-})
+_IDP_POSITIONS = frozenset(
+    {
+        "DL",
+        "DT",
+        "DE",
+        "EDGE",
+        "NT",
+        "LB",
+        "ILB",
+        "OLB",
+        "MLB",
+        "DB",
+        "CB",
+        "S",
+        "FS",
+        "SS",
+    }
+)
 
 
 def _is_idp_position(position: str | None) -> bool:
@@ -267,7 +281,10 @@ def compute_weekly_points(
             total += contribution
 
     return RealizedPoints(
-        season=season, week=week, fantasy_points=total, breakdown=breakdown,
+        season=season,
+        week=week,
+        fantasy_points=total,
+        breakdown=breakdown,
     )
 
 

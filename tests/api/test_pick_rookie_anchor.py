@@ -13,6 +13,7 @@ the board by value so coherence is preserved.
 
 Run with:  python3 -m pytest tests/api/test_pick_rookie_anchor.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -63,9 +64,7 @@ class TestAnchorPassCore(unittest.TestCase):
 
         anchored = _anchor_current_year_picks_to_rookies(players_array, 2026)
         self.assertEqual(anchored, 12)
-        self.assertEqual(
-            picks[0]["rankDerivedValue"], rookies[0]["rankDerivedValue"]
-        )
+        self.assertEqual(picks[0]["rankDerivedValue"], rookies[0]["rankDerivedValue"])
         self.assertEqual(picks[0]["pickRookieAnchor"], "Rookie 1")
 
     def test_slot_mapping_is_monotonic(self) -> None:
@@ -106,17 +105,14 @@ class TestAnchorPassCore(unittest.TestCase):
 
         _anchor_current_year_picks_to_rookies(players_array, 2026)
 
-        merged_sorted = sorted(
-            offense + idp, key=lambda r: -r["rankDerivedValue"]
-        )
+        merged_sorted = sorted(offense + idp, key=lambda r: -r["rankDerivedValue"])
         for i, pick in enumerate(picks):
             if i >= len(merged_sorted):
                 continue
             self.assertEqual(
                 pick["rankDerivedValue"],
                 merged_sorted[i]["rankDerivedValue"],
-                f"pick {pick['canonicalName']} should match merged "
-                f"rookie #{i+1}",
+                f"pick {pick['canonicalName']} should match merged " f"rookie #{i+1}",
             )
 
     def test_wrong_year_untouched(self) -> None:
@@ -143,10 +139,7 @@ class TestAnchorPassCore(unittest.TestCase):
         self.assertNotIn("pickRookieAnchor", tier_pick)
 
     def test_no_rookies_is_noop(self) -> None:
-        picks = [
-            _make_pick(f"2026 Pick 1.{s:02d}", 80 + s, 5000 - s * 10)
-            for s in range(1, 13)
-        ]
+        picks = [_make_pick(f"2026 Pick 1.{s:02d}", 80 + s, 5000 - s * 10) for s in range(1, 13)]
         before = [p["rankDerivedValue"] for p in picks]
         anchored = _anchor_current_year_picks_to_rookies(picks, 2026)
         self.assertEqual(anchored, 0)
@@ -252,12 +245,8 @@ class TestAnchorEndToEnd(unittest.TestCase):
         )
         if pick_101 is None:
             self.skipTest("No 2026 Pick 1.01 in contract")
-        self.assertEqual(
-            pick_101.get("rankDerivedValue"), rookies[0]["rankDerivedValue"]
-        )
-        self.assertEqual(
-            pick_101.get("pickRookieAnchor"), rookies[0]["canonicalName"]
-        )
+        self.assertEqual(pick_101.get("rankDerivedValue"), rookies[0]["rankDerivedValue"])
+        self.assertEqual(pick_101.get("pickRookieAnchor"), rookies[0]["canonicalName"])
 
     def test_2026_slot_picks_have_null_canonical_rank(self) -> None:
         """2026 slot picks are proxies for their anchor rookie; they
@@ -265,7 +254,8 @@ class TestAnchorEndToEnd(unittest.TestCase):
         rank so players aren't pushed down a slot by each pick row."""
         rows = self.contract["playersArray"]
         slot_picks = [
-            r for r in rows
+            r
+            for r in rows
             if r.get("assetClass") == "pick"
             and isinstance(r.get("canonicalName"), str)
             and r["canonicalName"].startswith("2026 Pick ")
@@ -284,7 +274,8 @@ class TestAnchorEndToEnd(unittest.TestCase):
         # instead of it. (Some deep rookie slots may have no rookie
         # match; skipping to a pick that does is sufficient.)
         anchored = [
-            p for p in slot_picks
+            p
+            for p in slot_picks
             if p.get("rankDerivedValue") and int(p.get("rankDerivedValue")) > 0
         ]
         self.assertTrue(
@@ -299,18 +290,17 @@ class TestAnchorEndToEnd(unittest.TestCase):
         canonicalConsensusRank. Other pick types (tier-generic
         ``2026 Early 1st``, ``2027 Pick 1.01``) may still hold ranks
         and are checked separately."""
-        ranked = [
-            r for r in self.contract["playersArray"]
-            if r.get("canonicalConsensusRank")
-        ]
+        ranked = [r for r in self.contract["playersArray"] if r.get("canonicalConsensusRank")]
         offenders = [
-            r for r in ranked
+            r
+            for r in ranked
             if r.get("assetClass") == "pick"
             and isinstance(r.get("canonicalName"), str)
             and r["canonicalName"].startswith("2026 Pick ")
         ]
         self.assertEqual(
-            offenders, [],
+            offenders,
+            [],
             f"2026 slot picks still hold ranks: "
             f"{[r.get('canonicalName') for r in offenders[:3]]}",
         )
@@ -324,19 +314,18 @@ class TestAnchorEndToEnd(unittest.TestCase):
         """
         rows = self.contract["playersArray"]
         picks = [
-            r for r in rows
+            r
+            for r in rows
             if r.get("assetClass") == "pick"
             and isinstance(r.get("canonicalName"), str)
             and r["canonicalName"].startswith("2026 Pick ")
         ]
         if len(picks) < 72:
             self.skipTest(f"Only {len(picks)} 2026 slot picks in contract")
-        untethered = [
-            p.get("canonicalName") for p in picks
-            if not p.get("pickRookieAnchor")
-        ]
+        untethered = [p.get("canonicalName") for p in picks if not p.get("pickRookieAnchor")]
         self.assertEqual(
-            untethered, [],
+            untethered,
+            [],
             f"2026 slot picks still untethered: {untethered[:5]}.  "
             f"The combined offense+IDP rookie pool (including tail "
             f"rookies with _blendedValueUncapped) should cover all "
@@ -345,11 +334,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
 
     def test_coherence_preserved_after_anchor(self) -> None:
         ranked = sorted(
-            [
-                r
-                for r in self.contract["playersArray"]
-                if r.get("canonicalConsensusRank")
-            ],
+            [r for r in self.contract["playersArray"] if r.get("canonicalConsensusRank")],
             key=lambda r: int(r["canonicalConsensusRank"]),
         )
         errors = assert_ranking_coherence(ranked)
@@ -370,9 +355,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
             arr_rank = row.get("canonicalConsensusRank")
             leg_rank = legacy[legacy_ref].get("_canonicalConsensusRank")
             if arr_rank != leg_rank:
-                mismatches.append(
-                    f"{row.get('canonicalName')}: array={arr_rank} legacy={leg_rank}"
-                )
+                mismatches.append(f"{row.get('canonicalName')}: array={arr_rank} legacy={leg_rank}")
                 if len(mismatches) >= 5:
                     break
         self.assertEqual(mismatches, [])

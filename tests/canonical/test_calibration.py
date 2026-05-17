@@ -1,4 +1,5 @@
 """Tests for canonical value calibration layer."""
+
 from __future__ import annotations
 
 import sys
@@ -29,8 +30,12 @@ LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-22.json"
 
 def _make_assets(universe: str, values: list[int], names: list[str] | None = None) -> list[dict]:
     return [
-        {"blended_value": v, "display_name": names[i] if names else f"Player_{i}",
-         "universe": universe, "source_values": {"SRC": v}}
+        {
+            "blended_value": v,
+            "display_name": names[i] if names else f"Player_{i}",
+            "universe": universe,
+            "source_values": {"SRC": v},
+        }
         for i, v in enumerate(values)
     ]
 
@@ -132,6 +137,7 @@ class TestPickCurveValue:
     def test_current_year_not_discounted(self):
         """A pick in the current year should NOT receive a future-year discount."""
         import datetime
+
         this_year = datetime.date.today().year
         current_val = _pick_curve_value({"year": this_year, "round": 1})
         no_year_val = _pick_curve_value({"round": 1})
@@ -141,6 +147,7 @@ class TestPickCurveValue:
     def test_default_year_uses_today(self):
         """Default current_year should derive from today, not a hard-coded constant."""
         import datetime
+
         this_year = datetime.date.today().year
         next_year = this_year + 1
         # A pick dated next year should be discounted when using the default
@@ -158,8 +165,12 @@ class TestPickCalibrationWithLegacy:
         if not LEGACY_PATH.exists():
             pytest.skip("No legacy data")
         assets = [
-            {"display_name": "2026 Pick 1.01", "blended_value": 9999,
-             "universe": "offense_vet", "source_values": {"KTC": 9999}},
+            {
+                "display_name": "2026 Pick 1.01",
+                "blended_value": 9999,
+                "universe": "offense_vet",
+                "source_values": {"KTC": 9999},
+            },
         ]
         result = calibrate_canonical_values(assets, legacy_path=LEGACY_PATH)
         pick = result[0]
@@ -169,8 +180,12 @@ class TestPickCalibrationWithLegacy:
 
     def test_round_curve_fallback(self):
         assets = [
-            {"display_name": "2030 Early 1st", "blended_value": 5000,
-             "universe": "offense_vet", "source_values": {"KTC": 5000}},
+            {
+                "display_name": "2030 Early 1st",
+                "blended_value": 5000,
+                "universe": "offense_vet",
+                "source_values": {"KTC": 5000},
+            },
         ]
         result = calibrate_canonical_values(assets)
         pick = result[0]
@@ -182,11 +197,22 @@ class TestPickCalibrationWithLegacy:
 class TestNonFantasyCeiling:
     def test_kickers_capped(self):
         from src.canonical.calibration import NON_FANTASY_CEILING
+
         assets = [
-            {"blended_value": 9999, "display_name": "Star QB", "universe": "offense_vet",
-             "metadata": {"position": "QB"}, "source_values": {"SRC": 9999}},
-            {"blended_value": 8000, "display_name": "Brandon Aubrey", "universe": "offense_vet",
-             "metadata": {"position": "K"}, "source_values": {"SRC": 8000}},
+            {
+                "blended_value": 9999,
+                "display_name": "Star QB",
+                "universe": "offense_vet",
+                "metadata": {"position": "QB"},
+                "source_values": {"SRC": 9999},
+            },
+            {
+                "blended_value": 8000,
+                "display_name": "Brandon Aubrey",
+                "universe": "offense_vet",
+                "metadata": {"position": "K"},
+                "source_values": {"SRC": 8000},
+            },
         ]
         result = calibrate_canonical_values(assets)
         kicker = [a for a in result if a["display_name"] == "Brandon Aubrey"][0]
@@ -200,11 +226,16 @@ class TestCalibrationDistribution:
         result = calibrate_canonical_values(assets)
 
         from collections import Counter
+
         def tier(v):
-            if v >= 7000: return "elite"
-            if v >= 5000: return "star"
-            if v >= 3000: return "starter"
-            if v >= 1500: return "bench"
+            if v >= 7000:
+                return "elite"
+            if v >= 5000:
+                return "star"
+            if v >= 3000:
+                return "starter"
+            if v >= 1500:
+                return "bench"
             return "depth"
 
         tiers = Counter(tier(a["calibrated_value"]) for a in result)
@@ -230,8 +261,6 @@ class TestCalibrationParams:
 
     def test_custom_scales(self):
         assets = _make_assets("offense_vet", [9000, 7000, 5000])
-        result = calibrate_canonical_values(
-            assets, universe_scales={"offense_vet": 5000}
-        )
+        result = calibrate_canonical_values(assets, universe_scales={"offense_vet": 5000})
         top = max(result, key=lambda a: a["calibrated_value"])
         assert top["calibrated_value"] == 5000

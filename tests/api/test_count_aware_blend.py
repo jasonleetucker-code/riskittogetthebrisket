@@ -12,6 +12,7 @@ The prior implementation trimmed at n≥3, which collapsed sparse
 IDP / rookie groups.  These tests pin the updated rule so no future
 refactor silently over-trims or silently switches the threshold.
 """
+
 from __future__ import annotations
 
 import pytest

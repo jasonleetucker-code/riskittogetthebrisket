@@ -11,6 +11,7 @@ Files:
     data/public_league/identity.json   — compact manager registry
     data/public_league/nfl_players.json — cached players/nfl dump
 """
+
 from __future__ import annotations
 
 import json
@@ -124,7 +125,9 @@ def _registry_from_dict(d: dict[str, Any]) -> ManagerRegistry:
     return reg
 
 
-def snapshot_to_dict(snapshot: PublicLeagueSnapshot, include_nfl_players: bool = False) -> dict[str, Any]:
+def snapshot_to_dict(
+    snapshot: PublicLeagueSnapshot, include_nfl_players: bool = False
+) -> dict[str, Any]:
     out: dict[str, Any] = {
         "rootLeagueId": snapshot.root_league_id,
         "generatedAt": snapshot.generated_at,

@@ -19,6 +19,7 @@ Tags emitted:
 Read-only:  these are informational labels.  No changes to dynasty
 trade math, no changes to dynasty values.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -53,14 +54,8 @@ def tags_for_player(
     is_idp = pos in _IDP_POSITIONS
     is_strong = ros_value >= 60.0  # 0-100 normalized scale
     is_elite = ros_value >= 80.0
-    is_starter_caliber = (
-        ros_rank_overall is not None and ros_rank_overall <= 100
-    )
-    is_top_idp = (
-        is_idp
-        and ros_rank_overall is not None
-        and ros_rank_overall <= 50
-    )
+    is_starter_caliber = ros_rank_overall is not None and ros_rank_overall <= 100
+    is_top_idp = is_idp and ros_rank_overall is not None and ros_rank_overall <= 50
     veteran = _is_veteran(pos, age)
     young = False
     try:

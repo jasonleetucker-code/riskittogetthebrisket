@@ -1,4 +1,5 @@
 """Tests for the public-endpoint rate limiter."""
+
 from __future__ import annotations
 
 import pytest
@@ -20,7 +21,9 @@ def test_first_request_is_never_limited():
 
 def test_bypass_ip_never_limited(monkeypatch):
     monkeypatch.setattr(
-        rate_limit, "_BYPASS_IPS", frozenset({"127.0.0.1"}),
+        rate_limit,
+        "_BYPASS_IPS",
+        frozenset({"127.0.0.1"}),
     )
     for _ in range(200):
         limited, _ = rate_limit.should_rate_limit("127.0.0.1")

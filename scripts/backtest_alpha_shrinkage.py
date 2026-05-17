@@ -21,6 +21,7 @@ Usage:
 
 No production behavior is modified.  Output: markdown + CSV.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +42,17 @@ from src.api import data_contract  # noqa: E402
 
 
 ALPHA_GRID: tuple[float, ...] = (
-    0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0,
 )
 
 
@@ -84,9 +95,7 @@ def stability_metric(
     weighted_numer: float = 0.0
     weighted_denom: float = 0.0
     for prev, curr in zip(boards, boards[1:]):
-        prev_top = [
-            (name, info) for name, info in prev.items() if info["rank"] <= top_n
-        ]
+        prev_top = [(name, info) for name, info in prev.items() if info["rank"] <= top_n]
         for name, prev_info in prev_top:
             curr_info = curr.get(name)
             if curr_info is None:
@@ -97,9 +106,7 @@ def stability_metric(
             weighted_numer += delta * weight
             weighted_denom += weight
     return {
-        "mean_abs_rank_change": (
-            mean(unweighted_changes) if unweighted_changes else 0.0
-        ),
+        "mean_abs_rank_change": (mean(unweighted_changes) if unweighted_changes else 0.0),
         "value_weighted_rank_change": (
             weighted_numer / weighted_denom if weighted_denom > 0 else 0.0
         ),
@@ -120,9 +127,7 @@ def sweep_alpha(snapshots: list[tuple[str, dict]]) -> list[dict]:
     return results
 
 
-def render_report(
-    snapshots: list[tuple[str, dict]], results: list[dict]
-) -> str:
+def render_report(snapshots: list[tuple[str, dict]], results: list[dict]) -> str:
     if not results:
         return "# α Shrinkage Backtest\n\n(no data)\n"
     by_weighted = sorted(results, key=lambda r: r["value_weighted_rank_change"])
@@ -133,9 +138,7 @@ def render_report(
     lines.append("")
     lines.append(f"- Snapshot count: **{len(snapshots)}**")
     if snapshots:
-        lines.append(
-            f"- Date range: **{snapshots[0][0]} → {snapshots[-1][0]}**"
-        )
+        lines.append(f"- Date range: **{snapshots[0][0]} → {snapshots[-1][0]}**")
     lines.append(f"- α grid: {list(ALPHA_GRID)}")
     lines.append(
         "- Chain under test: `Final = Anchor + α·(SubgroupBlend − Anchor)` "

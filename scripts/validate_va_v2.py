@@ -29,6 +29,7 @@ for catching anything where V2 produces structurally weird output.
 
 Run: ``python3 scripts/validate_va_v2.py``
 """
+
 from __future__ import annotations
 
 import json
@@ -68,8 +69,8 @@ def compute_va_v1(small: list[float], large: list[float]) -> float:
     if scarcity == 0:
         return 0.0
     total = 0.0
-    for i, extra in enumerate(large[len(small):]):
-        total += extra * scarcity * (V1_DECAY ** i)
+    for i, extra in enumerate(large[len(small) :]):
+        total += extra * scarcity * (V1_DECAY**i)
     return total
 
 
@@ -88,11 +89,11 @@ def compute_va_v2(small: list[float], large: list[float]) -> float:
     raw = V2_SLOPE * top_gap - V2_INTERCEPT
     top_scarcity = max(0.0, min(V2_CAP, raw))
     total = 0.0
-    for i, extra in enumerate(large[len(small):]):
+    for i, extra in enumerate(large[len(small) :]):
         extra_gap = max(0.0, (top_small - extra) / top_small)
         boost = V2_BOOST * max(0.0, extra_gap - top_gap)
         effective = max(0.0, min(V2_EFFECTIVE_CAP, top_scarcity + boost))
-        total += extra * effective * (V2_DECAY ** i)
+        total += extra * effective * (V2_DECAY**i)
     return total
 
 
@@ -126,9 +127,9 @@ def build_resolvers() -> tuple[dict[str, float], dict[str, float]]:
     return player_by_name, pick_by_label
 
 
-def resolve_asset(asset: dict[str, Any],
-                  players: dict[str, float],
-                  picks: dict[str, float]) -> tuple[float, bool]:
+def resolve_asset(
+    asset: dict[str, Any], players: dict[str, float], picks: dict[str, float]
+) -> tuple[float, bool]:
     """Return (value, resolved).  ``resolved`` is False when we can't
     find a value for the asset (retired/dropped player, missing pick).
     We skip unresolved assets from VA math but still count them for
@@ -181,9 +182,9 @@ def iter_trades():
         yield trade
 
 
-def analyze_trade(trade: dict[str, Any],
-                  players: dict[str, float],
-                  picks: dict[str, float]) -> dict[str, Any]:
+def analyze_trade(
+    trade: dict[str, Any], players: dict[str, float], picks: dict[str, float]
+) -> dict[str, Any]:
     sides = trade.get("sides") or []
     if len(sides) != 2:
         return {"skipped": "multi_side"}
@@ -288,9 +289,15 @@ def main() -> None:
     deltas = [r["delta"] for r in uneven]
 
     print("\n=== V1 vs V2 VA summary ===")
-    print(f"  V1 mean: {sum(v1_vas)/len(v1_vas):7.1f}   min: {min(v1_vas):6.1f}   max: {max(v1_vas):6.1f}")
-    print(f"  V2 mean: {sum(v2_vas)/len(v2_vas):7.1f}   min: {min(v2_vas):6.1f}   max: {max(v2_vas):6.1f}")
-    print(f"  Δ mean:  {sum(deltas)/len(deltas):7.1f}   min: {min(deltas):6.1f}   max: {max(deltas):6.1f}")
+    print(
+        f"  V1 mean: {sum(v1_vas)/len(v1_vas):7.1f}   min: {min(v1_vas):6.1f}   max: {max(v1_vas):6.1f}"
+    )
+    print(
+        f"  V2 mean: {sum(v2_vas)/len(v2_vas):7.1f}   min: {min(v2_vas):6.1f}   max: {max(v2_vas):6.1f}"
+    )
+    print(
+        f"  Δ mean:  {sum(deltas)/len(deltas):7.1f}   min: {min(deltas):6.1f}   max: {max(deltas):6.1f}"
+    )
 
     print("\n=== Δ distribution (V2 − V1) ===")
     for lo, hi, cnt in _hist(deltas, bins=10):
@@ -339,9 +346,11 @@ def main() -> None:
     both_nonzero = [r for r in uneven if r["va_v1"] > 100 and r["va_v2"] > 100]
     if both_nonzero:
         ratios = [r["va_v2"] / r["va_v1"] for r in both_nonzero]
-        print(f"  V2/V1 ratio (both >100): mean {sum(ratios)/len(ratios):.2f}x  "
-              f"median {sorted(ratios)[len(ratios)//2]:.2f}x  "
-              f"min {min(ratios):.2f}x  max {max(ratios):.2f}x")
+        print(
+            f"  V2/V1 ratio (both >100): mean {sum(ratios)/len(ratios):.2f}x  "
+            f"median {sorted(ratios)[len(ratios)//2]:.2f}x  "
+            f"min {min(ratios):.2f}x  max {max(ratios):.2f}x"
+        )
 
     print("\nDone.")
 

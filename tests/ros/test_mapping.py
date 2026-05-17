@@ -4,6 +4,7 @@ Cover the four resolution paths (override / exact / alias / fuzzy) +
 the quarantine fallback.  Inputs are pure strings so these tests
 don't depend on a live player pool.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -24,6 +25,7 @@ class TestResolvePlayer(unittest.TestCase):
     def test_exact_match_against_universe(self):
         # Pre-normalize the canonical entry so the input lands on it.
         from src.utils.name_clean import normalize_player_name
+
         target = normalize_player_name("Justin Jefferson")
         universe = {target}
         result = resolve_player("Justin Jefferson", canonical_universe=universe, overrides={})
@@ -33,11 +35,10 @@ class TestResolvePlayer(unittest.TestCase):
 
     def test_fuzzy_picks_closest_match(self):
         from src.utils.name_clean import normalize_player_name
+
         universe = {normalize_player_name("Marvin Harrison Jr.")}
         # Source typo: "Marvin Harrison J" — single-character edit.
-        result = resolve_player(
-            "Marvin Harrison J", canonical_universe=universe, overrides={}
-        )
+        result = resolve_player("Marvin Harrison J", canonical_universe=universe, overrides={})
         self.assertEqual(result.method, "fuzzy")
         self.assertEqual(result.canonical_name, normalize_player_name("Marvin Harrison Jr."))
 

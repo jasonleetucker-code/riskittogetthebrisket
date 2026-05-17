@@ -16,6 +16,7 @@ Parity with the JS port is verified by
 fixture (``scripts/ktc_va_observations.json``) through both the
 Python and JS implementations and asserts agreement to ±1.
 """
+
 from __future__ import annotations
 
 import math
@@ -50,9 +51,7 @@ def ktc_process_v(value: float, max_in_trade: float, t: float, nerf_index: int) 
     if value <= 0 or max_in_trade <= 0 or t <= 0:
         return 0.0
     s = (
-        0.05 * math.pow(value / t, 1.3)
-        + 0.05 * math.pow(value / (1.05 * max_in_trade), 6)
-        + 0.1
+        0.05 * math.pow(value / t, 1.3) + 0.05 * math.pow(value / (1.05 * max_in_trade), 6) + 0.1
     ) * value
     if nerf_index > 0:
         s *= max(0.6, 1 - 0.15 * nerf_index)
@@ -61,9 +60,7 @@ def ktc_process_v(value: float, max_in_trade: float, t: float, nerf_index: int) 
     return s
 
 
-def ktc_reverse_adjust(
-    raw_diff: float, max_in_trade: float, t: float, nerf_count: int
-) -> int:
+def ktc_reverse_adjust(raw_diff: float, max_in_trade: float, t: float, nerf_count: int) -> int:
     """KTC's iterative virtual-player solver (site.min.js::reverseAdjust)."""
     if raw_diff <= 0 or max_in_trade <= 0:
         return 0

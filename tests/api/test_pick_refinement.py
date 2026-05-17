@@ -15,6 +15,7 @@ April 2026 (see audit dated 2026-04-14):
 
 Run with:  python3 -m pytest tests/api/test_pick_refinement.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -50,9 +51,7 @@ def _get() -> dict[str, Any] | None:
 
 def _by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
-        r["canonicalName"]: r
-        for r in contract.get("playersArray", [])
-        if r.get("canonicalName")
+        r["canonicalName"]: r for r in contract.get("playersArray", []) if r.get("canonicalName")
     }
 
 
@@ -264,6 +263,7 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
         # All 2026 specific slots should resolve to a known pick bucket
         # — never the generic player labels.
         from src.api.data_contract import _compute_pick_confidence
+
         # Round 1 picks should be high confidence (KTC + IDPTC values
         # typically agree within 30%)
         for slot in range(1, 13):
@@ -286,10 +286,7 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
         ]
         self.assertTrue(labels, "no pick labels found")
         cv_phrases = ("picks agree", "pick source", "divergent pick")
-        ok = any(
-            any(p in (lbl or "").lower() for p in cv_phrases)
-            for _n, lbl in labels
-        )
+        ok = any(any(p in (lbl or "").lower() for p in cv_phrases) for _n, lbl in labels)
         self.assertTrue(
             ok,
             f"no pick label uses CV phrasing; sample={labels[:3]}",
@@ -329,16 +326,20 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
 
     _ANCHORS: dict[str, dict[str, Any]] = {
         # ── Offense anchors ──
-        "Josh Allen":       {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Drake Maye":       {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Ja'Marr Chase":    {"max_rank": 15, "min_value": 7000, "allowed_buckets": ("high",)},
-        "Bijan Robinson":   {"max_rank": 15, "min_value": 6500, "allowed_buckets": ("high",)},
-        "Jahmyr Gibbs":     {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Jayden Daniels":   {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
-        "Puka Nacua":       {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
-        "Malik Nabers":     {"max_rank": 30, "min_value": 5000, "allowed_buckets": ("high", "medium")},
-        "Brock Bowers":     {"max_rank": 40, "min_value": 5000, "allowed_buckets": ("high", "medium")},
-        "Patrick Mahomes":  {"max_rank": 50, "min_value": 4000, "allowed_buckets": ("high", "medium")},
+        "Josh Allen": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
+        "Drake Maye": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
+        "Ja'Marr Chase": {"max_rank": 15, "min_value": 7000, "allowed_buckets": ("high",)},
+        "Bijan Robinson": {"max_rank": 15, "min_value": 6500, "allowed_buckets": ("high",)},
+        "Jahmyr Gibbs": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
+        "Jayden Daniels": {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
+        "Puka Nacua": {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
+        "Malik Nabers": {"max_rank": 30, "min_value": 5000, "allowed_buckets": ("high", "medium")},
+        "Brock Bowers": {"max_rank": 40, "min_value": 5000, "allowed_buckets": ("high", "medium")},
+        "Patrick Mahomes": {
+            "max_rank": 50,
+            "min_value": 4000,
+            "allowed_buckets": ("high", "medium"),
+        },
         # ── IDP anchors ──
         # IDP rows sit deeper in the unified board (smaller pool, later
         # calibration) and their confidence buckets lean "low" because
@@ -371,10 +372,26 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # for elite IDPs like Parsons/Garrett who industry-consensus
         # rank below IDPTC's view of them.  Bands tracked to the new
         # neutral-calibration equilibrium.
-        "Myles Garrett":    {"max_rank": 150, "min_value": 3400, "allowed_buckets": ("low", "medium", "high")},
-        "Will Anderson":    {"max_rank": 120, "min_value": 3400, "allowed_buckets": ("low", "medium", "high")},
-        "Micah Parsons":    {"max_rank": 210, "min_value": 2500, "allowed_buckets": ("low", "medium", "high")},
-        "Fred Warner":      {"max_rank": 150, "min_value": 2800, "allowed_buckets": ("low", "medium", "high")},
+        "Myles Garrett": {
+            "max_rank": 150,
+            "min_value": 3400,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
+        "Will Anderson": {
+            "max_rank": 120,
+            "min_value": 3400,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
+        "Micah Parsons": {
+            "max_rank": 210,
+            "min_value": 2500,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
+        "Fred Warner": {
+            "max_rank": 150,
+            "min_value": 2800,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
         # Roquan max_rank widened 160 → 175 on 2026-04-30 after a
         # routine scrape moved IDPTC's view of him 152 → 165.  That
         # small shift tipped the per-player Hampel outlier filter
@@ -393,8 +410,16 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # (``ds_combined_rank_partner``), so de-inflating DS TEs
         # nudges DS-IDP players ~1 rank; Roquan (borderline Hampel,
         # above) tipped 175 → 176.  Real headroom, not a chase.
-        "Roquan Smith":     {"max_rank": 180, "min_value": 2300, "allowed_buckets": ("low", "medium", "high")},
-        "Kyle Hamilton":    {"max_rank": 200, "min_value": 1800, "allowed_buckets": ("low", "medium", "high")},
+        "Roquan Smith": {
+            "max_rank": 180,
+            "min_value": 2300,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
+        "Kyle Hamilton": {
+            "max_rank": 200,
+            "min_value": 1800,
+            "allowed_buckets": ("low", "medium", "high"),
+        },
     }
 
     def setUp(self) -> None:
@@ -463,8 +488,7 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
                 (
                     r
                     for r in self.contract.get("playersArray") or []
-                    if r.get("assetClass") == "offense"
-                    and r.get("canonicalConsensusRank")
+                    if r.get("assetClass") == "offense" and r.get("canonicalConsensusRank")
                 ),
                 key=lambda r: int(r["canonicalConsensusRank"]),
             )[:10]

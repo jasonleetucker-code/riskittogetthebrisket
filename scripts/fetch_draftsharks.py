@@ -48,6 +48,7 @@ Run
     python3 scripts/fetch_draftsharks.py --dry-run   # print + skip write
     python3 scripts/fetch_draftsharks.py --headful   # launch visible browser
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,8 +85,7 @@ LEAGUE_ID = "995704"  # "Risk It To Get The Brisket"
 # CSV.  Rows with other or missing positions are dropped.
 _OFFENSE_FAMILIES: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 _IDP_FAMILIES: frozenset[str] = frozenset(
-    {"DL", "LB", "DB", "DE", "DT", "EDGE", "NT", "ILB", "OLB", "MLB",
-     "CB", "S", "SS", "FS"}
+    {"DL", "LB", "DB", "DE", "DT", "EDGE", "NT", "ILB", "OLB", "MLB", "CB", "S", "SS", "FS"}
 )
 
 # Only these cookies matter for auth + league context.  Everything
@@ -145,15 +145,17 @@ def _load_cookies() -> list[dict]:
             continue
         if c["name"].startswith("_comment"):
             continue
-        out.append({
-            "name": c["name"],
-            "value": c["value"],
-            "domain": c.get("domain") or "www.draftsharks.com",
-            "path": c.get("path") or "/",
-            "httpOnly": bool(c.get("httpOnly", True)),
-            "secure": bool(c.get("secure", True)),
-            "sameSite": str(c.get("sameSite") or "Lax").title(),
-        })
+        out.append(
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain") or "www.draftsharks.com",
+                "path": c.get("path") or "/",
+                "httpOnly": bool(c.get("httpOnly", True)),
+                "secure": bool(c.get("secure", True)),
+                "sameSite": str(c.get("sameSite") or "Lax").title(),
+            }
+        )
     return out
 
 
@@ -178,9 +180,7 @@ def _save_cookies(cookies: list[dict]) -> None:
                 "sameSite": str(c.get("sameSite") or "Lax").title(),
             }
             for c in cookies
-            if isinstance(c, dict)
-            and "name" in c
-            and c.get("name") in _AUTH_COOKIE_NAMES
+            if isinstance(c, dict) and "name" in c and c.get("name") in _AUTH_COOKIE_NAMES
         ],
     }
     SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n")
@@ -226,9 +226,7 @@ async def _browser_login(context, page) -> None:
             "() => Array.from(document.querySelectorAll('.alert, .help-block-error, [role=alert]'))"
             ".map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)"
         )
-        raise RuntimeError(
-            f"DS login failed — no _identity cookie issued.  Page errors: {errors}"
-        )
+        raise RuntimeError(f"DS login failed — no _identity cookie issued.  Page errors: {errors}")
     fresh_cookies = await context.cookies("https://www.draftsharks.com")
     _save_cookies(fresh_cookies)
     count = sum(1 for c in fresh_cookies if c.get("name") in _AUTH_COOKIE_NAMES)
@@ -337,13 +335,9 @@ async def _scrape_one(page) -> list[dict]:
 
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     try:
-        await page.select_option(
-            "#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000
-        )
+        await page.select_option("#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000)
     except Exception as exc:
-        raise RuntimeError(
-            f"Failed to select league {LEAGUE_ID}: {exc}"
-        )
+        raise RuntimeError(f"Failed to select league {LEAGUE_ID}: {exc}")
 
     # Wait for the WASM worker to apply the league scoring.  Mahomes
     # public value is 74, league-synced ~81 in a TE-premium + IDP-
@@ -358,6 +352,7 @@ async def _scrape_one(page) -> list[dict]:
             return el ? parseFloat(el.textContent.trim()) : null;
         }""")
         return val is not None and val >= 78
+
     for _ in range(30):
         if await _applied():
             break
@@ -451,6 +446,7 @@ def _write_csv(
     the same value the user sees on the offense-combined page
     (e.g. 44, not the IDP-only-page rescaled 81)."""
     selected = [r for r in rows if r.get("position", "").upper() in include_families]
+
     # Sort by DS value desc; ties broken by DS's own rank-index, then
     # by name.  The DS worker may assign the same dsValue to multiple
     # players; use rank-index to disambiguate ordering.
@@ -460,6 +456,7 @@ def _write_csv(
             int(r.get("dsRank") or 99999),
             (r.get("name") or "").lower(),
         )
+
     selected.sort(key=_rank_sort_key)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -467,32 +464,36 @@ def _write_csv(
         w = csv.writer(f)
         w.writerow(CSV_HEADER)
         for i, r in enumerate(selected, 1):
-            w.writerow([
-                i,
-                r.get("team") or "",
-                r.get("name") or "",
-                r.get("position") or "",
-                r.get("adp") or "",
-                r.get("bye") or "",
-                r.get("age") or "",
-                r.get("oneYr") or "",
-                r.get("threeYr") or "",
-                r.get("fiveYr") or "",
-                r.get("tenYr") or "",
-                r.get("comment") or "",
-                r.get("dsValue") or "",
-            ])
+            w.writerow(
+                [
+                    i,
+                    r.get("team") or "",
+                    r.get("name") or "",
+                    r.get("position") or "",
+                    r.get("adp") or "",
+                    r.get("bye") or "",
+                    r.get("age") or "",
+                    r.get("oneYr") or "",
+                    r.get("threeYr") or "",
+                    r.get("fiveYr") or "",
+                    r.get("tenYr") or "",
+                    r.get("comment") or "",
+                    r.get("dsValue") or "",
+                ]
+            )
     return len(selected)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Scrape but don't write the CSV.",
     )
     parser.add_argument(
-        "--headful", action="store_true",
+        "--headful",
+        action="store_true",
         help="Launch the browser visibly (useful for debugging).",
     )
     args = parser.parse_args()
@@ -509,12 +510,8 @@ def main() -> int:
     # cross-universe universe (QB + IDP on the same dsValue scale),
     # so a missing IDP count here means the worker didn't settle
     # or the position attribute normalization changed.
-    off_count = sum(
-        1 for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES
-    )
-    idp_count = sum(
-        1 for r in rows if r.get("position", "").upper() in _IDP_FAMILIES
-    )
+    off_count = sum(1 for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES)
+    idp_count = sum(1 for r in rows if r.get("position", "").upper() in _IDP_FAMILIES)
     print(f"[DS] family split: offense={off_count} idp={idp_count}")
     if idp_count == 0:
         print(

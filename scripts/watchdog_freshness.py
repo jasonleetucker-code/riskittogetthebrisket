@@ -22,6 +22,7 @@ Output:
   GitHub Actions error annotations (``::error::``) per stale source
   so the run page surfaces them in the UI
 """
+
 from __future__ import annotations
 
 import os
@@ -130,13 +131,13 @@ def main() -> int:
     if not freshness:
         # No sources registered at all = catastrophic regression in the
         # ranking registry.  Fail loud.
-        print("::error title=Source registry empty::No sources could be read from "
-              "_SOURCE_CSV_PATHS.  The data contract registry is broken.")
+        print(
+            "::error title=Source registry empty::No sources could be read from "
+            "_SOURCE_CSV_PATHS.  The data contract registry is broken."
+        )
         return 1
 
-    hard_stale, soft_stale, fresh = classify_freshness(
-        freshness, thresholds, soft_sources
-    )
+    hard_stale, soft_stale, fresh = classify_freshness(freshness, thresholds, soft_sources)
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     summary_lines: list[str] = ["## Source freshness watchdog", ""]
@@ -187,9 +188,7 @@ def main() -> int:
         )
 
     if not hard_stale:
-        soft_note = (
-            f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
-        )
+        soft_note = f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
         print(f"ok: {len(fresh)} sources fresh, 0 hard-stale{soft_note}")
         return 0
 

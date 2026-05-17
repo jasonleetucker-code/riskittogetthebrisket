@@ -18,6 +18,7 @@ These tests pin that invariant from two directions:
      ``RuntimeError`` if called on a canonical-tagged asset, defending
      against accidental double-calibration.
 """
+
 from __future__ import annotations
 
 import sys

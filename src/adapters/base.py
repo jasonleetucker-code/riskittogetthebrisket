@@ -21,4 +21,3 @@ class SourceAdapter(Protocol):
     source_bucket: str
 
     def load(self, file_path: Path) -> AdapterResult: ...
-

@@ -42,6 +42,7 @@ looks broken in the UI.
 
 Pure-Python — no numpy dependency.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -176,7 +177,7 @@ def compute_value_band(
     if source_weights:
         # Re-weight.
         pairs_w: list[tuple[float, float]] = []
-        for (v, _old) in pairs:
+        for v, _old in pairs:
             # Look up the source weight by finding it in source_ranks by v-key.
             # When we don't have a stable pairing we fall through to uniform.
             pairs_w.append((v, 1.0))
@@ -212,7 +213,9 @@ def compute_value_band(
         )
 
     return ValueBand(
-        p10=p10, p50=p50, p90=p90,
+        p10=p10,
+        p50=p50,
+        p90=p90,
         source_count=len(pairs),
         method="bracket",
     )

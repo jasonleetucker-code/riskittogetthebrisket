@@ -1,4 +1,5 @@
 """Tests for red-zone + 3rd-down opportunity aggregation."""
+
 from __future__ import annotations
 
 import pytest
@@ -14,24 +15,39 @@ def _flags():
     feature_flags.reload()
 
 
-def _pass(yardline_100, down=1, receiver_id="wr1", name="WR One",
-          complete=0, td=0, first_down=0, season=2024):
+def _pass(
+    yardline_100,
+    down=1,
+    receiver_id="wr1",
+    name="WR One",
+    complete=0,
+    td=0,
+    first_down=0,
+    season=2024,
+):
     return {
-        "play_type": "pass", "season": season,
-        "down": down, "yardline_100": yardline_100,
+        "play_type": "pass",
+        "season": season,
+        "down": down,
+        "yardline_100": yardline_100,
         "receiver_player_id": receiver_id,
         "receiver_player_name": name,
-        "complete_pass": complete, "touchdown": td, "first_down": first_down,
+        "complete_pass": complete,
+        "touchdown": td,
+        "first_down": first_down,
     }
 
 
-def _run(yardline_100, down=1, rusher_id="rb1", name="RB One",
-         td=0, first_down=0, season=2024):
+def _run(yardline_100, down=1, rusher_id="rb1", name="RB One", td=0, first_down=0, season=2024):
     return {
-        "play_type": "run", "season": season,
-        "down": down, "yardline_100": yardline_100,
-        "rusher_player_id": rusher_id, "rusher_player_name": name,
-        "touchdown": td, "first_down": first_down,
+        "play_type": "run",
+        "season": season,
+        "down": down,
+        "yardline_100": yardline_100,
+        "rusher_player_id": rusher_id,
+        "rusher_player_name": name,
+        "touchdown": td,
+        "first_down": first_down,
     }
 
 
@@ -91,10 +107,7 @@ def test_third_down_failed_conversion():
 def test_opportunity_score_monotonic():
     """More RZ touches → higher opportunity score."""
     plays_low = [_pass(15, receiver_id="A", complete=1)]
-    plays_high = [
-        _pass(15, receiver_id="A", complete=1)
-        for _ in range(10)
-    ]
+    plays_high = [_pass(15, receiver_id="A", complete=1) for _ in range(10)]
     low = op.build_opportunity_from_pbp(plays_low, season=2024)
     high = op.build_opportunity_from_pbp(plays_high, season=2024)
     assert low[0].opportunity_score < high[0].opportunity_score
@@ -136,7 +149,9 @@ def test_fetch_flag_off_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("RISKIT_FEATURE_NFL_DATA_INGEST", "0")
     feature_flags.reload()
     result = op.fetch_opportunity_stats(
-        [2024], _provider=lambda _: [_pass(15)], cache_dir=tmp_path,
+        [2024],
+        _provider=lambda _: [_pass(15)],
+        cache_dir=tmp_path,
     )
     assert result == []
 
@@ -145,15 +160,21 @@ def test_fetch_flag_on_round_trips_through_cache(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_NFL_DATA_INGEST", "1")
     feature_flags.reload()
     calls = []
+
     def provider(years):
         calls.append(years)
         return [_pass(15, receiver_id="WR1", complete=1)]
+
     r1 = op.fetch_opportunity_stats(
-        [2024], _provider=provider, cache_dir=tmp_path,
+        [2024],
+        _provider=provider,
+        cache_dir=tmp_path,
     )
     assert r1 and r1[0]["playerIdGsis"] == "WR1"
     r2 = op.fetch_opportunity_stats(
-        [2024], _provider=provider, cache_dir=tmp_path,
+        [2024],
+        _provider=provider,
+        cache_dir=tmp_path,
     )
     assert r2 == r1
     assert len(calls) == 1  # cache hit on 2nd call
@@ -161,7 +182,8 @@ def test_fetch_flag_on_round_trips_through_cache(monkeypatch, tmp_path):
 
 def test_to_dict_shape():
     stats = op.build_opportunity_from_pbp(
-        [_pass(15, receiver_id="A")], season=2024,
+        [_pass(15, receiver_id="A")],
+        season=2024,
     )
     d = stats[0].to_dict()
     assert "rzTargets" in d

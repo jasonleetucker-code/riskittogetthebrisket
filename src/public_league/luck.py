@@ -33,6 +33,7 @@ Output shape
 ``methodology``        — human-readable formula so the UI can render
                          the "how this is computed" footnote.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -140,9 +141,7 @@ def _actual_week_results(
     return actual, pair_pts
 
 
-def _roster_id_for_owner(
-    registry: ManagerRegistry, league_id: str, owner_id: str
-) -> int | None:
+def _roster_id_for_owner(registry: ManagerRegistry, league_id: str, owner_id: str) -> int | None:
     for (lid, rid), oid in registry.roster_to_owner.items():
         if lid == league_id and oid == owner_id:
             return rid
@@ -185,9 +184,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         lambda: {"expected": 0.0, "actual": 0.0, "games": 0}
     )
 
-    current_season_year = (
-        snapshot.current_season.season if snapshot.current_season else None
-    )
+    current_season_year = snapshot.current_season.season if snapshot.current_season else None
 
     # Iterate oldest → newest so ``trail_state`` cumulative counters
     # match the final chronological sort of ``weekly_trail``.  If we
@@ -213,7 +210,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                     current = snapshot.current_season
                     if current:
                         rid_current = _roster_id_for_owner(registry, current.league_id, oid)
-                        career["teamName"] = metrics.team_name(snapshot, current.league_id, rid_current)
+                        career["teamName"] = metrics.team_name(
+                            snapshot, current.league_id, rid_current
+                        )
                 career["gamesPlayed"] += 1
                 career["expectedWins"] += expected_share
                 career["actualWins"] += actual_share
@@ -257,19 +256,21 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 t["expected"] += expected_share
                 t["actual"] += actual_share
                 t["games"] += 1
-                weekly_trail.append({
-                    "ownerId": oid,
-                    "season": season.season,
-                    "week": wk,
-                    "weekExpected": round(expected_share, 4),
-                    "weekActual": round(actual_share, 4),
-                    "weekLuckDelta": round(actual_share - expected_share, 4),
-                    "weekPoints": round(pts_for, 2),
-                    "cumExpected": round(t["expected"], 4),
-                    "cumActual": round(t["actual"], 4),
-                    "cumLuckDelta": round(t["actual"] - t["expected"], 4),
-                    "cumGames": int(t["games"]),
-                })
+                weekly_trail.append(
+                    {
+                        "ownerId": oid,
+                        "season": season.season,
+                        "week": wk,
+                        "weekExpected": round(expected_share, 4),
+                        "weekActual": round(actual_share, 4),
+                        "weekLuckDelta": round(actual_share - expected_share, 4),
+                        "weekPoints": round(pts_for, 2),
+                        "cumExpected": round(t["expected"], 4),
+                        "cumActual": round(t["actual"], 4),
+                        "cumLuckDelta": round(t["actual"] - t["expected"], 4),
+                        "cumGames": int(t["games"]),
+                    }
+                )
 
     # Finalize career rows.
     career_rows: list[dict[str, Any]] = []
@@ -278,26 +279,28 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         actual = row["actualWins"]
         expected = row["expectedWins"]
         rivals = row["allPlayRivals"]
-        career_rows.append({
-            "ownerId": oid,
-            "displayName": row["displayName"],
-            "teamName": row["teamName"],
-            "gamesPlayed": games,
-            "actualWins": round(actual, 2),
-            "expectedWins": round(expected, 2),
-            "luckDelta": round(actual - expected, 2),
-            "luckPerGame": round((actual - expected) / games, 4) if games else 0.0,
-            "actualWinPct": round(actual / games, 4) if games else 0.0,
-            "expectedWinPct": round(expected / games, 4) if games else 0.0,
-            "allPlayWinPct": round(
-                (row["allPlayBeats"] + row["allPlayTies"] * 0.5) / rivals, 4
-            ) if rivals else 0.0,
-            "allPlayBeats": row["allPlayBeats"],
-            "allPlayTies": row["allPlayTies"],
-            "allPlayLosses": rivals - row["allPlayBeats"] - row["allPlayTies"],
-            "pointsFor": round(row["pointsFor"], 2),
-            "pointsAgainst": round(row["pointsAgainst"], 2),
-        })
+        career_rows.append(
+            {
+                "ownerId": oid,
+                "displayName": row["displayName"],
+                "teamName": row["teamName"],
+                "gamesPlayed": games,
+                "actualWins": round(actual, 2),
+                "expectedWins": round(expected, 2),
+                "luckDelta": round(actual - expected, 2),
+                "luckPerGame": round((actual - expected) / games, 4) if games else 0.0,
+                "actualWinPct": round(actual / games, 4) if games else 0.0,
+                "expectedWinPct": round(expected / games, 4) if games else 0.0,
+                "allPlayWinPct": round((row["allPlayBeats"] + row["allPlayTies"] * 0.5) / rivals, 4)
+                if rivals
+                else 0.0,
+                "allPlayBeats": row["allPlayBeats"],
+                "allPlayTies": row["allPlayTies"],
+                "allPlayLosses": rivals - row["allPlayBeats"] - row["allPlayTies"],
+                "pointsFor": round(row["pointsFor"], 2),
+                "pointsAgainst": round(row["pointsAgainst"], 2),
+            }
+        )
     career_rows.sort(key=lambda r: -r["luckDelta"])
 
     # Finalize season rows.
@@ -307,31 +310,31 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         actual = row["actualWins"]
         expected = row["expectedWins"]
         rivals = row["allPlayRivals"]
-        season_rows.append({
-            "ownerId": row["ownerId"],
-            "season": row["season"],
-            "leagueId": row["leagueId"],
-            "displayName": row["displayName"],
-            "teamName": row["teamName"],
-            "gamesPlayed": games,
-            "actualWins": round(actual, 2),
-            "expectedWins": round(expected, 2),
-            "luckDelta": round(actual - expected, 2),
-            "luckPerGame": round((actual - expected) / games, 4) if games else 0.0,
-            "actualWinPct": round(actual / games, 4) if games else 0.0,
-            "expectedWinPct": round(expected / games, 4) if games else 0.0,
-            "allPlayWinPct": round(
-                (row["allPlayBeats"] + row["allPlayTies"] * 0.5) / rivals, 4
-            ) if rivals else 0.0,
-            "pointsFor": round(row["pointsFor"], 2),
-            "pointsAgainst": round(row["pointsAgainst"], 2),
-        })
+        season_rows.append(
+            {
+                "ownerId": row["ownerId"],
+                "season": row["season"],
+                "leagueId": row["leagueId"],
+                "displayName": row["displayName"],
+                "teamName": row["teamName"],
+                "gamesPlayed": games,
+                "actualWins": round(actual, 2),
+                "expectedWins": round(expected, 2),
+                "luckDelta": round(actual - expected, 2),
+                "luckPerGame": round((actual - expected) / games, 4) if games else 0.0,
+                "actualWinPct": round(actual / games, 4) if games else 0.0,
+                "expectedWinPct": round(expected / games, 4) if games else 0.0,
+                "allPlayWinPct": round((row["allPlayBeats"] + row["allPlayTies"] * 0.5) / rivals, 4)
+                if rivals
+                else 0.0,
+                "pointsFor": round(row["pointsFor"], 2),
+                "pointsAgainst": round(row["pointsAgainst"], 2),
+            }
+        )
     # Most recent season first; within a season, luckiest first.
     season_rows.sort(key=lambda r: (-_season_sort_key(r["season"]), -r["luckDelta"]))
 
-    weekly_trail.sort(
-        key=lambda t: (_season_sort_key(t["season"]), t["week"], t["ownerId"])
-    )
+    weekly_trail.sort(key=lambda t: (_season_sort_key(t["season"]), t["week"], t["ownerId"]))
 
     current_season_rows = [r for r in season_rows if r["season"] == current_season_year]
     current_season_rows.sort(key=lambda r: -r["luckDelta"])

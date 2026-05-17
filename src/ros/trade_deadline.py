@@ -10,6 +10,7 @@ Returns one row per team with the direction label + recommendation.
 Lazy-section friendly — call ``build_section(snapshot)`` from the
 public contract.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,11 +34,7 @@ def _load_playoff_odds_map() -> dict[str, dict[str, float]]:
     except (json.JSONDecodeError, OSError):
         return {}
     rows = payload.get("playoffOdds") or []
-    return {
-        str(r.get("ownerId") or ""): r
-        for r in rows
-        if r.get("ownerId")
-    }
+    return {str(r.get("ownerId") or ""): r for r in rows if r.get("ownerId")}
 
 
 def _load_championship_map() -> dict[str, dict[str, float]]:
@@ -49,11 +46,7 @@ def _load_championship_map() -> dict[str, dict[str, float]]:
     except (json.JSONDecodeError, OSError):
         return {}
     rows = payload.get("championshipOdds") or []
-    return {
-        str(r.get("ownerId") or ""): r
-        for r in rows
-        if r.get("ownerId")
-    }
+    return {str(r.get("ownerId") or ""): r for r in rows if r.get("ownerId")}
 
 
 def build_team_directions(
@@ -74,13 +67,9 @@ def build_team_directions(
     strengths = team_strength_map or {}
     if not strengths:
         snap = load_team_strength_snapshot() or []
-        strengths = {
-            str(r.get("ownerId") or ""): r for r in snap if r.get("ownerId")
-        }
+        strengths = {str(r.get("ownerId") or ""): r for r in snap if r.get("ownerId")}
 
-    owner_ids = sorted(
-        set(playoffs) | set(champs) | set(strengths)
-    )
+    owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))
     if not owner_ids:
         return []
 
@@ -93,17 +82,9 @@ def build_team_directions(
         # rank/length is the cheapest proxy.
         rank = float(strength_row.get("rank") or 0.0)
         total = max(1.0, float(len(strengths) or 1))
-        strength_pct = (
-            (total - rank + 1) / total if rank > 0 else 0.0
-        )
-        team_obj = (
-            next((t for t in (teams or []) if t.get("ownerId") == owner), None)
-        )
-        roster_age = (
-            build_roster_age_profile(team_obj.get("players") or [])
-            if team_obj
-            else {}
-        )
+        strength_pct = (total - rank + 1) / total if rank > 0 else 0.0
+        team_obj = next((t for t in (teams or []) if t.get("ownerId") == owner), None)
+        roster_age = build_roster_age_profile(team_obj.get("players") or []) if team_obj else {}
         direction = classify_team(
             playoff_odds_pct=po,
             championship_odds_pct=co,

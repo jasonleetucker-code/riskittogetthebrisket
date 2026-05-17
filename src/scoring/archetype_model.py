@@ -63,4 +63,3 @@ def summarize_archetype_priors(rows: Iterable[Dict[str, object]]) -> Dict[str, D
 
 def build_scoring_tags(bucket: str, features: Dict[str, float]) -> list[str]:
     return infer_scoring_tags(bucket, features)
-

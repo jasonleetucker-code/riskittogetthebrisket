@@ -1,5 +1,6 @@
 """Tests for src.nfl_data.cache — the TTL file cache used by every
 nflverse / ESPN ingest path."""
+
 from __future__ import annotations
 
 import time
@@ -22,7 +23,10 @@ def test_expired_entry_returns_none(tmp_path):
     # Force a past fetched_at.
     _, meta = cache._entry_paths(tmp_path, "stale")  # noqa: SLF001
     import json
-    meta.write_text(json.dumps({"fetched_at": time.time() - 3600, "key": "stale"}), encoding="utf-8")
+
+    meta.write_text(
+        json.dumps({"fetched_at": time.time() - 3600, "key": "stale"}), encoding="utf-8"
+    )
     assert cache.get("stale", ttl_seconds=60, cache_dir=tmp_path) is None
 
 

@@ -1,4 +1,5 @@
 """Tests for per-request correlation context."""
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +34,7 @@ def test_new_request_id_is_url_safe_and_short():
 def test_context_isolated_across_async_tasks():
     """Each async task has its own context — one task's request
     ID doesn't leak to a sibling."""
+
     async def _run(tag):
         rc.set_request_id(f"req-{tag}")
         await asyncio.sleep(0.01)
@@ -51,8 +53,10 @@ def test_context_isolated_across_threads():
     """Separate thread → separate context.  Context only crosses
     task/thread boundaries via explicit copy, which we don't do."""
     rc.set_request_id("main-thread")
+
     def _inner():
         return rc.current_request_id()
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
         val = ex.submit(_inner).result()
     # The thread doesn't inherit the ContextVar (no copy_context).

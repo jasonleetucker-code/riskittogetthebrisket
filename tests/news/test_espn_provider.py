@@ -2,6 +2,7 @@
 
 Tests inject a fake RSS-body fetcher so no network access happens.
 """
+
 from __future__ import annotations
 
 from src.news.providers.espn import EspnRssProvider

@@ -36,6 +36,7 @@ This split is what makes the module reusable: every consumer
 produces ``PlayerSeasonRow``s from a different source, then calls
 the same VORP math.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -53,6 +54,7 @@ class PlayerSeasonRow:
     no-game-played row would otherwise produce a div-by-zero in
     the per-game replacement math).
     """
+
     player_id: str
     position: str
     points: float
@@ -151,8 +153,14 @@ def replacement_per_game(
     """
     per_game: list[float] = []
     for r in rows or []:
-        games = r.games if isinstance(r, PlayerSeasonRow) else r.get("games") or r.get("gamesStarted")
-        points = r.points if isinstance(r, PlayerSeasonRow) else r.get("points") or r.get("starterPoints")
+        games = (
+            r.games if isinstance(r, PlayerSeasonRow) else r.get("games") or r.get("gamesStarted")
+        )
+        points = (
+            r.points
+            if isinstance(r, PlayerSeasonRow)
+            else r.get("points") or r.get("starterPoints")
+        )
         try:
             g = int(games or 0)
             p = float(points or 0)

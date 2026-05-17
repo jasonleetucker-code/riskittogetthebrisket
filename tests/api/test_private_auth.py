@@ -9,6 +9,7 @@ rankings contract.
 These tests pin that gate.  It's the core privacy guarantee for
 this deployment.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -43,9 +44,13 @@ PRIVATE_API_PATHS = [
     "/api/admin/signal-state/migrate",
 ]
 PRIVATE_POST_PATHS = {
-    "/api/trade/suggestions", "/api/trade/finder", "/api/trade/simulate",
+    "/api/trade/suggestions",
+    "/api/trade/finder",
+    "/api/trade/simulate",
     "/api/trade/simulate-mc",
-    "/api/angle/find", "/api/angle/packages", "/api/rankings/overrides",
+    "/api/angle/find",
+    "/api/angle/packages",
+    "/api/rankings/overrides",
     # Phase 11 admin endpoints
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",
@@ -62,9 +67,7 @@ def test_private_api_paths_require_auth(path):
             res = c.post(path, json={})
         else:
             res = c.get(path)
-    assert res.status_code == 401, (
-        f"{path} leaked without auth: {res.status_code} {res.text[:200]}"
-    )
+    assert res.status_code == 401, f"{path} leaked without auth: {res.status_code} {res.text[:200]}"
     body = res.json()
     assert body.get("error") == "auth_required"
 
@@ -97,9 +100,9 @@ def test_public_api_paths_pass_without_auth(path):
     the login flow + the public-league pipeline."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.get(path)
-    assert res.status_code != 401, (
-        f"{path} requires auth unexpectedly: {res.status_code} {res.text[:200]}"
-    )
+    assert (
+        res.status_code != 401
+    ), f"{path} requires auth unexpectedly: {res.status_code} {res.text[:200]}"
 
 
 def test_public_league_prefix_passes_without_auth():
@@ -130,9 +133,8 @@ def test_allowlist_reads_env_var_lowercased():
     """Module-level parse must lowercase + split comma-separated
     entries in the env var."""
     import os
+
     expected = frozenset(
-        u.strip().lower()
-        for u in "JasonLeeTucker, AnotherUser".split(",")
-        if u.strip()
+        u.strip().lower() for u in "JasonLeeTucker, AnotherUser".split(",") if u.strip()
     )
     assert expected == {"jasonleetucker", "anotheruser"}

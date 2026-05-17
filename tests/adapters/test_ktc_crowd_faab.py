@@ -4,6 +4,7 @@ Bridge between KTC's crowd waiver database (collected by Dynasty
 Scraper.py::scrape_ktc_waiver_database) and the FAAB recommender's
 ``ktc_crowd_bids`` calibration parameter.
 """
+
 from __future__ import annotations
 
 from src.adapters.ktc_crowd_faab import (
@@ -91,7 +92,7 @@ def test_skips_entries_missing_added_or_bid():
     ktc = {
         "waivers": [
             _wv("", bid=10, settings={"waiver_budget": 100}),  # no name
-            _wv("Bad Bid", bid=0, bid_pct=""),                 # no pct
+            _wv("Bad Bid", bid=0, bid_pct=""),  # no pct
             _wv("Good", bid_pct="20"),
             _wv("Good", bid_pct="30"),
         ],

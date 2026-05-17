@@ -8,6 +8,7 @@ Covers:
   * Exit-code behaviour for schema regressions and row-count floors
   * Non-TEP metadata (standard SF scoring)
 """
+
 from __future__ import annotations
 
 import csv
@@ -63,7 +64,9 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
         # Only QB/RB/WR/TE should pass through.
         self.assertEqual(len(rows), 4)
         names = {r["name"] for r in rows}
-        self.assertEqual(names, {"Patrick Mahomes", "Saquon Barkley", "CeeDee Lamb", "Travis Kelce"})
+        self.assertEqual(
+            names, {"Patrick Mahomes", "Saquon Barkley", "CeeDee Lamb", "Travis Kelce"}
+        )
 
     def test_zero_value_filtered_out(self):
         data = _make_players(
@@ -110,9 +113,7 @@ class TestCsvOutputShape(unittest.TestCase):
             orig_floor = dd._DD_ROW_COUNT_FLOOR
             dd._DD_ROW_COUNT_FLOOR = 1
             try:
-                rc = dd.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = dd.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 dd._DD_ROW_COUNT_FLOOR = orig_floor
 
@@ -148,9 +149,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = dd._DD_ROW_COUNT_FLOOR
             dd._DD_ROW_COUNT_FLOOR = 1
             try:
-                rc = dd.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = dd.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 dd._DD_ROW_COUNT_FLOOR = orig_floor
 
@@ -180,9 +179,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = dd._DD_ROW_COUNT_FLOOR
             dd._DD_ROW_COUNT_FLOOR = 1
             try:
-                rc = dd.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = dd.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 dd._DD_ROW_COUNT_FLOOR = orig_floor
 

@@ -1,4 +1,5 @@
 """Tests for Spearman correlation + per-source accuracy scoring."""
+
 from __future__ import annotations
 
 from src.backtesting import correlation
@@ -40,6 +41,7 @@ def test_score_source_perfect_source():
 
 def test_score_source_random_ranks_near_zero():
     import random
+
     random.seed(42)
     source_ranks = {f"p{i}": i + 1 for i in range(40)}
     # Shuffle points independently so there's no relationship.

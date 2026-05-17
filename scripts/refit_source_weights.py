@@ -35,6 +35,7 @@ Exit codes
     1  pending approval (no write), caller should open a PR
     2  fatal error (bad inputs, etc.)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -119,15 +120,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--alpha", type=float, default=0.25)
     parser.add_argument("--tolerance", type=float, default=0.15)
     parser.add_argument(
-        "--source-ranks-path", type=Path,
+        "--source-ranks-path",
+        type=Path,
         default=Path("data/source_rank_history.jsonl"),
     )
     parser.add_argument(
-        "--realized-path", type=Path,
+        "--realized-path",
+        type=Path,
         default=Path("data/realized_points_history.jsonl"),
     )
     parser.add_argument(
-        "--weights-out", type=Path,
+        "--weights-out",
+        type=Path,
         default=Path("config/weights/dynamic_source_weights.json"),
     )
     args = parser.parse_args(argv)
@@ -138,7 +142,8 @@ def main(argv: list[str] | None = None) -> int:
     if not source_ranks or not realized:
         _LOGGER.error(
             "refit inputs missing: source_ranks=%d, realized=%d",
-            len(source_ranks), len(realized),
+            len(source_ranks),
+            len(realized),
         )
         return 2
 
@@ -147,15 +152,22 @@ def main(argv: list[str] | None = None) -> int:
     for a in accuracies:
         _LOGGER.info(
             "  %s: rho=%.3f n=%d top50_hit=%.3f",
-            a.source, a.spearman_rho, a.n_players, a.top_50_hit_rate,
+            a.source,
+            a.spearman_rho,
+            a.n_players,
+            a.top_50_hit_rate,
         )
 
     prior = load_prior_weights(args.weights_out)
     proposal = propose_weights(
-        accuracies, prior, alpha=args.alpha, tolerance_pct=args.tolerance,
+        accuracies,
+        prior,
+        alpha=args.alpha,
+        tolerance_pct=args.tolerance,
     )
-    _LOGGER.info("proposal status=%s max_drift=%.2f%%",
-                 proposal.status, proposal.max_drift_pct * 100)
+    _LOGGER.info(
+        "proposal status=%s max_drift=%.2f%%", proposal.status, proposal.max_drift_pct * 100
+    )
     for src, w in sorted(proposal.weights.items()):
         _LOGGER.info("  %s: %.4f", src, w)
 

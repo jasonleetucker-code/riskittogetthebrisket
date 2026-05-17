@@ -31,6 +31,7 @@ Usage::
         --out-sf CSVs/site_raw/footballGuysSf.csv \\
         --out-idp CSVs/site_raw/footballGuysIdp.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,13 +48,43 @@ IDP_POSITIONS = {"DE", "DT", "LB", "CB", "S"}
 # NFL team codes (+ FA) — used to reject false matches where a name
 # suffix like "II" or "IV" (Patrick Mahomes II, Ernest Jones IV) would
 # otherwise be captured as the team.
-NFL_TEAM_CODES = frozenset({
-    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
-    "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
-    "LV", "LAC", "LAR", "MIA", "MIN", "NE", "NO", "NYG",
-    "NYJ", "PHI", "PIT", "SF", "SEA", "TB", "TEN", "WAS",
-    "FA",
-})
+NFL_TEAM_CODES = frozenset(
+    {
+        "ARI",
+        "ATL",
+        "BAL",
+        "BUF",
+        "CAR",
+        "CHI",
+        "CIN",
+        "CLE",
+        "DAL",
+        "DEN",
+        "DET",
+        "GB",
+        "HOU",
+        "IND",
+        "JAX",
+        "KC",
+        "LV",
+        "LAC",
+        "LAR",
+        "MIA",
+        "MIN",
+        "NE",
+        "NO",
+        "NYG",
+        "NYJ",
+        "PHI",
+        "PIT",
+        "SF",
+        "SEA",
+        "TB",
+        "TEN",
+        "WAS",
+        "FA",
+    }
+)
 
 # Position-with-rank token, e.g. "QB1", "WR184", "DE10", "S5".
 _POSITION_RE = re.compile(r"^(QB|RB|WR|TE|DE|DT|LB|CB|S)(\d+)$")
@@ -210,7 +241,7 @@ def parse_players(lines: list[str]) -> list[Player]:
             # remainder.  Simpler to just search the raw line for a
             # team code AFTER the captured "team".
             suffix = team
-            remainder = line[m.end("team"):]
+            remainder = line[m.end("team") :]
             team_m = re.search(r"\b([A-Z]{2,3})\b", remainder)
             if not team_m or team_m.group(1) not in NFL_TEAM_CODES:
                 continue
@@ -240,12 +271,8 @@ def split_and_rank(players: list[Player]) -> tuple[list[Player], list[Player]]:
     universe).  The caller can emit these positions as 1..N dense ranks
     when writing the CSV.
     """
-    offense = sorted(
-        (p for p in players if p.is_offense), key=lambda p: p.overall_rank
-    )
-    idp = sorted(
-        (p for p in players if p.is_idp), key=lambda p: p.overall_rank
-    )
+    offense = sorted((p for p in players if p.is_offense), key=lambda p: p.overall_rank)
+    idp = sorted((p for p in players if p.is_idp), key=lambda p: p.overall_rank)
     return offense, idp
 
 
@@ -262,14 +289,16 @@ def write_csv(players: list[Player], out_path: Path) -> None:
         w = csv.writer(f)
         w.writerow(["name", "rank", "position", "team", "age", "years_exp"])
         for dense_rank, p in enumerate(players, start=1):
-            w.writerow([
-                p.name,
-                dense_rank,
-                f"{p.position}{p.pos_rank}",
-                p.team,
-                p.age if p.age is not None else "",
-                p.years_exp,
-            ])
+            w.writerow(
+                [
+                    p.name,
+                    dense_rank,
+                    f"{p.position}{p.pos_rank}",
+                    p.team,
+                    p.age if p.age is not None else "",
+                    p.years_exp,
+                ]
+            )
 
 
 def main() -> int:
@@ -282,7 +311,8 @@ def main() -> int:
     ap.add_argument("--out-sf", default=str(repo / "CSVs" / "site_raw" / "footballGuysSf.csv"))
     ap.add_argument("--out-idp", default=str(repo / "CSVs" / "site_raw" / "footballGuysIdp.csv"))
     ap.add_argument(
-        "--verbose", action="store_true",
+        "--verbose",
+        action="store_true",
         help="Print parsing stats + a sample of the first parsed players.",
     )
     args = ap.parse_args()
@@ -309,10 +339,14 @@ def main() -> int:
     if args.verbose:
         print("\nFirst 10 offense:")
         for p in offense[:10]:
-            print(f"  {p.overall_rank:4d}  {p.name:<30}  {p.team:<4}  {p.position}{p.pos_rank}  age={p.age} yrs={p.years_exp}")
+            print(
+                f"  {p.overall_rank:4d}  {p.name:<30}  {p.team:<4}  {p.position}{p.pos_rank}  age={p.age} yrs={p.years_exp}"
+            )
         print("\nFirst 10 IDP:")
         for p in idp[:10]:
-            print(f"  {p.overall_rank:4d}  {p.name:<30}  {p.team:<4}  {p.position}{p.pos_rank}  age={p.age} yrs={p.years_exp}")
+            print(
+                f"  {p.overall_rank:4d}  {p.name:<30}  {p.team:<4}  {p.position}{p.pos_rank}  age={p.age} yrs={p.years_exp}"
+            )
 
     return 0
 

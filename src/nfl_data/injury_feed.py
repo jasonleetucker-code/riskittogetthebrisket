@@ -21,6 +21,7 @@ The caller (signal engine) is responsible for fanning out
 BUY/SELL transitions across rosters — this module only fetches +
 normalizes.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,18 +36,24 @@ from src.nfl_data import cache as _cache
 
 _LOGGER = logging.getLogger(__name__)
 
-_ESPN_INJURIES_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
-)
+_ESPN_INJURIES_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
 _UA = "riskit-injury-feed/1.0"
 _TTL_IN_SEASON = 30 * 60  # 30 min
 _TIMEOUT_SEC = 8.0
 
 
-_ACTIVE_STATUSES = frozenset({
-    "OUT", "INJURED_RESERVE", "IR", "PHYSICALLY_UNABLE",
-    "PUP", "QUESTIONABLE", "DOUBTFUL", "DAY_TO_DAY",
-})
+_ACTIVE_STATUSES = frozenset(
+    {
+        "OUT",
+        "INJURED_RESERVE",
+        "IR",
+        "PHYSICALLY_UNABLE",
+        "PUP",
+        "QUESTIONABLE",
+        "DOUBTFUL",
+        "DAY_TO_DAY",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -119,9 +126,11 @@ def fetch_injuries(
     bp = None
     try:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(
             "espn_injuries",
-            failure_threshold=3, failure_window_sec=120.0,
+            failure_threshold=3,
+            failure_window_sec=120.0,
             open_duration_sec=180.0,
         )
         if not bp.can_call():
@@ -132,7 +141,8 @@ def fetch_injuries(
 
     try:
         req = urllib.request.Request(
-            _ESPN_INJURIES_URL, headers={"User-Agent": _UA},
+            _ESPN_INJURIES_URL,
+            headers={"User-Agent": _UA},
         )
         opener = _url_opener or urllib.request.urlopen
         with opener(req, timeout=_TIMEOUT_SEC) as resp:
@@ -159,27 +169,27 @@ def fetch_injuries(
 def _parse_espn_payload(payload: Any) -> list[InjuryEntry]:
     """Parse ESPN's injuries response.  Shape (as of 2026-04):
 
+    {
+      "injuries": [
         {
+          "team": {"abbreviation": "BUF", ...},
           "injuries": [
             {
-              "team": {"abbreviation": "BUF", ...},
-              "injuries": [
-                {
-                  "athlete": {"id": "...", "displayName": "...",
-                              "position": {"abbreviation": "QB"}},
-                  "status": "...",
-                  "type": {"description": "...", "abbreviation": "..."},
-                  "details": {"type": "...", "location": "...",
-                              "detail": "...", "side": "...",
-                              "returnDate": "..."},
-                  "date": "...",
-                  "shortComment": "...",
-                  "longComment": "..."
-                }, ...
-              ]
+              "athlete": {"id": "...", "displayName": "...",
+                          "position": {"abbreviation": "QB"}},
+              "status": "...",
+              "type": {"description": "...", "abbreviation": "..."},
+              "details": {"type": "...", "location": "...",
+                          "detail": "...", "side": "...",
+                          "returnDate": "..."},
+              "date": "...",
+              "shortComment": "...",
+              "longComment": "..."
             }, ...
           ]
-        }
+        }, ...
+      ]
+    }
     """
     out: list[InjuryEntry] = []
     if not isinstance(payload, dict):
@@ -213,17 +223,19 @@ def _parse_espn_payload(payload: Any) -> list[InjuryEntry]:
             body_part = str(details.get("location") or details.get("type") or "")
             returning = str(details.get("returnDate") or "")
             description = str(entry.get("shortComment") or entry.get("longComment") or "")
-            out.append(InjuryEntry(
-                espn_athlete_id=espn_id,
-                full_name=name,
-                position=pos,
-                team_abbrev=team_abbr,
-                status=status_norm,
-                body_part=body_part,
-                description=description,
-                date_reported=str(entry.get("date") or ""),
-                returning=returning,
-            ))
+            out.append(
+                InjuryEntry(
+                    espn_athlete_id=espn_id,
+                    full_name=name,
+                    position=pos,
+                    team_abbrev=team_abbr,
+                    status=status_norm,
+                    body_part=body_part,
+                    description=description,
+                    date_reported=str(entry.get("date") or ""),
+                    returning=returning,
+                )
+            )
     return out
 
 
@@ -263,30 +275,33 @@ def diff_for_signals(
         prev = prior_by_id.get(curr.espn_athlete_id)
         if prev is None:
             # New injury.
-            signals.append({
-                "espnAthleteId": curr.espn_athlete_id,
-                "name": curr.full_name,
-                "position": curr.position,
-                "team": curr.team_abbrev,
-                "transition": "healthy_to_injured",
-                "newStatus": curr.status,
-                "priorStatus": None,
-                "reason": f"New injury — {curr.status}" + (
-                    f" ({curr.body_part})" if curr.body_part else ""
-                ),
-            })
+            signals.append(
+                {
+                    "espnAthleteId": curr.espn_athlete_id,
+                    "name": curr.full_name,
+                    "position": curr.position,
+                    "team": curr.team_abbrev,
+                    "transition": "healthy_to_injured",
+                    "newStatus": curr.status,
+                    "priorStatus": None,
+                    "reason": f"New injury — {curr.status}"
+                    + (f" ({curr.body_part})" if curr.body_part else ""),
+                }
+            )
             continue
         prev_sev = severity.get(prev.status, 0)
         new_sev = severity.get(curr.status, 0)
         if new_sev > prev_sev:
-            signals.append({
-                "espnAthleteId": curr.espn_athlete_id,
-                "name": curr.full_name,
-                "position": curr.position,
-                "team": curr.team_abbrev,
-                "transition": "injury_worsened",
-                "newStatus": curr.status,
-                "priorStatus": prev.status,
-                "reason": f"Status worsened: {prev.status} → {curr.status}",
-            })
+            signals.append(
+                {
+                    "espnAthleteId": curr.espn_athlete_id,
+                    "name": curr.full_name,
+                    "position": curr.position,
+                    "team": curr.team_abbrev,
+                    "transition": "injury_worsened",
+                    "newStatus": curr.status,
+                    "priorStatus": prev.status,
+                    "reason": f"Status worsened: {prev.status} → {curr.status}",
+                }
+            )
     return signals

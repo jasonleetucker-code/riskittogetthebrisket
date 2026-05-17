@@ -24,6 +24,7 @@ changes.
 
 No function raises.  Transient failures log + return [].
 """
+
 from __future__ import annotations
 
 import logging
@@ -175,6 +176,7 @@ def _nflverse_direct():
     its pandas<2.0 pin can't be satisfied on Python 3.12)."""
     try:
         from src.nfl_data import nflverse_direct
+
         return nflverse_direct
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("nflverse_direct import failed: %s", exc)
@@ -232,7 +234,8 @@ def _try_fetch_with_fallback(
                 rows = _dataframe_to_rows(df)
                 _LOGGER.info(
                     "nfl_data_fetch=nfl_data_py label=%s rows=%d",
-                    label, len(rows),
+                    label,
+                    len(rows),
                 )
                 return rows
             except Exception as exc:  # noqa: BLE001
@@ -241,13 +244,15 @@ def _try_fetch_with_fallback(
                 _LOGGER.warning(
                     "nfl_data_fetch=nfl_data_py_runtime_failed label=%s err=%r — "
                     "falling back to nflverse_direct",
-                    label, exc,
+                    label,
+                    exc,
                 )
         else:
             _LOGGER.warning(
                 "nfl_data_fetch=nfl_data_py_method_missing label=%s method=%s — "
                 "falling back to nflverse_direct",
-                label, nfl_method,
+                label,
+                nfl_method,
             )
 
     # Rung 3: nflverse_direct (stdlib CSV).
@@ -259,20 +264,23 @@ def _try_fetch_with_fallback(
     if direct_fn is None:
         _LOGGER.warning(
             "nfl_data_fetch=direct_method_missing label=%s method=%s",
-            label, direct_method,
+            label,
+            direct_method,
         )
         return None
     try:
         rows = direct_fn(years) if years is not None else direct_fn()
         _LOGGER.info(
             "nfl_data_fetch=nflverse_direct label=%s rows=%d",
-            label, len(rows),
+            label,
+            len(rows),
         )
         return rows
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "nfl_data_fetch=nflverse_direct_failed label=%s err=%r",
-            label, exc,
+            label,
+            exc,
         )
         return None
 
@@ -294,7 +302,8 @@ def fetch_weekly_stats(
     if cached is not None:
         return cached
     rows = _try_fetch_with_fallback(
-        years, _provider,
+        years,
+        _provider,
         nfl_method="import_weekly_data",
         direct_method="fetch_weekly_stats",
         label="weekly_stats",
@@ -329,7 +338,8 @@ def fetch_weekly_defensive_stats(
     if cached is not None:
         return cached
     rows = _try_fetch_with_fallback(
-        years, _provider,
+        years,
+        _provider,
         # ``import_weekly_data_def`` was added in nfl_data_py 0.3.5;
         # earlier versions don't expose it.  The fall-through to the
         # direct fetcher handles that case.
@@ -361,7 +371,8 @@ def fetch_snap_counts(
     if cached is not None:
         return cached
     rows = _try_fetch_with_fallback(
-        years, _provider,
+        years,
+        _provider,
         nfl_method="import_snap_counts",
         direct_method="fetch_snap_counts",
         label="snap_counts",
@@ -390,7 +401,8 @@ def fetch_id_map(
     if cached is not None:
         return cached
     rows = _try_fetch_with_fallback(
-        None, _provider,
+        None,
+        _provider,
         nfl_method="import_ids",
         direct_method="fetch_id_map",
         label="id_map",
@@ -410,8 +422,7 @@ def provider_status() -> dict[str, Any]:
     return {
         "feature_flag": feature_flags.is_enabled("nfl_data_ingest"),
         "active_provider": (
-            "nfl_data_py" if installed
-            else ("nflverse_direct" if direct_available else "none")
+            "nfl_data_py" if installed else ("nflverse_direct" if direct_available else "none")
         ),
         "nfl_data_py_installed": installed,
         "nflverse_direct_available": direct_available,

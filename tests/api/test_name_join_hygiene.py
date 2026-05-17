@@ -25,6 +25,7 @@ Test coverage:
 * Downstream effect: a pair of rows that used to produce a single-source
   artefact now carries both sources on the canonical site map.
 """
+
 from __future__ import annotations
 
 import csv
@@ -55,8 +56,7 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None) -> dict:
         "legacyRef": name,
         "position": pos,
         "assetClass": "offense" if pos in {"QB", "RB", "WR", "TE"} else "idp",
-        "values": {"overall": 0, "rawComposite": 0,
-                   "finalAdjusted": 0, "displayValue": None},
+        "values": {"overall": 0, "rawComposite": 0, "finalAdjusted": 0, "displayValue": None},
         "canonicalSiteValues": sites,
         "sourceCount": 1,
     }
@@ -224,9 +224,7 @@ class TestEnrichFromSourceCsvsJoinHygiene(unittest.TestCase):
             },
         )
         self.assertIn("dlfIdp", players[0]["canonicalSiteValues"])
-        self.assertGreater(
-            players[0]["canonicalSiteValues"]["dlfIdp"], 0
-        )
+        self.assertGreater(players[0]["canonicalSiteValues"]["dlfIdp"], 0)
 
     def test_reverse_suffix_drift_joins_correctly(self):
         # And in reverse: scraper has the suffix, CSV does not.
@@ -238,9 +236,7 @@ class TestEnrichFromSourceCsvsJoinHygiene(unittest.TestCase):
             },
         )
         self.assertIn("idpTradeCalc", players[0]["canonicalSiteValues"])
-        self.assertEqual(
-            players[0]["canonicalSiteValues"]["idpTradeCalc"], 7200
-        )
+        self.assertEqual(players[0]["canonicalSiteValues"]["idpTradeCalc"], 7200)
 
     def test_diacritics_drift_joins_correctly(self):
         players = [_row("Juanyéh Thomas", "DB")]
@@ -262,9 +258,7 @@ class TestEnrichFromSourceCsvsJoinHygiene(unittest.TestCase):
             players,
             {"idpTradeCalc": [("TJ Watt", 5000)]},
         )
-        self.assertEqual(
-            players[0]["canonicalSiteValues"]["idpTradeCalc"], 4000
-        )
+        self.assertEqual(players[0]["canonicalSiteValues"]["idpTradeCalc"], 4000)
 
     def test_row_becomes_multi_source_after_hygiene_fix(self):
         # End-to-end: a T.J. Watt row that starts with zero canonical
@@ -289,9 +283,7 @@ class TestEnrichFromSourceCsvsJoinHygiene(unittest.TestCase):
             },
         )
         _compute_unified_rankings(players, {})
-        watt = next(
-            r for r in players if r["canonicalName"] == "T.J. Watt"
-        )
+        watt = next(r for r in players if r["canonicalName"] == "T.J. Watt")
         # Both sources show up on canonicalSiteValues
         self.assertIn("idpTradeCalc", watt["canonicalSiteValues"])
         self.assertIn("dlfIdp", watt["canonicalSiteValues"])

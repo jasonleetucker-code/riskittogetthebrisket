@@ -1,6 +1,7 @@
 """PublicLeagueSnapshot.player_position must collapse Sleeper
 multi-position players using DL > DB > LB, matching every other
 IDP-position reader in the repo."""
+
 from __future__ import annotations
 
 from src.public_league.snapshot import PublicLeagueSnapshot

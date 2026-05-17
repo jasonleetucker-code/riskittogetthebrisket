@@ -8,14 +8,17 @@ Usage:
     python scripts/check_ktc_health.py          # quick connectivity test
     python scripts/check_ktc_health.py --full    # full extraction test (slower)
 """
+
 import asyncio
 import json
 import os
 import re
 import sys
 
+
 def _detect_proxy():
     from urllib.parse import urlparse
+
     raw = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY") or ""
     if not raw:
         return None
@@ -116,8 +119,9 @@ async def check_ktc(full=False):
 
         # Strategy 1: Check for inline playersArray (current KTC format as of 2026-03)
         pa_match = re.search(
-            r'var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)',
-            content, re.DOTALL,
+            r"var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)",
+            content,
+            re.DOTALL,
         )
         if pa_match:
             try:
@@ -143,20 +147,22 @@ async def check_ktc(full=False):
         # Strategy 2: Check __NEXT_DATA__ (legacy KTC format)
         next_match = re.search(
             r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
-            content, re.DOTALL,
+            content,
+            re.DOTALL,
         )
         if next_match:
             nd = next_match.group(1)
             pn_count = nd.count("playerName")
             sf_count = nd.count("superflexValues")
-            print(f"__NEXT_DATA__: {len(nd)} bytes, playerName×{pn_count}, superflexValues×{sf_count}")
+            print(
+                f"__NEXT_DATA__: {len(nd)} bytes, playerName×{pn_count}, superflexValues×{sf_count}"
+            )
 
             try:
                 data = json.loads(nd)
-                players = (
-                    data.get("props", {}).get("pageProps", {}).get("players", [])
-                    or data.get("props", {}).get("pageProps", {}).get("rankings", [])
-                )
+                players = data.get("props", {}).get("pageProps", {}).get("players", []) or data.get(
+                    "props", {}
+                ).get("pageProps", {}).get("rankings", [])
                 if players:
                     sample = players[0]
                     print(f"  Players array: {len(players)} items")
@@ -177,9 +183,7 @@ async def check_ktc(full=False):
             print("__NEXT_DATA__ not found in page source")
 
         # Strategy 3: Check DOM elements
-        dom_count = await page.evaluate(
-            "document.querySelectorAll('[class*=\"player\"]').length"
-        )
+        dom_count = await page.evaluate("document.querySelectorAll('[class*=\"player\"]').length")
         print(f"DOM player elements: {dom_count}")
 
         if dom_count > 100:

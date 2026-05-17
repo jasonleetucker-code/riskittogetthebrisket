@@ -1,4 +1,5 @@
 """Unit tests for src.trade.angle.find_angles / find_angle_packages."""
+
 from __future__ import annotations
 
 import pytest
@@ -67,8 +68,8 @@ def test_excludes_same_team_players():
 def test_sorts_by_arb_score_desc():
     players = [
         _player("Jayden Daniels", 5000, 5000),
-        _player("Trade Target Good", 6000, 5100),   # +20% / +2% => arb 18
-        _player("Trade Target Gold", 7500, 4800),   # +50% / -4% => arb 54
+        _player("Trade Target Good", 6000, 5100),  # +20% / +2% => arb 18
+        _player("Trade Target Gold", 7500, 4800),  # +50% / -4% => arb 54
     ]
     result = find_angles(players, "Jayden Daniels", "owner-a", _teams())
     names = [c["name"] for c in result["candidates"]]
@@ -82,7 +83,11 @@ def test_respects_min_my_gain_threshold():
         _player("Trade Target Good", 5100, 4900),  # only +2% my gain
     ]
     result = find_angles(
-        players, "Jayden Daniels", "owner-a", _teams(), min_my_gain_pct=10.0,
+        players,
+        "Jayden Daniels",
+        "owner-a",
+        _teams(),
+        min_my_gain_pct=10.0,
     )
     assert result["candidates"] == []
 
@@ -152,8 +157,8 @@ def test_limit_caps_results():
 def test_target_team_filter_restricts_candidates_to_one_team():
     players = [
         _player("Jayden Daniels", 5000, 5000),
-        _player("Trade Target Good", 6000, 5000),    # Team B
-        _player("Trade Target Gold", 7500, 4800),    # Team C — even better arb
+        _player("Trade Target Good", 6000, 5000),  # Team B
+        _player("Trade Target Gold", 7500, 4800),  # Team C — even better arb
     ]
     result = find_angles(
         players,
@@ -194,8 +199,8 @@ def test_target_team_filter_does_not_return_free_agents():
     # A player who exists in players_array but isn't on any sleeper team.
     players = [
         _player("Jayden Daniels", 5000, 5000),
-        _player("Trade Target Good", 6000, 5000),       # Team B
-        _player("Free Agent Stud", 7500, 5000),         # not rostered anywhere
+        _player("Trade Target Good", 6000, 5000),  # Team B
+        _player("Free Agent Stud", 7500, 5000),  # not rostered anywhere
     ]
     result = find_angles(
         players,
@@ -258,7 +263,10 @@ def _pkg_players():
 def test_packages_returns_counter_offers_sized_within_plus_minus_one():
     offer = ["Jayden Daniels", "CeeDee Lamb"]  # N = 2
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     # Target sizes must be {1, 2, 3} — no 4 or higher.
     target_sizes = set(result["thresholds"]["target_sizes"])
@@ -270,7 +278,10 @@ def test_packages_returns_counter_offers_sized_within_plus_minus_one():
 def test_packages_offer_of_one_allows_sizes_one_and_two():
     offer = ["Jayden Daniels"]  # N = 1 — size 0 collapses to 1
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     assert set(result["thresholds"]["target_sizes"]) == {1, 2}
 
@@ -278,7 +289,10 @@ def test_packages_offer_of_one_allows_sizes_one_and_two():
 def test_packages_excludes_same_team_players_from_candidates():
     offer = ["Jayden Daniels"]
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     owners = {c["owner_id"] for c in result["candidates"]}
     assert "owner-a" not in owners  # never trade with yourself
@@ -290,7 +304,10 @@ def test_packages_filters_on_market_gap_threshold():
     # the market gap constraint vs the offer's market total (which
     # for this all-offense offer happens to equal the KTC total).
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     offer_market = 10000
     for c in result["candidates"]:
@@ -300,7 +317,10 @@ def test_packages_filters_on_market_gap_threshold():
 def test_packages_sorts_by_arb_score_desc():
     offer = ["Jayden Daniels", "CeeDee Lamb"]
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     scores = [c["arb_score"] for c in result["candidates"]]
     assert scores == sorted(scores, reverse=True)
@@ -309,7 +329,10 @@ def test_packages_sorts_by_arb_score_desc():
 def test_packages_offer_totals_are_correct():
     offer = ["Jayden Daniels", "CeeDee Lamb"]
     result = find_angle_packages(
-        _pkg_players(), offer, "owner-a", _pkg_teams(),
+        _pkg_players(),
+        offer,
+        "owner-a",
+        _pkg_teams(),
     )
     assert result["offer"]["my_total"] == 10000
     assert result["offer"]["market_total"] == 10000
@@ -386,7 +409,12 @@ def test_packages_per_team_limit_disabled_by_zero_or_negative():
         players.append(_player(f"B {i}", my_val=6000 + i * 10, ktc_val=5000))
     # per_team_limit=0 disables the cap — lots of Team B candidates.
     result = find_angle_packages(
-        players, offer, "owner-a", teams, per_team_limit=0, limit=100,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        per_team_limit=0,
+        limit=100,
     )
     team_b_count = sum(1 for c in result["candidates"] if c["owner_id"] == "owner-b")
     assert team_b_count > 4
@@ -412,13 +440,21 @@ def test_packages_position_filter_restricts_candidates():
     ]
     # Only want WRs back.
     result = find_angle_packages(
-        players, offer, "owner-a", teams, positions=["WR"],
+        players,
+        offer,
+        "owner-a",
+        teams,
+        positions=["WR"],
     )
     pos_seen = {p["position"] for c in result["candidates"] for p in c["players"]}
     assert pos_seen == {"WR"}
     # Empty position filter = any position accepted.
     result2 = find_angle_packages(
-        players, offer, "owner-a", teams, positions=[],
+        players,
+        offer,
+        "owner-a",
+        teams,
+        positions=[],
     )
     pos_seen2 = {p["position"] for c in result2["candidates"] for p in c["players"]}
     assert pos_seen2 == {"WR", "RB", "TE"}
@@ -435,7 +471,11 @@ def test_packages_position_filter_case_insensitive():
         _player("B WR", 6000, 5000, position="WR"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams, positions=["wr"],
+        players,
+        offer,
+        "owner-a",
+        teams,
+        positions=["wr"],
     )
     assert any(p["name"] == "B WR" for c in result["candidates"] for p in c["players"])
 
@@ -457,13 +497,21 @@ def test_packages_min_player_my_value_filters_filler():
     ]
     # Default 3000 floor — B Filler's my_value=500 is excluded.
     result = find_angle_packages(
-        players, offer, "owner-a", teams, min_player_my_value=3000,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        min_player_my_value=3000,
     )
     names = {p["name"] for c in result["candidates"] for p in c["players"]}
     assert "B Filler" not in names
     # Zero floor — Filler can come along.
     result2 = find_angle_packages(
-        players, offer, "owner-a", teams, min_player_my_value=0,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        min_player_my_value=0,
     )
     names2 = {p["name"] for c in result2["candidates"] for p in c["players"]}
     assert "B Star" in names2  # at minimum
@@ -480,8 +528,12 @@ def test_packages_filters_surfaced_in_thresholds():
         _player("B WR", 6000, 5000, position="WR"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
-        positions=["WR", "TE"], min_player_my_value=2500,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        positions=["WR", "TE"],
+        min_player_my_value=2500,
     )
     th = result["thresholds"]
     assert th["positions"] == ["TE", "WR"]  # sorted
@@ -504,7 +556,10 @@ def test_packages_target_teams_restrict_candidates():
         _player("C Star", 6000, 5000),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         target_team_owner_ids=["owner-b"],
     )
     # Every candidate has owner_id == "owner-b" (our single target).
@@ -518,23 +573,28 @@ def test_packages_seed_player_must_appear_in_every_candidate():
     offer = ["Jayden Daniels", "CeeDee Lamb"]  # N = 2
     teams = [
         {
-            "name": "Team A", "ownerId": "owner-a",
+            "name": "Team A",
+            "ownerId": "owner-a",
             "players": ["Jayden Daniels", "CeeDee Lamb"],
         },
         {
-            "name": "Team B", "ownerId": "owner-b",
+            "name": "Team B",
+            "ownerId": "owner-b",
             "players": ["B Star", "B Mid", "B Bench"],
         },
     ]
     players = [
         _player("Jayden Daniels", 5000, 5000),
         _player("CeeDee Lamb", 5000, 5000),
-        _player("B Star", 6500, 5200),    # this is the seed
+        _player("B Star", 6500, 5200),  # this is the seed
         _player("B Mid", 5500, 4800),
         _player("B Bench", 4500, 4500),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         target_team_owner_ids=["owner-b"],
         seed_player_names=["B Star"],
     )
@@ -551,7 +611,8 @@ def test_packages_two_target_teams_draw_from_union():
     offer = ["Jayden Daniels", "CeeDee Lamb"]
     teams = [
         {
-            "name": "Team A", "ownerId": "owner-a",
+            "name": "Team A",
+            "ownerId": "owner-a",
             "players": ["Jayden Daniels", "CeeDee Lamb"],
         },
         {"name": "Team B", "ownerId": "owner-b", "players": ["B Star"]},
@@ -564,7 +625,10 @@ def test_packages_two_target_teams_draw_from_union():
         _player("C Star", 6000, 5000),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         target_team_owner_ids=["owner-b", "owner-c"],
         seed_player_names=["B Star", "C Star"],
     )
@@ -590,7 +654,10 @@ def test_packages_warning_for_seed_not_on_target_team():
         _player("C Star", 6000, 5000),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         target_team_owner_ids=["owner-b"],
         seed_player_names=["C Star"],  # not on Team B — should be ignored w/ warning
     )
@@ -644,12 +711,20 @@ def test_idp_players_compared_on_idptc_not_ktc():
     players = [
         _player_with_markets("My DL", my_val=5000, ktc=5000, idptc=5000, position="DL"),
         _player_with_markets(
-            "Better DL", my_val=6000, ktc=7000, idptc=5100, position="DL",
+            "Better DL",
+            my_val=6000,
+            ktc=7000,
+            idptc=5100,
+            position="DL",
         ),
     ]
     result = find_angles(
-        players, "My DL", "owner-a", teams,
-        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+        players,
+        "My DL",
+        "owner-a",
+        teams,
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=5.0,
     )
     names = [c["name"] for c in result["candidates"]]
     assert "Better DL" in names, (
@@ -671,19 +746,31 @@ def test_offense_players_still_compared_on_ktc():
     players = [
         _player_with_markets("My QB", my_val=5000, ktc=5000, idptc=5000, position="QB"),
         _player_with_markets(
-            "Other QB", my_val=6000, ktc=6500, idptc=5050, position="QB",
+            "Other QB",
+            my_val=6000,
+            ktc=6500,
+            idptc=5050,
+            position="QB",
         ),
     ]
     result = find_angles(
-        players, "My QB", "owner-a", teams,
-        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+        players,
+        "My QB",
+        "owner-a",
+        teams,
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=5.0,
     )
     names = [c["name"] for c in result["candidates"]]
     assert "Other QB" not in names
     # Raising the ceiling admits it.
     result2 = find_angles(
-        players, "My QB", "owner-a", teams,
-        min_my_gain_pct=5.0, max_market_gain_pct=40.0,
+        players,
+        "My QB",
+        "owner-a",
+        teams,
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=40.0,
     )
     cand = next(c for c in result2["candidates"] if c["name"] == "Other QB")
     assert cand["market_source"] == "ktc"
@@ -728,7 +815,10 @@ def _acq_players():
 
 def test_acquire_returns_offer_packages_from_user_roster():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
     )
     assert result["acquire"]["size"] == 1
     # Every candidate player must come from the user's roster.
@@ -740,7 +830,10 @@ def test_acquire_returns_offer_packages_from_user_roster():
 
 def test_acquire_candidate_sizes_within_plus_minus_one():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star", "B Filler"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star", "B Filler"],
+        "owner-a",
+        _acq_teams(),
     )
     # Desired N=2 → sizes {1,2,3}
     assert set(result["thresholds"]["target_sizes"]) == {1, 2, 3}
@@ -754,7 +847,10 @@ def test_acquire_my_gain_threshold_enforced():
     # single-player combo qualifies and only multi-player combos that
     # under-shoot enough on my-value remain.
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
         min_my_gain_pct=25.0,
     )
     for c in result["candidates"]:
@@ -766,8 +862,12 @@ def test_acquire_market_gap_threshold_enforced():
     # max_market_gain_pct=2, the single-player My QB1 offer is the
     # tightest fit.
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
-        min_my_gain_pct=5.0, max_market_gain_pct=2.0,
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=2.0,
     )
     assert result["candidates"], "expected at least one qualifying offer"
     for c in result["candidates"]:
@@ -777,7 +877,10 @@ def test_acquire_market_gap_threshold_enforced():
 def test_acquire_rejects_own_roster_targets_with_warning():
     # "My QB1" is on owner-a's roster — can't "acquire" from yourself.
     result = find_acquisition_packages(
-        _acq_players(), ["My QB1"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["My QB1"],
+        "owner-a",
+        _acq_teams(),
     )
     assert result["acquire"]["size"] == 0
     assert result["candidates"] == []
@@ -786,7 +889,10 @@ def test_acquire_rejects_own_roster_targets_with_warning():
 
 def test_acquire_unknown_targets_dropped_with_warning():
     result = find_acquisition_packages(
-        _acq_players(), ["Ghost Player", "Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Ghost Player", "Target Star"],
+        "owner-a",
+        _acq_teams(),
     )
     assert result["acquire"]["size"] == 1
     assert any("Ghost Player" in w for w in result["warnings"])
@@ -794,7 +900,10 @@ def test_acquire_unknown_targets_dropped_with_warning():
 
 def test_acquire_sorts_by_arb_score_desc():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
     )
     scores = [c["arb_score"] for c in result["candidates"]]
     assert scores == sorted(scores, reverse=True)
@@ -802,7 +911,10 @@ def test_acquire_sorts_by_arb_score_desc():
 
 def test_acquire_target_team_list_in_response():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star", "Target Gold"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star", "Target Gold"],
+        "owner-a",
+        _acq_teams(),
     )
     owner_ids = {t["owner_id"] for t in result["acquire"]["targets"]}
     assert owner_ids == {"owner-b", "owner-c"}
@@ -810,7 +922,10 @@ def test_acquire_target_team_list_in_response():
 
 def test_acquire_unknown_owner_returns_warning():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-missing", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-missing",
+        _acq_teams(),
     )
     assert result["candidates"] == []
     assert any("not found" in w for w in result["warnings"])
@@ -818,7 +933,10 @@ def test_acquire_unknown_owner_returns_warning():
 
 def test_acquire_respects_position_filter_on_own_roster():
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
         positions=["WR"],
     )
     for c in result["candidates"]:
@@ -829,7 +947,10 @@ def test_acquire_respects_position_filter_on_own_roster():
 def test_acquire_respects_min_player_value_on_own_roster():
     # With floor 3000, "My Bench" (my_val=200) is excluded.
     result = find_acquisition_packages(
-        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        _acq_players(),
+        ["Target Star"],
+        "owner-a",
+        _acq_teams(),
         min_player_my_value=3000,
     )
     names = {p["name"] for c in result["candidates"] for p in c["players"]}
@@ -851,8 +972,12 @@ def test_acquire_idp_target_compares_on_idptc():
     # otherwise be filtered out of the candidate pool by the default
     # IDP gate.
     result = find_acquisition_packages(
-        players, ["Target DL"], "owner-a", teams,
-        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+        players,
+        ["Target DL"],
+        "owner-a",
+        teams,
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=5.0,
         include_idp=True,
     )
     assert result["candidates"], "IDP acquire should qualify on IDPTC"
@@ -865,7 +990,8 @@ def test_packages_player_rows_expose_per_position_market_source():
     teams = [
         {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
         {
-            "name": "Team B", "ownerId": "owner-b",
+            "name": "Team B",
+            "ownerId": "owner-b",
             "players": ["IDP Target", "Off Target"],
         },
     ]
@@ -875,8 +1001,12 @@ def test_packages_player_rows_expose_per_position_market_source():
         _player_with_markets("Off Target", 6000, 5100, 7000, position="WR"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
-        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        min_my_gain_pct=5.0,
+        max_market_gain_pct=5.0,
     )
     for c in result["candidates"]:
         for p in c["players"]:
@@ -958,8 +1088,12 @@ def test_packages_consolidation_trade_is_filtered_by_va():
         _player("Filler 4", 2400, 2400),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
-        min_my_gain_pct=0.0, max_market_gain_pct=5.0,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        min_my_gain_pct=0.0,
+        max_market_gain_pct=5.0,
     )
     # Under raw arithmetic the 4-filler counter is within both
     # thresholds. With VA applied to the smaller (stud) side, the
@@ -977,7 +1111,8 @@ def test_packages_candidate_exposes_va_adjustment_fields():
     offer = ["Offer Star", "Offer Depth"]
     teams = [
         {
-            "name": "Team A", "ownerId": "owner-a",
+            "name": "Team A",
+            "ownerId": "owner-a",
             "players": ["Offer Star", "Offer Depth"],
         },
         {"name": "Team B", "ownerId": "owner-b", "players": ["Target Star"]},
@@ -989,13 +1124,17 @@ def test_packages_candidate_exposes_va_adjustment_fields():
         _player("Target Star", 9000, 8200),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         # KTC's native algorithm produces a stronger consolidation
         # premium than the V2 regression fit (~50% market gap on this
         # 2-for-1) so the threshold has to be loose enough for the
         # candidate to survive.  100% gives ample headroom while still
         # being a meaningful filter for less-extreme topologies.
-        min_my_gain_pct=0.0, max_market_gain_pct=100.0,
+        min_my_gain_pct=0.0,
+        max_market_gain_pct=100.0,
     )
     size_one = next((c for c in result["candidates"] if c["size"] == 1), None)
     assert size_one is not None, "expected the single-player counter to qualify"
@@ -1012,7 +1151,8 @@ def test_packages_idp_excluded_from_pool_by_default():
     teams = [
         {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
         {
-            "name": "Team B", "ownerId": "owner-b",
+            "name": "Team B",
+            "ownerId": "owner-b",
             "players": ["Opp DL", "Opp WR"],
         },
     ]
@@ -1022,7 +1162,10 @@ def test_packages_idp_excluded_from_pool_by_default():
         _player("Opp WR", 6000, 5000, position="WR"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,  # include_idp default False
+        players,
+        offer,
+        "owner-a",
+        teams,  # include_idp default False
     )
     names = {p["name"] for c in result["candidates"] for p in c["players"]}
     assert "Opp DL" not in names
@@ -1050,7 +1193,11 @@ def test_packages_idp_included_when_flag_set():
         _idp_player("Opp DL", 6000, 5000, position="DL"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams, include_idp=True,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        include_idp=True,
     )
     names = {p["name"] for c in result["candidates"] for p in c["players"]}
     assert "Opp DL" in names
@@ -1063,7 +1210,8 @@ def test_packages_idp_filter_does_not_touch_seed_players():
     teams = [
         {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
         {
-            "name": "Team B", "ownerId": "owner-b",
+            "name": "Team B",
+            "ownerId": "owner-b",
             "players": ["Opp Seed DL", "Opp WR"],
         },
     ]
@@ -1073,7 +1221,10 @@ def test_packages_idp_filter_does_not_touch_seed_players():
         _player("Opp WR", 6000, 5000, position="WR"),
     ]
     result = find_angle_packages(
-        players, offer, "owner-a", teams,
+        players,
+        offer,
+        "owner-a",
+        teams,
         target_team_owner_ids=["owner-b"],
         seed_player_names=["Opp Seed DL"],
     )
@@ -1091,7 +1242,8 @@ def test_acquire_idp_excluded_from_offer_pool_by_default():
     zero offers."""
     teams = [
         {
-            "name": "Team A", "ownerId": "owner-a",
+            "name": "Team A",
+            "ownerId": "owner-a",
             "players": ["My LB 1", "My LB 2"],
         },
         {"name": "Team B", "ownerId": "owner-b", "players": ["Target WR"]},
@@ -1102,12 +1254,18 @@ def test_acquire_idp_excluded_from_offer_pool_by_default():
         _player("Target WR", 6000, 5000, position="WR"),
     ]
     result = find_acquisition_packages(
-        players, ["Target WR"], "owner-a", teams,  # include_idp default False
+        players,
+        ["Target WR"],
+        "owner-a",
+        teams,  # include_idp default False
     )
     assert result["candidates"] == []
     # Flip include_idp on and the offer packages appear.
     result2 = find_acquisition_packages(
-        players, ["Target WR"], "owner-a", teams,
+        players,
+        ["Target WR"],
+        "owner-a",
+        teams,
         include_idp=True,
     )
     assert result2["candidates"], "LB offers should qualify once IDP is allowed"
@@ -1118,7 +1276,8 @@ def test_acquire_idp_filter_does_not_drop_desired_player():
     survive the IDP gate even when include_idp is False."""
     teams = [
         {
-            "name": "Team A", "ownerId": "owner-a",
+            "name": "Team A",
+            "ownerId": "owner-a",
             "players": ["My WR 1", "My WR 2"],
         },
         {"name": "Team B", "ownerId": "owner-b", "players": ["Target DL"]},
@@ -1129,8 +1288,12 @@ def test_acquire_idp_filter_does_not_drop_desired_player():
         _idp_player("Target DL", 6000, 5500, position="DL"),
     ]
     result = find_acquisition_packages(
-        players, ["Target DL"], "owner-a", teams,  # default include_idp=False
-        min_my_gain_pct=0.0, max_market_gain_pct=50.0,
+        players,
+        ["Target DL"],
+        "owner-a",
+        teams,  # default include_idp=False
+        min_my_gain_pct=0.0,
+        max_market_gain_pct=50.0,
     )
     # Desired player survives the gate.
     assert result["acquire"]["size"] == 1
@@ -1152,6 +1315,10 @@ def test_packages_include_idp_flag_surfaced_in_thresholds():
     result_off = find_angle_packages(players, offer, "owner-a", teams)
     assert result_off["thresholds"]["include_idp"] is False
     result_on = find_angle_packages(
-        players, offer, "owner-a", teams, include_idp=True,
+        players,
+        offer,
+        "owner-a",
+        teams,
+        include_idp=True,
     )
     assert result_on["thresholds"]["include_idp"] is True

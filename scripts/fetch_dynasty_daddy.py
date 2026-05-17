@@ -41,6 +41,7 @@ Exit codes:
          * response is not a JSON array, or
          * row count below :data:`_DD_ROW_COUNT_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -101,9 +102,7 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     whose sf_trade_value is a positive number.
     """
     if not isinstance(data, list):
-        raise DynastyDaddySchemaError(
-            f"Expected JSON array, got {type(data).__name__}"
-        )
+        raise DynastyDaddySchemaError(f"Expected JSON array, got {type(data).__name__}")
     out: list[dict[str, Any]] = []
     for entry in data:
         name = str(entry.get("full_name") or "").strip()
@@ -211,8 +210,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(rows) < _DD_ROW_COUNT_FLOOR:
         print(
-            f"[fetch_dynasty_daddy] row count below floor: "
-            f"{len(rows)} < {_DD_ROW_COUNT_FLOOR}",
+            f"[fetch_dynasty_daddy] row count below floor: " f"{len(rows)} < {_DD_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2
@@ -222,9 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     for r in rows:
         # Value-only CSV doesn't carry position — count from parse step.
         pass
-    print(
-        f"[fetch_dynasty_daddy] total={len(rows)} rows with positive sf_trade_value"
-    )
+    print(f"[fetch_dynasty_daddy] total={len(rows)} rows with positive sf_trade_value")
 
     if args.dry_run:
         print("[fetch_dynasty_daddy] --dry-run; not writing CSV")

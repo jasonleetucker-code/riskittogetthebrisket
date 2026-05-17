@@ -20,18 +20,18 @@ from typing import Any
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
 # ── Thresholds ──────────────────────────────────────────────────────────
-MIN_ASSET_VALUE = 800          # Minimum model value to consider an asset tradeable
-MIN_KTC_VALUE = 500            # Minimum KTC value to include in trade
-MAX_BOARD_LOSS = -200          # Never suggest a trade where my board delta is worse than this
-MAX_PACKAGE_SIZE = 3           # Max assets on either side
-MAX_RESULTS = 40               # Cap returned results
-JUNK_THRESHOLD = 400           # Assets below this are roster clog
+MIN_ASSET_VALUE = 800  # Minimum model value to consider an asset tradeable
+MIN_KTC_VALUE = 500  # Minimum KTC value to include in trade
+MAX_BOARD_LOSS = -200  # Never suggest a trade where my board delta is worse than this
+MAX_PACKAGE_SIZE = 3  # Max assets on either side
+MAX_RESULTS = 40  # Cap returned results
+JUNK_THRESHOLD = 400  # Assets below this are roster clog
 SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
-MULTI_FOR_ONE_MIN_RATIO = 0.55 # 2-for-1 give side must be >= 55% of receive model value
+MULTI_FOR_ONE_MIN_RATIO = 0.55  # 2-for-1 give side must be >= 55% of receive model value
 
 # ── KTC quality gates ──────────────────────────────────────────────────
-EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}   # No real KTC support
-PARTIAL_KTC_MAX_RANK = 15      # Partial-KTC trades cannot appear above this rank
+EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}  # No real KTC support
+PARTIAL_KTC_MAX_RANK = 15  # Partial-KTC trades cannot appear above this rank
 PARTIAL_KTC_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-KTC arbitrage score
 
 # ── KTC quality gate ──────────────────────────────────────────────────
@@ -40,12 +40,12 @@ PARTIAL_KTC_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-KTC arbitrage score
 KTC_TOP_N_FILTER = 150
 
 # ── Hardening-pass thresholds ────────────────────────────────────────────
-ELITE_THRESHOLD = 7500         # Model value above which a player is "elite"
-ELITE_MULTI_MIN_RATIO = 0.65   # Tighter ratio for elite targets in multi-for-one
+ELITE_THRESHOLD = 7500  # Model value above which a player is "elite"
+ELITE_MULTI_MIN_RATIO = 0.65  # Tighter ratio for elite targets in multi-for-one
 PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
-CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
-ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
-ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
+CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
+ROSTER_SURPLUS_THRESHOLD = 4  # ≥4 at a position = surplus (light fit bonus)
+ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
 
 IDP_POSITIONS = {"DL", "LB", "DB"}
 
@@ -53,13 +53,14 @@ IDP_POSITIONS = {"DL", "LB", "DB"}
 @dataclass
 class Asset:
     """A tradeable asset with both model and KTC values."""
+
     name: str
     position: str
     team: str
-    model_value: int        # Our board's value (with single-source discount)
-    ktc_value: int | None   # KTC value (None = no KTC coverage)
+    model_value: int  # Our board's value (with single-source discount)
+    ktc_value: int | None  # KTC value (None = no KTC coverage)
     is_pick: bool = False
-    source_count: int = 0   # Number of valuation sources
+    source_count: int = 0  # Number of valuation sources
     ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
     offense_only_model_value: int | None = None  # model_value excluding IDP sources
 
@@ -77,30 +78,29 @@ class Asset:
 @dataclass
 class TradeCandidate:
     """A scored trade proposal."""
+
     give: list[Asset]
     receive: list[Asset]
     give_model_total: int = 0
     receive_model_total: int = 0
     give_ktc_total: int = 0
     receive_ktc_total: int = 0
-    board_delta: int = 0          # positive = good for me on our board
-    ktc_delta: int = 0            # positive = opponent gives more KTC than they get
-    opponent_ktc_appeal: float = 0.0   # how favorable for opponent on KTC (positive = they like it)
+    board_delta: int = 0  # positive = good for me on our board
+    ktc_delta: int = 0  # positive = opponent gives more KTC than they get
+    opponent_ktc_appeal: float = 0.0  # how favorable for opponent on KTC (positive = they like it)
     arbitrage_score: float = 0.0  # composite ranking score
-    ktc_coverage: str = "full"    # full / partial / none
-    confidence_score: float = 1.0 # 0-1, source coverage × KTC coverage
+    ktc_coverage: str = "full"  # full / partial / none
+    confidence_score: float = 1.0  # 0-1, source coverage × KTC coverage
 
     # ── Explainability fields ────────────────────────────────────────────
-    confidence_tier: str = "high"    # "high" / "moderate" / "low"
-    edge_label: str = ""             # "Strong Edge" / "Moderate Edge" / "Slight Edge"
-    summary: str = ""                # Human-readable one-liner
-    ranking_factors: dict = field(default_factory=dict)   # Score component breakdown
-    flags: list[str] = field(default_factory=list)        # Active guards/bonuses
+    confidence_tier: str = "high"  # "high" / "moderate" / "low"
+    edge_label: str = ""  # "Strong Edge" / "Moderate Edge" / "Slight Edge"
+    summary: str = ""  # Human-readable one-liner
+    ranking_factors: dict = field(default_factory=dict)  # Score component breakdown
+    flags: list[str] = field(default_factory=list)  # Active guards/bonuses
 
     def to_dict(self) -> dict[str, Any]:
-        trade_has_idp = any(
-            a.position in IDP_POSITIONS for a in [*self.give, *self.receive]
-        )
+        trade_has_idp = any(a.position in IDP_POSITIONS for a in [*self.give, *self.receive])
 
         def _asset_dict(a: Asset) -> dict[str, Any]:
             d: dict[str, Any] = {
@@ -139,6 +139,7 @@ class TradeCandidate:
 
 
 # ── Explainability helpers ────────────────────────────────────────────────
+
 
 def _confidence_tier(score: float) -> str:
     if score >= 0.75:
@@ -255,16 +256,18 @@ def build_asset_pool(
         if pos in EXCLUDED_POSITIONS:
             continue
 
-        pool.append(Asset(
-            name=name,
-            position=pos,
-            team=team if isinstance(team, str) else "",
-            model_value=model,
-            ktc_value=ktc,
-            is_pick=is_pick,
-            source_count=source_count,
-            offense_only_model_value=oo_raw if oo_raw is not None and oo_raw >= 1 else None,
-        ))
+        pool.append(
+            Asset(
+                name=name,
+                position=pos,
+                team=team if isinstance(team, str) else "",
+                model_value=model,
+                ktc_value=ktc,
+                is_pick=is_pick,
+                source_count=source_count,
+                offense_only_model_value=oo_raw if oo_raw is not None and oo_raw >= 1 else None,
+            )
+        )
 
     # ── Assign KTC rank and apply top-N filter ────────────────────
     # Rank by KTC value descending.  Players without KTC get no rank.
@@ -274,7 +277,9 @@ def build_asset_pool(
         a.ktc_rank = i + 1
 
     if ktc_top_n > 0:
-        eligible_names = {a.name for a in with_ktc if a.ktc_rank is not None and a.ktc_rank <= ktc_top_n}
+        eligible_names = {
+            a.name for a in with_ktc if a.ktc_rank is not None and a.ktc_rank <= ktc_top_n
+        }
         pool = [a for a in pool if a.name in eligible_names]
 
     return pool
@@ -352,9 +357,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # Use offense-only model values when neither side has IDP players.
     # This excludes IDP source calibration from trade scoring so that
     # an all-offense trade isn't influenced by IDP-relative rankings.
-    trade_has_idp = any(
-        a.position in IDP_POSITIONS for a in [*give, *receive]
-    )
+    trade_has_idp = any(a.position in IDP_POSITIONS for a in [*give, *receive])
 
     def _mv(a: Asset) -> int:
         if not trade_has_idp and a.offense_only_model_value is not None:
@@ -477,8 +480,13 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     edge_lbl = _edge_label(board_gain_norm)
     pkg_size_str = f"{len(give)}-for-{len(receive)}"
     summary = _build_summary(
-        board_delta, board_gain_norm, opp_appeal,
-        coverage, conf_tier, edge_lbl, pkg_size_str,
+        board_delta,
+        board_gain_norm,
+        opp_appeal,
+        coverage,
+        conf_tier,
+        edge_lbl,
+        pkg_size_str,
     )
     ranking_factors = {
         "boardEdge": round(f_board_edge, 2),
@@ -623,8 +631,11 @@ def find_trades(
 
     my_roster = _resolve_roster(my_team, sleeper_teams, pool_by_name)
     if not my_roster:
-        return {"error": f"Could not resolve team '{my_team}' or roster is empty.",
-                "trades": [], "metadata": {}}
+        return {
+            "error": f"Could not resolve team '{my_team}' or roster is empty.",
+            "trades": [],
+            "metadata": {},
+        }
 
     my_names = {a.name for a in my_roster}
     all_trades: list[TradeCandidate] = []

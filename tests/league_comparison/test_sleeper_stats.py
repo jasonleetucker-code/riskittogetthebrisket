@@ -4,6 +4,7 @@ The HTTP boundary is mocked at every test entrypoint via the
 ``fetcher`` parameter on the public functions, so these tests run
 fully offline.
 """
+
 from __future__ import annotations
 
 import urllib.error
@@ -15,14 +16,22 @@ from src.league_comparison import sleeper_stats as _ss
 
 # ── Field translation ────────────────────────────────────────────────
 
+
 def test_translate_stats_maps_offense_keys():
     """Sleeper short keys → nflverse long keys for offense scoring."""
-    out = _ss._translate_stats({
-        "pass_yd": 280, "pass_td": 2, "pass_int": 1,
-        "rush_yd": 35, "rush_td": 1,
-        "rec": 5, "rec_yd": 60, "rec_td": 1,
-        "fum_lost": 0,
-    })
+    out = _ss._translate_stats(
+        {
+            "pass_yd": 280,
+            "pass_td": 2,
+            "pass_int": 1,
+            "rush_yd": 35,
+            "rush_td": 1,
+            "rec": 5,
+            "rec_yd": 60,
+            "rec_td": 1,
+            "fum_lost": 0,
+        }
+    )
     assert out["passing_yards"] == 280
     assert out["passing_tds"] == 2
     assert out["interceptions"] == 1
@@ -36,10 +45,16 @@ def test_translate_stats_maps_offense_keys():
 
 def test_translate_stats_maps_idp_keys():
     """Sleeper idp_* → nflverse def_* for the realized-points engine."""
-    out = _ss._translate_stats({
-        "idp_tkl": 6, "idp_tkl_solo": 4, "idp_tkl_ast": 2,
-        "idp_sack": 1, "idp_qb_hit": 1, "idp_int": 1,
-    })
+    out = _ss._translate_stats(
+        {
+            "idp_tkl": 6,
+            "idp_tkl_solo": 4,
+            "idp_tkl_ast": 2,
+            "idp_sack": 1,
+            "idp_qb_hit": 1,
+            "idp_int": 1,
+        }
+    )
     assert out["def_tackles"] == 6
     assert out["def_tackles_solo"] == 4
     assert out["def_tackle_assists"] == 2
@@ -59,11 +74,13 @@ def test_translate_stats_passes_through_unmapped_keys():
 def test_translate_stats_skips_non_numeric():
     """Sleeper occasionally returns null / strings — those should be
     dropped, not raise."""
-    out = _ss._translate_stats({
-        "pass_yd": 250,
-        "weather_note": "rain",
-        "rush_yd": None,
-    })
+    out = _ss._translate_stats(
+        {
+            "pass_yd": 250,
+            "weather_note": "rain",
+            "rush_yd": None,
+        }
+    )
     assert "passing_yards" in out
     assert "weather_note" not in out
     assert "rushing_yards" not in out
@@ -71,12 +88,14 @@ def test_translate_stats_skips_non_numeric():
 
 # ── fetch_sleeper_weekly_stats end-to-end (mocked HTTP) ───────────────
 
+
 def _make_fake_fetcher(player_index, weeks):
     """Build a fake fetcher that returns a player index for the
     /players/nfl URL and per-week stat dicts for /stats/* URLs.
 
     ``weeks`` is ``{week: stats_dict}``; missing weeks raise 404.
     """
+
     def fetcher(url):
         if "/players/nfl" in url:
             return player_index
@@ -89,6 +108,7 @@ def _make_fake_fetcher(player_index, weeks):
         if week not in weeks:
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
         return weeks[week]
+
     return fetcher
 
 
@@ -131,12 +151,12 @@ def test_fetch_sleeper_weekly_stats_returns_nflverse_shaped_rows():
     sample = qb_rows[0]
     assert sample["season"] == 2025
     assert sample["week"] in (1, 2)
-    assert sample["player_id"] == "00-G100"   # gsis_id is canonical
+    assert sample["player_id"] == "00-G100"  # gsis_id is canonical
     assert sample["player_id_gsis"] == "00-G100"
     assert sample["player_id_sleeper"] == "100"
     assert sample["player_name"] == "Test QB"
-    assert "passing_yards" in sample        # translated
-    assert "pass_yd" in sample              # original retained
+    assert "passing_yards" in sample  # translated
+    assert "pass_yd" in sample  # original retained
 
 
 def test_fetch_sleeper_weekly_stats_skips_players_without_position():

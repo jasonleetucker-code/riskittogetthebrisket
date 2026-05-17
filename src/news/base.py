@@ -19,6 +19,7 @@ The contract is deliberately a superset of two things:
 Aliases are duplicated on every item rather than computed
 client-side so consumers of either vocabulary work identically.
 """
+
 from __future__ import annotations
 
 import abc

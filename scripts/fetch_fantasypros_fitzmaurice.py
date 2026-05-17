@@ -49,6 +49,7 @@ Run
     python3 scripts/fetch_fantasypros_fitzmaurice.py --dry-run
     python3 scripts/fetch_fantasypros_fitzmaurice.py --url <article-url>
 """
+
 from __future__ import annotations
 
 import argparse
@@ -88,8 +89,10 @@ _POSITION_HEADINGS = (
     ("QB", ("Dynasty Trade Values: Quarterbacks", "Quarterbacks")),
     ("RB", ("Dynasty Trade Values: Running Backs", "Running Backs")),
     ("WR", ("Dynasty Trade Values: Wide Receivers", "Wide Receivers")),
-    ("TE", ("Dynasty Trade Value Chart: Tight Ends",
-            "Dynasty Trade Values: Tight Ends", "Tight Ends")),
+    (
+        "TE",
+        ("Dynasty Trade Value Chart: Tight Ends", "Dynasty Trade Values: Tight Ends", "Tight Ends"),
+    ),
 )
 
 
@@ -121,9 +124,7 @@ def _fetch_article_html(url: str) -> str | None:
     try:
         import requests
     except ImportError:
-        raise SystemExit(
-            "requests is not installed.  `pip install requests` first."
-        )
+        raise SystemExit("requests is not installed.  `pip install requests` first.")
     try:
         r = requests.get(
             url,
@@ -162,9 +163,7 @@ def _extract_chart_ids_by_position(html: str) -> dict[str, str]:
     try:
         from bs4 import BeautifulSoup
     except ImportError:
-        raise SystemExit(
-            "beautifulsoup4 not installed.  `pip install beautifulsoup4`."
-        )
+        raise SystemExit("beautifulsoup4 not installed.  `pip install beautifulsoup4`.")
     soup = BeautifulSoup(html, "html.parser")
     # Walk the document tree in source order, tracking the most
     # recent heading we saw for each position match.
@@ -201,27 +200,22 @@ def _fetch_chart_csv(chart_id: str) -> str | None:
     try:
         import requests
     except ImportError:
-        raise SystemExit(
-            "requests is not installed.  `pip install requests` first."
-        )
+        raise SystemExit("requests is not installed.  `pip install requests` first.")
     url = f"https://datawrapper.dwcdn.net/{chart_id}/1/dataset.csv"
     try:
         r = requests.get(
             url,
             headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) "
-                              "AppleWebKit/537.36 Chrome/131",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) " "AppleWebKit/537.36 Chrome/131",
                 "Referer": "https://www.fantasypros.com/",
             },
             timeout=20,
         )
     except Exception as exc:  # noqa: BLE001
-        print(f"[fitzmaurice] chart {chart_id} fetch failed: {exc}",
-              file=sys.stderr)
+        print(f"[fitzmaurice] chart {chart_id} fetch failed: {exc}", file=sys.stderr)
         return None
     if r.status_code != 200:
-        print(f"[fitzmaurice] chart {chart_id} status={r.status_code}",
-              file=sys.stderr)
+        print(f"[fitzmaurice] chart {chart_id} status={r.status_code}", file=sys.stderr)
         return None
     return r.text
 
@@ -262,12 +256,14 @@ def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
         # they don't pollute the tail of the combined pool.
         if val <= 1:
             continue
-        rows_out.append({
-            "name": name,
-            "team": team,
-            "position": position,
-            "value": val,
-        })
+        rows_out.append(
+            {
+                "name": name,
+                "team": team,
+                "position": position,
+                "value": val,
+            }
+        )
     return rows_out
 
 
@@ -327,17 +323,15 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Scrape but don't write the CSV.")
+    parser.add_argument("--dry-run", action="store_true", help="Scrape but don't write the CSV.")
     parser.add_argument(
-        "--url", metavar="ARTICLE_URL",
+        "--url",
+        metavar="ARTICLE_URL",
         help="Skip URL discovery and use this article URL directly.",
     )
     args = parser.parse_args()
 
-    candidate_urls: list[str] = (
-        [args.url] if args.url else _build_candidate_urls()
-    )
+    candidate_urls: list[str] = [args.url] if args.url else _build_candidate_urls()
     html: str | None = None
     used_url: str | None = None
     for candidate in candidate_urls:
@@ -388,8 +382,7 @@ def main() -> int:
         all_rows.extend(rows)
 
     if not all_rows:
-        print("[fitzmaurice] ERROR: no rows extracted from any position",
-              file=sys.stderr)
+        print("[fitzmaurice] ERROR: no rows extracted from any position", file=sys.stderr)
         return 1
 
     # Sanity floor — each position should have at least ~20 rows in
@@ -408,15 +401,9 @@ def main() -> int:
             )
 
     if args.dry_run:
-        print(
-            f"[fitzmaurice] dry-run: {len(all_rows)} total rows "
-            f"(top 5 by value):"
-        )
+        print(f"[fitzmaurice] dry-run: {len(all_rows)} total rows " f"(top 5 by value):")
         for r in sorted(all_rows, key=lambda r: -r["value"])[:5]:
-            print(
-                f"  {r['position']:<3} {r['name']:<25} "
-                f"{r['team']:<4} value={r['value']}"
-            )
+            print(f"  {r['position']:<3} {r['name']:<25} " f"{r['team']:<4} value={r['value']}")
         return 0
 
     # Contract-aligned floor BEFORE writing: a short scrape must not

@@ -30,6 +30,7 @@ Any of the skipped sources can be added as a 6-line subclass
 once the feed URL is confirmed — that's the whole point of the
 base class.
 """
+
 from __future__ import annotations
 
 from ._rss import RssNewsProvider

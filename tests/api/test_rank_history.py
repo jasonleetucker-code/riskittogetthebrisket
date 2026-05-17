@@ -7,6 +7,7 @@ Covers:
 * Corrupt-line tolerance on read
 * stamp_contract_with_history mutation
 """
+
 from __future__ import annotations
 
 import json
@@ -72,10 +73,13 @@ class ExtractRanks(unittest.TestCase):
             ]
         }
         ranks = rank_history._extract_ranks(c)
-        self.assertEqual(ranks, {
-            _key("James Williams", "offense"): 78,
-            _key("James Williams", "idp"): 215,
-        })
+        self.assertEqual(
+            ranks,
+            {
+                _key("James Williams", "offense"): 78,
+                _key("James Williams", "idp"): 215,
+            },
+        )
 
     def test_skips_unranked_rows(self) -> None:
         c = {
@@ -90,7 +94,11 @@ class ExtractRanks(unittest.TestCase):
         self.assertEqual(rank_history._extract_ranks(c), {_key("A"): 1})
 
     def test_falls_back_to_displayName(self) -> None:
-        c = {"playersArray": [{"displayName": "Nickname", "canonicalConsensusRank": 9, "assetClass": "offense"}]}
+        c = {
+            "playersArray": [
+                {"displayName": "Nickname", "canonicalConsensusRank": 9, "assetClass": "offense"}
+            ]
+        }
         self.assertEqual(rank_history._extract_ranks(c), {_key("Nickname"): 9})
 
     def test_missing_asset_class_gets_unknown(self) -> None:
@@ -116,21 +124,15 @@ class AppendSnapshot(unittest.TestCase):
             entries = [json.loads(line) for line in path.read_text().splitlines()]
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["date"], "2026-04-20")
-            self.assertEqual(
-                entries[0]["ranks"], {_key("A"): 1, _key("B"): 2}
-            )
+            self.assertEqual(entries[0]["ranks"], {_key("A"): 1, _key("B"): 2})
 
     def test_idempotent_per_date(self) -> None:
         # Re-running the same date overwrites — the file has exactly
         # one entry for that date after a re-run with different ranks.
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "rank_history.jsonl"
-            rank_history.append_snapshot(
-                _contract_with({"A": 1}), date="2026-04-20", path=path
-            )
-            rank_history.append_snapshot(
-                _contract_with({"A": 5}), date="2026-04-20", path=path
-            )
+            rank_history.append_snapshot(_contract_with({"A": 1}), date="2026-04-20", path=path)
+            rank_history.append_snapshot(_contract_with({"A": 5}), date="2026-04-20", path=path)
             entries = [json.loads(line) for line in path.read_text().splitlines()]
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["ranks"], {_key("A"): 5})
@@ -284,8 +286,16 @@ class StampContract(unittest.TestCase):
             )
             contract = {
                 "playersArray": [
-                    {"canonicalName": "Ja'Marr Chase", "canonicalConsensusRank": 1, "assetClass": "offense"},
-                    {"canonicalName": "Nobody", "canonicalConsensusRank": 500, "assetClass": "offense"},
+                    {
+                        "canonicalName": "Ja'Marr Chase",
+                        "canonicalConsensusRank": 1,
+                        "assetClass": "offense",
+                    },
+                    {
+                        "canonicalName": "Nobody",
+                        "canonicalConsensusRank": 500,
+                        "assetClass": "offense",
+                    },
                 ]
             }
             stamped = rank_history.stamp_contract_with_history(contract, path=path)
@@ -323,9 +333,7 @@ class StampContract(unittest.TestCase):
             stamped = rank_history.stamp_contract_with_history(contract, path=path)
             self.assertEqual(stamped, 1)
             self.assertIn("rankHistory", contract["players"]["Josh Allen"])
-            self.assertEqual(
-                len(contract["players"]["Josh Allen"]["rankHistory"]), 2
-            )
+            self.assertEqual(len(contract["players"]["Josh Allen"]["rankHistory"]), 2)
 
     def test_infer_asset_class_position_to_class(self) -> None:
         infer = rank_history._infer_asset_class
@@ -340,9 +348,7 @@ class StampContract(unittest.TestCase):
         self.assertEqual(infer({"position": "PICK"}), "pick")
         self.assertEqual(infer({"position": "K"}), "unknown")
         # Explicit assetClass wins over inferred.
-        self.assertEqual(
-            infer({"position": "DL", "assetClass": "offense"}), "offense"
-        )
+        self.assertEqual(infer({"position": "DL", "assetClass": "offense"}), "offense")
 
     def test_infers_pick_from_name_when_no_position_or_asset(self) -> None:
         # Regression for Codex PR #217 round 4: runtime generic-pick
@@ -392,9 +398,7 @@ class StampContract(unittest.TestCase):
             }
             stamped = rank_history.stamp_contract_with_history(contract, path=path)
             self.assertEqual(stamped, 1)
-            self.assertEqual(
-                len(contract["players"]["2026 Early 1st"]["rankHistory"]), 2
-            )
+            self.assertEqual(len(contract["players"]["2026 Early 1st"]["rankHistory"]), 2)
 
     def test_stamps_legacy_players_dict_for_runtime_view(self) -> None:
         # Regression for Codex PR #217 round 2: the runtime view
@@ -422,9 +426,7 @@ class StampContract(unittest.TestCase):
             stamped = rank_history.stamp_contract_with_history(contract, path=path)
             self.assertEqual(stamped, 1)
             self.assertIn("rankHistory", contract["players"]["Test Player"])
-            self.assertEqual(
-                len(contract["players"]["Test Player"]["rankHistory"]), 2
-            )
+            self.assertEqual(len(contract["players"]["Test Player"]["rankHistory"]), 2)
             self.assertNotIn("rankHistory", contract["players"]["Nobody"])
 
     def test_stamps_both_playersArray_and_legacy_dict(self) -> None:
@@ -439,7 +441,11 @@ class StampContract(unittest.TestCase):
             )
             contract = {
                 "playersArray": [
-                    {"canonicalName": "Dual Player", "canonicalConsensusRank": 7, "assetClass": "offense"},
+                    {
+                        "canonicalName": "Dual Player",
+                        "canonicalConsensusRank": 7,
+                        "assetClass": "offense",
+                    },
                 ],
                 "players": {
                     "Dual Player": {"assetClass": "offense"},
@@ -457,8 +463,16 @@ class StampContract(unittest.TestCase):
             rank_history.append_snapshot(
                 {
                     "playersArray": [
-                        {"canonicalName": "Clone", "canonicalConsensusRank": 10, "assetClass": "offense"},
-                        {"canonicalName": "Clone", "canonicalConsensusRank": 200, "assetClass": "idp"},
+                        {
+                            "canonicalName": "Clone",
+                            "canonicalConsensusRank": 10,
+                            "assetClass": "offense",
+                        },
+                        {
+                            "canonicalName": "Clone",
+                            "canonicalConsensusRank": 200,
+                            "assetClass": "idp",
+                        },
                     ],
                 },
                 date="2026-04-19",
@@ -467,7 +481,11 @@ class StampContract(unittest.TestCase):
             # Stamp two contract rows that differ only by asset class.
             contract = {
                 "playersArray": [
-                    {"canonicalName": "Clone", "canonicalConsensusRank": 10, "assetClass": "offense"},
+                    {
+                        "canonicalName": "Clone",
+                        "canonicalConsensusRank": 10,
+                        "assetClass": "offense",
+                    },
                     {"canonicalName": "Clone", "canonicalConsensusRank": 200, "assetClass": "idp"},
                 ]
             }
@@ -499,7 +517,11 @@ class StampContract(unittest.TestCase):
             rank_history.append_snapshot(
                 {
                     "playersArray": [
-                        {"canonicalName": "Bare Legacy", "canonicalConsensusRank": 42, "assetClass": "offense"},
+                        {
+                            "canonicalName": "Bare Legacy",
+                            "canonicalConsensusRank": 42,
+                            "assetClass": "offense",
+                        },
                     ],
                 },
                 date="2026-04-22",
@@ -507,7 +529,12 @@ class StampContract(unittest.TestCase):
             )
             contract = {
                 "playersArray": [
-                    {"canonicalName": "Bare Legacy", "canonicalConsensusRank": 42, "assetClass": "offense", "displayName": "Bare Legacy"},
+                    {
+                        "canonicalName": "Bare Legacy",
+                        "canonicalConsensusRank": 42,
+                        "assetClass": "offense",
+                        "displayName": "Bare Legacy",
+                    },
                 ],
                 "players": {
                     # Mimic the production shape: no assetClass, no position.
@@ -516,6 +543,4 @@ class StampContract(unittest.TestCase):
             }
             rank_history.stamp_contract_with_history(contract, path=path)
             self.assertIn("rankHistory", contract["players"]["Bare Legacy"])
-            self.assertEqual(
-                contract["players"]["Bare Legacy"]["rankHistory"][-1]["rank"], 42
-            )
+            self.assertEqual(contract["players"]["Bare Legacy"]["rankHistory"][-1]["rank"], 42)

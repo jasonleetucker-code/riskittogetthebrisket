@@ -25,6 +25,7 @@ The tests are deterministic and run on the current
 ``exports/latest/dynasty_data_*.json`` snapshot — they do not require
 network or a running scraper.
 """
+
 from __future__ import annotations
 
 import json
@@ -210,27 +211,27 @@ TARGET_PLAYERS = [
     # The headline 1-src bug players
     ("Kenneth Walker", "OFFENSE", True),
     ("Marvin Harrison", "OFFENSE", True),
-    ("Brian Thomas",    "OFFENSE", True),
+    ("Brian Thomas", "OFFENSE", True),
     # Near-name collision noise targets
-    ("Quay Walker",     "IDP", True),
-    ("Jalon Walker",    "IDP", True),
-    ("CJ Allen",        "IDP", True),
-    ("Payton Wilson",   "IDP", True),
-    ("Nick Emmanwori",  "IDP", True),
+    ("Quay Walker", "IDP", True),
+    ("Jalon Walker", "IDP", True),
+    ("CJ Allen", "IDP", True),
+    ("Payton Wilson", "IDP", True),
+    ("Nick Emmanwori", "IDP", True),
     # Elite IDP cornerstones (should be cleanly multi-src in top board)
     ("Aidan Hutchinson", "IDP", True),
-    ("Will Anderson",    "IDP", True),
-    ("Micah Parsons",    "IDP", True),
+    ("Will Anderson", "IDP", True),
+    ("Micah Parsons", "IDP", True),
     ("Carson Schwesinger", "IDP", True),
-    ("Jack Campbell",    "IDP", True),
-    ("Fred Warner",      "IDP", True),
-    ("Nick Bosa",        "IDP", True),
-    ("Brian Burns",      "IDP", True),
-    ("Roquan Smith",     "IDP", True),
-    ("T.J. Watt",        "IDP", True),
-    ("Danielle Hunter",  "IDP", True),
-    ("Brian Branch",     "IDP", True),
-    ("Kyle Hamilton",    "IDP", True),
+    ("Jack Campbell", "IDP", True),
+    ("Fred Warner", "IDP", True),
+    ("Nick Bosa", "IDP", True),
+    ("Brian Burns", "IDP", True),
+    ("Roquan Smith", "IDP", True),
+    ("T.J. Watt", "IDP", True),
+    ("Danielle Hunter", "IDP", True),
+    ("Brian Branch", "IDP", True),
+    ("Kyle Hamilton", "IDP", True),
 ]
 
 
@@ -241,9 +242,7 @@ class TestTargetPlayerSourceAudit(unittest.TestCase):
     def setUpClass(cls):
         cls.payload = _latest_dynasty_payload()
         cls.contract = build_api_data_contract(cls.payload)
-        cls.by_name = {
-            r["canonicalName"]: r for r in cls.contract["playersArray"]
-        }
+        cls.by_name = {r["canonicalName"]: r for r in cls.contract["playersArray"]}
 
     def _row(self, name):
         row = self.by_name.get(name)
@@ -272,13 +271,16 @@ class TestTargetPlayerSourceAudit(unittest.TestCase):
                 self.assertIn("expectedSources", audit)
                 self.assertIn("matchedSources", audit)
                 self.assertIn("reason", audit)
-                self.assertIn(audit["reason"], {
-                    "fully_matched",
-                    "partial_coverage",
-                    "structurally_single_source",
-                    "matching_failure_other_sources_eligible",
-                    "no_source_match",
-                })
+                self.assertIn(
+                    audit["reason"],
+                    {
+                        "fully_matched",
+                        "partial_coverage",
+                        "structurally_single_source",
+                        "matching_failure_other_sources_eligible",
+                        "no_source_match",
+                    },
+                )
 
     def test_target_players_in_top_board_have_canonical_rank(self):
         for name, _, expected_top in TARGET_PLAYERS:
@@ -330,13 +332,13 @@ class TestTargetPlayerSourceAudit(unittest.TestCase):
 # must be accompanied by a one-line rationale so future maintainers
 # can see why it was added.
 KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
-    "Kenneth Walker":  "IDPTradeCalc upstream feed has no entry under Kenneth Walker / Kenneth Walker III",
+    "Kenneth Walker": "IDPTradeCalc upstream feed has no entry under Kenneth Walker / Kenneth Walker III",
     "Marvin Harrison": "IDPTradeCalc upstream feed has no entry under Marvin Harrison / Marvin Harrison Jr.",
-    "Brian Thomas":    "IDPTradeCalc upstream feed has no entry under Brian Thomas / Brian Thomas Jr.",
-    "Michael Penix":   "IDPTradeCalc upstream feed has no entry under Michael Penix / Michael Penix Jr.",
-    "Omar Cooper":     "Indiana WR (current college rookie) — not yet listed in IDPTradeCalc autocomplete",
-    "Devin Bush":      "Veteran depth IDP — outside DLF top-185 cut",
-    "David Bailey":    "Edge rookie IDP — only FantasyPros IDP covers him; moved into top-200 after 2026 slot picks were un-ranked",
+    "Brian Thomas": "IDPTradeCalc upstream feed has no entry under Brian Thomas / Brian Thomas Jr.",
+    "Michael Penix": "IDPTradeCalc upstream feed has no entry under Michael Penix / Michael Penix Jr.",
+    "Omar Cooper": "Indiana WR (current college rookie) — not yet listed in IDPTradeCalc autocomplete",
+    "Devin Bush": "Veteran depth IDP — outside DLF top-185 cut",
+    "David Bailey": "Edge rookie IDP — only FantasyPros IDP covers him; moved into top-200 after 2026 slot picks were un-ranked",
     # ── IDP top-board 1-src that surfaced after the IDP Hill curve
     # was refit to IDPTC (midpoint 69.50 / slope 0.945).  The steeper
     # top-of-curve elevation pulled these into the top 200 where they
@@ -348,7 +350,7 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # appear_on_board) requires every allowlist entry to be on the
     # live contract; restore the entry if he climbs back into the
     # window.
-    "Malachi Moore":   "Veteran S only ranked by FantasyPros IDP — IDPTC/FBG haven't picked him up",
+    "Malachi Moore": "Veteran S only ranked by FantasyPros IDP — IDPTC/FBG haven't picked him up",
     # Lavonte David removed 2026-04-25: 36yo FA, FBG dropped him in
     # the latest scrape and he no longer appears on the live board.
     # Allowlist entries must reflect a player who CURRENTLY exists on
@@ -361,11 +363,11 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # the 250-400 tail).  Each is a genuine FBG-only veteran that
     # IDPTC, DLF IDP, and the other IDP boards have either dropped or
     # never carried. ──
-    "DaRon Bland":      "Veteran CB only ranked by FootballGuys IDP",
-    "Jordan Davis":     "Veteran DL only ranked by FootballGuys IDP",
-    "Marlon Humphrey":  "Veteran CB only ranked by FootballGuys IDP",
-    "Mike Jackson":     "Veteran CB only ranked by FootballGuys IDP",
-    "Nahshon Wright":   "Veteran CB only ranked by FootballGuys IDP",
+    "DaRon Bland": "Veteran CB only ranked by FootballGuys IDP",
+    "Jordan Davis": "Veteran DL only ranked by FootballGuys IDP",
+    "Marlon Humphrey": "Veteran CB only ranked by FootballGuys IDP",
+    "Mike Jackson": "Veteran CB only ranked by FootballGuys IDP",
+    "Nahshon Wright": "Veteran CB only ranked by FootballGuys IDP",
 }
 
 
@@ -518,24 +520,18 @@ class TestExpectedSourcesRefinement(unittest.TestCase):
     """
 
     def test_rookie_idp_player_does_not_expect_dlf(self):
-        off, idp = _expected_sources_for_position(
-            "LB", is_rookie=True, player_effective_rank=120
-        )
+        off, idp = _expected_sources_for_position("LB", is_rookie=True, player_effective_rank=120)
         self.assertNotIn("dlfIdp", off | idp)
         self.assertIn("idpTradeCalc", off | idp)
 
     def test_veteran_idp_inside_dlf_depth_expects_dlf(self):
-        off, idp = _expected_sources_for_position(
-            "LB", is_rookie=False, player_effective_rank=50
-        )
+        off, idp = _expected_sources_for_position("LB", is_rookie=False, player_effective_rank=50)
         self.assertIn("dlfIdp", off | idp)
         self.assertIn("idpTradeCalc", off | idp)
 
     def test_veteran_idp_beyond_dlf_depth_does_not_expect_dlf(self):
         # 250 > 185 * 1.25 = ~231 → DLF dropped from expected set.
-        off, idp = _expected_sources_for_position(
-            "LB", is_rookie=False, player_effective_rank=300
-        )
+        off, idp = _expected_sources_for_position("LB", is_rookie=False, player_effective_rank=300)
         self.assertNotIn("dlfIdp", off | idp)
         self.assertIn("idpTradeCalc", off | idp)
 

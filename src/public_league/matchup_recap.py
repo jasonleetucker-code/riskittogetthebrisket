@@ -8,6 +8,7 @@ is a featured rivalry.
 Output is composed entirely from the snapshot + the already-built
 public sections.  No private data touches this path.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -43,12 +44,14 @@ def _starter_scores(entry: dict[str, Any], snapshot: PublicLeagueSnapshot) -> li
             points = float(pp.get(pid) or 0.0)
         except (TypeError, ValueError):
             points = 0.0
-        rows.append({
-            "playerId": str(pid),
-            "playerName": name,
-            "position": pos,
-            "points": round(points, 2),
-        })
+        rows.append(
+            {
+                "playerId": str(pid),
+                "playerName": name,
+                "position": pos,
+                "points": round(points, 2),
+            }
+        )
     return rows
 
 
@@ -67,12 +70,14 @@ def _bench_scores(
             points = float(pp.get(pid) or 0.0)
         except (TypeError, ValueError):
             points = 0.0
-        rows.append({
-            "playerId": pid,
-            "playerName": snapshot.player_display(pid),
-            "position": snapshot.player_position(pid),
-            "points": round(points, 2),
-        })
+        rows.append(
+            {
+                "playerId": pid,
+                "playerName": snapshot.player_display(pid),
+                "position": snapshot.player_position(pid),
+                "points": round(points, 2),
+            }
+        )
     rows.sort(key=lambda r: -r["points"])
     return rows
 
@@ -103,7 +108,9 @@ def _side_block(
         "starters": starters,
         "bench": bench,
         "topScorer": top_scorer,
-        "biggestBenchMiss": biggest_miss if (biggest_miss and top_scorer and biggest_miss["points"] > top_scorer["points"]) else None,
+        "biggestBenchMiss": biggest_miss
+        if (biggest_miss and top_scorer and biggest_miss["points"] > top_scorer["points"])
+        else None,
         "preWeekRecord": {
             "wins": pre.get("wins", 0),
             "losses": pre.get("losses", 0),
@@ -111,7 +118,9 @@ def _side_block(
             "winPct": pre.get("winPct", 0.0),
             "standing": pre.get("standing"),
             "pointsFor": pre.get("pointsFor", 0.0),
-        } if pre else None,
+        }
+        if pre
+        else None,
     }
 
 
@@ -215,11 +224,13 @@ def list_matchups(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                     continue
                 if not metrics.is_scored(pair[0]) and not metrics.is_scored(pair[1]):
                     continue
-                out.append({
-                    "season": season.season,
-                    "leagueId": season.league_id,
-                    "week": week,
-                    "isPlayoff": is_playoff,
-                    "matchupId": mid,
-                })
+                out.append(
+                    {
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": week,
+                        "isPlayoff": is_playoff,
+                        "matchupId": mid,
+                    }
+                )
     return out

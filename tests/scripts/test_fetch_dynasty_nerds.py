@@ -3,6 +3,7 @@
 Covers the schema probe (DR_DATA missing SFLEXTEP) and row-count floor
 added as part of the source-monitoring hardening pass.
 """
+
 from __future__ import annotations
 
 import json
@@ -52,9 +53,7 @@ class TestMainExitCodes(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             html_path = Path(tmpdir) / "dn.html"
-            html_path.write_text(
-                _wrap_html({"PPR": [], "_meta": {}}), encoding="utf-8"
-            )
+            html_path.write_text(_wrap_html({"PPR": [], "_meta": {}}), encoding="utf-8")
             dest_path = Path(tmpdir) / "out.csv"
             rc = dn.main(
                 [

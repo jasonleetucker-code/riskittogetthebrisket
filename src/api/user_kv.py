@@ -49,6 +49,7 @@ backed module; the migration is a pure drop-in.  Legacy
 ``data/user_kv.json`` files are imported once on first boot (see
 ``_migrate_legacy_json_if_present``).
 """
+
 from __future__ import annotations
 
 import json
@@ -64,41 +65,43 @@ _LEGACY_JSON_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "user_k
 
 # Known top-level keys we understand.  Anything else in a user's
 # record is preserved but not validated.
-KNOWN_KEYS = frozenset({
-    "selectedTeam",
-    "watchlist",
-    "dismissedSignals",
-    # Per-league nested dismissals: ``{leagueKey: {signalKey: expiresAt}}``.
-    # Takes precedence over the flat field when ``active_dismissals``
-    # is called with a ``league_key``.  Dismissing a signal on league
-    # A no longer silences the same player's signal on league B.
-    "dismissedSignalsByLeague",
-    "dismissalAliases",
-    # Per-league signal-alert state used by signal_alerts.py for the
-    # 12-hour cooldown: ``{leagueKey: {stateKey: {signal, notifiedAt}}}``.
-    # Prevents a SELL in league A from silently suppressing the same
-    # player's SELL notification in league B.
-    "signalAlertStateByLeague",
-    "updatedAt",
-    # League preference — the user's currently-active league key from
-    # the league registry (``src/api/league_registry``).  Persists
-    # across devices so that a user who switches to the non-IDP
-    # league on mobile sees the same league on desktop.  Unvalidated
-    # here; the PUT endpoint validates against the live registry.
-    "activeLeagueKey",
-    # Per-league selected team.  Shape:
-    #   ``{ [leagueKey]: {ownerId, teamName, rosterId?, managerName?} }``
-    # Takes precedence over the legacy top-level ``selectedTeam`` when
-    # a per-league entry exists for the active league.  The legacy
-    # field is kept for back-compat — it's treated as the default
-    # league's entry on read, and writes mirror to both for one more
-    # release so pre-migration clients don't flip empty on first load.
-    "selectedTeamsByLeague",
-    # Notification preferences already flow through ``merge_user_state``
-    # — listed here so new readers know the schema includes them.
-    "notificationsEmail",
-    "notificationsEnabled",
-})
+KNOWN_KEYS = frozenset(
+    {
+        "selectedTeam",
+        "watchlist",
+        "dismissedSignals",
+        # Per-league nested dismissals: ``{leagueKey: {signalKey: expiresAt}}``.
+        # Takes precedence over the flat field when ``active_dismissals``
+        # is called with a ``league_key``.  Dismissing a signal on league
+        # A no longer silences the same player's signal on league B.
+        "dismissedSignalsByLeague",
+        "dismissalAliases",
+        # Per-league signal-alert state used by signal_alerts.py for the
+        # 12-hour cooldown: ``{leagueKey: {stateKey: {signal, notifiedAt}}}``.
+        # Prevents a SELL in league A from silently suppressing the same
+        # player's SELL notification in league B.
+        "signalAlertStateByLeague",
+        "updatedAt",
+        # League preference — the user's currently-active league key from
+        # the league registry (``src/api/league_registry``).  Persists
+        # across devices so that a user who switches to the non-IDP
+        # league on mobile sees the same league on desktop.  Unvalidated
+        # here; the PUT endpoint validates against the live registry.
+        "activeLeagueKey",
+        # Per-league selected team.  Shape:
+        #   ``{ [leagueKey]: {ownerId, teamName, rosterId?, managerName?} }``
+        # Takes precedence over the legacy top-level ``selectedTeam`` when
+        # a per-league entry exists for the active league.  The legacy
+        # field is kept for back-compat — it's treated as the default
+        # league's entry on read, and writes mirror to both for one more
+        # release so pre-migration clients don't flip empty on first load.
+        "selectedTeamsByLeague",
+        # Notification preferences already flow through ``merge_user_state``
+        # — listed here so new readers know the schema includes them.
+        "notificationsEmail",
+        "notificationsEnabled",
+    }
+)
 
 # Process-wide lock around connection setup / migration so module
 # import is thread-safe.  SQLite itself handles per-transaction
@@ -412,11 +415,7 @@ def _merge_per_league_dismissals(
     if isinstance(existing_by_league, dict):
         for k, v in existing_by_league.items():
             if isinstance(k, str) and isinstance(v, dict):
-                by_league[k] = {
-                    str(sk): int(sv)
-                    for sk, sv in v.items()
-                    if str(sk)
-                }
+                by_league[k] = {str(sk): int(sv) for sk, sv in v.items() if str(sk)}
     bucket = dict(by_league.get(league_key) or {})
     if add:
         for k, v in add.items():
@@ -466,7 +465,9 @@ def dismiss_signal(
     if key:
         existing = get_user_state(username, path=path).get("dismissedSignalsByLeague")
         patch["dismissedSignalsByLeague"] = _merge_per_league_dismissals(
-            existing, key, add={str(signal_key): expires_at},
+            existing,
+            key,
+            add={str(signal_key): expires_at},
         )
     else:
         patch["dismissedSignals"] = {str(signal_key): expires_at}

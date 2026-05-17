@@ -4,6 +4,7 @@ These exercise the normalization path — upstream HTTP is stubbed
 via a fake ``requests.Session`` so the tests stay offline and
 deterministic.
 """
+
 from __future__ import annotations
 
 from src.news.providers.sleeper import (
@@ -128,6 +129,7 @@ def test_cold_player_map_failure_propagates():
         def get(self, url, timeout=None, headers=None):
             self.calls.append(url)
             if "trending" in url:
+
                 class _R:
                     def raise_for_status(self):
                         return None
@@ -166,6 +168,7 @@ def test_warm_player_map_failure_degrades_gracefully():
     class _WarmMapOutage:
         def get(self, url, timeout=None, headers=None):
             if "trending" in url:
+
                 class _R:
                     def raise_for_status(self):
                         return None
@@ -214,6 +217,7 @@ def test_provider_tolerates_one_endpoint_failing():
         def get(self, url, timeout=None, headers=None):
             self.calls.append(url)
             if self._ok_path in url:
+
                 class _R:
                     def raise_for_status(self):
                         return None
@@ -223,6 +227,7 @@ def test_provider_tolerates_one_endpoint_failing():
 
                 return _R()
             if "/players/nfl" in url and "trending" not in url:
+
                 class _R2:
                     def raise_for_status(self):
                         return None
@@ -234,9 +239,7 @@ def test_provider_tolerates_one_endpoint_failing():
             raise RuntimeError("drops unavailable")
 
     _reset_player_map_for_tests()
-    provider = SleeperTrendingProvider(
-        session=_SplitSession("/trending/add")
-    )
+    provider = SleeperTrendingProvider(session=_SplitSession("/trending/add"))
     items = provider.fetch()
     assert len(items) == 1
     assert items[0].players[0].name == "Only Add"

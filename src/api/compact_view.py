@@ -33,37 +33,42 @@ Shape tests in ``tests/api/test_compact_view`` pin the
 contract so adding a field to this list either updates tests
 or is caught.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
-_PRUNED_CONTRACT_FIELDS = frozenset({
-    "poolAudit",
-    "methodology",
-    "siteStats",
-    "sites",  # leave sleeper.sites in place
-})
+_PRUNED_CONTRACT_FIELDS = frozenset(
+    {
+        "poolAudit",
+        "methodology",
+        "siteStats",
+        "sites",  # leave sleeper.sites in place
+    }
+)
 
-_PRUNED_PLAYER_FIELDS = frozenset({
-    "droppedSources",
-    "effectiveSourceRanks",
-    "sourceOriginalRanks",
-    "anomalyFlags",
-    "confidenceLabel",
-    "pickDetails",
-    "marketCorridorClamp",
-    "twoWayPlayerBoost",
-    # Post-pipeline audit fields — kept in the full view, pruned here.
-    "subgroupBlendValue",
-    "subgroupDelta",
-    "alphaShrinkage",
-    "softFallbackCount",
-    "hillValueSpread",
-    "marketDispersionCV",
-    "blendedSourceRank",
-    "madPenaltyApplied",
-    "anchorValue",
-})
+_PRUNED_PLAYER_FIELDS = frozenset(
+    {
+        "droppedSources",
+        "effectiveSourceRanks",
+        "sourceOriginalRanks",
+        "anomalyFlags",
+        "confidenceLabel",
+        "pickDetails",
+        "marketCorridorClamp",
+        "twoWayPlayerBoost",
+        # Post-pipeline audit fields — kept in the full view, pruned here.
+        "subgroupBlendValue",
+        "subgroupDelta",
+        "alphaShrinkage",
+        "softFallbackCount",
+        "hillValueSpread",
+        "marketDispersionCV",
+        "blendedSourceRank",
+        "madPenaltyApplied",
+        "anchorValue",
+    }
+)
 
 # Per-source meta fields kept on the compact view.  Drives the trade
 # per-source winner card (``valueContribution``), the rankings audit
@@ -71,11 +76,13 @@ _PRUNED_PLAYER_FIELDS = frozenset({
 # and the PlayerPopup source-contribution graphs (``valueContribution``).
 # Audit-only stamps (percentile, isAnchor, TEP correction flags, etc.)
 # are dropped on mobile to keep the payload small.
-_SLIM_SOURCE_RANK_META_FIELDS = frozenset({
-    "valueContribution",
-    "effectiveWeight",
-    "method",
-})
+_SLIM_SOURCE_RANK_META_FIELDS = frozenset(
+    {
+        "valueContribution",
+        "effectiveWeight",
+        "method",
+    }
+)
 
 
 def _slim_source_rank_meta(meta: Any) -> Any:
@@ -87,8 +94,7 @@ def _slim_source_rank_meta(meta: Any) -> Any:
     for src_key, src_meta in meta.items():
         if isinstance(src_meta, dict):
             slim[src_key] = {
-                k: v for k, v in src_meta.items()
-                if k in _SLIM_SOURCE_RANK_META_FIELDS
+                k: v for k, v in src_meta.items() if k in _SLIM_SOURCE_RANK_META_FIELDS
             }
         else:
             # Defensive: preserve unexpected shapes verbatim so tests
@@ -138,15 +144,19 @@ def compact_contract(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def byte_savings(
-    full_payload: dict[str, Any], compact_payload: dict[str, Any],
+    full_payload: dict[str, Any],
+    compact_payload: dict[str, Any],
 ) -> dict[str, int]:
     """Diagnostic: JSON byte sizes of full vs. compact."""
     import json
+
     full_bytes = len(json.dumps(full_payload).encode("utf-8"))
     compact_bytes = len(json.dumps(compact_payload).encode("utf-8"))
     return {
         "fullBytes": full_bytes,
         "compactBytes": compact_bytes,
         "savedBytes": max(0, full_bytes - compact_bytes),
-        "savedPct": round((full_bytes - compact_bytes) / full_bytes * 100, 1) if full_bytes else 0.0,
+        "savedPct": round((full_bytes - compact_bytes) / full_bytes * 100, 1)
+        if full_bytes
+        else 0.0,
     }

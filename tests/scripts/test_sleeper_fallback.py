@@ -5,6 +5,7 @@ rest of the suite — we do NOT import it.  Instead we ast-extract just
 the three pure filesystem helpers and exec them in isolation against a
 tmp dir.  This exercises the real shipped code path.
 """
+
 from __future__ import annotations
 
 import ast
@@ -37,6 +38,7 @@ def _load_helpers(cache_path: str, stamp_path: str) -> dict:
 class SleeperFallbackHelperTests(unittest.TestCase):
     def setUp(self) -> None:
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.cache = os.path.join(self.tmp, "data", "sleeper_last_good.json")
         self.stamp = os.path.join(self.tmp, "data", "scrape_state", "sleeper_last_success")
@@ -44,6 +46,7 @@ class SleeperFallbackHelperTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_save_then_load_roundtrip(self) -> None:

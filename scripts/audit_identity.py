@@ -13,6 +13,7 @@ Reports:
 Usage:
     python scripts/audit_identity.py [--json-path PATH]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -134,10 +135,7 @@ def main() -> None:
 
     # ── 4. High source disagreement ──
     _section("HIGH SOURCE DISAGREEMENT (sourceRankSpread > 80)")
-    disagreed = [
-        p for p in players
-        if (p.get("sourceRankSpread") or 0) > 80
-    ]
+    disagreed = [p for p in players if (p.get("sourceRankSpread") or 0) > 80]
     disagreed.sort(key=lambda p: p.get("sourceRankSpread") or 0, reverse=True)
     if not disagreed:
         print("  (none)")
@@ -149,10 +147,7 @@ def main() -> None:
 
     # ── 5. Unsupported positions ──
     _section("UNSUPPORTED POSITIONS")
-    unsupported = [
-        p for p in players
-        if "unsupported_position" in (p.get("anomalyFlags") or [])
-    ]
+    unsupported = [p for p in players if "unsupported_position" in (p.get("anomalyFlags") or [])]
     if not unsupported:
         print("  (none)")
     else:
@@ -161,10 +156,7 @@ def main() -> None:
 
     # ── 6. No valid source values + non-zero derived value ──
     _section("NO SOURCE VALUES BUT HAS DERIVED VALUE")
-    orphans = [
-        p for p in players
-        if "no_valid_source_values" in (p.get("anomalyFlags") or [])
-    ]
+    orphans = [p for p in players if "no_valid_source_values" in (p.get("anomalyFlags") or [])]
     if not orphans:
         print("  (none)")
     else:
@@ -199,8 +191,7 @@ def main() -> None:
     # ── 8. Position-source contradictions ──
     _section("POSITION-SOURCE CONTRADICTIONS")
     contradictions = [
-        p for p in players
-        if "position_source_contradiction" in (p.get("anomalyFlags") or [])
+        p for p in players if "position_source_contradiction" in (p.get("anomalyFlags") or [])
     ]
     if not contradictions:
         print("  (none)")

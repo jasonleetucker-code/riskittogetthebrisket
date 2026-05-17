@@ -32,6 +32,7 @@ Writes:
     CSVs/site_raw/footballGuysSf.csv   (offense: QB/RB/WR/TE)
     CSVs/site_raw/footballGuysIdp.csv  (IDP: DL/LB/DB)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -168,7 +169,8 @@ def _save_cookies(cookies: list[dict]) -> None:
             for c in cookies
             if isinstance(c, dict)
             and "name" in c
-            and c.get("name") in {
+            and c.get("name")
+            in {
                 "prodwww",
                 "TN_token",
                 "TN_tvid",
@@ -232,30 +234,32 @@ async def _playwright_login() -> list[dict]:
                     "() => Array.from(document.querySelectorAll('.alert, .invalid-feedback, [role=alert]'))"
                     ".map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)"
                 )
-                raise RuntimeError(
-                    f"FG login failed — no TN_token issued.  Page errors: {errors}"
-                )
+                raise RuntimeError(f"FG login failed — no TN_token issued.  Page errors: {errors}")
             # Force the league cookie so server-side rendering is
             # pinned to the operator's league regardless of the
             # account's current default selection.
-            cookies.append({
-                "name": "League_selectedid",
-                "value": LEAGUE_ID,
-                "domain": ".footballguys.com",
-                "path": "/",
-                "httpOnly": False,
-                "secure": True,
-                "sameSite": "Lax",
-            })
-            cookies.append({
-                "name": "FBG_LeagueSelect_Type",
-                "value": "users",
-                "domain": ".footballguys.com",
-                "path": "/",
-                "httpOnly": False,
-                "secure": True,
-                "sameSite": "Lax",
-            })
+            cookies.append(
+                {
+                    "name": "League_selectedid",
+                    "value": LEAGUE_ID,
+                    "domain": ".footballguys.com",
+                    "path": "/",
+                    "httpOnly": False,
+                    "secure": True,
+                    "sameSite": "Lax",
+                }
+            )
+            cookies.append(
+                {
+                    "name": "FBG_LeagueSelect_Type",
+                    "value": "users",
+                    "domain": ".footballguys.com",
+                    "path": "/",
+                    "httpOnly": False,
+                    "secure": True,
+                    "sameSite": "Lax",
+                }
+            )
             return cookies
         finally:
             await browser.close()
@@ -289,7 +293,7 @@ def _fetch(url: str, cookies: dict[str, str]) -> str:
 _ROW_RE = re.compile(
     r'<tr[^>]*data-playerid="([^"]+)"[^>]*data-playername="([^"]+)"'
     r'[^>]*data-rank="(\d+)"[^>]*class="player-row[^"]*"[^>]*>'
-    r'(.*?)</tr>',
+    r"(.*?)</tr>",
     re.DOTALL,
 )
 _POS_RE = re.compile(r'<span class="pos-([A-Z]+)">([A-Z]+\d*)</span>')
@@ -297,7 +301,7 @@ _TEAM_RE = re.compile(r'<span class="team-abbr team-abbr-([A-Z]+)">')
 # The last 3 standalone <td>N</td> cells on each row are age, years_exp,
 # and bye week.  The regex below captures those three closing cells.
 _TRAIL_RE = re.compile(
-    r'<td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td>\s*$',
+    r"<td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td>\s*$",
     re.DOTALL,
 )
 
@@ -344,15 +348,17 @@ def parse_rows(html: str, *, default_family: str | None = None) -> list[dict[str
         # apostrophe form Sleeper uses, so without unescape the
         # canonical-name matcher drops these players silently.
         # Affects ~11 players across the SF + IDP CSVs.
-        out.append({
-            "name": _html.unescape(name).strip(),
-            "rank": str(rank),
-            "position": position_display,
-            "family": canonical_family,
-            "team": team,
-            "age": age,
-            "years_exp": years_exp,
-        })
+        out.append(
+            {
+                "name": _html.unescape(name).strip(),
+                "rank": str(rank),
+                "position": position_display,
+                "family": canonical_family,
+                "team": team,
+                "age": age,
+                "years_exp": years_exp,
+            }
+        )
     return out
 
 
@@ -389,14 +395,16 @@ def _write_csv(
         w = csv.writer(f)
         w.writerow(["name", "rank", "position", "team", "age", "years_exp"])
         for row in selected:
-            w.writerow([
-                row["name"],
-                row["rank"],  # original cross-market rank — not re-densified
-                row["position"],
-                row["team"],
-                row["age"],
-                row["years_exp"],
-            ])
+            w.writerow(
+                [
+                    row["name"],
+                    row["rank"],  # original cross-market rank — not re-densified
+                    row["position"],
+                    row["team"],
+                    row["age"],
+                    row["years_exp"],
+                ]
+            )
     return len(selected)
 
 
@@ -450,9 +458,7 @@ def main() -> int:
     # re-ranked 1..N inside the IDP universe only, which would erase
     # FBG's native offense-vs-IDP ratio.
     print("[FBG] fetching combined rankings (pos=all) …", flush=True)
-    all_html, cookies = _fetch_with_auto_login(
-        OFFENSE_URL, cookies, label="combined"
-    )
+    all_html, cookies = _fetch_with_auto_login(OFFENSE_URL, cookies, label="combined")
     all_rows = parse_rows(all_html)
     print(f"[FBG] combined rows parsed: {len(all_rows)}")
 
@@ -461,9 +467,7 @@ def main() -> int:
         print("top 5 (combined ranking):")
         for r in all_rows[:5]:
             print(f"  {r}")
-        first_idp = next(
-            (r for r in all_rows if r["family"] in _IDP_POS), None
-        )
+        first_idp = next((r for r in all_rows if r["family"] in _IDP_POS), None)
         print(f"first IDP row: {first_idp}")
         return 0
 

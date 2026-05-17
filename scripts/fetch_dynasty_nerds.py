@@ -37,6 +37,7 @@ Exit codes:
        regression alerts loudly instead of getting buried as a generic
        warning.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -115,9 +116,7 @@ def _extract_dr_data(html: str) -> dict:
     payload = html[start:end]
     parsed = json.loads(payload)
     if not isinstance(parsed, dict):
-        raise DynastyNerdsSchemaError(
-            f"DR_DATA expected dict, got {type(parsed).__name__}"
-        )
+        raise DynastyNerdsSchemaError(f"DR_DATA expected dict, got {type(parsed).__name__}")
     if "SFLEXTEP" not in parsed:
         raise DynastyNerdsSchemaError(
             "DR_DATA shape changed: missing SFLEXTEP key "
@@ -234,8 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         # Row count regression: parsed fewer rows than the floor.  Same
         # treatment as schema error — exit 2 for structured surfacing.
         print(
-            f"[fetch_dynasty_nerds] row count below floor: "
-            f"{len(rows)} < {_DN_ROW_COUNT_FLOOR}",
+            f"[fetch_dynasty_nerds] row count below floor: " f"{len(rows)} < {_DN_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2

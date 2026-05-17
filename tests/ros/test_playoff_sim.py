@@ -5,6 +5,7 @@ count for speed, and assert structural properties: probabilities sum
 to 1.0 across seeds, contender tier classification matches the spec,
 ROS-strength availability gracefully degrades to empirical-only.
 """
+
 from __future__ import annotations
 
 import random
@@ -41,12 +42,14 @@ class TestEmptySnapshot(unittest.TestCase):
 
     def test_playoff_empty(self):
         from types import SimpleNamespace
+
         snap = SimpleNamespace(seasons=[], managers=None)
         out = playoff_sim.simulate_playoff_odds(snap, n_simulations=10)
         self.assertEqual(out["playoffOdds"], [])
 
     def test_championship_empty(self):
         from types import SimpleNamespace
+
         snap = SimpleNamespace(seasons=[], managers=None)
         out = championship.simulate_championship_odds(snap, n_simulations=10)
         self.assertEqual(out["championshipOdds"], [])
@@ -55,6 +58,7 @@ class TestEmptySnapshot(unittest.TestCase):
 class TestRosStrengthLoader(unittest.TestCase):
     def test_returns_empty_when_no_snapshot(self):
         from pathlib import Path
+
         with patch.object(playoff_sim, "ROS_DATA_DIR", Path("/nonexistent")):
             self.assertEqual(playoff_sim._load_ros_strength_map(), {})
 

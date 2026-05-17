@@ -23,6 +23,7 @@ Output shape
 ``seasonsCovered``      — passthrough.
 ``currentSeason``       — passthrough.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -59,9 +60,7 @@ def _all_events(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
             opp_pts = metrics.matchup_points(foe)
             if my_pts <= 0 and opp_pts <= 0:
                 continue
-            owner_id = metrics.resolve_owner(
-                snapshot.managers, season.league_id, rid
-            )
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
             if not owner_id:
                 continue
             if my_pts > opp_pts:
@@ -70,17 +69,19 @@ def _all_events(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                 result = "L"
             else:
                 result = "T"
-            out.append({
-                "ownerId": owner_id,
-                "season": season.season,
-                "leagueId": season.league_id,
-                "week": week,
-                "isPlayoff": is_playoff,
-                "points": round(my_pts, 2),
-                "opponentPoints": round(opp_pts, 2),
-                "margin": round(my_pts - opp_pts, 2),
-                "result": result,
-            })
+            out.append(
+                {
+                    "ownerId": owner_id,
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "week": week,
+                    "isPlayoff": is_playoff,
+                    "points": round(my_pts, 2),
+                    "opponentPoints": round(opp_pts, 2),
+                    "margin": round(my_pts - opp_pts, 2),
+                    "result": result,
+                }
+            )
     out.sort(key=_chron_key)
     return out
 
@@ -225,17 +226,21 @@ def _longest_streaks_per_owner(
                 w_start = None
                 l_start = None
         if best_w["length"] > 0:
-            win_rows.append({
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id),
-                **best_w,
-            })
+            win_rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id),
+                    **best_w,
+                }
+            )
         if best_l["length"] > 0:
-            loss_rows.append({
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id),
-                **best_l,
-            })
+            loss_rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id),
+                    **best_l,
+                }
+            )
     win_rows.sort(key=lambda r: -r["length"])
     loss_rows.sort(key=lambda r: -r["length"])
     return win_rows, loss_rows
@@ -290,65 +295,72 @@ def _notable_this_week(
 
     notables: list[dict[str, Any]] = []
     this_week_events = [
-        e for e in events
-        if e["season"] == latest_season and e["week"] == latest_week
+        e for e in events if e["season"] == latest_season and e["week"] == latest_week
     ]
     for ev in this_week_events:
         display = metrics.display_name_for(snapshot, ev["ownerId"])
         hi_rank = _rank_of(ev, by_points_hi)
         if hi_rank and hi_rank <= _RECORDS_IN_REACH_TOP_N:
-            notables.append({
-                "category": "highestSingleWeek",
-                "rank": hi_rank,
-                "label": _ordinal_label(hi_rank, "highest single-week score"),
-                "ownerId": ev["ownerId"],
-                "displayName": display,
-                "season": ev["season"],
-                "week": ev["week"],
-                "value": ev["points"],
-                "valueLabel": f"{ev['points']:.1f} pts",
-            })
-        lo_rank = _rank_of(ev, by_points_lo)
-        if lo_rank and lo_rank <= _RECORDS_IN_REACH_TOP_N:
-            notables.append({
-                "category": "lowestSingleWeek",
-                "rank": lo_rank,
-                "label": _ordinal_label(lo_rank, "lowest single-week score"),
-                "ownerId": ev["ownerId"],
-                "displayName": display,
-                "season": ev["season"],
-                "week": ev["week"],
-                "value": ev["points"],
-                "valueLabel": f"{ev['points']:.1f} pts",
-            })
-        if ev["margin"] > 0:
-            m_rank = _rank_of(ev, by_margin_hi)
-            if m_rank and m_rank <= _RECORDS_IN_REACH_TOP_N:
-                notables.append({
-                    "category": "biggestBlowout",
-                    "rank": m_rank,
-                    "label": _ordinal_label(m_rank, "biggest single-week margin"),
-                    "ownerId": ev["ownerId"],
-                    "displayName": display,
-                    "season": ev["season"],
-                    "week": ev["week"],
-                    "value": ev["margin"],
-                    "valueLabel": f"+{ev['margin']:.1f}",
-                })
-        if ev["result"] == "L":
-            bb_rank = _rank_of(ev, by_bad_beat)
-            if bb_rank and bb_rank <= _RECORDS_IN_REACH_TOP_N:
-                notables.append({
-                    "category": "badBeat",
-                    "rank": bb_rank,
-                    "label": _ordinal_label(bb_rank, "highest score in a loss"),
+            notables.append(
+                {
+                    "category": "highestSingleWeek",
+                    "rank": hi_rank,
+                    "label": _ordinal_label(hi_rank, "highest single-week score"),
                     "ownerId": ev["ownerId"],
                     "displayName": display,
                     "season": ev["season"],
                     "week": ev["week"],
                     "value": ev["points"],
-                    "valueLabel": f"{ev['points']:.1f} pts in L",
-                })
+                    "valueLabel": f"{ev['points']:.1f} pts",
+                }
+            )
+        lo_rank = _rank_of(ev, by_points_lo)
+        if lo_rank and lo_rank <= _RECORDS_IN_REACH_TOP_N:
+            notables.append(
+                {
+                    "category": "lowestSingleWeek",
+                    "rank": lo_rank,
+                    "label": _ordinal_label(lo_rank, "lowest single-week score"),
+                    "ownerId": ev["ownerId"],
+                    "displayName": display,
+                    "season": ev["season"],
+                    "week": ev["week"],
+                    "value": ev["points"],
+                    "valueLabel": f"{ev['points']:.1f} pts",
+                }
+            )
+        if ev["margin"] > 0:
+            m_rank = _rank_of(ev, by_margin_hi)
+            if m_rank and m_rank <= _RECORDS_IN_REACH_TOP_N:
+                notables.append(
+                    {
+                        "category": "biggestBlowout",
+                        "rank": m_rank,
+                        "label": _ordinal_label(m_rank, "biggest single-week margin"),
+                        "ownerId": ev["ownerId"],
+                        "displayName": display,
+                        "season": ev["season"],
+                        "week": ev["week"],
+                        "value": ev["margin"],
+                        "valueLabel": f"+{ev['margin']:.1f}",
+                    }
+                )
+        if ev["result"] == "L":
+            bb_rank = _rank_of(ev, by_bad_beat)
+            if bb_rank and bb_rank <= _RECORDS_IN_REACH_TOP_N:
+                notables.append(
+                    {
+                        "category": "badBeat",
+                        "rank": bb_rank,
+                        "label": _ordinal_label(bb_rank, "highest score in a loss"),
+                        "ownerId": ev["ownerId"],
+                        "displayName": display,
+                        "season": ev["season"],
+                        "week": ev["week"],
+                        "value": ev["points"],
+                        "valueLabel": f"{ev['points']:.1f} pts in L",
+                    }
+                )
     notables.sort(key=lambda n: (n["rank"], n["category"]))
     return notables
 
@@ -373,18 +385,20 @@ def _records_in_reach(
     scored = [e for e in events if e["points"] > 0]
     if scored:
         holder_ev = max(scored, key=lambda e: e["points"])
-        records.append({
-            "category": "highestSingleWeek",
-            "label": "Highest single-week score",
-            "holder": {
-                "ownerId": holder_ev["ownerId"],
-                "displayName": metrics.display_name_for(snapshot, holder_ev["ownerId"]),
-                "value": holder_ev["points"],
-                "valueLabel": f"{holder_ev['points']:.1f} pts",
-                "season": holder_ev["season"],
-                "week": holder_ev["week"],
-            },
-        })
+        records.append(
+            {
+                "category": "highestSingleWeek",
+                "label": "Highest single-week score",
+                "holder": {
+                    "ownerId": holder_ev["ownerId"],
+                    "displayName": metrics.display_name_for(snapshot, holder_ev["ownerId"]),
+                    "value": holder_ev["points"],
+                    "valueLabel": f"{holder_ev['points']:.1f} pts",
+                    "season": holder_ev["season"],
+                    "week": holder_ev["week"],
+                },
+            }
+        )
         current_year = snapshot.current_season.season if snapshot.current_season else None
         current = [e for e in scored if e["season"] == current_year]
         if current:
@@ -398,7 +412,8 @@ def _records_in_reach(
                     "season": chaser["season"],
                     "week": chaser["week"],
                     "gap": round(holder_ev["points"] - chaser["points"], 2),
-                    "withinReach": chaser["points"] >= holder_ev["points"] * _NEAR_RECORD_POINTS_PCT,
+                    "withinReach": chaser["points"]
+                    >= holder_ev["points"] * _NEAR_RECORD_POINTS_PCT,
                 }
 
     # Longest win streak.
@@ -478,47 +493,55 @@ def _current_streaks_per_owner(
         display = metrics.display_name_for(snapshot, owner_id)
         owner_events = by_owner.get(owner_id) or []
         if not owner_events:
-            rows.append({
-                "ownerId": owner_id,
-                "displayName": display,
-                "type": "none",
-                "length": 0,
-                "start": None,
-                "end": None,
-            })
+            rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": display,
+                    "type": "none",
+                    "length": 0,
+                    "start": None,
+                    "end": None,
+                }
+            )
             continue
         owner_events.sort(key=_chron_key)
         rev = list(reversed(owner_events))
         latest = rev[0]
         if latest["result"] == "W":
             length, start, end = _trailing_run(rev, lambda e: e["result"] == "W")
-            rows.append({
-                "ownerId": owner_id,
-                "displayName": display,
-                "type": "winStreak",
-                "length": length,
-                "start": start,
-                "end": end,
-            })
+            rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": display,
+                    "type": "winStreak",
+                    "length": length,
+                    "start": start,
+                    "end": end,
+                }
+            )
         elif latest["result"] == "L":
             length, start, end = _trailing_run(rev, lambda e: e["result"] == "L")
-            rows.append({
-                "ownerId": owner_id,
-                "displayName": display,
-                "type": "lossStreak",
-                "length": length,
-                "start": start,
-                "end": end,
-            })
+            rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": display,
+                    "type": "lossStreak",
+                    "length": length,
+                    "start": start,
+                    "end": end,
+                }
+            )
         else:
-            rows.append({
-                "ownerId": owner_id,
-                "displayName": display,
-                "type": "tie",
-                "length": 0,
-                "start": None,
-                "end": latest,
-            })
+            rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": display,
+                    "type": "tie",
+                    "length": 0,
+                    "start": None,
+                    "end": latest,
+                }
+            )
     type_priority = {"winStreak": 0, "lossStreak": 1, "tie": 2, "none": 3}
     rows.sort(key=lambda r: (type_priority.get(r["type"], 99), -r["length"]))
     return rows
@@ -545,9 +568,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return {
         "seasonsCovered": [s.season for s in snapshot.seasons],
         "currentSeason": snapshot.current_season.season if snapshot.current_season else None,
-        "latestWeek": (
-            {"season": latest[0], "week": latest[1]} if latest else None
-        ),
+        "latestWeek": ({"season": latest[0], "week": latest[1]} if latest else None),
         "activeStreaks": active_flat,
         "activeStreaksByType": {
             k: v for k, v in active.items() if k in ("winStreak", "lossStreak")

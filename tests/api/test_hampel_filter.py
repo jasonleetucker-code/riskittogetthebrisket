@@ -9,6 +9,7 @@ short-circuit, and the >=2-survivor safety guard so a future refactor
 can't silently widen / narrow the rule or strip a player down to a
 single source.
 """
+
 from __future__ import annotations
 
 from src.api.data_contract import (
@@ -137,8 +138,8 @@ class TestOutlierRejection:
             ("c", 5050.0),
             ("d", 4950.0),
             ("e", 5025.0),
-            ("f", 50.0),     # low outlier
-            ("g", 9900.0),   # high outlier
+            ("f", 50.0),  # low outlier
+            ("g", 9900.0),  # high outlier
         ]
         kept, dropped = _hampel_filter_per_player(pairs)
         assert set(dropped) == {"f", "g"}

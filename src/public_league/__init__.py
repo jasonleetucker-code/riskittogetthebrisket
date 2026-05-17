@@ -43,6 +43,7 @@ Infrastructure modules:
                       every section module
     public_contract — Public API contract wrapper + safety allowlist
 """
+
 from __future__ import annotations
 
 from .public_contract import (

@@ -12,6 +12,7 @@ Output:
     2. Confidence bucket distribution
     3. Top flagged players with their anomaly details
 """
+
 from __future__ import annotations
 
 import argparse
@@ -102,10 +103,7 @@ def main() -> None:
 
     # ── Top Flagged Players ──
     _print_section("FLAGGED PLAYERS (up to 50)")
-    flagged = [
-        p for p in players
-        if p.get("anomalyFlags")
-    ]
+    flagged = [p for p in players if p.get("anomalyFlags")]
     flagged.sort(key=lambda p: p.get("canonicalConsensusRank") or 9999)
 
     if not flagged:
@@ -121,10 +119,7 @@ def main() -> None:
 
     # ── Source Disagreement Players ──
     _print_section("SOURCE DISAGREEMENT (top 20 by spread)")
-    disagreed = [
-        p for p in players
-        if p.get("hasSourceDisagreement")
-    ]
+    disagreed = [p for p in players if p.get("hasSourceDisagreement")]
     disagreed.sort(key=lambda p: p.get("sourceRankSpread") or 0, reverse=True)
 
     if not disagreed:

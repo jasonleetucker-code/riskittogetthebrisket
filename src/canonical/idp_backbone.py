@@ -43,6 +43,7 @@ Design notes
   `SOURCE_SCOPE_POSITION_IDP` are the canonical scope tokens used across
   both backends.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -69,11 +70,11 @@ VALID_SOURCE_SCOPES = frozenset(
 IDP_POSITION_GROUPS = ("DL", "LB", "DB")
 
 # ── Translation result constants ────────────────────────────────────────
-TRANSLATION_DIRECT = "direct"            # overall_idp / overall_offense
-TRANSLATION_EXACT = "exact"              # position_idp matched an anchor
+TRANSLATION_DIRECT = "direct"  # overall_idp / overall_offense
+TRANSLATION_EXACT = "exact"  # position_idp matched an anchor
 TRANSLATION_INTERPOLATED = "interpolated"  # fractional position between anchors
 TRANSLATION_EXTRAPOLATED = "extrapolated"  # past the last known anchor
-TRANSLATION_FALLBACK = "fallback"        # backbone absent; no-op passthrough
+TRANSLATION_FALLBACK = "fallback"  # backbone absent; no-op passthrough
 
 
 @dataclass(frozen=True)
@@ -264,7 +265,7 @@ def translate_position_rank(
 
     # Interpolation within the ladder
     if 1.0 <= pr <= float(n):
-        low_idx = int(pr) - 1           # 0-based index of left anchor
+        low_idx = int(pr) - 1  # 0-based index of left anchor
         frac = pr - float(int(pr))
         low = ladder[low_idx]
         high = ladder[min(low_idx + 1, n - 1)]

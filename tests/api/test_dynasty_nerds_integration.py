@@ -20,6 +20,7 @@ Specifically:
 7. Rows with ``value=0`` in the raw DR_DATA payload are skipped by
    the fetch script, so they never appear in the CSV at all.
 """
+
 from __future__ import annotations
 
 import csv
@@ -64,9 +65,7 @@ class TestDynastyNerdsRegistry(unittest.TestCase):
         self.assertEqual(src["scope"], SOURCE_SCOPE_OVERALL_OFFENSE)
 
     def test_source_weight_and_depth(self):
-        src = next(
-            s for s in _RANKING_SOURCES if s["key"] == "dynastyNerdsSfTep"
-        )
+        src = next(s for s in _RANKING_SOURCES if s["key"] == "dynastyNerdsSfTep")
         # Every registered source is declared at weight 1.0 so the
         # blend is an honest equal-weight consensus.  See the
         # registry note in data_contract.py.
@@ -75,9 +74,7 @@ class TestDynastyNerdsRegistry(unittest.TestCase):
         self.assertGreaterEqual(src["depth"], 290)
 
     def test_source_not_retail(self):
-        src = next(
-            s for s in _RANKING_SOURCES if s["key"] == "dynastyNerdsSfTep"
-        )
+        src = next(s for s in _RANKING_SOURCES if s["key"] == "dynastyNerdsSfTep")
         self.assertFalse(src.get("is_retail", False))
 
     def test_source_in_offense_signal_keys(self):
@@ -176,8 +173,7 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
             self.skipTest("DN CSV missing")
         pa = self.contract.get("playersArray", [])
         dn_enriched = [
-            p for p in pa
-            if (p.get("canonicalSiteValues") or {}).get("dynastyNerdsSfTep")
+            p for p in pa if (p.get("canonicalSiteValues") or {}).get("dynastyNerdsSfTep")
         ]
         # Expect at least 15 of the 20-plus synthesized rows to have
         # received an enrichment value.  A handful of top-20 names may
@@ -190,8 +186,7 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
             self.skipTest("DN CSV missing")
         pa = self.contract.get("playersArray", [])
         any_stamped = any(
-            (p.get("sourceRanks") or {}).get("dynastyNerdsSfTep") is not None
-            for p in pa
+            (p.get("sourceRanks") or {}).get("dynastyNerdsSfTep") is not None for p in pa
         )
         self.assertTrue(any_stamped)
 
@@ -199,10 +194,7 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
         if self.contract is None:
             self.skipTest("DN CSV missing")
         pa = self.contract.get("playersArray", [])
-        matched = [
-            p for p in pa
-            if (p.get("sourceOriginalRanks") or {}).get("dynastyNerdsSfTep")
-        ]
+        matched = [p for p in pa if (p.get("sourceOriginalRanks") or {}).get("dynastyNerdsSfTep")]
         self.assertTrue(matched)
         # The preserved original rank must be a positive number inside
         # the DN board's depth.
@@ -218,10 +210,7 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
         key = _canonical_match_key(top_name)
         pa = self.contract.get("playersArray", [])
         match = next(
-            (
-                p for p in pa
-                if _canonical_match_key(p.get("canonicalName") or "") == key
-            ),
+            (p for p in pa if _canonical_match_key(p.get("canonicalName") or "") == key),
             None,
         )
         self.assertIsNotNone(match, f"{top_name} missing from contract")
@@ -238,7 +227,8 @@ class TestDynastyNerdsAllowlist(unittest.TestCase):
     def test_dn_only_entries_documented(self):
         # Each DN-only entry must reference DN in the reason string.
         dn_reasons = [
-            reason for reason in SINGLE_SOURCE_ALLOWLIST.values()
+            reason
+            for reason in SINGLE_SOURCE_ALLOWLIST.values()
             if "Dynasty Nerds" in reason or "dynastyNerds" in reason
         ]
         # We do not require a specific count — just sanity-check that

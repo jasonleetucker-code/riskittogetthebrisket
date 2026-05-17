@@ -22,6 +22,7 @@ Slot eligibility map mirrors Sleeper's roster_positions naming:
     DL, LB, DB, IDP_FLEX (DL/LB/DB), DEF (team defense, ignored), K, BN
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -191,7 +192,7 @@ def optimize_lineup(
         seen = by_pos_seen.get(player.position.upper(), 0)
         # First bench player at a position counts fully; second decays
         # by `decay_per_player`; third by decay^2; etc.
-        depth_factor = decay_per_player ** seen
+        depth_factor = decay_per_player**seen
         adj_value = _value_with_health_penalty(player) * depth_factor
         bench_total += adj_value
         bench_rows.append(
@@ -212,12 +213,8 @@ def optimize_lineup(
     coverage_score = _positional_coverage(roster)
 
     # Health availability — share of starters not flagged injured/bye.
-    healthy_starters = sum(
-        1 for r in starting_rows if not r.get("flagged")
-    )
-    health_score = (
-        healthy_starters / len(starting_rows) * 100 if starting_rows else 0.0
-    )
+    healthy_starters = sum(1 for r in starting_rows if not r.get("flagged"))
+    health_score = healthy_starters / len(starting_rows) * 100 if starting_rows else 0.0
 
     return LineupSolution(
         starting_lineup_score=round(starting_total, 2),

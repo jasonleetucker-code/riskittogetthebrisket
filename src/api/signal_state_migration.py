@@ -20,6 +20,7 @@ Called from:
     POST /api/admin/migrate-signal-state  (admin-gated)
     scripts/migrate_signal_state.py       (one-shot CLI)
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,12 +39,12 @@ def migrate_user(
 ) -> dict[str, Any]:
     """Migrate one user's state.  Returns a diagnostic dict:
 
-        {
-          "username": str,
-          "action": "migrated" | "skipped" | "noop",
-          "reason": str,
-          "keys_moved": int,
-        }
+    {
+      "username": str,
+      "action": "migrated" | "skipped" | "noop",
+      "reason": str,
+      "keys_moved": int,
+    }
     """
     state = user_kv.get_user_state(username, path=path)
     legacy = state.get("signalAlertState")
@@ -58,10 +59,16 @@ def migrate_user(
             "reason": "no_legacy_state",
             "keys_moved": 0,
         }
-    if default_league_key in by_league and isinstance(by_league[default_league_key], dict) and by_league[default_league_key]:
+    if (
+        default_league_key in by_league
+        and isinstance(by_league[default_league_key], dict)
+        and by_league[default_league_key]
+    ):
         # Already migrated — just drop the legacy field.
         user_kv.merge_user_state(
-            username, {"signalAlertState": {}}, path=path,
+            username,
+            {"signalAlertState": {}},
+            path=path,
         )
         return {
             "username": username,
@@ -119,15 +126,19 @@ def migrate_all(
 
     results: list[dict[str, Any]] = []
     counts: dict[str, int] = {"migrated": 0, "skipped": 0, "noop": 0, "error": 0}
-    for username in (states or {}):
+    for username in states or {}:
         try:
             r = migrate_user(
-                username, default_league_key=default_league_key, path=path,
+                username,
+                default_league_key=default_league_key,
+                path=path,
             )
         except Exception as exc:  # noqa: BLE001
             r = {
-                "username": username, "action": "error",
-                "reason": str(exc), "keys_moved": 0,
+                "username": username,
+                "action": "error",
+                "reason": str(exc),
+                "keys_moved": 0,
             }
         results.append(r)
         counts[r.get("action", "error")] = counts.get(r.get("action", "error"), 0) + 1

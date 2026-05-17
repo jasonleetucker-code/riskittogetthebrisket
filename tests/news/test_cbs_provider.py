@@ -4,6 +4,7 @@ Shares the ``_rss`` helpers with ESPN / FantasyPros, so the
 surface exercised here is provider identity + the raise-on-
 failure contract.
 """
+
 from __future__ import annotations
 
 import pytest

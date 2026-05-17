@@ -20,6 +20,7 @@ The contract layer (``src/api/data_contract.py``) and the identity
 layer (``src/identity/matcher.py``) both import from here so the same
 rules apply to every join, audit, and collision check in the pipeline.
 """
+
 from __future__ import annotations
 
 import re
@@ -143,7 +144,7 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     "pat mahomes": "patrick mahomes",
     "mike evans": "michael evans",
     "mike gesicki": "mike gesicki",  # explicit identity — "michael gesicki"
-                                      # is NOT used anywhere
+    # is NOT used anywhere
     "kenny pickett": "kenny pickett",
     "chig okonkwo": "chigoziem okonkwo",
     "hollywood brown": "marquise brown",
@@ -155,11 +156,11 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     # ── Cross-source first-name drift ──────────────────────────────────
     # Verified by checking all three source CSVs (KTC, IDPTradeCalc,
     # DLF) and the dynasty_data player pool.
-    "greg rousseau": "gregory rousseau",      # IDPTC "Greg" ↔ DLF "Gregory"
-    "foye oluokun": "foyesade oluokun",       # DLF/IDPTC "Foye" ↔ dynasty_data "Foyesade"
-    "josh metellus": "joshua metellus",       # DLF "Josh" ↔ dynasty_data "Joshua"
-    "kam curl": "kamren curl",                # dynasty_data "Kam" ↔ DLF/IDPTC "Kamren"
-    "kamren curl": "kamren curl",             # anchor the canonical form
+    "greg rousseau": "gregory rousseau",  # IDPTC "Greg" ↔ DLF "Gregory"
+    "foye oluokun": "foyesade oluokun",  # DLF/IDPTC "Foye" ↔ dynasty_data "Foyesade"
+    "josh metellus": "joshua metellus",  # DLF "Josh" ↔ dynasty_data "Joshua"
+    "kam curl": "kamren curl",  # dynasty_data "Kam" ↔ DLF/IDPTC "Kamren"
+    "kamren curl": "kamren curl",  # anchor the canonical form
 }
 
 

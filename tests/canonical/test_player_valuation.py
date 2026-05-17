@@ -10,6 +10,7 @@ Covers:
     - Trade-scenario validation
     - Stability under small rank perturbations
 """
+
 from __future__ import annotations
 
 import math
@@ -52,6 +53,7 @@ from src.canonical.player_valuation import (
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
+
 def _make_players(ranks_by_player: dict[str, list[float]]) -> list[PlayerInput]:
     """Build PlayerInput list from {name: [source_ranks]}."""
     return [
@@ -67,6 +69,7 @@ def _quick_pipeline(ranks_by_player: dict[str, list[float]], **kwargs) -> Valuat
 # ─────────────────────────────────────────────────────────────
 # Step 1 – Consensus Rank
 # ─────────────────────────────────────────────────────────────
+
 
 class TestConsensusRank:
     def test_single_source(self):
@@ -111,6 +114,7 @@ class TestConsensusRank:
 # Step 2 – Tier Detection
 # ─────────────────────────────────────────────────────────────
 
+
 class TestTierDetection:
     def test_no_tiers_for_uniform_gaps(self):
         """Uniformly spaced players should produce one tier."""
@@ -134,9 +138,9 @@ class TestTierDetection:
     def test_multiple_cliffs(self):
         """Multiple well-separated clusters should produce multiple tiers."""
         ranks = (
-            [float(i) for i in range(1, 6)]       # tier 1: 1–5
-            + [float(i) for i in range(25, 30)]    # tier 2: 25–29
-            + [float(i) for i in range(55, 60)]    # tier 3: 55–59
+            [float(i) for i in range(1, 6)]  # tier 1: 1–5
+            + [float(i) for i in range(25, 30)]  # tier 2: 25–29
+            + [float(i) for i in range(55, 60)]  # tier 3: 55–59
         )
         ids = [f"P{i}" for i in range(15)]
         tier_ids, _, _, boundaries = detect_tiers(ranks, ids)
@@ -159,7 +163,9 @@ class TestTierDetection:
         ranks = [1.0, 2.0, 50.0, 51.0, 52.0, 53.0, 54.0]
         ids = [f"P{i}" for i in range(7)]
         tier_ids, _, _, boundaries = detect_tiers(
-            ranks, ids, min_tier_size=3,
+            ranks,
+            ids,
+            min_tier_size=3,
         )
         # First 2 players can't form a tier of size 3, so break should
         # be deferred or not happen at rank index 1
@@ -181,6 +187,7 @@ class TestTierDetection:
 # Step 3 – Base Value Curve
 # ─────────────────────────────────────────────────────────────
 
+
 class TestBaseValueCurve:
     """Tests for rank_to_value (Hill-style curve) and its base_value_curve alias."""
 
@@ -192,10 +199,22 @@ class TestBaseValueCurve:
         # DynastyDaddy / DynastyNerds. Re-run
         # ``scripts/fit_hill_curve_from_market.py`` to refresh the
         # constants and update these expected values together.
-        expected = {1: 9999, 2: 9885, 3: 9749, 5: 9460, 10: 8736,
-                    25: 6914, 50: 4967, 100: 3055, 200: 1648, 500: 643}
+        expected = {
+            1: 9999,
+            2: 9885,
+            3: 9749,
+            5: 9460,
+            10: 8736,
+            25: 6914,
+            50: 4967,
+            100: 3055,
+            200: 1648,
+            500: 643,
+        }
         for rank, val in expected.items():
-            assert rank_to_value(rank) == val, f"rank {rank}: got {rank_to_value(rank)}, expected {val}"
+            assert (
+                rank_to_value(rank) == val
+            ), f"rank {rank}: got {rank_to_value(rank)}, expected {val}"
 
     def test_monotonically_decreasing(self):
         values = [rank_to_value(r) for r in range(1, 301)]
@@ -230,6 +249,7 @@ class TestBaseValueCurve:
 # Step 4 – Tier Cliff Injection
 # ─────────────────────────────────────────────────────────────
 
+
 class TestTierCliffs:
     def test_no_cliffs_single_tier(self):
         ranks = [1.0, 2.0, 3.0]
@@ -241,9 +261,13 @@ class TestTierCliffs:
         ranks = [1.0, 2.0, 3.0, 20.0, 21.0, 22.0]
         tiers = [1, 1, 1, 2, 2, 2]
         boundary = TierBoundary(
-            tier_id_above=1, tier_id_below=2,
-            player_above="P2", player_below="P3",
-            raw_gap=17.0, gap_score=3.0, rank_position=3.0,
+            tier_id_above=1,
+            tier_id_below=2,
+            player_above="P2",
+            player_below="P3",
+            raw_gap=17.0,
+            gap_score=3.0,
+            rank_position=3.0,
         )
         adj = compute_tier_adjustments(ranks, tiers, [boundary])
         # Tier 1 players should get a positive adjustment
@@ -255,20 +279,30 @@ class TestTierCliffs:
     def test_cliff_decays_with_rank(self):
         """Later cliffs should be smaller than early ones."""
         boundary_early = TierBoundary(
-            tier_id_above=1, tier_id_below=2,
-            player_above="P", player_below="Q",
-            raw_gap=10.0, gap_score=3.0, rank_position=5.0,
+            tier_id_above=1,
+            tier_id_below=2,
+            player_above="P",
+            player_below="Q",
+            raw_gap=10.0,
+            gap_score=3.0,
+            rank_position=5.0,
         )
         boundary_late = TierBoundary(
-            tier_id_above=2, tier_id_below=3,
-            player_above="Q", player_below="R",
-            raw_gap=10.0, gap_score=3.0, rank_position=100.0,
+            tier_id_above=2,
+            tier_id_below=3,
+            player_above="Q",
+            player_below="R",
+            raw_gap=10.0,
+            gap_score=3.0,
+            rank_position=100.0,
         )
         # Two-boundary scenario
         ranks = [1.0, 2.0, 50.0, 51.0, 150.0, 151.0]
         tiers = [1, 1, 2, 2, 3, 3]
         adj = compute_tier_adjustments(
-            ranks, tiers, [boundary_early, boundary_late],
+            ranks,
+            tiers,
+            [boundary_early, boundary_late],
         )
         # Tier 1 adj (includes both cliffs) > Tier 2 adj (includes only late cliff)
         assert adj[0] > adj[2]
@@ -282,6 +316,7 @@ class TestTierCliffs:
 # ─────────────────────────────────────────────────────────────
 # Step 5 – Volatility Adjustment
 # ─────────────────────────────────────────────────────────────
+
 
 class TestVolatilityAdjustment:
     def test_zero_vol_no_adjustment(self):
@@ -320,6 +355,7 @@ class TestVolatilityAdjustment:
 # Step 6 – Full Pipeline Integration
 # ─────────────────────────────────────────────────────────────
 
+
 class TestFullPipeline:
     def test_empty_input(self):
         result = run_valuation([])
@@ -341,9 +377,9 @@ class TestFullPipeline:
         result = _quick_pipeline(players)
         values = [p.final_value for p in result.players]
         for i in range(1, len(values)):
-            assert values[i] < values[i - 1], (
-                f"Non-decreasing at index {i}: {values[i-1]:.2f} -> {values[i]:.2f}"
-            )
+            assert (
+                values[i] < values[i - 1]
+            ), f"Non-decreasing at index {i}: {values[i-1]:.2f} -> {values[i]:.2f}"
 
     def test_display_values_in_range(self):
         players = {f"P{i}": [float(i)] for i in range(1, 101)}
@@ -361,9 +397,9 @@ class TestFullPipeline:
         """
         result = _quick_pipeline({"A": [1.0], "B": [5.0], "C": [10.0]})
         top_dv = result.players[0].display_value
-        assert top_dv > DISPLAY_SCALE_MAX * 0.90, (
-            f"Top player display {top_dv} too low — should be near {DISPLAY_SCALE_MAX}"
-        )
+        assert (
+            top_dv > DISPLAY_SCALE_MAX * 0.90
+        ), f"Top player display {top_dv} too low — should be near {DISPLAY_SCALE_MAX}"
         assert top_dv <= DISPLAY_SCALE_MAX
 
     def test_display_anchor_is_stable(self):
@@ -428,10 +464,12 @@ class TestFullPipeline:
         assert all(not p.is_tier_start for p in tier1)
 
     def test_diagnostics_populated(self):
-        result = _quick_pipeline({
-            "A": [1.0, 2.0, 3.0],
-            "B": [4.0, 5.0, 6.0],
-        })
+        result = _quick_pipeline(
+            {
+                "A": [1.0, 2.0, 3.0],
+                "B": [4.0, 5.0, 6.0],
+            }
+        )
         for p in result.players:
             assert p.median_rank > 0
             assert p.mean_rank > 0
@@ -469,8 +507,11 @@ class TestFullPipeline:
     def test_monotonic_clamp_count_matches_per_player_flags(self):
         """Result-level count must equal the number of per-player flags."""
         players = {
-            "A": [1.0], "B": [1.0], "C": [1.0],  # all tied
-            "D": [10.0], "E": [20.0],
+            "A": [1.0],
+            "B": [1.0],
+            "C": [1.0],  # all tied
+            "D": [10.0],
+            "E": [20.0],
         }
         result = _quick_pipeline(players)
         flag_count = sum(1 for p in result.players if p.monotonic_clamp_applied)
@@ -485,6 +526,7 @@ class TestFullPipeline:
 # Trade Scenario Validation
 # ─────────────────────────────────────────────────────────────
 
+
 class TestTradeScenarios:
     """Validate that the model produces realistic dynasty trade behavior.
 
@@ -498,6 +540,7 @@ class TestTradeScenarios:
     def market(self):
         """A 200-player market with realistic multi-source ranks."""
         import random
+
         random.seed(42)
         players = {}
         for i in range(1, 201):
@@ -535,12 +578,12 @@ class TestTradeScenarios:
         top5_span = top5_values[0] - top5_values[-1]
         full_range = market.players[0].final_value - market.players[-1].final_value
         span_share = top5_span / full_range
-        assert span_share < 0.50, (
-            f"Top-5 span consumes {span_share*100:.1f}% of full range — too concentrated"
-        )
-        assert span_share > 0.02, (
-            f"Top-5 span is only {span_share*100:.1f}% of full range — elites too flat"
-        )
+        assert (
+            span_share < 0.50
+        ), f"Top-5 span consumes {span_share*100:.1f}% of full range — too concentrated"
+        assert (
+            span_share > 0.02
+        ), f"Top-5 span is only {span_share*100:.1f}% of full range — elites too flat"
 
     # ── 2. Tier-down premium ──
 
@@ -565,14 +608,12 @@ class TestTradeScenarios:
             # value users see.  final_value is an intermediate pipeline value
             # and can have near-zero gaps at late tiers due to cliff decay.
             cross_gap = above.display_value - below.display_value
-            assert cross_gap > 0, (
-                f"Tier boundary {b.tier_id_above}→{b.tier_id_below} has non-positive display gap"
-            )
+            assert (
+                cross_gap > 0
+            ), f"Tier boundary {b.tier_id_above}→{b.tier_id_below} has non-positive display gap"
 
             # Gather intra-tier adjacent display_value gaps for each side
-            tier_above_players = [
-                p for p in market.players if p.tier_id == b.tier_id_above
-            ]
+            tier_above_players = [p for p in market.players if p.tier_id == b.tier_id_above]
             if len(tier_above_players) >= 2:
                 intra_above = [
                     tier_above_players[j].display_value - tier_above_players[j + 1].display_value
@@ -582,9 +623,7 @@ class TestTradeScenarios:
             else:
                 median_intra_above = 0.0
 
-            tier_below_players = [
-                p for p in market.players if p.tier_id == b.tier_id_below
-            ]
+            tier_below_players = [p for p in market.players if p.tier_id == b.tier_id_below]
             if len(tier_below_players) >= 2:
                 intra_below = [
                     tier_below_players[j].display_value - tier_below_players[j + 1].display_value
@@ -697,6 +736,7 @@ class TestTradeScenarios:
 # Stability Tests
 # ─────────────────────────────────────────────────────────────
 
+
 class TestStability:
     def test_small_rank_change_small_value_change(self):
         """Moving one player by 1–2 spots should not cause wild swings."""
@@ -721,6 +761,7 @@ class TestStability:
     def test_ordering_stable_under_noise(self):
         """Adding small noise to sources should preserve overall ordering."""
         import random
+
         random.seed(99)
         base_players = {f"P{i}": [float(i)] for i in range(1, 51)}
         base_result = _quick_pipeline(base_players)
@@ -743,15 +784,31 @@ class TestStability:
 # Integration bridge
 # ─────────────────────────────────────────────────────────────
 
+
 class TestBuildPlayerInputs:
     def test_basic_conversion(self):
         records = [
-            {"asset_key": "mahomes", "display_name": "Patrick Mahomes",
-             "source": "KTC", "rank_raw": 1.0, "position_normalized_guess": "QB"},
-            {"asset_key": "mahomes", "display_name": "Patrick Mahomes",
-             "source": "IDPTRADECALC", "rank_raw": 2.0, "position_normalized_guess": "QB"},
-            {"asset_key": "chase", "display_name": "Ja'Marr Chase",
-             "source": "KTC", "rank_raw": 3.0, "position_normalized_guess": "WR"},
+            {
+                "asset_key": "mahomes",
+                "display_name": "Patrick Mahomes",
+                "source": "KTC",
+                "rank_raw": 1.0,
+                "position_normalized_guess": "QB",
+            },
+            {
+                "asset_key": "mahomes",
+                "display_name": "Patrick Mahomes",
+                "source": "IDPTRADECALC",
+                "rank_raw": 2.0,
+                "position_normalized_guess": "QB",
+            },
+            {
+                "asset_key": "chase",
+                "display_name": "Ja'Marr Chase",
+                "source": "KTC",
+                "rank_raw": 3.0,
+                "position_normalized_guess": "WR",
+            },
         ]
         inputs = build_player_inputs_from_raw_records(records)
         assert len(inputs) == 2
@@ -762,33 +819,30 @@ class TestBuildPlayerInputs:
     def test_excluded_sources_are_filtered(self):
         """Records from excluded sources should be dropped entirely."""
         records = [
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "BAD", "rank_raw": 1.0},
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "GOOD", "rank_raw": 3.0},
+            {"asset_key": "p1", "display_name": "P1", "source": "BAD", "rank_raw": 1.0},
+            {"asset_key": "p1", "display_name": "P1", "source": "GOOD", "rank_raw": 3.0},
         ]
         inputs = build_player_inputs_from_raw_records(
-            records, excluded_sources={"BAD"},
+            records,
+            excluded_sources={"BAD"},
         )
         assert len(inputs) == 1
         assert inputs[0].source_ranks == [3.0]
 
     def test_excluding_all_sources_yields_empty(self):
         records = [
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "ONLY", "rank_raw": 1.0},
+            {"asset_key": "p1", "display_name": "P1", "source": "ONLY", "rank_raw": 1.0},
         ]
         inputs = build_player_inputs_from_raw_records(
-            records, excluded_sources={"ONLY"},
+            records,
+            excluded_sources={"ONLY"},
         )
         assert len(inputs) == 0
 
     def test_no_exclusions_includes_everything(self):
         records = [
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "A", "rank_raw": 1.0},
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "B", "rank_raw": 5.0},
+            {"asset_key": "p1", "display_name": "P1", "source": "A", "rank_raw": 1.0},
+            {"asset_key": "p1", "display_name": "P1", "source": "B", "rank_raw": 5.0},
         ]
         inputs = build_player_inputs_from_raw_records(records)
         assert len(inputs) == 1
@@ -796,8 +850,7 @@ class TestBuildPlayerInputs:
 
     def test_skips_no_rank(self):
         records = [
-            {"asset_key": "p1", "display_name": "P1",
-             "source": "SRC", "rank_raw": None},
+            {"asset_key": "p1", "display_name": "P1", "source": "SRC", "rank_raw": None},
         ]
         inputs = build_player_inputs_from_raw_records(records)
         assert len(inputs) == 0
@@ -807,8 +860,10 @@ class TestBuildPlayerInputs:
 # Record-object bridge (RawAssetRecord-style objects)
 # ─────────────────────────────────────────────────────────────
 
+
 class _FakeRecord:
     """Mimics RawAssetRecord attribute interface for testing."""
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -817,16 +872,28 @@ class _FakeRecord:
 class TestBuildPlayerInputsFromRecordObjects:
     def test_basic_conversion(self):
         records = [
-            _FakeRecord(asset_key="mahomes", display_name="Patrick Mahomes",
-                        source="KTC", rank_raw=1.0,
-                        position_normalized_guess="QB", position_raw="QB",
-                        team_normalized_guess="KC", team_raw="KC",
-                        universe="offense_vet"),
-            _FakeRecord(asset_key="mahomes", display_name="Patrick Mahomes",
-                        source="IDPTRADECALC", rank_raw=2.0,
-                        position_normalized_guess="QB", position_raw="QB",
-                        team_normalized_guess="KC", team_raw="KC",
-                        universe="offense_vet"),
+            _FakeRecord(
+                asset_key="mahomes",
+                display_name="Patrick Mahomes",
+                source="KTC",
+                rank_raw=1.0,
+                position_normalized_guess="QB",
+                position_raw="QB",
+                team_normalized_guess="KC",
+                team_raw="KC",
+                universe="offense_vet",
+            ),
+            _FakeRecord(
+                asset_key="mahomes",
+                display_name="Patrick Mahomes",
+                source="IDPTRADECALC",
+                rank_raw=2.0,
+                position_normalized_guess="QB",
+                position_raw="QB",
+                team_normalized_guess="KC",
+                team_raw="KC",
+                universe="offense_vet",
+            ),
         ]
         inputs = build_player_inputs_from_record_objects(records)
         assert len(inputs) == 1
@@ -836,16 +903,28 @@ class TestBuildPlayerInputsFromRecordObjects:
 
     def test_excluded_sources(self):
         records = [
-            _FakeRecord(asset_key="p1", display_name="P1",
-                        source="BAD", rank_raw=1.0,
-                        position_normalized_guess="", position_raw="",
-                        team_normalized_guess="", team_raw="",
-                        universe="offense_vet"),
-            _FakeRecord(asset_key="p1", display_name="P1",
-                        source="GOOD", rank_raw=3.0,
-                        position_normalized_guess="", position_raw="",
-                        team_normalized_guess="", team_raw="",
-                        universe="offense_vet"),
+            _FakeRecord(
+                asset_key="p1",
+                display_name="P1",
+                source="BAD",
+                rank_raw=1.0,
+                position_normalized_guess="",
+                position_raw="",
+                team_normalized_guess="",
+                team_raw="",
+                universe="offense_vet",
+            ),
+            _FakeRecord(
+                asset_key="p1",
+                display_name="P1",
+                source="GOOD",
+                rank_raw=3.0,
+                position_normalized_guess="",
+                position_raw="",
+                team_normalized_guess="",
+                team_raw="",
+                universe="offense_vet",
+            ),
         ]
         inputs = build_player_inputs_from_record_objects(records, excluded_sources={"BAD"})
         assert len(inputs) == 1
@@ -853,11 +932,17 @@ class TestBuildPlayerInputsFromRecordObjects:
 
     def test_universe_in_metadata(self):
         records = [
-            _FakeRecord(asset_key="watt", display_name="T.J. Watt",
-                        source="IDP", rank_raw=1.0,
-                        position_normalized_guess="LB", position_raw="LB",
-                        team_normalized_guess="PIT", team_raw="PIT",
-                        universe="idp_vet"),
+            _FakeRecord(
+                asset_key="watt",
+                display_name="T.J. Watt",
+                source="IDP",
+                rank_raw=1.0,
+                position_normalized_guess="LB",
+                position_raw="LB",
+                team_normalized_guess="PIT",
+                team_raw="PIT",
+                universe="idp_vet",
+            ),
         ]
         inputs = build_player_inputs_from_record_objects(records)
         assert inputs[0].metadata["universe"] == "idp_vet"
@@ -866,6 +951,7 @@ class TestBuildPlayerInputsFromRecordObjects:
 # ─────────────────────────────────────────────────────────────
 # Asset dict conversion
 # ─────────────────────────────────────────────────────────────
+
 
 class TestValuationResultToAssetDicts:
     def _run_and_convert(self, n=20, universe="offense_vet"):
@@ -880,9 +966,17 @@ class TestValuationResultToAssetDicts:
 
     def test_required_fields_present(self):
         _, dicts = self._run_and_convert()
-        required = {"asset_key", "display_name", "universe", "source_values",
-                     "blended_value", "calibrated_value", "display_value",
-                     "source_count", "metadata"}
+        required = {
+            "asset_key",
+            "display_name",
+            "universe",
+            "source_values",
+            "blended_value",
+            "calibrated_value",
+            "display_value",
+            "source_count",
+            "metadata",
+        }
         for d in dicts:
             assert required.issubset(d.keys()), f"Missing: {required - d.keys()}"
 
@@ -895,9 +989,14 @@ class TestValuationResultToAssetDicts:
 
     def test_explainability_fields(self):
         _, dicts = self._run_and_convert()
-        explain_keys = {"canonical_consensus_rank", "canonical_tier_id",
-                        "canonical_base_value", "canonical_final_value",
-                        "canonical_rank_volatility", "canonical_monotonic_clamp"}
+        explain_keys = {
+            "canonical_consensus_rank",
+            "canonical_tier_id",
+            "canonical_base_value",
+            "canonical_final_value",
+            "canonical_rank_volatility",
+            "canonical_monotonic_clamp",
+        }
         for d in dicts:
             assert explain_keys.issubset(d.keys())
 
@@ -926,10 +1025,10 @@ class TestValuationResultToAssetDicts:
             assert d["calibrated_value"] == d["display_value"]
 
 
-
 # ─────────────────────────────────────────────────────────────
 # Calibration Fixtures — market-realistic scenario tests
 # ─────────────────────────────────────────────────────────────
+
 
 class TestCalibrationFixtures:
     """Validate value distributions match dynasty trade market expectations."""
@@ -938,6 +1037,7 @@ class TestCalibrationFixtures:
     def _market_result(n=200):
         """Simulate a realistic 200-player market with 3 sources."""
         import random
+
         random.seed(42)
         players = {}
         for i in range(1, n + 1):
@@ -957,9 +1057,7 @@ class TestCalibrationFixtures:
         vals = [p.display_value for p in top_24]
         spread = max(vals) - min(vals)
         # Top 24 should span at least 20% of the full display range
-        assert spread >= DISPLAY_SCALE_MAX * 0.20, (
-            f"Top-24 spread {spread} is too compressed"
-        )
+        assert spread >= DISPLAY_SCALE_MAX * 0.20, f"Top-24 spread {spread} is too compressed"
 
     def test_startup_round_groupings(self):
         """Players within startup rounds should have declining average value."""
@@ -972,9 +1070,9 @@ class TestCalibrationFixtures:
             round_avgs.append(avg)
         # Each round's average should be strictly less than the previous
         for i in range(1, len(round_avgs)):
-            assert round_avgs[i] < round_avgs[i - 1], (
-                f"Round {i+1} avg ({round_avgs[i]:.0f}) >= Round {i} avg ({round_avgs[i-1]:.0f})"
-            )
+            assert (
+                round_avgs[i] < round_avgs[i - 1]
+            ), f"Round {i+1} avg ({round_avgs[i]:.0f}) >= Round {i} avg ({round_avgs[i-1]:.0f})"
 
     def test_idp_cluster_ceiling(self):
         """IDP and offense universes with same ranks produce same pipeline output.
@@ -1010,22 +1108,23 @@ class TestCalibrationFixtures:
         assert all(v >= DISPLAY_SCALE_MIN for v in vals), "Tail values below minimum"
         # Hill curve has a higher tail than the old inverse-power curve by design.
         # Rank 180 maps to ~1700; threshold is 20% of scale (2000).
-        assert max(vals) < DISPLAY_SCALE_MAX * 0.20, (
-            f"Tail max {max(vals)} too high — should be <20% of scale"
-        )
+        assert (
+            max(vals) < DISPLAY_SCALE_MAX * 0.20
+        ), f"Tail max {max(vals)} too high — should be <20% of scale"
 
     def test_tier_count_reasonable(self):
         """A 200-player market should produce a reasonable number of tiers."""
         result = self._market_result()
         # Expect somewhere between 3 and 30 tiers
-        assert 3 <= result.tier_count <= 30, (
-            f"Tier count {result.tier_count} outside expected 3-30 range"
-        )
+        assert (
+            3 <= result.tier_count <= 30
+        ), f"Tier count {result.tier_count} outside expected 3-30 range"
 
 
 # ─────────────────────────────────────────────────────────────
 # Parameter-sweep calibration harness
 # ─────────────────────────────────────────────────────────────
+
 
 class TestParameterSweep:
     """Verify pipeline behaves sensibly across a range of hyperparameter values."""
@@ -1034,6 +1133,7 @@ class TestParameterSweep:
     def _sweep_players():
         """Standard 50-player set with 2 sources for sweeps."""
         import random
+
         random.seed(123)
         players = {}
         for i in range(1, 51):
@@ -1051,18 +1151,18 @@ class TestParameterSweep:
         calibration refreshes.
         """
         import random
+
         random.seed(123)
         # Generate a deeper sweep (150 players) so the tail probe lands
         # well past the midpoint even if constants shift.
-        players = {
-            f"P{i}": [float(i), float(i) + random.uniform(-1, 1)]
-            for i in range(1, 151)
-        }
+        players = {f"P{i}": [float(i), float(i) + random.uniform(-1, 1)] for i in range(1, 151)}
         tail_fractions = []
         for slope in [0.6, 1.10, 1.5, 2.0]:
             result = run_valuation(
-                [PlayerInput(player_id=k, display_name=k, source_ranks=v)
-                 for k, v in players.items()],
+                [
+                    PlayerInput(player_id=k, display_name=k, source_ranks=v)
+                    for k, v in players.items()
+                ],
                 hill_slope=slope,
             )
             top_dv = result.players[0].display_value
@@ -1083,8 +1183,10 @@ class TestParameterSweep:
         tier_counts = []
         for thresh in [1.0, 2.0, 4.0, 8.0]:
             result = run_valuation(
-                [PlayerInput(player_id=k, display_name=k, source_ranks=v)
-                 for k, v in players.items()],
+                [
+                    PlayerInput(player_id=k, display_name=k, source_ranks=v)
+                    for k, v in players.items()
+                ],
                 gap_threshold=thresh,
             )
             tier_counts.append(result.tier_count)
@@ -1099,6 +1201,7 @@ class TestParameterSweep:
         """Higher cliff base should increase cross-tier value gaps."""
         # Use data with natural gaps to ensure tier detection fires
         import random
+
         random.seed(789)
         players_data = {}
         rank = 1.0
@@ -1111,8 +1214,7 @@ class TestParameterSweep:
 
         players = players_data
         default_result = run_valuation(
-            [PlayerInput(player_id=k, display_name=k, source_ranks=v)
-             for k, v in players.items()],
+            [PlayerInput(player_id=k, display_name=k, source_ranks=v) for k, v in players.items()],
         )
         if not default_result.tier_boundaries:
             pytest.skip("No tier boundaries detected in sweep data")
@@ -1120,8 +1222,10 @@ class TestParameterSweep:
         cross_tier_gaps = []
         for cliff in [50.0, 120.0, 250.0]:
             result = run_valuation(
-                [PlayerInput(player_id=k, display_name=k, source_ranks=v)
-                 for k, v in players.items()],
+                [
+                    PlayerInput(player_id=k, display_name=k, source_ranks=v)
+                    for k, v in players.items()
+                ],
                 cliff_base=cliff,
             )
             # Measure value gap at first tier boundary
@@ -1143,6 +1247,7 @@ class TestParameterSweep:
     def test_vol_strength_sweep(self):
         """Higher vol strength should compress high-volatility players more."""
         import random
+
         random.seed(456)
         # Create players with varying volatility
         players_data = []
@@ -1178,10 +1283,14 @@ class TestParameterSweep:
     def test_monotonicity_preserved_across_all_sweeps(self):
         """All parameter combinations should maintain strict display ordering."""
         import random
+
         random.seed(999)
         players = [
-            PlayerInput(player_id=f"P{i}", display_name=f"P{i}",
-                        source_ranks=[float(i), float(i) + random.uniform(-2, 2)])
+            PlayerInput(
+                player_id=f"P{i}",
+                display_name=f"P{i}",
+                source_ranks=[float(i), float(i) + random.uniform(-2, 2)],
+            )
             for i in range(1, 41)
         ]
         for slope in [0.8, 1.4]:
@@ -1189,16 +1298,15 @@ class TestParameterSweep:
                 result = run_valuation(players, hill_slope=slope, gap_threshold=thresh)
                 vals = [p.display_value for p in result.players]
                 for i in range(1, len(vals)):
-                    assert vals[i] <= vals[i - 1], (
-                        f"Non-monotonic at index {i} with slope={slope}, thresh={thresh}"
-                    )
+                    assert (
+                        vals[i] <= vals[i - 1]
+                    ), f"Non-monotonic at index {i} with slope={slope}, thresh={thresh}"
 
     def test_all_defaults_produce_valid_output(self):
         """Running with all default hyperparameters should produce valid output."""
         players = self._sweep_players()
         result = run_valuation(
-            [PlayerInput(player_id=k, display_name=k, source_ranks=v)
-             for k, v in players.items()],
+            [PlayerInput(player_id=k, display_name=k, source_ranks=v) for k, v in players.items()],
         )
         assert len(result.players) == 50
         assert result.tier_count >= 1

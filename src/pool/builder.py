@@ -10,6 +10,7 @@ IDPTradeCalc enriches the final union but NEVER decides membership.
 This module is called by Dynasty Scraper.py after raw source ingestion
 and before players_json export.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,6 +37,7 @@ SOURCE_TYPES = {
 @dataclass
 class CanonicalPoolRow:
     """One player in the canonical universe."""
+
     canonical_id: str | None = None
     canonical_name: str = ""
     position: str = ""
@@ -71,6 +73,7 @@ class CanonicalPoolRow:
 @dataclass
 class AdamidpRow:
     """One row from an Adamidp PDF."""
+
     overall_rank: int | None = None
     player_name: str = ""
     position: str = ""
@@ -87,6 +90,7 @@ class AdamidpRow:
 @dataclass
 class PoolAuditReport:
     """Structured audit of the pool build."""
+
     sleeper_count: int = 0
     ktc_top525_count: int = 0
     adamidp_extracted_raw_count: int = 0
@@ -109,8 +113,21 @@ class PoolAuditReport:
 # ── Position normalization (reuse from Dynasty Scraper.py) ──
 
 _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
-_IDP_POSITIONS_EXPANDED = {"DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE", "NT",
-                           "OLB", "ILB", "FS", "SS"}
+_IDP_POSITIONS_EXPANDED = {
+    "DL",
+    "DE",
+    "DT",
+    "LB",
+    "DB",
+    "CB",
+    "S",
+    "EDGE",
+    "NT",
+    "OLB",
+    "ILB",
+    "FS",
+    "SS",
+}
 _IDP_POSITIONS_NORMALIZED = {"DL", "LB", "DB"}
 
 
@@ -138,10 +155,38 @@ def is_idp(pos: str) -> bool:
 # ── Name cleaning (extracted from Dynasty Scraper.py) ──
 
 _TEAM_CODES = {
-    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
-    "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
-    "LAC", "LAR", "LV", "MIA", "MIN", "NE", "NO", "NYG",
-    "NYJ", "PHI", "PIT", "SEA", "SF", "TB", "TEN", "WAS",
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LAC",
+    "LAR",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS",
     "FA",
 }
 
@@ -151,30 +196,25 @@ def pool_clean_name(raw: str) -> str:
     if not raw:
         return ""
     name = str(raw).strip()
-    if '\\u' in name:
+    if "\\u" in name:
         try:
-            name = name.encode('utf-8').decode('unicode_escape')
+            name = name.encode("utf-8").decode("unicode_escape")
         except Exception:
-            name = re.sub(r'\\u([0-9a-fA-F]{4})',
-                          lambda m: chr(int(m.group(1), 16)), name)
+            name = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), name)
     name = re.sub(r"^\s*#?\d+\s*[\).:-]\s*", "", name)
     name = re.sub(r"\s*[\*\u2020\u2021]+\s*$", "", name)
     name = re.sub(r"\s*\([^)]*\)\s*$", "", name).strip()
-    name = re.sub(r'[\u2018\u2019\u0060\u00B4\u0027\u2032]', "'", name)
+    name = re.sub(r"[\u2018\u2019\u0060\u00B4\u0027\u2032]", "'", name)
     if "," in name:
         m = re.match(r"^\s*([A-Za-z.'\- ]+),\s*([A-Za-z.'\- ]+)\s*$", name)
         if m:
             name = f"{m.group(2).strip()} {m.group(1).strip()}".strip()
-    name = re.split(
-        r'\s+(QB|RB|WR|TE|K|DEF|DST|OL|LB|DB|DL|DE|DT|CB|S|PK)\b', name
-    )[0].strip()
-    m = re.match(r'^(.+?)([A-Z]{2,3})$', name)
+    name = re.split(r"\s+(QB|RB|WR|TE|K|DEF|DST|OL|LB|DB|DL|DE|DT|CB|S|PK)\b", name)[0].strip()
+    m = re.match(r"^(.+?)([A-Z]{2,3})$", name)
     if m and m.group(2) in _TEAM_CODES and len(m.group(1).strip()) > 3:
         name = m.group(1).strip()
-    name = re.sub(
-        r'[,\s]+(Jr.?|Sr.?|I{2,3}|IV|V|VI)\s*$', '', name, flags=re.IGNORECASE
-    ).strip()
-    name = re.sub(r'\s{2,}', ' ', name)
+    name = re.sub(r"[,\s]+(Jr.?|Sr.?|I{2,3}|IV|V|VI)\s*$", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r"\s{2,}", " ", name)
     return name
 
 
@@ -194,8 +234,8 @@ def pool_normalize_lookup(raw: str) -> str:
         initial_run.append(parts[idx])
         idx += 1
     if len(initial_run) >= 2:
-        merged = ''.join(initial_run)
-        s = ' '.join([merged] + parts[idx:])
+        merged = "".join(initial_run)
+        s = " ".join([merged] + parts[idx:])
     return s
 
 
@@ -211,6 +251,7 @@ def _is_pick_name(name: str) -> bool:
 
 
 # ── Sleeper ingestion ──
+
 
 def extract_sleeper_roster_names(
     sleeper_roster_data: dict[str, Any],
@@ -228,15 +269,18 @@ def extract_sleeper_roster_names(
         clean = pool_clean_name(name)
         if not clean:
             continue
-        entries.append({
-            "name": clean,
-            "position": normalize_position(pos or ""),
-            "sleeper_id": str(player_ids.get(name, "") or ""),
-        })
+        entries.append(
+            {
+                "name": clean,
+                "position": normalize_position(pos or ""),
+                "sleeper_id": str(player_ids.get(name, "") or ""),
+            }
+        )
     return entries
 
 
 # ── KTC structured ingestion ──
+
 
 def extract_ktc_structured(
     full_data_ktc: dict[str, float | int],
@@ -263,17 +307,20 @@ def extract_ktc_structured(
 
     rows = []
     for i, entry in enumerate(cleaned[:limit]):
-        rows.append({
-            "name": entry["name"],
-            "raw_name": entry["raw_name"],
-            "source_rank": i + 1,
-            "source_value": entry["value"],
-            "position": "",  # KTC doesn't reliably expose position in name→value
-        })
+        rows.append(
+            {
+                "name": entry["name"],
+                "raw_name": entry["raw_name"],
+                "source_rank": i + 1,
+                "source_value": entry["value"],
+                "position": "",  # KTC doesn't reliably expose position in name→value
+            }
+        )
     return rows
 
 
 # ── Adamidp PDF extraction ──
+
 
 def _reconstruct_split_names(lines: list[str]) -> list[str]:
     """Reconstruct player names that were split across PDF lines.
@@ -292,14 +339,16 @@ def _reconstruct_split_names(lines: list[str]) -> list[str]:
             continue
 
         # Check if next line looks like a name continuation (no rank number, short text)
-        while (i + 1 < len(lines)
-               and lines[i + 1].strip()
-               and not re.match(r'^\d+\s', lines[i + 1].strip())
-               and len(lines[i + 1].strip().split()) <= 2
-               and re.match(r'^[A-Za-z.\'-]+$', lines[i + 1].strip().split()[0])):
+        while (
+            i + 1 < len(lines)
+            and lines[i + 1].strip()
+            and not re.match(r"^\d+\s", lines[i + 1].strip())
+            and len(lines[i + 1].strip().split()) <= 2
+            and re.match(r"^[A-Za-z.\'-]+$", lines[i + 1].strip().split()[0])
+        ):
             next_part = lines[i + 1].strip()
             # Don't merge if next line looks like a position tag
-            if re.match(r'^(QB|RB|WR|TE|LB|DL|DB|DE|DT|CB|S|K|EDGE)$', next_part, re.I):
+            if re.match(r"^(QB|RB|WR|TE|LB|DL|DB|DE|DT|CB|S|K|EDGE)$", next_part, re.I):
                 break
             line = line + " " + next_part
             i += 1
@@ -383,6 +432,7 @@ def dedupe_adamidp_rows(rows: list[AdamidpRow]) -> tuple[list[AdamidpRow], list[
 
 
 # ── Union construction ──
+
 
 def build_canonical_pool(
     *,
@@ -473,20 +523,24 @@ def build_canonical_pool(
         report.adamidp_unique_count = len(unique_rows)
 
         for arow in ambiguous_rows:
-            report.excluded_names.append({
-                "name": arow.player_name,
-                "reason": f"ambiguous: {arow.ambiguous_reason}",
-                "source": "adamidp",
-            })
+            report.excluded_names.append(
+                {
+                    "name": arow.player_name,
+                    "reason": f"ambiguous: {arow.ambiguous_reason}",
+                    "source": "adamidp",
+                }
+            )
 
         for arow in unique_rows:
             norm = pool_normalize_lookup(arow.player_name)
             if not norm:
-                report.excluded_names.append({
-                    "name": arow.player_name,
-                    "reason": "name could not be normalized",
-                    "source": "adamidp",
-                })
+                report.excluded_names.append(
+                    {
+                        "name": arow.player_name,
+                        "reason": "name could not be normalized",
+                        "source": "adamidp",
+                    }
+                )
                 continue
             if norm in norm_to_key:
                 existing_key = norm_to_key[norm]
@@ -551,11 +605,13 @@ def build_canonical_pool(
     for norm_key, row in pool.items():
         if not row.canonical_name:
             excluded_norms.add(norm_key)
-            report.excluded_names.append({
-                "name": "",
-                "reason": "empty canonical name",
-                "source": ",".join(row.raw_source_names.keys()),
-            })
+            report.excluded_names.append(
+                {
+                    "name": "",
+                    "reason": "empty canonical name",
+                    "source": ",".join(row.raw_source_names.keys()),
+                }
+            )
             continue
         if _is_pick_name(row.canonical_name):
             excluded_norms.add(norm_key)
@@ -613,12 +669,21 @@ def build_canonical_pool(
     report.final_union_count = len(final_rows)
 
     # Sample unique-to-source lists
-    sleeper_only = [r.canonical_name for r in final_rows
-                    if r.in_sleeper and not r.in_ktc_top525 and not r.in_adamidp_pdf]
-    ktc_only = [r.canonical_name for r in final_rows
-                if r.in_ktc_top525 and not r.in_sleeper and not r.in_adamidp_pdf]
-    adamidp_only = [r.canonical_name for r in final_rows
-                    if r.in_adamidp_pdf and not r.in_sleeper and not r.in_ktc_top525]
+    sleeper_only = [
+        r.canonical_name
+        for r in final_rows
+        if r.in_sleeper and not r.in_ktc_top525 and not r.in_adamidp_pdf
+    ]
+    ktc_only = [
+        r.canonical_name
+        for r in final_rows
+        if r.in_ktc_top525 and not r.in_sleeper and not r.in_adamidp_pdf
+    ]
+    adamidp_only = [
+        r.canonical_name
+        for r in final_rows
+        if r.in_adamidp_pdf and not r.in_sleeper and not r.in_ktc_top525
+    ]
 
     report.sleeper_only_sample = sleeper_only[:20]
     report.ktc_only_sample = ktc_only[:20]

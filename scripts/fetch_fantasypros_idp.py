@@ -72,6 +72,7 @@ Exit codes:
          * any individual board row count below
            :data:`_FP_INDIVIDUAL_ROW_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -210,9 +211,7 @@ def _extract_ecr_data(html: str) -> dict[str, Any]:
     payload = html[start:end]
     parsed = json.loads(payload)
     if not isinstance(parsed, dict):
-        raise FantasyProsSchemaError(
-            f"ecrData expected dict, got {type(parsed).__name__}"
-        )
+        raise FantasyProsSchemaError(f"ecrData expected dict, got {type(parsed).__name__}")
     if "players" not in parsed or not isinstance(parsed["players"], list):
         raise FantasyProsSchemaError(
             "ecrData shape changed: missing 'players' list "
@@ -326,8 +325,7 @@ def _interpolate(r: float, anchors: list[tuple[int, int]]) -> float:
         # ``_EXTRAPOLATION_SEGMENT_WINDOW`` (or fewer if we don't
         # have that many segments yet).
         all_slopes = [
-            (anchors[k + 1][1] - anchors[k][1])
-            / max(1, (anchors[k + 1][0] - anchors[k][0]))
+            (anchors[k + 1][1] - anchors[k][1]) / max(1, (anchors[k + 1][0] - anchors[k][0]))
             for k in range(len(anchors) - 1)
         ]
         tail = all_slopes[-_EXTRAPOLATION_SEGMENT_WINDOW:]
@@ -539,12 +537,9 @@ def main(argv: list[str] | None = None) -> int:
         ext_count = sum(
             1
             for r in rows
-            if r["derivationMethod"] == "anchored_from_individual"
-            and r["family"] == fam
+            if r["derivationMethod"] == "anchored_from_individual" and r["family"] == fam
         )
-        print(
-            f"[fetch_fantasypros_idp]   {fam}: anchors={len(a)} extension_rows={ext_count}"
-        )
+        print(f"[fetch_fantasypros_idp]   {fam}: anchors={len(a)} extension_rows={ext_count}")
 
     if args.dry_run:
         print("[fetch_fantasypros_idp] --dry-run; not writing CSV")

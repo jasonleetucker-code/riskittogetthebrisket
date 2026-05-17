@@ -1,4 +1,5 @@
 """Tests for build_ktc_url (Phase 3) — inverse of resolve_trade_url."""
+
 from __future__ import annotations
 
 import unittest
@@ -7,15 +8,29 @@ from src.trade import ktc_import
 
 
 _MAP = {
-    1001: {"name": "Josh Allen", "position": "QB", "team": "BUF", "slug": "josh-allen", "rookie": False},
-    1002: {"name": "Bijan Robinson", "position": "RB", "team": "ATL", "slug": "bijan", "rookie": False},
+    1001: {
+        "name": "Josh Allen",
+        "position": "QB",
+        "team": "BUF",
+        "slug": "josh-allen",
+        "rookie": False,
+    },
+    1002: {
+        "name": "Bijan Robinson",
+        "position": "RB",
+        "team": "ATL",
+        "slug": "bijan",
+        "rookie": False,
+    },
     1003: {"name": "2026 Mid 1st", "position": "RDP", "team": "", "slug": "", "rookie": False},
 }
 
 
 class BuildKtcUrlTests(unittest.TestCase):
     def test_resolves_and_builds_url(self) -> None:
-        out = ktc_import.build_ktc_url(["Josh Allen"], ["Bijan Robinson", "2026 Mid 1st"], player_map=_MAP)
+        out = ktc_import.build_ktc_url(
+            ["Josh Allen"], ["Bijan Robinson", "2026 Mid 1st"], player_map=_MAP
+        )
         self.assertIn("keeptradecut.com/trade-calculator", out["url"])
         self.assertIn("teamOne=1001", out["url"])
         self.assertIn("teamTwo=1002|1003", out["url"])

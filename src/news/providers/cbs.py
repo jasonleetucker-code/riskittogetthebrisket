@@ -1,4 +1,5 @@
 """CBS Sports NFL headlines RSS provider."""
+
 from __future__ import annotations
 
 from ._rss import RssNewsProvider

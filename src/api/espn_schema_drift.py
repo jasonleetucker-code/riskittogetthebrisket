@@ -27,6 +27,7 @@ Baseline lives in ``config/espn_schema_baseline.json`` — a
 ``{endpoint: {hash, first_seen}}`` dict.  Operators bump the
 baseline after confirming a drift is benign.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -91,7 +92,9 @@ def load_baseline(path: Path | None = None) -> dict[str, dict[str, Any]]:
 
 
 def save_baseline(
-    baseline: dict[str, dict[str, Any]], *, path: Path | None = None,
+    baseline: dict[str, dict[str, Any]],
+    *,
+    path: Path | None = None,
 ) -> Path:
     if path is None:
         repo = Path(__file__).resolve().parents[2]
@@ -123,18 +126,22 @@ def detect_drift(
         prior = baseline.get(endpoint)
         if not prior or not isinstance(prior, dict):
             out[endpoint] = {
-                "status": "new", "current_hash": h, "baseline_hash": None,
+                "status": "new",
+                "current_hash": h,
+                "baseline_hash": None,
             }
             continue
         prior_hash = str(prior.get("hash") or "")
         if h == prior_hash:
             out[endpoint] = {
-                "status": "unchanged", "current_hash": h,
+                "status": "unchanged",
+                "current_hash": h,
                 "baseline_hash": prior_hash,
             }
         else:
             out[endpoint] = {
-                "status": "drifted", "current_hash": h,
+                "status": "drifted",
+                "current_hash": h,
                 "baseline_hash": prior_hash,
             }
     return out
@@ -142,23 +149,15 @@ def detect_drift(
 
 def format_drift_email(drift_report: dict[str, dict[str, Any]]) -> tuple[str, str]:
     """Build (subject, body) for an alert email."""
-    drifted = [
-        ep for ep, info in drift_report.items()
-        if info.get("status") == "drifted"
-    ]
-    new = [
-        ep for ep, info in drift_report.items()
-        if info.get("status") == "new"
-    ]
+    drifted = [ep for ep, info in drift_report.items() if info.get("status") == "drifted"]
+    new = [ep for ep, info in drift_report.items() if info.get("status") == "new"]
     subject = f"[Brisket Ops] ESPN schema drift — {len(drifted)} endpoints changed"
     lines = []
     if drifted:
         lines.append("Endpoints whose shape changed:")
         for ep in drifted:
             info = drift_report[ep]
-            lines.append(
-                f"  • {ep}: {info['baseline_hash'][:8]} → {info['current_hash'][:8]}"
-            )
+            lines.append(f"  • {ep}: {info['baseline_hash'][:8]} → {info['current_hash'][:8]}")
         lines.append("")
         lines.append(
             "Action: inspect the response, confirm parser still works, "

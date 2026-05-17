@@ -1,4 +1,5 @@
 """Tests for ESPN depth chart + usage cross-check gate."""
+
 from __future__ import annotations
 
 import io
@@ -43,8 +44,10 @@ def _sample_depth_payload():
 def test_flag_off_returns_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_DEPTH_CHART_VALIDATION", "0")
     feature_flags.reload()
+
     def opener(req, timeout=None):
         return io.BytesIO(b"{}")
+
     out = dc.fetch_team_depth_chart("2", _url_opener=opener, cache_dir=tmp_path)
     assert out == []
 
@@ -52,8 +55,10 @@ def test_flag_off_returns_empty(monkeypatch, tmp_path):
 def test_parse_depth_payload_shapes(monkeypatch, tmp_path):
     monkeypatch.setenv("RISKIT_FEATURE_DEPTH_CHART_VALIDATION", "1")
     feature_flags.reload()
+
     def opener(req, timeout=None):
         return io.BytesIO(json.dumps(_sample_depth_payload()).encode("utf-8"))
+
     out = dc.fetch_team_depth_chart("2", _url_opener=opener, cache_dir=tmp_path)
     # 2 QBs + 3 RBs = 5 entries
     assert len(out) == 5

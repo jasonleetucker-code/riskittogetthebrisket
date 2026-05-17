@@ -5,6 +5,7 @@ have been retired as part of the canonical-pipeline purge.  What
 remains is the adapter-loading smoke — if these CSVs don't parse, the
 live contract pipeline can't blend them either.
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,6 +21,7 @@ if str(REPO) not in sys.path:
 class TestAdapterLoads:
     def test_scraper_bridge_loads_ktc(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
+
         ktc_path = REPO / "CSVs" / "site_raw" / "ktc.csv"
         if not ktc_path.exists():
             pytest.skip("ktc.csv not present in exports")
@@ -32,6 +34,7 @@ class TestAdapterLoads:
 
     def test_scraper_bridge_loads_idptradecalc(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
+
         idp_path = REPO / "CSVs" / "site_raw" / "idpTradeCalc.csv"
         if not idp_path.exists():
             pytest.skip("idpTradeCalc.csv not present in exports")

@@ -21,6 +21,7 @@ Blockbuster tiebreaks (prompt spec):
        deterministic tiebreaker and drop the raw number from the
        response.
 """
+
 from __future__ import annotations
 
 import math
@@ -185,7 +186,9 @@ def _player_asset(player_id: str, snapshot: PublicLeagueSnapshot) -> dict[str, A
     }
 
 
-def _normalize_trade(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, tx: dict[str, Any]) -> dict[str, Any] | None:
+def _normalize_trade(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, tx: dict[str, Any]
+) -> dict[str, Any] | None:
     roster_ids = []
     for rid in tx.get("roster_ids") or []:
         try:
@@ -221,17 +224,21 @@ def _normalize_trade(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, tx:
         side_note_count = sum(1 for a in received_assets if a.get("position") in NOTABLE_POSITIONS)
         total_assets += len(received_assets)
         total_notable += side_note_count
-        sides.append({
-            "rosterId": rid,
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-            "teamName": metrics.team_name(snapshot, season.league_id, rid) if owner_id else f"Team {rid}",
-            "receivedAssets": received_assets,
-            "sentPlayerIds": list(sent_player_ids),
-            "receivedPlayerCount": len(received_player_ids),
-            "receivedPickCount": len(received_picks),
-            "notableAssetCount": side_note_count,
-        })
+        sides.append(
+            {
+                "rosterId": rid,
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                if owner_id
+                else f"Team {rid}",
+                "receivedAssets": received_assets,
+                "sentPlayerIds": list(sent_player_ids),
+                "receivedPlayerCount": len(received_player_ids),
+                "receivedPickCount": len(received_picks),
+                "notableAssetCount": side_note_count,
+            }
+        )
 
     if not sides:
         return None
@@ -326,10 +333,7 @@ def _timeline_by_week(feed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for t in feed:
         wk = t.get("week") or 0
         grouped[(t["season"], int(wk))] += 1
-    rows = [
-        {"season": season, "week": week, "trades": n}
-        for (season, week), n in grouped.items()
-    ]
+    rows = [{"season": season, "week": week, "trades": n} for (season, week), n in grouped.items()]
     rows.sort(key=lambda r: (r["season"], r["week"]))
     return rows
 
@@ -367,11 +371,13 @@ def build_section(
                 for side in normalized["sides"]:
                     picks_moved += side["receivedPickCount"]
                     players_moved += side["receivedPlayerCount"]
-        per_season_counts.append({
-            "season": season.season,
-            "leagueId": season.league_id,
-            "tradeCount": season_trades,
-        })
+        per_season_counts.append(
+            {
+                "season": season.season,
+                "leagueId": season.league_id,
+                "tradeCount": season_trades,
+            }
+        )
 
     feed.sort(key=lambda t: -int(t.get("createdAt") or 0))
     if valuation is not None:

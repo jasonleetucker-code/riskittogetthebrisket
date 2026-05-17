@@ -1,6 +1,7 @@
 """Tests for src.scoring.tiering.  Pins the Cohen's-d tier walk,
 the fallback behavior when SD is zero, the grid-search fitter,
 and drift detection."""
+
 from __future__ import annotations
 
 import json
@@ -104,9 +105,13 @@ def test_grid_search_fits_something_reasonable():
     """With 30 QBs spread in value, the fitter should land on a
     threshold that produces 4–6 tiers."""
     import random
+
     random.seed(42)
     vals = sorted([random.gauss(5000, 2000) for _ in range(30)], reverse=True)
-    rows = [{"name": f"QB_{i}", "pos": "QB", "rankDerivedValue": max(100, v)} for i, v in enumerate(vals)]
+    rows = [
+        {"name": f"QB_{i}", "pos": "QB", "rankDerivedValue": max(100, v)}
+        for i, v in enumerate(vals)
+    ]
     fit = tiering.fit_thresholds_grid_search(rows)
     assert "QB" in fit
     # Verify the fit actually produces in-range tier counts.

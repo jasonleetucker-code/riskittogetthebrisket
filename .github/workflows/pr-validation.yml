@@ -57,6 +57,15 @@ jobs:
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
 
+      - name: Python format gate (ruff format --check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Deterministic Black-compatible formatter. Hard-blocking is
+          # safe: the repo-wide sweep already landed and the check is
+          # idempotent. Config: pyproject.toml [tool.ruff].
+          python -m ruff format --check .
+
       - name: Python import gate
         shell: bash
         env:

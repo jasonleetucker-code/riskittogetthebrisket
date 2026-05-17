@@ -8,6 +8,7 @@ internals.
 The test suite pins this shape — adding a new field here requires
 updating ``tests/public_league/test_public_contract.py`` as well.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -46,6 +47,7 @@ def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     reuse the snapshot directly.
     """
     from src.api import team_assignment  # noqa: PLC0415
+
     return team_assignment.build_section(snapshot)
 
 
@@ -96,24 +98,28 @@ from src.ros import api as _ros_api  # noqa: E402
 def _ros_power_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Lazy-import wrapper for src.ros.power_v2."""
     from src.ros import power_v2  # noqa: PLC0415
+
     return power_v2.build_section(snapshot)
 
 
 def _ros_playoff_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Lazy-import wrapper for src.ros.playoff_sim."""
     from src.ros import playoff_sim  # noqa: PLC0415
+
     return playoff_sim.build_section(snapshot)
 
 
 def _ros_championship_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Lazy-import wrapper for src.ros.championship."""
     from src.ros import championship  # noqa: PLC0415
+
     return championship.build_section(snapshot)
 
 
 def _ros_trade_deadline_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Lazy-import wrapper for src.ros.trade_deadline."""
     from src.ros import trade_deadline  # noqa: PLC0415
+
     return trade_deadline.build_section(snapshot)
 
 
@@ -126,6 +132,7 @@ def _faab_analytics_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     consume it — only /waivers' upcoming FAAB recommender does.
     """
     from src.api import faab_analytics  # noqa: PLC0415
+
     return faab_analytics.build_section(snapshot)
 
 
@@ -157,9 +164,7 @@ _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any
 OVERVIEW_SECTION = "overview"
 
 PUBLIC_SECTION_KEYS: tuple[str, ...] = (
-    (OVERVIEW_SECTION,)
-    + tuple(_SECTION_BUILDERS.keys())
-    + tuple(_LAZY_SECTION_BUILDERS.keys())
+    (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys()) + tuple(_LAZY_SECTION_BUILDERS.keys())
 )
 
 # Subset of ``PUBLIC_SECTION_KEYS`` that have matching CSV exporters
@@ -170,9 +175,7 @@ PUBLIC_SECTION_KEYS: tuple[str, ...] = (
 # check and then raise KeyError inside ``export_section``, returning
 # 503 for a section the API appears to advertise as valid.  Per
 # Codex PR #215 round 4.
-PUBLIC_CSV_EXPORTABLE_KEYS: tuple[str, ...] = (
-    (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
-)
+PUBLIC_CSV_EXPORTABLE_KEYS: tuple[str, ...] = (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
 
 
 # Field name blocklist.  These substrings MUST NOT appear as dict keys
@@ -204,7 +207,6 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "rankings_override",
         "tepMultiplier",
         "tep_multiplier",
-
         # Private edge / trade internals
         "edge",
         "edgeSignals",
@@ -230,7 +232,6 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "waiver_gems",
         "arbitrageScore",
         "arbitrage_score",
-
         # Scraper / pipeline internals
         "rawSources",
         "raw_sources",
@@ -251,9 +252,7 @@ def assert_public_payload_safe(payload: Any, path: str = "$") -> None:
             if not isinstance(key, str):
                 continue
             if key.lower() in _PRIVATE_FIELD_BLOCKLIST:
-                raise AssertionError(
-                    f"Public payload contains blocked field {key!r} at {path}"
-                )
+                raise AssertionError(f"Public payload contains blocked field {key!r} at {path}")
             assert_public_payload_safe(value, f"{path}.{key}")
     elif isinstance(payload, (list, tuple)):
         for i, item in enumerate(payload):

@@ -3,6 +3,7 @@
 These pin the gating rules: flag-off = no output, freshness guard
 blocks mid-week data, z-score thresholds fire in the right
 direction, and SELL requires active-starter status."""
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -26,11 +27,18 @@ def _flags():
 
 def _mk_window(**overrides):
     base = {
-        "player_id": "A", "season": 2024, "week": 17,
-        "snap_pct_mean": 0.50, "snap_pct_sd": 0.05,
-        "target_share_mean": 0.15, "target_share_sd": 0.02,
-        "carry_share_mean": 0.10, "carry_share_sd": 0.02,
-        "snap_pct_z": None, "target_share_z": None, "carry_share_z": None,
+        "player_id": "A",
+        "season": 2024,
+        "week": 17,
+        "snap_pct_mean": 0.50,
+        "snap_pct_sd": 0.05,
+        "target_share_mean": 0.15,
+        "target_share_sd": 0.02,
+        "carry_share_mean": 0.10,
+        "carry_share_sd": 0.02,
+        "snap_pct_z": None,
+        "target_share_z": None,
+        "carry_share_z": None,
     }
     base.update(overrides)
     return UsageWindow(**base)
@@ -60,7 +68,8 @@ def test_target_spike_fires_buy(monkeypatch):
     monkeypatch.setenv("RISKIT_FEATURE_USAGE_SIGNALS", "1")
     feature_flags.reload()
     out = usage_signals.detect_usage_transitions(
-        [_mk_window(season=2024, target_share_z=2.5)], season_year=2026,
+        [_mk_window(season=2024, target_share_z=2.5)],
+        season_year=2026,
     )
     assert len(out) == 1
     assert out[0].tag == "usage_spike_target"
@@ -88,7 +97,9 @@ def test_freshness_guard_blocks_current_week(monkeypatch):
     # No freshness-context args would pass the guard trivially.
     # Pass season_current_week=6 and the test should skip.
     out = usage_signals.detect_usage_transitions(
-        [w], season_year=2025, season_current_week=6,
+        [w],
+        season_year=2025,
+        season_current_week=6,
     )
     # Default now is today in NFL TZ; at our test time (2026-04-24)
     # is_fresh_for_alerts treats stat_year 2025 ≠ season_year 2026
@@ -107,8 +118,13 @@ def test_freshness_guard_blocks_current_week(monkeypatch):
 
 def test_signal_dict_format_matches_expected_shape():
     s = usage_signals.UsageSignal(
-        player_id="A", signal="BUY", reason="test", tag="usage_spike_snap",
-        snap_pct_z=2.5, target_share_z=None, carry_share_z=None,
+        player_id="A",
+        signal="BUY",
+        reason="test",
+        tag="usage_spike_snap",
+        snap_pct_z=2.5,
+        target_share_z=None,
+        carry_share_z=None,
     )
     d = s.to_signal_dict(name="Josh Allen", position="QB", sleeper_id="4017")
     assert d["name"] == "Josh Allen"

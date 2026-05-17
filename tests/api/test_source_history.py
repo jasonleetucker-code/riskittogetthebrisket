@@ -1,4 +1,5 @@
 """Tests for per-source value history persistence + backfill."""
+
 from __future__ import annotations
 
 import json
@@ -64,11 +65,15 @@ def test_append_then_load(path):
 def test_dedupe_same_date(path):
     # Two writes on the same date — the second wins.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}], date="2026-04-23"),
+        _make_contract(
+            [{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}], date="2026-04-23"
+        ),
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1200, "sources": {"ktcSfTep": 1100}}], date="2026-04-23"),
+        _make_contract(
+            [{"name": "A", "blended": 1200, "sources": {"ktcSfTep": 1100}}], date="2026-04-23"
+        ),
         path=path,
     )
     hist = source_history.load_player_history("A", path=path)
@@ -107,6 +112,7 @@ def test_retention_trims_to_max_snapshots(path):
     # iteration that avoids the Jan/Feb modulo collision an earlier
     # version of this test had.
     from datetime import date as _date, timedelta
+
     base = _date(2026, 1, 1)
     for i in range(200):
         d = (base + timedelta(days=i)).isoformat()
@@ -123,7 +129,10 @@ def test_retention_trims_to_max_snapshots(path):
 
 def test_case_insensitive_name_lookup(path):
     source_history.append_snapshot(
-        _make_contract([{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktcSfTep": 9900}}], date="2026-04-23"),
+        _make_contract(
+            [{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktcSfTep": 9900}}],
+            date="2026-04-23",
+        ),
         path=path,
     )
     hist = source_history.load_player_history("ja'marr chase", path=path)
@@ -203,16 +212,28 @@ def test_missing_player_returns_empty(path):
 def test_backfill_from_exports_merges_with_existing(tmp_path, path):
     # Seed an existing snapshot for 2026-04-23 via the live path.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 9999, "sources": {"ktcSfTep": 9000}}], date="2026-04-23"),
+        _make_contract(
+            [{"name": "A", "blended": 9999, "sources": {"ktcSfTep": 9000}}], date="2026-04-23"
+        ),
         date="2026-04-23",
         path=path,
     )
     # Now point backfill at a historical export dated earlier.
     export = tmp_path / "dynasty_data_2026-04-20.json"
-    export.write_text(json.dumps({
-        "date": "2026-04-20",
-        "players": {"A": {"ktcSfTep": 8000, "dlfSf": 8500, "_canonicalSiteValues": {"ktcSfTep": 8000, "dlfSf": 8500}}},
-    }))
+    export.write_text(
+        json.dumps(
+            {
+                "date": "2026-04-20",
+                "players": {
+                    "A": {
+                        "ktcSfTep": 8000,
+                        "dlfSf": 8500,
+                        "_canonicalSiteValues": {"ktcSfTep": 8000, "dlfSf": 8500},
+                    }
+                },
+            }
+        )
+    )
 
     written = source_history.backfill_from_exports([export], path=path)
     assert written == 1
@@ -225,7 +246,10 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
 
 
 def test_append_returns_false_for_empty_contract(path):
-    assert source_history.append_snapshot({"date": "2026-04-23", "playersArray": []}, path=path) is False
+    assert (
+        source_history.append_snapshot({"date": "2026-04-23", "playersArray": []}, path=path)
+        is False
+    )
     assert not path.exists() or path.read_text() == ""
 
 
@@ -295,23 +319,30 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
     should populate the derived rank history so the chart can draw
     per-source rank lines for historical dates."""
     export = tmp_path / "dynasty_data_2026-04-15.json"
-    export.write_text(json.dumps({
-        "date": "2026-04-15",
-        "players": {
-            "Star WR": {
-                "ktcSfTep": 9500, "dlfSf": 9000,
-                "_canonicalSiteValues": {"ktcSfTep": 9500, "dlfSf": 9000},
-            },
-            "Mid WR": {
-                "ktcSfTep": 7000, "dlfSf": 7500,
-                "_canonicalSiteValues": {"ktcSfTep": 7000, "dlfSf": 7500},
-            },
-            "Bench WR": {
-                "ktcSfTep": 4000, "dlfSf": 4500,
-                "_canonicalSiteValues": {"ktcSfTep": 4000, "dlfSf": 4500},
-            },
-        },
-    }))
+    export.write_text(
+        json.dumps(
+            {
+                "date": "2026-04-15",
+                "players": {
+                    "Star WR": {
+                        "ktcSfTep": 9500,
+                        "dlfSf": 9000,
+                        "_canonicalSiteValues": {"ktcSfTep": 9500, "dlfSf": 9000},
+                    },
+                    "Mid WR": {
+                        "ktcSfTep": 7000,
+                        "dlfSf": 7500,
+                        "_canonicalSiteValues": {"ktcSfTep": 7000, "dlfSf": 7500},
+                    },
+                    "Bench WR": {
+                        "ktcSfTep": 4000,
+                        "dlfSf": 4500,
+                        "_canonicalSiteValues": {"ktcSfTep": 4000, "dlfSf": 4500},
+                    },
+                },
+            }
+        )
+    )
     source_history.backfill_from_exports([export], path=path)
     # Verify the JSONL stamps sourceRanks for the legacy export.
     raw = path.read_text().strip().splitlines()
@@ -319,19 +350,13 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
     snap = json.loads(raw[0])
     # Keys are ``"<displayName>::<assetClass>"`` per ``_player_key``;
     # legacy dict rows without a position resolve to ``"unknown"``.
-    star_entry = next(
-        v for k, v in snap["players"].items() if k.startswith("Star WR")
-    )
+    star_entry = next(v for k, v in snap["players"].items() if k.startswith("Star WR"))
     assert star_entry["sourceRanks"]["ktcSfTep"] == 1
     assert star_entry["sourceRanks"]["dlfSf"] == 1
-    mid_entry = next(
-        v for k, v in snap["players"].items() if k.startswith("Mid WR")
-    )
+    mid_entry = next(v for k, v in snap["players"].items() if k.startswith("Mid WR"))
     assert mid_entry["sourceRanks"]["ktcSfTep"] == 2
     assert mid_entry["sourceRanks"]["dlfSf"] == 2
-    bench_entry = next(
-        v for k, v in snap["players"].items() if k.startswith("Bench WR")
-    )
+    bench_entry = next(v for k, v in snap["players"].items() if k.startswith("Bench WR"))
     assert bench_entry["sourceRanks"]["ktcSfTep"] == 3
     assert bench_entry["sourceRanks"]["dlfSf"] == 3
 
@@ -372,9 +397,7 @@ def test_scope_filter_drops_idp_source_for_offense_player(path):
     # IDP-scope contribution from ever landing in the JSONL.
     raw = path.read_text().strip().splitlines()
     snap = json.loads(raw[0])
-    chase_entry = next(
-        v for k, v in snap["players"].items() if k.startswith("Ja'Marr Chase")
-    )
+    chase_entry = next(v for k, v in snap["players"].items() if k.startswith("Ja'Marr Chase"))
     assert "draftSharksIdp" not in chase_entry["sources"]
     assert "ktcSfTep" in chase_entry["sources"]
 
@@ -529,9 +552,7 @@ def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
 
     # On disk: ``ktc`` is gone from both sources and sourceRanks.
     snap = json.loads(path.read_text().strip().splitlines()[0])
-    bowers_entry = next(
-        v for k, v in snap["players"].items() if k.startswith("Brock Bowers")
-    )
+    bowers_entry = next(v for k, v in snap["players"].items() if k.startswith("Brock Bowers"))
     assert "ktc" not in bowers_entry["sources"]
     assert "ktc" not in bowers_entry.get("sourceRanks", {})
     # ``ktcSfTep`` is the raw scrape value, not the Hill contribution.
@@ -624,7 +645,7 @@ def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
                 "rankDerivedValue": 7527,
                 "canonicalConsensusRank": 23,
                 "canonicalSiteValues": {"ktcSfTep": 8434},  # synthetic divergent value
-                "rawSourceValues": {"ktcSfTep": 7334},      # raw scrape
+                "rawSourceValues": {"ktcSfTep": 7334},  # raw scrape
                 "sourceRankMeta": {
                     "ktcSfTep": {"valueContribution": 7648},  # Hill contribution
                 },

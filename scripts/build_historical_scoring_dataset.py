@@ -99,10 +99,9 @@ def main() -> int:
     out["league_points"] = out.apply(lambda r: _score_row(r, custom_map), axis=1)
     out["raw_scoring_delta"] = out["league_points"] - out["baseline_points"]
     out["raw_scoring_ratio"] = out["league_points"] / out["baseline_points"].clip(lower=1.0)
-    out["td_dependency"] = (
-        (out["pass_td"] + out["rush_td"] + out["rec_td"])
-        / (out["pass_yd"] + out["rush_yd"] + out["rec_yd"]).clip(lower=1.0)
-    )
+    out["td_dependency"] = (out["pass_td"] + out["rush_td"] + out["rec_td"]) / (
+        out["pass_yd"] + out["rush_yd"] + out["rec_yd"]
+    ).clip(lower=1.0)
     out["first_down_sensitivity"] = out["pass_fd"] + out["rush_fd"] + out["rec_fd"]
     out["reception_profile"] = out["rec"] / (out["rec"] + out.get("rush_att", 0.0)).clip(lower=1.0)
 

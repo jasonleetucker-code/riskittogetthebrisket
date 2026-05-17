@@ -43,6 +43,7 @@ Exit codes:
          * ecrData missing the ``players`` key, or
          * row count below :data:`_FP_ROW_COUNT_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -122,9 +123,7 @@ def _extract_ecr_data(html: str) -> dict[str, Any]:
     payload = html[start:end]
     parsed = json.loads(payload)
     if not isinstance(parsed, dict):
-        raise FantasyProsOffenseSchemaError(
-            f"ecrData expected dict, got {type(parsed).__name__}"
-        )
+        raise FantasyProsOffenseSchemaError(f"ecrData expected dict, got {type(parsed).__name__}")
     if "players" not in parsed or not isinstance(parsed["players"], list):
         raise FantasyProsOffenseSchemaError(
             "ecrData shape changed: missing 'players' list "
@@ -252,9 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     for r in rows:
         pos_counts[r["position"]] = pos_counts.get(r["position"], 0) + 1
     pos_summary = " ".join(f"{p}={c}" for p, c in sorted(pos_counts.items()))
-    print(
-        f"[fetch_fantasypros_offense] total={len(rows)} {pos_summary}"
-    )
+    print(f"[fetch_fantasypros_offense] total={len(rows)} {pos_summary}")
 
     if args.dry_run:
         print("[fetch_fantasypros_offense] --dry-run; not writing CSV")

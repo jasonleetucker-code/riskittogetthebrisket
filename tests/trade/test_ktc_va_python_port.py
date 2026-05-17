@@ -8,6 +8,7 @@ fidelity as the JS port (verified by ``scripts/test_ktc_va_port.mjs``).
 Companion fixture is the single source of truth shared between the JS
 and Python implementations — drift in either direction trips here.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,7 +46,9 @@ def test_fixture_overall_rms_under_50():
         ported = result.value if result.displayed else 0
         sq_err += (ported - observed) ** 2
     rms = math.sqrt(sq_err / len(obs))
-    assert rms < 50, f"RMS error {rms:.1f} exceeds 50 — Python port may have drifted from KTC's algorithm"
+    assert (
+        rms < 50
+    ), f"RMS error {rms:.1f} exceeds 50 — Python port may have drifted from KTC's algorithm"
 
 
 def test_fixture_recipient_side_100pct():
@@ -65,7 +68,9 @@ def test_fixture_recipient_side_100pct():
         result = ktc_adjust_package(a, b)
         if result.displayed and result.side == observed_side:
             matched += 1
-    assert matched == fires, f"Recipient-side parity: {matched}/{fires} (every fired VA must pick the right side)"
+    assert (
+        matched == fires
+    ), f"Recipient-side parity: {matched}/{fires} (every fired VA must pick the right side)"
 
 
 def test_fixture_suppression_100pct():
@@ -83,7 +88,9 @@ def test_fixture_suppression_100pct():
         result = ktc_adjust_package(a, b)
         if not result.displayed or result.value == 0:
             matched += 1
-    assert matched == silent, f"Suppression parity: {matched}/{silent} (every KTC-suppressed trade must also suppress in the port)"
+    assert (
+        matched == silent
+    ), f"Suppression parity: {matched}/{silent} (every KTC-suppressed trade must also suppress in the port)"
 
 
 def test_users_5v2_trade_returns_4161_to_side2():
@@ -123,4 +130,6 @@ def test_process_v_canonical_inputs():
     ]
     for value, expected, tol in cases:
         got = ktc_process_v(value, 9999, 10041, -1)
-        assert abs(got - expected) < tol, f"ktc_process_v({value}) = {got:.2f}, expected {expected} ± {tol}"
+        assert (
+            abs(got - expected) < tol
+        ), f"ktc_process_v({value}) = {got:.2f}, expected {expected} ± {tol}"

@@ -1,4 +1,5 @@
 """Global test fixtures."""
+
 from __future__ import annotations
 
 import os
@@ -37,6 +38,7 @@ os.environ.pop("SLEEPER_LEAGUE_ID", None)
 os.environ["LEAGUE_REGISTRY_PATH"] = "/nonexistent/path/for/tests.json"
 try:
     from src.api import league_registry as _league_registry
+
     _league_registry.reload_registry()
 except Exception:  # noqa: BLE001 — conftest must never block collection
     pass
@@ -68,24 +70,26 @@ except Exception:  # noqa: BLE001 — conftest must never block collection
 # of editing ~16 files; a new live-data test just adds its module here.
 # (test_source_floor_invariant.py is intentionally NOT here — it is the
 # pure static pre-merge guard and must keep blocking.)
-_LIVEDATA_MODULES = frozenset({
-    "test_launch_readiness.py",
-    "test_source_monitoring.py",
-    "test_footballguys_source.py",
-    "test_picks_end_to_end.py",
-    "test_pick_refinement.py",
-    "test_pick_rookie_anchor.py",
-    "test_player_identity_regression.py",
-    "test_single_curve_live.py",
-    "test_single_authority.py",
-    "test_per_source_freshness.py",
-    "test_data_contract.py",
-    "test_dlf_source.py",
-    "test_dlf_scraper.py",
-    "test_fantasypros_idp_integration.py",
-    "test_ktc_reconciliation.py",
-    "test_fetch_flock_fantasy_rookies.py",
-})
+_LIVEDATA_MODULES = frozenset(
+    {
+        "test_launch_readiness.py",
+        "test_source_monitoring.py",
+        "test_footballguys_source.py",
+        "test_picks_end_to_end.py",
+        "test_pick_refinement.py",
+        "test_pick_rookie_anchor.py",
+        "test_player_identity_regression.py",
+        "test_single_curve_live.py",
+        "test_single_authority.py",
+        "test_per_source_freshness.py",
+        "test_data_contract.py",
+        "test_dlf_source.py",
+        "test_dlf_scraper.py",
+        "test_fantasypros_idp_integration.py",
+        "test_ktc_reconciliation.py",
+        "test_fetch_flock_fantasy_rookies.py",
+    }
+)
 
 
 def pytest_configure(config):

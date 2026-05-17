@@ -18,6 +18,7 @@ alerts fire once when the condition clears.
 Intended to be called once per sweep (piggybacks on the existing
 ``/api/signal-alerts/run`` cron).  Never raises.
 """
+
 from __future__ import annotations
 
 import logging
@@ -71,16 +72,18 @@ def _check_circuit_breakers(circuits: list[dict[str, Any]]) -> list[OpsAlert]:
         age = c.get("stateAgeSec")
         if age is None or age < 600:
             continue
-        alerts.append(OpsAlert(
-            severity="warning",
-            category=f"circuit_open:{c.get('name')}",
-            title=f"Circuit breaker '{c.get('name')}' has been OPEN {int(age/60)}m",
-            detail=(
-                f"External dependency {c.get('name')!r} is failing repeatedly. "
-                f"Last error: {c.get('lastError') or '(none captured)'}.  "
-                f"Fast-fail count: {c.get('counters',{}).get('fastFail',0)}."
-            ),
-        ))
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=f"circuit_open:{c.get('name')}",
+                title=f"Circuit breaker '{c.get('name')}' has been OPEN {int(age/60)}m",
+                detail=(
+                    f"External dependency {c.get('name')!r} is failing repeatedly. "
+                    f"Last error: {c.get('lastError') or '(none captured)'}.  "
+                    f"Fast-fail count: {c.get('counters',{}).get('fastFail',0)}."
+                ),
+            )
+        )
     return alerts
 
 
@@ -127,12 +130,17 @@ def _load_ops_state(path: Any = None) -> dict[str, Any]:
 
 def _save_ops_state(state: dict[str, Any], path: Any = None) -> None:
     user_kv.merge_user_state(
-        _OPS_STATE_USER, {"opsAlertState": state}, path=path,
+        _OPS_STATE_USER,
+        {"opsAlertState": state},
+        path=path,
     )
 
 
 def _should_fire(
-    alert: OpsAlert, state: dict[str, Any], *, now: float,
+    alert: OpsAlert,
+    state: dict[str, Any],
+    *,
+    now: float,
 ) -> bool:
     """Cooldown check.  Returns True when an alert should fire,
     False when it's within the re-alert window."""
@@ -144,7 +152,10 @@ def _should_fire(
 
 
 def _detect_recovery(
-    active_categories: set[str], state: dict[str, Any], *, now: float,
+    active_categories: set[str],
+    state: dict[str, Any],
+    *,
+    now: float,
 ) -> list[OpsAlert]:
     """When a previously-firing alert's category is no longer in
     ``active_categories``, emit a recovery alert (once)."""
@@ -156,11 +167,14 @@ def _detect_recovery(
             continue
         if category in active_categories:
             continue
-        recovery.append(OpsAlert(
-            severity="info", category=category,
-            title=f"[RECOVERY] {category} resolved",
-            detail="Condition cleared.  No action required.",
-        ))
+        recovery.append(
+            OpsAlert(
+                severity="info",
+                category=category,
+                title=f"[RECOVERY] {category} resolved",
+                detail="Condition cleared.  No action required.",
+            )
+        )
     return recovery
 
 
@@ -236,7 +250,11 @@ def check_and_alert(
     # Mark recoveries.
     for r in recovery_alerts:
         if r.category in state:
-            state[r.category] = {**(state[r.category] or {}), "recoveryFired": True, "recoveredAt": now}
+            state[r.category] = {
+                **(state[r.category] or {}),
+                "recoveryFired": True,
+                "recoveredAt": now,
+            }
 
     _save_ops_state(state, path=kv_path)
 

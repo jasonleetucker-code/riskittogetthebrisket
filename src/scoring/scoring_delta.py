@@ -15,8 +15,16 @@ RULE_META: Dict[str, Dict[str, object]] = {
     "pass_inc": {"category": "passing", "buckets": ["QB"], "rule_type": "linear"},
     "pass_fd": {"category": "first_downs", "buckets": ["QB"], "rule_type": "event"},
     "rush_yd": {"category": "rushing", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "linear"},
-    "rush_td": {"category": "touchdowns", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "event"},
-    "rush_fd": {"category": "first_downs", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "event"},
+    "rush_td": {
+        "category": "touchdowns",
+        "buckets": ["QB", "RB", "WR", "TE"],
+        "rule_type": "event",
+    },
+    "rush_fd": {
+        "category": "first_downs",
+        "buckets": ["QB", "RB", "WR", "TE"],
+        "rule_type": "event",
+    },
     "rec": {"category": "receptions", "buckets": ["RB", "WR", "TE"], "rule_type": "linear"},
     "rec_yd": {"category": "receiving", "buckets": ["RB", "WR", "TE"], "rule_type": "linear"},
     "rec_td": {"category": "touchdowns", "buckets": ["RB", "WR", "TE"], "rule_type": "event"},
@@ -29,17 +37,49 @@ RULE_META: Dict[str, Dict[str, object]] = {
     "bonus_fd_wr": {"category": "first_downs", "buckets": ["WR"], "rule_type": "event"},
     "bonus_fd_te": {"category": "first_downs", "buckets": ["TE"], "rule_type": "event"},
     "fum": {"category": "turnovers", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "event"},
-    "fum_lost": {"category": "turnovers", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "event"},
+    "fum_lost": {
+        "category": "turnovers",
+        "buckets": ["QB", "RB", "WR", "TE"],
+        "rule_type": "event",
+    },
     "bonus_pass_yd_300": {"category": "yardage_bonus", "buckets": ["QB"], "rule_type": "threshold"},
-    "bonus_rush_yd_100": {"category": "yardage_bonus", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "threshold"},
-    "bonus_rec_yd_100": {"category": "yardage_bonus", "buckets": ["RB", "WR", "TE"], "rule_type": "threshold"},
-    "bonus_pass_td_50+": {"category": "long_play_bonus", "buckets": ["QB"], "rule_type": "threshold"},
-    "bonus_rush_td_40+": {"category": "long_play_bonus", "buckets": ["QB", "RB", "WR", "TE"], "rule_type": "threshold"},
-    "bonus_rec_td_40+": {"category": "long_play_bonus", "buckets": ["RB", "WR", "TE"], "rule_type": "threshold"},
+    "bonus_rush_yd_100": {
+        "category": "yardage_bonus",
+        "buckets": ["QB", "RB", "WR", "TE"],
+        "rule_type": "threshold",
+    },
+    "bonus_rec_yd_100": {
+        "category": "yardage_bonus",
+        "buckets": ["RB", "WR", "TE"],
+        "rule_type": "threshold",
+    },
+    "bonus_pass_td_50+": {
+        "category": "long_play_bonus",
+        "buckets": ["QB"],
+        "rule_type": "threshold",
+    },
+    "bonus_rush_td_40+": {
+        "category": "long_play_bonus",
+        "buckets": ["QB", "RB", "WR", "TE"],
+        "rule_type": "threshold",
+    },
+    "bonus_rec_td_40+": {
+        "category": "long_play_bonus",
+        "buckets": ["RB", "WR", "TE"],
+        "rule_type": "threshold",
+    },
     "kick_ret_td": {"category": "returns", "buckets": ["RB", "WR", "DB"], "rule_type": "event"},
     "punt_ret_td": {"category": "returns", "buckets": ["RB", "WR", "DB"], "rule_type": "event"},
-    "idp_tkl_solo": {"category": "idp_tackles", "buckets": ["DL", "LB", "DB"], "rule_type": "linear"},
-    "idp_tkl_ast": {"category": "idp_tackles", "buckets": ["DL", "LB", "DB"], "rule_type": "linear"},
+    "idp_tkl_solo": {
+        "category": "idp_tackles",
+        "buckets": ["DL", "LB", "DB"],
+        "rule_type": "linear",
+    },
+    "idp_tkl_ast": {
+        "category": "idp_tackles",
+        "buckets": ["DL", "LB", "DB"],
+        "rule_type": "linear",
+    },
     "idp_tkl_loss": {"category": "idp_tfl", "buckets": ["DL", "LB", "DB"], "rule_type": "event"},
     "idp_sack": {"category": "idp_splash", "buckets": ["DL", "LB"], "rule_type": "event"},
     "idp_hit": {"category": "idp_splash", "buckets": ["DL", "LB"], "rule_type": "event"},
@@ -51,7 +91,9 @@ RULE_META: Dict[str, Dict[str, object]] = {
 }
 
 
-def compare_to_baseline(baseline_config: ScoringConfig, league_config: ScoringConfig) -> List[ScoringRule]:
+def compare_to_baseline(
+    baseline_config: ScoringConfig, league_config: ScoringConfig
+) -> List[ScoringRule]:
     baseline = baseline_config.scoring_map if isinstance(baseline_config, ScoringConfig) else {}
     league = league_config.scoring_map if isinstance(league_config, ScoringConfig) else {}
     keys = sorted(set(baseline.keys()) | set(league.keys()))

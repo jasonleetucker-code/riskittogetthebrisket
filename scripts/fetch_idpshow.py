@@ -48,6 +48,7 @@ Run
     python3 scripts/fetch_idpshow.py
     python3 scripts/fetch_idpshow.py --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -89,12 +90,14 @@ def _load_cookies() -> list[dict]:
             continue
         if c["name"].startswith("_comment"):
             continue
-        out.append({
-            "name": c["name"],
-            "value": c["value"],
-            "domain": c.get("domain") or ".theidpshow.com",
-            "path": c.get("path") or "/",
-        })
+        out.append(
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain") or ".theidpshow.com",
+                "path": c.get("path") or "/",
+            }
+        )
     return out
 
 
@@ -110,7 +113,8 @@ def _build_session():
     for c in _load_cookies():
         try:
             session.cookies.set(
-                c["name"], c["value"],
+                c["name"],
+                c["value"],
                 domain=str(c.get("domain") or "").lstrip("."),
                 path=c.get("path") or "/",
             )
@@ -122,9 +126,7 @@ def _build_session():
 def _fetch_article_html(session) -> str:
     r = session.get(ARTICLE_URL, timeout=45)
     if r.status_code != 200:
-        raise RuntimeError(
-            f"GET {ARTICLE_URL} failed: HTTP {r.status_code}"
-        )
+        raise RuntimeError(f"GET {ARTICLE_URL} failed: HTTP {r.status_code}")
     return r.text
 
 
@@ -217,9 +219,7 @@ def _fetch_dataset_csv(session, chart_id: str, version: str) -> str:
         timeout=30,
     )
     if r.status_code != 200:
-        raise RuntimeError(
-            f"GET {url} failed: HTTP {r.status_code}"
-        )
+        raise RuntimeError(f"GET {url} failed: HTTP {r.status_code}")
     return r.text
 
 
@@ -250,27 +250,25 @@ def _parse_dataset(csv_text: str) -> list[dict]:
         # Position: old ``POS`` is a bare code; new ``POSITION RANK``
         # is the code with the positional rank concatenated
         # (``ED1``).  Strip everything from the first digit on.
-        pos_src = str(
-            row.get("POS") or row.get("POSITION RANK") or ""
-        ).strip().upper()
+        pos_src = str(row.get("POS") or row.get("POSITION RANK") or "").strip().upper()
         m = re.match(r"[A-Z]+", pos_src)
         pos_raw = m.group(0) if m else pos_src
         pos_norm = _POS_NORM.get(pos_raw, pos_raw)
         # Overall rank: old ``OVR`` → new ``OVERALL``.
-        ovr_raw = str(
-            row.get("OVR") or row.get("OVERALL") or ""
-        ).strip().lstrip("0")
+        ovr_raw = str(row.get("OVR") or row.get("OVERALL") or "").strip().lstrip("0")
         try:
             rank = int(ovr_raw) if ovr_raw else None
         except (TypeError, ValueError):
             continue
         if rank is None or rank <= 0:
             continue
-        rows_out.append({
-            "name": name,
-            "position": pos_norm,
-            "rank": rank,
-        })
+        rows_out.append(
+            {
+                "name": name,
+                "position": pos_norm,
+                "rank": rank,
+            }
+        )
     return rows_out
 
 
@@ -288,7 +286,8 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Scrape but don't write the CSV.",
     )
     args = parser.parse_args()

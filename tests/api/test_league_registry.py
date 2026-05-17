@@ -9,6 +9,7 @@ league.  These tests pin down:
 * Roster settings accessor
 * ``LEAGUE_REGISTRY_PATH`` env override resolution
 """
+
 from __future__ import annotations
 
 import json
@@ -145,9 +146,27 @@ def test_active_leagues_excludes_inactive(tmp_path, monkeypatch):
         tmp_path,
         {
             "leagues": [
-                {"key": "a", "displayName": "A", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
-                {"key": "b", "displayName": "B", "sleeperLeagueId": "2", "active": False, "rosterSettings": {}},
-                {"key": "c", "displayName": "C", "sleeperLeagueId": "3", "active": True, "rosterSettings": {}},
+                {
+                    "key": "a",
+                    "displayName": "A",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                },
+                {
+                    "key": "b",
+                    "displayName": "B",
+                    "sleeperLeagueId": "2",
+                    "active": False,
+                    "rosterSettings": {},
+                },
+                {
+                    "key": "c",
+                    "displayName": "C",
+                    "sleeperLeagueId": "3",
+                    "active": True,
+                    "rosterSettings": {},
+                },
             ],
         },
     )
@@ -208,7 +227,13 @@ def test_get_user_default_skips_inactive_team_map_match(tmp_path, monkeypatch):
         {
             "defaultLeagueKey": "main",
             "leagues": [
-                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
+                {
+                    "key": "main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                },
                 {
                     "key": "disabled",
                     "displayName": "Off",
@@ -319,8 +344,18 @@ def test_duplicate_keys_keep_first(tmp_path, monkeypatch):
         tmp_path,
         {
             "leagues": [
-                {"key": "dup", "displayName": "First", "sleeperLeagueId": "1", "rosterSettings": {}},
-                {"key": "dup", "displayName": "Second", "sleeperLeagueId": "2", "rosterSettings": {}},
+                {
+                    "key": "dup",
+                    "displayName": "First",
+                    "sleeperLeagueId": "1",
+                    "rosterSettings": {},
+                },
+                {
+                    "key": "dup",
+                    "displayName": "Second",
+                    "sleeperLeagueId": "2",
+                    "rosterSettings": {},
+                },
             ],
         },
     )
@@ -395,8 +430,20 @@ def test_put_user_state_accepts_valid_active_league_key(tmp_path, monkeypatch):
         tmp_path,
         {
             "leagues": [
-                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
-                {"key": "backup", "displayName": "Backup", "sleeperLeagueId": "2", "active": True, "rosterSettings": {}},
+                {
+                    "key": "main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                },
+                {
+                    "key": "backup",
+                    "displayName": "Backup",
+                    "sleeperLeagueId": "2",
+                    "active": True,
+                    "rosterSettings": {},
+                },
             ],
         },
     )
@@ -405,12 +452,14 @@ def test_put_user_state_accepts_valid_active_league_key(tmp_path, monkeypatch):
 
     # Route the user_kv DB to a temp file so we don't touch prod data.
     from src.api import user_kv
+
     user_kv_path = tmp_path / "test_user_kv.sqlite"
     monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
     user_kv._SETUP_DONE.clear()
     # Stub auth so the endpoint accepts us as 'alice'.
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {"username": "alice", "auth_method": "password"},
     )
 
@@ -432,7 +481,13 @@ def test_put_user_state_drops_unknown_active_league_key(tmp_path, monkeypatch):
         tmp_path,
         {
             "leagues": [
-                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
+                {
+                    "key": "main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                },
             ],
         },
     )
@@ -440,11 +495,13 @@ def test_put_user_state_drops_unknown_active_league_key(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
     from src.api import user_kv
+
     user_kv_path = tmp_path / "test_user_kv.sqlite"
     monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
     user_kv._SETUP_DONE.clear()
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {"username": "alice", "auth_method": "password"},
     )
 
@@ -467,9 +524,28 @@ def test_put_user_state_accepts_selected_teams_by_league(tmp_path, monkeypatch):
         tmp_path,
         {
             "leagues": [
-                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}, "aliases": ["primary"]},
-                {"key": "side", "displayName": "Side", "sleeperLeagueId": "2", "active": True, "rosterSettings": {}},
-                {"key": "retired", "displayName": "Off", "sleeperLeagueId": "3", "active": False, "rosterSettings": {}},
+                {
+                    "key": "main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                    "aliases": ["primary"],
+                },
+                {
+                    "key": "side",
+                    "displayName": "Side",
+                    "sleeperLeagueId": "2",
+                    "active": True,
+                    "rosterSettings": {},
+                },
+                {
+                    "key": "retired",
+                    "displayName": "Off",
+                    "sleeperLeagueId": "3",
+                    "active": False,
+                    "rosterSettings": {},
+                },
             ],
         },
     )
@@ -477,10 +553,12 @@ def test_put_user_state_accepts_selected_teams_by_league(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
     from src.api import user_kv
+
     monkeypatch.setattr(user_kv, "USER_KV_PATH", tmp_path / "user_kv.sqlite")
     user_kv._SETUP_DONE.clear()
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {"username": "alice", "auth_method": "password"},
     )
 
@@ -545,7 +623,8 @@ def test_api_leagues_includes_user_default_team_when_authed(tmp_path, monkeypatc
 
     # Authed as alice.
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {"username": "alice", "auth_method": "sleeper"},
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -590,11 +669,13 @@ def test_put_user_state_canonicalizes_alias(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
     from src.api import user_kv
+
     user_kv_path = tmp_path / "test_user_kv.sqlite"
     monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
     user_kv._SETUP_DONE.clear()
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {"username": "alice", "auth_method": "password"},
     )
 

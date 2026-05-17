@@ -14,6 +14,7 @@ Calibration is universe-aware:
 The calibration parameters are empirically chosen to maximize tier
 agreement with the legacy system based on comparison batch data.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -79,7 +80,9 @@ def to_display_value(calibrated_value: int | float) -> int:
     """
     if calibrated_value <= 0:
         return 1
-    return max(1, min(DISPLAY_SCALE_MAX, round(calibrated_value * DISPLAY_SCALE_MAX / INTERNAL_SCALE_MAX)))
+    return max(
+        1, min(DISPLAY_SCALE_MAX, round(calibrated_value * DISPLAY_SCALE_MAX / INTERNAL_SCALE_MAX))
+    )
 
 
 # Non-fantasy positions that should be calibrated very low
@@ -188,7 +191,7 @@ def _pick_curve_value(info: dict[str, Any], current_year: int | None = None) -> 
     year = info.get("year")
     if year is not None and year > current_year:
         years_out = year - current_year
-        discount = PICK_YEAR_DISCOUNT ** years_out
+        discount = PICK_YEAR_DISCOUNT**years_out
         base = int(base * discount)
 
     return max(100, min(PICK_CEILING, base))
@@ -261,8 +264,7 @@ def calibrate_canonical_values(
             Hill-curve pipeline (would cause double-calibration).
     """
     canonical_tagged = [
-        a for a in assets
-        if a.get("_pick_calibration_source") == "canonical_pipeline"
+        a for a in assets if a.get("_pick_calibration_source") == "canonical_pipeline"
     ]
     if canonical_tagged:
         sample = canonical_tagged[0].get("display_name", "<unknown>")
@@ -301,10 +303,10 @@ def calibrate_canonical_values(
             rank = rank_idx + 1
             percentile = (depth - (rank - 1)) / depth
             if percentile >= uni_knee:
-                calibrated = int(round(scale * (percentile ** exponent)))
+                calibrated = int(round(scale * (percentile**exponent)))
             else:
                 # Linear ramp from 0 to the curve value at the knee
-                knee_val = scale * (uni_knee ** exponent)
+                knee_val = scale * (uni_knee**exponent)
                 calibrated = int(round(knee_val * (percentile / uni_knee)))
             calibrated = max(0, min(scale, calibrated))
 

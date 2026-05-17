@@ -15,6 +15,7 @@ season, week (where applicable), manager (ownerId), player, trade
 partner (ownerIds), position, asset type, and a ``tags`` list with
 award labels when relevant.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -38,7 +39,9 @@ def _award_tags_by_owner(awards_section: dict[str, Any]) -> dict[tuple[str, str]
     return out
 
 
-def _trade_archives(snapshot: PublicLeagueSnapshot, activity: dict[str, Any]) -> list[dict[str, Any]]:
+def _trade_archives(
+    snapshot: PublicLeagueSnapshot, activity: dict[str, Any]
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for trade in activity.get("feed", []):
         owners = [s["ownerId"] for s in trade["sides"] if s.get("ownerId")]
@@ -53,20 +56,22 @@ def _trade_archives(snapshot: PublicLeagueSnapshot, activity: dict[str, Any]) ->
                         player_names.append(asset["playerName"])
                     if asset.get("position"):
                         positions.append(asset["position"])
-        rows.append({
-            "kind": "trade",
-            "transactionId": trade["transactionId"],
-            "season": trade["season"],
-            "leagueId": trade["leagueId"],
-            "week": trade.get("week"),
-            "createdAt": trade.get("createdAt"),
-            "ownerIds": owners,
-            "playerNames": player_names,
-            "positions": positions,
-            "assetTypes": sorted(asset_types),
-            "totalAssets": trade["totalAssets"],
-            "tags": [],
-        })
+        rows.append(
+            {
+                "kind": "trade",
+                "transactionId": trade["transactionId"],
+                "season": trade["season"],
+                "leagueId": trade["leagueId"],
+                "week": trade.get("week"),
+                "createdAt": trade.get("createdAt"),
+                "ownerIds": owners,
+                "playerNames": player_names,
+                "positions": positions,
+                "assetTypes": sorted(asset_types),
+                "totalAssets": trade["totalAssets"],
+                "tags": [],
+            }
+        )
     return rows
 
 
@@ -105,21 +110,23 @@ def _waiver_archives(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                 }
                 for pid in drops.keys()
             ]
-            rows.append({
-                "kind": "waiver",
-                "transactionId": str(tx.get("transaction_id") or ""),
-                "season": season.season,
-                "leagueId": season.league_id,
-                "week": tx.get("_leg"),
-                "createdAt": tx.get("created") or tx.get("status_updated"),
-                "ownerId": owner_id,
-                "rosterId": primary_rid,
-                "bid": bid_n,
-                "added": added_players,
-                "dropped": dropped_players,
-                "type": str(tx.get("type") or "").lower(),
-                "tags": [],
-            })
+            rows.append(
+                {
+                    "kind": "waiver",
+                    "transactionId": str(tx.get("transaction_id") or ""),
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "week": tx.get("_leg"),
+                    "createdAt": tx.get("created") or tx.get("status_updated"),
+                    "ownerId": owner_id,
+                    "rosterId": primary_rid,
+                    "bid": bid_n,
+                    "added": added_players,
+                    "dropped": dropped_players,
+                    "type": str(tx.get("type") or "").lower(),
+                    "tags": [],
+                }
+            )
     rows.sort(key=lambda r: -(int(r.get("createdAt") or 0)))
     return rows
 
@@ -145,27 +152,31 @@ def _weekly_matchup_archives(snapshot: PublicLeagueSnapshot) -> list[dict[str, A
                     winner = owner_b
                 else:
                     winner = ""
-                rows.append({
-                    "kind": "weekly_matchup",
-                    "season": season.season,
-                    "leagueId": season.league_id,
-                    "week": week,
-                    "isPlayoff": is_playoff,
-                    "matchupId": a.get("matchup_id"),
-                    "homeOwnerId": owner_a,
-                    "awayOwnerId": owner_b,
-                    "homeRosterId": rid_a,
-                    "awayRosterId": rid_b,
-                    "homePoints": round(pa, 2),
-                    "awayPoints": round(pb, 2),
-                    "winnerOwnerId": winner,
-                    "margin": round(abs(pa - pb), 2),
-                    "tags": ["playoff"] if is_playoff else [],
-                })
+                rows.append(
+                    {
+                        "kind": "weekly_matchup",
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": week,
+                        "isPlayoff": is_playoff,
+                        "matchupId": a.get("matchup_id"),
+                        "homeOwnerId": owner_a,
+                        "awayOwnerId": owner_b,
+                        "homeRosterId": rid_a,
+                        "awayRosterId": rid_b,
+                        "homePoints": round(pa, 2),
+                        "awayPoints": round(pb, 2),
+                        "winnerOwnerId": winner,
+                        "margin": round(abs(pa - pb), 2),
+                        "tags": ["playoff"] if is_playoff else [],
+                    }
+                )
     return rows
 
 
-def _rookie_draft_archives(snapshot: PublicLeagueSnapshot, draft_section: dict[str, Any]) -> list[dict[str, Any]]:
+def _rookie_draft_archives(
+    snapshot: PublicLeagueSnapshot, draft_section: dict[str, Any]
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for draft in draft_section.get("drafts", []):
         if str(draft.get("type") or "").lower() not in {"rookie", "rookie_draft"}:
@@ -175,26 +186,32 @@ def _rookie_draft_archives(snapshot: PublicLeagueSnapshot, draft_section: dict[s
         for pick in draft.get("picks", []):
             if not pick.get("playerName"):
                 continue
-            rows.append({
-                "kind": "rookie_draft",
-                "draftId": draft["draftId"],
-                "season": draft["season"],
-                "leagueId": draft["leagueId"],
-                "round": pick["round"],
-                "pickNo": pick["pickNo"],
-                "ownerId": pick["ownerId"],
-                "rosterId": pick["rosterId"],
-                "teamName": pick["teamName"],
-                "playerId": pick["playerId"],
-                "playerName": pick["playerName"],
-                "position": pick.get("position"),
-                "nflTeam": pick.get("nflTeam"),
-                "tags": [],
-            })
+            rows.append(
+                {
+                    "kind": "rookie_draft",
+                    "draftId": draft["draftId"],
+                    "season": draft["season"],
+                    "leagueId": draft["leagueId"],
+                    "round": pick["round"],
+                    "pickNo": pick["pickNo"],
+                    "ownerId": pick["ownerId"],
+                    "rosterId": pick["rosterId"],
+                    "teamName": pick["teamName"],
+                    "playerId": pick["playerId"],
+                    "playerName": pick["playerName"],
+                    "position": pick.get("position"),
+                    "nflTeam": pick.get("nflTeam"),
+                    "tags": [],
+                }
+            )
     return rows
 
 
-def _season_result_archives(snapshot: PublicLeagueSnapshot, history_section: dict[str, Any], award_tags: dict[tuple[str, str], list[str]]) -> list[dict[str, Any]]:
+def _season_result_archives(
+    snapshot: PublicLeagueSnapshot,
+    history_section: dict[str, Any],
+    award_tags: dict[tuple[str, str], list[str]],
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for season_row in history_section.get("seasons", []):
         season = season_row["season"]
@@ -204,36 +221,40 @@ def _season_result_archives(snapshot: PublicLeagueSnapshot, history_section: dic
             tags = list(award_tags.get((season, owner_id), []))
             if standing.get("finalPlace") == 1:
                 tags.append("champion")
-            rows.append({
-                "kind": "season_result",
-                "season": season,
-                "leagueId": league_id,
-                "ownerId": owner_id,
-                "rosterId": standing["rosterId"],
-                "teamName": standing["teamName"],
-                "wins": standing["wins"],
-                "losses": standing["losses"],
-                "ties": standing["ties"],
-                "pointsFor": standing["pointsFor"],
-                "pointsAgainst": standing["pointsAgainst"],
-                "finalPlace": standing.get("finalPlace"),
-                "madePlayoffs": standing["madePlayoffs"],
-                "standing": standing["standing"],
-                "tags": sorted(set(tags)),
-            })
+            rows.append(
+                {
+                    "kind": "season_result",
+                    "season": season,
+                    "leagueId": league_id,
+                    "ownerId": owner_id,
+                    "rosterId": standing["rosterId"],
+                    "teamName": standing["teamName"],
+                    "wins": standing["wins"],
+                    "losses": standing["losses"],
+                    "ties": standing["ties"],
+                    "pointsFor": standing["pointsFor"],
+                    "pointsAgainst": standing["pointsAgainst"],
+                    "finalPlace": standing.get("finalPlace"),
+                    "madePlayoffs": standing["madePlayoffs"],
+                    "standing": standing["standing"],
+                    "tags": sorted(set(tags)),
+                }
+            )
     return rows
 
 
 def _manager_index(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for manager in snapshot.managers.ordered_managers():
-        rows.append({
-            "kind": "manager",
-            "ownerId": manager.owner_id,
-            "displayName": manager.display_name,
-            "currentTeamName": manager.current_team_name,
-            "aliases": [a.team_name for a in manager.aliases],
-        })
+        rows.append(
+            {
+                "kind": "manager",
+                "ownerId": manager.owner_id,
+                "displayName": manager.display_name,
+                "currentTeamName": manager.current_team_name,
+                "aliases": [a.team_name for a in manager.aliases],
+            }
+        )
     return rows
 
 
@@ -254,9 +275,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # display name make the cut so we don't ship IDs for stale/orphan
     # player records.
     players_archive = [
-        {"kind": "player", **p}
-        for p in list_players_with_activity(snapshot)
-        if p.get("playerName")
+        {"kind": "player", **p} for p in list_players_with_activity(snapshot) if p.get("playerName")
     ]
 
     return {

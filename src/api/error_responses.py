@@ -28,6 +28,7 @@ This module ADDS the envelope for unhandled paths and offers the
 NOT rewrite every existing handler to conform — that would risk
 breaking client parsers.  New code should use ``error_payload``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -99,6 +100,7 @@ def install_exception_handler(app: FastAPI) -> None:
     # Silence Starlette's default error logger — our handler
     # already logs the full trace + correlation context.
     import logging
+
     logging.getLogger("starlette.middleware.errors").setLevel(logging.CRITICAL)
 
     @app.exception_handler(Exception)

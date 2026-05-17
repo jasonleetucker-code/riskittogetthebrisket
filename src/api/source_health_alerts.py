@@ -26,6 +26,7 @@ knows the current health state.
 Integration point: the signal-alert cron calls ``check_and_alert()``
 as part of its sweep — no new cron required.
 """
+
 from __future__ import annotations
 
 import json
@@ -98,6 +99,7 @@ def _iso_to_epoch(ts: str) -> float:
         return 0.0
     try:
         from datetime import datetime
+
         # Handle both Z suffix and +00:00.
         clean = ts.replace("Z", "+00:00")
         return datetime.fromisoformat(clean).timestamp()
@@ -218,10 +220,7 @@ def detect_stale_sources(
         if not isinstance(entry, dict):
             continue
         last_seen_iso = str(
-            entry.get("lastFetched")
-            or entry.get("lastSeen")
-            or entry.get("lastFetchedAt")
-            or ""
+            entry.get("lastFetched") or entry.get("lastSeen") or entry.get("lastFetchedAt") or ""
         )
         if not last_seen_iso:
             continue
@@ -231,12 +230,15 @@ def detect_stale_sources(
         hours_stale = (now - last_epoch) / 3600.0
         threshold = resolve_threshold(src, thresholds)
         if hours_stale > threshold:
-            out.append(StaleSourceAlert(
-                source=src, last_seen_iso=last_seen_iso,
-                hours_stale=round(hours_stale, 1),
-                threshold_hours=threshold,
-                transition="stale",
-            ))
+            out.append(
+                StaleSourceAlert(
+                    source=src,
+                    last_seen_iso=last_seen_iso,
+                    hours_stale=round(hours_stale, 1),
+                    threshold_hours=threshold,
+                    transition="stale",
+                )
+            )
     return out
 
 
@@ -263,7 +265,9 @@ def check_and_alert(
     alert_state = dict(state.get("sourceHealthAlertState") or {})
     now = time.time()
     stale = detect_stale_sources(
-        source_health, thresholds=thresholds, now_epoch=now,
+        source_health,
+        thresholds=thresholds,
+        now_epoch=now,
     )
     stale_sources = {a.source for a in stale}
 
@@ -274,13 +278,15 @@ def check_and_alert(
         if not isinstance(entry, dict):
             continue
         if entry.get("currentlyStale") and src not in stale_sources:
-            recovery_alerts.append(StaleSourceAlert(
-                source=src,
-                last_seen_iso=str(entry.get("lastAlertedAt") or ""),
-                hours_stale=0.0,
-                threshold_hours=0.0,
-                transition="recovered",
-            ))
+            recovery_alerts.append(
+                StaleSourceAlert(
+                    source=src,
+                    last_seen_iso=str(entry.get("lastAlertedAt") or ""),
+                    hours_stale=0.0,
+                    threshold_hours=0.0,
+                    transition="recovered",
+                )
+            )
 
     summary = {"stale": 0, "recovered": 0, "delivered": 0, "skipped_cooldown": 0}
     to_send: list[StaleSourceAlert] = []
@@ -315,7 +321,9 @@ def check_and_alert(
     # Persist state BEFORE sending so a delivery crash doesn't cause
     # re-alerts next pass.
     user_kv.merge_user_state(
-        state_user, {"sourceHealthAlertState": alert_state}, path=kv_path,
+        state_user,
+        {"sourceHealthAlertState": alert_state},
+        path=kv_path,
     )
 
     if not to_send:

@@ -33,6 +33,7 @@ Implementation overview:
   5. Apply tiebreaker (PF descending) and rank teams 1..N.
   6. Aggregate playoff appearance + bye + top-seed odds.
 """
+
 from __future__ import annotations
 
 import json
@@ -198,6 +199,7 @@ def _load_starter_slots() -> list[str]:
     best-ball presim then short-circuits to the empirical model."""
     try:
         from src.api.league_registry import get_default_league  # noqa: PLC0415
+
         cfg = get_default_league()
         if cfg is None or not cfg.roster_settings:
             return []
@@ -273,9 +275,15 @@ def _bestball_weekly_score(
     # Restrictive first prevents flex slots from grabbing positional
     # studs the dedicated slot would have used.
     slot_priority = {
-        "QB": 1, "RB": 2, "WR": 2, "TE": 2,
-        "DL": 3, "LB": 3, "DB": 3,
-        "FLEX": 4, "IDP_FLEX": 4,
+        "QB": 1,
+        "RB": 2,
+        "WR": 2,
+        "TE": 2,
+        "DL": 3,
+        "LB": 3,
+        "DB": 3,
+        "FLEX": 4,
+        "IDP_FLEX": 4,
         "SUPER_FLEX": 5,
     }
     slots_sorted = sorted(starter_slots, key=lambda s: slot_priority.get(s.upper(), 6))
@@ -359,15 +367,11 @@ def _build_team_distributions(
     ratio.  In start/sit leagues the bench doesn't feed weekly
     scoring, so the bump is 1.0 (no lift).
     """
-    seasons_sorted = sorted(
-        snapshot.seasons, key=luck._season_sort_key
-    )
+    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
     if not seasons_sorted:
         return {}, {}
     current_season = seasons_sorted[-1]
-    per_owner, pool = playoff_odds._season_weekly_scores(
-        current_season, snapshot.managers
-    )
+    per_owner, pool = playoff_odds._season_weekly_scores(current_season, snapshot.managers)
     pool_mean, pool_sd = _empirical_distribution(pool)
 
     # ROS strength scores are 0-100ish; convert to a per-owner z-score
@@ -423,9 +427,7 @@ def _build_team_distributions(
             blended_mean = emp_mean * (1 + ROS_BLEND * ros_z)
         else:
             blended_mean = emp_mean
-        variance_mult = _team_variance_multiplier(
-            owner_id, depth_ratios, best_ball
-        )
+        variance_mult = _team_variance_multiplier(owner_id, depth_ratios, best_ball)
         sd = emp_sd * variance_mult if emp_sd > 0 else pool_sd * variance_mult
         distributions[owner_id] = _TeamDist(
             owner_id=owner_id,
@@ -445,9 +447,7 @@ def _remaining_schedule(snapshot: PublicLeagueSnapshot) -> list[tuple[int, str, 
     The v1 helper returns ``{week: [(ownerA, ownerB), ...]}``; flatten
     to the triple form the simulator iterates.
     """
-    seasons_sorted = sorted(
-        snapshot.seasons, key=luck._season_sort_key
-    )
+    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
     if not seasons_sorted:
         return []
     season = seasons_sorted[-1]
@@ -463,15 +463,11 @@ def _current_record(
     snapshot: PublicLeagueSnapshot,
 ) -> dict[str, dict[str, float]]:
     """Wins/losses to date per owner."""
-    seasons_sorted = sorted(
-        snapshot.seasons, key=luck._season_sort_key
-    )
+    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
     if not seasons_sorted:
         return {}
     current = seasons_sorted[-1]
-    return playoff_odds._regular_season_record_to_date(
-        current, snapshot.managers
-    )
+    return playoff_odds._regular_season_record_to_date(current, snapshot.managers)
 
 
 def _league_best_ball() -> bool:
@@ -481,6 +477,7 @@ def _league_best_ball() -> bool:
     """
     try:
         from src.api.league_registry import get_default_league  # noqa: PLC0415
+
         cfg = get_default_league()
         return bool(cfg and cfg.best_ball)
     except Exception:  # noqa: BLE001
@@ -513,9 +510,7 @@ def simulate_playoff_odds(
     if best_ball is None:
         best_ball = _league_best_ball()
     ros_map = _load_ros_strength_map()
-    distributions, pf_by_owner = _build_team_distributions(
-        snapshot, ros_map, best_ball=best_ball
-    )
+    distributions, pf_by_owner = _build_team_distributions(snapshot, ros_map, best_ball=best_ball)
     if not distributions:
         return {
             "playoffOdds": [],
@@ -538,12 +533,8 @@ def simulate_playoff_odds(
     wins_total: dict[str, float] = {o: 0.0 for o in owners}
 
     for _ in range(n_simulations):
-        sim_wins: dict[str, float] = {
-            o: float(record.get(o, {}).get("wins", 0)) for o in owners
-        }
-        sim_pf: dict[str, float] = {
-            o: float(pf_by_owner.get(o, 0.0)) for o in owners
-        }
+        sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
+        sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
         for week, owner_a, owner_b in schedule:
             dist_a = distributions.get(owner_a)
             dist_b = distributions.get(owner_b)
@@ -629,6 +620,7 @@ _SIM_CACHE_TTL_SEC = 6 * 3600
 def _load_cached_payload() -> dict[str, Any] | None:
     """Read ``data/ros/sims/latest_playoff.json`` if fresh; else None."""
     import os
+
     path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
     if not path.exists():
         return None
@@ -637,6 +629,7 @@ def _load_cached_payload() -> dict[str, Any] | None:
     except OSError:
         return None
     import time
+
     if (time.time() - age) > _SIM_CACHE_TTL_SEC:
         LOG.info("[ros] playoff cache stale (>%ds); rerunning sim", _SIM_CACHE_TTL_SEC)
         return None

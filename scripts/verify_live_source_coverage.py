@@ -35,6 +35,7 @@ Exit codes:
   1 — a fresh source is absent (degraded board), or /api/status was
       unreachable / unparseable after retries
 """
+
 from __future__ import annotations
 
 import json
@@ -63,9 +64,7 @@ def _fetch_status(base_url: str) -> dict | None:
     url = base_url.rstrip("/") + "/api/status"
     for attempt in range(1, _ATTEMPTS + 1):
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "verify-live-source-coverage"}
-            )
+            req = urllib.request.Request(url, headers={"User-Agent": "verify-live-source-coverage"})
             with urllib.request.urlopen(req, timeout=_TIMEOUT_SECONDS) as resp:
                 if resp.status == 200:
                     return json.loads(resp.read().decode("utf-8"))
@@ -87,9 +86,7 @@ def _fetch_status(base_url: str) -> dict | None:
 
 def main() -> int:
     base_url = (
-        sys.argv[1]
-        if len(sys.argv) > 1
-        else os.environ.get("DEPLOY_VERIFY_BASE_URL", "")
+        sys.argv[1] if len(sys.argv) > 1 else os.environ.get("DEPLOY_VERIFY_BASE_URL", "")
     ).strip()
     if not base_url:
         print(
@@ -118,9 +115,7 @@ def main() -> int:
     cov_int = {str(k): int(v) for k, v in cov.items()}
     freshness = _read_freshness()
     thresholds = load_thresholds()
-    violations, ok, skipped = evaluate_coverage_map(
-        cov_int, freshness, thresholds
-    )
+    violations, ok, skipped = evaluate_coverage_map(cov_int, freshness, thresholds)
 
     if not violations:
         print(

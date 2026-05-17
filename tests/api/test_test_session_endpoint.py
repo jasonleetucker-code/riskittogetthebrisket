@@ -3,6 +3,7 @@
 Key invariant: the endpoint 404's (NOT 401) when E2E_TEST_MODE is
 off — 401 would leak the endpoint's existence.
 """
+
 from __future__ import annotations
 
 import pytest

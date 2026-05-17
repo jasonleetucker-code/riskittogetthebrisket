@@ -66,7 +66,9 @@ def run_scoring_backtest(player_fits: Dict[str, Dict[str, object]]) -> Dict[str,
             ),
             "avg_ratio": round(sum(ratios) / len(ratios), 6) if ratios else 1.0,
             "avg_confidence": round(sum(confs) / len(confs), 6) if confs else 0.0,
-            "avg_abs_delta_points": round(sum(abs_deltas) / len(abs_deltas), 6) if abs_deltas else 0.0,
+            "avg_abs_delta_points": round(sum(abs_deltas) / len(abs_deltas), 6)
+            if abs_deltas
+            else 0.0,
         },
         "byPosition": {},
         "byConfidenceBucket": {},

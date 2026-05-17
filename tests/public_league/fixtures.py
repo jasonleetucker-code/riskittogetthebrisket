@@ -12,6 +12,7 @@ Provides a fully-deterministic two-season league chain with:
     * Traded picks so the Draft Center pick-ownership map has data.
     * NFL players dump stub so position-based superlatives work.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -26,7 +27,17 @@ def _user(uid: str, display_name: str, team_name: str) -> dict[str, Any]:
     }
 
 
-def _roster(rid: int, owner_id: str, players: list[str], wins: int = 0, losses: int = 0, ties: int = 0, pf: float = 0.0, pa: float = 0.0, rank: int | None = None) -> dict[str, Any]:
+def _roster(
+    rid: int,
+    owner_id: str,
+    players: list[str],
+    wins: int = 0,
+    losses: int = 0,
+    ties: int = 0,
+    pf: float = 0.0,
+    pa: float = 0.0,
+    rank: int | None = None,
+) -> dict[str, Any]:
     pf_int = int(pf)
     pf_dec = int(round((pf - pf_int) * 100))
     pa_int = int(pa)
@@ -54,56 +65,70 @@ def _roster(rid: int, owner_id: str, players: list[str], wins: int = 0, losses: 
 # by the rookie-superlative calculation; we make pid-rookie players
 # have years_exp=0.
 NFL_PLAYERS_STUB: dict[str, dict[str, Any]] = {
-    "p-qb1":  {"first_name": "Ann",   "last_name": "QB-One",   "position": "QB", "years_exp": 5},
-    "p-qb2":  {"first_name": "Bob",   "last_name": "QB-Two",   "position": "QB", "years_exp": 3},
-    "p-rb1":  {"first_name": "Cam",   "last_name": "RB-One",   "position": "RB", "years_exp": 4},
-    "p-rb2":  {"first_name": "Dan",   "last_name": "RB-Two",   "position": "RB", "years_exp": 0},
-    "p-rb3":  {"first_name": "Eve",   "last_name": "RB-Three", "position": "RB", "years_exp": 2},
-    "p-wr1":  {"first_name": "Flo",   "last_name": "WR-One",   "position": "WR", "years_exp": 6},
-    "p-wr2":  {"first_name": "Gus",   "last_name": "WR-Two",   "position": "WR", "years_exp": 0},
-    "p-wr3":  {"first_name": "Hal",   "last_name": "WR-Three", "position": "WR", "years_exp": 2},
-    "p-te1":  {"first_name": "Iva",   "last_name": "TE-One",   "position": "TE", "years_exp": 7},
-    "p-te2":  {"first_name": "Jax",   "last_name": "TE-Two",   "position": "TE", "years_exp": 1},
-    "p-idp1": {"first_name": "Kim",   "last_name": "DL-One",   "position": "DL", "years_exp": 3},
-    "p-idp2": {"first_name": "Leo",   "last_name": "LB-One",   "position": "LB", "years_exp": 0},
-    "p-idp3": {"first_name": "Max",   "last_name": "DB-One",   "position": "DB", "years_exp": 2},
+    "p-qb1": {"first_name": "Ann", "last_name": "QB-One", "position": "QB", "years_exp": 5},
+    "p-qb2": {"first_name": "Bob", "last_name": "QB-Two", "position": "QB", "years_exp": 3},
+    "p-rb1": {"first_name": "Cam", "last_name": "RB-One", "position": "RB", "years_exp": 4},
+    "p-rb2": {"first_name": "Dan", "last_name": "RB-Two", "position": "RB", "years_exp": 0},
+    "p-rb3": {"first_name": "Eve", "last_name": "RB-Three", "position": "RB", "years_exp": 2},
+    "p-wr1": {"first_name": "Flo", "last_name": "WR-One", "position": "WR", "years_exp": 6},
+    "p-wr2": {"first_name": "Gus", "last_name": "WR-Two", "position": "WR", "years_exp": 0},
+    "p-wr3": {"first_name": "Hal", "last_name": "WR-Three", "position": "WR", "years_exp": 2},
+    "p-te1": {"first_name": "Iva", "last_name": "TE-One", "position": "TE", "years_exp": 7},
+    "p-te2": {"first_name": "Jax", "last_name": "TE-Two", "position": "TE", "years_exp": 1},
+    "p-idp1": {"first_name": "Kim", "last_name": "DL-One", "position": "DL", "years_exp": 3},
+    "p-idp2": {"first_name": "Leo", "last_name": "LB-One", "position": "LB", "years_exp": 0},
+    "p-idp3": {"first_name": "Max", "last_name": "DB-One", "position": "DB", "years_exp": 2},
     "p-rookie-a": {"first_name": "Rudy", "last_name": "Rook", "position": "WR", "years_exp": 0},
-    "p-rookie-b": {"first_name": "Sal",  "last_name": "Stud", "position": "RB", "years_exp": 0},
+    "p-rookie-b": {"first_name": "Sal", "last_name": "Stud", "position": "RB", "years_exp": 0},
 }
 
 
 # Roster inventories.  Different positional tilts so superlatives
 # produce deterministic winners.
-ROSTER_A_PLAYERS = ["p-qb1", "p-qb2", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]   # QB-heavy, rookies=2 (p-rb2 added in wk3 waiver)
-ROSTER_B_PLAYERS = ["p-rb3", "p-rb2", "p-wr1", "p-wr2", "p-te1", "p-rookie-b"]    # RB-heavy, rookies=2
-ROSTER_C_PLAYERS = ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1", "p-idp3"]        # WR-heavy
-ROSTER_D_PLAYERS = ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]       # IDP/TE-heavy
+ROSTER_A_PLAYERS = [
+    "p-qb1",
+    "p-qb2",
+    "p-rb1",
+    "p-wr1",
+    "p-te1",
+    "p-rookie-a",
+]  # QB-heavy, rookies=2 (p-rb2 added in wk3 waiver)
+ROSTER_B_PLAYERS = [
+    "p-rb3",
+    "p-rb2",
+    "p-wr1",
+    "p-wr2",
+    "p-te1",
+    "p-rookie-b",
+]  # RB-heavy, rookies=2
+ROSTER_C_PLAYERS = ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1", "p-idp3"]  # WR-heavy
+ROSTER_D_PLAYERS = ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]  # IDP/TE-heavy
 
 
 USERS_2025 = [
     _user("owner-A", "AAron", "Brisket Bandits"),
-    _user("owner-B", "Bea",   "Bea's Beast Mode"),
-    _user("owner-C", "Cole",  "Cole Train"),
-    _user("owner-D", "Dana",  "Dana's Dynasty"),
+    _user("owner-B", "Bea", "Bea's Beast Mode"),
+    _user("owner-C", "Cole", "Cole Train"),
+    _user("owner-D", "Dana", "Dana's Dynasty"),
 ]
 USERS_2024 = [
     _user("owner-A", "AAron", "AAron Classic"),
-    _user("owner-B", "Bea",   "Bea's Beast Mode"),
-    _user("owner-C", "Cole",  "Cole Train"),
+    _user("owner-B", "Bea", "Bea's Beast Mode"),
+    _user("owner-C", "Cole", "Cole Train"),
     _user("owner-X", "Xavier", "Xavier XL"),
 ]
 
 ROSTERS_2025 = [
-    _roster(1, "owner-A", ROSTER_A_PLAYERS, wins=9,  losses=5, pf=1450.12, pa=1320.44, rank=2),
+    _roster(1, "owner-A", ROSTER_A_PLAYERS, wins=9, losses=5, pf=1450.12, pa=1320.44, rank=2),
     _roster(2, "owner-B", ROSTER_B_PLAYERS, wins=11, losses=3, pf=1600.50, pa=1200.10, rank=1),
-    _roster(3, "owner-C", ROSTER_C_PLAYERS, wins=5,  losses=9, pf=1250.00, pa=1520.80, rank=4),
-    _roster(4, "owner-D", ROSTER_D_PLAYERS, wins=7,  losses=7, pf=1380.30, pa=1405.20, rank=3),
+    _roster(3, "owner-C", ROSTER_C_PLAYERS, wins=5, losses=9, pf=1250.00, pa=1520.80, rank=4),
+    _roster(4, "owner-D", ROSTER_D_PLAYERS, wins=7, losses=7, pf=1380.30, pa=1405.20, rank=3),
 ]
 ROSTERS_2024 = [
-    _roster(1, "owner-A", ROSTER_A_PLAYERS, wins=8,  losses=6, pf=1390.10, pa=1400.30, rank=2),
+    _roster(1, "owner-A", ROSTER_A_PLAYERS, wins=8, losses=6, pf=1390.10, pa=1400.30, rank=2),
     _roster(2, "owner-B", ROSTER_B_PLAYERS, wins=12, losses=2, pf=1700.00, pa=1150.00, rank=1),
-    _roster(3, "owner-C", ROSTER_C_PLAYERS, wins=6,  losses=8, pf=1295.50, pa=1480.90, rank=3),
-    _roster(4, "owner-X", ["p-qb1", "p-rb1"], wins=3,  losses=11, pf=1100.00, pa=1580.10, rank=4),
+    _roster(3, "owner-C", ROSTER_C_PLAYERS, wins=6, losses=8, pf=1295.50, pa=1480.90, rank=3),
+    _roster(4, "owner-X", ["p-qb1", "p-rb1"], wins=3, losses=11, pf=1100.00, pa=1580.10, rank=4),
 ]
 
 
@@ -111,27 +136,27 @@ ROSTERS_2024 = [
 MATCHUPS_2025 = {
     1: [
         {"matchup_id": 1, "roster_id": 1, "points": 120.5},
-        {"matchup_id": 1, "roster_id": 2, "points": 135.2},   # B beats A by 14.7
+        {"matchup_id": 1, "roster_id": 2, "points": 135.2},  # B beats A by 14.7
         {"matchup_id": 2, "roster_id": 3, "points": 95.0},
-        {"matchup_id": 2, "roster_id": 4, "points": 110.3},   # D beats C by 15.3
+        {"matchup_id": 2, "roster_id": 4, "points": 110.3},  # D beats C by 15.3
     ],
     2: [
         {"matchup_id": 1, "roster_id": 1, "points": 145.8},
-        {"matchup_id": 1, "roster_id": 3, "points": 142.1},   # A beats C by 3.7 (close)
+        {"matchup_id": 1, "roster_id": 3, "points": 142.1},  # A beats C by 3.7 (close)
         {"matchup_id": 2, "roster_id": 2, "points": 165.0},
-        {"matchup_id": 2, "roster_id": 4, "points": 95.6},    # B beats D by 69.4 (blowout)
+        {"matchup_id": 2, "roster_id": 4, "points": 95.6},  # B beats D by 69.4 (blowout)
     ],
     15: [
         # Playoff semifinals.
         {"matchup_id": 1, "roster_id": 2, "points": 155.5},
-        {"matchup_id": 1, "roster_id": 4, "points": 130.0},   # B beats D by 25.5
+        {"matchup_id": 1, "roster_id": 4, "points": 130.0},  # B beats D by 25.5
         {"matchup_id": 2, "roster_id": 1, "points": 150.0},
-        {"matchup_id": 2, "roster_id": 3, "points": 140.0},   # A beats C by 10.0
+        {"matchup_id": 2, "roster_id": 3, "points": 140.0},  # A beats C by 10.0
     ],
     16: [
         # Playoff championship: B vs A.
         {"matchup_id": 1, "roster_id": 2, "points": 145.0},
-        {"matchup_id": 1, "roster_id": 1, "points": 120.0},   # B beats A by 25.0
+        {"matchup_id": 1, "roster_id": 1, "points": 120.0},  # B beats A by 25.0
     ],
 }
 MATCHUPS_2024 = {
@@ -143,9 +168,9 @@ MATCHUPS_2024 = {
     ],
     2: [
         {"matchup_id": 1, "roster_id": 1, "points": 130.0},
-        {"matchup_id": 1, "roster_id": 2, "points": 155.0},   # B beats A (2nd reg meeting)
+        {"matchup_id": 1, "roster_id": 2, "points": 155.0},  # B beats A (2nd reg meeting)
         {"matchup_id": 2, "roster_id": 3, "points": 110.0},
-        {"matchup_id": 2, "roster_id": 4, "points": 112.0},   # X (owner-X) beats C close
+        {"matchup_id": 2, "roster_id": 4, "points": 112.0},  # X (owner-X) beats C close
     ],
     3: [
         # Upsets across the board:
@@ -229,10 +254,20 @@ DRAFT_2025 = {
 }
 
 DRAFT_PICKS_2025 = [
-    {"round": 1, "pick_no": 1, "roster_id": 3, "player_id": "p-rookie-a",
-     "metadata": {"first_name": "Rudy", "last_name": "Rook", "position": "WR", "team": "LV"}},
-    {"round": 1, "pick_no": 2, "roster_id": 4, "player_id": "p-rookie-b",
-     "metadata": {"first_name": "Sal", "last_name": "Stud", "position": "RB", "team": "JAX"}},
+    {
+        "round": 1,
+        "pick_no": 1,
+        "roster_id": 3,
+        "player_id": "p-rookie-a",
+        "metadata": {"first_name": "Rudy", "last_name": "Rook", "position": "WR", "team": "LV"},
+    },
+    {
+        "round": 1,
+        "pick_no": 2,
+        "roster_id": 4,
+        "player_id": "p-rookie-b",
+        "metadata": {"first_name": "Sal", "last_name": "Stud", "position": "RB", "team": "JAX"},
+    },
 ]
 
 

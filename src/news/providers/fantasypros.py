@@ -5,6 +5,7 @@ fantasy-flavored — items tend to surface fantasy-relevant
 analysis and beat-writer notes.  Separate from the paid
 FantasyPros API (different adapter if we ever license it).
 """
+
 from __future__ import annotations
 
 from ._rss import RssNewsProvider

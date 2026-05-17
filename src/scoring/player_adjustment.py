@@ -125,8 +125,11 @@ def choose_final_multiplier(
     prod = clamp(float(production_share), 0.0, 1.0)
     score_mult = float(scoring_adjustment.final_scoring_multiplier)
     output = 1.0 + ((score_mult - 1.0) * prod)
-    if isinstance(explicit_fit_final, (int, float)) and explicit_fit_final > 0 and explicit_fit_blend > 0:
+    if (
+        isinstance(explicit_fit_final, (int, float))
+        and explicit_fit_final > 0
+        and explicit_fit_blend > 0
+    ):
         w = clamp(float(explicit_fit_blend), 0.0, 0.50)
         output = (output * (1.0 - w)) + (float(explicit_fit_final) * w)
     return clamp(output, 1.0 - float(hard_cap), 1.0 + float(hard_cap))
-

@@ -7,6 +7,7 @@ is responsible for.  Instead we inject a pass-through
 each synthetic zip and verify the iteration / dedup / dry-run
 plumbing around it.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -362,9 +363,16 @@ class TestCorruptLatestFallback(unittest.TestCase):
             _write_zip(
                 archive / "dynasty_export_20260308_020000.zip",
                 date="2026-03-08",
-                payload={"flavour": "good", "playersArray": [
-                    {"canonicalName": "Alice", "canonicalConsensusRank": 1, "assetClass": "offense"},
-                ]},
+                payload={
+                    "flavour": "good",
+                    "playersArray": [
+                        {
+                            "canonicalName": "Alice",
+                            "canonicalConsensusRank": 1,
+                            "assetClass": "offense",
+                        },
+                    ],
+                },
             )
             _write_zip(
                 archive / "dynasty_export_20260308_220000.zip",

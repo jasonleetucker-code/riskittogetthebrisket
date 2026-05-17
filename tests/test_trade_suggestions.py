@@ -8,6 +8,7 @@ Validates:
 - Fairness labeling
 - Serialization
 """
+
 import pytest
 
 from src.trade.suggestions import (
@@ -45,8 +46,18 @@ from src.trade.suggestions import (
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
-def _make_asset(name, pos, cal_value, display_value=None, source_count=6,
-                team="", rookie=False, years_exp=None, source_values=None):
+
+def _make_asset(
+    name,
+    pos,
+    cal_value,
+    display_value=None,
+    source_count=6,
+    team="",
+    rookie=False,
+    years_exp=None,
+    source_values=None,
+):
     """Create a minimal canonical asset dict."""
     if display_value is None:
         display_value = max(1, round(cal_value * 9999 / 7800))
@@ -54,7 +65,8 @@ def _make_asset(name, pos, cal_value, display_value=None, source_count=6,
         "display_name": name,
         "calibrated_value": cal_value,
         "display_value": display_value,
-        "source_values": source_values or {f"src{i}": cal_value + i * 100 for i in range(source_count)},
+        "source_values": source_values
+        or {f"src{i}": cal_value + i * 100 for i in range(source_count)},
         "universe": "offense_vet" if pos in ("QB", "RB", "WR", "TE") else "idp_vet",
         "metadata": {
             "position": pos,
@@ -74,58 +86,79 @@ def _sample_snapshot():
     assets = []
     # QBs (need 2 starters)
     for name, val, team in [
-        ("Josh Allen", 7738, "BUF"), ("Lamar Jackson", 7552, "BAL"),
-        ("Joe Burrow", 7369, "CIN"), ("Drake Maye", 7583, "NE"),
-        ("Caleb Williams", 7279, "CHI"), ("Justin Herbert", 7219, "LAC"),
-        ("Tua Tagovailoa", 3897, "MIA"), ("Kirk Cousins", 2172, "ATL"),
+        ("Josh Allen", 7738, "BUF"),
+        ("Lamar Jackson", 7552, "BAL"),
+        ("Joe Burrow", 7369, "CIN"),
+        ("Drake Maye", 7583, "NE"),
+        ("Caleb Williams", 7279, "CHI"),
+        ("Justin Herbert", 7219, "LAC"),
+        ("Tua Tagovailoa", 3897, "MIA"),
+        ("Kirk Cousins", 2172, "ATL"),
     ]:
         assets.append(_make_asset(name, "QB", val, team=team))
 
     # RBs (need 3 starters)
     for name, val, team in [
-        ("Bijan Robinson", 7800, "ATL"), ("Jahmyr Gibbs", 7769, "DET"),
-        ("De'Von Achane", 7521, "MIA"), ("Jonathan Taylor", 7339, "IND"),
-        ("Ashton Jeanty", 7675, "LV"), ("Aaron Jones", 2674, "MIN"),
+        ("Bijan Robinson", 7800, "ATL"),
+        ("Jahmyr Gibbs", 7769, "DET"),
+        ("De'Von Achane", 7521, "MIA"),
+        ("Jonathan Taylor", 7339, "IND"),
+        ("Ashton Jeanty", 7675, "LV"),
+        ("Aaron Jones", 2674, "MIN"),
         ("Nick Chubb", 1450, "CLE"),
     ]:
         assets.append(_make_asset(name, "RB", val, team=team))
 
     # WRs (need 4 starters)
     for name, val, team in [
-        ("Ja'Marr Chase", 7460, "CIN"), ("Puka Nacua", 7309, "LAR"),
-        ("CeeDee Lamb", 7100, "DAL"), ("Amon-Ra St. Brown", 6900, "DET"),
-        ("Garrett Wilson", 5500, "NYJ"), ("Courtland Sutton", 3200, "DEN"),
-        ("Jaxon Smith-Njigba", 7399, "SEA"), ("Drake London", 6500, "ATL"),
+        ("Ja'Marr Chase", 7460, "CIN"),
+        ("Puka Nacua", 7309, "LAR"),
+        ("CeeDee Lamb", 7100, "DAL"),
+        ("Amon-Ra St. Brown", 6900, "DET"),
+        ("Garrett Wilson", 5500, "NYJ"),
+        ("Courtland Sutton", 3200, "DEN"),
+        ("Jaxon Smith-Njigba", 7399, "SEA"),
+        ("Drake London", 6500, "ATL"),
     ]:
         assets.append(_make_asset(name, "WR", val, team=team))
 
     # TEs (need 1 starter)
     for name, val, team in [
-        ("Brock Bowers", 7644, "LV"), ("Trey McBride", 7614, "ARI"),
-        ("Sam LaPorta", 5800, "DET"), ("Dalton Kincaid", 4500, "BUF"),
+        ("Brock Bowers", 7644, "LV"),
+        ("Trey McBride", 7614, "ARI"),
+        ("Sam LaPorta", 5800, "DET"),
+        ("Dalton Kincaid", 4500, "BUF"),
     ]:
         assets.append(_make_asset(name, "TE", val, team=team))
 
     # IDP DLs
     for name, val, team in [
-        ("Aidan Hutchinson", 5407, "DET"), ("Myles Garrett", 5314, "CLE"),
-        ("Nick Bosa", 4900, "SF"), ("Micah Parsons", 4800, "DAL"),
-        ("Chase Young", 3500, "NO"), ("Josh Hines-Allen", 4600, "JAX"),
+        ("Aidan Hutchinson", 5407, "DET"),
+        ("Myles Garrett", 5314, "CLE"),
+        ("Nick Bosa", 4900, "SF"),
+        ("Micah Parsons", 4800, "DAL"),
+        ("Chase Young", 3500, "NO"),
+        ("Josh Hines-Allen", 4600, "JAX"),
     ]:
         assets.append(_make_asset(name, "DL", val, team=team))
 
     # IDP LBs
     for name, val, team in [
-        ("Jack Campbell", 5012, "DET"), ("Roquan Smith", 4866, "BAL"),
-        ("Fred Warner", 4700, "SF"), ("Devin White", 2800, "PHI"),
-        ("Demario Davis", 1479, "NO"), ("Foyesade Oluokun", 3900, "JAX"),
+        ("Jack Campbell", 5012, "DET"),
+        ("Roquan Smith", 4866, "BAL"),
+        ("Fred Warner", 4700, "SF"),
+        ("Devin White", 2800, "PHI"),
+        ("Demario Davis", 1479, "NO"),
+        ("Foyesade Oluokun", 3900, "JAX"),
     ]:
         assets.append(_make_asset(name, "LB", val, team=team))
 
     # IDP DBs
     for name, val, team in [
-        ("Kyle Hamilton", 4779, "BAL"), ("Sauce Gardner", 4500, "NYJ"),
-        ("Patrick Surtain", 4200, "DEN"), ("Antoine Winfield", 3800, "TB"),
+        ("Kyle Hamilton", 4779, "BAL"),
+        ("Sauce Gardner", 4500, "NYJ"),
+        ("Patrick Surtain", 4200, "DEN"),
+        ("Antoine Winfield", 3800, "TB"),
     ]:
         assets.append(_make_asset(name, "DB", val, team=team))
 
@@ -133,6 +166,7 @@ def _sample_snapshot():
 
 
 # ── Tests ────────────────────────────────────────────────────────────
+
 
 class TestNormPos:
     def test_standard_positions(self):
@@ -164,29 +198,35 @@ class TestFairnessLabel:
 
 class TestBuildAssetPool:
     def test_builds_from_snapshot(self):
-        snap = _build_snapshot([
-            _make_asset("Player A", "QB", 7000),
-            _make_asset("Player B", "RB", 5000),
-        ])
+        snap = _build_snapshot(
+            [
+                _make_asset("Player A", "QB", 7000),
+                _make_asset("Player B", "RB", 5000),
+            ]
+        )
         pool = build_asset_pool(snap)
         assert len(pool) == 2
         assert pool[0].name == "Player A"
         assert pool[0].display_value > pool[1].display_value
 
     def test_skips_missing_fields(self):
-        snap = _build_snapshot([
-            {"display_name": "No Value"},
-            {"calibrated_value": 5000},
-        ])
+        snap = _build_snapshot(
+            [
+                {"display_name": "No Value"},
+                {"calibrated_value": 5000},
+            ]
+        )
         pool = build_asset_pool(snap)
         assert len(pool) == 0
 
     def test_sorted_by_display_value_desc(self):
-        snap = _build_snapshot([
-            _make_asset("Low", "WR", 1000),
-            _make_asset("High", "QB", 7000),
-            _make_asset("Mid", "RB", 4000),
-        ])
+        snap = _build_snapshot(
+            [
+                _make_asset("Low", "WR", 1000),
+                _make_asset("High", "QB", 7000),
+                _make_asset("Mid", "RB", 4000),
+            ]
+        )
         pool = build_asset_pool(snap)
         assert [p.name for p in pool] == ["High", "Mid", "Low"]
 
@@ -197,17 +237,27 @@ class TestAnalyzeRoster:
         pool = build_asset_pool(snap)
         # Roster heavy on QB, light on WR
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",  # 4 QBs
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",  # 3 RBs
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",  # 4 QBs
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",  # 3 RBs
             "Ja'Marr Chase",  # 1 WR (need 4)
-            "Brock Bowers",   # 1 TE
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",  # 3 DL
-            "Jack Campbell", "Roquan Smith", "Fred Warner",     # 3 LB
-            "Kyle Hamilton", "Sauce Gardner",                   # 2 DB
+            "Brock Bowers",  # 1 TE
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",  # 3 DL
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",  # 3 LB
+            "Kyle Hamilton",
+            "Sauce Gardner",  # 2 DB
         ]
         analysis = analyze_roster(roster, pool)
         assert "QB" in analysis.surplus_positions  # 4 QBs, need 2
-        assert "WR" in analysis.need_positions     # 1 WR, need 4
+        assert "WR" in analysis.need_positions  # 1 WR, need 4
 
     def test_empty_roster(self):
         snap = _sample_snapshot()
@@ -221,13 +271,23 @@ class TestGenerateSuggestions:
     def test_produces_suggestions(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         assert "rosterAnalysis" in result
@@ -242,13 +302,22 @@ class TestGenerateSuggestions:
         """Same inputs must produce identical outputs."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
@@ -258,13 +327,24 @@ class TestGenerateSuggestions:
         snap = _sample_snapshot()
         # QB-heavy roster
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams", "Joe Burrow",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Joe Burrow",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         sell_high = result["sellHigh"]
@@ -276,13 +356,25 @@ class TestGenerateSuggestions:
     def test_consolidation_produces_upgrades(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane", "Jonathan Taylor",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
+            "Jonathan Taylor",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa", "Micah Parsons",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Micah Parsons",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         consol = result["consolidation"]
@@ -294,16 +386,30 @@ class TestGenerateSuggestions:
     def test_suggestion_structure(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
-        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        all_suggs = (
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
+        )
         for s in all_suggs:
             assert "type" in s
             assert "give" in s
@@ -327,20 +433,36 @@ class TestGenerateSuggestions:
         """Suggestions should never have you trading for your own players."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         roster_set = {n.lower() for n in roster}
         result = generate_suggestions(roster, snap)
-        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        all_suggs = (
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
+        )
         for s in all_suggs:
             for p in s["receive"]:
-                assert p["name"].lower() not in roster_set, f"{p['name']} is on roster but suggested as receive"
+                assert (
+                    p["name"].lower() not in roster_set
+                ), f"{p['name']} is on roster but suggested as receive"
 
     def test_empty_roster_no_crash(self):
         snap = _sample_snapshot()
@@ -350,6 +472,7 @@ class TestGenerateSuggestions:
 
 
 # ── Phase 2: Market-disagreement tests ───────────────────────────────
+
 
 class TestComputeCV:
     def test_uniform_values(self):
@@ -371,10 +494,14 @@ class TestComputeCV:
 class TestDispersionInPool:
     def test_dispersion_cv_computed(self):
         """Asset pool should compute dispersion_cv from source_values."""
-        snap = _build_snapshot([
-            _make_asset("Agreed", "QB", 7000, source_values={"a": 9000, "b": 9000, "c": 9000}),
-            _make_asset("Disputed", "RB", 5000, source_values={"a": 3000, "b": 7000, "c": 9000}),
-        ])
+        snap = _build_snapshot(
+            [
+                _make_asset("Agreed", "QB", 7000, source_values={"a": 9000, "b": 9000, "c": 9000}),
+                _make_asset(
+                    "Disputed", "RB", 5000, source_values={"a": 3000, "b": 7000, "c": 9000}
+                ),
+            ]
+        )
         pool = build_asset_pool(snap)
         agreed = next(p for p in pool if p.name == "Agreed")
         disputed = next(p for p in pool if p.name == "Disputed")
@@ -383,9 +510,11 @@ class TestDispersionInPool:
         assert disputed.dispersion_cv > agreed.dispersion_cv
 
     def test_single_source_no_cv(self):
-        snap = _build_snapshot([
-            _make_asset("Solo", "WR", 5000, source_values={"a": 5000}),
-        ])
+        snap = _build_snapshot(
+            [
+                _make_asset("Solo", "WR", 5000, source_values={"a": 5000}),
+            ]
+        )
         pool = build_asset_pool(snap)
         assert pool[0].dispersion_cv is None
 
@@ -395,17 +524,31 @@ class TestEdgeSignals:
         """Suggestions with high-dispersion targets should get edge labels."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         # Edge fields should be present on suggestions that have them (or absent)
-        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        all_suggs = (
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
+        )
         for s in all_suggs:
             if "edge" in s:
                 assert s["edge"] in ("market_discount", "market_premium", "high_dispersion")
@@ -421,30 +564,47 @@ class TestEdgeSignals:
 
 # ── Phase 3: Opponent-aware tests ────────────────────────────────────
 
+
 class TestOpponentAware:
     def test_opponent_fit_appears_when_rosters_provided(self):
         snap = _sample_snapshot()
         my_roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         # Opponent who needs QB and has WR surplus
         opponent_rosters = [
             {
                 "team_name": "Team RB Heavy",
                 "players": [
-                    "Tua Tagovailoa",                           # 1 QB (needs 2)
-                    "Jonathan Taylor", "Nick Chubb",            # RBs
-                    "Puka Nacua", "CeeDee Lamb", "Amon-Ra St. Brown",
-                    "Garrett Wilson", "Courtland Sutton",       # WR surplus
+                    "Tua Tagovailoa",  # 1 QB (needs 2)
+                    "Jonathan Taylor",
+                    "Nick Chubb",  # RBs
+                    "Puka Nacua",
+                    "CeeDee Lamb",
+                    "Amon-Ra St. Brown",
+                    "Garrett Wilson",
+                    "Courtland Sutton",  # WR surplus
                     "Trey McBride",
-                    "Chase Young", "Josh Hines-Allen",
-                    "Foyesade Oluokun", "Devin White",
+                    "Chase Young",
+                    "Josh Hines-Allen",
+                    "Foyesade Oluokun",
+                    "Devin White",
                     "Sauce Gardner",
                 ],
             },
@@ -454,7 +614,12 @@ class TestOpponentAware:
         assert result["metadata"]["opponentRostersAnalyzed"] >= 1
 
         # Check that at least some suggestions have opponentFit
-        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        all_suggs = (
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
+        )
         fits = [s for s in all_suggs if "opponentFit" in s]
         # May or may not have fits depending on roster composition — just check no crash
         for s in fits:
@@ -464,13 +629,22 @@ class TestOpponentAware:
     def test_opponent_aware_still_deterministic(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         opp = [{"team_name": "Opp", "players": ["Tua Tagovailoa", "Puka Nacua", "CeeDee Lamb"]}]
         r1 = generate_suggestions(roster, snap, league_rosters=opp)
@@ -490,10 +664,19 @@ class TestOpponentAware:
 
 # ── Phase 4: Ranking tests ──────────────────────────────────────────
 
+
 def _make_suggestion(
-    give_val=5000, recv_val=5200, fairness="even", confidence="high",
-    give_pos="RB", recv_pos="WR", give_name="Player A", recv_name="Player B",
-    strategy="neutral", edge=None, opponent_fit=None,
+    give_val=5000,
+    recv_val=5200,
+    fairness="even",
+    confidence="high",
+    give_pos="RB",
+    recv_pos="WR",
+    give_name="Player A",
+    recv_name="Player B",
+    strategy="neutral",
+    edge=None,
+    opponent_fit=None,
 ):
     """Helper to build a TradeSuggestion with optional enrichment."""
     s = TradeSuggestion(
@@ -571,8 +754,12 @@ class TestRankScore:
         s = _make_suggestion(edge="high_dispersion", opponent_fit="Team A")
         bd = rank_score_breakdown(s)
         expected = (
-            bd["base_value"] + bd["fairness"] + bd["confidence"]
-            + bd["need_severity"] + bd["edge"] + bd["opponent_fit"]
+            bd["base_value"]
+            + bd["fairness"]
+            + bd["confidence"]
+            + bd["need_severity"]
+            + bd["edge"]
+            + bd["opponent_fit"]
         )
         assert abs(bd["total"] - expected) < 0.01
 
@@ -583,8 +770,12 @@ class TestRankScore:
         expensive_bad: base=7.0 + fair=0 + conf=0 = 7.0
         Quality factors outweigh raw value.
         """
-        cheap_good = _make_suggestion(give_val=2500, recv_val=2600, fairness="even", confidence="high")
-        expensive_bad = _make_suggestion(give_val=7000, recv_val=9500, fairness="stretch", confidence="low")
+        cheap_good = _make_suggestion(
+            give_val=2500, recv_val=2600, fairness="even", confidence="high"
+        )
+        expensive_bad = _make_suggestion(
+            give_val=7000, recv_val=9500, fairness="stretch", confidence="low"
+        )
         assert rank_score(cheap_good) > rank_score(expensive_bad)
 
 
@@ -593,16 +784,30 @@ class TestRankingInOutput:
         """Every suggestion in output must include rankScore breakdown."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
-        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        all_suggs = (
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
+        )
         for s in all_suggs:
             assert "rankScore" in s
             rs = s["rankScore"]
@@ -618,13 +823,23 @@ class TestRankingInOutput:
         """Within each category, suggestions must be ordered by rank score descending."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         for cat in ["sellHigh", "buyLow", "consolidation", "positionalUpgrades"]:
@@ -633,21 +848,30 @@ class TestRankingInOutput:
                 continue
             scores = [s["rankScore"]["total"] for s in suggs]
             for i in range(len(scores) - 1):
-                assert scores[i] >= scores[i + 1], (
-                    f"{cat}[{i}] score {scores[i]} < [{i+1}] score {scores[i+1]}"
-                )
+                assert (
+                    scores[i] >= scores[i + 1]
+                ), f"{cat}[{i}] score {scores[i]} < [{i+1}] score {scores[i+1]}"
 
     def test_ranking_still_deterministic(self):
         """Ranked output must be identical across runs."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
@@ -656,13 +880,22 @@ class TestRankingInOutput:
     def test_ranking_with_opponents_deterministic(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         opp = [{"team_name": "Opp", "players": ["Tua Tagovailoa", "Puka Nacua", "CeeDee Lamb"]}]
         r1 = generate_suggestions(roster, snap, league_rosters=opp)
@@ -672,6 +905,7 @@ class TestRankingInOutput:
 
 # ── Phase 5: Quality filter tests ────────────────────────────────────
 
+
 class TestQualityFilters:
     def test_consolidation_stretches_removed(self):
         """Consolidation stretches with high overpay ratio are suppressed."""
@@ -679,19 +913,24 @@ class TestQualityFilters:
         s_even.type = "consolidation"
         # High overpay: give_total=5000, gap=+2000 → overpay 40% > 30% threshold
         s_stretch_bad = _make_suggestion(
-            fairness="stretch", give_val=5000, recv_val=3000,
-            give_name="Player C", recv_name="Player D",
+            fairness="stretch",
+            give_val=5000,
+            recv_val=3000,
+            give_name="Player C",
+            recv_name="Player D",
         )
         s_stretch_bad.type = "consolidation"
         s_lean = _make_suggestion(fairness="lean", give_name="Player E", recv_name="Player F")
         s_lean.type = "consolidation"
 
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [],
-            "consolidation": [s_even, s_stretch_bad, s_lean],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [s_even, s_stretch_bad, s_lean],
+                "positional_upgrade": [],
+            }
+        )
         consol = result["consolidation"]
         assert len(consol) == 2
         assert s_stretch_bad not in consol
@@ -699,15 +938,16 @@ class TestQualityFilters:
     def test_receive_target_cap(self):
         """Max 2 suggestions per receive-target within a category."""
         suggs = [
-            _make_suggestion(give_name=f"Seller {i}", recv_name="Same Target")
-            for i in range(5)
+            _make_suggestion(give_name=f"Seller {i}", recv_name="Same Target") for i in range(5)
         ]
-        result = _apply_quality_filters({
-            "sell_high": suggs,
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": suggs,
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == MAX_RECEIVE_TARGET_PER_CATEGORY
 
     def test_low_confidence_cap(self):
@@ -718,12 +958,14 @@ class TestQualityFilters:
         ]
         # Add one high-conf to verify it's not affected
         high = _make_suggestion(confidence="high", give_name="High Guy", recv_name="High Target")
-        result = _apply_quality_filters({
-            "sell_high": [high] + suggs,
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [high] + suggs,
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         low_count = sum(1 for s in result["sell_high"] if s.confidence == "low")
         assert low_count == MAX_LOW_CONFIDENCE_PER_CATEGORY
         # High-conf still present
@@ -733,23 +975,22 @@ class TestQualityFilters:
         """A player appearing as give in sell_high should count toward their
         cap in buy_low too."""
         # 2 sell_high suggestions giving Player A (fills cap at 2)
-        sell = [
-            _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
-            for i in range(2)
-        ]
+        sell = [_make_suggestion(give_name="Player A", recv_name=f"Target {i}") for i in range(2)]
         # 2 more in buy_low giving Player A — should be blocked
         buy = [
-            _make_suggestion(give_name="Player A", recv_name=f"Buy Target {i}")
-            for i in range(2)
+            _make_suggestion(give_name="Player A", recv_name=f"Buy Target {i}") for i in range(2)
         ]
-        result = _apply_quality_filters({
-            "sell_high": sell,
-            "buy_low": buy,
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": sell,
+                "buy_low": buy,
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         total_a = sum(
-            1 for s in result["sell_high"] + result["buy_low"]
+            1
+            for s in result["sell_high"] + result["buy_low"]
             if any(p.name == "Player A" for p in s.give)
         )
         assert total_a <= MAX_GIVE_PLAYER_APPEARANCES
@@ -768,36 +1009,49 @@ class TestQualityFilters:
         consol_3.type = "consolidation"
         consol_3.give.append(PlayerAsset("Player D", "RB", 3000, 3000, source_count=6))
 
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [],
-            "consolidation": [consol_1, consol_2, consol_3],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [consol_1, consol_2, consol_3],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == 2
 
     def test_filters_preserve_order(self):
         """Filters should never reorder; only remove."""
         suggs = [
-            _make_suggestion(give_name=f"Player {i}", recv_name=f"Target {i}", give_val=9000 - i * 100)
+            _make_suggestion(
+                give_name=f"Player {i}", recv_name=f"Target {i}", give_val=9000 - i * 100
+            )
             for i in range(6)
         ]
-        result = _apply_quality_filters({
-            "sell_high": suggs,
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": suggs,
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         vals = [s.give_total for s in result["sell_high"]]
         assert vals == sorted(vals, reverse=True)
 
     def test_quality_filters_deterministic(self):
         """Same inputs to quality filter produce same outputs."""
         suggs = [
-            _make_suggestion(give_name=f"P{i}", recv_name=f"T{i}", confidence=("low" if i > 3 else "high"))
+            _make_suggestion(
+                give_name=f"P{i}", recv_name=f"T{i}", confidence=("low" if i > 3 else "high")
+            )
             for i in range(6)
         ]
-        cats = {"sell_high": list(suggs), "buy_low": [], "consolidation": [], "positional_upgrade": []}
+        cats = {
+            "sell_high": list(suggs),
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        }
         r1 = _apply_quality_filters(dict(cats))
         r2 = _apply_quality_filters(dict(cats))
         assert len(r1["sell_high"]) == len(r2["sell_high"])
@@ -810,36 +1064,53 @@ class TestQualityFilters:
         # Build an IDP-heavy roster from sample data
         roster = [
             "Joe Burrow",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa", "Micah Parsons",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Micah Parsons",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         from collections import Counter
+
         freq = Counter()
         for cat in ["sellHigh", "buyLow", "consolidation", "positionalUpgrades"]:
             for s in result[cat]:
                 for p in s["give"]:
                     freq[p["name"]] += 1
         if freq:
-            assert freq.most_common(1)[0][1] <= MAX_GIVE_PLAYER_APPEARANCES, (
-                f"{freq.most_common(1)[0][0]} appears {freq.most_common(1)[0][1]}x as give"
-            )
+            assert (
+                freq.most_common(1)[0][1] <= MAX_GIVE_PLAYER_APPEARANCES
+            ), f"{freq.most_common(1)[0][0]} appears {freq.most_common(1)[0][1]}x as give"
 
     def test_filtered_output_still_deterministic(self):
         """Full pipeline with filters must remain deterministic."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
@@ -848,54 +1119,69 @@ class TestQualityFilters:
 
 # ── Phase 2A: Noise suppression filter tests ─────────────────────────
 
+
 class TestFairButWeakFilter:
     """Filter 4: suppress trades where both sides are below MIN_ACTIONABLE_VALUE."""
 
     def test_both_sides_low_value_suppressed(self):
         """Two low-value players trading — not worth the conversation."""
         s_low = _make_suggestion(
-            give_val=1500, recv_val=1600,
-            give_name="Scrub A", recv_name="Scrub B",
+            give_val=1500,
+            recv_val=1600,
+            give_name="Scrub A",
+            recv_name="Scrub B",
         )
         s_high = _make_suggestion(
-            give_val=6000, recv_val=6200,
-            give_name="Star A", recv_name="Star B",
+            give_val=6000,
+            recv_val=6200,
+            give_name="Star A",
+            recv_name="Star B",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s_high, s_low],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s_high, s_low],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
         assert result["sell_high"][0].give[0].name == "Star A"
 
     def test_one_side_above_threshold_kept(self):
         """If one side is above MIN_ACTIONABLE_VALUE, the trade is kept."""
         s = _make_suggestion(
-            give_val=1500, recv_val=3000,
-            give_name="Depth", recv_name="Starter",
+            give_val=1500,
+            recv_val=3000,
+            give_name="Depth",
+            recv_name="Starter",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
 
     def test_exactly_at_threshold_kept(self):
         """Players at exactly MIN_ACTIONABLE_VALUE are kept."""
         s = _make_suggestion(
-            give_val=MIN_ACTIONABLE_VALUE, recv_val=MIN_ACTIONABLE_VALUE,
-            give_name="Border A", recv_name="Border B",
+            give_val=MIN_ACTIONABLE_VALUE,
+            recv_val=MIN_ACTIONABLE_VALUE,
+            give_name="Border A",
+            recv_name="Border B",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
 
 
@@ -905,62 +1191,82 @@ class TestSameTierSwapFilter:
     def test_same_pos_close_value_suppressed(self):
         """WR-for-WR within 200 value — lateral move, no strategic gain."""
         s = _make_suggestion(
-            give_val=5000, recv_val=5200,
-            give_pos="WR", recv_pos="WR",
-            give_name="WR A", recv_name="WR B",
+            give_val=5000,
+            recv_val=5200,
+            give_pos="WR",
+            recv_pos="WR",
+            give_name="WR A",
+            recv_name="WR B",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 0
 
     def test_same_pos_large_gap_kept(self):
         """WR-for-WR with 600 value difference — meaningful upgrade, kept."""
         s = _make_suggestion(
-            give_val=5000, recv_val=5600,
-            give_pos="WR", recv_pos="WR",
-            give_name="WR A", recv_name="WR B",
+            give_val=5000,
+            recv_val=5600,
+            give_pos="WR",
+            recv_pos="WR",
+            give_name="WR A",
+            recv_name="WR B",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
 
     def test_different_pos_close_value_kept(self):
         """RB-for-WR within 200 value — cross-position, has strategic value."""
         s = _make_suggestion(
-            give_val=5000, recv_val=5200,
-            give_pos="RB", recv_pos="WR",
-            give_name="RB Guy", recv_name="WR Guy",
+            give_val=5000,
+            recv_val=5200,
+            give_pos="RB",
+            recv_pos="WR",
+            give_name="RB Guy",
+            recv_name="WR Guy",
         )
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
 
     def test_multi_player_trade_not_affected(self):
         """2-for-1 trades are never caught by same-tier filter."""
         s = _make_suggestion(
-            give_val=5000, recv_val=5200,
-            give_pos="WR", recv_pos="WR",
-            give_name="WR A", recv_name="WR B",
+            give_val=5000,
+            recv_val=5200,
+            give_pos="WR",
+            recv_pos="WR",
+            give_name="WR A",
+            recv_name="WR B",
         )
         s.give.append(PlayerAsset("WR C", "WR", 2000, 2000, source_count=6))
-        result = _apply_quality_filters({
-            "sell_high": [s],
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [s],
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 1
 
 
@@ -970,67 +1276,77 @@ class TestNearMiss1For1Filter:
     def test_big_gap_with_balancers_suppressed(self):
         """Gap > MAX_GAP_FOR_1FOR1 with balancers = should be a package deal."""
         s = _make_suggestion(
-            give_val=6000, recv_val=6600,
-            give_name="Player A", recv_name="Player B",
+            give_val=6000,
+            recv_val=6600,
+            give_name="Player A",
+            recv_name="Player B",
         )
-        s.__dict__["balancers"] = [
-            PlayerAsset("Filler", "WR", 600, 600, source_count=4)
-        ]
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [s],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        s.__dict__["balancers"] = [PlayerAsset("Filler", "WR", 600, 600, source_count=4)]
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [s],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["buy_low"]) == 0
 
     def test_small_gap_with_balancers_kept(self):
         """Gap <= MAX_GAP_FOR_1FOR1 with balancers — close enough, keep it."""
         s = _make_suggestion(
-            give_val=6000, recv_val=6300,
-            give_name="Player A", recv_name="Player B",
+            give_val=6000,
+            recv_val=6300,
+            give_name="Player A",
+            recv_name="Player B",
         )
-        s.__dict__["balancers"] = [
-            PlayerAsset("Filler", "WR", 300, 300, source_count=4)
-        ]
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [s],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        s.__dict__["balancers"] = [PlayerAsset("Filler", "WR", 300, 300, source_count=4)]
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [s],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["buy_low"]) == 1
 
     def test_big_gap_no_balancers_kept(self):
         """Gap > MAX_GAP_FOR_1FOR1 but no balancers — engine didn't flag it."""
         s = _make_suggestion(
-            give_val=6000, recv_val=6600,
-            give_name="Player A", recv_name="Player B",
+            give_val=6000,
+            recv_val=6600,
+            give_name="Player A",
+            recv_name="Player B",
         )
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [s],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [s],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["buy_low"]) == 1
 
     def test_multi_player_trade_not_affected(self):
         """2-for-1 with gap and balancers — not a 1-for-1, keep it."""
         s = _make_suggestion(
-            give_val=6000, recv_val=6600,
-            give_name="Player A", recv_name="Player B",
+            give_val=6000,
+            recv_val=6600,
+            give_name="Player A",
+            recv_name="Player B",
         )
         s.give.append(PlayerAsset("Player C", "RB", 500, 500, source_count=4))
-        s.__dict__["balancers"] = [
-            PlayerAsset("Filler", "WR", 600, 600, source_count=4)
-        ]
-        result = _apply_quality_filters({
-            "sell_high": [],
-            "buy_low": [s],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        s.__dict__["balancers"] = [PlayerAsset("Filler", "WR", 600, 600, source_count=4)]
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [s],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["buy_low"]) == 1
 
 
@@ -1042,20 +1358,16 @@ class TestTightenedGivePlayerCap:
 
     def test_third_appearance_blocked(self):
         """Player A appearing 3x in sell_high — only first 2 survive."""
-        suggs = [
-            _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
-            for i in range(3)
-        ]
-        result = _apply_quality_filters({
-            "sell_high": suggs,
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
-        total_a = sum(
-            1 for s in result["sell_high"]
-            if any(p.name == "Player A" for p in s.give)
+        suggs = [_make_suggestion(give_name="Player A", recv_name=f"Target {i}") for i in range(3)]
+        result = _apply_quality_filters(
+            {
+                "sell_high": suggs,
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
         )
+        total_a = sum(1 for s in result["sell_high"] if any(p.name == "Player A" for p in s.give))
         assert total_a == 2
 
     def test_different_players_unaffected(self):
@@ -1066,12 +1378,14 @@ class TestTightenedGivePlayerCap:
             _make_suggestion(give_name="Player B", recv_name="T3"),
             _make_suggestion(give_name="Player B", recv_name="T4"),
         ]
-        result = _apply_quality_filters({
-            "sell_high": suggs,
-            "buy_low": [],
-            "consolidation": [],
-            "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": suggs,
+                "buy_low": [],
+                "consolidation": [],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["sell_high"]) == 4
 
 
@@ -1081,13 +1395,23 @@ class TestNewFiltersDeterministic:
     def test_full_pipeline_deterministic(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
@@ -1096,19 +1420,30 @@ class TestNewFiltersDeterministic:
 
 # ── Phase 2B: Balancer improvement tests ─────────────────────────────
 
+
 def _make_pool_and_roster():
     """Build a test pool and roster with known depth for balancer testing."""
     snap = _sample_snapshot()
     pool = build_asset_pool(snap)
     # QB-heavy roster with known surplus
     roster_names = [
-        "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",  # 4 QB (need 2 → 2 depth)
-        "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",  # 3 RB (need 3 → 0 depth)
-        "Ja'Marr Chase",                                     # 1 WR (need 4 → deficit)
-        "Brock Bowers",                                      # 1 TE
-        "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",   # 3 DL
-        "Jack Campbell", "Roquan Smith", "Fred Warner",      # 3 LB
-        "Kyle Hamilton", "Sauce Gardner",                    # 2 DB
+        "Josh Allen",
+        "Lamar Jackson",
+        "Drake Maye",
+        "Caleb Williams",  # 4 QB (need 2 → 2 depth)
+        "Bijan Robinson",
+        "Jahmyr Gibbs",
+        "De'Von Achane",  # 3 RB (need 3 → 0 depth)
+        "Ja'Marr Chase",  # 1 WR (need 4 → deficit)
+        "Brock Bowers",  # 1 TE
+        "Aidan Hutchinson",
+        "Myles Garrett",
+        "Nick Bosa",  # 3 DL
+        "Jack Campbell",
+        "Roquan Smith",
+        "Fred Warner",  # 3 LB
+        "Kyle Hamilton",
+        "Sauce Gardner",  # 2 DB
     ]
     roster = analyze_roster(roster_names, pool)
     roster_set = {n.lower() for n in roster_names}
@@ -1278,18 +1613,29 @@ class TestBalancerSideSerialization:
         """Suggestions with balancers should include balancerSide."""
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         result = generate_suggestions(roster, snap)
         all_suggs = (
-            result["sellHigh"] + result["buyLow"]
-            + result["consolidation"] + result["positionalUpgrades"]
+            result["sellHigh"]
+            + result["buyLow"]
+            + result["consolidation"]
+            + result["positionalUpgrades"]
         )
         for s in all_suggs:
             if "suggestedBalancers" in s:
@@ -1309,13 +1655,22 @@ class TestBalancerDeterminism:
     def test_full_pipeline_with_balancers_deterministic(self):
         snap = _sample_snapshot()
         roster = [
-            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
-            "Bijan Robinson", "Jahmyr Gibbs",
+            "Josh Allen",
+            "Lamar Jackson",
+            "Drake Maye",
+            "Caleb Williams",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
-            "Jack Campbell", "Roquan Smith", "Fred Warner",
-            "Kyle Hamilton", "Sauce Gardner",
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",
+            "Kyle Hamilton",
+            "Sauce Gardner",
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
@@ -1323,6 +1678,7 @@ class TestBalancerDeterminism:
 
 
 # ── Phase 2C: Package logic tests ────────────────────────────────────
+
 
 class TestConsolidationClosestValueTarget:
     """Consolidation should target closest-value match, not highest value."""
@@ -1333,17 +1689,33 @@ class TestConsolidationClosestValueTarget:
         pool = build_asset_pool(snap)
         # IDP-stacked roster with deep DL/LB surplus
         idp = [
-            "Bo Nix", "TreVeyon Henderson", "Cameron Skattebo",
-            "George Pickens", "Ladd McConkey", "Dalton Kincaid",
-            "Aidan Hutchinson", "Will Anderson", "Micah Parsons",
-            "Myles Garrett", "Maxx Crosby", "Abdul Carter", "Jared Verse",
-            "Nik Bonitto", "Nathan Landman", "Arvell Reese", "Sonny Styles",
-            "Jack Campbell", "Carson Schwesinger", "David Bailey",
-            "Roquan Smith", "Ernest Jones",
+            "Bo Nix",
+            "TreVeyon Henderson",
+            "Cameron Skattebo",
+            "George Pickens",
+            "Ladd McConkey",
+            "Dalton Kincaid",
+            "Aidan Hutchinson",
+            "Will Anderson",
+            "Micah Parsons",
+            "Myles Garrett",
+            "Maxx Crosby",
+            "Abdul Carter",
+            "Jared Verse",
+            "Nik Bonitto",
+            "Nathan Landman",
+            "Arvell Reese",
+            "Sonny Styles",
+            "Jack Campbell",
+            "Carson Schwesinger",
+            "David Bailey",
+            "Roquan Smith",
+            "Ernest Jones",
         ]
         roster = analyze_roster(idp, pool)
         roster_set = {n.lower() for n in idp}
         from src.trade.suggestions import _generate_consolidation
+
         results = _generate_consolidation(roster, pool, roster_set)
         if results:
             # Each suggestion should target the closest value match
@@ -1361,10 +1733,14 @@ class TestConsolidationStretchFilter:
         s = _make_suggestion(fairness="stretch", give_val=10000, recv_val=8000)
         s.type = "consolidation"
         # gap = 10000 - 8000 = +2000, ratio = 2000/10000 = 20%
-        result = _apply_quality_filters({
-            "sell_high": [], "buy_low": [],
-            "consolidation": [s], "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [s],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == 1
 
     def test_high_overpay_stretch_blocked(self):
@@ -1372,10 +1748,14 @@ class TestConsolidationStretchFilter:
         s = _make_suggestion(fairness="stretch", give_val=10000, recv_val=5000)
         s.type = "consolidation"
         # gap = 10000 - 5000 = +5000, ratio = 5000/10000 = 50%
-        result = _apply_quality_filters({
-            "sell_high": [], "buy_low": [],
-            "consolidation": [s], "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [s],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == 0
 
     def test_even_and_lean_still_pass(self):
@@ -1384,10 +1764,14 @@ class TestConsolidationStretchFilter:
         s_even.type = "consolidation"
         s_lean = _make_suggestion(fairness="lean", give_name="P2", recv_name="P3")
         s_lean.type = "consolidation"
-        result = _apply_quality_filters({
-            "sell_high": [], "buy_low": [],
-            "consolidation": [s_even, s_lean], "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [s_even, s_lean],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == 2
 
 
@@ -1415,9 +1799,7 @@ class TestVaAwareGap:
         raw_gap = (4900 + 4800) - 9600  # +100, "even" on raw
         assert abs(raw_gap) < 256
         va = _va_gap([4900, 4800], [9600])
-        assert va < -769, (
-            f"expected a VA-lopsided gap, got {va} (raw was {raw_gap})"
-        )
+        assert va < -769, f"expected a VA-lopsided gap, got {va} (raw was {raw_gap})"
 
     def test_user_favorable_va_stretch_is_filtered(self):
         """A consolidation whose VA gap lands hugely in the user's
@@ -1428,10 +1810,14 @@ class TestVaAwareGap:
         s.type = "consolidation"
         s.give.append(PlayerAsset("Depth Piece", "WR", 4000, 4000, source_count=6))
         s.gap = -4712  # VA gap: opponent grossly overpays — no one accepts
-        result = _apply_quality_filters({
-            "sell_high": [], "buy_low": [],
-            "consolidation": [s], "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": [s],
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == 0
 
 
@@ -1448,10 +1834,14 @@ class TestSeparateGivePlayerBudgets:
         consol.type = "consolidation"
         consol.give.append(PlayerAsset("Player B", "RB", 3000, 3000, source_count=6))
 
-        result = _apply_quality_filters({
-            "sell_high": sell, "buy_low": [],
-            "consolidation": [consol], "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": sell,
+                "buy_low": [],
+                "consolidation": [consol],
+                "positional_upgrade": [],
+            }
+        )
         # Consolidation should survive — separate budget
         assert len(result["consolidation"]) == 1
 
@@ -1464,10 +1854,14 @@ class TestSeparateGivePlayerBudgets:
             s.give.append(PlayerAsset(f"Partner {i}", "RB", 3000, 3000, source_count=6))
             consols.append(s)
 
-        result = _apply_quality_filters({
-            "sell_high": [], "buy_low": [],
-            "consolidation": consols, "positional_upgrade": [],
-        })
+        result = _apply_quality_filters(
+            {
+                "sell_high": [],
+                "buy_low": [],
+                "consolidation": consols,
+                "positional_upgrade": [],
+            }
+        )
         assert len(result["consolidation"]) == MAX_GIVE_PLAYER_APPEARANCES
 
 
@@ -1481,14 +1875,23 @@ class TestConsolidationInLiveOutput:
         # Build a roster with deep LB surplus (mid-range depth, not elite)
         # so that pairs fall in range of real targets.
         roster_names = [
-            "Josh Allen",                                        # QB
-            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",  # RB
-            "Ja'Marr Chase",                                     # WR
-            "Brock Bowers",                                      # TE
-            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",   # DL starters
-            "Jack Campbell", "Roquan Smith", "Fred Warner",      # LB starters (need 3)
-            "Nathan Landman", "Jordyn Brooks", "Nick Bolton",    # LB surplus
-            "Kyle Hamilton", "Sauce Gardner",                    # DB
+            "Josh Allen",  # QB
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "De'Von Achane",  # RB
+            "Ja'Marr Chase",  # WR
+            "Brock Bowers",  # TE
+            "Aidan Hutchinson",
+            "Myles Garrett",
+            "Nick Bosa",  # DL starters
+            "Jack Campbell",
+            "Roquan Smith",
+            "Fred Warner",  # LB starters (need 3)
+            "Nathan Landman",
+            "Jordyn Brooks",
+            "Nick Bolton",  # LB surplus
+            "Kyle Hamilton",
+            "Sauce Gardner",  # DB
         ]
         result = generate_suggestions(roster_names, snap)
         cons = result["consolidation"]
@@ -1502,12 +1905,25 @@ class TestConsolidationInLiveOutput:
         """Rosters with all-elite surplus correctly get 0 packages."""
         snap = _sample_snapshot()
         rb_heavy = [
-            "Lamar Jackson", "Bijan Robinson", "Jahmyr Gibbs",
-            "Ashton Jeanty", "De'Von Achane", "Jonathan Taylor",
-            "James Cook", "Breece Hall", "Kenneth Walker",
-            "Chris Olave", "Garrett Wilson", "Tucker Kraft",
-            "Maxx Crosby", "Will Anderson", "Myles Garrett", "Jared Verse",
-            "Ernest Jones", "Jordyn Brooks", "Nick Bolton",
+            "Lamar Jackson",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "Ashton Jeanty",
+            "De'Von Achane",
+            "Jonathan Taylor",
+            "James Cook",
+            "Breece Hall",
+            "Kenneth Walker",
+            "Chris Olave",
+            "Garrett Wilson",
+            "Tucker Kraft",
+            "Maxx Crosby",
+            "Will Anderson",
+            "Myles Garrett",
+            "Jared Verse",
+            "Ernest Jones",
+            "Jordyn Brooks",
+            "Nick Bolton",
         ]
         result = generate_suggestions(rb_heavy, snap)
         assert len(result["consolidation"]) == 0
@@ -1516,12 +1932,25 @@ class TestConsolidationInLiveOutput:
         """Existing 1-for-1 sell_high suggestions are unchanged."""
         snap = _sample_snapshot()
         roster = [
-            "Lamar Jackson", "Bijan Robinson", "Jahmyr Gibbs",
-            "Ashton Jeanty", "De'Von Achane", "Jonathan Taylor",
-            "James Cook", "Breece Hall", "Kenneth Walker",
-            "Chris Olave", "Garrett Wilson", "Tucker Kraft",
-            "Maxx Crosby", "Will Anderson", "Myles Garrett", "Jared Verse",
-            "Ernest Jones", "Jordyn Brooks", "Nick Bolton",
+            "Lamar Jackson",
+            "Bijan Robinson",
+            "Jahmyr Gibbs",
+            "Ashton Jeanty",
+            "De'Von Achane",
+            "Jonathan Taylor",
+            "James Cook",
+            "Breece Hall",
+            "Kenneth Walker",
+            "Chris Olave",
+            "Garrett Wilson",
+            "Tucker Kraft",
+            "Maxx Crosby",
+            "Will Anderson",
+            "Myles Garrett",
+            "Jared Verse",
+            "Ernest Jones",
+            "Jordyn Brooks",
+            "Nick Bolton",
         ]
         result = generate_suggestions(roster, snap)
         assert len(result["sellHigh"]) > 0, "sell_high should still have suggestions"
@@ -1536,13 +1965,28 @@ class TestPackageDeterminism:
     def test_deterministic_with_consolidation(self):
         snap = _sample_snapshot()
         idp = [
-            "Bo Nix", "TreVeyon Henderson", "Cameron Skattebo",
-            "George Pickens", "Ladd McConkey", "Dalton Kincaid",
-            "Aidan Hutchinson", "Will Anderson", "Micah Parsons",
-            "Myles Garrett", "Maxx Crosby", "Abdul Carter", "Jared Verse",
-            "Nik Bonitto", "Nathan Landman", "Arvell Reese", "Sonny Styles",
-            "Jack Campbell", "Carson Schwesinger", "David Bailey",
-            "Roquan Smith", "Ernest Jones",
+            "Bo Nix",
+            "TreVeyon Henderson",
+            "Cameron Skattebo",
+            "George Pickens",
+            "Ladd McConkey",
+            "Dalton Kincaid",
+            "Aidan Hutchinson",
+            "Will Anderson",
+            "Micah Parsons",
+            "Myles Garrett",
+            "Maxx Crosby",
+            "Abdul Carter",
+            "Jared Verse",
+            "Nik Bonitto",
+            "Nathan Landman",
+            "Arvell Reese",
+            "Sonny Styles",
+            "Jack Campbell",
+            "Carson Schwesinger",
+            "David Bailey",
+            "Roquan Smith",
+            "Ernest Jones",
         ]
         r1 = generate_suggestions(idp, snap)
         r2 = generate_suggestions(idp, snap)
@@ -1550,6 +1994,7 @@ class TestPackageDeterminism:
 
 
 # ── KTC Top-N Filter ───────────────────────────────────────────────────
+
 
 class TestKtcTopNFilter:
     """Verify the KTC top-150 quality gate in the suggestions engine."""
@@ -1560,11 +2005,15 @@ class TestKtcTopNFilter:
         for i in range(n):
             val = 9000 - i * 40
             pos = ["QB", "RB", "WR", "TE"][i % 4]
-            assets.append(_make_asset(
-                f"Player_{i:03d}", pos, val,
-                display_value=val,
-                source_count=6,
-            ))
+            assets.append(
+                _make_asset(
+                    f"Player_{i:03d}",
+                    pos,
+                    val,
+                    display_value=val,
+                    source_count=6,
+                )
+            )
         return _build_snapshot(assets)
 
     def test_default_filter_is_150(self):
@@ -1614,12 +2063,11 @@ class TestKtcTopNFilter:
         for s in all_suggestions:
             for side in ("give", "receive"):
                 for player in s[side]:
-                    assert player.get("ktcRank") is not None, (
-                        f"{player['name']} in {side} has no ktcRank"
-                    )
+                    assert (
+                        player.get("ktcRank") is not None
+                    ), f"{player['name']} in {side} has no ktcRank"
                     assert player["ktcRank"] <= 100, (
-                        f"{player['name']} ranked {player['ktcRank']} — "
-                        f"outside top 100 filter"
+                        f"{player['name']} ranked {player['ktcRank']} — " f"outside top 100 filter"
                     )
 
     def test_no_suggestions_with_very_tight_filter(self):
@@ -1698,6 +2146,7 @@ class TestBuildAssetPoolFromContract:
 
     def test_builds_expected_player_fields(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         rows = [
             self._row("Josh Allen", "QB", 9997, team="BUF"),
             self._row("Bijan Robinson", "RB", 9604, team="ATL"),
@@ -1708,9 +2157,7 @@ class TestBuildAssetPoolFromContract:
             "Josh Allen": {"_yearsExp": 7},
             "Bijan Robinson": {"_yearsExp": 2},
         }
-        pool = build_asset_pool_from_contract(
-            self._contract(rows, players_dict), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows, players_dict), ktc_top_n=0)
         assert len(pool) == 2
         allen = next(p for p in pool if p.name == "Josh Allen")
         bijan = next(p for p in pool if p.name == "Bijan Robinson")
@@ -1727,13 +2174,15 @@ class TestBuildAssetPoolFromContract:
 
     def test_universe_labels(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         rows = [
-            self._row("Josh Allen", "QB", 9000),                     # offense_vet
-            self._row("Jeremiyah Love", "RB", 7000, rookie=True),    # offense_rookie
-            self._row("Will Anderson", "DL", 7000),                  # idp_vet
-            self._row("Arvell Reese", "LB", 5000, rookie=True),      # idp_rookie
-            self._row("2026 Pick 1.01", "PICK", 9000,
-                      asset_class="pick", site_values={"ktc": 9000}),
+            self._row("Josh Allen", "QB", 9000),  # offense_vet
+            self._row("Jeremiyah Love", "RB", 7000, rookie=True),  # offense_rookie
+            self._row("Will Anderson", "DL", 7000),  # idp_vet
+            self._row("Arvell Reese", "LB", 5000, rookie=True),  # idp_rookie
+            self._row(
+                "2026 Pick 1.01", "PICK", 9000, asset_class="pick", site_values={"ktc": 9000}
+            ),
         ]
         pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         universes = {p.name: p.universe for p in pool}
@@ -1745,6 +2194,7 @@ class TestBuildAssetPoolFromContract:
 
     def test_skips_rows_without_value(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         rows = [
             self._row("Josh Allen", "QB", 9997),
             # rankDerivedValue=0 → pool skip (mirrors canonical-snapshot
@@ -1759,13 +2209,22 @@ class TestBuildAssetPoolFromContract:
 
     def test_dispersion_cv_uses_canonical_site_values(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         # Site values with meaningful spread → dispersion_cv > 0.
         rows = [
-            self._row("Spread Player", "WR", 8000,
-                      site_values={"ktc": 9000, "idpTradeCalc": 7000, "dlfSf": 8000}),
+            self._row(
+                "Spread Player",
+                "WR",
+                8000,
+                site_values={"ktc": 9000, "idpTradeCalc": 7000, "dlfSf": 8000},
+            ),
             # Identical site values → dispersion_cv == 0.
-            self._row("Consensus Player", "WR", 8000,
-                      site_values={"ktc": 8000, "idpTradeCalc": 8000, "dlfSf": 8000}),
+            self._row(
+                "Consensus Player",
+                "WR",
+                8000,
+                site_values={"ktc": 8000, "idpTradeCalc": 8000, "dlfSf": 8000},
+            ),
         ]
         pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         spread = next(p for p in pool if p.name == "Spread Player")
@@ -1775,6 +2234,7 @@ class TestBuildAssetPoolFromContract:
 
     def test_pool_sorted_by_display_value_desc(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         rows = [
             self._row("Low Value", "WR", 3000),
             self._row("High Value", "WR", 9000),
@@ -1785,10 +2245,8 @@ class TestBuildAssetPoolFromContract:
 
     def test_ktc_top_n_filter_applies(self):
         from src.trade.suggestions import build_asset_pool_from_contract, KTC_TOP_N_FILTER
-        rows = [
-            self._row(f"Player {i:03d}", "WR", 9999 - i)
-            for i in range(KTC_TOP_N_FILTER + 50)
-        ]
+
+        rows = [self._row(f"Player {i:03d}", "WR", 9999 - i) for i in range(KTC_TOP_N_FILTER + 50)]
         pool = build_asset_pool_from_contract(self._contract(rows))
         # Every asset in the pool must have a ktc_rank within the filter.
         assert len(pool) <= KTC_TOP_N_FILTER
@@ -1804,19 +2262,16 @@ class TestBuildAssetPoolFromContract:
             build_asset_pool_from_contract,
             generate_suggestions_from_pool,
         )
+
         rows = []
         # Enough players to survive the starter-needs check + KTC filter.
         positions = [("QB", 10), ("RB", 12), ("WR", 15), ("TE", 8)]
         value = 9500
         for pos, n in positions:
             for i in range(n):
-                rows.append(
-                    self._row(f"{pos}{i:02d}", pos, value, team="X")
-                )
+                rows.append(self._row(f"{pos}{i:02d}", pos, value, team="X"))
                 value -= 25
-        pool = build_asset_pool_from_contract(
-            self._contract(rows), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         roster_names = ["QB00", "RB00", "WR00", "WR01", "TE00"]
         result = generate_suggestions_from_pool(
             roster_names=roster_names,
@@ -1833,6 +2288,7 @@ class TestBuildAssetPoolFromContract:
 
 
 # ── effectiveSourceRanks (post-Hampel) regression ────────────────────
+
 
 class TestEffectiveSourceRanks:
     """Regression coverage for the post-Hampel source read.
@@ -1876,8 +2332,9 @@ class TestEffectiveSourceRanks:
             "rookie": rookie,
             "assetClass": asset_class,
             "rankDerivedValue": value,
-            "canonicalSiteValues": site_values if site_values is not None
-                else {"ktc": value, "idpTradeCalc": value - 50},
+            "canonicalSiteValues": site_values
+            if site_values is not None
+            else {"ktc": value, "idpTradeCalc": value - 50},
             "legacyRef": legacy_ref or name,
         }
         if effective_source_ranks is not None:
@@ -1891,11 +2348,14 @@ class TestEffectiveSourceRanks:
 
     def test_source_count_uses_effective_source_ranks(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         # 8 raw site values, but Hampel dropped 5 → effective count = 3.
         site_values = {f"src{i}": 7000 for i in range(8)}
         effective = {"src0": 10, "src1": 11, "src2": 12}
         row = self._row(
-            "Post Hampel", "WR", 7000,
+            "Post Hampel",
+            "WR",
+            7000,
             site_values=site_values,
             effective_source_ranks=effective,
             dropped_sources=[f"src{i}" for i in range(3, 8)],
@@ -1903,21 +2363,26 @@ class TestEffectiveSourceRanks:
         pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
         assert len(pool) == 1
         assert pool[0].source_count == 3, (
-            "source_count must be the post-Hampel effective count, "
-            "not len(canonicalSiteValues)"
+            "source_count must be the post-Hampel effective count, " "not len(canonicalSiteValues)"
         )
 
     def test_dispersion_cv_uses_effective_source_ranks(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         # Tight consensus on 4 sources + one extreme outlier Hampel drops.
         site_values = {
-            "ktc": 7000, "dynastyNerds": 7050, "dynastyDaddy": 6980,
-            "dlfSf": 7020, "idpTradeCalc": 1500,  # outlier
+            "ktc": 7000,
+            "dynastyNerds": 7050,
+            "dynastyDaddy": 6980,
+            "dlfSf": 7020,
+            "idpTradeCalc": 1500,  # outlier
         }
         # Post-Hampel: outlier removed, consensus is tight.
         effective = {"ktc": 10, "dynastyNerds": 11, "dynastyDaddy": 12, "dlfSf": 13}
         row_filtered = self._row(
-            "Hampel Filtered", "WR", 7000,
+            "Hampel Filtered",
+            "WR",
+            7000,
             site_values=site_values,
             effective_source_ranks=effective,
             dropped_sources=["idpTradeCalc"],
@@ -1925,12 +2390,12 @@ class TestEffectiveSourceRanks:
         # Same site values, no Hampel stamps → legacy read, outlier
         # inflates the dispersion.
         row_raw = self._row(
-            "Raw Unfiltered", "WR", 7000,
+            "Raw Unfiltered",
+            "WR",
+            7000,
             site_values=site_values,
         )
-        pool = build_asset_pool_from_contract(
-            self._contract([row_filtered, row_raw]), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract([row_filtered, row_raw]), ktc_top_n=0)
         filtered = next(p for p in pool if p.name == "Hampel Filtered")
         raw = next(p for p in pool if p.name == "Raw Unfiltered")
         assert filtered.dispersion_cv is not None
@@ -1943,9 +2408,12 @@ class TestEffectiveSourceRanks:
         """Legacy fallback: a contract with ``droppedSources`` but no
         ``effectiveSourceRanks`` should still respect the drop list."""
         from src.trade.suggestions import build_asset_pool_from_contract
+
         site_values = {"a": 7000, "b": 7050, "c": 6980, "d": 1500}
         row = self._row(
-            "Partial Stamps", "WR", 7000,
+            "Partial Stamps",
+            "WR",
+            7000,
             site_values=site_values,
             dropped_sources=["d"],
         )
@@ -1956,8 +2424,11 @@ class TestEffectiveSourceRanks:
 
     def test_legacy_contract_without_stamps_uses_raw_site_values(self):
         from src.trade.suggestions import build_asset_pool_from_contract
+
         row = self._row(
-            "Legacy Row", "WR", 7000,
+            "Legacy Row",
+            "WR",
+            7000,
             site_values={"a": 7000, "b": 7050, "c": 6980, "d": 1500},
             # No effectiveSourceRanks, no droppedSources → legacy contract.
         )
@@ -1991,34 +2462,30 @@ class TestEffectiveSourceRanks:
         rows = [
             # QB surplus (4 QBs, need 2).
             self._row(
-                "QB Sell", "QB", 5500,
+                "QB Sell",
+                "QB",
+                5500,
                 site_values=self._raw_site_values(5500),
                 effective_source_ranks=self._effective_ranks(
                     [f"src{i}" for i in range(effective_count_for_sell)]
                 ),
-                dropped_sources=[
-                    f"src{i}" for i in range(effective_count_for_sell, 8)
-                ],
+                dropped_sources=[f"src{i}" for i in range(effective_count_for_sell, 8)],
             ),
-            self._row("QB Starter A", "QB", 7500,
-                      site_values=self._raw_site_values(7500)),
-            self._row("QB Starter B", "QB", 7300,
-                      site_values=self._raw_site_values(7300)),
-            self._row("QB Depth", "QB", 5200,
-                      site_values=self._raw_site_values(5200)),
+            self._row("QB Starter A", "QB", 7500, site_values=self._raw_site_values(7500)),
+            self._row("QB Starter B", "QB", 7300, site_values=self._raw_site_values(7300)),
+            self._row("QB Depth", "QB", 5200, site_values=self._raw_site_values(5200)),
             # WR target the engine can swap into.  Generous effective
             # ranks so the target side is always "high".
             self._row(
-                "WR Target", "WR", 5700,
+                "WR Target",
+                "WR",
+                5700,
                 site_values=self._raw_site_values(5700),
-                effective_source_ranks=self._effective_ranks(
-                    [f"src{i}" for i in range(7)]
-                ),
+                effective_source_ranks=self._effective_ranks([f"src{i}" for i in range(7)]),
                 dropped_sources=["src7"],
             ),
             # Other WRs so the user has a WR need (0 starters).
-            self._row("WR Other", "WR", 1500,
-                      site_values=self._raw_site_values(1500)),
+            self._row("WR Other", "WR", 1500, site_values=self._raw_site_values(1500)),
         ]
         roster = ["QB Sell", "QB Starter A", "QB Starter B", "QB Depth"]
         return rows, roster
@@ -2034,27 +2501,22 @@ class TestEffectiveSourceRanks:
             build_asset_pool_from_contract,
             generate_suggestions_from_pool,
         )
+
         rows, roster = self._build_sell_high_scenario(effective_count_for_sell=3)
-        pool = build_asset_pool_from_contract(
-            self._contract(rows), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         sell_player = next(p for p in pool if p.name == "QB Sell")
         assert sell_player.source_count == 3  # effective, not 8
 
         result = generate_suggestions_from_pool(
-            roster_names=roster, pool=pool,
+            roster_names=roster,
+            pool=pool,
         )
         sell_high = result["sellHigh"]
         # Filter to suggestions that actually trade the Hampel-filtered
         # sell piece — other surplus QBs may also generate sell-high
         # entries with unfiltered (high) confidence.
-        hampel_sells = [
-            s for s in sell_high
-            if any(g["name"] == "QB Sell" for g in s["give"])
-        ]
-        assert hampel_sells, (
-            "expected a sell_high suggestion that moves QB Sell"
-        )
+        hampel_sells = [s for s in sell_high if any(g["name"] == "QB Sell" for g in s["give"])]
+        assert hampel_sells, "expected a sell_high suggestion that moves QB Sell"
         # confidence = min(sell.source_count, target.source_count)
         # = min(3, 7) = 3 → "medium".  Proves the post-Hampel count
         # flowed through.
@@ -2066,44 +2528,37 @@ class TestEffectiveSourceRanks:
             build_asset_pool_from_contract,
             generate_suggestions_from_pool,
         )
+
         # Roster has QB surplus but WR need → engine buys-low at WR.
         # WR target carries 8 raw sources but only 2 effective → low.
         rows = [
-            self._row("QB1", "QB", 8000,
-                      site_values=self._raw_site_values(8000)),
-            self._row("QB2", "QB", 7700,
-                      site_values=self._raw_site_values(7700)),
-            self._row("QB3", "QB", 6500,
-                      site_values=self._raw_site_values(6500)),
-            self._row("QB4", "QB", 6000,
-                      site_values=self._raw_site_values(6000)),
+            self._row("QB1", "QB", 8000, site_values=self._raw_site_values(8000)),
+            self._row("QB2", "QB", 7700, site_values=self._raw_site_values(7700)),
+            self._row("QB3", "QB", 6500, site_values=self._raw_site_values(6500)),
+            self._row("QB4", "QB", 6000, site_values=self._raw_site_values(6000)),
             # WR starter slot empty-ish on roster.
             self._row(
-                "WR Buy Low", "WR", 6200,
+                "WR Buy Low",
+                "WR",
+                6200,
                 site_values=self._raw_site_values(6200),
-                effective_source_ranks=self._effective_ranks(
-                    ["src0", "src1"]
-                ),
+                effective_source_ranks=self._effective_ranks(["src0", "src1"]),
                 dropped_sources=[f"src{i}" for i in range(2, 8)],
             ),
         ]
         roster = ["QB1", "QB2", "QB3", "QB4"]
-        pool = build_asset_pool_from_contract(
-            self._contract(rows), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         target = next(p for p in pool if p.name == "WR Buy Low")
         assert target.source_count == 2
 
         result = generate_suggestions_from_pool(
-            roster_names=roster, pool=pool,
+            roster_names=roster,
+            pool=pool,
         )
         buy_low = result["buyLow"]
         # If any buy-low targets "WR Buy Low", its confidence should be
         # "low" (min(give=high, target=2) = 2 → low).
-        matching = [
-            s for s in buy_low
-            if any(r["name"] == "WR Buy Low" for r in s["receive"])
-        ]
+        matching = [s for s in buy_low if any(r["name"] == "WR Buy Low" for r in s["receive"])]
         assert matching, "expected a buy_low suggestion for WR Buy Low"
         for s in matching:
             assert s["confidence"] == "low"
@@ -2118,52 +2573,44 @@ class TestEffectiveSourceRanks:
             build_asset_pool_from_contract,
             generate_suggestions_from_pool,
         )
+
         rows = [
             # 4 RBs on roster — surplus depth the user can package.
-            self._row("RB1", "RB", 5000,
-                      site_values=self._raw_site_values(5000)),
-            self._row("RB2", "RB", 4800,
-                      site_values=self._raw_site_values(4800)),
-            self._row("RB3", "RB", 4600,
-                      site_values=self._raw_site_values(4600)),
-            self._row("RB Depth A", "RB", 3200,
-                      site_values=self._raw_site_values(3200)),
-            self._row("RB Depth B", "RB", 3100,
-                      site_values=self._raw_site_values(3100)),
+            self._row("RB1", "RB", 5000, site_values=self._raw_site_values(5000)),
+            self._row("RB2", "RB", 4800, site_values=self._raw_site_values(4800)),
+            self._row("RB3", "RB", 4600, site_values=self._raw_site_values(4600)),
+            self._row("RB Depth A", "RB", 3200, site_values=self._raw_site_values(3200)),
+            self._row("RB Depth B", "RB", 3100, site_values=self._raw_site_values(3100)),
             # Consolidation target at WR (a need position).  Valued so
             # the (3200 + 3100) depth package lands VA-near-even once
             # KTC's quantity discount is applied — a realistic
             # consolidation, not a raw-even-but-VA-lopsided 2-for-1.
             self._row(
-                "WR Consolidation Target", "WR", 4600,
+                "WR Consolidation Target",
+                "WR",
+                4600,
                 site_values=self._raw_site_values(4600),
-                effective_source_ranks=self._effective_ranks(
-                    ["src0", "src1", "src2", "src3"]
-                ),
+                effective_source_ranks=self._effective_ranks(["src0", "src1", "src2", "src3"]),
                 dropped_sources=[f"src{i}" for i in range(4, 8)],
             ),
         ]
         roster = ["RB1", "RB2", "RB3", "RB Depth A", "RB Depth B"]
-        pool = build_asset_pool_from_contract(
-            self._contract(rows), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         target = next(p for p in pool if p.name == "WR Consolidation Target")
         assert target.source_count == 4
 
         result = generate_suggestions_from_pool(
-            roster_names=roster, pool=pool,
+            roster_names=roster,
+            pool=pool,
         )
         cons = result["consolidation"]
         # The suggestion list may be pruned by quality filters; assert
         # every remaining consolidation targeting our WR is "medium"
         # (4 effective sources → medium tier), not "high".
         matching = [
-            s for s in cons
-            if any(r["name"] == "WR Consolidation Target" for r in s["receive"])
+            s for s in cons if any(r["name"] == "WR Consolidation Target" for r in s["receive"])
         ]
-        assert matching, (
-            "expected a consolidation suggestion targeting WR Consolidation Target"
-        )
+        assert matching, "expected a consolidation suggestion targeting WR Consolidation Target"
         for s in matching:
             assert s["confidence"] == "medium"
 
@@ -2177,64 +2624,58 @@ class TestEffectiveSourceRanks:
             build_asset_pool_from_contract,
             generate_suggestions_from_pool,
         )
+
         rows = [
             # 4 WR starters so the upgrade target clears upgrade_floor
             # against the weakest slotted starter (WR Starter D = 3300).
-            self._row("WR Starter A", "WR", 6000,
-                      site_values=self._raw_site_values(6000)),
-            self._row("WR Starter B", "WR", 5000,
-                      site_values=self._raw_site_values(5000)),
-            self._row("WR Starter C", "WR", 4000,
-                      site_values=self._raw_site_values(4000)),
-            self._row("WR Starter D", "WR", 3300,
-                      site_values=self._raw_site_values(3300)),
-            self._row("WR Depth", "WR", 3200,
-                      site_values=self._raw_site_values(3200)),
+            self._row("WR Starter A", "WR", 6000, site_values=self._raw_site_values(6000)),
+            self._row("WR Starter B", "WR", 5000, site_values=self._raw_site_values(5000)),
+            self._row("WR Starter C", "WR", 4000, site_values=self._raw_site_values(4000)),
+            self._row("WR Starter D", "WR", 3300, site_values=self._raw_site_values(3300)),
+            self._row("WR Depth", "WR", 3200, site_values=self._raw_site_values(3200)),
             # RB surplus (3 starters + 2 depth) supplies the sweetener
             # search fallback the engine uses for positional upgrades.
             # Depth sized so weakest_starter + sweetener vs. target is
             # VA-near-even, not raw-even-but-VA-lopsided.
-            self._row("RB1", "RB", 7000,
-                      site_values=self._raw_site_values(7000)),
-            self._row("RB2", "RB", 6800,
-                      site_values=self._raw_site_values(6800)),
-            self._row("RB3", "RB", 6600,
-                      site_values=self._raw_site_values(6600)),
-            self._row("RB Depth A", "RB", 1420,
-                      site_values=self._raw_site_values(1420)),
-            self._row("RB Depth B", "RB", 1400,
-                      site_values=self._raw_site_values(1400)),
+            self._row("RB1", "RB", 7000, site_values=self._raw_site_values(7000)),
+            self._row("RB2", "RB", 6800, site_values=self._raw_site_values(6800)),
+            self._row("RB3", "RB", 6600, site_values=self._raw_site_values(6600)),
+            self._row("RB Depth A", "RB", 1420, site_values=self._raw_site_values(1420)),
+            self._row("RB Depth B", "RB", 1400, site_values=self._raw_site_values(1400)),
             # Upgrade target at WR: raw=8 sources, effective=2 → low.
             self._row(
-                "WR Upgrade Target", "WR", 4200,
+                "WR Upgrade Target",
+                "WR",
+                4200,
                 site_values=self._raw_site_values(4200),
-                effective_source_ranks=self._effective_ranks(
-                    ["src0", "src1"]
-                ),
+                effective_source_ranks=self._effective_ranks(["src0", "src1"]),
                 dropped_sources=[f"src{i}" for i in range(2, 8)],
             ),
         ]
         roster = [
-            "WR Starter A", "WR Starter B", "WR Starter C", "WR Starter D",
+            "WR Starter A",
+            "WR Starter B",
+            "WR Starter C",
+            "WR Starter D",
             "WR Depth",
-            "RB1", "RB2", "RB3", "RB Depth A", "RB Depth B",
+            "RB1",
+            "RB2",
+            "RB3",
+            "RB Depth A",
+            "RB Depth B",
         ]
-        pool = build_asset_pool_from_contract(
-            self._contract(rows), ktc_top_n=0
-        )
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         target = next(p for p in pool if p.name == "WR Upgrade Target")
         assert target.source_count == 2
 
         result = generate_suggestions_from_pool(
-            roster_names=roster, pool=pool,
+            roster_names=roster,
+            pool=pool,
         )
         upgrades = result["positionalUpgrades"]
         matching = [
-            s for s in upgrades
-            if any(r["name"] == "WR Upgrade Target" for r in s["receive"])
+            s for s in upgrades if any(r["name"] == "WR Upgrade Target" for r in s["receive"])
         ]
-        assert matching, (
-            "expected a positional_upgrade suggestion targeting WR Upgrade Target"
-        )
+        assert matching, "expected a positional_upgrade suggestion targeting WR Upgrade Target"
         for s in matching:
             assert s["confidence"] == "low"

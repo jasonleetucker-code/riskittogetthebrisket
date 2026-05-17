@@ -6,6 +6,7 @@ Covers:
   * End-to-end fixture build: ``--from-file`` with a tiny HTML blob
   * Exit-code behaviour for schema regressions and row-count floors
 """
+
 from __future__ import annotations
 
 import csv
@@ -18,10 +19,7 @@ from scripts import fetch_fantasypros_offense as fp
 
 
 def _wrap_html(data_obj: dict) -> str:
-    return (
-        "<html><body><script>var ecrData = "
-        f"{json.dumps(data_obj)};</script></body></html>"
-    )
+    return "<html><body><script>var ecrData = " f"{json.dumps(data_obj)};</script></body></html>"
 
 
 def _make_players(
@@ -113,9 +111,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = fp._FP_ROW_COUNT_FLOOR
             fp._FP_ROW_COUNT_FLOOR = 1
             try:
-                rc = fp.main(
-                    ["--from-file", str(html_path), "--dest", str(dest)]
-                )
+                rc = fp.main(["--from-file", str(html_path), "--dest", str(dest)])
             finally:
                 fp._FP_ROW_COUNT_FLOOR = orig_floor
 
@@ -152,9 +148,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = fp._FP_ROW_COUNT_FLOOR
             fp._FP_ROW_COUNT_FLOOR = 1
             try:
-                rc = fp.main(
-                    ["--from-file", str(html_path), "--dest", str(dest)]
-                )
+                rc = fp.main(["--from-file", str(html_path), "--dest", str(dest)])
             finally:
                 fp._FP_ROW_COUNT_FLOOR = orig_floor
 

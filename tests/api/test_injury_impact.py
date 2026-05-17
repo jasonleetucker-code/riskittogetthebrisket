@@ -1,4 +1,5 @@
 """Tests for ``src.api.injury_impact``."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
@@ -8,8 +9,12 @@ import pytest
 from src.api import injury_impact
 
 
-def _news(severity: str, hours_ago: float = 1.0, impact: str | None = "negative",
-           headline: str = "Test injury headline") -> dict:
+def _news(
+    severity: str,
+    hours_ago: float = 1.0,
+    impact: str | None = "negative",
+    headline: str = "Test injury headline",
+) -> dict:
     ts = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
     players = [{"name": "Test Player", "impact": impact}] if impact else []
     return {
@@ -32,9 +37,9 @@ def _offseason_ms() -> int:
     return int(datetime(2026, 5, 15, tzinfo=timezone.utc).timestamp() * 1000)
 
 
-def _season_news(severity: str, hours_ago: float = 1.0,
-                  impact: str | None = "negative",
-                  headline: str = "Test") -> dict:
+def _season_news(
+    severity: str, hours_ago: float = 1.0, impact: str | None = "negative", headline: str = "Test"
+) -> dict:
     """A news item whose ``ts`` is just before the in-season now_ms
     used by tests — so decay math lines up even with the fixed
     October reference time."""
@@ -51,8 +56,11 @@ def _season_news(severity: str, hours_ago: float = 1.0,
 
 def test_no_news_returns_zero_discount():
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=24, is_rookie=False,
-        news_for_player=[], now_ms=_season_ms(),
+        pos="RB",
+        age=24,
+        is_rookie=False,
+        news_for_player=[],
+        now_ms=_season_ms(),
     )
     assert r["appliedDiscountPct"] == 0.0
     assert r["adjustedPct"] == 100.0
@@ -61,7 +69,9 @@ def test_no_news_returns_zero_discount():
 
 def test_alert_on_rb_mid_age_modest_discount():
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=_season_ms(),
     )
@@ -73,7 +83,9 @@ def test_alert_on_rb_mid_age_modest_discount():
 
 def test_alert_on_qb_smaller_discount():
     r = injury_impact.compute_injury_discount(
-        pos="QB", age=30, is_rookie=False,
+        pos="QB",
+        age=30,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=_season_ms(),
     )
@@ -85,7 +97,9 @@ def test_discount_capped_at_five_percent():
     # Aggressive multipliers — old vet RB with severe injury — should
     # cap at 5% for the dynasty context.
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=35, is_rookie=False,
+        pos="RB",
+        age=35,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=_season_ms(),
     )
@@ -94,12 +108,16 @@ def test_discount_capped_at_five_percent():
 
 def test_aging_rb_gets_heavier_discount():
     young = injury_impact.compute_injury_discount(
-        pos="RB", age=22, is_rookie=False,
+        pos="RB",
+        age=22,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=_season_ms(),
     )
     old = injury_impact.compute_injury_discount(
-        pos="RB", age=33, is_rookie=False,
+        pos="RB",
+        age=33,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=_season_ms(),
     )
@@ -110,12 +128,16 @@ def test_aging_rb_gets_heavier_discount():
 def test_decay_half_at_fifteen_days():
     now = _season_ms()
     r_fresh = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1)],
         now_ms=now,
     )
     r_old = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=15 * 24)],
         now_ms=now,
     )
@@ -127,7 +149,9 @@ def test_decay_half_at_fifteen_days():
 def test_decay_zero_at_thirty_days():
     now = _season_ms()
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=31 * 24)],
         now_ms=now,
     )
@@ -137,7 +161,9 @@ def test_decay_zero_at_thirty_days():
 
 def test_positive_impact_news_does_not_fire():
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_season_news("alert", hours_ago=1, impact="positive")],
         now_ms=_season_ms(),
     )
@@ -152,7 +178,9 @@ def test_worst_case_across_multiple_items():
         _season_news("watch", hours_ago=2, headline="Hamstring"),
     ]
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=items,
         now_ms=_season_ms(),
     )
@@ -182,7 +210,9 @@ def test_apply_injury_impact_produces_adjusted_value():
 def test_apply_injury_impact_no_news_leaves_value_untouched():
     row = {"pos": "RB", "age": 27, "rookie": False, "rankDerivedValue": 5000}
     r = injury_impact.apply_injury_impact(
-        row=row, news_for_player=[], now_ms=_season_ms(),
+        row=row,
+        news_for_player=[],
+        now_ms=_season_ms(),
     )
     assert r["appliedDiscountPct"] == 0.0
     assert r["adjustedValue"] == 5000
@@ -193,7 +223,9 @@ def test_apply_injury_impact_no_news_leaves_value_untouched():
 
 def test_offseason_alert_produces_zero_discount():
     r = injury_impact.compute_injury_discount(
-        pos="RB", age=27, is_rookie=False,
+        pos="RB",
+        age=27,
+        is_rookie=False,
         news_for_player=[_news("alert", hours_ago=1)],
         now_ms=_offseason_ms(),  # May → offseason
     )
@@ -205,20 +237,23 @@ def test_offseason_alert_produces_zero_discount():
     assert r["headline"] == "Test injury headline"
 
 
-@pytest.mark.parametrize("month,expected", [
-    (1, False),   # January — playoffs, in-season
-    (2, True),    # February — offseason starts
-    (3, True),
-    (4, True),    # Draft
-    (5, True),    # OTAs
-    (6, True),
-    (7, True),    # Training camp open
-    (8, True),    # Preseason — still classified offseason
-    (9, False),   # Week 1
-    (10, False),
-    (11, False),
-    (12, False),
-])
+@pytest.mark.parametrize(
+    "month,expected",
+    [
+        (1, False),  # January — playoffs, in-season
+        (2, True),  # February — offseason starts
+        (3, True),
+        (4, True),  # Draft
+        (5, True),  # OTAs
+        (6, True),
+        (7, True),  # Training camp open
+        (8, True),  # Preseason — still classified offseason
+        (9, False),  # Week 1
+        (10, False),
+        (11, False),
+        (12, False),
+    ],
+)
 def test_offseason_boundary_by_month(month, expected):
     ts = int(datetime(2026, month, 15, tzinfo=timezone.utc).timestamp() * 1000)
     assert injury_impact._is_nfl_offseason(ts) is expected

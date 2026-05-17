@@ -22,6 +22,7 @@ outright.
 These tests are invariant-band style (PR #154): they assert the
 structural chain holds for today's snapshot, not specific values.
 """
+
 from __future__ import annotations
 
 import json
@@ -91,8 +92,7 @@ class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
                 continue
             if "offenseCalibrationMultiplier" in row:
                 offending.append(
-                    f"{row.get('canonicalName')}: "
-                    f"{row['offenseCalibrationMultiplier']}"
+                    f"{row.get('canonicalName')}: " f"{row['offenseCalibrationMultiplier']}"
                 )
         self.assertFalse(
             offending,
@@ -120,9 +120,7 @@ class TestVolatilityPassIsRemoved(unittest.TestCase):
 
     def test_no_row_carries_prevolatility_stamp(self) -> None:
         offending = [
-            r.get("canonicalName")
-            for r in _ranked_rows(self.contract)
-            if "preVolatilityValue" in r
+            r.get("canonicalName") for r in _ranked_rows(self.contract) if "preVolatilityValue" in r
         ]
         self.assertFalse(
             offending,
@@ -172,9 +170,7 @@ class TestValueChain(unittest.TestCase):
         for row in self.rows:
             for key in banned:
                 if key in row and row.get(key) is not None:
-                    offenders.append(
-                        f"{row.get('canonicalName')}::{key}={row.get(key)}"
-                    )
+                    offenders.append(f"{row.get('canonicalName')}::{key}={row.get(key)}")
                     break
         self.assertFalse(
             offenders,
@@ -242,9 +238,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
                 continue
             pos = str(row.get("position") or "").upper()
             expected = _ALPHA_SHRINKAGE if pos in _IDP_POSITIONS else 0.0
-            self.assertAlmostEqual(
-                float(stamped), expected, places=4
-            )
+            self.assertAlmostEqual(float(stamped), expected, places=4)
 
     def test_anchor_plus_shrunk_subgroup_matches_rank_derived_value(self) -> None:
         """For IDP rows with both anchor and subgroup stamped, the
@@ -273,12 +267,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
             delta = row.get("subgroupDelta")
             final = row.get("rankDerivedValue")
             mad = row.get("sourceSpread")
-            if (
-                anchor is None
-                or subgroup is None
-                or delta is None
-                or final is None
-            ):
+            if anchor is None or subgroup is None or delta is None or final is None:
                 continue
             # Skip rows where the market-corridor clamp has pulled
             # the final value away from the pure blend output.
@@ -288,9 +277,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
             expected_center = float(anchor) + _ALPHA_SHRINKAGE * float(delta)
             expected_penalty = 0.0
             if mad is not None:
-                expected_penalty = min(
-                    expected_center, _MAD_PENALTY_LAMBDA * float(mad)
-                )
+                expected_penalty = min(expected_center, _MAD_PENALTY_LAMBDA * float(mad))
             expected_final = max(0.0, expected_center - expected_penalty)
             self.assertLessEqual(
                 abs(int(final) - int(round(expected_final))),
@@ -321,9 +308,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
                 continue
             delta = row.get("subgroupDelta")
             if delta is not None:
-                offenders.append(
-                    f"{row.get('canonicalName')}: subgroupDelta={delta}"
-                )
+                offenders.append(f"{row.get('canonicalName')}: subgroupDelta={delta}")
         self.assertFalse(
             offenders,
             f"Offense rows stamping subgroupDelta — flat blend should "
@@ -364,11 +349,11 @@ class TestMADPenaltyChain(unittest.TestCase):
             mad = row.get("sourceSpread")
             self.assertIsNotNone(
                 mad,
-                f"{row.get('canonicalName')}: multi-source row missing "
-                f"sourceSpread stamp",
+                f"{row.get('canonicalName')}: multi-source row missing " f"sourceSpread stamp",
             )
             self.assertGreaterEqual(
-                float(mad), 0.0,
+                float(mad),
+                0.0,
                 f"{row.get('canonicalName')}: sourceSpread={mad} is negative",
             )
             checked += 1
@@ -405,14 +390,10 @@ class TestMADPenaltyChain(unittest.TestCase):
             if row.get("assetClass") != "pick":
                 continue
             if row.get("madPenaltyApplied") not in (None, 0):
-                offenders.append(
-                    f"{row.get('canonicalName')}: "
-                    f"{row['madPenaltyApplied']}"
-                )
+                offenders.append(f"{row.get('canonicalName')}: " f"{row['madPenaltyApplied']}")
         self.assertFalse(
             offenders,
-            f"Pick rows carrying MAD penalty (should be exempt): "
-            f"{offenders[:5]}",
+            f"Pick rows carrying MAD penalty (should be exempt): " f"{offenders[:5]}",
         )
 
 
@@ -453,8 +434,7 @@ class TestSoftFallbackIsCoverageDiagnosticOnly(unittest.TestCase):
                 missing.append(str(row.get("canonicalName") or ""))
         self.assertFalse(
             missing,
-            f"Ranked non-pick rows without softFallbackCount: "
-            f"{missing[:5]}",
+            f"Ranked non-pick rows without softFallbackCount: " f"{missing[:5]}",
         )
 
     def test_soft_fallback_count_nonnegative(self) -> None:
@@ -463,7 +443,8 @@ class TestSoftFallbackIsCoverageDiagnosticOnly(unittest.TestCase):
             if sfc is None:
                 continue
             self.assertGreaterEqual(
-                int(sfc), 0,
+                int(sfc),
+                0,
                 f"{row.get('canonicalName')}: negative softFallbackCount",
             )
 
@@ -475,7 +456,8 @@ class TestSoftFallbackIsCoverageDiagnosticOnly(unittest.TestCase):
         for row in self.rows:
             for key in banned:
                 self.assertNotIn(
-                    key, row,
+                    key,
+                    row,
                     f"{row.get('canonicalName')}: forbidden fallback-"
                     f"value field {key!r} present — soft fallback is "
                     f"supposed to be a coverage diagnostic only.",
@@ -536,23 +518,19 @@ class TestScopeMasterRouting(unittest.TestCase):
             IDP_HILL_PERCENTILE_S,
             percentile_to_value,
         )
+
         # Sanity — the two master curves produce different V at
         # typical mid-pack percentile.
         p = 0.1
-        off_v = int(
-            percentile_to_value(
-                p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S
-            )
-        )
+        off_v = int(percentile_to_value(p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S))
         idp_v = int(
-            percentile_to_value(
-                p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S
-            )
+            percentile_to_value(p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S)
         )
         self.assertNotEqual(
-            off_v, idp_v,
+            off_v,
+            idp_v,
             f"Offense and IDP master curves produce identical V at p={p}: "
-            f"{off_v}.  Framework-update requires distinct scope curves."
+            f"{off_v}.  Framework-update requires distinct scope curves.",
         )
 
 
@@ -601,13 +579,15 @@ class TestRookieScopeRouting(unittest.TestCase):
                 # (if it's still 1 the translation didn't run) and
                 # the contribution must be well below the max 9999.
                 self.assertGreater(
-                    eff, 1,
+                    eff,
+                    1,
                     f"{src_key} rank-1 player {row.get('canonicalName')}"
                     f" still at effective rank {eff} — the Phase 1d"
                     f" rookie-ladder translation is OFF.",
                 )
                 self.assertLess(
-                    vc, 9999,
+                    vc,
+                    9999,
                     f"{src_key} rank-1 player contribution still 9999"
                     f" — ladder translation should cap it below that.",
                 )
@@ -617,7 +597,8 @@ class TestRookieScopeRouting(unittest.TestCase):
                 # top rookie at very different ranks.
                 bound = _SANITY_UPPER_BOUND[src_key]
                 self.assertLess(
-                    eff, bound,
+                    eff,
+                    bound,
                     f"{src_key} rank-1 translated to {eff} (sanity"
                     f" bound {bound}) — reference ladder may be"
                     f" malformed or universe filter incorrect.",
@@ -643,18 +624,19 @@ class TestRookieScopeRouting(unittest.TestCase):
             IDP_HILL_PERCENTILE_S,
             percentile_to_value,
         )
+
         p = 0.3
-        off_v = int(percentile_to_value(
-            p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S
-        ))
-        idp_v = int(percentile_to_value(
-            p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S
-        ))
-        rook_v = int(percentile_to_value(
-            p,
-            midpoint=HILL_ROOKIE_PERCENTILE_C,
-            slope=HILL_ROOKIE_PERCENTILE_S,
-        ))
+        off_v = int(percentile_to_value(p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S))
+        idp_v = int(
+            percentile_to_value(p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S)
+        )
+        rook_v = int(
+            percentile_to_value(
+                p,
+                midpoint=HILL_ROOKIE_PERCENTILE_C,
+                slope=HILL_ROOKIE_PERCENTILE_S,
+            )
+        )
         # All three masters must produce distinct V at p=0.3.
         self.assertNotEqual(rook_v, off_v)
         self.assertNotEqual(rook_v, idp_v)
@@ -677,11 +659,7 @@ class TestNoSecondHillCurve(unittest.TestCase):
 
     def test_top_50_value_range_is_wide(self) -> None:
         offense = sorted(
-            (
-                r
-                for r in self.rows
-                if str(r.get("position") or "").upper() in _OFFENSE_POSITIONS
-            ),
+            (r for r in self.rows if str(r.get("position") or "").upper() in _OFFENSE_POSITIONS),
             key=lambda r: int(r["canonicalConsensusRank"]),
         )[:50]
         if len(offense) < 50:
@@ -716,8 +694,7 @@ class TestNoSecondHillCurve(unittest.TestCase):
                 offenders.append((str(row.get("canonicalName") or ""), v))
         self.assertFalse(
             offenders,
-            f"Rows above _DISPLAY_SCALE_MAX={_DISPLAY_SCALE_MAX}: "
-            f"{offenders[:5]}",
+            f"Rows above _DISPLAY_SCALE_MAX={_DISPLAY_SCALE_MAX}: " f"{offenders[:5]}",
         )
 
 
@@ -773,8 +750,7 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
                 path = m.get("valueContributionPath")
                 if path != "value_direct":
                     offenders.append(
-                        f"{row.get('canonicalName')} [{src_key}]: "
-                        f"path={path!r} (raw={raw})"
+                        f"{row.get('canonicalName')} [{src_key}]: " f"path={path!r} (raw={raw})"
                     )
                 checked += 1
         self.assertFalse(
@@ -783,7 +759,8 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
             f"(offenders first 5): {offenders[:5]}",
         )
         self.assertGreater(
-            checked, 100,
+            checked,
+            100,
             "expected many value-direct source contributions across the board",
         )
 
@@ -799,15 +776,11 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
                     continue
                 path = m.get("valueContributionPath")
                 if path != "rank_hill":
-                    offenders.append(
-                        f"{row.get('canonicalName')} [{src_key}]: "
-                        f"path={path!r}"
-                    )
+                    offenders.append(f"{row.get('canonicalName')} [{src_key}]: " f"path={path!r}")
                 checked += 1
         self.assertFalse(
             offenders,
-            f"Rank-only sources NOT routed through Hill "
-            f"(offenders first 5): {offenders[:5]}",
+            f"Rank-only sources NOT routed through Hill " f"(offenders first 5): {offenders[:5]}",
         )
         self.assertGreater(checked, 100, "expected many rank-hill contributions")
 
@@ -855,13 +828,13 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
                 # contribution on TE rows.  Skip those to keep this
                 # test focused on the normalization rule itself; the
                 # TEP path is covered by dedicated TEP tests.
-                if row_is_te and (
-                    m.get("tepBoostApplied") or m.get("tepNativeCorrectionApplied")
-                ):
+                if row_is_te and (m.get("tepBoostApplied") or m.get("tepNativeCorrectionApplied")):
                     continue
                 actual = m.get("valueContribution")
                 self.assertAlmostEqual(
-                    float(actual), expected, delta=1.5,
+                    float(actual),
+                    expected,
+                    delta=1.5,
                     msg=(
                         f"{row.get('canonicalName')} [{src_key}]: "
                         f"valueContribution={actual} but raw={raw} "
@@ -870,7 +843,8 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
                 )
                 checked += 1
         self.assertGreater(
-            checked, 50,
+            checked,
+            50,
             "expected many value-direct rows to cross-check against raw",
         )
 
@@ -897,7 +871,8 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
         from src.api.data_contract import _MAD_PENALTY_LAMBDA  # noqa: PLC0415
 
         self.assertEqual(
-            _MAD_PENALTY_LAMBDA, 0.0,
+            _MAD_PENALTY_LAMBDA,
+            0.0,
             "λ·MAD has been retired in favour of the count-aware + "
             "anchor damping layers.  Reinstating λ > 0 needs a fresh "
             "backtest proving the extra penalty is non-duplicative.",
@@ -908,9 +883,7 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
         for row in self.rows:
             penalty = row.get("madPenaltyApplied")
             if penalty is not None and float(penalty) > 0:
-                offenders.append(
-                    f"{row.get('canonicalName')}: madPenaltyApplied={penalty}"
-                )
+                offenders.append(f"{row.get('canonicalName')}: madPenaltyApplied={penalty}")
         self.assertFalse(
             offenders,
             f"Live rows carrying madPenaltyApplied > 0 despite λ=0 "
@@ -927,7 +900,8 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
             self.skipTest("no multi-source rows in live data")
         stamped = sum(1 for r in multi_source if r.get("sourceSpread") is not None)
         self.assertGreater(
-            stamped, 0,
+            stamped,
+            0,
             "sourceSpread diagnostic is missing on every multi-source row",
         )
 
@@ -969,18 +943,21 @@ class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
                 m = meta.get(src_key)
                 if not m:
                     continue
-                out.append((
-                    int(m.get("effectiveRank") or 0),
-                    src_key,
-                    str(row.get("canonicalName") or ""),
-                    str(m.get("method") or ""),
-                ))
+                out.append(
+                    (
+                        int(m.get("effectiveRank") or 0),
+                        src_key,
+                        str(row.get("canonicalName") or ""),
+                        str(m.get("method") or ""),
+                    )
+                )
         return out
 
     def test_method_stamp_identifies_cross_market(self) -> None:
         entries = self._ds_eff_ranks()
         self.assertGreater(
-            len(entries), 100,
+            len(entries),
+            100,
             "expected many DS entries in the live contract",
         )
         offenders = [
@@ -990,8 +967,7 @@ class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
         ]
         self.assertFalse(
             offenders,
-            f"DS entries without combined-cross-market method stamp "
-            f"(first 5): {offenders[:5]}",
+            f"DS entries without combined-cross-market method stamp " f"(first 5): {offenders[:5]}",
         )
 
     def test_combined_ranks_are_unique_across_sources(self) -> None:
@@ -1002,8 +978,7 @@ class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
         dupes = [r for r in set(ranks) if ranks.count(r) > 1]
         self.assertFalse(
             dupes,
-            f"Duplicate DS effective ranks across SF+IDP pool "
-            f"(first 5): {dupes[:5]}",
+            f"Duplicate DS effective ranks across SF+IDP pool " f"(first 5): {dupes[:5]}",
         )
 
     def test_top_idp_rank_exceeds_top_offense_rank(self) -> None:
@@ -1023,11 +998,13 @@ class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
         if top_off_rank is None or top_idp_rank is None:
             self.skipTest("DS SF or IDP entries absent")
         self.assertEqual(
-            top_off_rank, 1,
+            top_off_rank,
+            1,
             "top DS offense player should be at combined rank 1",
         )
         self.assertGreater(
-            top_idp_rank, 1,
+            top_idp_rank,
+            1,
             "top DS IDP player should sit behind the top offense "
             "player on the combined ladder — cross-market premium "
             "is the whole point of this pre-pass.",
@@ -1051,4 +1028,5 @@ class TestValueBasedRegistryInvariant(unittest.TestCase):
         from src.api.data_contract import (  # noqa: PLC0415
             _validate_value_based_sources_invariant,
         )
+
         _validate_value_based_sources_invariant()

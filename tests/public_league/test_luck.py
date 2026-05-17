@@ -5,6 +5,7 @@ actual-wins math.  The fixture has 4 owners, 2 seasons, and scored
 regular-season weeks 1+2 (2025) and 1+2+3 (2024) — enough to catch
 edge cases in the all-play computation and cross-season aggregation.
 """
+
 from __future__ import annotations
 
 import unittest

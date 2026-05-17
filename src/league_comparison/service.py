@@ -32,6 +32,7 @@ Output shape
 Documented in :func:`build_comparison`'s docstring and pinned by
 ``tests/league_comparison/test_service.py``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -58,6 +59,7 @@ _CACHE_SUBDIR = "league_comparison_cache"
 
 # ── Config loading ────────────────────────────────────────────────────
 
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -75,26 +77,33 @@ def _load_config() -> dict[str, Any]:
 
 # ── Cache layer (disk) ────────────────────────────────────────────────
 
+
 def _cache_dir() -> Path:
     return _repo_root() / "data" / _CACHE_SUBDIR
 
 
 def _cache_key(
     *,
-    my_id: str, baseline_id: str,
-    my_hash: str, baseline_hash: str,
-    seasons: Iterable[int], version: str,
+    my_id: str,
+    baseline_id: str,
+    my_hash: str,
+    baseline_hash: str,
+    seasons: Iterable[int],
+    version: str,
 ) -> str:
     parts = [
         version,
-        my_id, my_hash,
-        baseline_id, baseline_hash,
+        my_id,
+        my_hash,
+        baseline_id,
+        baseline_hash,
         ",".join(str(s) for s in sorted(seasons)),
     ]
     return "league_compare:" + hashlib.sha1(":".join(parts).encode("utf-8")).hexdigest()
 
 
 # ── Per-position pipeline ─────────────────────────────────────────────
+
 
 def _per_season_metrics_for_league(
     rows: list[dict[str, Any]],
@@ -140,21 +149,27 @@ def _build_league_block(
     for season, rows in seasons_map.items():
         if not rows:
             per_season[season] = {
-                "positions": {pos: _m.PositionMetrics(0, 0, 0, 0, 0, 0, 0, 0).to_dict()
-                              for pos in _m.OFFENSE_POSITIONS},
+                "positions": {
+                    pos: _m.PositionMetrics(0, 0, 0, 0, 0, 0, 0, 0).to_dict()
+                    for pos in _m.OFFENSE_POSITIONS
+                },
                 "flex": _m.PositionMetrics(0, 0, 0, 0, 0, 0, 0, 0).to_dict(),
                 "topPlayers": [],
                 "available": False,
             }
             continue
         per_pos, flex_metrics, sample_union = _per_season_metrics_for_league(
-            rows, league_info.scoring_settings, sample_sizes, season,
+            rows,
+            league_info.scoring_settings,
+            sample_sizes,
+            season,
         )
         # Top players sample for the UI year-by-year detail panel —
         # cap at 25 to keep payload light.  Sort by blended_score so
         # the displayed top matches what the ranking math actually used.
         top_players = sorted(
-            sample_union, key=lambda s: -s.blended_score,
+            sample_union,
+            key=lambda s: -s.blended_score,
         )[:25]
         per_season[season] = {
             "positions": {pos: m.to_dict() for pos, m in per_pos.items()},
@@ -186,8 +201,10 @@ def _build_league_block(
                 continue
             d = block["positions"][pos]
             per_year[season] = _m.PositionMetrics(
-                average=d["average"], median=d["median"],
-                p25=d["p25"], p75=d["p75"],
+                average=d["average"],
+                median=d["median"],
+                p25=d["p25"],
+                p75=d["p75"],
                 replacement_level=d["replacementLevel"],
                 elite=d["elite"],
                 replacement_adj=d["replacementAdj"],
@@ -200,8 +217,10 @@ def _build_league_block(
             continue
         d = block["flex"]
         flex_per_year[season] = _m.PositionMetrics(
-            average=d["average"], median=d["median"],
-            p25=d["p25"], p75=d["p75"],
+            average=d["average"],
+            median=d["median"],
+            p25=d["p25"],
+            p75=d["p75"],
             replacement_level=d["replacementLevel"],
             elite=d["elite"],
             replacement_adj=d["replacementAdj"],
@@ -215,15 +234,21 @@ def _build_league_block(
             "positions": {pos: m.to_dict() for pos, m in combined_positions.items()},
             "flex": combined_flex.to_dict(),
         },
-        "_combinedPositions": combined_positions,   # internal handle
-        "_combinedFlex": combined_flex,             # internal handle
+        "_combinedPositions": combined_positions,  # internal handle
+        "_combinedFlex": combined_flex,  # internal handle
     }
 
 
 def _build_position_comparisons(
     my_block: dict[str, Any],
     base_block: dict[str, Any],
-) -> tuple[dict[str, dict[str, Any]], dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
+) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, float],
+    dict[str, float],
+    dict[str, float],
+    dict[str, float],
+]:
     """Compute per-position comparisons and the four share dicts (legacy
     + improved × my + baseline)."""
     my_pos: dict[str, _m.PositionMetrics] = my_block["_combinedPositions"]
@@ -243,8 +268,10 @@ def _build_position_comparisons(
     for pos in _m.OFFENSE_POSITIONS:
         diff_pp_improved = my_share_improved[pos] - base_share_improved[pos]
         rec_text = _m.recommendation(
-            pos, diff_pp_improved,
-            my_share_improved[pos], base_share_improved[pos],
+            pos,
+            diff_pp_improved,
+            my_share_improved[pos],
+            base_share_improved[pos],
         )
         comp = _m.PositionComparison(
             position=pos,
@@ -315,10 +342,7 @@ def _summary_block(
     similarity: _m.SimilarityResult,
 ) -> dict[str, Any]:
     """Compute biggest-difference + closest-match for the summary cards."""
-    diffs = [
-        (pos, abs(comp["diffPpImproved"]))
-        for pos, comp in positions.items()
-    ]
+    diffs = [(pos, abs(comp["diffPpImproved"])) for pos, comp in positions.items()]
     diffs.sort(key=lambda x: -x[1])
     biggest = diffs[0][0] if diffs else None
     closest = diffs[-1][0] if diffs else None
@@ -339,6 +363,7 @@ def _summary_block(
 
 
 # ── Top-level entry ───────────────────────────────────────────────────
+
 
 def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     """Build the full comparison payload (or load it from cache).
@@ -361,9 +386,7 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     _required_sample_keys = ("QB", "RB", "WR", "TE", "FLEX")
     _missing = [k for k in _required_sample_keys if k not in sample_sizes]
     if _missing:
-        raise ValueError(
-            f"config/league_comparison.json missing sample_sizes keys: {_missing}"
-        )
+        raise ValueError(f"config/league_comparison.json missing sample_sizes keys: {_missing}")
     _bad = [k for k in _required_sample_keys if sample_sizes[k] <= 0]
     if _bad:
         raise ValueError(
@@ -378,9 +401,12 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     base_info = _sleeper.fetch_league_scoring(base_cfg["id"], refresh=refresh)
 
     cache_key = _cache_key(
-        my_id=my_info.league_id, baseline_id=base_info.league_id,
-        my_hash=my_info.scoring_hash, baseline_hash=base_info.scoring_hash,
-        seasons=seasons_requested, version=version,
+        my_id=my_info.league_id,
+        baseline_id=base_info.league_id,
+        my_hash=my_info.scoring_hash,
+        baseline_hash=base_info.scoring_hash,
+        seasons=seasons_requested,
+        version=version,
     )
     cache_dir = _cache_dir()
     if not refresh:
@@ -414,14 +440,25 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     # Pre-flag any scoring keys present in either league but not handled
     # by the scoring engine — surfaces in the methodology / warnings UI.
     from src.nfl_data.realized_points import _SIMPLE_KEYS, _IDP_KEYS  # noqa: PLC0415
-    handled = set(_SIMPLE_KEYS.keys()) | set(_IDP_KEYS.keys()) | {
-        "bonus_rec_te",
-        "bonus_pass_yd_300", "bonus_pass_yd_400",
-        "bonus_rush_yd_100", "bonus_rush_yd_200",
-        "bonus_rec_yd_100", "bonus_rec_yd_200",
-        "pass_2pt", "rush_2pt", "rec_2pt",
-        "idp_tkl_5p", "idp_tkl_10p",
-    }
+
+    handled = (
+        set(_SIMPLE_KEYS.keys())
+        | set(_IDP_KEYS.keys())
+        | {
+            "bonus_rec_te",
+            "bonus_pass_yd_300",
+            "bonus_pass_yd_400",
+            "bonus_rush_yd_100",
+            "bonus_rush_yd_200",
+            "bonus_rec_yd_100",
+            "bonus_rec_yd_200",
+            "pass_2pt",
+            "rush_2pt",
+            "rec_2pt",
+            "idp_tkl_5p",
+            "idp_tkl_10p",
+        }
+    )
     unsupported_my = sorted(set(my_info.scoring_settings.keys()) - handled)
     unsupported_base = sorted(set(base_info.scoring_settings.keys()) - handled)
     if unsupported_my or unsupported_base:
@@ -429,7 +466,8 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
         # Only warn about keys with non-zero values — many leagues
         # have dozens of zeroed keys for unused categories.
         nonzero = [
-            k for k in keys
+            k
+            for k in keys
             if my_info.scoring_settings.get(k, 0) or base_info.scoring_settings.get(k, 0)
         ]
         if nonzero:
@@ -442,7 +480,8 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     base_block = _build_league_block(base_info, seasons_map, sample_sizes)
 
     positions, my_sl, my_si, base_sl, base_si = _build_position_comparisons(
-        my_block, base_block,
+        my_block,
+        base_block,
     )
     flex = _flex_block(my_block, base_block)
 
@@ -520,7 +559,9 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
 
     _LOGGER.info(
         "league_compare.built my=%s baseline=%s seasons=%s ms=%d",
-        my_info.league_id, base_info.league_id,
-        avail["available"], payload["meta"]["computeMs"],
+        my_info.league_id,
+        base_info.league_id,
+        avail["available"],
+        payload["meta"]["computeMs"],
     )
     return payload

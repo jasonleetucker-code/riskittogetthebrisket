@@ -1,4 +1,5 @@
 """Unit tests for src/utils/name_clean.py"""
+
 from __future__ import annotations
 
 import pytest
@@ -7,6 +8,7 @@ from src.utils.name_clean import normalize_player_name, normalize_position_famil
 
 
 # ── normalize_player_name ────────────────────────────────────────────
+
 
 class TestNormalizePlayerName:
     def test_basic_name(self):
@@ -26,9 +28,15 @@ class TestNormalizePlayerName:
 
     def test_known_suffix_players_all_normalize_identically(self):
         """Players with Jr/Sr/III suffixes must all collapse to the same key."""
-        assert normalize_player_name("Kenneth Walker III") == normalize_player_name("Kenneth Walker")
-        assert normalize_player_name("Marvin Harrison Jr.") == normalize_player_name("Marvin Harrison")
-        assert normalize_player_name("Marvin Harrison Jr") == normalize_player_name("Marvin Harrison")
+        assert normalize_player_name("Kenneth Walker III") == normalize_player_name(
+            "Kenneth Walker"
+        )
+        assert normalize_player_name("Marvin Harrison Jr.") == normalize_player_name(
+            "Marvin Harrison"
+        )
+        assert normalize_player_name("Marvin Harrison Jr") == normalize_player_name(
+            "Marvin Harrison"
+        )
         assert normalize_player_name("Brian Thomas Jr.") == normalize_player_name("Brian Thomas")
         assert normalize_player_name("Brian Thomas Jr") == normalize_player_name("Brian Thomas")
         assert normalize_player_name("Omar Cooper Jr.") == normalize_player_name("Omar Cooper")
@@ -69,6 +77,7 @@ class TestNormalizePlayerName:
 
 # ── normalize_team ───────────────────────────────────────────────────
 
+
 class TestNormalizeTeam:
     def test_basic_team(self):
         assert normalize_team("kc") == "KC"
@@ -86,41 +95,54 @@ class TestNormalizeTeam:
 
 # ── normalize_position_family ────────────────────────────────────────
 
+
 class TestNormalizePositionFamily:
-    @pytest.mark.parametrize("input_pos,expected", [
-        ("QB", "QB"),
-        ("qb", "QB"),
-        ("RB", "RB"),
-        ("WR", "WR"),
-        ("TE", "TE"),
-    ])
+    @pytest.mark.parametrize(
+        "input_pos,expected",
+        [
+            ("QB", "QB"),
+            ("qb", "QB"),
+            ("RB", "RB"),
+            ("WR", "WR"),
+            ("TE", "TE"),
+        ],
+    )
     def test_offensive_positions(self, input_pos, expected):
         assert normalize_position_family(input_pos) == expected
 
-    @pytest.mark.parametrize("input_pos,expected", [
-        ("DE", "DL"),
-        ("DT", "DL"),
-        ("DL", "DL"),
-        ("EDGE", "DL"),
-    ])
+    @pytest.mark.parametrize(
+        "input_pos,expected",
+        [
+            ("DE", "DL"),
+            ("DT", "DL"),
+            ("DL", "DL"),
+            ("EDGE", "DL"),
+        ],
+    )
     def test_defensive_line(self, input_pos, expected):
         assert normalize_position_family(input_pos) == expected
 
-    @pytest.mark.parametrize("input_pos,expected", [
-        ("LB", "LB"),
-        ("ILB", "LB"),
-        ("OLB", "LB"),
-    ])
+    @pytest.mark.parametrize(
+        "input_pos,expected",
+        [
+            ("LB", "LB"),
+            ("ILB", "LB"),
+            ("OLB", "LB"),
+        ],
+    )
     def test_linebackers(self, input_pos, expected):
         assert normalize_position_family(input_pos) == expected
 
-    @pytest.mark.parametrize("input_pos,expected", [
-        ("S", "DB"),
-        ("SS", "DB"),
-        ("FS", "DB"),
-        ("CB", "DB"),
-        ("DB", "DB"),
-    ])
+    @pytest.mark.parametrize(
+        "input_pos,expected",
+        [
+            ("S", "DB"),
+            ("SS", "DB"),
+            ("FS", "DB"),
+            ("CB", "DB"),
+            ("DB", "DB"),
+        ],
+    )
     def test_defensive_backs(self, input_pos, expected):
         assert normalize_position_family(input_pos) == expected
 
@@ -141,6 +163,7 @@ class TestNormalizePositionFamily:
 
 
 # ── Dynasty-specific name edge cases ─────────────────────────────────
+
 
 class TestDynastyNameEdgeCases:
     """Real player names that have historically caused matching failures."""
@@ -207,11 +230,14 @@ class TestDynastyNameEdgeCases:
 class TestNormalizePositionFamilyEdgeCases:
     """Position strings seen across different data sources."""
 
-    @pytest.mark.parametrize("input_pos,expected", [
-        ("NT", "DL"),       # Nose tackle — maps to DL in canonical aliases
-        ("FLEX", "FLEX"),   # Fantasy position
-        ("SUPER_FLEX", "SUPER"),  # startswith check takes first token
-    ])
+    @pytest.mark.parametrize(
+        "input_pos,expected",
+        [
+            ("NT", "DL"),  # Nose tackle — maps to DL in canonical aliases
+            ("FLEX", "FLEX"),  # Fantasy position
+            ("SUPER_FLEX", "SUPER"),  # startswith check takes first token
+        ],
+    )
     def test_fantasy_and_rare_positions(self, input_pos, expected):
         assert normalize_position_family(input_pos) == expected
 
@@ -245,6 +271,7 @@ class TestNormalizeTeamEdgeCases:
 
 
 # ── normalize_position_family ──────────────────────────────────────
+
 
 class TestNormalizePositionFamily:
     # Standard positions

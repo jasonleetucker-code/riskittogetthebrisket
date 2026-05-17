@@ -26,6 +26,7 @@ existing ``config/weights/default.json`` (or whatever the
 canonical pipeline uses today) is unchanged.  Shipping this
 module can't regress rankings until the flag flips.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,6 +67,7 @@ def raw_weights_from_accuracy(
         return {}
     # Shift to [0, 2] — rho=1 → weight exp(2), rho=-1 → exp(-0).
     import math
+
     weights_raw = {a.source: math.exp(max(0.0, a.spearman_rho + 1.0)) for a in eligible}
     total = sum(weights_raw.values())
     normalized = {s: max(floor, w / total) for s, w in weights_raw.items()}

@@ -28,6 +28,7 @@ Threading: SQLite WAL + a module-level Lock around writes.  Reads
 are uncontested (WAL).  Mirrors the pattern used by
 ``src/api/user_kv.py`` and ``src/api/session_store.py``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -44,9 +45,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # DB path is overridable for tests + alternate data roots.  Same
 # pattern as session_store.
-_DEFAULT_DB_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "guest_passes.sqlite"
-)
+_DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "guest_passes.sqlite"
 _TABLE = "guest_passes"
 _TOKEN_BYTES = 24  # 24 URL-safe bytes → 32-char base64 string.
 _MAX_DURATION_HOURS = 24 * 30  # 30 days; sanity cap on creation.
@@ -65,6 +64,7 @@ class GuestPass:
     """Public representation of a stored pass.  Plaintext token is
     NEVER on this dataclass — only on the create() return value, and
     only once."""
+
     id: int
     note: str
     created_by: str
@@ -126,12 +126,10 @@ def _setup(path: Path) -> None:
                 )
             """)
             conn.execute(
-                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_expires "
-                f"ON {_TABLE}(expires_at_epoch)"
+                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_expires " f"ON {_TABLE}(expires_at_epoch)"
             )
             conn.execute(
-                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_token_hash "
-                f"ON {_TABLE}(token_hash)"
+                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_token_hash " f"ON {_TABLE}(token_hash)"
             )
         finally:
             conn.close()
@@ -197,9 +195,7 @@ def create(
     except (TypeError, ValueError) as exc:
         raise ValueError("duration_hours must be a number") from exc
     if hours < _MIN_DURATION_HOURS:
-        raise ValueError(
-            f"duration_hours must be ≥ {_MIN_DURATION_HOURS:.4f} (~1 min)"
-        )
+        raise ValueError(f"duration_hours must be ≥ {_MIN_DURATION_HOURS:.4f} (~1 min)")
     if hours > _MAX_DURATION_HOURS:
         raise ValueError(f"duration_hours must be ≤ {_MAX_DURATION_HOURS}")
 

@@ -37,6 +37,7 @@ Options:
     --only LABEL[,...] restrict to specific fixture labels
     --refresh          recompute trades even if already captured
 """
+
 from __future__ import annotations
 
 import argparse
@@ -148,7 +149,7 @@ def _xpath_lit(s: str) -> str:
         return f'"{s}"'
     # Both kinds present: concat("foo", "'", "bar")
     parts = s.split("'")
-    return "concat(" + ", \"'\", ".join(f"'{p}'" for p in parts) + ")"
+    return "concat(" + ', "\'", '.join(f"'{p}'" for p in parts) + ")"
 
 
 async def _dump_debug_snapshot(page, tag: str) -> str:
@@ -271,9 +272,7 @@ async def _add_player(page, team_idx: int, player_name: str, *, timeout: int = 1
         debug_path = await _dump_debug_snapshot(
             page, f"add_player_no_row_team{team_idx}_{_safe_filename(player_name)}"
         )
-        msg = (
-            f"clicked dropdown for {player_name!r} but no row appeared in #{list_id}"
-        )
+        msg = f"clicked dropdown for {player_name!r} but no row appeared in #{list_id}"
         if debug_path:
             msg += f" (debug snapshot: {debug_path})"
         raise RuntimeError(msg)
@@ -297,7 +296,7 @@ async def _clear_team(page, team_idx: int) -> None:
     # list (each `css=` after the first becomes literal text and trips
     # the CSS tokenizer).  Concatenate plain CSS selectors instead.
     selector = (
-        f'#{list_id} button, '
+        f"#{list_id} button, "
         f'#{list_id} [class*="remove"], '
         f'#{list_id} [class*="close"], '
         f'#{list_id} [aria-label="Remove"]'
@@ -480,7 +479,9 @@ async def run(args: argparse.Namespace) -> int:
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        print("FAIL: playwright not installed.  Run: pip install playwright && playwright install chromium")
+        print(
+            "FAIL: playwright not installed.  Run: pip install playwright && playwright install chromium"
+        )
         return 1
 
     failures: list[tuple[str, str]] = []
@@ -540,8 +541,12 @@ def main() -> int:
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     parser.add_argument("--headed", action="store_true", help="run with visible browser")
     parser.add_argument("--throttle-ms", type=int, default=2500, help="delay between trades")
-    parser.add_argument("--only", default="", help="comma-separated labels to capture (default: all)")
-    parser.add_argument("--refresh", action="store_true", help="recompute even if observation exists")
+    parser.add_argument(
+        "--only", default="", help="comma-separated labels to capture (default: all)"
+    )
+    parser.add_argument(
+        "--refresh", action="store_true", help="recompute even if observation exists"
+    )
     args = parser.parse_args()
     return asyncio.run(run(args))
 

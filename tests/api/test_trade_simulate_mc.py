@@ -6,6 +6,7 @@ Pins:
   * Flag on + valid body → 200 with expected shape.
   * Disclaimer + labelHint always present in the response.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,14 +27,18 @@ def _sample_body():
     return {
         "sideA": [
             {
-                "name": "Josh Allen", "team": "BUF", "pos": "QB",
+                "name": "Josh Allen",
+                "team": "BUF",
+                "pos": "QB",
                 "rankDerivedValue": 9200,
                 "valueBand": {"p10": 8500, "p50": 9200, "p90": 9900},
             }
         ],
         "sideB": [
             {
-                "name": "Jalen Hurts", "team": "PHI", "pos": "QB",
+                "name": "Jalen Hurts",
+                "team": "PHI",
+                "pos": "QB",
                 "rankDerivedValue": 8500,
                 "valueBand": {"p10": 7800, "p50": 8500, "p90": 9200},
             }
@@ -103,8 +108,11 @@ def test_invalid_body_returns_400(monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "test"})
     with TestClient(server.app, raise_server_exceptions=True) as c:
-        res = c.post("/api/trade/simulate-mc", content=b"not json",
-                     headers={"content-type": "application/json"})
+        res = c.post(
+            "/api/trade/simulate-mc",
+            content=b"not json",
+            headers={"content-type": "application/json"},
+        )
     assert res.status_code == 400
 
 
@@ -148,6 +156,7 @@ def test_timeout_returns_clean_504(monkeypatch):
 
     def _slow(*a, **k):
         import time as _t
+
         _t.sleep(1.5)
         raise AssertionError("should have timed out before returning")
 

@@ -11,6 +11,7 @@ with a fake client. Here we verify:
     * POST /api/league/articles/generate gates on admin auth and
       returns 503 when ANTHROPIC_API_KEY is missing.
 """
+
 from __future__ import annotations
 
 import json
@@ -52,8 +53,12 @@ def _make_article(season="2025", week=17, matchup_id=1, mode="recap", title="Tit
         "roundLabel": "Championship",
         "home": {"ownerId": "owner-A", "displayName": "AAron", "teamName": "Brisket Bandits"},
         "away": {"ownerId": "owner-B", "displayName": "Bea", "teamName": "Beast Mode"},
-        "usage": {"input_tokens": 100, "output_tokens": 200,
-                  "cache_read_input_tokens": 0, "cache_creation_input_tokens": 100},
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 100,
+        },
     }
 
 
@@ -69,7 +74,9 @@ def test_list_empty_returns_empty_array(article_tmpdir):
 
 
 def test_list_returns_index_after_save(article_tmpdir):
-    mn.save_article(_make_article(matchup_id=1, mode="preview", title="Preview"), base=article_tmpdir)
+    mn.save_article(
+        _make_article(matchup_id=1, mode="preview", title="Preview"), base=article_tmpdir
+    )
     mn.save_article(_make_article(matchup_id=1, mode="recap", title="Recap"), base=article_tmpdir)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.get("/api/league/articles?season=2025&week=17")
@@ -127,7 +134,9 @@ def test_generate_requires_admin(article_tmpdir, monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "randomuser"})
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"jasonleetucker"}),
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
+        frozenset({"jasonleetucker"}),
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/league/articles/generate", json={"mode": "preview", "matchupId": 1})
@@ -138,7 +147,9 @@ def test_generate_validates_mode(article_tmpdir, monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "admin"})
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"admin"}),
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
+        frozenset({"admin"}),
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/league/articles/generate", json={"mode": "nope", "matchupId": 1})
@@ -149,7 +160,9 @@ def test_generate_validates_matchup_id(article_tmpdir, monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "admin"})
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"admin"}),
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
+        frozenset({"admin"}),
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/league/articles/generate", json={"mode": "preview"})
@@ -171,7 +184,9 @@ def test_generate_collapses_sdk_errors_to_502(article_tmpdir, monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "admin"})
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"admin"}),
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
+        frozenset({"admin"}),
     )
     monkeypatch.setenv("SLEEPER_LEAGUE_ID", "test-league-id")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-test")
@@ -193,13 +208,22 @@ def test_generate_collapses_sdk_errors_to_502(article_tmpdir, monkeypatch):
     from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
     fake_season = SeasonSnapshot(
-        season="2025", league_id="test", league={}, users=[], rosters=[],
-        matchups_by_week={}, transactions_by_week={}, drafts=[],
-        draft_picks_by_draft={}, traded_picks=[], winners_bracket=[],
+        season="2025",
+        league_id="test",
+        league={},
+        users=[],
+        rosters=[],
+        matchups_by_week={},
+        transactions_by_week={},
+        drafts=[],
+        draft_picks_by_draft={},
+        traded_picks=[],
+        winners_bracket=[],
         losers_bracket=[],
     )
     fake_snapshot = PublicLeagueSnapshot(
-        root_league_id="test", generated_at="2025-01-01T00:00:00",
+        root_league_id="test",
+        generated_at="2025-01-01T00:00:00",
         seasons=[fake_season],
     )
     monkeypatch.setattr(
@@ -226,6 +250,7 @@ def test_generate_collapses_sdk_errors_to_502(article_tmpdir, monkeypatch):
 
 class _StubBrief:
     """Minimal brief stub for endpoint tests that bypass build_brief."""
+
     mode = "preview"
     season = "2025"
     week = 17
@@ -249,7 +274,9 @@ def test_generate_returns_503_when_anthropic_unconfigured(article_tmpdir, monkey
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "admin"})
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"admin"}),
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
+        frozenset({"admin"}),
     )
     # Provision a league via the env-var fallback so the resolver
     # finds something (anything — we never hit the snapshot path).

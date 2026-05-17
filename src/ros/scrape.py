@@ -20,6 +20,7 @@ Failure isolation:
       ``data/ros/runs/index.json`` so the API can surface "all sources
       failed today; using yesterday's snapshot".
 """
+
 from __future__ import annotations
 
 import argparse
@@ -212,9 +213,8 @@ def _hydrate_overlay_players(
             # empty, which would poison the canonical lookup.
             full_name = (meta.get("full_name") or "").strip()
             if not full_name:
-                full_name = (
-                    f"{meta.get('first_name','')} {meta.get('last_name','')}".strip()
-                    or (names[i] if i < len(names) else pid_str)
+                full_name = f"{meta.get('first_name','')} {meta.get('last_name','')}".strip() or (
+                    names[i] if i < len(names) else pid_str
                 )
             position = (meta.get("position") or "").upper()
             injury = (meta.get("injury_status") or "").upper()
@@ -286,9 +286,7 @@ def _refresh_team_strength_for_league(
             )
             return None
         teams = _hydrate_overlay_players(overlay["teams"], nfl_players)
-        starter_slots = _flatten_starter_slots(
-            (cfg.roster_settings or {}).get("starters")
-        )
+        starter_slots = _flatten_starter_slots((cfg.roster_settings or {}).get("starters"))
         if not starter_slots:
             LOG.warning(
                 "[ros] team-strength %s: no starter slots configured",
@@ -303,17 +301,21 @@ def _refresh_team_strength_for_league(
         path = write_team_strength_snapshot(rows, league_key=cfg.key)
         LOG.info(
             "[ros] team-strength %s: wrote %d teams to %s",
-            cfg.key, len(rows), path,
+            cfg.key,
+            len(rows),
+            path,
         )
         return path
     except Exception as exc:  # noqa: BLE001
         LOG.warning(
             "[ros] team-strength refresh for %s failed: %s",
-            getattr(cfg, "key", "?"), exc,
+            getattr(cfg, "key", "?"),
+            exc,
         )
         LOG.debug(
             "[ros] team-strength %s traceback: %s",
-            getattr(cfg, "key", "?"), traceback.format_exc(),
+            getattr(cfg, "key", "?"),
+            traceback.format_exc(),
         )
         return None
 
@@ -370,15 +372,11 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # picks up for each league in the multi-league iteration.
         bb = bool(getattr(cfg, "best_ball", False))
         playoff_payload = playoff_sim.simulate_playoff_odds(snap, best_ball=bb)
-        playoff_path.write_text(
-            json.dumps({"computedAt": _now(), **playoff_payload}, indent=2)
-        )
+        playoff_path.write_text(json.dumps({"computedAt": _now(), **playoff_payload}, indent=2))
         out["playoff"] = playoff_path
 
         championship_payload = championship.simulate_championship_odds(snap, best_ball=bb)
-        champ_path.write_text(
-            json.dumps({"computedAt": _now(), **championship_payload}, indent=2)
-        )
+        champ_path.write_text(json.dumps({"computedAt": _now(), **championship_payload}, indent=2))
         out["championship"] = champ_path
 
         LOG.info(
@@ -389,11 +387,13 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
     except Exception as exc:  # noqa: BLE001
         LOG.warning(
             "[ros] sim-cache refresh for %s failed: %s",
-            getattr(cfg, "key", "?"), exc,
+            getattr(cfg, "key", "?"),
+            exc,
         )
         LOG.debug(
             "[ros] sim-cache %s traceback: %s",
-            getattr(cfg, "key", "?"), traceback.format_exc(),
+            getattr(cfg, "key", "?"),
+            traceback.format_exc(),
         )
         return None
 
@@ -423,9 +423,7 @@ def _build_snapshot(src_meta: dict[str, Any], result: ScrapeResult) -> SourceSna
             rank=int(row.get("rank") or 0),
             total_ranked=int(row.get("total_ranked") or len(result.rows)),
             projection_value=(
-                float(row["projection"])
-                if row.get("projection") not in (None, "", 0)
-                else None
+                float(row["projection"]) if row.get("projection") not in (None, "", 0) else None
             ),
             confidence=float(row.get("confidence") or 1.0),
         )
@@ -639,14 +637,10 @@ def run_all(
         # historical ``team_strength/latest.json`` + ``sims/latest_*.json``
         # filenames so existing readers keep working.
         "teamStrengthPaths": {
-            k: str(p.relative_to(ROS_DATA_DIR))
-            for k, p in team_strength_paths.items()
+            k: str(p.relative_to(ROS_DATA_DIR)) for k, p in team_strength_paths.items()
         },
         "simPathsByLeague": {
-            league_key: {
-                kind: str(p.relative_to(ROS_DATA_DIR))
-                for kind, p in paths.items()
-            }
+            league_key: {kind: str(p.relative_to(ROS_DATA_DIR)) for kind, p in paths.items()}
             for league_key, paths in sim_paths_by_league.items()
         },
     }
@@ -655,9 +649,7 @@ def run_all(
 def main() -> int:
     parser = argparse.ArgumentParser(prog="ros.scrape")
     parser.add_argument("--source", help="run only one source by key (debug)")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="DEBUG logging"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="DEBUG logging")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -668,8 +660,7 @@ def main() -> int:
     overrides: dict[str, dict[str, Any]] | None = None
     if args.source:
         overrides = {
-            s["key"]: {"enabled": s["key"] == args.source}
-            for s in enabled_ros_sources(None)
+            s["key"]: {"enabled": s["key"] == args.source} for s in enabled_ros_sources(None)
         }
 
     summary = run_all(overrides=overrides)

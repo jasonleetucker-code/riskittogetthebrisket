@@ -40,6 +40,7 @@ Evaluation
 the dispatcher should deliver.  No I/O, no email/push side effects;
 the cron handler in server.py wires those up.
 """
+
 from __future__ import annotations
 
 import logging
@@ -226,24 +227,25 @@ def evaluate_alerts(
             threshold = int(params.get("threshold") or 0)
             direction = str(params.get("direction") or "")
             v = int(round(float(value)))
-            crossed = (
-                (direction == "above" and v >= threshold)
-                or (direction == "below" and v <= threshold)
+            crossed = (direction == "above" and v >= threshold) or (
+                direction == "below" and v <= threshold
             )
             if not crossed:
                 continue
             arrow = "↑" if direction == "above" else "↓"
             title = f"{display_name} {arrow} {threshold}"
             body = f"Value is now {v:,} (threshold {threshold:,})."
-            out.append(Hit(
-                rule_id=rule_id,
-                kind=kind,
-                display_name=display_name,
-                title=title,
-                body=body,
-                state_key=skey,
-                channels=channels,
-            ))
+            out.append(
+                Hit(
+                    rule_id=rule_id,
+                    kind=kind,
+                    display_name=display_name,
+                    title=title,
+                    body=body,
+                    state_key=skey,
+                    channels=channels,
+                )
+            )
             continue
 
         if kind == "rank_change":
@@ -259,15 +261,17 @@ def evaluate_alerts(
             body_parts = [f"Rank moved {int(change):+d} positions"]
             if isinstance(rank, int):
                 body_parts.append(f"now #{rank}")
-            out.append(Hit(
-                rule_id=rule_id,
-                kind=kind,
-                display_name=display_name,
-                title=" · ".join(body_parts[:1]),
-                body=" · ".join(body_parts) + ".",
-                state_key=skey,
-                channels=channels,
-            ))
+            out.append(
+                Hit(
+                    rule_id=rule_id,
+                    kind=kind,
+                    display_name=display_name,
+                    title=" · ".join(body_parts[:1]),
+                    body=" · ".join(body_parts) + ".",
+                    state_key=skey,
+                    channels=channels,
+                )
+            )
             continue
 
     return out
@@ -282,12 +286,9 @@ def mark_fired(state: dict[str, Any], hit: Hit, *, now: datetime | None = None) 
     return new_state
 
 
-def prune_state_for_removed_rule(
-    state: dict[str, Any], rule_id: str
-) -> dict[str, Any]:
+def prune_state_for_removed_rule(state: dict[str, Any], rule_id: str) -> dict[str, Any]:
     """Drop cooldown entries for a deleted rule so its state_key
     namespace doesn't accumulate forever in user_kv."""
     return {
-        k: v for k, v in state.items()
-        if not (isinstance(k, str) and k.startswith(f"{rule_id}::"))
+        k: v for k, v in state.items() if not (isinstance(k, str) and k.startswith(f"{rule_id}::"))
     }

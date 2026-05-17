@@ -9,6 +9,7 @@ Output: a list of :class:`PlayerSeasonScore` records, one per
 ``(player_id_gsis, position, season)`` triple, that downstream metrics
 code can sort/filter/sample.
 """
+
 from __future__ import annotations
 
 import logging
@@ -81,8 +82,8 @@ def compute_blended_score(total_points: float, games_played: int) -> float:
 class PlayerSeasonScore:
     player_id: str
     player_name: str
-    position: str          # canonicalised: QB / RB / WR / TE / DL / LB / DB
-    raw_position: str      # what nflverse reported (DT, EDGE, OLB, etc.)
+    position: str  # canonicalised: QB / RB / WR / TE / DL / LB / DB
+    raw_position: str  # what nflverse reported (DT, EDGE, OLB, etc.)
     season: int
     total_points: float
     games_played: int
@@ -213,7 +214,8 @@ def compute_player_season_scores(
     if unknown_positions:
         _LOGGER.warning(
             "scoring_engine.unknown_positions_dropped season=%s positions=%s",
-            season, sorted(unknown_positions),
+            season,
+            sorted(unknown_positions),
         )
 
     return out

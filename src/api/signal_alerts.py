@@ -40,6 +40,7 @@ No-op when unauthenticated or when the user doesn't have an email
 on record (Sleeper login doesn't collect one today).  The function
 structure is also push-notification-ready for later wiring.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,6 +63,7 @@ _MIN_NOTIFY_INTERVAL_HOURS: float = 12.0
 
 def _utc_now_ms() -> int:
     import time
+
     return int(time.time() * 1000)
 
 
@@ -182,15 +184,17 @@ def detect_signal_transitions(
             }
             continue
         # Emit a transition.
-        transitions.append({
-            "signalKey": state_key,
-            "name": entry.get("name"),
-            "pos": entry.get("pos"),
-            "signal": signal,
-            "priorSignal": prev_signal or None,
-            "reason": entry.get("reason") or "",
-            "sleeperId": entry.get("sleeperId") or "",
-        })
+        transitions.append(
+            {
+                "signalKey": state_key,
+                "name": entry.get("name"),
+                "pos": entry.get("pos"),
+                "signal": signal,
+                "priorSignal": prev_signal or None,
+                "reason": entry.get("reason") or "",
+                "sleeperId": entry.get("sleeperId") or "",
+            }
+        )
         new_state[state_key] = {
             "signal": signal,
             "notifiedAt": now,
@@ -236,10 +240,7 @@ def format_alert_email(
     simplicity and spam-filter friendliness.
     """
     count = len(transitions)
-    subject = (
-        f"[Brisket] {count} signal update{'' if count == 1 else 's'}"
-        f" for your roster"
-    )
+    subject = f"[Brisket] {count} signal update{'' if count == 1 else 's'}" f" for your roster"
     lines: list[str] = []
     lines.append(f"Hi {display_name},")
     lines.append("")
@@ -287,7 +288,10 @@ def process_user_alerts(
     Omitted → legacy single-league behaviour.
     """
     transitions = detect_signal_transitions(
-        username, signals, path=path, league_key=league_key,
+        username,
+        signals,
+        path=path,
+        league_key=league_key,
     )
     if not transitions:
         return {"transitions": 0, "delivered": False, "reason": "no_transitions"}

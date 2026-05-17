@@ -5,6 +5,7 @@ binary fixtures) and runs the inline-JSON extractor.  The fixture is
 trimmed to two players so the test stays fast and the expected output
 is easy to eyeball.
 """
+
 from __future__ import annotations
 
 import unittest

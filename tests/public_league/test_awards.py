@@ -5,6 +5,7 @@ cutoff) trader/waiver, starting-lineup-only Waiver King, champion-only
 Playoff MVP, the weighted Manager of the Year, Off/Def Rookie of the
 Year, Mr. Consistent, and canonical award ordering.
 """
+
 from __future__ import annotations
 
 import copy
@@ -53,8 +54,12 @@ from tests.public_league.fixtures import build_test_snapshot
 _NO_CUTOFF = contextlib.nullcontext()
 
 _REMOVED_KEYS = {
-    "chaos_agent", "most_active", "pick_hoarder",
-    "runner_up", "points_black_hole", "toilet_bowl",
+    "chaos_agent",
+    "most_active",
+    "pick_hoarder",
+    "runner_up",
+    "points_black_hole",
+    "toilet_bowl",
 }
 
 
@@ -70,26 +75,89 @@ def _with_player_points(snapshot):
     s2025 = snap.seasons[0]
     for wk, per_rid in {
         1: {
-            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 15.5}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
-            2: ({"p-qb2": 45.0, "p-rb3": 35.0, "p-wr2": 25.0, "p-te1": 15.0, "p-rookie-b": 15.2}, ["p-qb2", "p-rb3", "p-wr2", "p-te1", "p-rookie-b"]),
-            3: ({"p-wr1": 20.0, "p-wr2": 20.0, "p-wr3": 15.0, "p-rb1": 20.0, "p-qb1": 20.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
-            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 20.0, "p-idp3": 25.0, "p-qb2": 15.3}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
+            1: (
+                {"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 15.5},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
+            2: (
+                {"p-qb2": 45.0, "p-rb3": 35.0, "p-wr2": 25.0, "p-te1": 15.0, "p-rookie-b": 15.2},
+                ["p-qb2", "p-rb3", "p-wr2", "p-te1", "p-rookie-b"],
+            ),
+            3: (
+                {"p-wr1": 20.0, "p-wr2": 20.0, "p-wr3": 15.0, "p-rb1": 20.0, "p-qb1": 20.0},
+                ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"],
+            ),
+            4: (
+                {
+                    "p-te1": 15.0,
+                    "p-te2": 20.0,
+                    "p-idp1": 15.0,
+                    "p-idp2": 20.0,
+                    "p-idp3": 25.0,
+                    "p-qb2": 15.3,
+                },
+                ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"],
+            ),
         },
         2: {
-            1: ({"p-qb1": 40.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
-            3: ({"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
-            2: ({"p-qb2": 50.0, "p-rb2": 40.0, "p-wr2": 35.0, "p-te1": 20.0, "p-rookie-b": 20.0}, ["p-qb2", "p-rb2", "p-wr2", "p-te1", "p-rookie-b"]),
-            4: ({"p-te1": 15.0, "p-te2": 20.0, "p-idp1": 15.0, "p-idp2": 15.0, "p-idp3": 15.0, "p-qb2": 15.6}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
+            1: (
+                {"p-qb1": 40.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 20.0, "p-rookie-a": 25.0},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
+            3: (
+                {"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0},
+                ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"],
+            ),
+            2: (
+                {"p-qb2": 50.0, "p-rb2": 40.0, "p-wr2": 35.0, "p-te1": 20.0, "p-rookie-b": 20.0},
+                ["p-qb2", "p-rb2", "p-wr2", "p-te1", "p-rookie-b"],
+            ),
+            4: (
+                {
+                    "p-te1": 15.0,
+                    "p-te2": 20.0,
+                    "p-idp1": 15.0,
+                    "p-idp2": 15.0,
+                    "p-idp3": 15.0,
+                    "p-qb2": 15.6,
+                },
+                ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"],
+            ),
         },
         15: {
-            2: ({"p-rb2": 55.5, "p-wr2": 35.0, "p-qb2": 40.0, "p-te1": 15.0, "p-rookie-b": 10.0}, ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"]),
-            4: ({"p-te1": 15.0, "p-te2": 30.0, "p-idp1": 30.0, "p-idp2": 25.0, "p-idp3": 20.0, "p-qb2": 10.0}, ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"]),
-            1: ({"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 35.0, "p-te1": 20.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
-            3: ({"p-wr1": 40.0, "p-wr2": 30.0, "p-wr3": 25.0, "p-rb1": 25.0, "p-qb1": 20.0}, ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"]),
+            2: (
+                {"p-rb2": 55.5, "p-wr2": 35.0, "p-qb2": 40.0, "p-te1": 15.0, "p-rookie-b": 10.0},
+                ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"],
+            ),
+            4: (
+                {
+                    "p-te1": 15.0,
+                    "p-te2": 30.0,
+                    "p-idp1": 30.0,
+                    "p-idp2": 25.0,
+                    "p-idp3": 20.0,
+                    "p-qb2": 10.0,
+                },
+                ["p-te1", "p-te2", "p-idp1", "p-idp2", "p-idp3", "p-qb2"],
+            ),
+            1: (
+                {"p-qb1": 40.0, "p-rb1": 30.0, "p-wr1": 35.0, "p-te1": 20.0, "p-rookie-a": 25.0},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
+            3: (
+                {"p-wr1": 40.0, "p-wr2": 30.0, "p-wr3": 25.0, "p-rb1": 25.0, "p-qb1": 20.0},
+                ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"],
+            ),
         },
         16: {
-            2: ({"p-rb2": 50.0, "p-wr2": 30.0, "p-qb2": 35.0, "p-te1": 15.0, "p-rookie-b": 15.0}, ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"]),
-            1: ({"p-qb1": 30.0, "p-rb1": 25.0, "p-wr1": 25.0, "p-te1": 15.0, "p-rookie-a": 25.0}, ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"]),
+            2: (
+                {"p-rb2": 50.0, "p-wr2": 30.0, "p-qb2": 35.0, "p-te1": 15.0, "p-rookie-b": 15.0},
+                ["p-rb2", "p-wr2", "p-qb2", "p-te1", "p-rookie-b"],
+            ),
+            1: (
+                {"p-qb1": 30.0, "p-rb1": 25.0, "p-wr1": 25.0, "p-te1": 15.0, "p-rookie-a": 25.0},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
         },
     }.items():
         for e in s2025.matchups_by_week.get(wk, []):
@@ -110,12 +178,26 @@ def _with_player_points(snapshot):
 class AwardDescriptionsTests(unittest.TestCase):
     def test_active_awards_have_descriptions(self) -> None:
         for key in (
-            "champion", "manager_of_the_year", "trader_of_the_year",
-            "best_trade_of_the_year", "waiver_king", "silent_assassin",
-            "weekly_hammer", "playoff_mvp", "bad_beat", "mr_consistent",
-            "best_rebuild", "rivalry_of_the_year", "off_roy", "def_roy",
-            "league_mvp", "off_mvp", "def_mvp",
-            "top_qb", "top_offense", "top_defense",
+            "champion",
+            "manager_of_the_year",
+            "trader_of_the_year",
+            "best_trade_of_the_year",
+            "waiver_king",
+            "silent_assassin",
+            "weekly_hammer",
+            "playoff_mvp",
+            "bad_beat",
+            "mr_consistent",
+            "best_rebuild",
+            "rivalry_of_the_year",
+            "off_roy",
+            "def_roy",
+            "league_mvp",
+            "off_mvp",
+            "def_mvp",
+            "top_qb",
+            "top_offense",
+            "top_defense",
         ):
             self.assertIn(key, AWARD_DESCRIPTIONS)
             self.assertTrue(AWARD_DESCRIPTIONS[key])
@@ -141,8 +223,7 @@ class SeasonScopedTransactionTests(unittest.TestCase):
 
     def test_section_includes_trader_waiver_for_season_with_txns(self) -> None:
         section = awards.build_section(self.snapshot)
-        by_year = {s["season"]: {a["key"] for a in s["awards"]}
-                   for s in section["bySeason"]}
+        by_year = {s["season"]: {a["key"] for a in s["awards"]} for s in section["bySeason"]}
         k2025 = by_year.get("2025", set())
         self.assertIn("trader_of_the_year", k2025)
         self.assertIn("waiver_king", k2025)
@@ -318,9 +399,7 @@ class ManagerOfTheYearTests(unittest.TestCase):
             self.assertGreaterEqual(a["compositeScore"], b["compositeScore"])
 
     def test_champion_has_best_finish_rank(self) -> None:
-        rows = _manager_of_the_year_scores(
-            self.snapshot, self.snapshot.seasons[0], [], []
-        )
+        rows = _manager_of_the_year_scores(self.snapshot, self.snapshot.seasons[0], [], [])
         by_owner = {r["ownerId"]: r for r in rows}
         # 2025 champion = owner-B → finishRank 1.
         self.assertEqual(by_owner["owner-B"]["finishRank"], 1)
@@ -350,18 +429,14 @@ class RookieOfTheYearTests(unittest.TestCase):
         cls.snapshot = _with_player_points(build_test_snapshot())
 
     def test_off_roy_only_offensive_rookies(self) -> None:
-        rows = _rookie_of_year_rows(
-            self.snapshot, self.snapshot.seasons[0], _OFF_ROY_POSITIONS
-        )
+        rows = _rookie_of_year_rows(self.snapshot, self.snapshot.seasons[0], _OFF_ROY_POSITIONS)
         for r in rows:
             self.assertIn(r["position"], _OFF_ROY_POSITIONS)
             meta = self.snapshot.nfl_players.get(r["playerId"]) or {}
             self.assertEqual(int(meta.get("years_exp")), 0)
 
     def test_def_roy_only_defensive_rookies(self) -> None:
-        rows = _rookie_of_year_rows(
-            self.snapshot, self.snapshot.seasons[0], _DEF_ROY_POSITIONS
-        )
+        rows = _rookie_of_year_rows(self.snapshot, self.snapshot.seasons[0], _DEF_ROY_POSITIONS)
         for r in rows:
             self.assertIn(r["position"], _DEF_ROY_POSITIONS)
             meta = self.snapshot.nfl_players.get(r["playerId"]) or {}
@@ -488,8 +563,11 @@ class TopNflTeamTests(unittest.TestCase):
         # Fixture stub has no NFL team tags — assign a few so the
         # aggregation has data (nfl_players is deep-copied, safe).
         for pid, team in {
-            "p-qb1": "DET", "p-rb1": "DET", "p-wr1": "SF",
-            "p-qb2": "KC", "p-rb2": "KC",
+            "p-qb1": "DET",
+            "p-rb1": "DET",
+            "p-wr1": "SF",
+            "p-qb2": "KC",
+            "p-rb2": "KC",
         }.items():
             if pid in snap.nfl_players:
                 snap.nfl_players[pid] = {**snap.nfl_players[pid], "team": team}
@@ -521,8 +599,11 @@ class TopNflTeamTests(unittest.TestCase):
 class AwardOrderingTests(unittest.TestCase):
     def test_champion_then_moty_lead(self) -> None:
         keys = [
-            "rivalry_of_the_year", "manager_of_the_year", "top_qb",
-            "champion", "bad_beat",
+            "rivalry_of_the_year",
+            "manager_of_the_year",
+            "top_qb",
+            "champion",
+            "bad_beat",
         ]
         awarded = [{"key": k} for k in keys]
         ordered = [a["key"] for a in _order_awards(awarded)]
@@ -617,16 +698,28 @@ class AwardsLiveRaceTests(unittest.TestCase):
     # Player-category races show top 5; team/manager (and NFL-team)
     # races show top 3.
     _PLAYER_RACE_KEYS = {
-        "league_mvp", "off_mvp", "def_mvp", "playoff_mvp", "off_roy", "def_roy",
-        "top_qb", "top_rb", "top_wr", "top_te", "top_k",
-        "top_dl", "top_lb", "top_db",
+        "league_mvp",
+        "off_mvp",
+        "def_mvp",
+        "playoff_mvp",
+        "off_roy",
+        "def_roy",
+        "top_qb",
+        "top_rb",
+        "top_wr",
+        "top_te",
+        "top_k",
+        "top_dl",
+        "top_lb",
+        "top_db",
     }
 
     def test_race_leader_caps(self) -> None:
         for race in self.section["awardRaces"]:
             cap = 5 if race["key"] in self._PLAYER_RACE_KEYS else 3
             self.assertLessEqual(
-                len(race["leaders"]), cap,
+                len(race["leaders"]),
+                cap,
                 f"{race['key']} has {len(race['leaders'])} leaders (cap {cap})",
             )
             for i, leader in enumerate(race["leaders"]):
@@ -638,8 +731,13 @@ class AwardsLiveRaceTests(unittest.TestCase):
         # (week-count / eligibility / champion); the core set is always
         # present for a season that has trades/waivers.
         self.assertTrue(
-            {"trader_of_the_year", "waiver_king", "weekly_hammer",
-             "bad_beat", "manager_of_the_year"}.issubset(keys)
+            {
+                "trader_of_the_year",
+                "waiver_king",
+                "weekly_hammer",
+                "bad_beat",
+                "manager_of_the_year",
+            }.issubset(keys)
         )
         self.assertEqual(keys & _REMOVED_KEYS, set())
 

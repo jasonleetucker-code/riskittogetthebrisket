@@ -34,6 +34,7 @@ Award catalog:
     league_mvp / off_roy / def_roy — VORP player awards
     top_<pos>                — positional starter-points leaders
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -90,7 +91,7 @@ _PLAYER_AWARD_KEY_BY_POS = {
     "RB": "top_rb",
     "WR": "top_wr",
     "TE": "top_te",
-    "K":  "top_k",
+    "K": "top_k",
     "DL": "top_dl",
     "LB": "top_lb",
     "DB": "top_db",
@@ -100,7 +101,7 @@ _PLAYER_AWARD_LABEL_BY_POS = {
     "RB": "Top RB",
     "WR": "Top WR",
     "TE": "Top TE",
-    "K":  "Top Kicker",
+    "K": "Top Kicker",
     "DL": "Top DL",
     "LB": "Top LB",
     "DB": "Top DB",
@@ -278,7 +279,14 @@ def _season_has_player_scoring(season: SeasonSnapshot) -> bool:
 
 
 # ── per-season canonical awards (already in v1) ────────────────────────────
-def _canonical_award(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, rid: int | None, key: str, label: str, value: Any = None) -> dict[str, Any] | None:
+def _canonical_award(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    rid: int | None,
+    key: str,
+    label: str,
+    value: Any = None,
+) -> dict[str, Any] | None:
     if rid is None:
         return None
     owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
@@ -295,7 +303,9 @@ def _canonical_award(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, rid
     }
 
 
-def _season_canonical_awards(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+def _season_canonical_awards(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> list[dict[str, Any]]:
     standings = metrics.season_standings(season, snapshot.managers)
     if not standings:
         return []
@@ -322,26 +332,37 @@ def _season_canonical_awards(snapshot: PublicLeagueSnapshot, season: SeasonSnaps
     awards = [
         _canonical_award(snapshot, season, champion_rid, "champion", "Champion"),
         _canonical_award(
-            snapshot, season, best_record_rid,
-            "regular_season_crown", "Regular-Season Crown",
-            value={"record": f'{standings[0]["wins"]}-{standings[0]["losses"]}'} if standings else None,
+            snapshot,
+            season,
+            best_record_rid,
+            "regular_season_crown",
+            "Regular-Season Crown",
+            value={"record": f'{standings[0]["wins"]}-{standings[0]["losses"]}'}
+            if standings
+            else None,
         ),
         _canonical_award(
-            snapshot, season,
+            snapshot,
+            season,
             pf_leader["rosterId"] if pf_leader else None,
-            "points_king", "Points King",
+            "points_king",
+            "Points King",
             value={"pointsFor": pf_leader["pointsFor"]} if pf_leader else None,
         ),
         _canonical_award(
-            snapshot, season,
+            snapshot,
+            season,
             high_week[1] if high_week else None,
-            "highest_single_week", "Highest Single-Week Score",
+            "highest_single_week",
+            "Highest Single-Week Score",
             value={"points": round(high_week[0], 2), "week": high_week[2]} if high_week else None,
         ),
         _canonical_award(
-            snapshot, season,
+            snapshot,
+            season,
             low_week[1] if low_week else None,
-            "lowest_single_week", "Lowest Single-Week Score",
+            "lowest_single_week",
+            "Lowest Single-Week Score",
             value={"points": round(low_week[0], 2), "week": low_week[2]} if low_week else None,
         ),
     ]
@@ -445,17 +466,22 @@ def _trader_of_the_year_scores(
                 rec["biggestTradeId"] = str(tx.get("transaction_id") or "")
 
             if best_trade is None or gain > best_trade[0]:
-                best_trade = (gain, owner_id, {
-                    "transactionId": str(tx.get("transaction_id") or ""),
-                    "season": season.season,
-                    "leagueId": season.league_id,
-                    "week": leg_int,
-                    "ownerId": owner_id,
-                    "pointsGained": round(gain, 2),
-                    "playoffPointsGained": round(playoff_gain, 2),
-                    "receivedPlayerIds": list(received),
-                    "sentPlayerIds": list(sent),
-                }, tx)
+                best_trade = (
+                    gain,
+                    owner_id,
+                    {
+                        "transactionId": str(tx.get("transaction_id") or ""),
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": leg_int,
+                        "ownerId": owner_id,
+                        "pointsGained": round(gain, 2),
+                        "playoffPointsGained": round(playoff_gain, 2),
+                        "receivedPlayerIds": list(received),
+                        "sentPlayerIds": list(sent),
+                    },
+                    tx,
+                )
 
     rows = list(per_owner.values())
     for r in rows:
@@ -594,16 +620,18 @@ def _silent_assassin_scores(
             continue
         win_pct = rec["wins"] / games
         avg_margin = rec["marginSum"] / rec["wins"] if rec["wins"] else 0.0
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "closeGames": games,
-            "closeWins": rec["wins"],
-            "winPct": round(win_pct, 4),
-            "avgCloseMargin": round(avg_margin, 2),
-            "seasonWins": season_wins.get(owner_id, 0),
-            "eligible": games >= min_eligible,
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "closeGames": games,
+                "closeWins": rec["wins"],
+                "winPct": round(win_pct, 4),
+                "avgCloseMargin": round(avg_margin, 2),
+                "seasonWins": season_wins.get(owner_id, 0),
+                "eligible": games >= min_eligible,
+            }
+        )
     rows.sort(
         key=lambda r: (
             -r["winPct"] if r["eligible"] else 1,
@@ -614,7 +642,9 @@ def _silent_assassin_scores(
     return rows
 
 
-def _weekly_hammer_scores(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+def _weekly_hammer_scores(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> list[dict[str, Any]]:
     per_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -631,10 +661,7 @@ def _weekly_hammer_scores(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
         if week >= season.playoff_week_start:
             continue
         entries = season.matchups_by_week[week]
-        scored = [
-            (metrics.roster_id_of(m), metrics.matchup_points(m))
-            for m in entries
-        ]
+        scored = [(metrics.roster_id_of(m), metrics.matchup_points(m)) for m in entries]
         scored = [s for s in scored if s[0] is not None and s[1] > 0]
         if not scored:
             continue
@@ -666,7 +693,9 @@ def _weekly_hammer_scores(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
     return rows
 
 
-def _bad_beat_scores(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+def _bad_beat_scores(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> list[dict[str, Any]]:
     per_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -722,12 +751,14 @@ def _pick_hoarder_scores(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
     rows = []
     for owner_id, picks in ownership.items():
         weight = sum(pick_weight(p["round"]) for p in picks)
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "weightedScore": weight,
-            "totalPicks": len(picks),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "weightedScore": weight,
+                "totalPicks": len(picks),
+            }
+        )
     rows.sort(key=lambda r: (-r["weightedScore"], -r["totalPicks"]))
     return rows
 
@@ -738,7 +769,10 @@ def _best_rebuild_scores(
     previous: SeasonSnapshot,
 ) -> list[dict[str, Any]]:
     """Historical only: YoY improvement across standings + stockpile."""
-    def _rank_lookup(season: SeasonSnapshot) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+
+    def _rank_lookup(
+        season: SeasonSnapshot,
+    ) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
         standings = metrics.season_standings(season, snapshot.managers)
         by_points = sorted(standings, key=lambda r: -r["pointsFor"])
         record_rank = {r["ownerId"]: r["standing"] for r in standings}
@@ -767,8 +801,7 @@ def _best_rebuild_scores(
     prev_record, prev_points, prev_rookies = _rank_lookup(previous)
 
     current_weighted = {
-        row["ownerId"]: row["weightedScore"]
-        for row in _pick_hoarder_scores(snapshot)
+        row["ownerId"]: row["weightedScore"] for row in _pick_hoarder_scores(snapshot)
     }
 
     rows = []
@@ -786,15 +819,17 @@ def _best_rebuild_scores(
             + 0.20 * (stockpile / 4.0)
             + 0.10 * rookies_delta
         )
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "pointsRankDelta": points_delta,
-            "recordRankDelta": record_delta,
-            "stockpileScore": stockpile,
-            "rookiesDelta": rookies_delta,
-            "compositeScore": round(composite, 3),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "pointsRankDelta": points_delta,
+                "recordRankDelta": record_delta,
+                "stockpileScore": stockpile,
+                "rookiesDelta": rookies_delta,
+                "compositeScore": round(composite, 3),
+            }
+        )
     rows.sort(key=lambda r: (-r["compositeScore"], -r["recordRankDelta"], -r["pointsRankDelta"]))
     return rows
 
@@ -872,11 +907,13 @@ def _top_offense_scores(
     units = _manager_unit_points(snapshot, season, regular_season_only=True)
     rows = []
     for owner_id, totals in units.items():
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "offensePoints": round(totals["offense"], 2),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "offensePoints": round(totals["offense"], 2),
+            }
+        )
     rows.sort(key=lambda r: -r["offensePoints"])
     return rows
 
@@ -888,11 +925,13 @@ def _top_defense_scores(
     units = _manager_unit_points(snapshot, season, regular_season_only=True)
     rows = []
     for owner_id, totals in units.items():
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "defensePoints": round(totals["defense"], 2),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "defensePoints": round(totals["defense"], 2),
+            }
+        )
     # Filter out leagues with no IDP scoring on file so we don't surface
     # an "everyone tied at 0.0" race.
     rows = [r for r in rows if r["defensePoints"] > 0]
@@ -915,11 +954,7 @@ def _top_nfl_team_scores(
         if not team:
             continue
         totals[team] += pts
-    rows = [
-        {"team": team, "points": round(pts, 2)}
-        for team, pts in totals.items()
-        if pts > 0
-    ]
+    rows = [{"team": team, "points": round(pts, 2)} for team, pts in totals.items() if pts > 0]
     rows.sort(key=lambda r: -r["points"])
     return rows
 
@@ -946,11 +981,7 @@ def _finish_rank_by_owner(
             continue
 
     playoff_owners = sorted(
-        (
-            (place, owner_by_rid[rid])
-            for rid, place in placement.items()
-            if rid in owner_by_rid
-        ),
+        ((place, owner_by_rid[rid]) for rid, place in placement.items() if rid in owner_by_rid),
         key=lambda t: t[0],
     )
     ordered: list[str] = [owner for _place, owner in playoff_owners]
@@ -998,10 +1029,7 @@ def _manager_of_the_year_scores(
     waiver_gain = {r["ownerId"]: float(r.get("pointsGained") or 0.0) for r in waiver_rows}
 
     # Raw inputs (higher = better) keyed by owner.
-    raw_finish = {
-        r["ownerId"]: float(n - finish_rank.get(r["ownerId"], n))
-        for r in standings
-    }
+    raw_finish = {r["ownerId"]: float(n - finish_rank.get(r["ownerId"], n)) for r in standings}
     raw_win = {r["ownerId"]: float(r["winPct"]) for r in standings}
     raw_pf = {r["ownerId"]: float(r["pointsFor"]) for r in standings}
     raw_trade = {r["ownerId"]: trade_gain.get(r["ownerId"], 0.0) for r in standings}
@@ -1023,19 +1051,21 @@ def _manager_of_the_year_scores(
             + 0.15 * n_trade.get(oid, 0.0)
             + 0.15 * n_waiver.get(oid, 0.0)
         )
-        rows.append({
-            "ownerId": oid,
-            "displayName": metrics.display_name_for(snapshot, oid),
-            "wins": r["wins"],
-            "losses": r["losses"],
-            "ties": r["ties"],
-            "winPct": round(r["winPct"], 4),
-            "pointsFor": r["pointsFor"],
-            "finishRank": finish_rank.get(oid, n),
-            "tradePointsGained": round(trade_gain.get(oid, 0.0), 2),
-            "waiverPointsGained": round(waiver_gain.get(oid, 0.0), 2),
-            "compositeScore": round(composite, 4),
-        })
+        rows.append(
+            {
+                "ownerId": oid,
+                "displayName": metrics.display_name_for(snapshot, oid),
+                "wins": r["wins"],
+                "losses": r["losses"],
+                "ties": r["ties"],
+                "winPct": round(r["winPct"], 4),
+                "pointsFor": r["pointsFor"],
+                "finishRank": finish_rank.get(oid, n),
+                "tradePointsGained": round(trade_gain.get(oid, 0.0), 2),
+                "waiverPointsGained": round(waiver_gain.get(oid, 0.0), 2),
+                "compositeScore": round(composite, 4),
+            }
+        )
     rows.sort(key=lambda r: (-r["compositeScore"], r["finishRank"], -r["pointsFor"]))
     return rows
 
@@ -1054,16 +1084,19 @@ def _player_starter_totals(
     for week, _rid, owner_id, pid, pos, pts, _is_p in _starter_scoring_walk(
         snapshot, season, regular_season_only=regular_season_only
     ):
-        rec = out.setdefault(pid, {
-            "playerId": pid,
-            "playerName": snapshot.player_display(pid),
-            "position": pos,
-            "starterPoints": 0.0,
-            "gamesStarted": 0,
-            "ownerIds": set(),
-            "lastOwnerId": "",
-            "lastWeek": 0,
-        })
+        rec = out.setdefault(
+            pid,
+            {
+                "playerId": pid,
+                "playerName": snapshot.player_display(pid),
+                "position": pos,
+                "starterPoints": 0.0,
+                "gamesStarted": 0,
+                "ownerIds": set(),
+                "lastOwnerId": "",
+                "lastWeek": 0,
+            },
+        )
         # Track the most-recent fantasy owner so we can attribute the
         # award to a manager card on the page (ownership can change
         # mid-season after a trade).
@@ -1100,25 +1133,25 @@ def _top_player_per_position_scores(
     Returns ``{pos: [row, row, row]}`` where rows are sorted descending
     by ``starterPoints``.  Up to top 3 per position.
     """
-    totals = _player_starter_totals(
-        snapshot, season, regular_season_only=regular_season_only
-    )
+    totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
     grouped: dict[str, list[dict[str, Any]]] = {pos: [] for pos in _PLAYER_AWARD_POSITIONS}
     for pid, rec in totals.items():
         pos = rec["position"]
         if pos not in grouped:
             continue
         owner_id = rec["lastOwnerId"]
-        grouped[pos].append({
-            "playerId": pid,
-            "playerName": rec["playerName"],
-            "team": _nfl_team_for(snapshot, pid),
-            "position": pos,
-            "starterPoints": rec["starterPoints"],
-            "gamesStarted": rec["gamesStarted"],
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-        })
+        grouped[pos].append(
+            {
+                "playerId": pid,
+                "playerName": rec["playerName"],
+                "team": _nfl_team_for(snapshot, pid),
+                "position": pos,
+                "starterPoints": rec["starterPoints"],
+                "gamesStarted": rec["gamesStarted"],
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+            }
+        )
     for pos in grouped:
         grouped[pos].sort(key=lambda r: -r["starterPoints"])
     return grouped
@@ -1136,6 +1169,7 @@ def _replacement_per_game_for_position(
     module for the algorithm.
     """
     from src.scoring.replacement_level import replacement_per_game
+
     return replacement_per_game(rows or [], starter_slots, band_size=5)
 
 
@@ -1183,9 +1217,7 @@ def _vorp_rows(
     starters who scored a lot per game still rate fairly against
     healthier-but-thinner peers.
     """
-    totals = _player_starter_totals(
-        snapshot, season, regular_season_only=regular_season_only
-    )
+    totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
     if not totals:
         return []
 
@@ -1194,15 +1226,17 @@ def _vorp_rows(
         pos = rec["position"]
         if not pos:
             continue
-        grouped[pos].append({
-            "playerId": rec["playerId"],
-            "playerName": rec["playerName"],
-            "position": pos,
-            "starterPoints": rec["starterPoints"],
-            "gamesStarted": rec["gamesStarted"],
-            "ownerIds": rec["ownerIds"],
-            "lastOwnerId": rec["lastOwnerId"],
-        })
+        grouped[pos].append(
+            {
+                "playerId": rec["playerId"],
+                "playerName": rec["playerName"],
+                "position": pos,
+                "starterPoints": rec["starterPoints"],
+                "gamesStarted": rec["gamesStarted"],
+                "ownerIds": rec["ownerIds"],
+                "lastOwnerId": rec["lastOwnerId"],
+            }
+        )
 
     starter_slots = _vorp_starter_slots(grouped)
     out: list[dict[str, Any]] = []
@@ -1221,18 +1255,20 @@ def _vorp_rows(
             # floored at 0 rather than shown below value.
             vorp = max(0.0, r["starterPoints"] - replacement_total)
             owner_id = r["lastOwnerId"]
-            out.append({
-                "playerId": r["playerId"],
-                "playerName": r["playerName"],
-                "team": _nfl_team_for(snapshot, r["playerId"]),
-                "position": pos,
-                "starterPoints": r["starterPoints"],
-                "gamesStarted": r["gamesStarted"],
-                "vorp": round(vorp, 2),
-                "replacementPerGame": round(replacement_per_game, 2),
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-            })
+            out.append(
+                {
+                    "playerId": r["playerId"],
+                    "playerName": r["playerName"],
+                    "team": _nfl_team_for(snapshot, r["playerId"]),
+                    "position": pos,
+                    "starterPoints": r["starterPoints"],
+                    "gamesStarted": r["gamesStarted"],
+                    "vorp": round(vorp, 2),
+                    "replacementPerGame": round(replacement_per_game, 2),
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+                }
+            )
     out.sort(key=lambda r: -r["vorp"])
     return out
 
@@ -1245,16 +1281,26 @@ def _league_mvp_rows(
     return _vorp_rows(snapshot, season, regular_season_only=True)
 
 
-def _offensive_mvp_rows(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+def _offensive_mvp_rows(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> list[dict[str, Any]]:
     """League MVP restricted to offensive skill positions (QB/RB/WR/TE)."""
-    return [r for r in _vorp_rows(snapshot, season, regular_season_only=True)
-            if r["position"] in _OFF_ROY_POSITIONS]
+    return [
+        r
+        for r in _vorp_rows(snapshot, season, regular_season_only=True)
+        if r["position"] in _OFF_ROY_POSITIONS
+    ]
 
 
-def _defensive_mvp_rows(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+def _defensive_mvp_rows(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> list[dict[str, Any]]:
     """League MVP restricted to defensive positions (DL/LB/DB)."""
-    return [r for r in _vorp_rows(snapshot, season, regular_season_only=True)
-            if r["position"] in _DEF_ROY_POSITIONS]
+    return [
+        r
+        for r in _vorp_rows(snapshot, season, regular_season_only=True)
+        if r["position"] in _DEF_ROY_POSITIONS
+    ]
 
 
 def _rookie_of_year_rows(
@@ -1268,8 +1314,7 @@ def _rookie_of_year_rows(
     return [
         r
         for r in _vorp_rows(snapshot, season, regular_season_only=True)
-        if r["position"] in positions
-        and _is_rookie_in_season(snapshot, r["playerId"], season)
+        if r["position"] in positions and _is_rookie_in_season(snapshot, r["playerId"], season)
     ]
 
 
@@ -1315,17 +1360,19 @@ def _mr_consistent_scores(
         if mean <= 0:
             continue
         var = sum((x - mean) ** 2 for x in scores) / len(scores)
-        cv = (var ** 0.5) / mean
+        cv = (var**0.5) / mean
         owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
         if not owner_id:
             continue
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "cv": round(cv, 4),
-            "meanScore": round(mean, 2),
-            "weeks": len(scores),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "cv": round(cv, 4),
+                "meanScore": round(mean, 2),
+                "weeks": len(scores),
+            }
+        )
     rows.sort(key=lambda r: (r["cv"], -r["meanScore"]))
     return rows
 
@@ -1343,9 +1390,7 @@ def _playoff_mvp_player_rows(
     champion_rid = metrics.season_champion(season)
     if champion_rid is None:
         return []
-    totals = _player_starter_totals(
-        snapshot, season, regular_season_only=False
-    )
+    totals = _player_starter_totals(snapshot, season, regular_season_only=False)
     if not totals:
         return []
     # Strip regular-season data: we want playoff-only, and only the
@@ -1358,15 +1403,18 @@ def _playoff_mvp_player_rows(
             continue
         if rid != champion_rid:
             continue
-        rec = playoff_totals.setdefault(pid, {
-            "playerId": pid,
-            "playerName": snapshot.player_display(pid),
-            "position": pos,
-            "starterPoints": 0.0,
-            "gamesStarted": 0,
-            "lastOwnerId": "",
-            "lastWeek": 0,
-        })
+        rec = playoff_totals.setdefault(
+            pid,
+            {
+                "playerId": pid,
+                "playerName": snapshot.player_display(pid),
+                "position": pos,
+                "starterPoints": 0.0,
+                "gamesStarted": 0,
+                "lastOwnerId": "",
+                "lastWeek": 0,
+            },
+        )
         rec["starterPoints"] += pts
         rec["gamesStarted"] += 1
         if week >= rec["lastWeek"]:
@@ -1395,22 +1443,26 @@ def _playoff_mvp_player_rows(
             games = r["gamesStarted"] or 1
             vorp = max(0.0, r["starterPoints"] - replacement_per_game * games)
             owner_id = r["lastOwnerId"]
-            out.append({
-                "playerId": r["playerId"],
-                "playerName": r["playerName"],
-                "team": _nfl_team_for(snapshot, r["playerId"]),
-                "position": pos,
-                "starterPoints": round(r["starterPoints"], 2),
-                "gamesStarted": r["gamesStarted"],
-                "vorp": round(vorp, 2),
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-            })
+            out.append(
+                {
+                    "playerId": r["playerId"],
+                    "playerName": r["playerName"],
+                    "team": _nfl_team_for(snapshot, r["playerId"]),
+                    "position": pos,
+                    "starterPoints": round(r["starterPoints"], 2),
+                    "gamesStarted": r["gamesStarted"],
+                    "vorp": round(vorp, 2),
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+                }
+            )
     out.sort(key=lambda r: -r["vorp"])
     return out
 
 
-def _rivalry_of_the_year(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any] | None:
+def _rivalry_of_the_year(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+) -> dict[str, Any] | None:
     """Season-scoped rivalry of the year."""
     pair_scores: dict[tuple[str, str], dict[str, Any]] = {}
 
@@ -1516,9 +1568,7 @@ def _award_from_row(
         "description": AWARD_DESCRIPTIONS.get(key, ""),
         "ownerId": owner_id,
         "displayName": winner.get("displayName") or metrics.display_name_for(snapshot, owner_id),
-        "teamName": (
-            metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""
-        ),
+        "teamName": (metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""),
         "value": value_builder(winner),
     }
 
@@ -1551,123 +1601,185 @@ def _activity_awards_for_season(
         if award:
             awards.append(award)
 
-    _add(_award_from_row(
-        snapshot, season, trader_rows, "trader_of_the_year", "Trader of the Year",
-        lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
-    ))
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            trader_rows,
+            "trader_of_the_year",
+            "Trader of the Year",
+            lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
+        )
+    )
     if best_trade is not None:
         gain, owner_id, payload, best_tx = best_trade
         rid = _roster_id_for_owner(season, owner_id)
         # Reuse the activity-section trade normalizer so the public
         # payload carries the full sides/assets the UI already renders.
         from .activity import _normalize_trade
+
         normalized_trade = _normalize_trade(snapshot, season, best_tx)
-        _add({
-            "key": "best_trade_of_the_year",
-            "label": "Best Trade of the Year",
-            "description": AWARD_DESCRIPTIONS["best_trade_of_the_year"],
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
-            "value": {
-                "pointsGained": payload["pointsGained"],
-                "week": payload["week"],
-                "transactionId": payload["transactionId"],
-                "trade": normalized_trade,
+        _add(
+            {
+                "key": "best_trade_of_the_year",
+                "label": "Best Trade of the Year",
+                "description": AWARD_DESCRIPTIONS["best_trade_of_the_year"],
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                if rid is not None
+                else "",
+                "value": {
+                    "pointsGained": payload["pointsGained"],
+                    "week": payload["week"],
+                    "transactionId": payload["transactionId"],
+                    "trade": normalized_trade,
+                },
+            }
+        )
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            waiver_rows,
+            "waiver_king",
+            "Waiver King",
+            lambda r: {
+                "pointsGained": r["pointsGained"],
+                "adds": r.get("usefulAdds", 0),
             },
-        })
-    _add(_award_from_row(
-        snapshot, season, waiver_rows, "waiver_king", "Waiver King",
-        lambda r: {
-            "pointsGained": r["pointsGained"],
-            "adds": r.get("usefulAdds", 0),
-        },
-    ))
-    _add(_award_from_row(
-        snapshot, season, silent_rows, "silent_assassin", "Silent Assassin",
-        lambda r: {"winPct": r["winPct"], "closeGames": r["closeGames"], "closeWins": r["closeWins"]},
-        eligible_only=True,
-    ))
-    _add(_award_from_row(
-        snapshot, season, hammer_rows, "weekly_hammer", "Weekly Hammer",
-        lambda r: {"highScoreFinishes": r["highScoreFinishes"], "highestWeek": r["highestWeekPoints"]},
-    ))
+        )
+    )
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            silent_rows,
+            "silent_assassin",
+            "Silent Assassin",
+            lambda r: {
+                "winPct": r["winPct"],
+                "closeGames": r["closeGames"],
+                "closeWins": r["closeWins"],
+            },
+            eligible_only=True,
+        )
+    )
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            hammer_rows,
+            "weekly_hammer",
+            "Weekly Hammer",
+            lambda r: {
+                "highScoreFinishes": r["highScoreFinishes"],
+                "highestWeek": r["highestWeekPoints"],
+            },
+        )
+    )
     # Playoff MVP — VORP-based player award (replaces the prior team-points version).
     playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
     if playoff_mvp_rows:
         winner = playoff_mvp_rows[0]
         rid = _roster_id_for_owner(season, winner["ownerId"])
-        awards.append({
-            "key": "playoff_mvp",
-            "label": "Playoff MVP",
-            "description": AWARD_DESCRIPTIONS["playoff_mvp"],
-            "ownerId": winner["ownerId"],
-            "displayName": winner["displayName"],
-            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
-            "value": {
-                "playerId": winner["playerId"],
-                "playerName": winner["playerName"],
-                "team": winner.get("team", ""),
-                "position": winner["position"],
-                "vorp": winner["vorp"],
-                "starterPoints": winner["starterPoints"],
-                "gamesStarted": winner["gamesStarted"],
+        awards.append(
+            {
+                "key": "playoff_mvp",
+                "label": "Playoff MVP",
+                "description": AWARD_DESCRIPTIONS["playoff_mvp"],
+                "ownerId": winner["ownerId"],
+                "displayName": winner["displayName"],
+                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                if rid is not None
+                else "",
+                "value": {
+                    "playerId": winner["playerId"],
+                    "playerName": winner["playerName"],
+                    "team": winner.get("team", ""),
+                    "position": winner["position"],
+                    "vorp": winner["vorp"],
+                    "starterPoints": winner["starterPoints"],
+                    "gamesStarted": winner["gamesStarted"],
+                },
+            }
+        )
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            bad_beat_rows,
+            "bad_beat",
+            "Bad Beat",
+            lambda r: {
+                "points": r["biggestLoss"],
+                "week": r["biggestLossWeek"],
+                "opponentPoints": r["biggestLossOpponentPoints"],
             },
-        })
-    _add(_award_from_row(
-        snapshot, season, bad_beat_rows, "bad_beat", "Bad Beat",
-        lambda r: {
-            "points": r["biggestLoss"],
-            "week": r["biggestLossWeek"],
-            "opponentPoints": r["biggestLossOpponentPoints"],
-        },
-    ))
+        )
+    )
 
     # ── Manager awards ─────────────────────────────────────────────
     offense_rows = _top_offense_scores(snapshot, season)
-    _add(_award_from_row(
-        snapshot, season, offense_rows, "top_offense", "Top Offense",
-        lambda r: {"offensePoints": r["offensePoints"]},
-    ))
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            offense_rows,
+            "top_offense",
+            "Top Offense",
+            lambda r: {"offensePoints": r["offensePoints"]},
+        )
+    )
     defense_rows = _top_defense_scores(snapshot, season)
     if defense_rows:
-        _add(_award_from_row(
-            snapshot, season, defense_rows, "top_defense", "Top Defense",
-            lambda r: {"defensePoints": r["defensePoints"]},
-        ))
+        _add(
+            _award_from_row(
+                snapshot,
+                season,
+                defense_rows,
+                "top_defense",
+                "Top Defense",
+                lambda r: {"defensePoints": r["defensePoints"]},
+            )
+        )
     nfl_team_rows = _top_nfl_team_scores(snapshot, season)
     if nfl_team_rows:
         top_team = nfl_team_rows[0]
-        awards.append({
-            "key": "top_nfl_team",
-            "label": "Top Fantasy NFL Team",
-            "description": AWARD_DESCRIPTIONS["top_nfl_team"],
-            "ownerId": "",
-            "displayName": top_team["team"],
-            "teamName": "",
-            "value": {"team": top_team["team"], "points": top_team["points"]},
-        })
-    moty_rows = _manager_of_the_year_scores(
-        snapshot, season, trader_rows, waiver_rows
+        awards.append(
+            {
+                "key": "top_nfl_team",
+                "label": "Top Fantasy NFL Team",
+                "description": AWARD_DESCRIPTIONS["top_nfl_team"],
+                "ownerId": "",
+                "displayName": top_team["team"],
+                "teamName": "",
+                "value": {"team": top_team["team"], "points": top_team["points"]},
+            }
+        )
+    moty_rows = _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows)
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            moty_rows,
+            "manager_of_the_year",
+            "Manager of the Year",
+            lambda r: {
+                "compositeScore": r["compositeScore"],
+                "wins": r["wins"],
+                "losses": r["losses"],
+                "winPct": r["winPct"],
+                "pointsFor": r["pointsFor"],
+                "finishRank": r["finishRank"],
+                "tradePointsGained": r["tradePointsGained"],
+                "waiverPointsGained": r["waiverPointsGained"],
+            },
+        )
     )
-    _add(_award_from_row(
-        snapshot, season, moty_rows, "manager_of_the_year", "Manager of the Year",
-        lambda r: {
-            "compositeScore": r["compositeScore"],
-            "wins": r["wins"],
-            "losses": r["losses"],
-            "winPct": r["winPct"],
-            "pointsFor": r["pointsFor"],
-            "finishRank": r["finishRank"],
-            "tradePointsGained": r["tradePointsGained"],
-            "waiverPointsGained": r["waiverPointsGained"],
-        },
-    ))
 
     # ── Player awards (top scorer per position, regular-season starter-only) ──
-    player_rows_by_pos = _top_player_per_position_scores(
-        snapshot, season, regular_season_only=True
-    )
+    player_rows_by_pos = _top_player_per_position_scores(snapshot, season, regular_season_only=True)
     for pos in _PLAYER_AWARD_POSITIONS:
         rows = player_rows_by_pos.get(pos) or []
         if not rows:
@@ -1676,45 +1788,53 @@ def _activity_awards_for_season(
         if winner["starterPoints"] <= 0:
             continue
         rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
-        awards.append({
-            "key": _PLAYER_AWARD_KEY_BY_POS[pos],
-            "label": _PLAYER_AWARD_LABEL_BY_POS[pos],
-            "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
-            "ownerId": winner["ownerId"],
-            "displayName": winner["displayName"],
-            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
-            "value": {
-                "playerId": winner["playerId"],
-                "playerName": winner["playerName"],
-                "team": winner.get("team", ""),
-                "position": winner["position"],
-                "starterPoints": winner["starterPoints"],
-                "gamesStarted": winner["gamesStarted"],
-            },
-        })
+        awards.append(
+            {
+                "key": _PLAYER_AWARD_KEY_BY_POS[pos],
+                "label": _PLAYER_AWARD_LABEL_BY_POS[pos],
+                "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
+                "ownerId": winner["ownerId"],
+                "displayName": winner["displayName"],
+                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                if rid is not None
+                else "",
+                "value": {
+                    "playerId": winner["playerId"],
+                    "playerName": winner["playerName"],
+                    "team": winner.get("team", ""),
+                    "position": winner["position"],
+                    "starterPoints": winner["starterPoints"],
+                    "gamesStarted": winner["gamesStarted"],
+                },
+            }
+        )
 
     # ── League MVP (regular-season VORP) ───────────────────────────
     mvp_rows = _league_mvp_rows(snapshot, season)
     if mvp_rows:
         winner = mvp_rows[0]
         rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
-        awards.append({
-            "key": "league_mvp",
-            "label": "League MVP",
-            "description": AWARD_DESCRIPTIONS["league_mvp"],
-            "ownerId": winner["ownerId"],
-            "displayName": winner["displayName"],
-            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
-            "value": {
-                "playerId": winner["playerId"],
-                "playerName": winner["playerName"],
-                "team": winner.get("team", ""),
-                "position": winner["position"],
-                "vorp": winner["vorp"],
-                "starterPoints": winner["starterPoints"],
-                "gamesStarted": winner["gamesStarted"],
-            },
-        })
+        awards.append(
+            {
+                "key": "league_mvp",
+                "label": "League MVP",
+                "description": AWARD_DESCRIPTIONS["league_mvp"],
+                "ownerId": winner["ownerId"],
+                "displayName": winner["displayName"],
+                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                if rid is not None
+                else "",
+                "value": {
+                    "playerId": winner["playerId"],
+                    "playerName": winner["playerName"],
+                    "team": winner.get("team", ""),
+                    "position": winner["position"],
+                    "vorp": winner["vorp"],
+                    "starterPoints": winner["starterPoints"],
+                    "gamesStarted": winner["gamesStarted"],
+                },
+            }
+        )
 
     # ── Rookie of the Year (offense / defense, regular-season VORP) ──
     def _vorp_player_award(rows, key, label):
@@ -1726,75 +1846,98 @@ def _activity_awards_for_season(
         if (w.get("starterPoints") or 0) <= 0:
             return
         r_id = _roster_id_for_owner(season, w["ownerId"]) if w["ownerId"] else None
-        awards.append({
-            "key": key,
-            "label": label,
-            "description": AWARD_DESCRIPTIONS[key],
-            "ownerId": w["ownerId"],
-            "displayName": w["displayName"],
-            "teamName": metrics.team_name(snapshot, season.league_id, r_id) if r_id is not None else "",
-            "value": {
-                "playerId": w["playerId"],
-                "playerName": w["playerName"],
-                "team": w.get("team", ""),
-                "position": w["position"],
-                "vorp": w["vorp"],
-                "starterPoints": w["starterPoints"],
-                "gamesStarted": w["gamesStarted"],
-            },
-        })
+        awards.append(
+            {
+                "key": key,
+                "label": label,
+                "description": AWARD_DESCRIPTIONS[key],
+                "ownerId": w["ownerId"],
+                "displayName": w["displayName"],
+                "teamName": metrics.team_name(snapshot, season.league_id, r_id)
+                if r_id is not None
+                else "",
+                "value": {
+                    "playerId": w["playerId"],
+                    "playerName": w["playerName"],
+                    "team": w.get("team", ""),
+                    "position": w["position"],
+                    "vorp": w["vorp"],
+                    "starterPoints": w["starterPoints"],
+                    "gamesStarted": w["gamesStarted"],
+                },
+            }
+        )
 
     _vorp_player_award(
         _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS),
-        "off_roy", "Offensive Rookie of the Year",
+        "off_roy",
+        "Offensive Rookie of the Year",
     )
     _vorp_player_award(
         _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
-        "def_roy", "Defensive Rookie of the Year",
+        "def_roy",
+        "Defensive Rookie of the Year",
     )
     _vorp_player_award(
-        _offensive_mvp_rows(snapshot, season), "off_mvp", "Offensive MVP",
+        _offensive_mvp_rows(snapshot, season),
+        "off_mvp",
+        "Offensive MVP",
     )
     _vorp_player_award(
-        _defensive_mvp_rows(snapshot, season), "def_mvp", "Defensive MVP",
+        _defensive_mvp_rows(snapshot, season),
+        "def_mvp",
+        "Defensive MVP",
     )
 
     # ── Mr. Consistent ─────────────────────────────────────────────
-    _add(_award_from_row(
-        snapshot, season, _mr_consistent_scores(snapshot, season),
-        "mr_consistent", "Mr. Consistent",
-        lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
-    ))
+    _add(
+        _award_from_row(
+            snapshot,
+            season,
+            _mr_consistent_scores(snapshot, season),
+            "mr_consistent",
+            "Mr. Consistent",
+            lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
+        )
+    )
 
     if previous_season is not None and season.is_complete and previous_season.is_complete:
         rebuild_rows = _best_rebuild_scores(snapshot, season, previous_season)
         if rebuild_rows and rebuild_rows[0]["compositeScore"] > 0:
-            _add(_award_from_row(
-                snapshot, season, rebuild_rows, "best_rebuild", "Best Rebuild",
-                lambda r: {
-                    "compositeScore": r["compositeScore"],
-                    "recordRankDelta": r["recordRankDelta"],
-                    "pointsRankDelta": r["pointsRankDelta"],
-                },
-            ))
+            _add(
+                _award_from_row(
+                    snapshot,
+                    season,
+                    rebuild_rows,
+                    "best_rebuild",
+                    "Best Rebuild",
+                    lambda r: {
+                        "compositeScore": r["compositeScore"],
+                        "recordRankDelta": r["recordRankDelta"],
+                        "pointsRankDelta": r["pointsRankDelta"],
+                    },
+                )
+            )
 
     rivalry = _rivalry_of_the_year(snapshot, season)
     if rivalry is not None and rivalry["rivalryIndex"] > 0:
-        awards.append({
-            "key": "rivalry_of_the_year",
-            "label": "Rivalry of the Year",
-            "description": AWARD_DESCRIPTIONS["rivalry_of_the_year"],
-            "ownerId": "",
-            "displayName": f"{rivalry['displayNames'][0]} vs {rivalry['displayNames'][1]}",
-            "teamName": "",
-            "value": {
-                "ownerIds": rivalry["ownerIds"],
-                "displayNames": rivalry["displayNames"],
-                "rivalryIndex": rivalry["rivalryIndex"],
-                "totalMeetings": rivalry["totalMeetings"],
-                "playoffMeetings": rivalry["playoffMeetings"],
-            },
-        })
+        awards.append(
+            {
+                "key": "rivalry_of_the_year",
+                "label": "Rivalry of the Year",
+                "description": AWARD_DESCRIPTIONS["rivalry_of_the_year"],
+                "ownerId": "",
+                "displayName": f"{rivalry['displayNames'][0]} vs {rivalry['displayNames'][1]}",
+                "teamName": "",
+                "value": {
+                    "ownerIds": rivalry["ownerIds"],
+                    "displayNames": rivalry["displayNames"],
+                    "rivalryIndex": rivalry["rivalryIndex"],
+                    "totalMeetings": rivalry["totalMeetings"],
+                    "playoffMeetings": rivalry["playoffMeetings"],
+                },
+            }
+        )
 
     return _order_awards(awards)
 
@@ -1816,12 +1959,15 @@ def _build_race(
         return None
     leaders = []
     for i, row in enumerate(pool[:top_n]):
-        leaders.append({
-            "rank": i + 1,
-            "ownerId": row["ownerId"],
-            "displayName": row.get("displayName") or metrics.display_name_for(snapshot, row["ownerId"]),
-            "value": value_builder(row),
-        })
+        leaders.append(
+            {
+                "rank": i + 1,
+                "ownerId": row["ownerId"],
+                "displayName": row.get("displayName")
+                or metrics.display_name_for(snapshot, row["ownerId"]),
+                "value": value_builder(row),
+            }
+        )
     return {
         "key": key,
         "label": label,
@@ -1846,26 +1992,53 @@ def _current_season_races(
         if race:
             races.append(race)
 
-    _add(_build_race(
-        snapshot, "trader_of_the_year", "Trader of the Year", trader_rows,
-        lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
-    ))
-    _add(_build_race(
-        snapshot, "waiver_king", "Waiver King", waiver_rows,
-        lambda r: {
-            "pointsGained": r["pointsGained"],
-            "adds": r.get("usefulAdds", 0),
-        },
-    ))
-    _add(_build_race(
-        snapshot, "silent_assassin", "Silent Assassin", silent_rows,
-        lambda r: {"winPct": r["winPct"], "closeGames": r["closeGames"], "closeWins": r["closeWins"]},
-        eligible_only=True,
-    ))
-    _add(_build_race(
-        snapshot, "weekly_hammer", "Weekly Hammer", hammer_rows,
-        lambda r: {"highScoreFinishes": r["highScoreFinishes"], "highestWeek": r["highestWeekPoints"]},
-    ))
+    _add(
+        _build_race(
+            snapshot,
+            "trader_of_the_year",
+            "Trader of the Year",
+            trader_rows,
+            lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
+        )
+    )
+    _add(
+        _build_race(
+            snapshot,
+            "waiver_king",
+            "Waiver King",
+            waiver_rows,
+            lambda r: {
+                "pointsGained": r["pointsGained"],
+                "adds": r.get("usefulAdds", 0),
+            },
+        )
+    )
+    _add(
+        _build_race(
+            snapshot,
+            "silent_assassin",
+            "Silent Assassin",
+            silent_rows,
+            lambda r: {
+                "winPct": r["winPct"],
+                "closeGames": r["closeGames"],
+                "closeWins": r["closeWins"],
+            },
+            eligible_only=True,
+        )
+    )
+    _add(
+        _build_race(
+            snapshot,
+            "weekly_hammer",
+            "Weekly Hammer",
+            hammer_rows,
+            lambda r: {
+                "highScoreFinishes": r["highScoreFinishes"],
+                "highestWeek": r["highestWeekPoints"],
+            },
+        )
+    )
     playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
     if playoff_mvp_rows:
         race = {
@@ -1890,68 +2063,90 @@ def _current_season_races(
             ],
         }
         _add(race)
-    _add(_build_race(
-        snapshot, "bad_beat", "Bad Beat", bad_beat_rows,
-        lambda r: {
-            "points": r["biggestLoss"],
-            "week": r["biggestLossWeek"],
-        },
-    ))
-    _add(_build_race(
-        snapshot, "mr_consistent", "Mr. Consistent",
-        _mr_consistent_scores(snapshot, season),
-        lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
-    ))
+    _add(
+        _build_race(
+            snapshot,
+            "bad_beat",
+            "Bad Beat",
+            bad_beat_rows,
+            lambda r: {
+                "points": r["biggestLoss"],
+                "week": r["biggestLossWeek"],
+            },
+        )
+    )
+    _add(
+        _build_race(
+            snapshot,
+            "mr_consistent",
+            "Mr. Consistent",
+            _mr_consistent_scores(snapshot, season),
+            lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
+        )
+    )
 
     # ── Manager-award races ──
     offense_rows = _top_offense_scores(snapshot, season)
-    _add(_build_race(
-        snapshot, "top_offense", "Top Offense Race", offense_rows,
-        lambda r: {"offensePoints": r["offensePoints"]},
-    ))
+    _add(
+        _build_race(
+            snapshot,
+            "top_offense",
+            "Top Offense Race",
+            offense_rows,
+            lambda r: {"offensePoints": r["offensePoints"]},
+        )
+    )
     defense_rows = _top_defense_scores(snapshot, season)
     if defense_rows:
-        _add(_build_race(
-            snapshot, "top_defense", "Top Defense Race", defense_rows,
-            lambda r: {"defensePoints": r["defensePoints"]},
-        ))
+        _add(
+            _build_race(
+                snapshot,
+                "top_defense",
+                "Top Defense Race",
+                defense_rows,
+                lambda r: {"defensePoints": r["defensePoints"]},
+            )
+        )
     nfl_team_rows = _top_nfl_team_scores(snapshot, season)
     if nfl_team_rows:
-        _add({
-            "key": "top_nfl_team",
-            "label": "Top Fantasy NFL Team Race",
-            "description": AWARD_DESCRIPTIONS["top_nfl_team"],
-            "leaders": [
-                {
-                    "rank": i + 1,
-                    "ownerId": "",
-                    "displayName": r["team"],
-                    "value": {"team": r["team"], "points": r["points"]},
-                }
-                for i, r in enumerate(nfl_team_rows[:3])
-            ],
-        })
-    moty_rows = _manager_of_the_year_scores(
-        snapshot, season, trader_rows, waiver_rows
+        _add(
+            {
+                "key": "top_nfl_team",
+                "label": "Top Fantasy NFL Team Race",
+                "description": AWARD_DESCRIPTIONS["top_nfl_team"],
+                "leaders": [
+                    {
+                        "rank": i + 1,
+                        "ownerId": "",
+                        "displayName": r["team"],
+                        "value": {"team": r["team"], "points": r["points"]},
+                    }
+                    for i, r in enumerate(nfl_team_rows[:3])
+                ],
+            }
+        )
+    moty_rows = _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows)
+    _add(
+        _build_race(
+            snapshot,
+            "manager_of_the_year",
+            "Manager of the Year Race",
+            moty_rows,
+            lambda r: {
+                "compositeScore": r["compositeScore"],
+                "wins": r["wins"],
+                "losses": r["losses"],
+                "winPct": r["winPct"],
+                "pointsFor": r["pointsFor"],
+                "finishRank": r["finishRank"],
+                "tradePointsGained": r["tradePointsGained"],
+                "waiverPointsGained": r["waiverPointsGained"],
+            },
+        )
     )
-    _add(_build_race(
-        snapshot, "manager_of_the_year", "Manager of the Year Race", moty_rows,
-        lambda r: {
-            "compositeScore": r["compositeScore"],
-            "wins": r["wins"],
-            "losses": r["losses"],
-            "winPct": r["winPct"],
-            "pointsFor": r["pointsFor"],
-            "finishRank": r["finishRank"],
-            "tradePointsGained": r["tradePointsGained"],
-            "waiverPointsGained": r["waiverPointsGained"],
-        },
-    ))
 
     # ── Player-award races (top 5 per position) ──
-    player_rows_by_pos = _top_player_per_position_scores(
-        snapshot, season, regular_season_only=True
-    )
+    player_rows_by_pos = _top_player_per_position_scores(snapshot, season, regular_season_only=True)
     for pos in _PLAYER_AWARD_POSITIONS:
         rows = player_rows_by_pos.get(pos) or []
         rows = [r for r in rows if r["starterPoints"] > 0]
@@ -2035,20 +2230,34 @@ def _current_season_races(
             ],
         }
 
-    _add(_vorp_player_race(
-        _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS),
-        "off_roy", "Offensive Rookie of the Year Race",
-    ))
-    _add(_vorp_player_race(
-        _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
-        "def_roy", "Defensive Rookie of the Year Race",
-    ))
-    _add(_vorp_player_race(
-        _offensive_mvp_rows(snapshot, season), "off_mvp", "Offensive MVP Race",
-    ))
-    _add(_vorp_player_race(
-        _defensive_mvp_rows(snapshot, season), "def_mvp", "Defensive MVP Race",
-    ))
+    _add(
+        _vorp_player_race(
+            _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS),
+            "off_roy",
+            "Offensive Rookie of the Year Race",
+        )
+    )
+    _add(
+        _vorp_player_race(
+            _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
+            "def_roy",
+            "Defensive Rookie of the Year Race",
+        )
+    )
+    _add(
+        _vorp_player_race(
+            _offensive_mvp_rows(snapshot, season),
+            "off_mvp",
+            "Offensive MVP Race",
+        )
+    )
+    _add(
+        _vorp_player_race(
+            _defensive_mvp_rows(snapshot, season),
+            "def_mvp",
+            "Defensive MVP Race",
+        )
+    )
 
     return races
 
@@ -2065,15 +2274,17 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         # winner.  Reused below for the featured season's live awardRaces.
         season_races = _current_season_races(snapshot, season)
         races_by_season[season.season] = season_races
-        by_season.append({
-            "season": season.season,
-            "leagueId": season.league_id,
-            "seasonStatus": str(season.league.get("status") or ""),
-            "isComplete": season.is_complete,
-            "hasPlayerScoring": _season_has_player_scoring(season),
-            "awards": _order_awards(canonical + activity_based),
-            "finalists": {r["key"]: r["leaders"] for r in season_races},
-        })
+        by_season.append(
+            {
+                "season": season.season,
+                "leagueId": season.league_id,
+                "seasonStatus": str(season.league.get("status") or ""),
+                "isComplete": season.is_complete,
+                "hasPlayerScoring": _season_has_player_scoring(season),
+                "awards": _order_awards(canonical + activity_based),
+                "finalists": {r["key"]: r["leaders"] for r in season_races},
+            }
+        )
 
     # Featured season = the newest season that has actually *begun*.
     # "Begun" means real games have been played (some matchup scored
@@ -2124,7 +2335,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "bySeason": by_season,
         "awardRaces": races,
         "currentSeason": current.season if current else None,
-        "currentSeasonStatus": "in_progress" if (current and not current.is_complete) else "complete",
+        "currentSeasonStatus": "in_progress"
+        if (current and not current.is_complete)
+        else "complete",
         "featuredSeason": current.season if current else None,
         "upcomingSeason": upcoming,
         "hottestRace": hottest,

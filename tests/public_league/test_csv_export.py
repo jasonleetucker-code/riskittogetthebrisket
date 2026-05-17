@@ -1,4 +1,5 @@
 """Tests for the public-league CSV exporters."""
+
 from __future__ import annotations
 
 import csv
@@ -69,7 +70,8 @@ class CsvExportTests(unittest.TestCase):
 
     def test_franchise_export_owner_scoped(self) -> None:
         name, text = csv_export.export_franchise(
-            self.sections["franchise"], owner_id="owner-B",
+            self.sections["franchise"],
+            owner_id="owner-B",
         )
         self.assertIn("owner-B", name)
         rows = self._parse(text)
@@ -137,6 +139,7 @@ class CsvExportTests(unittest.TestCase):
 
 try:
     from fastapi.testclient import TestClient
+
     _HAVE_TC = True
 except Exception:  # noqa: BLE001
     _HAVE_TC = False
@@ -152,12 +155,15 @@ class CsvRouteTests(unittest.TestCase):
         install_stubs(build_stub_client())
         os.environ["SLEEPER_LEAGUE_ID"] = "L2025"
         from server import app, _public_league_cache
+
         _public_league_cache.clear()
-        _public_league_cache.update({
-            "snapshot": None,
-            "snapshot_league_id": None,
-            "fetched_at": 0.0,
-        })
+        _public_league_cache.update(
+            {
+                "snapshot": None,
+                "snapshot_league_id": None,
+                "fetched_at": 0.0,
+            }
+        )
         cls.client = TestClient(app)
 
     def test_csv_route_serves_text_csv(self) -> None:
@@ -188,7 +194,16 @@ class CsvRouteTests(unittest.TestCase):
         self.assertEqual(r.status_code, 404)
 
     def test_csv_payload_never_leaks_private_fields(self) -> None:
-        for section in ["history", "rivalries", "awards", "records", "activity", "draft", "weekly", "superlatives"]:
+        for section in [
+            "history",
+            "rivalries",
+            "awards",
+            "records",
+            "activity",
+            "draft",
+            "weekly",
+            "superlatives",
+        ]:
             r = self.client.get(f"/api/public/league/{section}.csv")
             self.assertEqual(r.status_code, 200)
             blob = r.text.lower()

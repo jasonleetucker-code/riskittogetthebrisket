@@ -5,6 +5,7 @@ same regular-season / playoff partitioning, the same roster→owner
 attribution, and the same pre-week standings reconstruction so
 results stay consistent across cards.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -15,7 +16,9 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
 # ── Matchup helpers ────────────────────────────────────────────────────────
-def matchup_pairs(week_entries: list[dict[str, Any]]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+def matchup_pairs(
+    week_entries: list[dict[str, Any]],
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """Group a week's matchup rows into (home, away) pairs by matchup_id.
 
     The ordering within a pair is stable — we sort by ``roster_id`` so
@@ -109,20 +112,22 @@ def season_standings(season: SeasonSnapshot, registry: ManagerRegistry) -> list[
         rec = regular_season_settings_record(roster)
         games = rec["wins"] + rec["losses"] + rec["ties"]
         win_pct = (rec["wins"] + rec["ties"] * 0.5) / games if games else 0.0
-        rows.append({
-            "ownerId": owner_id,
-            "rosterId": rid,
-            "leagueId": season.league_id,
-            "season": season.season,
-            "wins": rec["wins"],
-            "losses": rec["losses"],
-            "ties": rec["ties"],
-            "pointsFor": rec["pointsFor"],
-            "pointsAgainst": rec["pointsAgainst"],
-            "winPct": round(win_pct, 4),
-            "games": games,
-            "sleeperRank": rec["sleeperRank"],
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "rosterId": rid,
+                "leagueId": season.league_id,
+                "season": season.season,
+                "wins": rec["wins"],
+                "losses": rec["losses"],
+                "ties": rec["ties"],
+                "pointsFor": rec["pointsFor"],
+                "pointsAgainst": rec["pointsAgainst"],
+                "winPct": round(win_pct, 4),
+                "games": games,
+                "sleeperRank": rec["sleeperRank"],
+            }
+        )
     rows.sort(
         key=lambda r: (
             -r["winPct"],
@@ -293,7 +298,9 @@ def season_champion(season: SeasonSnapshot) -> int | None:
     if placement:
         return min(placement, key=lambda rid: placement[rid])
     metadata = season.league.get("metadata") or {}
-    explicit = metadata.get("latest_league_winner_roster_id") or season.league.get("last_league_winner_roster_id")
+    explicit = metadata.get("latest_league_winner_roster_id") or season.league.get(
+        "last_league_winner_roster_id"
+    )
     try:
         return int(explicit) if explicit is not None else None
     except (TypeError, ValueError):

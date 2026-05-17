@@ -38,6 +38,7 @@ self-burning-down pattern as
 ``test_known_gaps_are_still_real_gaps`` forces removal of an entry the
 moment its scraper is hardened, so the allowlist can only shrink.
 """
+
 from __future__ import annotations
 
 import ast
@@ -108,21 +109,11 @@ def _dlf_board_min_rows(board_key: str) -> int | None:
 # real guard value.  Resolver returns the int, or None if the scraper
 # has NO aligned internal floor (=> must be in _KNOWN_FLOOR_GAPS).
 _SCRAPER_FLOOR_RESOLVERS = {
-    "yahooBoone": lambda: _module_int_const(
-        "fetch_yahoo_boone.py", "_YB_ROW_COUNT_FLOOR"
-    ),
-    "dynastyNerdsSfTep": lambda: _module_int_const(
-        "fetch_dynasty_nerds.py", "_DN_ROW_COUNT_FLOOR"
-    ),
-    "dynastyDaddySf": lambda: _module_int_const(
-        "fetch_dynasty_daddy.py", "_DD_ROW_COUNT_FLOOR"
-    ),
-    "flockFantasySf": lambda: _module_int_const(
-        "fetch_flock_fantasy.py", "_FF_ROW_COUNT_FLOOR"
-    ),
-    "idpShow": lambda: _module_int_const(
-        "fetch_idpshow.py", "_IDPSHOW_ROW_FLOOR"
-    ),
+    "yahooBoone": lambda: _module_int_const("fetch_yahoo_boone.py", "_YB_ROW_COUNT_FLOOR"),
+    "dynastyNerdsSfTep": lambda: _module_int_const("fetch_dynasty_nerds.py", "_DN_ROW_COUNT_FLOOR"),
+    "dynastyDaddySf": lambda: _module_int_const("fetch_dynasty_daddy.py", "_DD_ROW_COUNT_FLOOR"),
+    "flockFantasySf": lambda: _module_int_const("fetch_flock_fantasy.py", "_FF_ROW_COUNT_FLOOR"),
+    "idpShow": lambda: _module_int_const("fetch_idpshow.py", "_IDPSHOW_ROW_FLOOR"),
     "dlfSf": lambda: _dlf_board_min_rows("dlfSf"),
     "dlfIdp": lambda: _dlf_board_min_rows("dlfIdp"),
     # No aligned internal floor today (legacy Dynasty Scraper.py
@@ -130,18 +121,10 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # => allowlisted below until the named follow-up hardens it.
     # A2 (2026-05-17) — each now has a contract-aligned fail-loud,
     # preserve-last-good floor; resolvers read the real constant.
-    "footballGuysSf": lambda: _module_int_const(
-        "fetch_footballguys.py", "_FBG_SF_ROW_FLOOR"
-    ),
-    "footballGuysIdp": lambda: _module_int_const(
-        "fetch_footballguys.py", "_FBG_IDP_ROW_FLOOR"
-    ),
-    "draftSharks": lambda: _module_int_const(
-        "fetch_draftsharks.py", "_DS_SF_ROW_FLOOR"
-    ),
-    "draftSharksIdp": lambda: _module_int_const(
-        "fetch_draftsharks.py", "_DS_IDP_ROW_FLOOR"
-    ),
+    "footballGuysSf": lambda: _module_int_const("fetch_footballguys.py", "_FBG_SF_ROW_FLOOR"),
+    "footballGuysIdp": lambda: _module_int_const("fetch_footballguys.py", "_FBG_IDP_ROW_FLOOR"),
+    "draftSharks": lambda: _module_int_const("fetch_draftsharks.py", "_DS_SF_ROW_FLOOR"),
+    "draftSharksIdp": lambda: _module_int_const("fetch_draftsharks.py", "_DS_IDP_ROW_FLOOR"),
     "fantasyProsFitzmaurice": lambda: _module_int_const(
         "fetch_fantasypros_fitzmaurice.py", "_FPF_ROW_FLOOR"
     ),
@@ -151,12 +134,8 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # A3 (2026-05-17) — legacy Dynasty Scraper.py FULL_DATA->site_raw
     # export now skips the write below its contract-aligned floor so
     # the existing restore-previous pass preserves last-good.
-    "ktc": lambda: _module_int_const(
-        "Dynasty Scraper.py", "_KTC_SITE_RAW_FLOOR"
-    ),
-    "idpTradeCalc": lambda: _module_int_const(
-        "Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"
-    ),
+    "ktc": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_SITE_RAW_FLOOR"),
+    "idpTradeCalc": lambda: _module_int_const("Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"),
 }
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:
@@ -184,9 +163,7 @@ class TestScraperFloorInvariant(unittest.TestCase):
         """A new source in _DEFAULT_SOURCE_ROW_FLOORS must be wired
         here (resolver + either aligned floor or allowlist entry) —
         otherwise its scraper floor is unaudited."""
-        missing = sorted(
-            set(_DEFAULT_SOURCE_ROW_FLOORS) - set(_SCRAPER_FLOOR_RESOLVERS)
-        )
+        missing = sorted(set(_DEFAULT_SOURCE_ROW_FLOORS) - set(_SCRAPER_FLOOR_RESOLVERS))
         self.assertEqual(
             missing,
             [],
@@ -218,8 +195,7 @@ class TestScraperFloorInvariant(unittest.TestCase):
         self.assertEqual(
             violations,
             [],
-            "Scraper-floor < contract-floor (the yahooBoone class):\n  "
-            + "\n  ".join(violations),
+            "Scraper-floor < contract-floor (the yahooBoone class):\n  " + "\n  ".join(violations),
         )
 
     def test_known_gaps_are_still_real_gaps(self):
@@ -237,10 +213,7 @@ class TestScraperFloorInvariant(unittest.TestCase):
             )
             resolver = _SCRAPER_FLOOR_RESOLVERS.get(key)
             scraper_floor = resolver() if resolver else None
-            if (
-                scraper_floor is not None
-                and scraper_floor >= _DEFAULT_SOURCE_ROW_FLOORS[key]
-            ):
+            if scraper_floor is not None and scraper_floor >= _DEFAULT_SOURCE_ROW_FLOORS[key]:
                 stale.append(
                     f"{key}: scraper now floors at {scraper_floor} >= "
                     f"contract {_DEFAULT_SOURCE_ROW_FLOORS[key]} — remove "
@@ -249,8 +222,7 @@ class TestScraperFloorInvariant(unittest.TestCase):
         self.assertEqual(
             stale,
             [],
-            "Closed gaps still allowlisted (allowlist must shrink):\n  "
-            + "\n  ".join(stale),
+            "Closed gaps still allowlisted (allowlist must shrink):\n  " + "\n  ".join(stale),
         )
 
 

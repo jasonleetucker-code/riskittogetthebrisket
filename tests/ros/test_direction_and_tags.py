@@ -2,6 +2,7 @@
 
 Pure-function tests with synthetic inputs.  No I/O, no live snapshots.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -116,9 +117,7 @@ class TestTagsForPlayer(unittest.TestCase):
         self.assertEqual(tags, [])
 
     def test_zero_ros_value_no_tags(self):
-        tags = tags_for_player(
-            canonical_name="X", position="QB", age=25, ros_value=0
-        )
+        tags = tags_for_player(canonical_name="X", position="QB", age=25, ros_value=0)
         self.assertEqual(tags, [])
 
     def test_win_now_target_for_strong_vet(self):
@@ -178,7 +177,13 @@ class TestTagsForPlayer(unittest.TestCase):
             {"position": "WR", "age": 30, "ros_value": 70, "dynasty_value": 40},
             {"position": "WR", "age": 22, "ros_value": 40},
             {"position": "LB", "age": 27, "ros_value": 80, "ros_rank_overall": 20},
-            {"position": "RB", "age": 30, "ros_value": 65, "volatility_flag": True, "ros_rank_overall": 50},
+            {
+                "position": "RB",
+                "age": 30,
+                "ros_value": 65,
+                "volatility_flag": True,
+                "ros_rank_overall": 50,
+            },
         ]:
             tags = tags_for_player(canonical_name="X", **params)
             all_tags_emitted.update(tags)

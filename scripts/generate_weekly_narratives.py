@@ -38,6 +38,7 @@ Exit codes
 * 1 — at least one generation failed; check stderr for the failure.
 * 2 — bad invocation (no league configured, unknown mode, etc.).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -144,13 +145,13 @@ async def _generate_one(
         mode=mode,
     )
     if brief is None:
-        raise RuntimeError(
-            f"could not build brief for {season} W{week} matchup {matchup_id}"
-        )
+        raise RuntimeError(f"could not build brief for {season} W{week} matchup {matchup_id}")
 
     prior = matchup_narrative.collect_prior_articles(season, n=6)
     article = await matchup_narrative.generate_article(
-        client=client, brief=brief, prior_articles=prior,
+        client=client,
+        brief=brief,
+        prior_articles=prior,
     )
     matchup_narrative.save_article(article)
     return article

@@ -5,6 +5,7 @@ ISO ``YYYY-MM-DD`` form for almost every active NFL player.  This
 module converts that into the integer ``age`` the contract layer
 and frontend age-curve overlay expect.
 """
+
 from __future__ import annotations
 
 from datetime import date

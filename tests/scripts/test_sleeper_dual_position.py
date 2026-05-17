@@ -10,6 +10,7 @@ compete in the off-ball LB bucket downstream.
 Single-position rows and pure-offense rows must pass through
 unchanged.
 """
+
 from __future__ import annotations
 
 from src.utils.name_clean import resolve_idp_position

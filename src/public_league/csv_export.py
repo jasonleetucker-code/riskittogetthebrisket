@@ -14,6 +14,7 @@ attachment header.
 This module is NOT allowed to import from any private pipeline module.
 It composes over the already-safety-checked public section payloads.
 """
+
 from __future__ import annotations
 
 import csv
@@ -58,25 +59,37 @@ def export_history(data: dict[str, Any]) -> tuple[str, str]:
     for season_block in data.get("seasons", []):
         season = season_block["season"]
         for standing in season_block.get("standings", []):
-            rows.append({
-                "season": season,
-                "leagueId": season_block["leagueId"],
-                "standing": standing["standing"],
-                "finalPlace": standing.get("finalPlace"),
-                "madePlayoffs": standing.get("madePlayoffs"),
-                "ownerId": standing["ownerId"],
-                "teamName": standing["teamName"],
-                "wins": standing["wins"],
-                "losses": standing["losses"],
-                "ties": standing["ties"],
-                "pointsFor": standing["pointsFor"],
-                "pointsAgainst": standing["pointsAgainst"],
-                "winPct": standing["winPct"],
-            })
+            rows.append(
+                {
+                    "season": season,
+                    "leagueId": season_block["leagueId"],
+                    "standing": standing["standing"],
+                    "finalPlace": standing.get("finalPlace"),
+                    "madePlayoffs": standing.get("madePlayoffs"),
+                    "ownerId": standing["ownerId"],
+                    "teamName": standing["teamName"],
+                    "wins": standing["wins"],
+                    "losses": standing["losses"],
+                    "ties": standing["ties"],
+                    "pointsFor": standing["pointsFor"],
+                    "pointsAgainst": standing["pointsAgainst"],
+                    "winPct": standing["winPct"],
+                }
+            )
     fields = [
-        "season", "leagueId", "standing", "finalPlace", "madePlayoffs",
-        "ownerId", "teamName", "wins", "losses", "ties",
-        "pointsFor", "pointsAgainst", "winPct",
+        "season",
+        "leagueId",
+        "standing",
+        "finalPlace",
+        "madePlayoffs",
+        "ownerId",
+        "teamName",
+        "wins",
+        "losses",
+        "ties",
+        "pointsFor",
+        "pointsAgainst",
+        "winPct",
     ]
     return "history-standings.csv", _write_csv(rows, fields)
 
@@ -85,11 +98,22 @@ def export_history(data: dict[str, Any]) -> tuple[str, str]:
 def export_hall_of_fame(data: dict[str, Any]) -> tuple[str, str]:
     rows = data.get("hallOfFame", [])
     fields = [
-        "ownerId", "displayName", "currentTeamName", "seasonsPlayed",
-        "wins", "losses", "ties", "pointsFor", "pointsAgainst",
-        "championships", "finalsAppearances", "playoffAppearances",
-        "regularSeasonFirstPlace", "toiletBowls",
-        "bestFinish", "worstFinish",
+        "ownerId",
+        "displayName",
+        "currentTeamName",
+        "seasonsPlayed",
+        "wins",
+        "losses",
+        "ties",
+        "pointsFor",
+        "pointsAgainst",
+        "championships",
+        "finalsAppearances",
+        "playoffAppearances",
+        "regularSeasonFirstPlace",
+        "toiletBowls",
+        "bestFinish",
+        "worstFinish",
     ]
     return "hall-of-fame.csv", _write_csv(rows, fields)
 
@@ -101,32 +125,44 @@ def export_rivalries(data: dict[str, Any]) -> tuple[str, str]:
         owner_a = r["ownerIds"][0] if r.get("ownerIds") else ""
         owner_b = r["ownerIds"][1] if len(r.get("ownerIds", [])) > 1 else ""
         names = r.get("displayNames") or []
-        rows.append({
-            "ownerIdA": owner_a,
-            "displayNameA": names[0] if len(names) > 0 else "",
-            "ownerIdB": owner_b,
-            "displayNameB": names[1] if len(names) > 1 else "",
-            "totalMeetings": r["totalMeetings"],
-            "regularSeasonMeetings": r["regularSeasonMeetings"],
-            "playoffMeetings": r["playoffMeetings"],
-            "winsA": r["winsA"],
-            "winsB": r["winsB"],
-            "ties": r["ties"],
-            "pointsA": r["pointsA"],
-            "pointsB": r["pointsB"],
-            "gamesDecidedByFive": r["gamesDecidedByFive"],
-            "gamesDecidedByTen": r["gamesDecidedByTen"],
-            "seasonsWhereSeriesSplit": r["seasonsWhereSeriesSplit"],
-            "meetingsInMostRecentSeason": r["meetingsInMostRecentSeason"],
-            "rivalryIndex": r["rivalryIndex"],
-        })
+        rows.append(
+            {
+                "ownerIdA": owner_a,
+                "displayNameA": names[0] if len(names) > 0 else "",
+                "ownerIdB": owner_b,
+                "displayNameB": names[1] if len(names) > 1 else "",
+                "totalMeetings": r["totalMeetings"],
+                "regularSeasonMeetings": r["regularSeasonMeetings"],
+                "playoffMeetings": r["playoffMeetings"],
+                "winsA": r["winsA"],
+                "winsB": r["winsB"],
+                "ties": r["ties"],
+                "pointsA": r["pointsA"],
+                "pointsB": r["pointsB"],
+                "gamesDecidedByFive": r["gamesDecidedByFive"],
+                "gamesDecidedByTen": r["gamesDecidedByTen"],
+                "seasonsWhereSeriesSplit": r["seasonsWhereSeriesSplit"],
+                "meetingsInMostRecentSeason": r["meetingsInMostRecentSeason"],
+                "rivalryIndex": r["rivalryIndex"],
+            }
+        )
     fields = [
-        "ownerIdA", "displayNameA", "ownerIdB", "displayNameB",
-        "totalMeetings", "regularSeasonMeetings", "playoffMeetings",
-        "winsA", "winsB", "ties",
-        "pointsA", "pointsB",
-        "gamesDecidedByFive", "gamesDecidedByTen",
-        "seasonsWhereSeriesSplit", "meetingsInMostRecentSeason",
+        "ownerIdA",
+        "displayNameA",
+        "ownerIdB",
+        "displayNameB",
+        "totalMeetings",
+        "regularSeasonMeetings",
+        "playoffMeetings",
+        "winsA",
+        "winsB",
+        "ties",
+        "pointsA",
+        "pointsB",
+        "gamesDecidedByFive",
+        "gamesDecidedByTen",
+        "seasonsWhereSeriesSplit",
+        "meetingsInMostRecentSeason",
         "rivalryIndex",
     ]
     return "rivalries.csv", _write_csv(rows, fields)
@@ -137,37 +173,48 @@ def export_awards(data: dict[str, Any]) -> tuple[str, str]:
     rows: list[dict[str, Any]] = []
     for season_row in data.get("bySeason", []):
         for a in season_row.get("awards", []):
-            rows.append({
-                "season": season_row["season"],
-                "leagueId": season_row["leagueId"],
-                "seasonStatus": season_row.get("seasonStatus"),
-                "key": a["key"],
-                "label": a["label"],
-                "ownerId": a["ownerId"],
-                "displayName": a["displayName"],
-                "teamName": a.get("teamName"),
-                "value": a.get("value"),
-                "description": a.get("description"),
-            })
+            rows.append(
+                {
+                    "season": season_row["season"],
+                    "leagueId": season_row["leagueId"],
+                    "seasonStatus": season_row.get("seasonStatus"),
+                    "key": a["key"],
+                    "label": a["label"],
+                    "ownerId": a["ownerId"],
+                    "displayName": a["displayName"],
+                    "teamName": a.get("teamName"),
+                    "value": a.get("value"),
+                    "description": a.get("description"),
+                }
+            )
     # Live races appended with season="_race" so filters are easy.
     for race in data.get("awardRaces", []):
         for leader in race.get("leaders", []):
-            rows.append({
-                "season": "_race",
-                "leagueId": "",
-                "seasonStatus": "in_progress",
-                "key": race["key"],
-                "label": race["label"],
-                "ownerId": leader["ownerId"],
-                "displayName": leader["displayName"],
-                "teamName": "",
-                "value": {**leader.get("value", {}), "rank": leader["rank"]},
-                "description": race.get("description"),
-            })
+            rows.append(
+                {
+                    "season": "_race",
+                    "leagueId": "",
+                    "seasonStatus": "in_progress",
+                    "key": race["key"],
+                    "label": race["label"],
+                    "ownerId": leader["ownerId"],
+                    "displayName": leader["displayName"],
+                    "teamName": "",
+                    "value": {**leader.get("value", {}), "rank": leader["rank"]},
+                    "description": race.get("description"),
+                }
+            )
     fields = [
-        "season", "leagueId", "seasonStatus",
-        "key", "label", "ownerId", "displayName", "teamName",
-        "value", "description",
+        "season",
+        "leagueId",
+        "seasonStatus",
+        "key",
+        "label",
+        "ownerId",
+        "displayName",
+        "teamName",
+        "value",
+        "description",
     ]
     return "awards.csv", _write_csv(rows, fields)
 
@@ -196,11 +243,25 @@ def export_records(data: dict[str, Any]) -> tuple[str, str]:
         rows.append({"category": "longest_loss_streak", **r})
 
     fields = [
-        "category", "ownerId", "displayName", "teamName",
-        "season", "leagueId", "week", "isPlayoff",
-        "points", "opponentPoints", "margin", "result",
-        "length", "start", "end",
-        "totalPoints", "totalPointsAgainst", "avgPoints", "weeksPlayed",
+        "category",
+        "ownerId",
+        "displayName",
+        "teamName",
+        "season",
+        "leagueId",
+        "week",
+        "isPlayoff",
+        "points",
+        "opponentPoints",
+        "margin",
+        "result",
+        "length",
+        "start",
+        "end",
+        "totalPoints",
+        "totalPointsAgainst",
+        "avgPoints",
+        "weeksPlayed",
     ]
     return "records.csv", _write_csv(rows, fields)
 
@@ -214,25 +275,43 @@ def export_franchise(data: dict[str, Any], owner_id: str | None = None) -> tuple
             return f"franchise-{owner_id}.csv", "season,message\n,No franchise record found\n"
         rows = []
         for r in detail.get("seasonResults", []):
-            rows.append({
-                "ownerId": owner_id,
-                "displayName": detail.get("displayName"),
-                **r,
-            })
+            rows.append(
+                {
+                    "ownerId": owner_id,
+                    "displayName": detail.get("displayName"),
+                    **r,
+                }
+            )
         fields = [
-            "ownerId", "displayName",
-            "season", "leagueId", "rosterId", "teamName",
-            "wins", "losses", "ties",
-            "pointsFor", "pointsAgainst",
-            "standing", "finalPlace", "madePlayoffs",
+            "ownerId",
+            "displayName",
+            "season",
+            "leagueId",
+            "rosterId",
+            "teamName",
+            "wins",
+            "losses",
+            "ties",
+            "pointsFor",
+            "pointsAgainst",
+            "standing",
+            "finalPlace",
+            "madePlayoffs",
         ]
         return f"franchise-{owner_id}.csv", _write_csv(rows, fields)
 
     # No owner: index summary.
     rows = data.get("index", [])
     fields = [
-        "ownerId", "displayName", "currentTeamName", "avatar",
-        "seasonsPlayed", "wins", "losses", "championships", "bestFinish",
+        "ownerId",
+        "displayName",
+        "currentTeamName",
+        "avatar",
+        "seasonsPlayed",
+        "wins",
+        "losses",
+        "championships",
+        "bestFinish",
     ]
     return "franchises.csv", _write_csv(rows, fields)
 
@@ -243,28 +322,38 @@ def export_activity(data: dict[str, Any]) -> tuple[str, str]:
     for t in data.get("feed", []):
         for side in t.get("sides", []):
             assets_str = " | ".join(
-                a.get("playerName") or a.get("label") or ""
-                for a in side.get("receivedAssets", [])
+                a.get("playerName") or a.get("label") or "" for a in side.get("receivedAssets", [])
             )
-            rows.append({
-                "transactionId": t["transactionId"],
-                "season": t["season"],
-                "leagueId": t["leagueId"],
-                "week": t.get("week"),
-                "createdAt": t.get("createdAt"),
-                "totalAssets": t["totalAssets"],
-                "ownerId": side["ownerId"],
-                "displayName": side.get("displayName") or side.get("teamName"),
-                "teamName": side.get("teamName"),
-                "receivedPlayerCount": side.get("receivedPlayerCount", 0),
-                "receivedPickCount": side.get("receivedPickCount", 0),
-                "notableAssetCount": side.get("notableAssetCount", 0),
-                "receivedAssets": assets_str,
-            })
+            rows.append(
+                {
+                    "transactionId": t["transactionId"],
+                    "season": t["season"],
+                    "leagueId": t["leagueId"],
+                    "week": t.get("week"),
+                    "createdAt": t.get("createdAt"),
+                    "totalAssets": t["totalAssets"],
+                    "ownerId": side["ownerId"],
+                    "displayName": side.get("displayName") or side.get("teamName"),
+                    "teamName": side.get("teamName"),
+                    "receivedPlayerCount": side.get("receivedPlayerCount", 0),
+                    "receivedPickCount": side.get("receivedPickCount", 0),
+                    "notableAssetCount": side.get("notableAssetCount", 0),
+                    "receivedAssets": assets_str,
+                }
+            )
     fields = [
-        "transactionId", "season", "leagueId", "week", "createdAt",
-        "totalAssets", "ownerId", "displayName", "teamName",
-        "receivedPlayerCount", "receivedPickCount", "notableAssetCount",
+        "transactionId",
+        "season",
+        "leagueId",
+        "week",
+        "createdAt",
+        "totalAssets",
+        "ownerId",
+        "displayName",
+        "teamName",
+        "receivedPlayerCount",
+        "receivedPickCount",
+        "notableAssetCount",
         "receivedAssets",
     ]
     return "trade-activity.csv", _write_csv(rows, fields)
@@ -275,18 +364,31 @@ def export_draft(data: dict[str, Any]) -> tuple[str, str]:
     rows: list[dict[str, Any]] = []
     for d in data.get("drafts", []):
         for p in d.get("picks", []):
-            rows.append({
-                "draftId": d["draftId"],
-                "season": d["season"],
-                "leagueId": d["leagueId"],
-                "type": d.get("type"),
-                "status": d.get("status"),
-                **p,
-            })
+            rows.append(
+                {
+                    "draftId": d["draftId"],
+                    "season": d["season"],
+                    "leagueId": d["leagueId"],
+                    "type": d.get("type"),
+                    "status": d.get("status"),
+                    **p,
+                }
+            )
     fields = [
-        "draftId", "season", "leagueId", "type", "status",
-        "round", "pickNo", "rosterId", "ownerId", "teamName",
-        "playerId", "playerName", "position", "nflTeam",
+        "draftId",
+        "season",
+        "leagueId",
+        "type",
+        "status",
+        "round",
+        "pickNo",
+        "rosterId",
+        "ownerId",
+        "teamName",
+        "playerId",
+        "playerName",
+        "position",
+        "nflTeam",
     ]
     return "draft-picks.csv", _write_csv(rows, fields)
 
@@ -298,25 +400,35 @@ def export_weekly(data: dict[str, Any]) -> tuple[str, str]:
         for m in w.get("matchups", []):
             home = m.get("home") or {}
             away = m.get("away") or {}
-            rows.append({
-                "season": w["season"],
-                "leagueId": w["leagueId"],
-                "week": w["week"],
-                "isPlayoff": w.get("isPlayoff"),
-                "homeOwnerId": home.get("ownerId"),
-                "homeDisplayName": home.get("displayName"),
-                "homePoints": home.get("points"),
-                "awayOwnerId": away.get("ownerId"),
-                "awayDisplayName": away.get("displayName"),
-                "awayPoints": away.get("points"),
-                "margin": m.get("margin"),
-                "winnerOwnerId": m.get("winnerOwnerId"),
-            })
+            rows.append(
+                {
+                    "season": w["season"],
+                    "leagueId": w["leagueId"],
+                    "week": w["week"],
+                    "isPlayoff": w.get("isPlayoff"),
+                    "homeOwnerId": home.get("ownerId"),
+                    "homeDisplayName": home.get("displayName"),
+                    "homePoints": home.get("points"),
+                    "awayOwnerId": away.get("ownerId"),
+                    "awayDisplayName": away.get("displayName"),
+                    "awayPoints": away.get("points"),
+                    "margin": m.get("margin"),
+                    "winnerOwnerId": m.get("winnerOwnerId"),
+                }
+            )
     fields = [
-        "season", "leagueId", "week", "isPlayoff",
-        "homeOwnerId", "homeDisplayName", "homePoints",
-        "awayOwnerId", "awayDisplayName", "awayPoints",
-        "margin", "winnerOwnerId",
+        "season",
+        "leagueId",
+        "week",
+        "isPlayoff",
+        "homeOwnerId",
+        "homeDisplayName",
+        "homePoints",
+        "awayOwnerId",
+        "awayDisplayName",
+        "awayPoints",
+        "margin",
+        "winnerOwnerId",
     ]
     return "weekly-matchups.csv", _write_csv(rows, fields)
 
@@ -337,9 +449,20 @@ def export_superlatives(data: dict[str, Any]) -> tuple[str, str]:
                 continue
             rows.append({"superlative": f"{key}_ranking_{i+1}", **entry})
     fields = [
-        "superlative", "ownerId", "displayName", "rosterSize",
-        "qb", "rb", "wr", "te", "idp", "rookies",
-        "trades", "waivers", "weightedPickScore", "balanceScore",
+        "superlative",
+        "ownerId",
+        "displayName",
+        "rosterSize",
+        "qb",
+        "rb",
+        "wr",
+        "te",
+        "idp",
+        "rookies",
+        "trades",
+        "waivers",
+        "weightedPickScore",
+        "balanceScore",
     ]
     return "superlatives.csv", _write_csv(rows, fields)
 

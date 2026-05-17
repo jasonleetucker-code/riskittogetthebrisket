@@ -20,6 +20,7 @@ These tests guard all three gates simultaneously by building the
 live contract and asserting that a known tail-player (McNeil-Warren)
 receives credit for DS coverage end to end.
 """
+
 from __future__ import annotations
 
 import json
@@ -189,14 +190,10 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
         players = self.contract.get("playersArray") or []
 
         ds_idp_covered = sum(
-            1
-            for p in players
-            if (p.get("sourcePresence") or {}).get("draftSharksIdp")
+            1 for p in players if (p.get("sourcePresence") or {}).get("draftSharksIdp")
         )
         ds_sf_covered = sum(
-            1
-            for p in players
-            if (p.get("sourcePresence") or {}).get("draftSharks")
+            1 for p in players if (p.get("sourcePresence") or {}).get("draftSharks")
         )
 
         # Regression floor: a real regression of the carve-out drops
