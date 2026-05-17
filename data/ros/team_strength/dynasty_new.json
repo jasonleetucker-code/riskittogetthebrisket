@@ -5,7 +5,7 @@
     "teamName": "Brent",
     "teamRosStrength": 461.91,
     "startingLineupScore": 587.5,
-    "benchDepthScore": 160.59,
+    "benchDepthScore": 160.61,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -139,9 +139,9 @@
         "playerId": "3214",
         "canonicalName": "hunter henry",
         "position": "TE",
-        "rosValue": 22.42,
+        "rosValue": 22.44,
         "depthFactor": 1.0,
-        "depthContribution": 22.42
+        "depthContribution": 22.44
       },
       {
         "playerId": "7002",
@@ -757,7 +757,7 @@
     "teamName": "Kanyn",
     "teamRosStrength": 324.99,
     "startingLineupScore": 405.18,
-    "benchDepthScore": 129.21,
+    "benchDepthScore": 129.2,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -915,9 +915,9 @@
         "playerId": "10213",
         "canonicalName": "tre tucker",
         "position": "WR",
-        "rosValue": 19.58,
+        "rosValue": 19.56,
         "depthFactor": 0.423,
-        "depthContribution": 8.27
+        "depthContribution": 8.26
       },
       {
         "playerId": "13417",

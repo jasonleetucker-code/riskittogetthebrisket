@@ -1891,9 +1891,9 @@
     "ownerId": "1208452010173538304",
     "rosterId": 10,
     "teamName": "Kich",
-    "teamRosStrength": 413.03,
-    "startingLineupScore": 536.88,
-    "benchDepthScore": 91.55,
+    "teamRosStrength": 413.05,
+    "startingLineupScore": 536.9,
+    "benchDepthScore": 91.56,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1992,9 +1992,9 @@
         "playerId": "3214",
         "canonicalName": "hunter henry",
         "position": "TE",
-        "rosValue": 22.42,
-        "adjustedValue": 22.42,
-        "confidence": 0.96,
+        "rosValue": 22.44,
+        "adjustedValue": 22.44,
+        "confidence": 0.961,
         "flagged": null
       },
       {
@@ -2115,9 +2115,9 @@
         "playerId": "7090",
         "canonicalName": "darnell mooney",
         "position": "WR",
-        "rosValue": 18.78,
+        "rosValue": 18.83,
         "depthFactor": 0.275,
-        "depthContribution": 5.16
+        "depthContribution": 5.17
       },
       {
         "playerId": "12509",
@@ -2167,7 +2167,7 @@
     "teamName": "Ed",
     "teamRosStrength": 397.56,
     "startingLineupScore": 509.86,
-    "benchDepthScore": 113.67,
+    "benchDepthScore": 113.66,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2405,9 +2405,9 @@
         "playerId": "10213",
         "canonicalName": "tre tucker",
         "position": "WR",
-        "rosValue": 19.58,
+        "rosValue": 19.56,
         "depthFactor": 0.275,
-        "depthContribution": 5.38
+        "depthContribution": 5.37
       },
       {
         "playerId": "13301",
@@ -2435,9 +2435,9 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "Blaine",
-    "teamRosStrength": 340.4,
-    "startingLineupScore": 437.23,
-    "benchDepthScore": 86.66,
+    "teamRosStrength": 340.42,
+    "startingLineupScore": 437.24,
+    "benchDepthScore": 86.68,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2586,8 +2586,8 @@
         "playerId": "4454",
         "canonicalName": "kendrick bourne",
         "position": "WR",
-        "rosValue": 11.34,
-        "adjustedValue": 11.34,
+        "rosValue": 11.35,
+        "adjustedValue": 11.35,
         "confidence": 0.957,
         "flagged": null
       },
@@ -2643,9 +2643,9 @@
         "playerId": "4177",
         "canonicalName": "mack hollins",
         "position": "WR",
-        "rosValue": 11.17,
+        "rosValue": 11.19,
         "depthFactor": 1.0,
-        "depthContribution": 11.17
+        "depthContribution": 11.19
       },
       {
         "playerId": "11674",
@@ -3213,9 +3213,9 @@
         "playerId": "13337",
         "canonicalName": "emmett johnson",
         "position": "RB",
-        "rosValue": 14.47,
+        "rosValue": 14.49,
         "depthFactor": 0.423,
-        "depthContribution": 6.11
+        "depthContribution": 6.12
       },
       {
         "playerId": "13272",
