@@ -306,3 +306,30 @@ export function valueFromRank(rank) {
   const CEIL = 9999;
   return Math.round(1 + CEIL / (1 + Math.pow((r - 1) / K, EXP)));
 }
+
+/**
+ * Closed-form inverse of {@link valueFromRank}.  Given a blended
+ * value on the 1..(1+CEIL) Hill scale, return the rank that produces
+ * it.  Solving ``v = 1 + CEIL / (1 + ((r-1)/K)^EXP)`` for r:
+ *   r = 1 + K * (CEIL/(v-1) - 1)^(1/EXP)
+ *
+ * Used to DERIVE a rank-history line for historical snapshots that
+ * persisted a value but not a rank (per-source ranks only began
+ * persisting 2026-04-29 while value history goes back further).  Same
+ * K/EXP/CEIL as valueFromRank so derived ranks are exactly consistent
+ * with the curve the rest of the app uses.  Returns null when the
+ * value is outside the curve's invertible domain.
+ */
+export function rankFromValue(value) {
+  const v = Number(value);
+  const K = 45;
+  const EXP = 1.1;
+  const CEIL = 9999;
+  if (!Number.isFinite(v) || v <= 1) return null;
+  if (v >= 1 + CEIL) return 1; // saturated → top rank
+  const base = CEIL / (v - 1) - 1; // > 0 for 1 < v < 1+CEIL
+  if (!(base > 0)) return 1;
+  const r = 1 + K * Math.pow(base, 1 / EXP);
+  if (!Number.isFinite(r)) return null;
+  return Math.max(1, Math.round(r));
+}
