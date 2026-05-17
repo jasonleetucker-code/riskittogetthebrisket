@@ -109,14 +109,14 @@ export default function SettingsPage() {
   }
 
   // TE Premium input value.  The backend stamps the operator's
-  // current default (``rankingsOverride.tepMultiplierDerived``, which
-  // post-2026-05-06 is just the hardcoded non-TEP default 1.25 and no
-  // longer comes from Sleeper's ``bonus_rec_te``); we use that as the
-  // displayed value when the user has not set an explicit override,
-  // falling back to 1.25 if the field is missing.
+  // current default (``rankingsOverride.tepMultiplierDerived``, the
+  // hardcoded non-native default 1.15 — TEP-1.5 platform; Sleeper
+  // never exposes ``bonus_rec_te`` here); we use that as the displayed
+  // value when the user has not set an explicit override, falling back
+  // to 1.15 if the field is missing.
   const tepDefault = (() => {
     const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
-    return Number.isFinite(v) ? v : 1.25;
+    return Number.isFinite(v) ? v : 1.15;
   })();
   const tepSliderValue = (() => {
     const raw = settings?.tepMultiplier;
@@ -124,13 +124,13 @@ export default function SettingsPage() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : tepDefault;
   })();
-  // 1.25 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
+  // 1.15 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
   // Treat the explicit default value — or a legacy null — as "default"
   // so the UI doesn't render the default as a Custom override.
   const tepIsDefault =
     settings?.tepMultiplier === null ||
     settings?.tepMultiplier === undefined ||
-    Number(settings?.tepMultiplier) === 1.25;
+    Number(settings?.tepMultiplier) === 1.15;
 
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
@@ -279,7 +279,7 @@ export default function SettingsPage() {
                 cursor: "pointer",
                 padding: 0,
               }}
-              onClick={() => update("tepMultiplier", 1.25)}
+              onClick={() => update("tepMultiplier", 1.15)}
             >
               Reset to default ({tepDefault.toFixed(2)}×)
             </button>

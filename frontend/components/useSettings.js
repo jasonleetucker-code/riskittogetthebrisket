@@ -16,28 +16,30 @@ export const SETTINGS_DEFAULTS = {
   // TE Premium boost applied at blend time.
   //
   //   * ``tepMultiplier`` → non-TEP sources (DLF, FBG, FP consensus,
-  //     Flock, etc.).  Defaults to 1.25 (explicit operator decision —
-  //     this is a TE-premium platform; a standard-league value of
-  //     1.0 is opt-in, not the default).
+  //     Flock, etc.).  Defaults to 1.15: this platform's leagues are
+  //     TEP-1.5 (``superflex_tep15_ppr1``) and the derivation formula
+  //     ``1.0 + 0.5*0.30`` maps TEP-1.5 → 1.15.  1.25 over-boosted
+  //     elite TEs above the individual-source consensus (Bowers #2
+  //     overall when no source ranked him near there).
   //   * ``tepNativeMultiplier`` → TEP-native sources (DN SF-TEP,
   //     Yahoo Boone, FP Fitzmaurice).  Default 1.10 backend-side.
   //
   // KTC variants (ktc, ktcSfTep) stay exempt regardless — KTC's TE++
   // board is the canonical reference.  When the user types a value on
   // /settings this becomes their explicit override; "Reset" returns
-  // it to the 1.25 default.  ``tepNativeMultiplier`` keeps the ``null``
+  // it to the 1.15 default.  ``tepNativeMultiplier`` keeps the ``null``
   // = backend-default sentinel.  A one-time migration in
-  // ``readSettings`` lifts any persisted ``null`` / ``1.0``
-  // ``tepMultiplier`` (the pre-2026-05 auto-derive default, or a value
-  // a stray number-input wheel-scroll pinned) up to 1.25.
-  tepMultiplier: 1.25,               // 1.25 default; 1.0..1.5 = explicit operator override
+  // ``readSettings`` lifts any persisted "default-ish" value (``null``
+  // pre-2026-05 auto-derive, ``1.0`` from a stray wheel-scroll, or the
+  // interim ``1.25``) to 1.15.
+  tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override
   tepNativeMultiplier: null,         // null = backend default (1.10); 1.0..1.5 = explicit operator override
 
   // One-time migration marker.  False/absent → ``readSettings``
-  // promotes a stale ``tepMultiplier`` of ``null`` or ``1.0`` to the
-  // 1.25 default exactly once, then sets this so a deliberate later
-  // 1.0 (genuine standard league) still sticks.
-  tepDefaultV2Applied: false,
+  // promotes a stale ``tepMultiplier`` of ``null`` / ``1.0`` / ``1.25``
+  // to the 1.15 default exactly once, then sets this so a deliberate
+  // later value still sticks.
+  tepDefaultV3Applied: false,
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
@@ -154,17 +156,22 @@ function readSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const merged = { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
-      // One-time TEP default migration.  Pre-2026-05 builds defaulted
-      // tepMultiplier to null ("auto-derive") and a stray wheel-scroll
-      // on the /settings number input could pin it to 1.0 — both
-      // silently disable the TE premium on a TEP platform.  Promote
-      // either to the 1.25 default exactly once; a deliberate later
-      // 1.0 then persists because the flag is set.
-      if (!merged.tepDefaultV2Applied) {
-        if (merged.tepMultiplier == null || merged.tepMultiplier === 1.0) {
-          merged.tepMultiplier = 1.25;
+      // One-time TEP default migration.  Earlier builds left
+      // tepMultiplier at null ("auto-derive"), a stray wheel-scroll
+      // could pin it to 1.0, and an interim build defaulted it to
+      // 1.25 (which over-boosted elite TEs).  Promote any of those
+      // "default-ish" values to the corrected 1.15 default exactly
+      // once; a deliberate later value persists because the flag is
+      // set.
+      if (!merged.tepDefaultV3Applied) {
+        if (
+          merged.tepMultiplier == null ||
+          merged.tepMultiplier === 1.0 ||
+          merged.tepMultiplier === 1.25
+        ) {
+          merged.tepMultiplier = 1.15;
         }
-        merged.tepDefaultV2Applied = true;
+        merged.tepDefaultV3Applied = true;
         writeSettings(merged);
       }
       return merged;
