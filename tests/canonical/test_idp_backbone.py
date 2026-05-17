@@ -8,6 +8,7 @@ These tests pin the math in `src/canonical/idp_backbone.py`:
 They are intentionally pure-Python (no contract fixtures) so regressions
 here are isolated from the full pipeline.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -71,22 +72,15 @@ class TestBackboneConstruction(unittest.TestCase):
 
     def test_build_backbone_from_rows_sorts_by_source_value(self):
         rows = [
-            {"canonicalName": "lb2", "position": "LB",
-             "canonicalSiteValues": {"idpTC": 40}},
-            {"canonicalName": "dl1", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 90}},
-            {"canonicalName": "dl2", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 70}},
-            {"canonicalName": "lb1", "position": "LB",
-             "canonicalSiteValues": {"idpTC": 60}},
-            {"canonicalName": "db1", "position": "DB",
-             "canonicalSiteValues": {"idpTC": 50}},
+            {"canonicalName": "lb2", "position": "LB", "canonicalSiteValues": {"idpTC": 40}},
+            {"canonicalName": "dl1", "position": "DL", "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "dl2", "position": "DL", "canonicalSiteValues": {"idpTC": 70}},
+            {"canonicalName": "lb1", "position": "LB", "canonicalSiteValues": {"idpTC": 60}},
+            {"canonicalName": "db1", "position": "DB", "canonicalSiteValues": {"idpTC": 50}},
             # Row with missing value is skipped
-            {"canonicalName": "dl_ghost", "position": "DL",
-             "canonicalSiteValues": {"idpTC": None}},
+            {"canonicalName": "dl_ghost", "position": "DL", "canonicalSiteValues": {"idpTC": None}},
             # Non-IDP row is skipped
-            {"canonicalName": "josh", "position": "QB",
-             "canonicalSiteValues": {"idpTC": 1000}},
+            {"canonicalName": "josh", "position": "QB", "canonicalSiteValues": {"idpTC": 1000}},
         ]
         bb = build_backbone_from_rows(rows, source_key="idpTC")
         # Desc order: dl1(90), dl2(70), lb1(60), db1(50), lb2(40)
@@ -171,10 +165,8 @@ class TestSharedMarketIdpLadder(unittest.TestCase):
 
     def test_empty_when_offense_positions_not_supplied(self):
         rows = [
-            {"canonicalName": "dl1", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 90}},
-            {"canonicalName": "qb1", "position": "QB",
-             "canonicalSiteValues": {"idpTC": 95}},
+            {"canonicalName": "dl1", "position": "DL", "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "qb1", "position": "QB", "canonicalSiteValues": {"idpTC": 95}},
         ]
         bb = build_backbone_from_rows(rows, source_key="idpTC")
         self.assertEqual(bb.shared_market_idp_ladder, [])
@@ -184,16 +176,11 @@ class TestSharedMarketIdpLadder(unittest.TestCase):
     def test_shared_ladder_reflects_combined_pool_ordering(self):
         # IDPTC combined-pool order: qb(95) > dl1(90) > wr1(85) > lb1(80) > db1(70)
         rows = [
-            {"canonicalName": "qb1", "position": "QB",
-             "canonicalSiteValues": {"idpTC": 95}},
-            {"canonicalName": "dl1", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 90}},
-            {"canonicalName": "wr1", "position": "WR",
-             "canonicalSiteValues": {"idpTC": 85}},
-            {"canonicalName": "lb1", "position": "LB",
-             "canonicalSiteValues": {"idpTC": 80}},
-            {"canonicalName": "db1", "position": "DB",
-             "canonicalSiteValues": {"idpTC": 70}},
+            {"canonicalName": "qb1", "position": "QB", "canonicalSiteValues": {"idpTC": 95}},
+            {"canonicalName": "dl1", "position": "DL", "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "wr1", "position": "WR", "canonicalSiteValues": {"idpTC": 85}},
+            {"canonicalName": "lb1", "position": "LB", "canonicalSiteValues": {"idpTC": 80}},
+            {"canonicalName": "db1", "position": "DB", "canonicalSiteValues": {"idpTC": 70}},
         ]
         bb = build_backbone_from_rows(
             rows,
@@ -214,16 +201,11 @@ class TestSharedMarketIdpLadder(unittest.TestCase):
         # With the shared-market ladder = [2, 4, 5], translating DLF's
         # raw IDP ranks 1/2/3 must yield 2/4/5 respectively.
         rows = [
-            {"canonicalName": "qb1", "position": "QB",
-             "canonicalSiteValues": {"idpTC": 95}},
-            {"canonicalName": "dl1", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 90}},
-            {"canonicalName": "wr1", "position": "WR",
-             "canonicalSiteValues": {"idpTC": 85}},
-            {"canonicalName": "lb1", "position": "LB",
-             "canonicalSiteValues": {"idpTC": 80}},
-            {"canonicalName": "db1", "position": "DB",
-             "canonicalSiteValues": {"idpTC": 70}},
+            {"canonicalName": "qb1", "position": "QB", "canonicalSiteValues": {"idpTC": 95}},
+            {"canonicalName": "dl1", "position": "DL", "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "wr1", "position": "WR", "canonicalSiteValues": {"idpTC": 85}},
+            {"canonicalName": "lb1", "position": "LB", "canonicalSiteValues": {"idpTC": 80}},
+            {"canonicalName": "db1", "position": "DB", "canonicalSiteValues": {"idpTC": 70}},
         ]
         bb = build_backbone_from_rows(
             rows,
@@ -231,12 +213,9 @@ class TestSharedMarketIdpLadder(unittest.TestCase):
             offense_positions={"QB", "WR"},
         )
         ladder = bb.shared_idp_ladder()
-        self.assertEqual(translate_position_rank(1, ladder),
-                         (2, TRANSLATION_EXACT))
-        self.assertEqual(translate_position_rank(2, ladder),
-                         (4, TRANSLATION_EXACT))
-        self.assertEqual(translate_position_rank(3, ladder),
-                         (5, TRANSLATION_EXACT))
+        self.assertEqual(translate_position_rank(1, ladder), (2, TRANSLATION_EXACT))
+        self.assertEqual(translate_position_rank(2, ladder), (4, TRANSLATION_EXACT))
+        self.assertEqual(translate_position_rank(3, ladder), (5, TRANSLATION_EXACT))
         # Past the ladder extrapolates monotonically.
         syn, method = translate_position_rank(4, ladder)
         self.assertEqual(method, TRANSLATION_EXTRAPOLATED)
@@ -247,10 +226,8 @@ class TestSharedMarketIdpLadder(unittest.TestCase):
         # the combined-pool collapses to the IDP pool, so the ladder
         # is [1,2,3,...].
         rows = [
-            {"canonicalName": "dl1", "position": "DL",
-             "canonicalSiteValues": {"idpTC": 90}},
-            {"canonicalName": "lb1", "position": "LB",
-             "canonicalSiteValues": {"idpTC": 80}},
+            {"canonicalName": "dl1", "position": "DL", "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "lb1", "position": "LB", "canonicalSiteValues": {"idpTC": 80}},
         ]
         bb = build_backbone_from_rows(
             rows,
@@ -272,9 +249,7 @@ class TestCoverageWeight(unittest.TestCase):
 
     def test_shallow_depth_scales_linearly(self):
         # A top-20 list with declared weight 1.0 contributes 20/60 = 0.333...
-        self.assertAlmostEqual(
-            coverage_weight(1.0, 20), 20 / MIN_FULL_COVERAGE_DEPTH, places=6
-        )
+        self.assertAlmostEqual(coverage_weight(1.0, 20), 20 / MIN_FULL_COVERAGE_DEPTH, places=6)
 
     def test_zero_depth_returns_zero_weight(self):
         self.assertEqual(coverage_weight(1.0, 0), 0.0)
@@ -284,9 +259,7 @@ class TestCoverageWeight(unittest.TestCase):
 
     def test_custom_min_depth(self):
         # With min_full_depth=30 a depth-15 list yields half the declared weight.
-        self.assertAlmostEqual(
-            coverage_weight(1.0, 15, min_full_depth=30), 0.5, places=6
-        )
+        self.assertAlmostEqual(coverage_weight(1.0, 15, min_full_depth=30), 0.5, places=6)
 
 
 if __name__ == "__main__":

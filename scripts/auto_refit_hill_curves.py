@@ -27,6 +27,7 @@ Usage:
     python3 scripts/auto_refit_hill_curves.py --dry-run
     python3 scripts/auto_refit_hill_curves.py --threshold 100
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,9 +40,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PLAYER_VALUATION = REPO / "src" / "canonical" / "player_valuation.py"
-KTC_RECONCILIATION_TEST = (
-    REPO / "tests" / "canonical" / "test_ktc_reconciliation.py"
-)
+KTC_RECONCILIATION_TEST = REPO / "tests" / "canonical" / "test_ktc_reconciliation.py"
 FIT_SCRIPT = REPO / "scripts" / "fit_hill_curve_percentile.py"
 KTC_CSV = REPO / "CSVs" / "site_raw" / "ktc.csv"
 
@@ -57,10 +56,10 @@ CONSTANT_NAMES: tuple[str, ...] = (
 )
 
 SCOPE_TO_CS = {
-    "GLOBAL":  ("HILL_GLOBAL_PERCENTILE_C",  "HILL_GLOBAL_PERCENTILE_S"),
-    "OFFENSE": ("HILL_PERCENTILE_C",         "HILL_PERCENTILE_S"),
-    "IDP":     ("IDP_HILL_PERCENTILE_C",     "IDP_HILL_PERCENTILE_S"),
-    "ROOKIE":  ("HILL_ROOKIE_PERCENTILE_C",  "HILL_ROOKIE_PERCENTILE_S"),
+    "GLOBAL": ("HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"),
+    "OFFENSE": ("HILL_PERCENTILE_C", "HILL_PERCENTILE_S"),
+    "IDP": ("IDP_HILL_PERCENTILE_C", "IDP_HILL_PERCENTILE_S"),
+    "ROOKIE": ("HILL_ROOKIE_PERCENTILE_C", "HILL_ROOKIE_PERCENTILE_S"),
 }
 
 DRIFT_RMSE_THRESHOLD: float = 50.0
@@ -98,9 +97,7 @@ def read_committed_constants() -> dict[str, float]:
 
 def run_fit_with_json() -> dict[str, float]:
     """Run the fit script, capture JSON output, return constants dict."""
-    with tempfile.NamedTemporaryFile(
-        mode="w+", suffix=".json", delete=False
-    ) as tmp:
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as tmp:
         json_path = Path(tmp.name)
     try:
         result = subprocess.run(
@@ -124,18 +121,13 @@ def run_fit_with_json() -> dict[str, float]:
             pass
 
 
-def compute_scope_drift(
-    committed: dict[str, float], fitted: dict[str, float]
-) -> dict[str, float]:
+def compute_scope_drift(committed: dict[str, float], fitted: dict[str, float]) -> dict[str, float]:
     """Return per-scope RMSE of V_new(p) − V_old(p) over DRIFT_GRID."""
     out: dict[str, float] = {}
     for scope, (c_name, s_name) in SCOPE_TO_CS.items():
         c_old, s_old = committed[c_name], committed[s_name]
         c_new, s_new = fitted[c_name], fitted[s_name]
-        sq_diffs = [
-            (_hill(p, c_new, s_new) - _hill(p, c_old, s_old)) ** 2
-            for p in DRIFT_GRID
-        ]
+        sq_diffs = [(_hill(p, c_new, s_new) - _hill(p, c_old, s_old)) ** 2 for p in DRIFT_GRID]
         rmse = (sum(sq_diffs) / len(sq_diffs)) ** 0.5
         out[scope] = rmse
     return out
@@ -159,8 +151,7 @@ def rewrite_player_valuation(fitted: dict[str, float]) -> None:
         )
         if n != 1:
             raise RuntimeError(
-                f"Expected exactly 1 match for {name!r} in "
-                f"{PLAYER_VALUATION}, got {n}"
+                f"Expected exactly 1 match for {name!r} in " f"{PLAYER_VALUATION}, got {n}"
             )
     PLAYER_VALUATION.write_text(text)
 
@@ -189,9 +180,7 @@ def rebaseline_ktc_reconciliation(fitted: dict[str, float]) -> None:
 
     # Percentile reference N is read from data_contract.py to stay in
     # sync.  Parsing inline is cheaper than importing the module.
-    data_contract_text = (
-        REPO / "src" / "api" / "data_contract.py"
-    ).read_text()
+    data_contract_text = (REPO / "src" / "api" / "data_contract.py").read_text()
     ref_n_match = re.search(
         r"_PERCENTILE_REFERENCE_N:\s*int\s*=\s*(\d+)",
         data_contract_text,
@@ -232,9 +221,7 @@ def rebaseline_ktc_reconciliation(fitted: dict[str, float]) -> None:
     new_block_lines = ["PINNED_DELTAS: list[tuple[int, int, float, float]] = ["]
     for rank, ours, pct, tol in new_entries:
         sign = "" if pct >= 0 else ""
-        new_block_lines.append(
-            f"    ({rank:>3}, {ours:>4}, {pct:>5}, {tol:>4}),"
-        )
+        new_block_lines.append(f"    ({rank:>3}, {ours:>4}, {pct:>5}, {tol:>4}),")
     new_block_lines.append("]")
     new_block = "\n".join(new_block_lines)
 

@@ -30,6 +30,7 @@ Same keys as the underlying ``SimResult.to_dict()`` plus:
 Consumers (trade calc UI) should render the AVERAGED values and
 can optionally surface ``drift`` as a diagnostic.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -102,14 +103,19 @@ def simulate_symmetric(
     result dict.  Uses different seeds (seed, seed+1) for the two
     passes so samples aren't correlated across directions."""
     ab = _mc.simulate_trade(
-        side_a, side_b,
-        n_sims=n_sims, same_team_rho=same_team_rho,
-        same_pos_group_rho=same_pos_group_rho, seed=seed,
+        side_a,
+        side_b,
+        n_sims=n_sims,
+        same_team_rho=same_team_rho,
+        same_pos_group_rho=same_pos_group_rho,
+        seed=seed,
         apply_consolidation_adjustment=apply_consolidation_adjustment,
     )
     ba = _mc.simulate_trade(
-        side_b, side_a,
-        n_sims=n_sims, same_team_rho=same_team_rho,
+        side_b,
+        side_a,
+        n_sims=n_sims,
+        same_team_rho=same_team_rho,
         same_pos_group_rho=same_pos_group_rho,
         seed=(seed + 1) if seed is not None else None,
         apply_consolidation_adjustment=apply_consolidation_adjustment,
@@ -118,7 +124,12 @@ def simulate_symmetric(
     # AB pass is canonical for VA metadata: its side=1/2 labels already
     # use the caller's convention (1=sideA, 2=sideB).  The BA pass has
     # swapped arguments so its va_side would need re-mapping.
-    result["vaAdjustment"] = ab.va_adjustment or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False}
+    result["vaAdjustment"] = ab.va_adjustment or {
+        "side": 0,
+        "value": 0,
+        "effectiveValue": 0,
+        "applied": False,
+    }
     return result
 
 
@@ -158,10 +169,12 @@ def enrich_with_decision_shape(
         else:
             adjusted_delta = a_p50 - (b_p50 + va_val)
     else:
+
         def _spread_ratio(side):
             total = sum(p.p50 for p in side) or 1.0
             spread = sum((p.p90 - p.p10) for p in side)
             return spread / total if total > 0 else 0.0
+
         a_spread = _spread_ratio(side_a)
         b_spread = _spread_ratio(side_b)
         a_adjusted = a_p50 * (1.0 - 0.3 * a_spread)
@@ -213,7 +226,4 @@ def _summary(win_pct: float, raw_delta: float, risk: str, impact: str) -> str:
     if 49.0 <= win_pct <= 51.0:
         return f"Coin-flip trade (~50%, Δ={raw_delta:+.0f} {impact}, risk {risk})"
     side = "Side A" if win_pct >= 50 else "Side B"
-    return (
-        f"{side} favored at {win_pct:.0f}% "
-        f"(Δ={raw_delta:+.0f} {impact}, risk {risk})"
-    )
+    return f"{side} favored at {win_pct:.0f}% " f"(Δ={raw_delta:+.0f} {impact}, risk {risk})"

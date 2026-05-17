@@ -1,4 +1,5 @@
 """Unit tests for src/adapters/scraper_bridge_adapter.py"""
+
 from __future__ import annotations
 
 import textwrap
@@ -9,6 +10,7 @@ from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def value_adapter():
@@ -59,6 +61,7 @@ def rank_csv(tmp_path):
 
 # ── Constructor ───────────────────────────────────────────────────────
 
+
 class TestConstructor:
     def test_valid_signal_types(self):
         ScraperBridgeAdapter("test", "test", signal_type="value")
@@ -70,6 +73,7 @@ class TestConstructor:
 
 
 # ── Value-based loading ───────────────────────────────────────────────
+
 
 class TestValueSignal:
     def test_loads_valid_csv(self, value_adapter, value_csv):
@@ -114,6 +118,7 @@ class TestValueSignal:
 
 # ── Rank-based loading ────────────────────────────────────────────────
 
+
 class TestRankSignal:
     def test_loads_valid_csv(self, rank_adapter, rank_csv):
         result = rank_adapter.load(rank_csv)
@@ -131,6 +136,7 @@ class TestRankSignal:
 
 
 # ── Edge cases ────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_missing_file(self, value_adapter, tmp_path):
@@ -193,12 +199,14 @@ class TestEdgeCases:
 
 # ── Real KTC export ──────────────────────────────────────────────────
 
+
 class TestRealKtcExport:
     """Test against the actual KTC CSV from the legacy scraper."""
 
     @pytest.fixture
     def real_csv(self):
         from pathlib import Path
+
         p = Path(__file__).resolve().parent.parent.parent / "CSVs" / "site_raw" / "ktc.csv"
         if not p.exists():
             pytest.skip("KTC export not available")

@@ -35,7 +35,11 @@ def compute_profile_features(
 
     total_td = pass_td + rush_td + rec_td
     total_yd = pass_yd + rush_yd + rec_yd
-    explosive_proxy = (_f(s.get("bonus_pass_td_50+")) + _f(s.get("bonus_rush_td_40+")) + _f(s.get("bonus_rec_td_40+")))
+    explosive_proxy = (
+        _f(s.get("bonus_pass_td_50+"))
+        + _f(s.get("bonus_rush_td_40+"))
+        + _f(s.get("bonus_rec_td_40+"))
+    )
 
     f = {
         "games_played": float(max(0, total_games)),
@@ -84,7 +88,10 @@ def compute_profile_features(
             {
                 "tackle_dependency": (_f(s.get("idp_tkl_solo")) + _f(s.get("idp_tkl_ast"))),
                 "splash_dependency": (
-                    _f(s.get("idp_sack")) + _f(s.get("idp_int")) + _f(s.get("idp_ff")) + _f(s.get("idp_fum_rec"))
+                    _f(s.get("idp_sack"))
+                    + _f(s.get("idp_int"))
+                    + _f(s.get("idp_ff"))
+                    + _f(s.get("idp_fum_rec"))
                 ),
             }
         )
@@ -106,4 +113,3 @@ def infer_scoring_tags(bucket: str, features: Dict[str, float]) -> list[str]:
     if p in {"DL", "LB", "DB"} and f.get("splash_dependency", 0.0) >= 1.0:
         tags.append("idp_splash")
     return tags
-

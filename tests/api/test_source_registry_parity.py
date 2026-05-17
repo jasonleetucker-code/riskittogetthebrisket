@@ -18,6 +18,7 @@ When adding a new source:
     3. Run this test — it must pass.  If it fails, your frontend
        registry doesn't match the Python one.
 """
+
 from __future__ import annotations
 
 import re
@@ -53,9 +54,7 @@ def _parse_frontend_registry() -> list[dict[str, Any]]:
     the Python registry.
     """
     if not FRONTEND_REGISTRY_PATH.exists():
-        raise FileNotFoundError(
-            f"Frontend registry file not found: {FRONTEND_REGISTRY_PATH}"
-        )
+        raise FileNotFoundError(f"Frontend registry file not found: {FRONTEND_REGISTRY_PATH}")
     text = FRONTEND_REGISTRY_PATH.read_text(encoding="utf-8")
 
     start_match = re.search(

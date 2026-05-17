@@ -5,6 +5,7 @@ Uses an in-memory stub NewsService injected via
 touch the network.  The route is otherwise exercised verbatim —
 query-param parsing, response shape, 503 on all-failures.
 """
+
 from __future__ import annotations
 
 import pytest

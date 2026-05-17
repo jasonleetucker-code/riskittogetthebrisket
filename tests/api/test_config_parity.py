@@ -21,6 +21,7 @@ hidden-coupling that previously had no CI gate:
 When CI fails on one of these, the message tells you which file
 drifted.
 """
+
 from __future__ import annotations
 
 import json
@@ -146,8 +147,7 @@ class TestConfigJsonFilesParse(unittest.TestCase):
         self.assertEqual(
             bad,
             [],
-            "JSON parse errors in config/:\n"
-            + "\n".join(f"  {p}: {err}" for p, err in bad),
+            "JSON parse errors in config/:\n" + "\n".join(f"  {p}: {err}" for p, err in bad),
         )
 
 
@@ -167,9 +167,7 @@ class TestLeagueRegistryWellFormed(unittest.TestCase):
         from src.api import league_registry as lr
 
         cls._prior_registry_path = os.environ.get("LEAGUE_REGISTRY_PATH")
-        os.environ["LEAGUE_REGISTRY_PATH"] = str(
-            REPO_ROOT / "config" / "leagues" / "registry.json"
-        )
+        os.environ["LEAGUE_REGISTRY_PATH"] = str(REPO_ROOT / "config" / "leagues" / "registry.json")
         lr.reload_registry()
 
     @classmethod
@@ -243,8 +241,7 @@ class TestLeagueRegistryWellFormed(unittest.TestCase):
         self.assertEqual(
             collisions,
             [],
-            "Alias collisions between leagues:\n  "
-            + "\n  ".join(collisions),
+            "Alias collisions between leagues:\n  " + "\n  ".join(collisions),
         )
 
 
@@ -262,6 +259,7 @@ class TestSourceStalenessCoverage(unittest.TestCase):
         from src.api import source_health_alerts as sha
 
         thresholds = sha.load_thresholds()
+
         # A threshold key matches a source key if the source key starts
         # with the threshold key.  This mirrors the convention in
         # ``config/source_staleness.json`` where vendor-name keys
@@ -275,9 +273,7 @@ class TestSourceStalenessCoverage(unittest.TestCase):
                     return True
             return False
 
-        missing = sorted(
-            str(k) for k in _SOURCE_CSV_PATHS if not _has_threshold(str(k))
-        )
+        missing = sorted(str(k) for k in _SOURCE_CSV_PATHS if not _has_threshold(str(k)))
         self.assertEqual(
             missing,
             [],

@@ -20,6 +20,7 @@ No network I/O happens in this module directly — everything runs
 through the injected providers.  That keeps the cache + dedupe
 logic testable without stubbing HTTP.
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,9 +74,7 @@ class AggregatedNews:
     items: List[NewsItem]
     providers_used: List[str]
     provider_runs: List[ProviderRunResult] = field(default_factory=list)
-    generated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     cache_hit: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -216,20 +215,14 @@ class NewsService:
             # write time (not on every read) keeps the hot path
             # lock-free-ish and bounds the work by miss rate, which
             # is itself rate-limited by the TTL.
-            expired = [
-                k
-                for k, (ts, _v) in self._cache.items()
-                if (now - ts) >= self._ttl
-            ]
+            expired = [k for k, (ts, _v) in self._cache.items() if (now - ts) >= self._ttl]
             for k in expired:
                 self._cache.pop(k, None)
 
         return result
 
     # ── provider dispatch ───────────────────────────────────────
-    def _fetch_all(
-        self, known_names: list[str]
-    ) -> tuple[List[NewsItem], List[ProviderRunResult]]:
+    def _fetch_all(self, known_names: list[str]) -> tuple[List[NewsItem], List[ProviderRunResult]]:
         """Run every enabled provider and collect their items.
 
         Each provider is fully isolated — any exception is logged
@@ -260,9 +253,7 @@ class NewsService:
             except Exception as exc:  # defensive — providers
                 # shouldn't raise, but if they do we isolate the
                 # failure here rather than 500-ing the route.
-                log.warning(
-                    "news provider %s raised: %s", provider.name, exc
-                )
+                log.warning("news provider %s raised: %s", provider.name, exc)
                 run.ok = False
                 run.error = f"{type(exc).__name__}: {exc}"
             finally:

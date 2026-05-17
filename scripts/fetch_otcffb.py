@@ -48,6 +48,7 @@ Exit codes:
     1  - soft failure (fetch / parse error, zero rows extracted)
     2  - schema regression (shape changed, row count below floor)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -108,14 +109,11 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     blend produces.
     """
     if not isinstance(data, dict):
-        raise OtcffbSchemaError(
-            f"Expected JSON object, got {type(data).__name__}"
-        )
+        raise OtcffbSchemaError(f"Expected JSON object, got {type(data).__name__}")
     players = data.get("players")
     if not isinstance(players, list):
         raise OtcffbSchemaError(
-            f"Expected dict.players to be a list, got "
-            f"{type(players).__name__}"
+            f"Expected dict.players to be a list, got " f"{type(players).__name__}"
         )
     out: list[dict[str, Any]] = []
     for entry in players:
@@ -216,8 +214,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(rows) < _OTC_ROW_COUNT_FLOOR:
         print(
-            f"[fetch_otcffb] row count below floor: "
-            f"{len(rows)} < {_OTC_ROW_COUNT_FLOOR}",
+            f"[fetch_otcffb] row count below floor: " f"{len(rows)} < {_OTC_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2

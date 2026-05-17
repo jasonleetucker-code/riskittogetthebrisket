@@ -38,6 +38,7 @@ Storage cost: ~12 sources × 1200 players × ~6 bytes ≈ 85 KB per
 snapshot.  180 days ≈ 15 MB on disk — trivial relative to the daily
 ``dynasty_data_*.json`` exports at ~3-4 MB each.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,8 +66,7 @@ def _today_utc() -> str:
 
 _OFFENSE_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
 _IDP_POSITIONS = frozenset(
-    {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB",
-     "DB", "CB", "S", "FS", "SS"}
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "FS", "SS"}
 )
 
 # Scope → asset classes that scope can legitimately rank.  Mirrors
@@ -309,20 +309,13 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
                 source_ranks[str(key)] = r
 
     asset_class = _infer_asset_class(row)
-    sources, source_ranks = _filter_scope_mismatched(
-        asset_class, sources, source_ranks
-    )
+    sources, source_ranks = _filter_scope_mismatched(asset_class, sources, source_ranks)
     # Same retired-from-chart filter for ranks so legacy ``ktc`` rank
     # entries don't surface either.
     for key in _RETIRED_FROM_CHART_KEYS:
         source_ranks.pop(key, None)
 
-    if (
-        blended_val is None
-        and blended_rank_val is None
-        and not sources
-        and not source_ranks
-    ):
+    if blended_val is None and blended_rank_val is None and not sources and not source_ranks:
         return None
 
     entry: dict[str, Any] = {"sources": sources}
@@ -557,7 +550,7 @@ def load_player_history(
     if not entries:
         return {"dates": [], "blended": [], "sources": {}, "sourceRanks": {}}
     entries.sort(key=lambda e: e.get("date") or "")
-    windowed = entries[-max(1, int(days)):]
+    windowed = entries[-max(1, int(days)) :]
 
     needle = name.strip().lower()
     asset = (asset_class or "").strip().lower()
@@ -630,12 +623,14 @@ def load_player_history(
                 value_out = int(round(med))
                 derived = True
 
-        blended.append({
-            "date": date,
-            "value": value_out,
-            "rank": int(br) if isinstance(br, (int, float)) else None,
-            "derived": derived,
-        })
+        blended.append(
+            {
+                "date": date,
+                "value": value_out,
+                "rank": int(br) if isinstance(br, (int, float)) else None,
+                "derived": derived,
+            }
+        )
         for key, value in sources.items():
             try:
                 v = int(value)
@@ -649,9 +644,7 @@ def load_player_history(
                 continue
             if r <= 0:
                 continue
-            source_ranks_accum.setdefault(str(key), []).append(
-                {"date": date, "rank": r}
-            )
+            source_ranks_accum.setdefault(str(key), []).append({"date": date, "rank": r})
 
     return {
         "dates": dates,
@@ -670,7 +663,7 @@ def load_all_player_names(
     snapshots.  Useful for admin endpoints; not currently wired.
     """
     path = path or HISTORY_PATH
-    entries = _read_lines(path)[-max(1, int(days)):]
+    entries = _read_lines(path)[-max(1, int(days)) :]
     names: set[str] = set()
     for snap in entries:
         players = snap.get("players") or {}

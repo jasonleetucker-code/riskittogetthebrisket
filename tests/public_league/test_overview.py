@@ -1,4 +1,5 @@
 """Tests for the overview section + contract integration."""
+
 from __future__ import annotations
 
 import unittest

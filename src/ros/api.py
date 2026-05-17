@@ -14,6 +14,7 @@ Isolation invariant: this router writes to ``data/ros/*`` only.  It
 never touches ``data/exports/*``, ``CSVs/site_raw/*``, or any dynasty
 contract path.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,9 +52,7 @@ def _registry_payload(overrides: dict[str, dict[str, Any]] | None = None) -> lis
     enabled = {s["key"] for s in enabled_ros_sources(overrides)}
     out: list[dict[str, Any]] = []
     for src in ROS_SOURCES:
-        public = {
-            k: v for k, v in src.items() if k not in {"scraper"}
-        }
+        public = {k: v for k, v in src.items() if k not in {"scraper"}}
         public["effectivelyEnabled"] = src["key"] in enabled
         out.append(public)
     return out
@@ -93,9 +92,7 @@ def _classify_overall_freshness(index: dict[str, Any]) -> str:
         when = datetime.fromisoformat(rebuilt.replace("Z", "+00:00"))
     except ValueError:
         return "unknown"
-    age_h = (
-        datetime.now(timezone.utc) - when.astimezone(timezone.utc)
-    ).total_seconds() / 3600
+    age_h = (datetime.now(timezone.utc) - when.astimezone(timezone.utc)).total_seconds() / 3600
     if age_h < 24:
         return "fresh"
     if age_h < 72:
@@ -108,9 +105,7 @@ async def get_player_values(limit: int = 500) -> JSONResponse:
     """Aggregated player values; defaults to top 500 by ros_value."""
     payload = _read_json(ROS_DATA_DIR / "aggregate" / "latest.json")
     if not payload:
-        return JSONResponse(
-            {"aggregatedAt": None, "players": [], "error": "no_aggregate"}
-        )
+        return JSONResponse({"aggregatedAt": None, "players": [], "error": "no_aggregate"})
     players = payload.get("players") or []
     return JSONResponse(
         {
@@ -136,6 +131,7 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
     resolved_key = leagueKey
     try:
         from src.api.league_registry import get_league_by_key, default_league_key  # noqa: PLC0415
+
         if leagueKey:
             cfg = get_league_by_key(leagueKey)
             if cfg and cfg.key:
@@ -184,13 +180,9 @@ async def get_health() -> JSONResponse:
             when = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
         except ValueError:
             return None
-        return (
-            datetime.now(timezone.utc) - when.astimezone(timezone.utc)
-        ).total_seconds()
+        return (datetime.now(timezone.utc) - when.astimezone(timezone.utc)).total_seconds()
 
-    unmapped_total = sum(
-        int(t.get("unmappedPlayerCount") or 0) for t in team_strength
-    )
+    unmapped_total = sum(int(t.get("unmappedPlayerCount") or 0) for t in team_strength)
 
     return JSONResponse(
         {
@@ -199,8 +191,7 @@ async def get_health() -> JSONResponse:
             "sources": index.get("sources") or {},
             "aggregate": {
                 "aggregatedAt": aggregate.get("aggregatedAt"),
-                "playerCount": aggregate.get("playerCount")
-                or len(aggregate.get("players") or []),
+                "playerCount": aggregate.get("playerCount") or len(aggregate.get("players") or []),
                 "sourceCount": aggregate.get("sourceCount"),
                 "ageSeconds": _iso_to_age_seconds(aggregate.get("aggregatedAt")),
             },
@@ -293,6 +284,7 @@ def build_section(snapshot: Any) -> dict[str, Any]:
     league_key: str | None = None
     try:
         from src.api.league_registry import all_leagues  # noqa: PLC0415
+
         root_id = str(getattr(snapshot, "root_league_id", "") or "")
         if root_id:
             for cfg in all_leagues():

@@ -11,6 +11,7 @@ staying near the stability frontier.
 
 No production behavior modified.  Output: markdown heatmap + CSV.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -111,7 +112,7 @@ def render(snapshots, results) -> str:
     lines.append("")
     lines.append(
         "**Caveat**: this metric rewards stability.  The stability "
-        "optimum drifts toward α=0 and λ=0 — \"use the anchor source "
+        'optimum drifts toward α=0 and λ=0 — "use the anchor source '
         "alone, ignore the 15 other sources.\"  That's product-bad "
         "because the blend is supposed to reflect multi-source "
         "consensus.  Pick a joint point that's **near** the stability "
@@ -133,7 +134,9 @@ def render(snapshots, results) -> str:
             row_vals.append(f"{v:.3f}{marker}")
         lines.append(f"| **{a:.2f}** | " + " | ".join(row_vals) + " |")
     lines.append("")
-    lines.append(f"Stability-optimal cell: α={best['alpha']}, λ={best['lambda']} (VW={best['vw']:.3f})")
+    lines.append(
+        f"Stability-optimal cell: α={best['alpha']}, λ={best['lambda']} (VW={best['vw']:.3f})"
+    )
     lines.append("")
 
     # Pareto-ish: cells within 20% of the optimum across non-degenerate α.
@@ -180,7 +183,8 @@ def main() -> int:
 
     snapshots = load_snapshots(args.snapshots)
     if not snapshots:
-        print("No snapshots"); return 1
+        print("No snapshots")
+        return 1
     print(f"Loaded {len(snapshots)} snapshots; running 2D α × λ sweep …")
     results = sweep_2d(snapshots)
     report = render(snapshots, results)

@@ -1,5 +1,6 @@
 """Tests for the standardized error-response envelope + global
 exception handler."""
+
 from __future__ import annotations
 
 import pytest
@@ -94,6 +95,7 @@ def test_global_handler_logs_full_trace(caplog):
         raise ValueError("inner detail")
 
     import logging
+
     with caplog.at_level(logging.ERROR):
         with TestClient(app, raise_server_exceptions=False) as c:
             c.get("/boom")

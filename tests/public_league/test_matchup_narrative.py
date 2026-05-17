@@ -17,6 +17,7 @@ Coverage map:
     * generate_article happy-path with a fake AsyncAnthropic client.
     * generate_article error path on malformed JSON.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -78,17 +79,35 @@ class StorageRoundTripTests(unittest.TestCase):
 
     def test_save_rejects_bad_mode(self) -> None:
         with self.assertRaises(ValueError):
-            mn.save_article({"mode": "garbage", "season": "2025", "week": 1, "matchupId": 1}, base=self.base)
+            mn.save_article(
+                {"mode": "garbage", "season": "2025", "week": 1, "matchupId": 1}, base=self.base
+            )
 
     def test_list_articles_orders_by_path(self) -> None:
         for week, mid, mode in [(15, 1, "recap"), (16, 1, "preview"), (16, 2, "preview")]:
-            mn.save_article({
-                "mode": mode, "season": "2025", "week": week, "matchupId": mid,
-                "title": f"{week}-{mid}-{mode}", "lede": "", "body": "", "kicker": "",
-                "angleUsed": "", "persona": "", "wordCount": 0,
-                "model": "", "generatedAt": "", "isChampionship": False,
-                "roundLabel": "", "home": {}, "away": {}, "usage": {},
-            }, base=self.base)
+            mn.save_article(
+                {
+                    "mode": mode,
+                    "season": "2025",
+                    "week": week,
+                    "matchupId": mid,
+                    "title": f"{week}-{mid}-{mode}",
+                    "lede": "",
+                    "body": "",
+                    "kicker": "",
+                    "angleUsed": "",
+                    "persona": "",
+                    "wordCount": 0,
+                    "model": "",
+                    "generatedAt": "",
+                    "isChampionship": False,
+                    "roundLabel": "",
+                    "home": {},
+                    "away": {},
+                    "usage": {},
+                },
+                base=self.base,
+            )
         items = mn.list_articles(season="2025", base=self.base)
         self.assertEqual(len(items), 3)
         keys = [(i["week"], i["matchupId"], i["mode"]) for i in items]
@@ -103,7 +122,11 @@ class BriefAssemblyTests(unittest.TestCase):
     def test_recap_brief_for_fixture_championship(self) -> None:
         # Fixture's 2025 wk-16 is the championship: B (145.0) vs A (120.0).
         brief = mn.build_brief(
-            self.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+            self.snapshot,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
         self.assertIsNotNone(brief)
         self.assertEqual(brief.mode, "recap")
@@ -129,15 +152,29 @@ class BriefAssemblyTests(unittest.TestCase):
         snap = build_test_snapshot()
         current = snap.seasons[0]
         current.matchups_by_week[17] = [
-            {"matchup_id": 1, "roster_id": 1, "points": 0,
-             "starters": ["p-qb1", "p-rb1"], "players": ["p-qb1", "p-rb1"],
-             "players_points": {"p-qb1": 0, "p-rb1": 0}},
-            {"matchup_id": 1, "roster_id": 2, "points": 0,
-             "starters": ["p-qb2", "p-rb2"], "players": ["p-qb2", "p-rb2"],
-             "players_points": {"p-qb2": 0, "p-rb2": 0}},
+            {
+                "matchup_id": 1,
+                "roster_id": 1,
+                "points": 0,
+                "starters": ["p-qb1", "p-rb1"],
+                "players": ["p-qb1", "p-rb1"],
+                "players_points": {"p-qb1": 0, "p-rb1": 0},
+            },
+            {
+                "matchup_id": 1,
+                "roster_id": 2,
+                "points": 0,
+                "starters": ["p-qb2", "p-rb2"],
+                "players": ["p-qb2", "p-rb2"],
+                "players_points": {"p-qb2": 0, "p-rb2": 0},
+            },
         ]
         brief = mn.build_brief(
-            snap, season="2025", week=17, matchup_id=1, mode="preview",
+            snap,
+            season="2025",
+            week=17,
+            matchup_id=1,
+            mode="preview",
         )
         self.assertIsNotNone(brief)
         self.assertEqual(brief.mode, "preview")
@@ -146,16 +183,32 @@ class BriefAssemblyTests(unittest.TestCase):
             self.assertIsNone(row["points"])
 
     def test_brief_is_none_for_missing_matchup(self) -> None:
-        self.assertIsNone(mn.build_brief(
-            self.snapshot, season="2025", week=99, matchup_id=1, mode="recap",
-        ))
-        self.assertIsNone(mn.build_brief(
-            self.snapshot, season="2025", week=16, matchup_id=99, mode="recap",
-        ))
+        self.assertIsNone(
+            mn.build_brief(
+                self.snapshot,
+                season="2025",
+                week=99,
+                matchup_id=1,
+                mode="recap",
+            )
+        )
+        self.assertIsNone(
+            mn.build_brief(
+                self.snapshot,
+                season="2025",
+                week=16,
+                matchup_id=99,
+                mode="recap",
+            )
+        )
 
     def test_to_dict_is_json_serializable(self) -> None:
         brief = mn.build_brief(
-            self.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+            self.snapshot,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
         # Round-trip through json so the schema survives serialization.
         s = json.dumps(brief.to_dict())
@@ -168,44 +221,68 @@ class BriefAssemblyTests(unittest.TestCase):
 class AnglePoolTests(unittest.TestCase):
     def test_first_meeting_added_when_no_h2h(self) -> None:
         pool = mn._angle_pool(
-            is_championship=False, is_playoff=False,
-            h2h_total=0, multi_week=None, cumulative_close=False, underdog_seed_gap=0,
+            is_championship=False,
+            is_playoff=False,
+            h2h_total=0,
+            multi_week=None,
+            cumulative_close=False,
+            underdog_seed_gap=0,
         )
         self.assertIn("first-meeting", pool)
         self.assertNotIn("rivalry-grudge", pool)
 
     def test_rivalry_grudge_only_with_history(self) -> None:
         pool = mn._angle_pool(
-            is_championship=False, is_playoff=False,
-            h2h_total=10, multi_week=None, cumulative_close=False, underdog_seed_gap=0,
+            is_championship=False,
+            is_playoff=False,
+            h2h_total=10,
+            multi_week=None,
+            cumulative_close=False,
+            underdog_seed_gap=0,
         )
         self.assertIn("rivalry-grudge", pool)
         self.assertNotIn("first-meeting", pool)
 
     def test_comeback_arc_only_with_lead(self) -> None:
         no_lead = mn._angle_pool(
-            is_championship=True, is_playoff=True,
-            h2h_total=2, multi_week={"priorLead": 5.0}, cumulative_close=True, underdog_seed_gap=0,
+            is_championship=True,
+            is_playoff=True,
+            h2h_total=2,
+            multi_week={"priorLead": 5.0},
+            cumulative_close=True,
+            underdog_seed_gap=0,
         )
         self.assertNotIn("comeback-arc", no_lead)
         self.assertIn("razor-thin", no_lead)
         big_lead = mn._angle_pool(
-            is_championship=True, is_playoff=True,
-            h2h_total=2, multi_week={"priorLead": 25.0}, cumulative_close=False, underdog_seed_gap=0,
+            is_championship=True,
+            is_playoff=True,
+            h2h_total=2,
+            multi_week={"priorLead": 25.0},
+            cumulative_close=False,
+            underdog_seed_gap=0,
         )
         self.assertIn("comeback-arc", big_lead)
 
     def test_championship_stakes_always_included(self) -> None:
         pool = mn._angle_pool(
-            is_championship=True, is_playoff=True,
-            h2h_total=0, multi_week=None, cumulative_close=False, underdog_seed_gap=0,
+            is_championship=True,
+            is_playoff=True,
+            h2h_total=0,
+            multi_week=None,
+            cumulative_close=False,
+            underdog_seed_gap=0,
         )
         self.assertEqual(pool[0], "championship-stakes")
 
     def test_pool_is_deduplicated(self) -> None:
         pool = mn._angle_pool(
-            is_championship=False, is_playoff=False,
-            h2h_total=10, multi_week=None, cumulative_close=False, underdog_seed_gap=5,
+            is_championship=False,
+            is_playoff=False,
+            h2h_total=10,
+            multi_week=None,
+            cumulative_close=False,
+            underdog_seed_gap=5,
         )
         self.assertEqual(len(pool), len(set(pool)))
 
@@ -229,24 +306,50 @@ class MultiWeekRoundTests(unittest.TestCase):
         current = snap.seasons[0]
         # Mock a wk-16 + wk-17 championship between rosters 1 and 2.
         current.matchups_by_week[16] = [
-            {"matchup_id": 1, "roster_id": 1, "points": 100.0,
-             "starters": [], "players": [], "players_points": {}},
-            {"matchup_id": 1, "roster_id": 2, "points": 120.0,
-             "starters": [], "players": [], "players_points": {}},
+            {
+                "matchup_id": 1,
+                "roster_id": 1,
+                "points": 100.0,
+                "starters": [],
+                "players": [],
+                "players_points": {},
+            },
+            {
+                "matchup_id": 1,
+                "roster_id": 2,
+                "points": 120.0,
+                "starters": [],
+                "players": [],
+                "players_points": {},
+            },
         ]
         current.matchups_by_week[17] = [
-            {"matchup_id": 1, "roster_id": 1, "points": 130.0,
-             "starters": ["p-qb1"], "players": ["p-qb1"],
-             "players_points": {"p-qb1": 30.0}},
-            {"matchup_id": 1, "roster_id": 2, "points": 90.0,
-             "starters": ["p-qb2"], "players": ["p-qb2"],
-             "players_points": {"p-qb2": 20.0}},
+            {
+                "matchup_id": 1,
+                "roster_id": 1,
+                "points": 130.0,
+                "starters": ["p-qb1"],
+                "players": ["p-qb1"],
+                "players_points": {"p-qb1": 30.0},
+            },
+            {
+                "matchup_id": 1,
+                "roster_id": 2,
+                "points": 90.0,
+                "starters": ["p-qb2"],
+                "players": ["p-qb2"],
+                "players_points": {"p-qb2": 20.0},
+            },
         ]
         current.winners_bracket = [
             {"r": 2, "t1": 1, "t2": 2, "w": 1, "l": 2, "p": 1},
         ]
         brief = mn.build_brief(
-            snap, season="2025", week=17, matchup_id=1, mode="recap",
+            snap,
+            season="2025",
+            week=17,
+            matchup_id=1,
+            mode="recap",
         )
         self.assertIsNotNone(brief)
         self.assertIsNotNone(brief.multi_week_round)
@@ -271,7 +374,11 @@ class MultiWeekRoundTests(unittest.TestCase):
         snap = build_test_snapshot()
         # Fixture wk-16 championship is single-week — no prior pairing.
         brief = mn.build_brief(
-            snap, season="2025", week=16, matchup_id=1, mode="recap",
+            snap,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
         self.assertIsNotNone(brief)
         self.assertIsNone(brief.multi_week_round)
@@ -282,7 +389,11 @@ class PromptAssemblyTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.snapshot = build_test_snapshot()
         cls.brief = mn.build_brief(
-            cls.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+            cls.snapshot,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
 
     def test_prompt_returns_system_and_user_blocks(self) -> None:
@@ -297,9 +408,14 @@ class PromptAssemblyTests(unittest.TestCase):
 
     def test_prior_articles_are_referenced(self) -> None:
         prior = [
-            {"season": "2025", "week": 14, "mode": "recap",
-             "title": "Prior title", "lede": "Prior lede.",
-             "generatedAt": "2025-01-01T00:00:00Z"},
+            {
+                "season": "2025",
+                "week": 14,
+                "mode": "recap",
+                "title": "Prior title",
+                "lede": "Prior lede.",
+                "generatedAt": "2025-01-01T00:00:00Z",
+            },
         ]
         _, messages = mn.assemble_prompt(self.brief, prior_articles=prior)
         self.assertIn("Prior title", messages[0]["content"])
@@ -322,7 +438,11 @@ class BestBallPromptTests(unittest.TestCase):
 
     def _brief(self, *, best_ball: bool):
         brief = mn.build_brief(
-            self.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+            self.snapshot,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
         # build_brief reads best_ball off the Sleeper league settings;
         # the fixture doesn't set it, so we override on the dataclass
@@ -359,17 +479,29 @@ class BestBallPromptTests(unittest.TestCase):
         current = snap.seasons[0]
         current.league = {**(current.league or {}), "settings": {"best_ball": 1}}
         current.matchups_by_week[17] = [
-            {"matchup_id": 1, "roster_id": 1, "points": 100.0,
-             "starters": ["p-qb1"],
-             "players": ["p-qb1", "p-rb2"],
-             "players_points": {"p-qb1": 30.0, "p-rb2": 50.0}},
-            {"matchup_id": 1, "roster_id": 2, "points": 80.0,
-             "starters": ["p-qb2"],
-             "players": ["p-qb2"],
-             "players_points": {"p-qb2": 25.0}},
+            {
+                "matchup_id": 1,
+                "roster_id": 1,
+                "points": 100.0,
+                "starters": ["p-qb1"],
+                "players": ["p-qb1", "p-rb2"],
+                "players_points": {"p-qb1": 30.0, "p-rb2": 50.0},
+            },
+            {
+                "matchup_id": 1,
+                "roster_id": 2,
+                "points": 80.0,
+                "starters": ["p-qb2"],
+                "players": ["p-qb2"],
+                "players_points": {"p-qb2": 25.0},
+            },
         ]
         brief = mn.build_brief(
-            snap, season="2025", week=17, matchup_id=1, mode="recap",
+            snap,
+            season="2025",
+            week=17,
+            matchup_id=1,
+            mode="recap",
         )
         self.assertIsNotNone(brief)
         self.assertTrue(brief.best_ball)
@@ -381,8 +513,14 @@ class BestBallPromptTests(unittest.TestCase):
 
 
 class _FakeUsage:
-    def __init__(self, *, input_tokens: int = 100, output_tokens: int = 200,
-                 cache_read_input_tokens: int = 0, cache_creation_input_tokens: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        input_tokens: int = 100,
+        output_tokens: int = 200,
+        cache_read_input_tokens: int = 0,
+        cache_creation_input_tokens: int = 0,
+    ) -> None:
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self.cache_read_input_tokens = cache_read_input_tokens
@@ -419,20 +557,28 @@ class GenerateArticleTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.snapshot = build_test_snapshot()
         cls.brief = mn.build_brief(
-            cls.snapshot, season="2025", week=16, matchup_id=1, mode="recap",
+            cls.snapshot,
+            season="2025",
+            week=16,
+            matchup_id=1,
+            mode="recap",
         )
 
     def test_happy_path_returns_persisted_shape(self) -> None:
-        fake_text = json.dumps({
-            "title": "Title",
-            "lede": "Lede.",
-            "body": "Body.",
-            "kicker": "Kicker.",
-            "angleUsed": "championship-stakes",
-            "wordCount": 200,
-        })
+        fake_text = json.dumps(
+            {
+                "title": "Title",
+                "lede": "Lede.",
+                "body": "Body.",
+                "kicker": "Kicker.",
+                "angleUsed": "championship-stakes",
+                "wordCount": 200,
+            }
+        )
         client = _FakeClient(fake_text)
-        article = asyncio.run(mn.generate_article(client=client, brief=self.brief, prior_articles=[]))
+        article = asyncio.run(
+            mn.generate_article(client=client, brief=self.brief, prior_articles=[])
+        )
         self.assertEqual(article["title"], "Title")
         self.assertEqual(article["body"], "Body.")
         self.assertEqual(article["mode"], "recap")
@@ -446,12 +592,24 @@ class GenerateArticleTests(unittest.TestCase):
         self.assertIn("away", article)
 
     def test_handles_fenced_json(self) -> None:
-        fake_text = "```json\n" + json.dumps({
-            "title": "T", "lede": "L", "body": "B", "kicker": "K",
-            "angleUsed": "vibes-check", "wordCount": 50,
-        }) + "\n```"
+        fake_text = (
+            "```json\n"
+            + json.dumps(
+                {
+                    "title": "T",
+                    "lede": "L",
+                    "body": "B",
+                    "kicker": "K",
+                    "angleUsed": "vibes-check",
+                    "wordCount": 50,
+                }
+            )
+            + "\n```"
+        )
         client = _FakeClient(fake_text)
-        article = asyncio.run(mn.generate_article(client=client, brief=self.brief, prior_articles=[]))
+        article = asyncio.run(
+            mn.generate_article(client=client, brief=self.brief, prior_articles=[])
+        )
         self.assertEqual(article["title"], "T")
 
     def test_malformed_json_raises(self) -> None:

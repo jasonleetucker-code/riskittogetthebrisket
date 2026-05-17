@@ -1,4 +1,5 @@
 """Tests for ``src.api.signal_alerts``."""
+
 from __future__ import annotations
 
 import time
@@ -61,6 +62,7 @@ def test_changed_signal_fires_after_cooldown(kv_path, monkeypatch):
     )
     # Fast-forward well beyond the 12-hour cooldown.
     import src.api.signal_alerts as mod
+
     fake_now = mod._utc_now_ms() + 24 * 3600 * 1000
     monkeypatch.setattr(mod, "_utc_now_ms", lambda: fake_now)
     transitions = signal_alerts.detect_signal_transitions(
@@ -191,7 +193,10 @@ def test_cooldown_is_scoped_per_league(kv_path):
 
     # League A: first fire — transition emitted.
     a1 = signal_alerts.detect_signal_transitions(
-        "alice", [sig], path=kv_path, league_key="dynasty_main",
+        "alice",
+        [sig],
+        path=kv_path,
+        league_key="dynasty_main",
     )
     assert len(a1) == 1
 
@@ -199,18 +204,23 @@ def test_cooldown_is_scoped_per_league(kv_path):
     # this must ALSO fire even though the cooldown in league A
     # just set notifiedAt = now.
     b1 = signal_alerts.detect_signal_transitions(
-        "alice", [sig], path=kv_path, league_key="dynasty_new",
+        "alice",
+        [sig],
+        path=kv_path,
+        league_key="dynasty_new",
     )
     assert len(b1) == 1, (
-        "league B fire suppressed by league A's cooldown — per-league "
-        "bucketing is broken"
+        "league B fire suppressed by league A's cooldown — per-league " "bucketing is broken"
     )
 
     # Re-fire in league A within the cooldown window: correctly
     # suppressed (same-league flicker guard is what the cooldown is
     # for in the first place).
     a2 = signal_alerts.detect_signal_transitions(
-        "alice", [sig], path=kv_path, league_key="dynasty_main",
+        "alice",
+        [sig],
+        path=kv_path,
+        league_key="dynasty_main",
     )
     assert a2 == [], "league A cooldown should still guard same-league flicker"
 
@@ -223,6 +233,7 @@ def test_legacy_flat_state_read_for_default_league(kv_path):
     """
     # Seed a pre-migration state blob.
     from src.api import user_kv
+
     seeded = {
         "signalAlertState": {
             "sid:4017::elite_stable": {
@@ -237,7 +248,9 @@ def test_legacy_flat_state_read_for_default_league(kv_path):
     # suppress.
     sig = _sig("Josh Allen", "elite_stable", "SELL", sid="4017")
     legacy = signal_alerts.detect_signal_transitions(
-        "alice", [sig], path=kv_path,  # no league_key
+        "alice",
+        [sig],
+        path=kv_path,  # no league_key
     )
     assert legacy == [], "legacy flat signalAlertState must still gate cooldowns"
 

@@ -56,6 +56,7 @@ Output shape::
       "asOf": str,                    # ISO timestamp
     }
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -131,6 +132,7 @@ def _merge_config_with_defaults(raw: dict[str, Any]) -> dict[str, Any]:
     """Merge user config over defaults so a partial file still works.
     Strips inline ``_doc`` keys.
     """
+
     def _strip_doc(d: dict[str, Any]) -> dict[str, Any]:
         return {k: v for k, v in d.items() if k != "_doc"}
 
@@ -304,7 +306,9 @@ def _score_player(
         # proxy for "this is one of the best at their position."
         pts = int(weights["eliteProductionTop24"])
         points += pts
-        contributors.append({"points": pts, "reason": f"Top {pos} at {meta.get('team', 'NFL team')}"})
+        contributors.append(
+            {"points": pts, "reason": f"Top {pos} at {meta.get('team', 'NFL team')}"}
+        )
 
     # T4 — Rookie capital.
     if _is_rookie(meta):
@@ -338,7 +342,7 @@ def _league_idp_enabled(snapshot: PublicLeagueSnapshot) -> bool:
     season = snapshot.current_season
     if season is None:
         return False
-    raw = (season.league.get("roster_positions") or [])
+    raw = season.league.get("roster_positions") or []
     for slot in raw:
         s = str(slot or "").upper()
         if s in _IDP_POSITIONS or s in ("IDP", "IDP_FLEX", "IDP_DL", "IDP_LB", "IDP_DB"):
@@ -399,9 +403,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         favorite_entry = favorites.get(favorite_key) if favorite_key else None
 
         # Aggregator: nfl_team_abbr -> (score, contributors_list).
-        scored: dict[str, dict[str, Any]] = defaultdict(
-            lambda: {"score": 0, "contributors": []}
-        )
+        scored: dict[str, dict[str, Any]] = defaultdict(lambda: {"score": 0, "contributors": []})
 
         player_ids = roster.get("players") or []
         for pid in player_ids:
@@ -412,7 +414,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             if not nfl_team:
                 continue
             pts, contributors = _score_player(
-                meta, config=config, league_idp_enabled=idp_enabled,
+                meta,
+                config=config,
+                league_idp_enabled=idp_enabled,
             )
             if pts <= 0:
                 continue
@@ -420,11 +424,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             slot["score"] += pts
             display = _player_display(meta, pid)
             for c in contributors:
-                slot["contributors"].append({
-                    "player": display,
-                    "points": int(c["points"]),
-                    "reason": str(c["reason"]),
-                })
+                slot["contributors"].append(
+                    {
+                        "player": display,
+                        "points": int(c["points"]),
+                        "reason": str(c["reason"]),
+                    }
+                )
 
         # Build the NFL-teams list for this owner.
         nfl_teams_out: list[dict[str, Any]] = []
@@ -434,13 +440,15 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             fav_abbr = str(favorite_entry.get("abbr") or "").upper()
             fav_display = str(favorite_entry.get("display") or fav_abbr)
             slot = scored.get(fav_abbr, {"score": 0, "contributors": []})
-            nfl_teams_out.append({
-                "abbr": fav_abbr,
-                "display": fav_display,
-                "isFavorite": True,
-                "score": int(slot["score"]),
-                "contributors": list(slot["contributors"]),
-            })
+            nfl_teams_out.append(
+                {
+                    "abbr": fav_abbr,
+                    "display": fav_display,
+                    "isFavorite": True,
+                    "score": int(slot["score"]),
+                    "contributors": list(slot["contributors"]),
+                }
+            )
 
         # 2. Roster-based qualifiers — anyone else above threshold,
         #    sorted by score desc.  Skip the favorite (already added).
@@ -464,13 +472,15 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         remaining_capacity = max(0, max_teams - len(nfl_teams_out))
         nfl_teams_out.extend(roster_based[:remaining_capacity])
 
-        assignments.append({
-            "ownerId": owner_id,
-            "displayName": display_name or team_name or owner_id,
-            "teamName": team_name,
-            "favoriteKey": favorite_key,
-            "nflTeams": nfl_teams_out,
-        })
+        assignments.append(
+            {
+                "ownerId": owner_id,
+                "displayName": display_name or team_name or owner_id,
+                "teamName": team_name,
+                "favoriteKey": favorite_key,
+                "nflTeams": nfl_teams_out,
+            }
+        )
 
     # Sort by display name for stable rendering — alphabetical so
     # the page is predictable across reloads.

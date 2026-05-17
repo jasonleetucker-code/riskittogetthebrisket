@@ -19,6 +19,7 @@ surface a ``factors[].missing=true`` row so the UI can explain
 "this recommendation has lower confidence because we don't have
 trending data this week".
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,8 +42,8 @@ _VALUE_MOD_CEILING = 1.8
 # raw "X people added" number from the Sleeper API.
 _TRENDING_TIER_BREAKPOINTS = (
     (10000, 0.20),  # top trending: +20% to standard bid
-    (5000, 0.15),   # very hot
-    (1000, 0.10),   # warm
+    (5000, 0.15),  # very hot
+    (1000, 0.10),  # warm
 )
 
 # League-analytics calibration blend.  A 50/50 blend keeps the
@@ -61,6 +62,7 @@ class _Factor:
     folded into the final bids; ``contribution`` is for the UI
     transparency tooltip.
     """
+
     label: str
     contribution: str
     weight: float
@@ -109,10 +111,9 @@ def _position_calibration(
         # be meaningful; otherwise we'd be calibrating against
         # noise.
         return bid_estimate
-    blended = (
-        _LEAGUE_CALIBRATION_BLEND * float(avg_for_pos)
-        + (1.0 - _LEAGUE_CALIBRATION_BLEND) * float(bid_estimate)
-    )
+    blended = _LEAGUE_CALIBRATION_BLEND * float(avg_for_pos) + (
+        1.0 - _LEAGUE_CALIBRATION_BLEND
+    ) * float(bid_estimate)
     return max(0, round(blended))
 
 
@@ -180,30 +181,34 @@ def recommend_faab(
         league_budget=int(league_budget),
         top_value_in_pool=top_value_in_pool,
     )
-    factors.append(_Factor(
-        label="Player value baseline",
-        contribution=f"start at ${reasonable_base}",
-        weight=0.35,
-    ))
+    factors.append(
+        _Factor(
+            label="Player value baseline",
+            contribution=f"start at ${reasonable_base}",
+            weight=0.35,
+        )
+    )
 
     # 2. Value-gain modifier.
-    mod = _value_gain_modifier(
-        float(add_player_value), float(drop_player_value or 0)
-    )
+    mod = _value_gain_modifier(float(add_player_value), float(drop_player_value or 0))
     standard = max(0, round(reasonable_base * mod))
     if drop_player_value > 0:
         if mod > 1.05:
-            factors.append(_Factor(
-                label="Net upgrade boost",
-                contribution=f"×{mod:.2f}",
-                weight=0.20,
-            ))
+            factors.append(
+                _Factor(
+                    label="Net upgrade boost",
+                    contribution=f"×{mod:.2f}",
+                    weight=0.20,
+                )
+            )
         elif mod < 0.95:
-            factors.append(_Factor(
-                label="Marginal-upgrade penalty",
-                contribution=f"×{mod:.2f}",
-                weight=0.20,
-            ))
+            factors.append(
+                _Factor(
+                    label="Marginal-upgrade penalty",
+                    contribution=f"×{mod:.2f}",
+                    weight=0.20,
+                )
+            )
 
     # 3. Trending kicker.
     trending_count = None
@@ -217,62 +222,70 @@ def recommend_faab(
     kicker = _trending_kicker(trending_count)
     if kicker > 1.0:
         standard = round(standard * kicker)
-        factors.append(_Factor(
-            label="Trending bump",
-            contribution=f"×{kicker:.2f}",
-            weight=0.15,
-        ))
+        factors.append(
+            _Factor(
+                label="Trending bump",
+                contribution=f"×{kicker:.2f}",
+                weight=0.15,
+            )
+        )
     elif sleeper_trending is None:
-        factors.append(_Factor(
-            label="Trending data",
-            contribution="missing",
-            weight=0.15,
-            missing=True,
-        ))
+        factors.append(
+            _Factor(
+                label="Trending data",
+                contribution="missing",
+                weight=0.15,
+                missing=True,
+            )
+        )
 
     # 4. League-analytics calibration (per-position blend).
     if league_faab_summary:
         before = standard
-        standard = _position_calibration(
-            league_faab_summary, add_player_position, standard
-        )
+        standard = _position_calibration(league_faab_summary, add_player_position, standard)
         if standard != before:
             delta = standard - before
             sign = "+" if delta > 0 else ""
-            factors.append(_Factor(
-                label="League historical calibration",
-                contribution=f"{sign}${delta}",
-                weight=0.20,
-            ))
+            factors.append(
+                _Factor(
+                    label="League historical calibration",
+                    contribution=f"{sign}${delta}",
+                    weight=0.20,
+                )
+            )
         else:
-            factors.append(_Factor(
-                label="League historical data",
-                contribution="insufficient samples",
+            factors.append(
+                _Factor(
+                    label="League historical data",
+                    contribution="insufficient samples",
+                    weight=0.20,
+                    missing=True,
+                )
+            )
+    else:
+        factors.append(
+            _Factor(
+                label="League historical analytics",
+                contribution="missing",
                 weight=0.20,
                 missing=True,
-            ))
-    else:
-        factors.append(_Factor(
-            label="League historical analytics",
-            contribution="missing",
-            weight=0.20,
-            missing=True,
-        ))
+            )
+        )
 
     # 4b. KTC crowd blend (optional, B7).
     if ktc_crowd_bids:
         before = standard
-        standard = _ktc_crowd_blend(
-            ktc_crowd_bids, add_player_name, league_budget, standard
-        )
+        standard = _ktc_crowd_blend(ktc_crowd_bids, add_player_name, league_budget, standard)
         if standard != before:
             delta = standard - before
             sign = "+" if delta > 0 else ""
-            factors.append(_Factor(
-                label="KTC crowd-sourced calibration",
-                contribution=f"{sign}${delta}",
-                weight=0.10,
-            ))
+            factors.append(
+                _Factor(
+                    label="KTC crowd-sourced calibration",
+                    contribution=f"{sign}${delta}",
+                    weight=0.10,
+                )
+            )
 
     # 5. Marginal-upgrade floor: when the swap is even or negative,
     # bidding more than $1-$2 over reasonable_base is rarely worth
@@ -288,9 +301,7 @@ def recommend_faab(
 
     # 6. Floor at $0 if the swap is strictly negative.
     if drop_player_value > 0 and add_player_value < drop_player_value:
-        warnings.append(
-            "Your drop is worth more than your add — don't bid."
-        )
+        warnings.append("Your drop is worth more than your add — don't bid.")
         standard = 0
 
     # 7. Cap at team's faabRemaining.  When unknown, use the
@@ -299,15 +310,15 @@ def recommend_faab(
     cap_source = team_faab_remaining if team_faab_remaining is not None else league_budget
     cap_source = max(0, int(cap_source))
     if standard > cap_source:
-        warnings.append(
-            f"Capped at team's remaining FAAB (${cap_source})."
-        )
+        warnings.append(f"Capped at team's remaining FAAB (${cap_source}).")
         standard = cap_source
-        factors.append(_Factor(
-            label="Team FAAB cap",
-            contribution=f"clipped to ${cap_source}",
-            weight=0.10,
-        ))
+        factors.append(
+            _Factor(
+                label="Team FAAB cap",
+                contribution=f"clipped to ${cap_source}",
+                weight=0.10,
+            )
+        )
 
     # Derive the conservative / aggressive bracket from the final
     # ``standard`` so all three pills move together.
@@ -329,13 +340,11 @@ def recommend_faab(
     # Plain-English summary of the recommendation.
     if standard == 0:
         explanation = (
-            "We don't recommend bidding on this swap — the drop is "
-            "worth more than the add."
+            "We don't recommend bidding on this swap — the drop is " "worth more than the add."
         )
     elif standard <= 2:
         explanation = (
-            f"Token bid (${standard}).  Marginal upgrade or low "
-            "league budget — keep it cheap."
+            f"Token bid (${standard}).  Marginal upgrade or low " "league budget — keep it cheap."
         )
     elif drop_player_value > 0:
         net = add_player_value - drop_player_value

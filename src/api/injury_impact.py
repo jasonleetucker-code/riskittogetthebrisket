@@ -64,6 +64,7 @@ Age modifiers (for non-rookie):
 Values are capped at 60% total discount to stop a single news item
 from zeroing a player's value.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -79,7 +80,7 @@ from typing import Any
 BASE_DISCOUNT_PCT = {
     "alert": 4.0,
     "watch": 2.0,
-    "info":  0.5,
+    "info": 0.5,
 }
 
 # Duration (ms) over which the discount linearly decays to zero.
@@ -110,6 +111,7 @@ def _is_nfl_offseason(now_ms: int) -> bool:
     add a data dependency for a ~2-week edge case at each end.
     """
     from datetime import datetime, timezone
+
     dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
     return dt.month in _OFFSEASON_MONTHS
 
@@ -151,6 +153,7 @@ def _news_ms(iso: Any) -> int | None:
     if not isinstance(iso, str):
         return None
     from datetime import datetime
+
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
         return int(dt.timestamp() * 1000)
@@ -257,8 +260,7 @@ def compute_injury_discount(
         impacts = item.get("players") or []
         if isinstance(impacts, list):
             has_positive = any(
-                isinstance(p, dict) and str(p.get("impact") or "") == "positive"
-                for p in impacts
+                isinstance(p, dict) and str(p.get("impact") or "") == "positive" for p in impacts
             )
             if has_positive:
                 continue
@@ -314,8 +316,11 @@ def apply_injury_impact(
     age = row.get("age")
     is_rookie = bool(row.get("rookie") or row.get("isRookie"))
     impact = compute_injury_discount(
-        pos=pos, age=age, is_rookie=is_rookie,
-        news_for_player=news_for_player, now_ms=now_ms,
+        pos=pos,
+        age=age,
+        is_rookie=is_rookie,
+        news_for_player=news_for_player,
+        now_ms=now_ms,
     )
     base_value = row.get("rankDerivedValue")
     try:

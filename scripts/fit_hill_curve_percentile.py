@@ -39,6 +39,7 @@ voice, matching the framework's intent.
 Usage:
     python3 scripts/fit_hill_curve_percentile.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,18 +57,18 @@ GLOBAL_SOURCES: dict[str, tuple[str, str]] = {
     "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
 }
 OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
-    "KTC":          ("CSVs/site_raw/ktc.csv",                    "value"),
-    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",         "value"),
-    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv",      "Value"),
+    "KTC": ("CSVs/site_raw/ktc.csv", "value"),
+    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv", "value"),
+    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
     # Added 2026-04-21: three more value-based offense sources that
     # went live in the April source expansion.  Each is SF-TEP-native
     # (Boone pulls 2QB + TE-Prem columns; Fitzmaurice uses SF Value +
     # TEP Value; DraftSharks is league-synced via its WebAssembly
     # scoring worker).  Tops are ~141 (Boone), ~101 (Fitzmaurice),
     # ~100 (DS SF) — all normalize to 9999 at the curve's anchor.
-    "YahooBoone":   ("CSVs/site_raw/yahooBoone.csv",             "boone_value"),
-    "Fitzmaurice":  ("CSVs/site_raw/fantasyProsFitzmaurice.csv", "value"),
-    "DraftSharks":  ("CSVs/site_raw/draftSharksSf.csv",          "3D Value +"),
+    "YahooBoone": ("CSVs/site_raw/yahooBoone.csv", "boone_value"),
+    "Fitzmaurice": ("CSVs/site_raw/fantasyProsFitzmaurice.csv", "value"),
+    "DraftSharks": ("CSVs/site_raw/draftSharksSf.csv", "3D Value +"),
 }
 # IDP value sources that have pre-filtered per-position CSVs.  IDPTC
 # is NOT in this dict because its CSV is all positions mixed —
@@ -82,8 +83,7 @@ IDP_CSV_SOURCES: dict[str, tuple[str, str]] = {
 }
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
-    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB",
-     "DB", "CB", "S", "SS", "FS"}
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
 )
 
 
@@ -218,7 +218,7 @@ def _fit(pairs: list[tuple[float, float]]) -> tuple[float, float, float]:
     """Grid-search + refine (c, s) against the pairs."""
     best: tuple[float, float, float] | None = None
     c_grid = [0.005 + 0.005 * i for i in range(100)]  # 0.005..0.5
-    s_grid = [0.4 + 0.02 * i for i in range(106)]     # 0.4..2.5
+    s_grid = [0.4 + 0.02 * i for i in range(106)]  # 0.4..2.5
     for c in c_grid:
         for s in s_grid:
             err = sum((v - _hill(p, c, s)) ** 2 for p, v in pairs)
@@ -250,11 +250,7 @@ def _trimmed_mean_median(values: list[float]) -> float:
         t = vs[1:-1]
         t_mean = sum(t) / len(t)
         m = len(t)
-        t_median = (
-            float(t[m // 2])
-            if m % 2 == 1
-            else (t[m // 2 - 1] + t[m // 2]) / 2.0
-        )
+        t_median = float(t[m // 2]) if m % 2 == 1 else (t[m // 2 - 1] + t[m // 2]) / 2.0
         return (t_mean + t_median) / 2.0
     if n == 2:
         return (vs[0] + vs[1]) / 2.0
@@ -295,7 +291,7 @@ def _fit_scope_master(
     for i in range(1, 50):
         grid.append(i / 2000.0)  # fine top-of-curve sampling
     for i in range(1, 200):
-        grid.append(i / 200.0)   # linear mid-to-tail sampling
+        grid.append(i / 200.0)  # linear mid-to-tail sampling
     grid = sorted(set(round(p, 6) for p in grid))
 
     master_pairs: list[tuple[float, float]] = []
@@ -365,10 +361,7 @@ def main() -> int:
             f"c={c:.4f}  s={s:.3f}  rmse={mse ** 0.5:.1f}"
         )
     else:
-        print(
-            f"  DraftSharks-Combined  (only {len(ds_combined)} total "
-            f"values; skipping)"
-        )
+        print(f"  DraftSharks-Combined  (only {len(ds_combined)} total " f"values; skipping)")
 
     print("\nIDP scope (IDP value sources):")
     idp_values = _load_idptc_idp_values()
@@ -392,30 +385,25 @@ def main() -> int:
     print("\nROOKIE scope (rookie slices of value-based sources):")
     rookie_fits: list[tuple[str, float, float]] = []
     for label, src_key in (
-        ("KTC-Rookie",          "ktc"),
-        ("IDPTC-Rookie",        "idpTradeCalc"),
+        ("KTC-Rookie", "ktc"),
+        ("IDPTC-Rookie", "idpTradeCalc"),
         # Added 2026-04-21: rookie slices from the newly-wired
         # value sources.  Each rookie slice is normalized so the
         # slice's top contributes 9999, same as KTC / IDPTC.
         # Small rookie classes with <10 rookies in a snapshot are
         # auto-skipped so a sparse source doesn't wreck the master.
-        ("Boone-Rookie",        "yahooBoone"),
-        ("Fitzmaurice-Rookie",  "fantasyProsFitzmaurice"),
-        ("DraftSharks-Rookie",  "draftSharks"),
+        ("Boone-Rookie", "yahooBoone"),
+        ("Fitzmaurice-Rookie", "fantasyProsFitzmaurice"),
+        ("DraftSharks-Rookie", "draftSharks"),
     ):
         rv = _load_rookie_values(src_key)
         if len(rv) < 10:
-            print(
-                f"  {label:22s}  (only {len(rv)} rookies with values; skipping)"
-            )
+            print(f"  {label:22s}  (only {len(rv)} rookies with values; skipping)")
             continue
         pairs = _percentile_pairs(rv)
         c, s, mse = _fit(pairs)
         rookie_fits.append((label, c, s))
-        print(
-            f"  {label:22s}  n={len(pairs):4d}  c={c:.4f}  "
-            f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
-        )
+        print(f"  {label:22s}  n={len(pairs):4d}  c={c:.4f}  " f"s={s:.3f}  rmse={mse ** 0.5:.1f}")
 
     print("\nScope-level master curves (trimmed mean-median across per-source fits):")
     for scope_label, fits in (
@@ -429,10 +417,7 @@ def main() -> int:
             print(f"  {scope_label:8s}  (no per-source fits)")
             continue
         c, s, mse = result
-        print(
-            f"  {scope_label:8s}  c*={c:.4f}  s*={s:.3f}  "
-            f"master-fit rmse={mse ** 0.5:.1f}"
-        )
+        print(f"  {scope_label:8s}  c*={c:.4f}  s*={s:.3f}  " f"master-fit rmse={mse ** 0.5:.1f}")
 
     print()
     print("Value at key percentiles for each scope master:")
@@ -479,6 +464,7 @@ def main() -> int:
 
     if args.json_out is not None:
         import json as _json
+
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(_json.dumps(out_constants, indent=2))
     return 0

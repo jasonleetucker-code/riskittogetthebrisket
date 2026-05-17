@@ -6,6 +6,7 @@ record.  This is what feeds ``check_and_alert`` in
 ``src.api.source_health_alerts`` and the per-source rows on the
 ``/tools/source-health`` page.
 """
+
 from __future__ import annotations
 
 import time
@@ -42,9 +43,9 @@ def test_freshness_records_have_consistent_age_window():
         # matches it within ±2 minutes (rounded to 2 decimals).
         last = datetime.fromisoformat(entry["lastFetched"]).astimezone(timezone.utc)
         derived_hours = (now - last.timestamp()) / 3600.0
-        assert abs(derived_hours - entry["ageHours"]) < 2 / 60, (
-            f"{src}: derived={derived_hours:.4f}h vs reported={entry['ageHours']}h"
-        )
+        assert (
+            abs(derived_hours - entry["ageHours"]) < 2 / 60
+        ), f"{src}: derived={derived_hours:.4f}h vs reported={entry['ageHours']}h"
 
 
 def test_per_source_freshness_returns_empty_when_repo_missing(monkeypatch, tmp_path):
@@ -76,6 +77,7 @@ def _redirect_repo_root(monkeypatch, tmp_path, source_key: str, csv_rel: str):
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     stamp_path = tmp_path / "data" / "scrape_state" / f"{source_key}_last_success"
     from src.api import data_contract as dc
+
     monkeypatch.setattr(dc, "_SOURCE_CSV_PATHS", {source_key: csv_rel})
     return csv_path, stamp_path
 
@@ -88,13 +90,16 @@ def test_freshness_prefers_stamp_over_csv_mtime(monkeypatch, tmp_path):
     freezing CSV mtime on the last *content* change rather than the
     last *fetcher success*."""
     csv_path, stamp_path = _redirect_repo_root(
-        monkeypatch, tmp_path, "fantasyProsFitzmaurice",
+        monkeypatch,
+        tmp_path,
+        "fantasyProsFitzmaurice",
         "CSVs/site_raw/fantasyProsFitzmaurice.csv",
     )
     # CSV mtime: 4 days old
     csv_path.write_text("name,rank\nfoo,1\n")
     old = time.time() - 4 * 86400
     import os as _os
+
     _os.utime(csv_path, (old, old))
     # Stamp: 30 minutes old
     fresh_epoch = int(time.time() - 1800)
@@ -104,16 +109,19 @@ def test_freshness_prefers_stamp_over_csv_mtime(monkeypatch, tmp_path):
     out = srv._per_source_freshness()
     entry = out["fantasyProsFitzmaurice"]
     # ageHours should reflect the 30-min stamp, not the 4-day CSV.
-    assert entry["ageHours"] < 1.0, (
-        f"stamp ignored - ageHours={entry['ageHours']} suggests fall-through to CSV mtime"
-    )
+    assert (
+        entry["ageHours"] < 1.0
+    ), f"stamp ignored - ageHours={entry['ageHours']} suggests fall-through to CSV mtime"
 
 
 def test_freshness_falls_back_to_csv_when_stamp_missing(monkeypatch, tmp_path):
     """No stamp file ⇒ CSV mtime is used.  Preserves backwards-compat
     for sources that haven't been wired into the stamp pattern yet."""
     csv_path, _ = _redirect_repo_root(
-        monkeypatch, tmp_path, "ktc", "CSVs/site_raw/ktc.csv",
+        monkeypatch,
+        tmp_path,
+        "ktc",
+        "CSVs/site_raw/ktc.csv",
     )
     csv_path.write_text("name,rank\n")
     # No stamp file written.
@@ -126,7 +134,10 @@ def test_freshness_falls_back_to_csv_when_stamp_unparseable(monkeypatch, tmp_pat
     """Corrupt stamp content (non-numeric) falls through to CSV mtime
     instead of dropping the source from the freshness map."""
     csv_path, stamp_path = _redirect_repo_root(
-        monkeypatch, tmp_path, "ktc", "CSVs/site_raw/ktc.csv",
+        monkeypatch,
+        tmp_path,
+        "ktc",
+        "CSVs/site_raw/ktc.csv",
     )
     csv_path.write_text("name,rank\n")
     stamp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,7 +151,10 @@ def test_freshness_drops_source_when_no_stamp_and_no_csv(monkeypatch, tmp_path):
     engine has nothing to alert on; the source-registry parity check
     is the right place to surface "missing CSV")."""
     _redirect_repo_root(
-        monkeypatch, tmp_path, "missingSource", "CSVs/site_raw/missingSource.csv",
+        monkeypatch,
+        tmp_path,
+        "missingSource",
+        "CSVs/site_raw/missingSource.csv",
     )
     out = srv._per_source_freshness()
     assert "missingSource" not in out

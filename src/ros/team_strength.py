@@ -16,6 +16,7 @@ The output shape mirrors what ``frontend/app/league/sections/ros-team-strength.j
 will render: one row per team, with starter + bench breakdown for the
 "why is this team here?" expandable.
 """
+
 from __future__ import annotations
 
 import json
@@ -70,12 +71,7 @@ def compute_team_strength(
         roster: list[RosterPlayer] = []
         unmapped: list[str] = []
         for p in roster_players:
-            name = (
-                p.get("canonicalName")
-                or p.get("displayName")
-                or p.get("name")
-                or ""
-            )
+            name = p.get("canonicalName") or p.get("displayName") or p.get("name") or ""
             position = (p.get("position") or "").upper()
             agg = by_name.get(name)
             if not agg or agg.get("rosValue", 0) <= 0:
@@ -162,6 +158,7 @@ def _team_strength_path(league_key: str | None = None) -> Path:
     resolved = league_key
     try:
         from src.api.league_registry import get_league_by_key, default_league_key  # noqa: PLC0415
+
         cfg = get_league_by_key(league_key)
         if cfg and cfg.key:
             resolved = cfg.key

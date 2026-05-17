@@ -7,6 +7,7 @@ Covers:
   - New per-player fields stamped by _compute_unified_rankings
   - Payload-level methodology, dataFreshness, and anomalySummary blocks
 """
+
 from __future__ import annotations
 
 import copy
@@ -83,11 +84,7 @@ def _make_player(name, position, *, ktc=None, idp=None, team="TST", sibling=None
             "_composite": composite_max,
             "_rawComposite": composite_max,
             "_finalAdjusted": composite_max,
-            "_sites": (
-                (1 if ktc else 0)
-                + (1 if idp else 0)
-                + (1 if sibling else 0)
-            ),
+            "_sites": ((1 if ktc else 0) + (1 if idp else 0) + (1 if sibling else 0)),
             "position": position,
             "team": team,
             "_canonicalSiteValues": sites,
@@ -124,7 +121,6 @@ def _build_and_find(payload, player_name):
 
 
 class TestConfidenceBucket(unittest.TestCase):
-
     def test_high_bucket(self):
         bucket, label = _compute_confidence_bucket(2, 20.0)
         self.assertEqual(bucket, "high")
@@ -162,7 +158,6 @@ class TestConfidenceBucket(unittest.TestCase):
 
 
 class TestAnomalyFlags(unittest.TestCase):
-
     def test_no_flags_for_clean_player(self):
         flags = _compute_anomaly_flags(
             name="Patrick Mahomes",
@@ -289,7 +284,6 @@ class TestAnomalyFlags(unittest.TestCase):
 
 
 class TestMarketGap(unittest.TestCase):
-
     def test_retail_premium_vs_single_consensus_source(self):
         # KTC (retail) rank 10, IDPTC (consensus) rank 50 → retail mean 10
         # vs consensus mean 50 → retail ranks the player 40 positions
@@ -365,7 +359,6 @@ class TestMarketGap(unittest.TestCase):
 
 
 class TestSingleSourceRow(unittest.TestCase):
-
     def test_single_source_offense_player(self):
         # Use a unique name that won't match CSV enrichment data on disk.
         # With two primary-scope offense sources now registered (KTC +
@@ -401,7 +394,6 @@ class TestSingleSourceRow(unittest.TestCase):
 
 
 class TestTwoSourceRow(_SecondOffenseSourceMixin, unittest.TestCase):
-
     def test_two_source_player_tight_agreement(self):
         """Two offense sources with similar values → high confidence,
         no disagreement.  Uses the test-only ktcMirror sibling source
@@ -427,7 +419,6 @@ class TestTwoSourceRow(_SecondOffenseSourceMixin, unittest.TestCase):
 
 
 class TestUnrankedPlayer(unittest.TestCase):
-
     def test_unranked_player_gets_defaults(self):
         """A player with no source values should still have trust fields."""
         payload = _payload_with_players(
@@ -447,7 +438,6 @@ class TestUnrankedPlayer(unittest.TestCase):
 
 
 class TestPayloadLevelBlocks(unittest.TestCase):
-
     def test_methodology_block_present(self):
         payload = _payload_with_players(
             _make_player("Test QB", "QB", ktc=8000),
@@ -552,7 +542,6 @@ class TestPayloadLevelBlocks(unittest.TestCase):
 
 
 class TestRequiredPlayerKeys(unittest.TestCase):
-
     def test_new_fields_in_required_keys(self):
         from src.api.data_contract import REQUIRED_PLAYER_KEYS
 
@@ -607,9 +596,14 @@ class TestIdentityConfidence(unittest.TestCase):
         row = _build_and_find(payload, "No ID QB")
         # No playerId, but position matches source evidence
         self.assertGreaterEqual(row["identityConfidence"], 0.70)
-        self.assertIn(row["identityMethod"], (
-            "name_only", "position_source_aligned", "partial_evidence",
-        ))
+        self.assertIn(
+            row["identityMethod"],
+            (
+                "name_only",
+                "position_source_aligned",
+                "partial_evidence",
+            ),
+        )
 
     def test_identity_fields_present(self):
         payload = _payload_with_players(
@@ -722,10 +716,18 @@ class TestEdgeCaseFixtures(_SecondOffenseSourceMixin, unittest.TestCase):
         )
         row = _build_and_find(payload, "Complete QB")
         required_fields = [
-            "confidenceBucket", "confidenceLabel", "anomalyFlags",
-            "isSingleSource", "hasSourceDisagreement", "blendedSourceRank",
-            "sourceRankSpread", "marketGapDirection", "marketGapMagnitude",
-            "identityConfidence", "identityMethod", "quarantined",
+            "confidenceBucket",
+            "confidenceLabel",
+            "anomalyFlags",
+            "isSingleSource",
+            "hasSourceDisagreement",
+            "blendedSourceRank",
+            "sourceRankSpread",
+            "marketGapDirection",
+            "marketGapMagnitude",
+            "identityConfidence",
+            "identityMethod",
+            "quarantined",
         ]
         for field in required_fields:
             self.assertIn(field, row, f"Missing trust field: {field}")
@@ -741,10 +743,18 @@ class TestTrustMirrorToLegacy(_SecondOffenseSourceMixin, unittest.TestCase):
     """
 
     TRUST_FIELDS = [
-        "confidenceBucket", "confidenceLabel", "anomalyFlags",
-        "isSingleSource", "hasSourceDisagreement", "blendedSourceRank",
-        "sourceRankSpread", "marketGapDirection", "marketGapMagnitude",
-        "identityConfidence", "identityMethod", "quarantined",
+        "confidenceBucket",
+        "confidenceLabel",
+        "anomalyFlags",
+        "isSingleSource",
+        "hasSourceDisagreement",
+        "blendedSourceRank",
+        "sourceRankSpread",
+        "marketGapDirection",
+        "marketGapMagnitude",
+        "identityConfidence",
+        "identityMethod",
+        "quarantined",
     ]
 
     def test_trust_fields_mirrored_to_legacy_dict(self):
@@ -757,8 +767,7 @@ class TestTrustMirrorToLegacy(_SecondOffenseSourceMixin, unittest.TestCase):
         self.assertIsNotNone(legacy_entry, "Legacy dict entry missing")
 
         for field in self.TRUST_FIELDS:
-            self.assertIn(field, legacy_entry,
-                          f"Trust field '{field}' not mirrored to legacy dict")
+            self.assertIn(field, legacy_entry, f"Trust field '{field}' not mirrored to legacy dict")
 
     def test_mirrored_values_match_players_array(self):
         """Mirrored legacy values must match the playersArray values."""
@@ -776,9 +785,9 @@ class TestTrustMirrorToLegacy(_SecondOffenseSourceMixin, unittest.TestCase):
 
         for field in self.TRUST_FIELDS:
             self.assertEqual(
-                legacy_entry[field], row[field],
-                f"Mismatch on '{field}': legacy={legacy_entry[field]!r}, "
-                f"array={row[field]!r}",
+                legacy_entry[field],
+                row[field],
+                f"Mismatch on '{field}': legacy={legacy_entry[field]!r}, " f"array={row[field]!r}",
             )
 
     def test_quarantine_reflected_in_legacy_dict(self):

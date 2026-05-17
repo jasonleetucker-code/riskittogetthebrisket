@@ -21,6 +21,7 @@ Conservative by design: the 50% / all-zero error bar plus the
 ``COLLAPSE_EXEMPT`` allowlist keep legitimate refreshes (rank jitter,
 seasonal ROS emptiness) from blocking the pipeline.
 """
+
 from __future__ import annotations
 
 import glob
@@ -49,8 +50,8 @@ COLLAPSE_EXEMPT = {
     "draftSharksRosIdp",
 }
 
-COLLAPSE_ERROR_RATIO = 0.50   # > 50% fewer rows than prior == error
-COLLAPSE_WARN_RATIO = 0.70    # 30-50% fewer rows == warning
+COLLAPSE_ERROR_RATIO = 0.50  # > 50% fewer rows than prior == error
+COLLAPSE_WARN_RATIO = 0.70  # 30-50% fewer rows == warning
 
 
 def _source_key(path: str) -> str:
@@ -130,7 +131,9 @@ def _git_show(path: str) -> str | None:
     try:
         out = subprocess.run(
             ["git", "show", f"HEAD:{path}"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         return out.stdout
     except subprocess.CalledProcessError:
@@ -164,8 +167,7 @@ def main() -> int:
         else:
             print(msg)
 
-    print(f"\nScrape sanity: {len(csvs)} sources, {errors} error(s), "
-          f"{warnings} warning(s)")
+    print(f"\nScrape sanity: {len(csvs)} sources, {errors} error(s), " f"{warnings} warning(s)")
     return 1 if errors else 0
 
 

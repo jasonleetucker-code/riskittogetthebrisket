@@ -10,6 +10,7 @@ Hard safety rails:
 4. Frontend helper logic cannot override authoritative ordering.
 5. Backend stamps canonicalTierId on every ranked row.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -41,7 +42,12 @@ def _row(
         "position": position,
         "assetClass": "idp" if position in ("DL", "LB", "DB") else "offense",
         "canonicalSiteValues": sites,
-        "values": {"overall": max(v or 0 for v in sites.values()), "rawComposite": None, "finalAdjusted": None, "displayValue": None},
+        "values": {
+            "overall": max(v or 0 for v in sites.values()),
+            "rawComposite": None,
+            "finalAdjusted": None,
+            "displayValue": None,
+        },
         "sourceCount": 0,
         "sourcePresence": {},
         "rookie": False,
@@ -69,10 +75,7 @@ class TestMonotonicOrdering(unittest.TestCase):
 
     def test_rank_value_never_diverge(self):
         """If rank A < rank B, then value A >= value B (no inversions)."""
-        rows = [
-            _row(f"P{i}", "QB", ktc=9999 - i * 100, idp=9999 - i * 100)
-            for i in range(20)
-        ]
+        rows = [_row(f"P{i}", "QB", ktc=9999 - i * 100, idp=9999 - i * 100) for i in range(20)]
         _compute_unified_rankings(rows, {})
         ranked = sorted(
             [r for r in rows if r.get("canonicalConsensusRank")],
@@ -91,10 +94,7 @@ class TestNoDuplicateRanks(unittest.TestCase):
     """Proof that duplicate ranks are impossible."""
 
     def test_no_duplicate_ranks(self):
-        rows = [
-            _row(f"P{i}", "QB", ktc=9999 - i * 50, idp=9999 - i * 50)
-            for i in range(50)
-        ]
+        rows = [_row(f"P{i}", "QB", ktc=9999 - i * 50, idp=9999 - i * 50) for i in range(50)]
         _compute_unified_rankings(rows, {})
         ranks = [r["canonicalConsensusRank"] for r in rows if r.get("canonicalConsensusRank")]
         self.assertEqual(len(ranks), len(set(ranks)), "Duplicate ranks detected")
@@ -132,10 +132,7 @@ class TestTierAlignment(unittest.TestCase):
 
     def test_tiers_non_decreasing(self):
         """Tier IDs must be non-decreasing when sorted by rank."""
-        rows = [
-            _row(f"P{i}", "QB", ktc=9999 - i * 80, idp=9999 - i * 80)
-            for i in range(100)
-        ]
+        rows = [_row(f"P{i}", "QB", ktc=9999 - i * 80, idp=9999 - i * 80) for i in range(100)]
         _compute_unified_rankings(rows, {})
         ranked = sorted(
             [r for r in rows if r.get("canonicalConsensusRank")],
@@ -144,9 +141,12 @@ class TestTierAlignment(unittest.TestCase):
         prev_tier = 0
         for r in ranked:
             tier = r.get("canonicalTierId")
-            self.assertIsNotNone(tier, f"Row #{r['canonicalConsensusRank']} missing canonicalTierId")
+            self.assertIsNotNone(
+                tier, f"Row #{r['canonicalConsensusRank']} missing canonicalTierId"
+            )
             self.assertGreaterEqual(
-                tier, prev_tier,
+                tier,
+                prev_tier,
                 f"Tier decreased at rank {r['canonicalConsensusRank']}: {tier} < {prev_tier}",
             )
             prev_tier = tier

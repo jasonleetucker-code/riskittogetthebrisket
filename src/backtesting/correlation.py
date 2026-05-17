@@ -11,6 +11,7 @@ who actually scored the most?"
 
 Pure-Python, no SciPy.  O(n log n) from the sort.
 """
+
 from __future__ import annotations
 
 import math
@@ -73,8 +74,10 @@ def score_source(
     common = set(source_ranks.keys()) & set(realized_points.keys())
     if len(common) < 2:
         return SourceAccuracy(
-            source=source, n_players=len(common),
-            spearman_rho=0.0, top_50_hit_rate=0.0,
+            source=source,
+            n_players=len(common),
+            spearman_rho=0.0,
+            top_50_hit_rate=0.0,
         )
     # Spearman: lower rank = better.  Negate rank so higher-number
     # means better (aligning with points direction).
@@ -102,8 +105,7 @@ def score_all_sources(
     """Score every source in the input dict and return sorted by
     descending Spearman."""
     results = [
-        score_source(src, ranks, realized_points)
-        for src, ranks in source_ranks_by_source.items()
+        score_source(src, ranks, realized_points) for src, ranks in source_ranks_by_source.items()
     ]
     results.sort(key=lambda a: -a.spearman_rho)
     return results

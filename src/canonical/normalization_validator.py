@@ -28,6 +28,7 @@ Consumers:
 No silent failures — every mismatch logs a warning via the root
 logger with a structured prefix ``normalization_mismatch=…``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -92,16 +93,26 @@ def _classify_position(position: str) -> str:
 
 
 def _log_mismatch(
-    category: str, detail: str, row_snippet: dict[str, Any],
+    category: str,
+    detail: str,
+    row_snippet: dict[str, Any],
 ) -> None:
     """Emit a structured single-line warning.  Prefix makes grep
     triage fast:  ``grep normalization_mismatch= dynasty.log``."""
     _LOGGER.warning(
         "normalization_mismatch=%s detail=%r row=%s",
-        category, detail,
-        {k: row_snippet.get(k) for k in (
-            "displayName", "canonicalName", "position", "assetClass", "playerId",
-        )},
+        category,
+        detail,
+        {
+            k: row_snippet.get(k)
+            for k in (
+                "displayName",
+                "canonicalName",
+                "position",
+                "assetClass",
+                "playerId",
+            )
+        },
     )
 
 
@@ -132,10 +143,13 @@ def validate_players_array(
         if dn is not None and cn is not None and dn != cn:
             result.player_name_drift += 1
             if len(result.samples) < 20:
-                result.samples.append({
-                    "category": "player_name_drift",
-                    "displayName": dn, "canonicalName": cn,
-                })
+                result.samples.append(
+                    {
+                        "category": "player_name_drift",
+                        "displayName": dn,
+                        "canonicalName": cn,
+                    }
+                )
             _log_mismatch("player_name_drift", f"{dn!r} != {cn!r}", row)
 
         # 2. Pick-name shape.
@@ -144,10 +158,12 @@ def validate_players_array(
             if not is_valid_pick_name(dn or cn or ""):
                 result.pick_name_malformed += 1
                 if len(result.samples) < 20:
-                    result.samples.append({
-                        "category": "pick_name_malformed",
-                        "name": dn or cn,
-                    })
+                    result.samples.append(
+                        {
+                            "category": "pick_name_malformed",
+                            "name": dn or cn,
+                        }
+                    )
                 _log_mismatch("pick_name_malformed", str(dn or cn), row)
 
         # 3. assetClass / position agreement.
@@ -155,24 +171,28 @@ def validate_players_array(
             if asset_class not in _VALID_ASSET_CLASSES:
                 result.asset_class_mismatch += 1
                 if len(result.samples) < 20:
-                    result.samples.append({
-                        "category": "asset_class_unknown",
-                        "assetClass": asset_class,
-                        "name": dn or cn,
-                    })
+                    result.samples.append(
+                        {
+                            "category": "asset_class_unknown",
+                            "assetClass": asset_class,
+                            "name": dn or cn,
+                        }
+                    )
                 _log_mismatch("asset_class_unknown", asset_class, row)
             else:
                 expected = _classify_position(row.get("position") or "")
                 if expected != "other" and expected != asset_class:
                     result.asset_class_mismatch += 1
                     if len(result.samples) < 20:
-                        result.samples.append({
-                            "category": "asset_class_mismatch",
-                            "position": row.get("position"),
-                            "expected": expected,
-                            "got": asset_class,
-                            "name": dn or cn,
-                        })
+                        result.samples.append(
+                            {
+                                "category": "asset_class_mismatch",
+                                "position": row.get("position"),
+                                "expected": expected,
+                                "got": asset_class,
+                                "name": dn or cn,
+                            }
+                        )
                     _log_mismatch(
                         "asset_class_mismatch",
                         f"pos={row.get('position')} exp={expected} got={asset_class}",
@@ -188,13 +208,17 @@ def validate_players_array(
         if count > 1:
             result.dup_keys += 1
             if len(result.samples) < 20:
-                result.samples.append({
-                    "category": "dup_key",
-                    "name": name_key, "count": count,
-                })
+                result.samples.append(
+                    {
+                        "category": "dup_key",
+                        "name": name_key,
+                        "count": count,
+                    }
+                )
             _LOGGER.warning(
                 "normalization_mismatch=dup_key detail=%r count=%d",
-                name_key, count,
+                name_key,
+                count,
             )
 
     return result
@@ -219,10 +243,13 @@ def validate_legacy_players_dict(
         if inner and inner != key:
             result.player_name_drift += 1
             if len(result.samples) < 20:
-                result.samples.append({
-                    "category": "player_name_drift",
-                    "key": key, "inner": inner,
-                })
+                result.samples.append(
+                    {
+                        "category": "player_name_drift",
+                        "key": key,
+                        "inner": inner,
+                    }
+                )
             _log_mismatch("player_name_drift", f"{key!r} != {inner!r}", {"key": key, **row})
     return result
 

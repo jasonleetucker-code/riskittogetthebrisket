@@ -44,6 +44,7 @@ Exit codes:
          * response is not a dict with a ``data`` array, or
          * row count below :data:`_FF_ROOKIE_ROW_COUNT_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -70,14 +71,7 @@ UA = (
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "flockFantasySfRookies.csv"
-DATA_DIR_DST = (
-    REPO_ROOT
-    / "data"
-    / "exports"
-    / "latest"
-    / "site_raw"
-    / "flockFantasySfRookies.csv"
-)
+DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "flockFantasySfRookies.csv"
 
 # Minimum row count.  The PROSPECTS_SF endpoint currently carries ~98
 # entries (one full rookie class).  Floor set at ~60 so a class shrink
@@ -257,9 +251,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    print(
-        f"[fetch_flock_fantasy_rookies] total={len(rows)} rows with valid averageRank"
-    )
+    print(f"[fetch_flock_fantasy_rookies] total={len(rows)} rows with valid averageRank")
 
     if args.dry_run:
         print("[fetch_flock_fantasy_rookies] --dry-run; not writing CSV")
@@ -268,16 +260,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     _write_csv(args.dest, rows)
-    print(
-        f"[fetch_flock_fantasy_rookies] wrote {len(rows)} rows -> {args.dest}"
-    )
+    print(f"[fetch_flock_fantasy_rookies] wrote {len(rows)} rows -> {args.dest}")
 
     if args.mirror_data_dir:
         try:
             _write_csv(DATA_DIR_DST, rows)
-            print(
-                f"[fetch_flock_fantasy_rookies] mirrored -> {DATA_DIR_DST}"
-            )
+            print(f"[fetch_flock_fantasy_rookies] mirrored -> {DATA_DIR_DST}")
         except Exception as exc:
             print(
                 f"[fetch_flock_fantasy_rookies] mirror failed: {exc}",

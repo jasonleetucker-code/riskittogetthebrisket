@@ -45,6 +45,7 @@ Exit codes:
 Output: human-readable stdout, GitHub Actions ``::error::``
 annotations per offending source, and a step-summary table.
 """
+
 from __future__ import annotations
 
 import json
@@ -127,7 +128,7 @@ def _source_coverage(contract: dict) -> dict[str, int]:
     """
     cov: dict[str, int] = {}
     for row in contract.get("playersArray") or []:
-        for key in (row.get("sourceRankMeta") or {}):
+        for key in row.get("sourceRankMeta") or {}:
             cov[key] = cov.get(key, 0) + 1
     return cov
 
@@ -167,9 +168,7 @@ def evaluate_coverage(
       * skipped    — source keys not evaluated because they are stale
         (owned by the freshness watchdog) or have an empty/missing CSV.
     """
-    return evaluate_coverage_map(
-        _source_coverage(contract), freshness, thresholds
-    )
+    return evaluate_coverage_map(_source_coverage(contract), freshness, thresholds)
 
 
 def evaluate_coverage_map(
@@ -194,10 +193,7 @@ def evaluate_coverage_map(
     for key in sorted(k for k in registered if k):
         info = freshness.get(key)
         threshold = resolve_threshold(key, thresholds)
-        is_fresh = (
-            info is not None
-            and float(info.get("ageHours", 0.0)) <= threshold
-        )
+        is_fresh = info is not None and float(info.get("ageHours", 0.0)) <= threshold
         if not is_fresh or not _csv_nonempty(key):
             # Stale → freshness watchdog already owns it.
             # Empty/missing CSV → nothing to land; not a coverage bug.
@@ -227,9 +223,7 @@ def _write_summary(
             "| source | players covered | floor |",
             "|---|---|---|",
         ]
-        lines += [
-            f"| `{k}` | {c} | {_MIN_COVERAGE} |" for k, c in violations
-        ]
+        lines += [f"| `{k}` | {c} | {_MIN_COVERAGE} |" for k, c in violations]
         lines.append("")
     lines += [
         "### Healthy sources",
@@ -271,9 +265,7 @@ def main() -> int:
 
     freshness = _read_freshness()
     thresholds = load_thresholds()
-    violations, ok, skipped = evaluate_coverage(
-        contract, freshness, thresholds
-    )
+    violations, ok, skipped = evaluate_coverage(contract, freshness, thresholds)
 
     _write_summary(violations, ok, skipped)
 

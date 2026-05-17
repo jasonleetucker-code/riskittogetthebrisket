@@ -19,6 +19,7 @@ Across the 2-season window:
 Everything attributes to ``owner_id`` at the time of the season so
 an orphaned roster that changed hands between seasons stays split.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -82,9 +83,7 @@ def _season_block(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dic
         "topSeed": _wrap(top_seed_row["rosterId"]) if top_seed_row else None,
         "regularSeasonPointsLeader": _wrap(points_leader["rosterId"]) if points_leader else None,
         "bestRegularSeasonRecord": _wrap(best_record["rosterId"]) if best_record else None,
-        "playoffTeams": [
-            _wrap(rid) for rid in sorted(playoff_rids) if _wrap(rid) is not None
-        ],
+        "playoffTeams": [_wrap(rid) for rid in sorted(playoff_rids) if _wrap(rid) is not None],
         "standings": standings,
     }
 
@@ -122,11 +121,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         seasons_out.append(block)
 
         if block["champion"]:
-            champions_by_season.append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                **block["champion"],
-            })
+            champions_by_season.append(
+                {
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    **block["champion"],
+                }
+            )
 
         for row in block["standings"]:
             totals = _ensure(row["ownerId"])

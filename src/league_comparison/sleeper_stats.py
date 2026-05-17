@@ -26,6 +26,7 @@ cached on disk via :mod:`src.nfl_data.cache` with multi-day TTLs.
 Once a NFL season is final, its weekly numbers don't change, so a
 long TTL is safe.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,8 +41,8 @@ _LOGGER = logging.getLogger(__name__)
 
 _SLEEPER_API_ROOT = "https://api.sleeper.app/v1"
 _HTTP_TIMEOUT = 15.0
-_PLAYER_INDEX_TTL = 7 * 24 * 3600   # 7 days
-_WEEKLY_STATS_TTL = 7 * 24 * 3600   # 7 days
+_PLAYER_INDEX_TTL = 7 * 24 * 3600  # 7 days
+_WEEKLY_STATS_TTL = 7 * 24 * 3600  # 7 days
 
 # League-comparison samples weeks 1-17 only.  Modern NFL regular
 # seasons run 18 weeks (since 2021), but week 18 is starter-rest
@@ -91,9 +92,11 @@ _FIELD_MAP: dict[str, str] = {
 
 # ── HTTP / cache primitives ───────────────────────────────────────────
 
+
 def _http_get_json(url: str) -> Any:
     req = urllib.request.Request(
-        url, headers={"User-Agent": "riskit-league-compare/1.0"},
+        url,
+        headers={"User-Agent": "riskit-league-compare/1.0"},
     )
     with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:  # noqa: S310
         return json.loads(resp.read())
@@ -136,7 +139,8 @@ def _player_index(*, fetcher: Callable[[str], Any] | None = None) -> dict[str, d
 
 
 def _fetch_week_stats(
-    season: int, week: int,
+    season: int,
+    week: int,
     *,
     fetcher: Callable[[str], Any] | None = None,
 ) -> dict[str, dict[str, Any]] | None:
@@ -160,13 +164,17 @@ def _fetch_week_stats(
             return None
         _LOGGER.warning(
             "sleeper_stats.week_http_error season=%d week=%d code=%s",
-            season, week, exc.code,
+            season,
+            week,
+            exc.code,
         )
         return None
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "sleeper_stats.week_fetch_failed season=%d week=%d err=%r",
-            season, week, exc,
+            season,
+            week,
+            exc,
         )
         return None
     if not isinstance(raw, dict) or not raw:
@@ -179,6 +187,7 @@ def _fetch_week_stats(
 
 
 # ── Translation ───────────────────────────────────────────────────────
+
 
 def _translate_stats(sleeper_stats: dict[str, Any]) -> dict[str, float]:
     """Translate a Sleeper raw-stats dict to nflverse field names.
@@ -203,6 +212,7 @@ def _translate_stats(sleeper_stats: dict[str, Any]) -> dict[str, float]:
 
 
 # ── Public API ────────────────────────────────────────────────────────
+
 
 def fetch_sleeper_weekly_stats(
     season: int,
@@ -262,11 +272,14 @@ def fetch_sleeper_weekly_stats(
     if rows:
         _LOGGER.info(
             "sleeper_stats.fetched season=%d rows=%d weeks=%d",
-            season, len(rows), len(weeks_seen),
+            season,
+            len(rows),
+            len(weeks_seen),
         )
     else:
         _LOGGER.warning(
             "sleeper_stats.no_rows season=%d weeks_seen=%d",
-            season, len(weeks_seen),
+            season,
+            len(weeks_seen),
         )
     return rows

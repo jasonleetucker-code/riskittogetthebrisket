@@ -8,6 +8,7 @@ Key invariants:
   * Empty sides don't crash.
   * Label stays explicit: "consensus_based_win_rate".
 """
+
 from __future__ import annotations
 
 from src.trade import monte_carlo as mc
@@ -15,8 +16,12 @@ from src.trade import monte_carlo as mc
 
 def _p(name, p50, spread=0.15, team="BUF", group="offense"):
     return mc.TradePlayer(
-        name=name, team=team, position_group=group,
-        p10=p50 * (1 - spread), p50=p50, p90=p50 * (1 + spread),
+        name=name,
+        team=team,
+        position_group=group,
+        p10=p50 * (1 - spread),
+        p50=p50,
+        p90=p50 * (1 + spread),
     )
 
 
@@ -25,7 +30,8 @@ def test_clear_winner_gives_near_one_win_prob():
     result = mc.simulate_trade(
         [_p("A", 10000)],
         [_p("B", 100)],
-        n_sims=5000, seed=42,
+        n_sims=5000,
+        seed=42,
     )
     assert result.win_prob_a > 0.99
 
@@ -34,7 +40,8 @@ def test_clear_loser_gives_near_zero_win_prob():
     result = mc.simulate_trade(
         [_p("A", 100)],
         [_p("B", 10000)],
-        n_sims=5000, seed=42,
+        n_sims=5000,
+        seed=42,
     )
     assert result.win_prob_a < 0.01
 
@@ -44,7 +51,8 @@ def test_equal_trade_near_half():
     result = mc.simulate_trade(
         [_p("A", 5000)],
         [_p("B", 5000)],
-        n_sims=10000, seed=42,
+        n_sims=10000,
+        seed=42,
     )
     assert 0.40 <= result.win_prob_a <= 0.60
 
@@ -90,7 +98,9 @@ def test_to_dict_preserves_disclaimer():
 
 def test_build_trade_player_uses_band_when_available():
     row = {
-        "name": "Josh Allen", "team": "BUF", "pos": "QB",
+        "name": "Josh Allen",
+        "team": "BUF",
+        "pos": "QB",
         "rankDerivedValue": 9000,
         "valueBand": {"p10": 8200, "p50": 9000, "p90": 9700},
     }
@@ -138,6 +148,7 @@ def test_triangular_draw_covers_full_range():
 
 # --- Consolidation adjustment tests ---
 
+
 def test_consolidation_adjustment_stud_beats_fillers():
     """1 stud vs 4 equal-valued fillers: raw totals favor fillers, VA flips it."""
     stud = [_p("Elite", 3500)]
@@ -147,13 +158,16 @@ def test_consolidation_adjustment_stud_beats_fillers():
     assert no_adj.win_prob_a < 0.5, "fillers should lead on raw totals"
 
     with_adj = mc.simulate_trade(
-        stud, fillers, n_sims=10000, seed=42,
+        stud,
+        fillers,
+        n_sims=10000,
+        seed=42,
         apply_consolidation_adjustment=True,
     )
     assert with_adj.win_prob_a > no_adj.win_prob_a, "VA must shift odds toward stud"
     assert with_adj.va_adjustment is not None
     assert with_adj.va_adjustment["applied"] is True
-    assert with_adj.va_adjustment["side"] == 1   # stud is side_a
+    assert with_adj.va_adjustment["side"] == 1  # stud is side_a
     assert with_adj.va_adjustment["value"] > 0
 
 
@@ -162,23 +176,23 @@ def test_consolidation_adjustment_symmetric_regardless_of_side():
     stud = [_p("Elite", 3500)]
     fillers = [_p(f"F{i}", 1000) for i in range(4)]
 
-    ab = mc.simulate_trade(stud, fillers, n_sims=10000, seed=1,
-                           apply_consolidation_adjustment=True)
-    ba = mc.simulate_trade(fillers, stud, n_sims=10000, seed=1,
-                           apply_consolidation_adjustment=True)
+    ab = mc.simulate_trade(stud, fillers, n_sims=10000, seed=1, apply_consolidation_adjustment=True)
+    ba = mc.simulate_trade(fillers, stud, n_sims=10000, seed=1, apply_consolidation_adjustment=True)
 
     assert ab.va_adjustment["value"] == ba.va_adjustment["value"]
     assert ab.va_adjustment["side"] == 1  # stud received bonus as side_a
     assert ba.va_adjustment["side"] == 2  # stud received bonus as side_b
-    assert ab.win_prob_a > 0.5            # stud wins when it's side A
-    assert ba.win_prob_a < 0.5            # stud wins when it's side B
+    assert ab.win_prob_a > 0.5  # stud wins when it's side A
+    assert ba.win_prob_a < 0.5  # stud wins when it's side B
 
 
 def test_consolidation_no_adjustment_on_1v1():
     """KTC suppresses VA for 1v1 trades — no shift applied."""
     result = mc.simulate_trade(
-        [_p("Star", 5000)], [_p("Good", 4500)],
-        n_sims=5000, seed=42,
+        [_p("Star", 5000)],
+        [_p("Good", 4500)],
+        n_sims=5000,
+        seed=42,
         apply_consolidation_adjustment=True,
     )
     assert result.va_adjustment["applied"] is False
@@ -190,8 +204,7 @@ def test_consolidation_no_adjustment_equal_packages():
     """Identical value on each side → VA within 5% variance → suppressed."""
     a = [_p("A1", 3000), _p("A2", 2000)]
     b = [_p("B1", 3000), _p("B2", 2000)]
-    result = mc.simulate_trade(a, b, n_sims=5000, seed=42,
-                               apply_consolidation_adjustment=True)
+    result = mc.simulate_trade(a, b, n_sims=5000, seed=42, apply_consolidation_adjustment=True)
     assert result.va_adjustment["applied"] is False
 
 
@@ -200,7 +213,8 @@ def test_consolidation_default_off_preserves_existing_behavior():
     stud = [_p("Elite", 3500)]
     fillers = [_p(f"F{i}", 1000) for i in range(4)]
     default_result = mc.simulate_trade(stud, fillers, n_sims=5000, seed=99)
-    explicit_off = mc.simulate_trade(stud, fillers, n_sims=5000, seed=99,
-                                     apply_consolidation_adjustment=False)
+    explicit_off = mc.simulate_trade(
+        stud, fillers, n_sims=5000, seed=99, apply_consolidation_adjustment=False
+    )
     assert default_result.win_prob_a == explicit_off.win_prob_a
     assert default_result.va_adjustment["applied"] is False

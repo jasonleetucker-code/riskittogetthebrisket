@@ -37,6 +37,7 @@ shrinking rho via ``_shrink_to_pd`` until Cholesky succeeds.
 Pure-Python Cholesky — slow for N>100, but trades sizes are
 tiny (rarely >10 per side).
 """
+
 from __future__ import annotations
 
 import math
@@ -44,12 +45,16 @@ from dataclasses import dataclass
 from typing import Any
 
 # Stack rules — (pos_a, pos_b) → higher rho than "same team other pos".
-_STACK_PAIRS = frozenset({
-    ("QB", "WR"), ("WR", "QB"),
-    ("QB", "TE"), ("TE", "QB"),
-    # RB handcuff.
-    ("RB", "RB"),
-})
+_STACK_PAIRS = frozenset(
+    {
+        ("QB", "WR"),
+        ("WR", "QB"),
+        ("QB", "TE"),
+        ("TE", "QB"),
+        # RB handcuff.
+        ("RB", "RB"),
+    }
+)
 
 _SAME_TEAM_SAME_POS_RHO = 0.55
 _SAME_TEAM_STACK_RHO = 0.35
@@ -86,7 +91,10 @@ def build_matrix(
 
 
 def _pairwise_rho(
-    a: _PlayerAxis, b: _PlayerAxis, *, max_rho: float,
+    a: _PlayerAxis,
+    b: _PlayerAxis,
+    *,
+    max_rho: float,
 ) -> float:
     same_team = bool(a.team and a.team == b.team)
     same_pos = bool(a.position and a.position == b.position)
@@ -153,9 +161,11 @@ def build_axes_from_trade_players(players) -> list[_PlayerAxis]:
     """Convert ``TradePlayer`` dataclass instances into per-player axes."""
     axes = []
     for p in players:
-        axes.append(_PlayerAxis(
-            team=getattr(p, "team", "") or "",
-            position=getattr(p, "position", "") or "",
-            position_group=getattr(p, "position_group", "") or "offense",
-        ))
+        axes.append(
+            _PlayerAxis(
+                team=getattr(p, "team", "") or "",
+                position=getattr(p, "position", "") or "",
+                position_group=getattr(p, "position_group", "") or "offense",
+            )
+        )
     return axes

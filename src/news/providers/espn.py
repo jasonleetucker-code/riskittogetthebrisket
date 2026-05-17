@@ -4,6 +4,7 @@ Thin subclass over ``RssNewsProvider`` — ESPN publishes a public
 NFL news RSS feed with no auth.  Fetch, parse, classification,
 and player tagging all live in the base class.
 """
+
 from __future__ import annotations
 
 from ._rss import RssNewsProvider

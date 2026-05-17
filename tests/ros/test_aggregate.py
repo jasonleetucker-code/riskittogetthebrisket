@@ -4,6 +4,7 @@ Pin the rank → score conversion, weighted-average behavior, confidence
 math, and tier assignment.  Inputs are entirely synthetic so these
 tests don't depend on a live scrape.
 """
+
 from __future__ import annotations
 
 import math
@@ -33,7 +34,9 @@ _NOW = datetime(2026, 4, 28, 12, 0, 0, tzinfo=timezone.utc)
 _FRESH = "2026-04-28T11:00:00+00:00"
 
 
-def _snapshot(key: str, base_weight: float, rows: list[tuple[str, str, int]], total: int) -> SourceSnapshot:
+def _snapshot(
+    key: str, base_weight: float, rows: list[tuple[str, str, int]], total: int
+) -> SourceSnapshot:
     return SourceSnapshot(
         source_key=key,
         base_weight=base_weight,
@@ -177,14 +180,10 @@ class TestAggregate(unittest.TestCase):
         rows1 = [("A", "QB", 1)]
         rows3 = [("A", "QB", 1)] * 1  # same player from one source
         # 1-source confidence
-        s1 = aggregate(
-            [_snapshot("only", 1.0, rows1, 1)], league=_LEAGUE
-        )[0]["confidence"]
+        s1 = aggregate([_snapshot("only", 1.0, rows1, 1)], league=_LEAGUE)[0]["confidence"]
         # 4-source confidence (saturates at 4)
         agg4 = aggregate(
-            [
-                _snapshot(f"src{i}", 1.0, rows1, 1) for i in range(4)
-            ],
+            [_snapshot(f"src{i}", 1.0, rows1, 1) for i in range(4)],
             league=_LEAGUE,
         )[0]["confidence"]
         self.assertGreater(agg4, s1)

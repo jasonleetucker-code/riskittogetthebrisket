@@ -33,6 +33,7 @@ ranking source registry.  ``tests/ros/test_isolation.py`` snapshots the
 dynasty contract output before+after importing this package and asserts
 byte-identical results.
 """
+
 from __future__ import annotations
 
 __all__ = ["ROS_DATA_DIR"]

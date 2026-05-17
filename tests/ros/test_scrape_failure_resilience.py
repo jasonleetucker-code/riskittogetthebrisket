@@ -4,6 +4,7 @@ When an adapter crashes or returns failed status, the orchestrator
 MUST keep yesterday's CSV on disk so the aggregate continues to use
 the last-known-good values.  A bad scrape never erases data.
 """
+
 from __future__ import annotations
 
 import csv

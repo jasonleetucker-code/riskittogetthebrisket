@@ -75,7 +75,9 @@ DEFAULT_ROSTER_POSITIONS: List[str] = [
 ]
 
 
-def build_default_baseline_config(league_id: str = "baseline-test-default", season: int | None = None) -> ScoringConfig:
+def build_default_baseline_config(
+    league_id: str = "baseline-test-default", season: int | None = None
+) -> ScoringConfig:
     return ScoringConfig(
         scoring_version=BASELINE_SCORING_VERSION,
         league_id=str(league_id),
@@ -87,4 +89,3 @@ def build_default_baseline_config(league_id: str = "baseline-test-default", seas
             "notes": "Used only for scoring translation, never as live league scoring.",
         },
     )
-

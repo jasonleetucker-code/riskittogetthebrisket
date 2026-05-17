@@ -35,6 +35,7 @@ This module reads from existing player state and returns a new
 scrape-normalize-merge flow still runs exactly as before.  The
 mapper is a LOOKUP surface, not a write path.
 """
+
 from __future__ import annotations
 
 import json
@@ -362,13 +363,21 @@ def resolve_player(
     _bump("unresolved")
     _LOGGER.debug(
         "unified_mapper: miss sleeper=%s gsis=%s espn=%s name=%s team=%s pos=%s",
-        sleeper_id, gsis_id, espn_id, name, team, position,
+        sleeper_id,
+        gsis_id,
+        espn_id,
+        name,
+        team,
+        position,
     )
     return None
 
 
 def _to_resolved(
-    p: dict[str, Any], *, confidence: float, method: str,
+    p: dict[str, Any],
+    *,
+    confidence: float,
+    method: str,
 ) -> ResolvedPlayer:
     return ResolvedPlayer(
         sleeper_id=str(p.get("player_id") or p.get("sleeper_id") or ""),

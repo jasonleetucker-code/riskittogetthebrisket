@@ -1,4 +1,5 @@
 """Tests for startup validation checks."""
+
 from __future__ import annotations
 
 import pytest
@@ -76,6 +77,7 @@ def test_summary_shape(tmp_path):
 def test_run_all_never_raises_on_broken_extra_check(tmp_path):
     def _bad():
         raise RuntimeError("boom")
+
     checks = sv.run_all(data_dir=tmp_path, extra_checks=[_bad])
     names = {c.name for c in checks}
     assert "extra:_bad" in names

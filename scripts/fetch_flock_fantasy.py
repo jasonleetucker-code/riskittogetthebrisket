@@ -40,6 +40,7 @@ Exit codes:
          * response is not a dict with a ``data`` array, or
          * row count below :data:`_FF_ROW_COUNT_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -101,14 +102,10 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     number.
     """
     if not isinstance(data, dict) or "data" not in data:
-        raise FlockFantasySchemaError(
-            f"Expected dict with 'data' key, got {type(data).__name__}"
-        )
+        raise FlockFantasySchemaError(f"Expected dict with 'data' key, got {type(data).__name__}")
     entries = data["data"]
     if not isinstance(entries, list):
-        raise FlockFantasySchemaError(
-            f"Expected 'data' to be a list, got {type(entries).__name__}"
-        )
+        raise FlockFantasySchemaError(f"Expected 'data' to be a list, got {type(entries).__name__}")
     out: list[dict[str, Any]] = []
     for entry in entries:
         # Skip draft picks.
@@ -211,15 +208,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(rows) < _FF_ROW_COUNT_FLOOR:
         print(
-            f"[fetch_flock_fantasy] row count below floor: "
-            f"{len(rows)} < {_FF_ROW_COUNT_FLOOR}",
+            f"[fetch_flock_fantasy] row count below floor: " f"{len(rows)} < {_FF_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2
 
-    print(
-        f"[fetch_flock_fantasy] total={len(rows)} rows with valid averageRank"
-    )
+    print(f"[fetch_flock_fantasy] total={len(rows)} rows with valid averageRank")
 
     if args.dry_run:
         print("[fetch_flock_fantasy] --dry-run; not writing CSV")

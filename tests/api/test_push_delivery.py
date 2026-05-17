@@ -4,6 +4,7 @@ We don't drive an actual webpush server here — we monkeypatch the
 ``send_push`` function to confirm the fanout helper walks every
 subscription and forwards prune signals correctly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,24 +27,30 @@ def test_upsert_dedupes_by_endpoint():
 
 def test_upsert_appends_distinct_endpoints():
     state: dict = {}
-    state["pushSubscriptions"] = pd.upsert_subscription(state, {
-        "endpoint": "https://example.com/push/a",
-        "keys": {"p256dh": "p1", "auth": "a1"},
-    })
-    state["pushSubscriptions"] = pd.upsert_subscription(state, {
-        "endpoint": "https://example.com/push/b",
-        "keys": {"p256dh": "p2", "auth": "a2"},
-    })
+    state["pushSubscriptions"] = pd.upsert_subscription(
+        state,
+        {
+            "endpoint": "https://example.com/push/a",
+            "keys": {"p256dh": "p1", "auth": "a1"},
+        },
+    )
+    state["pushSubscriptions"] = pd.upsert_subscription(
+        state,
+        {
+            "endpoint": "https://example.com/push/b",
+            "keys": {"p256dh": "p2", "auth": "a2"},
+        },
+    )
     assert len(state["pushSubscriptions"]) == 2
 
 
 @pytest.mark.parametrize(
     "bad",
     [
-        {"keys": {"p256dh": "p", "auth": "a"}},                     # no endpoint
-        {"endpoint": "https://x", "keys": {}},                       # no key fields
-        {"endpoint": "https://x", "keys": {"p256dh": "p"}},          # missing auth
-        {"endpoint": "https://x"},                                    # no keys
+        {"keys": {"p256dh": "p", "auth": "a"}},  # no endpoint
+        {"endpoint": "https://x", "keys": {}},  # no key fields
+        {"endpoint": "https://x", "keys": {"p256dh": "p"}},  # missing auth
+        {"endpoint": "https://x"},  # no keys
     ],
 )
 def test_upsert_rejects_malformed_subscription(bad):
@@ -52,31 +59,37 @@ def test_upsert_rejects_malformed_subscription(bad):
 
 
 def test_remove_subscription_filters_by_endpoint():
-    state = {"pushSubscriptions": [
-        {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
-        {"endpoint": "https://x/b", "keys": {"p256dh": "p", "auth": "a"}},
-    ]}
+    state = {
+        "pushSubscriptions": [
+            {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
+            {"endpoint": "https://x/b", "keys": {"p256dh": "p", "auth": "a"}},
+        ]
+    }
     new = pd.remove_subscription(state, "https://x/a")
     assert [s["endpoint"] for s in new] == ["https://x/b"]
 
 
 def test_list_subscriptions_filters_invalid_records():
-    state = {"pushSubscriptions": [
-        {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
-        "not-a-dict",
-        {"endpoint": None, "keys": {}},
-    ]}
+    state = {
+        "pushSubscriptions": [
+            {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
+            "not-a-dict",
+            {"endpoint": None, "keys": {}},
+        ]
+    }
     out = pd.list_subscriptions(state)
     assert len(out) == 1
     assert out[0]["endpoint"] == "https://x/a"
 
 
 def test_fanout_walks_every_subscription_and_collects_prunes(monkeypatch):
-    state = {"pushSubscriptions": [
-        {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
-        {"endpoint": "https://x/b", "keys": {"p256dh": "p", "auth": "a"}},
-        {"endpoint": "https://x/c", "keys": {"p256dh": "p", "auth": "a"}},
-    ]}
+    state = {
+        "pushSubscriptions": [
+            {"endpoint": "https://x/a", "keys": {"p256dh": "p", "auth": "a"}},
+            {"endpoint": "https://x/b", "keys": {"p256dh": "p", "auth": "a"}},
+            {"endpoint": "https://x/c", "keys": {"p256dh": "p", "auth": "a"}},
+        ]
+    }
 
     def fake_send(sub, **_):
         if sub["endpoint"].endswith("a"):

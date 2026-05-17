@@ -1,4 +1,5 @@
 """Tests for the circuit breaker."""
+
 from __future__ import annotations
 
 import time
@@ -36,8 +37,10 @@ def test_failures_at_threshold_open_the_breaker():
 
 def test_opens_then_half_opens_after_duration():
     bp = cb.get_or_create(
-        "test", failure_threshold=2,
-        failure_window_sec=60, open_duration_sec=0.05,
+        "test",
+        failure_threshold=2,
+        failure_window_sec=60,
+        open_duration_sec=0.05,
     )
     bp.report_failure("x")
     bp.report_failure("y")
@@ -50,8 +53,10 @@ def test_opens_then_half_opens_after_duration():
 
 def test_success_in_half_open_closes():
     bp = cb.get_or_create(
-        "test", failure_threshold=1,
-        failure_window_sec=60, open_duration_sec=0.05,
+        "test",
+        failure_threshold=1,
+        failure_window_sec=60,
+        open_duration_sec=0.05,
     )
     bp.report_failure("x")
     time.sleep(0.1)
@@ -62,8 +67,10 @@ def test_success_in_half_open_closes():
 
 def test_failure_in_half_open_reopens():
     bp = cb.get_or_create(
-        "test", failure_threshold=1,
-        failure_window_sec=60, open_duration_sec=0.05,
+        "test",
+        failure_threshold=1,
+        failure_window_sec=60,
+        open_duration_sec=0.05,
     )
     bp.report_failure("first")
     time.sleep(0.1)
@@ -74,7 +81,9 @@ def test_failure_in_half_open_reopens():
 
 def test_sliding_window_evicts_old_failures():
     bp = cb.get_or_create(
-        "test", failure_threshold=3, failure_window_sec=0.05,
+        "test",
+        failure_threshold=3,
+        failure_window_sec=0.05,
     )
     bp.report_failure("a")
     bp.report_failure("b")
@@ -86,7 +95,9 @@ def test_sliding_window_evicts_old_failures():
 
 def test_fast_fail_counter_increments_when_open():
     bp = cb.get_or_create(
-        "test", failure_threshold=1, failure_window_sec=60,
+        "test",
+        failure_threshold=1,
+        failure_window_sec=60,
         open_duration_sec=60,
     )
     bp.report_failure("x")
@@ -97,7 +108,9 @@ def test_fast_fail_counter_increments_when_open():
 
 def test_force_close_resets_state():
     bp = cb.get_or_create(
-        "test", failure_threshold=1, failure_window_sec=60,
+        "test",
+        failure_threshold=1,
+        failure_window_sec=60,
     )
     bp.report_failure("x")
     assert bp.snapshot()["state"] == "open"
@@ -122,6 +135,7 @@ def test_snapshot_all_lists_every_breaker():
 
 def test_open_transition_logs_warning(caplog):
     import logging
+
     bp = cb.get_or_create("loud", failure_threshold=1, failure_window_sec=60)
     with caplog.at_level(logging.WARNING):
         bp.report_failure("boom")
@@ -130,9 +144,12 @@ def test_open_transition_logs_warning(caplog):
 
 def test_close_transition_logs_info(caplog):
     import logging
+
     bp = cb.get_or_create(
-        "quiet", failure_threshold=1,
-        failure_window_sec=60, open_duration_sec=0.05,
+        "quiet",
+        failure_threshold=1,
+        failure_window_sec=60,
+        open_duration_sec=0.05,
     )
     bp.report_failure("x")
     time.sleep(0.1)

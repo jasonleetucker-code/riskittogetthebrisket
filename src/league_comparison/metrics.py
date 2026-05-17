@@ -21,6 +21,7 @@ Multi-season combination uses **equal weighting** by design (no recency
 weighting).  Each available season counts as 1/N of the combined value,
 where N is the number of available seasons.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -52,8 +53,11 @@ IMPROVED_WEIGHT_REPL_ADJ: float = 0.10
 # get partial credit; full-season starters score the same as before
 # (blended == total when games_played == 17).
 
+
 def top_n_by_position(
-    scores: Iterable[PlayerSeasonScore], position: str, n: int,
+    scores: Iterable[PlayerSeasonScore],
+    position: str,
+    n: int,
 ) -> list[PlayerSeasonScore]:
     """Return the top-N season scores for ``position``, sorted DESC by
     blended score.
@@ -67,7 +71,8 @@ def top_n_by_position(
 
 
 def flex_top_n(
-    scores: Iterable[PlayerSeasonScore], n: int = 96,
+    scores: Iterable[PlayerSeasonScore],
+    n: int = 96,
 ) -> list[PlayerSeasonScore]:
     """Top-N RB/WR/TE pool, QB excluded, ranked by blended score.
 
@@ -80,15 +85,16 @@ def flex_top_n(
 
 # ── Per-position metrics ──────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class PositionMetrics:
     average: float
     median: float
     p25: float
     p75: float
-    replacement_level: float    # the Nth player's points (e.g. QB24)
-    elite: float                # mean of top 3
-    replacement_adj: float      # average - replacement_level
+    replacement_level: float  # the Nth player's points (e.g. QB24)
+    elite: float  # mean of top 3
+    replacement_adj: float  # average - replacement_level
     sample_size: int
 
     def to_dict(self) -> dict[str, float | int]:
@@ -105,8 +111,13 @@ class PositionMetrics:
 
 
 _EMPTY_METRICS = PositionMetrics(
-    average=0.0, median=0.0, p25=0.0, p75=0.0,
-    replacement_level=0.0, elite=0.0, replacement_adj=0.0,
+    average=0.0,
+    median=0.0,
+    p25=0.0,
+    p75=0.0,
+    replacement_level=0.0,
+    elite=0.0,
+    replacement_adj=0.0,
     sample_size=0,
 )
 
@@ -167,6 +178,7 @@ def position_metrics(samples: Sequence[PlayerSeasonScore]) -> PositionMetrics:
 
 # ── Blended scores (the two methods) ──────────────────────────────────
 
+
 def legacy_blended(m: PositionMetrics) -> float:
     """The user's original ``(average + median) / 2`` formula."""
     return (m.average + m.median) / 2.0
@@ -186,6 +198,7 @@ def improved_blended(m: PositionMetrics) -> float:
 
 # ── Positional shares ─────────────────────────────────────────────────
 
+
 def position_shares(blended_by_pos: dict[str, float]) -> dict[str, float]:
     """Return each position's share of the total positional scoring pool.
 
@@ -200,6 +213,7 @@ def position_shares(blended_by_pos: dict[str, float]) -> dict[str, float]:
 
 
 # ── Multi-season combine (equal-weight) ───────────────────────────────
+
 
 def combine_seasons_equal_weight(values: Sequence[float]) -> float:
     """Average a list of per-season values with equal weight per season.
@@ -236,13 +250,19 @@ def combine_metrics_equal_weight(
     repl_adj = sum(m.replacement_adj for m in available) / n
     sample = int(round(sum(m.sample_size for m in available) / n))
     return PositionMetrics(
-        average=avg, median=med, p25=p25, p75=p75,
-        replacement_level=repl, elite=elite, replacement_adj=repl_adj,
+        average=avg,
+        median=med,
+        p25=p25,
+        p75=p75,
+        replacement_level=repl,
+        elite=elite,
+        replacement_adj=repl_adj,
         sample_size=sample,
     )
 
 
 # ── Status labels ─────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class StatusBands:
@@ -251,6 +271,7 @@ class StatusBands:
     These are deliberately tunable in one place so the frontend
     methodology section can reference the exact same numbers.
     """
+
     excellent: float = 0.5
     good: float = 1.5
     slight: float = 3.0
@@ -279,13 +300,14 @@ def status_label(diff_pp: float, *, bands: StatusBands = _BANDS) -> str:
 
 # ── Similarity score ──────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class SimilarityResult:
-    score: int                   # 0..100
-    label: str                   # human descriptor
-    distortion_label: str        # "Low" / "Moderate" / "High" / "Severe"
-    total_share_dev_pp: float    # sum of |share diffs| in pp
-    flex_dev_pct: float          # |my_flex - baseline_flex| / baseline_flex * 100
+    score: int  # 0..100
+    label: str  # human descriptor
+    distortion_label: str  # "Low" / "Moderate" / "High" / "Severe"
+    total_share_dev_pp: float  # sum of |share diffs| in pp
+    flex_dev_pct: float  # |my_flex - baseline_flex| / baseline_flex * 100
 
 
 def similarity_score(
@@ -323,8 +345,7 @@ def similarity_score(
     | > 20               | < 60        | Very distorted         |
     """
     pos_dev = sum(
-        abs(my_shares.get(p, 0.0) - baseline_shares.get(p, 0.0))
-        for p in OFFENSE_POSITIONS
+        abs(my_shares.get(p, 0.0) - baseline_shares.get(p, 0.0)) for p in OFFENSE_POSITIONS
     )
     if baseline_flex > 0:
         flex_dev = abs(my_flex - baseline_flex) / baseline_flex * 100.0
@@ -334,19 +355,19 @@ def similarity_score(
 
     # Piecewise-linear: lower deviation -> higher score.
     if combined <= 2:
-        score = 95 + (2 - combined) / 2 * 5             # 95..100
+        score = 95 + (2 - combined) / 2 * 5  # 95..100
         label = "Extremely close to standard"
         distortion = "Low"
     elif combined <= 5:
-        score = 85 + (5 - combined) / 3 * 9             # 85..94
+        score = 85 + (5 - combined) / 3 * 9  # 85..94
         label = "Very close"
         distortion = "Low"
     elif combined <= 10:
-        score = 75 + (10 - combined) / 5 * 9            # 75..84
+        score = 75 + (10 - combined) / 5 * 9  # 75..84
         label = "Some noticeable differences"
         distortion = "Moderate"
     elif combined <= 20:
-        score = 60 + (20 - combined) / 10 * 14          # 60..74
+        score = 60 + (20 - combined) / 10 * 14  # 60..74
         label = "Meaningfully different"
         distortion = "High"
     else:
@@ -418,10 +439,13 @@ def recommendation(
             f"No adjustment recommended."
         )
     severity = (
-        "slightly" if abs_d <= 1.5 else
-        "noticeably" if abs_d <= 3.0 else
-        "meaningfully" if abs_d <= 5.0 else
-        "substantially"
+        "slightly"
+        if abs_d <= 1.5
+        else "noticeably"
+        if abs_d <= 3.0
+        else "meaningfully"
+        if abs_d <= 5.0
+        else "substantially"
     )
     hints = _CULPRIT_HINTS.get(position, [])
     hint_text = ""
@@ -436,6 +460,7 @@ def recommendation(
 
 # ── Convenience aggregator (used by service.py) ───────────────────────
 
+
 @dataclass(frozen=True)
 class PositionComparison:
     position: str
@@ -446,15 +471,17 @@ class PositionComparison:
     my_improved_score: float
     baseline_improved_score: float
 
-    def to_dict(self, my_share_legacy: float, my_share_improved: float,
-                base_share_legacy: float, base_share_improved: float,
-                recommendation_text: str) -> dict[str, object]:
+    def to_dict(
+        self,
+        my_share_legacy: float,
+        my_share_improved: float,
+        base_share_legacy: float,
+        base_share_improved: float,
+        recommendation_text: str,
+    ) -> dict[str, object]:
         diff_legacy = my_share_legacy - base_share_legacy
         diff_improved = my_share_improved - base_share_improved
-        rel = (
-            (diff_improved / base_share_improved * 100.0)
-            if base_share_improved > 0 else 0.0
-        )
+        rel = (diff_improved / base_share_improved * 100.0) if base_share_improved > 0 else 0.0
         return {
             "position": self.position,
             "my": {

@@ -31,6 +31,7 @@ Exit codes
 
 Pure-Python; no external deps beyond urllib.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -90,7 +91,9 @@ def _ranks_by_name(payload: dict[str, Any]) -> dict[str, tuple[int, str]]:
     return out
 
 
-def _diff(baseline: dict[str, tuple[int, str]], candidate: dict[str, tuple[int, str]]) -> dict[str, Any]:
+def _diff(
+    baseline: dict[str, tuple[int, str]], candidate: dict[str, tuple[int, str]]
+) -> dict[str, Any]:
     """Compute the diff.  Returns a dict with all the stats."""
     common = set(baseline.keys()) & set(candidate.keys())
     only_baseline = set(baseline.keys()) - set(candidate.keys())
@@ -130,8 +133,7 @@ def _diff(baseline: dict[str, tuple[int, str]], candidate: dict[str, tuple[int, 
     biggest_drops = deltas[-20:][::-1]
 
     by_pos = {
-        pos: round(sum(vals) / len(vals), 2) if vals else 0.0
-        for pos, vals in by_pos_abs.items()
+        pos: round(sum(vals) / len(vals), 2) if vals else 0.0 for pos, vals in by_pos_abs.items()
     }
     return {
         "commonCount": len(common),
@@ -164,11 +166,11 @@ def _format_report(diff: dict[str, Any]) -> str:
         lines.append(f"  {pos:>5}: {diff['byPosMeanAbs'][pos]:.2f}")
     lines.append("")
     lines.append("Biggest CLIMBS (rank improved most):")
-    for (name, b, c, d, pos) in diff["biggestClimbs"]:
+    for name, b, c, d, pos in diff["biggestClimbs"]:
         lines.append(f"  {pos:>4} {name[:28]:<28} {b:>4} → {c:<4} ({d:+d})")
     lines.append("")
     lines.append("Biggest DROPS (rank worsened most):")
-    for (name, b, c, d, pos) in diff["biggestDrops"]:
+    for name, b, c, d, pos in diff["biggestDrops"]:
         lines.append(f"  {pos:>4} {name[:28]:<28} {b:>4} → {c:<4} ({d:+d})")
     return "\n".join(lines)
 
@@ -179,7 +181,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("candidate", help="file path or URL")
     parser.add_argument("--cookie", help="Cookie header for authed URLs")
     parser.add_argument(
-        "--warn-threshold", type=int, default=50,
+        "--warn-threshold",
+        type=int,
+        default=50,
         help="Exit 1 if any player moves >N ranks (default 50)",
     )
     args = parser.parse_args(argv)
@@ -194,7 +198,9 @@ def main(argv: list[str] | None = None) -> int:
     diff = _diff(b_ranks, c_ranks)
     print(_format_report(diff))
     if diff["moved"][args.warn_threshold] > 0:
-        print(f"\nWARN: {diff['moved'][args.warn_threshold]} players moved >{args.warn_threshold} ranks")
+        print(
+            f"\nWARN: {diff['moved'][args.warn_threshold]} players moved >{args.warn_threshold} ranks"
+        )
         return 1
     return 0
 

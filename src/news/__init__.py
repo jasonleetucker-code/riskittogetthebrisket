@@ -9,6 +9,7 @@ Public surface:
 * ``available_provider_names`` / ``build_provider`` — registry
   introspection for diagnostics.
 """
+
 from __future__ import annotations
 
 from .base import NewsItem, NewsProvider, PlayerMention, stable_id, to_iso_utc

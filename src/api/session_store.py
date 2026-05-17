@@ -31,6 +31,7 @@ dict writes.  The auth path stays identical in shape so every
 existing code-reading session fields (``session.get("username")``)
 continues to work unchanged.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -55,7 +56,10 @@ _setup_done = threading.Event()
 
 def _connect(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(
-        str(path), timeout=5.0, isolation_level=None, check_same_thread=False,
+        str(path),
+        timeout=5.0,
+        isolation_level=None,
+        check_same_thread=False,
     )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
@@ -82,8 +86,7 @@ def _setup(path: Path) -> None:
                 )
             """)
             conn.execute(
-                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_created "
-                f"ON {_TABLE}(created_at)"
+                f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_created " f"ON {_TABLE}(created_at)"
             )
         finally:
             conn.close()
@@ -160,7 +163,8 @@ def evict(session_id: str, *, db_path: Path | None = None) -> None:
             conn = _connect(path)
             try:
                 conn.execute(
-                    f"DELETE FROM {_TABLE} WHERE session_id = ?", (str(session_id),),
+                    f"DELETE FROM {_TABLE} WHERE session_id = ?",
+                    (str(session_id),),
                 )
             finally:
                 conn.close()
@@ -203,7 +207,7 @@ def hydrate(
                 ).fetchall()
             finally:
                 conn.close()
-        for (sid, user, sluid, dn, av, am, ver, created, last) in rows:
+        for sid, user, sluid, dn, av, am, ver, created, last in rows:
             if created < cutoff:
                 expired_ids.append(sid)
                 continue
@@ -217,7 +221,8 @@ def hydrate(
                 "avatar": av,
                 "auth_method": am,
                 "created_at": time.strftime(
-                    "%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(created),
+                    "%Y-%m-%dT%H:%M:%S+00:00",
+                    time.gmtime(created),
                 ),
                 "created_at_epoch": created,
             }

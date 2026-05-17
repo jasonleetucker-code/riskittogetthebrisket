@@ -54,8 +54,12 @@ class TestComputeKtcRankings(unittest.TestCase):
             "legacyRef": name,
             "position": pos,
             "assetClass": "offense",
-            "values": {"overall": ktc, "rawComposite": ktc,
-                       "finalAdjusted": ktc, "displayValue": None},
+            "values": {
+                "overall": ktc,
+                "rawComposite": ktc,
+                "finalAdjusted": ktc,
+                "displayValue": None,
+            },
             "canonicalSiteValues": {"ktcSfTep": ktc},
             "sourceCount": 1,
         }
@@ -63,7 +67,7 @@ class TestComputeKtcRankings(unittest.TestCase):
     def test_top_player_gets_rank_1(self):
         rows = [
             self._make_player_row("Alpha", "QB", 9000),
-            self._make_player_row("Beta",  "WR", 7000),
+            self._make_player_row("Beta", "WR", 7000),
         ]
         _compute_unified_rankings(rows, {})
         alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
@@ -71,9 +75,9 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_rank_order_follows_ktc_value_descending(self):
         rows = [
-            self._make_player_row("Low",  "RB", 3000),
+            self._make_player_row("Low", "RB", 3000),
             self._make_player_row("High", "QB", 9000),
-            self._make_player_row("Mid",  "WR", 6000),
+            self._make_player_row("Mid", "WR", 6000),
         ]
         _compute_unified_rankings(rows, {})
         by_rank = sorted(
@@ -114,20 +118,22 @@ class TestComputeKtcRankings(unittest.TestCase):
         # And the value is NOT the Hill output at p=49/499 ≈ 0.098,
         # which would yield a much lower value under HILL_PERCENTILE_*.
         from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: PLC0415
+
         hill_p = (50 - 1) / (_PERCENTILE_REFERENCE_N - 1)
         hill_value = int(percentile_to_value(hill_p))
         self.assertNotEqual(
-            rank_50_row["rankDerivedValue"], hill_value,
+            rank_50_row["rankDerivedValue"],
+            hill_value,
             "Value-based source should NOT be routed through the Hill "
             "curve — ``rankDerivedValue`` must reflect the raw normalized "
-            "site value."
+            "site value.",
         )
 
     def test_picks_included(self):
         """Picks with source values participate in the unified ranking."""
         rows = [
             self._make_player_row("2026 Early 1st", "PICK", 8000),
-            self._make_player_row("Real Player",    "QB",   7000),
+            self._make_player_row("Real Player", "QB", 7000),
         ]
         rows[0]["assetClass"] = "pick"
         _compute_unified_rankings(rows, {})
@@ -138,8 +144,8 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_unresolved_position_excluded(self):
         rows = [
-            self._make_player_row("UnknownGuy", "?",  8000),
-            self._make_player_row("KnownGuy",   "QB", 7000),
+            self._make_player_row("UnknownGuy", "?", 8000),
+            self._make_player_row("KnownGuy", "QB", 7000),
         ]
         _compute_unified_rankings(rows, {})
         unknown = next(r for r in rows if r["canonicalName"] == "UnknownGuy")
@@ -172,12 +178,18 @@ class TestComputeKtcRankings(unittest.TestCase):
         raw = {
             "players": {
                 "Josh Allen": {
-                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "position": "QB",
                 },
                 "Ja'Marr Chase": {
-                    "_composite": 8500, "_rawComposite": 8500, "_finalAdjusted": 8500,
-                    "_canonicalSiteValues": {"ktcSfTep": 8500}, "position": "WR",
+                    "_composite": 8500,
+                    "_rawComposite": 8500,
+                    "_finalAdjusted": 8500,
+                    "_canonicalSiteValues": {"ktcSfTep": 8500},
+                    "position": "WR",
                 },
             },
             "sites": [{"key": "ktcSfTep"}],
@@ -196,8 +208,11 @@ class TestComputeKtcRankings(unittest.TestCase):
         raw = {
             "players": {
                 "Josh Allen": {
-                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "position": "QB",
                 },
             },
             "sites": [{"key": "ktcSfTep"}],
@@ -218,8 +233,11 @@ class TestComputeKtcRankings(unittest.TestCase):
         raw = {
             "players": {
                 "Josh Allen": {
-                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "position": "QB",
                 },
             },
             "sites": [{"key": "ktcSfTep"}],
@@ -252,8 +270,12 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             "legacyRef": name,
             "position": pos,
             "assetClass": "offense",
-            "values": {"overall": ktc, "rawComposite": ktc,
-                       "finalAdjusted": ktc, "displayValue": None},
+            "values": {
+                "overall": ktc,
+                "rawComposite": ktc,
+                "finalAdjusted": ktc,
+                "displayValue": None,
+            },
             "canonicalSiteValues": {"ktcSfTep": ktc},
             "sourceCount": 1,
         }
@@ -261,7 +283,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
     def test_canonical_consensus_rank_stamped_on_ranked_players(self):
         rows = [
             self._make_player_row("Alpha", "QB", 9000),
-            self._make_player_row("Beta",  "WR", 7000),
+            self._make_player_row("Beta", "WR", 7000),
         ]
         _compute_unified_rankings(rows, {})
         alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
@@ -309,6 +331,7 @@ class TestRankChangeMirror(unittest.TestCase):
 
     def test_rank_change_mirrors_to_legacy_dict(self):
         from src.api.data_contract import _mirror_trust_to_legacy
+
         players_array = [
             {"legacyRef": "Josh Allen", "rankChange": 3, "confidenceBucket": "high"},
             {"legacyRef": "Puka Nacua", "rankChange": None, "confidenceBucket": "high"},
@@ -390,38 +413,42 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
 
     def test_validation_flags_offense_idp_duplicate_name_collision(self):
         payload = build_api_data_contract(_minimal_raw_payload())
-        payload["playersArray"].append({
-            "playerId": None,
-            "canonicalName": "DJ Moore",
-            "displayName": "DJ Moore",
-            "position": "WR",
-            "team": "CHI",
-            "rookie": False,
-            "values": {
-                "overall": 100,
-                "rawComposite": 100,
-                "finalAdjusted": 100,
-                "displayValue": 100,
-            },
-            "canonicalSiteValues": {"ktcSfTep": 100},
-            "sourceCount": 1,
-        })
-        payload["playersArray"].append({
-            "playerId": None,
-            "canonicalName": "D.J. Moore",
-            "displayName": "D.J. Moore",
-            "position": "DB",
-            "team": "CHI",
-            "rookie": False,
-            "values": {
-                "overall": 1,
-                "rawComposite": 1,
-                "finalAdjusted": 1,
-                "displayValue": 1,
-            },
-            "canonicalSiteValues": {"idpTradeCalc": 1},
-            "sourceCount": 1,
-        })
+        payload["playersArray"].append(
+            {
+                "playerId": None,
+                "canonicalName": "DJ Moore",
+                "displayName": "DJ Moore",
+                "position": "WR",
+                "team": "CHI",
+                "rookie": False,
+                "values": {
+                    "overall": 100,
+                    "rawComposite": 100,
+                    "finalAdjusted": 100,
+                    "displayValue": 100,
+                },
+                "canonicalSiteValues": {"ktcSfTep": 100},
+                "sourceCount": 1,
+            }
+        )
+        payload["playersArray"].append(
+            {
+                "playerId": None,
+                "canonicalName": "D.J. Moore",
+                "displayName": "D.J. Moore",
+                "position": "DB",
+                "team": "CHI",
+                "rookie": False,
+                "values": {
+                    "overall": 1,
+                    "rawComposite": 1,
+                    "finalAdjusted": 1,
+                    "displayValue": 1,
+                },
+                "canonicalSiteValues": {"idpTradeCalc": 1},
+                "sourceCount": 1,
+            }
+        )
         report = validate_api_data_contract(payload)
         self.assertFalse(report["ok"])
         self.assertTrue(any("name collision" in e for e in report["errors"]))
@@ -432,28 +459,39 @@ class TestStripNameSuffix(unittest.TestCase):
 
     def test_jr_with_period(self):
         from src.api.data_contract import _strip_name_suffix
+
         self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), "Marvin Harrison")
 
     def test_jr_without_period(self):
         from src.api.data_contract import _strip_name_suffix
+
         self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), "Brian Thomas")
         self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), "Omar Cooper")
         self.assertEqual(_strip_name_suffix("Michael Penix Jr"), "Michael Penix")
 
     def test_iii_suffix(self):
         from src.api.data_contract import _strip_name_suffix
+
         self.assertEqual(_strip_name_suffix("Kenneth Walker III"), "Kenneth Walker")
 
     def test_suffix_variants_match_base(self):
         from src.api.data_contract import _strip_name_suffix
-        self.assertEqual(_strip_name_suffix("Kenneth Walker III"), _strip_name_suffix("Kenneth Walker"))
-        self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), _strip_name_suffix("Marvin Harrison"))
+
+        self.assertEqual(
+            _strip_name_suffix("Kenneth Walker III"), _strip_name_suffix("Kenneth Walker")
+        )
+        self.assertEqual(
+            _strip_name_suffix("Marvin Harrison Jr."), _strip_name_suffix("Marvin Harrison")
+        )
         self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), _strip_name_suffix("Brian Thomas"))
         self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), _strip_name_suffix("Omar Cooper"))
-        self.assertEqual(_strip_name_suffix("Michael Penix Jr"), _strip_name_suffix("Michael Penix"))
+        self.assertEqual(
+            _strip_name_suffix("Michael Penix Jr"), _strip_name_suffix("Michael Penix")
+        )
 
     def test_no_suffix_unchanged(self):
         from src.api.data_contract import _strip_name_suffix
+
         self.assertEqual(_strip_name_suffix("Patrick Mahomes"), "Patrick Mahomes")
 
 
@@ -503,6 +541,7 @@ class TestHillCurvesStamp(unittest.TestCase):
             IDP_HILL_PERCENTILE_C,
             IDP_HILL_PERCENTILE_S,
         )
+
         curves = build_api_data_contract(_minimal_raw_payload())["hillCurves"]
         self.assertAlmostEqual(curves["global"]["c"], HILL_GLOBAL_PERCENTILE_C)
         self.assertAlmostEqual(curves["global"]["s"], HILL_GLOBAL_PERCENTILE_S)
@@ -560,10 +599,7 @@ class TestRawSourceValues(unittest.TestCase):
             "sleeper": {"positions": {"Trey McBride": "TE"}},
         }
         contract = build_api_data_contract(raw)
-        row = next(
-            r for r in contract["playersArray"]
-            if r["canonicalName"] == "Trey McBride"
-        )
+        row = next(r for r in contract["playersArray"] if r["canonicalName"] == "Trey McBride")
         # rawSourceValues carries the raw scrape from the top-level
         # ``ktcSfTep`` field (the synthetic input mimics the legacy
         # divergence between raw and canonicalSites).
@@ -597,8 +633,7 @@ class TestRawSourceValues(unittest.TestCase):
         }
         contract = build_api_data_contract(raw)
         row = next(
-            r for r in contract["playersArray"]
-            if r["canonicalName"] == "Player Without Ktc"
+            r for r in contract["playersArray"] if r["canonicalName"] == "Player Without Ktc"
         )
         self.assertEqual(row["rawSourceValues"], {})
 
@@ -623,10 +658,7 @@ class TestRawSourceValues(unittest.TestCase):
             "sleeper": {"positions": {"Zeroed Player": "WR"}},
         }
         contract = build_api_data_contract(raw)
-        row = next(
-            r for r in contract["playersArray"]
-            if r["canonicalName"] == "Zeroed Player"
-        )
+        row = next(r for r in contract["playersArray"] if r["canonicalName"] == "Zeroed Player")
         self.assertNotIn("ktcSfTep", row["rawSourceValues"])
 
 

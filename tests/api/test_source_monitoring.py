@@ -6,6 +6,7 @@ to contractHealth.
 
 Run with: python3 -m pytest tests/api/test_source_monitoring.py -v
 """
+
 from __future__ import annotations
 
 import copy
@@ -164,9 +165,7 @@ class TestParseErrors(unittest.TestCase):
 
         bogus_paths = dict(_SOURCE_CSV_PATHS)
         bogus_paths["ktc"] = "CSVs/site_raw/nonexistent-ktc.csv"
-        with mock.patch(
-            "src.api.data_contract._SOURCE_CSV_PATHS", bogus_paths
-        ):
+        with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", bogus_paths):
             contract = build_api_data_contract(raw)
         parse_errors = contract.get("sourceParseErrors")
         self.assertIsInstance(parse_errors, list)
@@ -189,9 +188,7 @@ class TestParseErrors(unittest.TestCase):
 
 
 class TestPartialRunCrossWire(unittest.TestCase):
-    def _minimal_payload_with_partial(
-        self, partial_sources: list[str]
-    ) -> dict[str, Any]:
+    def _minimal_payload_with_partial(self, partial_sources: list[str]) -> dict[str, Any]:
         """Build a minimal payload that passes the other validators but
         carries a partial-run marker in settings.sourceRunSummary."""
         return {
@@ -223,17 +220,13 @@ class TestPartialRunCrossWire(unittest.TestCase):
 
     def test_partial_run_with_tolerable_source_warns_but_ok(self):
         """KTC_TradeDB / KTC_WaiverDB stay as warnings, not errors."""
-        payload = self._minimal_payload_with_partial(
-            ["KTC_TradeDB", "KTC_WaiverDB"]
-        )
+        payload = self._minimal_payload_with_partial(["KTC_TradeDB", "KTC_WaiverDB"])
         report = validate_api_data_contract(payload)
         self.assertTrue(
             report["ok"],
             f"Tolerable partials should not flip ok. errors={report['errors']}",
         )
-        tolerable_warnings = [
-            w for w in report["warnings"] if "partial_run_tolerable" in w
-        ]
+        tolerable_warnings = [w for w in report["warnings"] if "partial_run_tolerable" in w]
         self.assertEqual(len(tolerable_warnings), 2)
 
     def test_tolerable_allowlist_covers_known_ktc_subendpoints(self):
@@ -252,9 +245,7 @@ class TestPickCountFloor(unittest.TestCase):
             self.skipTest("No live data")
         contract, report = result
         pa = contract.get("playersArray") or []
-        pick_count = sum(
-            1 for r in pa if isinstance(r, dict) and r.get("assetClass") == "pick"
-        )
+        pick_count = sum(1 for r in pa if isinstance(r, dict) and r.get("assetClass") == "pick")
         self.assertGreaterEqual(
             pick_count,
             _PICK_COUNT_FLOOR,
@@ -292,9 +283,7 @@ class TestPickCountFloor(unittest.TestCase):
             f"Expected ok=False after dropping picks, got errors={report['errors'][:5]}",
         )
         self.assertTrue(
-            any(
-                e.startswith("pick_count_below_floor:") for e in report["errors"]
-            ),
+            any(e.startswith("pick_count_below_floor:") for e in report["errors"]),
             f"Expected pick_count_below_floor error, got {report['errors'][:5]}",
         )
 
@@ -330,10 +319,7 @@ class TestPayloadSizeFloor(unittest.TestCase):
         )
         # No payload_size_below_floor warning on healthy live.
         self.assertFalse(
-            any(
-                w.startswith("payload_size_below_floor:")
-                for w in report["warnings"]
-            ),
+            any(w.startswith("payload_size_below_floor:") for w in report["warnings"]),
             f"Unexpected payload_size_below_floor warning: {report['warnings'][:5]}",
         )
 
@@ -404,9 +390,7 @@ class TestPayloadSizeFloor(unittest.TestCase):
             "Synthetic payload needs ≥250 players so the floor block runs",
         )
         report = validate_api_data_contract(synthetic)
-        warn_hits = [
-            w for w in report["warnings"] if w.startswith("payload_size_below_floor:")
-        ]
+        warn_hits = [w for w in report["warnings"] if w.startswith("payload_size_below_floor:")]
         self.assertEqual(
             len(warn_hits),
             1,
@@ -473,8 +457,7 @@ class TestTop50Coverage(unittest.TestCase):
         report = validate_api_data_contract(synthetic)
         self.assertTrue(
             any(
-                w.startswith("top50_coverage_below_floor:offense:ktc:")
-                for w in report["warnings"]
+                w.startswith("top50_coverage_below_floor:offense:ktc:") for w in report["warnings"]
             ),
             f"Expected top50_coverage_below_floor:offense:ktc warning, got {report['warnings'][:10]}",
         )
@@ -500,9 +483,7 @@ class TestDlfSchemaProbe(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bogus = Path(tmpdir) / "dlf_bogus.csv"
-            bogus.write_text(
-                "totally,unrelated,columns\nfoo,bar,baz\n", encoding="utf-8"
-            )
+            bogus.write_text("totally,unrelated,columns\nfoo,bar,baz\n", encoding="utf-8")
             # Use a relative path that resolves correctly from repo root.
             repo_root = Path(__file__).resolve().parents[2]
             try:
@@ -513,9 +494,7 @@ class TestDlfSchemaProbe(unittest.TestCase):
                 rel = str(bogus.resolve())
             patched_paths = dict(_SOURCE_CSV_PATHS)
             patched_paths["dlfSf"] = {"path": rel, "signal": "rank"}
-            with mock.patch(
-                "src.api.data_contract._SOURCE_CSV_PATHS", patched_paths
-            ):
+            with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", patched_paths):
                 contract = build_api_data_contract(raw)
         parse_errors = contract.get("sourceParseErrors") or []
         schema_errors = [

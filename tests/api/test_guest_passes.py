@@ -3,6 +3,7 @@
 Covers create / validate / revoke / list / purge + duration bounds
 and storage-format invariants (token hash, never plaintext).
 """
+
 from __future__ import annotations
 
 import time
@@ -24,7 +25,9 @@ def db_path(tmp_path: Path) -> Path:
 
 def test_create_returns_pass_and_plaintext_token(db_path: Path):
     pass_row, token = guest_passes.create(
-        duration_hours=1.0, note="Brent (12h)", created_by="admin",
+        duration_hours=1.0,
+        note="Brent (12h)",
+        created_by="admin",
         db_path=db_path,
     )
     assert pass_row.id > 0
@@ -56,7 +59,9 @@ def test_create_rejects_excessive_duration(db_path: Path):
 def test_create_truncates_long_note(db_path: Path):
     long_note = "x" * 1000
     pass_row, _ = guest_passes.create(
-        duration_hours=1.0, note=long_note, db_path=db_path,
+        duration_hours=1.0,
+        note=long_note,
+        db_path=db_path,
     )
     assert len(pass_row.note) <= 200
 
@@ -66,12 +71,11 @@ def test_token_is_not_stored_in_plaintext(db_path: Path, tmp_path: Path):
     token, NOT the plaintext.  Anyone reading the DB file should not
     be able to recover valid tokens."""
     _pass, token = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     raw = db_path.read_bytes()
-    assert token.encode("utf-8") not in raw, (
-        "plaintext token leaked into SQLite file!"
-    )
+    assert token.encode("utf-8") not in raw, "plaintext token leaked into SQLite file!"
     # Hash IS present.
     expected_hash = guest_passes._hash_token(token)
     assert expected_hash.encode("utf-8") in raw
@@ -82,7 +86,8 @@ def test_token_is_not_stored_in_plaintext(db_path: Path, tmp_path: Path):
 
 def test_validate_returns_pass_for_fresh_token(db_path: Path):
     created, token = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     found = guest_passes.validate(token, db_path=db_path)
     assert found is not None
@@ -104,19 +109,23 @@ def test_validate_rejects_expired_token(db_path: Path, monkeypatch):
     """Time-skip the system clock past the pass's expiry; validate
     must refuse the token even though it's still in the DB."""
     _pass, token = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     # Advance time past expiry.
     real_time = time.time
     monkeypatch.setattr(
-        guest_passes.time, "time", lambda: real_time() + 3600 + 1,
+        guest_passes.time,
+        "time",
+        lambda: real_time() + 3600 + 1,
     )
     assert guest_passes.validate(token, db_path=db_path) is None
 
 
 def test_validate_rejects_revoked_token(db_path: Path):
     pass_row, token = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     revoked = guest_passes.revoke(pass_row.id, db_path=db_path)
     assert revoked is True
@@ -128,7 +137,8 @@ def test_validate_rejects_revoked_token(db_path: Path):
 
 def test_revoke_returns_false_when_already_revoked(db_path: Path):
     pass_row, _ = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     assert guest_passes.revoke(pass_row.id, db_path=db_path) is True
     # Second revoke is a no-op.
@@ -154,30 +164,38 @@ def test_list_passes_returns_all_by_default(db_path: Path):
 
 
 def test_list_passes_active_only_excludes_revoked_and_expired(
-    db_path: Path, monkeypatch,
+    db_path: Path,
+    monkeypatch,
 ):
     p1, _ = guest_passes.create(
-        duration_hours=1.0, note="active", db_path=db_path,
+        duration_hours=1.0,
+        note="active",
+        db_path=db_path,
     )
     p2, _ = guest_passes.create(
-        duration_hours=1.0, note="revoked", db_path=db_path,
+        duration_hours=1.0,
+        note="revoked",
+        db_path=db_path,
     )
     guest_passes.revoke(p2.id, db_path=db_path)
     p3, _ = guest_passes.create(
-        duration_hours=0.02, note="expired", db_path=db_path,  # ~72s
+        duration_hours=0.02,
+        note="expired",
+        db_path=db_path,  # ~72s
     )
     # Expire p3 explicitly with a time skip well past 72s.
     real_time = time.time
     monkeypatch.setattr(
-        guest_passes.time, "time", lambda: real_time() + 600,
+        guest_passes.time,
+        "time",
+        lambda: real_time() + 600,
     )
     rows = guest_passes.list_passes(
-        include_inactive=False, db_path=db_path,
+        include_inactive=False,
+        db_path=db_path,
     )
     active_ids = {r.id for r in rows}
-    assert active_ids == {p1.id}, (
-        "active-only filter must drop revoked + expired"
-    )
+    assert active_ids == {p1.id}, "active-only filter must drop revoked + expired"
 
 
 # ── Purge ─────────────────────────────────────────────────────────────
@@ -185,18 +203,22 @@ def test_list_passes_active_only_excludes_revoked_and_expired(
 
 def test_purge_expired_keeps_grace_window(db_path: Path, monkeypatch):
     _pass, _ = guest_passes.create(
-        duration_hours=0.02, db_path=db_path,  # ~72s
+        duration_hours=0.02,
+        db_path=db_path,  # ~72s
     )
     # Advance past expiry but within the default 7-day grace.
     real_time = time.time
     monkeypatch.setattr(
-        guest_passes.time, "time", lambda: real_time() + 3600,
+        guest_passes.time,
+        "time",
+        lambda: real_time() + 3600,
     )
     deleted = guest_passes.purge_expired(db_path=db_path)
     assert deleted == 0  # still within grace
     # Now fast-forward beyond the grace + lower it artificially.
     deleted = guest_passes.purge_expired(
-        grace_seconds=0, db_path=db_path,
+        grace_seconds=0,
+        db_path=db_path,
     )
     assert deleted == 1
 
@@ -206,7 +228,8 @@ def test_purge_expired_keeps_grace_window(db_path: Path, monkeypatch):
 
 def test_to_dict_omits_token_hash(db_path: Path):
     pass_row, _ = guest_passes.create(
-        duration_hours=1.0, db_path=db_path,
+        duration_hours=1.0,
+        db_path=db_path,
     )
     d = pass_row.to_dict()
     # Must not leak the hash either — admin UI doesn't need it.
@@ -214,7 +237,14 @@ def test_to_dict_omits_token_hash(db_path: Path):
     assert "tokenHash" not in d
     # Required public fields.
     for key in (
-        "id", "note", "createdBy", "createdAtEpoch", "expiresAtEpoch",
-        "revokedAtEpoch", "isRevoked", "isExpired", "isActive",
+        "id",
+        "note",
+        "createdBy",
+        "createdAtEpoch",
+        "expiresAtEpoch",
+        "revokedAtEpoch",
+        "isRevoked",
+        "isExpired",
+        "isActive",
     ):
         assert key in d

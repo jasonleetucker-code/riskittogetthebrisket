@@ -169,9 +169,7 @@ def test_containment_guard_blocks_protected_root(tmp_path):
     cat = retention.CategoryResult(name="x")
     target = tmp_path / "data" / "identity" / "player_map.json"
     _touch(target, age_days=999)
-    retention._delete(
-        target, tmp_path / "data" / "identity", protected, cat, dry_run=False
-    )
+    retention._delete(target, tmp_path / "data" / "identity", protected, cat, dry_run=False)
     assert target.exists()
     assert cat.errors == 1
     assert cat.deleted == 0

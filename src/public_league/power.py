@@ -31,6 +31,7 @@ Output shape
 ``currentRanking``    — rankings of the most recently completed week.
 ``methodology``       — human-readable formula.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -75,9 +76,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     # Track per-owner running totals across the ORDERED walk.  We iterate
     # oldest → newest so PPG accumulates chronologically.
-    seasons_sorted = sorted(
-        snapshot.seasons, key=lambda s: _season_sort_key(s.season)
-    )
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season))
 
     # Cross-season continuous accumulators (career PPG-to-date).
     career_state: dict[str, dict[str, float | int]] = defaultdict(
@@ -148,21 +147,23 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 record = f"{wins}-{losses}"
 
                 rid = luck._roster_id_for_owner(registry, season.league_id, oid)
-                rankings.append({
-                    "ownerId": oid,
-                    "displayName": metrics.display_name_for(snapshot, oid),
-                    "teamName": metrics.team_name(snapshot, season.league_id, rid),
-                    "power": round(power, 2),
-                    "components": {
-                        "pointsPerGame": round(ppg_vals[oid], 2),
-                        "pointsPerGamePct": round(ppg_pct, 4),
-                        "recentAvg": round(recent_vals[oid], 2),
-                        "recentAvgPct": round(recent_pct, 4),
-                        "allPlayWinPctThisWeek": round(ap_pct, 4),
-                    },
-                    "record": record,
-                    "games": games,
-                })
+                rankings.append(
+                    {
+                        "ownerId": oid,
+                        "displayName": metrics.display_name_for(snapshot, oid),
+                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                        "power": round(power, 2),
+                        "components": {
+                            "pointsPerGame": round(ppg_vals[oid], 2),
+                            "pointsPerGamePct": round(ppg_pct, 4),
+                            "recentAvg": round(recent_vals[oid], 2),
+                            "recentAvgPct": round(recent_pct, 4),
+                            "allPlayWinPctThisWeek": round(ap_pct, 4),
+                        },
+                        "record": record,
+                        "games": games,
+                    }
+                )
 
             rankings.sort(key=lambda r: -r["power"])
             for i, r in enumerate(rankings):
@@ -173,29 +174,35 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             for r in rankings:
                 prior_rank[r["ownerId"]] = r["rank"]
 
-            weeks_out.append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                "week": wk,
-                "rankings": rankings,
-            })
+            weeks_out.append(
+                {
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "week": wk,
+                    "rankings": rankings,
+                }
+            )
 
             for r in rankings:
-                series[r["ownerId"]].append({
-                    "season": season.season,
-                    "week": wk,
-                    "power": r["power"],
-                    "rank": r["rank"],
-                    "record": r["record"],
-                })
+                series[r["ownerId"]].append(
+                    {
+                        "season": season.season,
+                        "week": wk,
+                        "power": r["power"],
+                        "rank": r["rank"],
+                        "record": r["record"],
+                    }
+                )
 
     series_out = []
     for oid, pts in series.items():
-        series_out.append({
-            "ownerId": oid,
-            "displayName": metrics.display_name_for(snapshot, oid),
-            "points": pts,
-        })
+        series_out.append(
+            {
+                "ownerId": oid,
+                "displayName": metrics.display_name_for(snapshot, oid),
+                "points": pts,
+            }
+        )
 
     current_ranking = weeks_out[-1]["rankings"] if weeks_out else []
 

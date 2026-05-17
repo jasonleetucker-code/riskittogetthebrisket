@@ -5,6 +5,7 @@ Regression for the Age curves panel — the frontend overlay
 rows where ``age`` is null/non-finite, so any future change that
 strips this field will silently empty the curves.
 """
+
 from __future__ import annotations
 
 import unittest

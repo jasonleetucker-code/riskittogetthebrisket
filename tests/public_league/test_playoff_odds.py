@@ -7,6 +7,7 @@ Covers:
 * Fallback to league-wide scoring pool for owners with too-few
   sampled weeks.
 """
+
 from __future__ import annotations
 
 import random
@@ -25,9 +26,7 @@ class _Base(unittest.TestCase):
 class ShapeAndDeterminism(_Base):
     def test_output_shape(self) -> None:
         rng = random.Random(1234)
-        result = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=200, rng=rng
-        )
+        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=200, rng=rng)
         self.assertIn("season", result)
         self.assertIn("numSims", result)
         self.assertIn("playoffSpots", result)
@@ -50,12 +49,8 @@ class ShapeAndDeterminism(_Base):
             self.assertLessEqual(owner["playoffProbability"], 1.0)
 
     def test_seeded_run_is_deterministic(self) -> None:
-        r1 = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=400, rng=random.Random(42)
-        )
-        r2 = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=400, rng=random.Random(42)
-        )
+        r1 = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=400, rng=random.Random(42))
+        r2 = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=400, rng=random.Random(42))
         self.assertEqual(r1["owners"], r2["owners"])
 
 
@@ -64,9 +59,7 @@ class CompletedSeasonCollapse(_Base):
         # The fixture's season-0 is marked completed.  When every
         # regular-season week is played, ``remainingWeeks == 0`` and
         # the simulator returns 0/1 probabilities deterministically.
-        result = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=0, rng=random.Random(0)
-        )
+        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=0, rng=random.Random(0))
         # The fixture's current season is 2025; check that the
         # simulator either collapses (weeksRemaining=0) or keeps
         # probabilities in [0,1].  The strictly-collapsed case:
@@ -280,9 +273,7 @@ class ZeroPointPastWeek(unittest.TestCase):
                 {"roster_id": 2, "matchup_id": 20, "points": 105.0},
             ],
         }
-        rec = playoff_odds._regular_season_record_to_date(
-            self._make_season(entries), None
-        )
+        rec = playoff_odds._regular_season_record_to_date(self._make_season(entries), None)
         # Owner-1: 1 win week 1, 1 loss week 2.
         self.assertEqual(rec["owner-1"]["wins"], 1)
         self.assertEqual(rec["owner-1"]["losses"], 1)
@@ -300,9 +291,7 @@ class ZeroPointPastWeek(unittest.TestCase):
                 {"roster_id": 2, "matchup_id": 10, "points": 0.0},
             ],
         }
-        rec = playoff_odds._regular_season_record_to_date(
-            self._make_season(entries), None
-        )
+        rec = playoff_odds._regular_season_record_to_date(self._make_season(entries), None)
         self.assertEqual(rec, {})
 
 
@@ -316,18 +305,14 @@ class TieHandling(unittest.TestCase):
         wins = {"loser": 0, "tier": 0}
         points = {"loser": 1000.0, "tier": 500.0}
         ties = {"loser": 0, "tier": 1}
-        ordered = playoff_odds._standings_from_sim(
-            wins, points, ["loser", "tier"], ties=ties
-        )
+        ordered = playoff_odds._standings_from_sim(wins, points, ["loser", "tier"], ties=ties)
         self.assertEqual(ordered, ["tier", "loser"])
 
     def test_standings_uses_pf_tiebreak_when_record_matches(self) -> None:
         wins = {"a": 5, "b": 5}
         points = {"a": 1500.0, "b": 1200.0}
         ties = {"a": 1, "b": 1}
-        ordered = playoff_odds._standings_from_sim(
-            wins, points, ["a", "b"], ties=ties
-        )
+        ordered = playoff_odds._standings_from_sim(wins, points, ["a", "b"], ties=ties)
         self.assertEqual(ordered, ["a", "b"])
 
     def test_record_counts_tied_matchup(self) -> None:
@@ -504,9 +489,7 @@ class NumSimsGuard(_Base):
         # Pass num_sims=0 explicitly.  Either the season has no
         # remaining weeks (collapse path, probabilities are 0/1) or
         # we hit the new guard and every probability is None.
-        result = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=0, rng=random.Random(0)
-        )
+        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=0, rng=random.Random(0))
         self.assertEqual(result["numSims"], 0)
         for owner in result["owners"]:
             self.assertIn(
@@ -516,14 +499,14 @@ class NumSimsGuard(_Base):
             )
 
     def test_negative_sims_normalised_to_zero(self) -> None:
-        result = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims=-5, rng=random.Random(0)
-        )
+        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=-5, rng=random.Random(0))
         self.assertEqual(result["numSims"], 0)
 
     def test_non_integer_sims_normalised_to_zero(self) -> None:
         result = playoff_odds.compute_playoff_odds(
-            self.snapshot, num_sims="bogus", rng=random.Random(0)  # type: ignore[arg-type]
+            self.snapshot,
+            num_sims="bogus",
+            rng=random.Random(0),  # type: ignore[arg-type]
         )
         self.assertEqual(result["numSims"], 0)
 
@@ -574,16 +557,36 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         # should inherit week 3's pairing (same residue mod 3).
         # Week 1: (1v2, 3v4); Week 2: (1v3, 2v4); Week 3: (1v4, 2v3).
         entries = {
-            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
-                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
-            2: [self._pair_row(20, 1, 130.0), self._pair_row(20, 3, 115.0),
-                self._pair_row(21, 2, 140.0), self._pair_row(21, 4,  98.0)],
-            3: [self._pair_row(30, 1, 125.0), self._pair_row(30, 4, 108.0),
-                self._pair_row(31, 2, 133.0), self._pair_row(31, 3, 112.0)],
-            4: [self._pair_row(40, 1,   0.0), self._pair_row(40, 2,   0.0),
-                self._pair_row(41, 3,   0.0), self._pair_row(41, 4,   0.0)],
-            5: [self._pair_row(50, 1,   0.0), self._pair_row(50, 3,   0.0),
-                self._pair_row(51, 2,   0.0), self._pair_row(51, 4,   0.0)],
+            1: [
+                self._pair_row(10, 1, 120.0),
+                self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3, 95.0),
+                self._pair_row(11, 4, 105.0),
+            ],
+            2: [
+                self._pair_row(20, 1, 130.0),
+                self._pair_row(20, 3, 115.0),
+                self._pair_row(21, 2, 140.0),
+                self._pair_row(21, 4, 98.0),
+            ],
+            3: [
+                self._pair_row(30, 1, 125.0),
+                self._pair_row(30, 4, 108.0),
+                self._pair_row(31, 2, 133.0),
+                self._pair_row(31, 3, 112.0),
+            ],
+            4: [
+                self._pair_row(40, 1, 0.0),
+                self._pair_row(40, 2, 0.0),
+                self._pair_row(41, 3, 0.0),
+                self._pair_row(41, 4, 0.0),
+            ],
+            5: [
+                self._pair_row(50, 1, 0.0),
+                self._pair_row(50, 3, 0.0),
+                self._pair_row(51, 2, 0.0),
+                self._pair_row(51, 4, 0.0),
+            ],
             # Weeks 6..14 intentionally absent — inference must fill them.
         }
         # Regular season weeks 1..14, playoffs week 15+.  Note the
@@ -606,8 +609,9 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         self.assertEqual(_pair_set(schedule[8]), _pair_set(schedule[2]))
         self.assertEqual(_pair_set(schedule[14]), _pair_set(schedule[2]))
         # And posted weeks survive verbatim.
-        self.assertEqual(_pair_set(schedule[1]),
-                         _pair_set([("owner-1", "owner-2"), ("owner-3", "owner-4")]))
+        self.assertEqual(
+            _pair_set(schedule[1]), _pair_set([("owner-1", "owner-2"), ("owner-3", "owner-4")])
+        )
 
     def test_odd_team_count_league_cycle_propagates(self) -> None:
         # 5 teams, 2 pairs posted per week (one roster sits out each
@@ -616,11 +620,11 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         # 5-week cycle (week 6 == week 1).  Inference must carry that
         # pattern into weeks 7+, preserving the bye rotation.
         weekly_pairs = {
-            1: [(1, 2), (3, 4)],              # roster 5 on bye
-            2: [(1, 3), (2, 5)],              # roster 4 on bye
-            3: [(1, 4), (3, 5)],              # roster 2 on bye
-            4: [(1, 5), (2, 4)],              # roster 3 on bye
-            5: [(2, 3), (4, 5)],              # roster 1 on bye
+            1: [(1, 2), (3, 4)],  # roster 5 on bye
+            2: [(1, 3), (2, 5)],  # roster 4 on bye
+            3: [(1, 4), (3, 5)],  # roster 2 on bye
+            4: [(1, 5), (2, 4)],  # roster 3 on bye
+            5: [(2, 3), (4, 5)],  # roster 1 on bye
         }
         # Week 6 repeats week 1 to give the detector something to
         # latch onto.
@@ -631,7 +635,7 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
             rows: list[dict] = []
             for idx, (a, b) in enumerate(pairs):
                 rows.append(self._pair_row(wk * 100 + idx, a, 100.0))
-                rows.append(self._pair_row(wk * 100 + idx, b,  90.0))
+                rows.append(self._pair_row(wk * 100 + idx, b, 90.0))
             entries[wk] = rows
         for wk in range(7, 15):
             entries[wk] = []
@@ -661,8 +665,12 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         # "inferred" (no posted at all).  Either way, NOT
         # "inferred_from_posted".
         entries = {
-            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
-                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
+            1: [
+                self._pair_row(10, 1, 120.0),
+                self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3, 95.0),
+                self._pair_row(11, 4, 105.0),
+            ],
         }
         for wk in range(2, 15):
             entries[wk] = []
@@ -678,14 +686,30 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         # Integration: the new certainty value reaches the public
         # payload when inference drives the missing-week schedule.
         entries = {
-            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
-                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
-            2: [self._pair_row(20, 1, 130.0), self._pair_row(20, 3, 115.0),
-                self._pair_row(21, 2, 140.0), self._pair_row(21, 4,  98.0)],
-            3: [self._pair_row(30, 1, 125.0), self._pair_row(30, 4, 108.0),
-                self._pair_row(31, 2, 133.0), self._pair_row(31, 3, 112.0)],
-            4: [self._pair_row(40, 1, 118.0), self._pair_row(40, 2, 111.0),
-                self._pair_row(41, 3,  97.0), self._pair_row(41, 4, 101.0)],
+            1: [
+                self._pair_row(10, 1, 120.0),
+                self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3, 95.0),
+                self._pair_row(11, 4, 105.0),
+            ],
+            2: [
+                self._pair_row(20, 1, 130.0),
+                self._pair_row(20, 3, 115.0),
+                self._pair_row(21, 2, 140.0),
+                self._pair_row(21, 4, 98.0),
+            ],
+            3: [
+                self._pair_row(30, 1, 125.0),
+                self._pair_row(30, 4, 108.0),
+                self._pair_row(31, 2, 133.0),
+                self._pair_row(31, 3, 112.0),
+            ],
+            4: [
+                self._pair_row(40, 1, 118.0),
+                self._pair_row(40, 2, 111.0),
+                self._pair_row(41, 3, 97.0),
+                self._pair_row(41, 4, 101.0),
+            ],
         }
         for wk in range(5, 15):
             entries[wk] = []

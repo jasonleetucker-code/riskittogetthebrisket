@@ -10,6 +10,7 @@ Covers:
   * Non-TEP metadata (standard SF scoring)
   * Dry-run mode
 """
+
 from __future__ import annotations
 
 import csv
@@ -73,7 +74,9 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
         rows = ff._parse_players(data)
         self.assertEqual(len(rows), 4)
         names = {r["name"] for r in rows}
-        self.assertEqual(names, {"Patrick Mahomes", "Saquon Barkley", "CeeDee Lamb", "Travis Kelce"})
+        self.assertEqual(
+            names, {"Patrick Mahomes", "Saquon Barkley", "CeeDee Lamb", "Travis Kelce"}
+        )
 
     def test_draft_picks_filtered_out(self):
         data = _make_api_response(
@@ -88,8 +91,18 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
     def test_none_averageRank_filtered_out(self):
         data = {
             "data": [
-                {"playerName": "Patrick Mahomes", "position": "QB", "averageRank": 1.63, "isDraftPick": False},
-                {"playerName": "Ghost Player", "position": "RB", "averageRank": None, "isDraftPick": False},
+                {
+                    "playerName": "Patrick Mahomes",
+                    "position": "QB",
+                    "averageRank": 1.63,
+                    "isDraftPick": False,
+                },
+                {
+                    "playerName": "Ghost Player",
+                    "position": "RB",
+                    "averageRank": None,
+                    "isDraftPick": False,
+                },
             ]
         }
         rows = ff._parse_players(data)
@@ -124,9 +137,7 @@ class TestCsvOutputShape(unittest.TestCase):
             orig_floor = ff._FF_ROW_COUNT_FLOOR
             ff._FF_ROW_COUNT_FLOOR = 1
             try:
-                rc = ff.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = ff.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 ff._FF_ROW_COUNT_FLOOR = orig_floor
 
@@ -162,9 +173,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = ff._FF_ROW_COUNT_FLOOR
             ff._FF_ROW_COUNT_FLOOR = 1
             try:
-                rc = ff.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = ff.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 ff._FF_ROW_COUNT_FLOOR = orig_floor
 
@@ -194,9 +203,7 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = ff._FF_ROW_COUNT_FLOOR
             ff._FF_ROW_COUNT_FLOOR = 1
             try:
-                rc = ff.main(
-                    ["--from-file", str(json_path), "--dest", str(dest)]
-                )
+                rc = ff.main(["--from-file", str(json_path), "--dest", str(dest)])
             finally:
                 ff._FF_ROW_COUNT_FLOOR = orig_floor
 

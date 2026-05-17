@@ -35,7 +35,9 @@ def load_csv_rows(path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
-def summarize(scoring_rows: list[dict], conf_rows: list[dict], arch_rows: list[dict], top_n: int = 25) -> str:
+def summarize(
+    scoring_rows: list[dict], conf_rows: list[dict], arch_rows: list[dict], top_n: int = 25
+) -> str:
     conf_map = {str(r.get("player_name", "")).strip(): r for r in conf_rows}
     arch_map = {str(r.get("player_name", "")).strip(): r for r in arch_rows}
 
@@ -108,11 +110,11 @@ def summarize(scoring_rows: list[dict], conf_rows: list[dict], arch_rows: list[d
     lines.append("")
 
     weak_sample_over_adjust = [
-        r for r in enriched
-        if r["confidence"] < 0.45 and abs(r["fit_ratio"] - 1.0) > 0.08
+        r for r in enriched if r["confidence"] < 0.45 and abs(r["fit_ratio"] - 1.0) > 0.08
     ]
     td_volatile_outliers = [
-        r for r in enriched
+        r
+        for r in enriched
         if r["volatility"] and r["td_dep"] >= 0.70 and abs(r["fit_ratio"] - 1.0) > 0.08
     ]
 

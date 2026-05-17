@@ -4,6 +4,7 @@ These tests pin down the contract-level wiring for the 6th ranking
 source so a future refactor cannot silently drop FP from the blend
 and cannot break the combined-authority + anchored-extension rules.
 """
+
 from __future__ import annotations
 
 import csv
@@ -70,9 +71,7 @@ class TestFantasyProsIdpRegistry(unittest.TestCase):
         self.assertIn("fantasyProsIdp", keys)
 
     def test_source_scope_is_overall_idp(self):
-        src = next(
-            (s for s in _RANKING_SOURCES if s["key"] == "fantasyProsIdp"), None
-        )
+        src = next((s for s in _RANKING_SOURCES if s["key"] == "fantasyProsIdp"), None)
         self.assertIsNotNone(src)
         self.assertEqual(src["scope"], SOURCE_SCOPE_OVERALL_IDP)
 
@@ -90,9 +89,7 @@ class TestFantasyProsIdpRegistry(unittest.TestCase):
     def test_csv_path_registered_as_rank_signal(self):
         cfg = _SOURCE_CSV_PATHS.get("fantasyProsIdp")
         self.assertIsInstance(cfg, dict)
-        self.assertTrue(
-            str(cfg.get("path", "")).endswith("fantasyProsIdp.csv")
-        )
+        self.assertTrue(str(cfg.get("path", "")).endswith("fantasyProsIdp.csv"))
         self.assertEqual(cfg.get("signal"), "rank")
 
     def test_needs_shared_market_translation(self):
@@ -132,9 +129,7 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
         rows = _fp_csv_rows()
         self.assertTrue(rows)
         methods = {r["derivationMethod"] for r in rows}
-        self.assertTrue(
-            methods.issubset({"direct_combined", "anchored_from_individual"})
-        )
+        self.assertTrue(methods.issubset({"direct_combined", "anchored_from_individual"}))
 
     # ── 1. Combined board players use direct rank ─────────────────
     def test_combined_board_players_use_direct_rank(self):
@@ -192,9 +187,9 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
         rows = _fp_csv_rows()
         self.assertTrue(rows)
         ext = [
-            r for r in rows
-            if r["derivationMethod"] == "anchored_from_individual"
-            and r["family"] == family
+            r
+            for r in rows
+            if r["derivationMethod"] == "anchored_from_individual" and r["family"] == family
         ]
         # Sort by individual rank (originalRank), then assert
         # effectiveRank is strictly monotone increasing.
@@ -226,12 +221,8 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
         """
         rows = _fp_csv_rows()
         self.assertTrue(rows)
-        direct_names = {
-            r["name"] for r in rows if r["derivationMethod"] == "direct_combined"
-        }
-        ext_names = {
-            r["name"] for r in rows if r["derivationMethod"] == "anchored_from_individual"
-        }
+        direct_names = {r["name"] for r in rows if r["derivationMethod"] == "direct_combined"}
+        ext_names = {r["name"] for r in rows if r["derivationMethod"] == "anchored_from_individual"}
         self.assertFalse(
             direct_names & ext_names,
             "Same player appears as both direct_combined and anchored_from_individual",
@@ -263,9 +254,9 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
         for fam in ("DL", "LB", "DB"):
             ext = sorted(
                 (
-                    r for r in rows
-                    if r["derivationMethod"] == "anchored_from_individual"
-                    and r["family"] == fam
+                    r
+                    for r in rows
+                    if r["derivationMethod"] == "anchored_from_individual" and r["family"] == fam
                 ),
                 key=lambda r: int(r["originalRank"]),
             )
@@ -320,10 +311,7 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
         if self.contract is None:
             self.skipTest("FP CSV missing")
         pa = self.contract.get("playersArray", [])
-        enriched = [
-            p for p in pa
-            if (p.get("canonicalSiteValues") or {}).get("fantasyProsIdp")
-        ]
+        enriched = [p for p in pa if (p.get("canonicalSiteValues") or {}).get("fantasyProsIdp")]
         self.assertGreaterEqual(len(enriched), 80)
 
     # ── 8. Source metadata present in payload ──────────────────
@@ -332,11 +320,11 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
             self.skipTest("FP CSV missing")
         pa = self.contract.get("playersArray", [])
         have_meta = [
-            p for p in pa
+            p
+            for p in pa
             if p.get("fantasyProsIdpEffectiveRank") is not None
-            and p.get("fantasyProsIdpDerivationMethod") in (
-                "direct_combined", "anchored_from_individual"
-            )
+            and p.get("fantasyProsIdpDerivationMethod")
+            in ("direct_combined", "anchored_from_individual")
             and p.get("fantasyProsIdpFamily") in ("DL", "LB", "DB")
         ]
         self.assertGreaterEqual(
@@ -350,10 +338,7 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
         if self.contract is None:
             self.skipTest("FP CSV missing")
         pa = self.contract.get("playersArray", [])
-        by_name = {
-            p.get("displayName") or p.get("canonicalName") or "": p
-            for p in pa
-        }
+        by_name = {p.get("displayName") or p.get("canonicalName") or "": p for p in pa}
         for r in self.fp_rows:
             if r["derivationMethod"] != "direct_combined":
                 continue
@@ -401,9 +386,7 @@ class TestFantasyProsIdpLivePayload(unittest.TestCase):
         live = _load_live_api()
         if live is None:
             self.skipTest("No live API fixture present")
-        ts = (
-            (live.get("dataFreshness") or {}).get("sourceTimestamps") or {}
-        )
+        ts = (live.get("dataFreshness") or {}).get("sourceTimestamps") or {}
         self.assertIn("fantasyProsIdp", ts)
 
     def test_fp_metadata_on_live_players(self):
@@ -411,10 +394,7 @@ class TestFantasyProsIdpLivePayload(unittest.TestCase):
         if live is None:
             self.skipTest("No live API fixture present")
         pa = live.get("playersArray") or []
-        have = [
-            p for p in pa
-            if p.get("fantasyProsIdpEffectiveRank") is not None
-        ]
+        have = [p for p in pa if p.get("fantasyProsIdpEffectiveRank") is not None]
         self.assertGreaterEqual(len(have), 80)
 
 

@@ -32,6 +32,7 @@ Out of scope
 *  Sleeper trending data — orthogonal to historical bid analytics
    and gathered separately by the recommender.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -48,7 +49,7 @@ _TIER_BREAKPOINTS_PCT = (
     ("tier1", 0.20),  # ≥20% of budget  ($20+ on $100)
     ("tier2", 0.10),  # 10-20%
     ("tier3", 0.03),  # 3-10%
-    ("tier4", 0.0),   # ≤3% (incl. zero-bid free-agent pickups)
+    ("tier4", 0.0),  # ≤3% (incl. zero-bid free-agent pickups)
 )
 
 
@@ -151,18 +152,18 @@ def _walk_waivers(
             adds = tx.get("adds") or {}
             roster_ids = tx.get("roster_ids") or []
             roster_id = roster_ids[0] if roster_ids else None
-            out.append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                "type": str(tx.get("type") or ""),
-                "bid": bid,
-                "adds": adds if isinstance(adds, dict) else {},
-                "rosterId": roster_id,
-                "ownerId": _owner_for_roster(season, roster_id),
-                "createdAt": int(
-                    tx.get("status_updated") or tx.get("created") or 0
-                ),
-            })
+            out.append(
+                {
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "type": str(tx.get("type") or ""),
+                    "bid": bid,
+                    "adds": adds if isinstance(adds, dict) else {},
+                    "rosterId": roster_id,
+                    "ownerId": _owner_for_roster(season, roster_id),
+                    "createdAt": int(tx.get("status_updated") or tx.get("created") or 0),
+                }
+            )
     return out
 
 
@@ -205,17 +206,13 @@ def summarize_league_faab(
 
     all_bids: list[int] = []
     position_bids: dict[str, list[int]] = {}
-    tier_bids: dict[str, list[int]] = {
-        label: [] for label, _ in _TIER_BREAKPOINTS_PCT
-    }
+    tier_bids: dict[str, list[int]] = {label: [] for label, _ in _TIER_BREAKPOINTS_PCT}
     team_totals: dict[str, dict[str, Any]] = {}
     player_history: dict[str, list[dict[str, Any]]] = {}
     recent: list[dict[str, Any]] = []
 
     # Sort newest-first for the recentWins slice.
-    waivers_recent_first = sorted(
-        waivers, key=lambda tx: -int(tx.get("createdAt") or 0)
-    )
+    waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get("createdAt") or 0))
 
     for tx in waivers:
         bid = int(tx.get("bid") or 0)
@@ -237,12 +234,14 @@ def summarize_league_faab(
             # Player history: every add (including FA pickups @ 0)
             # gets a row so the UI can show "this player has been
             # added X times historically".
-            player_history.setdefault(str(pid), []).append({
-                "season": tx.get("season"),
-                "bid": bid,
-                "ownerId": owner_id,
-                "type": tx.get("type"),
-            })
+            player_history.setdefault(str(pid), []).append(
+                {
+                    "season": tx.get("season"),
+                    "bid": bid,
+                    "ownerId": owner_id,
+                    "type": tx.get("type"),
+                }
+            )
 
         # Team aggression aggregates ALL spending (zero-bid FA
         # pickups don't bump avgBid but DO bump count, telling the
@@ -250,8 +249,7 @@ def summarize_league_faab(
         if owner_id:
             entry = team_totals.setdefault(
                 str(owner_id),
-                {"totalSpent": 0, "winningCount": 0, "totalCount": 0,
-                 "maxBid": 0},
+                {"totalSpent": 0, "winningCount": 0, "totalCount": 0, "maxBid": 0},
             )
             entry["totalCount"] += 1
             if bid > 0:
@@ -266,9 +264,7 @@ def summarize_league_faab(
         win_count = e["winningCount"]
         team_aggression[oid] = {
             "totalSpent": e["totalSpent"],
-            "avgBid": (
-                round(e["totalSpent"] / win_count, 2) if win_count > 0 else 0.0
-            ),
+            "avgBid": (round(e["totalSpent"] / win_count, 2) if win_count > 0 else 0.0),
             "winningCount": win_count,
             "totalCount": e["totalCount"],
             "maxBid": e["maxBid"],
@@ -286,22 +282,22 @@ def summarize_league_faab(
             added_names.append(_player_name(snapshot, str(pid)))
             if first_pos is None:
                 first_pos = _player_position(snapshot, str(pid))
-        recent.append({
-            "season": tx.get("season"),
-            "bid": tx.get("bid"),
-            "position": first_pos,
-            "addedNames": added_names,
-            "ownerId": tx.get("ownerId"),
-            "createdAt": tx.get("createdAt"),
-        })
+        recent.append(
+            {
+                "season": tx.get("season"),
+                "bid": tx.get("bid"),
+                "position": first_pos,
+                "addedNames": added_names,
+                "ownerId": tx.get("ownerId"),
+                "createdAt": tx.get("createdAt"),
+            }
+        )
         if len(recent) >= recent_limit:
             break
 
     return {
         "leagueBudget": league_budget,
-        "leagueAvgWinningBid": (
-            round(statistics.fmean(all_bids), 2) if all_bids else 0.0
-        ),
+        "leagueAvgWinningBid": (round(statistics.fmean(all_bids), 2) if all_bids else 0.0),
         "leagueMedianWinningBid": (
             round(float(statistics.median(all_bids)), 2) if all_bids else 0.0
         ),

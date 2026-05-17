@@ -102,6 +102,7 @@ SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "
 SIMULATE_MC_MAX_SIMS = int(os.getenv("SIMULATE_MC_MAX_SIMS", "50000"))
 SIMULATE_MC_TIMEOUT_SECONDS = int(os.getenv("SIMULATE_MC_TIMEOUT_SECONDS", "10"))
 
+
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
 # Configure alerts via environment variables (no hardcoded secrets):
 #   ALERT_ENABLED=true|false
@@ -115,6 +116,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
 FRONTEND_RUNTIME = "next"
@@ -176,6 +178,8 @@ if not _JASON_LOGIN_PASSWORD_RAW:
 JASON_LOGIN_PASSWORD = _JASON_LOGIN_PASSWORD_RAW
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
+
+
 # Match the SQLite session TTL (SESSION_TTL_DAYS, default 30) so the
 # browser cookie outlives an iOS Safari tab eviction instead of dying
 # as a session cookie the first time the OS reclaims memory.  Parse
@@ -206,6 +210,7 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+
 
 def send_alert(subject: str, body: str):
     """Send an email alert. Fails silently if not configured."""
@@ -262,8 +267,10 @@ STATIC_DIR.mkdir(exist_ok=True)
 LOG_FORMAT = os.getenv("LOG_FORMAT", "text").strip().lower()
 
 if LOG_FORMAT == "json":
+
     class _JsonFormatter(logging.Formatter):
         """Minimal JSON log formatter for structured log aggregation."""
+
         def format(self, record):
             entry = {
                 "ts": datetime.now(timezone.utc).isoformat(),
@@ -414,19 +421,19 @@ _metrics: dict = {
 #   error   -> last_error
 scrape_status = {
     "running": False,
-    "is_running": False,      # legacy alias for UI compatibility
+    "is_running": False,  # legacy alias for UI compatibility
     "hung": False,
     "stalled": False,
     "started_at": None,
     "finished_at": None,
     "last_heartbeat": None,
-    "last_scrape": None,      # last successful scrape ISO timestamp
+    "last_scrape": None,  # last successful scrape ISO timestamp
     "last_success_at": None,
     "last_failure_at": None,
     "last_duration_sec": None,
-    "next_scrape": None,      # ISO timestamp
+    "next_scrape": None,  # ISO timestamp
     "error": None,
-    "last_error": None,       # legacy alias for UI compatibility
+    "last_error": None,  # legacy alias for UI compatibility
     "current_step": None,
     "current_source": None,
     "progress_step_index": 0,
@@ -518,10 +525,12 @@ def _get_auth_session(request: Request) -> dict | None:
             auth_sessions.pop(session_id, None)
             try:
                 from src.api import session_store as _ss
+
                 _ss.evict(session_id)
             except Exception as exc:  # noqa: BLE001
                 log.warning(
-                    "session_store evict on expiry failed: %s", exc,
+                    "session_store evict on expiry failed: %s",
+                    exc,
                 )
             return None
     return session
@@ -575,8 +584,10 @@ def _create_auth_session(
     # behavior (the existing behavior — no regression).
     try:
         from src.api import session_store as _ss
+
         _ss.persist(
-            session_id, payload,
+            session_id,
+            payload,
             allowlist=PRIVATE_APP_ALLOWED_USERNAMES,
         )
     except Exception as exc:  # noqa: BLE001
@@ -597,6 +608,7 @@ def _clear_auth_session(request: Request) -> None:
         auth_sessions.pop(session_id, None)
         try:
             from src.api import session_store as _ss
+
             _ss.evict(session_id)
         except Exception as exc:  # noqa: BLE001
             log.warning("session_store evict failed: %s", exc)
@@ -714,7 +726,9 @@ def _start_scrape_run(trigger: str) -> str:
         }
     )
     _sync_scrape_alias_fields()
-    _record_scrape_event("scrape_started", message=f"trigger={trigger}", trigger=trigger, worker_id=run_id)
+    _record_scrape_event(
+        "scrape_started", message=f"trigger={trigger}", trigger=trigger, worker_id=run_id
+    )
     return run_id
 
 
@@ -745,7 +759,9 @@ def _update_scrape_progress(
         _record_scrape_event(event, level=level, message=message or "", **(meta or {}))
 
 
-def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, total_sites: int) -> None:
+def _mark_scrape_success(
+    elapsed: float, player_count: int, site_count: int, total_sites: int
+) -> None:
     now_iso = _utc_now_iso()
     scrape_status.update(
         {
@@ -773,8 +789,13 @@ def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, tot
         duration_sec=round(elapsed, 1),
     )
     # R-4: Record to rolling history
-    _record_scrape_history("success", elapsed, player_count=player_count,
-                           site_count=site_count, total_sites=total_sites)
+    _record_scrape_history(
+        "success",
+        elapsed,
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+    )
     # R-9: Update metrics counters
     _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
     _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
@@ -893,7 +914,7 @@ def _collect_descendant_pids(root_pid: int) -> set[int]:
         rparen = data.rfind(")")
         if rparen == -1:
             continue
-        fields = data[rparen + 2:].split()
+        fields = data[rparen + 2 :].split()
         try:
             ppid = int(fields[1])  # fields[0]=state, fields[1]=ppid
         except (IndexError, ValueError):
@@ -1353,25 +1374,20 @@ def _backup_freshness() -> dict:
                     result["newestBackupPath"] = str(f)
                     result["backupDirUsed"] = label
         if newest_epoch is not None:
-            result["newestBackupAgeHours"] = round(
-                max(0.0, (now_epoch - newest_epoch) / 3600.0), 2
-            )
+            result["newestBackupAgeHours"] = round(max(0.0, (now_epoch - newest_epoch) / 3600.0), 2)
             try:
                 newest = Path(result["newestBackupPath"])
                 parts = newest.name.split(".")
                 stamp = parts[1] if len(parts) >= 3 else ""
                 if stamp:
-                    result["dbCount"] = len({
-                        f.name.split(".")[0]
-                        for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")
-                    })
+                    result["dbCount"] = len(
+                        {f.name.split(".")[0] for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")}
+                    )
             except OSError:
                 pass
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
         pass
     return result
-
-
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -1386,8 +1402,16 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     only until a real scrape lands.
     """
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
-    global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
-    global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
+    global \
+        latest_runtime_data, \
+        latest_runtime_data_bytes, \
+        latest_runtime_data_gzip_bytes, \
+        latest_runtime_data_etag
+    global \
+        latest_startup_data, \
+        latest_startup_data_bytes, \
+        latest_startup_data_gzip_bytes, \
+        latest_startup_data_etag
     global contract_health
     global served_source_coverage
     served_source_coverage = {}
@@ -1437,7 +1461,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                     _source_history.append_snapshot(contract_payload)
                 except Exception as inner_exc:  # noqa: BLE001
                     log.warning(
-                        "source_history: append failed: %s", inner_exc,
+                        "source_history: append failed: %s",
+                        inner_exc,
                     )
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
@@ -1503,13 +1528,17 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 except Exception as inner:  # noqa: BLE001
                     log.warning(
                         "post-scrape overlay warm failed for %s: %s",
-                        cfg.key, inner,
+                        cfg.key,
+                        inner,
                     )
                     warm_failed.append(cfg.key)
             if warmed or warm_failed:
                 log.info(
                     "post-scrape overlay warm: %d warmed, %d failed (warmed=%s failed=%s)",
-                    len(warmed), len(warm_failed), warmed, warm_failed,
+                    len(warmed),
+                    len(warm_failed),
+                    warmed,
+                    warm_failed,
                 )
         except Exception as exc:  # noqa: BLE001
             log.warning("post-scrape overlay warm pass failed: %s", exc)
@@ -1520,7 +1549,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 "; ".join((contract_report.get("errors") or [])[:5]),
             )
 
-        raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
         latest_data_bytes = raw
         latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
         latest_data_etag = hashlib.sha1(raw).hexdigest()
@@ -1530,7 +1561,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         runtime_payload = dict(contract_payload)
         runtime_payload.pop("playersArray", None)
         runtime_payload["payloadView"] = "runtime"
-        runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
         latest_runtime_data = runtime_payload
         latest_runtime_data_bytes = runtime_raw
         latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
@@ -1539,7 +1572,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         # Startup payload: same contract shape, but strips heavyweight fields
         # not needed for first screen render so first data-visible is faster.
         startup_payload = build_api_startup_payload(runtime_payload)
-        startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
         latest_startup_data = startup_payload
         latest_startup_data_bytes = startup_raw
         latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
@@ -1571,8 +1606,10 @@ def load_from_disk() -> dict | None:
             with open(latest_path) as f:
                 data = json.load(f)
             _set_latest_data_source("disk_cache", str(latest_path))
-            log.info(f"Loaded cached data from {latest_path.name} "
-                     f"({len(data.get('players', {}))} players)")
+            log.info(
+                f"Loaded cached data from {latest_path.name} "
+                f"({len(data.get('players', {}))} players)"
+            )
             return data
         except Exception as e:
             log.error(f"Failed to load {json_files[0]}: {e}")
@@ -1680,6 +1717,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # format maintained separately.
             try:
                 import shutil as _sh
+
                 src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
                 dst_raw = BASE_DIR / "CSVs" / "site_raw"
                 if src_raw.exists() and dst_raw.exists():
@@ -1707,6 +1745,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # a transient network error cannot fail the entire scrape.
             try:
                 from scripts import fetch_dynasty_nerds as _dn_fetch
+
                 rc = _dn_fetch.main(["--mirror-data-dir"])
                 if rc == 2:
                     # Schema / row-count regression — surface loudly as
@@ -1742,6 +1781,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # QB/RB/WR/TE consensus ECR ranks and writes a rank-signal CSV.
             try:
                 from scripts import fetch_fantasypros_offense as _fpoff_fetch
+
                 rc = _fpoff_fetch.main(["--mirror-data-dir"])
                 if rc == 2:
                     _record_scrape_event(
@@ -1776,6 +1816,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # and writes a rank-signal CSV.
             try:
                 from scripts import fetch_fantasypros_idp as _fp_fetch
+
                 rc = _fp_fetch.main(["--mirror-data-dir"])
                 if rc == 2:
                     _record_scrape_event(
@@ -1812,6 +1853,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if _idpshow_session.exists():
                 try:
                     from scripts import fetch_idpshow as _idpshow_fetch
+
                     rc = _idpshow_fetch.main([])
                     if rc != 0:
                         _record_scrape_event(
@@ -2003,7 +2045,9 @@ async def uptime_watchdog_loop():
             uptime_status["consecutive_failures"] += 1
             uptime_status["last_error"] = error
             failures = uptime_status["consecutive_failures"]
-            log.warning("Uptime check failed (%s/%s): %s", failures, UPTIME_ALERT_FAIL_THRESHOLD, error)
+            log.warning(
+                "Uptime check failed (%s/%s): %s", failures, UPTIME_ALERT_FAIL_THRESHOLD, error
+            )
             if failures >= UPTIME_ALERT_FAIL_THRESHOLD:
                 send_alert(
                     f"Uptime check failing ({failures} consecutive)",
@@ -2026,6 +2070,7 @@ async def scheduled_scrape():
     await run_scraper(trigger="scheduled")
     # Update next scrape time
     from datetime import timedelta
+
     scrape_status["next_scrape"] = (
         datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
     ).isoformat()
@@ -2034,13 +2079,13 @@ async def scheduled_scrape():
 async def schedule_loop():
     """Simple async loop that runs the scraper on an interval."""
     from datetime import timedelta
+
     while True:
         scrape_status["next_scrape"] = (
             datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
         ).isoformat()
         await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
         await scheduled_scrape()
-
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
@@ -2056,12 +2101,17 @@ async def lifespan(app: FastAPI):
     # results and stores the summary for /api/health.
     try:
         from src.api import startup_validation as _sv
+
         _startup_checks = _sv.run_all()
         _startup_checks_summary = _sv.summary(_startup_checks)
     except Exception as exc:  # noqa: BLE001
         log.error("startup_validation crashed: %s", exc)
         _startup_checks_summary = {
-            "error": str(exc), "total": 0, "ok": 0, "failed": 1, "fatal": 0,
+            "error": str(exc),
+            "total": 0,
+            "ok": 0,
+            "failed": 1,
+            "fatal": 0,
         }
 
     # 1. Load cached data immediately so the dashboard is usable right away
@@ -2078,6 +2128,7 @@ async def lifespan(app: FastAPI):
     # session store can never brick auth entirely.
     try:
         from src.api import session_store as _ss
+
         hydrated = _ss.hydrate(allowlist=PRIVATE_APP_ALLOWED_USERNAMES)
         auth_sessions.update(hydrated)
         log.info("session_store: hydrated %d sessions from disk", len(hydrated))
@@ -2117,8 +2168,9 @@ async def lifespan(app: FastAPI):
             exports = sorted((DATA_DIR).glob("dynasty_data_*.json"))
             if exports:
                 written = _source_history.backfill_from_exports(exports)
-                log.info("source_history: backfilled %d snapshots from %d exports",
-                         written, len(exports))
+                log.info(
+                    "source_history: backfilled %d snapshots from %d exports", written, len(exports)
+                )
     except Exception as exc:  # noqa: BLE001
         log.warning("source_history: startup backfill failed: %s", exc)
 
@@ -2148,11 +2200,13 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 # path, method, IP, traceback).  Installed before any other
 # middleware registers so it wraps everything.
 from src.api.error_responses import install_exception_handler as _install_exc_handler  # noqa: E402
+
 _install_exc_handler(app)
 
 # ROS engine router.  Strict isolation: never mutates dynasty contract
 # paths or trade-calculator math; reads/writes only ``data/ros/*``.
 from src.ros.api import router as _ros_router  # noqa: E402
+
 app.include_router(_ros_router)
 
 
@@ -2200,40 +2254,44 @@ async def _limit_request_size(request: Request, call_next):
 # Anything else gets 401'd by ``_private_api_gate`` below.  Closes
 # the scrape risk: without this gate, ``curl /api/data`` from a
 # stranger returns the full private rankings contract.
-_PUBLIC_API_EXACT = frozenset({
-    "/api/health",
-    "/api/status",
-    "/api/uptime",
-    "/api/metrics",
-    "/api/leagues",
-    "/api/rankings/sources",
-    "/api/auth/status",
-    "/api/auth/login",
-    "/api/auth/logout",
-    "/api/scaffold/status",
-    # /league page is a public view — its draft-capital tab reads
-    # this endpoint.  Payload is public Sleeper data (team names,
-    # pick dollar values, owners) already viewable on Sleeper; no
-    # private rankings / user state is leaked here.
-    "/api/draft-capital",
-})
+_PUBLIC_API_EXACT = frozenset(
+    {
+        "/api/health",
+        "/api/status",
+        "/api/uptime",
+        "/api/metrics",
+        "/api/leagues",
+        "/api/rankings/sources",
+        "/api/auth/status",
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/scaffold/status",
+        # /league page is a public view — its draft-capital tab reads
+        # this endpoint.  Payload is public Sleeper data (team names,
+        # pick dollar values, owners) already viewable on Sleeper; no
+        # private rankings / user state is leaked here.
+        "/api/draft-capital",
+    }
+)
 # Endpoints that handle their own auth (bearer token, etc.) — the
 # session-cookie middleware must skip them so the endpoint's own
 # check runs.
-_SELF_AUTHED_API_EXACT = frozenset({
-    "/api/signal-alerts/run",
-    # Same bearer-auth pattern as signal-alerts.  Bypass session
-    # cookie gate so the systemd timer's curl call hits the
-    # endpoint's own bearer check.
-    "/api/custom-alerts/run",
-    # E2E test-session bootstrap — handles its own bearer-token auth.
-    # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
-    # both set, so having it bypass the session gate doesn't leak
-    # anything in prod (env vars aren't set there).
-    "/api/test/create-session",
-    # Push public-key endpoint is read-only and stateless — no auth.
-    "/api/push/public-key",
-})
+_SELF_AUTHED_API_EXACT = frozenset(
+    {
+        "/api/signal-alerts/run",
+        # Same bearer-auth pattern as signal-alerts.  Bypass session
+        # cookie gate so the systemd timer's curl call hits the
+        # endpoint's own bearer check.
+        "/api/custom-alerts/run",
+        # E2E test-session bootstrap — handles its own bearer-token auth.
+        # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
+        # both set, so having it bypass the session gate doesn't leak
+        # anything in prod (env vars aren't set there).
+        "/api/test/create-session",
+        # Push public-key endpoint is read-only and stateless — no auth.
+        "/api/push/public-key",
+    }
+)
 _PUBLIC_API_PREFIXES = (
     "/api/public/league",
     # Article reads are public so the league can share /league/articles
@@ -2274,6 +2332,7 @@ async def _private_api_gate(request: Request, call_next):
         client_ip = _client_ip_from_request(request)
         try:
             from src.api import rate_limit as _rl
+
             limited, retry_after = _rl.should_rate_limit(client_ip)
         except Exception:  # noqa: BLE001 — never let rate-limiter break the gate
             limited, retry_after = False, 0
@@ -2314,6 +2373,7 @@ async def _request_context_middleware(request: Request, call_next):
     otherwise mints a fresh token-urlsafe 12-char ID.
     """
     from src.utils import request_context as _rc
+
     incoming = str(request.headers.get("x-request-id") or "").strip()
     rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
     token = _rc.set_request_id(rid)
@@ -2339,6 +2399,7 @@ def _client_ip_from_request(request: Request) -> str:
             return first
     client = request.client
     return client.host if client else ""
+
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
@@ -2367,7 +2428,9 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
             cache_control = resp.headers.get("Cache-Control")
             if cache_control:
                 headers["cache-control"] = cache_control
-            return Response(content=body, status_code=getattr(resp, "status", 200), headers=headers), None
+            return Response(
+                content=body, status_code=getattr(resp, "status", 200), headers=headers
+            ), None
     except urllib.error.HTTPError as e:
         try:
             body = e.read()
@@ -2415,8 +2478,7 @@ async def get_data(request: Request):
 
     if latest_contract_data:
         loaded_meta = (
-            latest_contract_data.get("meta") or {}
-            if isinstance(latest_contract_data, dict) else {}
+            latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
         )
         loaded_league = str(loaded_meta.get("leagueKey") or "")
         loaded_profile = str(loaded_meta.get("scoringProfile") or "")
@@ -2472,8 +2534,10 @@ async def get_data(request: Request):
             # if it READS one of them, which the compact shape test
             # pins against.
             from src.api.compact_view import compact_contract
+
             compact_obj = compact_contract(latest_contract_data)
             import json as _json
+
             payload_bytes = _json.dumps(compact_obj).encode("utf-8")
             payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
             payload_etag = None
@@ -2503,7 +2567,8 @@ async def get_data(request: Request):
         # of which league is "loaded."
         loaded_sleeper = (
             (latest_contract_data or {}).get("sleeper") or {}
-            if isinstance(latest_contract_data, dict) else {}
+            if isinstance(latest_contract_data, dict)
+            else {}
         )
         id_to_player = loaded_sleeper.get("idToPlayer") or {}
         try:
@@ -2515,7 +2580,8 @@ async def get_data(request: Request):
         except Exception as exc:  # noqa: BLE001
             log.warning(
                 "sleeper_overlay fetch failed for %s: %s",
-                league_cfg.key, exc,
+                league_cfg.key,
+                exc,
             )
             overlay = None
 
@@ -2555,11 +2621,11 @@ async def get_data(request: Request):
                     "trades": overlay.get("trades") or [],
                     "waivers": overlay.get("waivers") or [],
                     "tradeWindowDays": overlay.get("tradeWindowDays")
-                        or loaded_sleeper.get("tradeWindowDays"),
+                    or loaded_sleeper.get("tradeWindowDays"),
                     "tradeWindowStart": overlay.get("tradeWindowStart")
-                        or loaded_sleeper.get("tradeWindowStart"),
+                    or loaded_sleeper.get("tradeWindowStart"),
                     "tradeWindowCutoffMs": overlay.get("tradeWindowCutoffMs")
-                        or loaded_sleeper.get("tradeWindowCutoffMs"),
+                    or loaded_sleeper.get("tradeWindowCutoffMs"),
                     "overlaySource": "live-merge",
                     "overlayFetchedAt": overlay.get("overlayFetchedAt"),
                 }
@@ -2567,9 +2633,14 @@ async def get_data(request: Request):
                 overlay_full = {
                     **{
                         k: loaded_sleeper.get(k)
-                        for k in ("positions", "playerIds", "idToPlayer",
-                                  "scoringSettings", "rosterPositions",
-                                  "leagueSettings")
+                        for k in (
+                            "positions",
+                            "playerIds",
+                            "idToPlayer",
+                            "scoringSettings",
+                            "rosterPositions",
+                            "leagueSettings",
+                        )
                         if k in loaded_sleeper
                     },
                     **overlay,
@@ -2615,13 +2686,15 @@ async def get_data(request: Request):
         accept_encoding = (request.headers.get("accept-encoding") or "").lower()
         if "gzip" in accept_encoding and payload_gzip_bytes:
             headers["Content-Encoding"] = "gzip"
-            return Response(content=payload_gzip_bytes, media_type="application/json", headers=headers)
+            return Response(
+                content=payload_gzip_bytes, media_type="application/json", headers=headers
+            )
         if payload_bytes:
             return Response(content=payload_bytes, media_type="application/json", headers=headers)
         return JSONResponse(content=payload_obj, headers=headers)
     return JSONResponse(
         status_code=503,
-        content={"error": "No data available yet. First scrape may still be running."}
+        content={"error": "No data available yet. First scrape may still be running."},
     )
 
 
@@ -2681,8 +2754,13 @@ async def get_movers(request: Request):
     history = _rank_history.load_history(days=window + 1)
     if not history:
         return JSONResponse(
-            content={"window": window, "threshold": threshold,
-                     "asOf": None, "risers": [], "fallers": []},
+            content={
+                "window": window,
+                "threshold": threshold,
+                "asOf": None,
+                "risers": [],
+                "fallers": [],
+            },
             headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
         )
 
@@ -2764,9 +2842,7 @@ async def get_movers(request: Request):
         # back to the history key's parsed asset_class so picks /
         # IDPs aren't mis-stamped as "?" when the contract has
         # rotated them off the board.
-        resolved_asset = (
-            str(row.get("assetClass") or "").strip().lower() or asset_class or None
-        )
+        resolved_asset = str(row.get("assetClass") or "").strip().lower() or asset_class or None
         entry = {
             "name": clean_name,
             "assetClass": resolved_asset,
@@ -2849,7 +2925,9 @@ async def get_player_source_history(request: Request):
             content={"error": "Missing required 'name' query param."},
         )
     try:
-        requested = int(request.query_params.get("days", _source_history.DEFAULT_HISTORY_WINDOW_DAYS))
+        requested = int(
+            request.query_params.get("days", _source_history.DEFAULT_HISTORY_WINDOW_DAYS)
+        )
     except (TypeError, ValueError):
         requested = _source_history.DEFAULT_HISTORY_WINDOW_DAYS
     days = max(1, min(_source_history.MAX_SNAPSHOTS, requested))
@@ -2879,6 +2957,7 @@ async def get_player_source_history(request: Request):
 # ``build_api_data_contract()`` / ``build_rankings_delta_payload()``
 # with the overrides threaded into ``_compute_unified_rankings()``.
 
+
 @app.get("/api/rankings/sources")
 async def get_rankings_sources():
     """Return the canonical ranking-source registry.
@@ -2890,10 +2969,12 @@ async def get_rankings_sources():
     internals.  The shape matches the frontend entry exactly —
     ``assert_ranking_source_registry_parity()`` enforces that.
     """
-    return JSONResponse(content={
-        "sources": get_ranking_source_registry(),
-        "contractVersion": API_DATA_CONTRACT_VERSION,
-    })
+    return JSONResponse(
+        content={
+            "sources": get_ranking_source_registry(),
+            "contractVersion": API_DATA_CONTRACT_VERSION,
+        }
+    )
 
 
 @app.post("/api/rankings/overrides")
@@ -2943,8 +3024,7 @@ async def post_rankings_overrides(request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
     loaded_meta = (
-        latest_contract_data.get("meta") or {}
-        if isinstance(latest_contract_data, dict) else {}
+        latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
     )
     loaded_league = str(loaded_meta.get("leagueKey") or "")
     loaded_profile = str(loaded_meta.get("scoringProfile") or "")
@@ -3073,7 +3153,8 @@ _SLEEPER_USER_TEAM_CACHE: dict[tuple[str, str], dict] = {}
 
 
 def _fetch_sleeper_user_team(
-    sleeper_league_id: str, sleeper_user_id: str,
+    sleeper_league_id: str,
+    sleeper_user_id: str,
 ) -> dict | None:
     """Return ``{"ownerId", "teamName"}`` for the user in the given
     league, or ``None`` if the user isn't in the league or Sleeper
@@ -3101,11 +3182,10 @@ def _fetch_sleeper_user_team(
         return cached.get("value")
 
     try:
-        users_url = (
-            f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users"
-        )
+        users_url = f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users"
         req = urllib.request.Request(
-            users_url, headers={"User-Agent": "brisket-user-team/1.0"},
+            users_url,
+            headers={"User-Agent": "brisket-user-team/1.0"},
         )
         with urllib.request.urlopen(req, timeout=5.0) as resp:
             users = json.loads(resp.read())
@@ -3117,11 +3197,7 @@ def _fetch_sleeper_user_team(
     team_name = ""
     for u in users or []:
         if str(u.get("user_id") or "") == sleeper_user_id:
-            team_name = (
-                (u.get("metadata") or {}).get("team_name")
-                or u.get("display_name")
-                or ""
-            )
+            team_name = (u.get("metadata") or {}).get("team_name") or u.get("display_name") or ""
             break
     if not team_name:
         _SLEEPER_USER_TEAM_CACHE[cache_key] = {"value": None, "fetched_at": now}
@@ -3167,6 +3243,7 @@ async def get_leagues(request: Request):
     # doesn't hammer Sleeper.
     def _fetch_names(cfgs):
         return [_fetch_sleeper_league_name(c.sleeper_league_id) for c in cfgs]
+
     sleeper_names = await run_in_threadpool(_fetch_names, active_cfgs)
     for i, live_name in enumerate(sleeper_names):
         if live_name:
@@ -3175,6 +3252,7 @@ async def get_leagues(request: Request):
     if session:
         username = (session.get("username") or "").strip().lower()
         sleeper_user_id = str(session.get("sleeper_user_id") or "").strip()
+
         # Stamp each league's entry with this user's default team
         # when the registry knows about one.  Only this authed user
         # sees their own default — we don't expose other usernames'
@@ -3197,13 +3275,12 @@ async def get_leagues(request: Request):
                 }
             if sleeper_user_id:
                 return _fetch_sleeper_user_team(
-                    cfg.sleeper_league_id, sleeper_user_id,
+                    cfg.sleeper_league_id,
+                    sleeper_user_id,
                 )
             return None
 
-        resolved = await run_in_threadpool(
-            lambda: [_resolve_team(c) for c in active_cfgs]
-        )
+        resolved = await run_in_threadpool(lambda: [_resolve_team(c) for c in active_cfgs])
         for i, team in enumerate(resolved):
             if team:
                 leagues[i]["userDefaultTeam"] = team
@@ -3213,9 +3290,7 @@ async def get_leagues(request: Request):
         "defaultKey": _league_registry.default_league_key(),
     }
     if session:
-        user_default = _league_registry.get_user_default_league(
-            session.get("username") or ""
-        )
+        user_default = _league_registry.get_user_default_league(session.get("username") or "")
         body["userDefaultKey"] = user_default.key if user_default else None
     return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
 
@@ -3246,8 +3321,10 @@ async def get_league_comparison(request: Request):
     refresh = refresh_raw in ("1", "true", "yes", "on")
     try:
         from src.league_comparison import service as _lc_service
+
         payload = await run_in_threadpool(
-            _lc_service.build_comparison, refresh=refresh,
+            _lc_service.build_comparison,
+            refresh=refresh,
         )
     except FileNotFoundError as exc:
         return JSONResponse(
@@ -3299,54 +3376,60 @@ async def get_status():
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
     startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
     full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
-    runtime_gzip_bytes = len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
-    startup_gzip_bytes = len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
-    return JSONResponse(content={
-        **status_payload,
-        "frontend_runtime": frontend_runtime_status,
-        "contract": {
-            "version": API_DATA_CONTRACT_VERSION,
-            "health": contract_health,
-            "value_authority": (latest_contract_data or {}).get("valueAuthority"),
-        },
-        "data_runtime": {
-            "last_data_refresh_at": latest_data_source.get("loadedAt"),
-            "active_data_source": latest_data_source,
-            "payload_bytes_full": full_bytes,
-            "payload_bytes_runtime": runtime_bytes,
-            "payload_bytes_startup": startup_bytes,
-            "payload_gzip_bytes_full": full_gzip_bytes,
-            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
-            "payload_gzip_bytes_startup": startup_gzip_bytes,
-            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
-            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
-            "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
-            "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
-        },
-        "source_health": source_health,
-        "backup_health": _backup_freshness(),
-        "uptime": uptime_status,
-        "has_data": latest_contract_data is not None,
-        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-        "data_date": (latest_contract_data or {}).get("date"),
-        # Real per-source coverage of the served board (see the
-        # ``served_source_coverage`` global).  Monitoring asserts on
-        # this; ``source_health`` above is derived from the 3-source
-        # legacy ``sites`` list and cannot detect a degraded board.
-        "served_source_coverage": served_source_coverage,
-        # R-4: Scrape success rate tracking
-        "scrape_success_rate_24h": _scrape_success_rate_24h(),
-        "last_n_scrapes": scrape_history[-20:],
-        "leagues": _league_status_snapshot(),
-        # 2026-04 upgrade observability — feature-flag state +
-        # unified-mapper coverage.  All flags default off so this
-        # is additive/informational; enabling a flag at runtime is
-        # the operator's decision.
-        "featureFlags": _feature_flag_snapshot_safe(),
-        "idMappingCoverage": _id_mapping_coverage_safe(),
-        "nflDataProvider": _nfl_data_provider_status_safe(),
-        "normalizationHealth": _normalization_health_safe(),
-    })
+    runtime_gzip_bytes = (
+        len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
+    )
+    startup_gzip_bytes = (
+        len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
+    )
+    return JSONResponse(
+        content={
+            **status_payload,
+            "frontend_runtime": frontend_runtime_status,
+            "contract": {
+                "version": API_DATA_CONTRACT_VERSION,
+                "health": contract_health,
+                "value_authority": (latest_contract_data or {}).get("valueAuthority"),
+            },
+            "data_runtime": {
+                "last_data_refresh_at": latest_data_source.get("loadedAt"),
+                "active_data_source": latest_data_source,
+                "payload_bytes_full": full_bytes,
+                "payload_bytes_runtime": runtime_bytes,
+                "payload_bytes_startup": startup_bytes,
+                "payload_gzip_bytes_full": full_gzip_bytes,
+                "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+                "payload_gzip_bytes_startup": startup_gzip_bytes,
+                "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
+                "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
+                "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
+                "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
+            },
+            "source_health": source_health,
+            "backup_health": _backup_freshness(),
+            "uptime": uptime_status,
+            "has_data": latest_contract_data is not None,
+            "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+            "data_date": (latest_contract_data or {}).get("date"),
+            # Real per-source coverage of the served board (see the
+            # ``served_source_coverage`` global).  Monitoring asserts on
+            # this; ``source_health`` above is derived from the 3-source
+            # legacy ``sites`` list and cannot detect a degraded board.
+            "served_source_coverage": served_source_coverage,
+            # R-4: Scrape success rate tracking
+            "scrape_success_rate_24h": _scrape_success_rate_24h(),
+            "last_n_scrapes": scrape_history[-20:],
+            "leagues": _league_status_snapshot(),
+            # 2026-04 upgrade observability — feature-flag state +
+            # unified-mapper coverage.  All flags default off so this
+            # is additive/informational; enabling a flag at runtime is
+            # the operator's decision.
+            "featureFlags": _feature_flag_snapshot_safe(),
+            "idMappingCoverage": _id_mapping_coverage_safe(),
+            "nflDataProvider": _nfl_data_provider_status_safe(),
+            "normalizationHealth": _normalization_health_safe(),
+        }
+    )
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -3354,6 +3437,7 @@ def _feature_flag_snapshot_safe() -> dict:
     so a malformed upgrade doesn't 500 /api/status."""
     try:
         from src.api import feature_flags as _ff
+
         return _ff.snapshot()
     except Exception as exc:  # noqa: BLE001
         log.warning("feature_flag snapshot failed: %s", exc)
@@ -3363,6 +3447,7 @@ def _feature_flag_snapshot_safe() -> dict:
 def _id_mapping_coverage_safe() -> dict:
     try:
         from src.identity import unified_mapper as _um
+
         return _um.mapping_coverage_snapshot()
     except Exception as exc:  # noqa: BLE001
         log.warning("id mapping coverage snapshot failed: %s", exc)
@@ -3372,6 +3457,7 @@ def _id_mapping_coverage_safe() -> dict:
 def _nfl_data_provider_status_safe() -> dict:
     try:
         from src.nfl_data import ingest as _ing
+
         return _ing.provider_status()
     except Exception as exc:  # noqa: BLE001
         log.warning("nfl_data provider status failed: %s", exc)
@@ -3384,6 +3470,7 @@ def _normalization_health_safe() -> dict:
     playersArray, ~5ms for ~1100 rows."""
     try:
         from src.canonical import normalization_validator as _nv
+
         return _nv.validate_contract(latest_contract_data or {})
     except Exception as exc:  # noqa: BLE001
         log.warning("normalization validator failed: %s", exc)
@@ -3406,6 +3493,7 @@ def _league_status_snapshot() -> list[dict]:
     source is ``none`` the UI surfaces the data-not-ready state.
     """
     import time as _time
+
     snapshot: list[dict[str, Any]] = []
     loaded = latest_contract_data or {}
     loaded_meta = loaded.get("meta") or {}
@@ -3476,6 +3564,7 @@ async def get_health():
     # themselves on the next scrape.
     _session_ages: dict[str, dict] = {}
     import os as _os
+
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
         # so this file auto-refreshes.  Tracked for visibility only.
@@ -3498,18 +3587,12 @@ async def get_health():
                 _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
-            age_days = round(
-                (datetime.now(timezone.utc).timestamp() - mtime_ts) / 86400, 1
-            )
+            age_days = round((datetime.now(timezone.utc).timestamp() - mtime_ts) / 86400, 1)
             days_remaining = max(0.0, round(lifetime_days - age_days, 1))
             # Only MANUAL sessions get the warnSoon flag — auto-refresh
             # sessions silently rotate when cached cookies expire, so
             # the banner shouldn't nag about them.
-            warn_soon = (
-                not auto_refresh
-                and days_remaining <= 14
-                and age_days > 0
-            )
+            warn_soon = not auto_refresh and days_remaining <= 14 and age_days > 0
             expired = (not auto_refresh) and days_remaining <= 0
             _session_ages[fname] = {
                 "present": True,
@@ -3530,12 +3613,14 @@ async def get_health():
         and bool(contract_health.get("ok", False))
     )
     status = "ok" if is_ok else "degraded"
+
     # Deeper health: startup checks + circuit breakers + session
     # store size.  Wrapped so a dependency import error can't bring
     # down the health endpoint itself.
     def _circuits_safe():
         try:
             from src.utils import circuit_breaker as _cb
+
             return _cb.snapshot_all()
         except Exception as exc:  # noqa: BLE001
             log.warning("health: circuit_breaker snapshot failed: %s", exc)
@@ -3544,6 +3629,7 @@ async def get_health():
     def _sessions_safe():
         try:
             from src.api import session_store as _ss
+
             return {"persistedCount": _ss.count_active()}
         except Exception as exc:  # noqa: BLE001
             log.warning("health: session_store count failed: %s", exc)
@@ -3597,7 +3683,9 @@ async def get_health():
             "circuitBreakers": circuits,
             "anyBreakerOpen": any_breaker_open,
             "startupChecks": _startup_checks_summary,
-            "memberInMemorySessions": len(auth_sessions) if isinstance(auth_sessions, dict) else None,
+            "memberInMemorySessions": len(auth_sessions)
+            if isinstance(auth_sessions, dict)
+            else None,
             "backup_health": backup_health,
         },
     )
@@ -3634,21 +3722,23 @@ async def get_metrics():
 
     disk_ok, free_mb = _check_disk_space()
 
-    return JSONResponse(content={
-        "server_start_time": _metrics.get("server_start_time"),
-        "uptime_seconds": uptime_seconds,
-        "request_count": _metrics.get("request_count", 0),
-        "scrape_total": _metrics.get("scrape_total", 0),
-        "scrape_failures": _metrics.get("scrape_failures", 0),
-        "scrape_duration_seconds_last": _metrics.get("scrape_duration_seconds_last", 0),
-        "data_age_seconds": data_age_seconds,
-        "data_stale": (data_age_seconds or 0) > SCRAPE_INTERVAL_HOURS * 3 * 3600,
-        "has_data": latest_contract_data is not None,
-        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-        "disk_free_mb": free_mb,
-        "disk_ok": disk_ok,
-        "scrape_running": scrape_status.get("running", False),
-    })
+    return JSONResponse(
+        content={
+            "server_start_time": _metrics.get("server_start_time"),
+            "uptime_seconds": uptime_seconds,
+            "request_count": _metrics.get("request_count", 0),
+            "scrape_total": _metrics.get("scrape_total", 0),
+            "scrape_failures": _metrics.get("scrape_failures", 0),
+            "scrape_duration_seconds_last": _metrics.get("scrape_duration_seconds_last", 0),
+            "data_age_seconds": data_age_seconds,
+            "data_stale": (data_age_seconds or 0) > SCRAPE_INTERVAL_HOURS * 3 * 3600,
+            "has_data": latest_contract_data is not None,
+            "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+            "disk_free_mb": free_mb,
+            "disk_ok": disk_ok,
+            "scrape_running": scrape_status.get("running", False),
+        }
+    )
 
 
 # ── NEWS ───────────────────────────────────────────────────────────────
@@ -3671,9 +3761,9 @@ async def get_news(request: Request):
     # separated.  Items that don't mention at least one of those
     # players are dropped from the response (client-side filtering
     # stays available for scope="roster"/"league" already).
-    team_params = request.query_params.getlist("team") if hasattr(
-        request.query_params, "getlist"
-    ) else []
+    team_params = (
+        request.query_params.getlist("team") if hasattr(request.query_params, "getlist") else []
+    )
     team_names: list[str] = []
     for raw in team_params:
         for part in str(raw).split(","):
@@ -3760,16 +3850,22 @@ async def get_scaffold_status():
                 "file": _meta(raw_file),
                 "source_count": len(raw.get("snapshots", [])) if raw else 0,
                 "record_count": (
-                    sum(len(s.get("records", [])) for s in raw.get("snapshots", []))
-                    if raw
-                    else 0
+                    sum(len(s.get("records", [])) for s in raw.get("snapshots", [])) if raw else 0
                 ),
             },
             "ingest_validation": {
                 "file": _meta(ingest_validation_file),
-                "status": ingest_validation.get("status", "missing") if ingest_validation else "missing",
-                "missing_snapshot_field_count": ingest_validation.get("missing_snapshot_field_count", 0) if ingest_validation else 0,
-                "missing_asset_field_count": ingest_validation.get("missing_asset_field_count", 0) if ingest_validation else 0,
+                "status": ingest_validation.get("status", "missing")
+                if ingest_validation
+                else "missing",
+                "missing_snapshot_field_count": ingest_validation.get(
+                    "missing_snapshot_field_count", 0
+                )
+                if ingest_validation
+                else 0,
+                "missing_asset_field_count": ingest_validation.get("missing_asset_field_count", 0)
+                if ingest_validation
+                else 0,
             },
             "league": {
                 "file": _meta(league_file),
@@ -3817,7 +3913,6 @@ async def get_scaffold_identity():
     return JSONResponse(content=payload)
 
 
-
 @app.post("/api/waiver/suggestions")
 async def post_waiver_suggestions(request: Request):
     """Generate waiver-wire suggestions for the requesting league.
@@ -3850,7 +3945,9 @@ async def post_waiver_suggestions(request: Request):
 
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -3920,7 +4017,9 @@ async def post_waiver_faab_recommend(request: Request):
 
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -3968,7 +4067,7 @@ async def post_waiver_faab_recommend(request: Request):
     sleeper_teams = sleeper.get("teams") or []
     rostered_norms: set[str] = set()
     for t in sleeper_teams:
-        for n in (t.get("players") or []):
+        for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
     top_pool_value = 0.0
     for row in arr:
@@ -3988,6 +4087,7 @@ async def post_waiver_faab_recommend(request: Request):
     # confidence=low and surfaces a "league analytics missing"
     # factor row).
     from src.api import faab_analytics  # noqa: PLC0415
+
     league_summary: dict | None = None
     try:
         snap_obj = public_snapshot_store.load_snapshot()
@@ -3996,7 +4096,8 @@ async def post_waiver_faab_recommend(request: Request):
     except Exception as exc:  # noqa: BLE001
         log.warning(
             "faab analytics build failed for %s: %s",
-            league_cfg.key, exc,
+            league_cfg.key,
+            exc,
         )
         league_summary = None
 
@@ -4040,6 +4141,7 @@ async def post_waiver_faab_recommend(request: Request):
     from src.adapters.ktc_crowd_faab import (  # noqa: PLC0415
         crowd_bid_map_from_contract,
     )
+
     ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
 
     from src.trade.faab_recommender import recommend_faab  # noqa: PLC0415
@@ -4098,7 +4200,9 @@ async def post_trade_suggestions(request: Request):
     # Validate leagueKey (body or query) against the registry.
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -4107,7 +4211,9 @@ async def post_trade_suggestions(request: Request):
     if not isinstance(roster, list) or not roster:
         return JSONResponse(
             status_code=400,
-            content={"error": "Request body must include 'roster' as a non-empty array of player names."},
+            content={
+                "error": "Request body must include 'roster' as a non-empty array of player names."
+            },
         )
 
     from src.trade.suggestions import (
@@ -4126,6 +4232,7 @@ async def post_trade_suggestions(request: Request):
     # [50, 300]; out-of-range or missing falls back to the engine's
     # default constant.
     from src.trade.suggestions import KTC_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
+
     raw_ktc_top_n = body.get("ktc_top_n")
     try:
         ktc_top_n = int(raw_ktc_top_n) if raw_ktc_top_n is not None else _KTC_TOP_N_DEFAULT
@@ -4154,7 +4261,9 @@ async def post_trade_suggestions(request: Request):
         )
     except Exception as e:
         log.error(f"Trade suggestion generation failed: {e}")
-        return JSONResponse(status_code=500, content={"error": f"Suggestion generation failed: {e}"})
+        return JSONResponse(
+            status_code=500, content={"error": f"Suggestion generation failed: {e}"}
+        )
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
@@ -4196,7 +4305,9 @@ async def post_trade_finder(request: Request):
     # Validate leagueKey (body or query).
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -4221,8 +4332,7 @@ async def post_trade_finder(request: Request):
     raw_ktc_top_n_f = body.get("ktc_top_n")
     try:
         finder_ktc_top_n = (
-            int(raw_ktc_top_n_f) if raw_ktc_top_n_f is not None
-            else _FINDER_KTC_TOP_N_DEFAULT
+            int(raw_ktc_top_n_f) if raw_ktc_top_n_f is not None else _FINDER_KTC_TOP_N_DEFAULT
         )
     except (TypeError, ValueError):
         finder_ktc_top_n = _FINDER_KTC_TOP_N_DEFAULT
@@ -4337,8 +4447,11 @@ async def post_trade_export_ktc(request: Request):
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             status_code=502,
-            content={"ok": False, "error": "Failed to fetch KTC player map.",
-                     "detail": f"{type(exc).__name__}: {exc}"},
+            content={
+                "ok": False,
+                "error": "Failed to fetch KTC player map.",
+                "detail": f"{type(exc).__name__}: {exc}",
+            },
         )
     return JSONResponse(content={"ok": True, **result})
 
@@ -4388,7 +4501,9 @@ async def post_angle_find(request: Request):
     # different league.
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -4411,9 +4526,7 @@ async def post_angle_find(request: Request):
     try:
         min_my = float(body.get("minMyGainPct", 5.0))
         # Accept new key, fall back to legacy for pre-rename clients.
-        max_market = float(
-            body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0))
-        )
+        max_market = float(body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0)))
         limit = int(body.get("limit", 50))
     except (TypeError, ValueError):
         return JSONResponse(
@@ -4506,7 +4619,9 @@ async def post_angle_packages(request: Request):
     # League routing (same pattern as /api/angle/find).
     try:
         league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
+            request,
+            body=body,
+            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
@@ -4535,8 +4650,7 @@ async def post_angle_packages(request: Request):
             status_code=400,
             content={
                 "error": (
-                    f"Request body must include 'ownerId' and a non-empty "
-                    f"{names_key!r} list."
+                    f"Request body must include 'ownerId' and a non-empty " f"{names_key!r} list."
                 )
             },
         )
@@ -4545,9 +4659,7 @@ async def post_angle_packages(request: Request):
     try:
         min_my = float(body.get("minMyGainPct", 5.0))
         # Accept renamed key; fall back to legacy for pre-rename clients.
-        max_market = float(
-            body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0))
-        )
+        max_market = float(body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0)))
         limit = int(body.get("limit", 50))
         pool = int(body.get("candidatePoolPerTeam", 25))
         per_team = int(body.get("perTeamLimit", 4))
@@ -4570,6 +4682,7 @@ async def post_angle_packages(request: Request):
     # Otherwise ``positions=["DL"]`` alone would filter the pool down
     # to zero candidates, which silently breaks those callers.
     from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS
+
     if not include_idp and any(
         str(p).strip().upper() in _ANGLE_IDP_POSITIONS for p in positions_req
     ):
@@ -4750,12 +4863,14 @@ def _resolve_league_for_request(
         cfg = _league_registry.get_league_by_key(explicit)
         if cfg is None:
             raise LeagueResolutionError(
-                400, "unknown_league",
+                400,
+                "unknown_league",
                 f"Unknown leagueKey {explicit!r}",
             )
         if not cfg.active:
             raise LeagueResolutionError(
-                400, "inactive_league",
+                400,
+                "inactive_league",
                 f"League {cfg.key!r} is not active",
             )
     else:
@@ -4779,24 +4894,26 @@ def _resolve_league_for_request(
             cfg = _league_registry.get_default_league()
         if cfg is None:
             raise LeagueResolutionError(
-                404, "no_leagues_configured",
+                404,
+                "no_leagues_configured",
                 "No leagues configured on this server",
             )
 
     if require_loaded_contract:
         loaded_key = None
         try:
-            loaded_key = (
-                (latest_contract_data or {}).get("meta", {}).get("leagueKey")
-            )
+            loaded_key = (latest_contract_data or {}).get("meta", {}).get("leagueKey")
         except Exception:  # noqa: BLE001
             loaded_key = None
         if loaded_key and loaded_key != cfg.key:
             raise LeagueResolutionError(
-                503, "data_not_ready",
+                503,
+                "data_not_ready",
                 f"No data loaded for league {cfg.key!r} yet",
             )
     return cfg
+
+
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
 DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
@@ -4839,11 +4956,13 @@ def _ktc_decay_curve(known_rookies, total_picks=72):
     extended = list(known_rookies)
     for i in range(n, total_picks):
         projected_value = max(1, int(round(A * math.exp(-k * i))))
-        extended.append({
-            "name": f"Rookie #{i + 1}",
-            "pos": "—",
-            "value": projected_value,
-        })
+        extended.append(
+            {
+                "name": f"Rookie #{i + 1}",
+                "pos": "—",
+                "value": projected_value,
+            }
+        )
     return extended
 
 
@@ -4924,14 +5043,16 @@ def _fetch_ktc_rookies_live():
                 if name and val_str:
                     # Clean team suffix from name (e.g. "Player NAMEnyj" -> "Player NAME")
                     # KTC appends 2-3 letter team codes or "FA"/"RFA"/"R" suffix
-                    clean_name = re.sub(r'\s+(FA|RFA|R|[A-Z]{2,3})$', '', name)
+                    clean_name = re.sub(r"\s+(FA|RFA|R|[A-Z]{2,3})$", "", name)
                     try:
                         value = int(val_str)
                         if value > 0:
                             # Filter to fantasy-relevant positions
                             pos_upper = pos.upper()
                             if any(p in pos_upper for p in ("QB", "RB", "WR", "TE")):
-                                rookies.append({"name": clean_name or name, "pos": pos, "value": value})
+                                rookies.append(
+                                    {"name": clean_name or name, "pos": pos, "value": value}
+                                )
                     except ValueError:
                         pass
                 self._in_player = False
@@ -4949,7 +5070,9 @@ def _fetch_ktc_rookies_live():
 
     # Sort by value descending (should already be, but ensure)
     rookies.sort(key=lambda r: -r["value"])
-    logging.info(f"KTC live: fetched {len(rookies)} rookies (top: {rookies[0]['name']} = {rookies[0]['value']})")
+    logging.info(
+        f"KTC live: fetched {len(rookies)} rookies (top: {rookies[0]['name']} = {rookies[0]['value']})"
+    )
     return rookies
 
 
@@ -5021,14 +5144,20 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
             csv = {}
         ktc_raw = csv.get("ktcSfTep") or csv.get("ktc")
         idp_raw = csv.get("idpTradeCalc")
-        out.append({
-            "name": str(p.get("canonicalName") or p.get("displayName") or ""),
-            "pos": (str(p.get("position") or "").upper() or None),
-            "value": float(val),
-            "ktcRaw": float(ktc_raw) if isinstance(ktc_raw, (int, float)) and ktc_raw > 0 else None,
-            "idpRaw": float(idp_raw) if isinstance(idp_raw, (int, float)) and idp_raw > 0 else None,
-            "assetClass": p.get("assetClass"),
-        })
+        out.append(
+            {
+                "name": str(p.get("canonicalName") or p.get("displayName") or ""),
+                "pos": (str(p.get("position") or "").upper() or None),
+                "value": float(val),
+                "ktcRaw": float(ktc_raw)
+                if isinstance(ktc_raw, (int, float)) and ktc_raw > 0
+                else None,
+                "idpRaw": float(idp_raw)
+                if isinstance(idp_raw, (int, float)) and idp_raw > 0
+                else None,
+                "assetClass": p.get("assetClass"),
+            }
+        )
     out = [r for r in out if r["name"]]
     out.sort(key=lambda r: -r["value"])
     return out[:top_n]
@@ -5053,6 +5182,7 @@ def _vendor_dollars_for_rookies(
     Returns ``(ktc_by_name, idp_by_name)`` — both maps keyed by lowercase
     name (case-insensitive) for robust frontend joining.
     """
+
     def _dollars_by_vendor(key: str) -> dict[str, float]:
         eligible = [r for r in rookies if r.get(key) and r[key] > 0]
         if not eligible:
@@ -5064,6 +5194,7 @@ def _vendor_dollars_for_rookies(
         values = [r[key] for r in eligible]
         dollars = _rookie_dollars_from_values(values, total)
         return {r["name"].lower(): d for r, d in zip(eligible, dollars)}
+
     return _dollars_by_vendor("ktcRaw"), _dollars_by_vendor("idpRaw")
 
 
@@ -5079,6 +5210,7 @@ def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     """
     try:
         import openpyxl
+
         if not DRAFT_DATA_XLSX.exists():
             return [1.0] * n, 0
         wb = openpyxl.load_workbook(DRAFT_DATA_XLSX, data_only=True)
@@ -5093,7 +5225,9 @@ def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     return spine, n  # R5 bonus = +$1 × 12 picks = $12 total floor add
 
 
-def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BUDGET) -> list[float]:
+def _rookie_dollars_from_values(
+    values: list[float], total: int = DRAFT_TOTAL_BUDGET
+) -> list[float]:
     """Convert raw rookie values to dollar amounts using the sheet's
     Hill-curve formula (column C → I → J → K → D in Draft Data.xlsx),
     summing to ``total``.
@@ -5121,6 +5255,7 @@ def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BU
     real R5 picks are kept above R6.
     """
     import math
+
     n = len(values)
     if n == 0:
         return []
@@ -5139,10 +5274,7 @@ def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BU
     else:
         decay_rate = 0.05
 
-    weights = [
-        math.exp(-decay_rate * i) * (1 - 0.2 * math.exp(-0.12 * i))
-        for i in range(n)
-    ]
+    weights = [math.exp(-decay_rate * i) * (1 - 0.2 * math.exp(-0.12 * i)) for i in range(n)]
     denom_decay = sum(values[i] * weights[i] for i in range(n)) or 1.0
     term1 = [values[i] * weights[i] / denom_decay for i in range(n)]
 
@@ -5154,10 +5286,7 @@ def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BU
     floors_per_row = [1.0 + (1.0 if 48 <= i < 60 else 0.0) for i in range(n)]
     floor_pool = sum(floors_per_row)
     pool = float(total) - floor_pool
-    c_vals = [
-        floors_per_row[i] + pool * (0.6 * term1[i] + 0.4 * term2[i])
-        for i in range(n)
-    ]
+    c_vals = [floors_per_row[i] + pool * (0.6 * term1[i] + 0.4 * term2[i]) for i in range(n)]
 
     # Monotone half-dollar rounding (sheet uses ×2 / /2).
     doubled = [c * 2 for c in c_vals]
@@ -5175,10 +5304,10 @@ def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BU
     # forces K[i] ≤ K[i-1] so the dollar curve never re-rises).
     def cap_for(i: int) -> int:
         if 48 <= i < 60:
-            return 4   # R5 cap → D ≤ $2
+            return 4  # R5 cap → D ≤ $2
         if 60 <= i < 72:
-            return 2   # R6 cap → D ≤ $1
-        return 10 ** 9
+            return 2  # R6 cap → D ≤ $1
+        return 10**9
 
     k_vals: list[int] = []
     for i in range(n):
@@ -5205,6 +5334,7 @@ def _rookie_dollars_from_values(values: list[float], total: int = DRAFT_TOTAL_BU
 def _parse_csv_rookies():
     """Parse rookie rankings from the draft data CSV (cols 22-25)."""
     import csv
+
     if not DRAFT_DATA_CSV.exists():
         return []
     try:
@@ -5220,7 +5350,7 @@ def _parse_csv_rookies():
             rank_header_idx = i
             break
     if rank_header_idx is not None:
-        for row in rows[rank_header_idx + 1:]:
+        for row in rows[rank_header_idx + 1 :]:
             if len(row) < 26:
                 continue
             rank_str = row[22].strip() if row[22] else ""
@@ -5290,22 +5420,26 @@ def _parse_draft_xlsx():
     # ── Final pick assignments Q45:R116 ──
     workbook_picks: list[dict] = []
     for row in range(45, 117):
-        rnd = ws.cell(row, 15).value   # O
-        pk  = ws.cell(row, 16).value   # P
-        val = ws.cell(row, 17).value   # Q
-        own = ws.cell(row, 18).value   # R
+        rnd = ws.cell(row, 15).value  # O
+        pk = ws.cell(row, 16).value  # P
+        val = ws.cell(row, 17).value  # Q
+        own = ws.cell(row, 18).value  # R
         if rnd is None or pk is None or val is None or own is None:
             continue
-        workbook_picks.append({
-            "round": int(rnd), "pick": int(pk),
-            "value": float(val), "owner": str(own).strip(),
-        })
+        workbook_picks.append(
+            {
+                "round": int(rnd),
+                "pick": int(pk),
+                "value": float(val),
+                "owner": str(own).strip(),
+            }
+        )
 
     # ── Standings O30:R42 — slot → original owner ──
     slot_to_original_owner: dict[int, str] = {}
     for row in range(30, 43):
         owner = ws.cell(row, 16).value  # P = Owner
-        slot  = ws.cell(row, 18).value  # R = Pick #
+        slot = ws.cell(row, 18).value  # R = Pick #
         if owner and slot is not None:
             try:
                 slot_to_original_owner[int(slot)] = str(owner).strip()
@@ -5316,7 +5450,7 @@ def _parse_draft_xlsx():
     workbook_team_totals: dict[str, float] = {}
     for row in range(63, 75):
         team = ws.cell(row, 20).value  # T
-        val  = ws.cell(row, 21).value  # U
+        val = ws.cell(row, 21).value  # U
         if team and val is not None:
             workbook_team_totals[str(team).strip()] = float(val)
 
@@ -5329,6 +5463,7 @@ def _parse_draft_csv_fallback():
     Returns (pick_dollars, workbook_picks, slot_to_original, wb_totals) or None.
     """
     import csv
+
     if not DRAFT_DATA_CSV.exists():
         return None
     try:
@@ -5385,8 +5520,8 @@ def _parse_draft_csv_fallback():
     for row in rows:
         if len(row) <= 20:
             continue
-        c19 = (row[19].strip() if row[19] else "")
-        c20 = (row[20].strip() if row[20] else "")
+        c19 = row[19].strip() if row[19] else ""
+        c20 = row[20].strip() if row[20] else ""
         if c19 == "Team" and c20.startswith("Auction"):
             in_team = True
             continue
@@ -5431,6 +5566,7 @@ def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
     the deficit to the values with the largest fractional parts.
     """
     import math
+
     floors = [math.floor(v) for v in values]
     remainders = [(v - math.floor(v), i) for i, v in enumerate(values)]
     deficit = budget - sum(floors)
@@ -5459,7 +5595,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     ``apply_sleeper_trades=False`` preserves the legacy workbook-
     only behavior (used by tests that assert sheet-derived totals).
     """
-    pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies, pick_values_l = _parse_draft_data()
+    pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies, pick_values_l = (
+        _parse_draft_data()
+    )
     if not workbook_picks:
         return {"error": "Draft data workbook not found or empty"}
 
@@ -5551,9 +5689,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         user_map: dict[str, str] = {}
         for u in json.loads(users_resp.read()):
             uid = u.get("user_id")
-            user_map[uid] = (u.get("metadata", {}).get("team_name")
-                             or u.get("display_name")
-                             or f"Team {uid}")
+            user_map[uid] = (
+                u.get("metadata", {}).get("team_name") or u.get("display_name") or f"Team {uid}"
+            )
 
         roster_name_by_id: dict[int, str] = {}
         owner_to_roster_id: dict[str, int] = {}
@@ -5715,13 +5853,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # slot.  Filtering to the bridged set guarantees every
         # slot in ``effective_slot_to_rid`` has a corresponding
         # entry in ``roster_id_to_first_name`` after the join.
-        _bridged_rids: set[int] = {
-            int(rid) for rid in slot_to_roster.values()
-        }
+        _bridged_rids: set[int] = {int(rid) for rid in slot_to_roster.values()}
         _bridged_fppts: dict[int, float] = {
-            int(rid): pts
-            for rid, pts in roster_fppts.items()
-            if int(rid) in _bridged_rids
+            int(rid): pts for rid, pts in roster_fppts.items() if int(rid) in _bridged_rids
         }
         # Codex P1: a pure count gate (``len(slot_to_roster) >=
         # len(slot_to_original)``) still activates when Sleeper's
@@ -5747,21 +5881,15 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         )
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
         if live_standings_active:
-            _sorted_rids = sorted(
-                _bridged_fppts, key=lambda r: _bridged_fppts[r]
-            )
+            _sorted_rids = sorted(_bridged_fppts, key=lambda r: _bridged_fppts[r])
             effective_slot_to_rid = {
                 int(i): int(rid)
-                for i, rid in enumerate(
-                    _sorted_rids[:len(slot_to_original)], start=1
-                )
+                for i, rid in enumerate(_sorted_rids[: len(slot_to_original)], start=1)
             }
 
         # slot → display name, derived from the effective mapping.
         for slot, rid in effective_slot_to_rid.items():
-            slot_to_origin_display[int(slot)] = roster_name_by_id.get(
-                rid, f"Team {rid}"
-            )
+            slot_to_origin_display[int(slot)] = roster_name_by_id.get(rid, f"Team {rid}")
         # Slots in the workbook that the effective mapping didn't
         # cover (e.g. a 14-team workbook joined against a 12-roster
         # Sleeper league) fall back to the workbook's first-name →
@@ -5905,15 +6033,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         if live_standings_active:
             _slot_rid = effective_slot_to_rid.get(slot)
             if _slot_rid is not None:
-                owner_first = roster_id_to_first_name.get(
-                    _slot_rid, owner_first
-                )
+                owner_first = roster_id_to_first_name.get(_slot_rid, owner_first)
                 owner_rid = _slot_rid
-        elif (
-            owner_first
-            and origin_first
-            and str(owner_first).strip() != str(origin_first).strip()
-        ):
+        elif owner_first and origin_first and str(owner_first).strip() != str(origin_first).strip():
             # Workbook-recorded (hand-entered) trade with no live
             # reshuffle: the only path that must resolve owner →
             # roster_id through the name map.  ``first_name_to_rid``
@@ -5960,25 +6082,27 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             else float(val)
         )
 
-        all_picks.append({
-            "pick": f"{rnd}.{str(slot).zfill(2)}",
-            "round": rnd,
-            "pickInRound": slot,
-            "overallPick": overall_idx + 1,
-            "dollarValue": dollar,
-            "adjustedDollarValue": dollar,
-            # Same source as dollarValue.  The legacy distinction
-            # between expansion-averaged Q and unaveraged grid no
-            # longer applies — L is unaveraged by construction.
-            "originalDollarValue": dollar,
-            "originalOwner": origin_team,
-            "currentOwner": owner_team,
-            "isTraded": is_traded,
-            "isExpansion": slot <= 2,
-            "rookieName": None,
-            "rookiePos": None,
-            "rookieKtcValue": None,
-        })
+        all_picks.append(
+            {
+                "pick": f"{rnd}.{str(slot).zfill(2)}",
+                "round": rnd,
+                "pickInRound": slot,
+                "overallPick": overall_idx + 1,
+                "dollarValue": dollar,
+                "adjustedDollarValue": dollar,
+                # Same source as dollarValue.  The legacy distinction
+                # between expansion-averaged Q and unaveraged grid no
+                # longer applies — L is unaveraged by construction.
+                "originalDollarValue": dollar,
+                "originalOwner": origin_team,
+                "currentOwner": owner_team,
+                "isTraded": is_traded,
+                "isExpansion": slot <= 2,
+                "rookieName": None,
+                "rookiePos": None,
+                "rookieKtcValue": None,
+            }
+        )
         team_totals_decimal.setdefault(owner_team, 0.0)
         team_totals_decimal[owner_team] += float(val)
 
@@ -6003,18 +6127,24 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
         rookie_dollar_overrides = _rookie_dollars_from_values(
-            raw_values, DRAFT_TOTAL_BUDGET,
+            raw_values,
+            DRAFT_TOTAL_BUDGET,
         )
         # Vendor $ on the same $1200 scale (KTC sorted by KTC raw,
         # IDPTC sorted by IDPTC raw) so the frontend's gap math is
         # honest dollar-vs-dollar instead of dollar-vs-raw-thousand.
         ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
-            our_rookies, DRAFT_TOTAL_BUDGET,
+            our_rookies,
+            DRAFT_TOTAL_BUDGET,
         )
         rookies = [
-            {"name": r["name"], "pos": r["pos"], "value": d,
-             "ktcDollar": ktc_by_name.get(r["name"].lower()),
-             "idpTradeCalcDollar": idp_by_name.get(r["name"].lower())}
+            {
+                "name": r["name"],
+                "pos": r["pos"],
+                "value": d,
+                "ktcDollar": ktc_by_name.get(r["name"].lower()),
+                "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+            }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
     else:
@@ -6039,7 +6169,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
     # KTC data source info — only meaningful when we fell back to KTC.
-    ktc_source = "live" if (_ktc_cache["rookies"] is not None and (time.time() - _ktc_cache["fetched_at"]) < _KTC_CACHE_TTL) else "csv"
+    ktc_source = (
+        "live"
+        if (
+            _ktc_cache["rookies"] is not None
+            and (time.time() - _ktc_cache["fetched_at"]) < _KTC_CACHE_TTL
+        )
+        else "csv"
+    )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
     return {
@@ -6096,11 +6233,14 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             # in the UI so users see "Sleeper-derived" vs.
             # "workbook-calibrated".
             from src.api.draft_capital_fallback import build_sleeper_derived
+
             result = build_sleeper_derived(
                 league_cfg.sleeper_league_id,
                 latest_contract_data or {},
                 current_season=datetime.now(timezone.utc).year,
-                num_teams=league_cfg.roster_settings.get("teamCount", 12) if hasattr(league_cfg, "roster_settings") else 12,
+                num_teams=league_cfg.roster_settings.get("teamCount", 12)
+                if hasattr(league_cfg, "roster_settings")
+                else 12,
             )
         if isinstance(result, dict):
             result["leagueKey"] = league_cfg.key
@@ -6108,8 +6248,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     except Exception as e:
         logging.error(f"Draft capital computation failed: {e}")
         return JSONResponse(
-            status_code=500,
-            content={"error": f"Draft capital computation failed: {str(e)}"}
+            status_code=500, content={"error": f"Draft capital computation failed: {str(e)}"}
         )
 
 
@@ -6216,8 +6355,7 @@ async def get_sleeper_draft_picks(
             content={
                 "error": "no_active_draft",
                 "message": (
-                    "No active draft for this league, or Sleeper is "
-                    "unreachable right now."
+                    "No active draft for this league, or Sleeper is " "unreachable right now."
                 ),
                 "leagueKey": league_cfg.key,
             },
@@ -6276,6 +6414,8 @@ def _build_public_activity_valuation():
     so it can be unit-tested without pulling in FastAPI.
     """
     return _build_valuation_from_contract(latest_contract_data)
+
+
 _public_league_cache: dict = {
     "snapshot": None,
     "snapshot_league_id": None,
@@ -6327,21 +6467,16 @@ def _public_league_metrics_snapshot() -> dict:
     """Copy of the metrics dict safe to ship out of the process."""
     snap = dict(_public_league_metrics)
     # Derived fields.
-    total = (
-        snap["cache_hit"]
-        + snap["cache_stale_served"]
-        + snap["cache_miss_cold_rebuild"]
-    )
+    total = snap["cache_hit"] + snap["cache_stale_served"] + snap["cache_miss_cold_rebuild"]
     snap["total_served"] = total
-    snap["cache_hit_ratio"] = (
-        round(snap["cache_hit"] / total, 4) if total else None
-    )
+    snap["cache_hit_ratio"] = round(snap["cache_hit"] / total, 4) if total else None
     snap["avg_rebuild_seconds"] = (
         round(snap["total_rebuild_seconds"] / snap["rebuild_count"], 4)
         if snap["rebuild_count"]
         else None
     )
     return snap
+
 
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
@@ -6640,7 +6775,10 @@ async def get_public_league_matchup(
     try:
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         recap = public_matchup_recap.build_matchup_recap(
-            snapshot, season, int(week), int(matchup_id),
+            snapshot,
+            season,
+            int(week),
+            int(matchup_id),
         )
         if recap is None:
             return JSONResponse(
@@ -6653,8 +6791,12 @@ async def get_public_league_matchup(
             "contractVersion": "public-league-matchup/2026-04-17.v1",
             "league": {
                 "rootLeagueId": snapshot.root_league_id,
-                "currentLeagueId": snapshot.current_season.league_id if snapshot.current_season else "",
-                "leagueName": str((snapshot.current_season.league or {}).get("name") or "") if snapshot.current_season else "",
+                "currentLeagueId": snapshot.current_season.league_id
+                if snapshot.current_season
+                else "",
+                "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
+                if snapshot.current_season
+                else "",
                 "managers": snapshot.managers.to_public_list(),
                 "seasonsCovered": snapshot.season_ids,
                 "generatedAt": snapshot.generated_at,
@@ -6720,7 +6862,9 @@ async def get_public_league_player(player_id: str, refresh: str = ""):
             "contractVersion": "public-league-player/2026-04-17.v1",
             "league": {
                 "rootLeagueId": snapshot.root_league_id,
-                "leagueName": str((snapshot.current_season.league or {}).get("name") or "") if snapshot.current_season else "",
+                "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
+                if snapshot.current_season
+                else "",
                 "managers": snapshot.managers.to_public_list(),
                 "seasonsCovered": snapshot.season_ids,
                 "generatedAt": snapshot.generated_at,
@@ -6831,9 +6975,7 @@ async def get_public_league_section_csv(
             kwargs["owner_id"] = str(owner).strip()
         if section == "archives" and kind:
             kwargs["kind"] = str(kind).strip()
-        filename, text = public_csv_export.export_section(
-            section, payload["data"], **kwargs
-        )
+        filename, text = public_csv_export.export_section(section, payload["data"], **kwargs)
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
@@ -6873,8 +7015,10 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
     if section not in PUBLIC_SECTION_KEYS:
         return JSONResponse(
             status_code=404,
-            content={"error": f"Unknown public league section: {section!r}",
-                     "availableSections": list(PUBLIC_SECTION_KEYS)},
+            content={
+                "error": f"Unknown public league section: {section!r}",
+                "availableSections": list(PUBLIC_SECTION_KEYS),
+            },
         )
     try:
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
@@ -6933,7 +7077,8 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
         # UI can show "X trades loaded" right away.
         loaded_sleeper = (
             latest_contract_data.get("sleeper") or {}
-            if isinstance(latest_contract_data, dict) else {}
+            if isinstance(latest_contract_data, dict)
+            else {}
         )
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
         _sleeper_overlay.invalidate_overlay_cache(league_cfg.sleeper_league_id)
@@ -6962,14 +7107,16 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
                     "leagueKey": league_cfg.key,
                 },
             )
-        return JSONResponse(content={
-            "message": f"Sleeper overlay refreshed for {league_cfg.key!r}.",
-            "leagueKey": league_cfg.key,
-            "teamCount": len(overlay.get("teams") or []),
-            "tradeCount": len(overlay.get("trades") or []),
-            "waiverCount": len(overlay.get("waivers") or []),
-            "overlayFetchedAt": overlay.get("overlayFetchedAt"),
-        })
+        return JSONResponse(
+            content={
+                "message": f"Sleeper overlay refreshed for {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+                "teamCount": len(overlay.get("teams") or []),
+                "tradeCount": len(overlay.get("trades") or []),
+                "waiverCount": len(overlay.get("waivers") or []),
+                "overlayFetchedAt": overlay.get("overlayFetchedAt"),
+            }
+        )
 
     status_payload = _scrape_status_payload()
     if status_payload.get("is_running") or scrape_run_lock.locked():
@@ -6983,17 +7130,20 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
         )
         return JSONResponse(
             status_code=409,
-            content={"error": "Scrape already in progress",
-                     "status": status_payload}
+            content={"error": "Scrape already in progress", "status": status_payload},
         )
 
     # Run in background so the API returns immediately
-    _record_scrape_event("scrape_requested", message="Manual scrape trigger accepted", trigger="manual_api")
+    _record_scrape_event(
+        "scrape_requested", message="Manual scrape trigger accepted", trigger="manual_api"
+    )
     background_tasks.add_task(run_scraper, "manual_api")
-    return JSONResponse(content={
-        "message": "Scrape started in background",
-        "status": _scrape_status_payload(),
-    })
+    return JSONResponse(
+        content={
+            "message": "Scrape started in background",
+            "status": _scrape_status_payload(),
+        }
+    )
 
 
 @app.post("/api/test-alert")
@@ -7002,16 +7152,13 @@ async def test_alert():
     if not ALERT_ENABLED:
         return JSONResponse(
             status_code=400,
-            content={"error": "Alerts not enabled. Set environment variable ALERT_ENABLED=true"}
+            content={"error": "Alerts not enabled. Set environment variable ALERT_ENABLED=true"},
         )
     try:
         send_alert("Test Alert", "If you're reading this, email alerts are working!")
         return JSONResponse(content={"message": f"Test alert sent to {ALERT_TO}"})
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Failed: {str(e)}"}
-        )
+        return JSONResponse(status_code=500, content={"error": f"Failed: {str(e)}"})
 
 
 # ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
@@ -7089,12 +7236,14 @@ async def auth_login(request: Request):
             expires_at_epoch=pass_row.expires_at_epoch,
             guest_pass_id=pass_row.id,
         )
-        response = JSONResponse(content={
-            "ok": True,
-            "redirect": next_path,
-            "guest": True,
-            "expiresAtEpoch": pass_row.expires_at_epoch,
-        })
+        response = JSONResponse(
+            content={
+                "ok": True,
+                "redirect": next_path,
+                "guest": True,
+                "expiresAtEpoch": pass_row.expires_at_epoch,
+            }
+        )
         # Cookie max-age is the smaller of the pass's remaining
         # lifetime or the standard ceiling.  Browser may still keep
         # the cookie longer if the user fiddles with system time;
@@ -7140,6 +7289,7 @@ async def auth_logout_redirect(request: Request):
 # hook falls back to a localStorage-only path when unauthenticated, so
 # a logged-out visitor still sees defaults without polluting the
 # shared store.
+
 
 @app.get("/api/user/state")
 async def get_user_state_api(request: Request):
@@ -7200,7 +7350,8 @@ async def put_user_state_api(request: Request):
             patch["dismissalAliases"] = None
         elif isinstance(da, dict):
             patch["dismissalAliases"] = {
-                str(k): str(v) for k, v in da.items()
+                str(k): str(v)
+                for k, v in da.items()
                 if isinstance(k, str) and isinstance(v, (str, int))
             }
     if "notificationsEmail" in body:
@@ -7315,7 +7466,10 @@ async def post_push_subscribe(request: Request):
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"error": str(exc)})
     await run_in_threadpool(
-        _user_kv.set_user_field, username, "pushSubscriptions", new_subs,
+        _user_kv.set_user_field,
+        username,
+        "pushSubscriptions",
+        new_subs,
     )
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
@@ -7341,7 +7495,10 @@ async def post_push_unsubscribe(request: Request):
     state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
     new_subs = _push_delivery.remove_subscription(state, endpoint)
     await run_in_threadpool(
-        _user_kv.set_user_field, username, "pushSubscriptions", new_subs,
+        _user_kv.set_user_field,
+        username,
+        "pushSubscriptions",
+        new_subs,
     )
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
@@ -7400,7 +7557,8 @@ async def put_custom_alerts(request: Request):
         prior_state = {}
     new_ids = {r["id"] for r in cleaned}
     pruned_state = {
-        k: v for k, v in prior_state.items()
+        k: v
+        for k, v in prior_state.items()
         if isinstance(k, str) and k.split("::", 1)[0] in new_ids
     }
 
@@ -7433,7 +7591,8 @@ async def run_custom_alerts(request: Request):
         session = _get_auth_session(request)
         if not session or session.get("auth_method") != "password":
             return JSONResponse(
-                status_code=401, content={"error": "admin_auth_required"},
+                status_code=401,
+                content={"error": "admin_auth_required"},
             )
 
     if not latest_contract_data:
@@ -7455,7 +7614,9 @@ async def run_custom_alerts(request: Request):
 
         try:
             hits = _custom_alerts.evaluate_alerts(
-                rules, players_array, state=cooldown_state,
+                rules,
+                players_array,
+                state=cooldown_state,
             )
         except Exception as exc:
             log.warning("custom-alerts evaluation failed for %s: %s", username, exc)
@@ -7508,7 +7669,8 @@ async def run_custom_alerts(request: Request):
             patch["customAlertsState"] = new_state
         if endpoints_to_prune:
             kept = [
-                s for s in _push_delivery.list_subscriptions(state)
+                s
+                for s in _push_delivery.list_subscriptions(state)
                 if s.get("endpoint") not in set(endpoints_to_prune)
             ]
             patch["pushSubscriptions"] = kept
@@ -7600,7 +7762,10 @@ async def restore_signal_api(request: Request):
         if cfg is not None and cfg.active:
             scoped_key = cfg.key
     state = await run_in_threadpool(
-        _user_kv.undismiss_signal, username, signal_key, league_key=scoped_key,
+        _user_kv.undismiss_signal,
+        username,
+        signal_key,
+        league_key=scoped_key,
     )
     return JSONResponse(
         content={"username": username, "state": state},
@@ -7630,6 +7795,7 @@ async def restore_signal_api(request: Request):
 #   * If even the cached export is absent, surface a 503 with the
 #     same shape so the frontend error UI can render a coherent
 #     message.
+
 
 def _latest_cached_contract_from_disk() -> tuple[dict | None, str | None]:
     """Return the most recent on-disk ``dynasty_data_*.json`` export
@@ -7736,7 +7902,9 @@ async def get_terminal(request: Request):
             )
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "terminal overlay fetch failed for %s: %s", league_cfg.key, exc,
+                "terminal overlay fetch failed for %s: %s",
+                league_cfg.key,
+                exc,
             )
             overlay = None
         if not overlay or not overlay.get("teams"):
@@ -7755,20 +7923,29 @@ async def get_terminal(request: Request):
         hybrid_sleeper = {
             **{
                 k: loaded_sleeper.get(k)
-                for k in ("positions", "playerIds", "idToPlayer",
-                          "scoringSettings", "rosterPositions",
-                          "leagueSettings")
+                for k in (
+                    "positions",
+                    "playerIds",
+                    "idToPlayer",
+                    "scoringSettings",
+                    "rosterPositions",
+                    "leagueSettings",
+                )
                 if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
             },
             **overlay,
         }
-        contract = {**contract, "sleeper": hybrid_sleeper, "meta": {
-            **loaded_meta,
-            "leagueKey": league_cfg.key,
-            "sleeperDataReady": True,
-            "sleeperSource": "overlay",
-            "sleeperLoadedLeagueKey": loaded_league,
-        }}
+        contract = {
+            **contract,
+            "sleeper": hybrid_sleeper,
+            "meta": {
+                **loaded_meta,
+                "leagueKey": league_cfg.key,
+                "sleeperDataReady": True,
+                "sleeperSource": "overlay",
+                "sleeperLoadedLeagueKey": loaded_league,
+            },
+        }
 
     params = request.query_params
     team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
@@ -7792,7 +7969,9 @@ async def get_terminal(request: Request):
         # ``team`` param — we never expose per-roster state without
         # authentication.  ``resolved_team=None`` is enforced below.
         resolved_team = _terminal.resolve_team(
-            contract, owner_id=team_owner_id, name=team_name,
+            contract,
+            owner_id=team_owner_id,
+            name=team_name,
         )
         # Auto-resolve via the authenticated Sleeper user id when the
         # client didn't pass an explicit team.  This is the "Sleeper
@@ -7803,7 +7982,9 @@ async def get_terminal(request: Request):
             session_sleeper_id = str((session or {}).get("sleeper_user_id") or "").strip()
             if session_sleeper_id:
                 resolved_team = _terminal.resolve_team(
-                    contract, owner_id=session_sleeper_id, name=None,
+                    contract,
+                    owner_id=session_sleeper_id,
+                    name=None,
                 )
 
     try:
@@ -7928,7 +8109,9 @@ async def post_trade_simulate(request: Request):
             )
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "trade-simulate overlay fetch failed for %s: %s", league_cfg.key, exc,
+                "trade-simulate overlay fetch failed for %s: %s",
+                league_cfg.key,
+                exc,
             )
             overlay = None
         if not overlay or not overlay.get("teams"):
@@ -7943,9 +8126,14 @@ async def post_trade_simulate(request: Request):
         hybrid_sleeper = {
             **{
                 k: loaded_sleeper.get(k)
-                for k in ("positions", "playerIds", "idToPlayer",
-                          "scoringSettings", "rosterPositions",
-                          "leagueSettings")
+                for k in (
+                    "positions",
+                    "playerIds",
+                    "idToPlayer",
+                    "scoringSettings",
+                    "rosterPositions",
+                    "leagueSettings",
+                )
                 if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
             },
             **overlay,
@@ -7961,7 +8149,9 @@ async def post_trade_simulate(request: Request):
         team_owner_id = str(session.get("sleeper_user_id") or "").strip()
 
     resolved_team = _terminal.resolve_team(
-        contract, owner_id=team_owner_id, name=team_name,
+        contract,
+        owner_id=team_owner_id,
+        name=team_name,
     )
     if resolved_team is None:
         return JSONResponse(
@@ -8020,7 +8210,8 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     except Exception as exc587:  # noqa: BLE001
         log.warning(
             "signal-alert SMTP 587 STARTTLS failed to %s: %s — falling back to 465",
-            to, exc587,
+            to,
+            exc587,
         )
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
@@ -8037,6 +8228,7 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
 # Gated on both: (1) a valid session AND (2) an explicit admin
 # username check against PRIVATE_APP_ALLOWED_USERNAMES.  Every
 # admin action is logged with username + action for audit.
+
 
 def _require_admin_session(request: Request):
     """Returns the session dict on success; returns a JSONResponse
@@ -8075,7 +8267,7 @@ async def post_test_create_session(request: Request):
         return JSONResponse(status_code=404, content={"error": "not_found"})
     expected = os.getenv("E2E_TEST_SECRET", "").strip()
     auth = str(request.headers.get("authorization", "")).strip()
-    provided = auth[len("Bearer "):].strip() if auth.lower().startswith("bearer ") else ""
+    provided = auth[len("Bearer ") :].strip() if auth.lower().startswith("bearer ") else ""
     if not expected or provided != expected:
         return JSONResponse(status_code=404, content={"error": "not_found"})
     username = (os.getenv("E2E_TEST_USERNAME") or "jasonleetucker").strip().lower()
@@ -8085,12 +8277,19 @@ async def post_test_create_session(request: Request):
         display_name=username,
         auth_method="e2e_test",
     )
-    res = JSONResponse(content={
-        "ok": True, "username": username, "sessionId": session_id,
-    })
+    res = JSONResponse(
+        content={
+            "ok": True,
+            "username": username,
+            "sessionId": session_id,
+        }
+    )
     res.set_cookie(
-        JASON_AUTH_COOKIE_NAME, session_id,
-        max_age=3600, httponly=True, samesite="lax",
+        JASON_AUTH_COOKIE_NAME,
+        session_id,
+        max_age=3600,
+        httponly=True,
+        samesite="lax",
     )
     return res
 
@@ -8106,6 +8305,7 @@ async def post_admin_nfl_data_flush(request: Request):
         return session_or_err
     session = session_or_err
     from src.nfl_data import cache as _nflc
+
     cache_dir = _nflc._default_cache_dir()  # noqa: SLF001
     deleted = 0
     try:
@@ -8123,7 +8323,8 @@ async def post_admin_nfl_data_flush(request: Request):
         )
     log.info(
         "admin action: nfl_data flush by %s — %d entries evicted",
-        session.get("username"), deleted,
+        session.get("username"),
+        deleted,
     )
     return JSONResponse(content={"ok": True, "evicted": deleted})
 
@@ -8142,18 +8343,23 @@ async def post_admin_force_logout_all(request: Request):
     persisted = 0
     try:
         from src.api import session_store as _ss
+
         persisted = _ss.force_clear_all()
     except Exception as exc:  # noqa: BLE001
         log.warning("force_clear_all session_store: %s", exc)
     log.warning(
         "admin action: FORCE-LOGOUT-ALL by %s — %d in-memory + %d persisted",
-        session.get("username"), in_mem_count, persisted,
+        session.get("username"),
+        in_mem_count,
+        persisted,
     )
-    return JSONResponse(content={
-        "ok": True,
-        "inMemoryCleared": in_mem_count,
-        "persistedCleared": persisted,
-    })
+    return JSONResponse(
+        content={
+            "ok": True,
+            "inMemoryCleared": in_mem_count,
+            "persistedCleared": persisted,
+        }
+    )
 
 
 @app.post("/api/admin/guest-pass")
@@ -8205,14 +8411,18 @@ async def post_admin_guest_pass_create(request: Request):
         )
     log.info(
         "admin action: guest_pass minted id=%d by %s expires=%.0f note=%r",
-        pass_row.id, session.get("username"),
-        pass_row.expires_at_epoch, pass_row.note[:40],
+        pass_row.id,
+        session.get("username"),
+        pass_row.expires_at_epoch,
+        pass_row.note[:40],
     )
-    return JSONResponse(content={
-        "ok": True,
-        "token": token,  # plaintext — shown ONCE, never again retrievable
-        "pass": pass_row.to_dict(),
-    })
+    return JSONResponse(
+        content={
+            "ok": True,
+            "token": token,  # plaintext — shown ONCE, never again retrievable
+            "pass": pass_row.to_dict(),
+        }
+    )
 
 
 @app.get("/api/admin/guest-passes")
@@ -8229,9 +8439,11 @@ async def get_admin_guest_passes(request: Request):
         _guest_passes.list_passes,
         include_inactive=not active_only,
     )
-    return JSONResponse(content={
-        "passes": [r.to_dict() for r in rows],
-    })
+    return JSONResponse(
+        content={
+            "passes": [r.to_dict() for r in rows],
+        }
+    )
 
 
 @app.post("/api/admin/guest-pass/{pass_id:int}/revoke")
@@ -8251,7 +8463,9 @@ async def post_admin_guest_pass_revoke(pass_id: int, request: Request):
     ok = await run_in_threadpool(_guest_passes.revoke, pass_id)
     log.info(
         "admin action: guest_pass revoke id=%d by %s ok=%s",
-        pass_id, session.get("username"), ok,
+        pass_id,
+        session.get("username"),
+        ok,
     )
     return JSONResponse(content={"ok": ok, "id": pass_id})
 
@@ -8266,6 +8480,7 @@ async def post_admin_signal_state_migrate(request: Request):
         return session_or_err
     session = session_or_err
     from src.api import signal_state_migration as _mig
+
     default_cfg = _league_registry.get_default_league()
     if default_cfg is None:
         return JSONResponse(
@@ -8275,7 +8490,8 @@ async def post_admin_signal_state_migrate(request: Request):
     result = _mig.migrate_all(default_league_key=default_cfg.key)
     log.info(
         "admin action: signal-state migrate by %s — counts=%s",
-        session.get("username"), result.get("counts"),
+        session.get("username"),
+        result.get("counts"),
     )
     return JSONResponse(content=result)
 
@@ -8292,6 +8508,7 @@ async def get_player_realized(sleeper_id: str, request: Request):
     `reason` when no stats are available, rather than 500-ing.
     """
     from src.api import feature_flags as _ff
+
     session = _get_auth_session(request)
     if not session:
         return JSONResponse(status_code=401, content={"error": "auth_required"})
@@ -8318,43 +8535,53 @@ async def get_player_realized(sleeper_id: str, request: Request):
     # current season for freshness + prior season for comparison.
     from src.nfl_data import ingest as _ing
     from src.nfl_data import realized_points as _rp
+
     now_year = datetime.now(timezone.utc).year
     years = [now_year - 1, now_year]
     weekly = _ing.fetch_weekly_stats(years)
 
     if not weekly:
-        return JSONResponse(content={
-            "sleeperId": sleeper_id,
-            "leagueKey": league_cfg.key,
-            "reason": "no_stats_available",
-            "weeks": [],
-            "totalPoints": 0.0,
-            "weekCount": 0,
-        })
+        return JSONResponse(
+            content={
+                "sleeperId": sleeper_id,
+                "leagueKey": league_cfg.key,
+                "reason": "no_stats_available",
+                "weeks": [],
+                "totalPoints": 0.0,
+                "weekCount": 0,
+            }
+        )
 
     # Find this player's GSIS via the unified mapper, then filter.
     from src.identity import unified_mapper as _um
+
     players_dir = sleeper_block.get("players") or sleeper_block.get("playerDict")
     resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
     if resolved is None or not resolved.gsis_id:
-        return JSONResponse(content={
-            "sleeperId": sleeper_id,
-            "leagueKey": league_cfg.key,
-            "reason": "unmapped_player",
-            "weeks": [],
-        })
+        return JSONResponse(
+            content={
+                "sleeperId": sleeper_id,
+                "leagueKey": league_cfg.key,
+                "reason": "unmapped_player",
+                "weeks": [],
+            }
+        )
     player_rows = [r for r in weekly if str(r.get("player_id_gsis") or "") == resolved.gsis_id]
     cumulative = _rp.compute_cumulative_points(
-        player_rows, scoring_settings, position=resolved.position,
+        player_rows,
+        scoring_settings,
+        position=resolved.position,
     )
-    return JSONResponse(content={
-        "sleeperId": sleeper_id,
-        "gsisId": resolved.gsis_id,
-        "fullName": resolved.full_name,
-        "position": resolved.position,
-        "leagueKey": league_cfg.key,
-        **cumulative,
-    })
+    return JSONResponse(
+        content={
+            "sleeperId": sleeper_id,
+            "gsisId": resolved.gsis_id,
+            "fullName": resolved.full_name,
+            "position": resolved.position,
+            "leagueKey": league_cfg.key,
+            **cumulative,
+        }
+    )
 
 
 @app.post("/api/trade/simulate-mc")
@@ -8462,9 +8689,12 @@ async def post_trade_simulate_mc(request: Request):
 
     def _run_mc() -> dict:
         base = _sym.simulate_symmetric(
-            side_a, side_b,
-            n_sims=n_sims, same_team_rho=rho_t,
-            same_pos_group_rho=rho_p, seed=seed,
+            side_a,
+            side_b,
+            n_sims=n_sims,
+            same_team_rho=rho_t,
+            same_pos_group_rho=rho_p,
+            seed=seed,
             apply_consolidation_adjustment=apply_ca,
         )
         return _sym.enrich_with_decision_shape(base, side_a, side_b)
@@ -8483,7 +8713,8 @@ async def post_trade_simulate_mc(request: Request):
     except asyncio.TimeoutError:
         log.warning(
             "simulate-mc timed out after %ss (n_sims=%d)",
-            SIMULATE_MC_TIMEOUT_SECONDS, n_sims,
+            SIMULATE_MC_TIMEOUT_SECONDS,
+            n_sims,
         )
         return JSONResponse(
             status_code=504,
@@ -8496,8 +8727,6 @@ async def post_trade_simulate_mc(request: Request):
             },
         )
     return JSONResponse(content=enriched)
-
-
 
 
 @app.post("/api/signal-alerts/run")
@@ -8545,6 +8774,7 @@ async def run_signal_alerts(request: Request):
             status_code=503,
             content={"error": "no_live_contract"},
         )
+
     # Walk every user_kv row.  No pagination — at current scale
     # (dozens of users tops) this is fine.  For each user, loop
     # over every active league: build a league-specific terminal
@@ -8557,15 +8787,18 @@ async def run_signal_alerts(request: Request):
         summary: list[dict] = []
         loaded_league = (
             (latest_contract_data or {}).get("meta", {}).get("leagueKey")
-            if isinstance(latest_contract_data, dict) else None
+            if isinstance(latest_contract_data, dict)
+            else None
         )
         loaded_profile = (
             (latest_contract_data or {}).get("meta", {}).get("scoringProfile")
-            if isinstance(latest_contract_data, dict) else None
+            if isinstance(latest_contract_data, dict)
+            else None
         )
         loaded_sleeper = (
             latest_contract_data.get("sleeper") or {}
-            if isinstance(latest_contract_data, dict) else {}
+            if isinstance(latest_contract_data, dict)
+            else {}
         )
         active_leagues = _league_registry.active_leagues()
         for username, state in db.items():
@@ -8586,17 +8819,16 @@ async def run_signal_alerts(request: Request):
                 # team-map entry and the contract doesn't resolve a
                 # team, they have nothing to alert on here.
                 league_entry = selected_teams.get(cfg.key) or {}
-                league_owner_id = (
-                    str(league_entry.get("ownerId") or "").strip()
-                    or owner_id
-                )
+                league_owner_id = str(league_entry.get("ownerId") or "").strip() or owner_id
                 # Build the league-specific contract.  For the
                 # loaded league this is just latest_contract_data;
                 # for other active leagues we splice in the overlay.
                 if cfg.key == loaded_league:
                     contract = latest_contract_data
                 elif loaded_profile and loaded_profile == cfg.scoring_profile:
-                    id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+                    id_map = (
+                        loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+                    )
                     try:
                         overlay = _sleeper_overlay.fetch_sleeper_overlay(
                             sleeper_league_id=cfg.sleeper_league_id,
@@ -8605,7 +8837,9 @@ async def run_signal_alerts(request: Request):
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
                             "signal-alerts overlay failed for %s / %s: %s",
-                            username, cfg.key, exc,
+                            username,
+                            cfg.key,
+                            exc,
                         )
                         overlay = None
                     if not overlay or not overlay.get("teams"):
@@ -8615,9 +8849,14 @@ async def run_signal_alerts(request: Request):
                     hybrid_sleeper = {
                         **{
                             k: loaded_sleeper.get(k)
-                            for k in ("positions", "playerIds", "idToPlayer",
-                                      "scoringSettings", "rosterPositions",
-                                      "leagueSettings")
+                            for k in (
+                                "positions",
+                                "playerIds",
+                                "idToPlayer",
+                                "scoringSettings",
+                                "rosterPositions",
+                                "leagueSettings",
+                            )
                             if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
                         },
                         **overlay,
@@ -8629,7 +8868,9 @@ async def run_signal_alerts(request: Request):
                     continue
 
                 team = _terminal.resolve_team(
-                    contract, owner_id=league_owner_id, name=None,
+                    contract,
+                    owner_id=league_owner_id,
+                    name=None,
                 )
                 if team is None:
                     # User isn't in this league — nothing to alert on.
@@ -8643,10 +8884,13 @@ async def run_signal_alerts(request: Request):
                         league_key=cfg.key,
                     )
                 except Exception as exc:  # noqa: BLE001
-                    user_summary.append({
-                        "leagueKey": cfg.key, "ok": False,
-                        "reason": f"build_error:{type(exc).__name__}",
-                    })
+                    user_summary.append(
+                        {
+                            "leagueKey": cfg.key,
+                            "ok": False,
+                            "reason": f"build_error:{type(exc).__name__}",
+                        }
+                    )
                     continue
                 result = _signal_alerts.process_user_alerts(
                     username,
@@ -8673,15 +8917,14 @@ async def run_signal_alerts(request: Request):
     try:
         from src.api import ops_alerts as _ops
         from src.utils import circuit_breaker as _cb
+
         status_payload = _scrape_status_payload()
         data_age_hours = None
         loaded_at = latest_data_source.get("loadedAt")
         if loaded_at:
             try:
                 loaded_dt = datetime.fromisoformat(loaded_at)
-                data_age_hours = (
-                    datetime.now(timezone.utc) - loaded_dt
-                ).total_seconds() / 3600.0
+                data_age_hours = (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600.0
             except (ValueError, TypeError):
                 pass
         ops_summary = _ops.check_and_alert(
@@ -8706,9 +8949,8 @@ async def run_signal_alerts(request: Request):
     # so we don't re-fire on every sweep.
     try:
         from src.api import source_health_alerts as _sha
-        source_health = _build_source_health_snapshot(
-            latest_data or latest_contract_data
-        )
+
+        source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
         if source_health:
             stale_summary = _sha.check_and_alert(
                 source_health,
@@ -8767,25 +9009,30 @@ async def get_league_articles(request: Request):
     enriched = []
     for entry in items:
         full = _mn.load_article(
-            entry["season"], entry["week"], entry["matchupId"], entry["mode"],
+            entry["season"],
+            entry["week"],
+            entry["matchupId"],
+            entry["mode"],
         )
         if not full:
             continue
-        enriched.append({
-            "season": entry["season"],
-            "week": entry["week"],
-            "mode": entry["mode"],
-            "matchupId": entry["matchupId"],
-            "title": full.get("title"),
-            "kicker": full.get("kicker"),
-            "angleUsed": full.get("angleUsed"),
-            "isChampionship": full.get("isChampionship", False),
-            "roundLabel": full.get("roundLabel", ""),
-            "home": full.get("home", {}),
-            "away": full.get("away", {}),
-            "generatedAt": full.get("generatedAt"),
-            "wordCount": full.get("wordCount", 0),
-        })
+        enriched.append(
+            {
+                "season": entry["season"],
+                "week": entry["week"],
+                "mode": entry["mode"],
+                "matchupId": entry["matchupId"],
+                "title": full.get("title"),
+                "kicker": full.get("kicker"),
+                "angleUsed": full.get("angleUsed"),
+                "isChampionship": full.get("isChampionship", False),
+                "roundLabel": full.get("roundLabel", ""),
+                "home": full.get("home", {}),
+                "away": full.get("away", {}),
+                "generatedAt": full.get("generatedAt"),
+                "wordCount": full.get("wordCount", 0),
+            }
+        )
 
     return JSONResponse(
         content={
@@ -8815,8 +9062,7 @@ async def get_league_article(season: str, week: int, matchup_id: int, mode: str)
             content={
                 "error": "not_found",
                 "message": (
-                    f"No {mode} article on disk for {season} W{week} "
-                    f"matchup {matchup_id}"
+                    f"No {mode} article on disk for {season} W{week} " f"matchup {matchup_id}"
                 ),
             },
         )
@@ -8907,7 +9153,10 @@ async def post_generate_league_article(request: Request):
     if not api_key:
         return JSONResponse(
             status_code=503,
-            content={"error": "anthropic_unavailable", "message": "ANTHROPIC_API_KEY not configured"},
+            content={
+                "error": "anthropic_unavailable",
+                "message": "ANTHROPIC_API_KEY not configured",
+            },
         )
 
     # Build the snapshot off the event loop — it does ~85 HTTP GETs
@@ -8970,7 +9219,9 @@ async def post_generate_league_article(request: Request):
     client = anthropic.AsyncAnthropic(api_key=api_key)
     try:
         article = await _mn.generate_article(
-            client=client, brief=brief, prior_articles=prior,
+            client=client,
+            brief=brief,
+            prior_articles=prior,
         )
     except Exception as exc:  # noqa: BLE001 — collapse SDK / network / parse to one structured error
         # generate_article raises RuntimeError for malformed JSON, but
@@ -8981,8 +9232,11 @@ async def post_generate_league_article(request: Request):
         log.warning(
             "league_article_generation_failed",
             extra={
-                "season": season, "week": week, "matchupId": matchup_id,
-                "mode": mode, "error_type": type(exc).__name__,
+                "season": season,
+                "week": week,
+                "matchupId": matchup_id,
+                "mode": mode,
+                "error_type": type(exc).__name__,
             },
         )
         return JSONResponse(
@@ -9016,7 +9270,9 @@ async def serve_league_entry(request: Request):
     return await _serve_app_shell("/league")
 
 
-def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> RedirectResponse | None:
+def _require_auth_or_redirect(
+    request: Request, default_next: str = "/app"
+) -> RedirectResponse | None:
     if _is_authenticated(request):
         return None
     return _auth_redirect_response(request, default_next)

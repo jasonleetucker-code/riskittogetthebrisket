@@ -128,12 +128,17 @@ class TestIdpRankings(unittest.TestCase):
     def test_idp_players_get_ranked(self):
         """IDP players with IDP source values must receive idpRank and canonicalConsensusRank."""
         import sys
+
         sys.path.insert(0, str(REPO_ROOT))
         from src.api.data_contract import build_api_data_contract
 
         payload = {
             "players": {
-                "Test QB": {"_composite": 9000, "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB"},
+                "Test QB": {
+                    "_composite": 9000,
+                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "position": "QB",
+                },
                 "Test DL": {"_composite": 6000, "_canonicalSiteValues": {"idpTradeCalc": 5800}},
                 "Test LB": {"_composite": 5000, "_canonicalSiteValues": {"idpTradeCalc": 4000}},
             },
@@ -151,7 +156,13 @@ class TestIdpRankings(unittest.TestCase):
         self.assertEqual(dl["idpRank"], 1)
         self.assertEqual(lb["idpRank"], 2)
         # Unified board: all three get canonicalConsensusRank (1, 2, or 3)
-        ranks = sorted([qb["canonicalConsensusRank"], dl["canonicalConsensusRank"], lb["canonicalConsensusRank"]])
+        ranks = sorted(
+            [
+                qb["canonicalConsensusRank"],
+                dl["canonicalConsensusRank"],
+                lb["canonicalConsensusRank"],
+            ]
+        )
         self.assertEqual(ranks, [1, 2, 3])
         # IDP players have rankDerivedValue
         self.assertGreater(dl["rankDerivedValue"], 0)

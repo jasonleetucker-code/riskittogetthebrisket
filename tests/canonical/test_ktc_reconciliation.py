@@ -23,6 +23,7 @@ The KTC fixture is the live offense-vet snapshot at
 ``CSVs/site_raw/ktc.csv``.  Picks (rows like "2026 Early 1st") are
 filtered out so the rank index reflects player ordering only.
 """
+
 from __future__ import annotations
 
 import csv
@@ -104,16 +105,16 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # a regression — break CI, investigate, re-baseline the affected ranks.
 # ──────────────────────────────────────────────────────────────────────
 PINNED_DELTAS: list[tuple[int, int, float, float]] = [
-    (  1, 9999,   0.0,  3.0),
-    (  5, 9544,  -0.7,  3.0),
-    ( 12, 8675,  10.9,  3.0),
-    ( 24, 7371,   9.9,  3.0),
-    ( 50, 5402,   3.1,  3.0),
-    (100, 3436,  -6.5,  5.0),
-    (150, 2465, -12.5,  5.0),
+    (1, 9999, 0.0, 3.0),
+    (5, 9544, -0.7, 3.0),
+    (12, 8675, 10.9, 3.0),
+    (24, 7371, 9.9, 3.0),
+    (50, 5402, 3.1, 3.0),
+    (100, 3436, -6.5, 5.0),
+    (150, 2465, -12.5, 5.0),
     (200, 1899, -21.3, 10.0),
     (300, 1280, -20.2, 10.0),
-    (400,  953,  -4.9, 10.0),
+    (400, 953, -4.9, 10.0),
 ]
 
 
@@ -182,9 +183,7 @@ class TestKTCCurveShapeInvariants:
     until the Hill curve is re-fit.
     """
 
-    def test_rank_one_matches_by_construction(
-        self, ktc_players: list[tuple[str, int]]
-    ) -> None:
+    def test_rank_one_matches_by_construction(self, ktc_players: list[tuple[str, int]]) -> None:
         # Both curves anchor at ~9999 at rank 1.  Our Hill ceiling
         # is exactly 9999 by construction; KTC's actual top varies
         # depending on scrape timing — their #1 player occasionally
@@ -197,9 +196,7 @@ class TestKTCCurveShapeInvariants:
         ours_top = _ours(1)
         assert abs(ours_top - ktc_top) <= 25
 
-    def test_midrange_is_higher_than_ktc(
-        self, ktc_players: list[tuple[str, int]]
-    ) -> None:
+    def test_midrange_is_higher_than_ktc(self, ktc_players: list[tuple[str, int]]) -> None:
         # Ranks 10-15 — our percentile-Hill curve sits above KTC
         # (their curve dips faster through the early top-12 than
         # the fitted Hill shape).
@@ -207,13 +204,10 @@ class TestKTCCurveShapeInvariants:
             _, ktc = ktc_players[rank - 1]
             ours = _ours(rank)
             assert ours > ktc, (
-                f"Expected our curve above KTC at rank {rank}, "
-                f"got ours={ours}, ktc={ktc}"
+                f"Expected our curve above KTC at rank {rank}, " f"got ours={ours}, ktc={ktc}"
             )
 
-    def test_tail_stays_bounded_vs_ktc(
-        self, ktc_players: list[tuple[str, int]]
-    ) -> None:
+    def test_tail_stays_bounded_vs_ktc(self, ktc_players: list[tuple[str, int]]) -> None:
         # Past rank 100, the divergence from KTC stays within ±40pp.
         # Our offense master curve is the unweighted mean of KTC, DD,
         # and DN per-source fits; DD and DN have steeper tails than
@@ -224,6 +218,5 @@ class TestKTCCurveShapeInvariants:
             ours = _ours(rank)
             pct = abs(100.0 * (ours - ktc) / ktc)
             assert pct <= 40.0, (
-                f"Divergence at rank {rank} too large: "
-                f"ours={ours}, ktc={ktc}, |pct|={pct:.1f}%"
+                f"Divergence at rank {rank} too large: " f"ours={ours}, ktc={ktc}, |pct|={pct:.1f}%"
             )

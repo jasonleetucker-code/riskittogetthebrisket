@@ -1,4 +1,5 @@
 """Test equal-weight season combination + missing-season behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -8,9 +9,14 @@ from src.league_comparison import metrics as m
 
 def _pm(avg: float, med: float, sample: int = 24) -> m.PositionMetrics:
     return m.PositionMetrics(
-        average=avg, median=med, p25=med * 0.7, p75=med * 1.3,
-        replacement_level=med * 0.5, elite=med * 1.5,
-        replacement_adj=avg - med * 0.5, sample_size=sample,
+        average=avg,
+        median=med,
+        p25=med * 0.7,
+        p75=med * 1.3,
+        replacement_level=med * 0.5,
+        elite=med * 1.5,
+        replacement_adj=avg - med * 0.5,
+        sample_size=sample,
     )
 
 

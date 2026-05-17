@@ -29,6 +29,7 @@ Output::
 Pure-Python.  Used by the player popup mini-chart when the
 ``value_confidence_intervals`` flag is on.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -54,12 +55,12 @@ class RankHistoryBand:
             "p90": [round(v, 1) for v in self.p90],
             "spread": [round(v, 1) for v in self.spread],
             "spreadChange30d": (
-                round(self.spread_change_30d, 1)
-                if self.spread_change_30d is not None else None
+                round(self.spread_change_30d, 1) if self.spread_change_30d is not None else None
             ),
             "spreadChangePct30d": (
                 round(self.spread_change_pct_30d, 3)
-                if self.spread_change_pct_30d is not None else None
+                if self.spread_change_pct_30d is not None
+                else None
             ),
             "trend": self.trend,
         }
@@ -130,7 +131,9 @@ def build_band_history(
 
     return RankHistoryBand(
         dates=dates,
-        p10=p10s, p50=p50s, p90=p90s,
+        p10=p10s,
+        p50=p50s,
+        p90=p90s,
         spread=spreads,
         spread_change_30d=spread_change,
         spread_change_pct_30d=spread_change_pct,

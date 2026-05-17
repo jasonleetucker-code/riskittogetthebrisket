@@ -8,6 +8,7 @@ are preserved when newer than the export.
 Run:
     python3 scripts/backfill_source_history.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,10 +36,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         default=None,
-        help=(
-            "Override output JSONL path.  Defaults to "
-            "src.api.source_history.HISTORY_PATH."
-        ),
+        help=("Override output JSONL path.  Defaults to " "src.api.source_history.HISTORY_PATH."),
     )
     parser.add_argument(
         "--dry-run",

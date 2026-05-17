@@ -14,6 +14,7 @@ pipeline from ever leaking private signals:
        modules (``src.canonical``, ``src.api.data_contract``,
        ``src.trade``) — enforced by an import-surface scan.
 """
+
 from __future__ import annotations
 
 import re
@@ -61,6 +62,7 @@ class PublicContractSafetyTests(unittest.TestCase):
             _LAZY_SECTION_BUILDERS,
             OVERVIEW_SECTION,
         )
+
         eager = (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
         for key in eager:
             self.assertIn(key, c["sections"])
@@ -313,12 +315,12 @@ class ActivityGradingTests(unittest.TestCase):
             return 0.0
 
         contract = build_public_contract(
-            self.snapshot, activity_valuation=_valuation,
+            self.snapshot,
+            activity_valuation=_valuation,
         )
         feed = contract["sections"]["activity"]["feed"]
         graded_sides = [
-            side for trade in feed for side in (trade.get("sides") or [])
-            if "grade" in side
+            side for trade in feed for side in (trade.get("sides") or []) if "grade" in side
         ]
         # At least the 2025 two-player swap should be graded.
         self.assertGreater(len(graded_sides), 0)
@@ -350,7 +352,8 @@ class ActivityGradingTests(unittest.TestCase):
             return 0.0
 
         contract = build_public_contract(
-            self.snapshot, activity_valuation=_valuation,
+            self.snapshot,
+            activity_valuation=_valuation,
         )
         feed = contract["sections"]["activity"]["feed"]
         trade_2025 = next(t for t in feed if t["transactionId"] == "tx-2025-a")
@@ -369,14 +372,18 @@ class ActivityGradingTests(unittest.TestCase):
         trade = {
             "transactionId": "synthetic-nan",
             "sides": [
-                {"receivedAssets": [
-                    {"kind": "player", "playerId": "a"},
-                    {"kind": "player", "playerId": "nan-1"},
-                ]},
-                {"receivedAssets": [
-                    {"kind": "player", "playerId": "b"},
-                    {"kind": "player", "playerId": "nan-2"},
-                ]},
+                {
+                    "receivedAssets": [
+                        {"kind": "player", "playerId": "a"},
+                        {"kind": "player", "playerId": "nan-1"},
+                    ]
+                },
+                {
+                    "receivedAssets": [
+                        {"kind": "player", "playerId": "b"},
+                        {"kind": "player", "playerId": "nan-2"},
+                    ]
+                },
             ],
         }
 
@@ -437,7 +444,9 @@ class ActivityGradingTests(unittest.TestCase):
             return 100.0
 
         payload = build_section_payload(
-            self.snapshot, "activity", activity_valuation=_valuation,
+            self.snapshot,
+            "activity",
+            activity_valuation=_valuation,
         )
         feed = payload["data"]["feed"]
         self.assertGreater(len(feed), 0)
@@ -474,8 +483,7 @@ class ImportSurfaceTests(unittest.TestCase):
                         offenders.append(f"{path.name}: {line.strip()}")
         self.assertFalse(
             offenders,
-            msg="Public league package must not import private internals:\n"
-            + "\n".join(offenders),
+            msg="Public league package must not import private internals:\n" + "\n".join(offenders),
         )
 
 

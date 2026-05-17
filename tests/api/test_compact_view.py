@@ -1,4 +1,5 @@
 """Tests for the compact contract view builder."""
+
 from __future__ import annotations
 
 from src.api import compact_view as cv

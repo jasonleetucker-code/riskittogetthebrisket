@@ -18,6 +18,7 @@ contract-shape dependency (``values.displayValue`` /
 ``values.rawComposite``) so a future rename to the private bundle
 keys can not silently disable public grading.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -28,7 +29,12 @@ from typing import Any, Callable
 # labels used by ``src/api/data_contract.py`` / the frontend pick
 # candidate builder.
 _ROUND_LABELS: dict[int, str] = {
-    1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th",
+    1: "1st",
+    2: "2nd",
+    3: "3rd",
+    4: "4th",
+    5: "5th",
+    6: "6th",
 }
 
 

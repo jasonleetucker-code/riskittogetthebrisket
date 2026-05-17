@@ -9,6 +9,7 @@ Companion ``find_drop_candidates`` returns the lowest-value players
 on the user's roster — best-ball-native: when adding a FA, you have
 to drop someone, and this surfaces who first.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,12 +24,28 @@ _LOGGER = logging.getLogger(__name__)
 MIN_WAIVER_VALUE = 500
 DEFAULT_PER_POSITION_LIMIT = 6
 
-_BASE_POSITIONS = frozenset({
-    "QB", "RB", "WR", "TE",
-    "DL", "DT", "DE", "EDGE", "NT",
-    "LB", "ILB", "OLB", "MLB",
-    "DB", "CB", "S", "FS", "SS",
-})
+_BASE_POSITIONS = frozenset(
+    {
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "DL",
+        "DT",
+        "DE",
+        "EDGE",
+        "NT",
+        "LB",
+        "ILB",
+        "OLB",
+        "MLB",
+        "DB",
+        "CB",
+        "S",
+        "FS",
+        "SS",
+    }
+)
 
 
 @dataclass
@@ -54,7 +71,9 @@ class WaiverCandidate:
                 "aggressive": self.bid_aggressive,
                 "reasonable": self.bid_reasonable,
                 "lowball": self.bid_lowball,
-            } if self.bid_aggressive is not None else None,
+            }
+            if self.bid_aggressive is not None
+            else None,
         }
 
 
@@ -163,9 +182,20 @@ def find_waiver_targets(
         total += len(capped)
 
     family_map = {
-        "DL": "DL", "DT": "DL", "DE": "DL", "EDGE": "DL", "NT": "DL",
-        "LB": "LB", "ILB": "LB", "OLB": "LB", "MLB": "LB",
-        "DB": "DB", "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
+        "DL": "DL",
+        "DT": "DL",
+        "DE": "DL",
+        "EDGE": "DL",
+        "NT": "DL",
+        "LB": "LB",
+        "ILB": "LB",
+        "OLB": "LB",
+        "MLB": "LB",
+        "DB": "DB",
+        "CB": "DB",
+        "S": "DB",
+        "FS": "DB",
+        "SS": "DB",
     }
     by_family: dict[str, list[dict[str, Any]]] = {}
     for pos, items in out_by_position.items():
@@ -219,14 +249,19 @@ def find_drop_candidates(
         if not rationale_parts:
             rationale_parts.append("low value vs roster average")
 
-        candidates.append((float(consensus), {
-            "name": name,
-            "position": str(row.get("position") or "").upper(),
-            "consensusValue": int(round(float(consensus))),
-            "adjustedValue": int(round(float(consensus))),  # alias
-            "rank": rank if isinstance(rank, int) else None,
-            "rationale": " · ".join(rationale_parts),
-        }))
+        candidates.append(
+            (
+                float(consensus),
+                {
+                    "name": name,
+                    "position": str(row.get("position") or "").upper(),
+                    "consensusValue": int(round(float(consensus))),
+                    "adjustedValue": int(round(float(consensus))),  # alias
+                    "rank": rank if isinstance(rank, int) else None,
+                    "rationale": " · ".join(rationale_parts),
+                },
+            )
+        )
 
     candidates.sort(key=lambda x: x[0])
     return [c[1] for c in candidates[:limit]]

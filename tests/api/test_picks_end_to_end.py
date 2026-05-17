@@ -25,6 +25,7 @@ regress:
 
 Run with:  python3 -m pytest tests/api/test_picks_end_to_end.py -v
 """
+
 from __future__ import annotations
 
 import csv
@@ -57,12 +58,8 @@ def _load_contract() -> dict[str, Any] | None:
     return build_api_data_contract(raw)
 
 
-_DEEP_TIER_GENERIC_RE = re.compile(
-    r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I
-)
-_DEEP_TIER_SLOT_RE = re.compile(
-    r"^(20\d{2})\s+Pick\s+([1-6])\.\d{1,2}$", re.I
-)
+_DEEP_TIER_GENERIC_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
+_DEEP_TIER_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.\d{1,2}$", re.I)
 
 
 def _is_deep_future_tier(name: str) -> bool:
@@ -111,6 +108,7 @@ def _slot_pick_round(name: str) -> int | None:
     """Extract round number from a slot-specific pick name like
     '2026 Pick 3.06'. Returns None for non-slot-pick names."""
     import re
+
     m = re.match(r"^\d{4}\s+Pick\s+(\d+)\.\d+$", str(name or "").strip())
     if m:
         try:
@@ -121,19 +119,11 @@ def _slot_pick_round(name: str) -> int | None:
 
 
 def _pick_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        r
-        for r in contract.get("playersArray", [])
-        if r.get("assetClass") == "pick"
-    ]
+    return [r for r in contract.get("playersArray", []) if r.get("assetClass") == "pick"]
 
 
 def _player_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        r
-        for r in contract.get("playersArray", [])
-        if r.get("assetClass") != "pick"
-    ]
+    return [r for r in contract.get("playersArray", []) if r.get("assetClass") != "pick"]
 
 
 class TestPicksPresentInContract(unittest.TestCase):
@@ -196,15 +186,11 @@ class TestPicksPresentInContract(unittest.TestCase):
         ]
         # Allow at most a handful of deep-tier dropouts (R5/R6 future
         # years).  Any larger count is a regression in the discount.
-        unexpected = [
-            n for n in missing
-            if not _is_deep_future_tier(n)
-        ]
+        unexpected = [n for n in missing if not _is_deep_future_tier(n)]
         self.assertEqual(
             unexpected,
             [],
-            f"Picks missing rank/value (excluding deep-tier dropouts): "
-            f"{unexpected[:10]}",
+            f"Picks missing rank/value (excluding deep-tier dropouts): " f"{unexpected[:10]}",
         )
         # 2026 slot picks in rounds 1-4 must have VALUE (anchored to
         # the corresponding rookie). Later-round slot picks depend on
@@ -213,17 +199,19 @@ class TestPicksPresentInContract(unittest.TestCase):
         # anchored value — this mirrors the pre-change behaviour where
         # those picks had tier-value approximations only.
         slot_2026_early = [
-            p for p in picks
+            p
+            for p in picks
             if str(p.get("canonicalName") or "").startswith("2026 Pick ")
             and _slot_pick_round(p.get("canonicalName") or "") in (1, 2, 3, 4)
         ]
         value_missing = [
-            p["canonicalName"] for p in slot_2026_early
-            if not p.get("rankDerivedValue")
-            or p.get("rankDerivedValue", 0) <= 0
+            p["canonicalName"]
+            for p in slot_2026_early
+            if not p.get("rankDerivedValue") or p.get("rankDerivedValue", 0) <= 0
         ]
         self.assertEqual(
-            value_missing, [],
+            value_missing,
+            [],
             f"2026 rounds 1-4 slot picks missing anchored value: {value_missing[:5]}",
         )
 
@@ -240,9 +228,7 @@ class TestPicksPresentInContract(unittest.TestCase):
             and not p.get("pickGenericSuppressed")
             and not _is_deep_future_tier(p["canonicalName"])
         ]
-        self.assertEqual(
-            empty, [], f"Picks with no sourceRanks: {empty[:10]}"
-        )
+        self.assertEqual(empty, [], f"Picks with no sourceRanks: {empty[:10]}")
 
 
 class TestPickCanonicalIdentity(unittest.TestCase):
@@ -255,11 +241,7 @@ class TestPickCanonicalIdentity(unittest.TestCase):
 
     def test_pick_names_match_pick_detector(self) -> None:
         picks = _pick_rows(self.contract)
-        bad = [
-            p["canonicalName"]
-            for p in picks
-            if not _is_pick_name(p["canonicalName"] or "")
-        ]
+        bad = [p["canonicalName"] for p in picks if not _is_pick_name(p["canonicalName"] or "")]
         self.assertEqual(
             bad,
             [],
@@ -275,16 +257,13 @@ class TestPickCanonicalIdentity(unittest.TestCase):
         self.assertEqual(
             collisions,
             set(),
-            f"Pick canonical names collide with player names: "
-            f"{sorted(collisions)[:5]}",
+            f"Pick canonical names collide with player names: " f"{sorted(collisions)[:5]}",
         )
 
     def test_no_player_name_accidentally_flagged_as_pick(self) -> None:
         players = _player_rows(self.contract)
         flagged = [
-            p["canonicalName"]
-            for p in players
-            if _is_pick_name(p.get("canonicalName") or "")
+            p["canonicalName"] for p in players if _is_pick_name(p.get("canonicalName") or "")
         ]
         self.assertEqual(
             flagged,
@@ -307,11 +286,7 @@ class TestPicksDoNotBreakSafetyRails(unittest.TestCase):
         # responsible for sorting by rank first.  Existing coherence
         # tests (tests/api/test_ranking_coherence.py) sort the same way.
         ranked = sorted(
-            [
-                r
-                for r in self.contract["playersArray"]
-                if r.get("canonicalConsensusRank")
-            ],
+            [r for r in self.contract["playersArray"] if r.get("canonicalConsensusRank")],
             key=lambda r: int(r["canonicalConsensusRank"]),
         )
         errors = assert_ranking_coherence(ranked)
@@ -352,9 +327,7 @@ class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
     def test_idptc_picks_all_present_in_contract(self) -> None:
         if not self.csv_picks:
             self.skipTest("No picks in idpTradeCalc.csv")
-        contract_pick_names = {
-            p["canonicalName"] for p in _pick_rows(self.contract)
-        }
+        contract_pick_names = {p["canonicalName"] for p in _pick_rows(self.contract)}
         missing = [n for n in self.csv_picks if n not in contract_pick_names]
         self.assertEqual(
             missing,
@@ -371,16 +344,14 @@ class TestRepresentativePicks(unittest.TestCase):
         "2026 Pick 1.06",  # mid-1st, slot-specific
         "2026 Pick 1.12",  # late-1st, slot-specific
         "2026 Pick 2.06",  # mid-2nd, slot-specific
-        "2027 Mid 1st",    # generic future 1st
+        "2027 Mid 1st",  # generic future 1st
     ]
 
     def setUp(self) -> None:
         self.contract = _load_contract()
         if self.contract is None:
             self.skipTest("No live scraper export available")
-        self.by_name = {
-            p["canonicalName"]: p for p in _pick_rows(self.contract)
-        }
+        self.by_name = {p["canonicalName"]: p for p in _pick_rows(self.contract)}
 
     def test_targets_have_rank_and_value(self) -> None:
         # 2026 slot-specific picks are intentionally un-ranked — they
@@ -390,9 +361,7 @@ class TestRepresentativePicks(unittest.TestCase):
         for name in self.TARGETS:
             with self.subTest(pick=name):
                 row = self.by_name.get(name)
-                self.assertIsNotNone(
-                    row, f"{name} missing from pick contract output"
-                )
+                self.assertIsNotNone(row, f"{name} missing from pick contract output")
                 assert row is not None
                 is_2026_slot = name.startswith("2026 Pick ")
                 if is_2026_slot:
@@ -462,13 +431,11 @@ class TestRepresentativePicks(unittest.TestCase):
                 continue
             legacy_value = legacy_row.get("rankDerivedValue")
             if legacy_value != pa_value:
-                mismatched.append(
-                    f"{name}: playersArray={pa_value} legacy={legacy_value}"
-                )
+                mismatched.append(f"{name}: playersArray={pa_value} legacy={legacy_value}")
         self.assertEqual(
-            mismatched, [],
-            f"Anchored slot picks lost value in legacy mirror:\n"
-            + "\n".join(mismatched[:10]),
+            mismatched,
+            [],
+            f"Anchored slot picks lost value in legacy mirror:\n" + "\n".join(mismatched[:10]),
         )
 
 
@@ -514,11 +481,10 @@ class TestPickValueProjections(unittest.TestCase):
                 "pickProjectedDraftValueGainPct",
             ):
                 if row.get(field) is None:
-                    missing_stamps.append(
-                        f"{row.get('canonicalName')}: missing {field}"
-                    )
+                    missing_stamps.append(f"{row.get('canonicalName')}: missing {field}")
         self.assertEqual(
-            missing_stamps, [],
+            missing_stamps,
+            [],
             "Every valued pick must stamp the full projection block:\n"
             + "\n".join(missing_stamps[:10]),
         )
@@ -528,7 +494,8 @@ class TestPickValueProjections(unittest.TestCase):
         ``pickYearDiscount == 1.0`` (or unstamped, equivalent), so the
         projection equals today's value with zero gain."""
         baseline_picks = [
-            r for r in self.picks
+            r
+            for r in self.picks
             if int(r.get("pickProjectedDraftYear") or 0) == 2026
             and (r.get("rankDerivedValue") or 0) > 0
         ]
@@ -550,7 +517,8 @@ class TestPickValueProjections(unittest.TestCase):
         applied, so the projection inverts to a value strictly above
         today's.  Pin the math: projected = round(rdv / discount)."""
         future_picks = [
-            r for r in self.picks
+            r
+            for r in self.picks
             if int(r.get("pickProjectedDraftYear") or 0) >= 2027
             and (r.get("rankDerivedValue") or 0) > 0
             and r.get("pickYearDiscount") is not None
@@ -571,7 +539,8 @@ class TestPickValueProjections(unittest.TestCase):
                     f"expected≈{expected}, got {actual}",
                 )
                 self.assertGreater(
-                    actual, int(rdv),
+                    actual,
+                    int(rdv),
                     f"future-year pick must project ABOVE today's value: "
                     f"rdv={rdv}, projected={actual}",
                 )
@@ -588,9 +557,7 @@ class TestPickValueProjections(unittest.TestCase):
             with self.subTest(pick=row.get("canonicalName")):
                 name = str(row.get("canonicalName") or "")
                 m = re.search(r"\b(20\d{2})\b", name)
-                self.assertIsNotNone(
-                    m, f"pick name lacks a year but has projection stamp: {name}"
-                )
+                self.assertIsNotNone(m, f"pick name lacks a year but has projection stamp: {name}")
                 assert m is not None
                 self.assertEqual(int(year_stamp), int(m.group(1)))
 

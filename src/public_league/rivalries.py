@@ -15,6 +15,7 @@ Rivalry index =
   + 1 * total_meetings
   + 2 * meetings_in_most_recent_season
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -142,7 +143,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         if rec["biggestBlowout"] is None or margin_abs > rec["biggestBlowout"]["margin"]:
             rec["biggestBlowout"] = meeting
         if rec["lastMeeting"] is None or (season.season, week) > (
-            rec["lastMeeting"]["season"], rec["lastMeeting"]["week"],
+            rec["lastMeeting"]["season"],
+            rec["lastMeeting"]["week"],
         ):
             rec["lastMeeting"] = meeting
 

@@ -8,6 +8,7 @@ rest-of-season consensus across 100+ experts, refreshed weekly.
 Same ``ecrData`` JSON blob format as the dynasty page, so the parse
 shape is shared and only the URL + source_type differ.
 """
+
 from __future__ import annotations
 
 import json
@@ -87,11 +88,7 @@ def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
     for entry in players:
         if not isinstance(entry, dict):
             continue
-        name = (
-            entry.get("player_name")
-            or entry.get("player_short_name")
-            or ""
-        )
+        name = entry.get("player_name") or entry.get("player_short_name") or ""
         if not name:
             continue
         try:

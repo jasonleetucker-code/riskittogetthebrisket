@@ -9,6 +9,7 @@ Run with: python3 -m pytest tests/api/test_launch_readiness.py -v
 
 Gate failures BLOCK release.  No exceptions.
 """
+
 from __future__ import annotations
 
 import gzip
@@ -57,6 +58,7 @@ def _get():
 
 # ── GATE 1: Identity Integrity ──────────────────────────────────────────
 
+
 class TestGate1IdentityIntegrity(unittest.TestCase):
     """No duplicate names, no quarantine overload, no cross-universe collisions."""
 
@@ -102,13 +104,13 @@ class TestGate1IdentityIntegrity(unittest.TestCase):
             self.skipTest("No live data")
         _, ranked, _ = result
         collisions = sum(
-            1 for r in ranked
-            if "name_collision_cross_universe" in (r.get("anomalyFlags") or [])
+            1 for r in ranked if "name_collision_cross_universe" in (r.get("anomalyFlags") or [])
         )
         self.assertEqual(collisions, 0)
 
 
 # ── GATE 2: Source Coverage ──────────────────────────────────────────────
+
 
 class TestGate2SourceCoverage(unittest.TestCase):
     """Multi-source coverage adequate; all 1-src cases explained."""
@@ -155,12 +157,12 @@ class TestGate2SourceCoverage(unittest.TestCase):
         pa = contract.get("playersArray", [])
         unexplained = assert_no_unexplained_single_source(pa, rank_limit=400)
         self.assertEqual(
-            unexplained, [],
-            f"Unexplained 1-src: {[u['canonicalName'] for u in unexplained]}"
+            unexplained, [], f"Unexplained 1-src: {[u['canonicalName'] for u in unexplained]}"
         )
 
 
 # ── GATE 3: Rank/Value Consistency ──────────────────────────────────────
+
 
 class TestGate3RankValueConsistency(unittest.TestCase):
     """Monotonic ordering, no missing fields, coherence check passes."""
@@ -194,8 +196,8 @@ class TestGate3RankValueConsistency(unittest.TestCase):
 
 # ── GATE 4: Duplicate-Rank Prevention ───────────────────────────────────
 
-class TestGate4DuplicateRankPrevention(unittest.TestCase):
 
+class TestGate4DuplicateRankPrevention(unittest.TestCase):
     def test_no_duplicate_ranks(self):
         result = _get()
         if result is None:
@@ -216,8 +218,8 @@ class TestGate4DuplicateRankPrevention(unittest.TestCase):
 
 # ── GATE 5: Tier/Header Alignment ──────────────────────────────────────
 
-class TestGate5TierAlignment(unittest.TestCase):
 
+class TestGate5TierAlignment(unittest.TestCase):
     def test_all_ranked_have_tier(self):
         result = _get()
         if result is None:
@@ -249,7 +251,8 @@ class TestGate5TierAlignment(unittest.TestCase):
         if ranked:
             top = ranked[0]
             self.assertEqual(
-                top.get("canonicalTierId"), 1,
+                top.get("canonicalTierId"),
+                1,
                 f"Top-ranked row must be in tier 1, got {top.get('canonicalTierId')}",
             )
 
@@ -266,8 +269,8 @@ class TestGate5TierAlignment(unittest.TestCase):
 
 # ── GATE 6: Source Transparency ──────────────────────────────────────────
 
-class TestGate6SourceTransparency(unittest.TestCase):
 
+class TestGate6SourceTransparency(unittest.TestCase):
     def test_all_ranked_have_sourceAudit(self):
         result = _get()
         if result is None:
@@ -294,8 +297,8 @@ class TestGate6SourceTransparency(unittest.TestCase):
 
 # ── GATE 7: IDP Calibration ─────────────────────────────────────────────
 
-class TestGate7IdpCalibration(unittest.TestCase):
 
+class TestGate7IdpCalibration(unittest.TestCase):
     def test_idp_in_top_100(self):
         """At least 5 IDP players in the top 100."""
         result = _get()
@@ -349,7 +352,8 @@ class TestGate7IdpCalibration(unittest.TestCase):
             p = next((r for r in ranked if name in (r.get("canonicalName") or "")), None)
             self.assertIsNotNone(p, f"{name} not found")
             self.assertLessEqual(
-                p["canonicalConsensusRank"], max_rank,
+                p["canonicalConsensusRank"],
+                max_rank,
                 f"{name} ranked #{p['canonicalConsensusRank']} > {max_rank}",
             )
 
@@ -368,17 +372,14 @@ class TestGate7IdpCalibration(unittest.TestCase):
 
 # ── GATE 8: Flag/Quarantine Integrity ────────────────────────────────────
 
-class TestGate8FlagIntegrity(unittest.TestCase):
 
+class TestGate8FlagIntegrity(unittest.TestCase):
     def test_no_impossible_value_flags(self):
         result = _get()
         if result is None:
             self.skipTest("No live data")
         _, ranked, _ = result
-        impossible = sum(
-            1 for r in ranked
-            if "impossible_value" in (r.get("anomalyFlags") or [])
-        )
+        impossible = sum(1 for r in ranked if "impossible_value" in (r.get("anomalyFlags") or []))
         self.assertEqual(impossible, 0)
 
     def test_confidence_distribution_reasonable(self):
@@ -416,8 +417,8 @@ class TestGate8FlagIntegrity(unittest.TestCase):
 
 # ── GATE 9: Live-Page Verification ──────────────────────────────────────
 
-class TestGate9LivePage(unittest.TestCase):
 
+class TestGate9LivePage(unittest.TestCase):
     def test_playersArray_sorted(self):
         result = _get()
         if result is None:
@@ -449,8 +450,8 @@ class TestGate9LivePage(unittest.TestCase):
 
 # ── GATE 10: Performance & Caching ──────────────────────────────────────
 
-class TestGate10Performance(unittest.TestCase):
 
+class TestGate10Performance(unittest.TestCase):
     def test_build_under_5_seconds(self):
         result = _get()
         if result is None:
@@ -468,7 +469,8 @@ class TestGate10Performance(unittest.TestCase):
         compressed = gzip.compress(raw)
         size_kb = len(compressed) / 1024
         self.assertLess(
-            len(compressed), 2 * 1024 * 1024,
+            len(compressed),
+            2 * 1024 * 1024,
             f"Gzipped payload {size_kb:.0f} KB exceeds 2 MB",
         )
 

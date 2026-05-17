@@ -26,6 +26,7 @@ so downstream delivery pipes work unchanged:
     {"name", "pos", "signal", "reason", "tag", "signalKey",
      "aliasSignalKey", "sleeperId", "dismissed": False}
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,7 +52,11 @@ class UsageSignal:
     carry_share_z: float | None
 
     def to_signal_dict(
-        self, *, name: str, position: str, sleeper_id: str,
+        self,
+        *,
+        name: str,
+        position: str,
+        sleeper_id: str,
     ) -> dict[str, Any]:
         """Render to the shape the existing signal_alerts engine
         consumes."""
@@ -86,8 +91,10 @@ def detect_usage_transitions(
     for w in windows:
         # Freshness: never fire on mid-week current-week data.
         if not _fresh.is_fresh_for_alerts(
-            stat_week=w.week, stat_year=w.season,
-            season_year=season_year, season_current_week=season_current_week,
+            stat_week=w.week,
+            stat_year=w.season,
+            season_year=season_year,
+            season_current_week=season_current_week,
         ):
             continue
 
@@ -95,30 +102,34 @@ def detect_usage_transitions(
         buy_reason = _check_buy(w)
         if buy_reason:
             tag, detail = buy_reason
-            out.append(UsageSignal(
-                player_id=w.player_id,
-                signal="BUY",
-                reason=detail,
-                tag=tag,
-                snap_pct_z=w.snap_pct_z,
-                target_share_z=w.target_share_z,
-                carry_share_z=w.carry_share_z,
-            ))
+            out.append(
+                UsageSignal(
+                    player_id=w.player_id,
+                    signal="BUY",
+                    reason=detail,
+                    tag=tag,
+                    snap_pct_z=w.snap_pct_z,
+                    target_share_z=w.target_share_z,
+                    carry_share_z=w.carry_share_z,
+                )
+            )
             continue  # don't double-fire buy+sell on same window
 
         # SELL rules — drop z <= -2 AND prior-window starter.
         sell_reason = _check_sell(w)
         if sell_reason:
             tag, detail = sell_reason
-            out.append(UsageSignal(
-                player_id=w.player_id,
-                signal="SELL",
-                reason=detail,
-                tag=tag,
-                snap_pct_z=w.snap_pct_z,
-                target_share_z=w.target_share_z,
-                carry_share_z=w.carry_share_z,
-            ))
+            out.append(
+                UsageSignal(
+                    player_id=w.player_id,
+                    signal="SELL",
+                    reason=detail,
+                    tag=tag,
+                    snap_pct_z=w.snap_pct_z,
+                    target_share_z=w.target_share_z,
+                    carry_share_z=w.carry_share_z,
+                )
+            )
     return out
 
 

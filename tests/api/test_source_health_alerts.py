@@ -1,4 +1,5 @@
 """Tests for the source-health staleness alert engine."""
+
 from __future__ import annotations
 
 import time
@@ -20,6 +21,7 @@ def kv(tmp_path):
 def _iso(hours_ago):
     t = time.time() - hours_ago * 3600
     import datetime as dt
+
     return dt.datetime.fromtimestamp(t, dt.timezone.utc).isoformat()
 
 
@@ -54,7 +56,10 @@ def test_universal_24h_policy_flags_dlf_after_one_day():
     }
     alerts = sha.detect_stale_sources(health)
     assert {a.source for a in alerts} == {
-        "dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp",
+        "dlfSf",
+        "dlfIdp",
+        "dlfRookieSf",
+        "dlfRookieIdp",
     }
     assert all(a.threshold_hours == 24.0 for a in alerts)
 
@@ -128,44 +133,61 @@ def test_missing_last_fetched_is_skipped():
 
 def test_check_and_alert_fires_once_then_cools_down(kv):
     sends = []
+
     def delivery(to, subj, body):
         sends.append((to, subj, body))
         return True
+
     health = {"ktc": {"lastFetched": _iso(30)}}
     # First call — should send.
     sha.check_and_alert(
         health,
-        delivery=delivery, to_email="test@example.com",
-        kv_path=kv, cooldown_hours=72,
+        delivery=delivery,
+        to_email="test@example.com",
+        kv_path=kv,
+        cooldown_hours=72,
     )
     assert len(sends) == 1
     # Second call within cooldown — skipped.
     sha.check_and_alert(
         health,
-        delivery=delivery, to_email="test@example.com",
-        kv_path=kv, cooldown_hours=72,
+        delivery=delivery,
+        to_email="test@example.com",
+        kv_path=kv,
+        cooldown_hours=72,
     )
     assert len(sends) == 1
 
 
 def test_recovery_alert_fires_when_source_returns(kv):
     sends = []
+
     def delivery(to, subj, body):
         sends.append((to, subj, body))
         return True
+
     stale_health = {"ktc": {"lastFetched": _iso(30)}}
     fresh_health = {"ktc": {"lastFetched": _iso(1)}}
     sha.check_and_alert(
-        stale_health, delivery=delivery, to_email="test@example.com", kv_path=kv,
+        stale_health,
+        delivery=delivery,
+        to_email="test@example.com",
+        kv_path=kv,
     )
     assert len(sends) == 1
     result = sha.check_and_alert(
-        fresh_health, delivery=delivery, to_email="test@example.com", kv_path=kv,
+        fresh_health,
+        delivery=delivery,
+        to_email="test@example.com",
+        kv_path=kv,
     )
     assert result["recovered"] >= 1
     assert len(sends) == 2
     sha.check_and_alert(
-        fresh_health, delivery=delivery, to_email="test@example.com", kv_path=kv,
+        fresh_health,
+        delivery=delivery,
+        to_email="test@example.com",
+        kv_path=kv,
     )
     assert len(sends) == 2
 
@@ -173,7 +195,10 @@ def test_recovery_alert_fires_when_source_returns(kv):
 def test_no_delivery_hook_doesnt_crash(kv):
     health = {"ktc": {"lastFetched": _iso(30)}}
     result = sha.check_and_alert(
-        health, delivery=None, to_email=None, kv_path=kv,
+        health,
+        delivery=None,
+        to_email=None,
+        kv_path=kv,
     )
     assert result["delivered"] == 0
     assert result["stale"] == 1
@@ -182,6 +207,7 @@ def test_no_delivery_hook_doesnt_crash(kv):
 def test_load_thresholds_reads_config(tmp_path):
     cfg = tmp_path / "st.json"
     import json
+
     cfg.write_text(json.dumps({"thresholds": {"customSrc": 12}}), encoding="utf-8")
     t = sha.load_thresholds(cfg)
     assert t["customSrc"] == 12
@@ -198,10 +224,17 @@ def test_production_config_is_uniform_24h():
     """The shipped config/source_staleness.json should encode the
     documented 24h-everywhere policy."""
     from pathlib import Path
+
     repo = Path(__file__).resolve().parents[2]
     thresholds = sha.load_thresholds(repo / "config" / "source_staleness.json")
-    for vendor in ("ktc", "dlf", "fantasyCalc", "dynastyDaddy",
-                   "fantasyPros", "footballGuys", "yahooBoone", "idpShow"):
-        assert thresholds[vendor] == 24, (
-            f"{vendor} threshold drifted from the universal 24h policy"
-        )
+    for vendor in (
+        "ktc",
+        "dlf",
+        "fantasyCalc",
+        "dynastyDaddy",
+        "fantasyPros",
+        "footballGuys",
+        "yahooBoone",
+        "idpShow",
+    ):
+        assert thresholds[vendor] == 24, f"{vendor} threshold drifted from the universal 24h policy"

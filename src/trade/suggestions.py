@@ -16,6 +16,7 @@ Design principles:
 
 The engine does NOT modify any internal canonical values or calibration.
 """
+
 from __future__ import annotations
 
 import math
@@ -31,13 +32,13 @@ from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 �
 
 # Starter demand per position in default SF/TEP/IDP (effective starters per team)
 DEFAULT_STARTER_NEEDS: dict[str, int] = {
-    "QB": 2,   # 1 QB + ~1 SFLEX
-    "RB": 3,   # 2 RB + ~1 FLEX
-    "WR": 4,   # 3 WR + ~1 FLEX
-    "TE": 1,   # 1 TE
-    "DL": 3,   # 2 DL + ~1 IDP_FLEX
-    "LB": 3,   # 2 LB + ~1 IDP_FLEX
-    "DB": 2,   # 2 DB
+    "QB": 2,  # 1 QB + ~1 SFLEX
+    "RB": 3,  # 2 RB + ~1 FLEX
+    "WR": 4,  # 3 WR + ~1 FLEX
+    "TE": 1,  # 1 TE
+    "DL": 3,  # 2 DL + ~1 IDP_FLEX
+    "LB": 3,  # 2 LB + ~1 IDP_FLEX
+    "DB": 2,  # 2 DB
 }
 
 # Minimum display value to consider a player "rosterable" (not a throw-in)
@@ -91,8 +92,8 @@ MIN_ACTIONABLE_VALUE = 2000
 MAX_GAP_FOR_1FOR1 = 400
 
 # Market-disagreement thresholds
-HIGH_DISPERSION_CV = 0.12   # CV above this = sources disagree meaningfully
-LOW_DISPERSION_CV = 0.04    # CV below this = strong consensus
+HIGH_DISPERSION_CV = 0.12  # CV above this = sources disagree meaningfully
+LOW_DISPERSION_CV = 0.04  # CV below this = strong consensus
 
 # ── KTC quality gate ────────────────────────────────────────────────
 # Hard filter: only players ranked inside the KTC top-N are eligible for
@@ -110,6 +111,7 @@ _IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
 @dataclass
 class PlayerAsset:
     """A player or pick with canonical values."""
+
     name: str
     position: str
     display_value: int
@@ -127,21 +129,23 @@ class PlayerAsset:
 @dataclass
 class RosterAnalysis:
     """Positional analysis of a roster."""
+
     roster_size: int
     by_position: dict[str, list[PlayerAsset]]
     surplus_positions: list[str]
     need_positions: list[str]
     starter_counts: dict[str, int]  # above-replacement count
-    depth_counts: dict[str, int]   # below-replacement count
+    depth_counts: dict[str, int]  # below-replacement count
 
 
 @dataclass
 class TradeSuggestion:
     """A single trade suggestion."""
+
     type: str  # "sell_high", "buy_low", "consolidation", "positional_upgrade"
     give: list[PlayerAsset]
     receive: list[PlayerAsset]
-    give_total: int   # display value
+    give_total: int  # display value
     receive_total: int
     gap: int
     fairness: str  # "even", "lean", "stretch"
@@ -152,6 +156,7 @@ class TradeSuggestion:
 
 
 # ── Market-disagreement helpers ──────────────────────────────────────
+
 
 def _compute_cv(values: list[float]) -> float | None:
     """Coefficient of variation: std / mean. None if < 2 values or mean is 0."""
@@ -257,21 +262,27 @@ def build_asset_pool(
 
         # Compute source dispersion CV
         source_values = a.get("source_values", {})
-        sv_list = [float(v) for v in source_values.values() if v is not None] if isinstance(source_values, dict) else []
+        sv_list = (
+            [float(v) for v in source_values.values() if v is not None]
+            if isinstance(source_values, dict)
+            else []
+        )
         dispersion = _compute_cv(sv_list)
 
-        pool.append(PlayerAsset(
-            name=name,
-            position=pos,
-            display_value=int(dv),
-            calibrated_value=int(cv),
-            source_count=len(sv_list),
-            team=str(meta.get("team", "") or ""),
-            rookie=bool(meta.get("rookie", False)),
-            years_exp=meta.get("years_exp"),
-            universe=str(a.get("universe", "")),
-            dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
-        ))
+        pool.append(
+            PlayerAsset(
+                name=name,
+                position=pos,
+                display_value=int(dv),
+                calibrated_value=int(cv),
+                source_count=len(sv_list),
+                team=str(meta.get("team", "") or ""),
+                rookie=bool(meta.get("rookie", False)),
+                years_exp=meta.get("years_exp"),
+                universe=str(a.get("universe", "")),
+                dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
+            )
+        )
     pool.sort(key=lambda x: -x.display_value)
 
     # ── Compute KTC rank and apply top-N filter ────────────────────
@@ -285,6 +296,7 @@ def build_asset_pool(
 # ──────────────────────────────────────────────────────────────────────
 # Contract-native asset pool
 # ──────────────────────────────────────────────────────────────────────
+
 
 def _universe_from_row(row: dict[str, Any]) -> str:
     """Derive the asset's universe label from the live contract row.
@@ -450,19 +462,21 @@ def build_asset_pool_from_contract(
         if isinstance(oo_rdv, (int, float)) and oo_rdv > 0:
             oo_int = int(oo_rdv)
 
-        pool.append(PlayerAsset(
-            name=name,
-            position=pos,
-            display_value=cv_int,
-            calibrated_value=cv_int,
-            source_count=len(sv_list),
-            team=team,
-            rookie=bool(row.get("rookie")),
-            years_exp=years_exp,
-            universe=_universe_from_row(row),
-            dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
-            offense_only_value=oo_int,
-        ))
+        pool.append(
+            PlayerAsset(
+                name=name,
+                position=pos,
+                display_value=cv_int,
+                calibrated_value=cv_int,
+                source_count=len(sv_list),
+                team=team,
+                rookie=bool(row.get("rookie")),
+                years_exp=years_exp,
+                universe=_universe_from_row(row),
+                dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
+                offense_only_value=oo_int,
+            )
+        )
     pool.sort(key=lambda x: -x.display_value)
 
     # ── Compute KTC rank and apply top-N filter ────────────────────
@@ -572,10 +586,7 @@ def _eff_val(p: PlayerAsset, offense_only: bool) -> int:
 
 
 def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> bool:
-    return all(
-        p.position not in _IDP_BASE_POSITIONS
-        for p in [*give, *receive]
-    )
+    return all(p.position not in _IDP_BASE_POSITIONS for p in [*give, *receive])
 
 
 def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
@@ -747,9 +758,7 @@ def rank_score_breakdown(
         "edge": round(edge_b, 2),
         "opponent_fit": round(opp_fit, 2),
         "overflow_penalty": round(-overflow_penalty, 2),
-        "total": round(
-            base + fair + conf + need_sev + edge_b + opp_fit - overflow_penalty, 2
-        ),
+        "total": round(base + fair + conf + need_sev + edge_b + opp_fit - overflow_penalty, 2),
     }
 
 
@@ -762,6 +771,7 @@ def _rank_sort_key(s: TradeSuggestion, roster: RosterAnalysis | None = None):
 
 
 # ── Opponent-aware helpers ───────────────────────────────────────────
+
 
 def _analyze_opponent_rosters(
     league_rosters: list[dict[str, Any]],
@@ -817,6 +827,7 @@ def _opponent_fit_label(
 
 # ── Suggestion generators ───────────────────────────────────────────
 
+
 def _generate_sell_high(
     roster: RosterAnalysis,
     asset_pool: list[PlayerAsset],
@@ -838,12 +849,12 @@ def _generate_sell_high(
                 # Pre-compute oo so target filtering and sorting use the same
                 # value scale as the gap calculation below.
                 trade_oo = (
-                    sell.position not in _IDP_BASE_POSITIONS
-                    and need_pos not in _IDP_BASE_POSITIONS
+                    sell.position not in _IDP_BASE_POSITIONS and need_pos not in _IDP_BASE_POSITIONS
                 )
                 sell_ev = _eff_val(sell, trade_oo)
                 targets = [
-                    a for a in asset_pool
+                    a
+                    for a in asset_pool
                     if a.position == need_pos
                     and a.name.lower() not in roster_names_set
                     and _eff_val(a, trade_oo) >= MIN_RELEVANT_VALUE
@@ -857,20 +868,24 @@ def _generate_sell_high(
                 give_val = _eff_val(sell, oo)
                 recv_val = _eff_val(target, oo)
                 gap = _va_gap([give_val], [recv_val])
-                suggestions.append(TradeSuggestion(
-                    type="sell_high",
-                    give=[sell],
-                    receive=[target],
-                    give_total=give_val,
-                    receive_total=recv_val,
-                    gap=gap,
-                    fairness=_fairness_label(gap),
-                    rationale=f"You have {pos} surplus ({len(players)} rostered, need {need}). "
-                              f"Move {sell.name} for a {need_pos} upgrade.",
-                    why_this_helps=f"Converts {pos} depth into a {need_pos} you actually need.",
-                    confidence=_confidence_from_sources(min(sell.source_count, target.source_count)),
-                    strategy=_strategy_for_player(sell),
-                ))
+                suggestions.append(
+                    TradeSuggestion(
+                        type="sell_high",
+                        give=[sell],
+                        receive=[target],
+                        give_total=give_val,
+                        receive_total=recv_val,
+                        gap=gap,
+                        fairness=_fairness_label(gap),
+                        rationale=f"You have {pos} surplus ({len(players)} rostered, need {need}). "
+                        f"Move {sell.name} for a {need_pos} upgrade.",
+                        why_this_helps=f"Converts {pos} depth into a {need_pos} you actually need.",
+                        confidence=_confidence_from_sources(
+                            min(sell.source_count, target.source_count)
+                        ),
+                        strategy=_strategy_for_player(sell),
+                    )
+                )
 
     # Preliminary sort by value; final ranking applied in generate_suggestions()
     suggestions.sort(key=lambda s: -min(s.give_total, s.receive_total))
@@ -893,7 +908,8 @@ def _generate_buy_low(
         target_floor = max(MIN_RELEVANT_VALUE, current_best)
 
         targets = [
-            a for a in asset_pool
+            a
+            for a in asset_pool
             if a.position == need_pos
             and a.name.lower() not in roster_names_set
             and _eff_val(a, pos_oo) > target_floor
@@ -912,21 +928,25 @@ def _generate_buy_low(
                     recv_val = _eff_val(target, oo)
                     gap = _va_gap([give_val], [recv_val])
                     if abs(gap) < FAIRNESS_TOLERANCE:
-                        suggestions.append(TradeSuggestion(
-                            type="buy_low",
-                            give=[sell],
-                            receive=[target],
-                            give_total=give_val,
-                            receive_total=recv_val,
-                            gap=gap,
-                            fairness=_fairness_label(gap),
-                            rationale=f"Target {target.name} ({need_pos}) fills your roster need. "
-                                      f"You can afford to trade {sell.name} from {surplus_pos} surplus.",
-                            why_this_helps=f"Adds a starter-caliber {need_pos} without weakening "
-                                           f"your {surplus_pos} starting lineup.",
-                            confidence=_confidence_from_sources(min(sell.source_count, target.source_count)),
-                            strategy="neutral",
-                        ))
+                        suggestions.append(
+                            TradeSuggestion(
+                                type="buy_low",
+                                give=[sell],
+                                receive=[target],
+                                give_total=give_val,
+                                receive_total=recv_val,
+                                gap=gap,
+                                fairness=_fairness_label(gap),
+                                rationale=f"Target {target.name} ({need_pos}) fills your roster need. "
+                                f"You can afford to trade {sell.name} from {surplus_pos} surplus.",
+                                why_this_helps=f"Adds a starter-caliber {need_pos} without weakening "
+                                f"your {surplus_pos} starting lineup.",
+                                confidence=_confidence_from_sources(
+                                    min(sell.source_count, target.source_count)
+                                ),
+                                strategy="neutral",
+                            )
+                        )
 
     # Deduplicate by receive target (keep tightest gap)
     seen: dict[str, TradeSuggestion] = {}
@@ -977,7 +997,8 @@ def _generate_consolidation(
 
             for prefer_need in [True, False]:
                 targets = [
-                    a for a in asset_pool
+                    a
+                    for a in asset_pool
                     if a.name.lower() not in roster_names_set
                     and min_target <= _eff_val(a, pair_oo) <= max_target
                     and _eff_val(a, pair_oo) > give_max
@@ -997,22 +1018,28 @@ def _generate_consolidation(
                 give_total = give_p1 + give_p2
                 recv_total = _eff_val(target, oo)
                 gap = _va_gap([give_p1, give_p2], [recv_total])
-                pos_note = f" at a position of need ({target.position})" if target.position in roster.need_positions else ""
-                suggestions.append(TradeSuggestion(
-                    type="consolidation",
-                    give=[p1, p2],
-                    receive=[target],
-                    give_total=give_total,
-                    receive_total=recv_total,
-                    gap=gap,
-                    fairness=_fairness_label(gap),
-                    rationale=f"Package {p1.name} + {p2.name} into {target.name}{pos_note}. "
-                              f"Turns two depth pieces into one difference-maker.",
-                    why_this_helps=f"Upgrades roster quality by condensing {p1.position}/{p2.position} "
-                                   f"depth into a higher-tier asset.",
-                    confidence=_confidence_from_sources(target.source_count),
-                    strategy="contender" if target.display_value >= 7000 else "neutral",
-                ))
+                pos_note = (
+                    f" at a position of need ({target.position})"
+                    if target.position in roster.need_positions
+                    else ""
+                )
+                suggestions.append(
+                    TradeSuggestion(
+                        type="consolidation",
+                        give=[p1, p2],
+                        receive=[target],
+                        give_total=give_total,
+                        receive_total=recv_total,
+                        gap=gap,
+                        fairness=_fairness_label(gap),
+                        rationale=f"Package {p1.name} + {p2.name} into {target.name}{pos_note}. "
+                        f"Turns two depth pieces into one difference-maker.",
+                        why_this_helps=f"Upgrades roster quality by condensing {p1.position}/{p2.position} "
+                        f"depth into a higher-tier asset.",
+                        confidence=_confidence_from_sources(target.source_count),
+                        strategy="contender" if target.display_value >= 7000 else "neutral",
+                    )
+                )
                 break
 
     # Preliminary sort; final ranking applied in generate_suggestions()
@@ -1048,7 +1075,8 @@ def _generate_positional_upgrades(
         upgrade_floor = ws_ev + 500
 
         targets = [
-            a for a in asset_pool
+            a
+            for a in asset_pool
             if a.position == pos
             and a.name.lower() not in roster_names_set
             and _eff_val(a, pos_oo) >= upgrade_floor
@@ -1060,7 +1088,8 @@ def _generate_positional_upgrades(
         for target in targets[:5]:
             gap_needed = _eff_val(target, pos_oo) - ws_ev
             sweeteners = [
-                p for p in depth
+                p
+                for p in depth
                 if p.name != weakest_starter.name
                 and abs(_eff_val(p, pos_oo) - gap_needed) < FAIRNESS_TOLERANCE
             ]
@@ -1090,20 +1119,22 @@ def _generate_positional_upgrades(
             if abs(gap) > FAIRNESS_TOLERANCE * 1.5:
                 continue
 
-            suggestions.append(TradeSuggestion(
-                type="positional_upgrade",
-                give=[weakest_starter, sweetener],
-                receive=[target],
-                give_total=give_total,
-                receive_total=recv_total,
-                gap=gap,
-                fairness=_fairness_label(gap),
-                rationale=f"Upgrade {pos} starter: move {weakest_starter.name} + {sweetener.name} "
-                          f"for {target.name}.",
-                why_this_helps=f"Replaces your {pos}{need} with a higher-caliber {pos} starter.",
-                confidence=_confidence_from_sources(target.source_count),
-                strategy="contender",
-            ))
+            suggestions.append(
+                TradeSuggestion(
+                    type="positional_upgrade",
+                    give=[weakest_starter, sweetener],
+                    receive=[target],
+                    give_total=give_total,
+                    receive_total=recv_total,
+                    gap=gap,
+                    fairness=_fairness_label(gap),
+                    rationale=f"Upgrade {pos} starter: move {weakest_starter.name} + {sweetener.name} "
+                    f"for {target.name}.",
+                    why_this_helps=f"Replaces your {pos}{need} with a higher-caliber {pos} starter.",
+                    confidence=_confidence_from_sources(target.source_count),
+                    strategy="contender",
+                )
+            )
 
     # Preliminary sort; final ranking applied in generate_suggestions()
     suggestions.sort(key=lambda s: -s.receive_total)
@@ -1133,19 +1164,26 @@ def _find_balancers(
     if gap < 0 and roster is not None:
         # User needs to sweeten — search THEIR roster for expendable depth
         candidates = _roster_balancer_candidates(
-            target_value, roster, exclude_names,
+            target_value,
+            roster,
+            exclude_names,
         )
     else:
         # Opponent needs to sweeten — search global pool
         candidates = _pool_balancer_candidates(
-            target_value, asset_pool, roster_names_set, exclude_names,
+            target_value,
+            asset_pool,
+            roster_names_set,
+            exclude_names,
         )
 
-    candidates.sort(key=lambda c: (
-        0 if (roster and c.position in roster.surplus_positions) else 1,
-        abs(c.display_value - target_value),
-        c.name,
-    ))
+    candidates.sort(
+        key=lambda c: (
+            0 if (roster and c.position in roster.surplus_positions) else 1,
+            abs(c.display_value - target_value),
+            c.name,
+        )
+    )
     return (candidates[:MAX_BALANCERS], side)
 
 
@@ -1181,7 +1219,8 @@ def _pool_balancer_candidates(
 ) -> list[PlayerAsset]:
     """Find realistic balancer candidates from the global asset pool."""
     return [
-        a for a in asset_pool
+        a
+        for a in asset_pool
         if a.name.lower() not in roster_names_set
         and a.name.lower() not in exclude_names
         and a.position  # skip positionless / placeholder entries
@@ -1195,6 +1234,7 @@ MAX_BALANCERS = 2
 
 
 # ── Quality filter ───────────────────────────────────────────────────
+
 
 def _apply_quality_filters(
     categories: dict[str, list[TradeSuggestion]],
@@ -1221,7 +1261,8 @@ def _apply_quality_filters(
     # no opponent accepts either.
     if "consolidation" in categories:
         categories["consolidation"] = [
-            s for s in categories["consolidation"]
+            s
+            for s in categories["consolidation"]
             if s.fairness != "stretch"
             or (s.give_total > 0 and abs(s.gap) / s.give_total <= CONSOLIDATION_MAX_OVERPAY_RATIO)
         ]
@@ -1253,11 +1294,9 @@ def _apply_quality_filters(
     # Both sides below MIN_ACTIONABLE_VALUE = not worth the conversation.
     for cat_name, suggs in categories.items():
         categories[cat_name] = [
-            s for s in suggs
-            if not all(
-                p.display_value < MIN_ACTIONABLE_VALUE
-                for p in s.give + s.receive
-            )
+            s
+            for s in suggs
+            if not all(p.display_value < MIN_ACTIONABLE_VALUE for p in s.give + s.receive)
         ]
 
     # ── 5. Suppress same-tier swaps ──────────────────────────────────
@@ -1265,7 +1304,8 @@ def _apply_quality_filters(
     # offer no strategic benefit — just lateral movement.
     for cat_name, suggs in categories.items():
         categories[cat_name] = [
-            s for s in suggs
+            s
+            for s in suggs
             if not (
                 len(s.give) == 1
                 and len(s.receive) == 1
@@ -1280,7 +1320,8 @@ def _apply_quality_filters(
     # is misleading.
     for cat_name, suggs in categories.items():
         categories[cat_name] = [
-            s for s in suggs
+            s
+            for s in suggs
             if not (
                 len(s.give) == 1
                 and len(s.receive) == 1
@@ -1309,8 +1350,7 @@ def _apply_quality_filters(
             for s in suggs:
                 # Check if ANY give-player would exceed the cap
                 would_exceed = any(
-                    give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES
-                    for p in s.give
+                    give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES for p in s.give
                 )
                 if would_exceed:
                     continue
@@ -1323,6 +1363,7 @@ def _apply_quality_filters(
 
 
 # ── Main entry point ─────────────────────────────────────────────────
+
 
 def _rookies_eligible_today() -> bool:
     """Return False between Feb 1 and May 11 of each year — the
@@ -1339,6 +1380,7 @@ def _rookies_eligible_today() -> bool:
     real values — eligible for suggestions like any other asset.
     """
     from datetime import datetime, timezone
+
     today = datetime.now(timezone.utc).date()
     m, d = today.month, today.day
     # Pre-draft window: Feb 1 through May 11 (inclusive).
@@ -1424,12 +1466,14 @@ def generate_suggestions_from_pool(
 
     # Phase 5: Quality filters — deduplication and noise suppression.
     # Applied AFTER ranking so we keep the best-ranked instances.
-    filtered = _apply_quality_filters({
-        "sell_high": sell_high,
-        "buy_low": buy_low,
-        "consolidation": consolidation,
-        "positional_upgrade": upgrades,
-    })
+    filtered = _apply_quality_filters(
+        {
+            "sell_high": sell_high,
+            "buy_low": buy_low,
+            "consolidation": consolidation,
+            "positional_upgrade": upgrades,
+        }
+    )
     sell_high = filtered["sell_high"]
     buy_low = filtered["buy_low"]
     consolidation = filtered["consolidation"]
@@ -1492,6 +1536,7 @@ def generate_suggestions(
 
 # ── Serializers ──────────────────────────────────────────────────────
 
+
 def _serialize_player(p: PlayerAsset, *, offense_only: bool = False) -> dict[str, Any]:
     dv = (
         p.offense_only_value
@@ -1512,7 +1557,9 @@ def _serialize_player(p: PlayerAsset, *, offense_only: bool = False) -> dict[str
     return result
 
 
-def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = None) -> dict[str, Any]:
+def _serialize_suggestion(
+    s: TradeSuggestion, roster: RosterAnalysis | None = None
+) -> dict[str, Any]:
     oo = _trade_is_idp_free(s.give, s.receive)
     result: dict[str, Any] = {
         "type": s.type,
@@ -1553,7 +1600,6 @@ def _serialize_roster(r: RosterAnalysis) -> dict[str, Any]:
         "starterCounts": r.starter_counts,
         "depthCounts": r.depth_counts,
         "byPosition": {
-            pos: [_serialize_player(p) for p in players]
-            for pos, players in r.by_position.items()
+            pos: [_serialize_player(p) for p in players] for pos, players in r.by_position.items()
         },
     }

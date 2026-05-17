@@ -14,6 +14,7 @@ When ``signal_type="value"``, the CSV's ``value`` column is stored as
 ``value_raw`` on the record.  When ``signal_type="rank"``, it is stored
 as ``rank_raw`` instead.
 """
+
 from __future__ import annotations
 
 import csv
@@ -70,10 +71,7 @@ class ScraperBridgeAdapter:
             reader = csv.DictReader(f)
             for row in reader:
                 name = str(
-                    row.get("name")
-                    or row.get("player")
-                    or row.get("player_name")
-                    or ""
+                    row.get("name") or row.get("player") or row.get("player_name") or ""
                 ).strip()
                 if not name:
                     continue

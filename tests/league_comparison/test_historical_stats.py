@@ -1,5 +1,6 @@
 """Tests for the nflverse → Sleeper fallback chain in
 :mod:`src.league_comparison.historical_stats`."""
+
 from __future__ import annotations
 
 import pytest
@@ -47,7 +48,8 @@ def test_falls_back_to_sleeper_when_nflverse_empty(monkeypatch):
     source map records 'sleeper'."""
     monkeypatch.setattr(_hs._ingest, "fetch_weekly_stats", lambda yrs: [])
     monkeypatch.setattr(
-        _hs._sleeper_stats, "fetch_sleeper_weekly_stats",
+        _hs._sleeper_stats,
+        "fetch_sleeper_weekly_stats",
         lambda s: [_row(s, 1, player_id="y")],
     )
     rows = _hs.load_season_rows(2025)
@@ -65,7 +67,8 @@ def test_falls_back_to_sleeper_when_nflverse_raises(monkeypatch):
 
     monkeypatch.setattr(_hs._ingest, "fetch_weekly_stats", fake_nflverse_raises)
     monkeypatch.setattr(
-        _hs._sleeper_stats, "fetch_sleeper_weekly_stats",
+        _hs._sleeper_stats,
+        "fetch_sleeper_weekly_stats",
         lambda s: [_row(s, 1, player_id="z")],
     )
     rows = _hs.load_season_rows(2025)
@@ -87,11 +90,13 @@ def test_summarize_availability_includes_sources(monkeypatch):
     """The summary must surface which sources actually fed each
     available season so the API meta block can show provenance."""
     monkeypatch.setattr(
-        _hs._ingest, "fetch_weekly_stats",
+        _hs._ingest,
+        "fetch_weekly_stats",
         lambda yrs: [_row(yrs[0], 1)] if yrs[0] != 2025 else [],
     )
     monkeypatch.setattr(
-        _hs._sleeper_stats, "fetch_sleeper_weekly_stats",
+        _hs._sleeper_stats,
+        "fetch_sleeper_weekly_stats",
         lambda s: [_row(s, 1)] if s == 2025 else [],
     )
     seasons_map = _hs.load_all_seasons([2023, 2024, 2025])
@@ -103,15 +108,17 @@ def test_summarize_availability_includes_sources(monkeypatch):
 
 # ── Regular-season week filter ───────────────────────────────────────
 
+
 def test_filter_drops_week_18_and_postseason(monkeypatch):
     """Both nflverse and Sleeper should be cut to weeks 1-17 inclusive."""
     monkeypatch.setattr(
-        _hs._ingest, "fetch_weekly_stats",
+        _hs._ingest,
+        "fetch_weekly_stats",
         lambda yrs: [
             _row(yrs[0], 1, player_id="w1"),
             _row(yrs[0], 17, player_id="w17"),
-            _row(yrs[0], 18, player_id="w18"),     # starter-rest week
-            _row(yrs[0], 19, player_id="wpost"),   # nflverse postseason
+            _row(yrs[0], 18, player_id="w18"),  # starter-rest week
+            _row(yrs[0], 19, player_id="wpost"),  # nflverse postseason
         ],
     )
     monkeypatch.setattr(_hs._sleeper_stats, "fetch_sleeper_weekly_stats", lambda s: [])
@@ -126,10 +133,11 @@ def test_filter_drops_rows_with_missing_week(monkeypatch):
     """Defensive: a row missing the week field shouldn't crash the
     filter — just drop quietly."""
     monkeypatch.setattr(
-        _hs._ingest, "fetch_weekly_stats",
+        _hs._ingest,
+        "fetch_weekly_stats",
         lambda yrs: [
             {"player_id": "good", "season": yrs[0], "week": 5},
-            {"player_id": "bad", "season": yrs[0]},        # no week
+            {"player_id": "bad", "season": yrs[0]},  # no week
             {"player_id": "string", "season": yrs[0], "week": "wat"},
         ],
     )

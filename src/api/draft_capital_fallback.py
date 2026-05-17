@@ -20,6 +20,7 @@ UI labels this view as "Sleeper-derived, flat per-round valuation"
 so users know it's the backup path, not the richer workbook
 numbers.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,7 +67,10 @@ def _normalize_pick_name(season: int, round_num: int, slot: int) -> str:
 
 
 def _pick_value_from_contract(
-    contract: dict[str, Any], season: int, round_num: int, slot: int,
+    contract: dict[str, Any],
+    season: int,
+    round_num: int,
+    slot: int,
 ) -> float:
     """Look up the rankDerivedValue for a specific pick in the
     canonical contract.  Falls back to interpolation / 0."""
@@ -108,15 +112,11 @@ def build_sleeper_derived(
 
     ``contract`` is the in-memory canonical contract (for pick values).
     """
-    rosters = _fetch_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters"
+    rosters = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
+    users = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
+    traded = (
+        _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks") or []
     )
-    users = _fetch_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users"
-    )
-    traded = _fetch_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
-    ) or []
 
     if not rosters or not users:
         return {
@@ -136,7 +136,8 @@ def build_sleeper_derived(
             or u.get("display_name")
             or f"Team {u.get('user_id')}"
         )
-        for u in users if isinstance(u, dict)
+        for u in users
+        if isinstance(u, dict)
     }
     roster_name_by_id: dict[int, str] = {}
     for r in rosters:
@@ -177,16 +178,18 @@ def build_sleeper_derived(
                 current_rid = traded_map.get((season, round_n, original_rid), original_rid)
                 is_traded = current_rid != original_rid
                 value = _pick_value_from_contract(contract, season, round_n, slot)
-                picks.append(SleeperDerivedPick(
-                    pick=f"{round_n}.{slot:02d}",
-                    round=round_n,
-                    slot=slot,
-                    current_owner=roster_name_by_id.get(current_rid, f"Team {current_rid}"),
-                    original_owner=roster_name_by_id.get(original_rid, f"Team {original_rid}"),
-                    is_traded=is_traded,
-                    raw_value=value,
-                    dollar_value=0,  # filled after normalization
-                ))
+                picks.append(
+                    SleeperDerivedPick(
+                        pick=f"{round_n}.{slot:02d}",
+                        round=round_n,
+                        slot=slot,
+                        current_owner=roster_name_by_id.get(current_rid, f"Team {current_rid}"),
+                        original_owner=roster_name_by_id.get(original_rid, f"Team {original_rid}"),
+                        is_traded=is_traded,
+                        raw_value=value,
+                        dollar_value=0,  # filled after normalization
+                    )
+                )
 
     # Normalize to target total.
     total_raw = sum(p.raw_value for p in picks)
@@ -219,7 +222,9 @@ def build_sleeper_derived(
         ],
         "picks": [
             {
-                "pick": p.pick, "round": p.round, "slot": p.slot,
+                "pick": p.pick,
+                "round": p.round,
+                "slot": p.slot,
                 "currentOwner": p.current_owner,
                 "originalOwner": p.original_owner,
                 "isTraded": p.is_traded,

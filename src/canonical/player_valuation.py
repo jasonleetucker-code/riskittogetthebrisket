@@ -20,6 +20,7 @@ Pipeline:
     Step 5 – Volatility confidence adjustment
     Step 6 – Final output assembly
 """
+
 from __future__ import annotations
 
 import math
@@ -37,9 +38,9 @@ W_MEDIAN: float = 0.70
 W_MEAN: float = 0.30
 
 # Step 2: Tier detection
-TIER_GAP_WINDOW: int = 7           # rolling-median window (each side)
-TIER_GAP_THRESHOLD: float = 2.0    # gap_score above this triggers a break
-TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing split
+TIER_GAP_WINDOW: int = 7  # rolling-median window (each side)
+TIER_GAP_THRESHOLD: float = 2.0  # gap_score above this triggers a break
+TIER_MIN_SIZE: int = 3  # minimum players in a tier before allowing split
 
 # Step 3: Base value curve — Hill-style, rank 1 always = 9999
 # value = 1 + 9998 / (1 + ((rank - 1) / midpoint)^slope)
@@ -51,8 +52,8 @@ TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing s
 # top player = 9999 before fitting. Re-run
 # ``scripts/fit_hill_curve_from_market.py`` when the community's
 # dropoff shape drifts from ours and update the constants here.
-HILL_MIDPOINT: float = 48.44       # rank at which value decay inflects
-HILL_SLOPE: float = 1.149          # controls steepness of decay
+HILL_MIDPOINT: float = 48.44  # rank at which value decay inflects
+HILL_SLOPE: float = 1.149  # controls steepness of decay
 
 # IDP-specific Hill curve.  Dynasty IDP markets price differently from
 # offense: the #1 LB is nowhere near 2x the #2 the way the #1 QB is,
@@ -113,12 +114,12 @@ HILL_ROOKIE_PERCENTILE_C: float = 0.1440
 HILL_ROOKIE_PERCENTILE_S: float = 0.925
 
 # Step 4: Tier cliff injection
-CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units
-CLIFF_RANK_DECAY: float = 0.006    # cliff decays with rank (deeper = smaller cliff)
+CLIFF_BASE_POINTS: float = 120.0  # base cliff size in value units
+CLIFF_RANK_DECAY: float = 0.006  # cliff decays with rank (deeper = smaller cliff)
 
 # Step 5: Volatility adjustment
-VOL_COMPRESSION_STRENGTH: float = 0.03   # max compression fraction per unit of z-scored volatility
-VOL_FLOOR: float = 0.92                  # worst-case: retain at least 92% of value
+VOL_COMPRESSION_STRENGTH: float = 0.03  # max compression fraction per unit of z-scored volatility
+VOL_FLOOR: float = 0.92  # worst-case: retain at least 92% of value
 
 # Step 6: Display scale
 DISPLAY_SCALE_MAX: int = 9999
@@ -129,9 +130,11 @@ DISPLAY_SCALE_MIN: int = 1
 # DATA STRUCTURES
 # ══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PlayerValuation:
     """Full diagnostic output for a single player."""
+
     player_id: str
     display_name: str
 
@@ -140,25 +143,27 @@ class PlayerValuation:
     median_rank: float
     mean_rank: float
     consensus_rank: float
-    rank_volatility: float        # std-dev of source ranks
+    rank_volatility: float  # std-dev of source ranks
 
     # Step 2 outputs
     tier_id: int
-    is_tier_start: bool           # True if this player is the first player in a new tier (a break exists directly above)
-    gap_to_next: float | None     # raw gap to next-ranked player
-    gap_score: float | None       # normalized gap score
+    is_tier_start: bool  # True if this player is the first player in a new tier (a break exists directly above)
+    gap_to_next: float | None  # raw gap to next-ranked player
+    gap_score: float | None  # normalized gap score
 
     # Step 3–5 outputs
-    base_value: float             # from curve only
-    tier_adjustment: float        # cliff injection amount
+    base_value: float  # from curve only
+    tier_adjustment: float  # cliff injection amount
     volatility_adjustment: float  # compression amount (negative)
-    final_value: float            # base + tier_adj + vol_adj
+    final_value: float  # base + tier_adj + vol_adj
 
     # Monotonicity enforcement
-    monotonic_clamp_applied: bool  # True if this player's value was clamped down to preserve strict ordering
+    monotonic_clamp_applied: (
+        bool  # True if this player's value was clamped down to preserve strict ordering
+    )
 
     # Display
-    display_value: int            # mapped to 1–9999
+    display_value: int  # mapped to 1–9999
 
     # Pass-through metadata
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -170,28 +175,33 @@ class PlayerValuation:
 @dataclass
 class TierBoundary:
     """Record of a detected tier break."""
+
     tier_id_above: int
     tier_id_below: int
-    player_above: str        # last player in upper tier (player_id)
-    player_below: str        # first player in lower tier (player_id)
+    player_above: str  # last player in upper tier (player_id)
+    player_below: str  # first player in lower tier (player_id)
     raw_gap: float
     gap_score: float
-    rank_position: float     # consensus rank where the break occurs
+    rank_position: float  # consensus rank where the break occurs
 
 
 @dataclass
 class ValuationResult:
     """Complete output of the valuation pipeline."""
+
     players: list[PlayerValuation]
     tier_boundaries: list[TierBoundary]
     tier_count: int
-    monotonic_clamp_count: int        # number of players whose values were clamped to preserve strict ordering
+    monotonic_clamp_count: (
+        int  # number of players whose values were clamped to preserve strict ordering
+    )
     hyperparameters: dict[str, Any]
 
 
 # ══════════════════════════════════════════════════════════════════════
 # STEP 1 — CONSENSUS RANK
 # ══════════════════════════════════════════════════════════════════════
+
 
 def compute_consensus_rank(
     source_ranks: Sequence[float],
@@ -220,6 +230,7 @@ def compute_consensus_rank(
 # ══════════════════════════════════════════════════════════════════════
 # STEP 2 — TIER DETECTION
 # ══════════════════════════════════════════════════════════════════════
+
 
 def _rolling_median(values: Sequence[float], idx: int, window: int) -> float:
     """Compute rolling median of *values* centered on *idx*.
@@ -295,15 +306,17 @@ def detect_tiers(
     # Build boundary records
     boundaries: list[TierBoundary] = []
     for bi in break_indices:
-        boundaries.append(TierBoundary(
-            tier_id_above=tier_ids[bi],
-            tier_id_below=tier_ids[bi] + 1 if bi + 1 < n else tier_ids[bi],
-            player_above=player_ids[bi],
-            player_below=player_ids[bi + 1] if bi + 1 < n else player_ids[bi],
-            raw_gap=raw_gaps[bi],
-            gap_score=gap_scores[bi],
-            rank_position=consensus_ranks[bi],
-        ))
+        boundaries.append(
+            TierBoundary(
+                tier_id_above=tier_ids[bi],
+                tier_id_below=tier_ids[bi] + 1 if bi + 1 < n else tier_ids[bi],
+                player_above=player_ids[bi],
+                player_below=player_ids[bi + 1] if bi + 1 < n else player_ids[bi],
+                raw_gap=raw_gaps[bi],
+                gap_score=gap_scores[bi],
+                rank_position=consensus_ranks[bi],
+            )
+        )
 
     # Pad gaps/scores to length n (last player has no gap)
     raw_gaps_padded: list[float | None] = [*raw_gaps, None]
@@ -315,6 +328,7 @@ def detect_tiers(
 # ══════════════════════════════════════════════════════════════════════
 # STEP 3 — BASE VALUE CURVE
 # ══════════════════════════════════════════════════════════════════════
+
 
 def rank_to_value(
     rank: float,
@@ -389,6 +403,7 @@ def percentile_to_value(
 # STEP 4 — TIER CLIFF INJECTION
 # ══════════════════════════════════════════════════════════════════════
 
+
 def compute_tier_adjustments(
     consensus_ranks: list[float],
     tier_ids: list[int],
@@ -419,9 +434,7 @@ def compute_tier_adjustments(
     # to every tier above it.
     cliff_at_boundary: dict[int, float] = {}
     for b in boundaries:
-        cliff_at_boundary[b.tier_id_below] = cliff_base * math.exp(
-            -cliff_decay * b.rank_position
-        )
+        cliff_at_boundary[b.tier_id_below] = cliff_base * math.exp(-cliff_decay * b.rank_position)
 
     # Walk tiers top-down.  Tier 1 accumulates all cliffs; each subsequent
     # tier loses the cliff that sits above it.
@@ -439,6 +452,7 @@ def compute_tier_adjustments(
 # ══════════════════════════════════════════════════════════════════════
 # STEP 5 — VOLATILITY CONFIDENCE ADJUSTMENT
 # ══════════════════════════════════════════════════════════════════════
+
 
 def compute_volatility_adjustments(
     base_plus_tier: list[float],
@@ -489,6 +503,7 @@ def compute_volatility_adjustments(
 # STEP 6 — FULL PIPELINE
 # ══════════════════════════════════════════════════════════════════════
 
+
 def compute_display_anchor(**_kwargs: object) -> float:
     """Deprecated — rank_to_value() no longer needs a display anchor.
 
@@ -510,6 +525,7 @@ def _to_display(rank: float, _anchor: float = 0.0) -> int:
 @dataclass
 class PlayerInput:
     """Minimal input for the valuation pipeline."""
+
     player_id: str
     display_name: str
     source_ranks: list[float]
@@ -551,21 +567,30 @@ def run_valuation(
             tier_boundaries=[],
             tier_count=0,
             monotonic_clamp_count=0,
-            hyperparameters=_collect_hyperparams({
-                "w_median": w_median, "w_mean": w_mean,
-                "gap_window": gap_window, "gap_threshold": gap_threshold,
-                "min_tier_size": min_tier_size,
-                "hill_midpoint": hill_midpoint, "hill_slope": hill_slope,
-                "cliff_base": cliff_base, "cliff_decay": cliff_decay,
-                "vol_strength": vol_strength, "vol_floor": vol_floor,
-            }),
+            hyperparameters=_collect_hyperparams(
+                {
+                    "w_median": w_median,
+                    "w_mean": w_mean,
+                    "gap_window": gap_window,
+                    "gap_threshold": gap_threshold,
+                    "min_tier_size": min_tier_size,
+                    "hill_midpoint": hill_midpoint,
+                    "hill_slope": hill_slope,
+                    "cliff_base": cliff_base,
+                    "cliff_decay": cliff_decay,
+                    "vol_strength": vol_strength,
+                    "vol_floor": vol_floor,
+                }
+            ),
         )
 
     # ── Step 1: Consensus rank ──
     consensus_data: list[tuple[PlayerInput, float, float, float, float]] = []
     for p in players:
         cr, med, avg, vol = compute_consensus_rank(
-            p.source_ranks, w_median=w_median, w_mean=w_mean,
+            p.source_ranks,
+            w_median=w_median,
+            w_mean=w_mean,
         )
         consensus_data.append((p, cr, med, avg, vol))
 
@@ -577,7 +602,8 @@ def run_valuation(
 
     # ── Step 2: Tier detection ──
     tier_ids, raw_gaps, gap_scores, boundaries = detect_tiers(
-        sorted_ranks, sorted_ids,
+        sorted_ranks,
+        sorted_ids,
         gap_window=gap_window,
         gap_threshold=gap_threshold,
         min_tier_size=min_tier_size,
@@ -588,14 +614,16 @@ def run_valuation(
 
     # ── Step 3: Base value curve (Hill-style) ──
     base_values = [
-        float(rank_to_value(cr, midpoint=hill_midpoint, slope=hill_slope))
-        for cr in sorted_ranks
+        float(rank_to_value(cr, midpoint=hill_midpoint, slope=hill_slope)) for cr in sorted_ranks
     ]
 
     # ── Step 4: Tier cliff injection ──
     tier_adjustments = compute_tier_adjustments(
-        sorted_ranks, tier_ids, boundaries,
-        cliff_base=cliff_base, cliff_decay=cliff_decay,
+        sorted_ranks,
+        tier_ids,
+        boundaries,
+        cliff_base=cliff_base,
+        cliff_decay=cliff_decay,
     )
 
     base_plus_tier = [bv + ta for bv, ta in zip(base_values, tier_adjustments)]
@@ -603,14 +631,14 @@ def run_valuation(
     # ── Step 5: Volatility adjustment ──
     volatilities = [x[4] for x in consensus_data]
     vol_adjustments = compute_volatility_adjustments(
-        base_plus_tier, volatilities,
-        strength=vol_strength, floor=vol_floor,
+        base_plus_tier,
+        volatilities,
+        strength=vol_strength,
+        floor=vol_floor,
     )
 
     # ── Assemble raw final values ──
-    raw_finals = [
-        bpt + va for bpt, va in zip(base_plus_tier, vol_adjustments)
-    ]
+    raw_finals = [bpt + va for bpt, va in zip(base_plus_tier, vol_adjustments)]
 
     # ── Enforce strict monotonic decrease ──
     # Small rounding or volatility adjustments could theoretically create
@@ -654,14 +682,21 @@ def run_valuation(
         tier_boundaries=boundaries,
         tier_count=max(tier_ids) if tier_ids else 0,
         monotonic_clamp_count=len(clamped_indices),
-        hyperparameters=_collect_hyperparams({
-            "w_median": w_median, "w_mean": w_mean,
-            "gap_window": gap_window, "gap_threshold": gap_threshold,
-            "min_tier_size": min_tier_size,
-            "hill_midpoint": hill_midpoint, "hill_slope": hill_slope,
-            "cliff_base": cliff_base, "cliff_decay": cliff_decay,
-            "vol_strength": vol_strength, "vol_floor": vol_floor,
-        }),
+        hyperparameters=_collect_hyperparams(
+            {
+                "w_median": w_median,
+                "w_mean": w_mean,
+                "gap_window": gap_window,
+                "gap_threshold": gap_threshold,
+                "min_tier_size": min_tier_size,
+                "hill_midpoint": hill_midpoint,
+                "hill_slope": hill_slope,
+                "cliff_base": cliff_base,
+                "cliff_decay": cliff_decay,
+                "vol_strength": vol_strength,
+                "vol_floor": vol_floor,
+            }
+        ),
     )
 
 
@@ -669,14 +704,14 @@ def _collect_hyperparams(params: dict[str, Any]) -> dict[str, Any]:
     """Extract only numeric/string hyperparams from a dict."""
     skip = {"players", "self"}
     return {
-        k: v for k, v in params.items()
-        if k not in skip and isinstance(v, (int, float, str, bool))
+        k: v for k, v in params.items() if k not in skip and isinstance(v, (int, float, str, bool))
     }
 
 
 # ══════════════════════════════════════════════════════════════════════
 # INTEGRATION HELPER — bridge from existing RawAssetRecord pipeline
 # ══════════════════════════════════════════════════════════════════════
+
 
 def build_player_inputs_from_raw_records(
     records: list[dict[str, Any]],
@@ -843,8 +878,4 @@ def build_player_inputs_from_record_objects(
         by_key[key]["source_ranks"].append(float(rank))
         by_key[key]["metadata"]["_source_names"].append(source)
 
-    return [
-        PlayerInput(**data)
-        for data in by_key.values()
-        if data["source_ranks"]
-    ]
+    return [PlayerInput(**data) for data in by_key.values() if data["source_ranks"]]

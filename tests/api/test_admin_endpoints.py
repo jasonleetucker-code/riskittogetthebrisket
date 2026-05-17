@@ -6,6 +6,7 @@ Covers:
   * signal-state migrate: idempotent, calls the migration module.
   * Auth gates: unauthenticated → 401; authed non-admin → 403.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,7 +20,8 @@ def _stub_allowlist(monkeypatch):
     # Every admin test assumes a known allowlist so the "is admin"
     # check is predictable.
     monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES",
+        server,
+        "PRIVATE_APP_ALLOWED_USERNAMES",
         frozenset({"jasonleetucker"}),
     )
     yield
@@ -28,7 +30,8 @@ def _stub_allowlist(monkeypatch):
 def _authed_admin(monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda r: {"username": "jasonleetucker"},
     )
 
@@ -36,7 +39,8 @@ def _authed_admin(monkeypatch):
 def _authed_non_admin(monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda r: {"username": "randomuser"},
     )
 
@@ -92,6 +96,7 @@ def _isolate_guest_pass_db(monkeypatch, tmp_path):
     """Point ``guest_passes`` at a temp SQLite file so admin-endpoint
     tests don't share state with the production DB."""
     from src.api import guest_passes
+
     db = tmp_path / "guest_passes.sqlite"
     monkeypatch.setattr(guest_passes, "_DEFAULT_DB_PATH", db)
     # Reset the per-path setup tracker so the new db gets its schema
@@ -167,7 +172,8 @@ def test_guest_pass_revoke_marks_revoked(monkeypatch, tmp_path):
     _isolate_guest_pass_db(monkeypatch, tmp_path)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         created = c.post(
-            "/api/admin/guest-pass", json={"durationHours": 12},
+            "/api/admin/guest-pass",
+            json={"durationHours": 12},
         ).json()
         pass_id = created["pass"]["id"]
         res = c.post(f"/api/admin/guest-pass/{pass_id}/revoke")
@@ -189,13 +195,16 @@ def test_guest_pass_login_creates_time_bounded_session(monkeypatch, tmp_path):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         # Mint a pass via the admin endpoint.
         created = c.post(
-            "/api/admin/guest-pass", json={"durationHours": 1},
+            "/api/admin/guest-pass",
+            json={"durationHours": 1},
         ).json()
         token = created["token"]
         # Drop the admin auth stub so the login route doesn't see us
         # as already-authed.
         monkeypatch.setattr(
-            server, "_get_auth_session", lambda r: None,
+            server,
+            "_get_auth_session",
+            lambda r: None,
         )
         monkeypatch.setattr(server, "_is_authenticated", lambda r: False)
         # Guest login: any username, password = the token.
@@ -253,6 +262,7 @@ def test_realized_points_requires_feature_flag(monkeypatch):
     # still work when explicitly disabled.)
     monkeypatch.setenv("RISKIT_FEATURE_REALIZED_POINTS_API", "0")
     from src.api import feature_flags
+
     feature_flags.reload()
     try:
         with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -267,6 +277,7 @@ def test_realized_points_flag_on_returns_shape(monkeypatch):
     _authed_admin(monkeypatch)
     monkeypatch.setenv("RISKIT_FEATURE_REALIZED_POINTS_API", "1")
     from src.api import feature_flags
+
     feature_flags.reload()
     try:
         with TestClient(server.app, raise_server_exceptions=True) as c:

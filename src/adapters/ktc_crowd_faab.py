@@ -26,6 +26,7 @@ function of its dataclass-shaped inputs and the server endpoint
 can swap in a different crowd source (e.g. RotoBaller, FFC) by
 writing another adapter module without touching the recommender.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -37,10 +38,7 @@ def _normalize_name(name: str) -> str:
     normalization the frontend's ``normName`` uses for picker
     lookups so the bridge's keys agree byte-for-byte with the
     name the API endpoint passes in."""
-    return "".join(
-        c for c in str(name or "").lower()
-        if c.isalnum()
-    )
+    return "".join(c for c in str(name or "").lower() if c.isalnum())
 
 
 def _parse_bid_pct(bid_pct_raw: Any, bid: Any, settings: dict | None = None) -> float | None:

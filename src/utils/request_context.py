@@ -15,6 +15,7 @@ triggered an action without the endpoint re-reading the session.
 All getters return sane defaults when called outside a request
 context (tests, scripts, startup) — never raise.
 """
+
 from __future__ import annotations
 
 import contextvars
@@ -24,13 +25,15 @@ from typing import Any
 # Generated per-request; available from any point during request
 # handling.  "" outside request scope (startup / shutdown / tests).
 _request_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "request_id", default="",
+    "request_id",
+    default="",
 )
 
 # Opaque user context.  Handlers that have a session set this; logs
 # pick it up.  Cleared by the middleware at response time.
 _user_ctx: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
-    "user_ctx", default={},
+    "user_ctx",
+    default={},
 )
 
 

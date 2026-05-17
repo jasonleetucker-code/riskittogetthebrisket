@@ -18,6 +18,7 @@ Pure-Python.  No pandas.
 Callers pass normalized stat rows in any shape — this module
 looks up keys by name and tolerates missing fields (returns 0).
 """
+
 from __future__ import annotations
 
 import math
@@ -53,7 +54,9 @@ class UsageWindow:
             "carryShareMean": round(self.carry_share_mean, 3),
             "carryShareSd": round(self.carry_share_sd, 3),
             "snapPctZ": round(self.snap_pct_z, 2) if self.snap_pct_z is not None else None,
-            "targetShareZ": round(self.target_share_z, 2) if self.target_share_z is not None else None,
+            "targetShareZ": round(self.target_share_z, 2)
+            if self.target_share_z is not None
+            else None,
             "carryShareZ": round(self.carry_share_z, 2) if self.carry_share_z is not None else None,
         }
 
@@ -136,7 +139,9 @@ def build_rolling_windows(
 
     windows: list[UsageWindow] = []
     for pid, rows in by_player.items():
-        rows_sorted = sorted(rows, key=lambda r: (int(_num(r.get("season"))), int(_num(r.get("week")))))
+        rows_sorted = sorted(
+            rows, key=lambda r: (int(_num(r.get("season"))), int(_num(r.get("week"))))
+        )
         snap_pct_hist: list[float] = []
         target_share_hist: list[float] = []
         carry_share_hist: list[float] = []
@@ -164,9 +169,15 @@ def build_rolling_windows(
                 target_share_sd=_stdev(w_tgt),
                 carry_share_mean=(sum(w_car) / len(w_car)) if w_car else 0.0,
                 carry_share_sd=_stdev(w_car),
-                snap_pct_z=_zscore(curr_snap, sum(w_snap)/len(w_snap), _stdev(w_snap)) if len(w_snap) >= 2 else None,
-                target_share_z=_zscore(curr_target, sum(w_tgt)/len(w_tgt), _stdev(w_tgt)) if len(w_tgt) >= 2 else None,
-                carry_share_z=_zscore(curr_carry, sum(w_car)/len(w_car), _stdev(w_car)) if len(w_car) >= 2 else None,
+                snap_pct_z=_zscore(curr_snap, sum(w_snap) / len(w_snap), _stdev(w_snap))
+                if len(w_snap) >= 2
+                else None,
+                target_share_z=_zscore(curr_target, sum(w_tgt) / len(w_tgt), _stdev(w_tgt))
+                if len(w_tgt) >= 2
+                else None,
+                carry_share_z=_zscore(curr_carry, sum(w_car) / len(w_car), _stdev(w_car))
+                if len(w_car) >= 2
+                else None,
             )
             windows.append(w)
             snap_pct_hist.append(curr_snap)

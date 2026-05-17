@@ -1,4 +1,5 @@
 """Unit tests for src/identity/matcher.py"""
+
 from __future__ import annotations
 
 import pytest
@@ -51,6 +52,7 @@ def _make_record(
 
 # ── Confidence ladder tests ──────────────────────────────────────────
 
+
 class TestConfidenceLadder:
     def test_exact_id_gives_1_00(self):
         rec = _make_record(external_id="sleeper_123")
@@ -80,6 +82,7 @@ class TestConfidenceLadder:
 
 
 # ── Master player building ───────────────────────────────────────────
+
 
 class TestBuildMasterPlayers:
     def test_single_record_creates_one_player(self):
@@ -133,6 +136,7 @@ class TestBuildMasterPlayers:
 
 
 # ── Full identity resolution ─────────────────────────────────────────
+
 
 class TestBuildIdentityResolution:
     def test_basic_resolution(self):
@@ -208,6 +212,7 @@ class TestBuildIdentityResolution:
 
 # ── Confidence ladder edge cases ──────────────────────────────────────
 
+
 class TestConfidenceLadderEdgeCases:
     def test_team_raw_fallback_when_no_normalized(self):
         """If team_normalized_guess is empty but team_raw has value, should still count."""
@@ -237,6 +242,7 @@ class TestConfidenceLadderEdgeCases:
 
 
 # ── Master player building edge cases ─────────────────────────────────
+
 
 class TestBuildMasterPlayersEdgeCases:
     def test_three_sources_merge_into_one_player(self):
@@ -273,6 +279,7 @@ class TestBuildMasterPlayersEdgeCases:
 
 
 # ── Pick processing edge cases ────────────────────────────────────────
+
 
 class TestPickProcessingEdgeCases:
     def test_pick_with_numeric_slot(self):
@@ -336,6 +343,7 @@ class TestPickProcessingEdgeCases:
 
 # ── Age parsing ───────────────────────────────────────────────────────
 
+
 class TestAgeParsingInResolution:
     def test_valid_integer_age(self):
         rec = _make_record()
@@ -368,9 +376,11 @@ class TestAgeParsingInResolution:
 
 # ── build_identity_report backward compat ─────────────────────────────
 
+
 class TestBuildIdentityReport:
     def test_is_alias_for_build_identity_resolution(self):
         from src.identity.matcher import build_identity_report
+
         records = [_make_record()]
         report = build_identity_report(records)
         assert report["master_player_count"] == 1

@@ -25,6 +25,7 @@ Trending data maps to our news vocabulary as:
 No headline lives upstream, so we synthesize one:
     "Jayden Reed added in 18,432 leagues (last 24h)"
 """
+
 from __future__ import annotations
 
 import json
@@ -167,9 +168,7 @@ class SleeperTrendingProvider(NewsProvider):
     def _fetch_player_map(self) -> dict[str, dict[str, Any]]:
         return _PLAYER_MAP.get(fetcher=lambda: self._get_json(_PLAYERS_PATH))
 
-    def _fetch_trending_safe(
-        self, path: str
-    ) -> tuple[bool, List[dict[str, Any]]]:
+    def _fetch_trending_safe(self, path: str) -> tuple[bool, List[dict[str, Any]]]:
         """Fetch one trending endpoint, tolerating a single-endpoint outage.
 
         Returns ``(ok, rows)``.  ``ok=False`` means the upstream

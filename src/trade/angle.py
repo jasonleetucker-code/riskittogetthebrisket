@@ -25,6 +25,7 @@ counter-offers). Same arbitrage math; combinations are evaluated per
 opposing team with the candidate pool clamped to each team's top-N
 players by your calibrated value so the search stays fast.
 """
+
 from __future__ import annotations
 
 from itertools import combinations
@@ -399,10 +400,12 @@ def find_angle_packages(
         }
 
     offer_my_total = sum(
-        _value_pair(r)[0] for r in offer_rows  # type: ignore[index]
+        _value_pair(r)[0]
+        for r in offer_rows  # type: ignore[index]
     )
     offer_market_total = sum(
-        _value_pair(r)[1] for r in offer_rows  # type: ignore[index]
+        _value_pair(r)[1]
+        for r in offer_rows  # type: ignore[index]
     )
     offer_size = len(offer_rows)
 
@@ -466,19 +469,17 @@ def find_angle_packages(
     # Offer-side value lists (sorted descending) used by the VA path
     # below. We keep raw totals available for display/back-compat.
     offer_my_values = sorted(
-        (float(_value_pair(r)[0]) for r in offer_rows), reverse=True,  # type: ignore[index]
+        (float(_value_pair(r)[0]) for r in offer_rows),
+        reverse=True,  # type: ignore[index]
     )
     offer_market_values = sorted(
-        (float(_value_pair(r)[1]) for r in offer_rows), reverse=True,  # type: ignore[index]
+        (float(_value_pair(r)[1]) for r in offer_rows),
+        reverse=True,  # type: ignore[index]
     )
 
     # Normalise target-team + seed inputs for constructed-package mode.
-    target_ids: set[str] = {
-        str(t).strip() for t in (target_team_owner_ids or []) if str(t).strip()
-    }
-    seed_names_requested = [
-        str(n).strip() for n in (seed_player_names or []) if str(n).strip()
-    ]
+    target_ids: set[str] = {str(t).strip() for t in (target_team_owner_ids or []) if str(t).strip()}
+    seed_names_requested = [str(n).strip() for n in (seed_player_names or []) if str(n).strip()]
 
     candidates: list[dict[str, Any]] = []
     seed_names_set: set[str] = set()
@@ -522,9 +523,7 @@ def find_angle_packages(
         if offer_my_adj <= 0 or offer_market_adj <= 0:
             return None
         my_gain_pct = 100.0 * (counter_my_adj - offer_my_adj) / offer_my_adj
-        market_gain_pct = (
-            100.0 * (counter_market_adj - offer_market_adj) / offer_market_adj
-        )
+        market_gain_pct = 100.0 * (counter_market_adj - offer_market_adj) / offer_market_adj
         if my_gain_pct < min_my_gain_pct:
             return None
         if market_gain_pct > max_market_gain_pct:
@@ -618,8 +617,7 @@ def find_angle_packages(
         if missing_seeds:
             warnings.append(
                 f"Dropped {len(missing_seeds)} seed player(s) with missing data: "
-                f"{', '.join(missing_seeds[:5])}"
-                + (" …" if len(missing_seeds) > 5 else "")
+                f"{', '.join(missing_seeds[:5])}" + (" …" if len(missing_seeds) > 5 else "")
             )
         if wrong_team_seeds:
             warnings.append(
@@ -833,14 +831,12 @@ def find_acquisition_packages(
     if missing:
         warnings.append(
             f"Dropped {len(missing)} desired player(s) with missing data: "
-            f"{', '.join(missing[:5])}"
-            + (" …" if len(missing) > 5 else "")
+            f"{', '.join(missing[:5])}" + (" …" if len(missing) > 5 else "")
         )
     if own_roster:
         warnings.append(
             f"Dropped {len(own_roster)} player(s) already on your roster: "
-            f"{', '.join(own_roster[:5])}"
-            + (" …" if len(own_roster) > 5 else "")
+            f"{', '.join(own_roster[:5])}" + (" …" if len(own_roster) > 5 else "")
         )
     if not desired_rows:
         return {
@@ -906,10 +902,12 @@ def find_acquisition_packages(
 
     # Desired-side value lists (sorted descending) for the VA path.
     desired_my_values = sorted(
-        (float(_value_pair(r)[0]) for r in desired_rows), reverse=True,  # type: ignore[index]
+        (float(_value_pair(r)[0]) for r in desired_rows),
+        reverse=True,  # type: ignore[index]
     )
     desired_market_values = sorted(
-        (float(_value_pair(r)[1]) for r in desired_rows), reverse=True,  # type: ignore[index]
+        (float(_value_pair(r)[1]) for r in desired_rows),
+        reverse=True,  # type: ignore[index]
     )
 
     def _make_candidate(combo: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:
@@ -936,9 +934,7 @@ def find_acquisition_packages(
         if offer_my_adj <= 0 or offer_market_adj <= 0:
             return None
         my_gain_pct = 100.0 * (desired_my_adj - offer_my_adj) / offer_my_adj
-        market_gain_pct = (
-            100.0 * (desired_market_adj - offer_market_adj) / offer_market_adj
-        )
+        market_gain_pct = 100.0 * (desired_market_adj - offer_market_adj) / offer_market_adj
         if my_gain_pct < min_my_gain_pct:
             return None
         if market_gain_pct > max_market_gain_pct:

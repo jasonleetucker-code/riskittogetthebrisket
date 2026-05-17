@@ -10,6 +10,7 @@ CI half is ``test_contract_coverage_watchdog``).  It pins:
   the CI watchdog uses, so the pre-merge and runtime gates can never
   disagree about what "a source is missing" means.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -41,9 +42,7 @@ class TestComputeServedSourceCoverage(unittest.TestCase):
     def test_defensive_on_bad_shapes(self):
         self.assertEqual(server._compute_served_source_coverage(None), {})
         self.assertEqual(server._compute_served_source_coverage({}), {})
-        self.assertEqual(
-            server._compute_served_source_coverage({"playersArray": "nope"}), {}
-        )
+        self.assertEqual(server._compute_served_source_coverage({"playersArray": "nope"}), {})
 
     def test_degraded_board_yields_only_legacy_sources(self):
         # A 3-source legacy board: the gate must see exactly that.
@@ -75,14 +74,10 @@ class TestEvaluateCoverageMapParity(unittest.TestCase):
         wcc._csv_nonempty = self._orig
 
     def test_map_path_equals_contract_path(self):
-        contract = {
-            "playersArray": [{"sourceRankMeta": {_KEY: {}}} for _ in range(40)]
-        }
+        contract = {"playersArray": [{"sourceRankMeta": {_KEY: {}}} for _ in range(40)]}
         freshness = {_KEY: {"ageHours": 0.0}}
         from_contract = evaluate_coverage(contract, freshness, {})
-        from_map = evaluate_coverage_map(
-            _source_coverage(contract), freshness, {}
-        )
+        from_map = evaluate_coverage_map(_source_coverage(contract), freshness, {})
         self.assertEqual(from_contract, from_map)
 
     def test_map_flags_absent_fresh_source(self):

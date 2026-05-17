@@ -91,7 +91,6 @@ class ScoringModuleTests(unittest.TestCase):
             self.assertEqual(payload["customLeagueId"], "123")
             self.assertTrue(any(r.get("key") == "pass_td" for r in payload.get("rules", [])))
 
-
     def test_bucket_rule_contributions_detail_isolates_te_bonus(self):
         """`bucket_rule_contributions` aggregates `bonus_fd_te` and
         `rec_fd` into a single `first_downs` bucket on TE rows; the

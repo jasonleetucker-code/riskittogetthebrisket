@@ -8,7 +8,9 @@ from pathlib import Path
 
 
 def _repo_root_from_args() -> Path:
-    parser = argparse.ArgumentParser(description="Validate /api/data contract against latest payload.")
+    parser = argparse.ArgumentParser(
+        description="Validate /api/data contract against latest payload."
+    )
     parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
     args = parser.parse_args()
     return Path(args.repo).resolve()
@@ -21,7 +23,9 @@ def _load_latest_payload(repo_root: Path) -> tuple[dict, Path]:
             continue
         candidates.extend(sorted(folder.glob("dynasty_data_*.json")))
     if not candidates:
-        raise FileNotFoundError("No dynasty_data_YYYY-MM-DD.json files found in repo/data or repo root.")
+        raise FileNotFoundError(
+            "No dynasty_data_YYYY-MM-DD.json files found in repo/data or repo root."
+        )
     latest = sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
     with latest.open("r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -86,4 +90,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -11,6 +11,7 @@ These tests pin the combine behavior at the iterator layer
 (``walk_matchup_pairs``) and verify it propagates into the record +
 rivalry engines.
 """
+
 from __future__ import annotations
 
 import unittest

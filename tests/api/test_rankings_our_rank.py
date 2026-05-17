@@ -18,6 +18,7 @@ The tests below now pin the INVERSE invariant: the frontend lib must
 NOT carry any of the removed symbols.  If someone reintroduces a
 client-side ranking engine these assertions fail loudly.
 """
+
 from __future__ import annotations
 
 import re
@@ -53,6 +54,7 @@ def _strip_comments(src: str) -> str:
 
 # ── Fallback removal guarantee ────────────────────────────────────────────────
 
+
 class TestFallbackRemoved:
     """The frontend ranking fallback was removed; verify the symbols are gone.
 
@@ -78,9 +80,9 @@ class TestFallbackRemoved:
 
     def test_non_canonical_fallback_symbol_is_removed(self):
         src = _strip_comments(_src(NEXT_JS))
-        assert "NON_CANONICAL_FALLBACK" not in src, (
-            "NON_CANONICAL_FALLBACK marker must not be present"
-        )
+        assert (
+            "NON_CANONICAL_FALLBACK" not in src
+        ), "NON_CANONICAL_FALLBACK marker must not be present"
 
     def test_overall_rank_limit_constant_is_removed(self):
         src = _strip_comments(_src(NEXT_JS))
@@ -91,20 +93,19 @@ class TestFallbackRemoved:
 
 # ── Backend-authoritative row materialization ────────────────────────────────
 
+
 class TestBackendAuthoritative:
     """The frontend must read backend-stamped rank/value fields verbatim."""
 
     def test_reads_backend_canonical_consensus_rank(self):
         src = _src(NEXT_JS)
-        assert "canonicalConsensusRank" in src, (
-            "Next.js lib must read backend-computed canonicalConsensusRank"
-        )
+        assert (
+            "canonicalConsensusRank" in src
+        ), "Next.js lib must read backend-computed canonicalConsensusRank"
 
     def test_reads_backend_rank_derived_value(self):
         src = _src(NEXT_JS)
-        assert "rankDerivedValue" in src, (
-            "Next.js lib must read backend-computed rankDerivedValue"
-        )
+        assert "rankDerivedValue" in src, "Next.js lib must read backend-computed rankDerivedValue"
 
     def test_build_rows_is_pure_materializer(self):
         src = _src(NEXT_JS)
@@ -114,6 +115,7 @@ class TestBackendAuthoritative:
 
 # ── Python Hill-curve spot check (backend-only) ──────────────────────────────
 
+
 class TestBackendFormulaIntact:
     """The backend rank-to-value curve is the single source of truth."""
 
@@ -122,18 +124,18 @@ class TestBackendFormulaIntact:
             HILL_MIDPOINT,
             rank_to_value,
         )
+
         assert rank_to_value(1) == 9999, "Rank 1 must produce 9999"
         assert rank_to_value(0) == 0, "Rank 0 must produce 0"
         # Rank == midpoint+1 is the Hill curve's inflection point:
         # v = 1 + 9998/(1 + 1^slope) = 5000 regardless of slope.
         mid_rank = int(round(HILL_MIDPOINT)) + 1
         mid = rank_to_value(mid_rank)
-        assert 4900 <= mid <= 5100, (
-            f"Rank {mid_rank} (midpoint+1) produced {mid}, expected ~5000"
-        )
+        assert 4900 <= mid <= 5100, f"Rank {mid_rank} (midpoint+1) produced {mid}, expected ~5000"
 
 
 # ── Unified rank precedence ──────────────────────────────────────────────────
+
 
 class TestResolvedRankPrecedence:
     """Next.js renderer must use the same rank resolution precedence:

@@ -1,6 +1,7 @@
 """Tests for the Sleeper-derived draft-capital fallback.
 
 We mock the Sleeper HTTP calls so tests run offline."""
+
 from __future__ import annotations
 
 import io
@@ -14,11 +15,13 @@ from src.api import draft_capital_fallback as dcf
 
 def _stub_fetch_json(responses):
     """Return a patched _fetch_json that reads from a URL→response map."""
+
     def fake(url):
         for key, resp in responses.items():
             if key in url:
                 return resp
         return None
+
     return fake
 
 
@@ -42,24 +45,27 @@ def _contract_with_picks():
 def test_returns_error_when_sleeper_unreachable(monkeypatch):
     monkeypatch.setattr(dcf, "_fetch_json", lambda _url: None)
     result = dcf.build_sleeper_derived(
-        "L1", _contract_with_picks(), current_season=2026, num_teams=12,
+        "L1",
+        _contract_with_picks(),
+        current_season=2026,
+        num_teams=12,
     )
     assert result.get("error") == "sleeper_unreachable"
 
 
 def test_basic_build_returns_expected_shape(monkeypatch):
     responses = {
-        "/rosters": [
-            {"roster_id": i, "owner_id": str(100 + i)} for i in range(1, 11)
-        ],
-        "/users": [
-            {"user_id": str(100 + i), "display_name": f"Team{i}"} for i in range(1, 11)
-        ],
+        "/rosters": [{"roster_id": i, "owner_id": str(100 + i)} for i in range(1, 11)],
+        "/users": [{"user_id": str(100 + i), "display_name": f"Team{i}"} for i in range(1, 11)],
         "/traded_picks": [],
     }
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(responses))
     result = dcf.build_sleeper_derived(
-        "L1", _contract_with_picks(), current_season=2026, num_teams=10, draft_rounds=4,
+        "L1",
+        _contract_with_picks(),
+        current_season=2026,
+        num_teams=10,
+        draft_rounds=4,
     )
     assert result["source"] == "sleeper_derived"
     assert result["numTeams"] == 10
@@ -87,13 +93,20 @@ def test_traded_pick_updates_ownership(monkeypatch):
         "/traded_picks": [
             # Team 2's 2026 1st (slot 2) now owned by Team 1.
             {
-                "season": "2026", "round": 1, "roster_id": 2, "owner_id": 1,
+                "season": "2026",
+                "round": 1,
+                "roster_id": 2,
+                "owner_id": 1,
             }
         ],
     }
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(responses))
     result = dcf.build_sleeper_derived(
-        "L1", _contract_with_picks(), current_season=2026, num_teams=2, draft_rounds=1,
+        "L1",
+        _contract_with_picks(),
+        current_season=2026,
+        num_teams=2,
+        draft_rounds=1,
     )
     # Find the traded pick.
     traded = [p for p in result["picks"] if p["isTraded"]]
@@ -118,7 +131,11 @@ def test_missing_contract_uses_flat_fallback(monkeypatch):
     }
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(responses))
     result = dcf.build_sleeper_derived(
-        "L1", {}, current_season=2026, num_teams=1, draft_rounds=4,
+        "L1",
+        {},
+        current_season=2026,
+        num_teams=1,
+        draft_rounds=4,
     )
     # Still produces a valid shape.
     assert result["source"] == "sleeper_derived"

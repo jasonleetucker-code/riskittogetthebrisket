@@ -24,6 +24,7 @@ Exit codes
     1  drift exceeds tolerance — caller opens a PR
     2  fatal (no contract available)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,7 +63,8 @@ def _load_contract_players(path: Path) -> list[dict[str, Any]]:
                 "pos": str(p.get("position") or ""),
                 "rankDerivedValue": p.get("rankDerivedValue"),
             }
-            for p in arr if isinstance(p, dict)
+            for p in arr
+            if isinstance(p, dict)
         ]
     # Legacy dict shape — derive pos from asset stamps.
     players = data.get("players") or {}
@@ -70,11 +72,13 @@ def _load_contract_players(path: Path) -> list[dict[str, Any]]:
     for name, row in players.items():
         if not isinstance(row, dict):
             continue
-        out.append({
-            "name": name,
-            "pos": str(row.get("position") or ""),
-            "rankDerivedValue": row.get("rankDerivedValue"),
-        })
+        out.append(
+            {
+                "name": name,
+                "pos": str(row.get("position") or ""),
+                "rankDerivedValue": row.get("rankDerivedValue"),
+            }
+        )
     return out
 
 
@@ -83,11 +87,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--tolerance", type=float, default=0.15)
     parser.add_argument(
-        "--contract-path", type=Path,
+        "--contract-path",
+        type=Path,
         default=Path("data/latest_contract.json"),
     )
     parser.add_argument(
-        "--thresholds-out", type=Path,
+        "--thresholds-out",
+        type=Path,
         default=Path("config/tiers/thresholds.json"),
     )
     args = parser.parse_args(argv)
@@ -103,11 +109,15 @@ def main(argv: list[str] | None = None) -> int:
     new_thresholds = fit_thresholds_grid_search(rows)
     old_thresholds = load_thresholds(args.thresholds_out)
     drift = detect_threshold_drift(
-        old_thresholds, new_thresholds, tolerance_pct=args.tolerance,
+        old_thresholds,
+        new_thresholds,
+        tolerance_pct=args.tolerance,
     )
     _LOGGER.info(
         "fit complete: %d positions, max_drift=%.2f%%, hasDrift=%s",
-        len(new_thresholds), drift["maxDriftPct"] * 100, drift["hasDrift"],
+        len(new_thresholds),
+        drift["maxDriftPct"] * 100,
+        drift["hasDrift"],
     )
     for pos, new_t in sorted(new_thresholds.items()):
         old_t = old_thresholds.get(pos, 0.0)

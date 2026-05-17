@@ -32,6 +32,7 @@ Key design choices:
   shouldn't 404 last season's championship recap. ``exports/narratives/``
   is committed alongside the league's other public artifacts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -130,7 +131,11 @@ def list_articles(
     if not root.exists():
         return []
     out: list[dict[str, Any]] = []
-    seasons = [str(season)] if season is not None else sorted(p.name for p in root.iterdir() if p.is_dir())
+    seasons = (
+        [str(season)]
+        if season is not None
+        else sorted(p.name for p in root.iterdir() if p.is_dir())
+    )
     for s in seasons:
         sdir = root / s
         if not sdir.exists():
@@ -147,15 +152,19 @@ def list_articles(
                     payload = json.loads(fp.read_text(encoding="utf-8"))
                 except (json.JSONDecodeError, OSError):
                     continue
-                out.append({
-                    "season": s,
-                    "week": week_num,
-                    "mode": payload.get("mode"),
-                    "matchupId": payload.get("matchupId"),
-                    "title": payload.get("title"),
-                    "generatedAt": payload.get("generatedAt"),
-                    "path": str(fp.relative_to(root.parent)) if fp.is_relative_to(root.parent) else str(fp),
-                })
+                out.append(
+                    {
+                        "season": s,
+                        "week": week_num,
+                        "mode": payload.get("mode"),
+                        "matchupId": payload.get("matchupId"),
+                        "title": payload.get("title"),
+                        "generatedAt": payload.get("generatedAt"),
+                        "path": str(fp.relative_to(root.parent))
+                        if fp.is_relative_to(root.parent)
+                        else str(fp),
+                    }
+                )
     return out
 
 
@@ -284,11 +293,13 @@ def _multi_week_round(
             )
             if home_entry is None or away_entry is None:
                 continue
-            prior.append({
-                "week": prev,
-                "homePoints": round(metrics.matchup_points(home_entry), 2),
-                "awayPoints": round(metrics.matchup_points(away_entry), 2),
-            })
+            prior.append(
+                {
+                    "week": prev,
+                    "homePoints": round(metrics.matchup_points(home_entry), 2),
+                    "awayPoints": round(metrics.matchup_points(away_entry), 2),
+                }
+            )
             matched = True
             break
         if not matched:
@@ -346,12 +357,14 @@ def _starter_lineup(
             points = float(pp.get(pid) or 0.0)
         except (TypeError, ValueError):
             points = 0.0
-        rows.append({
-            "playerId": str(pid),
-            "playerName": snapshot.player_display(pid),
-            "position": snapshot.player_position(pid),
-            "points": round(points, 2) if include_points else None,
-        })
+        rows.append(
+            {
+                "playerId": str(pid),
+                "playerName": snapshot.player_display(pid),
+                "position": snapshot.player_position(pid),
+                "points": round(points, 2) if include_points else None,
+            }
+        )
     return rows
 
 
@@ -372,12 +385,14 @@ def _bench_top(
             points = float(pp.get(s_pid) or 0.0)
         except (TypeError, ValueError):
             points = 0.0
-        rows.append({
-            "playerId": s_pid,
-            "playerName": snapshot.player_display(s_pid),
-            "position": snapshot.player_position(s_pid),
-            "points": round(points, 2),
-        })
+        rows.append(
+            {
+                "playerId": s_pid,
+                "playerName": snapshot.player_display(s_pid),
+                "position": snapshot.player_position(s_pid),
+                "points": round(points, 2),
+            }
+        )
     rows.sort(key=lambda r: -r["points"])
     return rows[:n]
 
@@ -570,10 +585,18 @@ def build_brief(
     last_5 = matchup_preview._meetings_recent(meetings, n=5)  # noqa: SLF001
 
     home_form = matchup_preview._recent_form_for_owner(  # noqa: SLF001
-        snapshot, home_owner, season, week, n=3,
+        snapshot,
+        home_owner,
+        season,
+        week,
+        n=3,
     )
     away_form = matchup_preview._recent_form_for_owner(  # noqa: SLF001
-        snapshot, away_owner, season, week, n=3,
+        snapshot,
+        away_owner,
+        season,
+        week,
+        n=3,
     )
 
     # Pre-week standings — lifted from matchup_recap's helper.
@@ -584,7 +607,11 @@ def build_brief(
 
     # Bracket classification.
     round_label, is_championship = _bracket_round_for(
-        season_snap, matchup_id, week, home_rid, away_rid,
+        season_snap,
+        matchup_id,
+        week,
+        home_rid,
+        away_rid,
     )
     is_playoff = week >= season_snap.playoff_week_start
 
@@ -603,10 +630,14 @@ def build_brief(
     # Top-scorer / biggest-bench-miss for recaps only.
     if mode == "recap":
         home_top = max(
-            home_lineup, key=lambda r: r.get("points") or 0.0, default=None,
+            home_lineup,
+            key=lambda r: r.get("points") or 0.0,
+            default=None,
         )
         away_top = max(
-            away_lineup, key=lambda r: r.get("points") or 0.0, default=None,
+            away_lineup,
+            key=lambda r: r.get("points") or 0.0,
+            default=None,
         )
         # In best-ball, Sleeper auto-optimizes the lineup so a "bench
         # miss" (best bench scorer outscoring the worst starter) is by
@@ -707,7 +738,9 @@ def build_brief(
                 "winPct": pre_rec.get("winPct", 0.0),
                 "standing": pre_rec.get("standing"),
                 "pointsFor": pre_rec.get("pointsFor", 0.0),
-            } if pre_rec else None,
+            }
+            if pre_rec
+            else None,
             "recentForm": form,
             "starters": lineup,
             "topBench": bench,
@@ -717,18 +750,38 @@ def build_brief(
         }
 
     home_block = _side_block(
-        home_owner, home_rid, home_seed, home_pre, home_form,
-        home_lineup, home_bench, home_top, home_miss, home_points,
+        home_owner,
+        home_rid,
+        home_seed,
+        home_pre,
+        home_form,
+        home_lineup,
+        home_bench,
+        home_top,
+        home_miss,
+        home_points,
     )
     away_block = _side_block(
-        away_owner, away_rid, away_seed, away_pre, away_form,
-        away_lineup, away_bench, away_top, away_miss, away_points,
+        away_owner,
+        away_rid,
+        away_seed,
+        away_pre,
+        away_form,
+        away_lineup,
+        away_bench,
+        away_top,
+        away_miss,
+        away_points,
     )
 
     h2h_block = {
         "totalMeetings": summary.get("totalMeetings", 0),
-        "homeWins": summary.get("sideAWins", 0) if pair_key[0] == home_owner else summary.get("sideBWins", 0),
-        "awayWins": summary.get("sideBWins", 0) if pair_key[0] == home_owner else summary.get("sideAWins", 0),
+        "homeWins": summary.get("sideAWins", 0)
+        if pair_key[0] == home_owner
+        else summary.get("sideBWins", 0),
+        "awayWins": summary.get("sideBWins", 0)
+        if pair_key[0] == home_owner
+        else summary.get("sideAWins", 0),
         "ties": summary.get("ties", 0),
         "avgMargin": summary.get("avgMargin", 0.0),
         "biggestMargin": summary.get("biggestMargin", 0.0),
@@ -1056,18 +1109,24 @@ def collect_prior_articles(
     out: list[dict[str, Any]] = []
     for entry in items[:n]:
         full = load_article(
-            entry["season"], entry["week"], entry["matchupId"], entry["mode"], base=base,
+            entry["season"],
+            entry["week"],
+            entry["matchupId"],
+            entry["mode"],
+            base=base,
         )
         if not full:
             continue
-        out.append({
-            "season": full.get("season"),
-            "week": full.get("week"),
-            "mode": full.get("mode"),
-            "title": full.get("title"),
-            "lede": full.get("lede"),
-            "generatedAt": full.get("generatedAt"),
-        })
+        out.append(
+            {
+                "season": full.get("season"),
+                "week": full.get("week"),
+                "mode": full.get("mode"),
+                "title": full.get("title"),
+                "lede": full.get("lede"),
+                "generatedAt": full.get("generatedAt"),
+            }
+        )
     return out
 
 

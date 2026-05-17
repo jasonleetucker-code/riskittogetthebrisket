@@ -10,6 +10,7 @@ Also verifies the predict_v8 monotonicity: increasing
 ``stud_coeff`` increases the prediction for elite-top trades and
 leaves sub-threshold trades unchanged.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -46,8 +47,12 @@ def _point(cal, *, small, large, label="test"):
 
 def _v7_params():
     return {
-        "slope": 4.0, "intercept": 0.30, "cap": 0.60,
-        "decay": 0.50, "boost": 1.0, "effective_cap": 1.10,
+        "slope": 4.0,
+        "intercept": 0.30,
+        "cap": 0.60,
+        "decay": 0.50,
+        "boost": 1.0,
+        "effective_cap": 1.10,
     }
 
 
@@ -62,9 +67,9 @@ def test_v8_collapses_to_v7_when_stud_coeff_zero(cal):
     pt = _point(cal, small=[8500], large=[6800, 4200])
     v7_pred = cal.predict_v7_full_loop(pt, _v7_params())
     v8_pred = cal.predict_v8_stud_factor(pt, _v8_params(stud_coeff=0.0))
-    assert abs(v7_pred - v8_pred) < 1e-6, (
-        f"V8 with stud_coeff=0 must equal V7: v7={v7_pred} v8={v8_pred}"
-    )
+    assert (
+        abs(v7_pred - v8_pred) < 1e-6
+    ), f"V8 with stud_coeff=0 must equal V7: v7={v7_pred} v8={v8_pred}"
 
 
 def test_v8_collapses_when_top_below_threshold(cal):
@@ -73,7 +78,8 @@ def test_v8_collapses_when_top_below_threshold(cal):
     pt = _point(cal, small=[5000], large=[4500, 3000])
     v7_pred = cal.predict_v7_full_loop(pt, _v7_params())
     v8_pred = cal.predict_v8_stud_factor(
-        pt, _v8_params(stud_coeff=1.5, stud_threshold=7000.0),
+        pt,
+        _v8_params(stud_coeff=1.5, stud_threshold=7000.0),
     )
     # top_small (5000) < threshold (7000) → stud_excess = 0 → mult = 1
     assert abs(v7_pred - v8_pred) < 1e-6
@@ -84,11 +90,10 @@ def test_v8_amplifies_for_elite_top(cal):
     pt = _point(cal, small=[9500], large=[7500, 5000])
     v7_pred = cal.predict_v7_full_loop(pt, _v7_params())
     v8_pred = cal.predict_v8_stud_factor(
-        pt, _v8_params(stud_coeff=1.0, stud_threshold=7000.0),
+        pt,
+        _v8_params(stud_coeff=1.0, stud_threshold=7000.0),
     )
-    assert v8_pred > v7_pred, (
-        f"V8 should amplify elite trades: v7={v7_pred} v8={v8_pred}"
-    )
+    assert v8_pred > v7_pred, f"V8 should amplify elite trades: v7={v7_pred} v8={v8_pred}"
 
 
 def test_v8_returns_zero_when_small_larger(cal):
@@ -96,7 +101,8 @@ def test_v8_returns_zero_when_small_larger(cal):
     same as V7."""
     pt = _point(cal, small=[5000, 4000, 3000], large=[8000])
     v8_pred = cal.predict_v8_stud_factor(
-        pt, _v8_params(stud_coeff=0.5),
+        pt,
+        _v8_params(stud_coeff=0.5),
     )
     assert v8_pred == 0.0
 
@@ -120,14 +126,9 @@ def test_v8_monotonic_in_stud_coeff(cal):
     pt = _point(cal, small=[9000], large=[7500, 4500])
     base = _v8_params(stud_coeff=0.0)
     coeffs = [0.0, 0.25, 0.5, 1.0, 1.5]
-    preds = [
-        cal.predict_v8_stud_factor(pt, {**base, "stud_coeff": c})
-        for c in coeffs
-    ]
+    preds = [cal.predict_v8_stud_factor(pt, {**base, "stud_coeff": c}) for c in coeffs]
     for i in range(len(preds) - 1):
-        assert preds[i + 1] >= preds[i], (
-            f"V8 must be monotonic in stud_coeff: {preds}"
-        )
+        assert preds[i + 1] >= preds[i], f"V8 must be monotonic in stud_coeff: {preds}"
 
 
 def test_v8_in_main_candidates_list(cal):

@@ -5,6 +5,7 @@ so the surface tested here is mostly provider-identity + the
 raise-on-failure contract.  The full classification matrix is
 covered in ``test_espn_provider.py``.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -41,9 +42,7 @@ def _provider(rss_bytes=_SAMPLE_RSS):
 
 
 def test_items_parse_and_tag_provider_identity():
-    items = _provider().fetch(
-        player_names=["Bijan Robinson", "Jahmyr Gibbs"]
-    )
+    items = _provider().fetch(player_names=["Bijan Robinson", "Jahmyr Gibbs"])
     assert len(items) == 2
     for it in items:
         assert it.provider == "fantasypros"

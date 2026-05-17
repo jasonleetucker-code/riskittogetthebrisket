@@ -16,6 +16,7 @@ The goal is "observable degraded startup" over "silent
 misconfiguration".  A broken .env file produces 15 explicit log
 lines telling you what's wrong, not a mysterious 503.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,7 +56,9 @@ def check_dir_writable(path: Path, *, create: bool = True) -> CheckResult:
             path.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             return CheckResult(
-                name=f"dir:{path}", ok=False, message="missing",
+                name=f"dir:{path}",
+                ok=False,
+                message="missing",
                 fatal=False,
             )
         # Try to write a probe.
@@ -63,11 +66,14 @@ def check_dir_writable(path: Path, *, create: bool = True) -> CheckResult:
         probe.write_text("", encoding="utf-8")
         probe.unlink()
         return CheckResult(
-            name=f"dir:{path}", ok=True, message="writable",
+            name=f"dir:{path}",
+            ok=True,
+            message="writable",
         )
     except Exception as exc:  # noqa: BLE001
         return CheckResult(
-            name=f"dir:{path}", ok=False,
+            name=f"dir:{path}",
+            ok=False,
             message=f"not writable: {exc}",
             fatal=False,
             context={"error": str(exc)},
@@ -85,10 +91,13 @@ def check_sqlite_reachable(path: Path) -> CheckResult:
             row = conn.execute("PRAGMA integrity_check").fetchone()
             if row and row[0] == "ok":
                 return CheckResult(
-                    name=f"sqlite:{path.name}", ok=True, message="ok",
+                    name=f"sqlite:{path.name}",
+                    ok=True,
+                    message="ok",
                 )
             return CheckResult(
-                name=f"sqlite:{path.name}", ok=False,
+                name=f"sqlite:{path.name}",
+                ok=False,
                 message=f"integrity_check: {row}",
                 fatal=False,
             )
@@ -96,7 +105,8 @@ def check_sqlite_reachable(path: Path) -> CheckResult:
             conn.close()
     except Exception as exc:  # noqa: BLE001
         return CheckResult(
-            name=f"sqlite:{path.name}", ok=False,
+            name=f"sqlite:{path.name}",
+            ok=False,
             message=f"open failed: {exc}",
             fatal=False,
             context={"error": str(exc)},
@@ -108,21 +118,25 @@ def check_league_registry() -> CheckResult:
     active league."""
     try:
         from src.api import league_registry
+
         leagues = league_registry.active_leagues()
         if not leagues:
             return CheckResult(
-                name="league_registry", ok=False,
+                name="league_registry",
+                ok=False,
                 message="no active leagues configured",
                 fatal=False,
             )
         return CheckResult(
-            name="league_registry", ok=True,
+            name="league_registry",
+            ok=True,
             message=f"{len(leagues)} active",
             context={"keys": [lg.key for lg in leagues]},
         )
     except Exception as exc:  # noqa: BLE001
         return CheckResult(
-            name="league_registry", ok=False,
+            name="league_registry",
+            ok=False,
             message=f"load failed: {exc}",
             fatal=True,
             context={"error": str(exc)},
@@ -157,21 +171,24 @@ def run_all(
             try:
                 checks.append(cf())
             except Exception as exc:  # noqa: BLE001
-                checks.append(CheckResult(
-                    name=f"extra:{cf.__name__}", ok=False,
-                    message=f"check raised: {exc}",
-                    fatal=False,
-                ))
+                checks.append(
+                    CheckResult(
+                        name=f"extra:{cf.__name__}",
+                        ok=False,
+                        message=f"check raised: {exc}",
+                        fatal=False,
+                    )
+                )
 
     # Log every check.
     for r in checks:
-        level = logging.INFO if r.ok else (
-            logging.ERROR if r.fatal else logging.WARNING
-        )
+        level = logging.INFO if r.ok else (logging.ERROR if r.fatal else logging.WARNING)
         _LOGGER.log(
             level,
             "startup_check=%s ok=%s message=%r%s",
-            r.name, r.ok, r.message,
+            r.name,
+            r.ok,
+            r.message,
             f" context={r.context}" if r.context else "",
         )
 
@@ -180,12 +197,15 @@ def run_all(
     if n_fatal:
         _LOGGER.error(
             "startup_summary=degraded failures=%d fatal=%d total=%d",
-            n_failures, n_fatal, len(checks),
+            n_failures,
+            n_fatal,
+            len(checks),
         )
     elif n_failures:
         _LOGGER.warning(
             "startup_summary=degraded failures=%d total=%d",
-            n_failures, len(checks),
+            n_failures,
+            len(checks),
         )
     else:
         _LOGGER.info("startup_summary=healthy checks=%d", len(checks))
@@ -202,8 +222,11 @@ def summary(checks: list[CheckResult]) -> dict[str, Any]:
         "fatal": sum(1 for r in checks if r.fatal),
         "checks": [
             {
-                "name": r.name, "ok": r.ok, "message": r.message,
-                "fatal": r.fatal, "context": r.context or {},
+                "name": r.name,
+                "ok": r.ok,
+                "message": r.message,
+                "fatal": r.fatal,
+                "context": r.context or {},
             }
             for r in checks
         ],

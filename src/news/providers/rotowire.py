@@ -11,6 +11,7 @@ implementation that hits the licensed endpoint and maps the
 response to ``NewsItem`` — the rest of the stack (service,
 aggregator, route, frontend) will light up automatically.
 """
+
 from __future__ import annotations
 
 import logging

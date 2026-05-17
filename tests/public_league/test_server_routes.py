@@ -4,6 +4,7 @@ Uses the FastAPI TestClient so we exercise the actual route handlers,
 not just the section builders.  The sleeper client is stubbed via
 tests/public_league/fixtures so no network calls are made.
 """
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import unittest
 
 try:
     from fastapi.testclient import TestClient
+
     _HAVE_TESTCLIENT = True
 except Exception:  # noqa: BLE001
     _HAVE_TESTCLIENT = False
@@ -29,11 +31,13 @@ class PublicLeagueRouteTests(unittest.TestCase):
 
         # Force the on-process cache to refresh with the stubbed client.
         _public_league_cache.clear()
-        _public_league_cache.update({
-            "snapshot": None,
-            "snapshot_league_id": None,
-            "fetched_at": 0.0,
-        })
+        _public_league_cache.update(
+            {
+                "snapshot": None,
+                "snapshot_league_id": None,
+                "fetched_at": 0.0,
+            }
+        )
         cls.client = TestClient(app)
 
     def test_full_contract_returns_expected_shape(self) -> None:

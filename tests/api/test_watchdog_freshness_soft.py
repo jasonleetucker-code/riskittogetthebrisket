@@ -12,6 +12,7 @@ config-backed ``load_soft_sources`` / ``is_soft_source`` helpers, and
 asserts the shipped ``config/source_staleness.json`` actually flags
 ``idpShow`` soft so the policy is wired end-to-end.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -31,26 +32,20 @@ class TestClassifyFreshness(unittest.TestCase):
 
     def test_soft_stale_source_is_non_fatal(self):
         freshness = {"idpShow": {"ageHours": 103.0, "lastFetched": "x"}}
-        hard, soft, fresh = classify_freshness(
-            freshness, self.THRESHOLDS, {"idpShow"}
-        )
+        hard, soft, fresh = classify_freshness(freshness, self.THRESHOLDS, {"idpShow"})
         self.assertEqual(hard, [])
         self.assertEqual([s[0] for s in soft], ["idpShow"])
         self.assertEqual(fresh, [])
 
     def test_non_soft_stale_source_is_fatal(self):
         freshness = {"ktc": {"ageHours": 50.0, "lastFetched": "x"}}
-        hard, soft, fresh = classify_freshness(
-            freshness, self.THRESHOLDS, {"idpShow"}
-        )
+        hard, soft, fresh = classify_freshness(freshness, self.THRESHOLDS, {"idpShow"})
         self.assertEqual([s[0] for s in hard], ["ktc"])
         self.assertEqual(soft, [])
 
     def test_fresh_soft_source_is_just_fresh(self):
         freshness = {"idpShow": {"ageHours": 1.0, "lastFetched": "x"}}
-        hard, soft, fresh = classify_freshness(
-            freshness, self.THRESHOLDS, {"idpShow"}
-        )
+        hard, soft, fresh = classify_freshness(freshness, self.THRESHOLDS, {"idpShow"})
         self.assertEqual(hard, [])
         self.assertEqual(soft, [])
         self.assertEqual([s[0] for s in fresh], ["idpShow"])
@@ -69,9 +64,9 @@ class TestSoftSourceConfig(unittest.TestCase):
 
     def test_is_soft_source_exact_and_vendor_prefix(self):
         soft = {"idpShow", "fantasyPros"}
-        self.assertTrue(is_soft_source("idpShow", soft))          # exact
-        self.assertTrue(is_soft_source("fantasyProsSf", soft))    # prefix
-        self.assertTrue(is_soft_source("fantasyProsIdp", soft))   # prefix
+        self.assertTrue(is_soft_source("idpShow", soft))  # exact
+        self.assertTrue(is_soft_source("fantasyProsSf", soft))  # prefix
+        self.assertTrue(is_soft_source("fantasyProsIdp", soft))  # prefix
         self.assertFalse(is_soft_source("ktc", soft))
         # Word-boundary: a shared leading substring must not match
         # unless the next char starts a new camel segment.

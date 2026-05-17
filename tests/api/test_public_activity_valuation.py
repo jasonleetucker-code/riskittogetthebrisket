@@ -9,6 +9,7 @@ is a frontend-only rename).  An earlier version of this bridge
 assumed ``values.full`` and silently disabled public trade grading
 in production; this test would have caught that immediately.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -116,19 +117,23 @@ class BuildValuationFromContractTests(unittest.TestCase):
         self.assertIsNotNone(valuation)
         # ID miss → name fallback (case-insensitive).
         self.assertEqual(
-            valuation({
-                "kind": "player",
-                "playerId": "unknown-id",
-                "playerName": "Jahmyr Gibbs",
-            }),
+            valuation(
+                {
+                    "kind": "player",
+                    "playerId": "unknown-id",
+                    "playerName": "Jahmyr Gibbs",
+                }
+            ),
             7500.0,
         )
         self.assertEqual(
-            valuation({
-                "kind": "player",
-                "playerId": "",
-                "playerName": "JAHMYR GIBBS",
-            }),
+            valuation(
+                {
+                    "kind": "player",
+                    "playerId": "",
+                    "playerName": "JAHMYR GIBBS",
+                }
+            ),
             7500.0,
         )
 

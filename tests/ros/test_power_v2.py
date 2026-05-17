@@ -3,6 +3,7 @@
 Verifies the formula composition + handling of missing inputs +
 graceful degradation when ROS team-strength snapshot is absent.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,6 +60,7 @@ class TestLoadTeamStrength(unittest.TestCase):
         # Use a temp dir so we never touch the production snapshot —
         # under the real ROS_DATA_DIR this test would wipe live data.
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmp:
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
@@ -116,10 +118,12 @@ class TestDisplayNameResolution(unittest.TestCase):
     these unit tests pin the helper itself so a future refactor of
     metrics.py won't silently regress the call site.
     """
+
     def test_metrics_display_name_for_resolves_registered_owner(self):
         from src.public_league.identity import Manager, ManagerRegistry
         from src.public_league.snapshot import PublicLeagueSnapshot
         from src.public_league import metrics
+
         registry = ManagerRegistry(
             by_owner_id={
                 "owner-A": Manager(
@@ -145,6 +149,7 @@ class TestDisplayNameResolution(unittest.TestCase):
         from src.public_league.identity import ManagerRegistry
         from src.public_league.snapshot import PublicLeagueSnapshot
         from src.public_league import metrics
+
         snapshot = PublicLeagueSnapshot(
             root_league_id="L1",
             generated_at="2026-04-29T00:00:00Z",
@@ -165,6 +170,7 @@ class TestDisplayNameResolution(unittest.TestCase):
         silently fall back to owner_id again.  This test is the
         canary."""
         from src.public_league.identity import ManagerRegistry
+
         self.assertFalse(
             hasattr(ManagerRegistry, "display_name_for"),
             "If ManagerRegistry gains a display_name_for method, "
@@ -287,9 +293,7 @@ class TestEnumerateOwnerIds(unittest.TestCase):
             {"ownerId": "alpha"},
             {"ownerId": "bravo"},
         ]
-        snapshot.managers.by_owner_id["bravo"] = Manager(
-            owner_id="bravo", display_name="Bravo"
-        )
+        snapshot.managers.by_owner_id["bravo"] = Manager(owner_id="bravo", display_name="Bravo")
         ids = power_v2._enumerate_owner_ids(snapshot, ts_rows, [])
         self.assertEqual(ids, ["alpha", "bravo"])
 
@@ -309,9 +313,7 @@ class TestEnumerateOwnerIds(unittest.TestCase):
         snapshot = _make_snapshot(
             rosters=[{"owner_id": "alpha", "roster_id": 1}],
         )
-        snapshot.managers.by_owner_id["legacy"] = Manager(
-            owner_id="legacy", display_name="Legacy"
-        )
+        snapshot.managers.by_owner_id["legacy"] = Manager(owner_id="legacy", display_name="Legacy")
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["legacy"])
         self.assertIn("legacy", ids)
 
@@ -359,8 +361,8 @@ class TestEnumerateOwnerIds(unittest.TestCase):
             rosters=[{"owner_id": "alpha", "roster_id": 1}],
         )
         ts_rows = [
-            {"ownerId": "alpha"},      # registered, keep
-            {"ownerId": "departed"},   # stale entry, drop
+            {"ownerId": "alpha"},  # registered, keep
+            {"ownerId": "departed"},  # stale entry, drop
         ]
         ids = power_v2._enumerate_owner_ids(snapshot, ts_rows, [])
         self.assertIn("alpha", ids)
@@ -387,10 +389,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
     """
 
     def test_twelve_owners_preseason(self):
-        rosters = [
-            {"owner_id": f"owner-{i:02d}", "roster_id": i}
-            for i in range(1, 13)
-        ]
+        rosters = [{"owner_id": f"owner-{i:02d}", "roster_id": i} for i in range(1, 13)]
         # Two of the twelve are brand new — keep them out of the
         # historical-careers walk by virtue of empty matchups.
         snapshot = _make_snapshot(rosters=rosters)
@@ -446,11 +445,16 @@ class TestBuildSectionPreseason(unittest.TestCase):
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(
-                json.dumps([
-                    {"ownerId": f"o{i}", "teamRosStrength": 50.0,
-                     "healthAvailabilityScore": 100}
-                    for i in range(1, 4)
-                ])
+                json.dumps(
+                    [
+                        {
+                            "ownerId": f"o{i}",
+                            "teamRosStrength": 50.0,
+                            "healthAvailabilityScore": 100,
+                        }
+                        for i in range(1, 4)
+                    ]
+                )
             )
             with patch.object(power_v2, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)

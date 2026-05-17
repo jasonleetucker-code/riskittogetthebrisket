@@ -36,6 +36,7 @@ No numpy required — uses Python's stdlib ``random`` module.
 NumPy acceleration kicks in when available for the hot loop
 but falls back to stdlib without user-visible difference.
 """
+
 from __future__ import annotations
 
 import math
@@ -49,6 +50,7 @@ _DEFAULT_SIMS = 50_000
 @dataclass(frozen=True)
 class TradePlayer:
     """Minimal player shape the simulator needs."""
+
     name: str
     team: str
     position_group: str  # "offense" | "idp" | "pick"
@@ -93,7 +95,8 @@ class SimResult:
                 "where side A's total exceeds side B's — NOT a "
                 "real-world win probability."
             ),
-            "vaAdjustment": self.va_adjustment or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
+            "vaAdjustment": self.va_adjustment
+            or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         }
 
 
@@ -163,9 +166,7 @@ def _apply_consolidation_adjustment(
     if not applied:
         return side_a, side_b, va_info
 
-    def _shift_side(
-        players: list[TradePlayer], p50s: list[float]
-    ) -> tuple[list[TradePlayer], int]:
+    def _shift_side(players: list[TradePlayer], p50s: list[float]) -> tuple[list[TradePlayer], int]:
         """Shift the band for each player proportionally.
 
         Returns the shifted list and the *actual* total p50 shift after
@@ -181,14 +182,16 @@ def _apply_consolidation_adjustment(
             shift = result.value * (pv / total)
             new_p50 = max(0.0, min(9999.0, p.p50 + shift))
             effective_total += new_p50 - p.p50
-            out.append(TradePlayer(
-                name=p.name,
-                team=p.team,
-                position_group=p.position_group,
-                p10=max(0.0, min(9999.0, p.p10 + shift)),
-                p50=new_p50,
-                p90=max(0.0, min(9999.0, p.p90 + shift)),
-            ))
+            out.append(
+                TradePlayer(
+                    name=p.name,
+                    team=p.team,
+                    position_group=p.position_group,
+                    p10=max(0.0, min(9999.0, p.p10 + shift)),
+                    p50=new_p50,
+                    p90=max(0.0, min(9999.0, p.p90 + shift)),
+                )
+            )
         return out, int(round(effective_total))
 
     if result.side == 1:
@@ -232,10 +235,16 @@ def simulate_trade(
     players = list(side_a) + list(side_b)
     if not players:
         return SimResult(
-            win_prob_a=0.5, mean_delta=0.0, std_delta=0.0,
-            delta_p10=0.0, delta_p50=0.0, delta_p90=0.0,
-            side_a_mean=0.0, side_b_mean=0.0,
-            n_sims=0, method="consensus_based_win_rate",
+            win_prob_a=0.5,
+            mean_delta=0.0,
+            std_delta=0.0,
+            delta_p10=0.0,
+            delta_p50=0.0,
+            delta_p90=0.0,
+            side_a_mean=0.0,
+            side_b_mean=0.0,
+            n_sims=0,
+            method="consensus_based_win_rate",
             va_adjustment={"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         )
 
@@ -262,11 +271,7 @@ def simulate_trade(
             zt = z_team.get(pl.team, 0.0) if rho_t else 0.0
             zp = z_pos.get(pl.position_group, 0.0) if rho_p else 0.0
             z_play = rng.gauss(0.0, 1.0)
-            z_total = (
-                idio_sd * z_play
-                + math.sqrt(rho_t) * zt
-                + math.sqrt(rho_p) * zp
-            )
+            z_total = idio_sd * z_play + math.sqrt(rho_t) * zt + math.sqrt(rho_p) * zp
             # Convert N(0,1) to U(0,1) via standard-normal CDF.
             u = 0.5 * (1.0 + math.erf(z_total / math.sqrt(2.0)))
             # Clamp to avoid edge artifacts from float error.
@@ -334,8 +339,8 @@ def build_trade_player(
         return None
     team = str(row.get("team") or "").strip().upper()
     pos = str(row.get("pos") or row.get("position") or "").upper()
-    group = "idp" if pos in ("DL", "LB", "DB", "CB", "S") else (
-        "pick" if pos == "PICK" else "offense"
+    group = (
+        "idp" if pos in ("DL", "LB", "DB", "CB", "S") else ("pick" if pos == "PICK" else "offense")
     )
 
     # Scoring-fit shift: a single additive offset on the entire band.
@@ -357,7 +362,9 @@ def build_trade_player(
     band = row.get("valueBand") or {}
     if isinstance(band, dict) and band.get("p50") is not None:
         return TradePlayer(
-            name=name, team=team, position_group=group,
+            name=name,
+            team=team,
+            position_group=group,
             p10=_shifted(band.get("p10") or 0),
             p50=_shifted(band.get("p50") or 0),
             p90=_shifted(band.get("p90") or 0),
@@ -365,7 +372,9 @@ def build_trade_player(
     # Fallback: synthesize a 15% band around the canonical value.
     cv = float(row.get("rankDerivedValue") or row.get("values", {}).get("full") or 0)
     return TradePlayer(
-        name=name, team=team, position_group=group,
+        name=name,
+        team=team,
+        position_group=group,
         p10=_shifted(cv * 0.85),
         p50=_shifted(cv),
         p90=_shifted(cv * 1.15),

@@ -18,6 +18,7 @@ We mirror the scraper's scoring function rather than importing
 ``Dynasty Scraper.py`` directly (it has a top-level Playwright
 import that isn't available in CI).
 """
+
 from __future__ import annotations
 
 
@@ -96,7 +97,21 @@ def test_position_hint_breaks_ties_between_active_homonyms():
     # DJ Turner WR (CIN) vs DJ Turner II CB (ARI): both active,
     # both rostered. With a position hint we should land on the
     # right family.
-    wr = {"id": "WR1", "active": 1, "team": "CIN", "search_rank": 250.0, "years_exp": 2, "pos": "WR"}
-    cb = {"id": "CB1", "active": 1, "team": "ARI", "search_rank": 300.0, "years_exp": 2, "pos": "CB"}
+    wr = {
+        "id": "WR1",
+        "active": 1,
+        "team": "CIN",
+        "search_rank": 250.0,
+        "years_exp": 2,
+        "pos": "WR",
+    }
+    cb = {
+        "id": "CB1",
+        "active": 1,
+        "team": "ARI",
+        "search_rank": 300.0,
+        "years_exp": 2,
+        "pos": "CB",
+    }
     assert _pick([wr, cb], preferred_pos="WR")["id"] == "WR1"
     assert _pick([wr, cb], preferred_pos="CB")["id"] == "CB1"

@@ -1,4 +1,5 @@
 """Tests for the unified signal engine."""
+
 from __future__ import annotations
 
 from src.news import unified_signal_engine as ue
@@ -18,16 +19,22 @@ def test_severity_bumps_for_starter():
 
 def test_value_movement_below_threshold_is_none():
     sig = ue.value_movement_signal(
-        name="X", sleeper_id="1", position="WR",
-        pct_change_7d=0.03, pct_change_30d=0.05,
+        name="X",
+        sleeper_id="1",
+        position="WR",
+        pct_change_7d=0.03,
+        pct_change_30d=0.05,
     )
     assert sig is None
 
 
 def test_value_movement_positive_fires_buy():
     sig = ue.value_movement_signal(
-        name="X", sleeper_id="1", position="WR",
-        pct_change_7d=0.12, pct_change_30d=0.20,
+        name="X",
+        sleeper_id="1",
+        position="WR",
+        pct_change_7d=0.12,
+        pct_change_30d=0.20,
     )
     assert sig is not None
     assert sig.verdict == "BUY"
@@ -36,17 +43,25 @@ def test_value_movement_positive_fires_buy():
 
 def test_value_movement_negative_fires_sell():
     sig = ue.value_movement_signal(
-        name="X", sleeper_id="1", position="WR",
-        pct_change_7d=-0.12, pct_change_30d=-0.20,
+        name="X",
+        sleeper_id="1",
+        position="WR",
+        pct_change_7d=-0.12,
+        pct_change_30d=-0.20,
     )
     assert sig.verdict == "SELL"
 
 
 def test_usage_signal_converts_correctly():
     raw = {
-        "signal": "BUY", "tag": "usage_spike_snap",
-        "name": "Player", "pos": "WR", "sleeperId": "1",
-        "snap_pct_z": 3.0, "target_share_z": None, "carry_share_z": None,
+        "signal": "BUY",
+        "tag": "usage_spike_snap",
+        "name": "Player",
+        "pos": "WR",
+        "sleeperId": "1",
+        "snap_pct_z": 3.0,
+        "target_share_z": None,
+        "carry_share_z": None,
         "reason": "Snap spike",
     }
     sig = ue.usage_signal_to_unified(raw)
@@ -82,7 +97,8 @@ def test_injury_ir_status_is_high_severity():
         "transition": "healthy_to_injured",
         "newStatus": "IR",
         "espnAthleteId": "1",
-        "name": "X", "position": "RB",
+        "name": "X",
+        "position": "RB",
         "reason": "IR placement",
     }
     sig = ue.injury_signal_to_unified(diff, starter=True, tier=1)
@@ -109,18 +125,30 @@ def test_unified_composite_bumps_severity_on_agreement():
     # Three sources all saying SELL on same player → composite
     # with bumped severity + explanation combining all.
     value = ue.value_movement_signal(
-        name="Player", sleeper_id="1", position="WR",
-        pct_change_7d=-0.15, pct_change_30d=-0.25,
+        name="Player",
+        sleeper_id="1",
+        position="WR",
+        pct_change_7d=-0.15,
+        pct_change_30d=-0.25,
     )
-    usage = ue.usage_signal_to_unified({
-        "signal": "SELL", "tag": "usage_drop_snap",
-        "name": "Player", "pos": "WR", "sleeperId": "1",
-        "snap_pct_z": -3.5, "reason": "Snap drop",
-    })
+    usage = ue.usage_signal_to_unified(
+        {
+            "signal": "SELL",
+            "tag": "usage_drop_snap",
+            "name": "Player",
+            "pos": "WR",
+            "sleeperId": "1",
+            "snap_pct_z": -3.5,
+            "reason": "Snap drop",
+        }
+    )
     injury = ue.injury_signal_to_unified(
         {
-            "transition": "injury_worsened", "newStatus": "OUT",
-            "espnAthleteId": "1", "name": "Player", "position": "WR",
+            "transition": "injury_worsened",
+            "newStatus": "OUT",
+            "espnAthleteId": "1",
+            "name": "Player",
+            "position": "WR",
             "reason": "Q → Out",
         },
         sleeper_id_resolver=lambda _: "1",
@@ -136,13 +164,19 @@ def test_unified_composite_bumps_severity_on_agreement():
 def test_unified_conflict_keeps_signals_separate():
     # Value says BUY, injury says SELL — don't auto-resolve.
     v = ue.value_movement_signal(
-        name="P", sleeper_id="1", position="WR",
-        pct_change_7d=0.15, pct_change_30d=0.25,
+        name="P",
+        sleeper_id="1",
+        position="WR",
+        pct_change_7d=0.15,
+        pct_change_30d=0.25,
     )
     i = ue.injury_signal_to_unified(
         {
-            "transition": "healthy_to_injured", "newStatus": "OUT",
-            "espnAthleteId": "1", "name": "P", "position": "WR",
+            "transition": "healthy_to_injured",
+            "newStatus": "OUT",
+            "espnAthleteId": "1",
+            "name": "P",
+            "position": "WR",
             "reason": "injury",
         },
         sleeper_id_resolver=lambda _: "1",
@@ -158,11 +192,23 @@ def test_legacy_shape_compatible_with_signal_alerts():
     """to_legacy_shape output must be consumable by
     detect_signal_transitions — same key names."""
     sig = ue.value_movement_signal(
-        name="X", sleeper_id="1", position="QB",
-        pct_change_7d=0.12, pct_change_30d=0.20,
+        name="X",
+        sleeper_id="1",
+        position="QB",
+        pct_change_7d=0.12,
+        pct_change_30d=0.20,
     )
     shape = sig.to_legacy_shape()
     # Keys the existing signal_alerts pipeline reads.
-    for k in ("name", "pos", "signal", "reason", "tag", "signalKey",
-              "aliasSignalKey", "sleeperId", "dismissed"):
+    for k in (
+        "name",
+        "pos",
+        "signal",
+        "reason",
+        "tag",
+        "signalKey",
+        "aliasSignalKey",
+        "sleeperId",
+        "dismissed",
+    ):
         assert k in shape

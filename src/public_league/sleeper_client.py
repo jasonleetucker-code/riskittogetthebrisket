@@ -18,6 +18,7 @@ Network layer:
     handshakes.  Drops cold-fetch from ~0.65s to ~0.25s against the
     live Sleeper chain.
 """
+
 from __future__ import annotations
 
 import logging
@@ -112,6 +113,7 @@ def _cache_get(url: str) -> Any | None:
     if _CACHE_TTL_SECONDS <= 0:
         return None
     import time as _time
+
     now = _time.time()
     with _request_cache_lock:
         entry = _request_cache.get(url)
@@ -131,6 +133,7 @@ def _cache_put(url: str, payload: Any) -> None:
         # Don't cache failures — we want the next call to retry.
         return
     import time as _time
+
     with _request_cache_lock:
         _request_cache[url] = (_time.time(), payload)
 
@@ -254,7 +257,9 @@ def reset_nfl_players_cache() -> None:
     _nfl_players_cache = None
 
 
-def walk_league_chain(start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS) -> list[dict[str, Any]]:
+def walk_league_chain(
+    start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
+) -> list[dict[str, Any]]:
     """Follow ``previous_league_id`` links up to ``max_seasons`` hops.
 
     Returns a list of league objects ordered current → previous.  When

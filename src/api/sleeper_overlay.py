@@ -37,6 +37,7 @@ overlay for 15 minutes so steady-state traffic doesn't hammer
 Sleeper.  ``invalidate_overlay_cache()`` is exposed for tests +
 a potential future admin "refresh" endpoint.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -93,9 +94,11 @@ def _http_get_json(url: str) -> Any:
     # Circuit breaker: fail fast when Sleeper is tripped.
     try:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(
             "sleeper_api",
-            failure_threshold=5, failure_window_sec=60.0,
+            failure_threshold=5,
+            failure_window_sec=60.0,
             open_duration_sec=60.0,
         )
         if not bp.can_call():
@@ -193,6 +196,7 @@ def _build_pick_ownership(
     the data-not-ready state for draft-capital widgets.
     """
     import datetime as _dt
+
     if not roster_ids:
         return {}
     current_year = _dt.datetime.now(_dt.timezone.utc).year
@@ -205,9 +209,7 @@ def _build_pick_ownership(
             for rid in roster_ids:
                 ownership[(year, rnd, rid)] = rid
 
-    traded = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
-    )
+    traded = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks")
     if isinstance(traded, list):
         for tp in traded:
             if not isinstance(tp, dict):
@@ -228,14 +230,16 @@ def _build_pick_ownership(
     # Re-pivot to {current_owner: [pickDetail...]}.
     per_roster: dict[int, list[dict[str, Any]]] = {rid: [] for rid in roster_ids}
     for (season, rnd, original), current_owner in ownership.items():
-        per_roster.setdefault(current_owner, []).append({
-            "season": season,
-            "round": rnd,
-            "slot": None,
-            "original_roster_id": original,
-            "owner_roster_id": current_owner,
-            "label": _format_pick_label(season, rnd),
-        })
+        per_roster.setdefault(current_owner, []).append(
+            {
+                "season": season,
+                "round": rnd,
+                "slot": None,
+                "original_roster_id": original,
+                "owner_roster_id": current_owner,
+                "label": _format_pick_label(season, rnd),
+            }
+        )
     # Sort each team's picks year-then-round for deterministic output.
     for rid, plist in per_roster.items():
         plist.sort(key=lambda p: (p.get("season", ""), p.get("round", 0)))
@@ -260,12 +264,8 @@ def _build_teams_block(
     This is what unblocks /api/draft-capital + angle-finder for
     non-default leagues.
     """
-    rosters = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters"
-    )
-    users = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users"
-    )
+    rosters = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
+    users = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
     if not isinstance(rosters, list) or not isinstance(users, list):
         return None
 
@@ -274,14 +274,8 @@ def _build_teams_block(
     # FAAB.  When the league call fails (rare) we still emit the
     # block — faabRemaining just falls back to None and the
     # frontend renders "—" instead of a number.
-    league_info = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
-    )
-    league_settings = (
-        league_info.get("settings")
-        if isinstance(league_info, dict)
-        else None
-    )
+    league_info = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
+    league_settings = league_info.get("settings") if isinstance(league_info, dict) else None
     league_faab_budget = None
     if isinstance(league_settings, dict):
         try:
@@ -312,9 +306,7 @@ def _build_teams_block(
         label = owner_label(u) or f"Team {uid}"
         user_map[uid] = label
         legacy_name_map[uid] = str(
-            (u.get("metadata") or {}).get("team_name")
-            or u.get("display_name")
-            or f"Team {uid}"
+            (u.get("metadata") or {}).get("team_name") or u.get("display_name") or f"Team {uid}"
         )
 
     id_map = id_to_player or {}
@@ -370,22 +362,22 @@ def _build_teams_block(
         if league_faab_budget is not None and faab_used is not None:
             faab_remaining = max(0, league_faab_budget - faab_used)
 
-        teams.append({
-            "name": user_map.get(owner_id, f"Team {roster_id}"),
-            # Backward-compat only — never rendered.  See legacy_name_map.
-            "sleeperTeamName": legacy_name_map.get(
-                owner_id, f"Team {roster_id}"
-            ),
-            "ownerId": owner_id,
-            "roster_id": roster_id,
-            "players": names,
-            "playerIds": [str(pid) for pid in player_ids if pid],
-            "picks": pick_labels,
-            "pickDetails": pick_details,
-            "faabBudget": league_faab_budget,
-            "faabUsed": faab_used,
-            "faabRemaining": faab_remaining,
-        })
+        teams.append(
+            {
+                "name": user_map.get(owner_id, f"Team {roster_id}"),
+                # Backward-compat only — never rendered.  See legacy_name_map.
+                "sleeperTeamName": legacy_name_map.get(owner_id, f"Team {roster_id}"),
+                "ownerId": owner_id,
+                "roster_id": roster_id,
+                "players": names,
+                "playerIds": [str(pid) for pid in player_ids if pid],
+                "picks": pick_labels,
+                "pickDetails": pick_details,
+                "faabBudget": league_faab_budget,
+                "faabUsed": faab_used,
+                "faabRemaining": faab_remaining,
+            }
+        )
     return teams
 
 
@@ -418,12 +410,8 @@ def _league_rid_lookup(
     """
     rid_to_name: dict[Any, str] = {}
     rid_to_owner: dict[Any, str] = {}
-    rosters = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{target_league_id}/rosters"
-    )
-    users = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{target_league_id}/users"
-    )
+    rosters = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
+    users = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/users")
     if not isinstance(rosters, list):
         return rid_to_name, rid_to_owner
     user_map: dict[str, str] = {}
@@ -435,11 +423,7 @@ def _league_rid_lookup(
             if not uid:
                 continue
             metadata = u.get("metadata") if isinstance(u.get("metadata"), dict) else {}
-            name = (
-                (metadata or {}).get("team_name")
-                or u.get("display_name")
-                or f"Team {uid}"
-            )
+            name = (metadata or {}).get("team_name") or u.get("display_name") or f"Team {uid}"
             user_map[uid] = str(name)
     for r in rosters:
         if not isinstance(r, dict):
@@ -489,9 +473,7 @@ def _league_draft_slot_lookup(
     frontend, just less precisely.
     """
     out: dict[tuple[int, int], int] = {}
-    drafts = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{target_league_id}/drafts"
-    )
+    drafts = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/drafts")
     if not isinstance(drafts, list):
         return out
 
@@ -501,9 +483,7 @@ def _league_draft_slot_lookup(
     owner_to_rid: dict[str, int] = {}
     rs = rosters
     if rs is None:
-        rs_resp = _http_get_json(
-            f"https://api.sleeper.app/v1/league/{target_league_id}/rosters"
-        )
+        rs_resp = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
         rs = rs_resp if isinstance(rs_resp, list) else []
     for r in rs or []:
         if not isinstance(r, dict):
@@ -523,15 +503,11 @@ def _league_draft_slot_lookup(
 
         # Try the DETAIL endpoint first (slot_to_roster_id usually
         # lands here even when the LIST endpoint's copy is empty).
-        detail = _http_get_json(
-            f"https://api.sleeper.app/v1/draft/{draft_id}"
-        )
+        detail = _http_get_json(f"https://api.sleeper.app/v1/draft/{draft_id}")
         detail_dict = detail if isinstance(detail, dict) else {}
 
         # draft_order: { user_id: slot } — needs owner_id → roster_id.
-        draft_order = (
-            detail_dict.get("draft_order") or d.get("draft_order") or {}
-        )
+        draft_order = detail_dict.get("draft_order") or d.get("draft_order") or {}
         if isinstance(draft_order, dict):
             for uid, slot in draft_order.items():
                 slot_num = _safe_int(slot)
@@ -540,19 +516,12 @@ def _league_draft_slot_lookup(
                     out[(season, rid)] = slot_num
 
         # slot_to_roster_id: { slot: roster_id } — direct map.
-        slot_to_rid = (
-            detail_dict.get("slot_to_roster_id")
-            or d.get("slot_to_roster_id")
-            or {}
-        )
+        slot_to_rid = detail_dict.get("slot_to_roster_id") or d.get("slot_to_roster_id") or {}
         if isinstance(slot_to_rid, dict):
             for slot, rid_val in slot_to_rid.items():
                 slot_num = _safe_int(slot)
                 rid_num = _safe_int(rid_val)
-                if (
-                    isinstance(slot_num, int) and slot_num > 0
-                    and isinstance(rid_num, int)
-                ):
+                if isinstance(slot_num, int) and slot_num > 0 and isinstance(rid_num, int):
                     out[(season, rid_num)] = slot_num
 
     return out
@@ -609,6 +578,7 @@ def _format_trade_pick_label(
     """
     if current_year is None:
         import datetime as _dt
+
         current_year = _dt.datetime.now(_dt.timezone.utc).year
 
     season = _safe_int(pick.get("season"))
@@ -618,17 +588,12 @@ def _format_trade_pick_label(
     from_team: str | None = None
     if origin_rid is not None:
         from_team = (
-            rid_to_name.get(origin_rid)
-            or rid_to_name.get(str(origin_rid))
-            or f"Team {origin_rid}"
+            rid_to_name.get(origin_rid) or rid_to_name.get(str(origin_rid)) or f"Team {origin_rid}"
         )
 
     base_label: str | None = None
     if season is not None and round_num is not None and round_num > 0:
-        slot = (
-            draft_slot_by_origin.get((season, origin_rid))
-            if origin_rid is not None else None
-        )
+        slot = draft_slot_by_origin.get((season, origin_rid)) if origin_rid is not None else None
         if season >= current_year + 1:
             # Future year — tier label, slot-aware when known.
             # ``_round_suffix(1) = "1st"`` already includes the digit
@@ -636,9 +601,7 @@ def _format_trade_pick_label(
             # offline scraper's ``_round_suffix`` returns only the
             # suffix and prepends — same output, different code split).
             tier_label = _slot_to_tier_label(slot, league_size=league_size)
-            base_label = (
-                f"{season} {tier_label} {_round_suffix(round_num)}"
-            )
+            base_label = f"{season} {tier_label} {_round_suffix(round_num)}"
         elif isinstance(slot, int) and slot > 0:
             # Current year (or past) with known slot — slot-specific.
             base_label = f"{season} {round_num}.{str(slot).zfill(2)}"
@@ -655,7 +618,9 @@ def _format_trade_pick_label(
 
 
 def _append_trade_side_item(
-    side_map: dict[Any, list[str]], rid: Any, label: str,
+    side_map: dict[Any, list[str]],
+    rid: Any,
+    label: str,
 ) -> None:
     """Append ``label`` under both string and int keys for ``rid`` so
     later side construction can find the entries however it indexes.
@@ -723,10 +688,7 @@ def _build_waivers_block(
         rid_to_name, rid_to_owner = _league_rid_lookup(lid)
 
         for week in range(0, 19):
-            url = (
-                f"https://api.sleeper.app/v1/league/{lid}"
-                f"/transactions/{week}"
-            )
+            url = f"https://api.sleeper.app/v1/league/{lid}" f"/transactions/{week}"
             txs = _http_get_json(url)
             if not isinstance(txs, list):
                 continue
@@ -767,14 +729,8 @@ def _build_waivers_block(
                 if rid is None:
                     continue
 
-                added_names = [
-                    str(id_map.get(str(pid)) or pid)
-                    for pid in adds.keys()
-                ]
-                dropped_names = [
-                    str(id_map.get(str(pid)) or pid)
-                    for pid in drops.keys()
-                ]
+                added_names = [str(id_map.get(str(pid)) or pid) for pid in adds.keys()]
+                dropped_names = [str(id_map.get(str(pid)) or pid) for pid in drops.keys()]
 
                 # FAAB bid lives at ``settings.waiver_bid`` for waiver
                 # tx; FA tx don't carry a bid (free pickups).
@@ -793,18 +749,20 @@ def _build_waivers_block(
                     or ""
                 )
 
-                out.append({
-                    "leagueId": str(lid),
-                    "week": week,
-                    "createdAtMs": ts_ms or 0,
-                    "rosterId": rid,
-                    "ownerId": owner_id,
-                    "added": added_names,
-                    "dropped": dropped_names,
-                    "faabBid": bid,
-                    "type": str(tx_type),
-                    "transactionId": tx_id,
-                })
+                out.append(
+                    {
+                        "leagueId": str(lid),
+                        "week": week,
+                        "createdAtMs": ts_ms or 0,
+                        "rosterId": rid,
+                        "ownerId": owner_id,
+                        "added": added_names,
+                        "dropped": dropped_names,
+                        "faabBid": bid,
+                        "type": str(tx_type),
+                        "transactionId": tx_id,
+                    }
+                )
 
                 # rid_key + rid_to_name unused below but kept for
                 # potential team-name annotation in a downstream
@@ -845,6 +803,7 @@ def _build_trades_block(
     labels fall back to the raw Sleeper id.
     """
     import datetime as _dt
+
     cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
     chain = _walk_league_chain(sleeper_league_id, max_depth=2)
     if not chain:
@@ -863,13 +822,12 @@ def _build_trades_block(
         # roster identity (a roster_id can change human ownership
         # across seasons).  The rosters fetch is reused by the
         # draft-slot lookup so we don't pay the round-trip twice.
-        rosters_resp = _http_get_json(
-            f"https://api.sleeper.app/v1/league/{lid}/rosters"
-        )
+        rosters_resp = _http_get_json(f"https://api.sleeper.app/v1/league/{lid}/rosters")
         rosters_list = rosters_resp if isinstance(rosters_resp, list) else []
         rid_to_name, rid_to_owner = _league_rid_lookup(lid)
         draft_slot_by_origin = _league_draft_slot_lookup(
-            lid, rosters=rosters_list,
+            lid,
+            rosters=rosters_list,
         )
         # League size drives Early/Mid/Late tier bucketing for
         # future-year picks.  Default to 12-team when the rosters
@@ -882,10 +840,7 @@ def _build_trades_block(
         # calendar.  0 is cheap to include and catches preseason
         # trades that happened before week 1.
         for week in range(0, 19):
-            url = (
-                f"https://api.sleeper.app/v1/league/{lid}"
-                f"/transactions/{week}"
-            )
+            url = f"https://api.sleeper.app/v1/league/{lid}" f"/transactions/{week}"
             txs = _http_get_json(url)
             if not isinstance(txs, list):
                 continue
@@ -931,7 +886,9 @@ def _build_trades_block(
                     owner = pick.get("owner_id")
                     prev = pick.get("previous_owner_id")
                     label = _format_trade_pick_label(
-                        pick, rid_to_name, draft_slot_by_origin,
+                        pick,
+                        rid_to_name,
+                        draft_slot_by_origin,
                         current_year=current_year,
                         league_size=league_size,
                     )
@@ -944,9 +901,7 @@ def _build_trades_block(
                 for rid in roster_ids:
                     rid_key = rid if rid in rid_to_name else _safe_int(rid)
                     team_name = (
-                        rid_to_name.get(rid_key)
-                        or rid_to_name.get(str(rid))
-                        or f"Team {rid}"
+                        rid_to_name.get(rid_key) or rid_to_name.get(str(rid)) or f"Team {rid}"
                     )
                     owner_id = (
                         rid_to_owner.get(rid)
@@ -954,21 +909,25 @@ def _build_trades_block(
                         or rid_to_owner.get(str(rid))
                         or ""
                     )
-                    sides.append({
-                        "team": team_name,
-                        "rosterId": rid,
-                        "ownerId": owner_id,
-                        "got": team_got.get(rid, []) or team_got.get(_safe_int(rid), []),
-                        "gave": team_gave.get(rid, []) or team_gave.get(_safe_int(rid), []),
-                    })
+                    sides.append(
+                        {
+                            "team": team_name,
+                            "rosterId": rid,
+                            "ownerId": owner_id,
+                            "got": team_got.get(rid, []) or team_got.get(_safe_int(rid), []),
+                            "gave": team_gave.get(rid, []) or team_gave.get(_safe_int(rid), []),
+                        }
+                    )
 
                 if sides:
-                    trades.append({
-                        "leagueId": str(lid),
-                        "week": week,
-                        "timestamp": ts_ms or 0,
-                        "sides": sides,
-                    })
+                    trades.append(
+                        {
+                            "leagueId": str(lid),
+                            "week": week,
+                            "timestamp": ts_ms or 0,
+                            "sides": sides,
+                        }
+                    )
 
     # Newest first — /trades UI sorts by recency.
     trades.sort(key=lambda t: -int(t.get("timestamp", 0) or 0))
@@ -1059,9 +1018,7 @@ def fetch_sleeper_overlay(
         id_to_player=id_to_player,
     )
 
-    cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(
-        days=int(trade_window_days)
-    )
+    cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=int(trade_window_days))
     payload: dict[str, Any] = {
         "leagueId": sleeper_league_id,
         "leagueName": league_name,
@@ -1122,9 +1079,7 @@ def _league_season(sleeper_league_id: str) -> str:
     fails — never hard-code or assume the year so season rollover is
     automatic when the league advances.
     """
-    info = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
-    )
+    info = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
     if isinstance(info, dict):
         season = str(info.get("season") or "").strip()
         if season:
@@ -1157,9 +1112,7 @@ def _resolve_active_draft_id(sleeper_league_id: str) -> str | None:
         if cached and (now - float(cached.get("_cached_at") or 0)) < _DRAFT_ID_CACHE_TTL_SEC:
             return cached.get("draft_id")
 
-    drafts = _http_get_json(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/drafts"
-    )
+    drafts = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/drafts")
     draft_id: str | None = None
     if isinstance(drafts, list):
         season = _league_season(sleeper_league_id)
@@ -1308,9 +1261,7 @@ def fetch_live_draft_picks(
     if snapshot is None:
         meta = _fetch_draft_meta(draft_id)
         status = str(meta.get("status") if isinstance(meta, dict) else "").strip() or "unknown"
-        raw_picks = _http_get_json(
-            f"https://api.sleeper.app/v1/draft/{draft_id}/picks"
-        )
+        raw_picks = _http_get_json(f"https://api.sleeper.app/v1/draft/{draft_id}/picks")
         if not isinstance(raw_picks, list):
             # Hard fetch failure.  Don't poison the cache — let the
             # next poll retry.  Return None so the route surfaces a

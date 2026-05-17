@@ -8,6 +8,7 @@ Pins:
   * evict removes a single session.
   * force_clear_all removes everything.
 """
+
 from __future__ import annotations
 
 import time
@@ -53,8 +54,10 @@ def test_hydrate_empty_db_returns_empty_dict(tmp_path):
 def test_allowlist_rotation_invalidates_sessions(tmp_path):
     db = tmp_path / "s.sqlite"
     session_store.persist(
-        "sid-1", {"username": "old_user"},
-        allowlist=["old_user"], db_path=db,
+        "sid-1",
+        {"username": "old_user"},
+        allowlist=["old_user"],
+        db_path=db,
     )
     # Rotate — old_user removed, new_user added.
     session_store._setup_done.clear()  # noqa: SLF001
@@ -67,8 +70,10 @@ def test_ttl_expiry_drops_old_sessions(tmp_path, monkeypatch):
     # Tighten TTL for the test.
     monkeypatch.setattr(session_store, "_SESSION_TTL_SECONDS", 1.0)
     session_store.persist(
-        "sid-fresh", {"username": "u"},
-        allowlist=["u"], db_path=db,
+        "sid-fresh",
+        {"username": "u"},
+        allowlist=["u"],
+        db_path=db,
     )
     time.sleep(1.2)  # force expiry
     session_store._setup_done.clear()  # noqa: SLF001
@@ -92,12 +97,14 @@ def test_persist_on_conflict_updates_last_seen(tmp_path):
     session_store.persist(
         "sid-1",
         {"username": "u", "created_at_epoch": time.time() - 1000},
-        allowlist=["u"], db_path=db,
+        allowlist=["u"],
+        db_path=db,
     )
     session_store.persist(
         "sid-1",
         {"username": "u", "created_at_epoch": time.time() - 1000},
-        allowlist=["u"], db_path=db,
+        allowlist=["u"],
+        db_path=db,
     )
     # Single row, not a duplicate.
     assert session_store.count_active(db_path=db) == 1
@@ -107,8 +114,10 @@ def test_force_clear_all_removes_everything(tmp_path):
     db = tmp_path / "s.sqlite"
     for i in range(5):
         session_store.persist(
-            f"sid-{i}", {"username": "u"},
-            allowlist=["u"], db_path=db,
+            f"sid-{i}",
+            {"username": "u"},
+            allowlist=["u"],
+            db_path=db,
         )
     assert session_store.count_active(db_path=db) == 5
     removed = session_store.force_clear_all(db_path=db)

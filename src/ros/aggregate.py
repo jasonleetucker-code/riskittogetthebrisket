@@ -30,6 +30,7 @@ Outputs:
 The aggregator is pure — no I/O, no globals.  Storage / scheduling lives
 in ``src/ros/scrape.py`` and ``src/ros/api.py``.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -114,16 +115,12 @@ def aggregate(
     for snap in snaps:
         if not snap.rows:
             continue
-        is_stale_source = (
-            snap.status not in ("ok", "partial") and snap.has_valid_cache
-        )
+        is_stale_source = snap.status not in ("ok", "partial") and snap.has_valid_cache
         # Weight is computed once per (source, player_position) bucket.
         # For PR1 we treat IDP-vs-offense as the only position split
         # that affects the format-match multiplier; sub-position
         # adjustments come in PR2/PR4.
-        sample_position = next(
-            (r.position for r in snap.rows if r.position), None
-        )
+        sample_position = next((r.position for r in snap.rows if r.position), None)
         weight = effective_source_weight(
             {
                 "base_weight": snap.base_weight,
@@ -202,13 +199,9 @@ def aggregate(
         # (% of contributors not stale).
         source_count_factor = min(1.0, len(acc.ranks) / 4.0)
         agreement_factor = max(0.0, 1.0 - stddev / 30.0)
-        freshness_factor = (
-            1.0 - (acc.stale_count / acc.total_count) if acc.total_count else 0.0
-        )
+        freshness_factor = 1.0 - (acc.stale_count / acc.total_count) if acc.total_count else 0.0
         confidence = round(
-            0.45 * source_count_factor
-            + 0.35 * agreement_factor
-            + 0.20 * freshness_factor,
+            0.45 * source_count_factor + 0.35 * agreement_factor + 0.20 * freshness_factor,
             3,
         )
         aggregated.append(

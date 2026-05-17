@@ -110,6 +110,7 @@ except Exception:
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_SCRIPT_DIR = SCRIPT_DIR  # immutable repo/script anchor for local source inputs
 
+
 def _env_int(name, default):
     """Read positive int env var with safe fallback."""
     try:
@@ -120,6 +121,7 @@ def _env_int(name, default):
         pass
     return int(default)
 
+
 def _env_str(name, default=""):
     """Read string env var with safe fallback."""
     raw = os.environ.get(name)
@@ -127,6 +129,7 @@ def _env_str(name, default=""):
         return str(default)
     v = str(raw).strip()
     return v if v else str(default)
+
 
 # Deep coverage targets and caps (tunable via env vars).
 TARGET_OFFENSIVE_POOL = _env_int("TARGET_OFFENSIVE_POOL", 350)
@@ -140,7 +143,12 @@ SITE_CAP_DRAFTSHARKS = _env_int("SITE_CAP_DRAFTSHARKS", 900)
 # The site's API only returns IDP players, but the search box finds offense too.
 # Enable by default so KTC offense players get looked up on IDPTradeCalc.
 IDP_AUTOCOMPLETE_MAX = _env_int("IDP_AUTOCOMPLETE_MAX", 500)
-IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "true").strip().lower() in {"1", "true", "yes", "on"}
+IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 TOP_OFF_COVERAGE_AUDIT_N = _env_int("TOP_OFF_COVERAGE_AUDIT_N", 300)
 TOP_IDP_COVERAGE_AUDIT_N = _env_int("TOP_IDP_COVERAGE_AUDIT_N", 250)
 TOP_OFF_MIN_SOURCES = _env_int("TOP_OFF_MIN_SOURCES", 1)
@@ -156,6 +164,7 @@ TOP_IDP_EXPECTED_SITE_KEYS = ("idpTradeCalc",)
 USE_CACHE = False
 CACHE_TTL_HOURS = 4
 CACHE_DIR = os.path.join(SCRIPT_DIR, ".scrape_cache")
+
 
 def get_cached(site_key):
     """Return cached name_map dict if fresh enough, else None."""
@@ -174,6 +183,7 @@ def get_cached(site_key):
         return data
     except Exception:
         return None
+
 
 def set_cache(site_key, name_map):
     """Save name_map to cache."""
@@ -194,6 +204,7 @@ def set_cache(site_key, name_map):
 # ─────────────────────────────────────────
 def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
     """Retry decorator with exponential backoff for async functions."""
+
     def decorator(func):
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -204,11 +215,14 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
                 except exceptions as e:
                     last_exc = e
                     if attempt < max_attempts - 1:
-                        wait = delay * (backoff ** attempt)
-                        print(f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
-                              f"Retrying in {wait}s...")
+                        wait = delay * (backoff**attempt)
+                        print(
+                            f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
+                            f"Retrying in {wait}s..."
+                        )
                         await asyncio.sleep(wait)
             raise last_exc
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             last_exc = None
@@ -218,14 +232,18 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
                 except exceptions as e:
                     last_exc = e
                     if attempt < max_attempts - 1:
-                        wait = delay * (backoff ** attempt)
-                        print(f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
-                              f"Retrying in {wait}s...")
+                        wait = delay * (backoff**attempt)
+                        print(
+                            f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
+                            f"Retrying in {wait}s..."
+                        )
                         time.sleep(wait)
             raise last_exc
+
         if inspect.iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper
+
     return decorator
 
 
@@ -241,6 +259,7 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
 # for now we still scrape exactly one league per run.
 try:
     from src.api import league_registry as _league_registry  # noqa: E402
+
     _registry_league_id = _league_registry.get_sleeper_league_id()
 except Exception:  # noqa: BLE001 — registry is optional at scrape time
     _registry_league_id = None
@@ -272,14 +291,24 @@ ROOKIE_MUST_HAVE_NAMES = []
 ROOKIE_MUST_HAVE_POS_HINTS = {}
 
 _IDP_POS_TOKENS = {
-    "DL": "DL", "DE": "DL", "DT": "DL", "EDGE": "DL", "EDGE/LB": "DL",
-    "LB": "LB", "ILB": "LB", "OLB": "LB",
-    "DB": "DB", "S": "DB", "SAFETY": "DB", "FS": "DB", "SS": "DB",
-    "CB": "DB", "NB": "DB",
+    "DL": "DL",
+    "DE": "DL",
+    "DT": "DL",
+    "EDGE": "DL",
+    "EDGE/LB": "DL",
+    "LB": "LB",
+    "ILB": "LB",
+    "OLB": "LB",
+    "DB": "DB",
+    "S": "DB",
+    "SAFETY": "DB",
+    "FS": "DB",
+    "SS": "DB",
+    "CB": "DB",
+    "NB": "DB",
 }
-_OFF_POS_TOKENS = {
-    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "FB": "RB"
-}
+_OFF_POS_TOKENS = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "FB": "RB"}
+
 
 def _extract_rookie_pos_hint(raw_line):
     line = str(raw_line or "").strip()
@@ -300,12 +329,14 @@ def _extract_rookie_pos_hint(raw_line):
                 return _OFF_POS_TOKENS[token]
     return ""
 
+
 def _must_have_rookie_bucket(name):
     norm = normalize_lookup_name(name) if name else ""
     hint = ROOKIE_MUST_HAVE_POS_HINTS.get(norm, "")
     if hint in {"QB", "RB", "WR", "TE", "DL", "LB", "DB"}:
         return hint
     return ""
+
 
 def load_rookie_must_have(path):
     """Load newline-delimited rookie names, deduped after cleaning."""
@@ -345,11 +376,48 @@ def load_rookie_must_have(path):
 
 # Common team abbreviations appended directly to names on some sites
 _TEAM_CODES = {
-    "ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN",
-    "DET","GB","HOU","IND","JAC","JAX","KC","LAC","LAR","LV",
-    "MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SEA","SF",
-    "TB","TEN","WAS","FA","LVR","GBP","SFO","TBB","KCC","NEP",
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAC",
+    "JAX",
+    "KC",
+    "LAC",
+    "LAR",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS",
+    "FA",
+    "LVR",
+    "GBP",
+    "SFO",
+    "TBB",
+    "KCC",
+    "NEP",
 }
+
 
 def clean_name(raw):
     """Strip position/team suffixes, generational suffixes, and inline team codes.
@@ -358,36 +426,35 @@ def clean_name(raw):
         return ""
     name = str(raw).strip()
     # Decode literal unicode escapes like \u0027 → '
-    if '\\u' in name:
+    if "\\u" in name:
         try:
-            name = name.encode('utf-8').decode('unicode_escape')
+            name = name.encode("utf-8").decode("unicode_escape")
         except Exception:
-            name = re.sub(r'\\u([0-9a-fA-F]{4})',
-                          lambda m: chr(int(m.group(1), 16)), name)
+            name = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), name)
     # Trim ranking prefixes and misc scrape markers.
     name = re.sub(r"^\s*#?\d+\s*[\).:-]\s*", "", name)
     name = re.sub(r"\s*[\*\u2020\u2021]+\s*$", "", name)
     # Strip trailing parenthetical notes: "X Player (IR)".
     name = re.sub(r"\s*\([^)]*\)\s*$", "", name).strip()
     # Normalize various apostrophe/quote chars to standard apostrophe
-    name = re.sub(r'[\u2018\u2019\u0060\u00B4\u0027\u2032]', "'", name)
+    name = re.sub(r"[\u2018\u2019\u0060\u00B4\u0027\u2032]", "'", name)
     # Convert "Last, First" to "First Last" where applicable.
     if "," in name:
         m = re.match(r"^\s*([A-Za-z.'\- ]+),\s*([A-Za-z.'\- ]+)\s*$", name)
         if m:
             name = f"{m.group(2).strip()} {m.group(1).strip()}".strip()
     # Strip position/team tag after name (e.g. "Caleb Williams QB CHI")
-    name = re.split(r'\s+(QB|RB|WR|TE|K|DEF|DST|OL|LB|DB|DL|DE|DT|CB|S|PK)\b', name)[0].strip()
+    name = re.split(r"\s+(QB|RB|WR|TE|K|DEF|DST|OL|LB|DB|DL|DE|DT|CB|S|PK)\b", name)[0].strip()
     # Strip team code glued to end (e.g. "Caleb WilliamsCHI")
-    m = re.match(r'^(.+?)([A-Z]{2,3})$', name)
+    m = re.match(r"^(.+?)([A-Z]{2,3})$", name)
     if m and m.group(2) in _TEAM_CODES and len(m.group(1).strip()) > 3:
         name = m.group(1).strip()
     # Strip generational suffixes: Jr., Sr., II, III, IV, V (with or without period/comma)
-    name = re.sub(r'[,\s]+(Jr.?|Sr.?|I{2,3}|IV|V|VI)\s*$', '', name, flags=re.IGNORECASE).strip()
+    name = re.sub(r"[,\s]+(Jr.?|Sr.?|I{2,3}|IV|V|VI)\s*$", "", name, flags=re.IGNORECASE).strip()
     # Normalize periods in initials: "T.J." → "T.J.", but also allow matching "TJ"
     # Don't strip periods here — handle in matching instead
     # Collapse any double spaces
-    name = re.sub(r'\s{2,}', ' ', name)
+    name = re.sub(r"\s{2,}", " ", name)
     return name
 
 
@@ -413,15 +480,15 @@ def normalize_lookup_name(raw):
         initial_run.append(parts[idx])
         idx += 1
     if len(initial_run) >= 2:
-        merged = ''.join(initial_run)
-        s = ' '.join([merged] + parts[idx:])
+        merged = "".join(initial_run)
+        s = " ".join([merged] + parts[idx:])
     return s
 
 
 def _tokenize(name):
     """Lowercase, normalize hyphens, split, sort tokens for order-independent comparison."""
     # Normalize hyphens to spaces, remove periods for matching: "T.J." → "tj", "Amon-Ra" → "amon ra"
-    normalized = name.lower().replace('-', ' ').replace('.', '')
+    normalized = name.lower().replace("-", " ").replace(".", "")
     return sorted(normalized.split())
 
 
@@ -452,7 +519,7 @@ def similarity(a, b):
     adjustment = 0.0
     if len(a_parts) >= 2 and len(b_parts) >= 2:
         last_a, last_b = a_parts[-1], b_parts[-1]
-        first_a, first_b = a_parts[0].rstrip('.'), b_parts[0].rstrip('.')
+        first_a, first_b = a_parts[0].rstrip("."), b_parts[0].rstrip(".")
 
         if last_a == last_b and len(last_a) > 2:
             # Same last name — check first names carefully
@@ -464,7 +531,9 @@ def similarity(a, b):
                 # Prefix-subset penalty: one first name is a strict prefix
                 # of the other with 2+ extra chars → distinct people.
                 # e.g. "james"/"jameson", "chris"/"christian"
-                shorter_f, longer_f = (first_a, first_b) if len(first_a) <= len(first_b) else (first_b, first_a)
+                shorter_f, longer_f = (
+                    (first_a, first_b) if len(first_a) <= len(first_b) else (first_b, first_a)
+                )
                 if longer_f.startswith(shorter_f) and (len(longer_f) - len(shorter_f)) >= 2:
                     adjustment = -0.20
                 else:
@@ -487,17 +556,34 @@ def similarity(a, b):
 
 # ── Position-family normalization for cross-source matching ──────────────
 _POS_FAMILY_MAP = {
-    "DE": "DL", "DT": "DL", "EDGE": "DL", "NT": "DL", "DL": "DL",
-    "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB", "DB": "DB",
-    "OLB": "LB", "ILB": "LB", "MLB": "LB", "LB": "LB",
-    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "K": "K",
+    "DE": "DL",
+    "DT": "DL",
+    "EDGE": "DL",
+    "NT": "DL",
+    "DL": "DL",
+    "CB": "DB",
+    "S": "DB",
+    "FS": "DB",
+    "SS": "DB",
+    "DB": "DB",
+    "OLB": "LB",
+    "ILB": "LB",
+    "MLB": "LB",
+    "LB": "LB",
+    "QB": "QB",
+    "RB": "RB",
+    "WR": "WR",
+    "TE": "TE",
+    "K": "K",
 }
+
 
 def _pos_family(pos_raw):
     """Normalize a position to its family (DL, DB, LB, QB, RB, WR, TE)."""
     if not pos_raw:
         return ""
     return _POS_FAMILY_MAP.get(pos_raw.strip().upper(), pos_raw.strip().upper())
+
 
 def _get_sleeper_pos(name):
     """Look up a player's position from SLEEPER_ROSTER_DATA (if available)."""
@@ -514,6 +600,7 @@ def _get_sleeper_pos(name):
         if k.lower() == nl:
             return _pos_family(v)
     return ""
+
 
 def _positions_compatible(name_a, name_b):
     """Check whether two player names have compatible positions.
@@ -546,6 +633,7 @@ def best_match(target, candidates, threshold=0.78, match_guard=None):
     if DEBUG and best and best_score >= threshold:
         print(f"    ✓ '{target}' → '{best}' ({best_score:.2f})")
     return best if best_score >= threshold else None
+
 
 def _name_tokens(name):
     """Normalize a name into ordered alpha tokens for conservative merge checks."""
@@ -617,6 +705,8 @@ def _is_safe_name_merge(src_name, dst_name):
         return True
 
     return False
+
+
 def match_all(players, name_map, results, site_key=None):
     """Match a list of player names against a scraped name->value dict.
     If site_key is given, stores the full name_map in FULL_DATA for JSON export.
@@ -627,10 +717,10 @@ def match_all(players, name_map, results, site_key=None):
     # Build a period-normalized index for matching "TJ Watt" ↔ "T.J. Watt"
     norm_index = {}
     lookup_index = {}
-    initial_index = {}       # (first_initial, remaining_name_tokens)
+    initial_index = {}  # (first_initial, remaining_name_tokens)
     initial_last_index = {}  # (first_initial, last_name)
     for k in name_map:
-        norm_key = k.lower().replace('.', '').replace('-', ' ').strip()
+        norm_key = k.lower().replace(".", "").replace("-", " ").strip()
         if norm_key not in norm_index:
             norm_index[norm_key] = k
         lookup_key = normalize_lookup_name(k)
@@ -639,7 +729,7 @@ def match_all(players, name_map, results, site_key=None):
         parts = normalize_lookup_name(k).split()
         if len(parts) >= 2:
             initial = parts[0][0].lower()
-            remain = ' '.join(parts[1:])
+            remain = " ".join(parts[1:])
             initial_index.setdefault((initial, remain), k)
             initial_last_index.setdefault((initial, parts[-1]), k)
 
@@ -651,7 +741,7 @@ def match_all(players, name_map, results, site_key=None):
                 print(f"    ✓ '{player}' → exact match ({name_map[player]})")
             continue
         # Try period-normalized match (T.J. ↔ TJ)
-        player_norm = player.lower().replace('.', '').replace('-', ' ').strip()
+        player_norm = player.lower().replace(".", "").replace("-", " ").strip()
         if player_norm in norm_index:
             orig_key = norm_index[player_norm]
             results[player] = name_map[orig_key]
@@ -670,14 +760,16 @@ def match_all(players, name_map, results, site_key=None):
         p_parts = player_lookup.split() if player_lookup else []
         if len(p_parts) >= 2:
             p_initial = p_parts[0][0].lower()
-            p_remaining = ' '.join(p_parts[1:])
+            p_remaining = " ".join(p_parts[1:])
             ikey = (p_initial, p_remaining)
             if ikey in initial_index:
                 orig_key = initial_index[ikey]
                 if _positions_compatible(player, orig_key):
                     results[player] = name_map[orig_key]
                     if DEBUG:
-                        print(f"    ✓ '{player}' → initial match '{orig_key}' ({name_map[orig_key]})")
+                        print(
+                            f"    ✓ '{player}' → initial match '{orig_key}' ({name_map[orig_key]})"
+                        )
                     continue
             # Looser initial+last fallback for names with middle tokens.
             ikey_last = (p_initial, p_parts[-1])
@@ -687,7 +779,9 @@ def match_all(players, name_map, results, site_key=None):
                 if _is_safe_name_merge(player, orig_key):
                     results[player] = name_map[orig_key]
                     if DEBUG:
-                        print(f"    ✓ '{player}' → initial+last match '{orig_key}' ({name_map[orig_key]})")
+                        print(
+                            f"    ✓ '{player}' → initial+last match '{orig_key}' ({name_map[orig_key]})"
+                        )
                     continue
         # Fuzzy match
         m = best_match(player, name_map.keys(), match_guard=_is_safe_name_merge)
@@ -721,7 +815,10 @@ _KTC_BLOCKER: str | None = None
 
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
-KTC_CROWD_ALLOWED_TEP_LEVELS = {1, 2}  # accept TE+ and TE++ league signal — bool-only TEP settings normalize to level 1 even for genuinely-TE++ leagues, so restricting to {2} drops valid samples.  Rankings URL is fetched at TE++ exclusively.
+KTC_CROWD_ALLOWED_TEP_LEVELS = {
+    1,
+    2,
+}  # accept TE+ and TE++ league signal — bool-only TEP settings normalize to level 1 even for genuinely-TE++ leagues, so restricting to {2} drops valid samples.  Rankings URL is fetched at TE++ exclusively.
 
 
 def compute_max(name_map):
@@ -732,15 +829,12 @@ def compute_max(name_map):
     step (raw_value / max_value), which would produce Infinity/NaN
     and poison MetaValue calculations.
     """
-    vals = [v for v in name_map.values()
-            if v is not None and isinstance(v, (int, float)) and v > 0]
+    vals = [v for v in name_map.values() if v is not None and isinstance(v, (int, float)) and v > 0]
     return max(vals) if vals else 1  # ← was 0, now 1
 
 
 _SLEEPER_CACHE_PATH = os.path.join(SCRIPT_DIR, "data", "sleeper_last_good.json")
-_SLEEPER_STAMP_PATH = os.path.join(
-    SCRIPT_DIR, "data", "scrape_state", "sleeper_last_success"
-)
+_SLEEPER_STAMP_PATH = os.path.join(SCRIPT_DIR, "data", "scrape_state", "sleeper_last_success")
 
 
 def _save_sleeper_snapshot(roster_data):
@@ -792,8 +886,7 @@ def fetch_sleeper_rosters(league_id):
     Returns (player_names_list, roster_data_for_json)."""
     _req = requests
 
-    VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF",
-                       "LB", "DL", "DE", "DT", "CB", "S", "DB"}
+    VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "LB", "DL", "DE", "DT", "CB", "S", "DB"}
 
     print(f"Fetching Sleeper player database...")
     try:
@@ -809,7 +902,8 @@ def fetch_sleeper_rosters(league_id):
     print(f"Fetching rosters for league {league_id}...")
     try:
         rosters_resp = _req.get(
-            f"https://api.sleeper.app/v1/league/{league_id}/rosters", timeout=15)
+            f"https://api.sleeper.app/v1/league/{league_id}/rosters", timeout=15
+        )
         rosters_resp.raise_for_status()
         rosters = rosters_resp.json()
     except Exception as e:
@@ -823,8 +917,7 @@ def fetch_sleeper_rosters(league_id):
     # name (Codex PR #437 P2).
     legacy_name_map = {}
     try:
-        users_resp = _req.get(
-            f"https://api.sleeper.app/v1/league/{league_id}/users", timeout=15)
+        users_resp = _req.get(f"https://api.sleeper.app/v1/league/{league_id}/users", timeout=15)
         users_resp.raise_for_status()
         for u in users_resp.json():
             uid = u.get("user_id")
@@ -842,8 +935,7 @@ def fetch_sleeper_rosters(league_id):
     roster_positions = []
     league_settings = {}
     try:
-        league_resp = _req.get(
-            f"https://api.sleeper.app/v1/league/{league_id}", timeout=10)
+        league_resp = _req.get(f"https://api.sleeper.app/v1/league/{league_id}", timeout=10)
         league_resp.raise_for_status()
         league_info = league_resp.json()
         league_name = league_info.get("name", "")
@@ -905,7 +997,9 @@ def fetch_sleeper_rosters(league_id):
                 owner_to_roster_id[str(oid)] = rid
             roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
     roster_id_set = set(roster_ids)
-    league_size_for_tiers = _safe_int((league_settings or {}).get("num_teams")) or len(roster_ids) or 12
+    league_size_for_tiers = (
+        _safe_int((league_settings or {}).get("num_teams")) or len(roster_ids) or 12
+    )
     league_size_for_tiers = max(3, int(league_size_for_tiers))
 
     def _slot_to_tier_label(slot):
@@ -939,10 +1033,7 @@ def fetch_sleeper_rosters(league_id):
     # represented as 2026 1.03 instead of only Early/Mid/Late style labels.
     draft_slot_by_origin = {}  # (season, original_roster_id) -> slot
     try:
-        drafts_resp = _req.get(
-            f"https://api.sleeper.app/v1/league/{league_id}/drafts",
-            timeout=15
-        )
+        drafts_resp = _req.get(f"https://api.sleeper.app/v1/league/{league_id}/drafts", timeout=15)
         if drafts_resp.status_code == 200:
             drafts_json = drafts_resp.json()
             if isinstance(drafts_json, list):
@@ -955,8 +1046,7 @@ def fetch_sleeper_rosters(league_id):
                     draft_detail = {}
                     try:
                         detail_resp = _req.get(
-                            f"https://api.sleeper.app/v1/draft/{draft_id}",
-                            timeout=15
+                            f"https://api.sleeper.app/v1/draft/{draft_id}", timeout=15
                         )
                         if detail_resp.status_code == 200:
                             dd = detail_resp.json()
@@ -973,7 +1063,11 @@ def fetch_sleeper_rosters(league_id):
                             if rid in roster_id_set and isinstance(slot_num, int) and slot_num > 0:
                                 draft_slot_by_origin[(season, rid)] = slot_num
 
-                    slot_to_roster = draft_detail.get("slot_to_roster_id") or draft.get("slot_to_roster_id") or {}
+                    slot_to_roster = (
+                        draft_detail.get("slot_to_roster_id")
+                        or draft.get("slot_to_roster_id")
+                        or {}
+                    )
                     if isinstance(slot_to_roster, dict):
                         for slot, rid_val in slot_to_roster.items():
                             slot_num = _safe_int(slot)
@@ -986,8 +1080,7 @@ def fetch_sleeper_rosters(league_id):
     traded_picks = []
     try:
         tp_resp = _req.get(
-            f"https://api.sleeper.app/v1/league/{league_id}/traded_picks",
-            timeout=15
+            f"https://api.sleeper.app/v1/league/{league_id}/traded_picks", timeout=15
         )
         if tp_resp.status_code == 200:
             tp_json = tp_resp.json()
@@ -1003,7 +1096,8 @@ def fetch_sleeper_rosters(league_id):
         owner_rid = _safe_int(tp.get("owner_id"))
         if (
             season in pick_years
-            and isinstance(round_num, int) and 1 <= round_num <= draft_rounds
+            and isinstance(round_num, int)
+            and 1 <= round_num <= draft_rounds
             and origin_rid in roster_id_set
             and owner_rid in roster_id_set
         ):
@@ -1033,20 +1127,24 @@ def fetch_sleeper_rosters(league_id):
             display_label = f"{base_label} (from {from_team})"
 
         team_pick_assets.setdefault(owner_rid, []).append(display_label)
-        team_pick_details.setdefault(owner_rid, []).append({
-            "season": season,
-            "round": round_num,
-            "fromRosterId": origin_rid,
-            "fromTeam": from_team,
-            "ownerRosterId": owner_rid,
-            "slot": slot_num if isinstance(slot_num, int) else None,
-            "label": display_label,
-            "baseLabel": base_label,
-        })
+        team_pick_details.setdefault(owner_rid, []).append(
+            {
+                "season": season,
+                "round": round_num,
+                "fromRosterId": origin_rid,
+                "fromTeam": from_team,
+                "ownerRosterId": owner_rid,
+                "slot": slot_num if isinstance(slot_num, int) else None,
+                "label": display_label,
+                "baseLabel": base_label,
+            }
+        )
 
     if team_pick_assets:
         total_pick_assets = sum(len(v) for v in team_pick_assets.values())
-        print(f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {pick_years})")
+        print(
+            f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {pick_years})"
+        )
 
     for roster in rosters:
         owner_id = roster.get("owner_id", "")
@@ -1061,8 +1159,7 @@ def fetch_sleeper_rosters(league_id):
             p = all_nfl.get(pid)
             if not p:
                 continue
-            full = (p.get("full_name")
-                    or f"{p.get('first_name','')} {p.get('last_name','')}".strip())
+            full = p.get("full_name") or f"{p.get('first_name','')} {p.get('last_name','')}".strip()
             raw_pos = p.get("position", "") or ""
             # Sleeper exposes ``fantasy_positions`` as the list of
             # eligible slots; ``position`` is just the primary. For
@@ -1074,9 +1171,9 @@ def fetch_sleeper_rosters(league_id):
             # "DE", "CB", etc.) pass through untouched so offense rows
             # and the fine-grained IDP tokens downstream code may
             # still read stay intact.
-            fp_list = p.get("fantasy_positions") if isinstance(
-                p.get("fantasy_positions"), list
-            ) else None
+            fp_list = (
+                p.get("fantasy_positions") if isinstance(p.get("fantasy_positions"), list) else None
+            )
             pos = raw_pos
             if fp_list and len(fp_list) >= 2:
                 resolved_family = _resolve_idp_position(fp_list)
@@ -1106,32 +1203,34 @@ def fetch_sleeper_rosters(league_id):
                     elif cn not in position_collisions:
                         position_map[cn] = pos
 
-        teams.append({
-            "name": team_name,
-            # Backward-compat only — never rendered.  See legacy_name_map.
-            "sleeperTeamName": legacy_name_map.get(
-                owner_id, f"Team {roster.get('roster_id', '?')}"
-            ),
-            "roster_id": roster_id,
-            # Stable Sleeper user id for the current owner of this roster.
-            # The frontend uses ownerId (not roster_id) as the aggregation
-            # key for trade history so an orphaned roster that changes
-            # hands across seasons does not attribute the previous
-            # manager's trades to the new one.
-            "ownerId": str(owner_id) if owner_id else "",
-            "players": sorted(team_players),
-            "playerIds": sorted(team_player_ids),
-            "picks": sorted(team_pick_assets.get(roster_id_int, []), key=_pick_sort_key),
-            "pickDetails": sorted(
-                team_pick_details.get(roster_id_int, []),
-                key=lambda d: (
-                    int(d.get("season", 9999)),
-                    int(d.get("round", 9)),
-                    int(d.get("slot", 99)) if d.get("slot") is not None else 99,
-                    str(d.get("fromTeam", ""))
-                )
-            ),
-        })
+        teams.append(
+            {
+                "name": team_name,
+                # Backward-compat only — never rendered.  See legacy_name_map.
+                "sleeperTeamName": legacy_name_map.get(
+                    owner_id, f"Team {roster.get('roster_id', '?')}"
+                ),
+                "roster_id": roster_id,
+                # Stable Sleeper user id for the current owner of this roster.
+                # The frontend uses ownerId (not roster_id) as the aggregation
+                # key for trade history so an orphaned roster that changes
+                # hands across seasons does not attribute the previous
+                # manager's trades to the new one.
+                "ownerId": str(owner_id) if owner_id else "",
+                "players": sorted(team_players),
+                "playerIds": sorted(team_player_ids),
+                "picks": sorted(team_pick_assets.get(roster_id_int, []), key=_pick_sort_key),
+                "pickDetails": sorted(
+                    team_pick_details.get(roster_id_int, []),
+                    key=lambda d: (
+                        int(d.get("season", 9999)),
+                        int(d.get("round", 9)),
+                        int(d.get("slot", 99)) if d.get("slot") is not None else 99,
+                        str(d.get("fromTeam", "")),
+                    ),
+                ),
+            }
+        )
 
     # Position overrides: prefer non-LB for DL/LB hybrids, force Travis Hunter → WR
     POSITION_OVERRIDES = {
@@ -1144,13 +1243,11 @@ def fetch_sleeper_rosters(league_id):
 
     if position_collisions:
         preview = ", ".join(
-            f"{k} ({'/'.join(sorted(v))})"
-            for k, v in list(position_collisions.items())[:5]
+            f"{k} ({'/'.join(sorted(v))})" for k, v in list(position_collisions.items())[:5]
         )
         print(
             f"  [Sleeper] Dropped {len(position_collisions)} colliding position entries: {preview}"
         )
-
 
     teams.sort(key=lambda t: t["name"])
 
@@ -1169,9 +1266,12 @@ def fetch_sleeper_rosters(league_id):
     # ── Fetch rolling 1-year trades from Sleeper API ──
     trades = []
     trade_window_days = max(30, _env_int("SLEEPER_TRADE_HISTORY_DAYS", 365))
-    trade_cutoff_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=trade_window_days)
+    trade_cutoff_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        days=trade_window_days
+    )
     trade_cutoff_ms = int(trade_cutoff_dt.timestamp() * 1000)
     try:
+
         def _normalize_tx_ts(v):
             ts = _safe_int(v)
             if not isinstance(ts, int) or ts <= 0:
@@ -1189,10 +1289,7 @@ def fetch_sleeper_rosters(league_id):
                 seen.add(cur)
                 out.append(cur)
                 try:
-                    li_resp = _req.get(
-                        f"https://api.sleeper.app/v1/league/{cur}",
-                        timeout=10
-                    )
+                    li_resp = _req.get(f"https://api.sleeper.app/v1/league/{cur}", timeout=10)
                     if li_resp.status_code != 200:
                         break
                     li_json = li_resp.json()
@@ -1220,12 +1317,10 @@ def fetch_sleeper_rosters(league_id):
             rid_to_owner_id = {}
             try:
                 l_rosters_resp = _req.get(
-                    f"https://api.sleeper.app/v1/league/{target_league_id}/rosters",
-                    timeout=12
+                    f"https://api.sleeper.app/v1/league/{target_league_id}/rosters", timeout=12
                 )
                 l_users_resp = _req.get(
-                    f"https://api.sleeper.app/v1/league/{target_league_id}/users",
-                    timeout=12
+                    f"https://api.sleeper.app/v1/league/{target_league_id}/users", timeout=12
                 )
                 if l_rosters_resp.status_code != 200:
                     return rid_to_name, rid_to_owner_id
@@ -1296,7 +1391,11 @@ def fetch_sleeper_rosters(league_id):
 
             base_label = None
             if isinstance(season, int) and isinstance(round_num, int) and round_num > 0:
-                ident = pick_identity.get((season, round_num, origin_rid)) if isinstance(origin_rid, int) else None
+                ident = (
+                    pick_identity.get((season, round_num, origin_rid))
+                    if isinstance(origin_rid, int)
+                    else None
+                )
                 if isinstance(ident, dict):
                     base_label = str(ident.get("baseLabel") or "").strip() or None
                     if not from_team:
@@ -1333,7 +1432,7 @@ def fetch_sleeper_rosters(league_id):
                 try:
                     tx_resp = _req.get(
                         f"https://api.sleeper.app/v1/league/{target_league_id}/transactions/{week}",
-                        timeout=10
+                        timeout=10,
                     )
                     if tx_resp.status_code != 200:
                         continue
@@ -1385,7 +1484,9 @@ def fetch_sleeper_rosters(league_id):
                         sides = []
                         for rid in roster_ids:
                             rid_key = rid if rid in rid_to_name else _safe_int(rid)
-                            team_name = rid_to_name.get(rid_key, rid_to_name.get(str(rid), f"Team {rid}"))
+                            team_name = rid_to_name.get(
+                                rid_key, rid_to_name.get(str(rid), f"Team {rid}")
+                            )
                             # Resolve the historical owner_id for this
                             # roster in the trade's source league so
                             # aggregation can key by human identity,
@@ -1400,21 +1501,25 @@ def fetch_sleeper_rosters(league_id):
                             )
                             got = team_got.get(rid, [])
                             gave = team_gave.get(rid, [])
-                            sides.append({
-                                "team": team_name,
-                                "rosterId": rid,
-                                "ownerId": owner_id_hist,
-                                "got": got,
-                                "gave": gave,
-                            })
+                            sides.append(
+                                {
+                                    "team": team_name,
+                                    "rosterId": rid,
+                                    "ownerId": owner_id_hist,
+                                    "got": got,
+                                    "gave": gave,
+                                }
+                            )
 
                         if sides:
-                            trades.append({
-                                "leagueId": str(target_league_id),
-                                "week": week,
-                                "timestamp": created,
-                                "sides": sides,
-                            })
+                            trades.append(
+                                {
+                                    "leagueId": str(target_league_id),
+                                    "week": week,
+                                    "timestamp": created,
+                                    "sides": sides,
+                                }
+                            )
                 except Exception:
                     continue
 
@@ -1472,10 +1577,7 @@ if SLEEPER_LEAGUE_ID:
         _cached_rd, _cache_age_h = _load_sleeper_snapshot()
         if _cached_rd:
             SLEEPER_ROSTER_DATA = _cached_rd
-            _age_txt = (
-                f"{_cache_age_h:.1f}h old" if _cache_age_h is not None
-                else "age unknown"
-            )
+            _age_txt = f"{_cache_age_h:.1f}h old" if _cache_age_h is not None else "age unknown"
             print(
                 "  [Sleeper] live fetch failed/empty — using cached "
                 f"snapshot ({_age_txt}); success NOT stamped"
@@ -1491,10 +1593,7 @@ if SLEEPER_LEAGUE_ID:
 _players_file = os.path.join(SCRIPT_DIR, "players.txt")
 if os.path.exists(_players_file):
     with open(_players_file, "r", encoding="utf-8") as _f:
-        PLAYERS = [
-            line.strip() for line in _f
-            if line.strip() and not line.strip().startswith("#")
-        ]
+        PLAYERS = [line.strip() for line in _f if line.strip() and not line.strip().startswith("#")]
     if not PLAYERS:
         print("  [Warning] players.txt is empty — using defaults")
         PLAYERS = _DEFAULT_PLAYERS
@@ -1506,27 +1605,29 @@ else:
 
 ROOKIE_MUST_HAVE_NAMES = load_rookie_must_have(ROOKIE_MUST_HAVE_FILE)
 if ROOKIE_MUST_HAVE_NAMES:
-    print(f"Loaded {len(ROOKIE_MUST_HAVE_NAMES)} must-have rookies from {os.path.basename(ROOKIE_MUST_HAVE_FILE)}")
+    print(
+        f"Loaded {len(ROOKIE_MUST_HAVE_NAMES)} must-have rookies from {os.path.basename(ROOKIE_MUST_HAVE_FILE)}"
+    )
 
 SITES = {
-    "KTC":          True,
-    "FantasyCalc":  False,
+    "KTC": True,
+    "FantasyCalc": False,
     "DynastyDaddy": False,
-    "FantasyPros":  False,
-    "DraftSharks":  False,
-    "Yahoo":        False,
+    "FantasyPros": False,
+    "DraftSharks": False,
+    "Yahoo": False,
     "DynastyNerds": False,
-    "DLF":          False,
+    "DLF": False,
     "IDPTradeCalc": True,
-    "Flock":        False,
+    "Flock": False,
     # IDP-specific sites — disabled in scope reduction
-    "DraftSharks_IDP":  False,
-    "FantasyPros_IDP":  False,
+    "DraftSharks_IDP": False,
+    "FantasyPros_IDP": False,
 }
 
 SUPERFLEX = True
 TEP = True
-DEBUG     = True
+DEBUG = True
 
 # Normalize PLAYERS list at startup
 PLAYERS = [clean_name(p) for p in PLAYERS]
@@ -1590,8 +1691,12 @@ async def safe_goto(page, urls, label, wait_ms=3000):
             if resp and resp.status == 503:
                 if "TLS_error" in body_snippet or "TLSV1" in body_snippet:
                     last_blocker = "proxy_tls_incompatible"
-                    print(f"  [{label}] 503 — proxy TLS handshake failure (site requires newer TLS)")
-                elif "cloudflare" in body_snippet.lower() or "just a moment" in body_snippet.lower():
+                    print(
+                        f"  [{label}] 503 — proxy TLS handshake failure (site requires newer TLS)"
+                    )
+                elif (
+                    "cloudflare" in body_snippet.lower() or "just a moment" in body_snippet.lower()
+                ):
                     last_blocker = "cloudflare_challenge"
                     print(f"  [{label}] 503 — Cloudflare challenge page")
                 else:
@@ -1624,6 +1729,7 @@ async def safe_goto(page, urls, label, wait_ms=3000):
 
 class _GotoResult:
     """Result of safe_goto that is falsy when ok=False but carries metadata."""
+
     __slots__ = ("ok", "status", "blocker")
 
     def __init__(self, ok, status, blocker):
@@ -1700,8 +1806,16 @@ async def extract_tables(page, label):
                 if not vt:
                     continue
             else:
-                nm = next((t for t in texts if re.search(r"[A-Za-z]{3}", t) and len(t) > 4
-                           and not re.match(r"^\d+\.?\d*$", t)), "")
+                nm = next(
+                    (
+                        t
+                        for t in texts
+                        if re.search(r"[A-Za-z]{3}", t)
+                        and len(t) > 4
+                        and not re.match(r"^\d+\.?\d*$", t)
+                    ),
+                    "",
+                )
                 vt = ""
                 for t in reversed(texts):
                     try:
@@ -1721,6 +1835,7 @@ async def extract_tables(page, label):
                 pass
 
     return name_map
+
 
 async def page_dump(page, label, limit=2500):
     """Dump first N chars of page body text for debugging."""
@@ -1742,13 +1857,21 @@ async def page_dump(page, label, limit=2500):
 # rotated naming a few times and the cost of an extra .get() lookup
 # is negligible against the cost of silently writing an empty CSV.
 _KTC_TEP_FIELD_KEYS = (
-    "tepp", "teppValue", "tepp_value",
-    "tep2", "tep2Value", "tep2_value",
-    "tepLevel2", "tepValueLevel2",
+    "tepp",
+    "teppValue",
+    "tepp_value",
+    "tep2",
+    "tep2Value",
+    "tep2_value",
+    "tepLevel2",
+    "tepValueLevel2",
 )
 _KTC_TEP_TOPLEVEL_KEYS = (
-    "sfTeppValue", "sf_tepp_value", "value_sftepp",
-    "teppValue", "tepp_value",
+    "sfTeppValue",
+    "sf_tepp_value",
+    "value_sftepp",
+    "teppValue",
+    "tepp_value",
 )
 
 
@@ -1770,6 +1893,7 @@ def _ktc_extract_tep(item):
     if a candidate is a dict, pull ``.value``; if it's a scalar,
     return it directly.
     """
+
     def _coerce_value(candidate):
         if candidate is None:
             return None
@@ -1812,7 +1936,7 @@ async def scrape_ktc(page, players):
         return results
     tep_name_map = {}
     try:
-        sf  = "true" if SUPERFLEX else "false"
+        sf = "true" if SUPERFLEX else "false"
         url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=3&filters=QB|WR|RB|TE|RDP"
 
         # ── Strategy 1: Intercept KTC API responses ──
@@ -1899,8 +2023,13 @@ async def scrape_ktc(page, players):
                             elif sf_vals2 is not None:
                                 val = sf_vals2
                         if val is None:
-                            for k in ["sfValue", "sf_value", "sf_trade_value",
-                                       "superflex_value", "tradeValueSuperFlex"]:
+                            for k in [
+                                "sfValue",
+                                "sf_value",
+                                "sf_trade_value",
+                                "superflex_value",
+                                "tradeValueSuperFlex",
+                            ]:
                                 val = item.get(k)
                                 if val is not None:
                                     break
@@ -1919,7 +2048,9 @@ async def scrape_ktc(page, players):
                             pass
                 if name_map and DEBUG:
                     sf_label = "SF API" if SUPERFLEX else "1QB API"
-                    print(f"  [KTC] Parsed {len(name_map)} players from API ({sf_label}): {api_url[:60]}")
+                    print(
+                        f"  [KTC] Parsed {len(name_map)} players from API ({sf_label}): {api_url[:60]}"
+                    )
                     if tep_name_map:
                         print(f"  [KTC] TE++ values present for {len(tep_name_map)} players")
                     # Show first item structure for debugging
@@ -2025,7 +2156,9 @@ async def scrape_ktc(page, players):
                         except (ValueError, TypeError):
                             pass
                 if DEBUG:
-                    print(f"  [KTC] DOM scrape found {len(name_map)} players ({len(tep_name_map)} with TE++)")
+                    print(
+                        f"  [KTC] DOM scrape found {len(name_map)} players ({len(tep_name_map)} with TE++)"
+                    )
 
         # ── Strategy 3: Full page source parsing ──
         if not name_map:
@@ -2033,8 +2166,9 @@ async def scrape_ktc(page, players):
 
             # Try inline playersArray (current KTC format as of 2026-03)
             pa_match = re.search(
-                r'var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)',
-                content, re.DOTALL,
+                r"var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)",
+                content,
+                re.DOTALL,
             )
             if pa_match:
                 try:
@@ -2065,18 +2199,23 @@ async def scrape_ktc(page, players):
                             except (ValueError, TypeError):
                                 pass
                     if name_map and DEBUG:
-                        print(f"  [KTC] playersArray parsed {len(name_map)} players ({len(tep_name_map)} with TE+)")
+                        print(
+                            f"  [KTC] playersArray parsed {len(name_map)} players ({len(tep_name_map)} with TE+)"
+                        )
                 except Exception as e:
                     if DEBUG:
                         print(f"  [KTC] playersArray parse error: {e}")
 
             # Try __NEXT_DATA__ script (legacy format)
-            next_match = re.search(r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>', content, re.DOTALL)
+            next_match = re.search(
+                r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>', content, re.DOTALL
+            )
             if next_match:
                 try:
                     next_data = json.loads(next_match.group(1))
-                    player_list = (next_data.get("props", {}).get("pageProps", {}).get("players", []) or
-                                   next_data.get("props", {}).get("pageProps", {}).get("rankings", []))
+                    player_list = next_data.get("props", {}).get("pageProps", {}).get(
+                        "players", []
+                    ) or next_data.get("props", {}).get("pageProps", {}).get("rankings", [])
                     for item in player_list:
                         pname = item.get("playerName")
                         if not pname:
@@ -2097,7 +2236,9 @@ async def scrape_ktc(page, players):
                             except (ValueError, TypeError):
                                 pass
                     if name_map and DEBUG:
-                        print(f"  [KTC] __NEXT_DATA__ parsed {len(name_map)} players ({len(tep_name_map)} with TE+)")
+                        print(
+                            f"  [KTC] __NEXT_DATA__ parsed {len(name_map)} players ({len(tep_name_map)} with TE+)"
+                        )
                 except Exception as e:
                     if DEBUG:
                         print(f"  [KTC] __NEXT_DATA__ parse error: {e}")
@@ -2108,14 +2249,17 @@ async def scrape_ktc(page, players):
             if not name_map and SUPERFLEX:
                 sf_pairs = re.findall(
                     r'"playerName"\s*:\s*"([^"]+)".{0,2000}?"superflexValues"\s*:\s*\{[^}]*?"value"\s*:\s*(\d+)',
-                    content, re.DOTALL
+                    content,
+                    re.DOTALL,
                 )
                 if sf_pairs:
                     for nm, val in sf_pairs:
                         name_map[clean_name(nm)] = int(val)
                     if DEBUG:
                         ja = name_map.get("Josh Allen")
-                        print(f"  [KTC] SF targeted regex found {len(name_map)} players. Josh Allen={ja}")
+                        print(
+                            f"  [KTC] SF targeted regex found {len(name_map)} players. Josh Allen={ja}"
+                        )
 
             # ── Try mapping API histories (playerID → superflex) to page names ──
             if not name_map and api_data:
@@ -2143,13 +2287,15 @@ async def scrape_ktc(page, players):
                 # Now find playerID → playerName mapping from page source
                 id_name_pairs = re.findall(
                     r'"playerID"\s*:\s*(\d+).{0,500}?"playerName"\s*:\s*"([^"]+)"',
-                    content, re.DOTALL
+                    content,
+                    re.DOTALL,
                 )
                 if not id_name_pairs:
                     # Try reverse order
                     id_name_pairs = re.findall(
                         r'"playerName"\s*:\s*"([^"]+)".{0,500}?"playerID"\s*:\s*(\d+)',
-                        content, re.DOTALL
+                        content,
+                        re.DOTALL,
                     )
                     # Swap to (id, name) order
                     id_name_pairs = [(pid, nm) for nm, pid in id_name_pairs]
@@ -2161,13 +2307,14 @@ async def scrape_ktc(page, players):
                             name_map[clean_name(pname)] = id_to_sf[pid]
                     if name_map and DEBUG:
                         ja = name_map.get("Josh Allen")
-                        print(f"  [KTC] API history + page ID mapping: {len(name_map)} players. Josh Allen={ja}")
+                        print(
+                            f"  [KTC] API history + page ID mapping: {len(name_map)} players. Josh Allen={ja}"
+                        )
 
             # ── Fallback: 1QB values if nothing else works ──
             if not name_map:
                 pairs = re.findall(
-                    r'"playerName"\s*:\s*"([^"]+)"[^}]*?"value"\s*:\s*(\d+)',
-                    content
+                    r'"playerName"\s*:\s*"([^"]+)"[^}]*?"value"\s*:\s*(\d+)', content
                 )
                 for nm, val in pairs:
                     name_map[clean_name(nm)] = int(val)
@@ -2178,21 +2325,27 @@ async def scrape_ktc(page, players):
         if not name_map and DEBUG:
             await page_dump(page, "KTC")
             # Also dump a snippet of page source to help diagnose
-            content_snippet = content[:2000] if 'content' in dir() else ''
+            content_snippet = content[:2000] if "content" in dir() else ""
             # Check what script tags exist
-            script_ids = re.findall(r'<script[^>]*id="([^"]*)"', content if 'content' in dir() else '')
+            script_ids = re.findall(
+                r'<script[^>]*id="([^"]*)"', content if "content" in dir() else ""
+            )
             print(f"  [KTC] Script IDs in page: {script_ids[:10]}")
             # Check for superflexValues anywhere in content
-            sf_count = content.count('superflexValues') if 'content' in dir() else 0
-            sf_value_count = content.count('superflexValue') if 'content' in dir() else 0
-            print(f"  [KTC] 'superflexValues' appears {sf_count}x, 'superflexValue' appears {sf_value_count}x in page")
+            sf_count = content.count("superflexValues") if "content" in dir() else 0
+            sf_value_count = content.count("superflexValue") if "content" in dir() else 0
+            print(
+                f"  [KTC] 'superflexValues' appears {sf_count}x, 'superflexValue' appears {sf_value_count}x in page"
+            )
         if DEBUG:
             # Sanity checks
             ja = name_map.get("Josh Allen", name_map.get("josh allen"))
             jl = name_map.get("Jeremiyah Love", name_map.get("jeremiyah love"))
             fm = name_map.get("Fernando Mendoza", name_map.get("fernando mendoza"))
             ah = name_map.get("Aidan Hutchinson", name_map.get("aidan hutchinson"))
-            print(f"  [KTC] {len(name_map)} players. Josh Allen={ja}, Love={jl}, Mendoza={fm}, Hutchinson={ah}")
+            print(
+                f"  [KTC] {len(name_map)} players. Josh Allen={ja}, Love={jl}, Mendoza={fm}, Hutchinson={ah}"
+            )
             print(f"  [KTC] Sample: {list(name_map.items())[:5]}")
 
         set_cache("KTC", name_map)
@@ -2209,26 +2362,35 @@ async def scrape_ktc(page, players):
             if DEBUG:
                 la = tep_name_map.get("Sam LaPorta") or tep_name_map.get("sam laporta")
                 bo = tep_name_map.get("Brock Bowers") or tep_name_map.get("brock bowers")
-                print(f"  [KTC] TE+ map stored: {len(tep_name_map)} players (LaPorta={la}, Bowers={bo})")
+                print(
+                    f"  [KTC] TE+ map stored: {len(tep_name_map)} players (LaPorta={la}, Bowers={bo})"
+                )
         elif DEBUG:
-            print(f"  [KTC] TE+ map skipped — only {len(tep_name_map)} players carried TE+ fields (need ≥25)")
+            print(
+                f"  [KTC] TE+ map skipped — only {len(tep_name_map)} players carried TE+ fields (need ≥25)"
+            )
 
         # ── Always build playerID → name mapping for trade/waiver database ──
         global KTC_ID_TO_NAME
-        if 'content' in dir() and content:
+        if "content" in dir() and content:
             id_name = re.findall(
-                r'"playerID"\s*:\s*(\d+).{0,500}?"playerName"\s*:\s*"([^"]+)"',
-                content, re.DOTALL
+                r'"playerID"\s*:\s*(\d+).{0,500}?"playerName"\s*:\s*"([^"]+)"', content, re.DOTALL
             )
             if not id_name:
-                id_name = [(pid, nm) for nm, pid in re.findall(
-                    r'"playerName"\s*:\s*"([^"]+)".{0,500}?"playerID"\s*:\s*(\d+)',
-                    content, re.DOTALL
-                )]
+                id_name = [
+                    (pid, nm)
+                    for nm, pid in re.findall(
+                        r'"playerName"\s*:\s*"([^"]+)".{0,500}?"playerID"\s*:\s*(\d+)',
+                        content,
+                        re.DOTALL,
+                    )
+                ]
             for pid_str, pname in id_name:
                 KTC_ID_TO_NAME[int(pid_str)] = clean_name(pname)
             if KTC_ID_TO_NAME:
-                print(f"  [KTC] Stored {len(KTC_ID_TO_NAME)} playerID→name mappings for trade/waiver DB")
+                print(
+                    f"  [KTC] Stored {len(KTC_ID_TO_NAME)} playerID→name mappings for trade/waiver DB"
+                )
     except Exception as e:
         print(f"  [KTC error] {e}")
     return results
@@ -2411,6 +2573,7 @@ def _extract_ktc_side_assets(side):
             return [side.get(key)]
     return []
 
+
 def _parse_ktc_settings(raw_settings):
     settings = _parse_ktc_literal(raw_settings) or {}
     if not isinstance(settings, dict):
@@ -2538,6 +2701,7 @@ def _parse_ktc_trade(item):
         "settings": settings,
     }
 
+
 # ─────────────────────────────────────────
 # KTC WAIVER DATABASE — real dynasty waivers from 3000+ leagues
 # ─────────────────────────────────────────
@@ -2567,7 +2731,9 @@ async def scrape_ktc_waiver_database(page):
                     body = await response.json()
                     if isinstance(body, list) and len(body) > 0:
                         api_data.extend(body)
-                        print(f"  [KTC Waivers] Intercepted API: {len(body)} items from {rurl[:80]}")
+                        print(
+                            f"  [KTC Waivers] Intercepted API: {len(body)} items from {rurl[:80]}"
+                        )
                         api_received.set()
             except Exception:
                 pass
@@ -2619,9 +2785,17 @@ def _parse_ktc_waiver(item):
     # Try various field names for added/dropped player
     added = None
     for k in [
-        "addedPlayer", "playerAdded", "player", "added", "addPlayer",
-        "addedPlayerId", "playerAddedId", "addPlayerId",
-        "pickedUpPlayer", "pickedUpPlayerId", "pickedUp",
+        "addedPlayer",
+        "playerAdded",
+        "player",
+        "added",
+        "addPlayer",
+        "addedPlayerId",
+        "playerAddedId",
+        "addPlayerId",
+        "pickedUpPlayer",
+        "pickedUpPlayerId",
+        "pickedUp",
     ]:
         val = item.get(k)
         if val is not None:
@@ -2631,8 +2805,13 @@ def _parse_ktc_waiver(item):
 
     dropped = None
     for k in [
-        "droppedPlayer", "playerDropped", "dropped", "dropPlayer",
-        "droppedPlayerId", "playerDroppedId", "dropPlayerId",
+        "droppedPlayer",
+        "playerDropped",
+        "dropped",
+        "dropPlayer",
+        "droppedPlayerId",
+        "playerDroppedId",
+        "dropPlayerId",
     ]:
         val = item.get(k)
         if val is not None:
@@ -2652,7 +2831,10 @@ def _parse_ktc_waiver(item):
 
     bid_pct = item.get(
         "bidPct",
-        item.get("winningBidPct", item.get("faabPct", item.get("bidPercentage", item.get("percentage", "")))),
+        item.get(
+            "winningBidPct",
+            item.get("faabPct", item.get("bidPercentage", item.get("percentage", ""))),
+        ),
     )
 
     return {
@@ -2665,6 +2847,7 @@ def _parse_ktc_waiver(item):
         "settings": settings,
     }
 
+
 # ─────────────────────────────────────────
 # DynastyDaddy — API intercept PRIMARY, DOM fallback
 # ─────────────────────────────────────────
@@ -2673,30 +2856,57 @@ async def scrape_idptradecalc(page, players):
     results = {p: None for p in players}
     name_map = {}
     try:
+
         def _idptc_value_keys():
             if SUPERFLEX and TEP:
                 return [
-                    "value_sftep", "sfTepValue", "sf_tep_value",
-                    "value_sf", "sfValue", "sf_value",
-                    "value_tep", "tepValue", "tep_value",
-                    "value_1qb", "value", "Value",
+                    "value_sftep",
+                    "sfTepValue",
+                    "sf_tep_value",
+                    "value_sf",
+                    "sfValue",
+                    "sf_value",
+                    "value_tep",
+                    "tepValue",
+                    "tep_value",
+                    "value_1qb",
+                    "value",
+                    "Value",
                 ]
             if SUPERFLEX:
                 return [
-                    "value_sf", "sfValue", "sf_value",
-                    "value_sftep", "sfTepValue", "sf_tep_value",
-                    "value_1qb", "value", "Value",
+                    "value_sf",
+                    "sfValue",
+                    "sf_value",
+                    "value_sftep",
+                    "sfTepValue",
+                    "sf_tep_value",
+                    "value_1qb",
+                    "value",
+                    "Value",
                 ]
             if TEP:
                 return [
-                    "value_tep", "tepValue", "tep_value",
-                    "value_sftep", "sfTepValue", "sf_tep_value",
-                    "value_1qb", "value", "Value",
+                    "value_tep",
+                    "tepValue",
+                    "tep_value",
+                    "value_sftep",
+                    "sfTepValue",
+                    "sf_tep_value",
+                    "value_1qb",
+                    "value",
+                    "Value",
                 ]
             return [
-                "value_1qb", "oneQbValue", "value",
-                "value_sf", "sfValue", "sf_value",
-                "value_tep", "tepValue", "tep_value",
+                "value_1qb",
+                "oneQbValue",
+                "value",
+                "value_sf",
+                "sfValue",
+                "sf_value",
+                "value_tep",
+                "tepValue",
+                "tep_value",
                 "Value",
             ]
 
@@ -2713,8 +2923,13 @@ async def scrape_idptradecalc(page, players):
                 # We MUST read all sheets — dropping Sheet3 was the root
                 # cause of ~5 top-100 offense players showing as 1-src.
                 for key in [
-                    "Sheet1", "Sheet2", "Sheet3",
-                    "players", "values", "data", "result",
+                    "Sheet1",
+                    "Sheet2",
+                    "Sheet3",
+                    "players",
+                    "values",
+                    "data",
+                    "result",
                 ]:
                     if isinstance(data_obj.get(key), list):
                         items.extend(data_obj.get(key) or [])
@@ -2795,18 +3010,28 @@ async def scrape_idptradecalc(page, players):
                 url = response.url
                 if response.status != 200:
                     return
-                if any(skip in url for skip in [
-                    "googletagmanager", "googlesyndication", "doubleclick",
-                    "usercentrics", "cmp.", "analytics", "pagead",
-                    "adsbygoogle", "gstatic.com",
-                ]):
+                if any(
+                    skip in url
+                    for skip in [
+                        "googletagmanager",
+                        "googlesyndication",
+                        "doubleclick",
+                        "usercentrics",
+                        "cmp.",
+                        "analytics",
+                        "pagead",
+                        "adsbygoogle",
+                        "gstatic.com",
+                    ]
+                ):
                     return
                 is_data = (
-                    "googleusercontent.com/macros" in url or
-                    "script.google" in url or
-                    ("json" in ct and any(k in url for k in [
-                        "values", "players", "data", ".json"
-                    ]))
+                    "googleusercontent.com/macros" in url
+                    or "script.google" in url
+                    or (
+                        "json" in ct
+                        and any(k in url for k in ["values", "players", "data", ".json"])
+                    )
                 )
                 if is_data:
                     body = await response.text()
@@ -2857,10 +3082,8 @@ async def scrape_idptradecalc(page, players):
 
         # Ensure toggles
         async def ensure_toggles_on():
-            sf_checked = await page.evaluate(
-                "document.getElementById('toggleButton').checked")
-            tep_checked = await page.evaluate(
-                "document.getElementById('toggleButtonTEP').checked")
+            sf_checked = await page.evaluate("document.getElementById('toggleButton').checked")
+            tep_checked = await page.evaluate("document.getElementById('toggleButtonTEP').checked")
             if DEBUG:
                 print(f"  [IDPTradeCalc] Checkbox state: SF={sf_checked}, TEP={tep_checked}")
 
@@ -2887,10 +3110,8 @@ async def scrape_idptradecalc(page, players):
                 await page.evaluate("document.getElementById('toggleButton').click()")
                 await page.wait_for_timeout(500)
 
-            sf_final = await page.evaluate(
-                "document.getElementById('toggleButton').checked")
-            tep_final = await page.evaluate(
-                "document.getElementById('toggleButtonTEP').checked")
+            sf_final = await page.evaluate("document.getElementById('toggleButton').checked")
+            tep_final = await page.evaluate("document.getElementById('toggleButtonTEP').checked")
             if DEBUG:
                 print(f"  [IDPTradeCalc] Final state: SF={sf_final}, TEP={tep_final}")
 
@@ -2922,10 +3143,15 @@ async def scrape_idptradecalc(page, players):
                 try:
                     if response.status == 200 and len(await response.text()) > 500:
                         url = response.url
-                        if any(k in url for k in [
-                            "googleusercontent.com/macros", "script.google",
-                            "values", "players"
-                        ]):
+                        if any(
+                            k in url
+                            for k in [
+                                "googleusercontent.com/macros",
+                                "script.google",
+                                "values",
+                                "players",
+                            ]
+                        ):
                             api_data[url] = await response.text()
                             new_event.set()
                 except Exception:
@@ -2956,24 +3182,31 @@ async def scrape_idptradecalc(page, players):
             if name_map:
                 break
 
-            if any(skip in url for skip in [
-                "googletagmanager", "googlesyndication",
-                "usercentrics", "cmp.", "analytics", "doubleclick"
-            ]):
+            if any(
+                skip in url
+                for skip in [
+                    "googletagmanager",
+                    "googlesyndication",
+                    "usercentrics",
+                    "cmp.",
+                    "analytics",
+                    "doubleclick",
+                ]
+            ):
                 continue
 
             for candidate in [body, body.strip()]:
-                stripped = re.sub(r'^[a-zA-Z_$][\w$]*\s*\(\s*', '', candidate)
-                stripped = re.sub(r'\s*\)\s*;?\s*$', '', stripped)
-                json_start = stripped.find('{')
-                json_start_arr = stripped.find('[')
+                stripped = re.sub(r"^[a-zA-Z_$][\w$]*\s*\(\s*", "", candidate)
+                stripped = re.sub(r"\s*\)\s*;?\s*$", "", stripped)
+                json_start = stripped.find("{")
+                json_start_arr = stripped.find("[")
                 if json_start == -1 and json_start_arr == -1:
                     continue
                 start = min(
-                    json_start if json_start != -1 else float('inf'),
-                    json_start_arr if json_start_arr != -1 else float('inf')
+                    json_start if json_start != -1 else float("inf"),
+                    json_start_arr if json_start_arr != -1 else float("inf"),
                 )
-                stripped = stripped[int(start):]
+                stripped = stripped[int(start) :]
 
                 try:
                     data = json.loads(stripped)
@@ -2992,7 +3225,9 @@ async def scrape_idptradecalc(page, players):
 
                 if DEBUG and parsed_map:
                     sample_name = next(iter(parsed_map))
-                    print(f"  [IDPTradeCalc] Parsed {len(parsed_map)} players (sample: {sample_name})")
+                    print(
+                        f"  [IDPTradeCalc] Parsed {len(parsed_map)} players (sample: {sample_name})"
+                    )
 
                 if not parsed_map:
                     continue
@@ -3192,7 +3427,9 @@ async def scrape_idptradecalc(page, players):
             )
         if missing and ok:
             if DEBUG:
-                print(f"  [IDPTradeCalc] {len(missing)} players missing — batch searching via autocomplete")
+                print(
+                    f"  [IDPTradeCalc] {len(missing)} players missing — batch searching via autocomplete"
+                )
 
             await ensure_toggles_on()
             await page.wait_for_timeout(500)
@@ -3200,7 +3437,9 @@ async def scrape_idptradecalc(page, players):
             found_count = 0
             for pi, player in enumerate(missing):
                 if pi % 25 == 0 and pi > 0:
-                    print(f"  [IDPTradeCalc] Progress: {pi}/{len(missing)} searched, {found_count} found")
+                    print(
+                        f"  [IDPTradeCalc] Progress: {pi}/{len(missing)} searched, {found_count} found"
+                    )
                 try:
                     input_box = await page.query_selector("#team1Name")
                     if not input_box:
@@ -3227,8 +3466,7 @@ async def scrape_idptradecalc(page, players):
                     body_text = await page.inner_text("body")
                     last_name = player.split()[-1]
                     pattern = re.compile(
-                        rf'{re.escape(last_name)}\s*\((\d+)\)\s*-\s*\w+',
-                        re.IGNORECASE
+                        rf"{re.escape(last_name)}\s*\((\d+)\)\s*-\s*\w+", re.IGNORECASE
                     )
                     match = pattern.search(body_text)
                     if match:
@@ -3277,8 +3515,9 @@ def print_health_report():
     total_unique = set()
     site_counts = {}
     for site_name, site_map in FULL_DATA.items():
-        non_zero = sum(1 for v in site_map.values()
-                       if v is not None and isinstance(v, (int, float)) and v > 0)
+        non_zero = sum(
+            1 for v in site_map.values() if v is not None and isinstance(v, (int, float)) and v > 0
+        )
         site_counts[site_name] = non_zero
         total_unique.update(site_map.keys())
         max_val = compute_max(site_map)
@@ -3289,9 +3528,14 @@ def print_health_report():
     # Coverage distribution
     player_coverage = {}
     for name in total_unique:
-        count = sum(1 for site_map in FULL_DATA.values()
-                    if name in site_map and site_map[name] is not None
-                    and isinstance(site_map[name], (int, float)) and site_map[name] > 0)
+        count = sum(
+            1
+            for site_map in FULL_DATA.values()
+            if name in site_map
+            and site_map[name] is not None
+            and isinstance(site_map[name], (int, float))
+            and site_map[name] > 0
+        )
         player_coverage[name] = count
 
     one_site = sum(1 for c in player_coverage.values() if c == 1)
@@ -3368,15 +3612,29 @@ async def run(progress_callback=None):
         "KTC": _env_int("SCRAPER_SOURCE_TIMEOUT_KTC", source_timeout_default),
         "DynastyDaddy": _env_int("SCRAPER_SOURCE_TIMEOUT_DYNASTYDADDY", source_timeout_default),
         "FantasyPros": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYPROS", source_timeout_default),
-        "DraftSharks": _env_int("SCRAPER_SOURCE_TIMEOUT_DRAFTSHARKS", max(360, source_timeout_default)),
+        "DraftSharks": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_DRAFTSHARKS", max(360, source_timeout_default)
+        ),
         "Yahoo": _env_int("SCRAPER_SOURCE_TIMEOUT_YAHOO", source_timeout_default),
-        "DynastyNerds": _env_int("SCRAPER_SOURCE_TIMEOUT_DYNASTYNERDS", max(360, source_timeout_default)),
-        "IDPTradeCalc": _env_int("SCRAPER_SOURCE_TIMEOUT_IDPTRADECALC", max(480, source_timeout_default)),
-        "DraftSharks_IDP": _env_int("SCRAPER_SOURCE_TIMEOUT_DRAFTSHARKS_IDP", max(360, source_timeout_default)),
-        "FantasyPros_IDP": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYPROS_IDP", source_timeout_default),
+        "DynastyNerds": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_DYNASTYNERDS", max(360, source_timeout_default)
+        ),
+        "IDPTradeCalc": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_IDPTRADECALC", max(480, source_timeout_default)
+        ),
+        "DraftSharks_IDP": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_DRAFTSHARKS_IDP", max(360, source_timeout_default)
+        ),
+        "FantasyPros_IDP": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_FANTASYPROS_IDP", source_timeout_default
+        ),
         "Flock": _env_int("SCRAPER_SOURCE_TIMEOUT_FLOCK", max(420, source_timeout_default)),
-        "KTC_TradeDB": _env_int("SCRAPER_SOURCE_TIMEOUT_KTC_TRADEDB", max(300, source_timeout_default)),
-        "KTC_WaiverDB": _env_int("SCRAPER_SOURCE_TIMEOUT_KTC_WAIVERDB", max(300, source_timeout_default)),
+        "KTC_TradeDB": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_KTC_TRADEDB", max(300, source_timeout_default)
+        ),
+        "KTC_WaiverDB": _env_int(
+            "SCRAPER_SOURCE_TIMEOUT_KTC_WAIVERDB", max(300, source_timeout_default)
+        ),
         "FantasyCalc": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYCALC", 90),
         "DLF_LocalCSV": _env_int("SCRAPER_SOURCE_TIMEOUT_DLF_LOCALCSV", 60),
     }
@@ -3476,15 +3734,34 @@ async def run(progress_callback=None):
             row["error"] = str(message or f"{src} failed")
 
     enabled_browser_sites = [
-        s for s in (
-            "KTC", "DynastyDaddy", "FantasyPros", "DraftSharks", "Yahoo", "DynastyNerds",
-            "IDPTradeCalc", "DraftSharks_IDP", "FantasyPros_IDP"
-        ) if SITES.get(s)
+        s
+        for s in (
+            "KTC",
+            "DynastyDaddy",
+            "FantasyPros",
+            "DraftSharks",
+            "Yahoo",
+            "DynastyNerds",
+            "IDPTradeCalc",
+            "DraftSharks_IDP",
+            "FantasyPros_IDP",
+        )
+        if SITES.get(s)
     ]
-    browser_needed = any(SITES.get(s) for s in (
-        "KTC", "DynastyDaddy", "FantasyPros", "DraftSharks", "Yahoo", "DynastyNerds",
-        "IDPTradeCalc", "DraftSharks_IDP", "FantasyPros_IDP"
-    )) or SITES.get("Flock")
+    browser_needed = any(
+        SITES.get(s)
+        for s in (
+            "KTC",
+            "DynastyDaddy",
+            "FantasyPros",
+            "DraftSharks",
+            "Yahoo",
+            "DynastyNerds",
+            "IDPTradeCalc",
+            "DraftSharks_IDP",
+            "FantasyPros_IDP",
+        )
+    ) or SITES.get("Flock")
     planned_total_steps = (
         1  # bootstrap
         + (1 if SITES.get("FantasyCalc") else 0)
@@ -3519,7 +3796,7 @@ async def run(progress_callback=None):
 
     # ── Browser sites ──
     browser_order = [
-        ("KTC",          scrape_ktc),
+        ("KTC", scrape_ktc),
         ("IDPTradeCalc", scrape_idptradecalc),
     ]
 
@@ -3532,7 +3809,6 @@ async def run(progress_callback=None):
         await _phase("browser", "launch", message="Launching browser context")
         print("Launching browser...")
         async with async_playwright() as pw:
-
             # ── Browser sites ──
             active_browser = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if active_browser:
@@ -3556,18 +3832,24 @@ async def run(progress_callback=None):
                             await route.continue_()
                     except Exception:
                         pass
+
                 await context.route("**/*", _block_heavy)
 
                 # Run each browser site sequentially
                 for site, scraper in active_browser:
-                    await _phase("source_start", site, event="source_start", message=f"Scraping {site}")
+                    await _phase(
+                        "source_start", site, event="source_start", message=f"Scraping {site}"
+                    )
                     print(f"  Scraping {site}...")
                     page = await context.new_page()
                     try:
                         timeout_sec = source_timeouts.get(site, source_timeout_default)
-                        site_results = await asyncio.wait_for(scraper(page, PLAYERS), timeout=timeout_sec)
+                        site_results = await asyncio.wait_for(
+                            scraper(page, PLAYERS), timeout=timeout_sec
+                        )
                         value_count = sum(
-                            1 for v in (site_results or {}).values()
+                            1
+                            for v in (site_results or {}).values()
                             if isinstance(v, (int, float)) and v > 0
                         )
                         for p, v in site_results.items():
@@ -3591,9 +3873,13 @@ async def run(progress_callback=None):
                                 if p in all_results and v is not None:
                                     all_results[p]["IDPTradeCalc"] = v
                                     recovered += 1
-                            print(f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s — recovered {recovered} values from partial autocomplete")
+                            print(
+                                f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s — recovered {recovered} values from partial autocomplete"
+                            )
                         else:
-                            print(f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s")
+                            print(
+                                f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s"
+                            )
                         await _emit_progress(
                             step="source_failed",
                             source=site,
@@ -3620,7 +3906,12 @@ async def run(progress_callback=None):
                 # ── KTC Trade + Waiver Database scraping ──
                 if SITES.get("KTC") and KTC_ID_TO_NAME:
                     try:
-                        await _phase("source_start", "KTC_TradeDB", event="source_start", message="Scraping KTC trade database")
+                        await _phase(
+                            "source_start",
+                            "KTC_TradeDB",
+                            event="source_start",
+                            message="Scraping KTC trade database",
+                        )
                         trade_page = await context.new_page()
                         await asyncio.wait_for(
                             scrape_ktc_trade_database(trade_page),
@@ -3648,7 +3939,9 @@ async def run(progress_callback=None):
                             level="error",
                             message=f"KTC trade DB timed out after {source_timeouts['KTC_TradeDB']}s",
                         )
-                        print(f"  [KTC Trade DB error] Timeout after {source_timeouts['KTC_TradeDB']}s")
+                        print(
+                            f"  [KTC Trade DB error] Timeout after {source_timeouts['KTC_TradeDB']}s"
+                        )
                     except Exception as e:
                         await _emit_progress(
                             step="source_failed",
@@ -3661,7 +3954,12 @@ async def run(progress_callback=None):
                         )
                         print(f"  [KTC Trade DB error] {e}")
                     try:
-                        await _phase("source_start", "KTC_WaiverDB", event="source_start", message="Scraping KTC waiver database")
+                        await _phase(
+                            "source_start",
+                            "KTC_WaiverDB",
+                            event="source_start",
+                            message="Scraping KTC waiver database",
+                        )
                         waiver_page = await context.new_page()
                         await asyncio.wait_for(
                             scrape_ktc_waiver_database(waiver_page),
@@ -3689,7 +3987,9 @@ async def run(progress_callback=None):
                             level="error",
                             message=f"KTC waiver DB timed out after {source_timeouts['KTC_WaiverDB']}s",
                         )
-                        print(f"  [KTC Waiver DB error] Timeout after {source_timeouts['KTC_WaiverDB']}s")
+                        print(
+                            f"  [KTC Waiver DB error] Timeout after {source_timeouts['KTC_WaiverDB']}s"
+                        )
                     except Exception as e:
                         await _emit_progress(
                             step="source_failed",
@@ -3702,7 +4002,9 @@ async def run(progress_callback=None):
                         )
                         print(f"  [KTC Waiver DB error] {e}")
                 elif SITES.get("KTC"):
-                    print("  [KTC Crowd] Skipping trade/waiver DB — no playerID→name mapping available")
+                    print(
+                        "  [KTC Crowd] Skipping trade/waiver DB — no playerID→name mapping available"
+                    )
                     await _emit_progress(
                         step="source_partial",
                         source="KTC_TradeDB",
@@ -3740,8 +4042,10 @@ async def run(progress_callback=None):
         if site_name == "KTC_WaiverDB":
             return len(KTC_CROWD_DATA.get("waivers", []) or [])
         return sum(
-            1 for _player, row in all_results.items()
-            if isinstance((row or {}).get(site_name), (int, float)) and (row or {}).get(site_name) > 0
+            1
+            for _player, row in all_results.items()
+            if isinstance((row or {}).get(site_name), (int, float))
+            and (row or {}).get(site_name) > 0
         )
 
     # Reconcile final per-source state after all source phases complete.
@@ -3755,7 +4059,9 @@ async def run(progress_callback=None):
         _state["valueCount"] = int(_count)
         if _state.get("state") == "running":
             _state["state"] = "partial" if _count <= 0 else "complete"
-            _state["finishedAt"] = _state.get("finishedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+            _state["finishedAt"] = (
+                _state.get("finishedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+            )
             _state["durationSec"] = _duration_sec(_state.get("startedAt"), _state.get("finishedAt"))
             if _count <= 0:
                 _state["message"] = _state.get("message") or "source ended without mapped values"
@@ -3764,10 +4070,34 @@ async def run(progress_callback=None):
             _state["message"] = _state.get("message") or "source completed with zero mapped values"
 
     enabled_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled")])
-    complete_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "complete"])
-    partial_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "partial"])
-    timeout_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "timeout"])
-    failed_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "failed"])
+    complete_sources = sorted(
+        [
+            s
+            for s, row in source_run_state.items()
+            if row.get("enabled") and row.get("state") == "complete"
+        ]
+    )
+    partial_sources = sorted(
+        [
+            s
+            for s, row in source_run_state.items()
+            if row.get("enabled") and row.get("state") == "partial"
+        ]
+    )
+    timeout_sources = sorted(
+        [
+            s
+            for s, row in source_run_state.items()
+            if row.get("enabled") and row.get("state") == "timeout"
+        ]
+    )
+    failed_sources = sorted(
+        [
+            s
+            for s, row in source_run_state.items()
+            if row.get("enabled") and row.get("state") == "failed"
+        ]
+    )
     run_finished_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
     # Inject KTC blocker diagnosis into source state if available
     if _KTC_BLOCKER and "KTC" in source_run_state:
@@ -3780,7 +4110,9 @@ async def run(progress_callback=None):
         "startedAt": run_started_at_iso,
         "finishedAt": run_finished_at_iso,
         "durationSec": _duration_sec(run_started_at_iso, run_finished_at_iso),
-        "overallStatus": "partial" if (partial_sources or timeout_sources or failed_sources) else "complete",
+        "overallStatus": "partial"
+        if (partial_sources or timeout_sources or failed_sources)
+        else "complete",
         "partialRun": bool(partial_sources or timeout_sources or failed_sources),
         "enabledSources": enabled_sources,
         "completeSources": complete_sources,
@@ -3808,7 +4140,9 @@ async def run(progress_callback=None):
     elif ktc_blocker_label:
         print(f"  [KTC Status] BLOCKED — {ktc_blocker_label} (0 players)")
     else:
-        print(f"  [KTC Status] FAILED — state={ktc_state_label}, error={ktc_row.get('error', 'unknown')} (0 players)")
+        print(
+            f"  [KTC Status] FAILED — state={ktc_state_label}, error={ktc_row.get('error', 'unknown')} (0 players)"
+        )
 
     # [NEW] Print scrape health report
     await _phase("health_report", "summary", message="Generating scrape health report")
@@ -3853,16 +4187,21 @@ async def run(progress_callback=None):
         writer = csv.writer(f)
         writer.writerow(["Player"] + active_sites)
         for player in PLAYERS:
-            writer.writerow([player] + [
-                fmt_val(all_results[player].get(s)) if all_results[player].get(s) is not None else ""
-                for s in active_sites
-            ])
+            writer.writerow(
+                [player]
+                + [
+                    fmt_val(all_results[player].get(s))
+                    if all_results[player].get(s) is not None
+                    else ""
+                    for s in active_sites
+                ]
+            )
     print(f"\nSaved to: {fname} (console players: {len(PLAYERS)})")
 
     # ── Save JSON for dashboard ──
     site_key_map = {
-        "KTC":          "ktc",
-        "KTC_TEP":      "ktcSfTep",
+        "KTC": "ktc",
+        "KTC_TEP": "ktcSfTep",
         "IDPTradeCalc": "idpTradeCalc",
     }
 
@@ -3878,8 +4217,17 @@ async def run(progress_callback=None):
             print(f"  [Max] {scraper_name} → {max_values[dash_key]}")
 
     # ── Trim sites to top N players before building JSON ──
-    _OFFENSIVE_SITES = {"KTC", "KTC_TEP", "FantasyCalc", "DynastyDaddy", "FantasyPros",
-                        "DraftSharks", "Yahoo", "DynastyNerds", "DLF_SF"}
+    _OFFENSIVE_SITES = {
+        "KTC",
+        "KTC_TEP",
+        "FantasyCalc",
+        "DynastyDaddy",
+        "FantasyPros",
+        "DraftSharks",
+        "Yahoo",
+        "DynastyNerds",
+        "DLF_SF",
+    }
     _DEFENSIVE_SITES = {"FantasyPros_IDP", "DLF_IDP"}
     _ROOKIE_ONLY_DLF_SITES = {"DLF_RSF", "DLF_RIDP"}
     _COMBINED_SITES = {"IDPTradeCalc"}  # has both OFF and IDP
@@ -3905,13 +4253,23 @@ async def run(progress_callback=None):
         if len(full_map) > cap:
             # Keep top N by value (higher = better for value sites, lower = better for rank sites)
             dash_key = site_key_map.get(site_name, site_name)
-            rank_sites = {"Flock", "DynastyNerds", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+            rank_sites = {
+                "Flock",
+                "DynastyNerds",
+                "FantasyPros_IDP",
+                "DraftSharks_IDP",
+                "DraftSharks",
+            }
             if site_name in rank_sites:
                 # Rank-based: lower values are better
-                sorted_players = sorted(full_map.items(), key=lambda x: x[1] if x[1] is not None else 99999)
+                sorted_players = sorted(
+                    full_map.items(), key=lambda x: x[1] if x[1] is not None else 99999
+                )
             else:
                 # Value-based: higher values are better
-                sorted_players = sorted(full_map.items(), key=lambda x: -(x[1] if x[1] is not None else 0))
+                sorted_players = sorted(
+                    full_map.items(), key=lambda x: -(x[1] if x[1] is not None else 0)
+                )
             trimmed = dict(sorted_players[:cap])
             if DEBUG:
                 print(f"  [Cap] {site_name}: {len(full_map)} → {cap} players")
@@ -3929,8 +4287,15 @@ async def run(progress_callback=None):
     _pool_audit = None
     try:
         from src.pool.builder import build_canonical_pool, PoolAuditReport
-        _ktc_full_for_pool = FULL_DATA.get("KTC", {}) if isinstance(FULL_DATA.get("KTC"), dict) else {}
-        _idp_tc_for_pool = FULL_DATA.get("IDPTradeCalc", {}) if isinstance(FULL_DATA.get("IDPTradeCalc"), dict) else {}
+
+        _ktc_full_for_pool = (
+            FULL_DATA.get("KTC", {}) if isinstance(FULL_DATA.get("KTC"), dict) else {}
+        )
+        _idp_tc_for_pool = (
+            FULL_DATA.get("IDPTradeCalc", {})
+            if isinstance(FULL_DATA.get("IDPTradeCalc"), dict)
+            else {}
+        )
         _adamidp_artifact = os.path.join(SCRIPT_DIR, "data", "adamidp_normalized.json")
         _pool_rows, _pool_audit = build_canonical_pool(
             sleeper_roster_data=SLEEPER_ROSTER_DATA,
@@ -3943,16 +4308,21 @@ async def run(progress_callback=None):
         for _pr in _pool_rows:
             if _pr.canonical_name:
                 all_names.add(_pr.canonical_name)
-        print(f"  [Pool Builder] Union: {_pool_audit.final_union_count} players "
-              f"(sleeper={_pool_audit.sleeper_count}, ktc525={_pool_audit.ktc_top525_count}, "
-              f"adamidp={_pool_audit.adamidp_unique_count})")
-        print(f"  [Pool Builder] IDPTradeCalc crosswalk: "
-              f"queried={_pool_audit.idp_trade_calc_queried_count}, "
-              f"matched={_pool_audit.idp_trade_calc_matched_count}, "
-              f"unmatched={_pool_audit.idp_trade_calc_unmatched_count}")
+        print(
+            f"  [Pool Builder] Union: {_pool_audit.final_union_count} players "
+            f"(sleeper={_pool_audit.sleeper_count}, ktc525={_pool_audit.ktc_top525_count}, "
+            f"adamidp={_pool_audit.adamidp_unique_count})"
+        )
+        print(
+            f"  [Pool Builder] IDPTradeCalc crosswalk: "
+            f"queried={_pool_audit.idp_trade_calc_queried_count}, "
+            f"matched={_pool_audit.idp_trade_calc_matched_count}, "
+            f"unmatched={_pool_audit.idp_trade_calc_unmatched_count}"
+        )
     except Exception as _pool_err:
         print(f"  [Pool Builder] Error building canonical pool: {_pool_err}")
         import traceback
+
         traceback.print_exc()
 
     # ── Build canonical name resolution map ──
@@ -3968,7 +4338,7 @@ async def run(progress_callback=None):
         parts = sn.split()
         if len(parts) >= 2:
             initial = parts[0][0].lower()
-            last = ' '.join(parts[1:]).lower().replace('-', ' ').replace('.', '')
+            last = " ".join(parts[1:]).lower().replace("-", " ").replace(".", "")
             _sleeper_initial_idx[(initial, last)] = sn
 
     # Build normalized lookup from rostered Sleeper names
@@ -3991,9 +4361,9 @@ async def run(progress_callback=None):
             continue
         # Initial-expansion match? (e.g. "A. St. Brown" → "Amon-Ra St. Brown")
         parts = cn.split()
-        if len(parts) >= 2 and len(parts[0].rstrip('.')) <= 2:
-            initial = parts[0].rstrip('.')[0].lower()
-            last = ' '.join(parts[1:]).lower().replace('-', ' ').replace('.', '')
+        if len(parts) >= 2 and len(parts[0].rstrip(".")) <= 2:
+            initial = parts[0].rstrip(".")[0].lower()
+            last = " ".join(parts[1:]).lower().replace("-", " ").replace(".", "")
             key = (initial, last)
             if key in _sleeper_initial_idx:
                 _canonical_map[cn] = _sleeper_initial_idx[key]
@@ -4009,8 +4379,8 @@ async def run(progress_callback=None):
         _canonical_map[cn] = cn
 
     # ── Build full Sleeper identity indexes from the global Sleeper player DB ──
-    _sleeper_name_candidates = {}     # clean_name -> [candidate...]
-    _sleeper_norm_candidates = {}     # normalized_name -> [candidate...]
+    _sleeper_name_candidates = {}  # clean_name -> [candidate...]
+    _sleeper_norm_candidates = {}  # normalized_name -> [candidate...]
     _sleeper_initial_candidates = {}  # (initial, last_norm) -> [candidate...]
 
     for pid, pdata in SLEEPER_ALL_NFL.items():
@@ -4036,7 +4406,10 @@ async def run(progress_callback=None):
         _sleeper_norm_candidates.setdefault(normalize_lookup_name(full), []).append(cand)
         parts = full.split()
         if len(parts) >= 2:
-            key = (parts[0][0].lower(), ' '.join(parts[1:]).lower().replace('-', ' ').replace('.', ''))
+            key = (
+                parts[0][0].lower(),
+                " ".join(parts[1:]).lower().replace("-", " ").replace(".", ""),
+            )
             _sleeper_initial_candidates.setdefault(key, []).append(cand)
 
     _sleeper_name_pool = list(_sleeper_name_candidates.keys())
@@ -4106,10 +4479,15 @@ async def run(progress_callback=None):
         if not candidates:
             parts = cleaned.split()
             if len(parts) >= 2:
-                key = (parts[0][0].lower(), ' '.join(parts[1:]).lower().replace('-', ' ').replace('.', ''))
+                key = (
+                    parts[0][0].lower(),
+                    " ".join(parts[1:]).lower().replace("-", " ").replace(".", ""),
+                )
                 candidates = list(_sleeper_initial_candidates.get(key, []))
         if not candidates and _sleeper_name_pool:
-            fm = best_match(cleaned, _sleeper_name_pool, threshold=0.90, match_guard=_is_safe_name_merge)
+            fm = best_match(
+                cleaned, _sleeper_name_pool, threshold=0.90, match_guard=_is_safe_name_merge
+            )
             if fm:
                 candidates = list(_sleeper_name_candidates.get(fm, []))
         best = _pick_best_candidate(candidates, preferred_pos)
@@ -4125,7 +4503,11 @@ async def run(progress_callback=None):
     # IDP-only sites should not contribute values to offensive players
     _OFF_POSITIONS = {"QB", "RB", "WR", "TE", "K"}
     _IDP_POSITIONS = {"LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"}
-    _IDP_ONLY_SITES = {"fantasyProsIdp", "dlfIdp", "dlfRidp"}  # IDPTradeCalc removed — it has both OFF and IDP
+    _IDP_ONLY_SITES = {
+        "fantasyProsIdp",
+        "dlfIdp",
+        "dlfRidp",
+    }  # IDPTradeCalc removed — it has both OFF and IDP
     _OFF_ONLY_SITES = {"dlfSf", "dlfRsf"}
     _pos_map = dict(SLEEPER_ROSTER_DATA.get("positions", {}))
     _player_id_map = dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))
@@ -4149,7 +4531,9 @@ async def run(progress_callback=None):
         # Drop non-player bucket rows and ambiguous yearless pick labels.
         if re.match(r"^ALL OTHER\b", raw_canonical.upper()):
             continue
-        if _looks_like_pick_name(raw_canonical) and not re.match(r"^20\d{2}\b", raw_canonical.upper()):
+        if _looks_like_pick_name(raw_canonical) and not re.match(
+            r"^20\d{2}\b", raw_canonical.upper()
+        ):
             continue
 
         # Resolve to canonical rostered name first (merges "A. St. Brown" → "Amon-Ra St. Brown")
@@ -4161,7 +4545,9 @@ async def run(progress_callback=None):
         if not _looks_like_pick_name(canonical):
             sleeper_identity = _resolve_sleeper_identity(canonical, preferred_pos=player_pos)
             if not sleeper_identity and canonical != raw_canonical:
-                sleeper_identity = _resolve_sleeper_identity(raw_canonical, preferred_pos=player_pos)
+                sleeper_identity = _resolve_sleeper_identity(
+                    raw_canonical, preferred_pos=player_pos
+                )
             if sleeper_identity:
                 canonical = sleeper_identity.get("name") or canonical
                 if sleeper_identity.get("pos"):
@@ -4216,14 +4602,10 @@ async def run(progress_callback=None):
         ea = players_json.get(a, {}) if isinstance(players_json.get(a), dict) else {}
         eb = players_json.get(b, {}) if isinstance(players_json.get(b), dict) else {}
         score_a = (
-            (10 if ea.get("_sleeperId") else 0)
-            + (5 if _get_pos(a) else 0)
-            + _entry_site_count(ea)
+            (10 if ea.get("_sleeperId") else 0) + (5 if _get_pos(a) else 0) + _entry_site_count(ea)
         )
         score_b = (
-            (10 if eb.get("_sleeperId") else 0)
-            + (5 if _get_pos(b) else 0)
-            + _entry_site_count(eb)
+            (10 if eb.get("_sleeperId") else 0) + (5 if _get_pos(b) else 0) + _entry_site_count(eb)
         )
         if score_a != score_b:
             return a if score_a > score_b else b
@@ -4260,7 +4642,12 @@ async def run(progress_callback=None):
         for _k, _v in _s_entry.items():
             if str(_k).startswith("_"):
                 continue
-            if _k not in _p_entry and isinstance(_v, (int, float)) and _v is not None and float(_v) > 0:
+            if (
+                _k not in _p_entry
+                and isinstance(_v, (int, float))
+                and _v is not None
+                and float(_v) > 0
+            ):
                 _p_entry[_k] = _v
 
         # Preserve identity metadata if primary lacks it.
@@ -4272,7 +4659,11 @@ async def run(progress_callback=None):
         if not _primary_pos and _secondary_pos:
             _pos_map[_primary] = _secondary_pos
 
-        _sid = _p_entry.get("_sleeperId") or _s_entry.get("_sleeperId") or _player_id_map.get(_secondary)
+        _sid = (
+            _p_entry.get("_sleeperId")
+            or _s_entry.get("_sleeperId")
+            or _player_id_map.get(_secondary)
+        )
         if _sid:
             _sid = str(_sid)
             _p_entry["_sleeperId"] = _sid
@@ -4293,7 +4684,16 @@ async def run(progress_callback=None):
     # This keeps IDP filters/coverage accurate even for deep-tier defenders not rostered.
     # Rookie-only DLF feeds are not treated as primary cross-source identity/evidence signals.
     _IDP_SIGNAL_KEYS = {"fantasyProsIdp", "draftSharksIdp", "dlfIdp"}
-    _OFF_SIGNAL_KEYS = {"ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf"}
+    _OFF_SIGNAL_KEYS = {
+        "ktc",
+        "fantasyCalc",
+        "dynastyDaddy",
+        "fantasyPros",
+        "draftSharks",
+        "yahoo",
+        "dynastyNerds",
+        "dlfSf",
+    }
     _idp_pos_backfilled = 0
     for pname, entry in players_json.items():
         if not isinstance(entry, dict):
@@ -4329,7 +4729,9 @@ async def run(progress_callback=None):
             _idp_pos_backfilled += 1
 
     if DEBUG and _idp_pos_backfilled:
-        print(f"  [IDP Coverage] Backfilled positions for {_idp_pos_backfilled} IDP-signaled players")
+        print(
+            f"  [IDP Coverage] Backfilled positions for {_idp_pos_backfilled} IDP-signaled players"
+        )
 
     # Keep enriched Sleeper identity data attached to the exported roster block.
     if _pos_map:
@@ -4528,7 +4930,8 @@ async def run(progress_callback=None):
                     return _avg(vals)
 
             years_with_tier = {
-                y for (y, r, t) in tier_values.keys()
+                y
+                for (y, r, t) in tier_values.keys()
                 if y is not None and r == round_num and t == tier
             }
             near_year = _nearest_year(years_with_tier, year)
@@ -4538,7 +4941,8 @@ async def run(progress_callback=None):
                     return _avg(vals)
 
             years_with_slots = {
-                y for (y, r, s) in slot_values.keys()
+                y
+                for (y, r, s) in slot_values.keys()
                 if y is not None and r == round_num and lo <= s <= hi
             }
             near_year = _nearest_year(years_with_slots, year)
@@ -4574,7 +4978,8 @@ async def run(progress_callback=None):
                     return _avg(vals)
 
             years_with_slot = {
-                y for (y, r, s) in slot_values.keys()
+                y
+                for (y, r, s) in slot_values.keys()
                 if y is not None and r == round_num and s == slot
             }
             near_year = _nearest_year(years_with_slot, year)
@@ -4594,7 +4999,9 @@ async def run(progress_callback=None):
                 for tier in ("early", "mid", "late"):
                     t_val = lookup_tier(year, round_num, tier)
                     if t_val is not None:
-                        out[f"{year} {tier.capitalize()} {round_num}{_pick_suffix(round_num)}"] = _fmt_pick_value(t_val)
+                        out[f"{year} {tier.capitalize()} {round_num}{_pick_suffix(round_num)}"] = (
+                            _fmt_pick_value(t_val)
+                        )
 
                 for slot in range(1, league_size + 1):
                     s_val = lookup_slot(year, round_num, slot)
@@ -4633,12 +5040,14 @@ async def run(progress_callback=None):
         if site_map:
             pick_anchors[dash_key] = site_map
             if DEBUG:
-                years = sorted({
-                    int(m.group(1))
-                    for key in site_map.keys()
-                    for m in [re.match(r"^(20\d{2})\s+", key)]
-                    if m
-                })
+                years = sorted(
+                    {
+                        int(m.group(1))
+                        for key in site_map.keys()
+                        for m in [re.match(r"^(20\d{2})\s+", key)]
+                        if m
+                    }
+                )
                 print(f"  [Pick Anchors] {dash_key}: {len(site_map)} canonical picks ({years})")
         else:
             pick_anchors[dash_key] = raw_picks
@@ -4827,7 +5236,9 @@ async def run(progress_callback=None):
 
         if allow_fuzzy:
             fuzzy_target = target_clean or target_name
-            fm = best_match(fuzzy_target, idx.get("names", []), threshold=0.90, match_guard=_is_safe_name_merge)
+            fm = best_match(
+                fuzzy_target, idx.get("names", []), threshold=0.90, match_guard=_is_safe_name_merge
+            )
             cand, val, why = _accept(fm, "fuzzy")
             if cand and val is not None:
                 return cand, val, why
@@ -4870,8 +5281,12 @@ async def run(progress_callback=None):
             if cand and val is not None:
                 entry[site_key] = _fmt_site_value(val)
                 _coverage_repair_stats["valuesBackfilled"] += 1
-                _coverage_repair_stats["bySite"][site_key] = _coverage_repair_stats["bySite"].get(site_key, 0) + 1
-                _coverage_repair_stats["byMethod"][method] = _coverage_repair_stats["byMethod"].get(method, 0) + 1
+                _coverage_repair_stats["bySite"][site_key] = (
+                    _coverage_repair_stats["bySite"].get(site_key, 0) + 1
+                )
+                _coverage_repair_stats["byMethod"][method] = (
+                    _coverage_repair_stats["byMethod"].get(method, 0) + 1
+                )
                 touched = True
         if touched:
             _coverage_repair_stats["playersTouched"] += 1
@@ -4903,12 +5318,14 @@ async def run(progress_callback=None):
                 count = max(count, _count_players_with_site_value(k))
         else:
             count = len(FULL_DATA.get(scraper_name, {}))
-        sites_meta.append({
-            "key": dash_key,
-            "label": scraper_name,
-            "max": max_values.get(dash_key, 0),
-            "playerCount": count,
-        })
+        sites_meta.append(
+            {
+                "key": dash_key,
+                "label": scraper_name,
+                "max": max_values.get(dash_key, 0),
+                "playerCount": count,
+            }
+        )
 
     # Expose per-file DLF sources for site status + source table toggles.
     _dlf_meta_sources = (
@@ -4924,12 +5341,14 @@ async def run(progress_callback=None):
         if scraper_name not in FULL_DATA:
             continue
         count = _count_players_with_site_value(dash_key)
-        sites_meta.append({
-            "key": dash_key,
-            "label": label,
-            "max": max_values.get(dash_key, 9999),
-            "playerCount": count,
-        })
+        sites_meta.append(
+            {
+                "key": dash_key,
+                "label": label,
+                "max": max_values.get(dash_key, 9999),
+                "playerCount": count,
+            }
+        )
 
     # [NEW] Compute per-site mean and stdev for z-score normalization
     site_stats = {}
@@ -4942,7 +5361,21 @@ async def run(progress_callback=None):
     # IDP Anchor System: tether the #1 IDP player to IDPTradeCalc's top non-Hunter value
     # This makes the anchor self-adjusting as the IDP market shifts
     _IDP_ANCHOR_EXCLUDE = {"travis hunter"}  # Excluded from anchor — he's a WR in dynasty
-    _IDP_ANCHOR_POSITIONS = {"LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE", "NT", "OLB", "ILB", "FS", "SS"}
+    _IDP_ANCHOR_POSITIONS = {
+        "LB",
+        "DL",
+        "DE",
+        "DT",
+        "CB",
+        "S",
+        "DB",
+        "EDGE",
+        "NT",
+        "OLB",
+        "ILB",
+        "FS",
+        "SS",
+    }
     _idp_tc_data = FULL_DATA.get("IDPTradeCalc", {})
     _pos_map_anchor = SLEEPER_ROSTER_DATA.get("positions", {})
 
@@ -4957,15 +5390,20 @@ async def run(progress_callback=None):
         return pos.upper()
 
     _idp_anchor_candidates = [
-        (name, v) for name, v in _idp_tc_data.items()
-        if v is not None and isinstance(v, (int, float)) and v > 0
+        (name, v)
+        for name, v in _idp_tc_data.items()
+        if v is not None
+        and isinstance(v, (int, float))
+        and v > 0
         and name.lower() not in _IDP_ANCHOR_EXCLUDE
         and _anchor_pos(name) in _IDP_ANCHOR_POSITIONS
     ]
     if _idp_anchor_candidates:
         _idp_anchor_candidates.sort(key=lambda x: -x[1])
         IDP_ANCHOR_TOP = _idp_anchor_candidates[0][1]
-        print(f"  [IDP Anchor] Top defensive player: {_idp_anchor_candidates[0][0]} = {IDP_ANCHOR_TOP}")
+        print(
+            f"  [IDP Anchor] Top defensive player: {_idp_anchor_candidates[0][0]} = {IDP_ANCHOR_TOP}"
+        )
         if len(_idp_anchor_candidates) >= 3:
             print(f"  [IDP Anchor] Top 3: {[(n, v) for n, v in _idp_anchor_candidates[:3]]}")
     else:
@@ -4973,17 +5411,19 @@ async def run(progress_callback=None):
         print(f"  [IDP Anchor] No defensive players found — fallback {IDP_ANCHOR_TOP}")
 
     def _idp_bucket(pos):
-        p = str(pos or '').upper()
-        if p in {'DE', 'DT', 'EDGE', 'NT'}:
-            return 'DL'
-        if p in {'CB', 'S', 'FS', 'SS', 'DB'}:
-            return 'DB'
-        if p in {'LB', 'OLB', 'ILB'}:
-            return 'LB'
-        return 'ALL'
+        p = str(pos or "").upper()
+        if p in {"DE", "DT", "EDGE", "NT"}:
+            return "DL"
+        if p in {"CB", "S", "FS", "SS", "DB"}:
+            return "DB"
+        if p in {"LB", "OLB", "ILB"}:
+            return "LB"
+        return "ALL"
 
     def _build_idp_anchor_points(values, fallback_top):
-        vals = sorted([float(v) for v in values if isinstance(v, (int, float)) and v > 0], reverse=True)
+        vals = sorted(
+            [float(v) for v in values if isinstance(v, (int, float)) and v > 0], reverse=True
+        )
         if not vals:
             return [(1, float(fallback_top))]
         ranks = [1, 3, 6, 12, 24, 48, 72, 96]
@@ -5001,6 +5441,7 @@ async def run(progress_callback=None):
 
     def _interp_anchor_points(rank_value, points):
         import math
+
         rank = max(1.0, float(rank_value))
         pts = [(float(r), float(v)) for r, v in points if r and v and v > 0]
         pts.sort(key=lambda x: x[0])
@@ -5013,7 +5454,9 @@ async def run(progress_callback=None):
             r1, v1 = pts[i]
             if rank <= r1:
                 t = (math.log(rank) - math.log(r0)) / max(1e-9, (math.log(r1) - math.log(r0)))
-                return math.exp(math.log(v0) + (math.log(v1) - math.log(v0)) * max(0.0, min(1.0, t)))
+                return math.exp(
+                    math.log(v0) + (math.log(v1) - math.log(v0)) * max(0.0, min(1.0, t))
+                )
         r0, v0 = pts[-2] if len(pts) >= 2 else pts[-1]
         r1, v1 = pts[-1]
         if r0 == r1:
@@ -5021,34 +5464,38 @@ async def run(progress_callback=None):
         slope = (math.log(v1) - math.log(v0)) / (math.log(r1) - math.log(r0))
         return max(1.0, math.exp(math.log(v1) + slope * (math.log(rank) - math.log(r1))))
 
-    _idp_backbone_values = {'ALL': [], 'LB': [], 'DL': [], 'DB': []}
+    _idp_backbone_values = {"ALL": [], "LB": [], "DL": [], "DB": []}
     for _name, _value in _idp_anchor_candidates:
         _bucket = _idp_bucket(_anchor_pos(_name))
-        _idp_backbone_values['ALL'].append(_value)
-        if _bucket != 'ALL':
+        _idp_backbone_values["ALL"].append(_value)
+        if _bucket != "ALL":
             _idp_backbone_values[_bucket].append(_value)
     _idp_anchor_curves = {
         bucket: _build_idp_anchor_points(vals, IDP_ANCHOR_TOP)
         for bucket, vals in _idp_backbone_values.items()
-        if vals or bucket == 'ALL'
+        if vals or bucket == "ALL"
     }
 
-    def _idp_rank_to_value(rank_value, pos=''):
+    def _idp_rank_to_value(rank_value, pos=""):
         bucket = _idp_bucket(pos)
-        curve = _idp_anchor_curves.get(bucket) or _idp_anchor_curves.get('ALL') or [(1, float(IDP_ANCHOR_TOP))]
+        curve = (
+            _idp_anchor_curves.get(bucket)
+            or _idp_anchor_curves.get("ALL")
+            or [(1, float(IDP_ANCHOR_TOP))]
+        )
         return _interp_anchor_points(rank_value, curve)
 
-    IDP_RANK_OFFSET = 15     # Controls curve flatness near the top
-    IDP_RANK_DIVISOR = 16    # Paired with offset so rank 1 → exactly IDP_ANCHOR_TOP
+    IDP_RANK_OFFSET = 15  # Controls curve flatness near the top
+    IDP_RANK_DIVISOR = 16  # Paired with offset so rank 1 → exactly IDP_ANCHOR_TOP
     IDP_RANK_EXPONENT = -0.72  # Steeper than offense (-0.66) since IDP value drops faster
     SINGLE_SOURCE_DISCOUNT = 0.85  # 15% discount for players on only 1 site
     COMPOSITE_SCALE = 9999
-    OUTLIER_TRIM_GAP = 0.18       # Trim only true outliers, not legitimate elite values
+    OUTLIER_TRIM_GAP = 0.18  # Trim only true outliers, not legitimate elite values
     # Elite ceiling expansion: allows top-consensus players to approach 9999.
     # Phase 3 fix: raised from 0.045 → 0.09 and lowered threshold from 0.91 → 0.88
     # so Josh Allen (highest ranked) gets closer to true top-of-market ceiling.
-    ELITE_NORM_THRESHOLD = 0.88   # Start elite expansion at moderate consensus
-    ELITE_BOOST_MAX = 0.09        # Cap elite expansion at +9%
+    ELITE_NORM_THRESHOLD = 0.88  # Start elite expansion at moderate consensus
+    ELITE_BOOST_MAX = 0.09  # Cap elite expansion at +9%
     IDP_VALUE_HEADROOM_FRACTION = 0.18  # controlled IDP lift above value-site cap
     # Single-source suppression: Phase 3 fix — lowered min from 0.70 → 0.55
     # so fragile one-source veterans (Tyler Lockett etc.) get much stronger
@@ -5066,10 +5513,18 @@ async def run(progress_callback=None):
 
     # Default site weights (market-based sources weighted higher)
     SITE_WEIGHTS = {
-        "ktc": 1.3, "fantasyCalc": 1.0, "dynastyDaddy": 1.0,
-        "fantasyPros": 0.8, "draftSharks": 0.9, "yahoo": 0.8,
-        "dynastyNerds": 0.8, "idpTradeCalc": 1.0,
-        "dlfSf": 0.8, "dlfIdp": 0.8, "dlfRsf": 0.7, "dlfRidp": 0.7,
+        "ktc": 1.3,
+        "fantasyCalc": 1.0,
+        "dynastyDaddy": 1.0,
+        "fantasyPros": 0.8,
+        "draftSharks": 0.9,
+        "yahoo": 0.8,
+        "dynastyNerds": 0.8,
+        "idpTradeCalc": 1.0,
+        "dlfSf": 0.8,
+        "dlfIdp": 0.8,
+        "dlfRsf": 0.7,
+        "dlfRidp": 0.7,
         "fantasyProsIdp": 0.7,
     }
     # Rookie-only DLF exports remain visible as source signals, but are quarantined
@@ -5078,7 +5533,9 @@ async def run(progress_callback=None):
     _REAL_IDP_MARKET_SITE_KEYS = {"idpTradeCalc", "fantasyProsIdp", "dlfIdp", "draftSharksIdp"}
     IDP_ROOKIE_ONLY_NO_MARKET_CAP = 2600
 
-    _curve_pos_map = SLEEPER_ROSTER_DATA.get("positions", {}) if isinstance(SLEEPER_ROSTER_DATA, dict) else {}
+    _curve_pos_map = (
+        SLEEPER_ROSTER_DATA.get("positions", {}) if isinstance(SLEEPER_ROSTER_DATA, dict) else {}
+    )
     _rookie_must_have_norm = {
         normalize_lookup_name(n)
         for n in (ROOKIE_MUST_HAVE_NAMES or [])
@@ -5086,7 +5543,9 @@ async def run(progress_callback=None):
     }
 
     def _pos_for_curve(name, pdata=None):
-        p = str((pdata or {}).get("position") or _curve_pos_map.get(name) or _get_pos(name) or "").upper()
+        p = str(
+            (pdata or {}).get("position") or _curve_pos_map.get(name) or _get_pos(name) or ""
+        ).upper()
         if p:
             return p
         ident = _resolve_identity_cached(name, preferred_pos="")
@@ -5151,6 +5610,7 @@ async def run(progress_callback=None):
     def _latest_file(directory, pattern):
         try:
             import fnmatch
+
             if not directory or not os.path.isdir(directory):
                 return None
             candidates = [
@@ -5193,7 +5653,13 @@ async def run(progress_callback=None):
         pos_map = sleeper.get("positions", {}) if isinstance(sleeper.get("positions"), dict) else {}
         return players, pos_map, str(p)
 
-    _curve_universes = ("offense_veterans", "offense_rookies", "idp_veterans", "idp_rookies", "picks")
+    _curve_universes = (
+        "offense_veterans",
+        "offense_rookies",
+        "idp_veterans",
+        "idp_rookies",
+        "picks",
+    )
     _rank_curve_targets = {u: [] for u in _curve_universes}
     _ref_players, _ref_pos_map, _rank_curve_ref_path = _load_rank_curve_reference_payload()
     for _nm, _pd in (_ref_players or {}).items():
@@ -5212,7 +5678,11 @@ async def run(progress_callback=None):
             _rank_curve_targets.setdefault(_u, []).append(float(_v))
     for _u in list(_rank_curve_targets.keys()):
         _rank_curve_targets[_u] = sorted(
-            [float(v) for v in _rank_curve_targets.get(_u, []) if isinstance(v, (int, float)) and v > 0],
+            [
+                float(v)
+                for v in _rank_curve_targets.get(_u, [])
+                if isinstance(v, (int, float)) and v > 0
+            ],
             reverse=True,
         )
 
@@ -5280,7 +5750,11 @@ async def run(progress_callback=None):
             "picks": 4200.0,
         }
         targets = _rank_curve_targets.get(universe_key, [])
-        top_ref = float(targets[0]) if targets else float(defaults.get(universe_key, site_max or COMPOSITE_SCALE))
+        top_ref = (
+            float(targets[0])
+            if targets
+            else float(defaults.get(universe_key, site_max or COMPOSITE_SCALE))
+        )
         top_ref = max(200.0, min(float(COMPOSITE_SCALE), top_ref))
         exp = 0.68 if "rookies" in universe_key else 0.62
         off = 8.0 if "rookies" in universe_key else 18.0
@@ -5294,11 +5768,15 @@ async def run(progress_callback=None):
         "referencePath": _rank_curve_ref_path,
         "minSourceCount": RANK_CURVE_MIN_SOURCE_COUNT,
         "minTargetCount": RANK_CURVE_MIN_TARGET_COUNT,
-        "universes": {u: {"targetCount": len(_rank_curve_targets.get(u, []))} for u in _curve_universes},
+        "universes": {
+            u: {"targetCount": len(_rank_curve_targets.get(u, []))} for u in _curve_universes
+        },
         "sources": {},
     }
 
-    def _calibrated_rank_to_value(dash_key, rank_value, pname, pdata=None, site_max=9999.0, universe_override=None):
+    def _calibrated_rank_to_value(
+        dash_key, rank_value, pname, pdata=None, site_max=9999.0, universe_override=None
+    ):
         universe_key = universe_override or _asset_universe_cached(pname, pdata)
         source_ranks = _rank_curve_source_ranks.get((dash_key, universe_key), [])
         target_curve = _rank_curve_targets.get(universe_key, [])
@@ -5312,13 +5790,20 @@ async def run(progress_callback=None):
             if isinstance(mapped, (int, float)) and mapped > 0:
                 return float(mapped), universe_key, False
         # Sparse conservative fallback (explicitly logged in diagnostics).
-        return float(_fallback_sparse_rank_value(rank_value, universe_key, site_max=site_max)), universe_key, True
+        return (
+            float(_fallback_sparse_rank_value(rank_value, universe_key, site_max=site_max)),
+            universe_key,
+            True,
+        )
 
     for _sk in sorted(_rank_curve_sites):
         for _u in _curve_universes:
             _src = _rank_curve_source_ranks.get((_sk, _u), [])
             _tgt = _rank_curve_targets.get(_u, [])
-            _curve_ready = len(_src) >= RANK_CURVE_MIN_SOURCE_COUNT and len(_tgt) >= RANK_CURVE_MIN_TARGET_COUNT
+            _curve_ready = (
+                len(_src) >= RANK_CURVE_MIN_SOURCE_COUNT
+                and len(_tgt) >= RANK_CURVE_MIN_TARGET_COUNT
+            )
             _samples = {}
             if _src:
                 for _label, _rank in (
@@ -5326,8 +5811,19 @@ async def run(progress_callback=None):
                     ("middle", _src[len(_src) // 2]),
                     ("tail", _src[-1]),
                 ):
-                    _val, _, _fb = _calibrated_rank_to_value(_sk, _rank, "", None, site_max=max_values.get(_sk, 9999), universe_override=_u)
-                    _samples[_label] = {"rank": round(float(_rank), 4), "value": int(round(_val)), "fallback": bool(_fb)}
+                    _val, _, _fb = _calibrated_rank_to_value(
+                        _sk,
+                        _rank,
+                        "",
+                        None,
+                        site_max=max_values.get(_sk, 9999),
+                        universe_override=_u,
+                    )
+                    _samples[_label] = {
+                        "rank": round(float(_rank), 4),
+                        "value": int(round(_val)),
+                        "fallback": bool(_fb),
+                    }
             _top_v = (_samples.get("top") or {}).get("value")
             _tail_v = (_samples.get("tail") or {}).get("value")
             _spread_ratio = (
@@ -5352,7 +5848,9 @@ async def run(progress_callback=None):
             }
 
     _curve_total = len(_rank_curve_diagnostics["sources"])
-    _curve_built = sum(1 for _v in _rank_curve_diagnostics["sources"].values() if _v.get("curveBuilt"))
+    _curve_built = sum(
+        1 for _v in _rank_curve_diagnostics["sources"].values() if _v.get("curveBuilt")
+    )
     _curve_fallback = _curve_total - _curve_built
     print(
         f"  [RankCurve] Built {_curve_built}/{_curve_total} source-universe curves "
@@ -5384,17 +5882,20 @@ async def run(progress_callback=None):
         if len(transformed) >= 2:
             mean_val = sum(transformed) / len(transformed)
             variance = sum((v - mean_val) ** 2 for v in transformed) / len(transformed)
-            stdev_val = variance ** 0.5
+            stdev_val = variance**0.5
             site_stats[dash_key] = {
                 "mean": round(mean_val, 2),
                 "stdev": round(stdev_val, 2),
                 "count": len(transformed),
             }
             if DEBUG:
-                print(f"  [Stats] {dash_key}: μ={mean_val:.1f}  σ={stdev_val:.1f}  n={len(transformed)}")
+                print(
+                    f"  [Stats] {dash_key}: μ={mean_val:.1f}  σ={stdev_val:.1f}  n={len(transformed)}"
+                )
 
     # ── Compute composite value for every player ──
     _pos_map = SLEEPER_ROSTER_DATA.get("positions", {})
+
     def _is_te(name):
         pos = _pos_map.get(name, "")
         if pos.upper() == "TE":
@@ -5405,6 +5906,7 @@ async def run(progress_callback=None):
         return False
 
     composites = {}
+
     def _player_is_idp(pname):
         pos = _pos_map.get(pname, "")
         if not pos:
@@ -5422,7 +5924,7 @@ async def run(progress_callback=None):
         if mean <= 0:
             return 0.0
         var = sum((v - mean) ** 2 for v in vals) / len(vals)
-        return (var ** 0.5) / mean
+        return (var**0.5) / mean
 
     def _clampf(v, lo, hi):
         try:
@@ -5515,7 +6017,9 @@ async def run(progress_callback=None):
             high_gap = sorted_norms[-1][0] - sorted_norms[-2][0]
             start_idx = 1 if low_gap >= OUTLIER_TRIM_GAP else 0
             end_idx = -1 if high_gap >= OUTLIER_TRIM_GAP else None
-            trimmed = sorted_norms[start_idx:end_idx] if end_idx is not None else sorted_norms[start_idx:]
+            trimmed = (
+                sorted_norms[start_idx:end_idx] if end_idx is not None else sorted_norms[start_idx:]
+            )
             if not trimmed:
                 trimmed = sorted_norms
         else:
@@ -5546,9 +6050,8 @@ async def run(progress_callback=None):
 
         # Single-source discount
         if len(wNorms) == 1:
-            single_src_discount = (
-                SINGLE_SOURCE_DISCOUNT_MIN
-                + ((SINGLE_SOURCE_DISCOUNT_MAX - SINGLE_SOURCE_DISCOUNT_MIN) * market_conf)
+            single_src_discount = SINGLE_SOURCE_DISCOUNT_MIN + (
+                (SINGLE_SOURCE_DISCOUNT_MAX - SINGLE_SOURCE_DISCOUNT_MIN) * market_conf
             )
             composite *= single_src_discount
 
@@ -5600,7 +6103,9 @@ async def run(progress_callback=None):
         players_json[name]["_marketConfidence"] = comp.get("marketConfidence", 0.5)
         players_json[name]["_marketDispersionCV"] = comp.get("dispersionCV", 0.0)
         players_json[name]["_idpRealMarketSources"] = int(comp.get("idpRealMarketSources", 0) or 0)
-        players_json[name]["_rookieOnlyDlfGuardrailApplied"] = bool(comp.get("rookieOnlyDlfGuardrailApplied", False))
+        players_json[name]["_rookieOnlyDlfGuardrailApplied"] = bool(
+            comp.get("rookieOnlyDlfGuardrailApplied", False)
+        )
 
     # ── Hard floor: seed rankings with at least top 400 KTC players ──
     _ktc_seed_added = 0
@@ -5754,16 +6259,23 @@ async def run(progress_callback=None):
     # Rookies are sourced from either:
     #  - Sleeper years_exp == 0, or
     #  - must-have rookie list (if the player has at least one site value).
-    _rookie_must_have_norm = {
-        normalize_lookup_name(n)
-        for n in (ROOKIE_MUST_HAVE_NAMES or [])
-        if n
-    }
+    _rookie_must_have_norm = {normalize_lookup_name(n) for n in (ROOKIE_MUST_HAVE_NAMES or []) if n}
     _rookie_site_keys = tuple(
-        k for k in (
-            "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo",
-            "dynastyNerds", "dlfSf", "dlfIdp", "dlfRsf", "dlfRidp",
-            "idpTradeCalc", "fantasyProsIdp"
+        k
+        for k in (
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "fantasyPros",
+            "draftSharks",
+            "yahoo",
+            "dynastyNerds",
+            "dlfSf",
+            "dlfIdp",
+            "dlfRsf",
+            "dlfRidp",
+            "idpTradeCalc",
+            "fantasyProsIdp",
         )
     )
 
@@ -5840,17 +6352,29 @@ async def run(progress_callback=None):
     # Real pick-anchor sources available from ingestion (site-specific evidence).
     # Used to avoid stamping synthetic uniform values across multiple sites.
     _legacy_pick_site_keys = [
-        sk for sk in (
-            "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo",
-            "dynastyNerds", "dlfSf", "dlfIdp", "dlfRsf", "dlfRidp",
-            "idpTradeCalc", "fantasyProsIdp"
+        sk
+        for sk in (
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "fantasyPros",
+            "draftSharks",
+            "yahoo",
+            "dynastyNerds",
+            "dlfSf",
+            "dlfIdp",
+            "dlfRsf",
+            "dlfRidp",
+            "idpTradeCalc",
+            "fantasyProsIdp",
         )
         if sk in _legacy_pick_anchors
     ]
 
     # Outside-market tier values for 2027/2028 rounds 1-4.
     outside_site_keys = [
-        sk for sk in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "yahoo", "idpTradeCalc")
+        sk
+        for sk in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "yahoo", "idpTradeCalc")
         if sk in _legacy_pick_anchors
     ]
     outside_tier = {}  # (year, round, tier) -> {"siteVals":{}, "blend":float|None}
@@ -5883,7 +6407,12 @@ async def run(progress_callback=None):
             for tier in ("early", "mid", "late"):
                 base = _tier_avg_from_slots(base_2026_slot, rnd, tier)
                 ext = outside_tier.get((year, rnd, tier), {}).get("blend")
-                if isinstance(base, (int, float)) and base > 0 and isinstance(ext, (int, float)) and ext > 0:
+                if (
+                    isinstance(base, (int, float))
+                    and base > 0
+                    and isinstance(ext, (int, float))
+                    and ext > 0
+                ):
                     ratios.append(ext / base)
         if ratios:
             med = _median(ratios, discount_by_year[year])
@@ -5892,8 +6421,8 @@ async def run(progress_callback=None):
             else:
                 discount_by_year[year] = max(0.45, min(0.85, med))
 
-    rebuilt_pick_entries = {}   # players_json labels -> entry
-    rebuilt_pick_anchors = {}   # site -> canonical pick key (no "Pick")
+    rebuilt_pick_entries = {}  # players_json labels -> entry
+    rebuilt_pick_anchors = {}  # site -> canonical pick key (no "Pick")
 
     def _put_pick(label, canonical_key, value, site_vals):
         v = max(1, int(round(float(value))))
@@ -5910,7 +6439,9 @@ async def run(progress_callback=None):
             e["ktc"] = v
             rebuilt_pick_anchors.setdefault("ktc", {})[canonical_key] = v
         e["_composite"] = v
-        e["_sites"] = max(1, sum(1 for kk, vv in e.items() if kk and kk[0] != "_" and _has_numeric_value(vv)))
+        e["_sites"] = max(
+            1, sum(1 for kk, vv in e.items() if kk and kk[0] != "_" and _has_numeric_value(vv))
+        )
         rebuilt_pick_entries[label] = e
 
     # Year 2026: direct rookie-slot mapping.
@@ -5990,7 +6521,9 @@ async def run(progress_callback=None):
             players_json.pop(_pick_name, None)
             _removed_future_slot_rows += 1
     if DEBUG and _removed_future_slot_rows:
-        print(f"  [Pick Model] Removed {_removed_future_slot_rows} future-year slot pick rows (2027/2028 tier-only).")
+        print(
+            f"  [Pick Model] Removed {_removed_future_slot_rows} future-year slot pick rows (2027/2028 tier-only)."
+        )
 
     # Attach rebuilt picks and overwrite exported pick anchors.
     players_json.update(rebuilt_pick_entries)
@@ -6003,7 +6536,14 @@ async def run(progress_callback=None):
     )
 
     # ── Roster guarantee: every rostered player gets a value/rank entry ──
-    _fallback_site_keys = ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "yahoo", "idpTradeCalc")
+    _fallback_site_keys = (
+        "ktc",
+        "fantasyCalc",
+        "dynastyDaddy",
+        "fantasyPros",
+        "yahoo",
+        "idpTradeCalc",
+    )
     _rostered_missing_added = 0
     _rostered_fallback_applied = 0
 
@@ -6037,15 +6577,27 @@ async def run(progress_callback=None):
     for _p, _vals in list(_pos_floor.items()):
         _pos_floor[_p] = int(round(_median(_vals, 1.0) * 0.35)) if _vals else 1
         _pos_floor[_p] = max(1, _pos_floor[_p])
-    _global_floor = max(1, int(round(_median([
-        float(p.get("_composite")) for n, p in players_json.items()
-        if (
-            isinstance(p, dict)
-            and not _looks_like_pick_name(n)
-            and isinstance(p.get("_composite"), (int, float))
-            and p.get("_composite") > 0
-        )
-    ], 800.0) * 0.20)))
+    _global_floor = max(
+        1,
+        int(
+            round(
+                _median(
+                    [
+                        float(p.get("_composite"))
+                        for n, p in players_json.items()
+                        if (
+                            isinstance(p, dict)
+                            and not _looks_like_pick_name(n)
+                            and isinstance(p.get("_composite"), (int, float))
+                            and p.get("_composite") > 0
+                        )
+                    ],
+                    800.0,
+                )
+                * 0.20
+            )
+        ),
+    )
 
     # Pre-build reverse index: normalized name → first matching player key.
     # Replaces O(N*M) inner-loop scans with O(1) dict lookups.
@@ -6084,7 +6636,12 @@ async def run(progress_callback=None):
             _rostered_missing_added += 1
 
         # Try to populate fallback site values if missing.
-        sid = str(entry.get("_sleeperId") or (ident.get("id") if ident else "") or _player_id_map.get(target_name) or "").strip()
+        sid = str(
+            entry.get("_sleeperId")
+            or (ident.get("id") if ident else "")
+            or _player_id_map.get(target_name)
+            or ""
+        ).strip()
         for sk in _fallback_site_keys:
             if _has_numeric_value(entry.get(sk)):
                 continue
@@ -6109,7 +6666,9 @@ async def run(progress_callback=None):
             _pos_map[target_name] = pref_pos
 
         if not isinstance(entry.get("_composite"), (int, float)) or entry.get("_composite", 0) <= 0:
-            site_vals, has_rookie_only_dlf, has_real_idp_market = _fallback_site_values_for_entry(entry, pref_pos)
+            site_vals, has_rookie_only_dlf, has_real_idp_market = _fallback_site_values_for_entry(
+                entry, pref_pos
+            )
             if site_vals:
                 comp_val = int(round(sum(site_vals) / len(site_vals)))
             else:
@@ -6161,7 +6720,7 @@ async def run(progress_callback=None):
         if _nn and _nn not in _must_have_order:
             _must_have_order[_nn] = _idx
 
-    for _raw_name in (ROOKIE_MUST_HAVE_NAMES or []):
+    for _raw_name in ROOKIE_MUST_HAVE_NAMES or []:
         _clean_nm = clean_name(_raw_name)
         if not _clean_nm:
             continue
@@ -6194,7 +6753,10 @@ async def run(progress_callback=None):
         if not isinstance(_entry, dict):
             _entry = {}
 
-        if not isinstance(_entry.get("_composite"), (int, float)) or _entry.get("_composite", 0) <= 0:
+        if (
+            not isinstance(_entry.get("_composite"), (int, float))
+            or _entry.get("_composite", 0) <= 0
+        ):
             _ord = _must_have_order.get(normalize_lookup_name(_clean_nm), len(_must_have_curve) - 1)
             _ord = max(0, min(_ord, len(_must_have_curve) - 1))
             _seed = max(1, int(round(_must_have_curve[_ord])))
@@ -6205,7 +6767,9 @@ async def run(progress_callback=None):
             _entry["_fallbackReason"] = "must_have_rookie_guarantee"
             _must_have_fallback += 1
 
-        _must_have_hint = _must_have_rookie_bucket(_target_name) or _must_have_rookie_bucket(_clean_nm)
+        _must_have_hint = _must_have_rookie_bucket(_target_name) or _must_have_rookie_bucket(
+            _clean_nm
+        )
         if _ident and _ident.get("id"):
             _sid = str(_ident["id"])
             _entry["_sleeperId"] = _sid
@@ -6270,7 +6834,9 @@ async def run(progress_callback=None):
             _pos_map[_name] = _hint
 
     if DEBUG:
-        print(f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}; age tagged {_age_tagged}")
+        print(
+            f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}; age tagged {_age_tagged}"
+        )
 
     # Set _rawComposite and _finalAdjusted directly from _composite.
     for name, pdata in players_json.items():
@@ -6316,10 +6882,21 @@ async def run(progress_callback=None):
                 continue
             if _get_pos(n) in _IDP_POSITIONS:
                 continue
-            has_idp_signal = any(isinstance(pdata.get(k), (int, float)) for k in ("fantasyProsIdp", "draftSharksIdp"))
+            has_idp_signal = any(
+                isinstance(pdata.get(k), (int, float)) for k in ("fantasyProsIdp", "draftSharksIdp")
+            )
             has_off_signal = any(
                 isinstance(pdata.get(k), (int, float))
-                for k in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf")
+                for k in (
+                    "ktc",
+                    "fantasyCalc",
+                    "dynastyDaddy",
+                    "fantasyPros",
+                    "draftSharks",
+                    "yahoo",
+                    "dynastyNerds",
+                    "dlfSf",
+                )
             )
             if has_idp_signal and not has_off_signal:
                 _pos_map[n] = "LB"
@@ -6327,12 +6904,20 @@ async def run(progress_callback=None):
         if promoted:
             SLEEPER_ROSTER_DATA["positions"] = _pos_map
             offensive_count, idp_count = _coverage_counts()
-            print(f"  [Coverage] IDP hard-floor promoted {promoted} players; IDP count now {idp_count}")
+            print(
+                f"  [Coverage] IDP hard-floor promoted {promoted} players; IDP count now {idp_count}"
+            )
 
-    print(f"  [Coverage] Offensive composite players: {offensive_count} (target {TARGET_OFFENSIVE_POOL})")
-    print(f"  [Coverage] IDP composite players: {idp_count} (target {TARGET_IDP_POOL}, floor {idp_floor_target})")
+    print(
+        f"  [Coverage] Offensive composite players: {offensive_count} (target {TARGET_OFFENSIVE_POOL})"
+    )
+    print(
+        f"  [Coverage] IDP composite players: {idp_count} (target {TARGET_IDP_POOL}, floor {idp_floor_target})"
+    )
     if offensive_count < TARGET_OFFENSIVE_POOL:
-        print(f"  [Coverage] ⚠ Offensive pool below target by {TARGET_OFFENSIVE_POOL - offensive_count}")
+        print(
+            f"  [Coverage] ⚠ Offensive pool below target by {TARGET_OFFENSIVE_POOL - offensive_count}"
+        )
     if idp_count < idp_floor_target:
         print(f"  [Coverage] ⚠ IDP pool below floor by {idp_floor_target - idp_count}")
 
@@ -6408,14 +6993,16 @@ async def run(progress_callback=None):
                 reason = diag.get("reason", "unknown")
                 reason_counts[reason] = reason_counts.get(reason, 0) + 1
 
-            deficits.append({
-                "name": name,
-                "pos": pos,
-                "composite": int(round(comp)),
-                "siteCount": len(present_sites),
-                "missingSites": missing_sites,
-                "missingDiagnostics": diagnostics,
-            })
+            deficits.append(
+                {
+                    "name": name,
+                    "pos": pos,
+                    "composite": int(round(comp)),
+                    "siteCount": len(present_sites),
+                    "missingSites": missing_sites,
+                    "missingDiagnostics": diagnostics,
+                }
+            )
 
         missing_by_site = {k: v for k, v in missing_by_site.items() if v > 0}
         return {
@@ -6533,8 +7120,10 @@ async def run(progress_callback=None):
 
     if KTC_CROWD_DATA.get("trades") or KTC_CROWD_DATA.get("waivers"):
         dashboard_json["ktcCrowd"] = KTC_CROWD_DATA
-        print(f"  [KTC Crowd] {len(KTC_CROWD_DATA.get('trades', []))} trades, "
-              f"{len(KTC_CROWD_DATA.get('waivers', []))} waivers")
+        print(
+            f"  [KTC Crowd] {len(KTC_CROWD_DATA.get('trades', []))} trades, "
+            f"{len(KTC_CROWD_DATA.get('waivers', []))} waivers"
+        )
 
     if ktc_id_map:
         dashboard_json["ktcIdMap"] = ktc_id_map
@@ -6547,8 +7136,7 @@ async def run(progress_callback=None):
 
     js_fname = os.path.join(SCRIPT_DIR, "dynasty_data.js")
     with open(js_fname, "w", encoding="utf-8") as f:
-        f.write("// Auto-generated by Dynasty Scraper — "
-                f"{datetime.date.today()}\n")
+        f.write("// Auto-generated by Dynasty Scraper — " f"{datetime.date.today()}\n")
         f.write("window.DYNASTY_DATA = ")
         json.dump(dashboard_json, f, indent=2, ensure_ascii=False)
         f.write(";\n")
@@ -6622,7 +7210,7 @@ async def run(progress_callback=None):
         copy_paths = [
             json_fname,
             js_fname,
-            fname,           # dynasty_values.csv
+            fname,  # dynasty_values.csv
             full_csv_fname,  # dynasty_full.csv
         ]
         for p in copy_paths:

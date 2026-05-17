@@ -14,6 +14,7 @@ until Thursday local NFL day".  Callers ask
 ``is_fresh_for_alerts(week, year, now=None)`` and skip the alert
 evaluation when False.
 """
+
 from __future__ import annotations
 
 import datetime as _dt

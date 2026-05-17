@@ -1,4 +1,5 @@
 """Tests for the dynamic weights fitter + approval gate."""
+
 from __future__ import annotations
 
 import json

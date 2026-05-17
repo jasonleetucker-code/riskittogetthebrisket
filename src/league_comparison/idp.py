@@ -23,6 +23,7 @@ When ready to activate:
 Until then the function returns a placeholder block so the UI can
 render an "IDP coming soon" badge consistently.
 """
+
 from __future__ import annotations
 
 from typing import Any

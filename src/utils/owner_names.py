@@ -9,6 +9,7 @@ preferred display label for any Sleeper user payload.
 The mapping is case-insensitive: Sleeper preserves the case the user
 typed, but the username is unique under case-folding.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache

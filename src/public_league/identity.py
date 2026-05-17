@@ -16,6 +16,7 @@ Display metadata (team name, avatar) is stored as a per-season alias
 list.  The most recent alias wins for primary display, but every
 season's alias is retained so franchise pages can show the lineage.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -37,15 +38,18 @@ from src.utils.owner_names import owner_label
 #     _RETIRED_OWNER_IDS: frozenset[str] = frozenset({
 #         "714976074907336704",  # Bwalk903 — left after 2024
 #     })
-_RETIRED_OWNER_IDS: frozenset[str] = frozenset({
-    "714976074907336704",  # Bwalk903 — left after 2024
-    "720849338183548928",  # SheriffB — left after 2024
-})
+_RETIRED_OWNER_IDS: frozenset[str] = frozenset(
+    {
+        "714976074907336704",  # Bwalk903 — left after 2024
+        "720849338183548928",  # SheriffB — left after 2024
+    }
+)
 
 
 @dataclass
 class TeamAlias:
     """Per-season team-name snapshot for a manager."""
+
     season: str
     league_id: str
     team_name: str
@@ -57,6 +61,7 @@ class TeamAlias:
 @dataclass
 class Manager:
     """Owner-id-keyed manager identity for the public league."""
+
     owner_id: str
     display_name: str = ""
     avatar: str = ""
@@ -92,6 +97,7 @@ class Manager:
 @dataclass
 class ManagerRegistry:
     """Collection of managers keyed by owner_id."""
+
     by_owner_id: dict[str, Manager] = field(default_factory=dict)
     # (league_id, roster_id) -> owner_id, built from each season's
     # roster snapshot.  Used to attribute matchups / trades / picks
@@ -180,9 +186,7 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
                 or user.get("display_name")
                 or f"Team {rid_int if rid_int is not None else owner_id}"
             )
-            display_name = (
-                owner_label(user) or user.get("display_name") or team_name
-            )
+            display_name = owner_label(user) or user.get("display_name") or team_name
             avatar = str(user.get("avatar") or metadata.get("avatar") or "")
 
             alias = TeamAlias(

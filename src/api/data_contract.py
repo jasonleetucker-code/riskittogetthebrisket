@@ -34,9 +34,9 @@ _LOGGER = logging.getLogger(__name__)
 #: contradiction anymore.
 OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS: frozenset[str] = frozenset(
     {
-        "Josh Johnson",     # QB (retired journeyman) vs S (draftable prospect)
+        "Josh Johnson",  # QB (retired journeyman) vs S (draftable prospect)
         "Elijah Mitchell",  # RB (HOU backup) vs DB (draftable prospect) — Sleeper pos
-                            # map resolves to the DB; scraper has only the RB's KTC value
+        # map resolves to the DB; scraper has only the RB's KTC value
     }
 )
 
@@ -176,9 +176,7 @@ _HAMPEL_K = 2.75
 _HAMPEL_MIN_N = 4
 _HAMPEL_MIN_THRESHOLD = 1000.0
 
-_RETIRED_INVALID_PATTERNS = re.compile(
-    r"(?i)\b(retired|invalid|test|unknown|placeholder)\b"
-)
+_RETIRED_INVALID_PATTERNS = re.compile(r"(?i)\b(retired|invalid|test|unknown|placeholder)\b")
 _OL_POSITIONS = {"OL", "OT", "OG", "C", "G", "T"}
 
 # ── Identity validation constants ────────────────────────────────────────────
@@ -616,10 +614,7 @@ def _load_source_row_floors() -> dict[str, int]:
             current_mtime = None
     cached_mtime = _SOURCE_ROW_FLOORS_CACHE.get("mtime")
     cached_value = _SOURCE_ROW_FLOORS_CACHE.get("value")
-    if (
-        isinstance(cached_value, dict)
-        and cached_mtime == current_mtime
-    ):
+    if isinstance(cached_value, dict) and cached_mtime == current_mtime:
         return dict(cached_value)
     if cfg_path.exists():
         try:
@@ -637,9 +632,7 @@ def _load_source_row_floors() -> dict[str, int]:
                 _SOURCE_ROW_FLOORS_CACHE["value"] = merged
                 return dict(merged)
         except Exception as exc:  # noqa: BLE001
-            _LOGGER.warning(
-                "Failed to load source_row_floors.json (%s); using defaults", exc
-            )
+            _LOGGER.warning("Failed to load source_row_floors.json (%s); using defaults", exc)
     default = dict(_DEFAULT_SOURCE_ROW_FLOORS)
     _SOURCE_ROW_FLOORS_CACHE["mtime"] = current_mtime
     _SOURCE_ROW_FLOORS_CACHE["value"] = default
@@ -702,10 +695,7 @@ def _load_top50_coverage_floors() -> dict[str, dict[str, int]]:
             current_mtime = None
     cached_mtime = _TOP50_COVERAGE_FLOORS_CACHE.get("mtime")
     cached_value = _TOP50_COVERAGE_FLOORS_CACHE.get("value")
-    if (
-        isinstance(cached_value, dict)
-        and cached_mtime == current_mtime
-    ):
+    if isinstance(cached_value, dict) and cached_mtime == current_mtime:
         return {k: dict(v) for k, v in cached_value.items()}
     merged: dict[str, dict[str, int]] = {
         k: dict(v) for k, v in _DEFAULT_TOP50_COVERAGE_FLOORS.items()
@@ -818,6 +808,7 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
                 entry["staleness"] = "fresh" if age_hours < max_age else "stale"
         out[source_key] = entry
     return out
+
 
 # ── Ranking source registry ──────────────────────────────────────────────
 # Declarative metadata describing each source that feeds the unified
@@ -1911,9 +1902,7 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
         entry: dict[str, Any] = {
             "key": str(src.get("key") or ""),
             "displayName": str(src.get("display_name") or ""),
-            "columnLabel": str(
-                src.get("column_label") or src.get("display_name") or ""
-            ),
+            "columnLabel": str(src.get("column_label") or src.get("display_name") or ""),
             "scope": str(src.get("scope") or ""),
             "extraScopes": list(src.get("extra_scopes") or []),
             "positionGroup": src.get("position_group"),
@@ -1923,9 +1912,7 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isRetail": bool(src.get("is_retail")),
             "isTepPremium": bool(src.get("is_tep_premium")),
             "isRankSignal": bool(src.get("is_rank_signal")),
-            "needsSharedMarketTranslation": bool(
-                src.get("needs_shared_market_translation")
-            ),
+            "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
         }
         out.append(entry)
@@ -2064,9 +2051,7 @@ def normalize_source_overrides(
     if raw is None:
         return out, warnings
     if not isinstance(raw, dict):
-        warnings.append(
-            f"Top-level overrides must be an object; got {type(raw).__name__}"
-        )
+        warnings.append(f"Top-level overrides must be an object; got {type(raw).__name__}")
         return out, warnings
 
     # ── Explicit request body: {"enabled_sources": [...], "weights": {...}} ──
@@ -2078,9 +2063,7 @@ def normalize_source_overrides(
     if explicit_enabled is not None or isinstance(explicit_weights, dict):
         if explicit_enabled is not None:
             if not isinstance(explicit_enabled, (list, tuple, set)):
-                warnings.append(
-                    "enabled_sources must be a list of source keys; ignoring"
-                )
+                warnings.append("enabled_sources must be a list of source keys; ignoring")
                 enabled_set: set[str] = valid_keys
             else:
                 enabled_set = set()
@@ -2089,9 +2072,7 @@ def normalize_source_overrides(
                     if k in valid_keys:
                         enabled_set.add(k)
                     else:
-                        warnings.append(
-                            f"enabled_sources: unknown source '{k}' (ignored)"
-                        )
+                        warnings.append(f"enabled_sources: unknown source '{k}' (ignored)")
         else:
             enabled_set = set(valid_keys)
 
@@ -2105,21 +2086,15 @@ def normalize_source_overrides(
             for key, value in explicit_weights.items():
                 k = str(key)
                 if k not in valid_keys:
-                    warnings.append(
-                        f"weights: unknown source '{k}' (ignored)"
-                    )
+                    warnings.append(f"weights: unknown source '{k}' (ignored)")
                     continue
                 try:
                     w = float(value)
                 except (TypeError, ValueError):
-                    warnings.append(
-                        f"weights[{k}]: value '{value}' is not a number (ignored)"
-                    )
+                    warnings.append(f"weights[{k}]: value '{value}' is not a number (ignored)")
                     continue
                 if not math.isfinite(w) or w < 0:
-                    warnings.append(
-                        f"weights[{k}]: value {w} is not non-negative finite (ignored)"
-                    )
+                    warnings.append(f"weights[{k}]: value {w} is not non-negative finite (ignored)")
                     continue
                 out.setdefault(k, {})["weight"] = w
 
@@ -2137,9 +2112,7 @@ def normalize_source_overrides(
             warnings.append(f"Unknown source '{k}' (ignored)")
             continue
         if not isinstance(value, dict):
-            warnings.append(
-                f"Override for '{k}' must be an object; got {type(value).__name__}"
-            )
+            warnings.append(f"Override for '{k}' must be an object; got {type(value).__name__}")
             continue
         entry = {}
         if "include" in value:
@@ -2154,16 +2127,12 @@ def normalize_source_overrides(
             try:
                 w = float(value.get("weight"))
             except (TypeError, ValueError):
-                warnings.append(
-                    f"Override '{k}'.weight must be a number (ignored)"
-                )
+                warnings.append(f"Override '{k}'.weight must be a number (ignored)")
             else:
                 if math.isfinite(w) and w >= 0:
                     entry["weight"] = w
                 else:
-                    warnings.append(
-                        f"Override '{k}'.weight must be non-negative finite (ignored)"
-                    )
+                    warnings.append(f"Override '{k}'.weight must be non-negative finite (ignored)")
         if entry:
             out[k] = entry
     return out, warnings
@@ -2357,9 +2326,7 @@ def assert_ranking_source_registry_parity(
     js_keys = [str(s.get("key") or "") for s in (frontend_registry or [])]
     if py_keys != js_keys:
         errors.append(
-            "Registry key order/mismatch:\n"
-            f"  python: {py_keys}\n"
-            f"  frontend: {js_keys}"
+            "Registry key order/mismatch:\n" f"  python: {py_keys}\n" f"  frontend: {js_keys}"
         )
         return errors
 
@@ -2382,9 +2349,7 @@ def assert_ranking_source_registry_parity(
                 js_val = list(js_val or [])
             if field == "weight":
                 if float(py_val or 0) != float(js_val or 0):
-                    errors.append(
-                        f"{key}.weight: python={py_val} frontend={js_val}"
-                    )
+                    errors.append(f"{key}.weight: python={py_val} frontend={js_val}")
                 continue
             if py_val != js_val:
                 errors.append(f"{key}.{field}: python={py_val} frontend={js_val}")
@@ -2419,6 +2384,7 @@ def _effective_source_weight(
     except (TypeError, ValueError):
         return default
     import math as _m
+
     if not _m.isfinite(w) or w < 0:
         return default
     return w
@@ -2485,14 +2451,10 @@ def _compute_market_gap(
         retail_keys = _retail_source_keys()
 
     retail_ranks = [
-        rank
-        for key, rank in source_ranks.items()
-        if key in retail_keys and rank is not None
+        rank for key, rank in source_ranks.items() if key in retail_keys and rank is not None
     ]
     consensus_ranks = [
-        rank
-        for key, rank in source_ranks.items()
-        if key not in retail_keys and rank is not None
+        rank for key, rank in source_ranks.items() if key not in retail_keys and rank is not None
     ]
     if not retail_ranks or not consensus_ranks:
         return "none", None
@@ -2515,6 +2477,7 @@ def _normalize_for_collision(name: str) -> str:
     would collide in the identity pipeline.
     """
     from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
     return normalize_player_name(name)
 
 
@@ -2543,13 +2506,9 @@ def _compute_identity_confidence(
     canonical_sites = row.get("canonicalSiteValues") or {}
 
     has_off_val = any(
-        (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
-        for k in _OFFENSE_SIGNAL_KEYS
+        (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
     )
-    has_idp_val = any(
-        (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
-        for k in _IDP_SIGNAL_KEYS
-    )
+    has_idp_val = any((_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS)
 
     if has_id:
         return 1.00, "canonical_id"
@@ -2639,13 +2598,13 @@ def _validate_and_quarantine_rows(
     for posaware, indices in posaware_to_rows.items():
         if len(indices) < 2:
             continue
-        names_involved = sorted({
-            str(players_array[i].get("canonicalName") or "") for i in indices
-        })
-        duplicate_identity_pairs.append({
-            "canonicalKey": posaware,
-            "names": names_involved,
-        })
+        names_involved = sorted({str(players_array[i].get("canonicalName") or "") for i in indices})
+        duplicate_identity_pairs.append(
+            {
+                "canonicalKey": posaware,
+                "names": names_involved,
+            }
+        )
         for i in indices:
             row = players_array[i]
             flags = row.get("anomalyFlags") or []
@@ -2665,11 +2624,13 @@ def _validate_and_quarantine_rows(
         asset_classes = {players_array[i].get("assetClass") for i in indices}
         if "offense" in asset_classes and "idp" in asset_classes:
             names_involved = [players_array[i].get("canonicalName") for i in indices]
-            collision_pairs.append({
-                "normalizedName": norm,
-                "names": names_involved,
-                "assetClasses": list(asset_classes),
-            })
+            collision_pairs.append(
+                {
+                    "normalizedName": norm,
+                    "names": names_involved,
+                    "assetClasses": list(asset_classes),
+                }
+            )
             for i in indices:
                 row = players_array[i]
                 flags = row.get("anomalyFlags") or []
@@ -2696,20 +2657,16 @@ def _validate_and_quarantine_rows(
         canonical_sites = row.get("canonicalSiteValues") or {}
 
         has_off_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
-            for k in _OFFENSE_SIGNAL_KEYS
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
         )
         has_idp_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
-            for k in _IDP_SIGNAL_KEYS
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS
         )
 
         current_flags = row.get("anomalyFlags") or []
         has_collision = "name_collision_cross_universe" in current_flags
         name = row.get("canonicalName") or ""
-        is_known_collision = (
-            has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
-        )
+        is_known_collision = has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
 
         # Offense position but only IDP values.
         if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
@@ -2750,10 +2707,7 @@ def _validate_and_quarantine_rows(
     # ── Check 5: No valid source values but has derived value ──
     for idx, row in enumerate(players_array):
         canonical_sites = row.get("canonicalSiteValues") or {}
-        has_any_source = any(
-            (_to_int_or_none(v) or 0) > 0
-            for v in canonical_sites.values()
-        )
+        has_any_source = any((_to_int_or_none(v) or 0) > 0 for v in canonical_sites.values())
         rdv = row.get("rankDerivedValue")
         if not has_any_source and rdv is not None and rdv > 0:
             flags = row.get("anomalyFlags") or []
@@ -2777,9 +2731,7 @@ def _validate_and_quarantine_rows(
             current_bucket = row.get("confidenceBucket") or "none"
             if current_bucket in ("high", "medium"):
                 row["confidenceBucket"] = "low"
-                row["confidenceLabel"] = (
-                    "Low — quarantined due to identity/data-quality flags"
-                )
+                row["confidenceLabel"] = "Low — quarantined due to identity/data-quality flags"
         else:
             row["quarantined"] = False
 
@@ -2949,12 +2901,10 @@ def _strip_mismatched_family_tags(players_array: list[dict[str, Any]]) -> None:
         if not isinstance(canonical_sites, dict):
             continue
         has_off = any(
-            _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
-            for k in _OFFENSE_SIGNAL_KEYS
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _OFFENSE_SIGNAL_KEYS
         )
         has_idp = any(
-            _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
-            for k in _IDP_SIGNAL_KEYS
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
         )
         if pos in _IDP_POSITIONS and has_off and not has_idp:
             row["position"] = None
@@ -2968,7 +2918,9 @@ def _strip_mismatched_family_tags(players_array: list[dict[str, Any]]) -> None:
 # functions of file contents, so any rebuild that happens before the CSV
 # is re-scraped can skip the parse entirely.  Cache key is the absolute
 # csv path string; the value is a 3-tuple of (mtime, csv_lookup, schema_err).
-_SOURCE_CSV_PARSE_CACHE: dict[str, tuple[float, dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]] = {}
+_SOURCE_CSV_PARSE_CACHE: dict[
+    str, tuple[float, dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]
+] = {}
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
 
@@ -3100,10 +3052,7 @@ def _parse_source_csv_cached(
                     if rank_val <= 0:
                         continue
                     synthetic = int(
-                        round(
-                            (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100)
-                            - (rank_val * 100)
-                        )
+                        round((_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100) - (rank_val * 100))
                     )
                     if synthetic <= 0:
                         continue
@@ -3127,9 +3076,7 @@ def _parse_source_csv_cached(
                         except (TypeError, ValueError):
                             orig_rank = None
                     try:
-                        csv_lookup.setdefault(key, []).append(
-                            (name, int(float(val)), orig_rank)
-                        )
+                        csv_lookup.setdefault(key, []).append((name, int(float(val)), orig_rank))
                     except (ValueError, TypeError):
                         continue
     except Exception as exc:  # noqa: BLE001
@@ -3191,9 +3138,7 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
                 "fantasyProsIdpDerivationMethod": str(
                     row_csv.get("derivationMethod") or ""
                 ).strip(),
-                "fantasyProsIdpFamily": str(
-                    row_csv.get("family") or ""
-                ).strip(),
+                "fantasyProsIdpFamily": str(row_csv.get("family") or "").strip(),
                 "fantasyProsIdpNormalizedValue": norm_v,
                 "fantasyProsIdpMatchedSourceName": str(
                     row_csv.get("matchedSourceName") or nm
@@ -3273,6 +3218,7 @@ def _enrich_from_source_csvs(
         if not cname:
             continue
         from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
         grp = canonical_position_group(row.get("position"))
         row_groups_by_key.setdefault(cname, set()).add(grp)
 
@@ -3297,14 +3243,10 @@ def _enrich_from_source_csvs(
                         "error": "file_not_found",
                     }
                 )
-                _LOGGER.warning(
-                    "Source CSV missing for %s: %s", source_key, csv_rel
-                )
+                _LOGGER.warning("Source CSV missing for %s: %s", source_key, csv_rel)
             continue
 
-        csv_lookup, schema_err = _parse_source_csv_cached(
-            csv_path, source_key, signal, csv_rel
-        )
+        csv_lookup, schema_err = _parse_source_csv_cached(csv_path, source_key, signal, csv_rel)
         if schema_err is not None:
             if parse_errors is not None:
                 parse_errors.append(schema_err)
@@ -3328,9 +3270,7 @@ def _enrich_from_source_csvs(
         if source_key == "dlfRookieSf":
             csv_lookup = {k: list(v) for k, v in csv_lookup.items()}
             _flat = [
-                (disp, syn, rnk)
-                for entries in csv_lookup.values()
-                for (disp, syn, rnk) in entries
+                (disp, syn, rnk) for entries in csv_lookup.values() for (disp, syn, rnk) in entries
             ]
             _flat.sort(key=lambda t: (-t[1], str(t[0]).lower()))
             _dlf_league_size = _resolve_league_roster_count()
@@ -3344,15 +3284,14 @@ def _enrich_from_source_csvs(
                 _pick_key = _canonical_match_key(_pick_name)
                 if not _pick_key:
                     continue
-                csv_lookup.setdefault(_pick_key, []).append(
-                    (_pick_name, _syn, float(rookie_rank))
-                )
+                csv_lookup.setdefault(_pick_key, []).append((_pick_name, _syn, float(rookie_rank)))
 
         # Persist a structured per-source entry index keyed by the
         # *position-aware* canonical key so downstream code can audit
         # exactly which CSV row matched each player row.  We resolve
         # duplicates by best-of-value within the same position group.
         from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
         per_source: dict[str, dict[str, Any]] = {}
         for cname, entries in csv_lookup.items():
             # Quick pre-pass: figure out which position groups the
@@ -3403,8 +3342,7 @@ def _enrich_from_source_csvs(
             # finite value); for everyone else we require > 0 so a
             # stale zero doesn't block the enrichment from re-running.
             if existing is not None and (
-                existing > 0
-                or (source_key in ds_combined_rank_keys and existing <= 0)
+                existing > 0 or (source_key in ds_combined_rank_keys and existing <= 0)
             ):
                 continue
             nm = str(row.get("canonicalName") or row.get("displayName") or "")
@@ -3435,9 +3373,7 @@ def _enrich_from_source_csvs(
             # source requires > 0 to distinguish "ranked" from
             # "missing/zero".
             negatives_allowed = source_key in ds_combined_rank_keys
-            accept = val is not None and (
-                val > 0 if not negatives_allowed else True
-            )
+            accept = val is not None and (val > 0 if not negatives_allowed else True)
             if accept:
                 csv_vals[source_key] = val
                 # For rank-signal sources, preserve the original CSV rank
@@ -3459,18 +3395,14 @@ def _enrich_from_source_csvs(
     # generic enrichment above and a future refactor of one cannot
     # silently break the other.
     fp_cfg = _SOURCE_CSV_PATHS.get("fantasyProsIdp")
-    fp_rel = (
-        fp_cfg.get("path") if isinstance(fp_cfg, dict) else (fp_cfg or "")
-    )
+    fp_rel = fp_cfg.get("path") if isinstance(fp_cfg, dict) else (fp_cfg or "")
     if fp_rel:
         fp_path = repo / fp_rel
         if fp_path.exists():
             try:
                 fp_meta_lookup = _parse_fp_meta_csv_cached(fp_path)
                 for row in players_array:
-                    nm = str(
-                        row.get("canonicalName") or row.get("displayName") or ""
-                    )
+                    nm = str(row.get("canonicalName") or row.get("displayName") or "")
                     if not nm:
                         continue
                     key = _canonical_match_key(nm)
@@ -3491,9 +3423,7 @@ def _enrich_from_source_csvs(
                     for k, v in meta.items():
                         row[k] = v
             except Exception as exc:  # noqa: BLE001
-                _LOGGER.warning(
-                    "FantasyPros IDP metadata stamp failed: %s", exc
-                )
+                _LOGGER.warning("FantasyPros IDP metadata stamp failed: %s", exc)
 
     return csv_index
 
@@ -3642,9 +3572,7 @@ _PICK_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.(0?[1-9]|1[0-2])$", re
 # Regex matching generic tier pick names like "2026 Early 1st" — used
 # by the generic-tier suppression pass to detect rows that should be
 # moved to ``pickAliases`` when slot-specific siblings exist.
-_PICK_TIER_RE = re.compile(
-    r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I
-)
+_PICK_TIER_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
 
 # Pick year discount is loaded once per build from
 # config/weights/pick_year_discount.json.  See the file header for the
@@ -3690,9 +3618,7 @@ def _load_pick_year_discount() -> dict[str, Any]:
             cfg["baselineYear"] = int(loaded.get("baselineYear") or 2026)
             raw_discounts = loaded.get("discounts") or {}
             if isinstance(raw_discounts, dict):
-                cfg["discounts"] = {
-                    str(k): float(v) for k, v in raw_discounts.items()
-                }
+                cfg["discounts"] = {str(k): float(v) for k, v in raw_discounts.items()}
             cfg["fallbackBase"] = float(loaded.get("fallbackBase") or 0.80)
     except (OSError, ValueError, TypeError):
         # Stick with the built-in default — never block the build on
@@ -3795,8 +3721,14 @@ _MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
 # entirely and the IDP calibration's 3-4× DB bucket multipliers can
 # inflate a 1500-point uncalibrated value into a top-50 finish.
 _MARKET_ANCHOR_FALLBACKS: dict[str, list[str]] = {
-    "offense": ["ktcSfTep", "idpTradeCalc", "dynastyDaddySf", "fantasyProsFitzmaurice", "yahooBoone"],
-    "idp":     ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp", "footballGuysIdp"],
+    "offense": [
+        "ktcSfTep",
+        "idpTradeCalc",
+        "dynastyDaddySf",
+        "fantasyProsFitzmaurice",
+        "yahooBoone",
+    ],
+    "idp": ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp", "footballGuysIdp"],
 }
 
 # Percentile at which we declare a drift "too extreme" and clamp it.
@@ -4028,9 +3960,7 @@ def _apply_market_corridor_clamp(
     bucket_bands: dict[str, float] = {}
     for bucket, vals in by_bucket.items():
         if len(vals) >= _MARKET_CORRIDOR_MIN_BUCKET_N:
-            bucket_bands[bucket] = _percentile(
-                sorted(vals), _MARKET_CORRIDOR_PERCENTILE
-            )
+            bucket_bands[bucket] = _percentile(sorted(vals), _MARKET_CORRIDOR_PERCENTILE)
         else:
             bucket_bands[bucket] = overall_p90
 
@@ -4098,10 +4028,7 @@ def _get_rank_snapshot_path() -> "Path":
     global _RANK_SNAPSHOT_PATH
     if _RANK_SNAPSHOT_PATH is None:
         _RANK_SNAPSHOT_PATH = (
-            _Path(__file__).resolve().parents[2]
-            / "data"
-            / "snapshots"
-            / "ranks_last.json"
+            _Path(__file__).resolve().parents[2] / "data" / "snapshots" / "ranks_last.json"
         )
     return _RANK_SNAPSHOT_PATH
 
@@ -4224,6 +4151,7 @@ def _apply_two_way_player_boost(
         IDP_HILL_PERCENTILE_S,
         percentile_to_value,
     )
+
     # Collect IDP signal sources (the ones that could contribute to
     # an alt-family value for an offense-classed player).
     idp_source_keys = {
@@ -4287,9 +4215,7 @@ def _apply_two_way_player_boost(
                     alt_source_values.append(syn / max_native * 9999.0)
                     used_sources.append(key)
                 continue
-            rank = int(round(
-                (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - syn) / 100
-            ))
+            rank = int(round((_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - syn) / 100))
             if rank <= 0:
                 continue
             # Percentile → Hill value.  Use the IDP master curve
@@ -4336,7 +4262,6 @@ def _apply_two_way_player_boost(
             if isinstance(pdata, dict):
                 pdata["rankDerivedValue"] = boosted
                 pdata["twoWayPlayerBoost"] = dict(row["twoWayPlayerBoost"])
-
 
 
 _DISPLAY_SCALE_MAX: int = 9999
@@ -4399,11 +4324,16 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
         }
 
     return {
-        "global":  _entry("global",  "Global",  HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S, True),
-        "offense": _entry("offense", "Offense", HILL_PERCENTILE_C,        HILL_PERCENTILE_S,        True),
-        "idp":     _entry("idp",     "IDP",     IDP_HILL_PERCENTILE_C,    IDP_HILL_PERCENTILE_S,    True),
-        "rookie":  _entry("rookie",  "Rookie",  HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S, False),
+        "global": _entry(
+            "global", "Global", HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S, True
+        ),
+        "offense": _entry("offense", "Offense", HILL_PERCENTILE_C, HILL_PERCENTILE_S, True),
+        "idp": _entry("idp", "IDP", IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S, True),
+        "rookie": _entry(
+            "rookie", "Rookie", HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S, False
+        ),
     }
+
 
 # Final Framework step 8: subgroup shrinkage factor.
 #
@@ -4501,43 +4431,43 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # if someone adds a new negative-scale source to the registry they
 # only have to flip ``ds_combined_rank_partner``.
 _DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
-    str(src.get("key") or "")
-    for src in _RANKING_SOURCES
-    if src.get("ds_combined_rank_partner")
+    str(src.get("key") or "") for src in _RANKING_SOURCES if src.get("ds_combined_rank_partner")
 )
 
 
-_VALUE_BASED_SOURCES: frozenset[str] = frozenset({
-    # ``ktcSfTep`` carries native 0-9999 values from KTC's TE+ sub-board.
-    # Standard ``ktc`` was retired from the blend 2026-04-28 (its values
-    # are still loaded into canonicalSiteValues for the arbitrage finder
-    # + per-source winner display, but it no longer votes).
-    "ktcSfTep",
-    "idpTradeCalc",
-    # ``fantasyCalc`` carries the FantasyCalc public API's crowd-sourced
-    # dynasty SF+TEP values.  Unlike Dynasty Daddy / Yahoo Boone /
-    # Fitzmaurice, FantasyCalc's value distribution is well-spread
-    # across the board with no display-cap clustering at the top, so
-    # the value-direct path preserves cross-position separation
-    # faithfully (e.g. top WR's value vs top RB's value carries real
-    # signal, not just an arbitrary cap).
-    "fantasyCalc",
-    # ``otcffbSf`` carries OTCFFB's trade-derived 0-100 SF values.
-    # Same shape rationale as FantasyCalc: well-spread distribution,
-    # no top-of-curve display cap (Bijan=100, Allen=96, Gibbs=95.1
-    # cleanly differentiate), so the value-direct path is appropriate.
-    "otcffbSf",
-    # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
-    # were moved to the rank-signal path 2026-04-22 after the Hampel
-    # audit flagged 61% / 47% / 19% drop rates respectively — all three
-    # have compressed top-of-curve value distributions (DynastyDaddy's
-    # 10,200 cap with top 3 tied; Boone's 141 top with seven players
-    # ≥110; Fitzmaurice's 0-101 scale with the top dozen bunched
-    # 80-101) that the value-direct rescaling preserved unfaithfully.
-    # See their ``_SOURCE_CSV_PATHS`` entries above for the full
-    # rationale.  Fitzmaurice was reverted by an accidental PR #218
-    # merge and restored here.
-})
+_VALUE_BASED_SOURCES: frozenset[str] = frozenset(
+    {
+        # ``ktcSfTep`` carries native 0-9999 values from KTC's TE+ sub-board.
+        # Standard ``ktc`` was retired from the blend 2026-04-28 (its values
+        # are still loaded into canonicalSiteValues for the arbitrage finder
+        # + per-source winner display, but it no longer votes).
+        "ktcSfTep",
+        "idpTradeCalc",
+        # ``fantasyCalc`` carries the FantasyCalc public API's crowd-sourced
+        # dynasty SF+TEP values.  Unlike Dynasty Daddy / Yahoo Boone /
+        # Fitzmaurice, FantasyCalc's value distribution is well-spread
+        # across the board with no display-cap clustering at the top, so
+        # the value-direct path preserves cross-position separation
+        # faithfully (e.g. top WR's value vs top RB's value carries real
+        # signal, not just an arbitrary cap).
+        "fantasyCalc",
+        # ``otcffbSf`` carries OTCFFB's trade-derived 0-100 SF values.
+        # Same shape rationale as FantasyCalc: well-spread distribution,
+        # no top-of-curve display cap (Bijan=100, Allen=96, Gibbs=95.1
+        # cleanly differentiate), so the value-direct path is appropriate.
+        "otcffbSf",
+        # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
+        # were moved to the rank-signal path 2026-04-22 after the Hampel
+        # audit flagged 61% / 47% / 19% drop rates respectively — all three
+        # have compressed top-of-curve value distributions (DynastyDaddy's
+        # 10,200 cap with top 3 tied; Boone's 141 top with seven players
+        # ≥110; Fitzmaurice's 0-101 scale with the top dozen bunched
+        # 80-101) that the value-direct rescaling preserved unfaithfully.
+        # See their ``_SOURCE_CSV_PATHS`` entries above for the full
+        # rationale.  Fitzmaurice was reverted by an accidental PR #218
+        # merge and restored here.
+    }
+)
 
 
 def _validate_value_based_sources_invariant() -> None:
@@ -4556,9 +4486,7 @@ def _validate_value_based_sources_invariant() -> None:
     Hill curve because someone forgot to add it to
     ``_VALUE_BASED_SOURCES``.
     """
-    voting_keys: set[str] = {
-        str(src.get("key") or "") for src in _RANKING_SOURCES
-    }
+    voting_keys: set[str] = {str(src.get("key") or "") for src in _RANKING_SOURCES}
 
     value_signal_keys: set[str] = set()
     for key, cfg in _SOURCE_CSV_PATHS.items():
@@ -4575,9 +4503,7 @@ def _validate_value_based_sources_invariant() -> None:
             value_signal_keys.add(key)
 
     combined_rank_exempt: set[str] = {
-        src["key"]
-        for src in _RANKING_SOURCES
-        if src.get("ds_combined_rank_partner")
+        src["key"] for src in _RANKING_SOURCES if src.get("ds_combined_rank_partner")
     }
 
     missing = value_signal_keys - _VALUE_BASED_SOURCES - combined_rank_exempt
@@ -4759,9 +4685,7 @@ def _suppress_generic_pick_tiers_when_slots_exist(
         row["rankDerivedValue"] = None
         row["canonicalTierId"] = None
         row["confidenceBucket"] = "none"
-        row["confidenceLabel"] = (
-            "None — generic tier suppressed in favor of slot-specific picks"
-        )
+        row["confidenceLabel"] = "None — generic tier suppressed in favor of slot-specific picks"
         row["pickGenericSuppressed"] = True
         # Drop quarantine / single-source flags so the suppressed row
         # cannot accidentally trip the launch-readiness 1-src gate.
@@ -4943,6 +4867,7 @@ def _resolve_league_context(
     # without touching config files.
     try:
         from src.api import league_registry as _league_registry  # local import avoids a cycle
+
         league_id = (_league_registry.get_sleeper_league_id() or "").strip()
     except Exception:  # noqa: BLE001 — if the registry module is broken, fall back to env var
         league_id = ""
@@ -5065,9 +4990,7 @@ def _anchor_current_year_picks_to_rookies(
     rookies = [
         r
         for r in players_array
-        if r.get("assetClass") != "pick"
-        and bool(r.get("rookie"))
-        and _rookie_pool_value(r) > 0
+        if r.get("assetClass") != "pick" and bool(r.get("rookie")) and _rookie_pool_value(r) > 0
     ]
     if not rookies:
         return 0
@@ -5527,9 +5450,7 @@ def _compute_unified_rankings(
     # :func:`normalize_tep_native_multiplier`; KTC stays exempt.
     _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
     effective_non_tep_multiplier: float = (
-        float(tep_multiplier)
-        if tep_multiplier is not None
-        else _TE_BLANKET_NON_NATIVE_MULTIPLIER
+        float(tep_multiplier) if tep_multiplier is not None else _TE_BLANKET_NON_NATIVE_MULTIPLIER
     )
     effective_native_multiplier: float = (
         float(tep_native_multiplier)
@@ -5645,9 +5566,9 @@ def _compute_unified_rankings(
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
         primary_scope: str = src["scope"]
-        needs_shared_market = bool(
-            src.get("needs_shared_market_translation")
-        ) and not src.get("is_backbone")
+        needs_shared_market = bool(src.get("needs_shared_market_translation")) and not src.get(
+            "is_backbone"
+        )
         needs_rookie_xlate = bool(src.get("needs_rookie_translation"))
         # A source may contribute to multiple scopes (e.g. IDPTradeCalc
         # lists both offense and IDP players in one value pool on a shared
@@ -5663,9 +5584,7 @@ def _compute_unified_rankings(
         # offense+IDP ordering: Will Anderson's raw IDPTC value 5963 lands
         # at overall rank ~40 alongside the full offense ladder, not rank
         # 1 of a restarted IDP-only pass.
-        all_scopes: list[str] = [primary_scope] + list(
-            src.get("extra_scopes") or []
-        )
+        all_scopes: list[str] = [primary_scope] + list(src.get("extra_scopes") or [])
 
         # Gather eligible (value, row_idx, scope_for_row, tiebreak_name) tuples.
         # A row is eligible if any of the source's declared scopes accept
@@ -5718,9 +5637,7 @@ def _compute_unified_rankings(
                 continue
             if val <= 0 and source_key not in _DS_COMBINED_RANK_KEYS:
                 continue
-            tiebreak_name = str(
-                row.get("canonicalName") or row.get("displayName") or ""
-            ).lower()
+            tiebreak_name = str(row.get("canonicalName") or row.get("displayName") or "").lower()
             eligible.append((val, idx, row_scope, tiebreak_name))
 
         # Sort descending by value with a name-based secondary tiebreaker,
@@ -5773,9 +5690,7 @@ def _compute_unified_rankings(
             backbone_depth_meta: int | None = None
             if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
                 ladder = backbone.ladder_for(position_group)
-                effective_rank, method = translate_position_rank(
-                    raw_rank, ladder
-                )
+                effective_rank, method = translate_position_rank(raw_rank, ladder)
                 ladder_depth_meta = len(ladder)
                 backbone_depth_meta = backbone_depth
             elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
@@ -5783,9 +5698,7 @@ def _compute_unified_rankings(
                 # into the backbone source's combined offense+IDP rank
                 # space.  The framework's step 2 percentile normalization
                 # runs in this combined coordinate — see Phase 3.
-                effective_rank, method = translate_position_rank(
-                    raw_rank, shared_market_ladder
-                )
+                effective_rank, method = translate_position_rank(raw_rank, shared_market_ladder)
                 ladder_depth_meta = len(shared_market_ladder)
                 backbone_depth_meta = shared_market_depth
             elif needs_rookie_xlate:
@@ -5811,8 +5724,7 @@ def _compute_unified_rankings(
                 "depth": src.get("depth"),
                 "weight": float(src.get("weight") or 0.0),
                 "sharedMarketTranslated": bool(
-                    needs_shared_market
-                    and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP
                 ),
             }
 
@@ -5907,15 +5819,11 @@ def _compute_unified_rankings(
                 except (TypeError, ValueError):
                     continue
                 # Reverse the encoding to recover the original CSV rank.
-                csv_rank = int(round(
-                    _RANK_TO_SYNTHETIC_VALUE_OFFSET - (syn_f / 100.0)
-                ))
+                csv_rank = int(round(_RANK_TO_SYNTHETIC_VALUE_OFFSET - (syn_f / 100.0)))
                 if csv_rank <= 0:
                     continue
                 row_source_ranks[row_idx][skey] = csv_rank
-                meta = row_source_meta.setdefault(row_idx, {}).setdefault(
-                    skey, {}
-                )
+                meta = row_source_meta.setdefault(row_idx, {}).setdefault(skey, {})
                 meta["rawRank"] = meta.get("rawRank", csv_rank)
                 meta["effectiveRank"] = csv_rank
                 meta["method"] = "csv_combined_cross_market"
@@ -5995,9 +5903,7 @@ def _compute_unified_rankings(
             tail_start = ladder[len(ladder) - tail_n]
             tail_end = ladder[-1]
             slope = max(1.0, (tail_end - tail_start) / (tail_n - 1))
-        extrapolated = ladder[-1] + int(
-            round((rookie_rank - len(ladder)) * slope)
-        )
+        extrapolated = ladder[-1] + int(round((rookie_rank - len(ladder)) * slope))
         return max(1, extrapolated)
 
     # Pair each rookie source with its reference ladder.  If the
@@ -6029,13 +5935,9 @@ def _compute_unified_rankings(
                 continue
             translated = _translate_via_ladder(orig_int, ladder)
             rk_dict[rookie_key] = translated
-            meta = row_source_meta.setdefault(row_idx, {}).setdefault(
-                rookie_key, {}
-            )
+            meta = row_source_meta.setdefault(row_idx, {}).setdefault(rookie_key, {})
             meta["effectiveRank"] = translated
-            meta["method"] = (
-                f"rookie_ladder_translation_via_{ref_key}"
-            )
+            meta["method"] = f"rookie_ladder_translation_via_{ref_key}"
 
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
@@ -6050,14 +5952,10 @@ def _compute_unified_rankings(
     # league's actual TEP.  Reading ``is_tep_premium`` off the
     # registry once avoids per-player dict lookups in the hot blend loop.
     tep_boosted_source_keys: set[str] = {
-        str(s.get("key") or "")
-        for s in active_sources
-        if not bool(s.get("is_tep_premium"))
+        str(s.get("key") or "") for s in active_sources if not bool(s.get("is_tep_premium"))
     }
     tep_native_source_keys: set[str] = {
-        str(s.get("key") or "")
-        for s in active_sources
-        if bool(s.get("is_tep_premium"))
+        str(s.get("key") or "") for s in active_sources if bool(s.get("is_tep_premium"))
     }
 
     # Identify every cross-market source (2026-04-20 multi-anchor
@@ -6074,9 +5972,7 @@ def _compute_unified_rankings(
     # averaged anchor.  See the hierarchical-blend block further
     # down for the math.
     cross_market_keys: set[str] = {
-        str(s.get("key") or "")
-        for s in active_sources
-        if s.get("is_cross_market")
+        str(s.get("key") or "") for s in active_sources if s.get("is_cross_market")
     }
 
     # Final Framework override (2026-04-20): value-based sources vote
@@ -6108,9 +6004,7 @@ def _compute_unified_rankings(
     for row_idx, source_ranks in row_source_ranks.items():
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
         row_is_te = row_pos == "TE"
-        row_is_pick = (
-            players_array[row_idx].get("assetClass") == "pick"
-        )
+        row_is_pick = players_array[row_idx].get("assetClass") == "pick"
 
         # Framework step 2–3: for each source, compute
         # percentile-to-value using the source's scope-appropriate
@@ -6131,9 +6025,7 @@ def _compute_unified_rankings(
         # surviving subset.
         all_value_pairs: list[tuple[str, float, bool]] = []
 
-        canonical_site_values = (
-            players_array[row_idx].get("canonicalSiteValues") or {}
-        )
+        canonical_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
         if not isinstance(canonical_site_values, dict):
             canonical_site_values = {}
 
@@ -6176,13 +6068,9 @@ def _compute_unified_rankings(
                     # missing/invalid — should be rare, but protects
                     # against malformed site data dropping a source's
                     # vote to zero silently.
-                    value = float(
-                        percentile_to_value(p, midpoint=hill_c, slope=hill_s)
-                    )
+                    value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
             else:
-                value = float(
-                    percentile_to_value(p, midpoint=hill_c, slope=hill_s)
-                )
+                value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
             tep_applied = False
             tep_native_corrected = False
             # Blanket TE-value multipliers (see the constants block
@@ -6200,10 +6088,7 @@ def _compute_unified_rankings(
             # boosted contribution exceeds 9,999, structurally letting
             # one TE out-value the consensus #1 overall — the premium
             # must reposition TEs *within* the scale, not break it.
-            if (
-                row_is_te
-                and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS
-            ):
+            if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:
                 if source_key in tep_boosted_source_keys:
                     value = min(value * effective_non_tep_multiplier, 9999.0)
                     tep_applied = True
@@ -6225,7 +6110,8 @@ def _compute_unified_rankings(
             meta["valueContribution"] = int(round(value))
             meta["valueContributionPath"] = (
                 "value_direct"
-                if source_key in _VALUE_BASED_SOURCES and value_source_max.get(source_key, 0.0) > 0.0
+                if source_key in _VALUE_BASED_SOURCES
+                and value_source_max.get(source_key, 0.0) > 0.0
                 else "rank_hill"
             )
             meta["effectiveWeight"] = round(effective_weight, 4)
@@ -6253,15 +6139,9 @@ def _compute_unified_rankings(
             )
             if hampel_dropped_keys:
                 kept_set = {k for k, _ in kept_pairs}
-                all_values = [
-                    v for k, v, _ in all_value_pairs if k in kept_set
-                ]
-                cross_market_values = [
-                    v for k, v, a in all_value_pairs if k in kept_set and a
-                ]
-                subgroup_values = [
-                    v for k, v, a in all_value_pairs if k in kept_set and not a
-                ]
+                all_values = [v for k, v, _ in all_value_pairs if k in kept_set]
+                cross_market_values = [v for k, v, a in all_value_pairs if k in kept_set and a]
+                subgroup_values = [v for k, v, a in all_value_pairs if k in kept_set and not a]
                 for sk in hampel_dropped_keys:
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
@@ -6293,14 +6173,9 @@ def _compute_unified_rankings(
             # intentional, not a real matching failure.
             if row_is_pick and src.get("needs_rookie_translation"):
                 continue
-            src_scopes: list[str] = [src["scope"]] + list(
-                src.get("extra_scopes") or []
-            )
+            src_scopes: list[str] = [src["scope"]] + list(src.get("extra_scopes") or [])
             eligible = any(
-                _scope_eligible(
-                    row_pos, scope, src.get("position_group")
-                )
-                for scope in src_scopes
+                _scope_eligible(row_pos, scope, src.get("position_group")) for scope in src_scopes
             )
             if not eligible:
                 continue
@@ -6379,14 +6254,8 @@ def _compute_unified_rankings(
         # Framework step 6: MAD across ALL contributing sources.
         _, source_mad = _trimmed_mean_median(all_values)
 
-        if (
-            source_mad is not None
-            and _MAD_PENALTY_LAMBDA > 0
-            and not row_is_pick
-        ):
-            mad_penalty = min(
-                center_value, _MAD_PENALTY_LAMBDA * source_mad
-            )
+        if source_mad is not None and _MAD_PENALTY_LAMBDA > 0 and not row_is_pick:
+            mad_penalty = min(center_value, _MAD_PENALTY_LAMBDA * source_mad)
         else:
             mad_penalty = 0.0
 
@@ -6404,9 +6273,7 @@ def _compute_unified_rankings(
             int(round(blended_value)) if blended_value > 0 else 0
         )
 
-        hill_value_spread = (
-            statistics.stdev(all_values) if len(all_values) >= 2 else None
-        )
+        hill_value_spread = statistics.stdev(all_values) if len(all_values) >= 2 else None
 
         # Stamp anchor/subgroup diagnostics so the frontend value-chain
         # panel can surface the framework's hierarchical shape
@@ -6461,9 +6328,7 @@ def _compute_unified_rankings(
     )
 
     # ── Phase 4: Unified sort and overall rank assignment ──
-    row_normalized.sort(
-        key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower())
-    )
+    row_normalized.sort(key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower()))
 
     # ── Phase 4a: stamp sourceCount + sourceAudit on every contributing row.
     #
@@ -6482,6 +6347,7 @@ def _compute_unified_rankings(
     # time assertions) reads this block directly.
     csv_index = csv_index or {}
     from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
     for row_idx, source_ranks in row_source_ranks.items():
         row = players_array[row_idx]
         row["sourceCount"] = len(source_ranks)
@@ -6501,11 +6367,7 @@ def _compute_unified_rankings(
         # enrichment + Phase 1 gates is the whole point of
         # ``_DS_COMBINED_RANK_KEYS``.
         row["sourcePresence"] = {
-            k: (
-                v is not None
-                if k in _DS_COMBINED_RANK_KEYS
-                else (v is not None and v > 0)
-            )
+            k: (v is not None if k in _DS_COMBINED_RANK_KEYS else (v is not None and v > 0))
             for k, v in canonical_sites.items()
         }
 
@@ -6573,16 +6435,10 @@ def _compute_unified_rankings(
         }
         # Semantic 1-src: only fire when matching could have produced
         # more than one source.
-        row["isSingleSource"] = (
-            len(source_ranks) == 1 and len(expected_keys) > 1
-        )
-        row["isStructurallySingleSource"] = (
-            len(source_ranks) == 1 and len(expected_keys) <= 1
-        )
+        row["isSingleSource"] = len(source_ranks) == 1 and len(expected_keys) > 1
+        row["isStructurallySingleSource"] = len(source_ranks) == 1 and len(expected_keys) <= 1
 
-    for overall_idx, (norm_val, row_idx) in enumerate(
-        row_normalized[:OVERALL_RANK_LIMIT]
-    ):
+    for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
         derived = int(norm_val)
@@ -6604,12 +6460,8 @@ def _compute_unified_rankings(
         row["sourceCount"] = len(source_ranks)
 
         dropped_set = set(row.get("droppedSources") or [])
-        effective_source_ranks = {
-            k: v for k, v in source_ranks.items() if k not in dropped_set
-        }
-        effective_source_meta = {
-            k: v for k, v in source_meta.items() if k not in dropped_set
-        }
+        effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
+        effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
         # Publish the post-Hampel rank map so frontend display helpers
         # (frontend/lib/display-helpers.js::marketEdge / marketGapLabel)
         # compute retail-vs-consensus on the same set the backend used
@@ -6620,15 +6472,11 @@ def _compute_unified_rankings(
         rank_values = list(effective_source_ranks.values())
 
         # Caution flag when any IDP source required fallback translation
-        used_fallback = any(
-            m.get("method") == TRANSLATION_FALLBACK for m in source_meta.values()
-        )
+        used_fallback = any(m.get("method") == TRANSLATION_FALLBACK for m in source_meta.values())
         row["idpBackboneFallback"] = used_fallback
 
         # ── Trust/transparency fields (effective rank space) ──
-        blended_source_rank = (
-            sum(rank_values) / len(rank_values) if rank_values else None
-        )
+        blended_source_rank = sum(rank_values) / len(rank_values) if rank_values else None
         row["blendedSourceRank"] = (
             round(blended_source_rank, 2) if blended_source_rank is not None else None
         )
@@ -6655,9 +6503,7 @@ def _compute_unified_rankings(
         # Preserve the semantic 1-src flag stamped in Phase 4a; do
         # not collapse it back to ``len(source_ranks) == 1`` here.
         # Disagreement uses percentile spread.
-        row["hasSourceDisagreement"] = (
-            percentile_spread is not None and percentile_spread > 0.10
-        )
+        row["hasSourceDisagreement"] = percentile_spread is not None and percentile_spread > 0.10
 
         gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
         row["marketGapDirection"] = gap_dir
@@ -6667,9 +6513,7 @@ def _compute_unified_rankings(
         # because rank-spread is dominated by flat-value regions in
         # R3-R6 and KTC's per-slot synth bleeds in as fake agreement.
         if row.get("assetClass") == "pick":
-            is_slot_specific = _parse_pick_slot(
-                row.get("canonicalName") or ""
-            ) is not None
+            is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
             bucket, label = _compute_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
@@ -6870,9 +6714,7 @@ def _compute_unified_rankings(
     # 312→313 does not.  The frontend renders the resulting tier IDs
     # as generic "Tier N" labels, so every math-detected tier flows
     # through uncapped.
-    for r, tier_id in zip(
-        tiered_rows, _compute_value_based_tier_ids(tiered_rows)
-    ):
+    for r, tier_id in zip(tiered_rows, _compute_value_based_tier_ids(tiered_rows)):
         r["canonicalTierId"] = tier_id
 
     # Rank-change vs previous scrape.  Stamps ``rankChange`` on
@@ -7053,6 +6895,7 @@ def _normalize_pos(pos: Any) -> str:
     # Audit S2 consolidated the previous inline POSITION_ALIASES.get
     # idiom.
     from src.utils.name_clean import normalize_position
+
     return normalize_position(pos)
 
 
@@ -7133,9 +6976,7 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
     )
-    final = _to_int_or_none(
-        p_data.get("_finalAdjusted", p_data.get("_composite"))
-    )
+    final = _to_int_or_none(p_data.get("_finalAdjusted", p_data.get("_composite")))
     if final is None:
         final = raw
     overall = final
@@ -7160,12 +7001,10 @@ def _derive_player_row(
     canonical_sites = _canonical_site_values(p_data, site_keys)
 
     has_off_signal = any(
-        _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
-        for k in _OFFENSE_SIGNAL_KEYS
+        _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _OFFENSE_SIGNAL_KEYS
     )
     has_idp_signal = any(
-        _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
-        for k in _IDP_SIGNAL_KEYS
+        _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
     )
 
     pos = pos_from_sleeper or pos_from_player
@@ -7238,9 +7077,7 @@ def _derive_player_row(
         # scraper's direct flag, set when the player has zero NFL
         # years of experience.  Use whichever is positive so the
         # contract layer can rely on a single boolean.
-        "rookie": bool(
-            p_data.get("_formatFitRookie") or p_data.get("_isRookie")
-        ),
+        "rookie": bool(p_data.get("_formatFitRookie") or p_data.get("_isRookie")),
         "assetClass": "pick" if is_pick else ("idp" if pos in {"DL", "LB", "DB"} else "offense"),
         "values": values,
         "canonicalSiteValues": canonical_sites,
@@ -7360,7 +7197,8 @@ def _strip_legacy_lam_fields(base: dict[str, Any], players_by_name: dict[str, An
         if not isinstance(pdata, dict):
             continue
         keys_to_remove = [
-            k for k in pdata
+            k
+            for k in pdata
             if k in _LEGACY_LAM_PLAYER_FIELDS
             or any(k.startswith(prefix) for prefix in _LEGACY_LAM_PLAYER_PREFIXES)
         ]
@@ -7548,9 +7386,7 @@ def build_api_data_contract(
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     source_parse_errors: list[dict[str, str]] = []
-    csv_index = _enrich_from_source_csvs(
-        players_array, parse_errors=source_parse_errors
-    )
+    csv_index = _enrich_from_source_csvs(players_array, parse_errors=source_parse_errors)
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an
@@ -7582,7 +7418,9 @@ def build_api_data_contract(
             # sourceRankMeta / _canonicalConsensusRank etc. onto the
             # originals.  The main pass below must see unmodified state.
             _pa_copy = [dict(r) for r in players_array]
-            _pbn_copy = {k: dict(v) if isinstance(v, dict) else v for k, v in players_by_name.items()}
+            _pbn_copy = {
+                k: dict(v) if isinstance(v, dict) else v for k, v in players_by_name.items()
+            }
             _compute_unified_rankings(
                 _pa_copy,
                 _pbn_copy,
@@ -7667,15 +7505,9 @@ def build_api_data_contract(
     # that the scraper bridge never writes; this replaces it with real,
     # source-by-source freshness data that covers all 5 active sources.
     source_timestamps = _build_source_timestamps()
-    _fresh_counts = sum(
-        1 for v in source_timestamps.values() if v.get("staleness") == "fresh"
-    )
-    _stale_counts = sum(
-        1 for v in source_timestamps.values() if v.get("staleness") == "stale"
-    )
-    _missing_counts = sum(
-        1 for v in source_timestamps.values() if v.get("staleness") == "missing"
-    )
+    _fresh_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "fresh")
+    _stale_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "stale")
+    _missing_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "missing")
     if _missing_counts > 0:
         _overall_staleness = "missing"
     elif _stale_counts > 0:
@@ -7819,9 +7651,7 @@ def build_api_data_contract(
         "generatedAt": generated_at,
         "playersArray": players_array,
         "playerCount": len(players_array),
-        "valueAuthority": (
-            None if _for_delta else _build_value_authority_summary(players_array)
-        ),
+        "valueAuthority": (None if _for_delta else _build_value_authority_summary(players_array)),
         "dataSource": {
             "type": str(data_source.get("type") or ""),
             "path": str(data_source.get("path") or ""),
@@ -7961,9 +7791,7 @@ def build_rankings_delta_payload(
     delta_players: list[dict[str, Any]] = []
     active_ids: list[str] = []
     for row in full.get("playersArray") or []:
-        player_id = str(
-            row.get("displayName") or row.get("canonicalName") or ""
-        ).strip()
+        player_id = str(row.get("displayName") or row.get("canonicalName") or "").strip()
         if not player_id:
             continue
         entry: dict[str, Any] = {"id": player_id}
@@ -7995,7 +7823,6 @@ def build_rankings_delta_payload(
     if warnings:
         payload["warnings"] = list(warnings)
     return payload
-
 
 
 def _strip_startup_player_fields(player_row: dict[str, Any]) -> dict[str, Any]:
@@ -8108,13 +7935,15 @@ def assert_no_unexplained_single_source(
             continue
         if audit.get("allowlistReason"):
             continue
-        unexplained.append({
-            "canonicalName": row.get("canonicalName"),
-            "position": row.get("position"),
-            "rank": rank,
-            "matchedSources": audit.get("matchedSources", []),
-            "reason": audit.get("reason"),
-        })
+        unexplained.append(
+            {
+                "canonicalName": row.get("canonicalName"),
+                "position": row.get("position"),
+                "rank": rank,
+                "matchedSources": audit.get("matchedSources", []),
+                "reason": audit.get("reason"),
+            }
+        )
     return unexplained
 
 
@@ -8152,15 +7981,11 @@ def assert_ranking_coherence(
 
         # Check 1: rank must be stamped alongside value
         if value is None or value <= 0:
-            errors.append(
-                f"#{rank} {name}: has rank but no rankDerivedValue"
-            )
+            errors.append(f"#{rank} {name}: has rank but no rankDerivedValue")
 
         # Check 2: no duplicate ranks
         if rank in seen_ranks:
-            errors.append(
-                f"#{rank} {name}: duplicate rank (also assigned to {seen_ranks[rank]})"
-            )
+            errors.append(f"#{rank} {name}: duplicate rank (also assigned to {seen_ranks[rank]})")
         seen_ranks[rank] = name
 
         # Check 3: monotonic rank (strictly increasing)
@@ -8170,23 +7995,14 @@ def assert_ranking_coherence(
             )
 
         # Check 4: value monotonically decreasing with rank
-        if (
-            prev_value is not None
-            and value is not None
-            and prev_value > 0
-            and value > prev_value
-        ):
+        if prev_value is not None and value is not None and prev_value > 0 and value > prev_value:
             errors.append(
                 f"#{rank} {name}: value {value} > prev value {prev_value} "
                 f"(#{prev_rank} {prev_name}) — rank/value order divergence"
             )
 
         # Check 5: tier non-decreasing
-        if (
-            prev_tier is not None
-            and tier is not None
-            and tier < prev_tier
-        ):
+        if prev_tier is not None and tier is not None and tier < prev_tier:
             errors.append(
                 f"#{rank} {name}: tier {tier} < prev tier {prev_tier} "
                 f"(#{prev_rank} {prev_name}) — tier boundary misalignment"
@@ -8298,9 +8114,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             # fail loudly when contamination is present.
             current_flags = row.get("anomalyFlags") or []
             has_collision = "name_collision_cross_universe" in current_flags
-            is_known_collision = (
-                name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
-            )
+            is_known_collision = name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
             if len(players_array) >= 250 and (has_collision or is_known_collision):
                 pass
             else:
@@ -8310,9 +8124,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 )
 
         if name:
-            norm = _canonical_match_key(name) or re.sub(
-                r"[^a-z0-9]+", "", str(name).lower()
-            )
+            norm = _canonical_match_key(name) or re.sub(r"[^a-z0-9]+", "", str(name).lower())
             normalized_pos_by_name.setdefault(norm, set()).add(pos or "?")
 
     for norm_name, poses in normalized_pos_by_name.items():
@@ -8320,7 +8132,9 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         has_off = bool(cleaned & _OFFENSE_POSITIONS)
         has_idp = bool(cleaned & _IDP_POSITIONS)
         if has_off and has_idp:
-            errors.append(f"possible offense/IDP name collision detected for normalized name '{norm_name}'")
+            errors.append(
+                f"possible offense/IDP name collision detected for normalized name '{norm_name}'"
+            )
 
     if len(players_array) >= 250 and idp_count < 25:
         errors.append(
@@ -8354,9 +8168,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 errors.append(f"source_missing:{src_key}")
                 any_source_missing = True
             elif count < threshold:
-                warnings.append(
-                    f"source_below_floor:{src_key}:{count}:{threshold}"
-                )
+                warnings.append(f"source_below_floor:{src_key}:{count}:{threshold}")
                 below_floor_count += 1
 
         if any_source_missing or below_floor_count >= 2:
@@ -8368,14 +8180,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # recommendation.  Missing pickAnchors is also an error.
     if len(players_array) >= 250:
         pick_count = sum(
-            1
-            for row in players_array
-            if isinstance(row, dict) and row.get("assetClass") == "pick"
+            1 for row in players_array if isinstance(row, dict) and row.get("assetClass") == "pick"
         )
         if pick_count < _PICK_COUNT_FLOOR:
-            errors.append(
-                f"pick_count_below_floor:{pick_count}:{_PICK_COUNT_FLOOR}"
-            )
+            errors.append(f"pick_count_below_floor:{pick_count}:{_PICK_COUNT_FLOOR}")
         pick_anchors = payload.get("pickAnchors")
         if pick_anchors is None:
             errors.append("pickAnchors missing from payload")
@@ -8402,14 +8210,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
 
         for bucket, src_floors in coverage_floors.items():
             bucket_rows = [
-                r
-                for r in players_array
-                if isinstance(r, dict) and r.get("assetClass") == bucket
+                r for r in players_array if isinstance(r, dict) and r.get("assetClass") == bucket
             ]
             if len(bucket_rows) < 50:
-                warnings.append(
-                    f"top50_coverage_insufficient_rows:{bucket}:{len(bucket_rows)}"
-                )
+                warnings.append(f"top50_coverage_insufficient_rows:{bucket}:{len(bucket_rows)}")
                 continue
             bucket_rows.sort(key=lambda r: -_overall_val(r))
             top_slice = bucket_rows[:50]
@@ -8456,8 +8260,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(perr, dict):
                 continue
             warnings.append(
-                "source_parse_error:"
-                f"{perr.get('source', '?')}:{perr.get('error', '?')}"
+                "source_parse_error:" f"{perr.get('source', '?')}:{perr.get('error', '?')}"
             )
         degraded = True
 
@@ -8469,7 +8272,9 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # We now promote critical partials to errors and leave tolerable
     # partials (KTC_TradeDB / KTC_WaiverDB) as warnings.
     settings_block = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
-    run_summary = settings_block.get("sourceRunSummary") if isinstance(settings_block, dict) else None
+    run_summary = (
+        settings_block.get("sourceRunSummary") if isinstance(settings_block, dict) else None
+    )
     if isinstance(run_summary, dict):
         overall_status = run_summary.get("overallStatus")
         is_partial_run = bool(run_summary.get("partialRun")) or overall_status == "partial"
@@ -8488,10 +8293,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                     continue
                 # Critical match: exact name of a primary source, or a
                 # prefix match for IDPTradeCalc's sub-endpoints.
-                is_critical = (
-                    src in _CRITICAL_PRIMARY_SOURCES
-                    or src.startswith("IDPTradeCalc")
-                )
+                is_critical = src in _CRITICAL_PRIMARY_SOURCES or src.startswith("IDPTradeCalc")
                 if is_critical:
                     errors.append(f"partial_run_critical:{src}")
                 else:

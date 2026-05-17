@@ -17,6 +17,7 @@ signal an outage — the orchestrator will keep yesterday's CSV + mark
 the source stale, and the aggregator will downgrade availability to
 0.5 (or 0.0 if no cache exists).
 """
+
 from __future__ import annotations
 
 import json
@@ -101,11 +102,7 @@ def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
     for entry in players:
         if not isinstance(entry, dict):
             continue
-        name = (
-            entry.get("player_name")
-            or entry.get("player_short_name")
-            or ""
-        )
+        name = entry.get("player_name") or entry.get("player_short_name") or ""
         if not name:
             continue
         try:

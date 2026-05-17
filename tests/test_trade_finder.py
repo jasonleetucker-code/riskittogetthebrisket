@@ -35,6 +35,7 @@ from src.trade.finder import (
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
+
 def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False, source_count=0):
     return Asset(
         name=name,
@@ -69,6 +70,7 @@ def _make_sleeper_teams(teams_dict):
 
 # ── Position normalization ───────────────────────────────────────────────
 
+
 class TestNormPos:
     def test_basic(self):
         assert _norm_pos("QB") == "QB"
@@ -87,6 +89,7 @@ class TestNormPos:
 
 
 # ── Asset construction ───────────────────────────────────────────────────
+
 
 class TestBuildAssetPool:
     def test_basic_pool(self):
@@ -157,6 +160,7 @@ class TestBuildAssetPool:
 
 
 # ── Trade scoring ────────────────────────────────────────────────────────
+
 
 class TestScoreTrade:
     def test_positive_board_arbitrage_with_ktc_appeal(self):
@@ -236,7 +240,10 @@ class TestScoreTrade:
 
         # Partial: receive has one with KTC, one without
         give_partial = [_make_asset("C", model=4000, ktc=5000)]
-        recv_partial = [_make_asset("D", model=3000, ktc=3500), _make_asset("E", model=2000, ktc=None)]
+        recv_partial = [
+            _make_asset("D", model=3000, ktc=3500),
+            _make_asset("E", model=2000, ktc=None),
+        ]
         tc_partial = _score_trade(give_partial, recv_partial)
 
         assert tc_full is not None
@@ -275,6 +282,7 @@ class TestScoreTrade:
 
 # ── Strict positive opponent KTC gate ────────────────────────────────────
 
+
 class TestStrictPositiveOpponentKtc:
     """Opponent must STRICTLY WIN on KTC — no break-even, no loss."""
 
@@ -310,16 +318,14 @@ class TestStrictPositiveOpponentKtc:
     def test_partial_ktc_zero_appeal_rejected(self):
         """Partial KTC with zero opponent appeal → rejected."""
         give = [_make_asset("A", model=4000, ktc=3000)]
-        recv = [_make_asset("B", model=3000, ktc=3000),
-                _make_asset("C", model=2000, ktc=None)]
+        recv = [_make_asset("B", model=3000, ktc=3000), _make_asset("C", model=2000, ktc=None)]
         tc = _score_trade(give, recv)
         assert tc is None
 
     def test_partial_ktc_positive_appeal_allowed(self):
         """Partial KTC with positive opponent appeal → allowed."""
         give = [_make_asset("A", model=4000, ktc=5000)]
-        recv = [_make_asset("B", model=3000, ktc=3000),
-                _make_asset("C", model=2000, ktc=None)]
+        recv = [_make_asset("B", model=3000, ktc=3000), _make_asset("C", model=2000, ktc=None)]
         tc = _score_trade(give, recv)
         assert tc is not None
         assert tc.opponent_ktc_appeal > 0
@@ -327,8 +333,7 @@ class TestStrictPositiveOpponentKtc:
     def test_partial_ktc_negative_appeal_rejected(self):
         """Partial KTC with negative opponent appeal → rejected."""
         give = [_make_asset("A", model=4000, ktc=2500)]
-        recv = [_make_asset("B", model=3000, ktc=3000),
-                _make_asset("C", model=2000, ktc=None)]
+        recv = [_make_asset("B", model=3000, ktc=3000), _make_asset("C", model=2000, ktc=None)]
         tc = _score_trade(give, recv)
         assert tc is None
 
@@ -341,15 +346,17 @@ class TestStrictPositiveOpponentKtc:
             "Opp WR1": _make_player_data(5500, ktc=4500, pos="WR"),
             "Opp RB1": _make_player_data(4500, ktc=4000, pos="RB"),
         }
-        teams = _make_sleeper_teams({
-            "Me": ["My WR1", "My WR2", "My RB1"],
-            "Them": ["Opp WR1", "Opp RB1"],
-        })
+        teams = _make_sleeper_teams(
+            {
+                "Me": ["My WR1", "My WR2", "My RB1"],
+                "Them": ["Opp WR1", "Opp RB1"],
+            }
+        )
         result = find_trades(players, "Me", ["Them"], teams)
         for t in result["trades"]:
-            assert t["opponentKtcAppeal"] > 0, (
-                f"Trade has non-positive opponent KTC appeal: {t['opponentKtcAppeal']}"
-            )
+            assert (
+                t["opponentKtcAppeal"] > 0
+            ), f"Trade has non-positive opponent KTC appeal: {t['opponentKtcAppeal']}"
 
     def test_no_breaks_even_in_any_summary(self):
         """No trade summary should contain 'breaks even'."""
@@ -359,18 +366,21 @@ class TestStrictPositiveOpponentKtc:
             "Opp WR1": _make_player_data(5500, ktc=4500, pos="WR"),
             "Opp RB1": _make_player_data(4500, ktc=4000, pos="RB"),
         }
-        teams = _make_sleeper_teams({
-            "Me": ["My WR1", "My RB1"],
-            "Them": ["Opp WR1", "Opp RB1"],
-        })
+        teams = _make_sleeper_teams(
+            {
+                "Me": ["My WR1", "My RB1"],
+                "Them": ["Opp WR1", "Opp RB1"],
+            }
+        )
         result = find_trades(players, "Me", ["Them"], teams)
         for t in result["trades"]:
-            assert "breaks even" not in t["summary"], (
-                f"Summary contains 'breaks even': {t['summary']}"
-            )
+            assert (
+                "breaks even" not in t["summary"]
+            ), f"Summary contains 'breaks even': {t['summary']}"
 
 
 # ── Candidate generation ─────────────────────────────────────────────────
+
 
 class TestGenerate1for1:
     def test_generates_viable_trades(self):
@@ -419,6 +429,7 @@ class TestGenerate1for2:
 
 # ── Deduplication ────────────────────────────────────────────────────────
 
+
 class TestDeduplicate:
     def test_removes_duplicates(self):
         a = _make_asset("A", 4000, 5000)
@@ -439,6 +450,7 @@ class TestDeduplicate:
 
 
 # ── Roster resolution ────────────────────────────────────────────────────
+
 
 class TestResolveRoster:
     def test_resolves_team(self):
@@ -462,6 +474,7 @@ class TestResolveRoster:
 
 
 # ── End-to-end find_trades ───────────────────────────────────────────────
+
 
 class TestFindTrades:
     def _sample_players(self):
@@ -573,6 +586,7 @@ class TestFindTrades:
 
 # ── Source robustness and fire-sale guard regression tests ───────────────
 
+
 class TestSourceRobustness:
     """Test single-source discount and value fallback robustness."""
 
@@ -680,6 +694,7 @@ class TestFireSaleGuard:
 
 # ── Elite target protection ─────────────────────────────────────────────
 
+
 class TestEliteTargetProtection:
     """Verify that elite targets (≥7500 model) require tighter multi-for-one ratios."""
 
@@ -730,6 +745,7 @@ class TestEliteTargetProtection:
 
 # ── Package anchor quality ──────────────────────────────────────────────
 
+
 class TestPackageAnchorQuality:
     """Verify that multi-for-one requires at least one meaningful anchor piece."""
 
@@ -760,6 +776,7 @@ class TestPackageAnchorQuality:
 
 
 # ── Confidence scoring ──────────────────────────────────────────────────
+
 
 class TestConfidenceScoring:
     """Verify confidence factor impacts ranking."""
@@ -816,6 +833,7 @@ class TestConfidenceScoring:
 
 # ── Trade ranking realism ───────────────────────────────────────────────
 
+
 class TestTradeRankingRealism:
     """Verify that the ranking formula produces believable orderings."""
 
@@ -853,6 +871,7 @@ class TestTradeRankingRealism:
 
 # ── Roster-fit awareness ────────────────────────────────────────────────
 
+
 class TestRosterFit:
     """Verify light roster-fit bonus in end-to-end find_trades."""
 
@@ -879,8 +898,7 @@ class TestRosterFit:
         result = find_trades(players, "My Team", ["Rival"], teams)
         # Should have trades; giving WRs (surplus=4) should get fit bonus
         wr_give_trades = [
-            t for t in result["trades"]
-            if any(a["position"] == "WR" for a in t["give"])
+            t for t in result["trades"] if any(a["position"] == "WR" for a in t["give"])
         ]
         assert len(wr_give_trades) > 0
 
@@ -891,14 +909,14 @@ class TestRosterFit:
         result = find_trades(players, "My Team", ["Rival"], teams)
         # Check that some trades receiving RB or QB exist
         weakness_trades = [
-            t for t in result["trades"]
-            if any(a["position"] in ("RB", "QB") for a in t["receive"])
+            t for t in result["trades"] if any(a["position"] in ("RB", "QB") for a in t["receive"])
         ]
         # These should exist and be ranked well
         assert len(weakness_trades) > 0
 
 
 # ── Representative scenario validation (10+) ────────────────────────────
+
 
 class TestRepresentativeScenarios:
     """
@@ -1072,6 +1090,7 @@ class TestRepresentativeScenarios:
 
 # ── Explainability helpers ──────────────────────────────────────────────
 
+
 class TestConfidenceTier:
     def test_high(self):
         assert _confidence_tier(1.0) == "high"
@@ -1131,6 +1150,7 @@ class TestBuildSummary:
 
 # ── Explainability fields on TradeCandidate ─────────────────────────────
 
+
 class TestExplainabilityFields:
     """Verify that scored trades carry all explainability metadata."""
 
@@ -1169,8 +1189,10 @@ class TestExplainabilityFields:
     def test_partial_ktc_flags(self):
         """Partial coverage trade should have partial_ktc flag and lower confidence tier."""
         give = [_make_asset("A", model=4000, ktc=5000, source_count=2)]
-        recv = [_make_asset("B", model=3000, ktc=3000, source_count=1),
-                _make_asset("C", model=2000, ktc=None, source_count=1)]
+        recv = [
+            _make_asset("B", model=3000, ktc=3000, source_count=1),
+            _make_asset("C", model=2000, ktc=None, source_count=1),
+        ]
         tc = _score_trade(give, recv)
         assert tc is not None
         assert "partial_ktc" in tc.flags
@@ -1229,11 +1251,14 @@ class TestExplainabilityFields:
         rf = tc.ranking_factors
         # Core = (boardEdge + ktcAppeal + positiveBonus) * confidenceMultiplier + valueScale + simplicityPenalty
         core = rf["boardEdge"] + rf["ktcAppeal"] + rf["positiveBonus"]
-        reconstructed = core * rf["confidenceMultiplier"] + rf["valueScale"] + rf["simplicityPenalty"]
+        reconstructed = (
+            core * rf["confidenceMultiplier"] + rf["valueScale"] + rf["simplicityPenalty"]
+        )
         assert abs(reconstructed - tc.arbitrage_score) < 0.1
 
 
 # ── Roster-fit explainability ───────────────────────────────────────────
+
 
 class TestRosterFitExplainability:
     """Verify roster-fit bonus is visible in flags, ranking_factors, and summary."""
@@ -1249,8 +1274,7 @@ class TestRosterFitExplainability:
             "Opp QB Star": _make_player_data(5500, ktc=4500, pos="QB"),
         }
         teams = [
-            {"name": "My Team", "players": [
-                "My WR1", "My WR2", "My WR3", "My WR4", "My WR5"]},
+            {"name": "My Team", "players": ["My WR1", "My WR2", "My WR3", "My WR4", "My WR5"]},
             {"name": "Rival", "players": ["Opp QB Star"]},
         ]
         return players, teams
@@ -1283,6 +1307,7 @@ class TestRosterFitExplainability:
 
 # ── Before/after output examples ────────────────────────────────────────
 
+
 class TestBeforeAfterExplainability:
     """Document concrete before/after examples showing the new fields."""
 
@@ -1306,8 +1331,10 @@ class TestBeforeAfterExplainability:
     def test_example_low_confidence_partial_output(self):
         """Example: Low-confidence partial-KTC trade (receive side has at least one KTC)."""
         give = [_make_asset("Single", model=3000, ktc=4000, source_count=1)]
-        recv = [_make_asset("HasKTC", model=2500, ktc=2000, source_count=1),
-                _make_asset("NoKTC", model=1500, ktc=None, source_count=1)]
+        recv = [
+            _make_asset("HasKTC", model=2500, ktc=2000, source_count=1),
+            _make_asset("NoKTC", model=1500, ktc=None, source_count=1),
+        ]
         tc = _score_trade(give, recv)
         assert tc is not None
         d = tc.to_dict()
@@ -1325,6 +1352,7 @@ class TestBeforeAfterExplainability:
 
 
 # ── KTC quality guardrails ──────────────────────────────────────────────
+
 
 class TestKtcQualityGuardrails:
     """Tests for the new KTC quality gates added to fix recommendation trust."""
@@ -1421,6 +1449,7 @@ class TestKtcQualityGuardrails:
 
 # ── KTC Top-N Filter ───────────────────────────────────────────────────
 
+
 class TestKtcTopNFilter:
     """Verify the KTC top-150 quality gate in the finder engine."""
 
@@ -1433,7 +1462,9 @@ class TestKtcTopNFilter:
         for i in range(200):
             ktc = 9000 - i * 40
             players[f"Player_{i:03d}"] = _make_player_data(
-                model=ktc, ktc=ktc, pos="WR",
+                model=ktc,
+                ktc=ktc,
+                pos="WR",
             )
         pool = build_asset_pool(players, ktc_top_n=100)
         assert len(pool) == 100
@@ -1443,7 +1474,9 @@ class TestKtcTopNFilter:
         for i in range(200):
             ktc = 9000 - i * 40
             players[f"Player_{i:03d}"] = _make_player_data(
-                model=ktc, ktc=ktc, pos="WR",
+                model=ktc,
+                ktc=ktc,
+                pos="WR",
             )
         pool = build_asset_pool(players, ktc_top_n=0)
         assert len(pool) == 200
@@ -1476,12 +1509,17 @@ class TestKtcTopNFilter:
             f"P{i}": _make_player_data(5000 - i * 10, ktc=5000 - i * 10, pos="WR")
             for i in range(20)
         }
-        sleeper_teams = _make_sleeper_teams({
-            "MyTeam": [f"P{i}" for i in range(10)],
-            "TheirTeam": [f"P{i}" for i in range(10, 20)],
-        })
+        sleeper_teams = _make_sleeper_teams(
+            {
+                "MyTeam": [f"P{i}" for i in range(10)],
+                "TheirTeam": [f"P{i}" for i in range(10, 20)],
+            }
+        )
         result = find_trades(
-            players, "MyTeam", ["TheirTeam"], sleeper_teams,
+            players,
+            "MyTeam",
+            ["TheirTeam"],
+            sleeper_teams,
             ktc_top_n=50,
         )
         assert result["metadata"]["ktcTopNFilter"] == 50
@@ -1495,18 +1533,23 @@ class TestKtcTopNFilter:
             pos = ["QB", "RB", "WR", "TE"][i % 4]
             players[f"P{i:02d}"] = _make_player_data(model, ktc=ktc, pos=pos)
 
-        sleeper_teams = _make_sleeper_teams({
-            "Me": [f"P{i:02d}" for i in range(0, 25)],
-            "Them": [f"P{i:02d}" for i in range(25, 50)],
-        })
+        sleeper_teams = _make_sleeper_teams(
+            {
+                "Me": [f"P{i:02d}" for i in range(0, 25)],
+                "Them": [f"P{i:02d}" for i in range(25, 50)],
+            }
+        )
         result = find_trades(
-            players, "Me", ["Them"], sleeper_teams,
+            players,
+            "Me",
+            ["Them"],
+            sleeper_teams,
             ktc_top_n=30,
         )
         eligible_names = {f"P{i:02d}" for i in range(30)}
         for trade in result.get("trades", []):
             for side in ("give", "receive"):
                 for player in trade[side]:
-                    assert player["name"] in eligible_names, (
-                        f"{player['name']} in {side} is outside KTC top 30"
-                    )
+                    assert (
+                        player["name"] in eligible_names
+                    ), f"{player['name']} in {side} is outside KTC top 30"

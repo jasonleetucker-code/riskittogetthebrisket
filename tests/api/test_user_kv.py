@@ -1,4 +1,5 @@
 """Tests for ``src.api.user_kv`` — durable per-user preference store."""
+
 from __future__ import annotations
 
 import json
@@ -93,35 +94,61 @@ def test_dismissals_scoped_per_league(kv_path):
     """Dismissing a signal in league A must NOT hide the same
     signal in league B — both leagues get independent buckets."""
     user_kv.dismiss_signal(
-        "u", "Josh Allen::elite_stable", ttl_ms=60_000,
-        league_key="dynasty_main", path=kv_path,
+        "u",
+        "Josh Allen::elite_stable",
+        ttl_ms=60_000,
+        league_key="dynasty_main",
+        path=kv_path,
     )
     # League A has it; league B does not.
     assert "Josh Allen::elite_stable" in user_kv.active_dismissals(
-        "u", league_key="dynasty_main", path=kv_path,
+        "u",
+        league_key="dynasty_main",
+        path=kv_path,
     )
-    assert user_kv.active_dismissals(
-        "u", league_key="dynasty_new", path=kv_path,
-    ) == {}
+    assert (
+        user_kv.active_dismissals(
+            "u",
+            league_key="dynasty_new",
+            path=kv_path,
+        )
+        == {}
+    )
 
 
 def test_undismiss_scoped_per_league(kv_path):
     """Un-dismissing in league A leaves league B's dismissal alone."""
     user_kv.dismiss_signal(
-        "u", "Josh Allen::elite_stable", league_key="dynasty_main", path=kv_path,
+        "u",
+        "Josh Allen::elite_stable",
+        league_key="dynasty_main",
+        path=kv_path,
     )
     user_kv.dismiss_signal(
-        "u", "Josh Allen::elite_stable", league_key="dynasty_new", path=kv_path,
+        "u",
+        "Josh Allen::elite_stable",
+        league_key="dynasty_new",
+        path=kv_path,
     )
     user_kv.undismiss_signal(
-        "u", "Josh Allen::elite_stable", league_key="dynasty_main", path=kv_path,
+        "u",
+        "Josh Allen::elite_stable",
+        league_key="dynasty_main",
+        path=kv_path,
     )
     # A gone, B intact.
-    assert user_kv.active_dismissals(
-        "u", league_key="dynasty_main", path=kv_path,
-    ) == {}
+    assert (
+        user_kv.active_dismissals(
+            "u",
+            league_key="dynasty_main",
+            path=kv_path,
+        )
+        == {}
+    )
     assert "Josh Allen::elite_stable" in user_kv.active_dismissals(
-        "u", league_key="dynasty_new", path=kv_path,
+        "u",
+        league_key="dynasty_new",
+        path=kv_path,
     )
 
 
@@ -135,9 +162,14 @@ def test_legacy_flat_dismissals_unchanged(kv_path):
     # Per-league reader on a league with no bucket returns empty —
     # it does NOT surface the flat field (we'd be showing default-
     # league dismissals under league B's name).
-    assert user_kv.active_dismissals(
-        "u", league_key="dynasty_new", path=kv_path,
-    ) == {}
+    assert (
+        user_kv.active_dismissals(
+            "u",
+            league_key="dynasty_new",
+            path=kv_path,
+        )
+        == {}
+    )
 
 
 def test_corrupt_file_starts_fresh(kv_path):
@@ -246,14 +278,16 @@ def test_legacy_json_migration_runs_on_first_boot(tmp_path, monkeypatch):
     monkeypatch.setattr(user_kv, "_LEGACY_JSON_PATH", legacy_path)
 
     legacy_path.write_text(
-        json.dumps({
-            "alice": {
-                "watchlist": ["Ja'Marr Chase"],
-                "selectedTeam": {"ownerId": "o", "name": "Alphas"},
-                "updatedAt": "2026-04-22T10:00:00Z",
-            },
-            "bob": {"watchlist": ["Bijan Robinson"]},
-        })
+        json.dumps(
+            {
+                "alice": {
+                    "watchlist": ["Ja'Marr Chase"],
+                    "selectedTeam": {"ownerId": "o", "name": "Alphas"},
+                    "updatedAt": "2026-04-22T10:00:00Z",
+                },
+                "bob": {"watchlist": ["Bijan Robinson"]},
+            }
+        )
     )
     user_kv._SETUP_DONE.clear()
     # First call triggers migration.
@@ -283,14 +317,16 @@ def test_dismiss_signal_without_alias_keeps_existing_map(kv_path):
     # Set one alias, then dismiss another signal without providing
     # alias args — the first mapping must persist.
     user_kv.dismiss_signal(
-        "u", "A::tag",
+        "u",
+        "A::tag",
         ttl_ms=60_000,
         alias_sleeper_id="111",
         alias_display_name="A",
         path=kv_path,
     )
     user_kv.dismiss_signal(
-        "u", "B::tag",
+        "u",
+        "B::tag",
         ttl_ms=60_000,
         path=kv_path,
     )

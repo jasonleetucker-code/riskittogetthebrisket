@@ -43,6 +43,7 @@ useful until the weight fitter is running.  Also simple
 enough that it doesn't need a flag — the module just returns
 empty summary when there's no historical data.
 """
+
 from __future__ import annotations
 
 import logging
@@ -128,7 +129,8 @@ def _bucket_for(win_prob_a: float) -> str | None:
 
 
 def _sum_value_at(
-    names: list[str], on_date: str,
+    names: list[str],
+    on_date: str,
     value_snapshots: dict[tuple[str, str], float],
 ) -> float | None:
     """Sum the values of a list of player/pick names on a specific
@@ -223,9 +225,7 @@ def format_report(summary: BacktestSummary) -> str:
         mid = (float(label.split("-")[0]) + float(label.split("-")[1])) / 2
         if bucket.total == 0:
             # Empty bucket — don't show a misleading calibration delta.
-            lines.append(
-                f"  {label:<18} {bucket.total:>5}  {bucket.correct:>7}   —       —"
-            )
+            lines.append(f"  {label:<18} {bucket.total:>5}  {bucket.correct:>7}   —       —")
             continue
         deviation = bucket.accuracy - mid
         lines.append(

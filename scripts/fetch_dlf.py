@@ -54,6 +54,7 @@ A cached session (``dlf_session.json``, gitignored) caches the login
 cookies between runs so we only re-authenticate when WordPress
 invalidates the session (typically after ~14 days).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -138,12 +139,14 @@ def _load_session_cookies() -> list[dict]:
             continue
         if c["name"].startswith("_comment"):
             continue
-        out.append({
-            "name": c["name"],
-            "value": c["value"],
-            "domain": c.get("domain") or ".dynastyleaguefootball.com",
-            "path": c.get("path") or "/",
-        })
+        out.append(
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain") or ".dynastyleaguefootball.com",
+                "path": c.get("path") or "/",
+            }
+        )
     return out
 
 
@@ -153,12 +156,14 @@ def _save_session_cookies(session) -> None:
     cookies_out: list[dict] = []
     for c in session.cookies.jar:
         try:
-            cookies_out.append({
-                "name": c.name,
-                "value": c.value,
-                "domain": c.domain or ".dynastyleaguefootball.com",
-                "path": c.path or "/",
-            })
+            cookies_out.append(
+                {
+                    "name": c.name,
+                    "value": c.value,
+                    "domain": c.domain or ".dynastyleaguefootball.com",
+                    "path": c.path or "/",
+                }
+            )
         except Exception:
             continue
     payload = {
@@ -193,8 +198,10 @@ def _build_session():
     for c in _load_session_cookies():
         try:
             session.cookies.set(
-                c["name"], c["value"],
-                domain=c.get("domain"), path=c.get("path") or "/",
+                c["name"],
+                c["value"],
+                domain=c.get("domain"),
+                path=c.get("path") or "/",
             )
         except Exception:
             continue
@@ -225,9 +232,7 @@ def _login(session) -> None:
     #    handshake requires a GET before POST).
     r1 = session.get(LOGIN_URL, timeout=30)
     if r1.status_code != 200:
-        raise RuntimeError(
-            f"DLF login GET failed: HTTP {r1.status_code}"
-        )
+        raise RuntimeError(f"DLF login GET failed: HTTP {r1.status_code}")
     # 2) Submit credentials.  WP's login form POSTs ``log`` / ``pwd``
     #    / ``wp-submit`` with a ``redirect_to`` on success.
     r2 = session.post(
@@ -247,9 +252,7 @@ def _login(session) -> None:
         allow_redirects=True,
     )
     if r2.status_code not in (200, 302):
-        raise RuntimeError(
-            f"DLF login POST failed: HTTP {r2.status_code}"
-        )
+        raise RuntimeError(f"DLF login POST failed: HTTP {r2.status_code}")
     if not _is_logged_in(session):
         # WP returns 200 with the login form on invalid credentials.
         # Surface the page's error message for diagnostics.
@@ -293,7 +296,7 @@ def _fetch_rankings_html(session, url: str) -> str:
 # truncated 10-row preview), not on generic subscription links
 # that also appear in the page footer.
 _PAYWALL_SENTINELS = (
-    "This content is for",            # WP-MemberPress upsell wrapper
+    "This content is for",  # WP-MemberPress upsell wrapper
     "Please login to access this page",
     "Your account is not yet active",
 )
@@ -345,16 +348,15 @@ def _parse_rankings(html: str) -> list[dict]:
         # Use the cell's full text (including <br>-joined expert
         # name + "Last Updated: ..." annotations) — we only care
         # about the prefix.
-        headers = [
-            (c.get_text(" ", strip=True) or "").strip().lower()
-            for c in header_cells
-        ]
+        headers = [(c.get_text(" ", strip=True) or "").strip().lower() for c in header_cells]
+
         def _find(*targets: str) -> int:
             for i, h in enumerate(headers):
                 first_tok = h.split()[0] if h else ""
                 if h in targets or first_tok in targets:
                     return i
             return -1
+
         name_idx = _find("name", "player")
         avg_idx = _find("avg", "average")
         rank_idx = _find("rank", "#")
@@ -369,10 +371,12 @@ def _parse_rankings(html: str) -> list[dict]:
             cells = tr.find_all("td")
             if not cells:
                 continue
+
             def _cell(i: int) -> str:
                 if i < 0 or i >= len(cells):
                     return ""
                 return cells[i].get_text(" ", strip=True).strip()
+
             name = _cell(name_idx)
             if not name:
                 continue
@@ -380,13 +384,15 @@ def _parse_rankings(html: str) -> list[dict]:
             rank = _cell(rank_idx)
             pos = _cell(pos_idx)
             team = _cell(team_idx)
-            rows_out.append({
-                "name": name,
-                "avg": avg,
-                "rank": rank,
-                "pos": pos,
-                "team": team,
-            })
+            rows_out.append(
+                {
+                    "name": name,
+                    "avg": avg,
+                    "rank": rank,
+                    "pos": pos,
+                    "team": team,
+                }
+            )
         if len(rows_out) >= 10:
             return rows_out
     return []
@@ -447,11 +453,15 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Scrape but don't write any CSVs.",
     )
     parser.add_argument(
-        "--only", metavar="BOARD_KEY", action="append", default=None,
+        "--only",
+        metavar="BOARD_KEY",
+        action="append",
+        default=None,
         help=f"Scrape only this board (repeatable).  Choices: {', '.join(BOARDS)}",
     )
     args = parser.parse_args()
@@ -496,8 +506,7 @@ def main() -> int:
                 continue
             if _looks_like_preview(html):
                 print(
-                    f"[DLF] {key}: still preview after re-auth — "
-                    f"membership may have lapsed.",
+                    f"[DLF] {key}: still preview after re-auth — " f"membership may have lapsed.",
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 1)

@@ -14,6 +14,7 @@ The classifier is deterministic — same inputs always produce the same
 label.  No mutation of dynasty values, trade math, or the player
 contract.  Read-only contender layer.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -102,16 +103,10 @@ def classify_team(
         )
     elif playoff_odds_pct < 0.25 and championship_odds_pct < 0.02:
         label = "Seller"
-        rec = (
-            "Sell aging win-now players.  Prioritize 2026/2027 picks "
-            "and 23-or-younger upside."
-        )
+        rec = "Sell aging win-now players.  Prioritize 2026/2027 picks " "and 23-or-younger upside."
     elif 0.20 <= playoff_odds_pct < 0.40:
         label = "Selective Seller"
-        rec = (
-            "Sell older short-term assets if strong offers arrive.  "
-            "Hold the youth core."
-        )
+        rec = "Sell older short-term assets if strong offers arrive.  " "Hold the youth core."
     else:
         label = "Hold / Evaluate"
         rec = (

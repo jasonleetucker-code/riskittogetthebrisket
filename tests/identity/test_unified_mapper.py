@@ -3,6 +3,7 @@
 Pins the 3-layer match ladder, the override short-circuit, the
 coverage-metric snapshot, and graceful handling of absent data.
 """
+
 from __future__ import annotations
 
 import json
@@ -80,7 +81,10 @@ def test_name_plus_team_plus_pos_disambiguates_same_name(sleeper_dir):
     """Two "Josh Allen" exist — QB in BUF, LB in JAX.  Name+team+pos
     must land on the QB."""
     got = unified_mapper.resolve_player(
-        sleeper_dir, name="Josh Allen", team="BUF", position="QB",
+        sleeper_dir,
+        name="Josh Allen",
+        team="BUF",
+        position="QB",
     )
     assert got is not None
     assert got.sleeper_id == "4017"
@@ -90,7 +94,9 @@ def test_name_plus_team_plus_pos_disambiguates_same_name(sleeper_dir):
 
 def test_name_plus_pos_ladder_rung(sleeper_dir):
     got = unified_mapper.resolve_player(
-        sleeper_dir, name="Josh Allen", position="LB",
+        sleeper_dir,
+        name="Josh Allen",
+        position="LB",
     )
     assert got is not None
     assert got.sleeper_id == "6794"
@@ -111,7 +117,9 @@ def test_fuzzy_name_match_for_dropped_suffix(sleeper_dir):
         "espn_id": "4432577",
     }
     got = unified_mapper.resolve_player(
-        dir_with_suffix, name="Marvin Harrison", position="WR",
+        dir_with_suffix,
+        name="Marvin Harrison",
+        position="WR",
     )
     assert got is not None
     assert got.sleeper_id == "11000"
@@ -121,7 +129,9 @@ def test_fuzzy_name_match_for_dropped_suffix(sleeper_dir):
 
 def test_unresolved_returns_none_and_bumps_metric(sleeper_dir):
     got = unified_mapper.resolve_player(
-        sleeper_dir, name="Totally Made Up Player", position="QB",
+        sleeper_dir,
+        name="Totally Made Up Player",
+        position="QB",
     )
     assert got is None
     snap = unified_mapper.mapping_coverage_snapshot()
@@ -133,15 +143,20 @@ def test_manual_override_short_circuits_mapper(sleeper_dir, tmp_path):
     use these values verbatim.  Use case: a practice-squad call-up
     not yet in the Sleeper player dir on the day of the injury."""
     overrides_file = tmp_path / "id_overrides.json"
-    overrides_file.write_text(json.dumps({
-        "99999": {
-            "gsis_id": "00-0099999",
-            "espn_id": "9999999",
-            "full_name": "Practice Squad Guy",
-            "position": "WR",
-            "team": "SF",
-        }
-    }), encoding="utf-8")
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "99999": {
+                    "gsis_id": "00-0099999",
+                    "espn_id": "9999999",
+                    "full_name": "Practice Squad Guy",
+                    "position": "WR",
+                    "team": "SF",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     unified_mapper.reload_overrides()
     got = unified_mapper.resolve_player(
         sleeper_dir,

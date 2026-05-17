@@ -27,6 +27,7 @@ The player-map fetch is cached for 1 hour — KTC doesn't add new IDs
 often enough to matter, and hitting their HTML on every import would
 be rude.
 """
+
 from __future__ import annotations
 
 import json
@@ -70,9 +71,11 @@ def _fetch_ktc_players(timeout: float = 15.0) -> list[dict[str, Any]]:
     bp = None
     try:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(
             "ktc_scraper",
-            failure_threshold=3, failure_window_sec=120.0,
+            failure_threshold=3,
+            failure_window_sec=120.0,
             open_duration_sec=120.0,
         )
         if not bp.can_call():
@@ -180,9 +183,7 @@ def parse_trade_url(url: str) -> tuple[list[int], list[int]]:
     team_one = _parse_side(query.get("teamOne", []))
     team_two = _parse_side(query.get("teamTwo", []))
     if not team_one and not team_two:
-        raise ValueError(
-            "KTC URL is missing both teamOne and teamTwo parameters"
-        )
+        raise ValueError("KTC URL is missing both teamOne and teamTwo parameters")
     return team_one, team_two
 
 
@@ -329,10 +330,13 @@ def build_ktc_url(side_one_names, side_two_names, *, player_map=None):
     one_ids, one_missing = _resolve(side_one_names)
     two_ids, two_missing = _resolve(side_two_names)
     params = {
-        "var": "5", "pickVal": "0",
+        "var": "5",
+        "pickVal": "0",
         "teamOne": "|".join(str(i) for i in one_ids),
         "teamTwo": "|".join(str(i) for i in two_ids),
-        "format": "2", "isStartup": "0", "tep": "0",
+        "format": "2",
+        "isStartup": "0",
+        "tep": "0",
     }
     url = _KTC_CALCULATOR_URL + "?" + urllib.parse.urlencode(params, safe="|")
     return {

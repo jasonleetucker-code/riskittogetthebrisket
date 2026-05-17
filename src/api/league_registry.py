@@ -36,6 +36,7 @@ Not in scope for v1
   chosen team comes from ``user_kv`` in practice; the registry's
   ``default_team_map`` is for unauthenticated cold-starts only.
 """
+
 from __future__ import annotations
 
 import json
@@ -167,10 +168,7 @@ def _parse_league_entry(entry: dict[str, Any]) -> LeagueConfig:
                 }
 
     aliases_raw = entry.get("aliases") or []
-    aliases = tuple(
-        str(a).strip() for a in aliases_raw
-        if isinstance(a, str) and a.strip()
-    )
+    aliases = tuple(str(a).strip() for a in aliases_raw if isinstance(a, str) and a.strip())
 
     # ``bestBall`` is optional in the registry JSON so existing
     # registry files keep working with no edits; defaults False.

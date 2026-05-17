@@ -1,6 +1,7 @@
 """Tests for realized fantasy points math.  These pin the scoring
 rules we actually implement — they're the source of truth for
 the 'value vs realized' feature in the upgraded player popup."""
+
 from __future__ import annotations
 
 from src.nfl_data import realized_points as rp
@@ -8,9 +9,14 @@ from src.nfl_data import realized_points as rp
 
 def _half_ppr():
     return {
-        "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
-        "rush_yd": 0.1, "rush_td": 6,
-        "rec": 0.5, "rec_yd": 0.1, "rec_td": 6,
+        "pass_yd": 0.04,
+        "pass_td": 4,
+        "pass_int": -2,
+        "rush_yd": 0.1,
+        "rush_td": 6,
+        "rec": 0.5,
+        "rec_yd": 0.1,
+        "rec_td": 6,
         "fum_lost": -2,
     }
 
@@ -37,8 +43,12 @@ def test_no_scoring_settings_returns_zero_with_reason():
 def test_passing_qb_ppr_math():
     # 250 yards, 2 TDs, 1 INT → 250*0.04 + 2*4 + -2*1 = 10 + 8 - 2 = 16
     stat = {
-        "season": 2025, "week": 1, "position": "QB",
-        "passing_yards": 250, "passing_tds": 2, "interceptions": 1,
+        "season": 2025,
+        "week": 1,
+        "position": "QB",
+        "passing_yards": 250,
+        "passing_tds": 2,
+        "interceptions": 1,
     }
     out = rp.compute_weekly_points(stat, _ppr())
     assert out is not None
@@ -48,8 +58,12 @@ def test_passing_qb_ppr_math():
 def test_rb_receiving_ppr_math():
     # 80 rush yds (8) + 1 rush TD (6) + 3 rec (3) + 30 rec yds (3) = 20
     stat = {
-        "season": 2025, "week": 1, "position": "RB",
-        "rushing_yards": 80, "rushing_tds": 1, "receptions": 3,
+        "season": 2025,
+        "week": 1,
+        "position": "RB",
+        "rushing_yards": 80,
+        "rushing_tds": 1,
+        "receptions": 3,
         "receiving_yards": 30,
     }
     out = rp.compute_weekly_points(stat, _ppr())
@@ -58,8 +72,11 @@ def test_rb_receiving_ppr_math():
 
 def test_half_ppr_scales_rec_but_not_other():
     stat = {
-        "season": 2025, "week": 1, "position": "RB",
-        "receptions": 4, "receiving_yards": 40,
+        "season": 2025,
+        "week": 1,
+        "position": "RB",
+        "receptions": 4,
+        "receiving_yards": 40,
     }
     ppr_out = rp.compute_weekly_points(stat, _ppr())
     half_out = rp.compute_weekly_points(stat, _half_ppr())
@@ -82,8 +99,11 @@ def test_te_premium_only_applies_to_tes():
 
 def test_threshold_bonus_applies_once():
     stat = {
-        "season": 2025, "week": 1, "position": "QB",
-        "passing_yards": 350, "passing_tds": 2,
+        "season": 2025,
+        "week": 1,
+        "position": "QB",
+        "passing_yards": 350,
+        "passing_tds": 2,
     }
     scoring = {**_ppr(), "bonus_pass_yd_300": 3, "bonus_pass_yd_400": 5}
     out = rp.compute_weekly_points(stat, scoring)

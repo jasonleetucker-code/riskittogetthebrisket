@@ -10,6 +10,7 @@ being confused with real production data.
 Usage:
     python scripts/generate_test_seeds.py
 """
+
 from __future__ import annotations
 
 import csv
@@ -39,7 +40,10 @@ def load_ktc_players(repo: Path) -> list[tuple[str, int]]:
             if not name or not val:
                 continue
             # Skip picks
-            if any(x in name for x in ["Pick", "Early", "Mid", "Late", "1st", "2nd", "3rd", "4th", "5th", "6th"]):
+            if any(
+                x in name
+                for x in ["Pick", "Early", "Mid", "Late", "1st", "2nd", "3rd", "4th", "5th", "6th"]
+            ):
                 continue
             try:
                 players.append((name, int(val)))

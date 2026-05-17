@@ -16,6 +16,7 @@ Usage:
     python3 scripts/backtest_percentile_reference_n.py
     python3 scripts/backtest_percentile_reference_n.py --snapshots 10
 """
+
 from __future__ import annotations
 
 import argparse
@@ -167,7 +168,13 @@ def write_csv(results, path: Path) -> None:
         w = csv.writer(f)
         w.writerow(["N", "mean_abs_rank_change", "value_weighted_rank_change"])
         for r in results:
-            w.writerow([r["N"], f"{r['mean_abs_rank_change']:.4f}", f"{r['value_weighted_rank_change']:.4f}"])
+            w.writerow(
+                [
+                    r["N"],
+                    f"{r['mean_abs_rank_change']:.4f}",
+                    f"{r['value_weighted_rank_change']:.4f}",
+                ]
+            )
 
 
 def main() -> int:
@@ -186,7 +193,8 @@ def main() -> int:
     args = ap.parse_args()
     snapshots = load_snapshots(args.snapshots)
     if not snapshots:
-        print("No snapshots"); return 1
+        print("No snapshots")
+        return 1
     print(f"Loaded {len(snapshots)} snapshots; sweeping N …")
     results = sweep(snapshots)
     report = render(snapshots, results)

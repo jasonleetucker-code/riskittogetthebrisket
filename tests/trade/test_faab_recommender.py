@@ -9,6 +9,7 @@ These tests pin every fallback path so a future "let's just blend
 in X" tweak doesn't silently break confidence reporting or the
 explanation copy.
 """
+
 from __future__ import annotations
 
 from src.trade.faab_recommender import recommend_faab
@@ -21,8 +22,14 @@ def test_minimal_inputs_returns_full_shape():
     out = recommend_faab(add_player_value=4000)
     # All four bid pills present, plus confidence + breakdown.
     assert set(out.keys()) >= {
-        "conservative", "standard", "aggressive", "max",
-        "confidence", "factors", "warnings", "explanation",
+        "conservative",
+        "standard",
+        "aggressive",
+        "max",
+        "confidence",
+        "factors",
+        "warnings",
+        "explanation",
     }
     assert out["standard"] >= 0
     assert out["confidence"] == "low"  # most factors missing
@@ -46,10 +53,12 @@ def test_value_gain_boosts_standard_for_real_upgrades():
     """A 4000-value add beating a 2000-value drop should
     recommend MORE than the same add against a 4000-value drop."""
     big_upgrade = recommend_faab(
-        add_player_value=4000, drop_player_value=2000,
+        add_player_value=4000,
+        drop_player_value=2000,
     )
     even_swap = recommend_faab(
-        add_player_value=4000, drop_player_value=4000,
+        add_player_value=4000,
+        drop_player_value=4000,
     )
     assert big_upgrade["standard"] >= even_swap["standard"]
 
@@ -65,8 +74,10 @@ def test_marginal_swap_caps_bid_with_warning():
     """Add value == drop value ⇒ marginal upgrade ⇒ standard
     capped to a token bid."""
     out = recommend_faab(
-        add_player_value=3000, drop_player_value=3000,
-        team_faab_remaining=100, league_budget=100,
+        add_player_value=3000,
+        drop_player_value=3000,
+        team_faab_remaining=100,
+        league_budget=100,
     )
     # Marginal — capped to roughly 50% of the baseline reasonable.
     # Without a drop side the bid would be ~$13; with the marginal
@@ -80,11 +91,13 @@ def test_marginal_swap_caps_bid_with_warning():
 
 def test_trending_count_high_bumps_standard():
     base = recommend_faab(
-        add_player_value=4000, drop_player_value=1000,
+        add_player_value=4000,
+        drop_player_value=1000,
         league_budget=100,
     )
     hot = recommend_faab(
-        add_player_value=4000, drop_player_value=1000,
+        add_player_value=4000,
+        drop_player_value=1000,
         league_budget=100,
         sleeper_trending={"count": 12000},  # top tier (10000+ → +20%)
     )
@@ -118,7 +131,8 @@ def test_league_calibration_blends_to_historical_bid():
         },
     }
     out = recommend_faab(
-        add_player_value=2000, drop_player_value=500,
+        add_player_value=2000,
+        drop_player_value=500,
         add_player_position="WR",
         league_faab_summary=summary,
         league_budget=100,
@@ -127,8 +141,7 @@ def test_league_calibration_blends_to_historical_bid():
     # towards $30 should pull it up.
     assert out["standard"] > 15
     factor = next(
-        (f for f in out["factors"]
-         if f["label"].lower().startswith("league historical")),
+        (f for f in out["factors"] if f["label"].lower().startswith("league historical")),
         None,
     )
     assert factor is not None
@@ -150,8 +163,7 @@ def test_league_calibration_skipped_when_position_undersamples():
         league_budget=100,
     )
     factor = next(
-        (f for f in out["factors"]
-         if f["label"].lower().startswith("league historical")),
+        (f for f in out["factors"] if f["label"].lower().startswith("league historical")),
         None,
     )
     assert factor is not None
@@ -161,8 +173,7 @@ def test_league_calibration_skipped_when_position_undersamples():
 def test_league_summary_missing_marks_factor():
     out = recommend_faab(add_player_value=2000)
     factor = next(
-        (f for f in out["factors"]
-         if "league" in f["label"].lower()),
+        (f for f in out["factors"] if "league" in f["label"].lower()),
         None,
     )
     assert factor is not None
@@ -176,7 +187,8 @@ def test_ktc_crowd_blend_pulls_towards_crowd_bid():
     """KTC crowd reports 35% of budget for player → blend pulls
     standard towards $35 in a 100-budget league."""
     out = recommend_faab(
-        add_player_value=2000, drop_player_value=500,
+        add_player_value=2000,
+        drop_player_value=500,
         add_player_position="WR",
         add_player_name="Test Player",
         league_budget=100,
@@ -185,8 +197,7 @@ def test_ktc_crowd_blend_pulls_towards_crowd_bid():
     # Without crowd: ~$15; with 70/30 blend toward $35 → up.
     assert out["standard"] > 15
     factor = next(
-        (f for f in out["factors"]
-         if f["label"].lower().startswith("ktc crowd")),
+        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
         None,
     )
     assert factor is not None
@@ -201,8 +212,7 @@ def test_ktc_crowd_missing_player_is_noop():
         ktc_crowd_bids={"different person": 25.0},
     )
     factor = next(
-        (f for f in out["factors"]
-         if f["label"].lower().startswith("ktc crowd")),
+        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
         None,
     )
     assert factor is None
@@ -214,7 +224,8 @@ def test_ktc_crowd_missing_player_is_noop():
 def test_team_faab_cap_clips_recommendation():
     """When a team has $5 FAAB left, we never recommend more than $5."""
     out = recommend_faab(
-        add_player_value=8000, drop_player_value=1000,
+        add_player_value=8000,
+        drop_player_value=1000,
         team_faab_remaining=5,
         league_budget=100,
     )
@@ -222,8 +233,7 @@ def test_team_faab_cap_clips_recommendation():
     assert out["max"] == 5
     assert any("cap" in w.lower() for w in out["warnings"])
     factor = next(
-        (f for f in out["factors"]
-         if f["label"].lower().startswith("team faab cap")),
+        (f for f in out["factors"] if f["label"].lower().startswith("team faab cap")),
         None,
     )
     assert factor is not None
@@ -245,7 +255,8 @@ def test_team_faab_zero_recommends_zero():
 
 def test_all_inputs_present_returns_high_confidence():
     out = recommend_faab(
-        add_player_value=4000, drop_player_value=1000,
+        add_player_value=4000,
+        drop_player_value=1000,
         add_player_position="WR",
         add_player_name="Hot Pickup",
         team_faab_remaining=80,
@@ -285,8 +296,10 @@ def test_explanation_present_for_every_branch():
         ),
         # Drop-side present → "swap" copy.
         recommend_faab(
-            add_player_value=4000, drop_player_value=1000,
-            team_faab_remaining=80, league_budget=100,
+            add_player_value=4000,
+            drop_player_value=1000,
+            team_faab_remaining=80,
+            league_budget=100,
         ),
         # No drop → "free-agent target" copy.
         recommend_faab(add_player_value=4000),

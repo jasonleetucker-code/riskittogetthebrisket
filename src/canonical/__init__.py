@@ -8,6 +8,7 @@ endpoint now own the full valuation flow through
 ``src.canonical`` is the scope-level Hill curves + the ``run_valuation``
 pipeline used by ``data_contract.py``.
 """
+
 from .player_valuation import (
     run_valuation,
     build_player_inputs_from_raw_records,

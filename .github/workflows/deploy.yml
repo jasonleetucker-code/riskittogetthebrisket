@@ -66,6 +66,14 @@ jobs:
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
 
+      - name: Python format gate (ruff format --check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Defense-in-depth mirror of the pr-validation format gate so
+          # a hotfix pushed straight to main can't bypass it.
+          python -m ruff format --check .
+
       - name: Python runtime import gate
         shell: bash
         env:

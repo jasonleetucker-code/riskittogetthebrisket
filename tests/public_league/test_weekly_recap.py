@@ -1,4 +1,5 @@
 """Tests for ``src/public_league/weekly_recap.py``."""
+
 from __future__ import annotations
 
 import unittest
@@ -33,7 +34,9 @@ class WeeklyRecapSectionTests(unittest.TestCase):
                 "headline",
                 "summary",
             ):
-                self.assertIn(key, recap, f"missing {key} in recap {recap.get('season')}:{recap.get('week')}")
+                self.assertIn(
+                    key, recap, f"missing {key} in recap {recap.get('season')}:{recap.get('week')}"
+                )
             self.assertIsInstance(recap["headline"], str)
             self.assertTrue(recap["headline"])
             self.assertIsInstance(recap["summary"], str)

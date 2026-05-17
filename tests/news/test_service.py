@@ -9,6 +9,7 @@ Verifies:
 * priority ordering — Sleeper items appear ahead of ESPN in the
   aggregator before the severity/time sort re-orders them
 """
+
 from __future__ import annotations
 
 from src.news.base import NewsItem, NewsProvider, PlayerMention
@@ -181,9 +182,7 @@ def test_total_limit_matches_route_cap():
 
 
 def test_serialize_to_dict_shape():
-    provider = _StaticProvider(
-        items=[_item("a-1", players=[PlayerMention(name="Player X")])]
-    )
+    provider = _StaticProvider(items=[_item("a-1", players=[PlayerMention(name="Player X")])])
     svc = NewsService([provider], cache_ttl_s=0)
     payload = svc.aggregate().to_dict()
     assert "items" in payload

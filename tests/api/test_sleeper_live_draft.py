@@ -13,6 +13,7 @@ These cover the three things that matter:
   3. The ``after_pick_no`` cursor filters correctly so the
      polling client only sees new picks.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -40,6 +41,7 @@ def _stub_http(mapping):
             if url.endswith(suffix):
                 return mapping[suffix]
         return None
+
     return _resolve
 
 
@@ -50,36 +52,39 @@ def test_resolve_active_draft_id_prefers_drafting_status(monkeypatch):
     """Of multiple current-season drafts, prefer status=drafting
     over pre_draft over complete."""
     import datetime as _dt
+
     cur = _dt.datetime.now(_dt.timezone.utc).year
     league_id = "L1"
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            f"/league/{league_id}/drafts": [
-                {
-                    "draft_id": "complete-prior",
-                    "season": str(cur),
-                    "sport": "nfl",
-                    "status": "complete",
-                    "start_time": 100,
-                },
-                {
-                    "draft_id": "drafting-now",
-                    "season": str(cur),
-                    "sport": "nfl",
-                    "status": "drafting",
-                    "start_time": 200,
-                },
-                {
-                    "draft_id": "pre-draft-soon",
-                    "season": str(cur),
-                    "sport": "nfl",
-                    "status": "pre_draft",
-                    "start_time": 300,
-                },
-            ],
-        }),
+        _stub_http(
+            {
+                f"/league/{league_id}/drafts": [
+                    {
+                        "draft_id": "complete-prior",
+                        "season": str(cur),
+                        "sport": "nfl",
+                        "status": "complete",
+                        "start_time": 100,
+                    },
+                    {
+                        "draft_id": "drafting-now",
+                        "season": str(cur),
+                        "sport": "nfl",
+                        "status": "drafting",
+                        "start_time": 200,
+                    },
+                    {
+                        "draft_id": "pre-draft-soon",
+                        "season": str(cur),
+                        "sport": "nfl",
+                        "status": "pre_draft",
+                        "start_time": 300,
+                    },
+                ],
+            }
+        ),
     )
     assert sleeper_overlay._resolve_active_draft_id(league_id) == "drafting-now"
 
@@ -88,22 +93,25 @@ def test_resolve_active_draft_id_skips_off_season(monkeypatch):
     """Drafts from prior seasons must not be selected even if they
     sit at status complete (the most common stale-data case)."""
     import datetime as _dt
+
     cur = _dt.datetime.now(_dt.timezone.utc).year
     league_id = "L1"
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            f"/league/{league_id}/drafts": [
-                {
-                    "draft_id": "last-year",
-                    "season": str(cur - 1),
-                    "sport": "nfl",
-                    "status": "complete",
-                    "start_time": 50,
-                },
-            ],
-        }),
+        _stub_http(
+            {
+                f"/league/{league_id}/drafts": [
+                    {
+                        "draft_id": "last-year",
+                        "season": str(cur - 1),
+                        "sport": "nfl",
+                        "status": "complete",
+                        "start_time": 50,
+                    },
+                ],
+            }
+        ),
     )
     assert sleeper_overlay._resolve_active_draft_id(league_id) is None
 
@@ -125,15 +133,17 @@ def test_resolve_active_draft_id_returns_none_on_empty(monkeypatch):
 def test_normalize_live_pick_coerces_string_amount():
     """Sleeper stamps ``metadata.amount`` as a STRING for auction
     picks ("$23" or "23").  Normalizer must coerce to int."""
-    row = sleeper_overlay._normalize_live_pick({
-        "pick_no": 5,
-        "player_id": "4046",
-        "picked_by": "user-123",
-        "roster_id": 7,
-        "round": 1,
-        "picked_at": 1715000000,
-        "metadata": {"amount": "$23"},
-    })
+    row = sleeper_overlay._normalize_live_pick(
+        {
+            "pick_no": 5,
+            "player_id": "4046",
+            "picked_by": "user-123",
+            "roster_id": 7,
+            "round": 1,
+            "picked_at": 1715000000,
+            "metadata": {"amount": "$23"},
+        }
+    )
     assert row == {
         "pickNo": 5,
         "playerId": "4046",
@@ -148,14 +158,16 @@ def test_normalize_live_pick_coerces_string_amount():
 def test_normalize_live_pick_handles_snake_draft_no_amount():
     """Snake-draft picks have no ``metadata.amount`` — must default
     to 0 rather than failing the row."""
-    row = sleeper_overlay._normalize_live_pick({
-        "pick_no": 1,
-        "player_id": "4046",
-        "picked_by": "user-123",
-        "roster_id": 1,
-        "round": 1,
-        "metadata": {},
-    })
+    row = sleeper_overlay._normalize_live_pick(
+        {
+            "pick_no": 1,
+            "player_id": "4046",
+            "picked_by": "user-123",
+            "roster_id": 1,
+            "round": 1,
+            "metadata": {},
+        }
+    )
     assert row is not None
     assert row["amount"] == 0
 
@@ -172,13 +184,15 @@ def test_normalize_live_pick_blank_picked_by():
     """Commish picks / co-managers can have empty picked_by — must
     produce an empty ownerId string (not None) so the JSON response
     has a consistent type."""
-    row = sleeper_overlay._normalize_live_pick({
-        "pick_no": 5,
-        "player_id": "4046",
-        "picked_by": None,
-        "roster_id": 7,
-        "metadata": {"amount": "10"},
-    })
+    row = sleeper_overlay._normalize_live_pick(
+        {
+            "pick_no": 5,
+            "player_id": "4046",
+            "picked_by": None,
+            "roster_id": 7,
+            "metadata": {"amount": "10"},
+        }
+    )
     assert row["ownerId"] == ""
     assert row["rosterId"] == 7
 
@@ -210,6 +224,7 @@ def _fixture_picks_response():
 
 def _fixture_drafts_response():
     import datetime as _dt
+
     cur = _dt.datetime.now(_dt.timezone.utc).year
     return [
         {
@@ -228,11 +243,13 @@ def test_fetch_live_draft_picks_full_snapshot(monkeypatch):
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            "/league/L1/drafts": _fixture_drafts_response(),
-            "/draft/D1": {"status": "drafting"},
-            "/draft/D1/picks": _fixture_picks_response(),
-        }),
+        _stub_http(
+            {
+                "/league/L1/drafts": _fixture_drafts_response(),
+                "/draft/D1": {"status": "drafting"},
+                "/draft/D1/picks": _fixture_picks_response(),
+            }
+        ),
     )
     snap = sleeper_overlay.fetch_live_draft_picks("L1", after_pick_no=0)
     assert snap is not None
@@ -254,11 +271,13 @@ def test_fetch_live_draft_picks_cursor_filters(monkeypatch):
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            "/league/L1/drafts": _fixture_drafts_response(),
-            "/draft/D1": {"status": "drafting"},
-            "/draft/D1/picks": _fixture_picks_response(),
-        }),
+        _stub_http(
+            {
+                "/league/L1/drafts": _fixture_drafts_response(),
+                "/draft/D1": {"status": "drafting"},
+                "/draft/D1/picks": _fixture_picks_response(),
+            }
+        ),
     )
     snap = sleeper_overlay.fetch_live_draft_picks("L1", after_pick_no=1)
     assert len(snap["picks"]) == 1
@@ -282,21 +301,26 @@ def test_fetch_live_draft_picks_complete_status(monkeypatch):
     """A completed draft still serves its picks (useful for replay /
     review) and the status flag drives the frontend's auto-stop."""
     import datetime as _dt
+
     cur = _dt.datetime.now(_dt.timezone.utc).year
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            "/league/L1/drafts": [{
-                "draft_id": "D1",
-                "season": str(cur),
-                "sport": "nfl",
-                "status": "complete",
-                "start_time": 100,
-            }],
-            "/draft/D1": {"status": "complete"},
-            "/draft/D1/picks": _fixture_picks_response(),
-        }),
+        _stub_http(
+            {
+                "/league/L1/drafts": [
+                    {
+                        "draft_id": "D1",
+                        "season": str(cur),
+                        "sport": "nfl",
+                        "status": "complete",
+                        "start_time": 100,
+                    }
+                ],
+                "/draft/D1": {"status": "complete"},
+                "/draft/D1/picks": _fixture_picks_response(),
+            }
+        ),
     )
     snap = sleeper_overlay.fetch_live_draft_picks("L1", after_pick_no=0)
     assert snap["status"] == "complete"
@@ -313,11 +337,13 @@ def test_fetch_live_draft_picks_cache_isolation(monkeypatch):
     monkeypatch.setattr(
         sleeper_overlay,
         "_http_get_json",
-        _stub_http({
-            "/league/L1/drafts": _fixture_drafts_response(),
-            "/draft/D1": {"status": "drafting"},
-            "/draft/D1/picks": _fixture_picks_response(),
-        }),
+        _stub_http(
+            {
+                "/league/L1/drafts": _fixture_drafts_response(),
+                "/draft/D1": {"status": "drafting"},
+                "/draft/D1/picks": _fixture_picks_response(),
+            }
+        ),
     )
     # Seed both caches.
     sleeper_overlay.fetch_live_draft_picks("L1", after_pick_no=0)

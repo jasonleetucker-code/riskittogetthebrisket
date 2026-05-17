@@ -5,6 +5,7 @@ further from their market anchor (KTC for offense, IDPTC for IDP)
 than the 90th percentile of drift within their confidence bucket.
 Non-outliers are untouched.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -60,7 +61,9 @@ class TestMarketAnchorSelection(unittest.TestCase):
 
     def test_anchor_missing_returns_none(self):
         row = _make_row(
-            name="No Anchor", asset_class="offense", value=5000,
+            name="No Anchor",
+            asset_class="offense",
+            value=5000,
             ktc=None,
         )
         self.assertIsNone(_market_anchor_value_for_row(row))
@@ -69,14 +72,18 @@ class TestMarketAnchorSelection(unittest.TestCase):
         """Zero-value anchors can't serve as denominators for the drift
         ratio — treat them as absent."""
         row = _make_row(
-            name="Zero KTC", asset_class="offense", value=5000,
+            name="Zero KTC",
+            asset_class="offense",
+            value=5000,
             ktc=0,
         )
         self.assertIsNone(_market_anchor_value_for_row(row))
 
     def test_pick_asset_class_has_no_anchor(self):
         row = _make_row(
-            name="2026 Pick 1.01", asset_class="pick", value=8000,
+            name="2026 Pick 1.01",
+            asset_class="pick",
+            value=8000,
             ktc=8200,  # pick KTC values exist but picks aren't in the clamp scope
         )
         self.assertIsNone(_market_anchor_value_for_row(row))
@@ -180,14 +187,15 @@ class TestFallbackAnchor(unittest.TestCase):
             SOURCE_SCOPE_OVERALL_IDP,
             SOURCE_SCOPE_OVERALL_OFFENSE,
         )
+
         offense_sources = {
-            s["key"] for s in _RANKING_SOURCES
+            s["key"]
+            for s in _RANKING_SOURCES
             if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
             and not s.get("excludes_rookies")  # rookie-only boards aren't anchors
         }
         idp_sources = {
-            s["key"] for s in _RANKING_SOURCES
-            if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
+            s["key"] for s in _RANKING_SOURCES if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
         }
         chain_offense = set(_MARKET_ANCHOR_FALLBACKS.get("offense") or [])
         chain_idp = set(_MARKET_ANCHOR_FALLBACKS.get("idp") or [])
@@ -231,13 +239,15 @@ class TestClampFires(unittest.TestCase):
         rows = []
         # 39 "normal" medium-confidence rows with drifts ~0.10
         for i in range(39):
-            rows.append(_make_row(
-                name=f"p_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),  # 10% above market
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),  # 10% above market
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         # 1 outlier with drift ~0.70 (way below market)
         outlier = _make_row(
             name="outlier_low",
@@ -261,13 +271,15 @@ class TestClampFires(unittest.TestCase):
     def test_single_extreme_outlier_gets_clamped_above_market(self):
         rows = []
         for i in range(39):
-            rows.append(_make_row(
-                name=f"p_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         outlier = _make_row(
             name="outlier_high",
             asset_class="idp",
@@ -287,13 +299,15 @@ class TestClampFires(unittest.TestCase):
         rows = []
         # 40 medium rows with uniform drift 0.10
         for i in range(40):
-            rows.append(_make_row(
-                name=f"p_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         _apply_market_corridor_clamp(rows, players_by_name={})
         for row in rows:
             self.assertNotIn("marketCorridorClamp", row)
@@ -302,23 +316,27 @@ class TestClampFires(unittest.TestCase):
     def test_no_anchor_no_clamp(self):
         """Rows without a market anchor value (e.g. an IDP not listed
         by any anchor-chain source) get left alone."""
-        rows = [_make_row(
-            name="idp_no_anchor",
-            asset_class="idp",
-            value=5000,
-            idpTradeCalc=None,
-            bucket="low",
-        )]
+        rows = [
+            _make_row(
+                name="idp_no_anchor",
+                asset_class="idp",
+                value=5000,
+                idpTradeCalc=None,
+                bucket="low",
+            )
+        ]
         # Pad with anchored rows so the function has a distribution to
         # compute a band from (otherwise it no-ops on empty).
         for i in range(40):
-            rows.append(_make_row(
-                name=f"anchored_{i}",
-                asset_class="idp",
-                value=5500,
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"anchored_{i}",
+                    asset_class="idp",
+                    value=5500,
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         _apply_market_corridor_clamp(rows, players_by_name={})
         self.assertNotIn("marketCorridorClamp", rows[0])
         self.assertEqual(rows[0]["rankDerivedValue"], 5000)
@@ -333,22 +351,26 @@ class TestClampFires(unittest.TestCase):
         """
         rows = []
         for i in range(50):
-            rows.append(_make_row(
-                name=f"m_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.15),  # medium drift 0.15
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"m_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.15),  # medium drift 0.15
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         # 5 high-confidence rows, one with extreme drift
         for i in range(4):
-            rows.append(_make_row(
-                name=f"h_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.05),  # small drift 0.05
-                idpTradeCalc=5000,
-                bucket="high",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"h_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.05),  # small drift 0.05
+                    idpTradeCalc=5000,
+                    bucket="high",
+                )
+            )
         high_outlier = _make_row(
             name="h_outlier",
             asset_class="idp",
@@ -365,24 +387,28 @@ class TestClampFires(unittest.TestCase):
         self.assertEqual(high_outlier["rankDerivedValue"], 5750)
 
     def test_unranked_rows_are_skipped(self):
-        rows = [_make_row(
-            name="unranked",
-            asset_class="idp",
-            value=100,
-            idpTradeCalc=5000,
-            bucket="low",
-        )]
+        rows = [
+            _make_row(
+                name="unranked",
+                asset_class="idp",
+                value=100,
+                idpTradeCalc=5000,
+                bucket="low",
+            )
+        ]
         # Clear canonicalConsensusRank to simulate an unranked row.
         rows[0]["canonicalConsensusRank"] = None
         # Pad the distribution.
         for i in range(40):
-            rows.append(_make_row(
-                name=f"p_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         _apply_market_corridor_clamp(rows, players_by_name={})
         # Unranked row should NOT be touched.
         self.assertNotIn("marketCorridorClamp", rows[0])
@@ -394,21 +420,25 @@ class TestClampStamps(unittest.TestCase):
     the decision from the UI / logs."""
 
     def test_stamp_fields_present(self):
-        rows = [_make_row(
-            name="outlier",
-            asset_class="idp",
-            value=100,
-            idpTradeCalc=5000,
-            bucket="low",
-        )]
-        for i in range(40):
-            rows.append(_make_row(
-                name=f"p_{i}",
+        rows = [
+            _make_row(
+                name="outlier",
                 asset_class="idp",
-                value=int(5000 * 1.10),
+                value=100,
                 idpTradeCalc=5000,
-                bucket="medium",
-            ))
+                bucket="low",
+            )
+        ]
+        for i in range(40):
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         _apply_market_corridor_clamp(rows, players_by_name={})
         stamp = rows[0].get("marketCorridorClamp")
         self.assertIsNotNone(stamp)
@@ -440,13 +470,15 @@ class TestClampStamps(unittest.TestCase):
         )
         rows = [row]
         for i in range(40):
-            rows.append(_make_row(
-                name=f"p_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         legacy = {"Clamped": {"rankDerivedValue": 100}}
         _apply_market_corridor_clamp(rows, players_by_name=legacy)
         self.assertEqual(legacy["Clamped"]["rankDerivedValue"], row["rankDerivedValue"])
@@ -458,21 +490,25 @@ class TestIdempotence(unittest.TestCase):
     every row's drift ≤ band, so a second pass should be a no-op."""
 
     def test_second_pass_no_additional_clamps(self):
-        rows = [_make_row(
-            name="outlier",
-            asset_class="idp",
-            value=100,
-            idpTradeCalc=5000,
-            bucket="medium",
-        )]
-        for i in range(40):
-            rows.append(_make_row(
-                name=f"p_{i}",
+        rows = [
+            _make_row(
+                name="outlier",
                 asset_class="idp",
-                value=int(5000 * 1.10),
+                value=100,
                 idpTradeCalc=5000,
                 bucket="medium",
-            ))
+            )
+        ]
+        for i in range(40):
+            rows.append(
+                _make_row(
+                    name=f"p_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         _apply_market_corridor_clamp(rows, players_by_name={})
         clamped_val = rows[0]["rankDerivedValue"]
         _apply_market_corridor_clamp(rows, players_by_name={})
@@ -515,13 +551,15 @@ class TestIdpMaxBandCap(unittest.TestCase):
         # bucket P90 (~30%) would NOT have clamped a 47%-drift outlier
         # without the max-band cap.
         for i in range(39):
-            rows.append(_make_row(
-                name=f"bg_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.30),  # 30% above IDPTC
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"bg_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.30),  # 30% above IDPTC
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         # The Vikings LB: 1,900 internal, 3,600 on IDPTC = 47% drift down.
         outlier = _make_row(
             name="vikings_lb",
@@ -552,13 +590,15 @@ class TestIdpMaxBandCap(unittest.TestCase):
         rows = []
         # 39 IDPs with drift 0.10 → bucket P90 = 0.10 (below cap).
         for i in range(39):
-            rows.append(_make_row(
-                name=f"bg_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"bg_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         # Outlier with 70% drift down.
         outlier = _make_row(
             name="outlier",
@@ -582,13 +622,15 @@ class TestIdpMaxBandCap(unittest.TestCase):
         rows = []
         # 39 IDPs with 30% drift to widen the bucket band past 0.15.
         for i in range(39):
-            rows.append(_make_row(
-                name=f"bg_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.30),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"bg_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.30),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         # An over-valued outlier 60% above IDPTC.
         over = _make_row(
             name="over",
@@ -622,13 +664,15 @@ class TestIdpMaxBandCap(unittest.TestCase):
         rows = []
         # IDP background so the function has a band distribution.
         for i in range(39):
-            rows.append(_make_row(
-                name=f"idp_bg_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.10),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"idp_bg_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.10),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         idp_outlier = _make_row(
             name="idp_outlier",
             asset_class="idp",
@@ -659,13 +703,15 @@ class TestIdpMaxBandCap(unittest.TestCase):
         the value — the player is already inside the 15% band."""
         rows = []
         for i in range(39):
-            rows.append(_make_row(
-                name=f"bg_{i}",
-                asset_class="idp",
-                value=int(5000 * 1.30),
-                idpTradeCalc=5000,
-                bucket="medium",
-            ))
+            rows.append(
+                _make_row(
+                    name=f"bg_{i}",
+                    asset_class="idp",
+                    value=int(5000 * 1.30),
+                    idpTradeCalc=5000,
+                    bucket="medium",
+                )
+            )
         outlier = _make_row(
             name="vikings_lb",
             asset_class="idp",

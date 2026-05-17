@@ -6,6 +6,7 @@ T5 IDP), the assignment threshold, the max-3 cap, the favorite-
 always-wins invariant, and the config fallback when the JSON file
 is malformed.
 """
+
 from __future__ import annotations
 
 import json
@@ -116,10 +117,16 @@ def test_load_config_falls_back_on_malformed_json(tmp_path: Path):
 
 
 def test_load_config_strips_doc_keys(tmp_path: Path):
-    p = _config_path(tmp_path, {
-        "_doc": "outer doc",
-        "favorites": {"_doc": "inner doc", "joel": {"abbr": "KC", "display": "Kansas City Chiefs"}},
-    })
+    p = _config_path(
+        tmp_path,
+        {
+            "_doc": "outer doc",
+            "favorites": {
+                "_doc": "inner doc",
+                "joel": {"abbr": "KC", "display": "Kansas City Chiefs"},
+            },
+        },
+    )
     cfg = team_assignment.load_config(p)
     assert "_doc" not in cfg
     assert "_doc" not in cfg["favorites"]
@@ -127,9 +134,12 @@ def test_load_config_strips_doc_keys(tmp_path: Path):
 
 
 def test_load_config_merges_partial_user_config_over_defaults(tmp_path: Path):
-    p = _config_path(tmp_path, {
-        "weights": {"qbAnchor": 999},  # override one knob; rest stays default
-    })
+    p = _config_path(
+        tmp_path,
+        {
+            "weights": {"qbAnchor": 999},  # override one knob; rest stays default
+        },
+    )
     cfg = team_assignment.load_config(p)
     assert cfg["weights"]["qbAnchor"] == 999
     # Sibling weights still defaulted.
@@ -151,14 +161,8 @@ def test_resolve_favorite_key_direct_match():
 def test_resolve_favorite_key_via_alias():
     favs = {"jason": {"abbr": "MIN"}, "michaela": {"abbr": "MIA"}}
     aliases = {"jasonleetucker": "jason", "makayla": "michaela"}
-    assert (
-        team_assignment._resolve_favorite_key("JasonLeeTucker", favs, aliases)
-        == "jason"
-    )
-    assert (
-        team_assignment._resolve_favorite_key("MaKayla", favs, aliases)
-        == "michaela"
-    )
+    assert team_assignment._resolve_favorite_key("JasonLeeTucker", favs, aliases) == "jason"
+    assert team_assignment._resolve_favorite_key("MaKayla", favs, aliases) == "michaela"
 
 
 def test_resolve_favorite_key_missing_falls_to_none():
@@ -179,7 +183,9 @@ def _config():
 def test_score_qb_anchor():
     qb = _player("KC", "QB", depth=1, years_exp=5)
     pts, contribs = team_assignment._score_player(
-        qb, config=_config(), league_idp_enabled=False,
+        qb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # T1 (10) + T3 elite proxy at QB depth 1 (3) = 13.
     assert pts == 13
@@ -190,7 +196,9 @@ def test_score_qb_anchor():
 def test_score_qb_backup_no_anchor():
     qb = _player("KC", "QB", depth=2, years_exp=5)
     pts, _ = team_assignment._score_player(
-        qb, config=_config(), league_idp_enabled=False,
+        qb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # No T1 (depth != 1).  No T3 (also gated on depth 1).  No
     # rookie / IDP / skill rules apply.  → 0.
@@ -200,7 +208,9 @@ def test_score_qb_backup_no_anchor():
 def test_score_skill_starter_and_elite_proxy():
     rb = _player("BUF", "RB", depth=1, years_exp=3)
     pts, contribs = team_assignment._score_player(
-        rb, config=_config(), league_idp_enabled=False,
+        rb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # T2 starter (5) + T3 elite proxy (3) = 8.
     assert pts == 8
@@ -211,7 +221,9 @@ def test_score_skill_starter_and_elite_proxy():
 def test_score_skill_committee():
     rb = _player("BUF", "RB", depth=2, years_exp=3)
     pts, _ = team_assignment._score_player(
-        rb, config=_config(), league_idp_enabled=False,
+        rb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # T2 committee (2).  No T3 (depth != 1).  → 2.
     assert pts == 2
@@ -220,7 +232,9 @@ def test_score_skill_committee():
 def test_score_skill_bench_zero():
     rb = _player("BUF", "RB", depth=4, years_exp=3)
     pts, _ = team_assignment._score_player(
-        rb, config=_config(), league_idp_enabled=False,
+        rb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     assert pts == 0
 
@@ -228,7 +242,9 @@ def test_score_skill_bench_zero():
 def test_score_rookie_round_one():
     rookie = _player("CHI", "WR", depth=1, years_exp=0, draft_round=1)
     pts, contribs = team_assignment._score_player(
-        rookie, config=_config(), league_idp_enabled=False,
+        rookie,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # T2 starter (5) + T3 elite proxy (3) + T4 round 1 (4) = 12.
     assert pts == 12
@@ -238,7 +254,9 @@ def test_score_rookie_round_one():
 def test_score_rookie_round_two():
     rookie = _player("CHI", "WR", depth=2, years_exp=0, draft_round=2)
     pts, contribs = team_assignment._score_player(
-        rookie, config=_config(), league_idp_enabled=False,
+        rookie,
+        config=_config(),
+        league_idp_enabled=False,
     )
     # T2 committee (2) + T4 round 2 (2) = 4.
     assert pts == 4
@@ -249,12 +267,16 @@ def test_score_idp_starter_only_when_league_idp_enabled():
     lb = _player("DAL", "LB", depth=1, years_exp=3)
     # IDP off -> no points at all.
     off_pts, _ = team_assignment._score_player(
-        lb, config=_config(), league_idp_enabled=False,
+        lb,
+        config=_config(),
+        league_idp_enabled=False,
     )
     assert off_pts == 0
     # IDP on -> T5 starter (2).
     on_pts, _ = team_assignment._score_player(
-        lb, config=_config(), league_idp_enabled=True,
+        lb,
+        config=_config(),
+        league_idp_enabled=True,
     )
     assert on_pts == 2
 
@@ -262,7 +284,9 @@ def test_score_idp_starter_only_when_league_idp_enabled():
 def test_score_player_with_no_position_returns_zero():
     odd = {"team": "KC", "position": ""}
     pts, contribs = team_assignment._score_player(
-        odd, config=_config(), league_idp_enabled=False,
+        odd,
+        config=_config(),
+        league_idp_enabled=False,
     )
     assert pts == 0
     assert contribs == []
@@ -274,17 +298,20 @@ def test_score_player_with_no_position_returns_zero():
 def _stub_config(monkeypatch, tmp_path: Path):
     """Patch the module's _CONFIG_PATH to a tmp file so each test
     runs against an isolated config without leaking real favorites."""
-    cfg_path = _config_path(tmp_path, {
-        "favorites": {
-            "jason": {"abbr": "MIN", "display": "Minnesota Vikings"},
-            "brent": {"abbr": "BUF", "display": "Buffalo Bills"},
+    cfg_path = _config_path(
+        tmp_path,
+        {
+            "favorites": {
+                "jason": {"abbr": "MIN", "display": "Minnesota Vikings"},
+                "brent": {"abbr": "BUF", "display": "Buffalo Bills"},
+            },
+            "displayNameAliases": {
+                "jasonleetucker": "jason",
+            },
+            "thresholds": {"assignmentMinPoints": 10},
+            "limits": {"maxTeamsPerOwner": 3},
         },
-        "displayNameAliases": {
-            "jasonleetucker": "jason",
-        },
-        "thresholds": {"assignmentMinPoints": 10},
-        "limits": {"maxTeamsPerOwner": 3},
-    })
+    )
     monkeypatch.setattr(team_assignment, "_CONFIG_PATH", cfg_path)
 
 
@@ -319,9 +346,9 @@ def test_build_section_includes_roster_based_when_above_threshold(monkeypatch, t
         {"roster_id": 1, "owner_id": "oA", "players": ["p1", "p2", "p3"]},
     ]
     nfl = {
-        "p1": _player("BUF", "QB", depth=1, years_exp=5),       # +13
-        "p2": _player("BUF", "RB", depth=1, years_exp=3),       # +8
-        "p3": _player("BUF", "WR", depth=2, years_exp=3),       # +2
+        "p1": _player("BUF", "QB", depth=1, years_exp=5),  # +13
+        "p2": _player("BUF", "RB", depth=1, years_exp=3),  # +8
+        "p3": _player("BUF", "WR", depth=2, years_exp=3),  # +2
     }
     # Total Bills score: 23.  Threshold is 10.  Should appear.
     snap = _snapshot(rosters, nfl, mgrs)
@@ -364,16 +391,16 @@ def test_build_section_caps_at_max_teams(monkeypatch, tmp_path: Path):
     # Stock five different NFL teams with +13 each (QB anchor + elite).
     nfl = {
         "p1": _player("BUF", "QB", depth=1, years_exp=5),
-        "p2": _player("KC",  "QB", depth=1, years_exp=5),
+        "p2": _player("KC", "QB", depth=1, years_exp=5),
         "p3": _player("DET", "QB", depth=1, years_exp=5),
         "p4": _player("PHI", "QB", depth=1, years_exp=5),
         "p5": _player("BAL", "QB", depth=1, years_exp=5),
         # Ensure tiebreaker is alphabetical when scores are equal.
         "p6": _player("BUF", "RB", depth=1, years_exp=5),  # bumps BUF to 21
         "p7": _player("BUF", "WR", depth=1, years_exp=5),  # bumps BUF to 29
-        "p8": _player("KC",  "RB", depth=1, years_exp=5),  # bumps KC to 21
+        "p8": _player("KC", "RB", depth=1, years_exp=5),  # bumps KC to 21
         "p9": _player("DET", "RB", depth=1, years_exp=5),  # bumps DET to 21
-        "p10": _player("PHI", "RB", depth=1, years_exp=5), # bumps PHI to 21
+        "p10": _player("PHI", "RB", depth=1, years_exp=5),  # bumps PHI to 21
     }
     snap = _snapshot(rosters, nfl, mgrs)
     section = team_assignment.build_section(snap)
@@ -421,9 +448,7 @@ def test_build_section_emits_contributors_breakdown(monkeypatch, tmp_path: Path)
     }
     snap = _snapshot(rosters, nfl, mgrs)
     section = team_assignment.build_section(snap)
-    bills = next(
-        t for t in section["assignments"][0]["nflTeams"] if t["abbr"] == "BUF"
-    )
+    bills = next(t for t in section["assignments"][0]["nflTeams"] if t["abbr"] == "BUF")
     contribs = bills["contributors"]
     # Expect one contributor row per scoring rule that fired.
     assert len(contribs) >= 3
@@ -464,9 +489,7 @@ def test_build_section_idp_on_includes_idp_starter_when_above_threshold(
     assert "DAL" in abbrs
 
 
-def test_build_section_no_favorite_match_still_emits_roster_assignment(
-    monkeypatch, tmp_path: Path
-):
+def test_build_section_no_favorite_match_still_emits_roster_assignment(monkeypatch, tmp_path: Path):
     """Manager with no favorite configured still gets roster-based
     assignments above the threshold."""
     _stub_config(monkeypatch, tmp_path)
@@ -490,11 +513,13 @@ def test_build_section_orders_assignments_alphabetically_by_display_name(
     monkeypatch, tmp_path: Path
 ):
     _stub_config(monkeypatch, tmp_path)
-    mgrs = ManagerRegistry(by_owner_id={
-        "oA": _manager("oA", "Zane"),
-        "oB": _manager("oB", "Alex"),
-        "oC": _manager("oC", "Brent"),
-    })
+    mgrs = ManagerRegistry(
+        by_owner_id={
+            "oA": _manager("oA", "Zane"),
+            "oB": _manager("oB", "Alex"),
+            "oC": _manager("oC", "Brent"),
+        }
+    )
     rosters = [
         {"roster_id": 1, "owner_id": "oA", "players": []},
         {"roster_id": 2, "owner_id": "oB", "players": []},
@@ -514,6 +539,7 @@ def test_section_registered_in_public_contract():
         _SECTION_BUILDERS,
         PUBLIC_SECTION_KEYS,
     )
+
     assert "teamAssignment" in _SECTION_BUILDERS
     assert "teamAssignment" in PUBLIC_SECTION_KEYS
 

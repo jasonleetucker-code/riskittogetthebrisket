@@ -7,6 +7,7 @@ workbook's R45:R116 column is the fallback when Sleeper is
 unreachable.  Tests that need to assert workbook-only behavior pass
 ``apply_sleeper_trades=False``.
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,11 +21,11 @@ sys.path.insert(0, str(REPO))
 
 def _load():
     import server
+
     return server._parse_draft_data()
 
 
 class TestDraftDataParsing(unittest.TestCase):
-
     def test_72_picks(self):
         pick_dollars, _, _, _, _, _ = _load()
         self.assertEqual(len(pick_dollars), 72)
@@ -46,17 +47,17 @@ class TestDraftDataParsing(unittest.TestCase):
 
 
 class TestIntegerRounding(unittest.TestCase):
-
     def test_round_to_budget_sums_to_1200(self):
         import server
+
         _, workbook_picks, _, _, _, _ = _load()
         values = [wp["value"] for wp in workbook_picks]
         rounded = server._round_to_budget(values, 1200)
-        self.assertEqual(sum(rounded), 1200,
-                         f"Rounded sum = {sum(rounded)}, expected 1200")
+        self.assertEqual(sum(rounded), 1200, f"Rounded sum = {sum(rounded)}, expected 1200")
 
     def test_round_to_budget_all_ints(self):
         import server
+
         _, workbook_picks, _, _, _, _ = _load()
         values = [wp["value"] for wp in workbook_picks]
         rounded = server._round_to_budget(values, 1200)
@@ -99,37 +100,35 @@ class TestIntegerRounding(unittest.TestCase):
         rounded = server._round_to_budget(values, 1200)
 
         # Pair at the head — both indices fall inside the +1 block.
-        self.assertEqual(rounded[0], rounded[1],
-                         f"head-pair: {rounded[0]} != {rounded[1]}")
+        self.assertEqual(rounded[0], rounded[1], f"head-pair: {rounded[0]} != {rounded[1]}")
         # Pair near the middle of the +1 block.
-        self.assertEqual(rounded[20], rounded[21],
-                         f"mid-block: {rounded[20]} != {rounded[21]}")
+        self.assertEqual(rounded[20], rounded[21], f"mid-block: {rounded[20]} != {rounded[21]}")
         # Pair outside the +1 block — equal inputs at low remainders.
-        self.assertEqual(rounded[50], rounded[51],
-                         f"outside-block: {rounded[50]} != {rounded[51]}")
+        self.assertEqual(rounded[50], rounded[51], f"outside-block: {rounded[50]} != {rounded[51]}")
 
 
 class TestApiOutput(unittest.TestCase):
-
     def test_api_values_are_half_dollar_aligned(self):
         # Pick values now come from the workbook's L2:L73 column, which
         # carries half-dollar precision (R2 picks at $28.50, R5 picks
         # at $1.50, etc.).  Each value must be a number that's an
         # integer multiple of 0.5.
         import server
+
         result = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
         for p in result["picks"]:
             v = p["adjustedDollarValue"]
-            self.assertIsInstance(v, (int, float),
-                                  f"{p['pick']}: {v} is not numeric")
+            self.assertIsInstance(v, (int, float), f"{p['pick']}: {v} is not numeric")
             doubled = float(v) * 2
-            self.assertAlmostEqual(doubled, round(doubled), places=6,
-                                   msg=f"{p['pick']}: {v} not half-dollar aligned")
+            self.assertAlmostEqual(
+                doubled, round(doubled), places=6, msg=f"{p['pick']}: {v} not half-dollar aligned"
+            )
 
     def test_api_total_budget_1200(self):
         import server
+
         result = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
@@ -137,6 +136,7 @@ class TestApiOutput(unittest.TestCase):
 
     def test_api_team_totals_sum_to_1200(self):
         import server
+
         result = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
@@ -153,13 +153,16 @@ class TestTeamTotalsMirrorSheet(unittest.TestCase):
 
     def test_decimal_totals_match_sheet_per_owner(self):
         from collections import defaultdict
+
         _, workbook_picks, _, wb_team_totals, _, _ = _load()
         computed = defaultdict(float)
         for wp in workbook_picks:
             computed[wp["owner"]] += wp["value"]
         for owner, total in computed.items():
             self.assertAlmostEqual(
-                total, wb_team_totals.get(owner, 0.0), places=2,
+                total,
+                wb_team_totals.get(owner, 0.0),
+                places=2,
                 msg=f"{owner}: computed={total}, sheet={wb_team_totals.get(owner)}",
             )
 
@@ -175,6 +178,7 @@ class TestTeamTotalsMirrorSheet(unittest.TestCase):
         invariant."""
         import server
         from collections import defaultdict
+
         _, workbook_picks, _, _, _, _ = _load()
         decimals = defaultdict(float)
         for wp in workbook_picks:
@@ -188,16 +192,17 @@ class TestTeamTotalsMirrorSheet(unittest.TestCase):
         # don't appear as owners in R45:R116 (e.g. expansion franchises
         # with no picks yet).
         api_totals = sorted(
-            [t["auctionDollars"] for t in result["teamTotals"]], reverse=True,
+            [t["auctionDollars"] for t in result["teamTotals"]],
+            reverse=True,
         )
         decimal_vals = sorted(decimals.values(), reverse=True)
         pad = max(0, len(api_totals) - len(decimal_vals))
         decimal_vals += [0.0] * pad
         expected = sorted(
-            server._round_to_budget(decimal_vals, 1200), reverse=True,
+            server._round_to_budget(decimal_vals, 1200),
+            reverse=True,
         )
-        self.assertEqual(api_totals, expected,
-                         f"api={api_totals} expected={expected}")
+        self.assertEqual(api_totals, expected, f"api={api_totals} expected={expected}")
 
 
 class TestSleeperTradeOverlay(unittest.TestCase):
@@ -218,8 +223,7 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         import json as _json
 
         meta_payload = url_to_payload.get("__LEAGUE_META__")
-        substring_map = {k: v for k, v in url_to_payload.items()
-                         if k != "__LEAGUE_META__"}
+        substring_map = {k: v for k, v in url_to_payload.items() if k != "__LEAGUE_META__"}
 
         def fake_urlopen(url, *args, **kwargs):
             target = url.full_url if hasattr(url, "full_url") else str(url)
@@ -233,12 +237,12 @@ class TestSleeperTradeOverlay(unittest.TestCase):
                 if key in target:
                     return io.BytesIO(_json.dumps(payload).encode())
             raise AssertionError(f"unexpected urlopen({target})")
+
         return fake_urlopen
 
-    def _build_overlay_fixture(self, draft_season, *,
-                               league_meta_season=None,
-                               drafts_seasons=None,
-                               traded_pick_season=None):
+    def _build_overlay_fixture(
+        self, draft_season, *, league_meta_season=None, drafts_seasons=None, traded_pick_season=None
+    ):
         """Construct mocked Sleeper responses for a single traded pick.
 
         Returns ``(url_map, wp, orig_first, other_first)`` where ``wp``
@@ -270,8 +274,7 @@ class TestSleeperTradeOverlay(unittest.TestCase):
                 continue
             orig = slot_to_original.get(wp["pick"])
             other = next(
-                (n for s, n in slot_to_original.items()
-                 if s != wp["pick"] and n != orig),
+                (n for s, n in slot_to_original.items() if s != wp["pick"] and n != orig),
                 None,
             )
             if orig and other:
@@ -288,11 +291,13 @@ class TestSleeperTradeOverlay(unittest.TestCase):
             rid = int(slot)
             owner_uid = f"u{rid}"
             rosters.append({"roster_id": rid, "owner_id": owner_uid})
-            users.append({
-                "user_id": owner_uid,
-                "display_name": f"Team-{first_name}",
-                "metadata": {},
-            })
+            users.append(
+                {
+                    "user_id": owner_uid,
+                    "display_name": f"Team-{first_name}",
+                    "metadata": {},
+                }
+            )
             slot_to_roster[str(slot)] = rid
             roster_id_for_first[first_name] = rid
 
@@ -303,18 +308,17 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         if league_meta_season is None:
             league_meta_season = draft_season
 
-        drafts = [
-            {"draft_id": f"D{i}", "season": s}
-            for i, s in enumerate(drafts_seasons, start=1)
-        ]
+        drafts = [{"draft_id": f"D{i}", "season": s} for i, s in enumerate(drafts_seasons, start=1)]
         draft_detail = {"slot_to_roster_id": slot_to_roster}
-        traded_picks = [{
-            "season": traded_pick_season,
-            "round": wp["round"],
-            "roster_id": roster_id_for_first[orig_first],
-            "owner_id": roster_id_for_first[other_first],
-            "previous_owner_id": roster_id_for_first[orig_first],
-        }]
+        traded_picks = [
+            {
+                "season": traded_pick_season,
+                "round": wp["round"],
+                "roster_id": roster_id_for_first[orig_first],
+                "owner_id": roster_id_for_first[other_first],
+                "previous_owner_id": roster_id_for_first[orig_first],
+            }
+        ]
         url_map: dict[str, object] = {
             "/rosters": rosters,
             "/users": users,
@@ -345,14 +349,15 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         orig_first, other_first) or None if the workbook is
         unavailable."""
         import server
+
         fixture = self._build_overlay_fixture(draft_season, **fixture_kwargs)
         if fixture is None:
             return None
         url_map, wp, orig_first, other_first = fixture
-        with patch.object(server.urllib.request, "urlopen",
-                          self._stub_urlopen(url_map)), \
-             patch.object(server, "_sleeper_league_id_for_draft",
-                          return_value="TEST_LEAGUE"):
+        with (
+            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
+            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
+        ):
             with_overlay = server._fetch_draft_capital(apply_sleeper_trades=True)
             without_overlay = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in with_overlay or "error" in without_overlay:
@@ -372,19 +377,20 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         dollar total must increase and the original owner's must
         decrease — independent of whatever R45:R116 says."""
         from datetime import datetime, timezone
+
         run = self._run_overlay(datetime.now(timezone.utc).year)
         if run is None:
             self.skipTest("Workbook unavailable")
         with_overlay, without_overlay, wp, orig_first, other_first = run
 
-        delta_recv = (self._team_total(with_overlay, other_first)
-                      - self._team_total(without_overlay, other_first))
-        delta_orig = (self._team_total(with_overlay, orig_first)
-                      - self._team_total(without_overlay, orig_first))
-        self.assertGreater(delta_recv, 0,
-                           f"Receiving team did not gain dollars: {delta_recv}")
-        self.assertLess(delta_orig, 0,
-                        f"Original owner did not lose dollars: {delta_orig}")
+        delta_recv = self._team_total(with_overlay, other_first) - self._team_total(
+            without_overlay, other_first
+        )
+        delta_orig = self._team_total(with_overlay, orig_first) - self._team_total(
+            without_overlay, orig_first
+        )
+        self.assertGreater(delta_recv, 0, f"Receiving team did not gain dollars: {delta_recv}")
+        self.assertLess(delta_orig, 0, f"Original owner did not lose dollars: {delta_orig}")
 
         traded_pick_label = f"{wp['round']}.{str(wp['pick']).zfill(2)}"
         overlay_pick = next(
@@ -414,8 +420,9 @@ class TestSleeperTradeOverlay(unittest.TestCase):
              hand-maintained for N+1 in this window).
         """
         from datetime import datetime, timezone
-        active = datetime.now(timezone.utc).year + 1   # active pick season
-        prior = active - 1                              # last completed draft
+
+        active = datetime.now(timezone.utc).year + 1  # active pick season
+        prior = active - 1  # last completed draft
         run = self._run_overlay(
             active,
             league_meta_season=active,
@@ -426,19 +433,21 @@ class TestSleeperTradeOverlay(unittest.TestCase):
             self.skipTest("Workbook unavailable")
         with_overlay, without_overlay, _wp, _orig_first, _other_first = run
         # League meta drives the response season, not max(drafts).
-        self.assertEqual(with_overlay["season"], active,
-                         "Response season must follow league meta, not drafts max")
+        self.assertEqual(
+            with_overlay["season"],
+            active,
+            "Response season must follow league meta, not drafts max",
+        )
         # Overlay must not apply incorrectly: per-team totals must be
         # bit-identical between with/without when the active-season
         # slot map is unavailable.
-        with_totals = sorted(
-            (t["team"], t["auctionDollars"]) for t in with_overlay["teamTotals"]
-        )
+        with_totals = sorted((t["team"], t["auctionDollars"]) for t in with_overlay["teamTotals"])
         without_totals = sorted(
             (t["team"], t["auctionDollars"]) for t in without_overlay["teamTotals"]
         )
-        self.assertEqual(with_totals, without_totals,
-                         "Overlay shifted dollars using a cross-year slot map")
+        self.assertEqual(
+            with_totals, without_totals, "Overlay shifted dollars using a cross-year slot map"
+        )
         # And teamTotals must not contain duplicate logical teams
         # (e.g. a Sleeper "Russini Panini" row at $0 plus a workbook
         # "Jason" row at $XX).  Codex P1 round 4: when the first-name
@@ -448,7 +457,8 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         # length must equal the unique team count from the workbook.
         team_names = {row["team"] for row in with_overlay["teamTotals"]}
         self.assertEqual(
-            len(with_overlay["teamTotals"]), len(team_names),
+            len(with_overlay["teamTotals"]),
+            len(team_names),
             f"Duplicate rows in teamTotals: {with_overlay['teamTotals']}",
         )
         self.assertLessEqual(
@@ -465,6 +475,7 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         Pre-fix, this filter (``season != current_year``) silently
         dropped every traded pick in that window."""
         from datetime import datetime, timezone
+
         wall_year = datetime.now(timezone.utc).year
         # Simulate the boundary: Sleeper reports next year's draft.
         sleeper_season = wall_year + 1
@@ -475,10 +486,12 @@ class TestSleeperTradeOverlay(unittest.TestCase):
 
         # The overlay must still flip the dollar totals, even though
         # the draft season differs from datetime.now().year.
-        delta_recv = (self._team_total(with_overlay, other_first)
-                      - self._team_total(without_overlay, other_first))
-        self.assertGreater(delta_recv, 0,
-                           "Trade overlay regressed under sleeper_season != calendar_year")
+        delta_recv = self._team_total(with_overlay, other_first) - self._team_total(
+            without_overlay, other_first
+        )
+        self.assertGreater(
+            delta_recv, 0, "Trade overlay regressed under sleeper_season != calendar_year"
+        )
         # And the response must report the actual draft season.
         self.assertEqual(with_overlay["season"], sleeper_season)
 
@@ -501,11 +514,17 @@ class TestLiveStandingsOverride(unittest.TestCase):
     def _stub_urlopen(self, url_to_payload):
         return TestSleeperTradeOverlay._stub_urlopen(self, url_to_payload)
 
-    def _build_fixture(self, draft_season, *, fpts_by_rid, trades=None,
-                       empty_draft_detail=False,
-                       drop_slots_from_draft_detail=None,
-                       remap_slot_keys=None,
-                       extra_unbridged_rosters=None):
+    def _build_fixture(
+        self,
+        draft_season,
+        *,
+        fpts_by_rid,
+        trades=None,
+        empty_draft_detail=False,
+        drop_slots_from_draft_detail=None,
+        remap_slot_keys=None,
+        extra_unbridged_rosters=None,
+    ):
         """Mocked Sleeper fixture with explicit per-roster fpts so the
         live-standings override fires.
 
@@ -548,16 +567,20 @@ class TestLiveStandingsOverride(unittest.TestCase):
                 "fpts": int(fpts_by_rid.get(rid, 0)),
                 "fpts_decimal": 0,
             }
-            rosters.append({
-                "roster_id": rid,
-                "owner_id": owner_uid,
-                "settings": settings,
-            })
-            users.append({
-                "user_id": owner_uid,
-                "display_name": f"Team-{first_name}",
-                "metadata": {},
-            })
+            rosters.append(
+                {
+                    "roster_id": rid,
+                    "owner_id": owner_uid,
+                    "settings": settings,
+                }
+            )
+            users.append(
+                {
+                    "user_id": owner_uid,
+                    "display_name": f"Team-{first_name}",
+                    "metadata": {},
+                }
+            )
             slot_to_roster[str(slot)] = rid
             first_name_by_rid[rid] = first_name
 
@@ -565,25 +588,29 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # doesn't bridge.  These get a real /rosters entry (so they
         # show up in roster_fppts) but are intentionally absent
         # from the slot_to_roster_id draft map.
-        for rid, fpts in (extra_unbridged_rosters or ()):
+        for rid, fpts in extra_unbridged_rosters or ():
             owner_uid = f"u{rid}"
-            rosters.append({
-                "roster_id": int(rid),
-                "owner_id": owner_uid,
-                "settings": {"fpts": int(fpts), "fpts_decimal": 0},
-            })
-            users.append({
-                "user_id": owner_uid,
-                "display_name": f"Extra-{rid}",
-                "metadata": {},
-            })
+            rosters.append(
+                {
+                    "roster_id": int(rid),
+                    "owner_id": owner_uid,
+                    "settings": {"fpts": int(fpts), "fpts_decimal": 0},
+                }
+            )
+            users.append(
+                {
+                    "user_id": owner_uid,
+                    "display_name": f"Extra-{rid}",
+                    "metadata": {},
+                }
+            )
 
         drafts = [{"draft_id": "D1", "season": draft_season}]
         if empty_draft_detail:
             draft_detail: dict[str, object] = {}
         else:
             partial_map = dict(slot_to_roster)
-            for s in (drop_slots_from_draft_detail or ()):
+            for s in drop_slots_from_draft_detail or ():
                 partial_map.pop(str(s), None)
             # ``remap_slot_keys`` rewrites slot KEYS to out-of-range
             # values WITHOUT changing the entry count — simulates
@@ -595,14 +622,16 @@ class TestLiveStandingsOverride(unittest.TestCase):
                     partial_map[str(new_s)] = partial_map.pop(str(old_s))
             draft_detail = {"slot_to_roster_id": partial_map}
         traded_picks_payload = []
-        for t in (trades or []):
-            traded_picks_payload.append({
-                "season": draft_season,
-                "round": t["round"],
-                "roster_id": t["original_rid"],
-                "owner_id": t["new_rid"],
-                "previous_owner_id": t["original_rid"],
-            })
+        for t in trades or []:
+            traded_picks_payload.append(
+                {
+                    "season": draft_season,
+                    "round": t["round"],
+                    "roster_id": t["original_rid"],
+                    "owner_id": t["new_rid"],
+                    "previous_owner_id": t["original_rid"],
+                }
+            )
 
         url_map: dict[str, object] = {
             "/rosters": rosters,
@@ -616,14 +645,15 @@ class TestLiveStandingsOverride(unittest.TestCase):
 
     def _run(self, draft_season, **fixture_kwargs):
         import server
+
         fixture = self._build_fixture(draft_season, **fixture_kwargs)
         if fixture is None:
             return None
         url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
-        with patch.object(server.urllib.request, "urlopen",
-                          self._stub_urlopen(url_map)), \
-             patch.object(server, "_sleeper_league_id_for_draft",
-                          return_value="TEST_LEAGUE"):
+        with (
+            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
+            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
+        ):
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
         if "error" in result:
             return None
@@ -637,6 +667,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         every untraded pick read ``isTraded: true`` mid-season.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         # Reverse the standings: roster 12 fewest points → slot 1,
         # roster 11 next → slot 2, ..., roster 1 most → slot 12.
@@ -650,12 +681,10 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # originalOwner == currentOwner (regardless of which slot
         # the live reshuffle moved each team to).
         misflagged = [
-            p for p in result["picks"]
-            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+            p for p in result["picks"] if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
         ]
         self.assertEqual(
-            misflagged, [],
-            "Untraded picks were flagged as traded after live-standings reshuffle"
+            misflagged, [], "Untraded picks were flagged as traded after live-standings reshuffle"
         )
 
     def test_traded_pick_follows_original_roster_to_its_new_slot(self):
@@ -668,6 +697,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         untouched.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         # Same reversed standings: rid r → slot (13 - r).
         fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
@@ -717,7 +747,6 @@ class TestLiveStandingsOverride(unittest.TestCase):
         self.assertEqual(slot1_pick["currentOwner"], rid_12_team)
         self.assertFalse(slot1_pick["isTraded"])
 
-
     def test_traded_pick_detected_when_two_rosters_share_display_name(self):
         """Codex P2: ``isTraded`` must use stable roster_ids, not the
         rendered display names.  Sleeper doesn't enforce unique
@@ -726,6 +755,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         render to the same string.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         # No fpts → live override doesn't fire; this exercises the
         # workbook + Sleeper trade overlay path where the display-only
@@ -748,10 +778,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
                 user["display_name"] = shared_label
 
         import server
-        with patch.object(server.urllib.request, "urlopen",
-                          self._stub_urlopen(url_map)), \
-             patch.object(server, "_sleeper_league_id_for_draft",
-                          return_value="TEST_LEAGUE"):
+
+        with (
+            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
+            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
+        ):
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
@@ -786,6 +817,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         roster IDs in ``slot_to_roster``.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         # All 12 workbook rosters have meaningful fpts.
         fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
@@ -803,11 +835,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
         result, workbook_picks, slot_to_original, first_name_by_rid = run
 
         misflagged = [
-            p for p in result["picks"]
-            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+            p for p in result["picks"] if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
         ]
         self.assertEqual(
-            misflagged, [],
+            misflagged,
+            [],
             "Untraded picks were flagged traded when Sleeper exposed extra "
             "unbridged rosters (live reshuffle must restrict to bridged rids)",
         )
@@ -827,22 +859,22 @@ class TestLiveStandingsOverride(unittest.TestCase):
         COMPLETE bridge, not just a non-empty one.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
         # Drop two slots from the draft detail to simulate a partial
         # bridge (10 of 12 workbook slots covered).
-        run = self._run(season, fpts_by_rid=fpts, trades=[],
-                        drop_slots_from_draft_detail=[7, 8])
+        run = self._run(season, fpts_by_rid=fpts, trades=[], drop_slots_from_draft_detail=[7, 8])
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
 
         misflagged = [
-            p for p in result["picks"]
-            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+            p for p in result["picks"] if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
         ]
         self.assertEqual(
-            misflagged, [],
+            misflagged,
+            [],
             "Untraded picks were flagged traded under partial slot_to_roster "
             "coverage (live-standings override should require complete bridge)",
         )
@@ -859,10 +891,10 @@ class TestLiveStandingsOverride(unittest.TestCase):
         ordering in that case preserves correctness.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
-        run = self._run(season, fpts_by_rid=fpts, trades=[],
-                        empty_draft_detail=True)
+        run = self._run(season, fpts_by_rid=fpts, trades=[], empty_draft_detail=True)
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -871,11 +903,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # the workbook's slot ordering preserved.  Untraded picks
         # must keep originalOwner == currentOwner.
         misflagged = [
-            p for p in result["picks"]
-            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+            p for p in result["picks"] if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
         ]
         self.assertEqual(
-            misflagged, [],
+            misflagged,
+            [],
             "Untraded picks were flagged traded when slot_to_roster was empty "
             "(live-standings override should have been gated off)",
         )
@@ -894,22 +926,22 @@ class TestLiveStandingsOverride(unittest.TestCase):
         keys; partial coverage falls back to the workbook ordering.
         """
         from datetime import datetime, timezone
+
         season = datetime.now(timezone.utc).year
         fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
         # Same entry count (12) but slots 11 & 12 re-keyed to
         # out-of-range 101/102 so they no longer cover the workbook.
-        run = self._run(season, fpts_by_rid=fpts, trades=[],
-                        remap_slot_keys={11: 101, 12: 102})
+        run = self._run(season, fpts_by_rid=fpts, trades=[], remap_slot_keys={11: 101, 12: 102})
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
 
         misflagged = [
-            p for p in result["picks"]
-            if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
+            p for p in result["picks"] if p["originalOwner"] != p["currentOwner"] or p["isTraded"]
         ]
         self.assertEqual(
-            misflagged, [],
+            misflagged,
+            [],
             "Untraded picks mis-flagged when slot_to_roster keys did not "
             "cover the workbook slot set (count-only gate regression)",
         )
@@ -958,8 +990,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         for p in wb_picks:
             if p["pick"] == dup_slot:
                 p["owner"] = shared_first
-        mutated = (pick_dollars, wb_picks, slot_to_original,
-                   wb_totals, rookies, pv_l)
+        mutated = (pick_dollars, wb_picks, slot_to_original, wb_totals, rookies, pv_l)
 
         # Full 12-roster Sleeper fixture aligned to the (mutated)
         # slot_to_original — rid == slot, distinct display names so the
@@ -970,10 +1001,14 @@ class TestLiveStandingsOverride(unittest.TestCase):
         rosters, users, slot_to_roster = [], [], {}
         for slot in slot_to_original:
             rid = int(slot)
-            rosters.append({"roster_id": rid, "owner_id": f"u{rid}",
-                             "settings": {"fpts": 0, "fpts_decimal": 0}})
-            users.append({"user_id": f"u{rid}",
-                          "display_name": f"Team-{rid}", "metadata": {}})
+            rosters.append(
+                {
+                    "roster_id": rid,
+                    "owner_id": f"u{rid}",
+                    "settings": {"fpts": 0, "fpts_decimal": 0},
+                }
+            )
+            users.append({"user_id": f"u{rid}", "display_name": f"Team-{rid}", "metadata": {}})
             slot_to_roster[str(slot)] = rid
         keep_rid, dup_rid = int(keep_slot), int(dup_slot)
         url_map = {
@@ -994,11 +1029,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
             ],
             "__LEAGUE_META__": {"season": str(season)},
         }
-        with patch.object(server, "_parse_draft_data", return_value=mutated), \
-             patch.object(server.urllib.request, "urlopen",
-                          self._stub_urlopen(url_map)), \
-             patch.object(server, "_sleeper_league_id_for_draft",
-                          return_value="TEST_LEAGUE"):
+        with (
+            patch.object(server, "_parse_draft_data", return_value=mutated),
+            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
+            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
+        ):
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
@@ -1018,8 +1053,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # dup_slot's own R1 pick was NOT traded — must stay unflagged.
         self.assertFalse(
             by_pick[dup_pick]["isTraded"],
-            "Untraded pick mis-flagged traded due to duplicate-first-name "
-            "roster_id collapse",
+            "Untraded pick mis-flagged traded due to duplicate-first-name " "roster_id collapse",
         )
 
 

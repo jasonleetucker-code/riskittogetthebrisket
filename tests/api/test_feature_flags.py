@@ -5,6 +5,7 @@ These pin the two core guarantees:
 1. Every flag has an explicit default.  Unknown flag reads raise.
 2. Env-var override works, and reload() picks up mid-run changes.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -32,26 +33,24 @@ def test_every_flag_defaults_off_except_safe_additive():
     # _DEFAULTS explaining why it's safe + how to flip it off via
     # RISKIT_FEATURE_<NAME>=0 if needed.
     safe_on = {
-        "unified_id_mapper",           # no behavior change, read API only
-        "nfl_data_ingest",             # guarded import; empty [] if missing
-        "realized_points_api",         # endpoint-only, inert until called
+        "unified_id_mapper",  # no behavior change, read API only
+        "nfl_data_ingest",  # guarded import; empty [] if missing
+        "realized_points_api",  # endpoint-only, inert until called
         "value_confidence_intervals",  # additive valueBand field
-        "positional_tiers",            # additive tierId field
-        "usage_signals",               # freshness + starter-guarded
-        "espn_injury_feed",            # circuit-breaker protected
-        "depth_chart_validation",      # circuit-breaker protected
-        "monte_carlo_trade",           # new endpoint, old unchanged
+        "positional_tiers",  # additive tierId field
+        "usage_signals",  # freshness + starter-guarded
+        "espn_injury_feed",  # circuit-breaker protected
+        "depth_chart_validation",  # circuit-breaker protected
+        "monte_carlo_trade",  # new endpoint, old unchanged
     }
     off_only = {
-        "dynamic_source_weights",      # held OFF until backtest data exists
+        "dynamic_source_weights",  # held OFF until backtest data exists
     }
     for name, value in flags.items():
         if name in safe_on:
             continue
         if name in off_only:
-            assert value is False, (
-                f"flag {name!r} expected OFF but is ON"
-            )
+            assert value is False, f"flag {name!r} expected OFF but is ON"
             continue
         assert value is False, (
             f"flag {name!r} defaults ON but hasn't been vetted as "

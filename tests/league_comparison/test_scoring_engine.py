@@ -1,4 +1,5 @@
 """Test the per-player season scoring engine."""
+
 from __future__ import annotations
 
 import pytest
@@ -14,9 +15,14 @@ from src.league_comparison.scoring_engine import (
 
 
 _PPR = {
-    "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
-    "rush_yd": 0.1, "rush_td": 6,
-    "rec": 1.0, "rec_yd": 0.1, "rec_td": 6,
+    "pass_yd": 0.04,
+    "pass_td": 4,
+    "pass_int": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec": 1.0,
+    "rec_yd": 0.1,
+    "rec_td": 6,
     "fum_lost": -2,
 }
 
@@ -28,9 +34,14 @@ def _stat(pid: str, pos: str, week: int, **stats):
         "position": pos,
         "season": 2024,
         "week": week,
-        "passing_yards": 0, "passing_tds": 0, "interceptions": 0,
-        "rushing_yards": 0, "rushing_tds": 0,
-        "receptions": 0, "receiving_yards": 0, "receiving_tds": 0,
+        "passing_yards": 0,
+        "passing_tds": 0,
+        "interceptions": 0,
+        "rushing_yards": 0,
+        "rushing_tds": 0,
+        "receptions": 0,
+        "receiving_yards": 0,
+        "receiving_tds": 0,
         "fumbles_lost": 0,
         **stats,
     }
@@ -52,7 +63,7 @@ def test_canonical_position_collapses_idp():
 
 
 def test_canonical_position_filters_unknown():
-    assert _canonical_position("K") is None    # kickers excluded
+    assert _canonical_position("K") is None  # kickers excluded
     assert _canonical_position("OL") is None
     assert _canonical_position("") is None
     assert _canonical_position(None) is None
@@ -106,9 +117,9 @@ def test_te_premium_only_applies_to_te():
 
 def test_unknown_position_filtered_out():
     rows = [
-        _stat("k1", "K", 1, rushing_yards=10),       # kicker — drop
-        _stat("ol1", "OL", 1, fumbles_lost=1),       # offensive line — drop
-        _stat("qb1", "QB", 1, passing_yards=200),    # keep
+        _stat("k1", "K", 1, rushing_yards=10),  # kicker — drop
+        _stat("ol1", "OL", 1, fumbles_lost=1),  # offensive line — drop
+        _stat("qb1", "QB", 1, passing_yards=200),  # keep
     ]
     scores = compute_player_season_scores(rows, _PPR)
     assert {s.player_id for s in scores} == {"qb1"}
@@ -123,9 +134,13 @@ def test_missing_scoring_settings_returns_empty():
 def test_handles_player_id_field_alias():
     """nflverse uses player_id; some fixtures might use player_id_gsis."""
     row = {
-        "player_id_gsis": "g1", "player_name": "G1", "position": "RB",
-        "season": 2024, "week": 1,
-        "rushing_yards": 100, "rushing_tds": 1,
+        "player_id_gsis": "g1",
+        "player_name": "G1",
+        "position": "RB",
+        "season": 2024,
+        "week": 1,
+        "rushing_yards": 100,
+        "rushing_tds": 1,
     }
     scores = compute_player_season_scores([row], _PPR)
     assert len(scores) == 1
@@ -133,6 +148,7 @@ def test_handles_player_id_field_alias():
 
 
 # ── Blended score (volume + pace) ────────────────────────────────────
+
 
 def test_blended_full_season_equals_total():
     """A 17-game player has blended == total: ppg×17 collapses to total."""
@@ -150,7 +166,7 @@ def test_blended_partial_season_rewards_pace():
 def test_blended_below_min_games_uses_total_only():
     """Less than MIN_GAMES_FOR_PPG → no PPG bonus, blended == total.
     Prevents a 1-game outlier from inflating the ranking."""
-    assert MIN_GAMES_FOR_PPG == 8        # pin the threshold
+    assert MIN_GAMES_FOR_PPG == 8  # pin the threshold
     # 7 games at 30 ppg = 210 raw — should NOT extrapolate to 510.
     assert compute_blended_score(total_points=210.0, games_played=7) == pytest.approx(210.0)
     assert compute_blended_score(total_points=30.0, games_played=1) == pytest.approx(30.0)
@@ -170,8 +186,13 @@ def test_blended_at_min_games_threshold_includes_pace():
 def test_player_season_score_blended_property_matches_function():
     """The dataclass property delegates to compute_blended_score."""
     s = PlayerSeasonScore(
-        player_id="p", player_name="P", position="QB", raw_position="QB",
-        season=2024, total_points=200.0, games_played=10,
+        player_id="p",
+        player_name="P",
+        position="QB",
+        raw_position="QB",
+        season=2024,
+        total_points=200.0,
+        games_played=10,
     )
     assert s.blended_score == compute_blended_score(200.0, 10)
     assert s.points_per_game == pytest.approx(20.0)

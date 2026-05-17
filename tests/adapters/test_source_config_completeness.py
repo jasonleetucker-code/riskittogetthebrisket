@@ -1,5 +1,6 @@
 """Tests that the source config covers the allowed sources (KTC +
 IDPTradeCalc + DLF IDP) and that missing CSVs are handled gracefully."""
+
 from __future__ import annotations
 
 import json
@@ -68,7 +69,8 @@ def weights():
 
 def _enabled_bridge_sources(cfg):
     return [
-        s for s in cfg["sources"]
+        s
+        for s in cfg["sources"]
         if s.get("enabled") and s.get("adapter") in ("scraper_bridge", "bridge")
     ]
 
@@ -79,9 +81,7 @@ class TestSourceConfigCompleteness:
         assert enabled == ALLOWED_SOURCES, f"Expected only {ALLOWED_SOURCES}, got {enabled}"
 
     def test_all_scraper_exports_have_config_entries(self, config):
-        bridge_files = {
-            Path(s["file"]).name for s in _enabled_bridge_sources(config)
-        }
+        bridge_files = {Path(s["file"]).name for s in _enabled_bridge_sources(config)}
         missing = EXPECTED_SCRAPER_EXPORTS - bridge_files
         assert not missing, f"Missing config entries for scraper exports: {missing}"
 
@@ -90,17 +90,11 @@ class TestSourceConfigCompleteness:
             source_id = src["source"]
             signal = src.get("signal_type")
             if source_id in VALUE_SIGNAL_SOURCES:
-                assert signal == "value", (
-                    f"{source_id} should be signal_type=value, got {signal!r}"
-                )
+                assert signal == "value", f"{source_id} should be signal_type=value, got {signal!r}"
             elif source_id in RANK_SIGNAL_SOURCES:
-                assert signal == "rank", (
-                    f"{source_id} should be signal_type=rank, got {signal!r}"
-                )
+                assert signal == "rank", f"{source_id} should be signal_type=rank, got {signal!r}"
             else:
-                raise AssertionError(
-                    f"Unknown source {source_id!r} in enabled bridge sources"
-                )
+                raise AssertionError(f"Unknown source {source_id!r} in enabled bridge sources")
 
     def test_every_enabled_source_has_a_weight(self, config, weights):
         source_weights = weights.get("sources", {})
@@ -108,15 +102,15 @@ class TestSourceConfigCompleteness:
             if not src.get("enabled"):
                 continue
             source_id = src["source"]
-            assert source_id in source_weights, (
-                f"Source {source_id} is enabled but has no weight entry"
-            )
+            assert (
+                source_id in source_weights
+            ), f"Source {source_id} is enabled but has no weight entry"
 
     def test_no_duplicate_source_ids(self, config):
         enabled = [s["source"] for s in config["sources"] if s.get("enabled")]
-        assert len(enabled) == len(set(enabled)), (
-            f"Duplicate source IDs: {[s for s in enabled if enabled.count(s) > 1]}"
-        )
+        assert len(enabled) == len(
+            set(enabled)
+        ), f"Duplicate source IDs: {[s for s in enabled if enabled.count(s) > 1]}"
 
     def test_idptradecalc_has_idp_universe(self, config):
         """IDPTRADECALC canonical pipeline universe is idp_vet.
@@ -127,15 +121,15 @@ class TestSourceConfigCompleteness:
             if not src.get("enabled"):
                 continue
             if src["source"] == "IDPTRADECALC":
-                assert "idp" in src.get("universe", "").lower(), (
-                    f"IDPTRADECALC universe should contain 'idp', got {src.get('universe')}"
-                )
+                assert (
+                    "idp" in src.get("universe", "").lower()
+                ), f"IDPTRADECALC universe should contain 'idp', got {src.get('universe')}"
 
     def test_weights_only_contain_allowed_sources(self, weights):
         source_weights = set(weights.get("sources", {}).keys())
-        assert source_weights == ALLOWED_SOURCES, (
-            f"Weights should only contain {ALLOWED_SOURCES}, got {source_weights}"
-        )
+        assert (
+            source_weights == ALLOWED_SOURCES
+        ), f"Weights should only contain {ALLOWED_SOURCES}, got {source_weights}"
 
     def test_dlf_idp_has_idp_universe(self, config):
         """DLF_IDP is a full-board IDP source; its canonical universe is
@@ -145,9 +139,9 @@ class TestSourceConfigCompleteness:
             if not src.get("enabled"):
                 continue
             if src["source"] == "DLF_IDP":
-                assert "idp" in src.get("universe", "").lower(), (
-                    f"DLF_IDP universe should contain 'idp', got {src.get('universe')}"
-                )
+                assert (
+                    "idp" in src.get("universe", "").lower()
+                ), f"DLF_IDP universe should contain 'idp', got {src.get('universe')}"
 
 
 class TestTepSfFlags:
@@ -173,28 +167,25 @@ class TestTepSfFlags:
             if not src.get("enabled"):
                 continue
             if src["source"] in tep_expected:
-                assert src.get("includes_tep") is True, (
-                    f"{src['source']}: should have includes_tep=true"
-                )
+                assert (
+                    src.get("includes_tep") is True
+                ), f"{src['source']}: should have includes_tep=true"
             else:
                 # Sources that are NOT TEP-native must still declare the flag.
-                assert "includes_tep" in src, (
-                    f"{src['source']}: missing includes_tep flag"
-                )
+                assert "includes_tep" in src, f"{src['source']}: missing includes_tep flag"
 
     def test_all_sources_include_sf(self, config):
         """All enabled sources natively include SF pricing."""
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
-            assert src.get("includes_sf") is True, (
-                f"{src['source']}: should have includes_sf=true"
-            )
+            assert src.get("includes_sf") is True, f"{src['source']}: should have includes_sf=true"
 
 
 class TestScraperBridgeGracefulMissing:
     def test_missing_csv_produces_warning_not_error(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
+
         adapter = ScraperBridgeAdapter(
             source_id="TEST_MISSING",
             source_bucket="offense_vet",
@@ -207,6 +198,7 @@ class TestScraperBridgeGracefulMissing:
 
     def test_empty_path_produces_warning_not_error(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
+
         adapter = ScraperBridgeAdapter(
             source_id="TEST_EMPTY",
             source_bucket="offense_vet",
@@ -218,6 +210,7 @@ class TestScraperBridgeGracefulMissing:
 
     def test_directory_path_produces_warning_not_error(self, tmp_path):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
+
         adapter = ScraperBridgeAdapter(
             source_id="TEST_DIR",
             source_bucket="offense_vet",

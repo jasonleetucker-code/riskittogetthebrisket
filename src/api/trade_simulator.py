@@ -20,6 +20,7 @@ exactly match what the terminal panel shows — a user can't end up
 staring at a $13 delta in the header and a $147 delta in the
 simulator for the same swap.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -71,6 +72,7 @@ def _resolve_asset(
     # per-position starter rules (DL/LB/DB are separate slots in
     # rosterSettings.starters).
     from src.utils.name_clean import normalize_position
+
     base_pos = normalize_position(row.get("pos") or row.get("position"))
     return {
         "name": row.get("displayName") or row.get("canonicalName") or name,
@@ -91,9 +93,7 @@ def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
     """
     total = 0
     tiers = {"elite": 0, "high": 0, "mid": 0, "depth": 0}
-    by_position: dict[str, dict[str, int]] = {
-        g: {"count": 0, "value": 0} for g in POS_GROUPS
-    }
+    by_position: dict[str, dict[str, int]] = {g: {"count": 0, "value": 0} for g in POS_GROUPS}
     for a in assets:
         v = int(a.get("value") or 0)
         total += v
@@ -119,8 +119,10 @@ def _diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
         },
         "byPosition": {
             g: {
-                "count": int(after["byPosition"][g]["count"]) - int(before["byPosition"][g]["count"]),
-                "value": int(after["byPosition"][g]["value"]) - int(before["byPosition"][g]["value"]),
+                "count": int(after["byPosition"][g]["count"])
+                - int(before["byPosition"][g]["count"]),
+                "value": int(after["byPosition"][g]["value"])
+                - int(before["byPosition"][g]["value"]),
             }
             for g in POS_GROUPS
         },
@@ -192,14 +194,15 @@ def simulate_trade(
     # typos) should still return full-board before/after totals that match
     # the terminal panel, not offense-only baselines.
     trade_has_resolved = any(
-        row_index.get(n.strip().lower()) is not None
-        for n in all_trade_names if n.strip()
+        row_index.get(n.strip().lower()) is not None for n in all_trade_names if n.strip()
     )
     trade_has_idp = trade_has_resolved and any(
         _normalize_pos(
-            (row_index.get(n.strip().lower()) or {}).get("pos") or
-            (row_index.get(n.strip().lower()) or {}).get("position") or ""
-        ) == "IDP"
+            (row_index.get(n.strip().lower()) or {}).get("pos")
+            or (row_index.get(n.strip().lower()) or {}).get("position")
+            or ""
+        )
+        == "IDP"
         for n in all_trade_names
         if n.strip()
     )
@@ -270,6 +273,7 @@ def simulate_trade(
     # this block entirely.
     if resolved_team and roster_settings:
         from src.trade import team_impact
+
         impact = team_impact.compute(
             before_assets=before_assets,
             after_assets=after_assets,

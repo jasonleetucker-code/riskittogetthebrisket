@@ -23,6 +23,7 @@ Registered providers (ordered by priority — earliest first):
 Every RSS provider inherits from ``RssNewsProvider`` (in
 ``_rss.py``) — adding another source is a 6-line subclass.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Dict

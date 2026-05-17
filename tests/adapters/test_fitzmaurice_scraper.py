@@ -5,6 +5,7 @@ tests here exercise the offline-safe pure functions: URL candidate
 generation, chart-ID extraction from a page snippet, per-position
 column selection, and trailing-filler-row filtering.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -19,9 +20,7 @@ import pytest
 def fz_module():
     repo = Path(__file__).resolve().parents[2]
     path = repo / "scripts" / "fetch_fantasypros_fitzmaurice.py"
-    spec = importlib.util.spec_from_file_location(
-        "fetch_fantasypros_fitzmaurice", path
-    )
+    spec = importlib.util.spec_from_file_location("fetch_fantasypros_fitzmaurice", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules["fetch_fantasypros_fitzmaurice"] = module
     spec.loader.exec_module(module)
@@ -171,6 +170,7 @@ def test_write_csv_sorts_by_value_desc_and_preserves_position(fz_module, tmp_pat
     count = fz_module._write_csv(out, rows)
     assert count == 3
     import csv
+
     with out.open() as f:
         written = list(csv.DictReader(f))
     # Top-value first.

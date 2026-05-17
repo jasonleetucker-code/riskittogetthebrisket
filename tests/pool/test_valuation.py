@@ -4,6 +4,7 @@ These test the documented behavior of the live valuation pipeline parameters.
 They verify configuration values and document intended behavior without running
 the full scraper pipeline.
 """
+
 from __future__ import annotations
 
 import re
@@ -45,7 +46,9 @@ class TestEliteCeilingBehavior:
         m = re.search(r"elite_cap = cap_limit \* \(1\.0 \+ \(([\d.]+) \* market_conf\)\)", src)
         assert m is not None
         # The second match (non-IDP path) should be >= 0.08
-        matches = re.findall(r"elite_cap = cap_limit \* \(1\.0 \+ \(([\d.]+) \* market_conf\)\)", src)
+        matches = re.findall(
+            r"elite_cap = cap_limit \* \(1\.0 \+ \(([\d.]+) \* market_conf\)\)", src
+        )
         assert len(matches) >= 2
         offense_factor = float(matches[1])  # second match is the non-IDP one
         assert offense_factor >= 0.08, f"Offense elite cap factor {offense_factor} too low"
@@ -109,11 +112,13 @@ class TestSourceTypeHandling:
 
     def test_source_types_documented_in_pool_builder(self):
         from src.pool.builder import SOURCE_TYPES
+
         assert "ktc" in SOURCE_TYPES
         assert "idpTradeCalc" in SOURCE_TYPES
 
     def test_source_type_categories(self):
         from src.pool.builder import SOURCE_TYPES
+
         types = set(SOURCE_TYPES.values())
         expected = {
             "full_mixed_value",
@@ -123,4 +128,5 @@ class TestSourceTypeHandling:
 
     def test_idptradecalc_is_mixed_bridge(self):
         from src.pool.builder import SOURCE_TYPES
+
         assert SOURCE_TYPES["idpTradeCalc"] == "mixed_offense_idp_bridge"

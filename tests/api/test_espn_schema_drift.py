@@ -1,4 +1,5 @@
 """Tests for ESPN schema drift detection."""
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,8 @@ def test_list_with_mixed_element_shapes_merges():
 def test_detect_drift_new_endpoint(tmp_path):
     baseline = tmp_path / "b.json"
     result = esd.detect_drift(
-        {"new_ep": {"a": 1}}, baseline_path=baseline,
+        {"new_ep": {"a": 1}},
+        baseline_path=baseline,
     )
     assert result["new_ep"]["status"] == "new"
 
@@ -86,12 +88,15 @@ def test_run_drift_check_delivers_email_on_drift(tmp_path):
     baseline = tmp_path / "b.json"
     esd.save_baseline({"ep1": {"hash": "old_hash_xx"}}, path=baseline)
     sends = []
+
     def delivery(to, subj, body):
         sends.append((to, subj, body))
         return True
+
     result = esd.run_drift_check(
         {"ep1": lambda: {"new": "shape"}},
-        delivery=delivery, to_email="ops@example.com",
+        delivery=delivery,
+        to_email="ops@example.com",
         baseline_path=baseline,
     )
     assert result["drifted"] >= 1
@@ -104,12 +109,15 @@ def test_run_drift_check_no_email_when_unchanged(tmp_path):
     sample = {"x": 1}
     esd.save_baseline({"ep": {"hash": esd.hash_shape(sample)}}, path=baseline)
     sends = []
+
     def delivery(to, subj, body):
         sends.append((to, subj, body))
         return True
+
     result = esd.run_drift_check(
         {"ep": lambda: sample},
-        delivery=delivery, to_email="ops@example.com",
+        delivery=delivery,
+        to_email="ops@example.com",
         baseline_path=baseline,
     )
     assert result["drifted"] == 0

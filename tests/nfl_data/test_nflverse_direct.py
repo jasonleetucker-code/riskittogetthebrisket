@@ -1,4 +1,5 @@
 """Tests for the direct nflverse CSV fetcher (no nfl_data_py)."""
+
 from __future__ import annotations
 
 import io
@@ -20,13 +21,17 @@ def _reset_cb():
 
 def _csv_response(csv_text: str):
     """Build a fake urlopen context-manager that returns ``csv_text``."""
+
     class _R:
         def read(self):
             return csv_text.encode("utf-8")
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             pass
+
     return _R()
 
 
@@ -41,6 +46,7 @@ def test_fetch_csv_parses_rows():
 def test_fetch_csv_network_error_returns_empty():
     def _raise(*_a, **_kw):
         raise urllib.error.URLError("connection refused")
+
     with patch.object(nd.urllib.request, "urlopen", side_effect=_raise):
         rows = nd._fetch_csv("https://example.com/x.csv", label="test")  # noqa: SLF001
     assert rows == []
@@ -49,8 +55,13 @@ def test_fetch_csv_network_error_returns_empty():
 def test_fetch_csv_http_4xx_returns_empty():
     def _raise(*_a, **_kw):
         raise urllib.error.HTTPError(
-            "https://x", 404, "Not Found", {}, io.BytesIO(b""),
+            "https://x",
+            404,
+            "Not Found",
+            {},
+            io.BytesIO(b""),
         )
+
     with patch.object(nd.urllib.request, "urlopen", side_effect=_raise):
         rows = nd._fetch_csv("https://example.com/x.csv", label="test")  # noqa: SLF001
     assert rows == []
@@ -59,6 +70,7 @@ def test_fetch_csv_http_4xx_returns_empty():
 def test_fetch_csv_timeout_returns_empty():
     def _raise(*_a, **_kw):
         raise TimeoutError("slow")
+
     with patch.object(nd.urllib.request, "urlopen", side_effect=_raise):
         rows = nd._fetch_csv("https://example.com/x.csv", label="test")  # noqa: SLF001
     assert rows == []
@@ -67,6 +79,7 @@ def test_fetch_csv_timeout_returns_empty():
 def test_fetch_csv_unexpected_exception_returns_empty():
     def _raise(*_a, **_kw):
         raise RuntimeError("unexpected")
+
     with patch.object(nd.urllib.request, "urlopen", side_effect=_raise):
         rows = nd._fetch_csv("https://example.com/x.csv", label="test")  # noqa: SLF001
     assert rows == []
@@ -76,9 +89,11 @@ def test_circuit_breaker_short_circuits_when_open():
     bp = cb.get_or_create("nflverse_direct", failure_threshold=1, failure_window_sec=60)
     bp.report_failure("priming")
     calls = []
+
     def _never(*_a, **_kw):
         calls.append(1)
         return _csv_response("x")
+
     with patch.object(nd.urllib.request, "urlopen", side_effect=_never):
         rows = nd._fetch_csv("https://example.com/x.csv", label="test")  # noqa: SLF001
     assert rows == []

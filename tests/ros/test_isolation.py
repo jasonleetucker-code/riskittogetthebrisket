@@ -8,6 +8,7 @@ module, then again after, and asserting byte-identical results.
 If this test fails, a code change accidentally crossed the dynasty/ROS
 boundary — fix the offending change rather than relaxing the test.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,10 +36,9 @@ class TestRosIsolation(unittest.TestCase):
             if mod.startswith("src.api.data_contract"):
                 del sys.modules[mod]
         from src.api import data_contract as before_module
+
         before = {
-            "ranking_sources": [
-                dict(s) for s in before_module._RANKING_SOURCES
-            ],
+            "ranking_sources": [dict(s) for s in before_module._RANKING_SOURCES],
             "source_csv_paths": dict(before_module._SOURCE_CSV_PATHS),
             "value_based_sources": set(before_module._VALUE_BASED_SOURCES),
             "source_max_age": dict(before_module._SOURCE_MAX_AGE_HOURS),
@@ -46,7 +46,10 @@ class TestRosIsolation(unittest.TestCase):
         before_hash = _hash(
             {
                 "rs": before["ranking_sources"],
-                "csv": {k: (v if isinstance(v, str) else dict(v)) for k, v in before["source_csv_paths"].items()},
+                "csv": {
+                    k: (v if isinstance(v, str) else dict(v))
+                    for k, v in before["source_csv_paths"].items()
+                },
                 "vbs": sorted(before["value_based_sources"]),
                 "max_age": before["source_max_age"],
             }
@@ -64,10 +67,9 @@ class TestRosIsolation(unittest.TestCase):
         importlib.import_module("src.ros.team_strength")
 
         from src.api import data_contract as after_module
+
         after = {
-            "ranking_sources": [
-                dict(s) for s in after_module._RANKING_SOURCES
-            ],
+            "ranking_sources": [dict(s) for s in after_module._RANKING_SOURCES],
             "source_csv_paths": dict(after_module._SOURCE_CSV_PATHS),
             "value_based_sources": set(after_module._VALUE_BASED_SOURCES),
             "source_max_age": dict(after_module._SOURCE_MAX_AGE_HOURS),
@@ -75,7 +77,10 @@ class TestRosIsolation(unittest.TestCase):
         after_hash = _hash(
             {
                 "rs": after["ranking_sources"],
-                "csv": {k: (v if isinstance(v, str) else dict(v)) for k, v in after["source_csv_paths"].items()},
+                "csv": {
+                    k: (v if isinstance(v, str) else dict(v))
+                    for k, v in after["source_csv_paths"].items()
+                },
                 "vbs": sorted(after["value_based_sources"]),
                 "max_age": after["source_max_age"],
             }
@@ -105,6 +110,7 @@ class TestTradeLogicNonRegression(unittest.TestCase):
         # rather than re-implement it.
         import subprocess
         import sys
+
         result = subprocess.run(
             [
                 sys.executable,

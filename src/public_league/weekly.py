@@ -16,6 +16,7 @@ For every completed scoring week across the 2-season window:
 Pre-week standings: built using only games completed strictly before
 the week in question.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,7 +26,9 @@ from .rivalries import build_section as build_rivalries
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
-def _side_entry(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]) -> dict[str, Any] | None:
+def _side_entry(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]
+) -> dict[str, Any] | None:
     rid = metrics.roster_id_of(entry)
     if rid is None:
         return None
@@ -62,11 +65,16 @@ def _upset(snapshot, season, matchups, pre_lookup) -> dict[str, Any] | None:
             continue
         # An upset requires the winner had a worse record going in.
         if win_rec["winPct"] < lose_rec["winPct"]:
-            candidates.append((m, {
-                "gap": lose_rec["winPct"] - win_rec["winPct"],
-                "winnerPF": win_rec["pointsFor"],
-                "margin": m["margin"],
-            }))
+            candidates.append(
+                (
+                    m,
+                    {
+                        "gap": lose_rec["winPct"] - win_rec["winPct"],
+                        "winnerPF": win_rec["pointsFor"],
+                        "margin": m["margin"],
+                    },
+                )
+            )
     if not candidates:
         return None
     # Tiebreaks (per spec):
@@ -170,8 +178,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                     continue
                 if left["points"] == 0 and right["points"] == 0:
                     continue
-                winner = left if left["points"] > right["points"] else (
-                    right if right["points"] > left["points"] else None
+                winner = (
+                    left
+                    if left["points"] > right["points"]
+                    else (right if right["points"] > left["points"] else None)
                 )
                 loser = None
                 if winner is left:
@@ -215,29 +225,35 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 post_standings = standings_at.get(wk, pre_standings)
             post_ranks = _standing_lookup(post_standings)
 
-            weeks_out.append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                "week": wk,
-                "isPlayoff": is_playoff,
-                "matchups": [
-                    {k: v for k, v in r.items() if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}}
-                    for r in matchup_rows
-                ],
-                "highlights": {
-                    "gameOfTheWeek": _pack_highlight(closest),
-                    "blowoutOfTheWeek": _pack_highlight(biggest),
-                    "highestScorer": highest,
-                    "lowestScorer": lowest,
-                    "upsetOfTheWeek": _pack_highlight(
-                        _upset(snapshot, season, matchup_rows, pre_records)
-                    ),
-                    "rivalryResult": _pack_highlight(
-                        _rivalry_result(matchup_rows, featured_pair)
-                    ),
-                    "standingsMover": _standings_mover(pre_ranks, post_ranks),
-                },
-            })
+            weeks_out.append(
+                {
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "week": wk,
+                    "isPlayoff": is_playoff,
+                    "matchups": [
+                        {
+                            k: v
+                            for k, v in r.items()
+                            if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}
+                        }
+                        for r in matchup_rows
+                    ],
+                    "highlights": {
+                        "gameOfTheWeek": _pack_highlight(closest),
+                        "blowoutOfTheWeek": _pack_highlight(biggest),
+                        "highestScorer": highest,
+                        "lowestScorer": lowest,
+                        "upsetOfTheWeek": _pack_highlight(
+                            _upset(snapshot, season, matchup_rows, pre_records)
+                        ),
+                        "rivalryResult": _pack_highlight(
+                            _rivalry_result(matchup_rows, featured_pair)
+                        ),
+                        "standingsMover": _standings_mover(pre_ranks, post_ranks),
+                    },
+                }
+            )
 
     weeks_out.sort(key=lambda w: (w["season"], w["week"]), reverse=True)
     return {
@@ -250,4 +266,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 def _pack_highlight(row: dict[str, Any] | None) -> dict[str, Any] | None:
     if not row:
         return None
-    return {k: v for k, v in row.items() if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}}
+    return {
+        k: v
+        for k, v in row.items()
+        if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}
+    }

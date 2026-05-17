@@ -1,4 +1,5 @@
 """Tests for matchup recap + player journey views."""
+
 from __future__ import annotations
 
 import copy
@@ -13,18 +14,32 @@ def _with_player_points(snapshot):
     """Copy + inject per-player scoring so the journey/recap logic has
     something to chew on."""
     snap = copy.deepcopy(snapshot)
+
     def _stamp(entry, pp, starters):
         entry["players_points"] = pp
         entry["starters"] = starters
+
     s2025 = snap.seasons[0]
     stamps = {
         1: {
-            1: ({"p-qb1": 40.5, "p-rb1": 35.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 10.0}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
-            2: ({"p-qb2": 50.0, "p-rb2": 30.0, "p-wr2": 25.0, "p-te1": 15.2, "p-rookie-b": 15.0}, ["p-qb2","p-rb2","p-wr2","p-te1","p-rookie-b"]),
+            1: (
+                {"p-qb1": 40.5, "p-rb1": 35.0, "p-wr1": 20.0, "p-te1": 15.0, "p-rookie-a": 10.0},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
+            2: (
+                {"p-qb2": 50.0, "p-rb2": 30.0, "p-wr2": 25.0, "p-te1": 15.2, "p-rookie-b": 15.0},
+                ["p-qb2", "p-rb2", "p-wr2", "p-te1", "p-rookie-b"],
+            ),
         },
         2: {
-            1: ({"p-qb1": 60.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 15.0, "p-rookie-a": 10.0}, ["p-qb1","p-rb1","p-wr1","p-te1","p-rookie-a"]),
-            3: ({"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0}, ["p-wr1","p-wr2","p-wr3","p-rb1","p-qb1"]),
+            1: (
+                {"p-qb1": 60.0, "p-rb1": 35.0, "p-wr1": 25.8, "p-te1": 15.0, "p-rookie-a": 10.0},
+                ["p-qb1", "p-rb1", "p-wr1", "p-te1", "p-rookie-a"],
+            ),
+            3: (
+                {"p-wr1": 25.0, "p-wr2": 25.0, "p-wr3": 30.0, "p-rb1": 32.1, "p-qb1": 30.0},
+                ["p-wr1", "p-wr2", "p-wr3", "p-rb1", "p-qb1"],
+            ),
         },
     }
     for wk, by_rid in stamps.items():
@@ -124,6 +139,7 @@ class PlayerJourneyTests(unittest.TestCase):
 
 try:
     from fastapi.testclient import TestClient
+
     _HAVE_TC = True
 except Exception:  # noqa: BLE001
     _HAVE_TC = False
@@ -139,12 +155,15 @@ class MatchupAndPlayerRouteTests(unittest.TestCase):
         install_stubs(build_stub_client())
         os.environ["SLEEPER_LEAGUE_ID"] = "L2025"
         from server import app, _public_league_cache
+
         _public_league_cache.clear()
-        _public_league_cache.update({
-            "snapshot": None,
-            "snapshot_league_id": None,
-            "fetched_at": 0.0,
-        })
+        _public_league_cache.update(
+            {
+                "snapshot": None,
+                "snapshot_league_id": None,
+                "fetched_at": 0.0,
+            }
+        )
         cls.client = TestClient(app)
 
     def test_matchup_route_returns_payload(self) -> None:

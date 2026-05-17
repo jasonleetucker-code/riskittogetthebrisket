@@ -6,6 +6,7 @@ map, weighted stockpile per manager, most-traded pick lineage.
 Weighting (from prompt):
     1st round = 4, 2nd round = 3, 3rd round = 2, 4th+ = 1
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -24,7 +25,9 @@ def pick_weight(round_: int | None) -> int:
     return ROUND_WEIGHT.get(int(round_), 1)
 
 
-def _normalize_pick(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, pick: dict[str, Any]) -> dict[str, Any]:
+def _normalize_pick(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, pick: dict[str, Any]
+) -> dict[str, Any]:
     rid = metrics.roster_id_of(pick)
     try:
         round_ = int(pick.get("round") or 0)
@@ -57,7 +60,9 @@ def _normalize_pick(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, pick
     }
 
 
-def _draft_summary(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, draft: dict[str, Any]) -> dict[str, Any]:
+def _draft_summary(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, draft: dict[str, Any]
+) -> dict[str, Any]:
     draft_id = str(draft.get("draft_id") or "")
     picks = season.draft_picks_by_draft.get(draft_id, [])
     normalized = [_normalize_pick(snapshot, season, p) for p in picks]
@@ -70,7 +75,9 @@ def _draft_summary(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, draft
         "type": draft.get("type") or "",
         "status": draft.get("status") or "",
         "startTime": draft.get("start_time") or None,
-        "rounds": int((draft.get("settings") or {}).get("rounds") or 0) if isinstance(draft.get("settings"), dict) else 0,
+        "rounds": int((draft.get("settings") or {}).get("rounds") or 0)
+        if isinstance(draft.get("settings"), dict)
+        else 0,
         "picks": normalized,
         "firstRoundRecap": first_round,
     }
@@ -106,12 +113,14 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
             continue
         for yr in future_years:
             for rnd in range(1, draft_rounds + 1):
-                original_by_rid[rid].append({
-                    "season": yr,
-                    "round": rnd,
-                    "fromRosterId": rid,
-                    "ownerRosterId": rid,
-                })
+                original_by_rid[rid].append(
+                    {
+                        "season": yr,
+                        "round": rnd,
+                        "fromRosterId": rid,
+                        "ownerRosterId": rid,
+                    }
+                )
 
     # Apply traded picks (chronological across all seasons so the most
     # recent ownership wins).
@@ -146,13 +155,15 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
             )
             if not owner_id:
                 continue
-            by_owner[owner_id].append({
-                "season": pick["season"],
-                "round": pick["round"],
-                "originalOwnerId": original_owner_id,
-                "isTraded": owner_id != original_owner_id,
-                "label": f"{pick['season']} R{pick['round']}",
-            })
+            by_owner[owner_id].append(
+                {
+                    "season": pick["season"],
+                    "round": pick["round"],
+                    "originalOwnerId": original_owner_id,
+                    "isTraded": owner_id != original_owner_id,
+                    "label": f"{pick['season']} R{pick['round']}",
+                }
+            )
     for owner_id, lst in by_owner.items():
         lst.sort(key=lambda p: (p["season"], p["round"]))
     return dict(by_owner)
@@ -183,15 +194,19 @@ def weighted_stockpile_for_owner(snapshot: PublicLeagueSnapshot, owner_id: str) 
     }
 
 
-def _stockpile_leaderboard(snapshot: PublicLeagueSnapshot, ownership: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+def _stockpile_leaderboard(
+    snapshot: PublicLeagueSnapshot, ownership: dict[str, list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
     rows = []
     for owner_id, picks in ownership.items():
-        rows.append({
-            "ownerId": owner_id,
-            "displayName": metrics.display_name_for(snapshot, owner_id),
-            "totalPicks": len(picks),
-            "weightedScore": sum(pick_weight(p["round"]) for p in picks),
-        })
+        rows.append(
+            {
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                "totalPicks": len(picks),
+                "weightedScore": sum(pick_weight(p["round"]) for p in picks),
+            }
+        )
     rows.sort(key=lambda r: (-r["weightedScore"], -r["totalPicks"]))
     return rows
 
@@ -238,15 +253,19 @@ def _pick_movement_trail(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
             except (TypeError, ValueError):
                 continue
             original_owner_id = metrics.resolve_owner(snapshot.managers, league_id, origin_rid)
-            current_owner_id = metrics.resolve_owner(snapshot.managers, league_id, current_owner_rid)
-            out.append({
-                "season": yr,
-                "round": rnd,
-                "label": f"{yr} R{rnd}",
-                "originalOwnerId": original_owner_id,
-                "currentOwnerId": current_owner_id,
-                "sourceSeason": season.season,
-            })
+            current_owner_id = metrics.resolve_owner(
+                snapshot.managers, league_id, current_owner_rid
+            )
+            out.append(
+                {
+                    "season": yr,
+                    "round": rnd,
+                    "label": f"{yr} R{rnd}",
+                    "originalOwnerId": original_owner_id,
+                    "currentOwnerId": current_owner_id,
+                    "sourceSeason": season.season,
+                }
+            )
     return out
 
 

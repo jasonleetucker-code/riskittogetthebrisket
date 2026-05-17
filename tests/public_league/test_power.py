@@ -1,4 +1,5 @@
 """Tests for ``src/public_league/power.py``."""
+
 from __future__ import annotations
 
 import unittest

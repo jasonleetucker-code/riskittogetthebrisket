@@ -36,6 +36,7 @@ HTTP error, parse error, empty CSV.  Logs a structured warning
 on failure paths so ops can grep ``nflverse_direct=`` for
 upstream issues.
 """
+
 from __future__ import annotations
 
 import csv
@@ -55,9 +56,7 @@ _RELEASE_BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 
 # Per-dataset URL templates.  ``{year}`` is the season year.
 _URL_TEMPLATES = {
-    "weekly_stats": (
-        f"{_RELEASE_BASE}/player_stats/player_stats_{{year}}.csv"
-    ),
+    "weekly_stats": (f"{_RELEASE_BASE}/player_stats/player_stats_{{year}}.csv"),
     "weekly_defensive_stats": (
         # Defensive per-week stats live in a separate nflverse file
         # from offensive stats.  Columns are prefixed ``def_``:
@@ -66,15 +65,9 @@ _URL_TEMPLATES = {
         # Verified live 2026-04-26.
         f"{_RELEASE_BASE}/player_stats/player_stats_def_{{year}}.csv"
     ),
-    "snap_counts": (
-        f"{_RELEASE_BASE}/snap_counts/snap_counts_{{year}}.csv"
-    ),
-    "id_map": (
-        f"{_RELEASE_BASE}/players/players.csv"
-    ),
-    "pbp": (
-        f"{_RELEASE_BASE}/pbp/play_by_play_{{year}}.csv"
-    ),
+    "snap_counts": (f"{_RELEASE_BASE}/snap_counts/snap_counts_{{year}}.csv"),
+    "id_map": (f"{_RELEASE_BASE}/players/players.csv"),
+    "pbp": (f"{_RELEASE_BASE}/pbp/play_by_play_{{year}}.csv"),
 }
 
 _HTTP_TIMEOUT_SEC = 30.0
@@ -88,15 +81,18 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     bp = None
     try:
         from src.utils import circuit_breaker as _cb
+
         bp = _cb.get_or_create(
             "nflverse_direct",
-            failure_threshold=3, failure_window_sec=180.0,
+            failure_threshold=3,
+            failure_window_sec=180.0,
             open_duration_sec=300.0,
         )
         if not bp.can_call():
             _LOGGER.warning(
                 "nflverse_direct=circuit_open label=%s url=%s",
-                label, url,
+                label,
+                url,
             )
             return []
     except Exception:  # noqa: BLE001
@@ -109,7 +105,9 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     except urllib.error.HTTPError as exc:
         _LOGGER.warning(
             "nflverse_direct=http label=%s url=%s status=%d",
-            label, url, getattr(exc, "code", 0),
+            label,
+            url,
+            getattr(exc, "code", 0),
         )
         if bp is not None:
             bp.report_failure(exc)
@@ -117,7 +115,9 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     except (urllib.error.URLError, TimeoutError) as exc:
         _LOGGER.warning(
             "nflverse_direct=network label=%s url=%s err=%r",
-            label, url, exc,
+            label,
+            url,
+            exc,
         )
         if bp is not None:
             bp.report_failure(exc)
@@ -125,7 +125,9 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "nflverse_direct=unexpected label=%s url=%s err=%r",
-            label, url, exc,
+            label,
+            url,
+            exc,
         )
         if bp is not None:
             bp.report_failure(exc)
@@ -137,7 +139,8 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning(
             "nflverse_direct=parse label=%s err=%r",
-            label, exc,
+            label,
+            exc,
         )
         if bp is not None:
             bp.report_failure(exc)
@@ -145,7 +148,9 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
 
     _LOGGER.info(
         "nflverse_direct=ok label=%s url=%s rows=%d",
-        label, url, len(rows),
+        label,
+        url,
+        len(rows),
     )
     if bp is not None:
         bp.report_success()

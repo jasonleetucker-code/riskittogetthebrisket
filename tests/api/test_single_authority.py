@@ -11,6 +11,7 @@ canonicalTierId, sourceRanks, confidenceBucket, anomalyFlags,
 isSingleSource, or hasSourceDisagreement AFTER build_api_data_contract()
 has produced the playersArray.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,7 +70,9 @@ class TestSingleAuthority(unittest.TestCase):
         for r in ranked[:200]:  # check top 200
             for field in AUTHORITATIVE_FIELDS:
                 if field not in r or r[field] is None:
-                    missing.append(f"#{r.get('canonicalConsensusRank')} {r.get('canonicalName')}: missing {field}")
+                    missing.append(
+                        f"#{r.get('canonicalConsensusRank')} {r.get('canonicalName')}: missing {field}"
+                    )
 
         self.assertEqual(missing, [], f"Missing authoritative fields:\n" + "\n".join(missing[:20]))
 
@@ -115,13 +118,11 @@ class TestSingleAuthority(unittest.TestCase):
         out_of_range = [
             f"#{r['canonicalConsensusRank']}: tier={r.get('canonicalTierId')}"
             for r in ranked
-            if not (
-                isinstance(r.get("canonicalTierId"), int)
-                and r["canonicalTierId"] >= 1
-            )
+            if not (isinstance(r.get("canonicalTierId"), int) and r["canonicalTierId"] >= 1)
         ]
         self.assertEqual(
-            out_of_range, [],
+            out_of_range,
+            [],
             f"Tier IDs must be positive ints:\n" + "\n".join(out_of_range[:10]),
         )
         prev_tier = 0
@@ -134,9 +135,9 @@ class TestSingleAuthority(unittest.TestCase):
                 )
             prev_tier = t
         self.assertEqual(
-            non_monotonic, [],
-            f"Tier IDs must be non-decreasing with rank:\n"
-            + "\n".join(non_monotonic[:10]),
+            non_monotonic,
+            [],
+            f"Tier IDs must be non-decreasing with rank:\n" + "\n".join(non_monotonic[:10]),
         )
 
 
@@ -146,6 +147,7 @@ class TestOverlayRemoved(unittest.TestCase):
     def test_overlay_function_is_absent(self):
         """_apply_canonical_primary_overlay must not exist on the server module."""
         import importlib
+
         try:
             server = importlib.import_module("server")
             self.assertFalse(
@@ -167,7 +169,11 @@ class TestFrontendFallbackGuards(unittest.TestCase):
             "computedConsensusRank": 99,
         }
         # resolvedRank logic: canonicalConsensusRank ?? computedConsensusRank ?? Infinity
-        resolved = row_with_backend.get("canonicalConsensusRank") or row_with_backend.get("computedConsensusRank") or float("inf")
+        resolved = (
+            row_with_backend.get("canonicalConsensusRank")
+            or row_with_backend.get("computedConsensusRank")
+            or float("inf")
+        )
         self.assertEqual(resolved, 42, "Must prefer backend rank over computed")
 
     def test_computed_rank_is_fallback_only(self):
@@ -176,7 +182,11 @@ class TestFrontendFallbackGuards(unittest.TestCase):
             "canonicalConsensusRank": None,
             "computedConsensusRank": 99,
         }
-        resolved = row_without_backend.get("canonicalConsensusRank") or row_without_backend.get("computedConsensusRank") or float("inf")
+        resolved = (
+            row_without_backend.get("canonicalConsensusRank")
+            or row_without_backend.get("computedConsensusRank")
+            or float("inf")
+        )
         self.assertEqual(resolved, 99, "Must fall back to computed rank")
 
 

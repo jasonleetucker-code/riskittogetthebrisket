@@ -1,4 +1,5 @@
 """Tests for the ``/api/terminal`` aggregation endpoint builder."""
+
 from __future__ import annotations
 
 import json
@@ -23,14 +24,16 @@ def history_path(tmp_path, monkeypatch):
     lines = []
     for i in range(0, 200):
         d = today - timedelta(days=i)
-        lines.append({
-            "date": _iso(d),
-            "ranks": {
-                "Alice::offense": 10 + (i // 30),
-                "Bob::offense": 25 + (i // 20),
-                "Carlo::offense": 60,
-            },
-        })
+        lines.append(
+            {
+                "date": _iso(d),
+                "ranks": {
+                    "Alice::offense": 10 + (i // 30),
+                    "Bob::offense": 25 + (i // 20),
+                    "Carlo::offense": 60,
+                },
+            }
+        )
     # Reverse so we write oldest-first just to match production style.
     for line in reversed(lines):
         path.open("a").write(json.dumps(line) + "\n")
@@ -157,7 +160,9 @@ def test_build_terminal_payload_full_for_selected_team(history_path):
 def test_build_terminal_payload_with_no_team_still_renders(history_path):
     contract = _mk_contract(history_path)
     payload = terminal.build_terminal_payload(
-        contract, resolved_team=None, window_days=30,
+        contract,
+        resolved_team=None,
+        window_days=30,
     )
     assert payload["team"] is None
     assert payload["teamAggregates"]["totalValue"] is None
@@ -168,7 +173,9 @@ def test_build_terminal_payload_with_no_team_still_renders(history_path):
 def test_trend_windows_advertised(history_path):
     contract = _mk_contract(history_path)
     payload = terminal.build_terminal_payload(
-        contract, resolved_team=None, window_days=30,
+        contract,
+        resolved_team=None,
+        window_days=30,
     )
     assert payload["trendWindows"] == [7, 30, 90, 180]
 
@@ -199,7 +206,9 @@ def test_roster_aware_delta_uses_trade_history(history_path):
     ]
     team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
     payload = terminal.build_terminal_payload(
-        contract, resolved_team=team, window_days=30,
+        contract,
+        resolved_team=team,
+        window_days=30,
     )
     # Past roster for owner-1 at 30d ago should have INCLUDED Bob (he
     # was on the team before the trade).  Current roster only has
@@ -240,7 +249,9 @@ def test_dismissed_signals_reflected_in_payload(history_path):
 def test_available_teams_returned_for_picker(history_path):
     contract = _mk_contract(history_path)
     payload = terminal.build_terminal_payload(
-        contract, resolved_team=None, window_days=30,
+        contract,
+        resolved_team=None,
+        window_days=30,
     )
     owners = {t["ownerId"] for t in payload["availableTeams"]}
     assert owners == {"owner-1", "owner-2"}
@@ -360,17 +371,19 @@ def test_low_coverage_produces_null_value_with_fraction(history_path):
     team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
     # Add a 3rd roster player with no history to drop coverage below 60%.
     contract["sleeper"]["teams"][0]["players"].append("Ghost")
-    contract["playersArray"].append({
-        "displayName": "Ghost",
-        "canonicalName": "Ghost",
-        "assetClass": "offense",
-        "position": "TE",
-        "pos": "TE",
-        "canonicalConsensusRank": 200,
-        "rankChange": None,
-        "rankDerivedValue": 100,
-        "values": {"full": 100},
-    })
+    contract["playersArray"].append(
+        {
+            "displayName": "Ghost",
+            "canonicalName": "Ghost",
+            "assetClass": "offense",
+            "position": "TE",
+            "pos": "TE",
+            "canonicalConsensusRank": 200,
+            "rankChange": None,
+            "rankDerivedValue": 100,
+            "values": {"full": 100},
+        }
+    )
     team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
     payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
     d30 = payload["teamAggregates"]["delta30dDetail"]
@@ -478,7 +491,9 @@ def test_value_history_fallback_covers_when_rank_history_missing(tmp_path, monke
     contract = _mk_contract(tmp_path / "rank_history.jsonl")
     team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
     payload = terminal.build_terminal_payload(
-        contract, resolved_team=team, window_days=30,
+        contract,
+        resolved_team=team,
+        window_days=30,
     )
     d30 = payload["teamAggregates"]["delta30dDetail"]
     # With value-history now primed, we should see real coverage
@@ -508,8 +523,7 @@ def test_dismissal_resolves_via_alias_key_after_rename(history_path):
             row["displayName"] = "Alice Renamed"
             row["canonicalName"] = "Alice Renamed"
     contract["sleeper"]["teams"][0]["players"] = [
-        "Alice Renamed" if p == "Alice" else p
-        for p in contract["sleeper"]["teams"][0]["players"]
+        "Alice Renamed" if p == "Alice" else p for p in contract["sleeper"]["teams"][0]["players"]
     ]
     # Append "Alice Renamed::offense" to every snapshot with the
     # same ranks the log already has for Alice.

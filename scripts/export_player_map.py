@@ -14,6 +14,7 @@ Usage:
 
 If paths are not provided, finds the latest available files automatically.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -141,8 +142,10 @@ def main() -> int:
     out_path.write_text(json.dumps(payload, indent=2) + "\n")
 
     print(f"[player_map] Exported {player_map['stats']['total_entries']} players → {out_path}")
-    print(f"[player_map] {player_map['stats']['unique_names']} unique names, "
-          f"{player_map['stats']['nickname_expansions']} nickname expansions")
+    print(
+        f"[player_map] {player_map['stats']['unique_names']} unique names, "
+        f"{player_map['stats']['nickname_expansions']} nickname expansions"
+    )
 
     return 0
 

@@ -21,6 +21,7 @@ so the wall-clock drops from ~8 s sequential to ~400 ms.  The
 executor is scoped to each ``build_public_snapshot`` call so there's
 no global shared state.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -53,6 +54,7 @@ DEFAULT_PLAYOFF_WEEK_START = 15
 @dataclass
 class SeasonSnapshot:
     """All Sleeper data the public pipeline needs for one season."""
+
     season: str
     league_id: str
     league: dict[str, Any]
@@ -146,6 +148,7 @@ class SeasonSnapshot:
 @dataclass
 class PublicLeagueSnapshot:
     """Top-level public snapshot — one per request (cheap to rebuild)."""
+
     root_league_id: str
     generated_at: str
     seasons: list[SeasonSnapshot] = field(default_factory=list)
@@ -209,9 +212,7 @@ class PublicLeagueSnapshot:
         # to the raw position string (QB/RB/WR/TE/K).
         from src.utils.name_clean import resolve_idp_position
 
-        idp = resolve_idp_position(
-            p.get("fantasy_positions"), p.get("position")
-        )
+        idp = resolve_idp_position(p.get("fantasy_positions"), p.get("position"))
         if idp:
             return idp
         return str(p.get("position") or "").upper()

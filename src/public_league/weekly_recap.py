@@ -23,6 +23,7 @@ Output shape
 ``byKey``           — flat ``{"<season>:<week>": recap}`` map for
                       O(1) lookup from the dynamic route.
 """
+
 from __future__ import annotations
 
 import random
@@ -32,7 +33,9 @@ from . import metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
-def _side_entry(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]) -> dict[str, Any]:
+def _side_entry(
+    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]
+) -> dict[str, Any]:
     rid = metrics.roster_id_of(entry)
     owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
     return {
@@ -70,19 +73,23 @@ def _weekly_trades_for(
         for rid in roster_ids:
             oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
             if oid:
-                parties.append({
-                    "ownerId": oid,
-                    "displayName": metrics.display_name_for(snapshot, oid),
-                })
+                parties.append(
+                    {
+                        "ownerId": oid,
+                        "displayName": metrics.display_name_for(snapshot, oid),
+                    }
+                )
         adds = tx.get("adds")
         assets_moved = len(adds) if isinstance(adds, dict) else 0
         picks_moved = len(tx.get("draft_picks") or [])
-        out.append({
-            "transactionId": tx.get("transaction_id"),
-            "parties": parties,
-            "assetsMoved": assets_moved,
-            "picksMoved": picks_moved,
-        })
+        out.append(
+            {
+                "transactionId": tx.get("transaction_id"),
+                "parties": parties,
+                "assetsMoved": assets_moved,
+                "picksMoved": picks_moved,
+            }
+        )
     return out
 
 
@@ -137,9 +144,7 @@ def _matchup_oneliner(home: dict, away: dict, margin: float, seed: int) -> str:
         bank = _ROLL_PHRASES
     else:
         bank = _BEAT_PHRASES
-    return _choose(bank, seed).format(
-        w=winner["displayName"], l=loser["displayName"], m=margin
-    )
+    return _choose(bank, seed).format(w=winner["displayName"], l=loser["displayName"], m=margin)
 
 
 # ── Headline phrase banks ─────────────────────────────────────────────────
@@ -207,21 +212,22 @@ def _headline(recap: dict[str, Any], seed: int) -> str:
     # story (no mega-blowout, no nailbiter <2pts) AND three sides
     # cracked the 150-point mark together.  Keeps it a niche fallback
     # rather than overwriting a real headline opportunity.
-    bigly = (blowout and blowout["margin"] >= 40)
-    super_close = (nailbiter and nailbiter["margin"] < 2)
-    if (
-        not bigly
-        and not super_close
-        and len(top) >= 3
-        and all(s["points"] >= 150 for s in top[:3])
-    ):
+    bigly = blowout and blowout["margin"] >= 40
+    super_close = nailbiter and nailbiter["margin"] < 2
+    if not bigly and not super_close and len(top) >= 3 and all(s["points"] >= 150 for s in top[:3]):
         names = ", ".join(s["displayName"] for s in top[:3])
         return _choose(_TRIPLE_LEADER_HEADLINES, seed).format(
-            leaders=names, threshold=150,
+            leaders=names,
+            threshold=150,
         )
 
     # MVP + blowout from the same manager: "stat torched in a blowout".
-    if mvp and blowout and mvp.get("ownerId") == blowout["winner"]["ownerId"] and blowout["margin"] >= 25:
+    if (
+        mvp
+        and blowout
+        and mvp.get("ownerId") == blowout["winner"]["ownerId"]
+        and blowout["margin"] >= 25
+    ):
         return _choose(_MVP_AND_BLOWOUT_HEADLINES, seed).format(
             name=mvp["displayName"], pts=mvp["points"], m=blowout["margin"]
         )
@@ -246,9 +252,7 @@ def _headline(recap: dict[str, Any], seed: int) -> str:
             m=blowout["margin"],
         )
     if mvp:
-        return _choose(_MVP_HEADLINES, seed).format(
-            name=mvp["displayName"], pts=mvp["points"]
-        )
+        return _choose(_MVP_HEADLINES, seed).format(name=mvp["displayName"], pts=mvp["points"])
     return _choose(_FALLBACK_HEADLINES, seed)
 
 
@@ -394,8 +398,10 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
                 m=blowout["margin"],
             )
         )
-    if nailbiter and nailbiter["margin"] < 5 and (
-        not blowout or nailbiter["margin"] != blowout["margin"]
+    if (
+        nailbiter
+        and nailbiter["margin"] < 5
+        and (not blowout or nailbiter["margin"] != blowout["margin"])
     ):
         parts.append(
             _choose(_NAILBITER_LINES, seed + 3).format(
@@ -417,10 +423,7 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
     # Skip the top-3 line when the MVP line above already names the
     # #1 unless margin between #1 and #3 is meaningful (avoid feeling
     # repetitive).
-    if (
-        len(top) >= 3
-        and (top[0]["points"] - top[2]["points"]) >= 15.0
-    ):
+    if len(top) >= 3 and (top[0]["points"] - top[2]["points"]) >= 15.0:
         parts.append(
             _choose(_TOP3_LINES, seed + 8).format(
                 a=top[0]["displayName"],
@@ -436,7 +439,7 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
     # 100-pt threshold = "low" baseline; tuned for SF + TEP fantasy
     # scoring where 110-150 is a typical pace.
     if matchups and len(top) >= 2:
-        sides_total = len(top) + sum(2 for _ in matchups[len(top):])
+        sides_total = len(top) + sum(2 for _ in matchups[len(top) :])
         side_count = max(1, len(top) + 2 * max(0, len(matchups) - len(top) // 2))
         avg_side = scored_total / max(1, 2 * len(matchups))
         if avg_side >= 130:
@@ -485,9 +488,7 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
     trades_count = len(recap.get("trades") or [])
     if trades_count:
         plural = "trade" if trades_count == 1 else "trades"
-        parts.append(
-            _choose(_TRADE_LINES, seed + 7).format(n=trades_count, plural=plural)
-        )
+        parts.append(_choose(_TRADE_LINES, seed + 7).format(n=trades_count, plural=plural))
 
     return " ".join(parts)
 
@@ -501,10 +502,7 @@ def _build_week_recap(
     pairs = metrics.matchup_pairs(entries)
     if not pairs:
         return None
-    scored_pairs = [
-        (a, b) for a, b in pairs
-        if metrics.is_scored(a) or metrics.is_scored(b)
-    ]
+    scored_pairs = [(a, b) for a, b in pairs if metrics.is_scored(a) or metrics.is_scored(b)]
     if not scored_pairs:
         return None
 
@@ -592,9 +590,7 @@ def _build_week_recap(
     # Top-3 weekly performers — used by the UI to render a small
     # leaderboard and by the summary phrase bank for "three teams
     # cracked X+" framing.
-    top_performers = sorted(
-        all_sides, key=lambda s: -s["points"]
-    )[:3]
+    top_performers = sorted(all_sides, key=lambda s: -s["points"])[:3]
 
     recap: dict[str, Any] = {
         "season": season.season,
@@ -616,9 +612,7 @@ def _build_week_recap(
 
 
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    seasons_sorted = sorted(
-        snapshot.seasons, key=lambda s: _season_sort_key(s.season)
-    )
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season))
 
     weeks_out: list[dict[str, Any]] = []
     by_key: dict[str, dict[str, Any]] = {}

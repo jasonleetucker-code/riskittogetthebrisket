@@ -15,6 +15,7 @@ Confidence buckets (per spec):
 Manual overrides live at ``data/ros/mapping_overrides.json`` — entries
 there bypass the resolver entirely with confidence 1.0.
 """
+
 from __future__ import annotations
 
 import difflib
@@ -117,9 +118,7 @@ def resolve_player(
 
         # 4. Fuzzy match — single-typo / suffix variant.  Restricted to
         # ratio >= 0.92 so we don't silently fold distinct players.
-        candidates = difflib.get_close_matches(
-            normalized, canonical_universe, n=1, cutoff=0.92
-        )
+        candidates = difflib.get_close_matches(normalized, canonical_universe, n=1, cutoff=0.92)
         if candidates:
             return MappedPlayer(raw, candidates[0], 0.7, "fuzzy", position, team)
 

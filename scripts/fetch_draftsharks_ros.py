@@ -30,6 +30,7 @@ The CSV schema matches the ROS orchestrator's existing format
 ``canonicalName`` is left empty — the orchestrator's resolver
 fills it on the next scrape pass.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,8 +60,7 @@ ROS_IDP_URL = "https://www.draftsharks.com/ros-rankings/idp"
 
 _OFFENSE_FAMILIES: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 _IDP_FAMILIES: frozenset[str] = frozenset(
-    {"DL", "LB", "DB", "DE", "DT", "EDGE", "NT", "ILB", "OLB", "MLB",
-     "CB", "S", "SS", "FS"}
+    {"DL", "LB", "DB", "DE", "DT", "EDGE", "NT", "ILB", "OLB", "MLB", "CB", "S", "SS", "FS"}
 )
 
 _USER_AGENT = (
@@ -106,15 +106,17 @@ def _load_cookies() -> list[dict]:
             continue
         if c["name"].startswith("_comment"):
             continue
-        out.append({
-            "name": c["name"],
-            "value": c["value"],
-            "domain": c.get("domain") or "www.draftsharks.com",
-            "path": c.get("path") or "/",
-            "httpOnly": bool(c.get("httpOnly", True)),
-            "secure": bool(c.get("secure", True)),
-            "sameSite": str(c.get("sameSite") or "Lax").title(),
-        })
+        out.append(
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain") or "www.draftsharks.com",
+                "path": c.get("path") or "/",
+                "httpOnly": bool(c.get("httpOnly", True)),
+                "secure": bool(c.get("secure", True)),
+                "sameSite": str(c.get("sameSite") or "Lax").title(),
+            }
+        )
     return out
 
 
@@ -177,15 +179,17 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
         w = csv.DictWriter(f, fieldnames=CSV_HEADER)
         w.writeheader()
         for i, r in enumerate(rows, start=1):
-            w.writerow({
-                "canonicalName": "",
-                "sourceName": r["name"],
-                "position": _classify_position(r.get("pos") or ""),
-                "team": "",
-                "rank": i,
-                "total_ranked": n,
-                "projection": "",
-            })
+            w.writerow(
+                {
+                    "canonicalName": "",
+                    "sourceName": r["name"],
+                    "position": _classify_position(r.get("pos") or ""),
+                    "team": "",
+                    "rank": i,
+                    "total_ranked": n,
+                    "projection": "",
+                }
+            )
     return n
 
 
@@ -266,8 +270,7 @@ async def main_async() -> int:
                     file=sys.stderr,
                 )
             idp_filtered = [
-                r for r in sf_rows
-                if _classify_position(r.get("pos") or "") in _IDP_FAMILIES
+                r for r in sf_rows if _classify_position(r.get("pos") or "") in _IDP_FAMILIES
             ]
         n_idp = _write_csv(idp_csv, idp_filtered)
 

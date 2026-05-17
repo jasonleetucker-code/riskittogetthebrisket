@@ -7,6 +7,7 @@ structure.  That keeps the test suite offline-safe while still
 exercising the parser, column-picker (2QB for QB, TE Prem. for TE),
 cross-position rank assignment (with ties), and CSV writer.
 """
+
 from __future__ import annotations
 
 import csv
@@ -96,11 +97,13 @@ def _make_fake_fetcher(mapping: dict[str, str]):
             if key in url:
                 return url, body
         raise RuntimeError(f"unexpected url: {url}")
+
     # match (final_url, body) signature of _fetch_html
     return lambda url, *, timeout=30: fake_fetch(url, timeout=timeout)
 
 
 # ── Column picker ─────────────────────────────────────────────────────
+
 
 class TestColumnPicker:
     def test_qb_picks_2qb_not_1qb(self, yb_module):
@@ -144,6 +147,7 @@ class TestColumnPicker:
 
 
 # ── Rank assignment ───────────────────────────────────────────────────
+
 
 class TestRankAssignment:
     def test_descending_by_value(self, yb_module):
@@ -189,12 +193,11 @@ class TestRankAssignment:
         ranked1 = yb_module._assign_ranks(rows)
         ranked2 = yb_module._assign_ranks(list(reversed(rows)))
         # Both orderings produce the same output sequence.
-        assert [(r.name, rank) for r, rank in ranked1] == [
-            (r.name, rank) for r, rank in ranked2
-        ]
+        assert [(r.name, rank) for r, rank in ranked1] == [(r.name, rank) for r, rank in ranked2]
 
 
 # ── End-to-end: fetch_all orchestration ───────────────────────────────
+
 
 class TestFetchAll:
     def test_combines_all_four_positions(self, yb_module):
@@ -280,6 +283,7 @@ class TestFetchAll:
 
 # ── CSV writer ────────────────────────────────────────────────────────
 
+
 class TestCsvWriter:
     def test_rank_column_holds_signal(self, yb_module, tmp_path):
         """``rank`` is the pipeline signal (matches _RANK_ALIASES so
@@ -295,7 +299,7 @@ class TestCsvWriter:
             data = list(csv.DictReader(f))
         assert data[0]["name"] == "Josh Allen"
         assert data[0]["pos"] == "QB"
-        assert data[0]["rank"] == "1"           # signal
+        assert data[0]["rank"] == "1"  # signal
         assert data[0]["boone_value"] == "141"  # original chart number
         assert data[1]["rank"] == "2"
 
@@ -326,6 +330,7 @@ class TestCsvWriter:
 
 # ── Partial-scrape guards (fail loudly, preserve last-good) ───────────
 
+
 class TestPartialScrapeGuards:
     """Regression for the 2026-05-16 silent-truncation incident: a TE
     seed failure produced a QB+RB+WR-only board.  The old combined
@@ -347,9 +352,7 @@ class TestPartialScrapeGuards:
     ):
         # Total 480 clears _YB_ROW_COUNT_FLOOR (400) so the per-position
         # guard is what must catch TE vanishing (TE=0 < 30).
-        board = self._board(
-            yb_module, {"QB": 80, "RB": 200, "WR": 200, "TE": 0}
-        )
+        board = self._board(yb_module, {"QB": 80, "RB": 200, "WR": 200, "TE": 0})
         monkeypatch.setattr(
             yb_module,
             "fetch_all",
@@ -364,15 +367,9 @@ class TestPartialScrapeGuards:
         assert rc == 3
         assert dest.read_text(encoding="utf-8") == sentinel
 
-    def test_total_below_floor_exits_2_and_preserves_csv(
-        self, yb_module, tmp_path, monkeypatch
-    ):
-        board = self._board(
-            yb_module, {"QB": 80, "RB": 80, "WR": 80, "TE": 80}
-        )  # 320 < 400
-        monkeypatch.setattr(
-            yb_module, "fetch_all", lambda *a, **k: (board, [])
-        )
+    def test_total_below_floor_exits_2_and_preserves_csv(self, yb_module, tmp_path, monkeypatch):
+        board = self._board(yb_module, {"QB": 80, "RB": 80, "WR": 80, "TE": 80})  # 320 < 400
+        monkeypatch.setattr(yb_module, "fetch_all", lambda *a, **k: (board, []))
         dest = tmp_path / "yahooBoone.csv"
         sentinel = "name,pos,rank,boone_value\nPrior Good,QB,1,141\n"
         dest.write_text(sentinel, encoding="utf-8")
@@ -382,15 +379,11 @@ class TestPartialScrapeGuards:
         assert rc == 2
         assert dest.read_text(encoding="utf-8") == sentinel
 
-    def test_healthy_board_writes_and_exits_0(
-        self, yb_module, tmp_path, monkeypatch
-    ):
+    def test_healthy_board_writes_and_exits_0(self, yb_module, tmp_path, monkeypatch):
         board = self._board(
             yb_module, {"QB": 80, "RB": 130, "WR": 150, "TE": 90}
         )  # 450, every position well above 30
-        monkeypatch.setattr(
-            yb_module, "fetch_all", lambda *a, **k: (board, [])
-        )
+        monkeypatch.setattr(yb_module, "fetch_all", lambda *a, **k: (board, []))
         dest = tmp_path / "yahooBoone.csv"
 
         rc = yb_module.main(["--dest", str(dest)])

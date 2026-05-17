@@ -23,6 +23,7 @@ a winning candidate is found, port its predict() body over there and
 update the pinned regression tests in
 ``frontend/__tests__/trade-logic.test.js``.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -43,6 +44,7 @@ class DataPoint:
     the VA.  ``large`` has more pieces.  Both are raw value lists in
     KTC's 1-9999 display scale.
     """
+
     label: str
     small: tuple[float, ...]
     large: tuple[float, ...]
@@ -64,7 +66,7 @@ class DataPoint:
 
     def extras(self) -> list[float]:
         """Multi-side pieces beyond what the small side can pair with."""
-        return self.sorted_large()[len(self.small):]
+        return self.sorted_large()[len(self.small) :]
 
     def small_top(self) -> float:
         return self.sorted_small()[0] if self.small else 0.0
@@ -198,6 +200,7 @@ DATA: list[DataPoint] = [
 # Each predict function returns the predicted VA for one DataPoint
 # given a params dict.  Signatures must match so the grid-search loop
 # can iterate uniformly.
+
 
 def predict_v1_current(pt: DataPoint, p: dict) -> float:
     """V1 (current production): top-gap scarcity * exponential-decay extras."""
@@ -438,9 +441,7 @@ def predict_v9_split(pt: DataPoint, p: dict) -> float:
         return 0.0
     count_size = len(pt.small)
     eq_va = (
-        p["eq_offset"]
-        + p["eq_top_coeff"] * small_top * top_gap
-        + p["eq_count_coeff"] * count_size
+        p["eq_offset"] + p["eq_top_coeff"] * small_top * top_gap + p["eq_count_coeff"] * count_size
     )
     return max(0.0, eq_va)
 
@@ -502,9 +503,7 @@ def predict_v10_classifier(pt: DataPoint, p: dict) -> float:
         return 0.0
 
     eq_va = (
-        p["eq_offset"]
-        + p["eq_top_coeff"] * small_top * top_gap
-        + p["eq_count_coeff"] * count_size
+        p["eq_offset"] + p["eq_top_coeff"] * small_top * top_gap + p["eq_count_coeff"] * count_size
     )
     return max(0.0, eq_va)
 
@@ -753,17 +752,10 @@ def _ktc_raw_adjustment(p: float, t: float, v: float = _KTC_V_OVERALL_MAX) -> fl
     pv = p / v if v > 0 else 0.0
     pt_ratio = p / t if t > 0 else 0.0
     pv2k = p / (v + 2000.0)
-    return p * (
-        0.1
-        + 0.04 * (pv ** 8)
-        + 0.11 * (pt_ratio ** 1.3)
-        + 0.22 * (pv2k ** 1.28)
-    )
+    return p * (0.1 + 0.04 * (pv**8) + 0.11 * (pt_ratio**1.3) + 0.22 * (pv2k**1.28))
 
 
-def _ktc_solve_for_added_value(
-    target_raw: float, t: float, v: float = _KTC_V_OVERALL_MAX
-) -> float:
+def _ktc_solve_for_added_value(target_raw: float, t: float, v: float = _KTC_V_OVERALL_MAX) -> float:
     """Find player value X such that ``_ktc_raw_adjustment(X, t, v) ≈ target_raw``.
 
     Binary search on X in [0, t].  ``raw(p, t, v)`` is monotonically
@@ -898,8 +890,10 @@ def report(predict_fn, params: dict, title: str) -> None:
     rms = ((sum(e * e for e in abs_errs) / len(abs_errs)) ** 0.5) * 100
     over_10 = sum(1 for e in abs_errs if e > 0.10)
     over_20 = sum(1 for e in abs_errs if e > 0.20)
-    print(f"  mean |err|={mean:5.2f}%  max={mx:5.2f}%  rms={rms:5.2f}%  "
-          f"(>10%: {over_10}, >20%: {over_20})")
+    print(
+        f"  mean |err|={mean:5.2f}%  max={mx:5.2f}%  rms={rms:5.2f}%  "
+        f"(>10%: {over_10}, >20%: {over_20})"
+    )
 
 
 def grid_search(predict_fn, param_grid: dict[str, list], metric: str = "rms") -> dict:
@@ -1154,8 +1148,7 @@ def main() -> None:
         rms = objective(predict_v11, params, metric="rms") * 100
         v11_results.append((alpha, params, rms))
         coef_str = ", ".join(
-            f"{name}={c:+.3f}"
-            for name, c in zip(EQ_FEATURE_NAMES, params["eq_coeffs"])
+            f"{name}={c:+.3f}" for name, c in zip(EQ_FEATURE_NAMES, params["eq_coeffs"])
         )
         print(f"  α={alpha:>5g}  rms={rms:6.2f}%   coefs: {coef_str}")
     # Pick the alpha with the lowest aggregate RMS for the report+ranking.
@@ -1179,9 +1172,13 @@ def main() -> None:
         v11_pred = predict_v11(pt, v11_best[1])
         delta = abs(v11_pred - v2_pred)
         anchor_max_delta = max(anchor_max_delta, delta)
-        print(f"  {pt.label:<2} ({pt.topology}): V2={v2_pred:6.0f}  V11={v11_pred:6.0f}  Δ={delta:5.1f}")
+        print(
+            f"  {pt.label:<2} ({pt.topology}): V2={v2_pred:6.0f}  V11={v11_pred:6.0f}  Δ={delta:5.1f}"
+        )
     if anchor_max_delta > 0.5:
-        print(f"  ✘ FAIL: V11 deviates from V2 on a baseline anchor (max Δ = {anchor_max_delta:.2f})")
+        print(
+            f"  ✘ FAIL: V11 deviates from V2 on a baseline anchor (max Δ = {anchor_max_delta:.2f})"
+        )
         print("    Hard requirement violated.  Do NOT port V11.")
     else:
         print(f"  ✓ PASS: V11 matches V2 within {anchor_max_delta:.2f} on every baseline anchor.")
@@ -1216,8 +1213,10 @@ def main() -> None:
         rms = ((sum(e * e for e in errs) / len(errs)) ** 0.5) * 100
         over_10 = sum(1 for e in errs if e > 0.10)
         over_20 = sum(1 for e in errs if e > 0.20)
-        print(f"  {name:<10}  rms={rms:5.2f}%  mean={mean:5.2f}%  max={mx:5.2f}%  "
-              f">10%: {over_10}/{total_points}  >20%: {over_20}/{total_points}")
+        print(
+            f"  {name:<10}  rms={rms:5.2f}%  mean={mean:5.2f}%  max={mx:5.2f}%  "
+            f">10%: {over_10}/{total_points}  >20%: {over_20}/{total_points}"
+        )
 
 
 if __name__ == "__main__":

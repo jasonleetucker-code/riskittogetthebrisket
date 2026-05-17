@@ -10,6 +10,7 @@ regular + playoff games.  We pin:
     * "Notable this week" entries are keyed by the most recently scored
       game in the snapshot.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -31,9 +32,7 @@ class TrailingRunTests(unittest.TestCase):
             {"result": "W"},
             {"result": "W"},
         ]
-        length, start, end = _trailing_run(
-            list(reversed(events)), lambda e: e["result"] == "W"
-        )
+        length, start, end = _trailing_run(list(reversed(events)), lambda e: e["result"] == "W")
         self.assertEqual(length, 3)
         # end_event is the MOST recent (last chronologically).
         self.assertIs(end, events[-1])
@@ -47,16 +46,12 @@ class TrailingRunTests(unittest.TestCase):
             {"result": "L"},
             {"result": "W"},
         ]
-        length, _, _ = _trailing_run(
-            list(reversed(events)), lambda e: e["result"] == "W"
-        )
+        length, _, _ = _trailing_run(list(reversed(events)), lambda e: e["result"] == "W")
         self.assertEqual(length, 1)
 
     def test_zero_when_tail_is_false(self) -> None:
         events = [{"result": "W"}, {"result": "L"}]
-        length, start, end = _trailing_run(
-            list(reversed(events)), lambda e: e["result"] == "W"
-        )
+        length, start, end = _trailing_run(list(reversed(events)), lambda e: e["result"] == "W")
         self.assertEqual(length, 0)
         self.assertIsNone(start)
         self.assertIsNone(end)

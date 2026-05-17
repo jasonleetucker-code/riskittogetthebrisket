@@ -11,6 +11,7 @@ pick bug was reported.  It would have caught it at test time
 rather than after a user report.  Pinning it here prevents
 regression.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,10 +38,7 @@ def test_ktc_backend_returns_pick_with_valid_canonical_name():
         result = ktc_import.resolve_trade_url(_BUG_URL)
     except Exception as exc:
         pytest.skip(f"KTC upstream unreachable: {exc}")
-    pick_entries = [
-        e for e in (result["sideOne"] + result["sideTwo"])
-        if e.get("isPick")
-    ]
+    pick_entries = [e for e in (result["sideOne"] + result["sideTwo"]) if e.get("isPick")]
     assert pick_entries, "Backend dropped the pick from the KTC URL"
     for pe in pick_entries:
         name = pe["name"]
@@ -58,10 +56,7 @@ def test_ktc_backend_returns_all_four_assets():
     except Exception as exc:
         pytest.skip(f"KTC upstream unreachable: {exc}")
     total = len(result["sideOne"]) + len(result["sideTwo"])
-    unresolved = (
-        len(result["unresolved"]["sideOne"])
-        + len(result["unresolved"]["sideTwo"])
-    )
+    unresolved = len(result["unresolved"]["sideOne"]) + len(result["unresolved"]["sideTwo"])
     assert total + unresolved == 4, (
         f"KTC parsed 4 IDs but returned {total} resolved + "
         f"{unresolved} unresolved — something went missing"
@@ -73,25 +68,55 @@ def test_ktc_endpoint_returns_structured_response(monkeypatch):
     structured shape the frontend expects, even on error."""
     # Stub the KTC resolver so the test doesn't depend on KTC being up.
     from src.trade import ktc_import as ki
-    monkeypatch.setattr(ki, "resolve_trade_url", lambda _url: {
-        "sourceUrl": _url,
-        "sideOne": [
-            {"ktcId": 1934, "name": "Jeremiyah Love", "position": "RB",
-             "team": "", "slug": "", "isPick": False},
-            {"ktcId": 1273, "name": "Jameson Williams", "position": "WR",
-             "team": "", "slug": "", "isPick": False},
-            {"ktcId": 1712, "name": "2027 Mid 4th", "position": "RDP",
-             "team": "", "slug": "", "isPick": True},
-        ],
-        "sideTwo": [
-            {"ktcId": 1415, "name": "Jahmyr Gibbs", "position": "RB",
-             "team": "", "slug": "", "isPick": False},
-        ],
-        "unresolved": {"sideOne": [], "sideTwo": []},
-    })
+
+    monkeypatch.setattr(
+        ki,
+        "resolve_trade_url",
+        lambda _url: {
+            "sourceUrl": _url,
+            "sideOne": [
+                {
+                    "ktcId": 1934,
+                    "name": "Jeremiyah Love",
+                    "position": "RB",
+                    "team": "",
+                    "slug": "",
+                    "isPick": False,
+                },
+                {
+                    "ktcId": 1273,
+                    "name": "Jameson Williams",
+                    "position": "WR",
+                    "team": "",
+                    "slug": "",
+                    "isPick": False,
+                },
+                {
+                    "ktcId": 1712,
+                    "name": "2027 Mid 4th",
+                    "position": "RDP",
+                    "team": "",
+                    "slug": "",
+                    "isPick": True,
+                },
+            ],
+            "sideTwo": [
+                {
+                    "ktcId": 1415,
+                    "name": "Jahmyr Gibbs",
+                    "position": "RB",
+                    "team": "",
+                    "slug": "",
+                    "isPick": False,
+                },
+            ],
+            "unresolved": {"sideOne": [], "sideTwo": []},
+        },
+    )
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda r: {"username": "testuser"},
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -111,9 +136,13 @@ def test_ktc_endpoint_returns_structured_response(monkeypatch):
 def test_pick_name_validator_accepts_all_canonical_shapes():
     """Pin the set of pick-name shapes we treat as canonical."""
     valid = [
-        "2027 Mid 4th", "2026 Early 1st", "2026 Late 3rd",
-        "2026 Pick 1.01", "2027 Pick 2.12",
-        "2026 1st Round", "2027 4th Round",
+        "2027 Mid 4th",
+        "2026 Early 1st",
+        "2026 Late 3rd",
+        "2026 Pick 1.01",
+        "2027 Pick 2.12",
+        "2026 1st Round",
+        "2027 4th Round",
     ]
     invalid = [
         "2027 4th",  # missing tier

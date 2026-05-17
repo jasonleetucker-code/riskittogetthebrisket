@@ -1,2 +1,1 @@
 """Canonical engine scaffold package."""
-

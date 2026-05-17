@@ -16,6 +16,7 @@ filesystem touch (``_csv_nonempty``) for determinism.  ``thresholds``
 is left empty so ``resolve_threshold`` returns its 24h default; an
 ``ageHours`` of 0 is therefore unambiguously fresh and 9999 stale.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -51,9 +52,7 @@ class TestEvaluateCoverage(unittest.TestCase):
     def test_fresh_source_absent_is_a_violation(self):
         contract = _contract_with_coverage(_KEY, 0)
         freshness = {_KEY: {"ageHours": 0.0}}
-        violations, ok, skipped = wcc.evaluate_coverage(
-            contract, freshness, {}
-        )
+        violations, ok, skipped = wcc.evaluate_coverage(contract, freshness, {})
         self.assertIn((_KEY, 0), violations)
         self.assertNotIn(_KEY, [k for k, _ in ok])
 
@@ -78,9 +77,7 @@ class TestEvaluateCoverage(unittest.TestCase):
         # silent to avoid double-reporting the same outage.
         contract = _contract_with_coverage(_KEY, 0)
         freshness = {_KEY: {"ageHours": 9999.0}}
-        violations, _ok, skipped = wcc.evaluate_coverage(
-            contract, freshness, {}
-        )
+        violations, _ok, skipped = wcc.evaluate_coverage(contract, freshness, {})
         self.assertNotIn(_KEY, [k for k, _ in violations])
         self.assertIn(_KEY, skipped)
 
@@ -90,9 +87,7 @@ class TestEvaluateCoverage(unittest.TestCase):
         wcc._csv_nonempty = lambda _k: False
         contract = _contract_with_coverage(_KEY, 0)
         freshness = {_KEY: {"ageHours": 0.0}}
-        violations, _ok, skipped = wcc.evaluate_coverage(
-            contract, freshness, {}
-        )
+        violations, _ok, skipped = wcc.evaluate_coverage(contract, freshness, {})
         self.assertNotIn(_KEY, [k for k, _ in violations])
         self.assertIn(_KEY, skipped)
 

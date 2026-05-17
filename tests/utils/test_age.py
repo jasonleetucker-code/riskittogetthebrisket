@@ -1,4 +1,5 @@
 """Tests for src.utils.age.age_from_birthdate."""
+
 from __future__ import annotations
 
 from datetime import date

@@ -69,6 +69,7 @@ Exit codes 2 and 3 deliberately leave the previously-written CSV
 untouched: a degraded refresh keeps serving the last good board
 until a human investigates, rather than overwriting it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -218,18 +219,12 @@ def _parse_position_table(page_html: str, position: str) -> list[YahooRow]:
     wanted = _VALUE_COLUMN[position]
 
     try:
-        player_idx = next(
-            i for i, col in enumerate(header) if col.lower() == "player"
-        )
+        player_idx = next(i for i, col in enumerate(header) if col.lower() == "player")
     except StopIteration as exc:
-        raise YahooBooneSchemaError(
-            f"{position}: no 'Player' column in header {header!r}"
-        ) from exc
+        raise YahooBooneSchemaError(f"{position}: no 'Player' column in header {header!r}") from exc
 
     try:
-        value_idx = next(
-            i for i, col in enumerate(header) if col.lower() == wanted.lower()
-        )
+        value_idx = next(i for i, col in enumerate(header) if col.lower() == wanted.lower())
     except StopIteration as exc:
         raise YahooBooneSchemaError(
             f"{position}: no '{wanted}' column in header {header!r}"
@@ -320,7 +315,9 @@ def _write_csv(path: Path, ranked: list[tuple[YahooRow, int]]) -> None:
 
 
 # ── Orchestration ─────────────────────────────────────────────────────
-def _fetch_one_position(position: str, urls: list[str]) -> tuple[list[YahooRow], str, datetime | None]:
+def _fetch_one_position(
+    position: str, urls: list[str]
+) -> tuple[list[YahooRow], str, datetime | None]:
     """Try each seed URL for a position; return (rows, final_url, pub_date)."""
     last_exc: Exception | None = None
     for url in urls:
@@ -391,10 +388,7 @@ def fetch_all(
                     f"at {final_url} — check _SEED_URLS for a fresher entry"
                 )
         combined.extend(parsed)
-        print(
-            f"[fetch_yahoo_boone] {position}: {len(parsed)} rows "
-            f"from {final_url}"
-        )
+        print(f"[fetch_yahoo_boone] {position}: {len(parsed)} rows " f"from {final_url}")
 
     return combined, warnings
 
@@ -435,8 +429,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(rows) < _YB_ROW_COUNT_FLOOR:
         print(
-            f"[fetch_yahoo_boone] row count below floor: "
-            f"{len(rows)} < {_YB_ROW_COUNT_FLOOR}",
+            f"[fetch_yahoo_boone] row count below floor: " f"{len(rows)} < {_YB_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2
@@ -456,9 +449,7 @@ def main(argv: list[str] | None = None) -> int:
         if pos_seen.get(pos, 0) < _YB_MIN_ROWS_PER_POSITION
     }
     if short_positions:
-        detail = ", ".join(
-            f"{p}={pos_seen.get(p, 0)}" for p in sorted(short_positions)
-        )
+        detail = ", ".join(f"{p}={pos_seen.get(p, 0)}" for p in sorted(short_positions))
         print(
             f"[fetch_yahoo_boone] partial scrape — position(s) below "
             f"min {_YB_MIN_ROWS_PER_POSITION}: {detail} "

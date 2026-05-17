@@ -17,6 +17,7 @@ test league's key so ``_resolve_league_for_request`` has something
 to match against.  We stub out Sleeper-hitting endpoints where we
 can to keep the tests local.
 """
+
 from __future__ import annotations
 
 import json
@@ -71,6 +72,7 @@ def two_league_registry(tmp_path, monkeypatch):
 
     # Isolate user_kv to a temp file so the PUT paths don't leak.
     from src.api import user_kv
+
     monkeypatch.setattr(user_kv, "USER_KV_PATH", tmp_path / "user_kv.sqlite")
     user_kv._SETUP_DONE.clear()
 
@@ -187,9 +189,7 @@ def test_api_data_rejects_unknown_league(two_league_registry, monkeypatch):
     assert res.json()["error"] == "unknown_league"
 
 
-def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(
-    two_league_registry, monkeypatch
-):
+def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(two_league_registry, monkeypatch):
     """Legacy test: the stub contract in this fixture doesn't stamp
     ``meta.scoringProfile``, which means the endpoint can't enforce
     profile matching.  In that case the pre-refactor behavior applies
@@ -221,12 +221,22 @@ def test_trade_simulate_accepts_league_key_in_body(two_league_registry, monkeypa
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract_for_league(monkeypatch, "main")
         monkeypatch.setattr(
-            server, "_get_auth_session",
-            lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
+            server,
+            "_get_auth_session",
+            lambda request: {
+                "username": "alice",
+                "auth_method": "sleeper",
+                "sleeper_user_id": "oA",
+            },
         )
         res = c.post(
             "/api/trade/simulate",
-            json={"leagueKey": "main", "teamName": "Nonexistent", "playersIn": [], "playersOut": []},
+            json={
+                "leagueKey": "main",
+                "teamName": "Nonexistent",
+                "playersIn": [],
+                "playersOut": [],
+            },
         )
     # 404 team_not_found is the NEXT validation step after league
     # resolution — proves we got past the league check.
@@ -240,8 +250,13 @@ def test_trade_simulate_rejects_wrong_league_in_body(two_league_registry, monkey
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract_for_league(monkeypatch, "main")
         monkeypatch.setattr(
-            server, "_get_auth_session",
-            lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
+            server,
+            "_get_auth_session",
+            lambda request: {
+                "username": "alice",
+                "auth_method": "sleeper",
+                "sleeper_user_id": "oA",
+            },
         )
         res = c.post(
             "/api/trade/simulate",
@@ -326,9 +341,7 @@ def _install_contract_with_profile(monkeypatch, league_key: str, profile: str):
     monkeypatch.setattr(server, "latest_data_etag", None)
 
 
-def test_api_data_serves_shared_rankings_for_same_profile(
-    shared_scoring_registry, monkeypatch
-):
+def test_api_data_serves_shared_rankings_for_same_profile(shared_scoring_registry, monkeypatch):
     """Loaded contract is for League 'main' (superflex_tep15_ppr1).
     Request for 'twin' (same profile) should succeed with 200,
     serve the rankings, and null the sleeper block so the UI
@@ -352,9 +365,7 @@ def test_api_data_serves_shared_rankings_for_same_profile(
     assert body["meta"]["sleeperLoadedLeagueKey"] == "main"
 
 
-def test_api_data_serves_full_contract_when_sleeper_matches(
-    shared_scoring_registry, monkeypatch
-):
+def test_api_data_serves_full_contract_when_sleeper_matches(shared_scoring_registry, monkeypatch):
     """When the loaded contract's leagueKey matches the requested
     league AND the live Sleeper overlay is unavailable, the baked-in
     sleeper block falls through unchanged.
@@ -365,7 +376,8 @@ def test_api_data_serves_full_contract_when_sleeper_matches(
     this test pins.
     """
     monkeypatch.setattr(
-        server._sleeper_overlay, "fetch_sleeper_overlay",
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
         lambda **_kw: None,  # overlay unavailable → fall back to baked
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -377,9 +389,7 @@ def test_api_data_serves_full_contract_when_sleeper_matches(
     assert body["sleeper"]["teams"][0]["ownerId"] == "oA"
 
 
-def test_api_data_overlays_fresh_sleeper_for_loaded_league(
-    shared_scoring_registry, monkeypatch
-):
+def test_api_data_overlays_fresh_sleeper_for_loaded_league(shared_scoring_registry, monkeypatch):
     """When the live overlay is available, /api/data splices it onto
     the loaded league's response so the rosters reflect Sleeper
     activity within the overlay's 15-min cache window — even for
@@ -396,7 +406,8 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(
         "overlayFetchedAt": "2026-04-29T11:30:00+00:00",
     }
     monkeypatch.setattr(
-        server._sleeper_overlay, "fetch_sleeper_overlay",
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
         lambda **_kw: fresh_overlay,
     )
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -413,9 +424,7 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(
     assert "overlay" in res.headers.get("X-Payload-View", "")
 
 
-def test_api_data_overlay_layers_fresh_trades_in_baked_shape(
-    shared_scoring_registry, monkeypatch
-):
+def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_registry, monkeypatch):
     """The overlay's ``trades`` block now produces the same
     ``[{leagueId, week, timestamp, sides[]}, ...]`` shape that the
     offline scraper bakes into ``sleeper.trades`` (see
@@ -432,18 +441,20 @@ def test_api_data_overlay_layers_fresh_trades_in_baked_shape(
     green.
     """
     baked_trades = [
-        {"leagueId": "L-MAIN", "sides": [{"a": 1}, {"b": 2}],
-         "timestamp": 1700000000000, "week": 3},
+        {
+            "leagueId": "L-MAIN",
+            "sides": [{"a": 1}, {"b": 2}],
+            "timestamp": 1700000000000,
+            "week": 3,
+        },
     ]
     fresh_overlay_trade = {
         "leagueId": "L-MAIN",
         "week": 5,
         "timestamp": 1730000000000,
         "sides": [
-            {"team": "Team A", "rosterId": 1, "ownerId": "oA",
-             "got": ["Fresh Player"], "gave": []},
-            {"team": "Team B", "rosterId": 2, "ownerId": "oB",
-             "got": [], "gave": ["Fresh Player"]},
+            {"team": "Team A", "rosterId": 1, "ownerId": "oA", "got": ["Fresh Player"], "gave": []},
+            {"team": "Team B", "rosterId": 2, "ownerId": "oB", "got": [], "gave": ["Fresh Player"]},
         ],
     }
     overlay_payload = {
@@ -458,7 +469,8 @@ def test_api_data_overlay_layers_fresh_trades_in_baked_shape(
         "overlayFetchedAt": "2026-04-29T12:00:00+00:00",
     }
     monkeypatch.setattr(
-        server._sleeper_overlay, "fetch_sleeper_overlay",
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
         lambda **_kw: overlay_payload,
     )
     stub = {
@@ -495,9 +507,7 @@ def test_api_data_overlay_layers_fresh_trades_in_baked_shape(
     assert sleeper.get("overlaySource") == "live-merge"
 
 
-def test_api_data_503s_when_scoring_profile_differs(
-    shared_scoring_registry, monkeypatch
-):
+def test_api_data_503s_when_scoring_profile_differs(shared_scoring_registry, monkeypatch):
     """Loaded contract is superflex_tep15_ppr1.  Requesting the
     'stranger' league (standard_1qb_ppr1) must 503 — rankings
     genuinely can't be reused across different scoring."""
@@ -544,18 +554,21 @@ def test_api_leagues_excludes_inactive(two_league_registry):
 
 
 def test_api_leagues_autoresolves_user_team_via_sleeper(
-    two_league_registry, monkeypatch,
+    two_league_registry,
+    monkeypatch,
 ):
     """Registry has no defaultTeamMap for "main" → server should
     resolve the user's team from Sleeper via their sleeper_user_id."""
     # Seed an in-memory session with a Sleeper user_id.
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {
             "username": "jasonleetucker",
             "sleeper_user_id": "U-JASON",
         },
     )
+
     # Stub the Sleeper user-team lookup to pretend Jason is in "main"
     # as "Rossini Panini" and in "side" as "Blood Sweat Crew".
     def _stub_fetch(league_id, user_id):
@@ -565,6 +578,7 @@ def test_api_leagues_autoresolves_user_team_via_sleeper(
         if league_id == "L-SIDE":
             return {"ownerId": "U-JASON", "teamName": "Blood Sweat Crew"}
         return None
+
     monkeypatch.setattr(server, "_fetch_sleeper_user_team", _stub_fetch)
     # Avoid the live Sleeper name fetch in the test.
     monkeypatch.setattr(server, "_fetch_sleeper_league_name", lambda _id: None)
@@ -579,30 +593,39 @@ def test_api_leagues_autoresolves_user_team_via_sleeper(
 
 
 def test_api_leagues_registry_default_team_wins_over_sleeper_fallback(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     """When the registry DOES have a defaultTeamMap entry, that
     takes precedence — the Sleeper fallback is only for leagues the
     registry hasn't been edited for."""
     path = tmp_path / "registry.json"
-    path.write_text(json.dumps({
-        "defaultLeagueKey": "main",
-        "leagues": [{
-            "key": "main",
-            "displayName": "Main",
-            "sleeperLeagueId": "L-MAIN",
-            "active": True,
-            "rosterSettings": {},
-            "defaultTeamMap": {
-                "jasonleetucker": {"teamName": "Registry-Override"},
-            },
-        }],
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "defaultLeagueKey": "main",
+                "leagues": [
+                    {
+                        "key": "main",
+                        "displayName": "Main",
+                        "sleeperLeagueId": "L-MAIN",
+                        "active": True,
+                        "rosterSettings": {},
+                        "defaultTeamMap": {
+                            "jasonleetucker": {"teamName": "Registry-Override"},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
 
     monkeypatch.setattr(
-        server, "_get_auth_session",
+        server,
+        "_get_auth_session",
         lambda request: {
             "username": "jasonleetucker",
             "sleeper_user_id": "U-JASON",
@@ -610,9 +633,11 @@ def test_api_leagues_registry_default_team_wins_over_sleeper_fallback(
     )
     # This stub should NEVER be called if the registry entry wins.
     calls = []
+
     def _should_not_be_called(*a, **kw):
         calls.append((a, kw))
         return {"ownerId": "U-JASON", "teamName": "Sleeper-Fallback"}
+
     monkeypatch.setattr(server, "_fetch_sleeper_user_team", _should_not_be_called)
     monkeypatch.setattr(server, "_fetch_sleeper_league_name", lambda _id: None)
 
@@ -628,7 +653,8 @@ def test_api_leagues_registry_default_team_wins_over_sleeper_fallback(
 
 
 def test_api_leagues_anonymous_users_get_no_user_default_team(
-    two_league_registry, monkeypatch,
+    two_league_registry,
+    monkeypatch,
 ):
     """Anonymous callers (no session) must not get a userDefaultTeam
     block — we don't leak any user's team-in-league on an unauthed
@@ -647,8 +673,10 @@ def test_fetch_sleeper_user_team_returns_none_for_unknown_user(monkeypatch):
     """Direct unit test on the helper: an unknown user_id → None
     (not an exception)."""
     import io
+
     def _fake_urlopen(req, timeout=5.0):
         return io.BytesIO(b'[{"user_id":"OTHER","metadata":{"team_name":"Not Mine"}}]')
+
     monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
     # Clear cache so this call actually hits the stub.
     server._SLEEPER_USER_TEAM_CACHE.clear()
@@ -660,11 +688,13 @@ def test_fetch_sleeper_user_team_resolves_team_name(monkeypatch):
     """Helper returns {ownerId, teamName} when the user is present in
     the league's users list."""
     import io
+
     def _fake_urlopen(req, timeout=5.0):
         return io.BytesIO(
             b'[{"user_id":"U-JASON","metadata":{"team_name":"Brisket Crew"},'
             b'"display_name":"jasonleetucker"}]'
         )
+
     monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
     server._SLEEPER_USER_TEAM_CACHE.clear()
     result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")
@@ -676,10 +706,10 @@ def test_fetch_sleeper_user_team_falls_back_to_display_name(monkeypatch):
     ``display_name`` so the team picker shows SOMETHING instead of
     blank."""
     import io
+
     def _fake_urlopen(req, timeout=5.0):
-        return io.BytesIO(
-            b'[{"user_id":"U-JASON","display_name":"jasonleetucker"}]'
-        )
+        return io.BytesIO(b'[{"user_id":"U-JASON","display_name":"jasonleetucker"}]')
+
     monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
     server._SLEEPER_USER_TEAM_CACHE.clear()
     result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")

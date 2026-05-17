@@ -27,6 +27,7 @@ Cost shape at Opus 4.7 pricing (April 2026 baseline):
   * each follow-up turn: ~$0.03-$0.05 (cache read + output)
   * budget ~$5-15/month for private use
 """
+
 from __future__ import annotations
 
 import json
@@ -144,9 +145,7 @@ def build_data_snapshot(contract_or_raw: Any) -> str:
         return "[Board has no player entries.]\n"
 
     generated_at = (
-        contract_or_raw.get("generatedAt")
-        or contract_or_raw.get("scrapeTimestamp")
-        or ""
+        contract_or_raw.get("generatedAt") or contract_or_raw.get("scrapeTimestamp") or ""
     )
 
     lines: list[str] = []
@@ -183,9 +182,7 @@ def build_data_snapshot(contract_or_raw: Any) -> str:
         src_count = row.get("sourceCount")
         src_count_str = str(int(src_count)) if isinstance(src_count, int) else ""
         pspread = row.get("sourceRankPercentileSpread")
-        pspread_str = (
-            f"{float(pspread):.3f}" if isinstance(pspread, (int, float)) else ""
-        )
+        pspread_str = f"{float(pspread):.3f}" if isinstance(pspread, (int, float)) else ""
         flags_raw = row.get("anomalyFlags") or []
         flags = ",".join(sorted(str(f) for f in flags_raw)) if isinstance(flags_raw, list) else ""
         tier = row.get("canonicalTierId")

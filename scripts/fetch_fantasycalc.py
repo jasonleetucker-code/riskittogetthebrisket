@@ -49,6 +49,7 @@ Exit codes:
          * response is not a JSON array, or
          * row count below :data:`_FC_ROW_COUNT_FLOOR`
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,10 +66,7 @@ except ImportError:  # pragma: no cover
     sys.exit(1)
 
 
-FC_URL = (
-    "https://api.fantasycalc.com/values/current"
-    "?isDynasty=true&numQbs=2&numTeams=12&ppr=1"
-)
+FC_URL = "https://api.fantasycalc.com/values/current" "?isDynasty=true&numQbs=2&numTeams=12&ppr=1"
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
@@ -148,9 +146,7 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     whose value is a positive number.
     """
     if not isinstance(data, list):
-        raise FantasyCalcSchemaError(
-            f"Expected JSON array, got {type(data).__name__}"
-        )
+        raise FantasyCalcSchemaError(f"Expected JSON array, got {type(data).__name__}")
     out: list[dict[str, Any]] = []
     for entry in data:
         if not isinstance(entry, dict):
@@ -253,15 +249,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(rows) < _FC_ROW_COUNT_FLOOR:
         print(
-            f"[fetch_fantasycalc] row count below floor: "
-            f"{len(rows)} < {_FC_ROW_COUNT_FLOOR}",
+            f"[fetch_fantasycalc] row count below floor: " f"{len(rows)} < {_FC_ROW_COUNT_FLOOR}",
             file=sys.stderr,
         )
         return 2
 
-    print(
-        f"[fetch_fantasycalc] total={len(rows)} rows with positive value"
-    )
+    print(f"[fetch_fantasycalc] total={len(rows)} rows with positive value")
 
     if args.dry_run:
         print("[fetch_fantasycalc] --dry-run; not writing CSV")

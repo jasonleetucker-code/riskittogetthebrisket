@@ -28,6 +28,7 @@ The payload is cheap to build (<50ms on a warm cache) but we stamp
 ``generatedAt`` so the frontend can display age relative to the last
 scrape.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -55,10 +56,25 @@ TIER_CUTOFFS = (
 # module, re-implemented here so there is one authority.
 POS_GROUPS = ("QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK")
 
-IDP_POSITIONS = frozenset({
-    "DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB",
-    "DB", "CB", "S", "FS", "SS", "IDP",
-})
+IDP_POSITIONS = frozenset(
+    {
+        "DL",
+        "DE",
+        "DT",
+        "EDGE",
+        "NT",
+        "LB",
+        "OLB",
+        "ILB",
+        "MLB",
+        "DB",
+        "CB",
+        "S",
+        "FS",
+        "SS",
+        "IDP",
+    }
+)
 
 
 def _utc_now_iso() -> str:
@@ -67,8 +83,22 @@ def _utc_now_iso() -> str:
 
 def _normalize_pos(pos: Any) -> str:
     p = str(pos or "").upper()
-    if p in {"DB", "LB", "DL", "DE", "DT", "CB", "S", "EDGE", "NT",
-             "OLB", "ILB", "MLB", "FS", "SS"}:
+    if p in {
+        "DB",
+        "LB",
+        "DL",
+        "DE",
+        "DT",
+        "CB",
+        "S",
+        "EDGE",
+        "NT",
+        "OLB",
+        "ILB",
+        "MLB",
+        "FS",
+        "SS",
+    }:
         return "IDP"
     if p == "PK":
         return "K"
@@ -143,9 +173,11 @@ def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
         for r in arr:
             if not isinstance(r, dict):
                 continue
-            name_lower = str(
-                r.get("displayName") or r.get("canonicalName") or r.get("name") or ""
-            ).strip().lower()
+            name_lower = (
+                str(r.get("displayName") or r.get("canonicalName") or r.get("name") or "")
+                .strip()
+                .lower()
+            )
             if name_lower and "_sleeperId" not in r:
                 sid = sleeper_lookup.get(name_lower)
                 if sid:
@@ -189,9 +221,11 @@ def _build_sleeper_id_lookup(contract: dict[str, Any]) -> dict[str, str]:
             sid = row.get("_sleeperId") or row.get("sleeperId")
             if sid is None:
                 continue
-            n = str(
-                row.get("displayName") or row.get("canonicalName") or row.get("name") or ""
-            ).strip().lower()
+            n = (
+                str(row.get("displayName") or row.get("canonicalName") or row.get("name") or "")
+                .strip()
+                .lower()
+            )
             if n and n not in out:
                 out[n] = str(sid)
     return out
@@ -262,7 +296,9 @@ def _normalize_points(raw: Iterable[Any] | None) -> list[dict[str, Any]]:
         if not isinstance(date, str):
             continue
         try:
-            t = int(datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000)
+            t = int(
+                datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000
+            )
         except ValueError:
             continue
         points.append({"date": date, "t": t, "rank": rank})
@@ -335,9 +371,7 @@ def _history_lookup(history: dict[str, Any] | None) -> Callable[[str], list[dict
     return _lookup
 
 
-def _build_value_history_lookup(
-    *, days: int
-) -> Callable[[str], list[dict[str, Any]]]:
+def _build_value_history_lookup(*, days: int) -> Callable[[str], list[dict[str, Any]]]:
     """Pre-load the source-value history JSONL once per terminal
     request and return a case-insensitive lookup.
 
@@ -362,7 +396,7 @@ def _build_value_history_lookup(
     if not entries:
         return lambda _name: []
     entries.sort(key=lambda e: e.get("date") or "")
-    windowed = entries[-max(1, int(days)):]
+    windowed = entries[-max(1, int(days)) :]
 
     lookup: dict[str, list[dict[str, Any]]] = {}
     for snap in windowed:
@@ -636,21 +670,27 @@ def _compute_movers(
     elif scope == "league":
         pool = [r for r in rows if _row_name(r).lower() in league_set]
     else:
-        pool = [r for r in rows if isinstance(r.get("canonicalConsensusRank"), (int, float))
-                and 0 < (r.get("canonicalConsensusRank") or 0) <= 150]
+        pool = [
+            r
+            for r in rows
+            if isinstance(r.get("canonicalConsensusRank"), (int, float))
+            and 0 < (r.get("canonicalConsensusRank") or 0) <= 150
+        ]
     moved: list[dict[str, Any]] = []
     for r in pool:
         c = _row_rank_change(r)
         if c is None or c == 0:
             continue
-        moved.append({
-            "name": _row_name(r),
-            "pos": _normalize_pos(r.get("pos") or r.get("position")),
-            "value": int(_row_value(r)),
-            "rank": _row_rank(r),
-            "change": c,
-            "onRoster": _row_name(r).lower() in roster_set,
-        })
+        moved.append(
+            {
+                "name": _row_name(r),
+                "pos": _normalize_pos(r.get("pos") or r.get("position")),
+                "value": int(_row_value(r)),
+                "rank": _row_rank(r),
+                "change": c,
+                "onRoster": _row_name(r).lower() in roster_set,
+            }
+        )
     moved.sort(key=lambda m: (abs(m["change"]), m["value"]), reverse=True)
     return moved[:limit]
 
@@ -739,45 +779,84 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
     pos = ctx.get("positiveImpactCount") or 0
 
     def add(priority: int, signal: str, tag: str, reason: str) -> None:
-        fired.append({
-            "priority": priority,
-            "signal": signal,
-            "tag": tag,
-            "reason": reason,
-        })
+        fired.append(
+            {
+                "priority": priority,
+                "signal": signal,
+                "tag": tag,
+                "reason": reason,
+            }
+        )
 
     if alert > 0 and neg > 0 and (trend7 is not None and trend7 <= -3):
-        add(100, "RISK", "alert_with_drop",
-            f"Alert-severity news alongside a 7d drop of {_fmt_delta(trend7)}.")
+        add(
+            100,
+            "RISK",
+            "alert_with_drop",
+            f"Alert-severity news alongside a 7d drop of {_fmt_delta(trend7)}.",
+        )
     if vol_label == "high" and (trend7 is not None and trend7 <= -5):
-        add(95, "RISK", "high_vol_drop",
-            f"High volatility (MAD {float(mad or 0):.1f}) with a steep 7d drop of {_fmt_delta(trend7)}.")
+        add(
+            95,
+            "RISK",
+            "high_vol_drop",
+            f"High volatility (MAD {float(mad or 0):.1f}) with a steep 7d drop of {_fmt_delta(trend7)}.",
+        )
     if (trend7 is not None and trend7 <= -3) and (trend30 is not None and trend30 <= 0):
-        add(80, "SELL", "sustained_downtrend",
-            f"7d trend {_fmt_delta(trend7)} continues a 30d trend of {_fmt_delta(trend30)}.")
+        add(
+            80,
+            "SELL",
+            "sustained_downtrend",
+            f"7d trend {_fmt_delta(trend7)} continues a 30d trend of {_fmt_delta(trend30)}.",
+        )
     if neg > 0 and vol_label == "high":
-        add(78, "SELL", "neg_news_high_vol",
-            f"Negative news with high volatility (MAD {float(mad or 0):.1f}).")
+        add(
+            78,
+            "SELL",
+            "neg_news_high_vol",
+            f"Negative news with high volatility (MAD {float(mad or 0):.1f}).",
+        )
     if alert > 0:
-        add(65, "MONITOR", "alert_present",
-            f"{alert} alert-severity headline{'' if alert == 1 else 's'} — watch for follow-up.")
+        add(
+            65,
+            "MONITOR",
+            "alert_present",
+            f"{alert} alert-severity headline{'' if alert == 1 else 's'} — watch for follow-up.",
+        )
     if vol_label == "high":
-        add(62, "MONITOR", "high_vol",
-            f"High volatility (MAD {float(mad or 0):.1f}).")
-    if conf is not None and conf < 0.35 and (
-        vol_label == "med" or (trend7 is not None and abs(trend7) >= 2)
+        add(62, "MONITOR", "high_vol", f"High volatility (MAD {float(mad or 0):.1f}).")
+    if (
+        conf is not None
+        and conf < 0.35
+        and (vol_label == "med" or (trend7 is not None and abs(trend7) >= 2))
     ):
-        add(60, "MONITOR", "low_conf_unstable",
-            f"Low market confidence ({conf * 100:.0f}%) plus recent movement.")
+        add(
+            60,
+            "MONITOR",
+            "low_conf_unstable",
+            f"Low market confidence ({conf * 100:.0f}%) plus recent movement.",
+        )
     if value >= 7000 and (trend30 is not None and trend30 >= 0) and vol_label in ("low", "med"):
-        add(50, "STRONG_HOLD", "elite_stable",
-            f"Elite value ({int(value):,}) with a non-negative 30d trend and non-high volatility.")
+        add(
+            50,
+            "STRONG_HOLD",
+            "elite_stable",
+            f"Elite value ({int(value):,}) with a non-negative 30d trend and non-high volatility.",
+        )
     if (trend7 is not None and trend7 >= 3) and vol_label != "high":
-        add(40, "BUY", "uptrend_controlled",
-            f"7d trend of {_fmt_delta(trend7)} and volatility {vol_label or '—'}.")
+        add(
+            40,
+            "BUY",
+            "uptrend_controlled",
+            f"7d trend of {_fmt_delta(trend7)} and volatility {vol_label or '—'}.",
+        )
     if pos > 0 and (rank_change is not None and rank_change > 0):
-        add(38, "BUY", "pos_news_rising",
-            f"Positive news with rank rising {_fmt_delta(rank_change)} on the last scrape.")
+        add(
+            38,
+            "BUY",
+            "pos_news_rising",
+            f"Positive news with rank rising {_fmt_delta(rank_change)} on the last scrape.",
+        )
 
     fired.sort(key=lambda r: -r["priority"])
     if not fired:
@@ -849,19 +928,21 @@ def _compute_portfolio_insights(
         value = int(_row_value(row))
         points = _normalize_points(row_history(_row_name(row)))
         vol = _volatility(points, 30)
-        rosterValues.append({
-            "name": _row_name(row),
-            "pos": pos,
-            "value": value,
-            "rank": _row_rank(row),
-            "rankChange": _row_rank_change(row),
-            "age": row.get("age"),
-            "isRookie": bool(row.get("rookie")),
-            "trend7": _window_trend(points, 7),
-            "trend30": _window_trend(points, 30),
-            "volatility": vol,
-            "volLabel": (vol or {}).get("label") or "unknown",
-        })
+        rosterValues.append(
+            {
+                "name": _row_name(row),
+                "pos": pos,
+                "value": value,
+                "rank": _row_rank(row),
+                "rankChange": _row_rank_change(row),
+                "age": row.get("age"),
+                "isRookie": bool(row.get("rookie")),
+                "trend7": _window_trend(points, 7),
+                "trend30": _window_trend(points, 30),
+                "volatility": vol,
+                "volLabel": (vol or {}).get("label") or "unknown",
+            }
+        )
     totalValue = sum(p["value"] for p in rosterValues) or 0
 
     # Best asset
@@ -910,10 +991,11 @@ def _compute_portfolio_insights(
             }
 
     # Trade chip: mid-tier rising
-    chips = [p for p in rosterValues
-             if 3000 <= p["value"] <= 7500
-             and (p["trend7"] or 0) >= 3
-             and p["volLabel"] != "high"]
+    chips = [
+        p
+        for p in rosterValues
+        if 3000 <= p["value"] <= 7500 and (p["trend7"] or 0) >= 3 and p["volLabel"] != "high"
+    ]
     chip = max(chips, key=lambda p: p["trend7"] or 0) if chips else None
     tradeChip = None
     if chip:
@@ -995,10 +1077,10 @@ def _compute_portfolio_insights(
             by_position[g]["pct"] = round(by_position[g]["value"] / totalValue * 100, 1)
 
     by_age: dict[str, dict[str, Any]] = {
-        "rookie":  {"count": 0, "value": 0, "pct": 0.0},
-        "young":   {"count": 0, "value": 0, "pct": 0.0},
-        "prime":   {"count": 0, "value": 0, "pct": 0.0},
-        "vet":     {"count": 0, "value": 0, "pct": 0.0},
+        "rookie": {"count": 0, "value": 0, "pct": 0.0},
+        "young": {"count": 0, "value": 0, "pct": 0.0},
+        "prime": {"count": 0, "value": 0, "pct": 0.0},
+        "vet": {"count": 0, "value": 0, "pct": 0.0},
         "unknown": {"count": 0, "value": 0, "pct": 0.0},
     }
     ages: list[float] = []
@@ -1020,15 +1102,13 @@ def _compute_portfolio_insights(
     if ages:
         mid = len(ages) // 2
         median_age = (
-            ages[mid]
-            if len(ages) % 2 == 1
-            else round((ages[mid - 1] + ages[mid]) / 2.0, 1)
+            ages[mid] if len(ages) % 2 == 1 else round((ages[mid - 1] + ages[mid]) / 2.0, 1)
         )
 
     vol_exposure: dict[str, dict[str, Any]] = {
-        "low":     {"count": 0, "value": 0, "pct": 0.0},
-        "med":     {"count": 0, "value": 0, "pct": 0.0},
-        "high":    {"count": 0, "value": 0, "pct": 0.0},
+        "low": {"count": 0, "value": 0, "pct": 0.0},
+        "med": {"count": 0, "value": 0, "pct": 0.0},
+        "high": {"count": 0, "value": 0, "pct": 0.0},
         "unknown": {"count": 0, "value": 0, "pct": 0.0},
     }
     for p in rosterValues:
@@ -1159,11 +1239,15 @@ def build_terminal_payload(
     for t in teams if isinstance(teams, list) else []:
         if not isinstance(t, dict):
             continue
-        availableTeams.append({
-            "ownerId": str(t.get("ownerId") or ""),
-            "name": str(t.get("name") or ""),
-            "playerCount": len(t.get("players") or []) if isinstance(t.get("players"), list) else 0,
-        })
+        availableTeams.append(
+            {
+                "ownerId": str(t.get("ownerId") or ""),
+                "name": str(t.get("name") or ""),
+                "playerCount": len(t.get("players") or [])
+                if isinstance(t.get("players"), list)
+                else 0,
+            }
+        )
 
     team_block = None
     roster_set: set[str] = set()
@@ -1313,8 +1397,9 @@ def build_terminal_payload(
                     "rosterAware": roster_coverage["rosterAware"],
                     "tradesSeen": roster_coverage["tradesSeen"],
                     "tradesApplied": roster_coverage["tradesApplied"],
-                    "reason": roster_coverage["reason"] if value is not None
-                              else "low_history_coverage",
+                    "reason": roster_coverage["reason"]
+                    if value is not None
+                    else "low_history_coverage",
                     "pastDate": past_date,
                 }
 
@@ -1328,6 +1413,7 @@ def build_terminal_payload(
 
         # Signals for each roster player.
         import time as _time_mod
+
         now_ms = int(_time_mod.time() * 1000)
         for r in roster_rows:
             points = _normalize_points(history_for(_row_name(r)))
@@ -1350,7 +1436,9 @@ def build_terminal_payload(
             # fires.  Stamped onto the signal entry so the UI can
             # render "Jamo -15% (ACL, RB)" next to the signal reason.
             injury = _injury_impact.apply_injury_impact(
-                row=r, news_for_player=player_news, now_ms=now_ms,
+                row=r,
+                news_for_player=player_news,
+                now_ms=now_ms,
             )
             entry = {
                 **ctx,
@@ -1364,20 +1452,20 @@ def build_terminal_payload(
                 "dismissed": bool(dismissed_until),
                 "injuryImpact": injury if injury.get("appliedDiscountPct") else None,
                 "injuryAdjustedValue": (
-                    injury.get("adjustedValue")
-                    if injury.get("appliedDiscountPct")
-                    else None
+                    injury.get("adjustedValue") if injury.get("appliedDiscountPct") else None
                 ),
             }
             signals_list.append(entry)
         # Sort like the frontend: RISK/SELL/MONITOR first, HOLD last,
         # value desc within bucket, then dismissed items to the tail.
         priority = {"RISK": 0, "SELL": 1, "MONITOR": 2, "STRONG_HOLD": 3, "BUY": 4, "HOLD": 5}
-        signals_list.sort(key=lambda s: (
-            1 if s["dismissed"] else 0,
-            priority.get(s["signal"], 99),
-            -(s.get("value") or 0),
-        ))
+        signals_list.sort(
+            key=lambda s: (
+                1 if s["dismissed"] else 0,
+                priority.get(s["signal"], 99),
+                -(s.get("value") or 0),
+            )
+        )
 
         # Portfolio insights (always computed for the signed-in team).
         portfolio_block = _compute_portfolio_insights(
@@ -1401,29 +1489,34 @@ def build_terminal_payload(
         if not row:
             continue
         points = _normalize_points(history_for(name))
-        watchlist_block.append({
-            "name": _row_name(row),
-            "pos": _normalize_pos(row.get("pos") or row.get("position")),
-            "value": int(_row_value(row)),
-            "rank": _row_rank(row),
-            "rankChange": _row_rank_change(row),
-            "trend7": _window_trend(points, 7),
-            "trend30": _window_trend(points, 30),
-            "trend90": _window_trend(points, 90),
-            "trend180": _window_trend(points, 180),
-            "volatility": _volatility(points, 30),
-            "onRoster": _row_name(row).lower() in roster_set,
-        })
+        watchlist_block.append(
+            {
+                "name": _row_name(row),
+                "pos": _normalize_pos(row.get("pos") or row.get("position")),
+                "value": int(_row_value(row)),
+                "rank": _row_rank(row),
+                "rankChange": _row_rank_change(row),
+                "trend7": _window_trend(points, 7),
+                "trend30": _window_trend(points, 30),
+                "trend90": _window_trend(points, 90),
+                "trend180": _window_trend(points, 180),
+                "volatility": _volatility(points, 30),
+                "onRoster": _row_name(row).lower() in roster_set,
+            }
+        )
 
     # Movers: always include all three scopes.  ``roster`` is empty if
     # the user hasn't picked a team yet.
     movers = {
-        "roster": _compute_movers(rows, scope="roster", roster_set=roster_set,
-                                  league_set=league_set, limit=20),
-        "league": _compute_movers(rows, scope="league", roster_set=roster_set,
-                                  league_set=league_set, limit=30),
-        "top150": _compute_movers(rows, scope="top150", roster_set=roster_set,
-                                  league_set=league_set, limit=30),
+        "roster": _compute_movers(
+            rows, scope="roster", roster_set=roster_set, league_set=league_set, limit=20
+        ),
+        "league": _compute_movers(
+            rows, scope="league", roster_set=roster_set, league_set=league_set, limit=30
+        ),
+        "top150": _compute_movers(
+            rows, scope="top150", roster_set=roster_set, league_set=league_set, limit=30
+        ),
     }
 
     # News is pre-scored for the picked team.
@@ -1473,7 +1566,10 @@ def build_terminal_payload(
         payload["watchlist"] = []
         payload["teamAggregates"] = {
             "totalValue": None,
-            "delta7d": None, "delta30d": None, "delta90d": None, "delta180d": None,
+            "delta7d": None,
+            "delta30d": None,
+            "delta90d": None,
+            "delta180d": None,
             "rosterAware": False,
             "tiers": None,
             "rosterCount": 0,
@@ -1531,6 +1627,7 @@ def _back_iso_date(latest_date: str, days: int) -> str:
     except ValueError:
         return latest_date
     from datetime import timedelta
+
     return (dt - timedelta(days=int(days))).strftime("%Y-%m-%d")
 
 
@@ -1563,20 +1660,22 @@ def _score_news(
             elif n in league_set and relevance < 50:
                 relevance = 50
                 matched_scope = "league"
-        scored.append({
-            "id": it.get("id"),
-            "ts": it.get("ts"),
-            "provider": it.get("provider"),
-            "providerLabel": it.get("providerLabel"),
-            "severity": it.get("severity"),
-            "kind": it.get("kind"),
-            "headline": it.get("headline"),
-            "body": it.get("body"),
-            "players": players,
-            "url": it.get("url"),
-            "relevance": relevance,
-            "scope": matched_scope,
-        })
+        scored.append(
+            {
+                "id": it.get("id"),
+                "ts": it.get("ts"),
+                "provider": it.get("provider"),
+                "providerLabel": it.get("providerLabel"),
+                "severity": it.get("severity"),
+                "kind": it.get("kind"),
+                "headline": it.get("headline"),
+                "body": it.get("body"),
+                "players": players,
+                "url": it.get("url"),
+                "relevance": relevance,
+                "scope": matched_scope,
+            }
+        )
     scored.sort(key=lambda n: (-(n.get("relevance") or 0), -_ts_ms(n.get("ts"))))
     return scored
 

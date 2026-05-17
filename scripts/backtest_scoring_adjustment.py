@@ -77,9 +77,11 @@ def main() -> int:
     report = run_scoring_backtest(fits)
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     if comparator_rows:
+
         def _mae(key: str) -> float:
             vals = [abs(float(r[key]) - float(r["target_ratio"])) for r in comparator_rows]
             return (sum(vals) / len(vals)) if vals else 0.0
+
         report["modelComparisons"] = {
             "n": len(comparator_rows),
             "mae_new_multiplier_vs_raw_ratio": round(_mae("new_mult"), 6),

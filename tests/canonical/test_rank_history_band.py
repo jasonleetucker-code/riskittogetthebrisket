@@ -1,4 +1,5 @@
 """Tests for the rankHistory band (rolling CI over time)."""
+
 from __future__ import annotations
 
 from src.canonical import rank_history_band as rhb

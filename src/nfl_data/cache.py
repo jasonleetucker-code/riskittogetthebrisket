@@ -13,6 +13,7 @@ Nothing here imports pandas — the cache stores raw Python
 primitives (list[dict], dict) that any caller can shape as
 needed.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -110,10 +111,12 @@ def put(
     tmp_meta = meta_path.with_suffix(".meta.json.tmp")
     try:
         tmp_data.write_text(
-            json.dumps(value, default=str, sort_keys=True), encoding="utf-8",
+            json.dumps(value, default=str, sort_keys=True),
+            encoding="utf-8",
         )
         tmp_meta.write_text(
-            json.dumps({"fetched_at": time.time(), "key": key}), encoding="utf-8",
+            json.dumps({"fetched_at": time.time(), "key": key}),
+            encoding="utf-8",
         )
         tmp_data.replace(data_path)
         tmp_meta.replace(meta_path)

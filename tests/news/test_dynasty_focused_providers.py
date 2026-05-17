@@ -17,6 +17,7 @@ What still needs pinning per-provider:
 
 Everything below is a static contract check — no HTTP.
 """
+
 from __future__ import annotations
 
 import pytest

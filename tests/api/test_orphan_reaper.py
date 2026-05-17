@@ -71,9 +71,7 @@ def test_reaper_kills_matching_descendant():
     proc = subprocess.Popen(["sleep", "300"])
     try:
         time.sleep(0.2)
-        killed = server._reap_orphan_browsers(
-            match=lambda c: "sleep" in c and "300" in c
-        )
+        killed = server._reap_orphan_browsers(match=lambda c: "sleep" in c and "300" in c)
         assert killed >= 1
         # Process must actually be dead.
         assert proc.wait(timeout=5) != 0

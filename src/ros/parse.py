@@ -14,6 +14,7 @@ Per the spec:
 These helpers are stateless so the aggregator + tests + future debugging
 tools all agree on a single canonical conversion.  No I/O here.
 """
+
 from __future__ import annotations
 
 import math

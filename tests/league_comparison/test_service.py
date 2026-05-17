@@ -3,6 +3,7 @@
 We don't hit Sleeper or nflverse here — both are stubbed at the module
 boundary so the test runs offline and pins the response shape.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from src.league_comparison import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
+
 @pytest.fixture(autouse=True)
 def isolate_caches(tmp_path, monkeypatch):
     """Redirect both the per-league scoring cache and the disk
@@ -24,23 +26,37 @@ def isolate_caches(tmp_path, monkeypatch):
     other or into real cache files."""
     _sleeper_mod.evict()
     monkeypatch.setattr(
-        _service, "_cache_dir", lambda: tmp_path / "lc_cache",
+        _service,
+        "_cache_dir",
+        lambda: tmp_path / "lc_cache",
     )
     yield
     _sleeper_mod.evict()
 
 
 _MY_SCORING = {
-    "pass_yd": 0.04, "pass_td": 5, "pass_int": -2,
-    "rush_yd": 0.1, "rush_td": 6,
-    "rec": 0.75, "rec_yd": 0.1, "rec_td": 6,
-    "bonus_rec_te": 0.38, "fum_lost": -2,
+    "pass_yd": 0.04,
+    "pass_td": 5,
+    "pass_int": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec": 0.75,
+    "rec_yd": 0.1,
+    "rec_td": 6,
+    "bonus_rec_te": 0.38,
+    "fum_lost": -2,
 }
 _BASE_SCORING = {
-    "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
-    "rush_yd": 0.1, "rush_td": 6,
-    "rec": 1.0, "rec_yd": 0.1, "rec_td": 6,
-    "bonus_rec_te": 0.5, "fum_lost": -2,
+    "pass_yd": 0.04,
+    "pass_td": 4,
+    "pass_int": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec": 1.0,
+    "rec_yd": 0.1,
+    "rec_td": 6,
+    "bonus_rec_te": 0.5,
+    "fum_lost": -2,
 }
 
 
@@ -57,27 +73,40 @@ def _stub_scoring_fetch(monkeypatch):
     def fake(league_id, *, refresh=False):
         if league_id == my_id:
             return _sleeper_mod.LeagueScoringInfo(
-                league_id=league_id, name="My League",
-                season="2025", season_type="regular",
+                league_id=league_id,
+                name="My League",
+                season="2025",
+                season_type="regular",
                 scoring_settings=_MY_SCORING,
                 scoring_hash="hashMY",
             )
         return _sleeper_mod.LeagueScoringInfo(
-            league_id=league_id, name="Standard Baseline",
-            season="2025", season_type="regular",
+            league_id=league_id,
+            name="Standard Baseline",
+            season="2025",
+            season_type="regular",
             scoring_settings=_BASE_SCORING,
             scoring_hash="hashBASE",
         )
+
     monkeypatch.setattr(_sleeper_mod, "fetch_league_scoring", fake)
 
 
 def _row(pid, pos, week, season, **stats):
     base = {
-        "player_id": pid, "player_name": pid.upper(),
-        "position": pos, "season": season, "week": week,
-        "passing_yards": 0, "passing_tds": 0, "interceptions": 0,
-        "rushing_yards": 0, "rushing_tds": 0,
-        "receptions": 0, "receiving_yards": 0, "receiving_tds": 0,
+        "player_id": pid,
+        "player_name": pid.upper(),
+        "position": pos,
+        "season": season,
+        "week": week,
+        "passing_yards": 0,
+        "passing_tds": 0,
+        "interceptions": 0,
+        "rushing_yards": 0,
+        "rushing_tds": 0,
+        "receptions": 0,
+        "receiving_yards": 0,
+        "receiving_tds": 0,
         "fumbles_lost": 0,
     }
     base.update(stats)
@@ -92,33 +121,53 @@ def _make_season(season: int):
     # plus headroom.  Vary points by index so ranking is deterministic.
     for i in range(30):
         for week in range(1, 18):
-            rows.append(_row(
-                f"qb{i}", "QB", week, season,
-                passing_yards=200 + (29 - i) * 5,
-                passing_tds=2 if i < 12 else 1,
-            ))
+            rows.append(
+                _row(
+                    f"qb{i}",
+                    "QB",
+                    week,
+                    season,
+                    passing_yards=200 + (29 - i) * 5,
+                    passing_tds=2 if i < 12 else 1,
+                )
+            )
     for i in range(30):
         for week in range(1, 18):
-            rows.append(_row(
-                f"rb{i}", "RB", week, season,
-                rushing_yards=60 + (29 - i) * 3,
-                receptions=2 + (i % 4),
-                receiving_yards=15 + (i % 5) * 4,
-            ))
+            rows.append(
+                _row(
+                    f"rb{i}",
+                    "RB",
+                    week,
+                    season,
+                    rushing_yards=60 + (29 - i) * 3,
+                    receptions=2 + (i % 4),
+                    receiving_yards=15 + (i % 5) * 4,
+                )
+            )
     for i in range(40):
         for week in range(1, 18):
-            rows.append(_row(
-                f"wr{i}", "WR", week, season,
-                receptions=4 + (39 - i) // 5,
-                receiving_yards=50 + (39 - i) * 2,
-            ))
+            rows.append(
+                _row(
+                    f"wr{i}",
+                    "WR",
+                    week,
+                    season,
+                    receptions=4 + (39 - i) // 5,
+                    receiving_yards=50 + (39 - i) * 2,
+                )
+            )
     for i in range(15):
         for week in range(1, 18):
-            rows.append(_row(
-                f"te{i}", "TE", week, season,
-                receptions=3 + (14 - i) // 3,
-                receiving_yards=30 + (14 - i) * 2,
-            ))
+            rows.append(
+                _row(
+                    f"te{i}",
+                    "TE",
+                    week,
+                    season,
+                    receptions=3 + (14 - i) // 3,
+                    receiving_yards=30 + (14 - i) * 2,
+                )
+            )
     return rows
 
 
@@ -127,10 +176,12 @@ def _stub_stats_fetch(monkeypatch, available_seasons):
         if season in available_seasons:
             return _make_season(season)
         return None
+
     monkeypatch.setattr(_stats_mod, "load_season_rows", fake_load)
 
 
 # ── Tests ─────────────────────────────────────────────────────────────
+
 
 def test_build_comparison_returns_full_shape(monkeypatch, tmp_path):
     _stub_scoring_fetch(monkeypatch)
@@ -139,7 +190,16 @@ def test_build_comparison_returns_full_shape(monkeypatch, tmp_path):
     out = _service.build_comparison(refresh=True)
 
     # Top-level keys
-    for key in ("meta", "summary", "similarity", "positions", "flex", "bySeason", "idp", "warnings"):
+    for key in (
+        "meta",
+        "summary",
+        "similarity",
+        "positions",
+        "flex",
+        "bySeason",
+        "idp",
+        "warnings",
+    ):
         assert key in out, f"missing top-level key: {key}"
 
     # Meta block
@@ -218,7 +278,10 @@ def test_cache_hit_avoids_recomputation(monkeypatch):
     assert call_count["n"] == n_after_first
     assert second["meta"]["cacheHit"] is True
     # Same shape, same positions
-    assert second["positions"]["QB"]["my"]["improvedScore"] == first["positions"]["QB"]["my"]["improvedScore"]
+    assert (
+        second["positions"]["QB"]["my"]["improvedScore"]
+        == first["positions"]["QB"]["my"]["improvedScore"]
+    )
 
 
 def test_refresh_bypasses_cache(monkeypatch):

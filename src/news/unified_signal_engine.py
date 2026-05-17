@@ -29,6 +29,7 @@ Combines the raw signal strength with the player's roster impact
 signal on a Tier-5 flex player is LOW severity; a usage-spike +
 injury + depth-chart promotion on a starter is HIGH.
 """
+
 from __future__ import annotations
 
 import logging
@@ -77,6 +78,7 @@ class UnifiedSignal:
 @dataclass
 class SignalCollector:
     """Accumulates signals per player and produces a composite."""
+
     signals_by_player: dict[str, list[UnifiedSignal]] = field(default_factory=dict)
 
     def add(self, sig: UnifiedSignal) -> None:
@@ -110,18 +112,23 @@ class SignalCollector:
                 severity = {v: k for k, v in sev_order.items()}[bumped_val]
                 exp = " + ".join(s.explanation for s in sigs)
                 tag = "composite_" + "_".join(sources)
-                out.append(UnifiedSignal(
-                    name=sigs[0].name, pos=sigs[0].pos,
-                    sleeper_id=sigs[0].sleeper_id,
-                    verdict=verdict, confidence=avg_conf,
-                    severity=severity, source_class="composite",
-                    explanation=exp, tag=tag,
-                    signal_key=f"{sigs[0].name}::{tag}",
-                    alias_signal_key=(
-                        f"sid:{sigs[0].sleeper_id}::{tag}"
-                        if sigs[0].sleeper_id else ""
-                    ),
-                ))
+                out.append(
+                    UnifiedSignal(
+                        name=sigs[0].name,
+                        pos=sigs[0].pos,
+                        sleeper_id=sigs[0].sleeper_id,
+                        verdict=verdict,
+                        confidence=avg_conf,
+                        severity=severity,
+                        source_class="composite",
+                        explanation=exp,
+                        tag=tag,
+                        signal_key=f"{sigs[0].name}::{tag}",
+                        alias_signal_key=(
+                            f"sid:{sigs[0].sleeper_id}::{tag}" if sigs[0].sleeper_id else ""
+                        ),
+                    )
+                )
             else:
                 # Conflict — keep them separate so user sees both
                 # perspectives.  Don't auto-resolve contradictions.
@@ -130,7 +137,10 @@ class SignalCollector:
 
 
 def severity_from_confidence(
-    confidence: float, *, starter: bool = False, tier: int | None = None,
+    confidence: float,
+    *,
+    starter: bool = False,
+    tier: int | None = None,
 ) -> str:
     """Convert a 0..1 confidence + roster-role weight into a
     severity bucket."""
@@ -151,9 +161,14 @@ def severity_from_confidence(
 
 
 def value_movement_signal(
-    *, name: str, sleeper_id: str, position: str,
-    pct_change_7d: float, pct_change_30d: float,
-    starter: bool = False, tier: int | None = None,
+    *,
+    name: str,
+    sleeper_id: str,
+    position: str,
+    pct_change_7d: float,
+    pct_change_30d: float,
+    starter: bool = False,
+    tier: int | None = None,
 ) -> UnifiedSignal | None:
     """Convert a 7/30d value drift into a BUY/SELL/HOLD signal.
 
@@ -177,9 +192,15 @@ def value_movement_signal(
     )
     tag = "value_movement"
     return UnifiedSignal(
-        name=name, pos=position, sleeper_id=sleeper_id,
-        verdict=verdict, confidence=confidence, severity=severity,
-        source_class="value", explanation=reason, tag=tag,
+        name=name,
+        pos=position,
+        sleeper_id=sleeper_id,
+        verdict=verdict,
+        confidence=confidence,
+        severity=severity,
+        source_class="value",
+        explanation=reason,
+        tag=tag,
         signal_key=f"{name}::{tag}",
         alias_signal_key=f"sid:{sleeper_id}::{tag}" if sleeper_id else "",
     )
@@ -188,7 +209,8 @@ def value_movement_signal(
 def usage_signal_to_unified(
     usage_signal_dict: dict[str, Any],
     *,
-    starter: bool = False, tier: int | None = None,
+    starter: bool = False,
+    tier: int | None = None,
 ) -> UnifiedSignal | None:
     """Wrap an existing usage_signals output in the unified shape."""
     if not isinstance(usage_signal_dict, dict):
@@ -209,9 +231,12 @@ def usage_signal_to_unified(
     name = str(usage_signal_dict.get("name") or usage_signal_dict.get("player_id") or "")
     sleeper_id = str(usage_signal_dict.get("sleeperId") or "")
     return UnifiedSignal(
-        name=name, pos=str(usage_signal_dict.get("pos") or ""),
+        name=name,
+        pos=str(usage_signal_dict.get("pos") or ""),
         sleeper_id=sleeper_id,
-        verdict=verdict, confidence=confidence, severity=severity,
+        verdict=verdict,
+        confidence=confidence,
+        severity=severity,
         source_class="usage",
         explanation=str(usage_signal_dict.get("reason") or ""),
         tag=tag,
@@ -224,7 +249,8 @@ def injury_signal_to_unified(
     injury_diff: dict[str, Any],
     *,
     sleeper_id_resolver: Callable[[str], str] | None = None,
-    starter: bool = False, tier: int | None = None,
+    starter: bool = False,
+    tier: int | None = None,
 ) -> UnifiedSignal | None:
     """Wrap an injury_feed.diff_for_signals output in the unified
     shape.  SELL on injury transitions.
@@ -240,8 +266,12 @@ def injury_signal_to_unified(
     new_status = str(injury_diff.get("newStatus") or "")
     # Severity map: QUESTIONABLE < DOUBTFUL < OUT < IR.
     sev_map = {
-        "DAY_TO_DAY": 0.3, "QUESTIONABLE": 0.4, "DOUBTFUL": 0.6,
-        "OUT": 0.75, "PUP": 0.8, "IR": 0.95,
+        "DAY_TO_DAY": 0.3,
+        "QUESTIONABLE": 0.4,
+        "DOUBTFUL": 0.6,
+        "OUT": 0.75,
+        "PUP": 0.8,
+        "IR": 0.95,
     }
     confidence = sev_map.get(new_status, 0.5)
     severity = severity_from_confidence(confidence, starter=starter, tier=tier)
@@ -250,9 +280,12 @@ def injury_signal_to_unified(
     name = str(injury_diff.get("name") or "")
     tag = f"injury_{transition}"
     return UnifiedSignal(
-        name=name, pos=str(injury_diff.get("position") or ""),
+        name=name,
+        pos=str(injury_diff.get("position") or ""),
         sleeper_id=sleeper_id,
-        verdict="SELL", confidence=confidence, severity=severity,
+        verdict="SELL",
+        confidence=confidence,
+        severity=severity,
         source_class="injury",
         explanation=str(injury_diff.get("reason") or ""),
         tag=tag,
@@ -264,7 +297,8 @@ def injury_signal_to_unified(
 def transaction_signal_to_unified(
     txn: dict[str, Any],
     *,
-    starter: bool = False, tier: int | None = None,
+    starter: bool = False,
+    tier: int | None = None,
 ) -> UnifiedSignal | None:
     """Convert a Sleeper transaction into a signal when it
     materially affects a roster player's role.
@@ -292,9 +326,12 @@ def transaction_signal_to_unified(
     severity = severity_from_confidence(confidence, starter=starter, tier=tier)
     tag = f"transaction_{txn_type}"
     return UnifiedSignal(
-        name=affected_name, pos=str(txn.get("position") or ""),
+        name=affected_name,
+        pos=str(txn.get("position") or ""),
         sleeper_id=affected_sid,
-        verdict=verdict, confidence=confidence, severity=severity,
+        verdict=verdict,
+        confidence=confidence,
+        severity=severity,
         source_class="transaction",
         explanation=str(txn.get("reason") or f"Transaction {txn_type}"),
         tag=tag,

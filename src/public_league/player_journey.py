@@ -15,6 +15,7 @@ Everything is derived from the public snapshot.  No private
 internals.  This lets us render a "journey" page nobody else in dynasty
 tooling has.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -29,7 +30,9 @@ def _player_identity(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str
     return {
         "playerId": str(player_id),
         "playerName": snapshot.player_display(player_id),
-        "position": snapshot.player_position(player_id) or (p.get("position") if isinstance(p, dict) else "") or "",
+        "position": snapshot.player_position(player_id)
+        or (p.get("position") if isinstance(p, dict) else "")
+        or "",
         "nflTeam": (p.get("team") if isinstance(p, dict) else "") or "",
         "yearsExp": (p.get("years_exp") if isinstance(p, dict) else None),
     }
@@ -64,30 +67,38 @@ def _transactions_for(
             if str(player_id) in adds:
                 added_to_rid = adds[str(player_id)]
                 to_owner = _resolve(added_to_rid)
-                events.append({
-                    "kind": "add",
-                    "txType": ttype,
-                    "season": season.season,
-                    "week": week,
-                    "createdAt": tx.get("created") or tx.get("status_updated"),
-                    "transactionId": str(tx.get("transaction_id") or ""),
-                    "toOwnerId": to_owner,
-                    "toDisplayName": metrics.display_name_for(snapshot, to_owner) if to_owner else "",
-                    "faabBid": (tx.get("settings") or {}).get("waiver_bid"),
-                })
+                events.append(
+                    {
+                        "kind": "add",
+                        "txType": ttype,
+                        "season": season.season,
+                        "week": week,
+                        "createdAt": tx.get("created") or tx.get("status_updated"),
+                        "transactionId": str(tx.get("transaction_id") or ""),
+                        "toOwnerId": to_owner,
+                        "toDisplayName": metrics.display_name_for(snapshot, to_owner)
+                        if to_owner
+                        else "",
+                        "faabBid": (tx.get("settings") or {}).get("waiver_bid"),
+                    }
+                )
             if str(player_id) in drops:
                 dropped_from_rid = drops[str(player_id)]
                 from_owner = _resolve(dropped_from_rid)
-                events.append({
-                    "kind": "drop",
-                    "txType": ttype,
-                    "season": season.season,
-                    "week": week,
-                    "createdAt": tx.get("created") or tx.get("status_updated"),
-                    "transactionId": str(tx.get("transaction_id") or ""),
-                    "fromOwnerId": from_owner,
-                    "fromDisplayName": metrics.display_name_for(snapshot, from_owner) if from_owner else "",
-                })
+                events.append(
+                    {
+                        "kind": "drop",
+                        "txType": ttype,
+                        "season": season.season,
+                        "week": week,
+                        "createdAt": tx.get("created") or tx.get("status_updated"),
+                        "transactionId": str(tx.get("transaction_id") or ""),
+                        "fromOwnerId": from_owner,
+                        "fromDisplayName": metrics.display_name_for(snapshot, from_owner)
+                        if from_owner
+                        else "",
+                    }
+                )
     events.sort(key=lambda e: (int(e.get("createdAt") or 0), e.get("kind") or ""))
     return events
 
@@ -96,17 +107,21 @@ def _scoring_summary(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     player_id: str,
-) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], dict[str, Any] | None, dict[str, Any] | None]:
+) -> tuple[
+    dict[str, dict[str, Any]], list[dict[str, Any]], dict[str, Any] | None, dict[str, Any] | None
+]:
     """Per-owner points scored while this player was rostered, plus
     a sparse per-week log ``[{owner, week, points, started}]`` and
     best/worst single-week entries.
     """
-    per_owner: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        "pointsStarted": 0.0,
-        "pointsBenched": 0.0,
-        "weeksStarted": 0,
-        "weeksRostered": 0,
-    })
+    per_owner: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "pointsStarted": 0.0,
+            "pointsBenched": 0.0,
+            "weeksStarted": 0,
+            "weeksRostered": 0,
+        }
+    )
     weekly_log: list[dict[str, Any]] = []
     best: dict[str, Any] | None = None
     worst: dict[str, Any] | None = None
@@ -144,14 +159,16 @@ def _scoring_summary(
             else:
                 rec["pointsBenched"] += pts
 
-            weekly_log.append({
-                "season": season.season,
-                "week": week,
-                "ownerId": owner_id,
-                "displayName": metrics.display_name_for(snapshot, owner_id),
-                "started": started,
-                "points": round(pts, 2),
-            })
+            weekly_log.append(
+                {
+                    "season": season.season,
+                    "week": week,
+                    "ownerId": owner_id,
+                    "displayName": metrics.display_name_for(snapshot, owner_id),
+                    "started": started,
+                    "points": round(pts, 2),
+                }
+            )
 
             if started and pts > 0:
                 entry_blob = {
@@ -186,7 +203,8 @@ def _draft_origin(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, A
                 rid = metrics.roster_id_of(p)
                 owner_id = (
                     metrics.resolve_owner(snapshot.managers, season.league_id, rid)
-                    if rid is not None else ""
+                    if rid is not None
+                    else ""
                 )
                 return {
                     "season": season.season,
@@ -215,13 +233,15 @@ def build_player_journey(
     draft_origin = _draft_origin(snapshot, pid)
 
     per_season: list[dict[str, Any]] = []
-    per_owner_totals: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        "pointsStarted": 0.0,
-        "pointsBenched": 0.0,
-        "pointsTotal": 0.0,
-        "weeksStarted": 0,
-        "weeksRostered": 0,
-    })
+    per_owner_totals: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "pointsStarted": 0.0,
+            "pointsBenched": 0.0,
+            "pointsTotal": 0.0,
+            "weeksStarted": 0,
+            "weeksRostered": 0,
+        }
+    )
     all_weekly: list[dict[str, Any]] = []
     best_overall: dict[str, Any] | None = None
     worst_overall: dict[str, Any] | None = None
@@ -246,27 +266,25 @@ def build_player_journey(
         if worst and (worst_overall is None or worst["points"] < worst_overall["points"]):
             worst_overall = worst
 
-        per_season.append({
-            "season": season.season,
-            "leagueId": season.league_id,
-            "transactions": txs,
-            "byOwner": [
-                {"ownerId": owner, **stats}
-                for owner, stats in sorted(
-                    scoring.items(),
-                    key=lambda kv: -kv[1]["pointsTotal"],
-                )
-            ],
-            "weeklyLog": weekly,
-            "bestWeek": best,
-            "worstWeek": worst,
-        })
+        per_season.append(
+            {
+                "season": season.season,
+                "leagueId": season.league_id,
+                "transactions": txs,
+                "byOwner": [
+                    {"ownerId": owner, **stats}
+                    for owner, stats in sorted(
+                        scoring.items(),
+                        key=lambda kv: -kv[1]["pointsTotal"],
+                    )
+                ],
+                "weeklyLog": weekly,
+                "bestWeek": best,
+                "worstWeek": worst,
+            }
+        )
 
-    has_activity = (
-        bool(all_events)
-        or bool(all_weekly)
-        or draft_origin is not None
-    )
+    has_activity = bool(all_events) or bool(all_weekly) or draft_origin is not None
     if not has_activity:
         return None
 
@@ -320,22 +338,24 @@ def list_players_with_activity(snapshot: PublicLeagueSnapshot) -> list[dict[str,
     seen: set[str] = set()
     for season in snapshot.seasons:
         for roster in season.rosters:
-            for pid in (roster.get("players") or []):
+            for pid in roster.get("players") or []:
                 if pid:
                     seen.add(str(pid))
         for week_txs in season.transactions_by_week.values():
             for tx in week_txs:
-                for pid in (tx.get("adds") or {}):
+                for pid in tx.get("adds") or {}:
                     if pid:
                         seen.add(str(pid))
-                for pid in (tx.get("drops") or {}):
+                for pid in tx.get("drops") or {}:
                     if pid:
                         seen.add(str(pid))
     out = []
     for pid in sorted(seen):
-        out.append({
-            "playerId": pid,
-            "playerName": snapshot.player_display(pid),
-            "position": snapshot.player_position(pid),
-        })
+        out.append(
+            {
+                "playerId": pid,
+                "playerName": snapshot.player_display(pid),
+                "position": snapshot.player_position(pid),
+            }
+        )
     return out

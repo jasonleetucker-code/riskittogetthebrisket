@@ -17,6 +17,7 @@ category the IDP ranking brief called out:
     F. Edge cases: empty backbone fallback, extrapolation past the tail,
        zero/missing source values
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,8 +55,7 @@ def _row(name: str, pos: str, *, ktc=None, idp=None, extra=None) -> dict:
         "legacyRef": name,
         "position": pos,
         "assetClass": "offense" if pos in {"QB", "RB", "WR", "TE"} else "idp",
-        "values": {"overall": 0, "rawComposite": 0,
-                   "finalAdjusted": 0, "displayValue": None},
+        "values": {"overall": 0, "rawComposite": 0, "finalAdjusted": 0, "displayValue": None},
         "canonicalSiteValues": sites,
         "sourceCount": 1,
     }
@@ -74,12 +74,8 @@ class TestAFullOverallIdpSource(unittest.TestCase):
             _row("db_low", "DB", idp=400),
         ]
         _compute_unified_rankings(rows, {})
-        by_rank = sorted(
-            (r for r in rows if "idpRank" in r), key=lambda r: r["idpRank"]
-        )
-        self.assertEqual(
-            [r["canonicalName"] for r in by_rank], ["dl_top", "lb_mid", "db_low"]
-        )
+        by_rank = sorted((r for r in rows if "idpRank" in r), key=lambda r: r["idpRank"])
+        self.assertEqual([r["canonicalName"] for r in by_rank], ["dl_top", "lb_mid", "db_low"])
         # Overall IDP is direct — no translation metadata should say fallback.
         for r in rows:
             meta = r["sourceRankMeta"]["idpTradeCalc"]
@@ -161,9 +157,14 @@ class TestBPositionOnlySourceTranslation(unittest.TestCase):
         rows = copy.deepcopy(self._fixture_rows)
         # DL3 gets dlTop5 raw rank 3 (only one row with the value).  Its
         # synthetic overall rank must match the backbone ladder DL[2]=5.
-        self._attach_dl_top5(rows, {
-            "dl1": 100, "dl2": 90, "dl3": 80,
-        })
+        self._attach_dl_top5(
+            rows,
+            {
+                "dl1": 100,
+                "dl2": 90,
+                "dl3": 80,
+            },
+        )
         _compute_unified_rankings(rows, {})
         dl3 = next(r for r in rows if r["canonicalName"] == "dl3")
         meta = dl3["sourceRankMeta"]["dlTop5"]
@@ -192,18 +193,23 @@ class TestBPositionOnlySourceTranslation(unittest.TestCase):
         ]
         # Set dlTop5 values for the first five DLs too so their raw ranks
         # take the expected order.
-        self._attach_dl_top5(rows, {
-            "dl1": 100, "dl2": 90, "dl3": 80, "dl4": 75, "dl5": 72,
-        })
+        self._attach_dl_top5(
+            rows,
+            {
+                "dl1": 100,
+                "dl2": 90,
+                "dl3": 80,
+                "dl4": 75,
+                "dl5": 72,
+            },
+        )
         rows.extend(ghosts)
         _compute_unified_rankings(rows, {})
         dl6 = next(r for r in rows if r["canonicalName"] == "dl6")
         dl7 = next(r for r in rows if r["canonicalName"] == "dl7")
         dl8 = next(r for r in rows if r["canonicalName"] == "dl8")
         for g in (dl6, dl7, dl8):
-            self.assertEqual(
-                g["sourceRankMeta"]["dlTop5"]["method"], TRANSLATION_EXTRAPOLATED
-            )
+            self.assertEqual(g["sourceRankMeta"]["dlTop5"]["method"], TRANSLATION_EXTRAPOLATED)
         # Strict monotonicity: each extrapolated synthetic rank > previous.
         r6 = dl6["sourceRankMeta"]["dlTop5"]["effectiveRank"]
         r7 = dl7["sourceRankMeta"]["dlTop5"]["effectiveRank"]
@@ -246,9 +252,9 @@ class TestCCoverageAwareBlending(unittest.TestCase):
         weighting the backbone dominates.
         """
         rows = [
-            _row("dl_backbone_top", "DL", idp=900),   # backbone DL1
-            _row("dl_backbone_two", "DL", idp=800),   # backbone DL2
-            _row("dl_A",            "DL", idp=700),   # backbone DL3
+            _row("dl_backbone_top", "DL", idp=900),  # backbone DL1
+            _row("dl_backbone_two", "DL", idp=800),  # backbone DL2
+            _row("dl_A", "DL", idp=700),  # backbone DL3
         ]
         rows[2]["canonicalSiteValues"]["dlTop5"] = 100  # ← DL1 in shallow list
         _compute_unified_rankings(rows, {})
@@ -326,9 +332,7 @@ class TestDNoOffenseRegression(unittest.TestCase):
             _row("pick1", "PICK", ktc=8000),
         ]
         _compute_unified_rankings(rows, {})
-        by_rank = sorted(
-            (r for r in rows if "ktcRank" in r), key=lambda r: r["ktcRank"]
-        )
+        by_rank = sorted((r for r in rows if "ktcRank" in r), key=lambda r: r["ktcRank"])
         self.assertEqual(
             [r["canonicalName"] for r in by_rank],
             ["qb1", "wr1", "rb1", "pick1"],
@@ -378,8 +382,7 @@ class TestETransparencyFields(unittest.TestCase):
             ):
                 self.assertIn(field, r, f"missing {field} on {r['canonicalName']}")
             # meta dict keys match sourceRanks keys
-            self.assertEqual(set(r["sourceRankMeta"].keys()),
-                             set(r["sourceRanks"].keys()))
+            self.assertEqual(set(r["sourceRankMeta"].keys()), set(r["sourceRanks"].keys()))
 
     def test_legacy_rank_fields_mirror_source_ranks(self):
         rows = [
@@ -573,8 +576,7 @@ class TestHCrossUniverseRanking(unittest.TestCase):
         # above the top IDP, mirroring the production distribution where
         # ~40 offense stars outvalue the #1 DL on IDPTC's combined pool.
         rows = [
-            _row(f"off{i}", "QB" if i % 2 == 0 else "WR",
-                 ktc=9999 - i * 10, idp=9900 - i * 80)
+            _row(f"off{i}", "QB" if i % 2 == 0 else "WR", ktc=9999 - i * 10, idp=9900 - i * 80)
             for i in range(40)
         ]
         rows.append(_row("dl_top", "DL", idp=5963))
@@ -660,12 +662,7 @@ class TestFEdgeCases(unittest.TestCase):
         saved = copy.deepcopy(_RANKING_SOURCES)
         # Remove the backbone (idpTradeCalc) and add a DL-only source.
         _RANKING_SOURCES.clear()
-        _RANKING_SOURCES.extend(
-            [
-                s for s in saved
-                if s["scope"] != SOURCE_SCOPE_OVERALL_IDP
-            ]
-        )
+        _RANKING_SOURCES.extend([s for s in saved if s["scope"] != SOURCE_SCOPE_OVERALL_IDP])
         _RANKING_SOURCES.append(
             {
                 "key": "dlOnly",
@@ -684,9 +681,7 @@ class TestFEdgeCases(unittest.TestCase):
             ]
             _compute_unified_rankings(rows, {})
             dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
-            self.assertEqual(
-                dl1["sourceRankMeta"]["dlOnly"]["method"], TRANSLATION_FALLBACK
-            )
+            self.assertEqual(dl1["sourceRankMeta"]["dlOnly"]["method"], TRANSLATION_FALLBACK)
             self.assertTrue(dl1["idpBackboneFallback"])
         finally:
             _RANKING_SOURCES.clear()

@@ -37,6 +37,7 @@ refreshes.
 Gracefully empty when nfl_data_ingest flag is off — returns empty
 list + ``reason="nfl_data_disabled"``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -205,23 +206,25 @@ def build_opportunity_from_pbp(
     out: list[OpportunityStats] = []
     for (gsis, season_val), b in buckets.items():
         name, pos = names.get((gsis, season_val), ("", ""))
-        out.append(OpportunityStats(
-            player_id_gsis=gsis,
-            player_name=name,
-            position=pos,
-            season=season_val,
-            rz_targets=b.get("rz_targets", 0),
-            rz_carries=b.get("rz_carries", 0),
-            rz_receptions=b.get("rz_receptions", 0),
-            rz_touchdowns=b.get("rz_touchdowns", 0),
-            gl_carries=b.get("gl_carries", 0),
-            gl_targets=b.get("gl_targets", 0),
-            third_down_targets=b.get("third_down_targets", 0),
-            third_down_carries=b.get("third_down_carries", 0),
-            third_down_conversions=b.get("third_down_conversions", 0),
-            third_down_attempts=b.get("third_down_attempts", 0),
-            opportunity_score=_compute_opportunity_score(b, pos),
-        ))
+        out.append(
+            OpportunityStats(
+                player_id_gsis=gsis,
+                player_name=name,
+                position=pos,
+                season=season_val,
+                rz_targets=b.get("rz_targets", 0),
+                rz_carries=b.get("rz_carries", 0),
+                rz_receptions=b.get("rz_receptions", 0),
+                rz_touchdowns=b.get("rz_touchdowns", 0),
+                gl_carries=b.get("gl_carries", 0),
+                gl_targets=b.get("gl_targets", 0),
+                third_down_targets=b.get("third_down_targets", 0),
+                third_down_carries=b.get("third_down_carries", 0),
+                third_down_conversions=b.get("third_down_conversions", 0),
+                third_down_attempts=b.get("third_down_attempts", 0),
+                opportunity_score=_compute_opportunity_score(b, pos),
+            )
+        )
     return out
 
 
@@ -279,11 +282,20 @@ def fetch_opportunity_stats(
             df = nfl_data_py.import_pbp_data(
                 years,
                 columns=[
-                    "season", "week", "play_type", "down", "yardline_100",
-                    "posteam", "defteam",
-                    "receiver_player_id", "receiver_player_name",
-                    "rusher_player_id", "rusher_player_name",
-                    "complete_pass", "touchdown", "first_down",
+                    "season",
+                    "week",
+                    "play_type",
+                    "down",
+                    "yardline_100",
+                    "posteam",
+                    "defteam",
+                    "receiver_player_id",
+                    "receiver_player_name",
+                    "rusher_player_id",
+                    "rusher_player_name",
+                    "complete_pass",
+                    "touchdown",
+                    "first_down",
                 ],
             )
             pbp = df.to_dict(orient="records") if hasattr(df, "to_dict") else []

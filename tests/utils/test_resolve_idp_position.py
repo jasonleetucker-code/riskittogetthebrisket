@@ -2,6 +2,7 @@
 Sleeper players under the same priority: DL > DB > LB. These tests pin
 the shared helper behaviour. Every site-level test below (in the other
 test modules) asserts the *integration* with this helper."""
+
 from __future__ import annotations
 
 import pytest
@@ -25,7 +26,7 @@ class TestResolveIdpPosition:
             # DL beats LB no matter which side or notation.
             (("DL", "LB"), "DL"),
             (("LB", "DL"), "DL"),
-            (("DE", "OLB"), "DL"),            # DE → DL; OLB → LB
+            (("DE", "OLB"), "DL"),  # DE → DL; OLB → LB
             (("EDGE", "ILB"), "DL"),
             # DB beats LB.
             (("LB", "DB"), "DB"),
@@ -83,14 +84,14 @@ class TestResolveIdpPosition:
     @pytest.mark.parametrize(
         "inputs",
         [
-            ("QB", "LB"),          # mixed offense + LB
-            ("LB", "QB"),          # reversed order
-            (["QB", "LB"],),       # list form
-            ("QB/LB",),            # slash form
-            ("LB,WR",),            # comma form
-            ("LB|TE",),            # pipe form
-            ("LB", ["RB"]),        # split across candidates
-            ("K", "LB"),           # kicker + LB
+            ("QB", "LB"),  # mixed offense + LB
+            ("LB", "QB"),  # reversed order
+            (["QB", "LB"],),  # list form
+            ("QB/LB",),  # slash form
+            ("LB,WR",),  # comma form
+            ("LB|TE",),  # pipe form
+            ("LB", ["RB"]),  # split across candidates
+            ("K", "LB"),  # kicker + LB
         ],
     )
     def test_lb_is_refused_when_any_non_idp_is_present(self, inputs):
@@ -188,7 +189,7 @@ class TestNormalizePositionFamily:
             ("DL LB", "DL"),
             ("LB DL", "DL"),
             ("DL DB", "DL"),
-            ("LB WR", "WR"),         # exclusivity
+            ("LB WR", "WR"),  # exclusivity
             ("WR LB", "WR"),
             # Mixed separator + whitespace (e.g. "LB, CB").
             ("LB, CB", "DB"),
@@ -196,9 +197,7 @@ class TestNormalizePositionFamily:
             ("LB|  CB", "DB"),
         ],
     )
-    def test_whitespace_and_mixed_separator_inputs_route_through_idp_priority(
-        self, pos, expected
-    ):
+    def test_whitespace_and_mixed_separator_inputs_route_through_idp_priority(self, pos, expected):
         assert normalize_position_family(pos) == expected
 
     @pytest.mark.parametrize(
@@ -207,8 +206,8 @@ class TestNormalizePositionFamily:
             # resolve_idp_position itself must also split on whitespace.
             ("DL LB", "DL"),
             ("LB CB", "DB"),
-            ("LB WR", ""),       # LB exclusivity: non-IDP present → empty
-            ("DL WR", "DL"),     # DL wins regardless
+            ("LB WR", ""),  # LB exclusivity: non-IDP present → empty
+            ("DL WR", "DL"),  # DL wins regardless
         ],
     )
     def test_resolve_idp_position_splits_whitespace(self, inputs, expected):

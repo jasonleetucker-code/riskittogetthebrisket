@@ -6,6 +6,7 @@ These pin:
   * The three fallback branches.
   * The stamp helper's non-destructiveness.
 """
+
 from __future__ import annotations
 
 from src.canonical import confidence_intervals as ci

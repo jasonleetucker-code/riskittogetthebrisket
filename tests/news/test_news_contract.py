@@ -7,6 +7,7 @@ and the enriched vocabulary (``publishedAt``, ``summary``,
 breaks, every downstream consumer breaks — hence a dedicated
 contract test instead of folding it into a provider test.
 """
+
 from __future__ import annotations
 
 from src.news.base import NewsItem, PlayerMention, stable_id, to_iso_utc

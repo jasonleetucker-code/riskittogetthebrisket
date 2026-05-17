@@ -27,6 +27,7 @@ Populated blocks:
     * leagueVitals — small badge summary (games played, total trades,
       total waivers).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -89,32 +90,54 @@ def _top_record_callouts(records_section: dict[str, Any]) -> list[dict[str, Any]
             formatted = f"{value:g}"
         else:
             formatted = str(value or "")
-        callouts.append({
-            "kind": kind,
-            "label": label,
-            "value": value,
-            "formattedValue": formatted + (f" {units}" if units else ""),
-            "ownerId": row.get("ownerId"),
-            "displayName": row.get("teamName") or row.get("displayName"),
-            "season": row.get("season"),
-            "week": row.get("week"),
-        })
+        callouts.append(
+            {
+                "kind": kind,
+                "label": label,
+                "value": value,
+                "formattedValue": formatted + (f" {units}" if units else ""),
+                "ownerId": row.get("ownerId"),
+                "displayName": row.get("teamName") or row.get("displayName"),
+                "season": row.get("season"),
+                "week": row.get("week"),
+            }
+        )
 
-    _push("highest_single_week", "Highest week", records_section.get("singleWeekHighest") or [], "points", "pts")
-    _push("biggest_margin", "Biggest blowout", records_section.get("biggestMargin") or [], "margin", "pts")
-    _push("most_points_in_season", "Most season points", records_section.get("mostPointsInSeason") or [], "totalPoints", "pts")
+    _push(
+        "highest_single_week",
+        "Highest week",
+        records_section.get("singleWeekHighest") or [],
+        "points",
+        "pts",
+    )
+    _push(
+        "biggest_margin",
+        "Biggest blowout",
+        records_section.get("biggestMargin") or [],
+        "margin",
+        "pts",
+    )
+    _push(
+        "most_points_in_season",
+        "Most season points",
+        records_section.get("mostPointsInSeason") or [],
+        "totalPoints",
+        "pts",
+    )
     if records_section.get("longestWinStreaks"):
         head = records_section["longestWinStreaks"][0]
-        callouts.append({
-            "kind": "longest_win_streak",
-            "label": "Longest win streak",
-            "value": head["length"],
-            "formattedValue": f"{head['length']} straight",
-            "ownerId": head.get("ownerId"),
-            "displayName": head.get("displayName"),
-            "season": None,
-            "week": None,
-        })
+        callouts.append(
+            {
+                "kind": "longest_win_streak",
+                "label": "Longest win streak",
+                "value": head["length"],
+                "formattedValue": f"{head['length']} straight",
+                "ownerId": head.get("ownerId"),
+                "displayName": head.get("displayName"),
+                "season": None,
+                "week": None,
+            }
+        )
     return callouts
 
 

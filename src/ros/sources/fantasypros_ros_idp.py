@@ -5,6 +5,7 @@ every 2h by ``scripts/fetch_fantasypros_idp.py``.  Treats it as a
 medium-weight ROS proxy until a true FantasyPros ROS-IDP page is
 verified accessible.
 """
+
 from __future__ import annotations
 
 import csv
@@ -34,16 +35,12 @@ def _read_csv() -> list[dict[str, Any]]:
                 if not name:
                     continue
                 position = (
-                    raw.get("position")
-                    or raw.get("Pos")
-                    or raw.get("Position")
-                    or ""
-                ).strip().upper().split("/")[0]
-                rank_field = (
-                    raw.get("rank")
-                    or raw.get("Rank")
-                    or raw.get("effectiveRank")
+                    (raw.get("position") or raw.get("Pos") or raw.get("Position") or "")
+                    .strip()
+                    .upper()
+                    .split("/")[0]
                 )
+                rank_field = raw.get("rank") or raw.get("Rank") or raw.get("effectiveRank")
                 try:
                     rank = int(rank_field) if rank_field else i
                 except (TypeError, ValueError):

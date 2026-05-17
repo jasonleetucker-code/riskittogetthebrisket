@@ -26,6 +26,7 @@ Usage:
 
 No production behavior is modified.  The output is a markdown report.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -251,9 +252,13 @@ def render_report(per_rank: dict[int, list[dict[str, Any]]]) -> str:
             "history or a data refresh will break CI.  Safe sizing rules:"
         )
         lines.append("")
-        lines.append(f"- **Strict (catches regressions earliest):** ceil(max_dod) + 1pp = {int(max_dod) + 1}pp")
+        lines.append(
+            f"- **Strict (catches regressions earliest):** ceil(max_dod) + 1pp = {int(max_dod) + 1}pp"
+        )
         lines.append(f"- **Balanced (absorbs 99% of drift):** ceil(p99) + 1pp = {int(p99) + 1}pp")
-        lines.append(f"- **Lax (absorbs 95% of drift, tolerates rare CI break):** ceil(p95) + 1pp = {int(p95) + 1}pp")
+        lines.append(
+            f"- **Lax (absorbs 95% of drift, tolerates rare CI break):** ceil(p95) + 1pp = {int(p95) + 1}pp"
+        )
         lines.append("")
         current_tol = 5.0
         if current_tol >= max_dod:
@@ -301,9 +306,7 @@ def render_report(per_rank: dict[int, list[dict[str, Any]]]) -> str:
         lines.append("| prev date | curr date | prev pct | curr pct | Δ |")
         lines.append("|---|---|---:|---:|---:|")
         for j, prev_d, curr_d, prev_p, curr_p in jumps[:3]:
-            lines.append(
-                f"| {prev_d} | {curr_d} | {prev_p:+.2f}% | {curr_p:+.2f}% | {j:+.2f}pp |"
-            )
+            lines.append(f"| {prev_d} | {curr_d} | {prev_p:+.2f}% | {curr_p:+.2f}% | {j:+.2f}pp |")
         lines.append("")
 
     return "\n".join(lines)
@@ -317,7 +320,9 @@ def write_csv(per_rank: dict[int, list[dict[str, Any]]], out_path: Path) -> None
         w.writerow(["date", "rank", "player", "ktc", "ours", "pct_diff"])
         for rank in PINNED_RANKS:
             for s in per_rank[rank]:
-                w.writerow([s["date"], rank, s["player"], s["ktc"], s["ours"], f"{s['pct_diff']:+.4f}"])
+                w.writerow(
+                    [s["date"], rank, s["player"], s["ktc"], s["ours"], f"{s['pct_diff']:+.4f}"]
+                )
 
 
 def main() -> int:
