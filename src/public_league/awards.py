@@ -49,88 +49,39 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 # needs to hard-code copy.  Keep these short and human — the UI prints
 # them verbatim beneath the winner.
 AWARD_DESCRIPTIONS: dict[str, str] = {
-    "champion": "Winner of the final playoff matchup.",
-    "manager_of_the_year": (
-        "The totality of a season, weighted: 30% final finish, 25% "
-        "regular-season win%, 15% points scored, 15% trade impact, 15% "
-        "waiver impact. Every input min-max normalized across the league."
-    ),
-    "top_seed": "Best regular-season seed after tiebreaks.",
+    "champion": "Won the league.",
+    "manager_of_the_year": "The league's best manager this season.",
+    "league_mvp": "The league's Most Valuable Player.",
+    "off_mvp": "The most valuable offensive player.",
+    "def_mvp": "The most valuable defensive player.",
+    "playoff_mvp": "The champion's standout playoff performer.",
+    "off_roy": "The top first-year offensive player.",
+    "def_roy": "The top first-year defensive player.",
+    "top_seed": "Earned the #1 regular-season seed.",
     "regular_season_crown": "Best regular-season record.",
-    "points_king": "Most regular-season points scored.",
-    "highest_single_week": "Largest single-week scoring explosion.",
-    "lowest_single_week": "Smallest single-week score.",
-    "trader_of_the_year": (
-        "Realized post-trade fantasy points gained this season. Sums "
-        "points acquired minus points sent away across every trade, weighted "
-        "by the weeks played after the deal. Tiebreaks: playoff points "
-        "gained, then a server-side asset-value delta."
-    ),
-    "best_trade_of_the_year": (
-        "Best single trade by post-deal realized points for one side. "
-        "Historical only — finalized after the season."
-    ),
-    "waiver_king": (
-        "Total fantasy points your waiver / free-agent pickups scored in "
-        "weeks they were in your starting lineup. "
-        "Tiebreak: count of useful adds."
-    ),
-    "silent_assassin": (
-        "Win% in games decided by 10 points or fewer (4+ eligible games)."
-    ),
-    "weekly_hammer": "Count of weekly high-score finishes.",
-    "playoff_mvp": (
-        "The championship team's best playoff performer by VORP (Value Over "
-        "Replacement Player) — most points over positional replacement while "
-        "in the starting lineup during the playoffs."
-    ),
-    "bad_beat": "Biggest single 'points in a loss' performance.",
-    "mr_consistent": (
-        "Most consistent playoff qualifier — lowest week-to-week scoring "
-        "variability (coefficient of variation) in the regular season."
-    ),
-    "best_rebuild": (
-        "Year-over-year improvement. 40% points-rank jump + 30% record-rank "
-        "jump + 20% extra weighted stockpile + 10% more rostered rookies."
-    ),
-    "rivalry_of_the_year": (
-        "Season's nastiest head-to-head ranked by rivalry index, boosted by "
-        "playoff meetings."
-    ),
-    # ── Manager awards ──
-    "top_offense": (
-        "Most regular-season points produced by offensive starters "
-        "(QB / RB / WR / TE) — kickers and bench points excluded."
-    ),
-    "top_defense": (
-        "Most regular-season points produced by defensive starters "
-        "(DL / LB / DB / DEF) — bench points excluded."
-    ),
-    "top_nfl_team": (
-        "The NFL franchise whose players scored the most fantasy points "
-        "while in a league starting lineup (regular season)."
-    ),
-    # ── Player awards ──
-    "off_roy": (
-        "Offensive Rookie of the Year: highest VORP among first-year "
-        "QB / RB / WR / TE, from starter-only regular-season scoring."
-    ),
-    "def_roy": (
-        "Defensive Rookie of the Year: highest VORP among first-year "
-        "DL / LB / DB, from starter-only regular-season scoring."
-    ),
-    "top_qb": "Top QB by total starter-only points scored in the regular season.",
-    "top_rb": "Top RB by total starter-only points scored in the regular season.",
-    "top_wr": "Top WR by total starter-only points scored in the regular season.",
-    "top_te": "Top TE by total starter-only points scored in the regular season.",
-    "top_k":  "Top K by total starter-only points scored in the regular season.",
-    "top_dl": "Top DL by total starter-only points scored in the regular season.",
-    "top_lb": "Top LB by total starter-only points scored in the regular season.",
-    "top_db": "Top DB by total starter-only points scored in the regular season.",
-    "league_mvp": (
-        "Regular-season MVP: highest VORP (Value Over Replacement Player) "
-        "across all positions, computed from starter-only scoring."
-    ),
+    "points_king": "Scored the most points.",
+    "highest_single_week": "The biggest single-week score.",
+    "lowest_single_week": "The smallest single-week score.",
+    "trader_of_the_year": "The season's best trade-table operator.",
+    "best_trade_of_the_year": "The single best trade of the season.",
+    "waiver_king": "Got the most out of the waiver wire.",
+    "silent_assassin": "Owns the close games.",
+    "weekly_hammer": "Most weekly high-score finishes.",
+    "mr_consistent": "The most reliable team, week to week.",
+    "bad_beat": "The season's most heartbreaking loss.",
+    "best_rebuild": "The biggest year-over-year turnaround.",
+    "rivalry_of_the_year": "The season's fiercest rivalry.",
+    "top_offense": "The highest-scoring offense.",
+    "top_defense": "The highest-scoring defense.",
+    "top_nfl_team": "The NFL franchise that scored the most for the league.",
+    "top_qb": "The league's top quarterback.",
+    "top_rb": "The league's top running back.",
+    "top_wr": "The league's top wide receiver.",
+    "top_te": "The league's top tight end.",
+    "top_k": "The league's top kicker.",
+    "top_dl": "The league's top defensive lineman.",
+    "top_lb": "The league's top linebacker.",
+    "top_db": "The league's top defensive back.",
 }
 
 
@@ -175,6 +126,8 @@ _AWARD_ORDER: tuple[str, ...] = (
     "champion",
     "manager_of_the_year",
     "league_mvp",
+    "off_mvp",
+    "def_mvp",
     "playoff_mvp",
     "off_roy",
     "def_roy",
@@ -1302,6 +1255,18 @@ def _league_mvp_rows(
     return _vorp_rows(snapshot, season, regular_season_only=True)
 
 
+def _offensive_mvp_rows(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+    """League MVP restricted to offensive skill positions (QB/RB/WR/TE)."""
+    return [r for r in _vorp_rows(snapshot, season, regular_season_only=True)
+            if r["position"] in _OFF_ROY_POSITIONS]
+
+
+def _defensive_mvp_rows(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> list[dict[str, Any]]:
+    """League MVP restricted to defensive positions (DL/LB/DB)."""
+    return [r for r in _vorp_rows(snapshot, season, regular_season_only=True)
+            if r["position"] in _DEF_ROY_POSITIONS]
+
+
 def _rookie_of_year_rows(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -1797,6 +1762,12 @@ def _activity_awards_for_season(
         _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
         "def_roy", "Defensive Rookie of the Year",
     )
+    _vorp_player_award(
+        _offensive_mvp_rows(snapshot, season), "off_mvp", "Offensive MVP",
+    )
+    _vorp_player_award(
+        _defensive_mvp_rows(snapshot, season), "def_mvp", "Defensive MVP",
+    )
 
     # ── Mr. Consistent ─────────────────────────────────────────────
     _add(_award_from_row(
@@ -2081,6 +2052,12 @@ def _current_season_races(
     _add(_vorp_player_race(
         _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
         "def_roy", "Defensive Rookie of the Year Race",
+    ))
+    _add(_vorp_player_race(
+        _offensive_mvp_rows(snapshot, season), "off_mvp", "Offensive MVP Race",
+    ))
+    _add(_vorp_player_race(
+        _defensive_mvp_rows(snapshot, season), "def_mvp", "Defensive MVP Race",
     ))
 
     return races

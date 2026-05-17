@@ -206,6 +206,8 @@ export function renderAwardValue(key, value) {
         ? `${value.playerName} · ${fmtPoints(value.starterPoints)} pts in ${value.gamesStarted} starts`
         : `${fmtPoints(value.starterPoints)} pts`;
     case "league_mvp":
+    case "off_mvp":
+    case "def_mvp":
     case "off_roy":
     case "def_roy":
       return value.playerName
