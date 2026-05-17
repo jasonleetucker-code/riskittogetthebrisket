@@ -17,7 +17,6 @@ public-safe values.
 Award catalog:
     champion                 — winner of the finals
     manager_of_the_year      — weighted totality composite (pinned #2)
-    top_seed                 — best regular-season seed
     regular_season_crown     — best regular-season record
     points_king              — most regular-season points
     highest_single_week      — largest single-week score
@@ -57,7 +56,6 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "playoff_mvp": "The champion's standout playoff performer.",
     "off_roy": "The top first-year offensive player.",
     "def_roy": "The top first-year defensive player.",
-    "top_seed": "Earned the #1 regular-season seed.",
     "regular_season_crown": "Best regular-season record.",
     "points_king": "Scored the most points.",
     "highest_single_week": "The biggest single-week score.",
@@ -131,7 +129,6 @@ _AWARD_ORDER: tuple[str, ...] = (
     "playoff_mvp",
     "off_roy",
     "def_roy",
-    "top_seed",
     "regular_season_crown",
     "points_king",
     "highest_single_week",
@@ -304,7 +301,6 @@ def _season_canonical_awards(snapshot: PublicLeagueSnapshot, season: SeasonSnaps
         return []
 
     champion_rid = metrics.season_champion(season)
-    top_seed = metrics.top_seed(standings)
     best_record_rid = standings[0]["rosterId"] if standings else None
     pf_leader = max(standings, key=lambda r: r["pointsFor"], default=None)
 
@@ -325,12 +321,6 @@ def _season_canonical_awards(snapshot: PublicLeagueSnapshot, season: SeasonSnaps
 
     awards = [
         _canonical_award(snapshot, season, champion_rid, "champion", "Champion"),
-        _canonical_award(
-            snapshot, season,
-            top_seed["rosterId"] if top_seed else None,
-            "top_seed", "Top Seed",
-            value={"winPct": top_seed["winPct"]} if top_seed else None,
-        ),
         _canonical_award(
             snapshot, season, best_record_rid,
             "regular_season_crown", "Regular-Season Crown",

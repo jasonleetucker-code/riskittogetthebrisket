@@ -149,8 +149,6 @@ export function renderAwardValue(key, value) {
   switch (key) {
     case "champion":
       return "";
-    case "top_seed":
-      return `Win% ${fmtPercent(value.winPct)}`;
     case "regular_season_crown":
       return value.record || "";
     case "points_king":
