@@ -6,6 +6,7 @@ import { resolvedRank, RANKING_SOURCES, getRetailLabel, siteOverridesAreCustomiz
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
+import { useUserState } from "@/components/useUserState";
 import {
   tierLabel,
   effectiveTierId,
@@ -481,6 +482,15 @@ export default function RankingsPage() {
   // don't surface it here.  ``useTeam`` reads the flag off the
   // registry's league config via ``useLeague``.
   const { idpEnabled, selectedLeagueKey } = useTeam();
+  const {
+    state: userState,
+    toggleWatchlist,
+    serverBacked: watchlistServerBacked,
+  } = useUserState();
+  const watchlistLower = useMemo(
+    () => new Set((userState?.watchlist || []).map((n) => String(n).toLowerCase())),
+    [userState?.watchlist],
+  );
   // Pull recent news so we can stamp a "📰" chip on rows whose
   // player has fresh news / injury status.  Looks up by lowercase
   // name in O(1).  News data is single-flighted at module level so
@@ -1442,6 +1452,36 @@ export default function RankingsPage() {
                             >
                               {row.name}
                             </span>
+                            {(() => {
+                              const onWatch = watchlistLower.has(
+                                String(row.name || "").toLowerCase()
+                              );
+                              return (
+                                <button
+                                  type="button"
+                                  className={`button-reset rankings-watch-star${onWatch ? " is-active" : ""}`}
+                                  aria-pressed={onWatch}
+                                  title={
+                                    onWatch
+                                      ? `Remove from watchlist${watchlistServerBacked ? " (synced)" : ""}`
+                                      : `Add to watchlist${watchlistServerBacked ? " (synced)" : " (local)"}`
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleWatchlist(row.name);
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    color: onWatch ? "var(--cyan)" : "var(--subtext)",
+                                    fontSize: "0.95rem",
+                                    lineHeight: 1,
+                                    padding: "0 4px",
+                                  }}
+                                >
+                                  {onWatch ? "★" : "☆"}
+                                </button>
+                              );
+                            })()}
                             {(row.team || row.age) && (
                               <span className="rankings-player-meta">
                                 {[row.team, row.age].filter(Boolean).join(" · ")}

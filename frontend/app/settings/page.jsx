@@ -72,7 +72,8 @@ function ToggleRow({ label, checked, onChange, hint }) {
 export default function SettingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
-  const { state: userState, serverBacked, setNotifications } = useUserState();
+  const { state: userState, serverBacked, setNotifications, toggleWatchlist } = useUserState();
+  const [watchAddName, setWatchAddName] = useState("");
   const [hydrated, setHydrated] = useState(true);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailStatus, setEmailStatus] = useState("");
@@ -623,6 +624,84 @@ export default function SettingsPage() {
             Sign in to enable email notifications.  Your notification preferences
             are stored on the server and apply across devices.
           </p>
+        )}
+      </Section>
+
+      <Section title="Watchlist" defaultOpen={false}>
+        <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 8 }}>
+          Players you star (here or via the ☆ on Rankings / a player card).
+          {serverBacked ? " Synced across your devices." : " Saved on this device."}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+          <input
+            className="input"
+            value={watchAddName}
+            placeholder="Add player by name"
+            list="brisket-watchlist-player-list"
+            onChange={(e) => setWatchAddName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && watchAddName.trim()) {
+                toggleWatchlist(watchAddName.trim());
+                setWatchAddName("");
+              }
+            }}
+            style={{ flex: "1 1 220px", minWidth: 180, fontSize: "0.8rem" }}
+          />
+          <datalist id="brisket-watchlist-player-list">
+            {(rows || [])
+              .map((p) => p?.name || p?.displayName)
+              .filter((n) => typeof n === "string" && n.length > 0)
+              .slice(0, 800)
+              .map((n) => (
+                <option key={n} value={n} />
+              ))}
+          </datalist>
+          <button
+            type="button"
+            className="button"
+            disabled={!watchAddName.trim()}
+            onClick={() => {
+              if (watchAddName.trim()) {
+                toggleWatchlist(watchAddName.trim());
+                setWatchAddName("");
+              }
+            }}
+          >
+            Add
+          </button>
+        </div>
+        {(userState?.watchlist || []).length === 0 ? (
+          <div style={{ fontSize: "0.78rem", color: "var(--subtext)" }}>
+            No players on your watchlist yet.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {(userState.watchlist || []).map((name) => (
+              <div
+                key={name}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: "0.82rem",
+                  borderBottom: "1px solid var(--border)",
+                  padding: "4px 0",
+                }}
+              >
+                <span>{name}</span>
+                <button
+                  type="button"
+                  className="button-reset"
+                  title="Remove from watchlist"
+                  onClick={() => toggleWatchlist(name)}
+                  style={{ cursor: "pointer", color: "var(--subtext)", padding: "0 6px" }}
+                >
+                  ☆ remove
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 
