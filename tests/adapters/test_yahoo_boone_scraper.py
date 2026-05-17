@@ -322,3 +322,81 @@ class TestCsvWriter:
         assert allen.rank_raw == 1.0
         assert allen.value_raw is None
         assert allen.position_raw == "QB"
+
+
+# ── Partial-scrape guards (fail loudly, preserve last-good) ───────────
+
+class TestPartialScrapeGuards:
+    """Regression for the 2026-05-16 silent-truncation incident: a TE
+    seed failure produced a QB+RB+WR-only board.  The old combined
+    floor (225) let that 3-of-4-position board through, it was written
+    and auto-committed, then failed the downstream yahooBoone contract
+    floor (344 < 400) on clean main.  ``main`` must now refuse to
+    overwrite the last-good CSV when the board is structurally degraded.
+    """
+
+    def _board(self, yb_module, counts: dict[str, int]):
+        Row = yb_module.YahooRow
+        rows = []
+        for pos, n in counts.items():
+            rows.extend(Row(f"{pos}{i}", pos, 200 - i) for i in range(n))
+        return rows
+
+    def test_position_below_per_position_floor_exits_3_and_preserves_csv(
+        self, yb_module, tmp_path, monkeypatch
+    ):
+        # Total 480 clears _YB_ROW_COUNT_FLOOR (400) so the per-position
+        # guard is what must catch TE vanishing (TE=0 < 30).
+        board = self._board(
+            yb_module, {"QB": 80, "RB": 200, "WR": 200, "TE": 0}
+        )
+        monkeypatch.setattr(
+            yb_module,
+            "fetch_all",
+            lambda *a, **k: (board, ["TE: fetch/parse failed — boom"]),
+        )
+        dest = tmp_path / "yahooBoone.csv"
+        sentinel = "name,pos,rank,boone_value\nPrior Good,QB,1,141\n"
+        dest.write_text(sentinel, encoding="utf-8")
+
+        rc = yb_module.main(["--dest", str(dest)])
+
+        assert rc == 3
+        assert dest.read_text(encoding="utf-8") == sentinel
+
+    def test_total_below_floor_exits_2_and_preserves_csv(
+        self, yb_module, tmp_path, monkeypatch
+    ):
+        board = self._board(
+            yb_module, {"QB": 80, "RB": 80, "WR": 80, "TE": 80}
+        )  # 320 < 400
+        monkeypatch.setattr(
+            yb_module, "fetch_all", lambda *a, **k: (board, [])
+        )
+        dest = tmp_path / "yahooBoone.csv"
+        sentinel = "name,pos,rank,boone_value\nPrior Good,QB,1,141\n"
+        dest.write_text(sentinel, encoding="utf-8")
+
+        rc = yb_module.main(["--dest", str(dest)])
+
+        assert rc == 2
+        assert dest.read_text(encoding="utf-8") == sentinel
+
+    def test_healthy_board_writes_and_exits_0(
+        self, yb_module, tmp_path, monkeypatch
+    ):
+        board = self._board(
+            yb_module, {"QB": 80, "RB": 130, "WR": 150, "TE": 90}
+        )  # 450, every position well above 30
+        monkeypatch.setattr(
+            yb_module, "fetch_all", lambda *a, **k: (board, [])
+        )
+        dest = tmp_path / "yahooBoone.csv"
+
+        rc = yb_module.main(["--dest", str(dest)])
+
+        assert rc == 0
+        with dest.open() as f:
+            data = list(csv.DictReader(f))
+        assert {r["pos"] for r in data} == {"QB", "RB", "WR", "TE"}
+        assert len(data) == 450

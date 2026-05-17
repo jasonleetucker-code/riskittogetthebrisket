@@ -62,6 +62,12 @@ Exit codes:
     1 — soft failure (fetch / parse error for all positions, or zero rows)
     2 — schema regression (no parseable table on a successful response,
         or total row count below ``_YB_ROW_COUNT_FLOOR``)
+    3 — partial scrape: a position in ``_SEED_URLS`` fell below
+        ``_YB_MIN_ROWS_PER_POSITION``.
+
+Exit codes 2 and 3 deliberately leave the previously-written CSV
+untouched: a degraded refresh keeps serving the last good board
+until a human investigates, rather than overwriting it.
 """
 from __future__ import annotations
 
