@@ -65,6 +65,15 @@ ENV_PATH = REPO / ".env"
 OUT_SF = REPO / "CSVs" / "site_raw" / "draftSharksSf.csv"
 OUT_IDP = REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv"
 
+# Contract-aligned row-count floors (== _DEFAULT_SOURCE_ROW_FLOORS in
+# src/api/data_contract.py).  Existing guards catch idp_count==0 and
+# all-zero IDP values, but a structurally-short-but-nonzero scrape
+# still overwrote last-good and then hard-failed the contract floor
+# on a clean checkout.  Fail loud + preserve last-good if either
+# family is below its floor.
+_DS_SF_ROW_FLOOR: int = 190
+_DS_IDP_ROW_FLOOR: int = 85
+
 HOME_URL = "https://www.draftsharks.com/"
 LOGIN_URL = "https://www.draftsharks.com/login"
 RANKINGS_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
@@ -539,6 +548,21 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Contract-aligned floor BEFORE writing: a partial scrape (WASM
+    # worker hung, lazy-load shortfall) that still emits some positive
+    # IDP values must not overwrite last-good with a structurally-
+    # short board that then hard-fails the contract floor on a clean
+    # checkout.  Fail loud, preserve last-good.
+    if off_count < _DS_SF_ROW_FLOOR or idp_count < _DS_IDP_ROW_FLOOR:
+        print(
+            f"[DS] ERROR: degraded scrape — offense={off_count} "
+            f"(floor {_DS_SF_ROW_FLOOR}) idp={idp_count} (floor "
+            f"{_DS_IDP_ROW_FLOOR}).  Preserving last-good CSVs; not "
+            f"overwriting.",
+            file=sys.stderr,
+        )
+        return 2
 
     if args.dry_run:
         print("[DS] dry-run — skipping CSV write")
