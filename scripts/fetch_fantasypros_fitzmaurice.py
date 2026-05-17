@@ -62,6 +62,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 OUT_PATH = REPO / "CSVs" / "site_raw" / "fantasyProsFitzmaurice.csv"
 
+# Contract-aligned written-total floor (== _DEFAULT_SOURCE_ROW_FLOORS
+# in src/api/data_contract.py).  Previously the only guard aborted at
+# literally zero rows, so a short scrape (a monthly-article column
+# rename, a position page missing) overwrote last-good then hard-
+# failed the contract floor on a clean checkout.  Fail loud +
+# preserve last-good below this.
+_FPF_ROW_FLOOR: int = 225
+
 # Per-position column to use for our Superflex + TE-Premium league.
 # Keys are the position label we stamp onto each row; values are
 # the CSV column-name alternatives we search for in priority order
@@ -410,6 +418,20 @@ def main() -> int:
                 f"{r['team']:<4} value={r['value']}"
             )
         return 0
+
+    # Contract-aligned floor BEFORE writing: a short scrape must not
+    # overwrite last-good with a structurally-degraded board that
+    # then hard-fails the contract floor on a clean checkout.  Fail
+    # loud, preserve last-good.
+    if len(all_rows) < _FPF_ROW_FLOOR:
+        print(
+            f"[fitzmaurice] ERROR: only {len(all_rows)} rows — floor "
+            f"{_FPF_ROW_FLOOR} (== contract).  Likely a column rename "
+            f"or a missing position page.  Preserving last-good CSV; "
+            f"not overwriting.",
+            file=sys.stderr,
+        )
+        return 2
 
     count = _write_csv(OUT_PATH, all_rows)
     print(f"[fitzmaurice] wrote {count} rows → {OUT_PATH.relative_to(REPO)}")
