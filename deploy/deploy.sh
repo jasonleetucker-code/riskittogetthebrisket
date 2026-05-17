@@ -153,12 +153,28 @@ resolve_and_validate_sudo_binaries() {
 
 resolve_git_ref() {
   local ref="$1"
-  if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-    git rev-parse "${ref}^{commit}"
-    return 0
+  # A full 40-char SHA is immutable — resolve directly.
+  if is_full_commit_sha "${ref}"; then
+    if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
+      git rev-parse "${ref}^{commit}"
+      return 0
+    fi
+    return 1
   fi
+  # Branch/tag NAME: the deploy target is its latest PUSHED state.
+  # ``main`` is resolved AFTER ``git fetch``, which advances
+  # ``origin/<ref>`` but NEVER the local branch.  Checking the local
+  # ref first silently deployed a STALE revision whenever local <ref>
+  # lagged origin/<ref> (routine post-merge; worse with a degraded
+  # .git fetch) — it shipped old code 3x in one session while
+  # reporting success.  Resolve ``origin/<ref>`` FIRST; fall back to
+  # the local ref only when there is no remote-tracking ref.
   if git rev-parse --verify --quiet "origin/${ref}^{commit}" >/dev/null; then
     git rev-parse "origin/${ref}^{commit}"
+    return 0
+  fi
+  if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
+    git rev-parse "${ref}^{commit}"
     return 0
   fi
   return 1
