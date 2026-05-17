@@ -119,10 +119,26 @@ _VALUE_COLUMN: dict[str, str] = {
     "TE": "TE Prem.",
 }
 
-# Row-count floor for total (QB+RB+WR+TE combined).  Boone's April
-# 2026 charts held ~100 QBs, ~80 RBs, ~130 WRs, ~70 TEs = ~380 rows.
-# Floor at ~60% of observed so a real regression trips exit 2.
-_YB_ROW_COUNT_FLOOR: int = 225
+# Row-count floor for total (QB+RB+WR+TE combined).  A healthy scrape
+# is ~450 rows (QB~80, RB~130, WR~150, TE~90).  Aligned with the
+# downstream contract guard ``_DEFAULT_SOURCE_ROW_FLOORS["yahooBoone"]``
+# (400) so the scraper fails loudly and PRESERVES the last-good CSV
+# rather than overwriting it with a board that would later fail the
+# contract-coverage test.  The old 225 floor (~60% of a stale ~380
+# estimate) was far too lenient: a scrape that silently lost the
+# entire TE article still totalled ~360 and sailed past 225, shipping
+# a TE-less board from a TEP-native source with no alarm.
+_YB_ROW_COUNT_FLOOR: int = 400
+
+# Per-position presence floor.  The real-world failure mode is one
+# position's article fetch/parse silently failing (Yahoo redirect
+# chain breaks or the chart HTML changes for that one position),
+# dropping that whole position to 0 rows while the others succeed.
+# The total floor alone can't catch that (3 of 4 positions still
+# clear it).  Every position in ``_SEED_URLS`` must clear this; the
+# smallest healthy position is ~80, so 30 never false-trips a good
+# scrape but reliably catches a vanished/severely-broken position.
+_YB_MIN_ROWS_PER_POSITION: int = 30
 
 # Warn if the resolved article's publication date is older than this
 # many days — Boone updates roughly monthly, so anything beyond ~45
@@ -418,6 +434,33 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    # Per-position presence guard.  A partial scrape (e.g. the TE
+    # article's redirect chain broke) can lose an entire position
+    # while the others still clear the total floor.  Refuse to
+    # overwrite the last-good CSV with a board missing a whole
+    # position — exit non-zero so the cron run is marked failed and
+    # the previous good CSV keeps serving until a human investigates.
+    pos_seen: dict[str, int] = {}
+    for row in rows:
+        pos_seen[row.pos] = pos_seen.get(row.pos, 0) + 1
+    short_positions = {
+        pos: pos_seen.get(pos, 0)
+        for pos in _SEED_URLS
+        if pos_seen.get(pos, 0) < _YB_MIN_ROWS_PER_POSITION
+    }
+    if short_positions:
+        detail = ", ".join(
+            f"{p}={pos_seen.get(p, 0)}" for p in sorted(short_positions)
+        )
+        print(
+            f"[fetch_yahoo_boone] partial scrape — position(s) below "
+            f"min {_YB_MIN_ROWS_PER_POSITION}: {detail} "
+            f"(seen: {dict(sorted(pos_seen.items()))}).  Preserving "
+            f"last-good CSV; not overwriting.",
+            file=sys.stderr,
+        )
+        return 3
 
     ranked = _assign_ranks(rows)
 
