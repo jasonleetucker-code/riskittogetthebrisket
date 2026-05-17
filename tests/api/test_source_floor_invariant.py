@@ -124,12 +124,28 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # No aligned internal floor today (legacy Dynasty Scraper.py
     # exports, or abort-only-at-zero scrapers).  Resolver returns None
     # => allowlisted below until the named follow-up hardens it.
-    "footballGuysSf": lambda: None,
-    "footballGuysIdp": lambda: None,
-    "draftSharks": lambda: None,
-    "draftSharksIdp": lambda: None,
-    "fantasyProsFitzmaurice": lambda: None,
-    "fantasyProsIdp": lambda: None,
+    # A2 (2026-05-17) — each now has a contract-aligned fail-loud,
+    # preserve-last-good floor; resolvers read the real constant.
+    "footballGuysSf": lambda: _module_int_const(
+        "fetch_footballguys.py", "_FBG_SF_ROW_FLOOR"
+    ),
+    "footballGuysIdp": lambda: _module_int_const(
+        "fetch_footballguys.py", "_FBG_IDP_ROW_FLOOR"
+    ),
+    "draftSharks": lambda: _module_int_const(
+        "fetch_draftsharks.py", "_DS_SF_ROW_FLOOR"
+    ),
+    "draftSharksIdp": lambda: _module_int_const(
+        "fetch_draftsharks.py", "_DS_IDP_ROW_FLOOR"
+    ),
+    "fantasyProsFitzmaurice": lambda: _module_int_const(
+        "fetch_fantasypros_fitzmaurice.py", "_FPF_ROW_FLOOR"
+    ),
+    "fantasyProsIdp": lambda: _module_int_const(
+        "fetch_fantasypros_idp.py", "_FP_WRITTEN_ROW_FLOOR"
+    ),
+    # A3 (legacy Dynasty Scraper.py FULL_DATA export) — still no
+    # aligned floor; allowlisted below until A3 lands.
     "ktc": lambda: None,
     "idpTradeCalc": lambda: None,
 }
@@ -139,12 +155,11 @@ _SCRAPER_FLOOR_RESOLVERS = {
 # REMOVE this entry.  This allowlist can only shrink (enforced by
 # ``test_known_gaps_are_still_real_gaps``).
 _KNOWN_FLOOR_GAPS: dict[str, str] = {
-    "footballGuysSf": "fetch_footballguys.py aborts only at 0 rows; add a >=375 floor + per-family guard (audit PR A2)",
-    "footballGuysIdp": "fetch_footballguys.py — add >=230 floor + per-family guard (audit PR A2)",
-    "draftSharks": "fetch_draftsharks.py aborts only at 0 rows; add a >=190 floor (audit PR A2)",
-    "draftSharksIdp": "fetch_draftsharks.py — add >=85 floor (audit PR A2)",
-    "fantasyProsFitzmaurice": "fetch_fantasypros_fitzmaurice.py aborts only at 0 rows; add a >=225 floor (audit PR A2)",
-    "fantasyProsIdp": "fetch_fantasypros_idp.py floors inputs (50+25) not the written total; add a >=75 written-total floor (audit PR A2)",
+    # A2 closed footballGuys{Sf,Idp} / draftSharks{,Idp} /
+    # fantasyProsFitzmaurice / fantasyProsIdp on 2026-05-17 — each
+    # now has a contract-aligned fail-loud floor; entries removed so
+    # test_known_gaps_are_still_real_gaps enforces the burn-down.
+    # Only the legacy Dynasty Scraper.py sources remain (A3).
     "ktc": "legacy Dynasty Scraper.py FULL_DATA export has no per-source floor; add a >=400 floor (audit PR A3)",
     "idpTradeCalc": "legacy Dynasty Scraper.py — add a >=700 floor + per-sheet guard (audit PR A3/B)",
 }
