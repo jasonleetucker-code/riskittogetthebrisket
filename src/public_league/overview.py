@@ -214,30 +214,6 @@ def _most_decorated_franchise(history_section: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def _most_chaotic_manager(awards_section: dict[str, Any]) -> dict[str, Any] | None:
-    races = awards_section.get("awardRaces") or []
-    for race in races:
-        if race["key"] == "chaos_agent" and race.get("leaders"):
-            leader = race["leaders"][0]
-            return {
-                "ownerId": leader["ownerId"],
-                "displayName": leader["displayName"],
-                "score": leader["value"].get("score"),
-            }
-    # Fallback to the most-recent season's historical chaos winner.
-    for season_row in awards_section.get("bySeason") or []:
-        for a in season_row.get("awards", []):
-            if a["key"] == "chaos_agent":
-                val = a.get("value") or {}
-                return {
-                    "ownerId": a["ownerId"],
-                    "displayName": a["displayName"],
-                    "score": val.get("score"),
-                    "season": season_row["season"],
-                }
-    return None
-
-
 # ── v2 home callouts (from specialized sections) ────────────────────────
 def _current_power_leader(power_section: dict[str, Any]) -> dict[str, Any] | None:
     ranking = power_section.get("currentRanking") or []
@@ -421,7 +397,6 @@ def build_section(
         "latestWeeklyRecap": _latest_weekly_recap(weekly_section),
         "mostDecoratedFranchise": _most_decorated_franchise(history_section),
         "hottestRace": awards_section.get("hottestRace"),
-        "mostChaoticManager": _most_chaotic_manager(awards_section),
         "leagueVitals": _league_vitals(snapshot),
         # v2 Home callouts — derived from the 5 specialized sections
         # added in PR #83.  Each may be null when the source section

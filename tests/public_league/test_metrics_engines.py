@@ -410,12 +410,10 @@ class AwardsTests(_BaseFixture):
             keys = {a["key"] for a in season_row["awards"]}
             for expected in (
                 "champion",
-                "runner_up",
+                "manager_of_the_year",
                 "top_seed",
                 "regular_season_crown",
                 "points_king",
-                "points_black_hole",
-                "toilet_bowl",
                 "highest_single_week",
                 "lowest_single_week",
             ):

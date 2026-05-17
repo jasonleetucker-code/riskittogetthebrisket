@@ -51,7 +51,7 @@ class CsvExportTests(unittest.TestCase):
         rows = self._parse(text)
         self.assertTrue(rows)
         keys = {r["key"] for r in rows}
-        for required in ("champion", "runner_up", "top_seed"):
+        for required in ("champion", "manager_of_the_year", "top_seed"):
             self.assertIn(required, keys)
 
     def test_records_export_has_categories(self) -> None:

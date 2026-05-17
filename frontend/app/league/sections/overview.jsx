@@ -32,7 +32,6 @@ function OverviewSection({ managers, data, onNavigate }) {
   const draftLeader = data.draftCapitalLeader;
   const recap = data.latestWeeklyRecap;
   const decorated = data.mostDecoratedFranchise;
-  const chaos = data.mostChaoticManager;
   const hottest = data.hottestRace;
   const vitals = data.leagueVitals || {};
   const hottestTrade = data.hottestTrade;
@@ -320,23 +319,6 @@ function OverviewSection({ managers, data, onNavigate }) {
               <LinkButton onClick={() => onNavigate("franchise", { owner: decorated.ownerId })}>
                 Open franchise page →
               </LinkButton>
-            </div>
-          </div>
-        )}
-        {chaos && (
-          <div className="card" style={{ flex: "1 1 280px" }}>
-            <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Most chaotic manager
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-              <Avatar managers={managers} ownerId={chaos.ownerId} size={36} />
-              <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>{chaos.displayName}</div>
-            </div>
-            <div style={{ fontSize: "0.74rem", color: "var(--subtext)", marginTop: 4 }}>
-              Chaos score {chaos.score ?? "—"}{chaos.season ? ` · ${chaos.season}` : ""}
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <LinkButton onClick={() => onNavigate("activity")}>See trade activity →</LinkButton>
             </div>
           </div>
         )}
