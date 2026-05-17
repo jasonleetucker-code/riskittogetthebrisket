@@ -2087,15 +2087,22 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "awards": _order_awards(canonical + activity_based),
         })
 
-    # Featured season = the newest season that has actually *begun*.  A
-    # freshly-created next-year league still in pre_draft/drafting must
-    # NOT blank out the board — last season's awards stay featured until
-    # the new season is underway.
+    # Featured season = the newest season that has actually *begun*.
+    # "Begun" means real games have been played (some matchup scored
+    # points) OR the season is complete.  Sleeper flips dynasty leagues
+    # to ``in_season`` in the offseason — months before NFL Week 1 — so
+    # status alone is NOT a reliable "started" signal: last season's
+    # full award board must stay featured until the new season actually
+    # plays games.
+    def _has_played_games(s: SeasonSnapshot) -> bool:
+        for entries in s.matchups_by_week.values():
+            for m in entries:
+                if metrics.matchup_points(m) > 0:
+                    return True
+        return False
+
     def _has_begun(s: SeasonSnapshot) -> bool:
-        status = str(s.league.get("status") or "").lower()
-        if status in {"in_season", "post_season", "postseason", "complete"}:
-            return True
-        return bool(s.matchups_by_week)
+        return s.is_complete or _has_played_games(s)
 
     featured = next(
         (s for s in snapshot.seasons if _has_begun(s)),
