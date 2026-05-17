@@ -28,6 +28,8 @@ import {
   multiTeamAnalysis,
   createSide,
   serializeWorkspaceMulti,
+  tradeWorkspaceToCSV,
+  tradeWorkspaceToJSON,
   deserializeWorkspaceMulti,
   valueAdjustmentFromSideArrays,
   defaultDestination,
@@ -390,6 +392,7 @@ export default function TradePage() {
   const [ktcImportBusy, setKtcImportBusy] = useState(false);
   const [ktcImportError, setKtcImportError] = useState("");
   const [ktcImportStatus, setKtcImportStatus] = useState("");
+  const [exportStatus, setExportStatus] = useState("");
 
   // Share + simulator state.
   const [shareStatus, setShareStatus] = useState("");
@@ -1180,6 +1183,49 @@ export default function TradePage() {
     }
   }, [ktcImportUrl, rowByName]);
 
+  const exportKtcUrl = useCallback(async () => {
+    setExportStatus("");
+    const sideOne = (sides[0]?.assets || []).map((r) => r.name);
+    const sideTwo = (sides[1]?.assets || []).map((r) => r.name);
+    if (!sideOne.length && !sideTwo.length) { setExportStatus("Nothing to export."); return; }
+    try {
+      const res = await fetch("/api/trade/export-ktc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sideOne, sideTwo }),
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { setExportStatus(data?.error || "KTC export failed."); return; }
+      try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard blocked */ }
+      const miss = [...(data.unresolved?.sideOne || []), ...(data.unresolved?.sideTwo || [])];
+      setExportStatus("KTC URL copied" + (miss.length ? ` \u2014 unmatched: ${miss.join(", ")}` : ""));
+    } catch (e) {
+      setExportStatus("KTC export failed: " + (e?.message || e));
+    }
+  }, [sides]);
+
+  const _downloadFile = useCallback((filename, text, mime) => {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url; el.download = filename;
+    document.body.appendChild(el); el.click(); el.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const exportCsv = useCallback(() => {
+    const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    _downloadFile(`trade-${iso}.csv`, tradeWorkspaceToCSV(sides, valueMode), "text/csv");
+    setExportStatus("CSV downloaded.");
+  }, [sides, valueMode, _downloadFile]);
+
+  const exportJson = useCallback(() => {
+    const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    _downloadFile(`trade-${iso}.json`, tradeWorkspaceToJSON(sides, valueMode, activeSide), "application/json");
+    setExportStatus("JSON downloaded.");
+  }, [sides, valueMode, activeSide, _downloadFile]);
+
   // ── Share-URL + simulator actions ─────────────────────────────────
   // Build a share-URL from the current trade and copy to clipboard.
   // Falls back to selecting the URL in a prompt when the clipboard
@@ -1554,6 +1600,36 @@ export default function TradePage() {
             >
               🔗 Copy Share Link
             </button>
+            <button
+              className="button"
+              onClick={exportKtcUrl}
+              disabled={sides.length !== 2 || !sides.some((s) => (s.assets || []).length > 0)}
+              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+              title="Copy a KeepTradeCut trade-calculator URL for sides A + B"
+            >
+              ↗ Copy KTC URL
+            </button>
+            <button
+              className="button"
+              onClick={exportCsv}
+              disabled={!sides.some((s) => (s.assets || []).length > 0)}
+              title="Download this trade as CSV"
+            >
+              ⬇ CSV
+            </button>
+            <button
+              className="button"
+              onClick={exportJson}
+              disabled={!sides.some((s) => (s.assets || []).length > 0)}
+              title="Download this trade as JSON"
+            >
+              ⬇ JSON
+            </button>
+            {exportStatus && (
+              <span className="muted" style={{ fontSize: "0.72rem", flexBasis: "100%", color: "var(--cyan)" }}>
+                {exportStatus}
+              </span>
+            )}
             {sides.length === 2 && selectedTeam && (
               <button
                 className="button"
