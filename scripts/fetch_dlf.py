@@ -79,13 +79,18 @@ BOARDS: dict[str, dict[str, str]] = {
         "url": "https://dynastyleaguefootball.com/dynasty-superflex-rankings/",
         "out": "CSVs/site_raw/dlfSf.csv",
         "label": "Dynasty Superflex",
-        "min_rows": 200,
+        # Aligned with the downstream contract floor
+        # ``_DEFAULT_SOURCE_ROW_FLOORS["dlfSf"]`` (240) so a partial
+        # scrape fails here and preserves last-good rather than
+        # shipping a CSV that later hard-fails the contract test.
+        "min_rows": 240,
     },
     "dlfIdp": {
         "url": "https://dynastyleaguefootball.com/rankings/dynasty-idp-rankings/",
         "out": "CSVs/site_raw/dlfIdp.csv",
         "label": "Dynasty IDP",
-        "min_rows": 120,
+        # Aligned with ``_DEFAULT_SOURCE_ROW_FLOORS["dlfIdp"]`` (150).
+        "min_rows": 150,
     },
     "dlfRookieSf": {
         "url": "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/",
@@ -511,18 +516,28 @@ def main() -> int:
                     f"pos={r.get('pos')!r}"
                 )
             continue
+        # Check the floor BEFORE writing.  The old code wrote the CSV
+        # first and only WARNed when short — so a partial/degraded
+        # scrape overwrote the last-good board and (because the floor
+        # was below the downstream contract floor) silently shipped a
+        # CSV that later hard-failed the contract-coverage test on a
+        # clean checkout.  Now: fail loudly, preserve last-good, never
+        # overwrite with a structurally-degraded board.
+        if len(rows) < min_rows:
+            print(
+                f"[DLF] {key}: parsed only {len(rows)} rows — expected "
+                f"≥{min_rows} (aligned with the downstream contract "
+                f"floor).  Partial/degraded scrape; preserving last-good "
+                f"CSV, NOT overwriting {out_path.relative_to(REPO)}.",
+                file=sys.stderr,
+            )
+            exit_code = max(exit_code, 2)
+            continue
         count = _write_csv(out_path, rows)
         print(
             f"[DLF] wrote {count} rows → {out_path.relative_to(REPO)}",
             flush=True,
         )
-        if count < min_rows:
-            print(
-                f"[DLF] WARN: {key} wrote only {count} rows — expected ≥{min_rows}.  "
-                f"DLF page structure may have changed; inspect "
-                f"{out_path.relative_to(REPO)}.",
-                file=sys.stderr,
-            )
     return exit_code
 
 
