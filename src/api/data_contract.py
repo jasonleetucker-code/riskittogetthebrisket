@@ -569,9 +569,16 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # match counts.
     "footballGuysSf": 375,
     "footballGuysIdp": 230,
-    # Yahoo / Justin Boone charts: QB+RB+WR+TE combined = ~500 rows
-    # at the April 2026 baseline.  Floor at ~80% so a scrape regression
-    # trips a warning.
+    # Yahoo / Justin Boone charts: a complete QB+RB+WR+TE board is
+    # ~450 raw rows that canonicalize to ~425 matches against the
+    # Sleeper pool (this floor is checked against canonical matches,
+    # not raw rows).  Boone is scraped as four independent per-position
+    # seed URLs; one silently dropping out (dead redirect / changed
+    # table) removes ~80-90 matches — losing TE alone drops the count
+    # to ~344.  scripts/fetch_yahoo_boone now fails loudly and
+    # preserves the last-good CSV in that case (``_YB_ROW_COUNT_FLOOR``
+    # 400 + per-position ``_YB_MIN_ROWS_PER_POSITION`` 30), so this
+    # contract floor is the second line of defence, not the first.
     "yahooBoone": 400,
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
