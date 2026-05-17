@@ -9,6 +9,7 @@
     "start": "next start -p 3000",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:components": "vitest run --project components",
     "check:bundles": "node scripts/check-bundle-sizes.mjs"
   },
   "dependencies": {
@@ -19,6 +20,11 @@
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
     "vitest": "^4.1.0"
   }
 }
