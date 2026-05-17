@@ -697,6 +697,17 @@ def match_all(players, name_map, results, site_key=None):
 
 # Global dict collecting full name_map for every site (for JSON export)
 FULL_DATA = {}
+
+# Contract-aligned site_raw floors for the two legacy-scraper sources
+# (== _DEFAULT_SOURCE_ROW_FLOORS["ktc"/"idpTradeCalc"] in
+# src/api/data_contract.py).  The FULL_DATA->site_raw export had NO
+# floor: a degraded/partial KTC or IDPTC map (proxy/TLS hiccup,
+# partial API intercept, a dropped IDPTC sheet) overwrote the
+# last-good CSV, which then hard-failed the downstream contract floor
+# on a clean checkout.  Below its floor we SKIP the write so the
+# "restore previous site_raw" pass keeps the prior good CSV.
+_KTC_SITE_RAW_FLOOR: int = 400
+_IDPTC_SITE_RAW_FLOOR: int = 700
 DLF_IMPORT_DEBUG = {}
 
 # KTC playerID → name mapping (populated during KTC rankings scrape)
@@ -6517,9 +6528,26 @@ async def run(progress_callback=None):
 
         # Export raw per-site maps to CSV for easier external sharing/audit.
         _fresh_site_raw: set[str] = set()
+        _site_raw_floors = {
+            "ktc": _KTC_SITE_RAW_FLOOR,
+            "idpTradeCalc": _IDPTC_SITE_RAW_FLOOR,
+        }
         for scraper_name, full_map in FULL_DATA.items():
             dash_key = site_key_map.get(scraper_name, scraper_name)
             out_csv = os.path.join(site_raw_dir, f"{dash_key}.csv")
+            # Contract-aligned floor: a degraded/partial map must NOT
+            # overwrite last-good.  Skipping the write leaves the file
+            # absent so the "restore previous site_raw" pass below
+            # preserves the prior good copy.
+            _floor = _site_raw_floors.get(dash_key)
+            if _floor is not None and len(full_map) < _floor:
+                print(
+                    f"  [site_raw] SKIP {dash_key}.csv — only "
+                    f"{len(full_map)} rows < floor {_floor}; preserving "
+                    f"last-good (not overwriting).",
+                    flush=True,
+                )
+                continue
             try:
                 with open(out_csv, "w", newline="", encoding="utf-8") as f:
                     w = csv.writer(f)
