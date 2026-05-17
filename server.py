@@ -2038,6 +2038,39 @@ async def _count_requests(request: Request, call_next):
     return await call_next(request)
 
 
+# Roadmap 4.1: reject oversized request bodies before a handler buffers
+# them (memory-exhaustion guard on the POST endpoints: trade / angle /
+# rankings-overrides / custom-alerts / user-state / export-ktc).
+# Generous default so no legitimate payload is ever 413'd; tunable
+# without a redeploy via MAX_REQUEST_BYTES.  Only the declared
+# Content-Length is checked (covers normal clients; no body buffering
+# is added here).
+try:
+    _MAX_REQUEST_BYTES = int(os.environ.get("MAX_REQUEST_BYTES") or 2_097_152)
+except (TypeError, ValueError):
+    _MAX_REQUEST_BYTES = 2_097_152
+
+
+@app.middleware("http")
+async def _limit_request_size(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH"):
+        cl = request.headers.get("content-length")
+        if cl is not None:
+            try:
+                if int(cl) > _MAX_REQUEST_BYTES:
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "ok": False,
+                            "error": "Request body too large.",
+                            "maxBytes": _MAX_REQUEST_BYTES,
+                        },
+                    )
+            except (TypeError, ValueError):
+                pass
+    return await call_next(request)
+
+
 # Paths under /api/* that do NOT require an authenticated session.
 # Anything else gets 401'd by ``_private_api_gate`` below.  Closes
 # the scrape risk: without this gate, ``curl /api/data`` from a
