@@ -85,6 +85,14 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
+# /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
+# twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
+# It must never run on the event loop unbounded — that freezes every
+# other request + health checks.  50k sims is statistically ample for a
+# win-probability point estimate; the timeout is a backstop for a
+# loaded box, not the primary control.
+SIMULATE_MC_MAX_SIMS = int(os.getenv("SIMULATE_MC_MAX_SIMS", "50000"))
+SIMULATE_MC_TIMEOUT_SECONDS = int(os.getenv("SIMULATE_MC_TIMEOUT_SECONDS", "10"))
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
 # Configure alerts via environment variables (no hardcoded secrets):
@@ -8321,8 +8329,11 @@ async def post_trade_simulate_mc(request: Request):
         n_sims = int(body.get("nSims") or 50000)
     except (TypeError, ValueError):
         n_sims = 50000
-    # Guardrail — don't let a caller request a million sims.
-    n_sims = max(1000, min(200_000, n_sims))
+    # Guardrail — clamp to a sane range.  The upper bound bounds the
+    # worst-case compute time (see SIMULATE_MC_MAX_SIMS); 50k sims gives
+    # a tight enough win-probability estimate that more is just wasted
+    # CPU on the event loop's behalf.
+    n_sims = max(1000, min(SIMULATE_MC_MAX_SIMS, n_sims))
     try:
         rho_t = float(body.get("sameTeamRho", 0.25))
         rho_p = float(body.get("samePosGroupRho", 0.10))
@@ -8343,13 +8354,42 @@ async def post_trade_simulate_mc(request: Request):
     # (valueDelta / adjustedDelta / winPct / riskLevel / tierImpact)
     # the trade calculator UI consumes.
     from src.trade import symmetrize as _sym
-    base = _sym.simulate_symmetric(
-        side_a, side_b,
-        n_sims=n_sims, same_team_rho=rho_t,
-        same_pos_group_rho=rho_p, seed=seed,
-        apply_consolidation_adjustment=apply_ca,
-    )
-    enriched = _sym.enrich_with_decision_shape(base, side_a, side_b)
+
+    def _run_mc() -> dict:
+        base = _sym.simulate_symmetric(
+            side_a, side_b,
+            n_sims=n_sims, same_team_rho=rho_t,
+            same_pos_group_rho=rho_p, seed=seed,
+            apply_consolidation_adjustment=apply_ca,
+        )
+        return _sym.enrich_with_decision_shape(base, side_a, side_b)
+
+    # The Monte Carlo is CPU-bound pure Python.  Run it in the thread
+    # pool so it never blocks the event loop (health checks + every
+    # other request), with a hard wall-clock backstop.  On timeout the
+    # worker thread can't be cancelled mid-loop, but it's bounded by
+    # SIMULATE_MC_MAX_SIMS so it finishes within a few seconds anyway —
+    # the client gets a clean 504 instead of an open-ended hang.
+    try:
+        enriched = await asyncio.wait_for(
+            run_in_threadpool(_run_mc),
+            timeout=SIMULATE_MC_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        log.warning(
+            "simulate-mc timed out after %ss (n_sims=%d)",
+            SIMULATE_MC_TIMEOUT_SECONDS, n_sims,
+        )
+        return JSONResponse(
+            status_code=504,
+            content={
+                "error": "timeout",
+                "message": (
+                    "Monte Carlo simulation exceeded the time budget. "
+                    "Retry with fewer players or sims."
+                ),
+            },
+        )
     return JSONResponse(content=enriched)
 
 
