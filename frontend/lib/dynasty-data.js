@@ -709,8 +709,15 @@ export const RANKING_SOURCES = [
     // ``fetch_draftsharks.py`` scraper splits DS's single
     // offense-combined DOM by position family into two CSVs, so
     // this is the SF slice only.  Value signal off the ``3D Value +``
-    // column; DraftSharks' scoring is standard dynasty (not TE-
-    // premium native), so the frontend ``tepMultiplier`` applies.
+    // column.  DraftSharks IS scraped from the TE-PREMIUM superflex
+    // board (fetch_draftsharks.py RANKINGS_URL =
+    // /dynasty-rankings/te-premium-superflex), so its values already
+    // bake in TE premium — TEP-native like KTC SF-TE++ / DN SF-TEP /
+    // Yahoo Boone.  isTepPremium:true so TE rows get only the small
+    // native nudge, not the larger non-TEP boost (mis-flagged false
+    // until 2026-05-16, which double-counted TEP for DS and inflated
+    // top TEs like Brock Bowers).  Lockstep with
+    // src/api/data_contract.py::_RANKING_SOURCES.
     key: "draftSharks",
     displayName: "Draft Sharks Dynasty",
     columnLabel: "DS",
@@ -722,7 +729,7 @@ export const RANKING_SOURCES = [
     isBackbone: false,
     isRetail: false,
     isRankSignal: false,
-    isTepPremium: false,
+    isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
   },

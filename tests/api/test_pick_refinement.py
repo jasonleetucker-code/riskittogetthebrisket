@@ -385,7 +385,15 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # outlier rejection.  No upstream regression — Roquan is a
         # genuinely borderline Hampel case, so the band needed real
         # headroom rather than a 5-rank tweak.
-        "Roquan Smith":     {"max_rank": 175, "min_value": 2300, "allowed_buckets": ("low", "medium", "high")},
+        # 2026-05-16: widened 175 → 180.  The DraftSharks TEP
+        # mis-flag fix (is_tep_premium False→True — DS is scraped
+        # from the te-premium-superflex board, so its values already
+        # bake in TE premium) correctly de-inflates DS TE values.
+        # DS SF+IDP share one combined value ladder
+        # (``ds_combined_rank_partner``), so de-inflating DS TEs
+        # nudges DS-IDP players ~1 rank; Roquan (borderline Hampel,
+        # above) tipped 175 → 176.  Real headroom, not a chase.
+        "Roquan Smith":     {"max_rank": 180, "min_value": 2300, "allowed_buckets": ("low", "medium", "high")},
         "Kyle Hamilton":    {"max_rank": 200, "min_value": 1800, "allowed_buckets": ("low", "medium", "high")},
     }
 

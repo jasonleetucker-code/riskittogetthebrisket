@@ -1483,9 +1483,21 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # prospects below the default DS position-filter cutoff).
         # Value signal off the ``3D Value +`` column; the blend
         # normalises via Hill curve over within-source rank so the
-        # 0-100 absolute scale is irrelevant.  DraftSharks' scoring
-        # is standard dynasty (not TE-premium native), so the
-        # frontend ``tepMultiplier`` applies.
+        # 0-100 absolute scale is irrelevant.  DraftSharks IS scraped
+        # from the TE-PREMIUM superflex board —
+        # ``scripts/fetch_draftsharks.py`` ``RANKINGS_URL`` =
+        # ``https://www.draftsharks.com/dynasty-rankings/te-premium-superflex``,
+        # read under the TE++ league's ``3D Value +`` (and the legacy
+        # ``Dynasty Scraper.py`` header agrees: "DraftSharks — TEP
+        # url").  Its raw values therefore ALREADY bake in TE premium,
+        # so it is TEP-native like KTC SF-TE++ / DN SF-TEP / Yahoo
+        # Boone / FP Fitzmaurice / IDPTC: declared
+        # ``is_tep_premium=True`` so TE rows get only the small 1.10×
+        # native nudge, never the 1.25× non-TEP boost.  (Before
+        # 2026-05-16 this was mis-flagged False, double-counting TE
+        # premium for DS — its already-TEP TE values got the larger
+        # non-TEP multiplier — which inflated every TE's DS
+        # contribution and pushed top TEs like Brock Bowers too high.)
         "key": "draftSharks",
         "display_name": "Draft Sharks Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1495,7 +1507,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
-        "is_tep_premium": False,
+        "is_tep_premium": True,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
         # DraftSharks SF and IDP are split across two CSVs but share
