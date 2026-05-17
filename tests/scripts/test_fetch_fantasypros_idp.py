@@ -186,11 +186,14 @@ class TestBuildRowsFromFixture(unittest.TestCase):
             (tmp / "db.html").write_text(db_html)
 
             dest = tmp / "out.csv"
-            # Bypass row-count floors on the test fixture.
+            # Bypass row-count floors on the tiny test fixture
+            # (input floors + the written-total floor added in A2).
             orig_combined = fp._FP_COMBINED_ROW_FLOOR
             orig_individual = fp._FP_INDIVIDUAL_ROW_FLOOR
+            orig_written = fp._FP_WRITTEN_ROW_FLOOR
             fp._FP_COMBINED_ROW_FLOOR = 1
             fp._FP_INDIVIDUAL_ROW_FLOOR = 1
+            fp._FP_WRITTEN_ROW_FLOOR = 1
             try:
                 rc = fp.main(
                     [
@@ -203,6 +206,7 @@ class TestBuildRowsFromFixture(unittest.TestCase):
             finally:
                 fp._FP_COMBINED_ROW_FLOOR = orig_combined
                 fp._FP_INDIVIDUAL_ROW_FLOOR = orig_individual
+                fp._FP_WRITTEN_ROW_FLOOR = orig_written
             self.assertEqual(rc, 0)
             self.assertTrue(dest.exists())
             import csv
