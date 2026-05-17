@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
+from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 
 
@@ -577,6 +578,24 @@ def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> b
     )
 
 
+def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
+    """Trade gap after KTC's Value Adjustment.
+
+    The trade analyzer applies KTC's VA before computing its
+    "Major gap" verdict (frontend/lib/trade-logic.js, backed by the
+    same src.trade.ktc_va port).  Suggestions must use the identical
+    math or they propose packages that look even on raw totals but
+    show a major gap once loaded into the builder — e.g. 2-for-1
+    consolidations where KTC's quantity discount inflates the
+    single-stud side.  Callers MUST pass the individual piece values
+    (not a pre-summed total) so the per-piece discount actually
+    triggers; for genuine 1-for-1s KTC suppresses VA, so the result
+    equals the raw difference.
+    """
+    give_adj, recv_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)
+    return int(round(give_adj - recv_adj))
+
+
 def _fairness_label(gap: int) -> str:
     a = abs(gap)
     if a < 256:
@@ -837,7 +856,7 @@ def _generate_sell_high(
                 oo = _trade_is_idp_free([sell], [target])
                 give_val = _eff_val(sell, oo)
                 recv_val = _eff_val(target, oo)
-                gap = give_val - recv_val
+                gap = _va_gap([give_val], [recv_val])
                 suggestions.append(TradeSuggestion(
                     type="sell_high",
                     give=[sell],
@@ -891,7 +910,7 @@ def _generate_buy_low(
                     oo = _trade_is_idp_free([sell], [target])
                     give_val = _eff_val(sell, oo)
                     recv_val = _eff_val(target, oo)
-                    gap = give_val - recv_val
+                    gap = _va_gap([give_val], [recv_val])
                     if abs(gap) < FAIRNESS_TOLERANCE:
                         suggestions.append(TradeSuggestion(
                             type="buy_low",
@@ -974,9 +993,10 @@ def _generate_consolidation(
                 targets.sort(key=lambda t: abs(combined - _eff_val(t, pair_oo)))
                 target = targets[0]
                 oo = _trade_is_idp_free([p1, p2], [target])
-                give_total = _eff_val(p1, oo) + _eff_val(p2, oo)
+                give_p1, give_p2 = _eff_val(p1, oo), _eff_val(p2, oo)
+                give_total = give_p1 + give_p2
                 recv_total = _eff_val(target, oo)
-                gap = give_total - recv_total
+                gap = _va_gap([give_p1, give_p2], [recv_total])
                 pos_note = f" at a position of need ({target.position})" if target.position in roster.need_positions else ""
                 suggestions.append(TradeSuggestion(
                     type="consolidation",
@@ -1061,9 +1081,11 @@ def _generate_positional_upgrades(
             sweeteners.sort(key=lambda s: abs(_eff_val(s, pos_oo) - gap_needed))
             sweetener = sweeteners[0]
             oo = _trade_is_idp_free([weakest_starter, sweetener], [target])
-            give_total = _eff_val(weakest_starter, oo) + _eff_val(sweetener, oo)
+            give_ws = _eff_val(weakest_starter, oo)
+            give_sw = _eff_val(sweetener, oo)
+            give_total = give_ws + give_sw
             recv_total = _eff_val(target, oo)
-            gap = give_total - recv_total
+            gap = _va_gap([give_ws, give_sw], [recv_total])
 
             if abs(gap) > FAIRNESS_TOLERANCE * 1.5:
                 continue
@@ -1191,13 +1213,17 @@ def _apply_quality_filters(
     Each filter preserves the existing rank order — it only removes, never reorders.
     """
     # ── 1. Suppress unrealistic consolidation stretches ────────────
-    # Allow stretch consolidations where the overpay is ≤30% of the
-    # give total — these are plausible "package for upgrade" deals.
+    # Allow stretch consolidations where the VA-adjusted gap is ≤30%
+    # of the give total — these are plausible "package for upgrade"
+    # deals.  The magnitude is bounded in both directions: a package
+    # that lands hugely in the user's favour after VA (a single elite
+    # for two depth pieces) is just as unrealistic as a big overpay —
+    # no opponent accepts either.
     if "consolidation" in categories:
         categories["consolidation"] = [
             s for s in categories["consolidation"]
             if s.fairness != "stretch"
-            or (s.give_total > 0 and s.gap / s.give_total <= CONSOLIDATION_MAX_OVERPAY_RATIO)
+            or (s.give_total > 0 and abs(s.gap) / s.give_total <= CONSOLIDATION_MAX_OVERPAY_RATIO)
         ]
 
     # ── 2. Cap receive-target repetition per category ────────────────
