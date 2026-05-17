@@ -737,6 +737,56 @@ def compute_max(name_map):
     return max(vals) if vals else 1  # ← was 0, now 1
 
 
+_SLEEPER_CACHE_PATH = os.path.join(SCRIPT_DIR, "data", "sleeper_last_good.json")
+_SLEEPER_STAMP_PATH = os.path.join(
+    SCRIPT_DIR, "data", "scrape_state", "sleeper_last_success"
+)
+
+
+def _save_sleeper_snapshot(roster_data):
+    """Persist the last-good per-league Sleeper block (one league's
+    teams/trades/picks — small, NOT the multi-MB NFL player DB) so a
+    later Sleeper outage can still serve it.  Committed by
+    scheduled-refresh so it survives ephemeral CI runners.  Best-effort.
+    """
+    try:
+        os.makedirs(os.path.dirname(_SLEEPER_CACHE_PATH), exist_ok=True)
+        tmp = _SLEEPER_CACHE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"savedAt": time.time(), "rosterData": roster_data}, f)
+        os.replace(tmp, _SLEEPER_CACHE_PATH)
+    except OSError as e:
+        print(f"  [Sleeper] snapshot save failed (non-fatal): {e}")
+
+
+def _stamp_sleeper_success():
+    """Stamp data/scrape_state/sleeper_last_success on a successful live
+    fetch so a prolonged Sleeper outage still trips the existing
+    freshness watchdog even though the scrape no longer hard-fails."""
+    try:
+        os.makedirs(os.path.dirname(_SLEEPER_STAMP_PATH), exist_ok=True)
+        with open(_SLEEPER_STAMP_PATH, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except OSError as e:
+        print(f"  [Sleeper] success stamp failed (non-fatal): {e}")
+
+
+def _load_sleeper_snapshot():
+    """Return (roster_data, age_hours) from the last-good snapshot, or
+    (None, None) when absent/unreadable/empty."""
+    try:
+        with open(_SLEEPER_CACHE_PATH, "r", encoding="utf-8") as f:
+            snap = json.load(f)
+        rd = snap.get("rosterData")
+        if not isinstance(rd, dict) or not rd:
+            return None, None
+        saved = float(snap.get("savedAt") or 0)
+        age_h = max(0.0, (time.time() - saved) / 3600.0) if saved else None
+        return rd, age_h
+    except (OSError, ValueError, TypeError):
+        return None, None
+
+
 def fetch_sleeper_rosters(league_id):
     """Fetch all rostered player names from a Sleeper league.
     Returns (player_names_list, roster_data_for_json)."""
@@ -1400,11 +1450,41 @@ SLEEPER_ROSTER_DATA = {}
 SLEEPER_ALL_NFL = {}
 
 if SLEEPER_LEAGUE_ID:
-    SLEEPER_PLAYERS, SLEEPER_ROSTER_DATA = fetch_sleeper_rosters(SLEEPER_LEAGUE_ID)
-    if SLEEPER_PLAYERS:
-        print(f"  Sample: {SLEEPER_PLAYERS[:5]}")
+    try:
+        SLEEPER_PLAYERS, SLEEPER_ROSTER_DATA = fetch_sleeper_rosters(SLEEPER_LEAGUE_ID)
+    except Exception as e:  # defensive — it normally returns ([], {}) on failure
+        print(f"  [Sleeper] fetch raised: {e}")
+        SLEEPER_PLAYERS, SLEEPER_ROSTER_DATA = [], {}
+    if SLEEPER_ROSTER_DATA:
+        # Live fetch produced the per-league block: persist it as the
+        # last-good snapshot and stamp success so the freshness
+        # watchdog can see a future outage.
+        _save_sleeper_snapshot(SLEEPER_ROSTER_DATA)
+        _stamp_sleeper_success()
+        if SLEEPER_PLAYERS:
+            print(f"  Sample: {SLEEPER_PLAYERS[:5]}")
     else:
-        print("  [Sleeper] No players found — falling back to players.txt")
+        # Sleeper outage / empty result.  Keep the league `sleeper`
+        # block alive from the last-good committed snapshot instead of
+        # silently dropping it from the contract (rankings build
+        # regardless — they don't depend on the NFL-player DB).  Do
+        # NOT stamp success, so a prolonged outage trips the watchdog.
+        _cached_rd, _cache_age_h = _load_sleeper_snapshot()
+        if _cached_rd:
+            SLEEPER_ROSTER_DATA = _cached_rd
+            _age_txt = (
+                f"{_cache_age_h:.1f}h old" if _cache_age_h is not None
+                else "age unknown"
+            )
+            print(
+                "  [Sleeper] live fetch failed/empty — using cached "
+                f"snapshot ({_age_txt}); success NOT stamped"
+            )
+        else:
+            print(
+                "  [Sleeper] No players found and no cached snapshot — "
+                "falling back to players.txt"
+            )
 
 
 # PLAYERS list (for console table only)
