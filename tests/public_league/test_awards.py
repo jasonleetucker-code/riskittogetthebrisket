@@ -1,7 +1,7 @@
 """Tests for the reworked awards engine.
 
-Covers the 2026 rework: removed awards, the 2026-05-12 trader/waiver
-tracking cutoff, starting-lineup-only Waiver King, champion-only
+Covers the 2026 rework: removed awards, season-scoped (no date
+cutoff) trader/waiver, starting-lineup-only Waiver King, champion-only
 Playoff MVP, the weighted Manager of the Year, Off/Def Rookie of the
 Year, Mr. Consistent, and canonical award ordering.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import copy
 import unittest
-from unittest import mock
+import contextlib
 
 from src.public_league import awards
 from src.public_league.awards import (
@@ -45,10 +45,10 @@ from src.public_league.public_contract import assert_public_payload_safe, build_
 from tests.public_league.fixtures import build_test_snapshot
 
 
-# Fixture transactions are stamped in 2024; the real cutoff is
-# 2026-05-12.  Patch it to 0 when validating the *math* so the fixture
-# transactions count; leave it real when validating the *gating*.
-_NO_CUTOFF = mock.patch.object(awards, "TRADER_WAIVER_TRACKING_START_MS", 0)
+# Transaction awards are season-scoped (no date cutoff), like every
+# other award.  This null context keeps the historical call sites
+# readable without rewriting each one.
+_NO_CUTOFF = contextlib.nullcontext()
 
 _REMOVED_KEYS = {
     "chaos_agent", "most_active", "pick_hoarder",
@@ -122,33 +122,28 @@ class AwardDescriptionsTests(unittest.TestCase):
             self.assertNotIn(key, AWARD_DESCRIPTIONS)
 
 
-class TrackingCutoffTests(unittest.TestCase):
-    """Trader of the Year / Waiver King only start 2026-05-12."""
+class SeasonScopedTransactionTests(unittest.TestCase):
+    """Trader / Best Trade / Waiver King are bounded by their Sleeper
+    season — no date cutoff, consistent with every other award."""
 
     @classmethod
     def setUpClass(cls) -> None:
         cls.snapshot = _with_player_points(build_test_snapshot())
 
-    def test_pre_cutoff_transactions_are_excluded(self) -> None:
-        # Fixture txs are stamped in 2024 — before the real cutoff.
+    def test_season_transactions_count(self) -> None:
         rows, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
-        self.assertEqual(rows, [])
-        self.assertIsNone(best)
-        self.assertEqual(_waiver_king_scores(self.snapshot, self.snapshot.seasons[0]), [])
-
-    def test_section_omits_trader_and_waiver_pre_cutoff(self) -> None:
-        section = awards.build_section(self.snapshot)
-        for season_row in section["bySeason"]:
-            keys = {a["key"] for a in season_row["awards"]}
-            self.assertNotIn("trader_of_the_year", keys)
-            self.assertNotIn("waiver_king", keys)
-            self.assertNotIn("best_trade_of_the_year", keys)
-
-    def test_post_cutoff_transactions_count(self) -> None:
-        with _NO_CUTOFF:
-            rows, best = _trader_of_the_year_scores(self.snapshot, self.snapshot.seasons[0])
         self.assertTrue(rows)
         self.assertIsNotNone(best)
+        self.assertTrue(_waiver_king_scores(self.snapshot, self.snapshot.seasons[0]))
+
+    def test_section_includes_trader_waiver_for_season_with_txns(self) -> None:
+        section = awards.build_section(self.snapshot)
+        by_year = {s["season"]: {a["key"] for a in s["awards"]}
+                   for s in section["bySeason"]}
+        k2025 = by_year.get("2025", set())
+        self.assertIn("trader_of_the_year", k2025)
+        self.assertIn("waiver_king", k2025)
+        self.assertIn("best_trade_of_the_year", k2025)
 
 
 class TraderAndBestTradeTests(unittest.TestCase):
@@ -608,7 +603,7 @@ class AwardsLiveRaceTests(unittest.TestCase):
         keys = {r["key"] for r in self.section["awardRaces"]}
         # mr_consistent / silent_assassin / playoff_mvp are conditional
         # (week-count / eligibility / champion); the core set is always
-        # present once the cutoff lets trades/waivers through.
+        # present for a season that has trades/waivers.
         self.assertTrue(
             {"trader_of_the_year", "waiver_king", "weekly_hammer",
              "bad_beat", "manager_of_the_year"}.issubset(keys)

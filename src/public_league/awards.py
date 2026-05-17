@@ -38,33 +38,11 @@ Award catalog:
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Any
 
 from . import metrics
 from .draft import _pick_ownership_map, pick_weight
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
-
-
-# Trader of the Year and Waiver King begin tracking on this date — they
-# are new awards introduced 2026-05-12, not retroactively computed for
-# prior seasons.  Only Sleeper transactions whose ``created`` timestamp
-# is at or after this instant count; seasons with no qualifying activity
-# simply do not emit these awards.
-TRADER_WAIVER_TRACKING_START_MS = int(
-    datetime(2026, 5, 12, tzinfo=timezone.utc).timestamp() * 1000
-)
-
-
-def _tx_created_ms(tx: dict[str, Any]) -> int:
-    try:
-        return int(tx.get("created") or tx.get("status_updated") or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _tx_after_tracking_start(tx: dict[str, Any]) -> bool:
-    return _tx_created_ms(tx) >= TRADER_WAIVER_TRACKING_START_MS
 
 
 # Explanation strings exposed on every award card so the page never
@@ -83,18 +61,18 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "highest_single_week": "Largest single-week scoring explosion.",
     "lowest_single_week": "Smallest single-week score.",
     "trader_of_the_year": (
-        "Realized post-trade fantasy points gained since 2026-05-12. Sums "
+        "Realized post-trade fantasy points gained this season. Sums "
         "points acquired minus points sent away across every trade, weighted "
         "by the weeks played after the deal. Tiebreaks: playoff points "
         "gained, then a server-side asset-value delta."
     ),
     "best_trade_of_the_year": (
-        "Best single trade by post-deal realized points for one side "
-        "(since 2026-05-12). Historical only — finalized after the season."
+        "Best single trade by post-deal realized points for one side. "
+        "Historical only — finalized after the season."
     ),
     "waiver_king": (
         "Total fantasy points your waiver / free-agent pickups scored in "
-        "weeks they were in your starting lineup, since 2026-05-12. "
+        "weeks they were in your starting lineup. "
         "Tiebreak: count of useful adds."
     ),
     "silent_assassin": (
@@ -451,8 +429,6 @@ def _trader_of_the_year_scores(
     best_trade: tuple[float, str, dict[str, Any], dict[str, Any]] | None = None
 
     for tx in season.trades():
-        if not _tx_after_tracking_start(tx):
-            continue
         leg = tx.get("leg") or tx.get("_leg") or 0
         try:
             leg_int = int(leg)
@@ -573,8 +549,6 @@ def _waiver_king_scores(
         return per_owner[owner_id]
 
     for tx in season.waivers():
-        if not _tx_after_tracking_start(tx):
-            continue
         leg = tx.get("leg") or tx.get("_leg") or 0
         try:
             leg_int = int(leg)
