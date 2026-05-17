@@ -124,9 +124,13 @@ export default function SettingsPage() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : tepDefault;
   })();
+  // 1.25 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
+  // Treat the explicit default value — or a legacy null — as "default"
+  // so the UI doesn't render the default as a Custom override.
   const tepIsDefault =
     settings?.tepMultiplier === null ||
-    settings?.tepMultiplier === undefined;
+    settings?.tepMultiplier === undefined ||
+    Number(settings?.tepMultiplier) === 1.25;
 
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
@@ -275,7 +279,7 @@ export default function SettingsPage() {
                 cursor: "pointer",
                 padding: 0,
               }}
-              onClick={() => update("tepMultiplier", null)}
+              onClick={() => update("tepMultiplier", 1.25)}
             >
               Reset to default ({tepDefault.toFixed(2)}×)
             </button>
