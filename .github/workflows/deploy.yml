@@ -86,13 +86,28 @@ jobs:
           import server  # noqa: F401
           print("Runtime import gate passed.")
           PY
-      - name: Run unit tests
+      - name: Run unit tests (hard gate — pure logic)
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
-          python -m pytest tests/ -x -q --tb=short
+          # Hard gate: real code regressions block the deploy.  Data-
+          # coupled tests are advisory below — the #451 served-board
+          # coverage gate in verify-deploy.sh is the real deploy-time
+          # guard against genuine source degradation, so a routine
+          # scrape-churn dip must not false-block a deploy.
+          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+
+      - name: Run live-data tests (advisory — non-blocking)
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+        run: |
+          set -Eeuo pipefail
+          python -m pytest tests/ -q --tb=short -m livedata
 
       - name: API data contract check (if sample data exists)
         shell: bash
