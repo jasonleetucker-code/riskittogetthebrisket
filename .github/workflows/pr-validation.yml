@@ -75,13 +75,31 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
-      - name: Run unit tests
+      - name: Run unit tests (hard gate — pure logic)
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
-          python -m pytest tests/ -x -q --tb=short
+          # Hard gate: everything EXCEPT data-coupled tests.  A real
+          # code regression must fail here and block the PR.
+          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+
+      - name: Run live-data tests (advisory — non-blocking)
+        # Data-coupled tests (live scraped board/exports).  A routine
+        # source row-count dip / scrape churn is NOT a code defect and
+        # must NOT block every PR (it did, repeatedly).  Surfaced as an
+        # advisory signal; the deploy-time #451 served-board gate +
+        # the static test_source_floor_invariant hard gate remain the
+        # real guards against genuine source degradation.
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+        run: |
+          set -Eeuo pipefail
+          python -m pytest tests/ -q --tb=short -m livedata
 
       - name: API data contract check
         shell: bash
