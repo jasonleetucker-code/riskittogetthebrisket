@@ -324,6 +324,13 @@ def build_section_payload(
         for key, builder in _SECTION_BUILDERS.items():
             if key == "activity":
                 sections[key] = _build_activity_section(snapshot, activity_valuation)
+            elif key == "franchise":
+                # awards is built earlier in the dict order; reuse it so
+                # franchise can list each manager's awards without a
+                # second (expensive) awards computation.
+                sections[key] = franchise.build_section(
+                    snapshot, awards_section=sections.get("awards")
+                )
             else:
                 sections[key] = builder(snapshot)
         section_body = _build_overview(snapshot, sections)

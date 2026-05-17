@@ -111,9 +111,49 @@ def _weekly_scoring_by_owner(
     return out
 
 
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+def _awards_won_by_owner(awards_section: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Map owner_id -> [{key, label, seasons:[...]}] across every season,
+    so each franchise page can list every award that manager has won and
+    the years they won it."""
+    by_owner: dict[str, dict[str, dict[str, Any]]] = {}
+    for season_row in awards_section.get("bySeason", []):
+        season = season_row.get("season")
+        for a in season_row.get("awards", []):
+            owner_id = a.get("ownerId")
+            if not owner_id:
+                continue  # team/pair awards (rivalry, top NFL team) have no owner
+            rec = by_owner.setdefault(owner_id, {})
+            slot = rec.setdefault(a["key"], {
+                "key": a["key"],
+                "label": a.get("label", a["key"]),
+                "seasons": [],
+            })
+            if season and season not in slot["seasons"]:
+                slot["seasons"].append(season)
+    out: dict[str, list[dict[str, Any]]] = {}
+    for owner_id, by_key in by_owner.items():
+        rows = list(by_key.values())
+        for r in rows:
+            r["seasons"].sort(reverse=True)
+            r["count"] = len(r["seasons"])
+        rows.sort(key=lambda r: (-r["count"], r["label"]))
+        out[owner_id] = rows
+    return out
+
+
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    awards_section: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     rivalries_section = build_rivalries(snapshot)
     trade_counts = _trade_waiver_counts(snapshot)
+    if awards_section is None:
+        # Section endpoint / tests call us with just the snapshot; the
+        # full-contract path passes the already-built awards section to
+        # avoid recomputing it.
+        from . import awards as _awards
+        awards_section = _awards.build_section(snapshot)
+    awards_by_owner = _awards_won_by_owner(awards_section)
 
     # Per-owner weekly scoring trajectory — finer-grained than the
     # season-aggregate ``seasonResults`` below and the proper signal
@@ -216,7 +256,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "tradeCount": trade_counts.get(owner_id, {}).get("trades", 0),
             "waiverCount": trade_counts.get(owner_id, {}).get("waivers", 0),
             "draftCapital": capital,
-            "awardShelf": [],
+            "awardsWon": awards_by_owner.get(owner_id, []),
         }
         detail[owner_id] = fr
         index.append({

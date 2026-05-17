@@ -337,7 +337,7 @@ export default function FinderPage() {
                               ) : row.marketGapDirection === "consensus_premium" ? (
                                 <span className="text-amber">Buy</span>
                               ) : (
-                                <span className="muted">\u2014</span>
+                                <span className="muted">—</span>
                               )}
                             </td>
                           )}
@@ -357,7 +357,7 @@ export default function FinderPage() {
                                 {c.label}
                               </span>
                             ))}
-                            {!action && cautions.length === 0 && <span className="muted">\u2014</span>}
+                            {!action && cautions.length === 0 && <span className="muted">—</span>}
                           </td>
                         </tr>
                       );
