@@ -18,6 +18,7 @@ import json
 import math
 import os
 import sys
+import signal
 import threading
 import time
 import logging
@@ -85,6 +86,13 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
+# The async scraper launches a Playwright Chromium without a try/finally,
+# so a run-timeout cancellation skips browser.close() and orphans the
+# Chromium process tree → RAM leak across repeated 2h timeouts → OOM.
+# A single scrape_run_lock guarantees that once the scrape coroutine has
+# exited, any surviving Chromium WE spawned is orphaned, so the finalize
+# path SIGKILLs Chromium descendants of this process.  Set "0" to disable.
+SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "0"
 # /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
 # twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
 # It must never run on the event loop unbounded — that freezes every
@@ -844,10 +852,107 @@ def _scrape_success_rate_24h() -> dict:
     }
 
 
+def _looks_like_playwright_chromium(cmdline: str) -> bool:
+    """True for a Playwright-spawned headless Chromium command line.
+
+    Deliberately conservative: requires BOTH a chromium binary token
+    AND an automation/headless marker, so it can't match an unrelated
+    process even before the descendant-scoping guard.
+    """
+    c = cmdline.lower()
+    if "chrome" not in c and "chromium" not in c:
+        return False
+    return (
+        "--headless" in c
+        or "--remote-debugging-" in c
+        or "--remote-debugging-pipe" in c
+        or "/ms-playwright/" in c
+        or "playwright" in c
+    )
+
+
+def _collect_descendant_pids(root_pid: int) -> set[int]:
+    """All transitive child PIDs of ``root_pid`` via /proc (Linux only).
+
+    Uses the ppid field of /proc/<pid>/stat (field after the comm
+    parenthesis) — no kernel CONFIG_PROC_CHILDREN dependency.
+    """
+    children: dict[int, list[int]] = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return set()
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat", "rb") as fh:
+                data = fh.read().decode("latin-1")
+        except OSError:
+            continue
+        rparen = data.rfind(")")
+        if rparen == -1:
+            continue
+        fields = data[rparen + 2:].split()
+        try:
+            ppid = int(fields[1])  # fields[0]=state, fields[1]=ppid
+        except (IndexError, ValueError):
+            continue
+        children.setdefault(ppid, []).append(int(entry))
+    out: set[int] = set()
+    stack = [root_pid]
+    while stack:
+        p = stack.pop()
+        for child in children.get(p, ()):
+            if child not in out:
+                out.add(child)
+                stack.append(child)
+    return out
+
+
+def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
+    """SIGKILL orphaned Playwright Chromium descendants of this process.
+
+    Best-effort; never raises.  Scoped to descendants of ``root_pid``
+    (our own PID) so it can never touch unrelated system processes.
+    The scrape that spawned them already exited (single scrape_run_lock),
+    so a graceful shutdown buys nothing — SIGKILL directly, with no
+    sleep, so this stays safe to call from the async finally path.
+    """
+    try:
+        root = os.getpid() if root_pid is None else root_pid
+        predicate = _looks_like_playwright_chromium if match is None else match
+        killed = 0
+        for pid in _collect_descendant_pids(root):
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                    cmd = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+            except OSError:
+                continue
+            if not cmd or not predicate(cmd):
+                continue
+            try:
+                os.kill(pid, signal.SIGKILL)
+                killed += 1
+            except OSError:
+                pass
+        return killed
+    except Exception:  # noqa: BLE001 — finalize must never raise
+        return 0
+
+
 def _finalize_scrape_run(worker_id: str) -> None:
     # Guaranteed cleanup path (always called in run_scraper finally).
     if scrape_status.get("worker_id") != worker_id:
         return
+    if SCRAPE_REAP_ORPHAN_BROWSERS:
+        reaped = _reap_orphan_browsers()
+        if reaped:
+            log.warning(
+                "reaped %d orphaned Chromium process(es) after scrape "
+                "(timeout/cancel left them behind)",
+                reaped,
+            )
     if scrape_status.get("running"):
         scrape_status["running"] = False
         if not scrape_status.get("finished_at"):
