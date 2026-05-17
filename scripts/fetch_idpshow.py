@@ -363,12 +363,24 @@ def main() -> int:
         )
         return 1
 
-    if len(rows) < 100:
+    # Hard floor aligned with the downstream contract guard
+    # ``_DEFAULT_SOURCE_ROW_FLOORS["idpShow"]`` (150).  Previously a
+    # WARN at <100 that still wrote the CSV — a partial scrape (e.g. a
+    # republished/truncated Datawrapper chart) overwrote the last-good
+    # board and silently shipped a CSV that then hard-failed the
+    # contract-coverage test on a clean checkout.  Fail loudly and
+    # preserve last-good instead.  Skipped under --dry-run so the
+    # sample below still prints for diagnosis.
+    _IDPSHOW_ROW_FLOOR = 150
+    if not args.dry_run and len(rows) < _IDPSHOW_ROW_FLOOR:
         print(
-            f"[idpshow] WARN: only {len(rows)} rows — expected ~400.  "
-            "CSV structure may have changed.",
+            f"[idpshow] ERROR: only {len(rows)} rows — expected ≥"
+            f"{_IDPSHOW_ROW_FLOOR} (contract floor "
+            f"_DEFAULT_SOURCE_ROW_FLOORS['idpShow']).  Partial/degraded "
+            f"scrape; preserving last-good CSV, not overwriting.",
             file=sys.stderr,
         )
+        return 2
 
     if args.dry_run:
         print("[idpshow] dry-run — top 5:")
