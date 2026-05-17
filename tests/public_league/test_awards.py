@@ -22,6 +22,8 @@ from src.public_league.awards import (
     _playoff_mvp_player_rows,
     _rivalry_of_the_year,
     _rookie_of_year_rows,
+    _offensive_mvp_rows,
+    _defensive_mvp_rows,
     _is_rookie_in_season,
     _snapshot_anchor_year,
     _silent_assassin_scores,
@@ -112,7 +114,8 @@ class AwardDescriptionsTests(unittest.TestCase):
             "best_trade_of_the_year", "waiver_king", "silent_assassin",
             "weekly_hammer", "playoff_mvp", "bad_beat", "mr_consistent",
             "best_rebuild", "rivalry_of_the_year", "off_roy", "def_roy",
-            "league_mvp", "top_qb", "top_offense", "top_defense",
+            "league_mvp", "off_mvp", "def_mvp",
+            "top_qb", "top_offense", "top_defense",
         ):
             self.assertIn(key, AWARD_DESCRIPTIONS)
             self.assertTrue(AWARD_DESCRIPTIONS[key])
@@ -321,6 +324,24 @@ class ManagerOfTheYearTests(unittest.TestCase):
         by_owner = {r["ownerId"]: r for r in rows}
         # 2025 champion = owner-B → finishRank 1.
         self.assertEqual(by_owner["owner-B"]["finishRank"], 1)
+
+
+class OffDefMvpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_off_mvp_only_offensive_positions(self):
+        rows = _offensive_mvp_rows(self.snapshot, self.snapshot.seasons[0])
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertIn(r["position"], _OFF_ROY_POSITIONS)
+        for a, b in zip(rows, rows[1:]):
+            self.assertGreaterEqual(a["vorp"], b["vorp"])
+
+    def test_def_mvp_only_defensive_positions(self):
+        for r in _defensive_mvp_rows(self.snapshot, self.snapshot.seasons[0]):
+            self.assertIn(r["position"], _DEF_ROY_POSITIONS)
 
 
 class RookieOfTheYearTests(unittest.TestCase):
@@ -596,7 +617,7 @@ class AwardsLiveRaceTests(unittest.TestCase):
     # Player-category races show top 5; team/manager (and NFL-team)
     # races show top 3.
     _PLAYER_RACE_KEYS = {
-        "league_mvp", "playoff_mvp", "off_roy", "def_roy",
+        "league_mvp", "off_mvp", "def_mvp", "playoff_mvp", "off_roy", "def_roy",
         "top_qb", "top_rb", "top_wr", "top_te", "top_k",
         "top_dl", "top_lb", "top_db",
     }

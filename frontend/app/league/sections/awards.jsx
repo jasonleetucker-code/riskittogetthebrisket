@@ -19,7 +19,7 @@ import { TradeCard } from "./activity.jsx";
 const PLAYER_AWARD_KEYS = new Set([
   "top_qb", "top_rb", "top_wr", "top_te", "top_k",
   "top_dl", "top_lb", "top_db",
-  "league_mvp", "playoff_mvp", "off_roy", "def_roy",
+  "league_mvp", "off_mvp", "def_mvp", "playoff_mvp", "off_roy", "def_roy",
 ]);
 
 function AwardWinner({ a, managers, size = 24 }) {
@@ -262,9 +262,12 @@ function AwardsSection({ managers, data, onNavigate }) {
               title="No awards yet"
               message="Awards will appear once the season has enough games / transactions / trades on record."
             />
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
-              {(featured.awards || []).map((a) => {
+          ) : (() => {
+            const _all = featured.awards || [];
+            const _players = _all.filter((a) => PLAYER_AWARD_KEYS.has(a.key));
+            const _mgr = _all.filter((a) => !PLAYER_AWARD_KEYS.has(a.key));
+            const _lbl = { fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--subtext)", margin: "2px 0 8px" };
+            const _renderCard = (a) => {
                 const histCount = (historyByKey.get(a.key) || []).length;
                 const isBestTrade = a.key === "best_trade_of_the_year" && a.value?.trade;
                 return (
@@ -318,9 +321,29 @@ function AwardsSection({ managers, data, onNavigate }) {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
+            };
+            const _grid = (list) => (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+                {list.map(_renderCard)}
+              </div>
+            );
+            return (
+              <>
+                {_mgr.length > 0 && (
+                  <div style={{ marginBottom: _players.length > 0 ? 18 : 0 }}>
+                    <div style={_lbl}>Manager &amp; Team Awards</div>
+                    {_grid(_mgr)}
+                  </div>
+                )}
+                {_players.length > 0 && (
+                  <div>
+                    <div style={_lbl}>Player Awards</div>
+                    {_grid(_players)}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </Card>
       )}
 
