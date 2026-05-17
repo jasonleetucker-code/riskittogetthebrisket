@@ -217,11 +217,13 @@ async def main_async() -> int:
         # off (rare but possible in a deep IDP league).  Fall back to
         # filtering the SF list on failure.
         idp_only_rows: list[dict] = []
+        idp_page_failed = False
         try:
             idp_only_rows = await _fetch_page(page, ROS_IDP_URL)
             print(f"[ds-ros] idp page yielded {len(idp_only_rows)} unique rows")
         except Exception as exc:
-            print(f"[ds-ros] idp fetch failed: {exc}; will filter SF list instead")
+            idp_page_failed = True
+            print(f"[ds-ros] idp fetch failed: {exc}; preserving last-good if present")
 
         await browser.close()
 
@@ -236,21 +238,43 @@ async def main_async() -> int:
     # which is how DS publishes their ROS list).  Position is preserved.
     n_sf = _write_csv(sf_csv, sf_rows)
 
-    # IDP CSV gets:
-    #   - rows from the IDP page if it loaded
-    #   - else IDPs filtered from the SF list (graceful degradation)
-    if idp_only_rows:
-        idp_filtered = idp_only_rows
+    # IDP CSV.  The SF-filter fallback is acceptable when the IDP
+    # page merely loaded empty, but a FAILED IDP fetch must NOT
+    # silently overwrite the last-good IDP CSV with a degraded
+    # SF-filtered board (this was a silent-degradation bug).  On
+    # failure: preserve last-good if it exists and fail loud; only
+    # fall back when there is no prior good CSV (genuine first run).
+    idp_degraded = False
+    if idp_page_failed and idp_csv.exists():
+        print(
+            f"[ds-ros] ERROR: IDP page fetch failed — preserving "
+            f"last-good {idp_csv.relative_to(REPO)} (NOT overwriting "
+            f"with the SF-filtered fallback).",
+            file=sys.stderr,
+        )
+        idp_degraded = True
+        n_idp = -1
     else:
-        idp_filtered = [
-            r for r in sf_rows
-            if _classify_position(r.get("pos") or "") in _IDP_FAMILIES
-        ]
-    n_idp = _write_csv(idp_csv, idp_filtered)
+        if idp_only_rows:
+            idp_filtered = idp_only_rows
+        else:
+            if idp_page_failed:
+                print(
+                    "[ds-ros] WARN: IDP page failed and no prior "
+                    "draftSharksRosIdp.csv — writing SF-filtered "
+                    "fallback (first run only).",
+                    file=sys.stderr,
+                )
+            idp_filtered = [
+                r for r in sf_rows
+                if _classify_position(r.get("pos") or "") in _IDP_FAMILIES
+            ]
+        n_idp = _write_csv(idp_csv, idp_filtered)
 
     print(f"[ds-ros] wrote {n_sf} rows → {sf_csv.relative_to(REPO)}")
-    print(f"[ds-ros] wrote {n_idp} rows → {idp_csv.relative_to(REPO)}")
-    return 0
+    if n_idp >= 0:
+        print(f"[ds-ros] wrote {n_idp} rows → {idp_csv.relative_to(REPO)}")
+    return 1 if idp_degraded else 0
 
 
 def main() -> int:

@@ -2637,6 +2637,31 @@ async def scrape_idptradecalc(page, players):
                 ]:
                     if isinstance(data_obj.get(key), list):
                         items.extend(data_obj.get(key) or [])
+                # Per-sheet presence guard (defense-in-depth; the A3
+                # idpTradeCalc site_raw floor enforces preserve-last-
+                # good on the total).  Sheet3 is the ~500-player
+                # offense pool; its silent absence while Sheet1 is
+                # present was the historical root cause of top-100
+                # offense players going 1-src.  Surface it loudly.
+                _s1 = (
+                    len(data_obj.get("Sheet1") or [])
+                    if isinstance(data_obj.get("Sheet1"), list)
+                    else 0
+                )
+                _s3 = (
+                    len(data_obj.get("Sheet3") or [])
+                    if isinstance(data_obj.get("Sheet3"), list)
+                    else 0
+                )
+                if _s1 > 0 and _s3 == 0:
+                    print(
+                        f"  [IDPTradeCalc] WARN: Sheet1 present "
+                        f"({_s1}) but Sheet3 (offense pool) MISSING "
+                        f"— partial Apps-Script response; the "
+                        f"idpTradeCalc site_raw floor will preserve "
+                        f"last-good.",
+                        flush=True,
+                    )
                 if not items:
                     for v in data_obj.values():
                         if isinstance(v, list):
