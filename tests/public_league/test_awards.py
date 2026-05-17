@@ -22,6 +22,8 @@ from src.public_league.awards import (
     _playoff_mvp_player_rows,
     _rivalry_of_the_year,
     _rookie_of_year_rows,
+    _is_rookie_in_season,
+    _snapshot_anchor_year,
     _silent_assassin_scores,
     _starter_scoring_walk,
     _top_nfl_team_scores,
@@ -348,6 +350,25 @@ class RookieOfTheYearTests(unittest.TestCase):
             self.assertIn(r["position"], _DEF_ROY_POSITIONS)
             meta = self.snapshot.nfl_players.get(r["playerId"]) or {}
             self.assertEqual(int(meta.get("years_exp")), 0)
+
+    def test_anchor_year_is_newest_season(self) -> None:
+        # Fixture seasons are [2025, 2024]; current_season -> 2025.
+        self.assertEqual(_snapshot_anchor_year(self.snapshot), 2025)
+
+    def test_rookie_detection_is_season_relative(self) -> None:
+        s2025, s2024 = self.snapshot.seasons[0], self.snapshot.seasons[1]
+        # p-rb2 years_exp=0 -> rookie in 2025 (anchor), NOT in 2024.
+        self.assertTrue(_is_rookie_in_season(self.snapshot, "p-rb2", s2025))
+        self.assertFalse(_is_rookie_in_season(self.snapshot, "p-rb2", s2024))
+        # p-te2 years_exp=1 -> rookie in 2024 (1 == 2025-2024), NOT 2025.
+        # This is the bug fix: past-season ROY was previously impossible.
+        self.assertTrue(_is_rookie_in_season(self.snapshot, "p-te2", s2024))
+        self.assertFalse(_is_rookie_in_season(self.snapshot, "p-te2", s2025))
+        # Veteran (years_exp=5) is a rookie in no tracked season.
+        self.assertFalse(_is_rookie_in_season(self.snapshot, "p-qb1", s2025))
+        self.assertFalse(_is_rookie_in_season(self.snapshot, "p-qb1", s2024))
+        # Unknown player / missing years_exp -> not a rookie (guarded).
+        self.assertFalse(_is_rookie_in_season(self.snapshot, "p-nope", s2025))
 
 
 class MrConsistentTests(unittest.TestCase):
