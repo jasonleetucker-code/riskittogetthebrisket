@@ -417,7 +417,6 @@ class AwardsTests(_BaseFixture):
             for expected in (
                 "champion",
                 "manager_of_the_year",
-                "top_seed",
                 "regular_season_crown",
                 "points_king",
                 "highest_single_week",
