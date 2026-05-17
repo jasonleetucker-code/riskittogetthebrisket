@@ -16,18 +16,28 @@ export const SETTINGS_DEFAULTS = {
   // TE Premium boost applied at blend time.
   //
   //   * ``tepMultiplier`` → non-TEP sources (DLF, FBG, FP consensus,
-  //     Flock, etc.).  Default 1.25 backend-side.
+  //     Flock, etc.).  Defaults to 1.25 (explicit operator decision —
+  //     this is a TE-premium platform; a standard-league value of
+  //     1.0 is opt-in, not the default).
   //   * ``tepNativeMultiplier`` → TEP-native sources (DN SF-TEP,
   //     Yahoo Boone, FP Fitzmaurice).  Default 1.10 backend-side.
   //
   // KTC variants (ktc, ktcSfTep) stay exempt regardless — KTC's TE++
-  // board is the canonical reference.  ``null`` means "use the
-  // backend default"; when the user types a value on /settings this
-  // flips to a finite number, which ``fetchDynastyData`` POSTs to
-  // the override endpoint as an explicit override.  "Reset" returns
-  // it to null so the default kicks back in.
-  tepMultiplier: null,               // null = backend default (1.25); 1.0..1.5 = explicit operator override
+  // board is the canonical reference.  When the user types a value on
+  // /settings this becomes their explicit override; "Reset" returns
+  // it to the 1.25 default.  ``tepNativeMultiplier`` keeps the ``null``
+  // = backend-default sentinel.  A one-time migration in
+  // ``readSettings`` lifts any persisted ``null`` / ``1.0``
+  // ``tepMultiplier`` (the pre-2026-05 auto-derive default, or a value
+  // a stray number-input wheel-scroll pinned) up to 1.25.
+  tepMultiplier: 1.25,               // 1.25 default; 1.0..1.5 = explicit operator override
   tepNativeMultiplier: null,         // null = backend default (1.10); 1.0..1.5 = explicit operator override
+
+  // One-time migration marker.  False/absent → ``readSettings``
+  // promotes a stale ``tepMultiplier`` of ``null`` or ``1.0`` to the
+  // 1.25 default exactly once, then sets this so a deliberate later
+  // 1.0 (genuine standard league) still sticks.
+  tepDefaultV2Applied: false,
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
@@ -142,7 +152,23 @@ export const SETTINGS_DEFAULTS = {
 function readSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const merged = { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
+      // One-time TEP default migration.  Pre-2026-05 builds defaulted
+      // tepMultiplier to null ("auto-derive") and a stray wheel-scroll
+      // on the /settings number input could pin it to 1.0 — both
+      // silently disable the TE premium on a TEP platform.  Promote
+      // either to the 1.25 default exactly once; a deliberate later
+      // 1.0 then persists because the flag is set.
+      if (!merged.tepDefaultV2Applied) {
+        if (merged.tepMultiplier == null || merged.tepMultiplier === 1.0) {
+          merged.tepMultiplier = 1.25;
+        }
+        merged.tepDefaultV2Applied = true;
+        writeSettings(merged);
+      }
+      return merged;
+    }
   } catch { /* ignore */ }
   return { ...SETTINGS_DEFAULTS };
 }

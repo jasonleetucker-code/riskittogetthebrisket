@@ -124,9 +124,13 @@ export default function SettingsPage() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : tepDefault;
   })();
+  // 1.25 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
+  // Treat the explicit default value — or a legacy null — as "default"
+  // so the UI doesn't render the default as a Custom override.
   const tepIsDefault =
     settings?.tepMultiplier === null ||
-    settings?.tepMultiplier === undefined;
+    settings?.tepMultiplier === undefined ||
+    Number(settings?.tepMultiplier) === 1.25;
 
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
@@ -239,6 +243,11 @@ export default function SettingsPage() {
             max={1.5}
             step={0.01}
             value={tepSliderValue}
+            // Wheel-scrolling a focused number input silently mutates
+            // it (and a stray tick here pins TEP to an explicit
+            // override that overrides the league default).  Blur on
+            // wheel so only deliberate typing changes the value.
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => {
               const n = parseFloat(e.target.value);
               if (Number.isFinite(n)) {
@@ -270,7 +279,7 @@ export default function SettingsPage() {
                 cursor: "pointer",
                 padding: 0,
               }}
-              onClick={() => update("tepMultiplier", null)}
+              onClick={() => update("tepMultiplier", 1.25)}
             >
               Reset to default ({tepDefault.toFixed(2)}×)
             </button>
@@ -284,6 +293,7 @@ export default function SettingsPage() {
             max={1.5}
             step={0.01}
             value={tepNativeInputValue}
+            onWheel={(e) => e.currentTarget.blur()}
             onChange={(e) => {
               const n = parseFloat(e.target.value);
               if (Number.isFinite(n)) {
