@@ -1325,7 +1325,7 @@ export default function RankingsPage() {
                       col={`src:${src.key}`}
                       style={{ textAlign: "right", width: 90 }}
                       className="hide-mobile rankings-source-col"
-                      title={`${src.displayName} — cell shows the source's 1\u20139,999 scale value (${
+                      title={`${src.displayName} — cell shows the source's 1–9,999 scale value (${
                         src.isRankSignal ? "Hill curve from this source's ordinal rank" : "linear rescale of this source's native trade value"
                       }) with its effective rank on the shared board in parentheses.`}
                     >
@@ -1466,7 +1466,7 @@ export default function RankingsPage() {
                                       rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}
                                       className={`badge ${c.css} rankings-chip`}
-                                      title={`${c.title} \u2014 click to read`}
+                                      title={`${c.title} — click to read`}
                                       style={{ cursor: "pointer", textDecoration: "none" }}
                                     >
                                       {c.label}
@@ -1544,7 +1544,7 @@ export default function RankingsPage() {
                             "rookie cohort" so the user knows the value
                             is a draft-capital estimate, not realized
                             production. */}
-                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1\u20139,999) — click to see per-source breakdown`}>
+                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1–9,999) — click to see per-source breakdown`}>
                           <span
                             className="rankings-value rankings-value-clickable"
                             onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
@@ -1716,7 +1716,7 @@ export default function RankingsPage() {
                                 <span className="muted" style={{ marginLeft: 12 }}>
                                   {audit.reason === "fully_matched" ? "All expected sources matched" :
                                    audit.reason === "structurally_single_source" ? "Only one source structurally covers this player" :
-                                   audit.reason === "matching_failure_other_sources_eligible" ? "Matching failure \u2014 expected source(s) did not match" :
+                                   audit.reason === "matching_failure_other_sources_eligible" ? "Matching failure — expected source(s) did not match" :
                                    audit.reason === "partial_coverage" ? "Some expected sources missing" :
                                    audit.reason === "no_source_match" ? "No source matched" :
                                    audit.reason || ""}
@@ -1856,9 +1856,9 @@ export default function RankingsPage() {
                               <div className="source-audit-summary">
                                 <span><strong>Rank:</strong> {row.rank ? `#${row.rank}` : "\u2014 (unranked)"} (final ordinal — the engine's opinion)</span>
                                 <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (mean of per-source effective ranks — orthogonal to Rank; gaps reveal blend arbitration)</span>
-                                <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1\u20139,999 scale)</span>
+                                <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1–9,999 scale)</span>
                                 <span><strong>Confidence:</strong> {confExplain}</span>
-                                <span><strong>Edge:</strong> {edge.label} \u2014 {edge.title}</span>
+                                <span><strong>Edge:</strong> {edge.label} — {edge.title}</span>
                                 {row.sourceRankSpread != null && (
                                   <span><strong>Source spread:</strong> {Math.round(row.sourceRankSpread)} ordinal ranks between the highest and lowest source</span>
                                 )}

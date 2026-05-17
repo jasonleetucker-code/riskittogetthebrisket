@@ -138,6 +138,34 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
             </div>
           )}
 
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10, marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Awards won {(fr.awardsWon || []).length > 0 ? `(${(fr.awardsWon || []).reduce((n, a) => n + (a.count || a.seasons.length), 0)})` : ""}
+            </div>
+            {(fr.awardsWon || []).length === 0 ? (
+              <div style={{ fontSize: "0.74rem", color: "var(--subtext)" }}>No awards yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {(fr.awardsWon || []).map((aw) => (
+                  <div
+                    key={aw.key}
+                    style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: "0.78rem" }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {aw.label}
+                      {aw.count > 1 && (
+                        <span style={{ color: "var(--subtext)", fontWeight: 400 }}> ×{aw.count}</span>
+                      )}
+                    </span>
+                    <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>
+                      {aw.seasons.join(", ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Season results</div>
           <div className="table-wrap">
             <table>

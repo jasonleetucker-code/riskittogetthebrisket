@@ -9,8 +9,9 @@
 // next one is underway.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { EmptyState, PlayerImage } from "@/components/ui";
-import { Avatar, Card, EmptyCard, LinkButton, renderAwardValue } from "../shared.jsx";
+import { Avatar, Card, EmptyCard, renderAwardValue } from "../shared.jsx";
 import { TradeCard } from "./activity.jsx";
 
 // Award keys whose ``value`` payload carries a player — render the
@@ -312,13 +313,9 @@ function AwardsSection({ managers, data, onNavigate }) {
                         {a.description}
                       </div>
                     )}
-                    {a.ownerId && (
-                      <div style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
-                        <LinkButton onClick={() => onNavigate("franchise", { owner: a.ownerId })}>
-                          Franchise page →
-                        </LinkButton>
-                      </div>
-                    )}
+                    <div style={{ marginTop: 8, fontSize: "0.72rem", color: "var(--cyan)", fontWeight: 600 }}>
+                      Award history →
+                    </div>
                   </div>
                 );
               })}
@@ -327,17 +324,19 @@ function AwardsSection({ managers, data, onNavigate }) {
         </Card>
       )}
 
-      {openKey && openMeta && (
-        <AwardHistoryModal
-          awardKey={openKey}
-          label={openMeta.label}
-          description={openMeta.description}
-          history={openHistory}
-          managers={managers}
-          onNavigate={onNavigate}
-          onClose={() => setOpenKey(null)}
-        />
-      )}
+      {openKey && openMeta && typeof document !== "undefined" &&
+        createPortal(
+          <AwardHistoryModal
+            awardKey={openKey}
+            label={openMeta.label}
+            description={openMeta.description}
+            history={openHistory}
+            managers={managers}
+            onNavigate={onNavigate}
+            onClose={() => setOpenKey(null)}
+          />,
+          document.body,
+        )}
     </>
   );
 }

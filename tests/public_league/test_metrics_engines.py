@@ -182,7 +182,13 @@ class FranchiseTests(_BaseFixture):
         self.assertEqual(owner_b["cumulative"]["championships"], 2)
         self.assertEqual(owner_b["cumulative"]["wins"], 11 + 12)
         self.assertGreaterEqual(owner_b["tradeCount"], 1)
-        self.assertEqual(owner_b["awardShelf"], [])
+        # owner-B is the 2x champion → awardsWon lists champion w/ both years.
+        won = owner_b["awardsWon"]
+        self.assertIsInstance(won, list)
+        champ = next((w for w in won if w["key"] == "champion"), None)
+        self.assertIsNotNone(champ)
+        self.assertEqual(sorted(champ["seasons"]), ["2024", "2025"])
+        self.assertEqual(champ["count"], 2)
 
     def test_best_finish(self) -> None:
         section = franchise.build_section(self.snapshot)
