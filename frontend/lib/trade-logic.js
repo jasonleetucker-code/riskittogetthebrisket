@@ -1433,6 +1433,29 @@ export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
   };
 }
 
+export function tradeWorkspaceToJSON(sides, valueMode, activeSide) {
+  return JSON.stringify(serializeWorkspaceMulti(sides, valueMode, activeSide), null, 2);
+}
+
+export function tradeWorkspaceToCSV(sides, valueMode = "full") {
+  const esc = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const pickVal = (r) => {
+    const vals = (r && r.values) || {};
+    const v = valueMode === "raw" ? (vals.raw ?? vals.full) : (vals.full ?? vals.raw);
+    return v == null ? "" : Math.round(Number(v));
+  };
+  const lines = ["Side,Asset,Position,Team,Value"];
+  for (const s of sides || []) {
+    for (const r of s.assets || []) {
+      lines.push([s.label, r.name, r.pos || "", r.team || "", pickVal(r)].map(esc).join(","));
+    }
+  }
+  return lines.join("\n") + "\n";
+}
+
 export function deserializeWorkspace(parsed, rowByName) {
   if (!parsed || typeof parsed !== "object") return null;
   const valueMode = VALUE_MODES.some((m) => m.key === parsed.valueMode) ? parsed.valueMode : "full";
