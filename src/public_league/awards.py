@@ -237,12 +237,50 @@ def _order_awards(awards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
-def _is_rookie(snapshot: PublicLeagueSnapshot, player_id: str) -> bool:
+def _snapshot_anchor_year(snapshot: PublicLeagueSnapshot) -> int | None:
+    """The newest season year tracked in the snapshot (~"now").
+    Sleeper ``years_exp`` is current-as-of-now, so this is the
+    reference point for season-relative rookie detection."""
+    cur = snapshot.current_season
+    if cur is not None and str(cur.season).isdigit():
+        return int(cur.season)
+    years = []
+    for s in getattr(snapshot, "seasons", []) or []:
+        try:
+            years.append(int(s.season))
+        except (TypeError, ValueError):
+            continue
+    return max(years) if years else None
+
+
+def _is_rookie_in_season(
+    snapshot: PublicLeagueSnapshot,
+    player_id: str,
+    season: SeasonSnapshot,
+) -> bool:
+    """True iff the player was a rookie *in that season*.
+
+    Sleeper only exposes a player's CURRENT ``years_exp`` (no
+    historical value), so a 2024 rookie now reads years_exp=2 in 2026.
+    Anchor on the newest tracked season: a player was a rookie in
+    season S iff ``years_exp == anchorYear - S``.  Heuristic (years_exp
+    can be stale/missing) but correct for every season, not just the
+    current one — the prior ``years_exp == 0`` check made Off/Def ROY
+    impossible for any past season.
+    """
     meta = snapshot.nfl_players.get(str(player_id)) or {}
     try:
-        return int(meta.get("years_exp")) == 0
+        ye = int(meta.get("years_exp"))
     except (TypeError, ValueError):
         return False
+    anchor = _snapshot_anchor_year(snapshot)
+    try:
+        sy = int(season.season)
+    except (TypeError, ValueError):
+        return ye == 0
+    if anchor is None:
+        return ye == 0
+    return ye == (anchor - sy)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -1295,12 +1333,14 @@ def _rookie_of_year_rows(
     season: SeasonSnapshot,
     positions: frozenset[str],
 ) -> list[dict[str, Any]]:
-    """First-year players (years_exp == 0) at the given positions,
-    ranked by regular-season VORP (starter-only)."""
+    """First-year players *for that season* at the given positions,
+    ranked by regular-season VORP (starter-only).  Season-relative so
+    Off/Def ROY populate for past seasons too, not just the current."""
     return [
         r
         for r in _vorp_rows(snapshot, season, regular_season_only=True)
-        if r["position"] in positions and _is_rookie(snapshot, r["playerId"])
+        if r["position"] in positions
+        and _is_rookie_in_season(snapshot, r["playerId"], season)
     ]
 
 
