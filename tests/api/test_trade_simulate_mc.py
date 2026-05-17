@@ -129,7 +129,30 @@ def test_n_sims_clamped_to_max(monkeypatch):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/trade/simulate-mc", json=body)
     assert res.status_code == 200
-    # Guard clamps to 200k per-direction.  The symmetrize pipeline
-    # runs the sim in BOTH directions so the reported nSims is 2×
-    # the per-direction clamp = 400k max.
-    assert res.json()["nSims"] <= 400_000
+    # Guard clamps each direction to SIMULATE_MC_MAX_SIMS (50k — bounds
+    # worst-case event-loop-free compute).  The symmetrize pipeline runs
+    # the sim in BOTH directions, so reported nSims is exactly 2×50k.
+    assert res.json()["nSims"] == 2 * server.SIMULATE_MC_MAX_SIMS
+
+
+def test_timeout_returns_clean_504(monkeypatch):
+    """A run exceeding the wall-clock budget yields a clean 504, never
+    an open-ended hang that would also have frozen the event loop."""
+    monkeypatch.setenv("RISKIT_FEATURE_MONTE_CARLO_TRADE", "1")
+    feature_flags.reload()
+    monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
+    monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "test"})
+    monkeypatch.setattr(server, "SIMULATE_MC_TIMEOUT_SECONDS", 0.2)
+
+    import src.trade.symmetrize as _sym
+
+    def _slow(*a, **k):
+        import time as _t
+        _t.sleep(1.5)
+        raise AssertionError("should have timed out before returning")
+
+    monkeypatch.setattr(_sym, "simulate_symmetric", _slow)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post("/api/trade/simulate-mc", json=_sample_body())
+    assert res.status_code == 504
+    assert res.json()["error"] == "timeout"
