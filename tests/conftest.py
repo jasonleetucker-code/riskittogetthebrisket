@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 # Allow ``import server`` in tests without a real JASON_LOGIN_PASSWORD.
 # The placeholder "changeme" is acceptable for unit/integration tests;
 # production rejects ALLOW_DEFAULT_LOGIN_DEV=1 by design.
@@ -51,3 +53,55 @@ try:
     _data_contract._LEAGUE_CONTEXT_CACHE["fetched_at"] = 0.0
 except Exception:  # noqa: BLE001 — conftest must never block collection
     pass
+
+
+# ── Live-data CI tiering ──────────────────────────────────────────────
+# A handful of tests assert against the LIVE scraped board
+# (``exports/latest/dynasty_data_*.json`` / ``CSVs/site_raw/*``).  They
+# are correctness-valuable but DATA-COUPLED: a routine source row-count
+# dip or scrape churn fails them with NO code defect, and because CI
+# runs ``pytest -x`` that single failure blocks EVERY PR (it did so
+# repeatedly this audit — e.g. a yahooBoone row dip stalled all PRs).
+# Mark these modules ``livedata`` so CI runs them as a NON-blocking
+# advisory tier while the pure-logic suite stays the hard gate.
+# Module-granularity by design: one central, reviewable policy instead
+# of editing ~16 files; a new live-data test just adds its module here.
+# (test_source_floor_invariant.py is intentionally NOT here — it is the
+# pure static pre-merge guard and must keep blocking.)
+_LIVEDATA_MODULES = frozenset({
+    "test_launch_readiness.py",
+    "test_source_monitoring.py",
+    "test_footballguys_source.py",
+    "test_picks_end_to_end.py",
+    "test_pick_refinement.py",
+    "test_pick_rookie_anchor.py",
+    "test_player_identity_regression.py",
+    "test_single_curve_live.py",
+    "test_single_authority.py",
+    "test_per_source_freshness.py",
+    "test_data_contract.py",
+    "test_dlf_source.py",
+    "test_dlf_scraper.py",
+    "test_fantasypros_idp_integration.py",
+    "test_ktc_reconciliation.py",
+    "test_fetch_flock_fantasy_rookies.py",
+})
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "livedata: asserts against the live scraped board/exports; "
+        "data-coupled — runs as a non-blocking advisory CI tier, not "
+        "the hard gate (see _LIVEDATA_MODULES in tests/conftest.py).",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        try:
+            fname = item.path.name
+        except Exception:  # noqa: BLE001 — never block collection
+            continue
+        if fname in _LIVEDATA_MODULES:
+            item.add_marker(pytest.mark.livedata)
