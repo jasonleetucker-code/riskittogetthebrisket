@@ -1202,6 +1202,63 @@ def _per_source_freshness() -> dict[str, dict]:
     return out
 
 
+def _backup_freshness() -> dict:
+    """Age + location of the newest SQLite backup.
+
+    Mirrors deploy/backup_user_kv.sh: the primary dir ``/var/backups/
+    riskit`` needs root; the self-healing script falls back to
+    ``/home/dynasty/backups/riskit`` (owned by the service user).  This
+    surfaces ``newestBackupAgeHours`` so monitoring trips an alert
+    within a day of a silent backup failure — the exact gap that let
+    backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
+    returns null age when no backup is found.
+    """
+    result = {
+        "newestBackupAgeHours": None,
+        "newestBackupPath": None,
+        "backupDirUsed": "none",
+        "dbCount": 0,
+    }
+    try:
+        now_epoch = time.time()
+        newest_epoch: float | None = None
+        for label, d in (
+            ("primary", Path("/var/backups/riskit/daily")),
+            ("fallback", Path("/home/dynasty/backups/riskit/daily")),
+        ):
+            try:
+                files = list(d.glob("*.sqlite.gz"))
+            except OSError:
+                continue
+            for f in files:
+                try:
+                    mt = f.stat().st_mtime
+                except OSError:
+                    continue
+                if newest_epoch is None or mt > newest_epoch:
+                    newest_epoch = mt
+                    result["newestBackupPath"] = str(f)
+                    result["backupDirUsed"] = label
+        if newest_epoch is not None:
+            result["newestBackupAgeHours"] = round(
+                max(0.0, (now_epoch - newest_epoch) / 3600.0), 2
+            )
+            try:
+                newest = Path(result["newestBackupPath"])
+                parts = newest.name.split(".")
+                stamp = parts[1] if len(parts) >= 3 else ""
+                if stamp:
+                    result["dbCount"] = len({
+                        f.name.split(".")[0]
+                        for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")
+                    })
+            except OSError:
+                pass
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        pass
+    return result
+
+
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -3109,6 +3166,7 @@ async def get_status():
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
+        "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
         "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
@@ -3336,6 +3394,25 @@ async def get_health():
     circuits = _circuits_safe()
     # Any breaker in OPEN state flips overall status to degraded.
     any_breaker_open = any(c.get("state") == "open" for c in circuits)
+
+    # Backup-freshness watchdog.  Backups run nightly (riskit-backup
+    # .timer @ 02:00 UTC); anything older than 36h (or missing) means
+    # the backup pipeline is broken — the failure mode that went
+    # unnoticed for ~2 weeks.  send_alert is globally cooldown-rate-
+    # limited and no-ops when SMTP isn't configured.  Backup staleness
+    # does NOT flip the uptime status (the site is still serving).
+    backup_health = _backup_freshness()
+    _bage = backup_health.get("newestBackupAgeHours")
+    if _bage is None or _bage > 36:
+        send_alert(
+            "Risk It: SQLite backups stale",
+            f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
+            f"path={backup_health.get('newestBackupPath')}, dbCount="
+            f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
+            f"from riskit-backup.timer (02:00 UTC). Check "
+            f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
+        )
+
     return JSONResponse(
         status_code=200 if is_ok else 503,
         content={
@@ -3363,6 +3440,7 @@ async def get_health():
             "anyBreakerOpen": any_breaker_open,
             "startupChecks": _startup_checks_summary,
             "memberInMemorySessions": len(auth_sessions) if isinstance(auth_sessions, dict) else None,
+            "backup_health": backup_health,
         },
     )
 

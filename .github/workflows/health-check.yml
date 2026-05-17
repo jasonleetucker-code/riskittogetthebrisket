@@ -142,3 +142,47 @@ jobs:
               sys.exit(1)
           print("Served-board source coverage OK.")
           PY
+
+      - name: Check /api/status (backup freshness)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/status_bkp.json \
+            --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
+          if [[ "${HTTP_CODE}" != "200" ]]; then
+            echo "::warning title=Status Unreachable::Backup check skipped (HTTP ${HTTP_CODE})."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json, sys
+          MAX_AGE_HOURS = 30   # nightly backup @ 02:00 UTC; >30h == missed a run
+          with open("/tmp/status_bkp.json") as f:
+              data = json.load(f)
+          bh = data.get("backup_health")
+          if not isinstance(bh, dict):
+              print("::error title=Backup health missing::/api/status has no "
+                    "backup_health block — cannot verify SQLite backups are "
+                    "running. Deploy may predate backup monitoring.")
+              sys.exit(1)
+          age = bh.get("newestBackupAgeHours")
+          if age is None:
+              print("::error title=No SQLite backups::No backup found in "
+                    "/var/backups/riskit or /home/dynasty/backups/riskit. "
+                    "deploy/backup_user_kv.sh / riskit-backup.timer is broken — "
+                    "user_kv, session_store and guest_passes are UNPROTECTED.")
+              sys.exit(1)
+          print(f"Newest backup: {age}h old (dir={bh.get('backupDirUsed')}, "
+                f"dbCount={bh.get('dbCount')})")
+          if age > MAX_AGE_HOURS:
+              print(f"::error title=Stale SQLite backups::Newest backup is "
+                    f"{age}h old (> {MAX_AGE_HOURS}h). The nightly backup has "
+                    f"not run — investigate riskit-backup.timer and "
+                    f"/var/log/riskit-backup.log.")
+              sys.exit(1)
+          if bh.get("dbCount", 0) < 3:
+              print(f"::warning title=Partial backup::Only {bh.get('dbCount')} "
+                    f"of 3 SQLite DBs in the latest backup set.")
+          print("SQLite backup freshness OK.")
+          PY
