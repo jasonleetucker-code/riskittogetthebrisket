@@ -1064,9 +1064,10 @@ class TestBuildContractTepAutoDerive(unittest.TestCase):
         self.assertEqual(rov.get("tepMultiplierSource"), "derived")
 
     def test_non_tep_league_falls_back_to_default(self) -> None:
-        """``bonus_rec_te == 0`` (non-TEP league) → hardcoded 1.25
-        default, not the derived 1.0.  Preserves predictable behavior
-        for leagues whose Sleeper config legitimately has no TE bonus.
+        """``bonus_rec_te == 0`` (non-TEP league) → hardcoded
+        ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` default (1.15), not the
+        derived 1.0.  Preserves predictable behavior for leagues whose
+        Sleeper config legitimately has no TE bonus.
         """
         with self._patch_context(bonus_rec_te=0.0):
             contract = build_api_data_contract(_fixture_raw_payload())
@@ -1175,8 +1176,11 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
         self.assertEqual(rov.get("tepMultiplierSource"), "default")
         self.assertEqual(rov.get("tepNativeMultiplierSource"), "default")
         # Pin the actual numeric defaults so a registry tweak that
-        # silently shifts either constant fails this test.
-        self.assertAlmostEqual(_TE_BLANKET_NON_NATIVE_MULTIPLIER, 1.25)
+        # silently shifts either constant fails this test.  Non-native
+        # is 1.15: this is a TEP-1.5 platform (1.0 + 0.5*0.30) and
+        # Sleeper never exposes bonus_rec_te, so the "fallback" is the
+        # de-facto platform default; 1.25 over-boosted elite TEs.
+        self.assertAlmostEqual(_TE_BLANKET_NON_NATIVE_MULTIPLIER, 1.15)
         self.assertAlmostEqual(_TE_BLANKET_NATIVE_MULTIPLIER, 1.10)
 
     def test_override_path_propagates_to_summary_and_per_source_meta(self) -> None:

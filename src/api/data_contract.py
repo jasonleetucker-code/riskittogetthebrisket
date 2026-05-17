@@ -4865,7 +4865,14 @@ _TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
 # (KTC TE++) skip both factors.  ktc is mathematically
 # ``is_tep_premium=False`` and would normally pick up the non-TEP
 # multiplier; the exemption set below short-circuits that.
-_TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.25
+#
+# The non-native default is 1.15: this platform's leagues are TEP-1.5
+# (``superflex_tep15_ppr1``), and the derivation formula
+# ``1.0 + 0.5*0.30`` maps TEP-1.5 → 1.15.  Sleeper's API does not
+# expose ``bonus_rec_te`` for these leagues (always 0.0), so the
+# "non-TEP fallback" is in practice the platform default and must
+# reflect TEP-1.5, not a generic 1.25.
+_TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.15
 _TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
 _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
 
@@ -6181,19 +6188,27 @@ def _compute_unified_rankings(
             # Blanket TE-value multipliers (see the constants block
             # near ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``).  Non-TEP
             # sources scale by ``effective_non_tep_multiplier`` (the
-            # operator's slider value, default 1.25).  TEP-native
+            # operator's slider value, default 1.15).  TEP-native
             # sources scale by the hardcoded 1.10×.  KTC is exempt
             # because its TE++ board is already the canonical reference
             # we're aligning everyone else to.
+            #
+            # The boosted value is clamped to the 9,999 scale ceiling
+            # that bounds every other position's contribution (the
+            # value-direct path is ``raw / site_max * 9999`` and the
+            # Hill max is ~9,999).  Without the clamp an elite TE's
+            # boosted contribution exceeds 9,999, structurally letting
+            # one TE out-value the consensus #1 overall — the premium
+            # must reposition TEs *within* the scale, not break it.
             if (
                 row_is_te
                 and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS
             ):
                 if source_key in tep_boosted_source_keys:
-                    value *= effective_non_tep_multiplier
+                    value = min(value * effective_non_tep_multiplier, 9999.0)
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
-                    value *= effective_native_multiplier
+                    value = min(value * effective_native_multiplier, 9999.0)
                     tep_native_corrected = True
             all_values.append(value)
             is_anchor_source = source_key in cross_market_keys
