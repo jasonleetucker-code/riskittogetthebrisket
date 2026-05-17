@@ -280,3 +280,63 @@ def resolve_trade_url(url: str) -> dict[str, Any]:
         "sideTwo": two_resolved,
         "unresolved": {"sideOne": one_unresolved, "sideTwo": two_unresolved},
     }
+
+
+# ── Inverse: canonical names → KTC trade URL ──────────────────────
+_SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$", re.IGNORECASE)
+
+
+def _norm_name(s: str) -> str:
+    """Mirror the import resolver's normalization ladder so export
+    matches the same way import does."""
+    out = str(s or "").lower()
+    out = re.sub(r"[.']", "", out)
+    out = re.sub(r"\s+", " ", out).strip()
+    out = _SUFFIX_RE.sub("", out).strip()
+    return out
+
+
+def build_ktc_url(side_one_names, side_two_names, *, player_map=None):
+    """Inverse of resolve_trade_url: canonical names -> a KTC
+    trade-calculator URL.  Reuses the cached player map + the same
+    exact -> case-insensitive -> normalized ladder import uses.
+    Unmatched names returned in ``unresolved`` (honest, no silent drop).
+    """
+    if player_map is None:
+        player_map = get_ktc_player_map()
+    by_exact, by_lower, by_norm = {}, {}, {}
+    for pid, entry in player_map.items():
+        nm = entry.get("name") or ""
+        if not nm:
+            continue
+        by_exact.setdefault(nm, int(pid))
+        by_lower.setdefault(nm.lower(), int(pid))
+        by_norm.setdefault(_norm_name(nm), int(pid))
+
+    def _resolve(names):
+        ids, missing = [], []
+        for raw in names or []:
+            nm = str(raw or "").strip()
+            if not nm:
+                continue
+            pid = by_exact.get(nm) or by_lower.get(nm.lower()) or by_norm.get(_norm_name(nm))
+            if pid is None:
+                missing.append(nm)
+            else:
+                ids.append(int(pid))
+        return ids, missing
+
+    one_ids, one_missing = _resolve(side_one_names)
+    two_ids, two_missing = _resolve(side_two_names)
+    params = {
+        "var": "5", "pickVal": "0",
+        "teamOne": "|".join(str(i) for i in one_ids),
+        "teamTwo": "|".join(str(i) for i in two_ids),
+        "format": "2", "isStartup": "0", "tep": "0",
+    }
+    url = _KTC_CALCULATOR_URL + "?" + urllib.parse.urlencode(params, safe="|")
+    return {
+        "url": url,
+        "unresolved": {"sideOne": one_missing, "sideTwo": two_missing},
+        "resolvedCount": {"sideOne": len(one_ids), "sideTwo": len(two_ids)},
+    }

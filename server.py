@@ -4147,6 +4147,44 @@ async def post_trade_import_ktc(request: Request):
     return JSONResponse(content={"ok": True, **result})
 
 
+@app.post("/api/trade/export-ktc")
+async def post_trade_export_ktc(request: Request):
+    """Inverse of import-ktc: the two local sides -> a KTC URL.
+
+    Body ``{"sideOne": ["Josh Allen", ...], "sideTwo": ["2026 Mid 1st", ...]}``.
+    Returns ``{ok, url, unresolved:{sideOne,sideTwo}, resolvedCount}``.
+    Reuses the cached KTC player map.  Public, like other /api/trade/*.
+    """
+    from src.trade.ktc_import import build_ktc_url  # noqa: PLC0415
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON body required."})
+
+    def _names(key):
+        raw = body.get(key)
+        if not isinstance(raw, list):
+            return []
+        return [str(x).strip() for x in raw if str(x or "").strip()]
+
+    side_one, side_two = _names("sideOne"), _names("sideTwo")
+    if not side_one and not side_two:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "No assets to export."})
+
+    try:
+        result = await run_in_threadpool(build_ktc_url, side_one, side_two)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Failed to fetch KTC player map.",
+                     "detail": f"{type(exc).__name__}: {exc}"},
+        )
+    return JSONResponse(content={"ok": True, **result})
+
+
 @app.post("/api/angle/find")
 async def post_angle_find(request: Request):
     """Player-specific arbitrage: pick a player on your team, get
