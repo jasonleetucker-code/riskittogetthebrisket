@@ -19,6 +19,7 @@ from src.trade.suggestions import (
     rank_score,
     rank_score_breakdown,
     _fairness_label,
+    _va_gap,
     _norm_pos,
     _compute_cv,
     _edge_for_suggestion,
@@ -1390,6 +1391,50 @@ class TestConsolidationStretchFilter:
         assert len(result["consolidation"]) == 2
 
 
+class TestVaAwareGap:
+    """The suggestion gap must use KTC's Value Adjustment — the same
+    math the trade analyzer applies before its 'Major gap' verdict.
+
+    Regression for the reported bug: a 2-for-1 consolidation that is
+    even on raw value sums but VA-lopsided once KTC's quantity
+    discount inflates the single-stud side was being surfaced as a
+    fair suggestion, then showed a 'Major gap (33%)' the moment it
+    was loaded into the trade builder.
+    """
+
+    def test_one_for_one_gap_equals_raw(self):
+        """KTC suppresses VA on genuine 1-for-1s, so the VA gap must
+        equal the raw difference (no behavior change for swaps)."""
+        assert _va_gap([5000], [4800]) == 200
+        assert _va_gap([4800], [5000]) == -200
+
+    def test_two_for_one_raw_even_is_va_lopsided(self):
+        """Two depth pieces summing ≈ one stud is even on raw totals
+        but a large negative VA gap once KTC's consolidation premium
+        boosts the single-stud side."""
+        raw_gap = (4900 + 4800) - 9600  # +100, "even" on raw
+        assert abs(raw_gap) < 256
+        va = _va_gap([4900, 4800], [9600])
+        assert va < -769, (
+            f"expected a VA-lopsided gap, got {va} (raw was {raw_gap})"
+        )
+
+    def test_user_favorable_va_stretch_is_filtered(self):
+        """A consolidation whose VA gap lands hugely in the user's
+        favour (single elite for two depth pieces) is just as
+        unrealistic as a big overpay — the magnitude is bounded in
+        both directions, so it must be suppressed."""
+        s = _make_suggestion(fairness="stretch", give_val=9518, recv_val=9518)
+        s.type = "consolidation"
+        s.give.append(PlayerAsset("Depth Piece", "WR", 4000, 4000, source_count=6))
+        s.gap = -4712  # VA gap: opponent grossly overpays — no one accepts
+        result = _apply_quality_filters({
+            "sell_high": [], "buy_low": [],
+            "consolidation": [s], "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == 0
+
+
 class TestSeparateGivePlayerBudgets:
     """1-for-1 and package categories have separate give-player caps."""
 
@@ -2085,10 +2130,13 @@ class TestEffectiveSourceRanks:
                       site_values=self._raw_site_values(3200)),
             self._row("RB Depth B", "RB", 3100,
                       site_values=self._raw_site_values(3100)),
-            # Consolidation target at WR (a need position).
+            # Consolidation target at WR (a need position).  Valued so
+            # the (3200 + 3100) depth package lands VA-near-even once
+            # KTC's quantity discount is applied — a realistic
+            # consolidation, not a raw-even-but-VA-lopsided 2-for-1.
             self._row(
-                "WR Consolidation Target", "WR", 6200,
-                site_values=self._raw_site_values(6200),
+                "WR Consolidation Target", "WR", 4600,
+                site_values=self._raw_site_values(4600),
                 effective_source_ranks=self._effective_ranks(
                     ["src0", "src1", "src2", "src3"]
                 ),
@@ -2131,33 +2179,35 @@ class TestEffectiveSourceRanks:
         )
         rows = [
             # 4 WR starters so the upgrade target clears upgrade_floor
-            # against the weakest slotted starter.
+            # against the weakest slotted starter (WR Starter D = 3300).
             self._row("WR Starter A", "WR", 6000,
                       site_values=self._raw_site_values(6000)),
-            self._row("WR Starter B", "WR", 5500,
-                      site_values=self._raw_site_values(5500)),
-            self._row("WR Starter C", "WR", 5000,
+            self._row("WR Starter B", "WR", 5000,
                       site_values=self._raw_site_values(5000)),
-            self._row("WR Starter D", "WR", 4500,
-                      site_values=self._raw_site_values(4500)),
+            self._row("WR Starter C", "WR", 4000,
+                      site_values=self._raw_site_values(4000)),
+            self._row("WR Starter D", "WR", 3300,
+                      site_values=self._raw_site_values(3300)),
             self._row("WR Depth", "WR", 3200,
                       site_values=self._raw_site_values(3200)),
             # RB surplus (3 starters + 2 depth) supplies the sweetener
             # search fallback the engine uses for positional upgrades.
+            # Depth sized so weakest_starter + sweetener vs. target is
+            # VA-near-even, not raw-even-but-VA-lopsided.
             self._row("RB1", "RB", 7000,
                       site_values=self._raw_site_values(7000)),
             self._row("RB2", "RB", 6800,
                       site_values=self._raw_site_values(6800)),
             self._row("RB3", "RB", 6600,
                       site_values=self._raw_site_values(6600)),
-            self._row("RB Depth A", "RB", 2800,
-                      site_values=self._raw_site_values(2800)),
-            self._row("RB Depth B", "RB", 2700,
-                      site_values=self._raw_site_values(2700)),
+            self._row("RB Depth A", "RB", 1420,
+                      site_values=self._raw_site_values(1420)),
+            self._row("RB Depth B", "RB", 1400,
+                      site_values=self._raw_site_values(1400)),
             # Upgrade target at WR: raw=8 sources, effective=2 → low.
             self._row(
-                "WR Upgrade Target", "WR", 7500,
-                site_values=self._raw_site_values(7500),
+                "WR Upgrade Target", "WR", 4200,
+                site_values=self._raw_site_values(4200),
                 effective_source_ranks=self._effective_ranks(
                     ["src0", "src1"]
                 ),
