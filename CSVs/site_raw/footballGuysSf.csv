@@ -311,14 +311,14 @@ Darius Slayton,421,WR133,NYG,29,7
 Jaydn Ott,430,RB100,KC,23,R
 Malik Benson,432,WR134,LV,23,R
 Jonnu Smith,440,TE45,FA,30,9
-CJ Donaldson,443,RB101,NO,21,R
+CJ Donaldson,442,RB101,NO,21,R
 Devontez Walker,447,WR135,BAL,24,2
-Trevor Etienne,459,RB102,CAR,21,1
+Trevor Etienne,458,RB102,CAR,21,1
 Junior Bergen,461,WR136,SF,23,1
 Mack Hollins,487,WR137,NE,32,9
-Isaac Guerendo,517,RB103,SF,25,2
-Konata Mumpfield,519,WR138,LAR,23,1
-Mike Gesicki,531,TE46,CIN,30,8
+Isaac Guerendo,516,RB103,SF,25,2
+Konata Mumpfield,518,WR138,LAR,23,1
+Mike Gesicki,527,TE46,CIN,30,8
 Bam Knight,593,RB104,ARI,25,4
 Kendrick Law,594,WR139,DET,21,R
 Kaden Wetjen,595,WR140,PIT,24,R
@@ -488,54 +488,51 @@ Brandin Cooks,889,WR202,FA,32,12
 Mecole Hardman Jr.,890,WR203,BUF,28,7
 Demarcus Robinson,891,WR204,SF,31,10
 Noah Brown,892,WR205,FA,30,9
-Ray-Ray McCloud III,893,WR206,FA,29,8
-JuJu Smith-Schuster,894,WR207,FA,29,9
-Mike Williams,895,WR208,FA,31,9
-Curtis Samuel,899,WR209,FA,29,9
-Jackson Hawes,911,TE59,BUF,25,1
-Dillon Bell,925,WR210,MIN,22,R
-Donaven McCulley,926,WR211,MIA,23,R
-Tyren Montgomery,927,WR212,TEN,24,R
-Harrison Wallace III,928,WR213,ARI,23,R
-Ricky White III,929,WR214,SEA,24,1
-Kameron Johnson,930,WR215,TB,24,2
-Bryce Oliver,931,WR216,TEN,26,2
-Mason Tipton,932,WR217,NO,25,2
-Casey Washington,933,WR218,ATL,25,2
-Ja'Lynn Polk,934,WR219,NO,25,2
-Xavier Weaver,935,WR220,ARI,25,2
-Jamari Thrash,936,WR221,CLE,25,2
-Brycen Tremayne,938,WR222,CAR,26,3
-Jake Bobo,939,WR223,SEA,27,3
-Ainias Smith,940,WR224,CAR,24,2
-Theo Wease Jr.,941,WR225,MIA,24,1
-Taylen Green,943,QB49,CLE,23,R
-Jonathan Mingo,944,WR226,DAL,25,3
-Tyler Johnson,945,WR227,DAL,27,6
-Kalif Raymond,948,WR228,CHI,31,10
-Tim Patrick,949,WR229,NYJ,32,9
-Marquez Valdes-Scantling,951,WR230,DAL,31,8
-Zay Jones,952,WR231,FA,31,9
-Skyy Moore,960,WR232,GB,25,4
-Ashton Dulin,963,WR233,IND,29,7
-Dallen Bentley,977,TE60,DEN,25,R
-Jalen Brooks,981,WR234,ARI,26,3
-Parris Campbell,982,WR235,DAL,28,7
-Malachi Corley,983,WR236,CLE,24,2
-Devin Duvernay,984,WR237,ARI,28,6
-Simi Fehoko,985,WR238,ARI,28,5
-Xavier Gipson,986,WR239,NYG,25,3
-Gage Larvadain,987,WR240,CLE,23,1
-Terrace Marshall Jr,988,WR241,MIA,25,5
-Scotty Miller,989,WR242,CHI,28,7
-Nick Nash,990,WR243,WAS,26,1
-K.J. Osborn,991,WR244,TEN,28,6
-Trent Sherfield,992,WR245,BUF,30,8
-David Sills V,993,WR246,TB,29,7
-Noah Thomas,994,WR247,CIN,22,R
-Kris Thornton,995,WR248,FA,-,3
-Austin Trammell,996,WR249,JAX,27,5
-Devin Voisin,997,WR250,FA,24,R
-Tylan Wallace,998,WR251,CLE,27,5
-Jalen Walthall,999,WR252,HOU,23,R
-Justin Watson,1000,WR253,HOU,30,8
+Ray-Ray McCloud III,895,WR206,FA,29,8
+JuJu Smith-Schuster,896,WR207,FA,29,9
+Mike Williams,897,WR208,FA,31,9
+Curtis Samuel,901,WR209,FA,29,9
+Jackson Hawes,914,TE59,BUF,25,1
+Dillon Bell,927,WR210,MIN,22,R
+Donaven McCulley,928,WR211,MIA,23,R
+Tyren Montgomery,929,WR212,TEN,24,R
+Harrison Wallace III,930,WR213,ARI,23,R
+Ricky White III,931,WR214,SEA,24,1
+Kameron Johnson,932,WR215,TB,24,2
+Bryce Oliver,933,WR216,TEN,26,2
+Mason Tipton,934,WR217,NO,25,2
+Casey Washington,935,WR218,ATL,25,2
+Ja'Lynn Polk,936,WR219,NO,25,2
+Xavier Weaver,937,WR220,ARI,25,2
+Jamari Thrash,938,WR221,CLE,25,2
+Brycen Tremayne,940,WR222,CAR,26,3
+Ryan Miller,941,WR223,NYG,26,3
+Jake Bobo,942,WR224,SEA,27,3
+Ainias Smith,943,WR225,CAR,24,2
+Theo Wease Jr.,944,WR226,MIA,24,1
+Taylen Green,946,QB49,CLE,23,R
+Jonathan Mingo,947,WR227,DAL,25,3
+Tyler Johnson,948,WR228,DAL,27,6
+Kalif Raymond,952,WR229,CHI,31,10
+Tim Patrick,953,WR230,NYJ,32,9
+Marquez Valdes-Scantling,955,WR231,DAL,31,8
+Zay Jones,956,WR232,FA,31,9
+Skyy Moore,964,WR233,GB,25,4
+Ashton Dulin,967,WR234,IND,29,7
+Dallen Bentley,979,TE60,DEN,25,R
+Jalen Brooks,985,WR235,ARI,26,3
+Parris Campbell,986,WR236,DAL,28,7
+Malachi Corley,987,WR237,CLE,24,2
+Devin Duvernay,988,WR238,ARI,28,6
+Simi Fehoko,989,WR239,ARI,28,5
+Xavier Gipson,990,WR240,NYG,25,3
+Gage Larvadain,991,WR241,CLE,23,1
+Terrace Marshall Jr,992,WR242,MIA,25,5
+Scotty Miller,993,WR243,CHI,28,7
+Nick Nash,994,WR244,WAS,26,1
+K.J. Osborn,995,WR245,TEN,28,6
+Trent Sherfield,996,WR246,BUF,30,8
+David Sills V,997,WR247,TB,29,7
+Noah Thomas,998,WR248,CIN,22,R
+Kris Thornton,999,WR249,FA,-,3
+Austin Trammell,1000,WR250,JAX,27,5
