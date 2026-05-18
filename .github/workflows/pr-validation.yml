@@ -21,6 +21,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Full history so the changed-files ruff gate can diff the
+          # PR against its base SHA.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -66,16 +70,30 @@ jobs:
           # idempotent. Config: pyproject.toml [tool.ruff].
           python -m ruff format --check .
 
-      - name: Python lint (ruff check — report-only)
-        # Phase A2: non-blocking so the lint surface is visible on PRs
-        # without false-blocking on the pre-existing backlog. Flipped
-        # to changed-files-only enforcement in A3.
-        if: ${{ always() }}
-        continue-on-error: true
+      - name: Python lint (ruff check — changed files, blocking)
+        # Phase A3: ratcheted enforcement. We lint ONLY the .py files
+        # this PR adds/modifies/renames, diffed against the PR base
+        # SHA. The ~77-item pre-existing backlog stays unblocked
+        # (whole-repo enforcement was never the goal); any NEW lint
+        # violation introduced by the PR fails here. force-exclude in
+        # pyproject keeps excluded dirs excluded even when passed
+        # explicitly. (deploy.yml keeps a report-only mirror — merges
+        # can't land without passing this gate, so post-merge
+        # changed-files diffing there would add fragility for no gain.)
         shell: bash
         run: |
           set -Eeuo pipefail
-          python -m ruff check . --output-format concise
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          changed="$(git diff --name-only --diff-filter=ACMR "${base_sha}" HEAD -- '*.py' || true)"
+          if [ -z "${changed}" ]; then
+            echo "No changed .py files — nothing to lint."
+            exit 0
+          fi
+          echo "Linting changed .py files:"
+          printf '%s\n' "${changed}"
+          # -d '\n' so a path with a space ("Dynasty Scraper.py") is
+          # passed as a single argument.
+          printf '%s\n' "${changed}" | xargs -r -d '\n' python -m ruff check
 
       - name: Python import gate
         shell: bash

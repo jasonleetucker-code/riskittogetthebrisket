@@ -12,6 +12,10 @@
 line-length = 100  # matches the observed ~89% ≤100 baseline
 target-version = "py312"
 extend-exclude = ["data", "exports", ".next", "node_modules", "frontend"]
+# Honour the excludes even when a path is passed explicitly (the A3
+# changed-files gate calls `ruff check <file>...`); without this a
+# changed .py under an excluded dir would still get linted.
+force-exclude = true
 
 [tool.ruff.lint]
 # Pyflakes (F) + pycodestyle (E/W). Lint runs report-only in CI as of
