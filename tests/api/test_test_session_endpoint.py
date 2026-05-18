@@ -6,7 +6,6 @@ off — 401 would leak the endpoint's existence.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 import server

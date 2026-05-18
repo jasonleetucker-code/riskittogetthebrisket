@@ -41,7 +41,7 @@ import logging
 import random
 import statistics
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from src.ros import ROS_DATA_DIR
 from src.public_league import luck, metrics, playoff_odds

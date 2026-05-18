@@ -28,7 +28,6 @@ import json
 import re
 import unittest
 from pathlib import Path
-from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DATA = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"

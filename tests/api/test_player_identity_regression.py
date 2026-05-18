@@ -33,7 +33,6 @@ import unittest
 from pathlib import Path
 
 from src.api.data_contract import (
-    _RANKING_SOURCES,
     _expected_sources_for_position,
     _validate_and_quarantine_rows,
     build_api_data_contract,

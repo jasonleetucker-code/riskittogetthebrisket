@@ -36,7 +36,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
-from src.api import feature_flags
 
 _LOGGER = logging.getLogger(__name__)
 

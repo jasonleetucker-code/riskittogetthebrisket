@@ -158,8 +158,13 @@ class TestNormalizePositionFamily:
         assert normalize_position_family("QB WR") == "QB"
 
     def test_unknown_position_passthrough(self):
+        # Truly-unknown tokens pass through unchanged...
         assert normalize_position_family("K") == "K"
-        assert normalize_position_family("P") == "P"
+        # ...but punter collapses into the kicker family by design
+        # (POSITION_ALIASES "P" -> "K" / _KICKER_FAMILIES). This
+        # expectation was stale: a duplicate test class (F811) had
+        # shadowed this suite so the assertion never ran.
+        assert normalize_position_family("P") == "K"
 
 
 # ── Dynasty-specific name edge cases ─────────────────────────────────
@@ -273,7 +278,7 @@ class TestNormalizeTeamEdgeCases:
 # ── normalize_position_family ──────────────────────────────────────
 
 
-class TestNormalizePositionFamily:
+class TestNormalizePositionFamilyStandardCases:
     # Standard positions
     def test_qb(self):
         assert normalize_position_family("QB") == "QB"

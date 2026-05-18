@@ -6,7 +6,6 @@ direction, and SELL requires active-starter status."""
 
 from __future__ import annotations
 
-import datetime as _dt
 from zoneinfo import ZoneInfo
 
 import pytest

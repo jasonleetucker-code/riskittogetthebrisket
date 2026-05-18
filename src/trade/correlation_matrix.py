@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
 
 # Stack rules — (pos_a, pos_b) → higher rho than "same team other pos".
 _STACK_PAIRS = frozenset(

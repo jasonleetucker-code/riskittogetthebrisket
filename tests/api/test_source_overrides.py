@@ -25,7 +25,6 @@ Coverage:
 from __future__ import annotations
 
 import unittest
-from copy import deepcopy
 from typing import Any
 from unittest.mock import patch
 
@@ -38,9 +37,7 @@ from src.api.data_contract import (
     _TE_BLANKET_NATIVE_MULTIPLIER,
     _TE_BLANKET_NON_NATIVE_MULTIPLIER,
     _TEP_DERIVATION_SLOPE,
-    _compute_unified_rankings,
     _derive_tep_multiplier_from_league,
-    _resolve_league_context,
     _summarize_source_overrides,
     assert_ranking_source_registry_parity,
     build_api_data_contract,

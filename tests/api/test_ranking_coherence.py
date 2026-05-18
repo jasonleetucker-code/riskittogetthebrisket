@@ -234,7 +234,7 @@ class TestCoherenceOnRealData(unittest.TestCase):
         ranked.sort(key=lambda r: r["canonicalConsensusRank"])
 
         errors = assert_ranking_coherence(ranked)
-        self.assertEqual(errors, [], f"Coherence errors on live data:\n" + "\n".join(errors[:10]))
+        self.assertEqual(errors, [], "Coherence errors on live data:\n" + "\n".join(errors[:10]))
 
 
 if __name__ == "__main__":

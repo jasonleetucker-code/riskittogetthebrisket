@@ -22,7 +22,6 @@ trade math, no changes to dynasty values.
 
 from __future__ import annotations
 
-from typing import Any
 
 from src.ros.direction import _is_veteran
 

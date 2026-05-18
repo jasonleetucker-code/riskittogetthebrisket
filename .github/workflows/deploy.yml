@@ -74,6 +74,16 @@ jobs:
           # a hotfix pushed straight to main can't bypass it.
           python -m ruff format --check .
 
+      - name: Python lint (ruff check — report-only)
+        # Phase A2: non-blocking (mirrors pr-validation). Becomes a
+        # changed-files-only hard gate in A3.
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff check . --output-format concise
+
       - name: Python runtime import gate
         shell: bash
         env:

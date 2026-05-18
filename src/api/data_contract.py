@@ -5408,8 +5408,6 @@ def _compute_unified_rankings(
         HILL_GLOBAL_PERCENTILE_S,
         HILL_PERCENTILE_C,
         HILL_PERCENTILE_S,
-        HILL_ROOKIE_PERCENTILE_C,
-        HILL_ROOKIE_PERCENTILE_S,
         IDP_HILL_PERCENTILE_C,
         IDP_HILL_PERCENTILE_S,
         percentile_to_value,

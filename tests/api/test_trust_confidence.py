@@ -19,7 +19,6 @@ from src.api.data_contract import (
     _compute_confidence_bucket,
     _compute_anomaly_flags,
     _compute_market_gap,
-    _compute_unified_rankings,
     build_api_data_contract,
 )
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE

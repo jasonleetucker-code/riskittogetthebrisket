@@ -18,7 +18,6 @@ pipeline from ever leaking private signals:
 from __future__ import annotations
 
 import re
-import sys
 import unittest
 from pathlib import Path
 

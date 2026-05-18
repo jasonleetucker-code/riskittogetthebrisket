@@ -21,14 +21,12 @@ from __future__ import annotations
 import difflib
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable
 
 from src.ros import ROS_DATA_DIR
 from src.utils.name_clean import (
     CANONICAL_NAME_ALIASES,
     normalize_player_name,
-    resolve_canonical_name,
 )
 
 # Reuse dynasty identity layer for all canonical normalization.

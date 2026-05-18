@@ -28,7 +28,6 @@ No headline lives upstream, so we synthesize one:
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 import threading

@@ -34,7 +34,6 @@ from src.canonical.idp_backbone import (
     SOURCE_SCOPE_OVERALL_IDP,
     TRANSLATION_DIRECT,
     TRANSLATION_EXACT,
-    TRANSLATION_EXTRAPOLATED,
 )
 
 

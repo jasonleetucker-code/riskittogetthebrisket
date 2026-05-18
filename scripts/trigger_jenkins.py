@@ -16,7 +16,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen

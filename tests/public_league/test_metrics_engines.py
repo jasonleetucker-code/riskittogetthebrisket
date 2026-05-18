@@ -22,7 +22,6 @@ from src.public_league import (
     weekly,
 )
 from src.public_league.metrics import (
-    matchup_pairs,
     playoff_placement,
     pre_week_standings,
     season_champion,
@@ -31,10 +30,6 @@ from src.public_league.metrics import (
     top_seed,
 )
 from src.public_league.snapshot_store import (
-    CONTRACT_PATH,
-    SNAPSHOT_PATH,
-    load_snapshot,
-    persist_snapshot,
     snapshot_to_dict,
     snapshot_from_dict,
 )
@@ -453,7 +448,6 @@ class SnapshotPersistenceTests(_BaseFixture):
 
     def test_persist_and_load(self) -> None:
         import tempfile
-        import os as _os
         from src.public_league import snapshot_store as store
 
         with tempfile.TemporaryDirectory() as tmp:

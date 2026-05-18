@@ -20,7 +20,6 @@ from src.api.data_contract import (
     assert_no_unexplained_single_source,
 )
 from src.utils.name_clean import (
-    CANONICAL_NAME_ALIASES,
     normalize_player_name,
     resolve_canonical_name,
 )

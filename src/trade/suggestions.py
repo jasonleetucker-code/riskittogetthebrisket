@@ -20,7 +20,7 @@ The engine does NOT modify any internal canonical values or calibration.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from src.canonical.calibration import to_display_value
@@ -200,8 +200,8 @@ def _edge_for_suggestion(s: TradeSuggestion) -> tuple[str | None, str | None]:
         if give_avg_cv <= LOW_DISPERSION_CV and recv_avg_cv >= HIGH_DISPERSION_CV * 0.8:
             return (
                 "market_premium",
-                f"You're moving a consensus-stable asset for one where sources disagree — "
-                f"your side has lower pricing risk.",
+                "You're moving a consensus-stable asset for one where sources disagree — "
+                "your side has lower pricing risk.",
             )
 
     # High dispersion on what I'm giving = potential sell-high

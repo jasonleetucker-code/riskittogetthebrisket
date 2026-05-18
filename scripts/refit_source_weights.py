@@ -44,9 +44,8 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-from src.backtesting.correlation import SourceAccuracy, score_all_sources
+from src.backtesting.correlation import score_all_sources
 from src.backtesting.dynamic_weights import (
     load_prior_weights,
     propose_weights,

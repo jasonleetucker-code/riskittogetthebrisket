@@ -475,7 +475,6 @@ class TestDlfSchemaProbe(unittest.TestCase):
     def test_dlf_schema_probe_catches_bad_header(self):
         """Pointing dlfSf at a CSV with a bogus header records a schema_mismatch."""
         import tempfile
-        from src.api.data_contract import _enrich_from_source_csvs
 
         raw = _load_latest_raw()
         if raw is None:

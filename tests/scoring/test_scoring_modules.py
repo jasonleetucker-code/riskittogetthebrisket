@@ -9,7 +9,6 @@ from src.scoring.player_adjustment import (
     ratio_to_multiplier,
 )
 from src.scoring.scoring_delta import (
-    RULE_CONTRIBUTION_DETAIL_KEYS,
     bucket_rule_contributions,
     bucket_rule_contributions_detail,
     compare_to_baseline,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 from .types import BacktestRow
 

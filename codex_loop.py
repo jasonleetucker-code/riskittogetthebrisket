@@ -3,7 +3,17 @@
 # python .\codex_loop.py --repo . --config .\codex_loop_config.example.json --agent-command "codex exec --full-auto -" --max-iters 6
 
 from __future__ import annotations
-import argparse, dataclasses, datetime as dt, json, hashlib, os, re, shlex, subprocess, sys, textwrap
+import argparse
+import dataclasses
+import datetime as dt
+import json
+import hashlib
+import os
+import re
+import shlex
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 

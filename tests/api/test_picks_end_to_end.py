@@ -36,7 +36,6 @@ from pathlib import Path
 from typing import Any
 
 from src.api.data_contract import (
-    SINGLE_SOURCE_ALLOWLIST,
     _is_pick_name,
     assert_no_unexplained_single_source,
     assert_ranking_coherence,
@@ -435,7 +434,7 @@ class TestRepresentativePicks(unittest.TestCase):
         self.assertEqual(
             mismatched,
             [],
-            f"Anchored slot picks lost value in legacy mirror:\n" + "\n".join(mismatched[:10]),
+            "Anchored slot picks lost value in legacy mirror:\n" + "\n".join(mismatched[:10]),
         )
 
 

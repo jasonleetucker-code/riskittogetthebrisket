@@ -4,11 +4,7 @@ We mock the Sleeper HTTP calls so tests run offline."""
 
 from __future__ import annotations
 
-import io
-import json
-from unittest.mock import patch
 
-import pytest
 
 from src.api import draft_capital_fallback as dcf
 

@@ -37,6 +37,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
@@ -47,7 +48,6 @@ from fastapi.responses import (
     JSONResponse,
     RedirectResponse,
     Response,
-    StreamingResponse,
 )
 from fastapi.staticfiles import StaticFiles
 
@@ -3563,7 +3563,6 @@ async def get_health():
     # on manual-only sessions since auto-refresh sessions fix
     # themselves on the next scrape.
     _session_ages: dict[str, dict] = {}
-    import os as _os
 
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,

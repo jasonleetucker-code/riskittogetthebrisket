@@ -262,7 +262,6 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
     def test_2026_specific_slots_have_pick_confidence(self) -> None:
         # All 2026 specific slots should resolve to a known pick bucket
         # — never the generic player labels.
-        from src.api.data_contract import _compute_pick_confidence
 
         # Round 1 picks should be high confidence (KTC + IDPTC values
         # typically agree within 30%)
