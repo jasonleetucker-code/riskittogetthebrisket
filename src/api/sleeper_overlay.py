@@ -76,6 +76,21 @@ _DRAFT_ID_CACHE_TTL_SEC = 60.0
 _DRAFT_PICKS_CACHE: dict[str, dict[str, Any]] = {}
 _DRAFT_PICKS_CACHE_TTL_SEC = 2.0
 
+# Lazy fallback Sleeper-ID → display-name map.  The primary id→name
+# source is the loaded contract's NFL map, which only spans players in
+# the rankings pool.  Deep-bench / unranked / retired players (and team
+# defenses) that show up in trade, roster or waiver history miss that
+# map and would otherwise render as a raw numeric Sleeper id on the UI.
+# This is populated from Sleeper's full ``/v1/players/nfl`` dump
+# (~5 MB) the first time a miss is hit, then process-cached.  Failed
+# attempts are not cached permanently — they are retried (rate-limited)
+# so a transient Sleeper blip doesn't disable the fallback for the
+# life of the process.
+_FALLBACK_NAMES: dict[str, str] | None = None
+_FALLBACK_NAMES_LOCK = threading.Lock()
+_FALLBACK_ATTEMPT_AT: float = 0.0
+_FALLBACK_RETRY_SEC = 300.0
+
 
 def _utc_now_ms() -> int:
     return int(time.time() * 1000)
@@ -336,8 +351,7 @@ def _build_teams_block(
             pid_str = str(pid or "")
             if not pid_str:
                 continue
-            mapped = id_map.get(pid_str)
-            names.append(mapped if mapped else pid_str)
+            names.append(_resolve_player_label(pid_str, id_map))
         try:
             rid_int = int(roster_id) if roster_id is not None else 0
         except (TypeError, ValueError):
@@ -640,6 +654,72 @@ def _append_trade_side_item(
             arr.append(label)
 
 
+def _sleeper_fallback_name_map() -> dict[str, str]:
+    """Process-cached Sleeper ``player_id`` → ``"First Last"`` map,
+    built lazily from the full ``/v1/players/nfl`` dump.
+
+    Consulted ONLY when the loaded contract's NFL id map misses an id
+    (so the steady-state hot path never pays for it).  Best-effort:
+    returns ``{}`` on any failure so callers degrade to the prior
+    raw-id behaviour.  Goes through the module's own ``_http_get_json``
+    so it shares the ``sleeper_api`` circuit breaker and stays
+    monkeypatchable in tests.
+    """
+    global _FALLBACK_NAMES, _FALLBACK_ATTEMPT_AT
+    if _FALLBACK_NAMES is not None:
+        return _FALLBACK_NAMES
+    with _FALLBACK_NAMES_LOCK:
+        if _FALLBACK_NAMES is not None:
+            return _FALLBACK_NAMES
+        now = time.time()
+        if now - _FALLBACK_ATTEMPT_AT < _FALLBACK_RETRY_SEC:
+            # Recent attempt failed — don't hammer Sleeper.  Degrade to
+            # raw-id until the retry window elapses.
+            return {}
+        _FALLBACK_ATTEMPT_AT = now
+        dump = _http_get_json("https://api.sleeper.app/v1/players/nfl")
+        if not isinstance(dump, dict) or not dump:
+            return {}
+        out: dict[str, str] = {}
+        for pid, rec in dump.items():
+            if not isinstance(rec, dict):
+                continue
+            full = str(rec.get("full_name") or "").strip()
+            if not full:
+                first = str(rec.get("first_name") or "").strip()
+                last = str(rec.get("last_name") or "").strip()
+                full = f"{first} {last}".strip()
+            if not full and str(rec.get("position") or "") == "DEF":
+                # Team defenses key on the team abbr and carry no name
+                # fields — synthesise a readable "<ABBR> DEF" label.
+                full = f"{str(pid).upper()} DEF"
+            if full:
+                out[str(pid)] = full
+        # Only persist a non-empty result; an empty dump is treated as
+        # a soft failure (retry-eligible) above.
+        _FALLBACK_NAMES = out
+        return _FALLBACK_NAMES
+
+
+def _resolve_player_label(pid: Any, id_map: dict[str, str]) -> str:
+    """Resolve a Sleeper player id to a display name.
+
+    Resolution order: loaded-contract NFL map → full Sleeper players
+    dump (lazy, process-cached) → the raw id string as a last resort
+    so the row still renders rather than vanishing.
+    """
+    pid_str = str(pid if pid is not None else "").strip()
+    if not pid_str:
+        return ""
+    mapped = id_map.get(pid_str)
+    if mapped:
+        return str(mapped)
+    fallback = _sleeper_fallback_name_map().get(pid_str)
+    if fallback:
+        return fallback
+    return pid_str
+
+
 def _build_waivers_block(
     sleeper_league_id: str,
     window_days: int = 365,
@@ -688,7 +768,7 @@ def _build_waivers_block(
         rid_to_name, rid_to_owner = _league_rid_lookup(lid)
 
         for week in range(0, 19):
-            url = f"https://api.sleeper.app/v1/league/{lid}" f"/transactions/{week}"
+            url = f"https://api.sleeper.app/v1/league/{lid}/transactions/{week}"
             txs = _http_get_json(url)
             if not isinstance(txs, list):
                 continue
@@ -729,8 +809,8 @@ def _build_waivers_block(
                 if rid is None:
                     continue
 
-                added_names = [str(id_map.get(str(pid)) or pid) for pid in adds.keys()]
-                dropped_names = [str(id_map.get(str(pid)) or pid) for pid in drops.keys()]
+                added_names = [_resolve_player_label(pid, id_map) for pid in adds.keys()]
+                dropped_names = [_resolve_player_label(pid, id_map) for pid in drops.keys()]
 
                 # FAAB bid lives at ``settings.waiver_bid`` for waiver
                 # tx; FA tx don't carry a bid (free pickups).
@@ -840,7 +920,7 @@ def _build_trades_block(
         # calendar.  0 is cheap to include and catches preseason
         # trades that happened before week 1.
         for week in range(0, 19):
-            url = f"https://api.sleeper.app/v1/league/{lid}" f"/transactions/{week}"
+            url = f"https://api.sleeper.app/v1/league/{lid}/transactions/{week}"
             txs = _http_get_json(url)
             if not isinstance(txs, list):
                 continue
@@ -873,11 +953,9 @@ def _build_trades_block(
 
                 # adds/drops keyed by sleeper player_id → roster_id.
                 for pid, rid in (adds or {}).items():
-                    label = id_map.get(str(pid)) or str(pid)
-                    _append_trade_side_item(team_got, rid, str(label))
+                    _append_trade_side_item(team_got, rid, _resolve_player_label(pid, id_map))
                 for pid, rid in (drops or {}).items():
-                    label = id_map.get(str(pid)) or str(pid)
-                    _append_trade_side_item(team_gave, rid, str(label))
+                    _append_trade_side_item(team_gave, rid, _resolve_player_label(pid, id_map))
 
                 # Draft picks: owner gained, previous_owner lost.
                 for pick in draft_picks:
@@ -1039,6 +1117,15 @@ def fetch_sleeper_overlay(
     with _CACHE_LOCK:
         _CACHE[sleeper_league_id] = {"payload": dict(payload), "_cached_at": now}
     return payload
+
+
+def reset_fallback_name_cache() -> None:
+    """Test hook — clear the lazy Sleeper fallback name map so a
+    monkeypatched ``_http_get_json`` is re-consulted."""
+    global _FALLBACK_NAMES, _FALLBACK_ATTEMPT_AT
+    with _FALLBACK_NAMES_LOCK:
+        _FALLBACK_NAMES = None
+        _FALLBACK_ATTEMPT_AT = 0.0
 
 
 def invalidate_overlay_cache(sleeper_league_id: str | None = None) -> None:
