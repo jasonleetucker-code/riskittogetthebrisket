@@ -567,8 +567,8 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 337.69,
-    "startingLineupScore": 417.48,
+    "teamRosStrength": 337.74,
+    "startingLineupScore": 417.55,
     "benchDepthScore": 150.58,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -618,9 +618,9 @@
         "playerId": "6794",
         "canonicalName": "justin jefferson",
         "position": "WR",
-        "rosValue": 49.36,
-        "adjustedValue": 49.36,
-        "confidence": 0.799,
+        "rosValue": 49.43,
+        "adjustedValue": 49.43,
+        "confidence": 0.801,
         "flagged": null
       },
       {
@@ -945,7 +945,7 @@
     "teamName": "shayden18",
     "teamRosStrength": 311.1,
     "startingLineupScore": 389.6,
-    "benchDepthScore": 114.36,
+    "benchDepthScore": 114.37,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1111,9 +1111,9 @@
         "playerId": "12530",
         "canonicalName": "travis hunter",
         "position": "WR",
-        "rosValue": 20.1,
+        "rosValue": 20.17,
         "depthFactor": 0.179,
-        "depthContribution": 3.59
+        "depthContribution": 3.6
       }
     ],
     "unfilledSlots": [],
