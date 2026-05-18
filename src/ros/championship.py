@@ -35,10 +35,9 @@ from __future__ import annotations
 import json
 import logging
 import random
-import statistics
 from typing import Any
 
-from src.public_league import metrics, playoff_odds
+from src.public_league import metrics
 from src.public_league.snapshot import PublicLeagueSnapshot
 from src.ros import ROS_DATA_DIR, playoff_sim
 

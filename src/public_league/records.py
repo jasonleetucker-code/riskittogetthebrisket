@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import metrics
-from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
+from .snapshot import PublicLeagueSnapshot
 
 
 # Positions we track player records for.  Order = display order in the UI.

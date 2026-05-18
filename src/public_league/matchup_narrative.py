@@ -41,9 +41,9 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-from . import matchup_preview, matchup_recap, metrics
+from . import matchup_preview, metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 

@@ -15,7 +15,6 @@ import json
 import math
 from pathlib import Path
 
-import pytest
 
 from src.trade.ktc_va import ktc_adjust_package, ktc_process_v
 

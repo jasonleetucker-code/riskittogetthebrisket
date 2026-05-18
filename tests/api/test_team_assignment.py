@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from src.api import team_assignment
 from src.public_league.identity import Manager, ManagerRegistry, TeamAlias

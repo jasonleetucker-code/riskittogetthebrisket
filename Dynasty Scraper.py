@@ -43,7 +43,6 @@ import os
 import time
 import datetime
 import math
-import hashlib
 import shutil
 import zipfile
 import bisect
@@ -888,7 +887,7 @@ def fetch_sleeper_rosters(league_id):
 
     VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "LB", "DL", "DE", "DT", "CB", "S", "DB"}
 
-    print(f"Fetching Sleeper player database...")
+    print("Fetching Sleeper player database...")
     try:
         players_resp = _req.get("https://api.sleeper.app/v1/players/nfl", timeout=30)
         players_resp.raise_for_status()
@@ -2407,7 +2406,7 @@ async def scrape_ktc_trade_database(page):
     sf = 1 if SUPERFLEX else 0
     tep = 2 if TEP else 0  # KTC trade-DB tepLevel: 1=TE+, 2=TE++
     url = f"https://keeptradecut.com/dynasty/trade-database?sf={sf}&tep={tep}"
-    print(f"  [KTC Trades] Fetching trade database...")
+    print("  [KTC Trades] Fetching trade database...")
 
     try:
         api_data = []
@@ -2713,7 +2712,7 @@ async def scrape_ktc_waiver_database(page):
     sf = 1 if SUPERFLEX else 0
     tep = 2 if TEP else 0  # KTC waiver-DB tepLevel: 1=TE+, 2=TE++
     url = f"https://keeptradecut.com/dynasty/waiver-database?sf={sf}&tep={tep}"
-    print(f"  [KTC Waivers] Fetching waiver database...")
+    print("  [KTC Waivers] Fetching waiver database...")
 
     try:
         api_data = []
@@ -3076,7 +3075,7 @@ async def scrape_idptradecalc(page, players):
             """)
             await page.wait_for_timeout(200)
             if DEBUG:
-                print(f"  [IDPTradeCalc] Dismissed cookie consent overlay")
+                print("  [IDPTradeCalc] Dismissed cookie consent overlay")
         except Exception:
             pass
 
@@ -3100,7 +3099,7 @@ async def scrape_idptradecalc(page, players):
 
             if not changed:
                 if DEBUG:
-                    print(f"  [IDPTradeCalc] Both already checked — cycling OFF→ON to refresh")
+                    print("  [IDPTradeCalc] Both already checked — cycling OFF→ON to refresh")
                 await page.evaluate("document.getElementById('toggleButton').click()")
                 await page.wait_for_timeout(250)
                 await page.evaluate("document.getElementById('toggleButtonTEP').click()")
@@ -3160,10 +3159,10 @@ async def scrape_idptradecalc(page, players):
             page.on("response", handle_reload)
             await asyncio.wait_for(new_event.wait(), timeout=8.0)
             if DEBUG:
-                print(f"  [IDPTradeCalc] New data received after toggle cycle")
+                print("  [IDPTradeCalc] New data received after toggle cycle")
         except asyncio.TimeoutError:
             if DEBUG:
-                print(f"  [IDPTradeCalc] No new API data after toggle cycle")
+                print("  [IDPTradeCalc] No new API data after toggle cycle")
 
         await page.wait_for_timeout(1000)
 
@@ -3353,7 +3352,7 @@ async def scrape_idptradecalc(page, players):
                         FULL_DATA["IDPTradeCalc"].update(name_map)
                         match_all(players, name_map, results)
                 elif DEBUG:
-                    print(f"  [IDPTradeCalc] Bulk JS extract: no data found")
+                    print("  [IDPTradeCalc] Bulk JS extract: no data found")
             except Exception as e:
                 if DEBUG:
                     print(f"  [IDPTradeCalc] Bulk JS extract error: {e}")
@@ -3454,7 +3453,7 @@ async def scrape_idptradecalc(page, players):
 
                     if not input_box:
                         if DEBUG:
-                            print(f"  [IDPTradeCalc] No input box found for search")
+                            print("  [IDPTradeCalc] No input box found for search")
                         break
 
                     await input_box.evaluate("el => { el.focus(); el.click(); }")
@@ -3543,7 +3542,7 @@ def print_health_report():
     four_five = sum(1 for c in player_coverage.values() if 4 <= c <= 5)
     six_plus = sum(1 for c in player_coverage.values() if c >= 6)
 
-    print(f"\n  Coverage distribution:")
+    print("\n  Coverage distribution:")
     print(f"    1 site only:  {one_site:5d}  {'⚠' if one_site > 50 else '✓'}")
     print(f"    2-3 sites:    {two_three:5d}")
     print(f"    4-5 sites:    {four_five:5d}")
@@ -3551,7 +3550,7 @@ def print_health_report():
 
     # Flag players from PLAYERS list with low coverage
     if PLAYERS:
-        print(f"\n  Console players with low coverage:")
+        print("\n  Console players with low coverage:")
         for player in PLAYERS:
             cov = player_coverage.get(player, 0)
             if cov == 0:
@@ -4286,7 +4285,7 @@ async def run(progress_callback=None):
     # so downstream valuation logic still processes every member.
     _pool_audit = None
     try:
-        from src.pool.builder import build_canonical_pool, PoolAuditReport
+        from src.pool.builder import build_canonical_pool
 
         _ktc_full_for_pool = (
             FULL_DATA.get("KTC", {}) if isinstance(FULL_DATA.get("KTC"), dict) else {}

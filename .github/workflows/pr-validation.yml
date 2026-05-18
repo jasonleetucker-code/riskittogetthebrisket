@@ -66,6 +66,17 @@ jobs:
           # idempotent. Config: pyproject.toml [tool.ruff].
           python -m ruff format --check .
 
+      - name: Python lint (ruff check — report-only)
+        # Phase A2: non-blocking so the lint surface is visible on PRs
+        # without false-blocking on the pre-existing backlog. Flipped
+        # to changed-files-only enforcement in A3.
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff check . --output-format concise
+
       - name: Python import gate
         shell: bash
         env:

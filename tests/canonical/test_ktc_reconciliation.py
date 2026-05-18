@@ -38,8 +38,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.canonical.player_valuation import (
-    percentile_to_value,
-    rank_to_value,  # kept for shape invariants
+    percentile_to_value,  # kept for shape invariants
 )
 from src.api.data_contract import _PERCENTILE_REFERENCE_N
 

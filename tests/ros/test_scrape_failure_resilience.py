@@ -8,12 +8,8 @@ the last-known-good values.  A bad scrape never erases data.
 from __future__ import annotations
 
 import csv
-import importlib
-import json
 import unittest
-from pathlib import Path
 
-from src.ros import ROS_DATA_DIR
 from src.ros.scrape import _csv_path, _has_valid_cache, _write_csv
 
 

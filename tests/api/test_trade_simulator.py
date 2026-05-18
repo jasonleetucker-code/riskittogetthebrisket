@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from src.api import trade_simulator, terminal
 from src.canonical.player_valuation import rank_to_value

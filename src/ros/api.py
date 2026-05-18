@@ -28,9 +28,7 @@ from fastapi.responses import JSONResponse
 from src.ros import ROS_DATA_DIR
 from src.ros.sources import ROS_SOURCES, enabled_ros_sources
 from src.ros.team_strength import (
-    compute_team_strength,
     load_team_strength_snapshot,
-    write_team_strength_snapshot,
 )
 
 LOG = logging.getLogger("ros.api")

@@ -29,7 +29,7 @@ players by your calibrated value so the search stays fast.
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}

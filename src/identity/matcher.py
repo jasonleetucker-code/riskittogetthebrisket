@@ -6,7 +6,6 @@ from src.data_models import RawAssetRecord, utc_now_iso
 from src.identity.models import PickAliasRow, PickRow, PlayerAliasRow, PlayerRow
 from src.identity.schema import MasterPlayer
 from src.utils import (
-    canonical_player_key,
     canonical_position_group,
     normalize_player_name,
     resolve_canonical_name,

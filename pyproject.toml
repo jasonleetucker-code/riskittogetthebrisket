@@ -14,9 +14,16 @@ target-version = "py312"
 extend-exclude = ["data", "exports", ".next", "node_modules", "frontend"]
 
 [tool.ruff.lint]
-# Default ruleset (pyflakes F + pycodestyle E/W). Enforcement is added
-# in a later phase; present here only so A2/A3 don't churn this file.
+# Pyflakes (F) + pycodestyle (E/W). Lint runs report-only in CI as of
+# phase A2, enforced changed-files-only in A3.
 select = ["E", "F", "W"]
+# E501 (line-too-long) is intentionally NOT enforced: `ruff format`
+# already owns line length, and it deliberately leaves long strings/
+# URLs/comments it can't safely split. Enforcing E501 on top of the
+# formatter is the well-known double-ownership anti-pattern (it nags
+# about exactly the lines the formatter chose to keep) — 169 such
+# pre-existing lines, none of them defects.
+ignore = ["E501"]
 
 [tool.ruff.format]
 # Black-compatible defaults (double quotes, magic trailing comma).

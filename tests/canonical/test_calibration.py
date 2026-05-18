@@ -16,8 +16,6 @@ from src.canonical.calibration import (
     get_calibration_params,
     UNIVERSE_SCALES,
     CALIBRATION_EXPONENT,
-    PICK_CEILING,
-    DEFAULT_SCALE,
     _is_pick,
     _parse_pick_info,
     _pick_curve_value,

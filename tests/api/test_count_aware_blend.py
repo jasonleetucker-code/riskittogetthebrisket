@@ -15,7 +15,6 @@ refactor silently over-trims or silently switches the threshold.
 
 from __future__ import annotations
 
-import pytest
 
 from src.api.data_contract import count_aware_mean_median_blend as blend
 

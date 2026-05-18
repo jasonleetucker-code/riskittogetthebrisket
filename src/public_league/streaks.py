@@ -30,7 +30,7 @@ from collections import defaultdict
 from typing import Any
 
 from . import metrics
-from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
+from .snapshot import PublicLeagueSnapshot
 
 
 # How many entries the "records in reach" list pulls for each category.

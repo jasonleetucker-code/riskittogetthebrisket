@@ -25,7 +25,6 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,7 +151,7 @@ def fetch(
                 attempts=attempt + 1,
                 elapsed_sec=elapsed,
             )
-        except (TimeoutError,) as exc:
+        except (TimeoutError,):
             last_error_kind = "timeout"
             if attempt < retries:
                 _LOGGER.warning(

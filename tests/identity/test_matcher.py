@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 
 from src.data_models import RawAssetRecord
 from src.identity.matcher import (
-    MATCH_QUARANTINE_THRESHOLD,
     _confidence_for_record,
     build_identity_resolution,
     build_master_players,

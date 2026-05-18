@@ -57,7 +57,7 @@ import calendar
 import csv
 import re
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]

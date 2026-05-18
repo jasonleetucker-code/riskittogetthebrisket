@@ -23,8 +23,6 @@ from src.api.data_contract import (
     build_api_data_contract,
     assert_ranking_coherence,
     assert_no_unexplained_single_source,
-    _tier_id_from_rank,
-    SINGLE_SOURCE_ALLOWLIST,
 )
 
 

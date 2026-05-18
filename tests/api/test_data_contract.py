@@ -2,10 +2,8 @@ import unittest
 
 from src.api.data_contract import (
     OVERALL_RANK_LIMIT,
-    KTC_RANK_LIMIT,
     _compute_unified_rankings,
     build_api_data_contract,
-    build_api_startup_payload,
     validate_api_data_contract,
 )
 from src.canonical.player_valuation import percentile_to_value, rank_to_value  # noqa: F401

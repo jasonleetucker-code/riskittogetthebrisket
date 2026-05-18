@@ -3,9 +3,7 @@ exception handler."""
 
 from __future__ import annotations
 
-import pytest
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from src.api import error_responses as er

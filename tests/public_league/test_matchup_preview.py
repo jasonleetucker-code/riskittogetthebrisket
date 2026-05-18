@@ -8,10 +8,9 @@ unscoring a matchup row.
 
 from __future__ import annotations
 
-import copy
 import unittest
 
-from src.public_league.matchup_preview import build_section, _detect_current_week, _pair_key
+from src.public_league.matchup_preview import build_section, _pair_key
 from tests.public_league.fixtures import build_test_snapshot
 
 

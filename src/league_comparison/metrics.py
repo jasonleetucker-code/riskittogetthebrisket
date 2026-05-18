@@ -24,7 +24,7 @@ where N is the number of available seasons.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from statistics import mean, median, quantiles
 from typing import Iterable, Sequence
 

@@ -9,15 +9,11 @@ from pathlib import Path
 import pytest
 
 from src.pool.builder import (
-    CanonicalPoolRow,
     AdamidpRow,
-    PoolAuditReport,
     build_canonical_pool,
     extract_ktc_structured,
-    extract_sleeper_roster_names,
     dedupe_adamidp_rows,
     extract_adamidp_from_artifact,
-    pool_clean_name,
     pool_normalize_lookup,
     normalize_position,
     KTC_UNIVERSE_LIMIT,

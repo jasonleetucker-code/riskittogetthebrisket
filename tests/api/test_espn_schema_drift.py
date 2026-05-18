@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 
 from src.api import espn_schema_drift as esd
 

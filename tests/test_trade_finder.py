@@ -6,8 +6,6 @@ for board-arbitrage trades (good for me on our model, plausible
 for the opponent on KTC).
 """
 
-import pytest
-
 from src.trade.finder import (
     Asset,
     TradeCandidate,
@@ -24,10 +22,6 @@ from src.trade.finder import (
     _edge_label,
     _opp_appeal_phrase,
     _build_summary,
-    ELITE_THRESHOLD,
-    ELITE_MULTI_MIN_RATIO,
-    PACKAGE_ANCHOR_MIN_PCT,
-    CONFIDENCE_SOURCE_BASELINE,
     EXCLUDED_POSITIONS,
     KTC_TOP_N_FILTER,
 )

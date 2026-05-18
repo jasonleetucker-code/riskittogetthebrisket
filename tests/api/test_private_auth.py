@@ -132,7 +132,6 @@ def test_signal_alerts_run_bypasses_middleware(monkeypatch):
 def test_allowlist_reads_env_var_lowercased():
     """Module-level parse must lowercase + split comma-separated
     entries in the env var."""
-    import os
 
     expected = frozenset(
         u.strip().lower() for u in "JasonLeeTucker, AnotherUser".split(",") if u.strip()

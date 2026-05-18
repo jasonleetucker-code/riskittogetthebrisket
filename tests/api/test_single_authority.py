@@ -74,7 +74,7 @@ class TestSingleAuthority(unittest.TestCase):
                         f"#{r.get('canonicalConsensusRank')} {r.get('canonicalName')}: missing {field}"
                     )
 
-        self.assertEqual(missing, [], f"Missing authoritative fields:\n" + "\n".join(missing[:20]))
+        self.assertEqual(missing, [], "Missing authoritative fields:\n" + "\n".join(missing[:20]))
 
     def test_no_value_inversions(self):
         """Value must monotonically decrease with rank."""
@@ -87,7 +87,7 @@ class TestSingleAuthority(unittest.TestCase):
             key=lambda r: r["canonicalConsensusRank"],
         )
         errors = assert_ranking_coherence(ranked)
-        self.assertEqual(errors, [], f"Coherence errors:\n" + "\n".join(errors[:10]))
+        self.assertEqual(errors, [], "Coherence errors:\n" + "\n".join(errors[:10]))
 
     def test_no_duplicate_ranks(self):
         contract = _load_live_contract()
@@ -123,7 +123,7 @@ class TestSingleAuthority(unittest.TestCase):
         self.assertEqual(
             out_of_range,
             [],
-            f"Tier IDs must be positive ints:\n" + "\n".join(out_of_range[:10]),
+            "Tier IDs must be positive ints:\n" + "\n".join(out_of_range[:10]),
         )
         prev_tier = 0
         non_monotonic: list[str] = []
@@ -137,7 +137,7 @@ class TestSingleAuthority(unittest.TestCase):
         self.assertEqual(
             non_monotonic,
             [],
-            f"Tier IDs must be non-decreasing with rank:\n" + "\n".join(non_monotonic[:10]),
+            "Tier IDs must be non-decreasing with rank:\n" + "\n".join(non_monotonic[:10]),
         )
 
 

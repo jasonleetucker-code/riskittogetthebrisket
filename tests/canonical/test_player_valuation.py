@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
@@ -25,7 +24,6 @@ if str(REPO) not in sys.path:
 
 from src.canonical.player_valuation import (
     PlayerInput,
-    PlayerValuation,
     TierBoundary,
     ValuationResult,
     base_value_curve,
@@ -39,9 +37,6 @@ from src.canonical.player_valuation import (
     build_player_inputs_from_raw_records,
     build_player_inputs_from_record_objects,
     valuation_result_to_asset_dicts,
-    HILL_MIDPOINT,
-    HILL_SLOPE,
-    CLIFF_BASE_POINTS,
     DISPLAY_SCALE_MAX,
     DISPLAY_SCALE_MIN,
     W_MEDIAN,

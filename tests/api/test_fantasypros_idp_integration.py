@@ -17,7 +17,6 @@ from src.api.data_contract import (
     _IDP_SIGNAL_KEYS,
     _RANKING_SOURCES,
     _SOURCE_CSV_PATHS,
-    _canonical_match_key,
     build_api_data_contract,
 )
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_IDP

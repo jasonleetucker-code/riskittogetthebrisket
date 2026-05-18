@@ -50,7 +50,7 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from src.canonical.player_valuation import (
     HILL_MIDPOINT,

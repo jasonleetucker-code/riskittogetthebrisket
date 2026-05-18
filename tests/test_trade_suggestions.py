@@ -9,8 +9,6 @@ Validates:
 - Serialization
 """
 
-import pytest
-
 from src.trade.suggestions import (
     PlayerAsset,
     RosterAnalysis,
@@ -23,20 +21,14 @@ from src.trade.suggestions import (
     _va_gap,
     _norm_pos,
     _compute_cv,
-    _edge_for_suggestion,
     _apply_quality_filters,
     _find_balancers,
     _roster_balancer_candidates,
     _pool_balancer_candidates,
     TradeSuggestion,
-    DEFAULT_STARTER_NEEDS,
     MIN_RELEVANT_VALUE,
     MIN_ACTIONABLE_VALUE,
-    MAX_GAP_FOR_1FOR1,
     MAX_BALANCERS,
-    CONSOLIDATION_MAX_OVERPAY_RATIO,
-    UPGRADE_SWEETENER_SURPLUS_MULTIPLIER,
-    HIGH_DISPERSION_CV,
     MAX_GIVE_PLAYER_APPEARANCES,
     MAX_RECEIVE_TARGET_PER_CATEGORY,
     MAX_LOW_CONFIDENCE_PER_CATEGORY,
