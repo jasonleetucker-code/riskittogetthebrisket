@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeSleeperTradeHistory,
   analyzeTradeTendencies,
+  buildCombinedPairTrade,
   buildSleeperIdentityMaps,
 } from "@/lib/league-analysis";
 
@@ -437,5 +438,99 @@ describe("analyzeTradeTendencies — ownerId aggregation", () => {
     // 3 managers: user-prev under historical name, user-new under
     // current name, user-opponent under current name.
     expect(managers).toEqual(["New Manager", "Opponent", "Previous Manager"]);
+  });
+});
+
+describe("buildCombinedPairTrade — two-team net history", () => {
+  // Mirror the "Dak" example: an asset that goes A→B, back B→A, then
+  // A→B again must net to a single A→B move (odd crossings collapse to
+  // one); an asset that goes there-and-back exactly once cancels.
+  const tradeAtoB = mkTrade({
+    offsetDaysAgo: 9,
+    sides: [
+      { team: "Brent", got: ["Test Mid"], gave: ["Test Star"] },
+      { team: "Roy", got: ["Test Star"], gave: ["Test Mid"] },
+    ],
+  });
+  const tradeBtoA = mkTrade({
+    offsetDaysAgo: 6,
+    sides: [
+      { team: "Brent", got: ["Test Star"], gave: ["Test Mid"] },
+      { team: "Roy", got: ["Test Mid"], gave: ["Test Star"] },
+    ],
+  });
+
+  it("collapses repeated back-and-forth into a single net move", () => {
+    const rawData = {
+      sleeper: { trades: [tradeAtoB, tradeBtoA, { ...tradeAtoB }] },
+    };
+    const analysis = analyzeSleeperTradeHistory(rawData, rows);
+    const combined = buildCombinedPairTrade(
+      analysis,
+      "Brent",
+      "Roy",
+      rawData,
+      rows,
+    );
+    expect(combined).toBeTruthy();
+    expect(combined.combined).toBe(true);
+    expect(combined.tradeCount).toBe(3);
+    const brent = combined.sides.find((s) => s.team === "Brent");
+    const roy = combined.sides.find((s) => s.team === "Roy");
+    // Test Star: gave, got, gave → net A→B once.  Test Mid mirrors.
+    expect(brent.gave.map((i) => i.name)).toEqual(["Test Star"]);
+    expect(brent.got.map((i) => i.name)).toEqual(["Test Mid"]);
+    // No asset is double-counted — exactly one of each survives.
+    expect(brent.gave).toHaveLength(1);
+    expect(brent.got).toHaveLength(1);
+    // Roy is the exact mirror of Brent.
+    expect(roy.got.map((i) => i.name)).toEqual(["Test Star"]);
+    expect(roy.gave.map((i) => i.name)).toEqual(["Test Mid"]);
+  });
+
+  it("returns a wash when a single there-and-back fully cancels", () => {
+    const rawData = { sleeper: { trades: [tradeAtoB, tradeBtoA] } };
+    const analysis = analyzeSleeperTradeHistory(rawData, rows);
+    const combined = buildCombinedPairTrade(
+      analysis,
+      "Brent",
+      "Roy",
+      rawData,
+      rows,
+    );
+    expect(combined).toEqual({
+      wash: true,
+      teamA: "Brent",
+      teamB: "Roy",
+      tradeCount: 2,
+    });
+  });
+
+  it("returns null when the two teams never traded head-to-head", () => {
+    const rawData = { sleeper: { trades: [tradeAtoB] } };
+    const analysis = analyzeSleeperTradeHistory(rawData, rows);
+    expect(
+      buildCombinedPairTrade(analysis, "Brent", "Ghost", rawData, rows),
+    ).toBeNull();
+    // Same team twice is a no-op.
+    expect(
+      buildCombinedPairTrade(analysis, "Brent", "Brent", rawData, rows),
+    ).toBeNull();
+  });
+
+  it("skips 3+ team trades (ambiguous A↔B flow)", () => {
+    const threeWay = mkTrade({
+      offsetDaysAgo: 2,
+      sides: [
+        { team: "Brent", got: ["Test Star"], gave: ["Test Mid"] },
+        { team: "Roy", got: ["Test Mid"], gave: [] },
+        { team: "Carl", got: [], gave: ["Test Star"] },
+      ],
+    });
+    const rawData = { sleeper: { trades: [threeWay] } };
+    const analysis = analyzeSleeperTradeHistory(rawData, rows);
+    expect(
+      buildCombinedPairTrade(analysis, "Brent", "Roy", rawData, rows),
+    ).toBeNull();
   });
 });

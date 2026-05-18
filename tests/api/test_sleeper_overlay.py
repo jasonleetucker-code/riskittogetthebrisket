@@ -145,6 +145,110 @@ def test_build_trades_block_emits_processed_sides_shape(monkeypatch):
     assert b["ownerId"] == "oB"
 
 
+def test_build_trades_block_resolves_unknown_id_via_players_dump(monkeypatch):
+    """Players outside the loaded contract's rankings pool (deep bench
+    / unranked / retired) miss the ``id_to_player`` map.  Rather than
+    rendering the raw numeric Sleeper id on the UI, the block must fall
+    back to Sleeper's full ``/v1/players/nfl`` dump so the trade card
+    shows the real name.  Regression for the "45 4574 0" glitch.
+    """
+    sleeper_overlay.reset_fallback_name_cache()
+    league_id = "L1"
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": [
+            {"roster_id": 1, "owner_id": "oA"},
+            {"roster_id": 2, "owner_id": "oB"},
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+            {"user_id": "oB", "display_name": "Team B"},
+        ],
+        f"/league/{league_id}/drafts": [],
+        # The full players dump the fallback consults on a miss.
+        "/players/nfl": {
+            "4574": {"first_name": "Deep", "last_name": "Bencher", "position": "WR"},
+            "4129": {"full_name": "Retired Vet", "position": "RB"},
+        },
+    }
+    fresh_ms = _recent_ms()
+    responses[f"/league/{league_id}/transactions/3"] = [
+        {
+            "transaction_id": "tx-1",
+            "type": "trade",
+            "status": "complete",
+            "status_updated": fresh_ms,
+            "roster_ids": [1, 2],
+            # "P-A" is in the contract map; "4574"/"4129" are not.
+            "adds": {"P-A": 1, "4574": 1, "4129": 2},
+            "drops": {"4574": 2, "4129": 1, "P-A": 2},
+        },
+    ]
+    for w in range(0, 19):
+        if w == 3:
+            continue
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+
+    monkeypatch.setattr(
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses(responses),
+    )
+
+    trades = sleeper_overlay._build_trades_block(
+        league_id,
+        window_days=365,
+        id_to_player={"P-A": "Player A"},
+    )
+    sleeper_overlay.reset_fallback_name_cache()
+
+    assert len(trades) == 1
+    labels = set()
+    for s in trades[0]["sides"]:
+        labels.update(s["got"])
+        labels.update(s["gave"])
+    # Contract-mapped + fallback-dump names all resolve; the raw
+    # numeric Sleeper ids must never leak through to the UI.
+    assert {"Player A", "Deep Bencher", "Retired Vet"} <= labels
+    assert "4574" not in labels
+    assert "4129" not in labels
+    by_rid = {s["rosterId"]: s for s in trades[0]["sides"]}
+    assert "Deep Bencher" in by_rid[1]["got"]
+
+
+def test_fallback_name_map_does_not_cache_empty_result(monkeypatch):
+    """A non-empty ``/v1/players/nfl`` payload that yields zero usable
+    records (schema drift / missing name fields) must be treated as a
+    retry-eligible soft failure — NOT persisted as ``{}`` for the
+    process lifetime, which would leak raw ids until restart.
+    """
+    sleeper_overlay.reset_fallback_name_cache()
+    # Non-empty dump, but every record lacks any name field.
+    monkeypatch.setattr(
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses({"/players/nfl": {"4574": {"position": "WR"}}}),
+    )
+
+    result = sleeper_overlay._sleeper_fallback_name_map()
+    assert result == {}
+    # The empty map was NOT persisted — a later (post-window) attempt
+    # is still allowed to re-fetch.
+    assert sleeper_overlay._FALLBACK_NAMES is None
+
+    # Now a healthy payload resolves and IS cached.
+    sleeper_overlay.reset_fallback_name_cache()
+    monkeypatch.setattr(
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses({"/players/nfl": {"4574": {"full_name": "Real Player"}}}),
+    )
+    healthy = sleeper_overlay._sleeper_fallback_name_map()
+    assert healthy == {"4574": "Real Player"}
+    assert sleeper_overlay._FALLBACK_NAMES == {"4574": "Real Player"}
+    sleeper_overlay.reset_fallback_name_cache()
+
+
 def test_build_trades_block_filters_incomplete_trades(monkeypatch):
     """Only ``status == "complete"`` trades are emitted.  Mid-flight
     proposals and rejected trades must not appear on /trades.

@@ -289,6 +289,148 @@ function sideDisplayName(side, identityMaps) {
  * split across the two owners.  Falls back to rosterId and then team
  * name for older scraper output that did not emit ownerId.
  */
+// Resolve a list of raw item labels to { items, linear, weighted, values }.
+// ``weighted`` uses the alpha exponent so a single star asset counts
+// more than a pile of scrubs with the same linear sum.  ``values`` is
+// the bare numeric array — needed by V12 VA which computes per-piece
+// raw_adjustments based on the absolute KTC scale.
+function resolveTradeSideList(rawList, ctx) {
+  const { rowLookup, posMap, pickAliases, alpha } = ctx;
+  const items = [];
+  const values = [];
+  let linear = 0;
+  let weighted = 0;
+  for (const rawItem of getTradeSideItemLabels(rawList)) {
+    const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
+    const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
+    linear += safeVal;
+    weighted += Math.pow(Math.max(safeVal, 1), alpha);
+    if (safeVal > 0) values.push(safeVal);
+    items.push({
+      name: resolved.name,
+      val: Math.round(safeVal),
+      pos: resolved.pos,
+      isPick: resolved.isPick,
+      playerId: resolved.playerId,
+      team: resolved.team,
+    });
+  }
+  return { items, linear, weighted, values };
+}
+
+// KTC value adjustment for one team's "got vs gave" comparison —
+// routes through ``ktcAdjustPackage``, the verbatim port of KTC's
+// site.min.js algorithm (PR #335).  Treat got/gave as a 2-side trade:
+// positive ``vaNet`` means this team RECEIVED the stud premium (got
+// side wins on KTC's intensity-adjusted raw_adj); negative means they
+// GAVE the studs away.  Pure: value arrays only, no React/row refs.
+function computeTradeVANet(gotValues, gaveValues) {
+  if (!gotValues.length || !gaveValues.length) return 0;
+  const result = ktcAdjustPackage(gotValues, gaveValues);
+  if (!result.displayed || result.value <= 0) return 0;
+  // ktcAdjustPackage's `side` follows KTC's team1/team2 convention.
+  // We pass got=team1, gave=team2.  side=1 means got receives the VA
+  // (positive); side=2 means gave receives it (penalty for got).
+  return result.side === 1 ? result.value : -result.value;
+}
+
+/**
+ * Build the shared resolution context (row lookup, position map, pick
+ * aliases, identity maps, alpha) used to value any single trade.
+ * Extracted so both the rolling-window scan and the two-team combined
+ * aggregator value assets through exactly the same pipeline.
+ */
+export function buildTradeAnalysisCtx(rawData, rows, alpha = TRADE_ALPHA) {
+  return {
+    rowLookup: buildRowLookup(rows),
+    posMap: rawData?.sleeper?.positions || {},
+    pickAliases: rawData?.pickAliases || null,
+    identityMaps: buildSleeperIdentityMaps(rawData?.sleeper?.teams),
+    alpha,
+  };
+}
+
+/**
+ * Analyze ONE raw trade ({week, timestamp, sides:[{team, got, gave,
+ * ownerId?, rosterId?}]}) into the rendered card shape.  Pure given a
+ * ctx from ``buildTradeAnalysisCtx``.  Does NOT touch teamScores —
+ * the caller owns league-wide aggregation.
+ */
+export function analyzeRawTrade(trade, ctx) {
+  const { identityMaps } = ctx;
+  const ts = normalizeTradeTimestampMs(trade.timestamp);
+  const date = ts ? new Date(ts).toLocaleDateString() : "?";
+  const sides = [];
+
+  for (const side of trade.sides || []) {
+    const got = resolveTradeSideList(side?.got, ctx);
+    const gave = resolveTradeSideList(side?.gave, ctx);
+    const netLinear = got.linear - gave.linear;
+    const netWeighted = got.weighted - gave.weighted;
+    // V13 KTC-style VA for this team's got-vs-gave equation.
+    const vaNet = computeTradeVANet(got.values, gave.values);
+    const netAdjusted = netLinear + vaNet;
+    // Denominator is the larger EFFECTIVE side total (linear + VA).
+    // Don't include the alpha-powered weighted sums — those dominate
+    // by an order of magnitude and would crush all pcts toward zero.
+    const gotEffective = got.linear + Math.max(0, vaNet);
+    const gaveEffective = gave.linear + Math.max(0, -vaNet);
+    const scale = Math.max(gotEffective, gaveEffective, 1);
+    const pctGap = (netAdjusted / scale) * 100;
+    const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
+
+    const displayTeam = sideDisplayName(side, identityMaps);
+    sides.push({
+      team: displayTeam,
+      historicalTeam: side.team || "",
+      ownerId: side.ownerId || null,
+      rosterId: side.rosterId ?? null,
+      got: got.items,
+      gave: gave.items,
+      gotValue: got.linear,
+      gotWeighted: got.weighted,
+      gaveValue: gave.linear,
+      gaveWeighted: gave.weighted,
+      netValue: netLinear,
+      netWeighted,
+      vaNet,
+      netAdjusted,
+      pctGap,
+      grade,
+    });
+  }
+
+  // Headline reflects the largest grievance — the side with the
+  // biggest magnitude ``pctGap``, winner or loser.
+  const sortedByNet = [...sides].sort((a, b) => b.netWeighted - a.netWeighted);
+  const winner = sortedByNet[0] || null;
+  const loser = sortedByNet[sortedByNet.length - 1] || null;
+  const headlineSide = sides.reduce(
+    (best, s) => (Math.abs(s.pctGap) > Math.abs(best?.pctGap ?? 0) ? s : best),
+    null,
+  );
+  const headlinePct = headlineSide ? Math.abs(headlineSide.pctGap) : 0;
+  const headlineNet = headlineSide
+    ? Math.abs(Math.round(headlineSide.netAdjusted ?? headlineSide.netValue))
+    : 0;
+  const headlineDirection =
+    headlineSide && headlineSide.pctGap < 0 ? "overpaid" : "won";
+
+  return {
+    trade,
+    date,
+    sides,
+    winner,
+    loser,
+    pctGap: headlinePct,
+    headlineNet,
+    headlineSide,
+    headlineDirection,
+    winnerGrade: winner ? winner.grade : null,
+    loserGrade: loser && loser !== winner ? loser.grade : null,
+  };
+}
+
 export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alpha = TRADE_ALPHA) {
   const trades = rawData?.sleeper?.trades;
   if (!Array.isArray(trades) || !trades.length) {
@@ -298,163 +440,17 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   const filtered = filterTradesToRollingWindow(trades, windowDays);
   if (!filtered.length) return { windowDays, analyzed: [], teamScores: {} };
 
-  const rowLookup = buildRowLookup(rows);
-  const posMap = rawData?.sleeper?.positions || {};
-  const pickAliases = rawData?.pickAliases || null;
-  const identityMaps = buildSleeperIdentityMaps(rawData?.sleeper?.teams);
+  const ctx = buildTradeAnalysisCtx(rawData, rows, alpha);
   const teamScores = {};
   const analyzed = [];
 
-  // Resolve a list of raw item labels to { items, linear, weighted, values }.
-  // ``weighted`` uses the alpha exponent so a single star asset counts
-  // more than a pile of scrubs with the same linear sum.
-  // ``values`` is the bare numeric array — needed by V12 VA which
-  // computes per-piece raw_adjustments based on the absolute KTC scale.
-  const resolveSideList = (rawList) => {
-    const items = [];
-    const values = [];
-    let linear = 0;
-    let weighted = 0;
-    for (const rawItem of getTradeSideItemLabels(rawList)) {
-      const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
-      const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
-      linear += safeVal;
-      weighted += Math.pow(Math.max(safeVal, 1), alpha);
-      if (safeVal > 0) values.push(safeVal);
-      items.push({
-        name: resolved.name,
-        val: Math.round(safeVal),
-        pos: resolved.pos,
-        isPick: resolved.isPick,
-        playerId: resolved.playerId,
-        team: resolved.team,
-      });
-    }
-    return { items, linear, weighted, values };
-  };
-
-  // KTC value adjustment for one team's "got vs gave" comparison —
-  // routes through ``ktcAdjustPackage``, the verbatim port of KTC's
-  // site.min.js algorithm (PR #335).  Treat got/gave as a 2-side
-  // trade: positive ``vaNet`` means this team RECEIVED the stud
-  // premium (got side wins on KTC's intensity-adjusted raw_adj);
-  // negative means they GAVE the studs away.  Magnitude is exactly
-  // what KTC.com would display for the equivalent 2-team trade,
-  // signed by which direction it lands.
-  //
-  // Trade-grading historically used the V12 regression fit; switching
-  // to the native port makes the /trades page agree with the trade
-  // calculator's per-source winner row to ±1.
-  //
-  // Pure: takes value arrays only, no React or row references.
-  const computeTradeVANet = (gotValues, gaveValues) => {
-    if (!gotValues.length || !gaveValues.length) return 0;
-    const result = ktcAdjustPackage(gotValues, gaveValues);
-    if (!result.displayed || result.value <= 0) return 0;
-    // ktcAdjustPackage's `side` follows KTC's team1/team2 convention.
-    // We pass got=team1, gave=team2.  side=1 means got receives the
-    // VA (positive); side=2 means gave receives it (penalty for got).
-    return result.side === 1 ? result.value : -result.value;
-  };
-
   for (const trade of filtered) {
-    const ts = normalizeTradeTimestampMs(trade.timestamp);
-    const date = ts ? new Date(ts).toLocaleDateString() : "?";
-    const sides = [];
+    const entry = analyzeRawTrade(trade, ctx);
 
-    for (const side of trade.sides || []) {
-      const got = resolveSideList(side?.got);
-      const gave = resolveSideList(side?.gave);
-      const netLinear = got.linear - gave.linear;
-      const netWeighted = got.weighted - gave.weighted;
-      // V13 KTC-style VA for this team's got-vs-gave equation.
-      // Positive vaNet = team got the stud premium (received side has
-      // bigger raw_adjustment_sum); negative = team gave the studs
-      // away.  Adjusted net = linear net + VA net = the "effective"
-      // trade outcome that includes stud-scarcity adjustment.
-      const vaNet = computeTradeVANet(got.values, gave.values);
-      const netAdjusted = netLinear + vaNet;
-      // pctGap is now driven by netAdjusted (V13).  This means trade
-      // history grades reflect KTC's stud-scarcity logic:
-      //
-      //   * "2 studs for a pile of mids" reads as a clear win for the
-      //     studs side, even when raw linear sums are close.
-      //   * Trades where the best+worst piece are both on one side
-      //     (the article's "fair trade" suppression case) grade as
-      //     fair when V13 zeros out the VA.
-      //
-      // The denominator is the larger of the two sides' EFFECTIVE
-      // values (linear + their share of the VA).  This keeps the
-      // pct intuitive: "+20% = I got 20% more effective value than
-      // I gave."  Falls back to weighted scale on degenerate input
-      // so the calc never divides by zero.
-      const gotEffective = got.linear + Math.max(0, vaNet);
-      const gaveEffective = gave.linear + Math.max(0, -vaNet);
-      // Denominator is the larger EFFECTIVE side total (linear +
-      // VA).  Don't include ``got.weighted`` / ``gave.weighted`` —
-      // those are alpha-powered (^1.65) and dominate by an order of
-      // magnitude, which would crush all pcts toward zero.
-      const scale = Math.max(gotEffective, gaveEffective, 1);
-      const pctGap = (netAdjusted / scale) * 100;
-      const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
-
-      const displayTeam = sideDisplayName(side, identityMaps);
-      sides.push({
-        team: displayTeam,
-        historicalTeam: side.team || "",
-        ownerId: side.ownerId || null,
-        rosterId: side.rosterId ?? null,
-        got: got.items,
-        gave: gave.items,
-        gotValue: got.linear,
-        gotWeighted: got.weighted,
-        gaveValue: gave.linear,
-        gaveWeighted: gave.weighted,
-        netValue: netLinear,
-        netWeighted,
-        // V13 stud-aware fields drive the displayed pctGap + grade.
-        vaNet,
-        netAdjusted,
-        pctGap,
-        grade,
-      });
-    }
-
-    // Biggest winner = highest positive netWeighted; biggest loser =
-    // lowest (most negative).  Headline reflects the largest
-    // grievance — the side with the biggest magnitude ``pctGap``,
-    // whether that's a clear winner or a clear loser.  In 3+ team
-    // trades, several sides can share small positive nets (<3% each)
-    // while one side absorbs a −15% loss; if we anchored the headline
-    // to the winner's tiny pct, the card would read "Fair trade" even
-    // though one team was graded F.  Using the max-magnitude side
-    // keeps the header consistent with per-side grades and the W/L
-    // credit below.
-    const sortedByNet = [...sides].sort((a, b) => b.netWeighted - a.netWeighted);
-    const winner = sortedByNet[0] || null;
-    const loser = sortedByNet[sortedByNet.length - 1] || null;
-    const headlineSide = sides.reduce(
-      (best, s) => (Math.abs(s.pctGap) > Math.abs(best?.pctGap ?? 0) ? s : best),
-      null,
-    );
-    const headlinePct = headlineSide ? Math.abs(headlineSide.pctGap) : 0;
-    // Absolute V13-adjusted point gap for the headline side.  Reads
-    // more naturally than a percent — "won by 1,820" tells you the
-    // raw stud-aware gap directly, while "won by 6.7%" requires
-    // mental arithmetic against the trade size.
-    const headlineNet = headlineSide
-      ? Math.abs(Math.round(headlineSide.netAdjusted ?? headlineSide.netValue))
-      : 0;
-    // If the largest-magnitude side is a loser (negative pctGap), the
-    // UI should say "X overpaid by Y" rather than "X won by Y".
-    const headlineDirection =
-      headlineSide && headlineSide.pctGap < 0 ? "overpaid" : "won";
-
-    // Per-side W/L for team scores.  3% is the fairness threshold
-    // carried over from the prior grading regime — any trade where
-    // every team's net rounds below 3% shouldn't count as a win or
-    // loss for anyone.
-    for (const s of sides) {
+    // Per-side W/L for team scores.  3% is the fairness threshold —
+    // any trade where every team's net rounds below 3% shouldn't
+    // count as a win or loss for anyone.
+    for (const s of entry.sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
         teamScores[key] = {
@@ -477,25 +473,91 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       }
     }
 
-    analyzed.push({
-      trade,
-      date,
-      sides,
-      winner,
-      loser,
-      pctGap: headlinePct,
-      headlineNet,
-      headlineSide,
-      headlineDirection,
-      // Legacy top-level grades kept for any caller that still reads
-      // the overall winnerGrade/loserGrade — rendering prefers the
-      // per-side ``side.grade`` field now.
-      winnerGrade: winner ? winner.grade : null,
-      loserGrade: loser && loser !== winner ? loser.grade : null,
-    });
+    analyzed.push(entry);
   }
 
   return { windowDays, analyzed, teamScores };
+}
+
+// ── Two-Team Combined Trade History ─────────────────────────────────────
+/**
+ * Collapse the ENTIRE head-to-head trade history between two teams
+ * into a SINGLE synthetic trade.  Only pure 2-team trades whose two
+ * sides are exactly ``teamA`` and ``teamB`` are considered (3+ team
+ * trades have ambiguous A↔B flow and are skipped).
+ *
+ * Net-flow rule, from team A's perspective: +1 every time A received
+ * an asset, -1 every time A sent it.  An asset that bounced back and
+ * forth therefore cancels — an even number of crossings nets to zero
+ * (omitted entirely), an odd number collapses to a single instance in
+ * its net direction.  Example: Dak going Brent→Roy, Roy→Brent, then
+ * Brent→Roy again nets to Dak going Brent→Roy exactly once; a single
+ * there-and-back cancels out.
+ *
+ * Returns an analyzed-trade entry (same shape as ``analyzeRawTrade``,
+ * with ``combined: true`` plus ``teamA`` / ``teamB`` / ``tradeCount``),
+ * ``{ wash: true, ... }`` when every asset cancelled, or ``null`` when
+ * the two teams never traded head-to-head.
+ */
+export function buildCombinedPairTrade(analysis, teamA, teamB, rawData, rows, alpha = TRADE_ALPHA) {
+  if (!teamA || !teamB || teamA === teamB) return null;
+  const analyzed = analysis?.analyzed || [];
+  const headToHead = analyzed.filter(
+    (a) =>
+      a.sides.length === 2 &&
+      a.sides.some((s) => s.team === teamA) &&
+      a.sides.some((s) => s.team === teamB),
+  );
+  if (!headToHead.length) return null;
+
+  // asset label → net count from A's perspective (+got, -gave).
+  // Keyed by the exact resolved label so a player/pick that bounced
+  // back and forth between A and B cancels cleanly.
+  const ledger = new Map();
+  let latestTs = 0;
+  for (const a of headToHead) {
+    const sideA = a.sides.find((s) => s.team === teamA);
+    if (!sideA) continue;
+    const ts =
+      normalizeTradeTimestampMs(a.trade?.timestamp) || Date.parse(a.date) || 0;
+    if (Number.isFinite(ts) && ts > latestTs) latestTs = ts;
+    for (const it of sideA.got || []) {
+      ledger.set(it.name, (ledger.get(it.name) || 0) + 1);
+    }
+    for (const it of sideA.gave || []) {
+      ledger.set(it.name, (ledger.get(it.name) || 0) - 1);
+    }
+  }
+
+  const aGot = [];
+  const aGave = [];
+  for (const [name, net] of ledger) {
+    if (!name) continue;
+    if (net > 0) aGot.push(name);
+    else if (net < 0) aGave.push(name);
+  }
+
+  if (!aGot.length && !aGave.length) {
+    // Everything they swapped came back — a net wash.
+    return { wash: true, teamA, teamB, tradeCount: headToHead.length };
+  }
+
+  const synthetic = {
+    week: null,
+    timestamp: latestTs || Date.now(),
+    sides: [
+      { team: teamA, got: aGot, gave: aGave },
+      { team: teamB, got: aGave, gave: aGot },
+    ],
+  };
+  const ctx = buildTradeAnalysisCtx(rawData, rows, alpha);
+  const entry = analyzeRawTrade(synthetic, ctx);
+  entry.combined = true;
+  entry.teamA = teamA;
+  entry.teamB = teamB;
+  entry.tradeCount = headToHead.length;
+  entry.date = `${headToHead.length} trade${headToHead.length === 1 ? "" : "s"} combined`;
+  return entry;
 }
 
 // ── Build Player Meta Map ───────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { TRADE_ALPHA } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
   analyzeTradeTendencies,
+  buildCombinedPairTrade,
   POS_GROUP_COLORS,
 } from "@/lib/league-analysis";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
@@ -25,6 +26,7 @@ export default function TradesPage() {
   const { rows, rawData, loading, error } = useApp();
   const { settings } = useSettings();
   const [teamFilter, setTeamFilter] = useState("");
+  const [teamFilterB, setTeamFilterB] = useState("");
   const [playerQuery, setPlayerQuery] = useState("");
 
   const alpha = settings.alpha || TRADE_ALPHA;
@@ -95,6 +97,22 @@ export default function TradesPage() {
     return results;
   }, [analysis, teamFilter, playerQuery]);
 
+  // When two distinct teams are picked, collapse their entire
+  // head-to-head history into one synthetic "big trade" — assets that
+  // bounced back and forth cancel out (see buildCombinedPairTrade).
+  const combined = useMemo(() => {
+    if (!teamFilter || !teamFilterB || teamFilter === teamFilterB) return null;
+    return buildCombinedPairTrade(
+      analysis,
+      teamFilter,
+      teamFilterB,
+      rawData,
+      rows,
+      alpha,
+    );
+  }, [analysis, teamFilter, teamFilterB, rawData, rows, alpha]);
+  const combineMode = !!(teamFilter && teamFilterB && teamFilter !== teamFilterB);
+
   const tendencies = useMemo(
     () => analyzeTradeTendencies(rawData, rows),
     [rawData, rows],
@@ -110,29 +128,57 @@ export default function TradesPage() {
       <div className="card">
         <PageHeader
           title="Trade History"
-          subtitle={`Analyzing ${analysis.analyzed.length} trades in the last ${windowDays} days using alpha=${alpha}`}
+          subtitle={
+            combineMode
+              ? `Combined head-to-head history: ${teamFilter} ↔ ${teamFilterB} (assets that bounced back cancel out)`
+              : `Analyzing ${analysis.analyzed.length} trades in the last ${windowDays} days using alpha=${alpha}`
+          }
           actions={
             hasTrades && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
-                  className="input"
-                  type="search"
-                  placeholder="Search player or pick..."
-                  value={playerQuery}
-                  onChange={(e) => setPlayerQuery(e.target.value)}
-                  style={{ minWidth: 200 }}
-                />
+                {!combineMode && (
+                  <input
+                    className="input"
+                    type="search"
+                    placeholder="Search player or pick..."
+                    value={playerQuery}
+                    onChange={(e) => setPlayerQuery(e.target.value)}
+                    style={{ minWidth: 200 }}
+                  />
+                )}
                 {teams.length > 0 && (
                   <select
                     className="input"
                     value={teamFilter}
-                    onChange={(e) => setTeamFilter(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTeamFilter(v);
+                      // Clearing the first team, or matching the
+                      // second, drops the combine selection.
+                      if (!v || v === teamFilterB) setTeamFilterB("");
+                    }}
                     style={{ minWidth: 160 }}
                   >
                     <option value="">All teams</option>
                     {teams.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
+                  </select>
+                )}
+                {teams.length > 0 && teamFilter && (
+                  <select
+                    className="input"
+                    value={teamFilterB}
+                    onChange={(e) => setTeamFilterB(e.target.value)}
+                    style={{ minWidth: 180 }}
+                    aria-label="Combine with a second team"
+                  >
+                    <option value="">+ combine 2nd team…</option>
+                    {teams
+                      .filter((t) => t !== teamFilter)
+                      .map((t) => (
+                        <option key={t} value={t}>vs {t}</option>
+                      ))}
                   </select>
                 )}
               </div>
@@ -150,38 +196,51 @@ export default function TradesPage() {
         </div>
       )}
 
-      {/* Winners & Losers stats card */}
-      {hasTrades && <TeamScoresCard teamScores={analysis.teamScores} alpha={alpha} />}
-
-      {/* Trade tendencies */}
-      {hasTrades && tendencies.length > 0 && <TradeTendenciesCard tendencies={tendencies} />}
-
-      {/* Trade list */}
-      {filtered.length > 0 && (
-        <div className="list" style={{ marginTop: "var(--space-md)" }}>
-          {filtered.map((a, idx) => (
-            <TradeCard
-              key={idx}
-              analysis={a}
-              retroSides={retroByTrade.get(a.id) || []}
-            />
-          ))}
-        </div>
+      {/* Two-team combined view: one synthetic "big trade". */}
+      {hasTrades && combineMode && (
+        <CombinedTradeSection
+          combined={combined}
+          teamA={teamFilter}
+          teamB={teamFilterB}
+        />
       )}
 
-      {(teamFilter || playerQuery) && filtered.length === 0 && (
-        <div className="card">
-          <EmptyState
-            title="No trades match"
-            message={
-              teamFilter && playerQuery
-                ? `No trades for ${teamFilter} involving "${playerQuery}".`
-                : playerQuery
-                  ? `No trades involving "${playerQuery}".`
-                  : `No trades found for ${teamFilter}.`
-            }
-          />
-        </div>
+      {hasTrades && !combineMode && (
+        <>
+          {/* Winners & Losers stats card */}
+          <TeamScoresCard teamScores={analysis.teamScores} alpha={alpha} />
+
+          {/* Trade tendencies */}
+          {tendencies.length > 0 && <TradeTendenciesCard tendencies={tendencies} />}
+
+          {/* Trade list */}
+          {filtered.length > 0 && (
+            <div className="list" style={{ marginTop: "var(--space-md)" }}>
+              {filtered.map((a, idx) => (
+                <TradeCard
+                  key={idx}
+                  analysis={a}
+                  retroSides={retroByTrade.get(a.id) || []}
+                />
+              ))}
+            </div>
+          )}
+
+          {(teamFilter || playerQuery) && filtered.length === 0 && (
+            <div className="card">
+              <EmptyState
+                title="No trades match"
+                message={
+                  teamFilter && playerQuery
+                    ? `No trades for ${teamFilter} involving "${playerQuery}".`
+                    : playerQuery
+                      ? `No trades involving "${playerQuery}".`
+                      : `No trades found for ${teamFilter}.`
+                }
+              />
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -349,6 +408,36 @@ function fmtRetro(retro) {
   };
 }
 
+function CombinedTradeSection({ combined, teamA, teamB }) {
+  if (!combined) {
+    return (
+      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+        <EmptyState
+          title="No head-to-head trades"
+          message={`${teamA} and ${teamB} have never traded directly with each other (3+ team trades are not combined).`}
+        />
+      </div>
+    );
+  }
+  if (combined.wash) {
+    return (
+      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+        <EmptyState
+          title="Net wash"
+          message={`Across ${combined.tradeCount} trade${
+            combined.tradeCount === 1 ? "" : "s"
+          }, every asset ${teamA} and ${teamB} swapped eventually came back — the combined trade nets to nothing.`}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="list" style={{ marginTop: "var(--space-md)" }}>
+      <TradeCard analysis={combined} retroSides={[]} />
+    </div>
+  );
+}
+
 function TradeCard({ analysis: a, retroSides = [] }) {
   // Headline reflects the largest grievance — winner OR loser,
   // whichever has the biggest magnitude pctGap.  If no side clears
@@ -393,7 +482,9 @@ function TradeCard({ analysis: a, retroSides = [] }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-          Week {a.trade.week} &middot; {a.date}
+          {a.combined
+            ? `${a.teamA} ↔ ${a.teamB} · ${a.tradeCount} trade${a.tradeCount === 1 ? "" : "s"} combined`
+            : `Week ${a.trade.week} · ${a.date}`}
         </span>
         {showBadge ? (
           <span className="badge" style={{ background: badgeBg, color: badgeColor }}>
