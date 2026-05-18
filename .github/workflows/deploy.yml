@@ -74,9 +74,13 @@ jobs:
           # a hotfix pushed straight to main can't bypass it.
           python -m ruff format --check .
 
-      - name: Python lint (ruff check — report-only)
-        # Phase A2: non-blocking (mirrors pr-validation). Becomes a
-        # changed-files-only hard gate in A3.
+      - name: Python lint (ruff check — report-only mirror)
+        # Enforcement lives on the PR gate (pr-validation.yml runs the
+        # changed-files-only blocking ruff check; nothing reaches main
+        # without passing it). This post-merge whole-repo run stays
+        # report-only — a visible signal of the pre-existing backlog
+        # without re-deriving "changed files" from a merge commit,
+        # which is fragile and would gain nothing.
         if: ${{ always() }}
         continue-on-error: true
         shell: bash
