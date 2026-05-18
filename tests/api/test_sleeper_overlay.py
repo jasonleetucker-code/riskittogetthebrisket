@@ -216,6 +216,39 @@ def test_build_trades_block_resolves_unknown_id_via_players_dump(monkeypatch):
     assert "Deep Bencher" in by_rid[1]["got"]
 
 
+def test_fallback_name_map_does_not_cache_empty_result(monkeypatch):
+    """A non-empty ``/v1/players/nfl`` payload that yields zero usable
+    records (schema drift / missing name fields) must be treated as a
+    retry-eligible soft failure — NOT persisted as ``{}`` for the
+    process lifetime, which would leak raw ids until restart.
+    """
+    sleeper_overlay.reset_fallback_name_cache()
+    # Non-empty dump, but every record lacks any name field.
+    monkeypatch.setattr(
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses({"/players/nfl": {"4574": {"position": "WR"}}}),
+    )
+
+    result = sleeper_overlay._sleeper_fallback_name_map()
+    assert result == {}
+    # The empty map was NOT persisted — a later (post-window) attempt
+    # is still allowed to re-fetch.
+    assert sleeper_overlay._FALLBACK_NAMES is None
+
+    # Now a healthy payload resolves and IS cached.
+    sleeper_overlay.reset_fallback_name_cache()
+    monkeypatch.setattr(
+        sleeper_overlay,
+        "_http_get_json",
+        _stub_http_responses({"/players/nfl": {"4574": {"full_name": "Real Player"}}}),
+    )
+    healthy = sleeper_overlay._sleeper_fallback_name_map()
+    assert healthy == {"4574": "Real Player"}
+    assert sleeper_overlay._FALLBACK_NAMES == {"4574": "Real Player"}
+    sleeper_overlay.reset_fallback_name_cache()
+
+
 def test_build_trades_block_filters_incomplete_trades(monkeypatch):
     """Only ``status == "complete"`` trades are emitted.  Mid-flight
     proposals and rejected trades must not appear on /trades.

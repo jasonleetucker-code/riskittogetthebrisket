@@ -695,8 +695,13 @@ def _sleeper_fallback_name_map() -> dict[str, str]:
                 full = f"{str(pid).upper()} DEF"
             if full:
                 out[str(pid)] = full
-        # Only persist a non-empty result; an empty dump is treated as
-        # a soft failure (retry-eligible) above.
+        if not out:
+            # Non-empty payload but zero usable records (schema drift /
+            # missing name fields).  Treat as a retry-eligible soft
+            # failure — do NOT persist {} or every later miss leaks the
+            # raw id for the process lifetime.  ``_FALLBACK_ATTEMPT_AT``
+            # was stamped above so the retry stays rate-limited.
+            return {}
         _FALLBACK_NAMES = out
         return _FALLBACK_NAMES
 
