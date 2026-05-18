@@ -5,7 +5,6 @@ We mock the Sleeper HTTP calls so tests run offline."""
 from __future__ import annotations
 
 
-
 from src.api import draft_capital_fallback as dcf
 
 

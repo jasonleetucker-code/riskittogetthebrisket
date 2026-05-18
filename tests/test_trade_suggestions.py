@@ -9,7 +9,6 @@ Validates:
 - Serialization
 """
 
-
 from src.trade.suggestions import (
     PlayerAsset,
     RosterAnalysis,

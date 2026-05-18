@@ -6,7 +6,6 @@ for board-arbitrage trades (good for me on our model, plausible
 for the opponent on KTC).
 """
 
-
 from src.trade.finder import (
     Asset,
     TradeCandidate,
