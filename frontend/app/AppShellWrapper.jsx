@@ -189,7 +189,7 @@ function DesktopNav() {
   const { authenticated, logout } = useContext(AuthContext);
 
   return (
-    <header className="topbar desktop-only">
+    <header className="topbar desktop-only" data-html2canvas-ignore>
       <div className="topbar-inner">
         <Link href="/" className="brand">
           Risk It To Get The Brisket
@@ -290,7 +290,7 @@ function MobileNav() {
   }
 
   return (
-    <nav className="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
+    <nav className="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation" data-html2canvas-ignore>
       {visibleItems.map((item) => (
         <Link
           key={item.href}
@@ -360,7 +360,7 @@ function MobileTopBar() {
   })();
 
   return (
-    <header className="mobile-topbar mobile-only">
+    <header className="mobile-topbar mobile-only" data-html2canvas-ignore>
       <Link href="/" className="mobile-brand">Brisket</Link>
       <span className="mobile-page-title">{pageTitle}</span>
       <div className="mobile-topbar-actions">
