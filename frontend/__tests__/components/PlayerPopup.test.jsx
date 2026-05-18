@@ -1,0 +1,96 @@
+// PlayerPopup behavioral tests.
+//
+// PlayerPopup is wired through five context hooks + a network-fetching
+// child chart. We mock the hooks to controlled defaults and stub the
+// chart so the test exercises PlayerPopup's own behavior (render,
+// close affordances, add-to-trade) and nothing downstream.
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { makePlayer } from "../fixtures/players";
+
+vi.mock("@/components/AppShell", () => ({
+  useApp: () => ({ rows: [], rawData: {} }),
+}));
+vi.mock("@/components/useTeam", () => ({
+  useTeam: () => ({ selectedTeam: null }),
+}));
+vi.mock("@/components/useTerminal", () => ({
+  useTerminal: () => ({ signals: [] }),
+}));
+vi.mock("@/components/useUserState", () => ({
+  useUserState: () => ({
+    state: {},
+    toggleWatchlist: vi.fn(),
+    serverBacked: false,
+  }),
+}));
+vi.mock("@/components/useSettings", () => ({
+  useSettings: () => ({ settings: {} }),
+}));
+// Child chart fetches /api/data/player-source-history — stub it out.
+vi.mock("@/components/PlayerRankHistoryChart", () => ({
+  default: () => <div data-testid="rank-history-stub" />,
+}));
+// next/link needs the Next runtime; a plain anchor is enough here.
+vi.mock("next/link", () => ({
+  default: ({ children, href }) => <a href={href}>{children}</a>,
+}));
+
+import PlayerPopup from "@/components/PlayerPopup";
+
+beforeEach(() => {
+  // PlayerPopup loads ROS values via fetch in an effect.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
+  );
+});
+
+function renderPopup(extra = {}) {
+  const onClose = vi.fn();
+  const onAddToTrade = vi.fn();
+  const row = makePlayer();
+  render(
+    <PlayerPopup
+      row={row}
+      siteKeys={["ktc", "fantasycalc"]}
+      onClose={onClose}
+      onAddToTrade={onAddToTrade}
+      {...extra}
+    />,
+  );
+  return { onClose, onAddToTrade, row };
+}
+
+describe("PlayerPopup", () => {
+  it("renders the player and a close control", () => {
+    const { row } = renderPopup();
+    expect(screen.getAllByText(new RegExp(row.name, "i")).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: /close player details/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes on Escape", () => {
+    const { onClose } = renderPopup();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes when the close button is clicked", () => {
+    const { onClose } = renderPopup();
+    fireEvent.click(
+      screen.getByRole("button", { name: /close player details/i }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("adds to trade then closes", () => {
+    const { onClose, onAddToTrade, row } = renderPopup();
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`add ${row.name} to trade`, "i") }),
+    );
+    expect(onAddToTrade).toHaveBeenCalledWith(row);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
