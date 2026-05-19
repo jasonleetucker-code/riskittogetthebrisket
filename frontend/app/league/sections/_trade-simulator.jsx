@@ -11,6 +11,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { effectiveAuctionPower } from "@/lib/auction-power";
 
+// Stable selection identity.  The Sleeper-derived payload spans two
+// seasons whose ``pick`` labels collide ("1.01" appears for both), so
+// selection/keys must be season-qualified; single-season (workbook)
+// rows have no ``season`` and keep the bare label (unchanged behavior).
+const pickId = (p) => (p && p.season != null ? `${p.season}:${p.pick}` : p?.pick);
+
 function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
@@ -69,7 +75,7 @@ export default function TradeSimulator({ picks, teamTotals }) {
 
   const pickValue = (p) => p.adjustedDollarValue ?? p.dollarValue ?? 0;
   const sumSelected = (list, selected) =>
-    list.filter((p) => selected.has(p.pick)).reduce((s, p) => s + pickValue(p), 0);
+    list.filter((p) => selected.has(pickId(p))).reduce((s, p) => s + pickValue(p), 0);
 
   const sumOutA = sumSelected(picksA, sentFromA);
   const sumOutB = sumSelected(picksB, sentFromB);
@@ -171,7 +177,7 @@ export default function TradeSimulator({ picks, teamTotals }) {
           picks={picksA}
           selected={sentFromA}
           onTogglePick={(id) => togglePick("A", id)}
-          incoming={picksB.filter((p) => sentFromB.has(p.pick))}
+          incoming={picksB.filter((p) => sentFromB.has(pickId(p)))}
           pre={preA}
           post={postA}
           delta={deltaA}
@@ -190,7 +196,7 @@ export default function TradeSimulator({ picks, teamTotals }) {
           picks={picksB}
           selected={sentFromB}
           onTogglePick={(id) => togglePick("B", id)}
-          incoming={picksA.filter((p) => sentFromA.has(p.pick))}
+          incoming={picksA.filter((p) => sentFromA.has(pickId(p)))}
           pre={preB}
           post={postB}
           delta={deltaB}
@@ -313,12 +319,12 @@ function TradeSimulatorSide({
               </div>
             )}
             {picks.map((p) => {
-              const isSel = selected.has(p.pick);
+              const isSel = selected.has(pickId(p));
               return (
                 <button
-                  key={p.pick}
+                  key={pickId(p)}
                   type="button"
-                  onClick={() => onTogglePick(p.pick)}
+                  onClick={() => onTogglePick(pickId(p))}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -379,7 +385,7 @@ function TradeSimulatorSide({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {incoming.map((p) => (
                   <span
-                    key={p.pick}
+                    key={pickId(p)}
                     className="font-mono"
                     style={{
                       fontSize: "0.7rem",
