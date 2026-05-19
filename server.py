@@ -6113,6 +6113,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     team_totals = {t: v for t, v in zip(team_names, team_int_list)}
     total_budget = sum(team_int_list)
 
+    # Effective auction power — a relative concentration lens layered on
+    # top of raw capital (stacking premium for the biggest stacks,
+    # saturating once a team already dominates).  Zero-sum: still sums
+    # to ``total_budget``.  Raw ``teamTotals`` is left untouched.
+    from src.api.auction_power import effective_auction_power
+
+    effective_totals = effective_auction_power(team_totals)
+
     # Rookie pool — prefer our top-72 from the live contract (filtered
     # to rostered rookies via Sleeper ID), fall back to KTC if the
     # contract isn't loaded yet.  Each rookie's dollar value comes from
@@ -6180,7 +6188,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     return {
         "picks": all_picks,
-        "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
+        "teamTotals": [
+            {
+                "team": t,
+                "auctionDollars": v,
+                "effectiveAuctionDollars": effective_totals.get(t, v),
+            }
+            for t, v in sorted_teams
+        ],
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
@@ -6232,11 +6247,12 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             # in the UI so users see "Sleeper-derived" vs.
             # "workbook-calibrated".
             from src.api.draft_capital_fallback import build_sleeper_derived
+            from src.api.data_contract import current_rookie_draft_year
 
             result = build_sleeper_derived(
                 league_cfg.sleeper_league_id,
                 latest_contract_data or {},
-                current_season=datetime.now(timezone.utc).year,
+                current_season=current_rookie_draft_year(),
                 num_teams=league_cfg.roster_settings.get("teamCount", 12)
                 if hasattr(league_cfg, "roster_settings")
                 else 12,

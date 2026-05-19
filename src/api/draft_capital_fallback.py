@@ -209,6 +209,10 @@ def build_sleeper_derived(
     for name in roster_name_by_id.values():
         team_totals.setdefault(name, 0)
 
+    from src.api.auction_power import effective_auction_power
+
+    effective_totals = effective_auction_power(team_totals)
+
     return {
         "season": current_season,
         "numTeams": actual_num_teams,
@@ -217,7 +221,11 @@ def build_sleeper_derived(
         "source": "sleeper_derived",
         "viewLabel": "Sleeper-derived, flat per-round valuation",
         "teamTotals": [
-            {"team": t, "auctionDollars": d}
+            {
+                "team": t,
+                "auctionDollars": d,
+                "effectiveAuctionDollars": effective_totals.get(t, d),
+            }
             for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
         ],
         "picks": [

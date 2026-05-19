@@ -76,6 +76,12 @@ export default function DraftCapitalSection() {
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
           {data.season} draft · {data.numTeams} teams · {data.draftRounds} rounds · ${data.totalBudget} total budget
         </div>
+        <div style={{ fontSize: "0.66rem", color: "var(--muted)", marginBottom: 10 }}>
+          <span style={{ color: "var(--green)", fontWeight: 700 }}>green</span> = raw
+          auction $ ·{" "}
+          <span style={{ color: "var(--cyan)", fontWeight: 700 }}>▲ cyan</span> =
+          effective auction power (stacking-adjusted, zero-sum)
+        </div>
         <TeamTotalsChart
           teamTotals={data.teamTotals}
           picks={data.picks}
@@ -172,6 +178,33 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                 >
                   {fmtDollar(team.auctionDollars)}
                 </span>
+
+                {Number.isFinite(team.effectiveAuctionDollars) &&
+                  team.effectiveAuctionDollars !== team.auctionDollars && (
+                    <span
+                      className="font-mono"
+                      title={
+                        "Effective auction power: raw capital adjusted for stacking. " +
+                        "A clearly-biggest stack is worth more than its linear sum " +
+                        "(you can outbid the field for the #1 rookie); an " +
+                        "already-dominant stack saturates (extra picks worth less). " +
+                        "Zero-sum across the league."
+                      }
+                      style={{
+                        minWidth: 52,
+                        textAlign: "right",
+                        fontSize: "0.74rem",
+                        fontWeight: 600,
+                        color:
+                          team.effectiveAuctionDollars > team.auctionDollars
+                            ? "var(--cyan)"
+                            : "var(--muted)",
+                      }}
+                    >
+                      {team.effectiveAuctionDollars > team.auctionDollars ? "▲" : "▼"}
+                      {fmtDollar(team.effectiveAuctionDollars)}
+                    </span>
+                  )}
 
                 <span className="badge badge-cyan" style={{ fontSize: "0.64rem", padding: "1px 6px" }}>
                   {teamPicks.length}pk
