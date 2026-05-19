@@ -39,6 +39,12 @@ import {
   MAX_SIDES,
   MIN_SIDES,
 } from "@/lib/trade-logic";
+import {
+  parsePickAsset,
+  pickAuctionDollars,
+  buildSlotDollarGrid,
+  buildLeagueStacks,
+} from "@/lib/pick-stack";
 import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import RosTradeFitPanel from "@/components/RosTradeFitPanel";
@@ -495,6 +501,93 @@ export default function TradePage() {
     [sleeperTeams, teamRosterNames],
   );
 
+  // ── Stack-aware trade verdicts ───────────────────────────────────────
+  // A pick's worth depends on the receiving team's existing draft
+  // capital.  We pull the league's draft-capital ($1200) board, value
+  // every pick in the trade (tier picks = slot-average — see
+  // lib/pick-stack), recompute zero-sum effective auction power
+  // before/after the routed swap, and fold each team's change in
+  // premium into its side total.  Picks REQUIRE a resolved team on
+  // every side they touch; until then the verdict falls back to pure
+  // board value with a prompt.
+  const [draftCapital, setDraftCapital] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    // Scope to the page's own league so the stack math never mixes a
+    // switched active league's teams/picks with another league's
+    // draft-capital board (matches how useDynastyData scopes its
+    // contract fetch).
+    const qs = selectedLeagueKey
+      ? `?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+      : "";
+    setDraftCapital(null);
+    fetch(`/api/draft-capital${qs}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d && Array.isArray(d.picks)) setDraftCapital(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [selectedLeagueKey]);
+
+  const currentDraftYear = useMemo(() => {
+    const fromContract = Number(rawData?.currentDraftYear);
+    if (Number.isFinite(fromContract) && fromContract > 2000) return fromContract;
+    const fromDC = parseInt(String(draftCapital?.season || ""), 10);
+    return Number.isFinite(fromDC) ? fromDC : null;
+  }, [rawData, draftCapital]);
+
+  const boardValueByName = useCallback(
+    (name) => Number(rowByName.get(name)?.values?.full) || 0,
+    [rowByName],
+  );
+
+  // Per-side resolved league team (name).  An AUTO-inferred team must
+  // track the side's current assets (so swapping / clearing /
+  // importing a different team's package re-infers instead of keeping
+  // a stale roster); an explicit user selection is locked and
+  // preserved.  Choosing the blank option unlocks → back to auto.
+  const [sideTeamNames, setSideTeamNames] = useState([]);
+  const [sideTeamLocked, setSideTeamLocked] = useState([]);
+  useEffect(() => {
+    setSideTeamNames((prev) =>
+      sides.map((s, i) =>
+        sideTeamLocked[i] ? (prev[i] ?? null) : (inferTeamForSide(s)?.name ?? null),
+      ),
+    );
+  }, [sides, inferTeamForSide, sideTeamLocked]);
+
+  const tradeHasPicks = useMemo(
+    () => sides.some((s) => (s.assets || []).some((a) => a.assetClass === "pick")),
+    [sides],
+  );
+  // Gate: every side a pick is traded FROM *or* TO needs a resolved
+  // team — the stack effect needs both the sender's and the
+  // receiver's stack, so checking only pick-holding sides would let a
+  // missing destination team silently fall back to board value.
+  const stackGateUnmet = useMemo(() => {
+    if (!tradeHasPicks) return false;
+    const n = sides.length;
+    const involved = new Set();
+    sides.forEach((s, i) => {
+      for (const a of s.assets || []) {
+        if (a.assetClass !== "pick") continue;
+        involved.add(i);
+        let to;
+        if (n === 2) {
+          to = 1 - i;
+        } else {
+          const dest = s.destinations?.[a.name];
+          to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
+        }
+        if (to != null && to >= 0 && to < n) involved.add(to);
+      }
+    });
+    return [...involved].some((i) => sideTeamNames[i] == null);
+  }, [sides, sideTeamNames, tradeHasPicks]);
+
   // Hydrate roster input and team selection from localStorage.
   // The localStorage path is a fallback for bootstrap before
   // ``useTeam`` resolves; the effect below this one keeps the
@@ -661,32 +754,130 @@ export default function TradePage() {
     }));
   }, [sides, valueOverrides]);
 
+  // League stacks + routed pick-$ moves for the effective-power lens.
+  // null whenever the lens can't / shouldn't apply (no draft data, no
+  // picks, or the team gate is unmet) → verdict stays pure board value.
+  const stackContext = useMemo(() => {
+    if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
+      return null;
+    }
+    // Year-keyed slot-$ grid (handles the Sleeper-derived payload's two
+    // seasons with colliding round/slot pairs — see buildSlotDollarGrid).
+    const slotGrid = buildSlotDollarGrid(draftCapital);
+    const teamsPerRound = Number(draftCapital.numTeams) || 12;
+    const ctx = {
+      slotGrid,
+      teamsPerRound,
+      currentDraftYear,
+      boardValueByName,
+    };
+    // Future-year picks per team from Sleeper ownership.  Exclude every
+    // year the payload already accounts for in teamTotals so nothing is
+    // double-counted: the workbook path covers only the upcoming draft,
+    // but the Sleeper-derived (non-default-league) path covers BOTH the
+    // current and next season.  ``coveredPickYears`` states this
+    // explicitly; fall back to [currentDraftYear] if it's absent.
+    const coveredYears = new Set(
+      (Array.isArray(draftCapital.coveredPickYears) &&
+      draftCapital.coveredPickYears.length
+        ? draftCapital.coveredPickYears
+        : [currentDraftYear]
+      )
+        .map(Number)
+        .filter((y) => Number.isFinite(y)),
+    );
+    const pickRowsByTeam = {};
+    for (const team of sleeperTeams) {
+      const out = [];
+      for (const label of team.picks || []) {
+        const row = resolvePickRow(label, rowByLowerName, pickAliases);
+        if (!row) continue;
+        const parsed = parsePickAsset(row.name);
+        if (!parsed) continue;
+        if (coveredYears.has(parsed.year)) continue;
+        out.push(row.name);
+      }
+      if (out.length) pickRowsByTeam[team.name] = out;
+    }
+    const leagueStacks = buildLeagueStacks(draftCapital, pickRowsByTeam, ctx);
+
+    const n = sidesWithOverrides.length;
+    const moves = [];
+    sidesWithOverrides.forEach((s, i) => {
+      for (const a of s.assets || []) {
+        if (a.assetClass !== "pick") continue;
+        let to;
+        if (n === 2) {
+          to = 1 - i;
+        } else {
+          const dest = s.destinations?.[a.name];
+          to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
+        }
+        if (to == null || to === i || to < 0 || to >= n) continue;
+        moves.push({
+          from: i,
+          to,
+          dollars: pickAuctionDollars(a.name, ctx),
+          board: effectiveValue(a, valueMode, settings),
+        });
+      }
+    });
+    if (moves.length === 0) return null;
+    return { sideTeams: sideTeamNames, leagueStacks, moves };
+  }, [
+    draftCapital,
+    sleeperTeams,
+    tradeHasPicks,
+    stackGateUnmet,
+    currentDraftYear,
+    boardValueByName,
+    rowByLowerName,
+    pickAliases,
+    sidesWithOverrides,
+    sideTeamNames,
+    valueMode,
+    settings,
+  ]);
+
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the KTC-style Value Adjustment.
   // For N ≥ 3, each side's VA is computed against the merged opposition
   // (every other side's assets flattened) — see
-  // ``computeMultiSideAdjustments`` in trade-logic.js.
+  // ``computeMultiSideAdjustments`` in trade-logic.js.  ``stackContext``
+  // (when present) additionally folds the draft-capital stack effect
+  // into each side's adjusted total.
   const sideTotals = useMemo(() => {
     if (sidesWithOverrides.length === 2) {
-      const [a, b] = adjustedSideTotals(sidesWithOverrides[0].assets, sidesWithOverrides[1].assets, valueMode, settings);
+      const [a, b] = adjustedSideTotals(
+        sidesWithOverrides[0].assets,
+        sidesWithOverrides[1].assets,
+        valueMode,
+        settings,
+        stackContext,
+      );
       return [a, b];
     }
     if (sidesWithOverrides.length > 2) {
-      return multiAdjustedSideTotals(sidesWithOverrides.map((s) => s.assets), valueMode, settings);
+      return multiAdjustedSideTotals(
+        sidesWithOverrides.map((s) => s.assets),
+        valueMode,
+        settings,
+        stackContext,
+      );
     }
     return sidesWithOverrides.map((s) => {
       const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, adjusted: raw };
+      return { raw, adjustment: 0, stackAdjustment: 0, adjusted: raw };
     });
-  }, [sidesWithOverrides, valueMode, settings]);
+  }, [sidesWithOverrides, valueMode, settings, stackContext]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
   // the destinations map is ignored (assets implicitly go to the other
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () => computeSideFlows(sidesWithOverrides, valueMode, settings),
-    [sidesWithOverrides, valueMode, settings],
+    () => computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
+    [sidesWithOverrides, valueMode, settings, stackContext],
   );
 
   // Per-side incoming / outgoing asset lists.  This is the
@@ -1026,6 +1217,11 @@ export default function TradePage() {
         };
       });
     });
+    // Keep the per-side team selection/lock arrays index-aligned with
+    // the surviving sides (splice the removed slot) so a locked team
+    // can't slide onto the wrong side after a removal.
+    setSideTeamNames((prev) => prev.filter((_, i) => i !== idx));
+    setSideTeamLocked((prev) => prev.filter((_, i) => i !== idx));
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
   }
@@ -2009,8 +2205,106 @@ export default function TradePage() {
             </div>
           )}
 
+          {/* ── Team selectors (drive the draft-capital stack effect) ── */}
+          {tradeHasPicks && sleeperTeams && (
+            <div
+              style={{
+                margin: "10px 0",
+                padding: "10px 12px",
+                border: stackGateUnmet
+                  ? "1px solid var(--cyan)"
+                  : "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8,
+                background: "rgba(8, 19, 44, 0.55)",
+              }}
+            >
+              <div
+                className="muted"
+                style={{ fontSize: "0.72rem", marginBottom: 8 }}
+              >
+                Picks are in this trade — their worth depends on each
+                team&rsquo;s draft-capital stack. Select the team on each
+                side:
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {sides.map((s, i) => (
+                  <label
+                    key={s.id ?? i}
+                    style={{
+                      fontSize: "0.8rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>Side {s.label}</span>
+                    <select
+                      className="input"
+                      style={{ minWidth: 150 }}
+                      value={sideTeamNames[i] ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value || null;
+                        setSideTeamNames((prev) => {
+                          const next = [...prev];
+                          next[i] = v;
+                          return next;
+                        });
+                        // Picking a team locks it (don't re-infer);
+                        // the blank option unlocks → auto-infer again.
+                        setSideTeamLocked((prev) => {
+                          const next = [...prev];
+                          next[i] = v != null;
+                          return next;
+                        });
+                      }}
+                    >
+                      <option value="">— select team —</option>
+                      {sleeperTeams.map((t) => (
+                        <option key={t.name} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              {stackGateUnmet && (
+                <div
+                  style={{
+                    fontSize: "0.72rem",
+                    color: "var(--cyan)",
+                    marginTop: 8,
+                  }}
+                >
+                  Verdict is showing pure board value. Assign a team to
+                  every side a pick is traded to or from to apply the
+                  draft-capital stack effect.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Trade Meter (inline fairness visualization) ──────── */}
           <TradeMeter sides={sides} sideTotals={sideTotals} flows={sideFlows} valueMode={valueMode} settings={settings} />
+
+          {/* ── Stack-effect transparency (never a silent verdict shift) ── */}
+          {stackContext &&
+            sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) && (
+              <div
+                className="muted"
+                style={{ fontSize: "0.74rem", margin: "6px 0 2px" }}
+                title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+              >
+                Draft-capital stack effect —{" "}
+                {sideTotals
+                  .map((t, i) => {
+                    const v = Math.round(t?.stackAdjustment || 0);
+                    const sign = v > 0 ? "+" : "";
+                    return `Side ${sides[i]?.label ?? i + 1}: ${sign}${v}`;
+                  })
+                  .join(" · ")}
+              </div>
+            )}
 
           {/* ── Why this trade is fair: 1-2 sentence explanation that
               calls out the biggest source driver / dissenter so users

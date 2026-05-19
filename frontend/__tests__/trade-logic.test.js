@@ -14,6 +14,7 @@ import {
   computeMultiSideAdjustments,
   adjustedSideTotals,
   multiAdjustedSideTotals,
+  computeStackAdjustments,
   tradeGapAdjusted,
   VA_SCARCITY_SLOPE,
   VA_SCARCITY_INTERCEPT,
@@ -1431,6 +1432,28 @@ describe("computeSideFlows", () => {
     expect(flows[2]).toEqual({ given: 0, received: 0, net: 0 });
   });
 
+  it("folds the stack premium into net (3-team, stack-aware verdict)", () => {
+    const PK = makeRow("2026 Pick 1.01", 5000, "PICK", "pick");
+    const sides = [
+      { id: 0, label: "A", assets: [PK], destinations: { "2026 Pick 1.01": 1 } },
+      { id: 1, label: "B", assets: [makeRow("WR1", 4000, "WR")], destinations: { WR1: 2 } },
+      { id: 2, label: "C", assets: [makeRow("RB1", 3000, "RB")], destinations: { RB1: 0 } },
+    ];
+    const ctx = {
+      sideTeams: ["TA", "TB", "TC"],
+      leagueStacks: { TA: 120, TB: 300, TC: 90, TD: 80, TE: 70 },
+      moves: [{ from: 0, to: 1, dollars: 60, board: 5000 }],
+    };
+    const plain = computeSideFlows(sides, "full");
+    const stacked = computeSideFlows(sides, "full", null, ctx);
+    const stackAdj = computeStackAdjustments(3, ctx);
+    for (let i = 0; i < 3; i++) {
+      expect(stacked[i].net).toBeCloseTo(plain[i].net + stackAdj[i], 6);
+    }
+    // The pick recipient (TB, side 1) gains a real premium delta.
+    expect(stackAdj[1]).not.toBe(0);
+  });
+
   it("NET flow always sums to zero across all sides (conservation)", () => {
     const sides = [
       { id: 0, label: "A", assets: [ALLEN, MAHOMES], destinations: { "Josh Allen": 1, "Patrick Mahomes": 2 } },
@@ -1761,5 +1784,115 @@ describe("multi-team total calculations", () => {
       sideTotal([PARSONS], "full"),
     ];
     expect(totals).toEqual([9000, 8500, 5000]);
+  });
+});
+
+// ── Draft-capital stack effect (Option #2) ──────────────────────────
+//
+// computeStackAdjustments recomputes zero-sum effective auction power
+// before/after the routed pick-$ swap and returns each side's change
+// in premium, in board-value units (× the trade's board-$ ratio).
+
+describe("computeStackAdjustments", () => {
+  it("returns zeros without a context", () => {
+    expect(computeStackAdjustments(2, null)).toEqual([0, 0]);
+    expect(computeStackAdjustments(3, undefined)).toEqual([0, 0, 0]);
+  });
+
+  it("returns zeros when required fields are missing or no moves", () => {
+    expect(computeStackAdjustments(2, { sideTeams: ["A", "B"] })).toEqual([0, 0]);
+    expect(
+      computeStackAdjustments(2, {
+        sideTeams: ["A", "B"],
+        leagueStacks: { A: 1, B: 1 },
+        moves: [],
+      }),
+    ).toEqual([0, 0]);
+  });
+
+  it("gates: a move whose side has no team yields zeros", () => {
+    const ctx = {
+      sideTeams: [null, "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85 },
+      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+    };
+    expect(computeStackAdjustments(2, ctx)).toEqual([0, 0]);
+  });
+
+  it("a pick that leapfrogs the field credits the receiver, debits the sender", () => {
+    // B (side 1) sends $20 of picks to A (side 0); A 175→195 passes
+    // the old leader (B 180→160) and becomes the clear top stack.
+    const ctx = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+    };
+    const [adjA, adjB] = computeStackAdjustments(2, ctx);
+    expect(adjA).toBeGreaterThan(0);
+    expect(adjB).toBeLessThan(0);
+    // k = board/dollars = 1 here, so the magnitudes are real premium $.
+    expect(Math.abs(adjA)).toBeGreaterThan(1);
+  });
+
+  it("scales by the trade's board-$ ratio (k)", () => {
+    const base = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+    };
+    const k1 = computeStackAdjustments(2, {
+      ...base,
+      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+    });
+    const k10 = computeStackAdjustments(2, {
+      ...base,
+      moves: [{ from: 1, to: 0, dollars: 20, board: 200 }],
+    });
+    // Same $ swap, 10× the board value per $ → 10× the board-unit adj.
+    expect(k10[0]).toBeCloseTo(k1[0] * 10, 4);
+  });
+});
+
+describe("adjustedSideTotals / multiAdjustedSideTotals with stack", () => {
+  const A = makeRow("Player A", 3000, "WR");
+  const PICK = makeRow("2026 Pick 1.02", 4000, "PICK", "pick");
+
+  it("is backward compatible without a stackContext", () => {
+    const [a, b] = adjustedSideTotals([A], [PICK], "full");
+    expect(a.stackAdjustment).toBe(0);
+    expect(b.stackAdjustment).toBe(0);
+    expect(a.adjusted).toBe(a.raw + a.adjustment);
+    expect(b.adjusted).toBe(b.raw + b.adjustment);
+  });
+
+  it("adjusted = raw + adjustment − stackAdjustment (premium reduces what you give)", () => {
+    // B (side 1) sends the pick to A (side 0); A's stack leapfrogs the
+    // field so A GAINS premium (stackAdjustment[0] > 0).  A benefited
+    // from what it received, so A's giving total must go DOWN, not up.
+    const ctx = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+    };
+    const totals = adjustedSideTotals([A], [PICK], "full", null, ctx);
+    for (const t of totals) {
+      expect(t.adjusted).toBeCloseTo(t.raw + t.adjustment - t.stackAdjustment, 6);
+    }
+    expect(totals[0].stackAdjustment).toBeGreaterThan(0);
+    // A receives the leapfrog pick → A appears to give LESS (favored).
+    expect(totals[0].adjusted).toBeLessThan(totals[0].raw + totals[0].adjustment);
+  });
+
+  it("multiAdjustedSideTotals exposes stackAdjustment for 3 sides", () => {
+    const totals = multiAdjustedSideTotals(
+      [[A], [PICK], [makeRow("Player C", 2000, "RB")]],
+      "full",
+      null,
+      null,
+    );
+    expect(totals).toHaveLength(3);
+    for (const t of totals) {
+      expect(t.stackAdjustment).toBe(0);
+      expect(t.adjusted).toBe(t.raw + t.adjustment);
+    }
   });
 });

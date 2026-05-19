@@ -65,6 +65,10 @@ def test_basic_build_returns_expected_shape(monkeypatch):
     assert result["source"] == "sleeper_derived"
     assert result["numTeams"] == 10
     assert result["totalBudget"] == 1200
+    # Both seasons are baked into teamTotals; consumers must skip these
+    # years when adding roster picks so the next class isn't counted
+    # twice (regression guard for the stack-effect builder).
+    assert result["coveredPickYears"] == [2026, 2027]
     # 10 teams × 4 rounds × 2 seasons = 80 picks.
     assert len(result["picks"]) == 80
     # Sum of per-pick dollars = total budget.
