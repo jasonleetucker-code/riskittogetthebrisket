@@ -214,6 +214,11 @@ def build_sleeper_derived(
         "numTeams": actual_num_teams,
         "draftRounds": draft_rounds,
         "totalBudget": _TARGET_TOTAL_BUDGET,
+        # This path builds picks for BOTH the current and next season
+        # (see the ``for season in (current_season, current_season + 1)``
+        # loop above), so both years are already in ``teamTotals``.
+        # Consumers must not also add roster picks for these years.
+        "coveredPickYears": [int(current_season), int(current_season) + 1],
         "source": "sleeper_derived",
         "viewLabel": "Sleeper-derived, flat per-round valuation",
         "teamTotals": [

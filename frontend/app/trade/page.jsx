@@ -777,9 +777,21 @@ export default function TradePage() {
       boardValueByName,
       ownedSlotDollar: (nm) => slotDollarByName.get(nm),
     };
-    // Future-year picks per team from Sleeper ownership (the upcoming
-    // draft is already in draftCapital.teamTotals — exclude it here so
-    // it isn't double-counted).
+    // Future-year picks per team from Sleeper ownership.  Exclude every
+    // year the payload already accounts for in teamTotals so nothing is
+    // double-counted: the workbook path covers only the upcoming draft,
+    // but the Sleeper-derived (non-default-league) path covers BOTH the
+    // current and next season.  ``coveredPickYears`` states this
+    // explicitly; fall back to [currentDraftYear] if it's absent.
+    const coveredYears = new Set(
+      (Array.isArray(draftCapital.coveredPickYears) &&
+      draftCapital.coveredPickYears.length
+        ? draftCapital.coveredPickYears
+        : [currentDraftYear]
+      )
+        .map(Number)
+        .filter((y) => Number.isFinite(y)),
+    );
     const pickRowsByTeam = {};
     for (const team of sleeperTeams) {
       const out = [];
@@ -788,7 +800,7 @@ export default function TradePage() {
         if (!row) continue;
         const parsed = parsePickAsset(row.name);
         if (!parsed) continue;
-        if (currentDraftYear != null && parsed.year === currentDraftYear) continue;
+        if (coveredYears.has(parsed.year)) continue;
         out.push(row.name);
       }
       if (out.length) pickRowsByTeam[team.name] = out;
