@@ -830,9 +830,14 @@ export function adjustedSideTotals(
   const adjA = recipientIdx === 0 ? adjustment : 0;
   const adjB = recipientIdx === 1 ? adjustment : 0;
   const [stackA, stackB] = computeStackAdjustments(2, stackContext);
+  // stackX = the premium team X GAINS from the picks it RECEIVES in
+  // this trade (positive = its stack improved).  A side that benefits
+  // from what it's receiving effectively gives up LESS, so the premium
+  // is SUBTRACTED from that side's giving total — never added to the
+  // side that happened to hold the pick.
   return [
-    { raw: rawA, adjustment: adjA, stackAdjustment: stackA, adjusted: rawA + adjA + stackA },
-    { raw: rawB, adjustment: adjB, stackAdjustment: stackB, adjusted: rawB + adjB + stackB },
+    { raw: rawA, adjustment: adjA, stackAdjustment: stackA, adjusted: rawA + adjA - stackA },
+    { raw: rawB, adjustment: adjB, stackAdjustment: stackB, adjusted: rawB + adjB - stackB },
   ];
 }
 
@@ -863,7 +868,9 @@ export function multiAdjustedSideTotals(
       raw,
       adjustment,
       stackAdjustment,
-      adjusted: raw + adjustment + stackAdjustment,
+      // Premium a side gains from what it receives reduces what it
+      // effectively gives up (see adjustedSideTotals).
+      adjusted: raw + adjustment - stackAdjustment,
     };
   });
 }
@@ -1362,7 +1369,12 @@ export function computeSideFlowAssets(sides) {
  * @param {object} [settings]
  * @returns {{given: number, received: number, net: number}[]}
  */
-export function computeSideFlows(sides, valueMode, settings = null) {
+export function computeSideFlows(
+  sides,
+  valueMode,
+  settings = null,
+  stackContext = null,
+) {
   const n = Array.isArray(sides) ? sides.length : 0;
   const result = [];
   for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0 });
@@ -1396,8 +1408,13 @@ export function computeSideFlows(sides, valueMode, settings = null) {
       result[dest].received += value;
     }
   }
+  // Fold the draft-capital stack premium into net so the multi-team
+  // verdict bar (which renders from net, not adjusted totals) reflects
+  // the same stack-aware result as the 2-team path.  A team's premium
+  // from the picks it receives is extra value it nets.
+  const stack = computeStackAdjustments(n, stackContext);
   for (let i = 0; i < n; i++) {
-    result[i].net = result[i].received - result[i].given;
+    result[i].net = result[i].received - result[i].given + (stack[i] || 0);
   }
   return result;
 }

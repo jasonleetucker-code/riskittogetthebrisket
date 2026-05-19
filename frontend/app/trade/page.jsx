@@ -552,14 +552,29 @@ export default function TradePage() {
     () => sides.some((s) => (s.assets || []).some((a) => a.assetClass === "pick")),
     [sides],
   );
-  // Gate: every side that holds a pick must have a resolved team.
+  // Gate: every side a pick is traded FROM *or* TO needs a resolved
+  // team — the stack effect needs both the sender's and the
+  // receiver's stack, so checking only pick-holding sides would let a
+  // missing destination team silently fall back to board value.
   const stackGateUnmet = useMemo(() => {
     if (!tradeHasPicks) return false;
-    return sides.some(
-      (s, i) =>
-        (s.assets || []).some((a) => a.assetClass === "pick") &&
-        sideTeamNames[i] == null,
-    );
+    const n = sides.length;
+    const involved = new Set();
+    sides.forEach((s, i) => {
+      for (const a of s.assets || []) {
+        if (a.assetClass !== "pick") continue;
+        involved.add(i);
+        let to;
+        if (n === 2) {
+          to = 1 - i;
+        } else {
+          const dest = s.destinations?.[a.name];
+          to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
+        }
+        if (to != null && to >= 0 && to < n) involved.add(to);
+      }
+    });
+    return [...involved].some((i) => sideTeamNames[i] == null);
   }, [sides, sideTeamNames, tradeHasPicks]);
 
   // Hydrate roster input and team selection from localStorage.
@@ -844,8 +859,8 @@ export default function TradePage() {
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () => computeSideFlows(sidesWithOverrides, valueMode, settings),
-    [sidesWithOverrides, valueMode, settings],
+    () => computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
+    [sidesWithOverrides, valueMode, settings, stackContext],
   );
 
   // Per-side incoming / outgoing asset lists.  This is the
@@ -2232,8 +2247,8 @@ export default function TradePage() {
                   }}
                 >
                   Verdict is showing pure board value. Assign a team to
-                  every side holding a pick to apply the draft-capital
-                  stack effect.
+                  every side a pick is traded to or from to apply the
+                  draft-capital stack effect.
                 </div>
               )}
             </div>
