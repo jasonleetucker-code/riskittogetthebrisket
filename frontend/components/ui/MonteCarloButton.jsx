@@ -31,8 +31,9 @@ function _payloadFromSides(sides, valueMode, settings) {
     const assets = sides?.[i]?.assets || [];
     return assets.map((r) => {
       // Use the SAME per-player value the trade builder displays
-      // (values[valueMode] × pickYearDiscount for picks).  This
-      // is the canonical "what is this player worth" number.
+      // (backend-authoritative values[valueMode]; the pick-year
+      // discount is already baked in upstream).  This is the
+      // canonical "what is this player worth" number.
       const v = effectiveValue(r, valueMode, settings) || 0;
       // Build the consensus band centered on v.  Width comes from
       // the row's existing valueBand if present (real source-

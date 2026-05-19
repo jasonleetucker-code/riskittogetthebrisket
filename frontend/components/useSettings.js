@@ -65,8 +65,9 @@ export const SETTINGS_DEFAULTS = {
   // this toggle is purely about rendered column clutter.
   hiddenSiteCols: {},
 
-  // Pick settings
-  pickCurrentYear: 2026,
+  // (Removed) pickCurrentYear — the future-year pick discount and its
+  // self-rolling current draft year are now backend-owned
+  // (src/api/data_contract.py); the frontend no longer re-discounts.
 
   // Per-user source override map.  Shape:
   //   { [sourceKey]: { include?: boolean, weight?: number } }

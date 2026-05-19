@@ -550,18 +550,13 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Pick Settings" defaultOpen={false}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-          <label style={{ fontSize: "0.82rem" }}>Current Draft Year</label>
-          <input
-            type="number" min={2024} max={2030}
-            value={settings.pickCurrentYear}
-            onChange={(e) => update("pickCurrentYear", parseInt(e.target.value) || 2026)}
-            className="input" style={{ width: 80 }}
-          />
-        </div>
-        <p className="muted" style={{ fontSize: "0.72rem" }}>
-          Picks from future years are automatically discounted in trade calculations:
-          current year = 100%, +1 year = 85%, +2 years = 72%, +3+ years = 60%.
+        <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0 }}>
+          Future-year pick values are discounted automatically by the
+          ranking engine, and the &ldquo;current draft year&rdquo; now
+          rolls forward on its own from the live data — the next draft
+          carries no penalty, and further-out picks are discounted by
+          distance.  There is no longer a manual draft-year setting to
+          keep in sync.
         </p>
       </Section>
 

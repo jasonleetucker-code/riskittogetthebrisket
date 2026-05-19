@@ -7912,6 +7912,10 @@ def build_api_data_contract(
         **base,
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
+        # The resolved active rookie-draft year (offset-0, no-penalty
+        # class).  Self-rolls with the scrape; serialized so frontend
+        # calculators don't carry their own stale copy.
+        "currentDraftYear": current_rookie_draft_year(),
         "playersArray": players_array,
         "playerCount": len(players_array),
         "valueAuthority": (None if _for_delta else _build_value_authority_summary(players_array)),
@@ -8068,6 +8072,7 @@ def build_rankings_delta_payload(
     payload: dict[str, Any] = {
         "contractVersion": full.get("contractVersion"),
         "generatedAt": full.get("generatedAt"),
+        "currentDraftYear": full.get("currentDraftYear"),
         "date": full.get("date"),
         "scrapeTimestamp": full.get("scrapeTimestamp"),
         "mode": "delta",

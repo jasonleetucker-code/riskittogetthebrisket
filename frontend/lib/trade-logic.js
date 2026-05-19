@@ -143,62 +143,39 @@ export function ktcSolveForAddedValue(target, t, v = KTC_V_OVERALL_MAX) {
   return (lo + hi) / 2;
 }
 
-// ── Pick Year Discount ──────────────────────────────────────────────────
-// Future-year picks are worth less than current-year picks.
-// Matches static: year+1 → 0.85, year+2 → 0.72, year+3+ → 0.60
-const PICK_YEAR_DISCOUNTS = [1.0, 0.85, 0.72, 0.60];
+// ── Pick Year Discount: backend-owned ───────────────────────────────────
+// The future-year pick discount is applied ONCE, in the backend
+// canonical pipeline (src/api/data_contract.py::_pick_year_discount_for,
+// keyed off the self-rolling current_rookie_draft_year()), and is
+// already baked into every pick's ``rankDerivedValue``.  The frontend
+// must NOT re-discount: a second client-side multiply was a double
+// discount (backend 0.82 × old client 0.85, with divergent constants
+// and a hard-coded, non-self-rolling year).  Removed — the backend is
+// the single source of truth, same as TEP (see ``effectiveValue``).
+// The resolved year is serialized as ``contract.currentDraftYear`` for
+// display only.
 
 /**
- * Pick year discount multiplier.
- * @param {string} pickName - Pick name (e.g. "2027 Early 1st")
- * @param {number} currentYear - Current draft year from settings
- * @returns {number} Multiplier (1.0 for current year, <1 for future)
- */
-export function pickYearDiscount(pickName, currentYear) {
-  const m = String(pickName || "").match(/^(20\d{2})/);
-  if (!m) return 1.0;
-  const pickYear = parseInt(m[1], 10);
-  const delta = Math.max(0, pickYear - currentYear);
-  return PICK_YEAR_DISCOUNTS[Math.min(delta, PICK_YEAR_DISCOUNTS.length - 1)];
-}
-
-/**
- * Get the effective value for a row, adjusted by pick year discount.
+ * Get the effective value for a row.
  *
- * NOTE: TE premium is NOT applied here.  ``settings.tepMultiplier``
- * is threaded through the backend rankings override pipeline (see
- * ``frontend/lib/dynasty-data.js::fetchDynastyData`` and
- * ``src/api/data_contract.py::_compute_unified_rankings``), which
- * bakes the boost into every TE row's ``rankDerivedValue`` stamp
- * before the contract reaches the trade calculator.  Multiplying
- * again on render would double-boost every TE whenever the TEP
- * slider is > 1.0, and would completely miss the TEP-native source
- * carve-out (dynastyNerdsSfTep).  The backend is now the single
- * source of truth for TEP — do NOT reintroduce the multiplication
- * here.
+ * NEITHER the TE premium NOR the future-year pick discount is applied
+ * here — both are baked into the backend ``rankDerivedValue`` (TEP via
+ * the rankings override pipeline; the pick-year discount via
+ * ``src/api/data_contract.py::_pick_year_discount_for`` off the
+ * self-rolling ``current_rookie_draft_year()``).  ``row.values``
+ * already carries those.  Re-applying either on render would
+ * double-count — the backend is the single source of truth.  Do NOT
+ * reintroduce a client-side multiply here.
  *
  * @param {object} row - Player row
  * @param {string} valueMode - Value mode key
- * @param {object} [settings] - User settings (from useSettings)
+ * @param {object} [_settings] - Accepted for call-site compatibility; unused.
  * @returns {number}
  */
-export function effectiveValue(row, valueMode, settings) {
-  // Trade-specific value override set via the per-player override input.
-  // Returns the override directly, bypassing the pick-year discount so
-  // the user's typed number is the exact value used in the trade math.
+export function effectiveValue(row, valueMode, _settings) {
+  // Per-player trade override: the user's typed number is used verbatim.
   if (row.customValue != null && row.customValue > 0) return row.customValue;
-  let raw = Number(row.values?.[valueMode] || 0);
-
-  if (!settings || raw <= 0) return raw;
-  const pos = row.pos || "WR";
-  let val = raw;
-
-  // Pick year discount for future picks
-  if (pos === "PICK" && settings.pickCurrentYear) {
-    val *= pickYearDiscount(row.name, settings.pickCurrentYear);
-  }
-
-  return val;
+  return Number(row.values?.[valueMode] || 0);
 }
 
 /** Simple linear total (sum of values). */
