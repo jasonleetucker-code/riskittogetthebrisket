@@ -22,7 +22,6 @@ import {
   VA_PER_EXTRA_BOOST,
   VA_EFFECTIVE_CAP,
   effectiveValue,
-  pickYearDiscount,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -1159,29 +1158,14 @@ describe("settings-aware sideTotal", () => {
   });
 });
 
-// ── Pick year discount ──────────────────────────────────────────────
-
-describe("pickYearDiscount", () => {
-  it("current year gets 1.0", () => {
-    expect(pickYearDiscount("2026 Early 1st", 2026)).toBe(1.0);
-  });
-
-  it("year+1 gets 0.85", () => {
-    expect(pickYearDiscount("2027 Mid 2nd", 2026)).toBe(0.85);
-  });
-
-  it("year+2 gets 0.72", () => {
-    expect(pickYearDiscount("2028 Late 1st", 2026)).toBe(0.72);
-  });
-
-  it("year+3 gets 0.60", () => {
-    expect(pickYearDiscount("2029 Early 1st", 2026)).toBe(0.60);
-  });
-
-  it("non-pick returns 1.0", () => {
-    expect(pickYearDiscount("Josh Allen", 2026)).toBe(1.0);
-  });
-});
+// ── Pick year discount is backend-owned (no client-side function) ───
+//
+// The future-year pick discount + its self-rolling current draft year
+// live in src/api/data_contract.py and are baked into rankDerivedValue
+// before the contract reaches the client.  The old client-side
+// pickYearDiscount() helper was removed (it double-discounted with
+// divergent, non-self-rolling constants).  effectiveValue now returns
+// pick values verbatim — pinned below.
 
 // ── TEP is backend-authoritative — effectiveValue MUST NOT re-apply it ──
 //
@@ -1217,9 +1201,9 @@ describe("effectiveValue leaves TEP alone (backend-authoritative)", () => {
     expect(val).toBe(8500);
   });
 
-  it("pick year discount still applies for future picks", () => {
-    // The pick year discount path is the only remaining adjustment
-    // inside effectiveValue.  Backend TEP lives elsewhere.
+  it("future pick is returned verbatim — discount is backend-baked", () => {
+    // The pick-year discount is applied once, in the backend, and is
+    // already in values.full.  effectiveValue must NOT re-discount.
     const FUTURE_PICK = makeRow("2028 Early 1st", 7000, "PICK", "pick");
     const settings = {
       leagueFormat: "superflex",
@@ -1227,26 +1211,30 @@ describe("effectiveValue leaves TEP alone (backend-authoritative)", () => {
       pickCurrentYear: 2026,
     };
     const val = effectiveValue(FUTURE_PICK, "full", settings);
-    // 2028 - 2026 = 2 year discount = 0.72 multiplier
-    expect(val).toBeCloseTo(7000 * 0.72, 0);
+    expect(val).toBe(7000);
   });
 });
 
-// ── Pick year discount in effectiveValue ────────────────────────────
+// ── effectiveValue does not re-discount picks (backend-authoritative) ─
 
-describe("effectiveValue with pick discount", () => {
+describe("effectiveValue picks: no client-side discount", () => {
   const PICK_2027 = makeRow("2027 Early 1st", 7000, "PICK", "pick");
 
-  it("future pick gets discounted", () => {
-    const settings = { leagueFormat: "superflex", pickCurrentYear: 2026 };
-    const val = effectiveValue(PICK_2027, "full", settings);
-    expect(val).toBeCloseTo(7000 * 0.85, 0);
+  it("future pick value is returned verbatim", () => {
+    const settings = { leagueFormat: "superflex" };
+    expect(effectiveValue(PICK_2027, "full", settings)).toBe(7000);
   });
 
-  it("current year pick is not discounted", () => {
-    const settings = { leagueFormat: "superflex", pickCurrentYear: 2027 };
-    const val = effectiveValue(PICK_2027, "full", settings);
-    expect(val).toBe(7000);
+  it("legacy pickCurrentYear setting is ignored", () => {
+    // Even if a stale client still passes pickCurrentYear, it has no
+    // effect — the discount is backend-owned.
+    const settings = { leagueFormat: "superflex", pickCurrentYear: 2026 };
+    expect(effectiveValue(PICK_2027, "full", settings)).toBe(7000);
+  });
+
+  it("per-player custom override still wins", () => {
+    const row = { ...PICK_2027, customValue: 5000 };
+    expect(effectiveValue(row, "full", { leagueFormat: "superflex" })).toBe(5000);
   });
 });
 

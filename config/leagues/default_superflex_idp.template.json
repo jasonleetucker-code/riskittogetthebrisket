@@ -24,11 +24,5 @@
   "flex_eligible": ["RB", "WR", "TE"],
   "sflex_eligible": ["QB", "RB", "WR", "TE"],
   "idp_flex_eligible": ["DL", "LB", "DB"],
-  "pick_model": {
-    "future_year_discount": {
-      "2026": 1.0,
-      "2027": 0.88,
-      "2028": 0.78
-    }
-  }
+  "_pick_model_note": "Future-year pick discount is NOT configured here. The single source of truth on the live /api/data path is config/weights/pick_year_discount.json (offset-from-current-draft-year schema). The old future_year_discount block here was dead config and has been removed."
 }

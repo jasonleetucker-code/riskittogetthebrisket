@@ -9,6 +9,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { effectiveAuctionPower } from "./_auction-power";
+
 function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
@@ -79,6 +81,29 @@ export default function TradeSimulator({ picks, teamTotals }) {
   const deltaA = postA - preA;
   const deltaB = postB - preB;
 
+  // Effective auction power (stacking lens) pre/post — recomputed over
+  // the whole field because the lens is relative + zero-sum.
+  const rawTotals = useMemo(() => {
+    const o = {};
+    for (const t of teamTotals || []) o[t.team] = t.auctionDollars || 0;
+    return o;
+  }, [teamTotals]);
+  const preEffMap = useMemo(() => effectiveAuctionPower(rawTotals), [rawTotals]);
+  const postEffMap = useMemo(() => {
+    if (teamA && teamB && teamA === teamB) return preEffMap;
+    const post = { ...rawTotals };
+    if (teamA in post) post[teamA] = preA - sumOutA + sumOutB;
+    if (teamB in post) post[teamB] = preB - sumOutB + sumOutA;
+    return effectiveAuctionPower(post);
+  }, [rawTotals, teamA, teamB, preA, preB, sumOutA, sumOutB, preEffMap]);
+
+  const preEffA = preEffMap[teamA] ?? 0;
+  const preEffB = preEffMap[teamB] ?? 0;
+  const postEffA = postEffMap[teamA] ?? preEffA;
+  const postEffB = postEffMap[teamB] ?? preEffB;
+  const deltaEffA = postEffA - preEffA;
+  const deltaEffB = postEffB - preEffB;
+
   const togglePick = (side, pickId) => {
     const setter = side === "A" ? setSentFromA : setSentFromB;
     setter((prev) => {
@@ -114,7 +139,8 @@ export default function TradeSimulator({ picks, teamTotals }) {
       >
         <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Trade Simulator</span>
         <span className="text-xs muted">
-          Pick two teams, toggle the picks each sends, and see how the auction dollars shake out.
+          Pick two teams, toggle the picks each sends, and see how raw auction
+          dollars and stacking-adjusted effective power shake out.
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <button
@@ -149,6 +175,9 @@ export default function TradeSimulator({ picks, teamTotals }) {
           pre={preA}
           post={postA}
           delta={deltaA}
+          preEff={preEffA}
+          postEff={postEffA}
+          deltaEff={deltaEffA}
           sumOut={sumOutA}
           sumIn={sumOutB}
           sameTeam={sameTeam}
@@ -165,6 +194,9 @@ export default function TradeSimulator({ picks, teamTotals }) {
           pre={preB}
           post={postB}
           delta={deltaB}
+          preEff={preEffB}
+          postEff={postEffB}
+          deltaEff={deltaEffB}
           sumOut={sumOutB}
           sumIn={sumOutA}
           sameTeam={sameTeam}
@@ -199,6 +231,9 @@ function TradeSimulatorSide({
   pre,
   post,
   delta,
+  preEff,
+  postEff,
+  deltaEff,
   sumOut,
   sumIn,
   sameTeam,
@@ -206,6 +241,9 @@ function TradeSimulatorSide({
   const deltaColor =
     delta > 0 ? "var(--green)" : delta < 0 ? "var(--red, #f87171)" : "var(--subtext)";
   const deltaSign = delta > 0 ? "+" : "";
+  const effColor =
+    deltaEff > 0 ? "var(--cyan)" : deltaEff < 0 ? "var(--red, #f87171)" : "var(--subtext)";
+  const effSign = deltaEff > 0 ? "+" : "";
 
   return (
     <div
@@ -399,6 +437,38 @@ function TradeSimulatorSide({
             >
               {deltaSign}
               {fmtDollar(delta)}
+            </span>
+
+            <span
+              className="muted"
+              style={{ gridColumn: "1 / -1", marginTop: 6, fontSize: "0.62rem" }}
+              title={
+                "Effective auction power: raw capital adjusted for stacking " +
+                "(zero-sum, field-relative). A trade that pushes you clearly " +
+                "above the field gains more effective power than its raw $; " +
+                "adding to an already-dominant stack gains less."
+              }
+            >
+              Effective auction power
+            </span>
+            <span className="muted">Pre-trade</span>
+            <span className="font-mono" style={{ textAlign: "right" }}>
+              {fmtDollar(preEff)}
+            </span>
+            <span style={{ fontWeight: 700 }}>Post-trade</span>
+            <span
+              className="font-mono"
+              style={{ textAlign: "right", fontWeight: 700, color: "var(--cyan)" }}
+            >
+              {fmtDollar(postEff)}
+            </span>
+            <span className="muted">Net change</span>
+            <span
+              className="font-mono"
+              style={{ textAlign: "right", fontWeight: 700, color: effColor }}
+            >
+              {effSign}
+              {fmtDollar(deltaEff)}
             </span>
           </div>
         </>

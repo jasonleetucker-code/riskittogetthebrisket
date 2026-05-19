@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
+import { effectiveAuctionPower } from "./_auction-power";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
@@ -76,6 +77,12 @@ export default function DraftCapitalSection() {
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
           {data.season} draft · {data.numTeams} teams · {data.draftRounds} rounds · ${data.totalBudget} total budget
         </div>
+        <div style={{ fontSize: "0.66rem", color: "var(--muted)", marginBottom: 10 }}>
+          <span style={{ color: "var(--green)", fontWeight: 700 }}>green</span> = raw
+          auction $ ·{" "}
+          <span style={{ color: "var(--cyan)", fontWeight: 700 }}>▲ cyan</span> =
+          effective auction power (stacking-adjusted, zero-sum)
+        </div>
         <TeamTotalsChart
           teamTotals={data.teamTotals}
           picks={data.picks}
@@ -100,11 +107,19 @@ export default function DraftCapitalSection() {
 function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds, season }) {
   const maxDollars = Math.max(...(teamTotals || []).map((t) => t.auctionDollars), 1);
 
+  // Effective auction power is a presentation lens computed client-side
+  // from the raw per-team dollars (zero-sum; src/api/auction_power.py
+  // is the source of truth).  No extra backend payload.
+  const effectiveByTeam = effectiveAuctionPower(
+    Object.fromEntries((teamTotals || []).map((t) => [t.team, t.auctionDollars || 0])),
+  );
+
   return (
     <div style={{ marginTop: "var(--space-md)" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
         {(teamTotals || []).map((team, i) => {
           const pct = (team.auctionDollars / maxDollars) * 100;
+          const effectiveDollars = effectiveByTeam[team.team];
           const teamPicks = (picks || []).filter((p) => p.currentOwner === team.team);
           const tradedCount = teamPicks.filter((p) => p.isTraded).length;
 
@@ -172,6 +187,33 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                 >
                   {fmtDollar(team.auctionDollars)}
                 </span>
+
+                {Number.isFinite(effectiveDollars) &&
+                  effectiveDollars !== team.auctionDollars && (
+                    <span
+                      className="font-mono"
+                      title={
+                        "Effective auction power: raw capital adjusted for stacking. " +
+                        "A clearly-biggest stack is worth more than its linear sum " +
+                        "(you can outbid the field for the #1 rookie); an " +
+                        "already-dominant stack saturates (extra picks worth less). " +
+                        "Zero-sum across the league."
+                      }
+                      style={{
+                        minWidth: 52,
+                        textAlign: "right",
+                        fontSize: "0.74rem",
+                        fontWeight: 600,
+                        color:
+                          effectiveDollars > team.auctionDollars
+                            ? "var(--cyan)"
+                            : "var(--muted)",
+                      }}
+                    >
+                      {effectiveDollars > team.auctionDollars ? "▲" : "▼"}
+                      {fmtDollar(effectiveDollars)}
+                    </span>
+                  )}
 
                 <span className="badge badge-cyan" style={{ fontSize: "0.64rem", padding: "1px 6px" }}>
                   {teamPicks.length}pk

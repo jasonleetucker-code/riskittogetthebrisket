@@ -7,7 +7,7 @@ import math
 import os
 import re
 import statistics
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -3273,13 +3273,14 @@ def _enrich_from_source_csvs(
             ]
             _flat.sort(key=lambda t: (-t[1], str(t[0]).lower()))
             _dlf_league_size = _resolve_league_roster_count()
+            _dlf_pick_year = current_rookie_draft_year()
             for _rookie_idx, (_disp, _syn, _rnk) in enumerate(_flat):
                 rookie_rank = _rookie_idx + 1
                 if rookie_rank > _dlf_league_size * _ROOKIE_ANCHOR_ROUNDS:
                     break
                 _rnd = (rookie_rank - 1) // _dlf_league_size + 1
                 _slot = (rookie_rank - 1) % _dlf_league_size + 1
-                _pick_name = f"2026 Pick {_rnd}.{_slot:02d}"
+                _pick_name = f"{_dlf_pick_year} Pick {_rnd}.{_slot:02d}"
                 _pick_key = _canonical_match_key(_pick_name)
                 if not _pick_key:
                     continue
@@ -3586,13 +3587,22 @@ def _load_pick_year_discount() -> dict[str, Any]:
     Returns a dict shaped like::
 
         {
-            "baselineYear": 2026,
-            "discounts": {"2026": 1.0, "2027": 0.82, ...},
+            "currentDraftYear": 2027 | None,   # explicit override
+            "rolloverMonth": 5,
+            "rolloverDay": 15,
+            "offsetDiscounts": {"0": 1.0, "1": 0.82, ...},
+            "discounts": {"2026": 1.0, ...},   # legacy absolute, optional
+            "baselineYear": 2026,              # legacy, optional
             "fallbackBase": 0.80,
         }
 
+    The schema is OFFSET-from-current-draft-year so it never goes stale.
+    The legacy absolute-year ``baselineYear``/``discounts`` keys are
+    still read for backward compatibility when ``offsetDiscounts`` is
+    absent.
+
     If the config file is missing or malformed, falls back to a built-in
-    default (baselineYear=2026, fallbackBase=0.80).  This keeps the
+    default (offset 0 = no discount, fallbackBase=0.80).  This keeps the
     pipeline robust on stripped-down test environments while still
     letting ops tune the discount via ``config/weights/``.
     """
@@ -3606,15 +3616,30 @@ def _load_pick_year_discount() -> dict[str, Any]:
     repo = Path(__file__).resolve().parents[2]
     cfg_path = repo / "config" / "weights" / "pick_year_discount.json"
     cfg: dict[str, Any] = {
-        "baselineYear": 2026,
+        "currentDraftYear": None,
+        "rolloverMonth": 5,
+        "rolloverDay": 15,
+        "offsetDiscounts": {},
         "discounts": {},
+        "baselineYear": None,
         "fallbackBase": 0.80,
     }
     try:
         with cfg_path.open("r", encoding="utf-8") as f:
             loaded = _json.load(f)
         if isinstance(loaded, dict):
-            cfg["baselineYear"] = int(loaded.get("baselineYear") or 2026)
+            override = loaded.get("currentDraftYear")
+            cfg["currentDraftYear"] = int(override) if override else None
+            if loaded.get("rolloverMonth") is not None:
+                cfg["rolloverMonth"] = int(loaded["rolloverMonth"])
+            if loaded.get("rolloverDay") is not None:
+                cfg["rolloverDay"] = int(loaded["rolloverDay"])
+            raw_offsets = loaded.get("offsetDiscounts") or {}
+            if isinstance(raw_offsets, dict):
+                cfg["offsetDiscounts"] = {str(int(k)): float(v) for k, v in raw_offsets.items()}
+            # Legacy absolute-year schema (back-compat only).
+            base = loaded.get("baselineYear")
+            cfg["baselineYear"] = int(base) if base else None
             raw_discounts = loaded.get("discounts") or {}
             if isinstance(raw_discounts, dict):
                 cfg["discounts"] = {str(k): float(v) for k, v in raw_discounts.items()}
@@ -3626,6 +3651,180 @@ def _load_pick_year_discount() -> dict[str, Any]:
 
     _PICK_YEAR_DISCOUNT_CACHE = cfg
     return cfg
+
+
+# Set per-build from the raw scrape (see
+# ``set_observed_current_draft_year``).  The year that still carries
+# slot-specific ``YYYY Pick R.SS`` rows IS, by definition, the active
+# rookie draft: vendors publish full slots for the next class and only
+# generic tiers for further-out years.  This makes "current draft year"
+# self-rolling — it advances the instant the data sources roll, with no
+# config edit and no stale baseline.
+_OBSERVED_CURRENT_DRAFT_YEAR: int | None = None
+
+# Canonical names of pick rows synthesized by
+# ``_inject_far_future_pick_sources`` for this build.  These are
+# legitimately single-source (no vendor prices picks that far out), so
+# the single-source safety gate allowlists them by name.
+_SYNTHETIC_FAR_FUTURE_PICK_NAMES: set[str] = set()
+_FAR_FUTURE_ALLOWLIST_REASON = (
+    "synthetic_far_future_tier:no vendor prices picks this far out; "
+    "cloned from the nearest published year and year-discounted "
+    "(auto-pivots when sources publish this year)"
+)
+
+_PICK_SLOT_NAME_RE = re.compile(r"^\s*(20\d{2})\s+Pick\s+[1-6]\.\d{1,2}\s*$", re.I)
+
+
+def _derive_current_draft_year_from_names(names: Any) -> int | None:
+    """Lowest year with a slot-specific ``YYYY Pick R.SS`` name, or None.
+
+    The lowest such year is the active draft — older classes have been
+    drafted out of the source boards, further-out classes only have
+    generic Early/Mid/Late tiers.
+    """
+    best: int | None = None
+    try:
+        iterator = iter(names)
+    except TypeError:
+        return None
+    for nm in iterator:
+        m = _PICK_SLOT_NAME_RE.match(str(nm))
+        if not m:
+            continue
+        yr = int(m.group(1))
+        if best is None or yr < best:
+            best = yr
+    return best
+
+
+def set_observed_current_draft_year(year: int | None) -> None:
+    """Record the data-derived active draft year for this build.
+
+    Called once at the top of :func:`build_api_data_contract` from the
+    raw scrape's slot-pick names so every downstream consumer
+    (discount, rookie anchor, synthetic tether) agrees on one year.
+    """
+    global _OBSERVED_CURRENT_DRAFT_YEAR
+    _OBSERVED_CURRENT_DRAFT_YEAR = int(year) if year else None
+
+
+def _inject_far_future_pick_sources(
+    players_by_name: dict[str, Any],
+    current_year: int,
+) -> int:
+    """Seed raw source entries for far-future pick years the vendors
+    don't publish yet, out to the deepest configured discount offset
+    (``current_year + max(offsetDiscounts)``, e.g. 2029 when the active
+    draft is 2026).
+
+    KTC/DLF/etc. only price two future years.  The user trades picks
+    further out than that, so for any missing year we clone the nearest
+    *published* future year's generic-tier raw entries (Early/Mid/Late ×
+    rounds) under the new year's names, copying only the per-source
+    value keys.  These then ride the **entire** normal pipeline exactly
+    like the real future-tier picks — blended, year-discounted (the
+    extra year out is handled automatically by
+    :func:`_pick_year_discount_for`), ranked, legacy-mirrored, and
+    surfaced in the app view — with no special-casing downstream.
+
+    Real source rows always win: a year that already has any generic
+    tier entry is left untouched, so the moment vendors publish e.g.
+    2029 this no-ops for that year ("pivot when sources add them").
+
+    Returns the number of synthetic raw entries added.
+    """
+    global _SYNTHETIC_FAR_FUTURE_PICK_NAMES
+    _SYNTHETIC_FAR_FUTURE_PICK_NAMES = set()
+    cfg = _load_pick_year_discount()
+    offsets = cfg.get("offsetDiscounts") or {}
+    try:
+        max_offset = max(int(k) for k in offsets) if offsets else 3
+    except (TypeError, ValueError):
+        max_offset = 3
+    target_year = current_year + max(max_offset, 0)
+    if target_year <= current_year:
+        return 0
+
+    years_with_tiers: set[int] = set()
+    for key in list(players_by_name.keys()):
+        m = _PICK_TIER_RE.match(str(key).strip())
+        if m:
+            years_with_tiers.add(int(m.group(1)))
+    if not years_with_tiers:
+        return 0
+
+    added = 0
+    for year in range(current_year + 1, target_year + 1):
+        if year in years_with_tiers:
+            continue  # real source rows exist — defer to them.
+        template_year = next(
+            (y for y in sorted(years_with_tiers, reverse=True) if y < year and y > current_year),
+            None,
+        )
+        if template_year is None:
+            continue
+        for key in list(players_by_name.keys()):
+            m = _PICK_TIER_RE.match(str(key).strip())
+            if not m or int(m.group(1)) != template_year:
+                continue
+            new_name = key.replace(str(template_year), str(year), 1)
+            if not new_name or new_name in players_by_name:
+                continue
+            entry = players_by_name[key]
+            if not isinstance(entry, dict):
+                continue
+            # Copy only the per-source value keys; the pipeline
+            # recomputes every ``_``-prefixed cached/derived field, and
+            # the year-discount step steps this year down on its own.
+            players_by_name[new_name] = {
+                k: v for k, v in entry.items() if not str(k).startswith("_")
+            }
+            # Store the canonical match key (what the single-source
+            # gate keys ``allowlistReason`` lookups on), not the raw
+            # display name.
+            _SYNTHETIC_FAR_FUTURE_PICK_NAMES.add(_canonical_match_key(new_name))
+            added += 1
+        years_with_tiers.add(year)
+    return added
+
+
+def current_rookie_draft_year(today: date | None = None) -> int:
+    """Return the year of the upcoming/current rookie draft (offset 0).
+
+    Single source of truth for "which rookie draft is the no-discount
+    baseline".  Resolution order:
+
+      1. ``currentDraftYear`` config override, if set (manual lever;
+         ``null`` disables it).
+      2. else the data-derived value recorded by
+         :func:`set_observed_current_draft_year` — the lowest year that
+         still has slot-specific ``YYYY Pick R.SS`` rows in the scrape.
+         Self-rolls when the sources advance; no config edit, no stale
+         baseline, board stays internally consistent.
+      3. else a date-derived fallback (calendar year rolled to
+         ``year + 1`` once *today* is on/after the configured
+         ``(rolloverMonth, rolloverDay)`` boundary).  Only hit on a
+         cold start with no scrape available, or in tests.
+
+    ``today`` is injectable for deterministic tests.
+    """
+    cfg = _load_pick_year_discount()
+    override = cfg.get("currentDraftYear")
+    if override:
+        try:
+            return int(override)
+        except (TypeError, ValueError):
+            pass
+    if _OBSERVED_CURRENT_DRAFT_YEAR:
+        return _OBSERVED_CURRENT_DRAFT_YEAR
+    if today is None:
+        today = datetime.now(timezone.utc).date()
+    roll_m = int(cfg.get("rolloverMonth") or 5)
+    roll_d = int(cfg.get("rolloverDay") or 15)
+    if (today.month, today.day) >= (roll_m, roll_d):
+        return today.year + 1
+    return today.year
 
 
 def _pick_year_from_name(name: str) -> int | None:
@@ -3645,27 +3844,45 @@ def _pick_year_from_name(name: str) -> int | None:
         return None
 
 
-def _pick_year_discount_for(year: int | None, cfg: dict[str, Any]) -> float:
+def _pick_year_discount_for(
+    year: int | None,
+    cfg: dict[str, Any],
+    *,
+    current_draft_year: int | None = None,
+) -> float:
     """Return the multiplicative discount for a pick year.
 
-    Picks in the baseline year get 1.0 (no discount).  Years explicitly
-    listed in ``cfg['discounts']`` use the configured multiplier.  Years
-    not listed fall back to ``fallbackBase ** (year - baselineYear)``.
+    Resolution (offset = ``year - current_draft_year``):
+
+      * offset <= 0 (the upcoming/current draft or earlier) -> 1.0.
+      * ``cfg['offsetDiscounts'][str(offset)]`` if present -> that value.
+      * else legacy absolute ``cfg['discounts'][str(year)]`` if present
+        (back-compat only) -> that value.
+      * else ``fallbackBase ** offset``.
+
+    ``current_draft_year`` is injectable for deterministic tests; it
+    defaults to :func:`current_rookie_draft_year`.
     """
     if year is None:
         return 1.0
-    baseline = int(cfg.get("baselineYear") or 2026)
-    discounts = cfg.get("discounts") or {}
-    fallback_base = float(cfg.get("fallbackBase") or 0.80)
-    if year <= baseline:
+    if current_draft_year is None:
+        current_draft_year = current_rookie_draft_year()
+    offset = int(year) - int(current_draft_year)
+    if offset <= 0:
         return 1.0
-    raw = discounts.get(str(year))
+    fallback_base = float(cfg.get("fallbackBase") or 0.80)
+
+    offset_discounts = cfg.get("offsetDiscounts") or {}
+    raw = offset_discounts.get(str(offset))
+    if raw is None:
+        # Legacy absolute-year schema fallback (back-compat).
+        raw = (cfg.get("discounts") or {}).get(str(year))
     if raw is not None:
         try:
             return max(0.05, min(1.0, float(raw)))
         except (TypeError, ValueError):
             pass
-    return max(0.05, fallback_base ** (year - baseline))
+    return max(0.05, fallback_base**offset)
 
 
 def _parse_pick_slot(name: str) -> tuple[int, int, int] | None:
@@ -5143,13 +5360,14 @@ def _apply_pick_year_discount_to_blend(
     naturally drift to lower positions in the global ladder.
     """
     cfg = _load_pick_year_discount()
+    cdy = current_rookie_draft_year()
     discount_applied: dict[int, float] = {}
     out: list[tuple[float, int]] = []
     for value, row_idx in row_normalized:
         row = players_array[row_idx]
         if row.get("assetClass") == "pick":
             year = _pick_year_from_name(row.get("canonicalName") or "")
-            mult = _pick_year_discount_for(year, cfg)
+            mult = _pick_year_discount_for(year, cfg, current_draft_year=cdy)
             if mult != 1.0:
                 value = value * mult
                 discount_applied[row_idx] = mult
@@ -6455,6 +6673,8 @@ def _compute_unified_rankings(
             reason = "fully_matched"
 
         allowlist_reason = SINGLE_SOURCE_ALLOWLIST.get(cname)
+        if allowlist_reason is None and cname in _SYNTHETIC_FAR_FUTURE_PICK_NAMES:
+            allowlist_reason = _FAR_FUTURE_ALLOWLIST_REASON
         row["sourceAudit"] = {
             "canonicalName": cname,
             "positionGroup": grp,
@@ -6681,7 +6901,7 @@ def _compute_unified_rankings(
     #     ``_resolve_league_context`` (falls back to 12 when the Sleeper
     #     fetch is unavailable).  The compact-ranks pass below re-sorts
     #     by value so coherence holds.
-    _anchor_year = int(_load_pick_year_discount().get("baselineYear") or 2026)
+    _anchor_year = current_rookie_draft_year()
     _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
 
     # 2c) Stamp draft-day value projections on every pick row.
@@ -7384,6 +7604,17 @@ def build_api_data_contract(
             players_by_name[_name] = _copy
     base["players"] = players_by_name
 
+    # Derive the active rookie draft year from the scrape's own
+    # slot-pick names so the discount, rookie-anchor, and synthetic
+    # tether passes all key off one self-rolling value (see
+    # ``current_rookie_draft_year``).
+    set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
+
+    # Seed raw entries for far-future pick years the vendors don't
+    # price yet (e.g. 2029) so they ride the normal pipeline like the
+    # real future tiers.  No-ops the moment sources publish that year.
+    _inject_far_future_pick_sources(players_by_name, current_rookie_draft_year())
+
     # Strip legacy LAM/scarcity fields before building the contract.
     _strip_legacy_lam_fields(base, players_by_name)
 
@@ -7681,6 +7912,10 @@ def build_api_data_contract(
         **base,
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
+        # The resolved active rookie-draft year (offset-0, no-penalty
+        # class).  Self-rolls with the scrape; serialized so frontend
+        # calculators don't carry their own stale copy.
+        "currentDraftYear": current_rookie_draft_year(),
         "playersArray": players_array,
         "playerCount": len(players_array),
         "valueAuthority": (None if _for_delta else _build_value_authority_summary(players_array)),
@@ -7837,6 +8072,7 @@ def build_rankings_delta_payload(
     payload: dict[str, Any] = {
         "contractVersion": full.get("contractVersion"),
         "generatedAt": full.get("generatedAt"),
+        "currentDraftYear": full.get("currentDraftYear"),
         "date": full.get("date"),
         "scrapeTimestamp": full.get("scrapeTimestamp"),
         "mode": "delta",

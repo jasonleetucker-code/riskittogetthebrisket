@@ -81,12 +81,28 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         text = trade_page.read_text()
         self.assertIn("useSettings", text)
 
-    def test_trade_logic_has_pick_year_discount(self):
-        """trade-logic.js must have pickYearDiscount function."""
+    def test_trade_logic_does_not_reapply_pick_year_discount(self):
+        """trade-logic.js must NOT re-discount future picks.
+
+        The future-year pick discount is backend-authoritative: the
+        canonical pipeline (``src/api/data_contract.py::
+        _pick_year_discount_for``, keyed off the self-rolling
+        ``current_rookie_draft_year()``) bakes it into every pick's
+        ``rankDerivedValue`` before the contract reaches the frontend.
+        The old client-side ``pickYearDiscount`` /
+        ``PICK_YEAR_DISCOUNTS`` helper double-discounted with divergent,
+        non-self-rolling constants and has been removed.  This pins
+        that it is not reintroduced (mirrors the TEP invariant below).
+        """
         trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
         text = trade_logic.read_text()
-        self.assertIn("pickYearDiscount", text)
-        self.assertIn("PICK_YEAR_DISCOUNTS", text)
+        self.assertNotIn("PICK_YEAR_DISCOUNTS", text)
+        self.assertNotIn("settings.pickCurrentYear", text)
+        # The backend stays the single source of truth for the discount.
+        self.assertIn(
+            "_pick_year_discount_for",
+            REPO_ROOT.joinpath("src", "api", "data_contract.py").read_text(),
+        )
 
     def test_effective_value_does_not_apply_tep(self):
         """effectiveValue must NOT multiply TE values by tepMultiplier.
