@@ -23,6 +23,10 @@ function row(name, value, opts = {}) {
     assetClass: opts.assetClass || "offense",
     rankDerivedValue: value,
     values: { full: value },
+    // Default to a corroborated multi-source player so existing
+    // ownership/value/position cases aren't swept by the two-source
+    // waiver gate.  Single-source cases set sourceCount explicitly.
+    sourceCount: opts.sourceCount !== undefined ? opts.sourceCount : 2,
   };
 }
 
@@ -188,6 +192,27 @@ describe("computeWaiverAnalysis — addable detection", () => {
     expect(r.droppable[0].bestReplacement.name).toBe("FA Star");
   });
 
+  it("never surfaces a single-source FA even when its value beats a roster player", () => {
+    const myRoster = ["Bench Guy"];
+    const rows = [
+      row("Bench Guy", 1000),
+      // Single-source FA whose (already haircut) value still beats the
+      // bench — must NOT appear as addable (parity with the backend
+      // two-source gate).
+      row("Solo FA", 1500, { sourceCount: 1 }),
+      // Corroborated FA — should still appear.
+      row("Real FA", 5000, { sourceCount: 3 }),
+    ];
+    const r = computeWaiverAnalysis({
+      rows,
+      myRosterNames: myRoster,
+      sleeperTeams: [team("Mine", myRoster)],
+    });
+    const addableNames = r.addable.map((a) => a.row.name);
+    expect(addableNames).toContain("Real FA");
+    expect(addableNames).not.toContain("Solo FA");
+  });
+
   it("ranks multiple addables by net gain desc with stable tiebreakers", () => {
     const myRoster = ["B1", "B2", "B3"];
     const rows = [
@@ -270,6 +295,33 @@ describe("computeWaiverAnalysis — rookie toggle", () => {
     expect(found.rosteredBy).toBe("Brent");
     // Read-only rookie should NOT count toward droppable threshold.
     expect(r.summary.addableCount).toBe(0);  // realAdds (rosteredBy=null)
+  });
+
+  it("two-source gate exempts read-only rookies rostered by other teams", () => {
+    const myRoster = ["My Bench"];
+    const rows = [
+      row("My Bench", 1000),
+      // Single-source rookie owned by another team: it can never be a
+      // waiver pickup (filtered from bestMoves/upgrades/replacements),
+      // so the two-source gate must NOT strip it from the read-only
+      // comparison list.
+      row("Their Solo Rookie", 5000, { rookie: true, sourceCount: 1 }),
+    ];
+    const r = computeWaiverAnalysis({
+      rows,
+      myRosterNames: myRoster,
+      sleeperTeams: [
+        team("Mine",  myRoster),
+        team("Brent", ["Their Solo Rookie"]),
+      ],
+      includeRookies: true,
+    });
+    const found = r.addable.find((a) => a.row.name === "Their Solo Rookie");
+    expect(found).toBeTruthy();
+    expect(found.rosteredBy).toBe("Brent");
+    // Still never a real suggestion.
+    expect(r.bestMoves).toEqual([]);
+    expect(r.summary.addableCount).toBe(0);
   });
 
   it("rookies on other teams never appear in bestMoves or bestUniqueUpgradeSet", () => {

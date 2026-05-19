@@ -15,6 +15,10 @@ function row(name, value, opts = {}) {
     rankDerivedValue: opts.rankDerivedValue !== undefined ? opts.rankDerivedValue : value,
     values: { full: value },
     confidenceBucket: opts.confidenceBucket || "medium",
+    // Default to a corroborated multi-source player so existing
+    // cases aren't swept by the two-source waiver gate.  Single-source
+    // cases set sourceCount explicitly.
+    sourceCount: opts.sourceCount !== undefined ? opts.sourceCount : 2,
   };
 }
 
@@ -263,6 +267,36 @@ describe("buildTopWaiverPool — must-have rookie fallback filter", () => {
     const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 1 });
     expect(out.players.map((p) => p.name)).toContain("Real RB");
     expect(out.players.map((p) => p.name)).not.toContain("Legacy Fallback");
+  });
+});
+
+describe("buildTopWaiverPool — two-source minimum", () => {
+  it("excludes single-source and zero-source free agents", () => {
+    const rows = [
+      row("Multi WR", 6000, { pos: "WR", sourceCount: 3 }),
+      row("Two-Source RB", 5500, { pos: "RB", sourceCount: 2 }),
+      row("Solo WR", 6500, { pos: "WR", sourceCount: 1 }),
+      row("No-Source TE", 6200, { pos: "TE", sourceCount: 0 }),
+      // Raw literal with no sourceCount field at all — must be treated
+      // as zero sources and excluded.
+      {
+        name: "Unset QB",
+        pos: "QB",
+        position: "QB",
+        assetClass: "offense",
+        rookie: false,
+        rankDerivedValue: 5800,
+        values: { full: 5800 },
+        confidenceBucket: "medium",
+      },
+    ];
+    const out = buildTopWaiverPool(rows, new Set(), { limit: 10, minPerPosition: 0 });
+    const names = out.players.map((p) => p.name);
+    expect(names).toContain("Multi WR");
+    expect(names).toContain("Two-Source RB");
+    expect(names).not.toContain("Solo WR");
+    expect(names).not.toContain("No-Source TE");
+    expect(names).not.toContain("Unset QB");
   });
 });
 

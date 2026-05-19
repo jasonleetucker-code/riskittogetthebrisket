@@ -851,7 +851,7 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
 #                   the marketGapMagnitude.  Adding a second retail
 #                   source (e.g. Sleeper's public trade values) is a
 #                   pure registry change — the gap logic generalizes.
-from src.canonical.idp_backbone import (
+from src.canonical.idp_backbone import (  # noqa: E402
     SOURCE_SCOPE_OVERALL_IDP,
     SOURCE_SCOPE_OVERALL_OFFENSE,
     SOURCE_SCOPE_POSITION_IDP,
@@ -2653,7 +2653,6 @@ def _validate_and_quarantine_rows(
     #       signal, so we don't need to pile contradictions on top.
     for idx, row in enumerate(players_array):
         pos = str(row.get("position") or "").strip().upper()
-        asset_class = row.get("assetClass") or ""
         canonical_sites = row.get("canonicalSiteValues") or {}
 
         has_off_val = any(
@@ -4399,6 +4398,20 @@ _ALPHA_SHRINKAGE: float = 0.10
 # conservatism layer is ever needed, reinstate it here with a fresh
 # backtest.
 _MAD_PENALTY_LAMBDA: float = 0.0
+
+# Single-source confidence haircut.  A player whose blended value rests
+# on a single contributing source (after Hampel filtering) has no
+# corroboration — one list can place a player anywhere with zero
+# cross-checks, which was producing inflated, untrustworthy values
+# (and "weird" waiver/board entries).  Such a row keeps its place in
+# the database (it may still be a real rostered player) but its
+# ``rankDerivedValue`` is multiplied by this factor — a heavy haircut
+# so the low confidence is reflected in the number itself, not just
+# the confidence bucket.  Applied to the pre-sort blended value so the
+# board rank and the displayed value stay consistent.  Picks are
+# exempt: they ride their own CV-based confidence path and a single
+# value-source (KTC per-slot synth) is structurally normal for them.
+_SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
 
 # Registry of sources whose raw per-player CSV value should be used
 # as a **direct normalized vote** in the Phase 2-3 blend, instead of
@@ -6315,6 +6328,27 @@ def _compute_unified_rankings(
         players_array[row_idx]["hillValueSpread"] = (
             round(hill_value_spread, 2) if hill_value_spread is not None else None
         )
+
+        # Single-source confidence haircut.  ``all_values`` is the
+        # post-Hampel set of contributing source values; len <= 1 means
+        # the blend rests on one uncorroborated source.  Apply the
+        # heavy retention factor to the value that feeds the sort so
+        # both the board rank and ``rankDerivedValue`` reflect the low
+        # confidence.  ``_blendedValueUncapped`` (stamped above) is
+        # re-stamped with the same haircut: the rookie-anchor pass'
+        # ``_rookie_pool_value`` reads the haircut ``rankDerivedValue``
+        # for ranked rookies but falls back to ``_blendedValueUncapped``
+        # for rookies past ``OVERALL_RANK_LIMIT``; leaving the fallback
+        # unpenalized would let an unranked single-source rookie sort
+        # and price picks on its full uncorroborated value while a
+        # ranked single-source rookie is held to 30%.
+        if not row_is_pick and len(all_values) <= 1:
+            blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
+            players_array[row_idx]["_blendedValueUncapped"] = (
+                int(round(blended_value)) if blended_value > 0 else 0
+            )
+            players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
+
         row_normalized.append((blended_value, row_idx))
 
     # ── Phase 3a: Pick year discount (gated to picks) ──
