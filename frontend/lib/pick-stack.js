@@ -77,16 +77,22 @@ export function tierSlotRange(tier, teamsPerRound) {
 // Positional slot-$ grid from the draft-capital payload:
 // gridByRound[round] = { [slot]: dollarValue }.  These are the upcoming
 // draft's per-slot dollars (owner-independent positionally).
+// Keyed by YEAR → round → slot.  The Sleeper-derived payload spans two
+// seasons with colliding (round, slot) pairs, so each row's own
+// ``season`` disambiguates it; the workbook payload is single-season
+// (no per-row season) so it falls back to ``draftCapital.season``.
 export function buildSlotDollarGrid(draftCapital) {
   const grid = {};
   const picks = draftCapital?.picks;
   if (!Array.isArray(picks)) return grid;
+  const fallbackYear = Number(draftCapital?.season);
   for (const p of picks) {
+    const year = Number(p?.season ?? fallbackYear);
     const round = Number(p?.round);
     const slot = Number(p?.pickInRound ?? p?.slot);
     const dollar = Number(p?.dollarValue);
-    if (!round || !slot || !Number.isFinite(dollar)) continue;
-    (grid[round] ||= {})[slot] = dollar;
+    if (!year || !round || !slot || !Number.isFinite(dollar)) continue;
+    ((grid[year] ||= {})[round] ||= {})[slot] = dollar;
   }
   return grid;
 }
@@ -116,10 +122,12 @@ function yearDiscountFactor(parsed, currentDraftYear, boardValueByName) {
 }
 
 // Auction-dollar value of any pick asset on the $1200 scale.
-//   ctx = { slotGrid, teamsPerRound, currentDraftYear, boardValueByName,
-//           ownedSlotDollar?(name)->number|undefined }
-// For an owned upcoming-draft slot, the exact owner-attributed dollar
-// is preferred; tiers/round-only/future use the slot-average rule.
+//   ctx = { slotGrid (year→round→slot), teamsPerRound,
+//           currentDraftYear, boardValueByName }
+// An explicit slot whose YEAR is actually present in the payload uses
+// that exact (year, round, slot) dollar.  Everything else (tiers,
+// round-only, future years not in the payload) is the slot-average of
+// the anchor (current-draft) year's round, year-discounted.
 export function pickAuctionDollars(name, ctx) {
   const parsed = parsePickAsset(name);
   if (!parsed) return 0;
@@ -128,19 +136,20 @@ export function pickAuctionDollars(name, ctx) {
     teamsPerRound = 12,
     currentDraftYear = null,
     boardValueByName,
-    ownedSlotDollar,
   } = ctx || {};
 
-  if (
-    parsed.slot != null &&
-    parsed.year === currentDraftYear &&
-    typeof ownedSlotDollar === "function"
-  ) {
-    const exact = ownedSlotDollar(name);
+  // Exact: the pick's own year is in the payload and it's a real slot.
+  if (parsed.slot != null) {
+    const exact = slotGrid[parsed.year]?.[parsed.round]?.[parsed.slot];
     if (Number.isFinite(exact) && exact > 0) return exact;
   }
 
-  const roundGrid = slotGrid[parsed.round] || {};
+  // Otherwise anchor on the active draft year's positional $ grid.
+  const anchor =
+    currentDraftYear != null && slotGrid[currentDraftYear]
+      ? currentDraftYear
+      : Number(Object.keys(slotGrid)[0]);
+  const roundGrid = slotGrid[anchor]?.[parsed.round] || {};
   const allSlots = Object.keys(roundGrid).map(Number);
   let slots;
   if (parsed.slot != null) {

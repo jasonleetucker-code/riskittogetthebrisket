@@ -110,14 +110,31 @@ describe("pickAuctionDollars", () => {
     expect(pickAuctionDollars("2026 Late 1st", ctx)).toBeCloseTo(25, 6);
   });
 
-  it("explicit slot prefers the exact owner-attributed $", () => {
-    const ctx2 = {
-      ...ctx,
-      ownedSlotDollar: (nm) => (nm === "2026 Pick 1.03" ? 1234 : undefined),
-    };
-    expect(pickAuctionDollars("2026 Pick 1.03", ctx2)).toBe(1234);
-    // Without an owned $, falls back to the positional grid (slot 3 = 100)
+  it("explicit slot uses the exact (year, round, slot) dollar", () => {
+    // slot 3 of round 1 = 100 in the grid for year 2026
     expect(pickAuctionDollars("2026 Pick 1.03", ctx)).toBeCloseTo(100, 6);
+  });
+
+  it("multi-season payload: each year's slot $ is independent (no collision)", () => {
+    // Sleeper-derived shape: same round/slot across two seasons with
+    // DIFFERENT dollars + per-row season.  The next year must not
+    // overwrite the current year (the bug this guards).
+    const multi = {
+      season: "2026",
+      numTeams: 12,
+      coveredPickYears: [2026, 2027],
+      picks: [
+        { season: 2026, round: 1, slot: 1, dollarValue: 120 },
+        { season: 2027, round: 1, slot: 1, dollarValue: 60 },
+      ],
+      teamTotals: [],
+    };
+    const g = buildSlotDollarGrid(multi);
+    expect(g[2026][1][1]).toBe(120);
+    expect(g[2027][1][1]).toBe(60);
+    const c = { slotGrid: g, teamsPerRound: 12, currentDraftYear: 2026 };
+    expect(pickAuctionDollars("2026 Pick 1.01", c)).toBe(120);
+    expect(pickAuctionDollars("2027 Pick 1.01", c)).toBe(60);
   });
 
   it("future tier applies the board-derived year discount", () => {

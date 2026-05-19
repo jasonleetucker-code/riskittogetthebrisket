@@ -40,6 +40,7 @@ _DEFAULT_TIMEOUT = 15.0
 @dataclass(frozen=True)
 class SleeperDerivedPick:
     pick: str  # "1.01", "2.07", etc.
+    season: int  # this path spans two seasons — disambiguates rows
     round: int
     slot: int
     current_owner: str  # display name
@@ -181,6 +182,7 @@ def build_sleeper_derived(
                 picks.append(
                     SleeperDerivedPick(
                         pick=f"{round_n}.{slot:02d}",
+                        season=season,
                         round=round_n,
                         slot=slot,
                         current_owner=roster_name_by_id.get(current_rid, f"Team {current_rid}"),
@@ -228,6 +230,7 @@ def build_sleeper_derived(
         "picks": [
             {
                 "pick": p.pick,
+                "season": p.season,
                 "round": p.round,
                 "slot": p.slot,
                 "currentOwner": p.current_owner,

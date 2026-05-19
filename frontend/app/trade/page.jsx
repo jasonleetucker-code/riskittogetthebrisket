@@ -761,21 +761,15 @@ export default function TradePage() {
     if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
       return null;
     }
+    // Year-keyed slot-$ grid (handles the Sleeper-derived payload's two
+    // seasons with colliding round/slot pairs — see buildSlotDollarGrid).
     const slotGrid = buildSlotDollarGrid(draftCapital);
     const teamsPerRound = Number(draftCapital.numTeams) || 12;
-    const slotDollarByName = new Map();
-    for (const p of draftCapital.picks || []) {
-      const nm = `${draftCapital.season} Pick ${p.round}.${String(
-        p.pickInRound ?? p.slot,
-      ).padStart(2, "0")}`;
-      slotDollarByName.set(nm, Number(p.dollarValue) || 0);
-    }
     const ctx = {
       slotGrid,
       teamsPerRound,
       currentDraftYear,
       boardValueByName,
-      ownedSlotDollar: (nm) => slotDollarByName.get(nm),
     };
     // Future-year picks per team from Sleeper ownership.  Exclude every
     // year the payload already accounts for in teamTotals so nothing is
@@ -1223,6 +1217,11 @@ export default function TradePage() {
         };
       });
     });
+    // Keep the per-side team selection/lock arrays index-aligned with
+    // the surviving sides (splice the removed slot) so a locked team
+    // can't slide onto the wrong side after a removal.
+    setSideTeamNames((prev) => prev.filter((_, i) => i !== idx));
+    setSideTeamLocked((prev) => prev.filter((_, i) => i !== idx));
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
   }
