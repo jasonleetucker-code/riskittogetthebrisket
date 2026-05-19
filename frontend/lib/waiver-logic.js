@@ -296,7 +296,6 @@ function buildCandidatePool({
     if (!idpEnabled && rowAssetClass(row) === "idp") continue;
     if (rowValue(row) <= 0) continue;
     if (rowHasNoRealRank(row)) continue;  // skip must-have rookie fallbacks
-    if (rowSourceCount(row) < 2) continue;  // two-source minimum (parity w/ backend)
     const norm = normalizeName(rowName(row));
     if (!norm) continue;
     if (myRosterNameSet.has(norm)) continue;  // never compare against self
@@ -314,6 +313,11 @@ function buildCandidatePool({
     } else {
       // Truly unrostered.  Respect rookie toggle.
       if (!includeRookies && isRookie) continue;
+      // Two-source minimum (parity w/ backend) applies ONLY to true
+      // waiver pickups.  Read-only rookies rostered by other teams
+      // (the ``owned`` branch above) are comparison context, never
+      // surfaced as add/drop suggestions, so they are exempt.
+      if (rowSourceCount(row) < 2) continue;
       out.push({ row, isRookie, rosteredBy: null });
     }
   }

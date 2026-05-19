@@ -297,6 +297,33 @@ describe("computeWaiverAnalysis — rookie toggle", () => {
     expect(r.summary.addableCount).toBe(0);  // realAdds (rosteredBy=null)
   });
 
+  it("two-source gate exempts read-only rookies rostered by other teams", () => {
+    const myRoster = ["My Bench"];
+    const rows = [
+      row("My Bench", 1000),
+      // Single-source rookie owned by another team: it can never be a
+      // waiver pickup (filtered from bestMoves/upgrades/replacements),
+      // so the two-source gate must NOT strip it from the read-only
+      // comparison list.
+      row("Their Solo Rookie", 5000, { rookie: true, sourceCount: 1 }),
+    ];
+    const r = computeWaiverAnalysis({
+      rows,
+      myRosterNames: myRoster,
+      sleeperTeams: [
+        team("Mine",  myRoster),
+        team("Brent", ["Their Solo Rookie"]),
+      ],
+      includeRookies: true,
+    });
+    const found = r.addable.find((a) => a.row.name === "Their Solo Rookie");
+    expect(found).toBeTruthy();
+    expect(found.rosteredBy).toBe("Brent");
+    // Still never a real suggestion.
+    expect(r.bestMoves).toEqual([]);
+    expect(r.summary.addableCount).toBe(0);
+  });
+
   it("rookies on other teams never appear in bestMoves or bestUniqueUpgradeSet", () => {
     const myRoster = ["My Bench"];
     const rows = [
