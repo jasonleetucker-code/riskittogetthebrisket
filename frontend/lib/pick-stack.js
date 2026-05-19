@@ -105,7 +105,16 @@ function avg(nums) {
 // Year-discount factor for a future class, read off the board so it
 // stays in lockstep with the backend's self-rolling discount.  Returns
 // 1.0 for the current draft year or when the board can't disambiguate.
-function yearDiscountFactor(parsed, currentDraftYear, boardValueByName) {
+//
+// The denominator must be the CURRENT class's value on the board's
+// scale.  When the active class has slot-specific rows the backend
+// suppresses the generic current-year tier row ("2026 Early 1st"), so
+// reading that row would give 0 / a stale value and skip or skew the
+// discount.  For tiers we therefore average the authoritative
+// current-year SLOT rows in that tier's third (same board scale as the
+// future generic-tier numerator), falling back to the generic tier row
+// only when no slot rows resolve (pre-assignment leagues).
+function yearDiscountFactor(parsed, currentDraftYear, boardValueByName, teamsPerRound) {
   if (!currentDraftYear || parsed.year <= currentDraftYear) return 1.0;
   if (typeof boardValueByName !== "function") return 1.0;
   const tierWord = parsed.tier
@@ -116,7 +125,25 @@ function yearDiscountFactor(parsed, currentDraftYear, boardValueByName) {
     ? `${tierWord} ${ord(parsed.round)}`
     : `Pick ${parsed.round}.01`;
   const future = boardValueByName(`${parsed.year} ${suffix}`);
-  const current = boardValueByName(`${currentDraftYear} ${suffix}`);
+
+  let current;
+  if (tierWord) {
+    const [lo, hi] = tierSlotRange(parsed.tier, teamsPerRound || 12);
+    const slotVals = [];
+    for (let s = lo; s <= hi; s += 1) {
+      const v = boardValueByName(
+        `${currentDraftYear} Pick ${parsed.round}.${String(s).padStart(2, "0")}`,
+      );
+      if (Number.isFinite(v) && v > 0) slotVals.push(v);
+    }
+    current = slotVals.length
+      ? avg(slotVals)
+      : boardValueByName(`${currentDraftYear} ${suffix}`);
+  } else {
+    // Non-tier (round-only) already references an authoritative slot row.
+    current = boardValueByName(`${currentDraftYear} ${suffix}`);
+  }
+
   if (future > 0 && current > 0) return future / current;
   return 1.0;
 }
@@ -162,7 +189,10 @@ export function pickAuctionDollars(name, ctx) {
   }
   const base = avg(slots.map((s) => roundGrid[s]));
   if (base <= 0) return 0;
-  return base * yearDiscountFactor(parsed, currentDraftYear, boardValueByName);
+  return (
+    base *
+    yearDiscountFactor(parsed, currentDraftYear, boardValueByName, teamsPerRound)
+  );
 }
 
 // Per-team total owned-pick auction stack across ALL league teams.

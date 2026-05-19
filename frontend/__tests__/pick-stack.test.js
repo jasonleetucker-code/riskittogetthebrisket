@@ -92,8 +92,18 @@ function dc12() {
 describe("pickAuctionDollars", () => {
   const dc = dc12();
   const grid = buildSlotDollarGrid(dc);
+  // The current-year generic tier row ("2026 Early 1st") is
+  // deliberately ABSENT (→ 0) to mirror the backend suppressing it
+  // when authoritative slot rows exist; the discount denominator must
+  // come from the current-year SLOT rows instead.
   const board = (name) =>
-    ({ "2027 Early 1st": 800, "2026 Early 1st": 1000 })[name] || 0;
+    ({
+      "2027 Early 1st": 800,
+      "2026 Pick 1.01": 1000,
+      "2026 Pick 1.02": 1000,
+      "2026 Pick 1.03": 1000,
+      "2026 Pick 1.04": 1000,
+    })[name] || 0;
   const ctx = {
     slotGrid: grid,
     teamsPerRound: 12,
