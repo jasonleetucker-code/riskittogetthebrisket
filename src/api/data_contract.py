@@ -6335,10 +6335,18 @@ def _compute_unified_rankings(
         # heavy retention factor to the value that feeds the sort so
         # both the board rank and ``rankDerivedValue`` reflect the low
         # confidence.  ``_blendedValueUncapped`` (stamped above) is
-        # left unpenalized so pick tethering keys off the raw rookie
-        # pool value, not the haircut.
+        # re-stamped with the same haircut: the rookie-anchor pass'
+        # ``_rookie_pool_value`` reads the haircut ``rankDerivedValue``
+        # for ranked rookies but falls back to ``_blendedValueUncapped``
+        # for rookies past ``OVERALL_RANK_LIMIT``; leaving the fallback
+        # unpenalized would let an unranked single-source rookie sort
+        # and price picks on its full uncorroborated value while a
+        # ranked single-source rookie is held to 30%.
         if not row_is_pick and len(all_values) <= 1:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
+            players_array[row_idx]["_blendedValueUncapped"] = (
+                int(round(blended_value)) if blended_value > 0 else 0
+            )
             players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
 
         row_normalized.append((blended_value, row_idx))

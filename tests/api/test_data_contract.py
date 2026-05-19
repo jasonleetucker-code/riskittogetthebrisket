@@ -94,8 +94,13 @@ class TestComputeKtcRankings(unittest.TestCase):
         # blend.  The top player's KTC value (9999) is also the site's
         # max, so the normalized vote is 9999/9999 × 9999 = 9999.  This
         # fixture is single-source (KTC only), so the single-source
-        # confidence haircut applies to the displayed value.
-        self.assertEqual(rows[0]["_blendedValueUncapped"], 9999)
+        # confidence haircut applies to BOTH the displayed value and
+        # the rookie-tether fallback stamp (round vs truncate is the
+        # only difference between the two).
+        self.assertEqual(
+            rows[0]["_blendedValueUncapped"],
+            int(round(9999 * _SINGLE_SOURCE_VALUE_RETENTION)),
+        )
         self.assertEqual(
             rows[0]["rankDerivedValue"],
             int(9999 * _SINGLE_SOURCE_VALUE_RETENTION),
@@ -118,15 +123,20 @@ class TestComputeKtcRankings(unittest.TestCase):
         raw_v = rank_50_row["canonicalSiteValues"]["ktcSfTep"]
         # site_max comes from the same pool → P0's value 9999.
         site_max = 9999
-        # The value-direct mechanic is asserted on the pre-haircut
-        # ``_blendedValueUncapped`` stamp; the displayed
-        # ``rankDerivedValue`` then carries the single-source haircut
-        # (this pool is KTC-only).
-        expected_direct = int(round(raw_v / site_max * 9999.0))
-        self.assertEqual(rank_50_row["_blendedValueUncapped"], expected_direct)
+        # This pool is KTC-only (single source), so the single-source
+        # haircut applies to both the displayed ``rankDerivedValue``
+        # and the rookie-tether ``_blendedValueUncapped`` fallback.
+        # The value-direct mechanic still shows through: the haircut is
+        # a flat scalar on the raw-normalized site value, NOT the Hill
+        # output (asserted below).
+        value_direct = raw_v / site_max * 9999.0
+        self.assertEqual(
+            rank_50_row["_blendedValueUncapped"],
+            int(round(value_direct * _SINGLE_SOURCE_VALUE_RETENTION)),
+        )
         self.assertEqual(
             rank_50_row["rankDerivedValue"],
-            int(raw_v / site_max * 9999.0 * _SINGLE_SOURCE_VALUE_RETENTION),
+            int(value_direct * _SINGLE_SOURCE_VALUE_RETENTION),
         )
         # And the value is NOT the Hill output at p=49/499 ≈ 0.098,
         # which would yield a much lower value under HILL_PERCENTILE_*.
