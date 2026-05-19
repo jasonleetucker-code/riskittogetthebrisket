@@ -544,17 +544,20 @@ export default function TradePage() {
     [rowByName],
   );
 
-  // Per-side resolved league team (name).  Seeded from asset-overlap
-  // inference; user-overridable via the team strip.  null = unset.
+  // Per-side resolved league team (name).  An AUTO-inferred team must
+  // track the side's current assets (so swapping / clearing /
+  // importing a different team's package re-infers instead of keeping
+  // a stale roster); an explicit user selection is locked and
+  // preserved.  Choosing the blank option unlocks → back to auto.
   const [sideTeamNames, setSideTeamNames] = useState([]);
+  const [sideTeamLocked, setSideTeamLocked] = useState([]);
   useEffect(() => {
     setSideTeamNames((prev) =>
-      sides.map((s, i) => {
-        if (prev[i] != null) return prev[i];
-        return inferTeamForSide(s)?.name ?? null;
-      }),
+      sides.map((s, i) =>
+        sideTeamLocked[i] ? (prev[i] ?? null) : (inferTeamForSide(s)?.name ?? null),
+      ),
     );
-  }, [sides, inferTeamForSide]);
+  }, [sides, inferTeamForSide, sideTeamLocked]);
 
   const tradeHasPicks = useMemo(
     () => sides.some((s) => (s.assets || []).some((a) => a.assetClass === "pick")),
@@ -2228,13 +2231,21 @@ export default function TradePage() {
                       className="input"
                       style={{ minWidth: 150 }}
                       value={sideTeamNames[i] ?? ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const v = e.target.value || null;
                         setSideTeamNames((prev) => {
                           const next = [...prev];
-                          next[i] = e.target.value || null;
+                          next[i] = v;
                           return next;
-                        })
-                      }
+                        });
+                        // Picking a team locks it (don't re-infer);
+                        // the blank option unlocks → auto-infer again.
+                        setSideTeamLocked((prev) => {
+                          const next = [...prev];
+                          next[i] = v != null;
+                          return next;
+                        });
+                      }}
                     >
                       <option value="">— select team —</option>
                       {sleeperTeams.map((t) => (
