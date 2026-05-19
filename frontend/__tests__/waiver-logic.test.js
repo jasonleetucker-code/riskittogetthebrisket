@@ -23,6 +23,10 @@ function row(name, value, opts = {}) {
     assetClass: opts.assetClass || "offense",
     rankDerivedValue: value,
     values: { full: value },
+    // Default to a corroborated multi-source player so existing
+    // ownership/value/position cases aren't swept by the two-source
+    // waiver gate.  Single-source cases set sourceCount explicitly.
+    sourceCount: opts.sourceCount !== undefined ? opts.sourceCount : 2,
   };
 }
 
@@ -186,6 +190,27 @@ describe("computeWaiverAnalysis — addable detection", () => {
     expect(r.droppable).toHaveLength(1);
     expect(r.droppable[0].row.name).toBe("Bench Guy");
     expect(r.droppable[0].bestReplacement.name).toBe("FA Star");
+  });
+
+  it("never surfaces a single-source FA even when its value beats a roster player", () => {
+    const myRoster = ["Bench Guy"];
+    const rows = [
+      row("Bench Guy", 1000),
+      // Single-source FA whose (already haircut) value still beats the
+      // bench — must NOT appear as addable (parity with the backend
+      // two-source gate).
+      row("Solo FA", 1500, { sourceCount: 1 }),
+      // Corroborated FA — should still appear.
+      row("Real FA", 5000, { sourceCount: 3 }),
+    ];
+    const r = computeWaiverAnalysis({
+      rows,
+      myRosterNames: myRoster,
+      sleeperTeams: [team("Mine", myRoster)],
+    });
+    const addableNames = r.addable.map((a) => a.row.name);
+    expect(addableNames).toContain("Real FA");
+    expect(addableNames).not.toContain("Solo FA");
   });
 
   it("ranks multiple addables by net gain desc with stable tiebreakers", () => {

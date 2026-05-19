@@ -851,7 +851,7 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
 #                   the marketGapMagnitude.  Adding a second retail
 #                   source (e.g. Sleeper's public trade values) is a
 #                   pure registry change — the gap logic generalizes.
-from src.canonical.idp_backbone import (
+from src.canonical.idp_backbone import (  # noqa: E402
     SOURCE_SCOPE_OVERALL_IDP,
     SOURCE_SCOPE_OVERALL_OFFENSE,
     SOURCE_SCOPE_POSITION_IDP,
@@ -2653,7 +2653,6 @@ def _validate_and_quarantine_rows(
     #       signal, so we don't need to pile contradictions on top.
     for idx, row in enumerate(players_array):
         pos = str(row.get("position") or "").strip().upper()
-        asset_class = row.get("assetClass") or ""
         canonical_sites = row.get("canonicalSiteValues") or {}
 
         has_off_val = any(

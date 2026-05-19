@@ -174,6 +174,18 @@ function rowName(row) {
 }
 
 /**
+ * Matched-source count stamped by the canonical pipeline
+ * (``buildRows`` carries it through verbatim).  Mirrors the backend
+ * ``find_waiver_targets`` two-source gate: a free agent backed by a
+ * single ranking source has no corroboration and must never surface
+ * as a waiver pickup, regardless of position.  Non-finite ⇒ 0.
+ */
+function rowSourceCount(row) {
+  const n = Number(row?.sourceCount);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
  * True when the row carries a synthetic / fallback value but no real
  * source ranking — the scraper's "must-have rookie guarantee" path
  * (Dynasty Scraper.py:6072-6081) seeds a value of ~1888 for any
@@ -284,6 +296,7 @@ function buildCandidatePool({
     if (!idpEnabled && rowAssetClass(row) === "idp") continue;
     if (rowValue(row) <= 0) continue;
     if (rowHasNoRealRank(row)) continue;  // skip must-have rookie fallbacks
+    if (rowSourceCount(row) < 2) continue;  // two-source minimum (parity w/ backend)
     const norm = normalizeName(rowName(row));
     if (!norm) continue;
     if (myRosterNameSet.has(norm)) continue;  // never compare against self
@@ -708,6 +721,7 @@ export function buildTopWaiverPool(
     if (!idpEnabled && cls === "idp") continue;
     if (rowValue(row) <= 0) continue;
     if (rowHasNoRealRank(row)) continue;
+    if (rowSourceCount(row) < 2) continue;  // two-source minimum (parity w/ backend)
     if (!includeRookies && row?.rookie) continue;
     const norm = normalizeName(rowName(row));
     if (!norm) continue;
