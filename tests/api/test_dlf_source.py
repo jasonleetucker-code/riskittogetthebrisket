@@ -37,7 +37,7 @@ from src.canonical.idp_backbone import (
 )
 
 
-def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None) -> dict:
+def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None, ktc_sf=None) -> dict:
     sites: dict = {}
     if idp is not None:
         sites["idpTradeCalc"] = idp
@@ -45,6 +45,8 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None) -> dict:
         sites["dlfIdp"] = dlf
     if ktc is not None:
         sites["ktc"] = ktc
+    if ktc_sf is not None:
+        sites["ktcSfTep"] = ktc_sf
     return {
         "canonicalName": name,
         "displayName": name,
@@ -313,8 +315,16 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         the shared-market IDP ladder to the combined-pool rank of the
         best IDP in the backbone."""
         # 10 offense rows all price higher in IDPTradeCalc than any IDP,
-        # so the combined-pool rank of the top IDP in IDPTC is 11.
-        rows = [_row(f"off{i}", "QB" if i % 2 else "WR", idp=9999 - i * 10) for i in range(10)]
+        # so the combined-pool rank of the top IDP in IDPTC is 11.  Each
+        # carries a second corroborating offense source (ktcSfTep) so
+        # the single-source confidence haircut does not fire — these
+        # stand in for realistic multi-source offense players; the
+        # regression under test is the DLF shared-market translation,
+        # not the haircut.
+        rows = [
+            _row("off%d" % i, "QB" if i % 2 else "WR", idp=9999 - i * 10, ktc_sf=9999 - i * 10)
+            for i in range(10)
+        ]
         rows += [
             _row("dl1", "DL", idp=5500, dlf=9995),
             _row("lb1", "LB", idp=5000, dlf=9990),

@@ -2,6 +2,7 @@ import unittest
 
 from src.api.data_contract import (
     OVERALL_RANK_LIMIT,
+    _SINGLE_SOURCE_VALUE_RETENTION,
     _compute_unified_rankings,
     build_api_data_contract,
     validate_api_data_contract,
@@ -91,8 +92,14 @@ class TestComputeKtcRankings(unittest.TestCase):
         # KTC is a value-based source under the Final Framework
         # override — its raw 0-9999 value is fed directly into the
         # blend.  The top player's KTC value (9999) is also the site's
-        # max, so the normalized vote is 9999/9999 × 9999 = 9999.
-        self.assertEqual(rows[0]["rankDerivedValue"], 9999)
+        # max, so the normalized vote is 9999/9999 × 9999 = 9999.  This
+        # fixture is single-source (KTC only), so the single-source
+        # confidence haircut applies to the displayed value.
+        self.assertEqual(rows[0]["_blendedValueUncapped"], 9999)
+        self.assertEqual(
+            rows[0]["rankDerivedValue"],
+            int(9999 * _SINGLE_SOURCE_VALUE_RETENTION),
+        )
 
     def test_value_based_source_uses_raw_value_directly(self):
         """KTC is on the ``_VALUE_BASED_SOURCES`` allowlist, so its
@@ -111,8 +118,16 @@ class TestComputeKtcRankings(unittest.TestCase):
         raw_v = rank_50_row["canonicalSiteValues"]["ktcSfTep"]
         # site_max comes from the same pool → P0's value 9999.
         site_max = 9999
+        # The value-direct mechanic is asserted on the pre-haircut
+        # ``_blendedValueUncapped`` stamp; the displayed
+        # ``rankDerivedValue`` then carries the single-source haircut
+        # (this pool is KTC-only).
         expected_direct = int(round(raw_v / site_max * 9999.0))
-        self.assertEqual(rank_50_row["rankDerivedValue"], expected_direct)
+        self.assertEqual(rank_50_row["_blendedValueUncapped"], expected_direct)
+        self.assertEqual(
+            rank_50_row["rankDerivedValue"],
+            int(raw_v / site_max * 9999.0 * _SINGLE_SOURCE_VALUE_RETENTION),
+        )
         # And the value is NOT the Hill output at p=49/499 ≈ 0.098,
         # which would yield a much lower value under HILL_PERCENTILE_*.
         from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: PLC0415
@@ -169,7 +184,13 @@ class TestComputeKtcRankings(unittest.TestCase):
         legacy = {"Josh Allen": {"ktcSfTep": 9000, "_finalAdjusted": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
-        self.assertEqual(legacy["Josh Allen"]["rankDerivedValue"], int(rank_to_value(1)))
+        # The legacy dict must mirror whatever the array row computed,
+        # including the single-source haircut applied to this KTC-only
+        # fixture — the assertion tracks the row, not a fixed constant.
+        self.assertEqual(
+            legacy["Josh Allen"]["rankDerivedValue"],
+            rows[0]["rankDerivedValue"],
+        )
 
     def test_build_api_data_contract_stamps_ktc_rank(self):
         """The full contract builder must include ktcRank in playersArray."""

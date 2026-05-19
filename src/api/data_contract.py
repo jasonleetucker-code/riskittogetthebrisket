@@ -4400,6 +4400,20 @@ _ALPHA_SHRINKAGE: float = 0.10
 # backtest.
 _MAD_PENALTY_LAMBDA: float = 0.0
 
+# Single-source confidence haircut.  A player whose blended value rests
+# on a single contributing source (after Hampel filtering) has no
+# corroboration — one list can place a player anywhere with zero
+# cross-checks, which was producing inflated, untrustworthy values
+# (and "weird" waiver/board entries).  Such a row keeps its place in
+# the database (it may still be a real rostered player) but its
+# ``rankDerivedValue`` is multiplied by this factor — a heavy haircut
+# so the low confidence is reflected in the number itself, not just
+# the confidence bucket.  Applied to the pre-sort blended value so the
+# board rank and the displayed value stay consistent.  Picks are
+# exempt: they ride their own CV-based confidence path and a single
+# value-source (KTC per-slot synth) is structurally normal for them.
+_SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
+
 # Registry of sources whose raw per-player CSV value should be used
 # as a **direct normalized vote** in the Phase 2-3 blend, instead of
 # being re-modelled through the Hill/scope-master curve.  The user's
@@ -6315,6 +6329,19 @@ def _compute_unified_rankings(
         players_array[row_idx]["hillValueSpread"] = (
             round(hill_value_spread, 2) if hill_value_spread is not None else None
         )
+
+        # Single-source confidence haircut.  ``all_values`` is the
+        # post-Hampel set of contributing source values; len <= 1 means
+        # the blend rests on one uncorroborated source.  Apply the
+        # heavy retention factor to the value that feeds the sort so
+        # both the board rank and ``rankDerivedValue`` reflect the low
+        # confidence.  ``_blendedValueUncapped`` (stamped above) is
+        # left unpenalized so pick tethering keys off the raw rookie
+        # pool value, not the haircut.
+        if not row_is_pick and len(all_values) <= 1:
+            blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
+            players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
+
         row_normalized.append((blended_value, row_idx))
 
     # ── Phase 3a: Pick year discount (gated to picks) ──

@@ -142,6 +142,18 @@ def find_waiver_targets(
         if not isinstance(consensus, (int, float)) or consensus < min_value:
             continue
 
+        # Two-source minimum.  A player backed by a single ranking
+        # source has no corroboration — these produced the "weird"
+        # waiver suggestions whose value rested on one list.  Never
+        # surface them as a pickup regardless of position.  ``sourceCount``
+        # is the matched-source count stamped by the canonical pipeline.
+        try:
+            source_count = int(row.get("sourceCount") or 0)
+        except (TypeError, ValueError):
+            source_count = 0
+        if source_count < 2:
+            continue
+
         is_rookie = bool(row.get("rookie") or row.get("_formatFitRookie"))
         if is_rookie and not rookies_eligible:
             continue
