@@ -6,6 +6,8 @@
  * No React dependencies — pure functions + constants.
  */
 
+import { effectiveAuctionPower } from "./auction-power";
+
 // ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [
   { key: "full", label: "Our Value" },
@@ -753,20 +755,84 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
   });
 }
 
+// ── Draft-capital stack effect ───────────────────────────────────────────
+//
+// A pick's worth depends on the receiving team's existing draft
+// capital.  Given the routing (which pick auction-$ moves between which
+// teams), recompute the league's zero-sum effective auction power
+// before/after the trade; each team's CHANGE in premium-over-raw is the
+// stack effect of this trade for that team.  It's returned in
+// board-value units (converted via the trade's own pick board-$ ratio)
+// so it folds straight into the fairness gap, and surfaced explicitly
+// (never a silent verdict shift).
+//
+// stackContext = {
+//   sideTeams:   string[]            // side idx → league team (null = unset)
+//   leagueStacks:{ [team]: number }  // auction $ for every league team
+//   moves:       [{ from, to, dollars, board }]  // from/to are side idx
+// }
+// Returns number[] (board-unit stack adjustment per side); zeros when
+// the context is absent/insufficient.
+export function computeStackAdjustments(numSides, stackContext) {
+  const zeros = Array(numSides).fill(0);
+  if (!stackContext) return zeros;
+  const { sideTeams, leagueStacks, moves } = stackContext;
+  if (!Array.isArray(sideTeams) || !leagueStacks || !Array.isArray(moves)) {
+    return zeros;
+  }
+  if (moves.length === 0) return zeros;
+
+  const post = { ...leagueStacks };
+  let sumBoard = 0;
+  let sumDollars = 0;
+  for (const mv of moves) {
+    const fromT = sideTeams[mv.from];
+    const toT = sideTeams[mv.to];
+    const d = Number(mv.dollars) || 0;
+    if (fromT == null || toT == null) return zeros; // gate not satisfied
+    if (!(fromT in post)) post[fromT] = 0;
+    if (!(toT in post)) post[toT] = 0;
+    post[fromT] -= d;
+    post[toT] += d;
+    sumBoard += Number(mv.board) || 0;
+    sumDollars += d;
+  }
+  if (sumDollars <= 0) return zeros;
+  const k = sumBoard / sumDollars; // $ → board-value units
+
+  const before = effectiveAuctionPower(leagueStacks);
+  const after = effectiveAuctionPower(post);
+  return sideTeams.map((team) => {
+    if (team == null || !(team in leagueStacks)) return 0;
+    const premiumBefore = (before[team] || 0) - (leagueStacks[team] || 0);
+    const premiumAfter = (after[team] || 0) - (post[team] || 0);
+    return (premiumAfter - premiumBefore) * k;
+  });
+}
+
 /**
  * Adjusted per-side totals for 2-team trade display.
- * Each entry is { raw, adjustment, adjusted } where `adjusted = raw + adjustment`
- * and only the recipient side has a non-zero adjustment.
+ * Each entry is { raw, adjustment, adjusted, stackAdjustment } where
+ * `adjusted = raw + adjustment + stackAdjustment`.  The KTC value
+ * adjustment only credits the recipient side; the draft-capital stack
+ * effect (optional `stackContext`) can credit/debit either side.
  */
-export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
+export function adjustedSideTotals(
+  sideA,
+  sideB,
+  valueMode,
+  settings = null,
+  stackContext = null,
+) {
   const rawA = sideTotal(sideA, valueMode, settings);
   const rawB = sideTotal(sideB, valueMode, settings);
   const { adjustment, recipientIdx } = computeValueAdjustment(sideA, sideB, valueMode, settings);
   const adjA = recipientIdx === 0 ? adjustment : 0;
   const adjB = recipientIdx === 1 ? adjustment : 0;
+  const [stackA, stackB] = computeStackAdjustments(2, stackContext);
   return [
-    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA },
-    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB },
+    { raw: rawA, adjustment: adjA, stackAdjustment: stackA, adjusted: rawA + adjA + stackA },
+    { raw: rawB, adjustment: adjB, stackAdjustment: stackB, adjusted: rawB + adjB + stackB },
   ];
 }
 
@@ -781,18 +847,36 @@ export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
  * @param {string} valueMode
  * @param {object} [settings]
  */
-export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
+export function multiAdjustedSideTotals(
+  sides,
+  valueMode,
+  settings = null,
+  stackContext = null,
+) {
   const adjustments = computeMultiSideAdjustments(sides, valueMode, settings);
+  const stack = computeStackAdjustments(sides.length, stackContext);
   return sides.map((side, i) => {
     const raw = sideTotal(side, valueMode, settings);
     const adjustment = adjustments[i] || 0;
-    return { raw, adjustment, adjusted: raw + adjustment };
+    const stackAdjustment = stack[i] || 0;
+    return {
+      raw,
+      adjustment,
+      stackAdjustment,
+      adjusted: raw + adjustment + stackAdjustment,
+    };
   });
 }
 
 /** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */
-export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
-  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings);
+export function tradeGapAdjusted(
+  sideA,
+  sideB,
+  valueMode,
+  settings = null,
+  stackContext = null,
+) {
+  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings, stackContext);
   return totals[0].adjusted - totals[1].adjusted;
 }
 

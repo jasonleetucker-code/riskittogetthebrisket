@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { effectiveAuctionPower } from "./_auction-power";
+import { effectiveAuctionPower } from "@/lib/auction-power";
 
 function fmtDollar(v) {
   if (v == null) return "$0";

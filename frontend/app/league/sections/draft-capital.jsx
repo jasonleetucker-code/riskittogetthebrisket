@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
-import { effectiveAuctionPower } from "./_auction-power";
+import { effectiveAuctionPower } from "@/lib/auction-power";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
