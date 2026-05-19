@@ -513,7 +513,15 @@ export default function TradePage() {
   const [draftCapital, setDraftCapital] = useState(null);
   useEffect(() => {
     let alive = true;
-    fetch("/api/draft-capital")
+    // Scope to the page's own league so the stack math never mixes a
+    // switched active league's teams/picks with another league's
+    // draft-capital board (matches how useDynastyData scopes its
+    // contract fetch).
+    const qs = selectedLeagueKey
+      ? `?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+      : "";
+    setDraftCapital(null);
+    fetch(`/api/draft-capital${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (alive && d && Array.isArray(d.picks)) setDraftCapital(d);
@@ -522,7 +530,7 @@ export default function TradePage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [selectedLeagueKey]);
 
   const currentDraftYear = useMemo(() => {
     const fromContract = Number(rawData?.currentDraftYear);
