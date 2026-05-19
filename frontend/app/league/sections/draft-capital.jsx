@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
+import { effectiveAuctionPower } from "./_auction-power";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
@@ -106,11 +107,19 @@ export default function DraftCapitalSection() {
 function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds, season }) {
   const maxDollars = Math.max(...(teamTotals || []).map((t) => t.auctionDollars), 1);
 
+  // Effective auction power is a presentation lens computed client-side
+  // from the raw per-team dollars (zero-sum; src/api/auction_power.py
+  // is the source of truth).  No extra backend payload.
+  const effectiveByTeam = effectiveAuctionPower(
+    Object.fromEntries((teamTotals || []).map((t) => [t.team, t.auctionDollars || 0])),
+  );
+
   return (
     <div style={{ marginTop: "var(--space-md)" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
         {(teamTotals || []).map((team, i) => {
           const pct = (team.auctionDollars / maxDollars) * 100;
+          const effectiveDollars = effectiveByTeam[team.team];
           const teamPicks = (picks || []).filter((p) => p.currentOwner === team.team);
           const tradedCount = teamPicks.filter((p) => p.isTraded).length;
 
@@ -179,8 +188,8 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                   {fmtDollar(team.auctionDollars)}
                 </span>
 
-                {Number.isFinite(team.effectiveAuctionDollars) &&
-                  team.effectiveAuctionDollars !== team.auctionDollars && (
+                {Number.isFinite(effectiveDollars) &&
+                  effectiveDollars !== team.auctionDollars && (
                     <span
                       className="font-mono"
                       title={
@@ -196,13 +205,13 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                         fontSize: "0.74rem",
                         fontWeight: 600,
                         color:
-                          team.effectiveAuctionDollars > team.auctionDollars
+                          effectiveDollars > team.auctionDollars
                             ? "var(--cyan)"
                             : "var(--muted)",
                       }}
                     >
-                      {team.effectiveAuctionDollars > team.auctionDollars ? "▲" : "▼"}
-                      {fmtDollar(team.effectiveAuctionDollars)}
+                      {effectiveDollars > team.auctionDollars ? "▲" : "▼"}
+                      {fmtDollar(effectiveDollars)}
                     </span>
                   )}
 

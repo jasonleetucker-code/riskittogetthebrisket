@@ -61,10 +61,9 @@ def test_biggest_stack_gets_a_premium_above_raw():
 
 
 def test_leapfrog_user_hypothetical():
-    # User's scenario: trailing team (175) trades to pass the leader
-    # (180).  Once it edges ahead and becomes the clear top stack, its
-    # effective power should reflect a premium vs a flat field.
-    before = {"me": 175, "rival": 180, "c": 95, "d": 85, "e": 75, "f": 65}
+    # User's scenario: trailing team (was 175, rival 180) trades to
+    # pass the leader.  Once it edges ahead and becomes the clear top
+    # stack, its effective power should reflect a premium vs the field.
     after = {"me": 188, "rival": 167, "c": 95, "d": 85, "e": 75, "f": 65}
     eff_after = effective_auction_power(after)
     # Leapfrogging into the lead is worth strictly more effective

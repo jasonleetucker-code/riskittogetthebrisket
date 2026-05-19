@@ -45,8 +45,11 @@ rookies a team actually wins = the true marginal value of those picks
   Stochastic: average over many runs (target stable to <1% across
     seeds) before surfacing.
   Integration: Phase 2 replaces (does not duplicate) Phase 1 behind the
-    SAME ``effective_auction_power`` signature and the same
-    ``effectiveCapital`` API field, so no caller changes.
+    SAME ``effective_auction_power`` signature, so no caller changes.
+    NOTE: the live UI lens is currently computed client-side from the
+    raw per-team dollars (frontend ``_auction-power.js`` mirrors this
+    module — keep them in lockstep).  This module remains the source of
+    truth + the home of the Phase 2 simulation and the unit tests.
 """
 
 from __future__ import annotations
@@ -155,11 +158,7 @@ def effective_auction_power(
         leader, runner = order[0], order[1]
         lead = raw[leader] - raw[runner]
         if lead > 0:
-            bonus = (
-                k.leapfrog_weight
-                * spread
-                * math.tanh(lead / spread)
-            )
+            bonus = k.leapfrog_weight * spread * math.tanh(lead / spread)
             weighted[leader] += bonus
 
     # Renormalize so the league still sums to the exact raw total —

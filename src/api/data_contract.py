@@ -3636,9 +3636,7 @@ def _load_pick_year_discount() -> dict[str, Any]:
                 cfg["rolloverDay"] = int(loaded["rolloverDay"])
             raw_offsets = loaded.get("offsetDiscounts") or {}
             if isinstance(raw_offsets, dict):
-                cfg["offsetDiscounts"] = {
-                    str(int(k)): float(v) for k, v in raw_offsets.items()
-                }
+                cfg["offsetDiscounts"] = {str(int(k)): float(v) for k, v in raw_offsets.items()}
             # Legacy absolute-year schema (back-compat only).
             base = loaded.get("baselineYear")
             cfg["baselineYear"] = int(base) if base else None
@@ -3884,7 +3882,7 @@ def _pick_year_discount_for(
             return max(0.05, min(1.0, float(raw)))
         except (TypeError, ValueError):
             pass
-    return max(0.05, fallback_base ** offset)
+    return max(0.05, fallback_base**offset)
 
 
 def _parse_pick_slot(name: str) -> tuple[int, int, int] | None:
@@ -7610,16 +7608,12 @@ def build_api_data_contract(
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
     # ``current_rookie_draft_year``).
-    set_observed_current_draft_year(
-        _derive_current_draft_year_from_names(players_by_name.keys())
-    )
+    set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
 
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
     # real future tiers.  No-ops the moment sources publish that year.
-    _inject_far_future_pick_sources(
-        players_by_name, current_rookie_draft_year()
-    )
+    _inject_far_future_pick_sources(players_by_name, current_rookie_draft_year())
 
     # Strip legacy LAM/scarcity fields before building the contract.
     _strip_legacy_lam_fields(base, players_by_name)

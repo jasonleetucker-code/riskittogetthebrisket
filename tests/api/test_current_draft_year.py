@@ -107,9 +107,7 @@ def test_offset_discounts_apply_by_distance():
     assert dc._pick_year_discount_for(2028, cfg, current_draft_year=2026) == 0.66
     assert dc._pick_year_discount_for(2029, cfg, current_draft_year=2026) == 0.53
     # Beyond the configured offsets → exponential fallback.
-    assert dc._pick_year_discount_for(2030, cfg, current_draft_year=2026) == pytest.approx(
-        0.80**4
-    )
+    assert dc._pick_year_discount_for(2030, cfg, current_draft_year=2026) == pytest.approx(0.80**4)
 
 
 def test_discount_self_rolls_when_active_year_advances():
