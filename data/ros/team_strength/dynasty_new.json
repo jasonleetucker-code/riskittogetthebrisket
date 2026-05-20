@@ -379,8 +379,8 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 374.97,
-    "startingLineupScore": 461.58,
+    "teamRosStrength": 375.03,
+    "startingLineupScore": 461.66,
     "benchDepthScore": 181.31,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -450,9 +450,9 @@
         "playerId": "12519",
         "canonicalName": "luther burden",
         "position": "WR",
-        "rosValue": 35.87,
-        "adjustedValue": 35.87,
-        "confidence": 0.908,
+        "rosValue": 35.95,
+        "adjustedValue": 35.95,
+        "confidence": 0.907,
         "flagged": null
       },
       {
@@ -755,8 +755,8 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 325.31,
-    "startingLineupScore": 405.57,
+    "teamRosStrength": 325.34,
+    "startingLineupScore": 405.61,
     "benchDepthScore": 129.43,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -826,8 +826,8 @@
         "playerId": "11628",
         "canonicalName": "marvin harrison",
         "position": "WR",
-        "rosValue": 33.22,
-        "adjustedValue": 33.22,
+        "rosValue": 33.26,
+        "adjustedValue": 33.26,
         "confidence": 0.946,
         "flagged": null
       },
@@ -1133,8 +1133,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 294.66,
-    "startingLineupScore": 355.85,
+    "teamRosStrength": 294.6,
+    "startingLineupScore": 355.77,
     "benchDepthScore": 158.04,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1194,9 +1194,9 @@
         "playerId": "5927",
         "canonicalName": "terry mclaurin",
         "position": "WR",
-        "rosValue": 35.42,
-        "adjustedValue": 35.42,
-        "confidence": 0.917,
+        "rosValue": 35.34,
+        "adjustedValue": 35.34,
+        "confidence": 0.918,
         "flagged": null
       },
       {
@@ -1321,9 +1321,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 257.23,
+    "teamRosStrength": 257.24,
     "startingLineupScore": 314.04,
-    "benchDepthScore": 117.35,
+    "benchDepthScore": 117.4,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1441,9 +1441,9 @@
         "playerId": "3321",
         "canonicalName": "tyreek hill",
         "position": "WR",
-        "rosValue": 21.4,
+        "rosValue": 21.44,
         "depthFactor": 1.0,
-        "depthContribution": 21.4
+        "depthContribution": 21.44
       },
       {
         "playerId": "12493",
@@ -1465,9 +1465,9 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 18.19,
+        "rosValue": 18.2,
         "depthFactor": 0.65,
-        "depthContribution": 11.82
+        "depthContribution": 11.83
       },
       {
         "playerId": "13320",
@@ -1513,7 +1513,7 @@
     "teamName": "tedkinney",
     "teamRosStrength": 254.91,
     "startingLineupScore": 322.36,
-    "benchDepthScore": 71.16,
+    "benchDepthScore": 71.17,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1639,9 +1639,9 @@
         "playerId": "12492",
         "canonicalName": "pat bryant",
         "position": "WR",
-        "rosValue": 15.68,
+        "rosValue": 15.69,
         "depthFactor": 0.65,
-        "depthContribution": 10.19
+        "depthContribution": 10.2
       },
       {
         "playerId": "12483",
