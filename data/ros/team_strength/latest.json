@@ -774,17 +774,17 @@
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 22.7,
+        "rosValue": 22.71,
         "depthFactor": 1.0,
-        "depthContribution": 22.7
+        "depthContribution": 22.71
       },
       {
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
-        "rosValue": 22.7,
+        "rosValue": 22.68,
         "depthFactor": 0.65,
-        "depthContribution": 14.76
+        "depthContribution": 14.74
       },
       {
         "playerId": "7049",
