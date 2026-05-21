@@ -66,9 +66,7 @@ def effective_settings(user_settings: dict[str, Any] | None) -> dict[str, Any]:
         "per_bet_max_usd": _coerce_positive_float(
             us.get("per_bet_max_usd"), defaults["per_bet_max_usd"]
         ),
-        "daily_cap_usd": _coerce_positive_float(
-            us.get("daily_cap_usd"), defaults["daily_cap_usd"]
-        ),
+        "daily_cap_usd": _coerce_positive_float(us.get("daily_cap_usd"), defaults["daily_cap_usd"]),
         # require_live_confirm is a safety floor: config can require it,
         # and a user cannot turn it off (only satisfy it via live_confirmed).
         "require_live_confirm": bool(defaults["require_live_confirm"]),

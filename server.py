@@ -1756,8 +1756,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "dynasty_nerds_schema_regression",
                         level="error",
                         message=(
-                            "Dynasty Nerds fetch exit=2 "
-                            "(DR_DATA shape changed or rows below floor)"
+                            "Dynasty Nerds fetch exit=2 (DR_DATA shape changed or rows below floor)"
                         ),
                         exit_code=rc,
                     )
@@ -4738,7 +4737,7 @@ async def post_angle_packages(request: Request):
             status_code=400,
             content={
                 "error": (
-                    f"Request body must include 'ownerId' and a non-empty " f"{names_key!r} list."
+                    f"Request body must include 'ownerId' and a non-empty {names_key!r} list."
                 )
             },
         )
@@ -6443,7 +6442,7 @@ async def get_sleeper_draft_picks(
             content={
                 "error": "no_active_draft",
                 "message": (
-                    "No active draft for this league, or Sleeper is " "unreachable right now."
+                    "No active draft for this league, or Sleeper is unreachable right now."
                 ),
                 "leagueKey": league_cfg.key,
             },
@@ -7725,13 +7724,21 @@ async def post_betting_bet(request: Request):
     except _kc.KalshiApiError as exc:
         return JSONResponse(
             status_code=502,
-            content={"error": "kalshi_order_rejected", "status": exc.status, "detail": exc.body[:300]},
+            content={
+                "error": "kalshi_order_rejected",
+                "status": exc.status,
+                "detail": exc.body[:300],
+            },
         )
     except Exception as exc:  # noqa: BLE001
-        return JSONResponse(status_code=502, content={"error": "kalshi_request_failed", "detail": str(exc)})
+        return JSONResponse(
+            status_code=502, content={"error": "kalshi_request_failed", "detail": str(exc)}
+        )
 
     order = resp.get("order") if isinstance(resp, dict) else None
-    order_id = str(order.get("order_id")) if isinstance(order, dict) and order.get("order_id") else None
+    order_id = (
+        str(order.get("order_id")) if isinstance(order, dict) and order.get("order_id") else None
+    )
 
     bet = await run_in_threadpool(
         lambda: _bets_store.create_bet(
@@ -7812,9 +7819,7 @@ async def get_betting_rooting(request: Request):
         return JSONResponse(status_code=401, content={"error": "auth_required"})
 
     def _rooting() -> list[dict]:
-        bets = _bets_store.list_bets(
-            username, statuses=frozenset({"resting", "filled"})
-        )
+        bets = _bets_store.list_bets(username, statuses=frozenset({"resting", "filled"}))
         rows = []
         for b in bets:
             rows.append(
@@ -9464,9 +9469,7 @@ async def get_league_article(season: str, week: int, matchup_id: int, mode: str)
             status_code=404,
             content={
                 "error": "not_found",
-                "message": (
-                    f"No {mode} article on disk for {season} W{week} " f"matchup {matchup_id}"
-                ),
+                "message": (f"No {mode} article on disk for {season} W{week} matchup {matchup_id}"),
             },
         )
     return JSONResponse(

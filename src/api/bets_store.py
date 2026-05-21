@@ -45,7 +45,6 @@ Schema::
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import threading
 import uuid
@@ -195,8 +194,7 @@ def create_bet(
     conn = _connect(path)
     try:
         conn.execute(
-            f"INSERT INTO bets ({','.join(_COLUMNS)}) "
-            f"VALUES ({','.join('?' for _ in _COLUMNS)})",
+            f"INSERT INTO bets ({','.join(_COLUMNS)}) VALUES ({','.join('?' for _ in _COLUMNS)})",
             (
                 bet_id,
                 username,
@@ -274,7 +272,9 @@ def open_bets(*, path: Path | None = None) -> list[dict[str, Any]]:
         conn.close()
 
 
-def update_bet(bet_id: str, patch: dict[str, Any], *, path: Path | None = None) -> dict[str, Any] | None:
+def update_bet(
+    bet_id: str, patch: dict[str, Any], *, path: Path | None = None
+) -> dict[str, Any] | None:
     """Update mutable fields on a bet.  Unknown keys are ignored."""
     mutable = {
         "status",

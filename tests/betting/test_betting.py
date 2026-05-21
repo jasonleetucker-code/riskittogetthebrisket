@@ -148,7 +148,11 @@ def test_resolve_market_uses_client(monkeypatch):
                 ]
             }
 
-    rec = {"side_team": "New York Knicks", "game": "New York Knicks @ San Antonio Spurs", "sport": "basketball_nba"}
+    rec = {
+        "side_team": "New York Knicks",
+        "game": "New York Knicks @ San Antonio Spurs",
+        "sport": "basketball_nba",
+    }
     m = kmap.resolve_market(FakeClient(), rec)
     assert m["ticker"] == "KXNBAGAME-NYK"
 
@@ -166,14 +170,25 @@ def test_effective_settings_merges_user_over_defaults():
 
 def test_check_bet_allowed_paths():
     eff = bset.effective_settings({"unit_usd": 5, "per_bet_max_usd": 25, "daily_cap_usd": 50})
-    assert bset.check_bet_allowed(stake_usd=5, settings=eff, committed_today_usd=0, is_live=False).ok
-    assert bset.check_bet_allowed(stake_usd=0, settings=eff, committed_today_usd=0, is_live=False).error == "invalid_stake"
+    assert bset.check_bet_allowed(
+        stake_usd=5, settings=eff, committed_today_usd=0, is_live=False
+    ).ok
     assert (
-        bset.check_bet_allowed(stake_usd=30, settings=eff, committed_today_usd=0, is_live=False).error
+        bset.check_bet_allowed(
+            stake_usd=0, settings=eff, committed_today_usd=0, is_live=False
+        ).error
+        == "invalid_stake"
+    )
+    assert (
+        bset.check_bet_allowed(
+            stake_usd=30, settings=eff, committed_today_usd=0, is_live=False
+        ).error
         == "exceeds_per_bet_max"
     )
     assert (
-        bset.check_bet_allowed(stake_usd=20, settings=eff, committed_today_usd=40, is_live=False).error
+        bset.check_bet_allowed(
+            stake_usd=20, settings=eff, committed_today_usd=40, is_live=False
+        ).error
         == "exceeds_daily_cap"
     )
     # Live + unconfirmed is blocked; demo is fine.
@@ -184,7 +199,9 @@ def test_check_bet_allowed_paths():
     eff_confirmed = bset.effective_settings(
         {"unit_usd": 5, "per_bet_max_usd": 25, "daily_cap_usd": 50, "live_confirmed": True}
     )
-    assert bset.check_bet_allowed(stake_usd=5, settings=eff_confirmed, committed_today_usd=0, is_live=True).ok
+    assert bset.check_bet_allowed(
+        stake_usd=5, settings=eff_confirmed, committed_today_usd=0, is_live=True
+    ).ok
 
 
 def test_sanitize_settings_patch_ignores_unknown_and_floor():
@@ -226,7 +243,9 @@ def test_bets_store_roundtrip(tmp_path):
     assert len(bets_store.open_bets(path=db)) == 1
 
     # advancing to filled removes it from the open set
-    bets_store.update_bet(bet["id"], {"status": "filled", "filled_count": 10, "filled_price": 59}, path=db)
+    bets_store.update_bet(
+        bet["id"], {"status": "filled", "filled_count": 10, "filled_price": 59}, path=db
+    )
     assert len(bets_store.open_bets(path=db)) == 0
     refreshed = bets_store.get_bet(bet["id"], path=db)
     assert refreshed["status"] == "filled"

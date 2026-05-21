@@ -134,9 +134,7 @@ class KalshiClient:
         key_id = (os.getenv("KALSHI_API_KEY_ID") or "").strip()
         pem = os.getenv("KALSHI_PRIVATE_KEY") or ""
         if not key_id or not pem.strip():
-            raise KalshiConfigError(
-                "KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY must be set"
-            )
+            raise KalshiConfigError("KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY must be set")
         # Allow the PEM to be stored with literal \n on a single .env line.
         pem_bytes = pem.replace("\\n", "\n").encode("utf-8")
         try:
@@ -186,7 +184,7 @@ class KalshiClient:
         # same prefix for signing, so strip the prefix when building the URL.
         suffix = path
         if path.startswith("/trade-api/v2"):
-            suffix = path[len("/trade-api/v2"):]
+            suffix = path[len("/trade-api/v2") :]
         url = f"{self.base_url}{suffix}"
         resp = requests.request(
             method.upper(),
