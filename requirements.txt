@@ -54,6 +54,11 @@ beautifulsoup4~=4.14.0
 # subscribed devices.
 pywebpush~=2.0
 
+# cryptography: RSA-PSS request signing for the Kalshi trading API
+# (src/api/kalshi_client.py).  Pulled in transitively by pywebpush, but
+# pinned explicitly here since the betting feature imports it directly.
+cryptography~=41.0
+
 # nfl_data_py: deliberately NOT in this manifest.
 #
 # nfl_data_py 0.3.x pins pandas<2.0, which forces pandas-1.5.3 to

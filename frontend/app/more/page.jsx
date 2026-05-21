@@ -17,6 +17,12 @@ import { useAuthContext } from "@/app/AppShellWrapper";
  */
 const SECTIONS = [
   {
+    title: "Betting",
+    items: [
+      { href: "/betting", label: "Betting", desc: "Auto-bet call sheet — Kalshi positions, recommendations, and who to root for" },
+    ],
+  },
+  {
     title: "Trade workflow",
     items: [
       { href: "/trade", label: "Calculator", desc: "Build and grade a trade" },

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "description": "Betting feature config: which sports to pull, which odds/consensus vendors feed the recommendation blend, and the default per-user guardrails.",
+  "enabled": true,
+  "sports": ["nba", "nfl", "mlb", "nhl"],
+  "vendors": [
+    {
+      "key": "the-odds-api",
+      "enabled": true,
+      "kind": "odds",
+      "weight": 1.0,
+      "auth_env": "ODDS_API_KEY",
+      "notes": "Sportsbook moneylines (h2h) across US books + public consensus. Free tier. ToS-permitted JSON API."
+    }
+  ],
+  "blend": {
+    "min_books": 1,
+    "notes": "Per-book de-vig, then average implied probability across books. Favorite side becomes the recommendation. Confidence blends favorite strength with book agreement."
+  },
+  "guardrail_defaults": {
+    "unit_usd": 5.0,
+    "per_bet_max_usd": 25.0,
+    "daily_cap_usd": 50.0,
+    "require_live_confirm": true,
+    "notes": "Server-enforced defaults for a new user. unit_usd is the default stake; per_bet_max_usd is a hard ceiling per bet; daily_cap_usd caps total committed stake per UTC day; require_live_confirm gates real-money (prod) placement behind an explicit per-user acknowledgement."
+  },
+  "kalshi": {
+    "env_default": "demo",
+    "notes": "KALSHI_ENV selects demo (default) vs prod. Demo and prod are separate accounts/keys. Native resting limit orders fill when the market reaches the target price."
+  }
+}

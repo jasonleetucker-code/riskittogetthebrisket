@@ -75,6 +75,7 @@ from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
+from src.api import bets_store as _bets_store
 from src.api import league_registry as _league_registry
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
@@ -2088,6 +2089,92 @@ async def schedule_loop():
         await scheduled_scrape()
 
 
+# ── BETTING RECONCILIATION ──────────────────────────────────────────────
+# Native Kalshi resting limit orders fill on the exchange side; this loop
+# polls open bets and advances resting → filled / canceled so the call
+# sheet + "who to root for" dashboard reflect reality.  Odds refresh is
+# handled by scripts/fetch_betting_odds.py (scheduled workflow / manual
+# run) to respect the odds API's free-tier quota — not here.
+BETTING_RECONCILE_INTERVAL_MIN = int(os.getenv("BETTING_RECONCILE_INTERVAL_MIN", "5"))
+
+
+def _extract_filled(order: dict) -> tuple[int, int | None]:
+    """Best-effort pull of (filled_count, avg_fill_price_cents) from a
+    Kalshi order payload.  Field names vary across API versions, so we
+    probe several and tolerate absence."""
+    from src.api import kalshi_client as _kc
+
+    filled = 0
+    for k in ("filled_count", "fill_count", "taker_fill_count", "filled_quantity"):
+        v = order.get(k)
+        if isinstance(v, (int, float)):
+            filled = int(v)
+            break
+    price = None
+    for k in ("avg_fill_price", "average_price", "fill_price", "yes_price", "no_price"):
+        if k in order:
+            price = _kc.dollars_to_cents(order.get(k))
+            if price is not None:
+                break
+    return filled, price
+
+
+def _reconcile_open_bets() -> int:
+    """Sync reconciliation pass over all open bets.  Returns count updated."""
+    from src.api import kalshi_client as _kc
+
+    open_rows = _bets_store.open_bets()
+    if not open_rows:
+        return 0
+    try:
+        client = _kc.KalshiClient.from_env()
+    except _kc.KalshiConfigError:
+        return 0  # not configured yet — nothing to reconcile against
+    updated = 0
+    for bet in open_rows:
+        order_id = bet.get("kalshi_order_id")
+        if not order_id:
+            continue
+        try:
+            resp = client.get_order(str(order_id))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("reconcile: get_order failed for %s: %s", bet["id"], exc)
+            continue
+        order = resp.get("order") if isinstance(resp, dict) else None
+        if not isinstance(order, dict):
+            continue
+        status = str(order.get("status") or "").strip().lower()
+        filled, price = _extract_filled(order)
+        patch: dict = {}
+        if status in ("canceled", "cancelled"):
+            patch["status"] = "canceled"
+        elif filled and filled >= int(bet.get("count") or 0):
+            patch["status"] = "filled"
+            patch["filled_count"] = filled
+            if price is not None:
+                patch["filled_price"] = price
+        elif filled:
+            patch["filled_count"] = filled
+            if price is not None:
+                patch["filled_price"] = price
+        if patch:
+            _bets_store.update_bet(bet["id"], patch)
+            updated += 1
+    return updated
+
+
+async def betting_loop():
+    """Periodically reconcile open Kalshi bets."""
+    while True:
+        await asyncio.sleep(max(60, BETTING_RECONCILE_INTERVAL_MIN * 60))
+        try:
+            n = await run_in_threadpool(_reconcile_open_bets)
+            if n:
+                log.info("betting: reconciled %d open bet(s)", n)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("betting reconciliation tick failed: %s", exc)
+
+
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -2145,6 +2232,7 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    betting_task = asyncio.create_task(betting_loop())
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
     # call time (Python late-binding), so the fact that the function
@@ -2184,6 +2272,7 @@ async def lifespan(app: FastAPI):
     scrape_task.cancel()
     scheduler_task.cancel()
     uptime_task.cancel()
+    betting_task.cancel()
     log.info("Server shutting down")
 
 
@@ -7427,6 +7516,321 @@ async def put_user_state_api(request: Request):
         content={"username": username, "state": state},
         headers={"Cache-Control": "no-store"},
     )
+
+
+# ── Betting (Kalshi auto-bet call sheet) ──────────────────────────
+# Per-user, league-independent feature.  Recommendation blending lives
+# in src/betting/recommendations.py, Kalshi transport in
+# src/api/kalshi_client.py, persistence in src/api/bets_store.py.  All
+# endpoints require auth and key off ``username`` only — never leagueKey.
+BETTING_DIR = DATA_DIR / "betting"
+
+
+def _betting_username(request: Request) -> str | None:
+    session = _get_auth_session(request)
+    if not session:
+        return None
+    return str(session.get("username") or "").strip() or None
+
+
+def _betting_effective_settings(username: str) -> dict:
+    from src.betting import settings as _bset
+
+    state = _user_kv.get_user_state(username) or {}
+    return _bset.effective_settings(state.get("bettingSettings"))
+
+
+@app.get("/api/betting/recommendations")
+async def get_betting_recommendations(request: Request):
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    from src.api import kalshi_client as _kc
+    from src.betting import recommendations as _recs
+
+    def _build() -> dict:
+        path = _recs.latest_snapshot_path(BETTING_DIR)
+        if not path:
+            return {"recommendations": [], "generatedAt": None, "snapshot": None}
+        snap = _recs.load_snapshot(path)
+        return {
+            "recommendations": _recs.build_recommendations(snap),
+            "generatedAt": snap.get("generated_at"),
+            "snapshot": path.name,
+        }
+
+    payload = await run_in_threadpool(_build)
+    payload["env"] = "demo" if _kc.is_demo() else "prod"
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/betting/settings")
+async def get_betting_settings(request: Request):
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    from src.api import kalshi_client as _kc
+
+    settings = await run_in_threadpool(_betting_effective_settings, username)
+    settings["env"] = "demo" if _kc.is_demo() else "prod"
+    return JSONResponse(content={"settings": settings}, headers={"Cache-Control": "no-store"})
+
+
+@app.put("/api/betting/settings")
+async def put_betting_settings(request: Request):
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    from src.betting import settings as _bset
+
+    patch = _bset.sanitize_settings_patch(body)
+
+    def _save() -> dict:
+        state = _user_kv.get_user_state(username) or {}
+        current = state.get("bettingSettings")
+        merged = dict(current) if isinstance(current, dict) else {}
+        merged.update(patch)
+        _user_kv.set_user_field(username, "bettingSettings", merged)
+        return _bset.effective_settings(merged)
+
+    settings = await run_in_threadpool(_save)
+    return JSONResponse(content={"settings": settings}, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/betting/bets")
+async def get_betting_bets(request: Request):
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    bets = await run_in_threadpool(_bets_store.list_bets, username)
+    return JSONResponse(content={"bets": bets}, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/betting/bets")
+async def post_betting_bet(request: Request):
+    """Approve a bet: validate guardrails, resolve the Kalshi market, and
+    place a resting limit order at the target price."""
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+
+    target_price = 0
+    try:
+        target_price = int(body.get("targetPrice"))
+    except (TypeError, ValueError):
+        target_price = 0
+    if not (1 <= target_price <= 99):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_target_price", "detail": "targetPrice must be 1-99 cents"},
+        )
+    try:
+        stake_usd = float(body.get("stakeUsd"))
+    except (TypeError, ValueError):
+        stake_usd = 0.0
+    if stake_usd <= 0:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_stake", "detail": "stakeUsd must be greater than 0"},
+        )
+    side = str(body.get("side") or "yes").strip().lower()
+    if side not in ("yes", "no"):
+        side = "yes"
+    sport = str(body.get("sport") or "").strip()
+    game = str(body.get("game") or "").strip()
+    side_label = str(body.get("sideLabel") or "").strip()
+    manual_ticker = str(body.get("ticker") or "").strip()
+    side_team = str(body.get("sideTeam") or "").strip()
+
+    from src.api import kalshi_client as _kc
+    from src.betting import settings as _bset
+    from src.betting import kalshi_mapping as _kmap
+
+    is_live = not _kc.is_demo()
+    env = "prod" if is_live else "demo"
+
+    settings = await run_in_threadpool(_betting_effective_settings, username)
+    committed = await run_in_threadpool(_bets_store.stake_committed_today, username)
+
+    # Contracts to buy so the stake approximates the requested dollars.
+    contract_cost = target_price / 100.0
+    count = max(1, int(stake_usd // contract_cost)) if contract_cost > 0 else 0
+    actual_stake = round(count * contract_cost, 2)
+
+    verdict = _bset.check_bet_allowed(
+        stake_usd=actual_stake,
+        settings=settings,
+        committed_today_usd=committed,
+        is_live=is_live,
+    )
+    if not verdict.ok:
+        return JSONResponse(
+            status_code=400,
+            content={"error": verdict.error, "detail": verdict.detail},
+        )
+
+    # Build/sign a client; missing creds → clean 503 (feature not wired yet).
+    try:
+        client = _kc.KalshiClient.from_env()
+    except _kc.KalshiConfigError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "betting_not_configured", "detail": str(exc)},
+        )
+
+    # Resolve a ticker: manual takes precedence, else best-effort auto-match.
+    ticker = manual_ticker
+    if not ticker and side_team:
+        match = await run_in_threadpool(
+            _kmap.resolve_market,
+            client,
+            {"side_team": side_team, "game": game, "sport": sport},
+        )
+        if match:
+            ticker = match["ticker"]
+            side = match["side"]
+    if not ticker:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "market_not_resolved",
+                "detail": "Could not auto-match a Kalshi market. Provide a ticker manually.",
+            },
+        )
+
+    client_order_id = uuid.uuid4().hex
+    try:
+        resp = await run_in_threadpool(
+            lambda: client.place_limit_order(
+                ticker=ticker,
+                side=side,
+                action="buy",
+                count=count,
+                price_cents=target_price,
+                client_order_id=client_order_id,
+            )
+        )
+    except _kc.KalshiApiError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"error": "kalshi_order_rejected", "status": exc.status, "detail": exc.body[:300]},
+        )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": "kalshi_request_failed", "detail": str(exc)})
+
+    order = resp.get("order") if isinstance(resp, dict) else None
+    order_id = str(order.get("order_id")) if isinstance(order, dict) and order.get("order_id") else None
+
+    bet = await run_in_threadpool(
+        lambda: _bets_store.create_bet(
+            username,
+            sport=sport,
+            game=game,
+            side_label=side_label or (f"{side_team} ML" if side_team else ticker),
+            kalshi_ticker=ticker,
+            kalshi_side=side,
+            target_price=target_price,
+            stake_usd=actual_stake,
+            count=count,
+            status="resting",
+            kalshi_order_id=order_id,
+            env=env,
+        )
+    )
+    return JSONResponse(content={"bet": bet}, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/betting/bets/{bet_id}/cancel")
+async def post_betting_bet_cancel(bet_id: str, request: Request):
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    bet = await run_in_threadpool(_bets_store.get_bet, bet_id)
+    if not bet or bet.get("username") != username:
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    from src.api import kalshi_client as _kc
+
+    if bet.get("kalshi_order_id"):
+        try:
+            client = _kc.KalshiClient.from_env()
+            await run_in_threadpool(client.cancel_order, str(bet["kalshi_order_id"]))
+        except _kc.KalshiConfigError:
+            pass  # nothing live to cancel; just mark canceled locally
+        except Exception as exc:  # noqa: BLE001
+            log.warning("kalshi cancel failed for bet %s: %s", bet_id, exc)
+    updated = await run_in_threadpool(_bets_store.update_bet, bet_id, {"status": "canceled"})
+    return JSONResponse(content={"bet": updated}, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/betting/kill")
+async def post_betting_kill(request: Request):
+    """Panic switch: cancel every open (resting) bet for this user."""
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    from src.api import kalshi_client as _kc
+
+    def _kill() -> int:
+        bets = _bets_store.list_bets(username, statuses=_bets_store.OPEN_STATUSES)
+        client = None
+        try:
+            client = _kc.KalshiClient.from_env()
+        except _kc.KalshiConfigError:
+            client = None
+        n = 0
+        for b in bets:
+            if client and b.get("kalshi_order_id"):
+                try:
+                    client.cancel_order(str(b["kalshi_order_id"]))
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("kill: cancel failed for %s: %s", b["id"], exc)
+            _bets_store.update_bet(b["id"], {"status": "canceled"})
+            n += 1
+        return n
+
+    count = await run_in_threadpool(_kill)
+    return JSONResponse(content={"canceled": count}, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/betting/rooting")
+async def get_betting_rooting(request: Request):
+    """Who to root for tonight — derived from the user's live/open bets."""
+    username = _betting_username(request)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+
+    def _rooting() -> list[dict]:
+        bets = _bets_store.list_bets(
+            username, statuses=frozenset({"resting", "filled"})
+        )
+        rows = []
+        for b in bets:
+            rows.append(
+                {
+                    "game": b.get("game"),
+                    "rootFor": b.get("side_label") or b.get("kalshi_ticker"),
+                    "status": b.get("status"),
+                    "stakeUsd": b.get("stake_usd"),
+                    "targetPrice": b.get("target_price"),
+                    "sport": b.get("sport"),
+                }
+            )
+        return rows
+
+    rows = await run_in_threadpool(_rooting)
+    return JSONResponse(content={"rooting": rows}, headers={"Cache-Control": "no-store"})
 
 
 # ── Web Push subscriptions ────────────────────────────────────────

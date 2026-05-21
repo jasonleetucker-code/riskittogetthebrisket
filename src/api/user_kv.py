@@ -100,6 +100,11 @@ KNOWN_KEYS = frozenset(
         # — listed here so new readers know the schema includes them.
         "notificationsEmail",
         "notificationsEnabled",
+        # Per-user betting guardrail/preference blob for the Betting
+        # section: ``{unit_usd, per_bet_max_usd, daily_cap_usd,
+        # live_confirmed}``.  See src/betting/settings.py.  Betting is
+        # league-independent, so this is a flat per-user field.
+        "bettingSettings",
     }
 )
 
