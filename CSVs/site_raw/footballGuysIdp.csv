@@ -3,9 +3,9 @@ Jack Campbell,31,LB1,DET,25,3
 Roquan Smith,55,LB2,BAL,29,8
 Carson Schwesinger,60,LB3,CLE,23,1
 Jordyn Brooks,61,LB4,MIA,28,6
-Ernest Jones IV,62,LB5,SEA,26,5
-Fred Warner,73,LB6,SF,29,8
-Zack Baun,78,LB7,PHI,29,6
+Ernest Jones IV,67,LB5,SEA,26,5
+Zack Baun,71,LB6,PHI,29,6
+Fred Warner,77,LB7,SF,29,8
 Edgerrin Cooper,82,LB8,GB,24,2
 Sonny Styles,85,LB9,WAS,21,R
 Quay Walker,89,LB10,LV,26,4
@@ -171,22 +171,22 @@ Jordan Davis,471,DT15,PHI,26,4
 Leo Chenal,472,LB50,WAS,25,4
 Terrion Arnold,474,CB34,DET,23,2
 Divine Deablo,475,LB51,ATL,27,5
-Germaine Pratt,476,LB52,FA,30,7
-Demario Davis,477,LB53,NYJ,37,14
+Demario Davis,476,LB52,NYJ,37,14
+Germaine Pratt,478,LB53,FA,30,7
 Asante Samuel Jr,479,CB35,PIT,26,5
-Frankie Luvu,480,LB54,WAS,29,8
-Dee Winters,481,LB55,DAL,25,3
-Coby Bryant,482,S37,CHI,27,4
-Grant Delpit,483,S38,CLE,27,6
+Dee Winters,480,LB54,DAL,25,3
+Coby Bryant,481,S37,CHI,27,4
+Grant Delpit,482,S38,CLE,27,6
+Frankie Luvu,483,LB55,WAS,29,8
 Trevin Wallace,484,LB56,CAR,23,2
 Mansoor Delane,485,CB36,KC,22,R
 Drue Tranquill,486,LB57,KC,30,7
-Henry To'oTo'o,487,LB58,HOU,25,3
-Malachi Moore,488,S39,NYJ,24,1
-Logan Wilson,489,LB59,FA,29,6
-Christian Harris,491,LB60,ATL,25,4
-Micah McFadden,492,LB61,NYG,26,4
-Dre Greenlaw,493,LB62,SF,29,7
+Dre Greenlaw,487,LB58,SF,29,7
+Henry To'oTo'o,488,LB59,HOU,25,3
+Malachi Moore,489,S39,NYJ,24,1
+Logan Wilson,490,LB60,FA,29,6
+Christian Harris,492,LB61,ATL,25,4
+Micah McFadden,493,LB62,NYG,26,4
 Joshua Metellus,496,S40,MIN,28,6
 Lavonte David,497,LB63,FA,36,14
 Nick Martin,498,LB64,SF,23,1
@@ -214,12 +214,12 @@ Avieon Terrell,519,CB39,ATL,21,R
 Harold Perkins Jr.,520,LB79,ATL,21,R
 Trenton Simpson,522,LB80,BAL,24,3
 Mason Graham,524,DT18,CLE,22,1
-Christian Rozeboom,525,LB81,TB,29,6
-Jonas Sanker,526,S41,NO,23,1
-James Pearce Jr.,527,DE39,ATL,22,1
-Tatum Bethune,528,LB82,SF,25,2
-Mike Green,529,DE40,BAL,22,1
-Bryce Boettcher,530,LB83,IND,23,R
+Jonas Sanker,525,S41,NO,23,1
+James Pearce Jr.,526,DE39,ATL,22,1
+Tatum Bethune,527,LB81,SF,25,2
+Mike Green,528,DE40,BAL,22,1
+Bryce Boettcher,529,LB82,IND,23,R
+Christian Rozeboom,530,LB83,TB,29,6
 Will Johnson,531,CB40,ARI,23,1
 Keyshaun Elliott,532,LB84,CHI,22,R
 Jaire Alexander,533,CB41,FA,29,8
@@ -228,9 +228,9 @@ Justin Jefferson,535,LB85,CLE,23,R
 Omar Speights,536,LB86,LAR,25,2
 Wade Woodaz,538,LB87,HOU,22,R
 Milton Williams,539,DT19,NE,27,5
-Andrew Mukuba,541,S42,PHI,23,1
-Mohamoud Diabate,542,LB88,TEN,25,3
-Jaden Dugger,544,LB89,SF,22,R
+Mohamoud Diabate,540,LB88,TEN,25,3
+Andrew Mukuba,542,S42,PHI,23,1
+Jaden Dugger,543,LB89,SF,22,R
 Jevón Holland,545,S43,NYG,26,5
 Karson Sharar,546,LB90,ARI,23,R
 Nicholas Morrow,547,LB91,FA,30,9
