@@ -1,13 +1,4 @@
 {
-  "aggregatedAt": "2026-05-22T13:20:04.850195+00:00",
-  "league": {
-    "is_superflex": true,
-    "is_2qb": false,
-    "is_te_premium": true,
-    "idp_enabled": true
-  },
-  "sourceCount": 6,
-  "playerCount": 1172,
   "players": [
     {
       "canonicalName": "bijan robinson",
