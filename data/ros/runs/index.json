@@ -1,59 +1,59 @@
 {
-  "rebuiltAt": "2026-05-23T15:51:45.644947+00:00",
+  "rebuiltAt": "2026-05-23T17:48:09.526082+00:00",
   "sources": {
     "fantasyProsRosSf": {
       "status": "ok",
       "player_count": 531,
       "rows_written": 531,
-      "started_at": "2026-05-23T15:51:42.832378+00:00",
-      "completed_at": "2026-05-23T15:51:42.993859+00:00",
+      "started_at": "2026-05-23T17:48:06.380525+00:00",
+      "completed_at": "2026-05-23T17:48:06.569961+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosSf__2026-05-23T15-51-42.993859+00-00.json"
+      "run_path": "runs/fantasyProsRosSf__2026-05-23T17-48-06.569961+00-00.json"
     },
     "draftSharksRosSf": {
       "status": "ok",
       "player_count": 1894,
       "rows_written": 1894,
-      "started_at": "2026-05-23T15:51:43.025211+00:00",
-      "completed_at": "2026-05-23T15:51:43.046101+00:00",
+      "started_at": "2026-05-23T17:48:06.610908+00:00",
+      "completed_at": "2026-05-23T17:48:06.631657+00:00",
       "error": null,
-      "run_path": "runs/draftSharksRosSf__2026-05-23T15-51-43.046101+00-00.json"
+      "run_path": "runs/draftSharksRosSf__2026-05-23T17-48-06.631657+00-00.json"
     },
     "fantasyProsRosIdp": {
       "status": "ok",
       "player_count": 100,
       "rows_written": 100,
-      "started_at": "2026-05-23T15:51:44.402040+00:00",
-      "completed_at": "2026-05-23T15:51:44.402552+00:00",
+      "started_at": "2026-05-23T17:48:08.027842+00:00",
+      "completed_at": "2026-05-23T17:48:08.028331+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosIdp__2026-05-23T15-51-44.402552+00-00.json"
+      "run_path": "runs/fantasyProsRosIdp__2026-05-23T17-48-08.028331+00-00.json"
     },
     "footballGuysRosIdp": {
       "status": "ok",
       "player_count": 438,
       "rows_written": 438,
-      "started_at": "2026-05-23T15:51:44.410029+00:00",
-      "completed_at": "2026-05-23T15:51:44.411236+00:00",
+      "started_at": "2026-05-23T17:48:08.037588+00:00",
+      "completed_at": "2026-05-23T17:48:08.038785+00:00",
       "error": null,
-      "run_path": "runs/footballGuysRosIdp__2026-05-23T15-51-44.411236+00-00.json"
+      "run_path": "runs/footballGuysRosIdp__2026-05-23T17-48-08.038785+00-00.json"
     },
     "fantasyProsRosOverall": {
       "status": "ok",
       "player_count": 389,
       "rows_written": 389,
-      "started_at": "2026-05-23T15:51:44.437853+00:00",
-      "completed_at": "2026-05-23T15:51:44.917420+00:00",
+      "started_at": "2026-05-23T17:48:08.072785+00:00",
+      "completed_at": "2026-05-23T17:48:08.706556+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosOverall__2026-05-23T15-51-44.917420+00-00.json"
+      "run_path": "runs/fantasyProsRosOverall__2026-05-23T17-48-08.706556+00-00.json"
     },
     "ffc2qbAdp": {
       "status": "ok",
       "player_count": 165,
       "rows_written": 165,
-      "started_at": "2026-05-23T15:51:45.310618+00:00",
-      "completed_at": "2026-05-23T15:51:45.449032+00:00",
+      "started_at": "2026-05-23T17:48:09.105914+00:00",
+      "completed_at": "2026-05-23T17:48:09.325884+00:00",
       "error": null,
-      "run_path": "runs/ffc2qbAdp__2026-05-23T15-51-45.449032+00-00.json"
+      "run_path": "runs/ffc2qbAdp__2026-05-23T17-48-09.325884+00-00.json"
     }
   }
 }
