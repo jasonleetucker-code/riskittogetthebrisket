@@ -48,7 +48,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 47,BAL,Malaki Starks,DB,N/A,13,22.5,104,292,479,909,,6
 48,NYJ,David Bailey,LB,N/A,13,22.7,94,309,521,991,,6
 49,DEN,Nik Bonitto,DL,N/A,10,26.6,123,261,406,580,,6
-50,CAR,Nic Scourton,DL,N/A,5,21.7,99,238,394,772,,6
+50,CAR,Nic Scourton,DL,N/A,5,21.8,99,238,394,772,,6
 51,LAR,Jared Verse,DL,N/A,11,25.5,101,246,413,677,,6
 52,HOU,Kamari Lassiter,DB,N/A,8,23.3,139,284,458,810,,6
 53,DET,Brian Branch,DB,N/A,6,24.6,146,286,454,784,,6
@@ -126,13 +126,13 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 125,CLE,Grant Delpit,DB,N/A,11,27.7,161,230,356,546,,0
 126,TEN,Cody Barton,LB,N/A,9,29.5,108,260,396,600,,0
 127,KC,Mansoor Delane,DB,N/A,5,22.4,97,238,386,695,,0
-128,PHI,Jonathan Greenard,DL,N/A,10,28.9,95,192,259,361,,0
+128,PHI,Jonathan Greenard,DL,N/A,10,29,95,192,259,361,,0
 129,KC,Drue Tranquill,LB,N/A,5,30.8,151,250,366,523,,-0
 130,BAL,Nate Wiggins,DB,N/A,13,22.7,111,232,373,659,,-0
 131,DAL,Rashan Gary,DL,N/A,14,28.4,86,185,265,371,,-0
 132,PHI,Nolan Smith,DL,N/A,10,25.3,76,164,275,450,,-0
 133,MIN,Eric Wilson,LB,N/A,6,31.6,179,243,346,482,,-0
-134,MIA,Tyrel Dodson,LB,N/A,6,27.8,116,246,380,607,,-0
+134,MIA,Tyrel Dodson,LB,N/A,6,27.9,116,246,380,607,,-0
 135,CHI,Austin Booker,DL,N/A,10,23.4,65,159,270,516,,-0
 136,DET,Kerby Joseph,DB,N/A,6,25.5,130,225,359,624,,-0
 137,NYJ,Joseph Ossai,DL,N/A,13,26.1,80,166,274,418,,-0
@@ -154,13 +154,13 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 153,DEN,Brandon Jones,DB,N/A,10,28.1,156,225,348,534,,-1
 154,ARI,Josh Sweat,DL,N/A,14,29.1,101,177,238,332,,-1
 155,LAR,Kamren Kinchens,DB,N/A,11,23.6,126,216,351,655,,-1
-156,SF,Malik Mustapha,DB,N/A,8,23.8,125,219,355,640,,-1
+156,SF,Malik Mustapha,DB,N/A,8,23.9,125,219,355,640,,-1
 157,BUF,Ed Oliver,DL,N/A,7,28.4,99,159,243,352,,-1
 158,TEN,Jermaine Johnson,DL,N/A,9,27.3,104,156,243,347,,-1
 159,CHI,Montez Sweat,DL,N/A,10,29.7,112,169,219,317,,-1
 160,BAL,Teddye Buchanan,LB,N/A,13,23.6,82,226,375,702,,-1
 161,NYJ,Will McDonald,DL,N/A,13,26.9,74,167,260,372,,-1
-162,KC,R Mason Thomas,DL,N/A,5,21.7,37,159,263,515,,-1
+162,KC,R Mason Thomas,DL,N/A,5,21.8,37,159,263,515,,-1
 163,NYG,Paulson Adebo,DB,N/A,8,26.8,151,218,338,559,,-1
 164,HOU,Tommy Togiai,DL,N/A,8,26.7,89,158,244,370,,-1
 165,MIN,Jake Golday,LB,N/A,6,23,53,236,390,730,,-1
@@ -173,7 +173,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 172,CIN,Dexter Lawrence,DL,N/A,6,28.5,71,163,248,360,,-2
 173,LAC,Akheem Mesidor,DL,N/A,7,25.1,67,148,248,406,,-2
 174,LAR,Quentin Lake,DB,N/A,11,27.3,165,209,325,525,,-2
-175,SF,Dre Greenlaw,LB,N/A,8,28.9,162,214,326,495,,-2
+175,SF,Dre Greenlaw,LB,N/A,8,29,162,214,326,495,,-2
 176,GB,Xavier McKinney,DB,N/A,11,27.8,142,219,339,521,,-2
 177,DAL,Dee Winters,LB,N/A,14,25.6,137,204,328,576,,-2
 178,WAS,Jer'Zhan Newton,DL,N/A,7,23.7,64,146,241,426,,-2
@@ -214,7 +214,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 213,CIN,Daxton Hill,DB,N/A,6,25.6,134,193,310,525,,-3
 214,ARI,Mack Wilson,LB,N/A,14,28.3,119,203,313,500,,-3
 215,WAS,Dorance Armstrong,DL,N/A,7,28.9,88,139,187,261,,-3
-216,DAL,Donovan Ezeiruaku,LB,N/A,14,22.6,83,195,328,624,,-3
+216,DAL,Donovan Ezeiruaku,LB,N/A,14,22.7,83,195,328,624,,-3
 217,PHI,Moro Ojomo,DL,N/A,10,24.8,65,126,208,344,,-4
 218,MIA,Chop Robinson,DL,N/A,6,23.3,56,122,206,392,,-4
 219,GB,Keisean Nixon,DB,N/A,11,28.9,137,202,311,462,,-4
@@ -319,7 +319,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 318,NO,Davon Godchaux,DL,N/A,8,31.5,53,76,101,142,,-8
 319,ARI,Garrett Williams,DB,N/A,14,24.9,113,155,241,415,,-8
 320,WAS,Trey Amos,DB,N/A,7,24.2,74,165,262,463,,-8
-321,BAL,Jaylinn Hawkins,DB,N/A,13,28.7,107,163,247,367,,-8
+321,BAL,Jaylinn Hawkins,DB,N/A,13,28.8,107,163,247,367,,-8
 322,TEN,Cor'Dale Flott,DB,N/A,9,24.8,91,160,254,444,,-8
 323,IND,Akeem Davis-Gaither,LB,N/A,13,28.7,57,163,248,377,,-8
 324,IND,Charvarius Ward,DB,N/A,13,30,114,164,244,346,,-8
