@@ -167,7 +167,7 @@ jobs:
       # output even on success, while the check step's exit code is
       # what determines the gate.
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
