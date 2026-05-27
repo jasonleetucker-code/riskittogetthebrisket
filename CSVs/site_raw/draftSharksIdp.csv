@@ -150,7 +150,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 149,NO,Bryan Bresee,DL,N/A,8,24.6,71,166,267,446,,-1
 150,ARI,Walter Nolen,DL,N/A,14,22.6,54,159,268,520,,-1
 151,ARI,Will Johnson,DB,N/A,14,23.1,95,235,378,668,,-1
-152,NE,Gabe Jacas,DL,N/A,11,21.9,59,157,260,509,,-1
+152,NE,Gabe Jacas,DL,N/A,11,22,59,157,260,509,,-1
 153,DEN,Brandon Jones,DB,N/A,10,28.1,156,225,348,534,,-1
 154,ARI,Josh Sweat,DL,N/A,14,29.1,101,177,238,332,,-1
 155,LAR,Kamren Kinchens,DB,N/A,11,23.6,126,216,351,655,,-1
@@ -242,7 +242,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 241,TEN,Amani Hooker,DB,N/A,9,27.9,131,194,300,461,,-4
 242,BUF,Geno Stone,DB,N/A,7,27.1,112,196,307,497,,-4
 243,GB,Karl Brooks,DL,N/A,11,26,62,117,185,295,,-4
-244,WAS,Daron Payne,DL,N/A,7,28.9,73,118,174,243,,-5
+244,WAS,Daron Payne,DL,N/A,7,29,73,118,174,243,,-5
 245,DAL,Malachi Lawrence,DL,N/A,14,22.8,46,109,183,348,,-5
 246,DAL,Jaishawn Barham,DL,N/A,14,22.3,34,108,187,370,,-5
 247,BAL,Marlon Humphrey,DB,N/A,13,29.8,130,198,295,418,,-5
@@ -356,7 +356,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 355,PIT,Cameron Heyward,DL,N/A,9,37,84,0,0,0,,-12
 356,DAL,LT Overton,DL,N/A,14,21.6,9,23,40,81,,-12
 357,LAC,Denzel Perryman,LB,N/A,7,33.4,99,106,141,196,,-12
-358,UNS,Bobby Wagner,LB,N/A,18,35.8,164,78,100,141,,-12
+358,UNS,Bobby Wagner,LB,N/A,18,35.9,164,78,100,141,,-12
 359,MIA,Trey Moore,LB,N/A,6,23,36,103,171,320,,-12
 360,JAC,Eric Murray,DB,N/A,7,32.3,117,119,167,228,,-13
 361,CLE,Justin Jefferson,LB,N/A,11,23.2,34,99,164,307,,-13
@@ -397,8 +397,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 396,KC,Kristian Fulton,DB,N/A,5,27.7,0,0,0,0,,-27
 397,UNS,Julian Blackmon,DB,N/A,18,27.8,0,0,0,0,,-27
 398,PHI,Marcus Epps,DB,N/A,10,30.3,0,0,0,0,,-27
-399,UNS,Martin Emerson,DB,N/A,18,25.6,0,0,0,0,,-27
-400,MIA,Darrell Baker Jr.,DB,N/A,6,28.1,0,0,0,0,,-27
+399,UNS,Martin Emerson,DB,N/A,18,25.7,0,0,0,0,,-27
+400,MIA,Darrell Baker Jr.,DB,N/A,6,28.2,0,0,0,0,,-27
 401,TEN,Tony Adams,DB,N/A,9,27.3,0,0,0,0,,-27
 402,DET,Ennis Rakestraw Jr.,DB,N/A,6,23.9,0,0,0,0,,-27
 403,TEN,Joshua Williams,DB,N/A,9,26.6,0,0,0,0,,-27
