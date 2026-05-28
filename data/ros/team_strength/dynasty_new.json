@@ -5,7 +5,7 @@
     "teamName": "Brent",
     "teamRosStrength": 459.14,
     "startingLineupScore": 583.62,
-    "benchDepthScore": 160.76,
+    "benchDepthScore": 160.72,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -139,9 +139,9 @@
         "playerId": "3214",
         "canonicalName": "hunter henry",
         "position": "TE",
-        "rosValue": 22.43,
+        "rosValue": 22.39,
         "depthFactor": 1.0,
-        "depthContribution": 22.43
+        "depthContribution": 22.39
       },
       {
         "playerId": "7002",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 338.1,
-    "startingLineupScore": 417.97,
-    "benchDepthScore": 150.9,
+    "teamRosStrength": 338.13,
+    "startingLineupScore": 418.01,
+    "benchDepthScore": 150.91,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -608,8 +608,8 @@
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 25.83,
-        "adjustedValue": 25.83,
+        "rosValue": 25.87,
+        "adjustedValue": 25.87,
         "confidence": 0.875,
         "flagged": null
       },
@@ -695,9 +695,9 @@
         "playerId": "1466",
         "canonicalName": "travis kelce",
         "position": "TE",
-        "rosValue": 23.36,
+        "rosValue": 23.37,
         "depthFactor": 1.0,
-        "depthContribution": 23.36
+        "depthContribution": 23.37
       },
       {
         "playerId": "4199",
@@ -1133,8 +1133,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 295.82,
-    "startingLineupScore": 357.57,
+    "teamRosStrength": 295.8,
+    "startingLineupScore": 357.54,
     "benchDepthScore": 157.61,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1154,8 +1154,8 @@
         "playerId": "8150",
         "canonicalName": "kyren williams",
         "position": "RB",
-        "rosValue": 45.65,
-        "adjustedValue": 45.65,
+        "rosValue": 45.62,
+        "adjustedValue": 45.62,
         "confidence": 0.883,
         "flagged": null
       },
@@ -1511,8 +1511,8 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 257.4,
-    "startingLineupScore": 322.92,
+    "teamRosStrength": 257.41,
+    "startingLineupScore": 322.94,
     "benchDepthScore": 82.74,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1602,8 +1602,8 @@
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
-        "rosValue": 22.91,
-        "adjustedValue": 22.91,
+        "rosValue": 22.93,
+        "adjustedValue": 22.93,
         "confidence": 0.953,
         "flagged": null
       },
@@ -1701,7 +1701,7 @@
     "teamName": "cbonex21",
     "teamRosStrength": 250.63,
     "startingLineupScore": 311.57,
-    "benchDepthScore": 90.55,
+    "benchDepthScore": 90.54,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1867,7 +1867,7 @@
         "playerId": "13353",
         "canonicalName": "chris brazzell",
         "position": "WR",
-        "rosValue": 15.52,
+        "rosValue": 15.5,
         "depthFactor": 0.116,
         "depthContribution": 1.8
       }
