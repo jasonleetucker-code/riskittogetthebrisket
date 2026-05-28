@@ -3,6 +3,7 @@
   "season_default": "2026",
   "format_key_default": "dynasty_sf",
   "scoring_context_notes": {
+    "authoritative_registry": "NOT load-bearing. The single source of truth for the live ranking source registry is `_RANKING_SOURCES` in src/api/data_contract.py (mirrored in frontend/lib/dynasty-data.js, parity-tested by tests/api/test_source_registry_parity.py). This template is an illustrative, non-exhaustive subset and may lag the live registry — do not treat it as canonical.",
     "includes_sf": "True if the source natively prices in Superflex QB premium (SF URLs, SF crowd values). Do NOT re-apply SF adjustment to these sources.",
     "includes_tep": "True if the source natively prices in Tight End Premium (crowd values from TEP leagues, TEP-specific rankings). Do NOT re-apply TEP multiplier to these sources.",
     "important": "The legacy scraper exports raw per-site values BEFORE applying TEP_MULT. The canonical pipeline must handle TEP/SF adjustments for sources that don't include them natively."
@@ -29,7 +30,7 @@
         "kind": "overall_offense",
         "depth": null
       },
-      "notes": "KTC scraped in SF+TE++ mode (rankings ?sf=true&tep=3; trade/waiver DB ?sf=1&tep=2). Crowd values natively include both. Do NOT re-apply."
+      "notes": "KTC scraped in SF+TE++ mode (rankings ?sf=true&tep=3; trade/waiver DB ?sf=1&tep=2). Crowd values natively include both. Do NOT re-apply. As of 2026-04-28 the standard `ktc` entry is RETIRED from the blend vote and kept only for display/arbitrage; the active retail blend source is `ktcSfTep` (KTC's TE+ sub-board). See `_RANKING_SOURCES` in src/api/data_contract.py."
     },
     {
       "enabled": true,

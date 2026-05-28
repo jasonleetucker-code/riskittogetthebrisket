@@ -500,7 +500,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python scripts/watchdog_freshness.py
+          # Tee to a file so the failure handler can name the stale
+          # sources in its tracking issue.  pipefail preserves the
+          # watchdog's exit code so the step still goes red.
+          python scripts/watchdog_freshness.py 2>&1 | tee "$RUNNER_TEMP/staleness.log"
 
       - name: Contract coverage watchdog
         # Sibling to the freshness watchdog.  Freshness asks "did the
@@ -534,12 +537,20 @@ jobs:
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Pull the watchdog's stale-source summary (if it ran) so the
+          # issue names what's actually stale instead of a generic blurb.
+          STALE_SUMMARY="(see the Run scraper / watchdog steps)"
+          if [[ -f "${RUNNER_TEMP}/staleness.log" ]]; then
+            LINE=$(grep -E '^(fail|ok):' "${RUNNER_TEMP}/staleness.log" | tail -n1 || true)
+            [[ -n "$LINE" ]] && STALE_SUMMARY="$LINE"
+          fi
           BODY=$(cat <<EOF
           Scheduled data refresh failed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
           - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          - Freshness watchdog: ${STALE_SUMMARY}
 
           Likely causes:
           1. A fetcher crashed (check the **Run scraper** step).
@@ -553,20 +564,24 @@ jobs:
           manual run via ``workflow_dispatch``.
           EOF
           )
-          # Search for an existing open issue with the label.  Skip if
-          # the label doesn't exist yet — ``--label`` would error.
-          set +e
+          # Ensure the dedup label exists.  Previously it never did, so
+          # the labelled create below failed and fell back to an
+          # UNLABELLED issue every cycle — which the search could never
+          # match, spamming a fresh issue on each run.  Creating it
+          # idempotently makes the rolling-issue dedup actually work.
+          gh label create stale-sources \
+            --color B60205 \
+            --description "Auto-opened when the scheduled data refresh fails" \
+            2>/dev/null || true
+          # Idempotent: comment on the existing open tracking issue if
+          # one exists, else open a single labelled one and reuse it.
           EXISTING=$(gh issue list --state open --label stale-sources \
-                       --json number --jq '.[0].number' 2>/dev/null)
-          set -e
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create \
-              --title "Scheduled data refresh failed ($(date -u +%Y-%m-%d))" \
+              --title "Scheduled data refresh failing" \
               --body "$BODY" \
-              --label stale-sources 2>/dev/null || \
-            gh issue create \
-              --title "Scheduled data refresh failed ($(date -u +%Y-%m-%d))" \
-              --body "$BODY"
+              --label stale-sources
           fi
