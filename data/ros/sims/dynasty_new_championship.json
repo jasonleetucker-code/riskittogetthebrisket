@@ -1,11 +1,11 @@
 {
-  "computedAt": "2026-05-30T23:47:08.813823+00:00",
+  "computedAt": "2026-05-31T05:14:23.497151+00:00",
   "championshipOdds": [
     {
       "ownerId": "360184624380633088",
       "displayName": "DeCline",
-      "championshipOdds": 0.3549,
-      "finalsOdds": 0.6227,
+      "championshipOdds": 0.3582,
+      "finalsOdds": 0.6211,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 2.02,
@@ -14,8 +14,8 @@
     {
       "ownerId": "975129818700328960",
       "displayName": "jmartin2421",
-      "championshipOdds": 0.3153,
-      "finalsOdds": 0.6156,
+      "championshipOdds": 0.3152,
+      "finalsOdds": 0.6128,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 2.07,
@@ -24,9 +24,9 @@
     {
       "ownerId": "984270279268446208",
       "displayName": "Comacho",
-      "championshipOdds": 0.1278,
-      "finalsOdds": 0.2677,
-      "semifinalOdds": 0.6229,
+      "championshipOdds": 0.1312,
+      "finalsOdds": 0.2695,
+      "semifinalOdds": 0.6221,
       "playoffOdds": 1.0,
       "expectedFinish": 3.36,
       "contenderTier": "Serious Contender"
@@ -34,29 +34,29 @@
     {
       "ownerId": "741102304882782208",
       "displayName": "zachdavis10",
-      "championshipOdds": 0.1128,
-      "finalsOdds": 0.251,
-      "semifinalOdds": 0.5986,
+      "championshipOdds": 0.1109,
+      "finalsOdds": 0.2517,
+      "semifinalOdds": 0.5911,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.84,
+      "expectedFinish": 3.86,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "1014623872768917504",
       "displayName": "jbartholomew810",
-      "championshipOdds": 0.0496,
-      "finalsOdds": 0.1334,
-      "semifinalOdds": 0.4014,
+      "championshipOdds": 0.0483,
+      "finalsOdds": 0.1355,
+      "semifinalOdds": 0.4089,
       "playoffOdds": 1.0,
-      "expectedFinish": 4.61,
+      "expectedFinish": 4.59,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "208057474387804160",
       "displayName": "DiggityyDave",
-      "championshipOdds": 0.0396,
-      "finalsOdds": 0.1096,
-      "semifinalOdds": 0.3771,
+      "championshipOdds": 0.0362,
+      "finalsOdds": 0.1094,
+      "semifinalOdds": 0.3779,
       "playoffOdds": 1.0,
       "expectedFinish": 4.1,
       "contenderTier": "Dangerous Playoff Team"

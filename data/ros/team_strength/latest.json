@@ -3,8 +3,8 @@
     "ownerId": "1002085133723299840",
     "rosterId": 9,
     "teamName": "Brent",
-    "teamRosStrength": 634.27,
-    "startingLineupScore": 812.06,
+    "teamRosStrength": 634.25,
+    "startingLineupScore": 812.03,
     "benchDepthScore": 219.94,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -94,9 +94,9 @@
         "playerId": "5850",
         "canonicalName": "josh jacobs",
         "position": "RB",
-        "rosValue": 47.54,
-        "adjustedValue": 47.54,
-        "confidence": 0.886,
+        "rosValue": 47.51,
+        "adjustedValue": 47.51,
+        "confidence": 0.885,
         "flagged": null
       },
       {
@@ -542,8 +542,8 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 521.72,
-    "startingLineupScore": 674.99,
+    "teamRosStrength": 521.63,
+    "startingLineupScore": 674.87,
     "benchDepthScore": 142.91,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -643,9 +643,9 @@
         "playerId": "11604",
         "canonicalName": "brock bowers",
         "position": "TE",
-        "rosValue": 44.59,
-        "adjustedValue": 44.59,
-        "confidence": 0.858,
+        "rosValue": 44.47,
+        "adjustedValue": 44.47,
+        "confidence": 0.859,
         "flagged": null
       },
       {
@@ -1351,9 +1351,9 @@
     "ownerId": "714912789268865024",
     "rosterId": 5,
     "teamName": "MaKayla",
-    "teamRosStrength": 473.73,
+    "teamRosStrength": 473.74,
     "startingLineupScore": 615.58,
-    "benchDepthScore": 113.98,
+    "benchDepthScore": 114.02,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1543,9 +1543,9 @@
         "playerId": "8161",
         "canonicalName": "malik willis",
         "position": "QB",
-        "rosValue": 24.13,
+        "rosValue": 24.17,
         "depthFactor": 1.0,
-        "depthContribution": 24.13
+        "depthContribution": 24.17
       },
       {
         "playerId": "4037",
@@ -1622,8 +1622,8 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "Ty",
-    "teamRosStrength": 424.94,
-    "startingLineupScore": 550.13,
+    "teamRosStrength": 425.0,
+    "startingLineupScore": 550.22,
     "benchDepthScore": 104.68,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1703,9 +1703,9 @@
         "playerId": "8138",
         "canonicalName": "james cook",
         "position": "RB",
-        "rosValue": 59.67,
-        "adjustedValue": 59.67,
-        "confidence": 0.815,
+        "rosValue": 59.58,
+        "adjustedValue": 59.58,
+        "confidence": 0.814,
         "flagged": null
       },
       {
@@ -1733,9 +1733,9 @@
         "playerId": "7569",
         "canonicalName": "nico collins",
         "position": "WR",
-        "rosValue": 52.21,
-        "adjustedValue": 52.21,
-        "confidence": 0.918,
+        "rosValue": 52.39,
+        "adjustedValue": 52.39,
+        "confidence": 0.92,
         "flagged": null
       },
       {
