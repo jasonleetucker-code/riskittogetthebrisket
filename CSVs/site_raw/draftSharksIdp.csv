@@ -2,7 +2,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 1,CLE,Carson Schwesinger,LB,N/A,11,23.3,242,692,"1,145","2,145",,37
 2,TEN,Cedric Gray,LB,N/A,9,23.6,236,679,"1,123","2,104",,36
 3,WAS,Sonny Styles,LB,N/A,7,21.5,167,549,947,"1,908",,30
-4,IND,CJ Allen,LB,N/A,13,21.2,171,538,928,"1,869",,29
+4,IND,CJ Allen,LB,N/A,13,21.3,171,538,928,"1,869",,29
 5,GB,Edgerrin Cooper,LB,N/A,11,24.5,195,514,831,"1,507",,24
 6,DET,Jack Campbell,LB,N/A,6,25.8,215,516,816,"1,391",,24
 7,SEA,Nick Emmanwori,DB,N/A,11,22.3,165,465,761,"1,446",,23
@@ -39,7 +39,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 38,PIT,Patrick Queen,LB,N/A,9,26.8,139,335,524,863,,7
 39,NYG,Brian Burns,DL,N/A,8,28.1,133,285,409,573,,7
 40,LAC,Tuli Tuipulotu,DL,N/A,7,23.7,122,244,410,734,,7
-41,ARI,Cody Simon,LB,N/A,14,24.1,121,323,522,947,,7
+41,ARI,Cody Simon,LB,N/A,14,24.2,121,323,522,947,,7
 42,NYG,Tremaine Edmunds,LB,N/A,8,28,173,325,501,800,,7
 43,NYJ,Malachi Moore,DB,N/A,13,24.7,139,296,475,820,,7
 44,TB,Sirvocea Dennis,LB,N/A,10,26.2,112,328,520,885,,7
@@ -137,7 +137,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 136,DET,Kerby Joseph,DB,N/A,6,25.5,130,225,359,624,,-0
 137,NYJ,Joseph Ossai,DL,N/A,13,26.1,80,166,274,418,,-0
 138,NYG,Kayvon Thibodeaux,DL,N/A,8,25.4,69,165,278,455,,-0
-139,MIN,Andrew Van Ginkel,DL,N/A,6,30.8,145,164,213,306,,-0
+139,MIN,Andrew Van Ginkel,DL,N/A,6,30.9,145,164,213,306,,-0
 140,WAS,Frankie Luvu,LB,N/A,7,29.7,135,247,370,548,,-0
 141,HOU,Danielle Hunter,DL,N/A,8,31.6,122,164,230,377,,-0
 142,CAR,Derrick Brown,DL,N/A,5,28.1,103,168,257,372,,-0
@@ -195,7 +195,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 194,WAS,Mike Sainristil,DB,N/A,7,25.6,126,209,320,546,,-3
 195,SF,Upton Stout,DB,N/A,8,24.3,107,213,333,584,,-3
 196,CIN,Myles Murphy,DL,N/A,6,24.3,66,132,221,395,,-3
-197,TB,Calijah Kancey,DL,N/A,10,25.2,69,132,212,355,,-3
+197,TB,Calijah Kancey,DL,N/A,10,25.3,69,132,212,355,,-3
 198,LAR,Omar Speights,LB,N/A,11,25.2,87,206,332,612,,-3
 199,CLE,Alex Wright,DL,N/A,11,25.7,74,130,214,326,,-3
 200,BUF,T.J. Parker,DL,N/A,7,21.7,47,127,217,434,,-3
@@ -284,7 +284,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 283,NYJ,Brandon Stephens,DB,N/A,13,28.4,117,179,281,438,,-6
 284,NE,Marcus Jones,DB,N/A,11,27.6,109,183,287,448,,-6
 285,LVR,Adam Butler,DL,N/A,13,32.1,74,99,129,191,,-6
-286,SF,Sam Okuayinonu,DL,N/A,8,28,49,108,155,217,,-6
+286,SF,Sam Okuayinonu,DL,N/A,8,28.1,49,108,155,217,,-6
 287,CIN,B.J. Hill,DL,N/A,6,31.1,69,100,132,186,,-6
 288,DET,D.J. Reed,DB,N/A,6,29.5,127,177,274,406,,-6
 289,PIT,Joey Porter Jr.,DB,N/A,9,25.8,108,172,274,465,,-6
@@ -316,7 +316,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 315,NE,Kevin Byard,DB,N/A,11,32.8,143,166,223,305,,-8
 316,WAS,K'Lavon Chaisson,LB,N/A,7,26.8,58,165,256,366,,-8
 317,NO,Davon Godchaux,DL,N/A,8,31.5,53,76,101,142,,-8
-318,ARI,Garrett Williams,DB,N/A,14,24.9,113,155,241,415,,-8
+318,ARI,Garrett Williams,DB,N/A,14,25,113,155,241,415,,-8
 319,UNS,Kenny Moore,DB,N/A,18,30.8,95,180,257,352,,-8
 320,WAS,Trey Amos,DB,N/A,7,24.2,74,165,262,463,,-8
 321,BAL,Jaylinn Hawkins,DB,N/A,13,28.8,107,163,247,367,,-8
@@ -364,7 +364,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 363,DEN,Jahdae Barron,DB,N/A,10,24.4,55,123,195,352,,-13
 364,TEN,Oluwafemi Oladejo,LB,N/A,9,22.7,51,87,148,282,,-13
 365,TB,David Walker,LB,N/A,10,25.9,47,95,156,238,,-13
-366,LVR,Eric Stokes,DB,N/A,13,27.2,74,113,175,288,,-14
+366,LVR,Eric Stokes,DB,N/A,13,27.3,74,113,175,288,,-14
 367,WAS,Charles Omenihu,DL,N/A,7,28.8,3,0,0,0,,-14
 368,HOU,Sheldon Rankins,DL,N/A,8,32.1,0,0,0,0,,-14
 369,LAC,Dalvin Tomlinson,DL,N/A,7,32.3,0,0,0,0,,-14
@@ -407,4 +407,4 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 406,CAR,Zakee Wheatley,DB,N/A,5,24.3,0,0,0,0,,-27
 407,HOU,Kamari Ramsey,DB,N/A,8,21.8,0,0,0,0,,-27
 408,MIN,Jakobe Thomas,DB,N/A,6,22.9,0,0,0,0,,-27
-409,KC,Jadon Canady,DB,N/A,5,23,0,0,0,0,,-27
+409,KC,Jadon Canady,DB,N/A,5,23.1,0,0,0,0,,-27
