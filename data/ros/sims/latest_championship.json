@@ -1,54 +1,54 @@
 {
-  "computedAt": "2026-06-01T18:32:56.163317+00:00",
+  "computedAt": "2026-06-01T21:58:36.409728+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.4825,
-      "finalsOdds": 0.5694,
-      "semifinalOdds": 0.5709,
+      "championshipOdds": 0.4865,
+      "finalsOdds": 0.5738,
+      "semifinalOdds": 0.5755,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.24,
+      "expectedFinish": 3.21,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.3322,
-      "finalsOdds": 0.4251,
-      "semifinalOdds": 0.4291,
+      "championshipOdds": 0.3305,
+      "finalsOdds": 0.4213,
+      "semifinalOdds": 0.4245,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.96,
+      "expectedFinish": 3.97,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.1546,
-      "finalsOdds": 0.7022,
+      "championshipOdds": 0.1485,
+      "finalsOdds": 0.6919,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.14,
+      "expectedFinish": 2.16,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
-      "championshipOdds": 0.0305,
-      "finalsOdds": 0.2978,
+      "championshipOdds": 0.0344,
+      "finalsOdds": 0.3081,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.67,
+      "expectedFinish": 2.66,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "championshipOdds": 0.0002,
-      "finalsOdds": 0.0055,
+      "championshipOdds": 0.0001,
+      "finalsOdds": 0.0049,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.99,
+      "expectedFinish": 3.0,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
