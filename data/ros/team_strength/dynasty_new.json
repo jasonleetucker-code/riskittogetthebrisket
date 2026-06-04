@@ -379,9 +379,9 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 376.08,
+    "teamRosStrength": 376.07,
     "startingLineupScore": 462.99,
-    "benchDepthScore": 181.8,
+    "benchDepthScore": 181.75,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -499,9 +499,9 @@
         "playerId": "4892",
         "canonicalName": "baker mayfield",
         "position": "QB",
-        "rosValue": 34.58,
+        "rosValue": 34.53,
         "depthFactor": 1.0,
-        "depthContribution": 34.58
+        "depthContribution": 34.53
       },
       {
         "playerId": "5846",
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 325.81,
+    "teamRosStrength": 325.82,
     "startingLineupScore": 405.91,
-    "benchDepthScore": 130.85,
+    "benchDepthScore": 130.93,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -867,9 +867,9 @@
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
-        "rosValue": 26.23,
+        "rosValue": 26.31,
         "depthFactor": 1.0,
-        "depthContribution": 26.23
+        "depthContribution": 26.31
       },
       {
         "playerId": "7611",
