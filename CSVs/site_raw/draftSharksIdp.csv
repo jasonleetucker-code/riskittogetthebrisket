@@ -16,7 +16,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 15,MIA,Jordyn Brooks,LB,N/A,6,28.6,211,456,704,"1,123",,18
 16,SEA,Ernest Jones,LB,N/A,11,26.5,186,433,686,"1,169",,17
 17,LVR,Quay Walker,LB,N/A,13,26,189,429,679,"1,156",,16
-18,MIA,Jacob Rodriguez,LB,N/A,6,23.7,114,425,687,"1,247",,15
+18,MIA,Jacob Rodriguez,LB,N/A,6,23.8,114,425,687,"1,247",,15
 19,LAC,Daiyan Henley,LB,N/A,7,26.5,174,413,653,"1,113",,15
 20,PHI,Cooper DeJean,DB,N/A,10,23.3,162,349,564,"1,011",,13
 21,NYG,Arvell Reese,LB,N/A,8,20.8,134,376,620,"1,248",,13
@@ -146,7 +146,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 145,WAS,Odafe Oweh,DL,N/A,7,27.4,85,173,269,384,,-0
 146,NO,Danny Stutsman,LB,N/A,8,23.2,82,236,390,730,,-0
 147,ATL,Brandon Dorlus,DL,N/A,11,25.2,74,165,266,445,,-0
-148,NO,Bryan Bresee,DL,N/A,8,24.6,71,166,267,446,,-1
+148,NO,Bryan Bresee,DL,N/A,8,24.7,71,166,267,446,,-1
 149,ARI,Walter Nolen,DL,N/A,14,22.6,54,159,268,520,,-1
 150,ARI,Will Johnson,DB,N/A,14,23.2,95,235,378,668,,-1
 151,ATL,Jalon Walker,LB,N/A,11,22.3,91,226,376,739,,-1
@@ -165,7 +165,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 164,HOU,Tommy Togiai,DL,N/A,8,26.7,89,158,244,370,,-1
 165,MIN,Jake Golday,LB,N/A,6,23,53,236,390,730,,-1
 166,HOU,Reed Blankenship,DB,N/A,8,27.3,145,218,342,553,,-1
-167,GB,Lukas Van Ness,DL,N/A,11,24.8,86,145,244,400,,-1
+167,GB,Lukas Van Ness,DL,N/A,11,24.9,86,145,244,400,,-1
 168,CIN,Boye Mafe,DL,N/A,6,27.5,84,160,249,356,,-1
 169,DEN,Zach Allen,DL,N/A,10,28.8,77,169,250,348,,-1
 170,DEN,Alex Singleton,LB,N/A,10,32.4,180,225,320,446,,-2
@@ -222,7 +222,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 221,DAL,Donovan Ezeiruaku,LB,N/A,14,22.7,83,195,328,624,,-4
 222,HOU,Kayden McDonald,DL,N/A,8,21.2,42,122,206,414,,-4
 223,KC,Peter Woods,DL,N/A,5,21.3,42,121,204,410,,-4
-224,NE,Milton Williams,DL,N/A,11,27.1,72,127,199,287,,-4
+224,NE,Milton Williams,DL,N/A,11,27.2,72,127,199,287,,-4
 225,DET,Alim McNeill,DL,N/A,6,26,67,123,194,309,,-4
 226,NE,Christian Barmore,DL,N/A,11,26.8,71,122,188,286,,-4
 227,DAL,Jalen Thompson,DB,N/A,14,27.8,132,199,307,472,,-4
@@ -264,7 +264,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 263,SF,Ji'ayir Brown,DB,N/A,8,26.3,116,186,293,491,,-5
 264,NYJ,Harrison Phillips,DL,N/A,13,30.3,73,112,155,218,,-5
 265,CIN,Bryan Cook,DB,N/A,6,26.7,122,185,290,469,,-5
-266,PIT,Jack Sawyer,DL,N/A,9,24,44,101,169,304,,-5
+266,PIT,Jack Sawyer,DL,N/A,9,24.1,44,101,169,304,,-5
 267,TEN,Keldric Faulk,DL,N/A,9,20.7,33,98,167,348,,-5
 268,CHI,Coby Bryant,DB,N/A,10,27.2,117,185,289,468,,-6
 269,BUF,Christian Benford,DB,N/A,7,25.7,108,184,292,496,,-6
@@ -306,7 +306,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 305,MIN,Isaiah Rodgers,DB,N/A,6,28.3,127,160,250,392,,-7
 306,SF,Romello Height,DL,N/A,8,25.1,35,78,131,214,,-7
 307,JAC,Davon Hamilton,DL,N/A,7,29.3,0,103,153,213,,-7
-308,SF,Deommodore Lenoir,DB,N/A,8,26.6,102,165,256,423,,-8
+308,SF,Deommodore Lenoir,DB,N/A,8,26.7,102,165,256,423,,-8
 309,IND,Ahmad Gardner,DB,N/A,13,24.8,92,166,262,457,,-8
 310,DAL,Kenny Clark,DL,N/A,14,30.7,53,82,109,153,,-8
 311,LAR,Poona Ford,DL,N/A,11,30.5,0,105,146,205,,-8
@@ -353,7 +353,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 352,LAC,Khalil Mack,DL,N/A,7,35.3,76,17,24,34,,-11
 353,CAR,Nick Scott,DB,N/A,5,31,123,132,188,261,,-11
 354,MIN,Theo Jackson,DB,N/A,6,27.7,74,134,208,334,,-12
-355,PIT,Cameron Heyward,DL,N/A,9,37,84,0,0,0,,-12
+355,PIT,Cameron Heyward,DL,N/A,9,37.1,84,0,0,0,,-12
 356,DAL,LT Overton,DL,N/A,14,21.6,9,23,40,81,,-12
 357,LAC,Denzel Perryman,LB,N/A,7,33.5,99,106,141,196,,-12
 358,UNS,Bobby Wagner,LB,N/A,18,35.9,164,78,100,141,,-12
@@ -402,7 +402,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 401,TEN,Tony Adams,DB,N/A,9,27.3,0,0,0,0,,-27
 402,DET,Ennis Rakestraw Jr.,DB,N/A,6,24,0,0,0,0,,-27
 403,TEN,Joshua Williams,DB,N/A,9,26.6,0,0,0,0,,-27
-404,LVR,Darien Porter,DB,N/A,13,25.3,0,0,0,0,,-27
+404,LVR,Darien Porter,DB,N/A,13,25.4,0,0,0,0,,-27
 405,DAL,Reddy Steward,DB,N/A,14,25.1,0,0,0,0,,-27
 406,CAR,Zakee Wheatley,DB,N/A,5,24.3,0,0,0,0,,-27
 407,HOU,Kamari Ramsey,DB,N/A,8,21.8,0,0,0,0,,-27
