@@ -1,54 +1,54 @@
 {
-  "computedAt": "2026-06-06T14:25:01.643607+00:00",
+  "computedAt": "2026-06-06T16:01:37.016240+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.4698,
-      "finalsOdds": 0.5703,
-      "semifinalOdds": 0.5718,
+      "championshipOdds": 0.4669,
+      "finalsOdds": 0.5626,
+      "semifinalOdds": 0.5637,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.24,
+      "expectedFinish": 3.28,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.3259,
-      "finalsOdds": 0.4254,
-      "semifinalOdds": 0.4282,
+      "championshipOdds": 0.3355,
+      "finalsOdds": 0.4325,
+      "semifinalOdds": 0.4363,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.96,
+      "expectedFinish": 3.92,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.1503,
-      "finalsOdds": 0.6505,
+      "championshipOdds": 0.1481,
+      "finalsOdds": 0.6389,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.2,
+      "expectedFinish": 2.21,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
-      "championshipOdds": 0.0538,
-      "finalsOdds": 0.3495,
+      "championshipOdds": 0.0492,
+      "finalsOdds": 0.3611,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.6,
+      "expectedFinish": 2.59,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "championshipOdds": 0.0002,
-      "finalsOdds": 0.0043,
+      "championshipOdds": 0.0003,
+      "finalsOdds": 0.0049,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.0,
+      "expectedFinish": 2.99,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
