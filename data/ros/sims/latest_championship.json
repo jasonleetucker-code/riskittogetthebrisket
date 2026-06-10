@@ -1,54 +1,54 @@
 {
-  "computedAt": "2026-06-10T19:24:35.829989+00:00",
+  "computedAt": "2026-06-10T22:36:17.419581+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.4665,
-      "finalsOdds": 0.5588,
-      "semifinalOdds": 0.5603,
+      "championshipOdds": 0.4704,
+      "finalsOdds": 0.5689,
+      "semifinalOdds": 0.5706,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.29,
+      "expectedFinish": 3.25,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.338,
-      "finalsOdds": 0.4365,
-      "semifinalOdds": 0.4397,
+      "championshipOdds": 0.3274,
+      "finalsOdds": 0.4258,
+      "semifinalOdds": 0.4294,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.91,
+      "expectedFinish": 3.96,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.1478,
-      "finalsOdds": 0.6491,
+      "championshipOdds": 0.1546,
+      "finalsOdds": 0.6396,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.2,
+      "expectedFinish": 2.21,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
       "championshipOdds": 0.0475,
-      "finalsOdds": 0.3509,
+      "finalsOdds": 0.3604,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.6,
+      "expectedFinish": 2.59,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "championshipOdds": 0.0002,
-      "finalsOdds": 0.0047,
+      "championshipOdds": 0.0001,
+      "finalsOdds": 0.0053,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.0,
+      "expectedFinish": 2.99,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
