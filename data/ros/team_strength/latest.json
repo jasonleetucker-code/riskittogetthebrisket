@@ -2165,9 +2165,9 @@
     "ownerId": "711452264774041600",
     "rosterId": 2,
     "teamName": "Ed",
-    "teamRosStrength": 385.43,
+    "teamRosStrength": 385.44,
     "startingLineupScore": 487.48,
-    "benchDepthScore": 135.82,
+    "benchDepthScore": 135.83,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2405,9 +2405,9 @@
         "playerId": "13301",
         "canonicalName": "antonio williams",
         "position": "WR",
-        "rosValue": 19.34,
+        "rosValue": 19.37,
         "depthFactor": 0.423,
-        "depthContribution": 8.17
+        "depthContribution": 8.18
       },
       {
         "playerId": "6783",
