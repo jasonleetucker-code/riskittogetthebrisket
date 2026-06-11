@@ -5,7 +5,7 @@
     "teamName": "Brent",
     "teamRosStrength": 468.09,
     "startingLineupScore": 586.48,
-    "benchDepthScore": 199.01,
+    "benchDepthScore": 199.04,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -147,9 +147,9 @@
         "playerId": "3214",
         "canonicalName": "hunter henry",
         "position": "TE",
-        "rosValue": 22.15,
+        "rosValue": 22.18,
         "depthFactor": 1.0,
-        "depthContribution": 22.15
+        "depthContribution": 22.18
       },
       {
         "playerId": "7002",
@@ -379,9 +379,9 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 375.49,
+    "teamRosStrength": 375.5,
     "startingLineupScore": 462.1,
-    "benchDepthScore": 182.11,
+    "benchDepthScore": 182.13,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -515,9 +515,9 @@
         "playerId": "5892",
         "canonicalName": "david montgomery",
         "position": "RB",
-        "rosValue": 30.33,
+        "rosValue": 30.37,
         "depthFactor": 1.0,
-        "depthContribution": 30.33
+        "depthContribution": 30.37
       },
       {
         "playerId": "12489",
@@ -539,9 +539,9 @@
         "playerId": "12501",
         "canonicalName": "matthew golden",
         "position": "WR",
-        "rosValue": 23.23,
+        "rosValue": 23.18,
         "depthFactor": 0.423,
-        "depthContribution": 9.81
+        "depthContribution": 9.79
       },
       {
         "playerId": "6806",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 341.78,
-    "startingLineupScore": 421.25,
-    "benchDepthScore": 158.2,
+    "teamRosStrength": 341.8,
+    "startingLineupScore": 421.28,
+    "benchDepthScore": 158.21,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -608,8 +608,8 @@
         "playerId": "4217",
         "canonicalName": "george kittle",
         "position": "TE",
-        "rosValue": 30.1,
-        "adjustedValue": 30.1,
+        "rosValue": 30.13,
+        "adjustedValue": 30.13,
         "confidence": 0.935,
         "flagged": null
       },
@@ -703,9 +703,9 @@
         "playerId": "1466",
         "canonicalName": "travis kelce",
         "position": "TE",
-        "rosValue": 23.48,
+        "rosValue": 23.5,
         "depthFactor": 0.55,
-        "depthContribution": 12.91
+        "depthContribution": 12.93
       },
       {
         "playerId": "4199",
@@ -943,8 +943,8 @@
     "ownerId": "1202064845743071232",
     "rosterId": 10,
     "teamName": "shayden18",
-    "teamRosStrength": 308.83,
-    "startingLineupScore": 384.6,
+    "teamRosStrength": 308.77,
+    "startingLineupScore": 384.53,
     "benchDepthScore": 121.74,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -994,8 +994,8 @@
         "playerId": "10229",
         "canonicalName": "rashee rice",
         "position": "WR",
-        "rosValue": 42.02,
-        "adjustedValue": 42.02,
+        "rosValue": 41.95,
+        "adjustedValue": 41.95,
         "confidence": 0.793,
         "flagged": null
       },
@@ -1133,9 +1133,9 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 297.5,
-    "startingLineupScore": 359.84,
-    "benchDepthScore": 157.85,
+    "teamRosStrength": 297.49,
+    "startingLineupScore": 359.82,
+    "benchDepthScore": 157.87,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1204,9 +1204,9 @@
         "playerId": "9487",
         "canonicalName": "parker washington",
         "position": "WR",
-        "rosValue": 30.14,
-        "adjustedValue": 30.14,
-        "confidence": 0.908,
+        "rosValue": 30.12,
+        "adjustedValue": 30.12,
+        "confidence": 0.907,
         "flagged": null
       },
       {
@@ -1301,9 +1301,9 @@
         "playerId": "8110",
         "canonicalName": "jake ferguson",
         "position": "TE",
-        "rosValue": 20.13,
+        "rosValue": 20.15,
         "depthFactor": 1.0,
-        "depthContribution": 20.13
+        "depthContribution": 20.15
       }
     ],
     "unfilledSlots": [],
@@ -1509,9 +1509,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 257.52,
-    "startingLineupScore": 314.91,
-    "benchDepthScore": 115.46,
+    "teamRosStrength": 257.57,
+    "startingLineupScore": 314.97,
+    "benchDepthScore": 115.49,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1560,8 +1560,8 @@
         "playerId": "7525",
         "canonicalName": "devonta smith",
         "position": "WR",
-        "rosValue": 38.84,
-        "adjustedValue": 38.84,
+        "rosValue": 38.9,
+        "adjustedValue": 38.9,
         "confidence": 0.891,
         "flagged": null
       },
@@ -1669,9 +1669,9 @@
         "playerId": "13345",
         "canonicalName": "jonah coleman",
         "position": "RB",
-        "rosValue": 16.87,
+        "rosValue": 16.9,
         "depthFactor": 1.0,
-        "depthContribution": 16.87
+        "depthContribution": 16.9
       },
       {
         "playerId": "9511",
@@ -1701,7 +1701,7 @@
     "teamName": "cbonex21",
     "teamRosStrength": 252.28,
     "startingLineupScore": 311.91,
-    "benchDepthScore": 98.36,
+    "benchDepthScore": 98.35,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1819,9 +1819,9 @@
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
-        "rosValue": 20.42,
+        "rosValue": 20.4,
         "depthFactor": 0.65,
-        "depthContribution": 13.27
+        "depthContribution": 13.26
       },
       {
         "playerId": "96",
@@ -1859,7 +1859,7 @@
         "playerId": "12536",
         "canonicalName": "jaylin noel",
         "position": "WR",
-        "rosValue": 16.22,
+        "rosValue": 16.23,
         "depthFactor": 0.179,
         "depthContribution": 2.9
       },
