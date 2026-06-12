@@ -1622,8 +1622,8 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "Ty",
-    "teamRosStrength": 428.89,
-    "startingLineupScore": 553.04,
+    "teamRosStrength": 428.9,
+    "startingLineupScore": 553.06,
     "benchDepthScore": 114.98,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1643,8 +1643,8 @@
         "playerId": "4081",
         "canonicalName": "budda baker",
         "position": "DB",
-        "rosValue": 24.43,
-        "adjustedValue": 24.43,
+        "rosValue": 24.45,
+        "adjustedValue": 24.45,
         "confidence": 0.814,
         "flagged": null
       },
@@ -1894,7 +1894,7 @@
     "teamName": "Kich",
     "teamRosStrength": 416.28,
     "startingLineupScore": 539.31,
-    "benchDepthScore": 99.87,
+    "benchDepthScore": 99.85,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2124,9 +2124,9 @@
         "playerId": "7090",
         "canonicalName": "darnell mooney",
         "position": "WR",
-        "rosValue": 18.64,
+        "rosValue": 18.57,
         "depthFactor": 0.275,
-        "depthContribution": 5.12
+        "depthContribution": 5.1
       },
       {
         "playerId": "12509",
@@ -2165,9 +2165,9 @@
     "ownerId": "711452264774041600",
     "rosterId": 2,
     "teamName": "Ed",
-    "teamRosStrength": 385.46,
+    "teamRosStrength": 385.47,
     "startingLineupScore": 487.51,
-    "benchDepthScore": 135.86,
+    "benchDepthScore": 135.88,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2397,9 +2397,9 @@
         "playerId": "8110",
         "canonicalName": "jake ferguson",
         "position": "TE",
-        "rosValue": 20.14,
+        "rosValue": 20.16,
         "depthFactor": 1.0,
-        "depthContribution": 20.14
+        "depthContribution": 20.16
       },
       {
         "playerId": "13301",
@@ -2436,8 +2436,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 342.02,
-    "startingLineupScore": 434.94,
+    "teamRosStrength": 342.04,
+    "startingLineupScore": 434.97,
     "benchDepthScore": 104.78,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2557,8 +2557,8 @@
         "playerId": "6149",
         "canonicalName": "darius slayton",
         "position": "WR",
-        "rosValue": 18.01,
-        "adjustedValue": 18.01,
+        "rosValue": 18.04,
+        "adjustedValue": 18.04,
         "confidence": 0.944,
         "flagged": null
       },
