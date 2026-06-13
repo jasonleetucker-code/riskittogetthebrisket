@@ -12,7 +12,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 11,CHI,Dillon Thieneman,DB,N/A,10,21.8,152,428,700,"1,330",,20
 12,DAL,Caleb Downs,DB,N/A,14,21.5,139,423,694,"1,346",,20
 13,KC,Nick Bolton,LB,N/A,5,26.3,183,459,726,"1,237",,19
-14,LVR,Nakobe Dean,LB,N/A,13,25.4,189,447,719,"1,261",,18
+14,LVR,Nakobe Dean,LB,N/A,13,25.5,189,447,719,"1,261",,18
 15,MIA,Jordyn Brooks,LB,N/A,6,28.6,211,456,704,"1,123",,18
 16,SEA,Ernest Jones,LB,N/A,11,26.5,186,433,686,"1,169",,17
 17,LVR,Quay Walker,LB,N/A,13,26.1,189,429,679,"1,156",,16
@@ -40,12 +40,12 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 39,NYG,Tremaine Edmunds,LB,N/A,8,28.1,173,325,501,800,,7
 40,NYG,Brian Burns,DL,N/A,8,28.1,133,285,409,573,,7
 41,ARI,Cody Simon,LB,N/A,14,24.2,121,323,522,947,,7
-42,NYJ,Malachi Moore,DB,N/A,13,24.7,139,296,475,820,,7
+42,NYJ,Malachi Moore,DB,N/A,13,24.8,139,296,475,820,,7
 43,LAC,Tuli Tuipulotu,DL,N/A,7,23.8,122,244,410,734,,7
 44,TB,Sirvocea Dennis,LB,N/A,10,26.3,112,328,520,885,,7
 45,NYG,Abdul Carter,DL,N/A,8,22.7,94,245,407,765,,7
 46,ATL,Xavier Watts,DB,N/A,11,24.5,131,292,473,852,,6
-47,BAL,Malaki Starks,DB,N/A,13,22.5,104,292,479,909,,6
+47,BAL,Malaki Starks,DB,N/A,13,22.6,104,292,479,909,,6
 48,NYJ,David Bailey,LB,N/A,13,22.8,94,309,521,991,,6
 49,DEN,Nik Bonitto,DL,N/A,10,26.7,123,261,406,580,,6
 50,CLE,Jared Verse,DL,N/A,11,25.6,101,246,413,677,,6
@@ -73,15 +73,15 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 72,ATL,James Pearce,DL,N/A,11,22.7,86,204,339,638,,3
 73,NO,Jonas Sanker,DB,N/A,8,23.5,107,262,426,769,,3
 74,ATL,Divine Deablo,LB,N/A,11,27.8,154,278,430,686,,3
-75,NYJ,D'Angelo Ponds,DB,N/A,13,21.3,103,266,426,786,,3
+75,NYJ,D'Angelo Ponds,DB,N/A,13,21.4,103,266,426,786,,3
 76,GB,Evan Williams,DB,N/A,11,24.8,139,255,408,708,,3
 77,PHI,Andrew Mukuba,DB,N/A,10,23.5,102,257,422,786,,3
 78,KC,George Karlaftis,DL,N/A,5,25.2,92,204,343,561,,3
-79,PHI,Jalyx Hunt,DL,N/A,10,25.2,82,207,348,570,,3
+79,PHI,Jalyx Hunt,DL,N/A,10,25.3,82,207,348,570,,3
 80,NO,Kaden Elliss,LB,N/A,8,30.9,165,287,420,599,,3
 81,IND,A.J. Haulcy,DB,N/A,13,22.4,98,261,426,798,,3
 82,JAC,Travon Walker,DL,N/A,7,25.4,90,202,339,556,,3
-83,LAR,Byron Young,DL,N/A,11,28.2,111,224,321,450,,3
+83,LAR,Byron Young,DL,N/A,11,28.3,111,224,321,450,,3
 84,TEN,Anthony Hill Jr.,LB,N/A,9,21.3,88,258,446,898,,3
 85,NO,Kool-Aid McKinstry,DB,N/A,8,23.7,128,260,405,710,,3
 86,CIN,Jordan Battle,DB,N/A,6,25.4,142,250,400,694,,2
@@ -95,7 +95,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 94,LVR,Jeremy Chinn,DB,N/A,13,28.3,166,245,379,582,,2
 95,PIT,Alex Highsmith,DL,N/A,9,28.8,116,210,284,396,,1
 96,NO,Chase Young,DL,N/A,8,27.1,106,195,303,433,,1
-97,JAC,Josh Hines-Allen,DL,N/A,7,28.8,106,213,287,400,,1
+97,JAC,Josh Hines-Allen,DL,N/A,7,28.9,106,213,287,400,,1
 98,TB,Yaya Diaby,DL,N/A,10,27,108,191,297,425,,1
 99,LAR,Kobie Turner,DL,N/A,11,27.1,88,195,302,458,,1
 100,LAR,Kamren Curl,DB,N/A,11,27.2,146,244,382,619,,1
@@ -124,7 +124,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 123,TEN,Alontae Taylor,DB,N/A,9,27.5,145,230,363,598,,0
 124,PHI,Jordan Davis,DL,N/A,10,26.4,80,177,278,444,,0
 125,CLE,Grant Delpit,DB,N/A,11,27.7,161,230,356,546,,0
-126,TEN,Cody Barton,LB,N/A,9,29.5,108,260,396,600,,0
+126,TEN,Cody Barton,LB,N/A,9,29.6,108,260,396,600,,0
 127,KC,Mansoor Delane,DB,N/A,5,22.4,97,238,386,695,,0
 128,PHI,Jonathan Greenard,DL,N/A,10,29,95,192,259,361,,0
 129,KC,Drue Tranquill,LB,N/A,5,30.8,151,250,366,523,,-0
@@ -211,7 +211,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 210,LVR,Isaiah Pola-Mao,DB,N/A,13,26.9,128,204,319,517,,-3
 211,WAS,Dorance Armstrong,DL,N/A,7,29,88,139,187,261,,-3
 212,ATL,Kendal Daniels,LB,N/A,11,23.4,70,203,336,630,,-3
-213,LAR,Trent McDuffie,DB,N/A,11,25.7,134,199,307,519,,-3
+213,LAR,Trent McDuffie,DB,N/A,11,25.8,134,199,307,519,,-3
 214,NYG,Micah McFadden,LB,N/A,8,26.4,114,199,315,537,,-3
 215,ARI,Mack Wilson,LB,N/A,14,28.3,119,203,313,500,,-4
 216,PHI,Moro Ojomo,DL,N/A,10,24.8,65,126,208,344,,-4
@@ -292,10 +292,10 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 291,WAS,Javon Kinlaw,DL,N/A,7,28.7,49,98,145,202,,-7
 292,ARI,Baron Browning,DL,N/A,14,27.3,45,93,145,208,,-7
 293,DET,D.J. Wonnum,DL,N/A,6,28.6,45,99,141,198,,-7
-294,LAR,Emmanuel Forbes,DB,N/A,11,25.3,117,168,261,451,,-7
+294,LAR,Emmanuel Forbes,DB,N/A,11,25.4,117,168,261,451,,-7
 295,WAS,Joshua Josephs,DL,N/A,7,22.5,30,80,137,277,,-7
 296,PHI,Quinyon Mitchell,DB,N/A,10,24.8,103,170,263,453,,-7
-297,NYJ,Jarvis Brownlee Jr.,DB,N/A,13,24.8,94,174,270,465,,-7
+297,NYJ,Jarvis Brownlee Jr.,DB,N/A,13,24.9,94,174,270,465,,-7
 298,NYG,Jevon Holland,DB,N/A,8,26.3,99,170,269,450,,-7
 299,DEN,Ja'Quan McMillian,DB,N/A,10,26,90,177,273,462,,-7
 300,IND,Grover Stewart,DL,N/A,13,32.6,74,85,106,160,,-7
@@ -304,14 +304,14 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 303,LAC,Teair Tart,DL,N/A,7,29.3,48,86,127,177,,-7
 304,JAC,Wesley Williams,DL,N/A,7,21.7,29,77,132,267,,-7
 305,MIN,Isaiah Rodgers,DB,N/A,6,28.4,127,160,250,392,,-7
-306,SF,Romello Height,DL,N/A,8,25.1,35,78,131,214,,-7
+306,SF,Romello Height,DL,N/A,8,25.2,35,78,131,214,,-7
 307,JAC,Davon Hamilton,DL,N/A,7,29.3,0,103,153,213,,-7
 308,SF,Deommodore Lenoir,DB,N/A,8,26.7,102,165,256,423,,-8
 309,IND,Ahmad Gardner,DB,N/A,13,24.8,92,166,262,457,,-8
 310,DAL,Kenny Clark,DL,N/A,14,30.7,53,82,109,153,,-8
 311,LAR,Poona Ford,DL,N/A,11,30.5,0,105,146,205,,-8
 312,CHI,Kyler Gordon,DB,N/A,10,26.4,111,157,249,424,,-8
-313,JAC,Ruke Orhorhoro,DL,N/A,7,24.6,25,79,127,213,,-8
+313,JAC,Ruke Orhorhoro,DL,N/A,7,24.7,25,79,127,213,,-8
 314,SF,Alfred Collins,DL,N/A,8,24.7,30,76,121,203,,-8
 315,NE,Kevin Byard,DB,N/A,11,32.8,143,166,223,305,,-8
 316,NO,Davon Godchaux,DL,N/A,8,31.6,53,76,101,142,,-8
@@ -372,7 +372,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 371,UNS,D.J. Jones,DL,N/A,18,31.3,0,0,0,0,,-14
 372,UNS,Levi Onwuzurike,DL,N/A,18,28.3,0,0,0,0,,-14
 373,KC,Felix Anudike-Uzomah,DL,N/A,5,24.3,0,0,0,0,,-14
-374,ARI,Darius Robinson,DL,N/A,14,24.7,0,0,0,0,,-14
+374,ARI,Darius Robinson,DL,N/A,14,24.8,0,0,0,0,,-14
 375,LAC,Justin Eboigbe,DL,N/A,7,25.2,0,0,0,0,,-14
 376,ATL,Da'Shawn Hand,DL,N/A,11,30.5,0,0,0,0,,-14
 377,CHI,Shemar Turner,DL,N/A,10,23.3,0,0,0,0,,-14

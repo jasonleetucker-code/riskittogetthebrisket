@@ -1111,9 +1111,9 @@
         "playerId": "4017",
         "canonicalName": "deshaun watson",
         "position": "QB",
-        "rosValue": 19.68,
+        "rosValue": 19.69,
         "depthFactor": 0.55,
-        "depthContribution": 10.82
+        "depthContribution": 10.83
       }
     ],
     "unfilledSlots": [],
@@ -1511,7 +1511,7 @@
     "teamName": "Roy",
     "teamRosStrength": 257.58,
     "startingLineupScore": 314.94,
-    "benchDepthScore": 115.67,
+    "benchDepthScore": 115.68,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1653,7 +1653,7 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 18.0,
+        "rosValue": 18.01,
         "depthFactor": 0.423,
         "depthContribution": 7.61
       },
@@ -1851,9 +1851,9 @@
         "playerId": "6149",
         "canonicalName": "darius slayton",
         "position": "WR",
-        "rosValue": 18.04,
+        "rosValue": 18.05,
         "depthFactor": 0.275,
-        "depthContribution": 4.95
+        "depthContribution": 4.96
       },
       {
         "playerId": "12536",
