@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 401.37,
+    "teamRosStrength": 401.36,
     "startingLineupScore": 503.13,
-    "benchDepthScore": 161.73,
+    "benchDepthScore": 161.71,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -327,9 +327,9 @@
         "playerId": "7594",
         "canonicalName": "chuba hubbard",
         "position": "RB",
-        "rosValue": 27.12,
+        "rosValue": 27.1,
         "depthFactor": 1.0,
-        "depthContribution": 27.12
+        "depthContribution": 27.1
       },
       {
         "playerId": "5870",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 341.84,
+    "teamRosStrength": 341.83,
     "startingLineupScore": 421.36,
-    "benchDepthScore": 158.09,
+    "benchDepthScore": 158.08,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -703,9 +703,9 @@
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 23.39,
+        "rosValue": 23.38,
         "depthFactor": 1.0,
-        "depthContribution": 23.39
+        "depthContribution": 23.38
       },
       {
         "playerId": "1466",
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 325.87,
+    "teamRosStrength": 325.88,
     "startingLineupScore": 405.38,
-    "benchDepthScore": 133.32,
+    "benchDepthScore": 133.35,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -883,9 +883,9 @@
         "playerId": "11583",
         "canonicalName": "jonathon brooks",
         "position": "RB",
-        "rosValue": 24.96,
+        "rosValue": 25.01,
         "depthFactor": 0.65,
-        "depthContribution": 16.22
+        "depthContribution": 16.26
       },
       {
         "playerId": "5872",
@@ -1277,9 +1277,9 @@
         "playerId": "11586",
         "canonicalName": "blake corum",
         "position": "RB",
-        "rosValue": 25.75,
+        "rosValue": 25.77,
         "depthFactor": 0.65,
-        "depthContribution": 16.74
+        "depthContribution": 16.75
       },
       {
         "playerId": "12484",
@@ -1293,9 +1293,9 @@
         "playerId": "12533",
         "canonicalName": "jacory croskey merritt",
         "position": "RB",
-        "rosValue": 23.12,
+        "rosValue": 23.1,
         "depthFactor": 0.423,
-        "depthContribution": 9.77
+        "depthContribution": 9.76
       },
       {
         "playerId": "8110",
@@ -1323,7 +1323,7 @@
     "teamName": "tedkinney",
     "teamRosStrength": 258.69,
     "startingLineupScore": 324.59,
-    "benchDepthScore": 83.25,
+    "benchDepthScore": 83.23,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1489,9 +1489,9 @@
         "playerId": "12487",
         "canonicalName": "terrance ferguson",
         "position": "TE",
-        "rosValue": 13.26,
+        "rosValue": 13.24,
         "depthFactor": 0.55,
-        "depthContribution": 7.29
+        "depthContribution": 7.28
       }
     ],
     "unfilledSlots": [],
@@ -1661,9 +1661,9 @@
         "playerId": "13320",
         "canonicalName": "zachariah branch",
         "position": "WR",
-        "rosValue": 16.97,
+        "rosValue": 16.99,
         "depthFactor": 0.275,
-        "depthContribution": 4.66
+        "depthContribution": 4.67
       },
       {
         "playerId": "13345",
