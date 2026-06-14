@@ -1,44 +1,54 @@
 {
-  "computedAt": "2026-06-14T20:14:52.396170+00:00",
+  "computedAt": "2026-06-14T22:02:18.396999+00:00",
   "championshipOdds": [
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.4661,
-      "finalsOdds": 0.559,
-      "semifinalOdds": 0.56,
+      "championshipOdds": 0.4646,
+      "finalsOdds": 0.5628,
+      "semifinalOdds": 0.564,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.29,
+      "expectedFinish": 3.28,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.3344,
-      "finalsOdds": 0.4373,
-      "semifinalOdds": 0.44,
+      "championshipOdds": 0.3298,
+      "finalsOdds": 0.4334,
+      "semifinalOdds": 0.436,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.91,
+      "expectedFinish": 3.93,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.1523,
-      "finalsOdds": 0.6433,
+      "championshipOdds": 0.1555,
+      "finalsOdds": 0.6395,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.2,
+      "expectedFinish": 2.21,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
-      "championshipOdds": 0.0472,
-      "finalsOdds": 0.3567,
+      "championshipOdds": 0.05,
+      "finalsOdds": 0.3605,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.6,
+      "expectedFinish": 2.59,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "473973924808355840",
+      "displayName": "Ty",
+      "championshipOdds": 0.0001,
+      "finalsOdds": 0.0038,
+      "semifinalOdds": 1.0,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.0,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -49,16 +59,6 @@
       "semifinalOdds": 0.0,
       "playoffOdds": 1.0,
       "expectedFinish": 5.0,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "473973924808355840",
-      "displayName": "Ty",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0037,
-      "semifinalOdds": 1.0,
-      "playoffOdds": 1.0,
-      "expectedFinish": 3.0,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
