@@ -17,14 +17,14 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 16,SEA,Ernest Jones,LB,N/A,11,26.5,186,433,686,"1,169",,17
 17,LVR,Quay Walker,LB,N/A,13,26.1,189,429,679,"1,156",,16
 18,MIA,Jacob Rodriguez,LB,N/A,6,23.8,114,425,687,"1,247",,15
-19,LAC,Daiyan Henley,LB,N/A,7,26.5,174,413,653,"1,113",,15
+19,LAC,Daiyan Henley,LB,N/A,7,26.6,174,413,653,"1,113",,15
 20,PHI,Cooper DeJean,DB,N/A,10,23.3,162,349,564,"1,011",,13
 21,NYG,Arvell Reese,LB,N/A,8,20.8,134,376,620,"1,248",,13
 22,SF,Fred Warner,LB,N/A,8,29.5,184,391,614,"1,045",,13
 23,PHI,Zack Baun,LB,N/A,10,29.4,212,393,598,908,,13
 24,CAR,Devin Lloyd,LB,N/A,5,27.7,192,385,604,994,,13
 25,CIN,Barrett Carter,LB,N/A,6,23.6,155,369,596,"1,082",,12
-26,CHI,Devin Bush,LB,N/A,10,27.8,188,374,577,921,,11
+26,CHI,Devin Bush,LB,N/A,10,27.9,188,374,577,921,,11
 27,CAR,Trevin Wallace,LB,N/A,5,23.3,112,357,590,"1,105",,10
 28,TB,Tykee Smith,DB,N/A,10,25.3,166,313,501,870,,9
 29,HOU,Will Anderson Jr.,DL,N/A,8,24.8,133,282,473,776,,9
@@ -80,7 +80,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 79,PHI,Jalyx Hunt,DL,N/A,10,25.3,82,207,348,570,,3
 80,NO,Kaden Elliss,LB,N/A,8,30.9,165,287,420,599,,3
 81,IND,A.J. Haulcy,DB,N/A,13,22.4,98,261,426,798,,3
-82,JAC,Travon Walker,DL,N/A,7,25.4,90,202,339,556,,3
+82,JAC,Travon Walker,DL,N/A,7,25.5,90,202,339,556,,3
 83,TEN,Anthony Hill Jr.,LB,N/A,9,21.3,88,258,446,898,,3
 84,LAR,Byron Young,DL,N/A,11,28.3,111,224,321,450,,3
 85,NO,Kool-Aid McKinstry,DB,N/A,8,23.7,128,260,405,710,,3
@@ -116,7 +116,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 115,ATL,Jessie Bates,DB,N/A,11,29.3,156,229,361,612,,0
 116,CLE,Mason Graham,DL,N/A,11,22.8,66,170,287,532,,0
 117,HOU,Azeez Al-Shaair,LB,N/A,8,28.8,154,246,374,568,,0
-118,NO,Carl Granderson,DL,N/A,8,29.4,106,193,260,363,,0
+118,NO,Carl Granderson,DL,N/A,8,29.5,106,193,260,363,,0
 119,HOU,Calen Bullock,DB,N/A,8,23.1,97,235,385,717,,0
 120,CIN,Cashius Howell,DL,N/A,6,23.2,43,177,294,553,,0
 121,BUF,Maxwell Hairston,DB,N/A,7,22.8,102,238,383,678,,0
@@ -130,7 +130,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 129,KC,Drue Tranquill,LB,N/A,5,30.8,151,250,366,523,,-0
 130,BAL,Nate Wiggins,DB,N/A,13,22.8,111,232,373,659,,-0
 131,DAL,Rashan Gary,DL,N/A,14,28.5,86,185,265,371,,-0
-132,PHI,Nolan Smith,DL,N/A,10,25.3,76,164,275,450,,-0
+132,PHI,Nolan Smith,DL,N/A,10,25.4,76,164,275,450,,-0
 133,CHI,Austin Booker,DL,N/A,10,23.5,65,159,270,516,,-0
 134,MIN,Eric Wilson,LB,N/A,6,31.7,179,243,346,482,,-0
 135,MIA,Tyrel Dodson,LB,N/A,6,27.9,116,246,380,607,,-0
@@ -183,9 +183,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 182,NYG,Andru Phillips,DB,N/A,8,24.5,104,219,342,599,,-2
 183,LVR,Kwity Paye,DL,N/A,13,27.5,78,149,232,332,,-2
 184,SF,Mykel Williams,DL,N/A,8,21.9,52,139,229,449,,-2
-185,BAL,Zion Young,DL,N/A,13,22.2,51,137,233,467,,-2
+185,BAL,Zion Young,DL,N/A,13,22.3,51,137,233,467,,-2
 186,NE,Dre'mont Jones,DL,N/A,11,29.4,86,160,216,301,,-2
-187,LAR,Braden Fiske,DL,N/A,11,26.3,61,147,231,370,,-2
+187,LAR,Braden Fiske,DL,N/A,11,26.4,61,147,231,370,,-2
 188,NYJ,Minkah Fitzpatrick,DB,N/A,13,29.6,161,210,319,473,,-2
 189,CLE,Tyson Campbell,DB,N/A,11,26.3,133,211,324,548,,-2
 190,CLE,Ronnie Hickman,DB,N/A,11,24.7,119,206,330,572,,-2
@@ -225,7 +225,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 224,NE,Milton Williams,DL,N/A,11,27.2,72,127,199,287,,-4
 225,DET,Alim McNeill,DL,N/A,6,26.1,67,123,194,309,,-4
 226,NE,Christian Barmore,DL,N/A,11,26.8,71,122,188,286,,-4
-227,DAL,Jalen Thompson,DB,N/A,14,27.8,132,199,307,472,,-4
+227,DAL,Jalen Thompson,DB,N/A,14,27.9,132,199,307,472,,-4
 228,DAL,DaRon Bland,DB,N/A,14,26.9,132,190,301,495,,-4
 229,HOU,Derek Stingley,DB,N/A,8,24.9,112,198,306,527,,-4
 230,NE,Craig Woodson,DB,N/A,11,25.3,94,198,317,550,,-4
@@ -257,7 +257,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 256,DEN,Justin Strnad,LB,N/A,10,29.8,114,191,286,424,,-5
 257,CHI,Dayo Odeyingbo,DL,N/A,10,26.7,64,111,173,247,,-5
 258,TB,Zyon McCollum,DB,N/A,10,27.1,127,183,283,467,,-5
-259,MIN,Byron Murphy,DB,N/A,6,28.3,118,188,295,460,,-5
+259,MIN,Byron Murphy,DB,N/A,6,28.4,118,188,295,460,,-5
 260,PIT,T.J. Watt,DL,N/A,9,31.7,115,97,127,189,,-5
 261,BUF,T.J. Sanders,DL,N/A,7,22.8,40,105,178,329,,-5
 262,BUF,Chauncey Gardner-Johnson,DB,N/A,7,28.4,125,188,292,448,,-5
@@ -294,7 +294,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 293,DET,D.J. Wonnum,DL,N/A,6,28.6,45,99,141,198,,-7
 294,LAR,Emmanuel Forbes,DB,N/A,11,25.4,117,168,261,451,,-7
 295,WAS,Joshua Josephs,DL,N/A,7,22.5,30,80,137,277,,-7
-296,PHI,Quinyon Mitchell,DB,N/A,10,24.8,103,170,263,453,,-7
+296,PHI,Quinyon Mitchell,DB,N/A,10,24.9,103,170,263,453,,-7
 297,NYJ,Jarvis Brownlee Jr.,DB,N/A,13,24.9,94,174,270,465,,-7
 298,NYG,Jevon Holland,DB,N/A,8,26.3,99,170,269,450,,-7
 299,DEN,Ja'Quan McMillian,DB,N/A,10,26,90,177,273,462,,-7
@@ -343,7 +343,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 342,DEN,Taurean York,LB,N/A,10,20.9,39,128,221,444,,-10
 343,CLE,Denzel Ward,DB,N/A,11,29.1,98,150,231,343,,-10
 344,TB,Alex Anzalone,LB,N/A,10,31.7,138,118,168,234,,-10
-345,NYG,Greg Newsome,DB,N/A,8,26,76,148,235,399,,-10
+345,NYG,Greg Newsome,DB,N/A,8,26.1,76,148,235,399,,-10
 346,LAC,Cam Hart,DB,N/A,7,25.5,75,145,228,394,,-10
 347,PHI,Deontae Lawson,LB,N/A,10,23.3,41,125,207,388,,-10
 348,CHI,Tyrique Stevenson,DB,N/A,10,26,78,147,226,382,,-10
