@@ -1,0 +1,21 @@
+{
+  "source_key": "ffc2qbAdp",
+  "status": "failed",
+  "error": "http: HTTPSConnectionPool(host='fantasyfootballcalculator.com', port=443): Read timed out.",
+  "started_at": "2026-06-18T11:06:44.396504+00:00",
+  "completed_at": "2026-06-18T11:07:08.266433+00:00",
+  "player_count": 0,
+  "source_id": "ffc2qbAdp",
+  "source_name": "Fantasy Football Calculator 2QB ADP",
+  "source_url": "https://fantasyfootballcalculator.com/adp/2qb",
+  "source_type": "adp",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": true,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 24
+}
