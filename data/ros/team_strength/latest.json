@@ -542,9 +542,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 526.62,
-    "startingLineupScore": 677.16,
-    "benchDepthScore": 161.46,
+    "teamRosStrength": 526.63,
+    "startingLineupScore": 677.17,
+    "benchDepthScore": 161.47,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -633,8 +633,8 @@
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 23.27,
-        "adjustedValue": 23.27,
+        "rosValue": 23.28,
+        "adjustedValue": 23.28,
         "confidence": 0.914,
         "flagged": null
       },
@@ -790,9 +790,9 @@
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
-        "rosValue": 22.48,
+        "rosValue": 22.5,
         "depthFactor": 0.65,
-        "depthContribution": 14.61
+        "depthContribution": 14.62
       }
     ],
     "unfilledSlots": [],
@@ -1624,7 +1624,7 @@
     "teamName": "Ty",
     "teamRosStrength": 428.79,
     "startingLineupScore": 552.84,
-    "benchDepthScore": 115.25,
+    "benchDepthScore": 115.27,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1814,9 +1814,9 @@
         "playerId": "13405",
         "canonicalName": "kaytron allen",
         "position": "RB",
-        "rosValue": 18.96,
+        "rosValue": 18.98,
         "depthFactor": 1.0,
-        "depthContribution": 18.96
+        "depthContribution": 18.98
       },
       {
         "playerId": "9508",
@@ -1894,7 +1894,7 @@
     "teamName": "Kich",
     "teamRosStrength": 416.61,
     "startingLineupScore": 540.42,
-    "benchDepthScore": 97.25,
+    "benchDepthScore": 97.26,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2084,9 +2084,9 @@
         "playerId": "2449",
         "canonicalName": "stefon diggs",
         "position": "WR",
-        "rosValue": 23.88,
+        "rosValue": 23.89,
         "depthFactor": 1.0,
-        "depthContribution": 23.88
+        "depthContribution": 23.89
       },
       {
         "playerId": "3214",

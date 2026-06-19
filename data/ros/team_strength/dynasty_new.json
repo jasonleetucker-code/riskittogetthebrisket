@@ -139,9 +139,9 @@
         "playerId": "2449",
         "canonicalName": "stefon diggs",
         "position": "WR",
-        "rosValue": 23.88,
+        "rosValue": 23.89,
         "depthFactor": 0.65,
-        "depthContribution": 15.52
+        "depthContribution": 15.53
       },
       {
         "playerId": "3214",
@@ -569,7 +569,7 @@
     "teamName": "DeCline",
     "teamRosStrength": 342.25,
     "startingLineupScore": 422.01,
-    "benchDepthScore": 157.81,
+    "benchDepthScore": 157.82,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -711,9 +711,9 @@
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 23.27,
+        "rosValue": 23.28,
         "depthFactor": 1.0,
-        "depthContribution": 23.27
+        "depthContribution": 23.28
       },
       {
         "playerId": "8408",
@@ -1321,8 +1321,8 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 258.2,
-    "startingLineupScore": 323.92,
+    "teamRosStrength": 258.23,
+    "startingLineupScore": 323.96,
     "benchDepthScore": 83.23,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1412,8 +1412,8 @@
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
-        "rosValue": 22.48,
-        "adjustedValue": 22.48,
+        "rosValue": 22.5,
+        "adjustedValue": 22.5,
         "confidence": 0.959,
         "flagged": null
       },
@@ -1422,8 +1422,8 @@
         "playerId": "7049",
         "canonicalName": "jauan jennings",
         "position": "WR",
-        "rosValue": 21.83,
-        "adjustedValue": 21.83,
+        "rosValue": 21.85,
+        "adjustedValue": 21.85,
         "confidence": 0.91,
         "flagged": null
       }
