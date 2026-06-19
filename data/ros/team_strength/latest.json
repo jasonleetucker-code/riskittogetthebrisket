@@ -1894,7 +1894,7 @@
     "teamName": "Kich",
     "teamRosStrength": 416.74,
     "startingLineupScore": 540.61,
-    "benchDepthScore": 97.22,
+    "benchDepthScore": 97.2,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2100,9 +2100,9 @@
         "playerId": "4981",
         "canonicalName": "calvin ridley",
         "position": "WR",
-        "rosValue": 21.42,
+        "rosValue": 21.4,
         "depthFactor": 0.65,
-        "depthContribution": 13.92
+        "depthContribution": 13.91
       },
       {
         "playerId": "8136",
@@ -2124,7 +2124,7 @@
         "playerId": "7090",
         "canonicalName": "darnell mooney",
         "position": "WR",
-        "rosValue": 17.12,
+        "rosValue": 17.11,
         "depthFactor": 0.275,
         "depthContribution": 4.7
       },
@@ -2438,7 +2438,7 @@
     "teamName": "Roy",
     "teamRosStrength": 342.14,
     "startingLineupScore": 435.07,
-    "benchDepthScore": 104.96,
+    "benchDepthScore": 104.97,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2684,7 +2684,7 @@
         "playerId": "5848",
         "canonicalName": "marquise brown",
         "position": "WR",
-        "rosValue": 11.84,
+        "rosValue": 11.85,
         "depthFactor": 0.65,
         "depthContribution": 7.7
       }
@@ -2707,9 +2707,9 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "Blaine",
-    "teamRosStrength": 339.53,
+    "teamRosStrength": 339.55,
     "startingLineupScore": 436.12,
-    "benchDepthScore": 86.27,
+    "benchDepthScore": 86.35,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2899,9 +2899,9 @@
         "playerId": "96",
         "canonicalName": "aaron rodgers",
         "position": "QB",
-        "rosValue": 19.63,
+        "rosValue": 19.71,
         "depthFactor": 1.0,
-        "depthContribution": 19.63
+        "depthContribution": 19.71
       },
       {
         "playerId": "7677",
