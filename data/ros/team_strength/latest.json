@@ -1622,8 +1622,8 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "Ty",
-    "teamRosStrength": 429.7,
-    "startingLineupScore": 553.46,
+    "teamRosStrength": 429.31,
+    "startingLineupScore": 552.92,
     "benchDepthScore": 117.8,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1760,22 +1760,22 @@
       },
       {
         "slot": "FLEX",
-        "playerId": "7567",
-        "canonicalName": "kenneth gainwell",
-        "position": "RB",
-        "rosValue": 22.22,
-        "adjustedValue": 22.22,
-        "confidence": 0.967,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
         "playerId": "12474",
         "canonicalName": "woody marks",
         "position": "RB",
         "rosValue": 21.76,
         "adjustedValue": 21.76,
         "confidence": 0.946,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
+        "playerId": "7567",
+        "canonicalName": "kenneth gainwell",
+        "position": "RB",
+        "rosValue": 21.68,
+        "adjustedValue": 21.68,
+        "confidence": 0.733,
         "flagged": null
       },
       {

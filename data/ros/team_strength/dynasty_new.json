@@ -1321,9 +1321,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 267.18,
+    "teamRosStrength": 267.08,
     "startingLineupScore": 328.19,
-    "benchDepthScore": 116.01,
+    "benchDepthScore": 115.47,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1433,9 +1433,9 @@
         "playerId": "7567",
         "canonicalName": "kenneth gainwell",
         "position": "RB",
-        "rosValue": 22.22,
+        "rosValue": 21.68,
         "depthFactor": 1.0,
-        "depthContribution": 22.22
+        "depthContribution": 21.68
       },
       {
         "playerId": "12493",
