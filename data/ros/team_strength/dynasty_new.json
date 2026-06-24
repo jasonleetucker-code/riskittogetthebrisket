@@ -381,7 +381,7 @@
     "teamName": "Bkesss",
     "teamRosStrength": 373.71,
     "startingLineupScore": 460.66,
-    "benchDepthScore": 177.96,
+    "benchDepthScore": 177.99,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -499,9 +499,9 @@
         "playerId": "5892",
         "canonicalName": "david montgomery",
         "position": "RB",
-        "rosValue": 33.03,
+        "rosValue": 33.06,
         "depthFactor": 1.0,
-        "depthContribution": 33.03
+        "depthContribution": 33.06
       },
       {
         "playerId": "5846",
@@ -1321,8 +1321,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 267.05,
-    "startingLineupScore": 328.13,
+    "teamRosStrength": 267.03,
+    "startingLineupScore": 328.1,
     "benchDepthScore": 115.54,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1412,8 +1412,8 @@
         "playerId": "13346",
         "canonicalName": "denzel boston",
         "position": "WR",
-        "rosValue": 24.05,
-        "adjustedValue": 24.05,
+        "rosValue": 24.02,
+        "adjustedValue": 24.02,
         "confidence": 0.874,
         "flagged": null
       },
@@ -1663,7 +1663,7 @@
         "playerId": "12535",
         "canonicalName": "isaac teslaa",
         "position": "WR",
-        "rosValue": 14.96,
+        "rosValue": 14.97,
         "depthFactor": 0.275,
         "depthContribution": 4.11
       },

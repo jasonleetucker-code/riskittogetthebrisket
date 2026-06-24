@@ -810,8 +810,8 @@
     "ownerId": "609821340567941120",
     "rosterId": 6,
     "teamName": "Eric",
-    "teamRosStrength": 496.87,
-    "startingLineupScore": 638.06,
+    "teamRosStrength": 496.89,
+    "startingLineupScore": 638.09,
     "benchDepthScore": 152.58,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -951,9 +951,9 @@
         "playerId": "5892",
         "canonicalName": "david montgomery",
         "position": "RB",
-        "rosValue": 33.03,
-        "adjustedValue": 33.03,
-        "confidence": 0.939,
+        "rosValue": 33.06,
+        "adjustedValue": 33.06,
+        "confidence": 0.94,
         "flagged": null
       },
       {
@@ -1624,7 +1624,7 @@
     "teamName": "Ty",
     "teamRosStrength": 429.29,
     "startingLineupScore": 552.92,
-    "benchDepthScore": 117.71,
+    "benchDepthScore": 117.73,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1854,9 +1854,9 @@
         "playerId": "8111",
         "canonicalName": "cade otton",
         "position": "TE",
-        "rosValue": 15.73,
+        "rosValue": 15.75,
         "depthFactor": 1.0,
-        "depthContribution": 15.73
+        "depthContribution": 15.75
       },
       {
         "playerId": "12492",
@@ -2982,9 +2982,9 @@
     "ownerId": "712035316776669184",
     "rosterId": 11,
     "teamName": "jstuedle",
-    "teamRosStrength": 316.52,
-    "startingLineupScore": 399.81,
-    "benchDepthScore": 103.67,
+    "teamRosStrength": 316.48,
+    "startingLineupScore": 399.74,
+    "benchDepthScore": 103.69,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -3113,8 +3113,8 @@
         "playerId": "13346",
         "canonicalName": "denzel boston",
         "position": "WR",
-        "rosValue": 24.05,
-        "adjustedValue": 24.05,
+        "rosValue": 24.02,
+        "adjustedValue": 24.02,
         "confidence": 0.874,
         "flagged": null
       },
@@ -3163,8 +3163,8 @@
         "playerId": "4035",
         "canonicalName": "alvin kamara",
         "position": "RB",
-        "rosValue": 17.05,
-        "adjustedValue": 17.05,
+        "rosValue": 17.01,
+        "adjustedValue": 17.01,
         "confidence": 0.971,
         "flagged": null
       }
@@ -3198,9 +3198,9 @@
         "playerId": "13305",
         "canonicalName": "mike washington",
         "position": "RB",
-        "rosValue": 15.28,
+        "rosValue": 15.3,
         "depthFactor": 1.0,
-        "depthContribution": 15.28
+        "depthContribution": 15.3
       },
       {
         "playerId": "13272",
