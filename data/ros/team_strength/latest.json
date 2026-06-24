@@ -1083,7 +1083,7 @@
     "teamName": "MaKayla",
     "teamRosStrength": 495.45,
     "startingLineupScore": 643.02,
-    "benchDepthScore": 124.86,
+    "benchDepthScore": 124.85,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1313,9 +1313,9 @@
         "playerId": "3257",
         "canonicalName": "jacoby brissett",
         "position": "QB",
-        "rosValue": 22.39,
+        "rosValue": 22.37,
         "depthFactor": 0.55,
-        "depthContribution": 12.31
+        "depthContribution": 12.3
       },
       {
         "playerId": "11625",
