@@ -193,7 +193,7 @@
     "teamName": "Comacho",
     "teamRosStrength": 406.57,
     "startingLineupScore": 507.43,
-    "benchDepthScore": 173.43,
+    "benchDepthScore": 173.42,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -327,9 +327,9 @@
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
-        "rosValue": 28.02,
+        "rosValue": 27.99,
         "depthFactor": 0.423,
-        "depthContribution": 11.84
+        "depthContribution": 11.83
       },
       {
         "playerId": "7594",
@@ -379,8 +379,8 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 373.86,
-    "startingLineupScore": 460.8,
+    "teamRosStrength": 373.88,
+    "startingLineupScore": 460.83,
     "benchDepthScore": 178.23,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -460,8 +460,8 @@
         "playerId": "6790",
         "canonicalName": "dandre swift",
         "position": "RB",
-        "rosValue": 35.46,
-        "adjustedValue": 35.46,
+        "rosValue": 35.49,
+        "adjustedValue": 35.49,
         "confidence": 0.857,
         "flagged": null
       },
