@@ -2982,8 +2982,8 @@
     "ownerId": "712035316776669184",
     "rosterId": 11,
     "teamName": "jstuedle",
-    "teamRosStrength": 317.32,
-    "startingLineupScore": 400.03,
+    "teamRosStrength": 317.31,
+    "startingLineupScore": 400.01,
     "benchDepthScore": 107.23,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -3163,8 +3163,8 @@
         "playerId": "4035",
         "canonicalName": "alvin kamara",
         "position": "RB",
-        "rosValue": 16.76,
-        "adjustedValue": 16.76,
+        "rosValue": 16.74,
+        "adjustedValue": 16.74,
         "confidence": 0.971,
         "flagged": null
       }
