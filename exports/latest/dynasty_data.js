@@ -2,7 +2,7 @@
 window.DYNASTY_DATA = {
   "version": 4,
   "date": "2026-07-01",
-  "scrapeTimestamp": "2026-07-01T22:11:11.997758",
+  "scrapeTimestamp": "2026-07-01T23:58:54.841430",
   "settings": {
     "superflex": true,
     "tep": true,
@@ -18,7 +18,7 @@ window.DYNASTY_DATA = {
       "notes": "2026 slots map 1:1 to top-72 rookie composites (years_exp==0 + must-have list, minimum one source hit); 2027/2028 use tier model with outside-market blend and calibrated future discount."
     },
     "rankCurveDiagnostics": {
-      "generatedAt": "2026-07-01T22:10:59.423656+00:00",
+      "generatedAt": "2026-07-01T23:58:44.041488+00:00",
       "referencePath": "",
       "minSourceCount": 10,
       "minTargetCount": 24,
@@ -363,9 +363,9 @@ window.DYNASTY_DATA = {
     ],
     "dlfImport": {},
     "sourceRunSummary": {
-      "startedAt": "2026-07-01T22:08:22.877754+00:00",
-      "finishedAt": "2026-07-01T22:10:33.199932+00:00",
-      "durationSec": 130.32,
+      "startedAt": "2026-07-01T23:56:12.092255+00:00",
+      "finishedAt": "2026-07-01T23:58:21.438240+00:00",
+      "durationSec": 129.35,
       "overallStatus": "partial",
       "partialRun": true,
       "enabledSources": [
@@ -432,9 +432,9 @@ window.DYNASTY_DATA = {
           "enabled": true,
           "timeoutSec": 300,
           "state": "complete",
-          "startedAt": "2026-07-01T22:08:24.958869+00:00",
-          "finishedAt": "2026-07-01T22:08:43.640375+00:00",
-          "durationSec": 18.68,
+          "startedAt": "2026-07-01T23:56:13.881576+00:00",
+          "finishedAt": "2026-07-01T23:56:32.766561+00:00",
+          "durationSec": 18.88,
           "message": "KTC completed (4 mapped values)",
           "error": null,
           "valueCount": 4,
@@ -512,9 +512,9 @@ window.DYNASTY_DATA = {
           "enabled": true,
           "timeoutSec": 480,
           "state": "complete",
-          "startedAt": "2026-07-01T22:08:43.738712+00:00",
-          "finishedAt": "2026-07-01T22:10:33.140655+00:00",
-          "durationSec": 109.4,
+          "startedAt": "2026-07-01T23:56:32.804336+00:00",
+          "finishedAt": "2026-07-01T23:58:21.384081+00:00",
+          "durationSec": 108.58,
           "message": "IDPTradeCalc completed (4 mapped values)",
           "error": null,
           "valueCount": 4,
@@ -567,7 +567,7 @@ window.DYNASTY_DATA = {
           "timeoutSec": 300,
           "state": "partial",
           "startedAt": null,
-          "finishedAt": "2026-07-01T22:10:33.146704+00:00",
+          "finishedAt": "2026-07-01T23:58:21.390397+00:00",
           "durationSec": null,
           "message": "KTC trade DB skipped — no playerID→name mapping available",
           "error": null,
@@ -583,7 +583,7 @@ window.DYNASTY_DATA = {
           "timeoutSec": 300,
           "state": "partial",
           "startedAt": null,
-          "finishedAt": "2026-07-01T22:10:33.146729+00:00",
+          "finishedAt": "2026-07-01T23:58:21.390413+00:00",
           "durationSec": null,
           "message": "KTC waiver DB skipped — no playerID→name mapping available",
           "error": null,
@@ -600,7 +600,7 @@ window.DYNASTY_DATA = {
     {
       "key": "ktc",
       "label": "KTC",
-      "max": 9998,
+      "max": 9999,
       "playerCount": 500
     },
     {
@@ -611,8 +611,8 @@ window.DYNASTY_DATA = {
     }
   ],
   "maxValues": {
-    "ktc": 9998,
-    "ktcSfTep": 9998,
+    "ktc": 9999,
+    "ktcSfTep": 9999,
     "idpTradeCalc": 9999.0
   },
   "siteStats": {
@@ -622,22 +622,22 @@ window.DYNASTY_DATA = {
       "count": 1047
     },
     "ktc": {
-      "mean": 2762.21,
-      "stdev": 1747.48,
+      "mean": 2762.29,
+      "stdev": 1747.46,
       "count": 704
     },
     "ktcSfTep": {
-      "mean": 2839.15,
-      "stdev": 1762.51,
+      "mean": 2839.23,
+      "stdev": 1762.48,
       "count": 704
     }
   },
   "pickAnchors": {
     "ktc": {
-      "2026 1.01": 6702,
-      "2026 1.02": 5957,
-      "2026 1.03": 5213,
-      "2026 1.04": 4468,
+      "2026 1.01": 6706,
+      "2026 1.02": 5961,
+      "2026 1.03": 5215,
+      "2026 1.04": 4470,
       "2026 1.05": 5213,
       "2026 1.06": 4786,
       "2026 1.07": 4360,
@@ -646,54 +646,54 @@ window.DYNASTY_DATA = {
       "2026 1.10": 4033,
       "2026 1.11": 3723,
       "2026 1.12": 3413,
-      "2026 Early 1st": 5585,
+      "2026 Early 1st": 5588,
       "2026 Mid 1st": 4573,
       "2026 Late 1st": 3878,
       "2026 2.01": 3977,
       "2026 2.02": 3535,
       "2026 2.03": 3093,
       "2026 2.04": 2651,
-      "2026 2.05": 3397,
-      "2026 2.06": 3119,
-      "2026 2.07": 2841,
-      "2026 2.08": 2563,
+      "2026 2.05": 3398,
+      "2026 2.06": 3120,
+      "2026 2.07": 2842,
+      "2026 2.08": 2564,
       "2026 2.09": 3138,
       "2026 2.10": 2914,
       "2026 2.11": 2690,
       "2026 2.12": 2466,
       "2026 Early 2nd": 3314,
-      "2026 Mid 2nd": 2980,
+      "2026 Mid 2nd": 2981,
       "2026 Late 2nd": 2802,
       "2026 3.01": 2732,
       "2026 3.02": 2429,
       "2026 3.03": 2125,
       "2026 3.04": 1822,
-      "2026 3.05": 2475,
-      "2026 3.06": 2272,
-      "2026 3.07": 2070,
-      "2026 3.08": 1867,
-      "2026 3.09": 2378,
-      "2026 3.10": 2208,
-      "2026 3.11": 2038,
-      "2026 3.12": 1868,
+      "2026 3.05": 2476,
+      "2026 3.06": 2273,
+      "2026 3.07": 2071,
+      "2026 3.08": 1868,
+      "2026 3.09": 2381,
+      "2026 3.10": 2211,
+      "2026 3.11": 2041,
+      "2026 3.12": 1871,
       "2026 Early 3rd": 2277,
-      "2026 Mid 3rd": 2171,
-      "2026 Late 3rd": 2123,
-      "2026 4.01": 2065,
-      "2026 4.02": 1836,
-      "2026 4.03": 1606,
-      "2026 4.04": 1377,
+      "2026 Mid 3rd": 2172,
+      "2026 Late 3rd": 2126,
+      "2026 4.01": 2064,
+      "2026 4.02": 1835,
+      "2026 4.03": 1605,
+      "2026 4.04": 1376,
       "2026 4.05": 1856,
       "2026 4.06": 1704,
       "2026 4.07": 1552,
       "2026 4.08": 1400,
-      "2026 4.09": 1744,
-      "2026 4.10": 1619,
-      "2026 4.11": 1495,
-      "2026 4.12": 1370,
-      "2026 Early 4th": 1721,
+      "2026 4.09": 1747,
+      "2026 4.10": 1622,
+      "2026 4.11": 1498,
+      "2026 4.12": 1373,
+      "2026 Early 4th": 1720,
       "2026 Mid 4th": 1628,
-      "2026 Late 4th": 1557,
+      "2026 Late 4th": 1560,
       "2026 5.01": 1894,
       "2026 5.02": 1892,
       "2026 5.03": 1887,
@@ -702,8 +702,8 @@ window.DYNASTY_DATA = {
       "2026 5.06": 1868,
       "2026 5.07": 1868,
       "2026 5.08": 1849,
-      "2026 5.09": 1827,
-      "2026 5.10": 1747,
+      "2026 5.09": 1824,
+      "2026 5.10": 1748,
       "2026 5.11": 1682,
       "2026 5.12": 1560,
       "2026 Early 5th": 1887,
@@ -724,9 +724,9 @@ window.DYNASTY_DATA = {
       "2026 Early 6th": 1439,
       "2026 Mid 6th": 1426,
       "2026 Late 6th": 1422,
-      "2027 Early 1st": 7060,
-      "2027 Mid 1st": 5595,
-      "2027 Late 1st": 4923,
+      "2027 Early 1st": 7059,
+      "2027 Mid 1st": 5598,
+      "2027 Late 1st": 4921,
       "2027 Early 2nd": 3872,
       "2027 Mid 2nd": 3442,
       "2027 Late 2nd": 3143,
@@ -738,26 +738,26 @@ window.DYNASTY_DATA = {
       "2027 Late 4th": 1665,
       "2027 Early 5th": 1792,
       "2027 Mid 5th": 1770,
-      "2027 Late 5th": 1619,
+      "2027 Late 5th": 1618,
       "2027 Early 6th": 1367,
       "2027 Mid 6th": 1355,
       "2027 Late 6th": 1351,
       "2028 Early 1st": 5028,
-      "2028 Mid 1st": 4600,
-      "2028 Late 1st": 4125,
+      "2028 Mid 1st": 4603,
+      "2028 Late 1st": 4122,
       "2028 Early 2nd": 3208,
       "2028 Mid 2nd": 2968,
       "2028 Late 2nd": 2806,
-      "2028 Early 3rd": 2220,
+      "2028 Early 3rd": 2217,
       "2028 Mid 3rd": 2096,
-      "2028 Late 3rd": 2009,
-      "2028 Early 4th": 1645,
+      "2028 Late 3rd": 2015,
+      "2028 Early 4th": 1642,
       "2028 Mid 4th": 1576,
-      "2028 Late 4th": 1274,
+      "2028 Late 4th": 1277,
       "2028 Early 5th": 1532,
       "2028 Mid 5th": 1513,
-      "2028 Late 5th": 1384,
-      "2028 Early 6th": 1169,
+      "2028 Late 5th": 1383,
+      "2028 Early 6th": 1168,
       "2028 Mid 6th": 1158,
       "2028 Late 6th": 1155
     },
@@ -850,10 +850,10 @@ window.DYNASTY_DATA = {
   },
   "pickAnchorsRaw": {
     "ktc": {
-      "2026 1.01": 6702,
-      "2026 1.02": 5957,
-      "2026 1.03": 5213,
-      "2026 1.04": 4468,
+      "2026 1.01": 6706,
+      "2026 1.02": 5961,
+      "2026 1.03": 5215,
+      "2026 1.04": 4470,
       "2026 1.05": 5213,
       "2026 1.06": 4786,
       "2026 1.07": 4360,
@@ -862,54 +862,54 @@ window.DYNASTY_DATA = {
       "2026 1.10": 4033,
       "2026 1.11": 3723,
       "2026 1.12": 3413,
-      "2026 Early 1st": 5585,
+      "2026 Early 1st": 5588,
       "2026 Mid 1st": 4573,
       "2026 Late 1st": 3878,
       "2026 2.01": 3977,
       "2026 2.02": 3535,
       "2026 2.03": 3093,
       "2026 2.04": 2651,
-      "2026 2.05": 3397,
-      "2026 2.06": 3119,
-      "2026 2.07": 2841,
-      "2026 2.08": 2563,
+      "2026 2.05": 3398,
+      "2026 2.06": 3120,
+      "2026 2.07": 2842,
+      "2026 2.08": 2564,
       "2026 2.09": 3138,
       "2026 2.10": 2914,
       "2026 2.11": 2690,
       "2026 2.12": 2466,
       "2026 Early 2nd": 3314,
-      "2026 Mid 2nd": 2980,
+      "2026 Mid 2nd": 2981,
       "2026 Late 2nd": 2802,
       "2026 3.01": 2732,
       "2026 3.02": 2429,
       "2026 3.03": 2125,
       "2026 3.04": 1822,
-      "2026 3.05": 2475,
-      "2026 3.06": 2272,
-      "2026 3.07": 2070,
-      "2026 3.08": 1867,
-      "2026 3.09": 2378,
-      "2026 3.10": 2208,
-      "2026 3.11": 2038,
-      "2026 3.12": 1868,
+      "2026 3.05": 2476,
+      "2026 3.06": 2273,
+      "2026 3.07": 2071,
+      "2026 3.08": 1868,
+      "2026 3.09": 2381,
+      "2026 3.10": 2211,
+      "2026 3.11": 2041,
+      "2026 3.12": 1871,
       "2026 Early 3rd": 2277,
-      "2026 Mid 3rd": 2171,
-      "2026 Late 3rd": 2123,
-      "2026 4.01": 2065,
-      "2026 4.02": 1836,
-      "2026 4.03": 1606,
-      "2026 4.04": 1377,
+      "2026 Mid 3rd": 2172,
+      "2026 Late 3rd": 2126,
+      "2026 4.01": 2064,
+      "2026 4.02": 1835,
+      "2026 4.03": 1605,
+      "2026 4.04": 1376,
       "2026 4.05": 1856,
       "2026 4.06": 1704,
       "2026 4.07": 1552,
       "2026 4.08": 1400,
-      "2026 4.09": 1744,
-      "2026 4.10": 1619,
-      "2026 4.11": 1495,
-      "2026 4.12": 1370,
-      "2026 Early 4th": 1721,
+      "2026 4.09": 1747,
+      "2026 4.10": 1622,
+      "2026 4.11": 1498,
+      "2026 4.12": 1373,
+      "2026 Early 4th": 1720,
       "2026 Mid 4th": 1628,
-      "2026 Late 4th": 1557,
+      "2026 Late 4th": 1560,
       "2026 5.01": 1894,
       "2026 5.02": 1892,
       "2026 5.03": 1887,
@@ -918,8 +918,8 @@ window.DYNASTY_DATA = {
       "2026 5.06": 1868,
       "2026 5.07": 1868,
       "2026 5.08": 1849,
-      "2026 5.09": 1827,
-      "2026 5.10": 1747,
+      "2026 5.09": 1824,
+      "2026 5.10": 1748,
       "2026 5.11": 1682,
       "2026 5.12": 1560,
       "2026 Early 5th": 1887,
@@ -940,9 +940,9 @@ window.DYNASTY_DATA = {
       "2026 Early 6th": 1439,
       "2026 Mid 6th": 1426,
       "2026 Late 6th": 1422,
-      "2027 Early 1st": 7060,
-      "2027 Mid 1st": 5595,
-      "2027 Late 1st": 4923,
+      "2027 Early 1st": 7059,
+      "2027 Mid 1st": 5598,
+      "2027 Late 1st": 4921,
       "2027 Early 2nd": 3872,
       "2027 Mid 2nd": 3442,
       "2027 Late 2nd": 3143,
@@ -954,26 +954,26 @@ window.DYNASTY_DATA = {
       "2027 Late 4th": 1665,
       "2027 Early 5th": 1792,
       "2027 Mid 5th": 1770,
-      "2027 Late 5th": 1619,
+      "2027 Late 5th": 1618,
       "2027 Early 6th": 1367,
       "2027 Mid 6th": 1355,
       "2027 Late 6th": 1351,
       "2028 Early 1st": 5028,
-      "2028 Mid 1st": 4600,
-      "2028 Late 1st": 4125,
+      "2028 Mid 1st": 4603,
+      "2028 Late 1st": 4122,
       "2028 Early 2nd": 3208,
       "2028 Mid 2nd": 2968,
       "2028 Late 2nd": 2806,
-      "2028 Early 3rd": 2220,
+      "2028 Early 3rd": 2217,
       "2028 Mid 3rd": 2096,
-      "2028 Late 3rd": 2009,
-      "2028 Early 4th": 1645,
+      "2028 Late 3rd": 2015,
+      "2028 Early 4th": 1642,
       "2028 Mid 4th": 1576,
-      "2028 Late 4th": 1274,
+      "2028 Late 4th": 1277,
       "2028 Early 5th": 1532,
       "2028 Mid 5th": 1513,
-      "2028 Late 5th": 1384,
-      "2028 Early 6th": 1169,
+      "2028 Late 5th": 1383,
+      "2028 Early 6th": 1168,
       "2028 Mid 6th": 1158,
       "2028 Late 6th": 1155
     },
@@ -1295,19 +1295,19 @@ window.DYNASTY_DATA = {
   },
   "players": {
     "A.J. Brown": {
-      "ktc": 4975,
-      "ktcSfTep": 4975,
+      "ktc": 4978,
+      "ktcSfTep": 4978,
       "idpTradeCalc": 5034,
       "_sleeperId": "5859",
       "_composite": 5034,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4975,
-        "ktcSfTep": 4975,
+        "ktc": 4978,
+        "ktcSfTep": 4978,
         "idpTradeCalc": 5034
       },
-      "_marketConfidence": 0.5601,
-      "_marketDispersionCV": 0.033643,
+      "_marketConfidence": 0.5604,
+      "_marketDispersionCV": 0.033398,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -1316,44 +1316,44 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5034
     },
     "AJ Barner": {
-      "ktc": 2776,
-      "ktcSfTep": 3522,
+      "ktc": 2779,
+      "ktcSfTep": 3523,
       "idpTradeCalc": 3181,
       "_sleeperId": "11603",
-      "_composite": 3522,
+      "_composite": 3523,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2776,
-        "ktcSfTep": 3522,
+        "ktc": 2779,
+        "ktcSfTep": 3523,
         "idpTradeCalc": 3181
       },
-      "_marketConfidence": 0.5145,
-      "_marketDispersionCV": 0.079204,
+      "_marketConfidence": 0.5149,
+      "_marketDispersionCV": 0.078885,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 3522,
-      "_finalAdjusted": 3522
+      "_rawComposite": 3523,
+      "_finalAdjusted": 3523
     },
     "AJ Dillon": {
-      "ktc": 542,
-      "ktcSfTep": 542,
+      "ktc": 545,
+      "ktcSfTep": 545,
       "_sleeperId": "6828",
-      "_composite": 542,
+      "_composite": 545,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 542,
-        "ktcSfTep": 542
+        "ktc": 545,
+        "ktcSfTep": 545
       },
       "_marketConfidence": 0.4895,
-      "_marketDispersionCV": 0.023013,
+      "_marketDispersionCV": 0.022975,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 542,
-      "_finalAdjusted": 542
+      "_rawComposite": 545,
+      "_finalAdjusted": 545
     },
     "A.J. Epenesa": {
       "idpTradeCalc": 780,
@@ -1391,25 +1391,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1965
     },
     "Aaron Jones": {
-      "ktc": 2288,
-      "ktcSfTep": 2288,
+      "ktc": 2285,
+      "ktcSfTep": 2285,
       "idpTradeCalc": 2241,
       "_sleeperId": "4199",
-      "_composite": 2288,
+      "_composite": 2285,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2288,
-        "ktcSfTep": 2288,
+        "ktc": 2285,
+        "ktcSfTep": 2285,
         "idpTradeCalc": 2241
       },
-      "_marketConfidence": 0.5572,
-      "_marketDispersionCV": 0.036531,
+      "_marketConfidence": 0.5567,
+      "_marketDispersionCV": 0.037012,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
       "age": 31,
-      "_rawComposite": 2288,
-      "_finalAdjusted": 2288
+      "_rawComposite": 2285,
+      "_finalAdjusted": 2285
     },
     "Aaron Rodgers": {
       "ktc": 1969,
@@ -1424,7 +1424,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1875
       },
       "_marketConfidence": 0.5621,
-      "_marketDispersionCV": 0.031645,
+      "_marketDispersionCV": 0.031661,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 21,
@@ -1462,7 +1462,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1016
       },
       "_marketConfidence": 0.5742,
-      "_marketDispersionCV": 0.019561,
+      "_marketDispersionCV": 0.019581,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -1501,7 +1501,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2451
       },
       "_marketConfidence": 0.5667,
-      "_marketDispersionCV": 0.027023,
+      "_marketDispersionCV": 0.027035,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -1537,7 +1537,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 505
       },
       "_marketConfidence": 0.4889,
-      "_marketDispersionCV": 0.023583,
+      "_marketDispersionCV": 0.023591,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -1555,8 +1555,8 @@ window.DYNASTY_DATA = {
         "ktc": 610,
         "ktcSfTep": 610
       },
-      "_marketConfidence": 0.4905,
-      "_marketDispersionCV": 0.022047,
+      "_marketConfidence": 0.4904,
+      "_marketDispersionCV": 0.022054,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -1600,19 +1600,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1868
     },
     "Alec Pierce": {
-      "ktc": 3989,
-      "ktcSfTep": 3989,
+      "ktc": 3992,
+      "ktcSfTep": 3992,
       "idpTradeCalc": 4058,
       "_sleeperId": "8142",
       "_composite": 4058,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3989,
-        "ktcSfTep": 3989,
+        "ktc": 3992,
+        "ktcSfTep": 3992,
         "idpTradeCalc": 4058
       },
-      "_marketConfidence": 0.5548,
-      "_marketDispersionCV": 0.038982,
+      "_marketConfidence": 0.5551,
+      "_marketDispersionCV": 0.038685,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -1700,8 +1700,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 732,
         "idpTradeCalc": 825
       },
-      "_marketConfidence": 0.4913,
-      "_marketDispersionCV": 0.102493,
+      "_marketConfidence": 0.4912,
+      "_marketDispersionCV": 0.102531,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -1773,7 +1773,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2049
       },
       "_marketConfidence": 0.5464,
-      "_marketDispersionCV": 0.047313,
+      "_marketDispersionCV": 0.047329,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -1799,25 +1799,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1414
     },
     "Amon-Ra St. Brown": {
-      "ktc": 7899,
-      "ktcSfTep": 7899,
+      "ktc": 7900,
+      "ktcSfTep": 7900,
       "idpTradeCalc": 7811,
       "_sleeperId": "7547",
-      "_composite": 7899,
+      "_composite": 7900,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7899,
-        "ktcSfTep": 7899,
+        "ktc": 7900,
+        "ktcSfTep": 7900,
         "idpTradeCalc": 7811
       },
       "_marketConfidence": 0.575,
-      "_marketDispersionCV": 0.018761,
+      "_marketDispersionCV": 0.018708,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 26,
-      "_rawComposite": 7899,
-      "_finalAdjusted": 7899
+      "_rawComposite": 7900,
+      "_finalAdjusted": 7900
     },
     "Andrei Iosivas": {
       "ktc": 1643,
@@ -1832,7 +1832,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1661
       },
       "_marketConfidence": 0.5386,
-      "_marketDispersionCV": 0.055113,
+      "_marketDispersionCV": 0.055133,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -1956,7 +1956,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2264
       },
       "_marketConfidence": 0.5393,
-      "_marketDispersionCV": 0.054435,
+      "_marketDispersionCV": 0.05445,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -1982,26 +1982,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1872
     },
     "Antonio Williams": {
-      "ktc": 3029,
-      "ktcSfTep": 3029,
+      "ktc": 3032,
+      "ktcSfTep": 3032,
       "idpTradeCalc": 2995,
       "_sleeperId": "13301",
-      "_composite": 3029,
+      "_composite": 3032,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3029,
-        "ktcSfTep": 3029,
+        "ktc": 3032,
+        "ktcSfTep": 3032,
         "idpTradeCalc": 2995
       },
-      "_marketConfidence": 0.5604,
-      "_marketDispersionCV": 0.033365,
+      "_marketConfidence": 0.5607,
+      "_marketDispersionCV": 0.033001,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 3029,
-      "_finalAdjusted": 3029
+      "_rawComposite": 3032,
+      "_finalAdjusted": 3032
     },
     "Arden Key": {
       "idpTradeCalc": 774,
@@ -2021,25 +2021,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1112
     },
     "Arian Smith": {
-      "ktc": 996,
-      "ktcSfTep": 996,
+      "ktc": 993,
+      "ktcSfTep": 993,
       "idpTradeCalc": 977,
       "_sleeperId": "12539",
-      "_composite": 996,
+      "_composite": 993,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 996,
-        "ktcSfTep": 996,
+        "ktc": 993,
+        "ktcSfTep": 993,
         "idpTradeCalc": 977
       },
-      "_marketConfidence": 0.5324,
-      "_marketDispersionCV": 0.06135,
+      "_marketConfidence": 0.5315,
+      "_marketDispersionCV": 0.062222,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 24,
-      "_rawComposite": 996,
-      "_finalAdjusted": 996
+      "_rawComposite": 993,
+      "_finalAdjusted": 993
     },
     "Arvell Reese": {
       "idpTradeCalc": 5404,
@@ -2094,25 +2094,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1866
     },
     "Ashton Jeanty": {
-      "ktc": 7672,
-      "ktcSfTep": 7672,
+      "ktc": 7665,
+      "ktcSfTep": 7665,
       "idpTradeCalc": 7585,
       "_sleeperId": "12527",
-      "_composite": 7672,
+      "_composite": 7665,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7672,
-        "ktcSfTep": 7672,
+        "ktc": 7665,
+        "ktcSfTep": 7665,
         "idpTradeCalc": 7585
       },
-      "_marketConfidence": 0.5748,
-      "_marketDispersionCV": 0.018986,
+      "_marketConfidence": 0.5744,
+      "_marketDispersionCV": 0.019367,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 7672,
-      "_finalAdjusted": 7672
+      "_rawComposite": 7665,
+      "_finalAdjusted": 7665
     },
     "Audric Estime": {
       "ktc": 1488,
@@ -2127,7 +2127,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1567
       },
       "_marketConfidence": 0.5237,
-      "_marketDispersionCV": 0.070056,
+      "_marketDispersionCV": 0.070078,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2199,7 +2199,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4788
       },
       "_marketConfidence": 0.5588,
-      "_marketDispersionCV": 0.034938,
+      "_marketDispersionCV": 0.034943,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -2220,7 +2220,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1086
       },
       "_marketConfidence": 0.5204,
-      "_marketDispersionCV": 0.073322,
+      "_marketDispersionCV": 0.073351,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2229,24 +2229,24 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1086
     },
     "Barion Brown": {
-      "ktc": 724,
-      "ktcSfTep": 724,
+      "ktc": 727,
+      "ktcSfTep": 727,
       "_sleeperId": "13533",
-      "_composite": 724,
+      "_composite": 727,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 724,
-        "ktcSfTep": 724
+        "ktc": 727,
+        "ktcSfTep": 727
       },
       "_marketConfidence": 0.4919,
-      "_marketDispersionCV": 0.020634,
+      "_marketDispersionCV": 0.020606,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 724,
-      "_finalAdjusted": 724
+      "_rawComposite": 727,
+      "_finalAdjusted": 727
     },
     "Baron Browning": {
       "idpTradeCalc": 1225,
@@ -2283,57 +2283,57 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1880
     },
     "Ben Sinnott": {
-      "ktc": 1757,
-      "ktcSfTep": 2393,
+      "ktc": 1760,
+      "ktcSfTep": 2397,
       "idpTradeCalc": 2126,
       "_sleeperId": "11596",
-      "_composite": 2393,
+      "_composite": 2397,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1757,
-        "ktcSfTep": 2393,
+        "ktc": 1760,
+        "ktcSfTep": 2397,
         "idpTradeCalc": 2126
       },
-      "_marketConfidence": 0.4979,
-      "_marketDispersionCV": 0.095897,
+      "_marketConfidence": 0.4981,
+      "_marketDispersionCV": 0.09563,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 2393,
-      "_finalAdjusted": 2393
+      "_rawComposite": 2397,
+      "_finalAdjusted": 2397
     },
     "Bhayshul Tuten": {
-      "ktc": 4118,
-      "ktcSfTep": 4118,
+      "ktc": 4124,
+      "ktcSfTep": 4124,
       "idpTradeCalc": 3952,
       "_sleeperId": "12490",
-      "_composite": 4118,
+      "_composite": 4124,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4118,
-        "ktcSfTep": 4118,
+        "ktc": 4124,
+        "ktcSfTep": 4124,
         "idpTradeCalc": 3952
       },
-      "_marketConfidence": 0.5771,
-      "_marketDispersionCV": 0.016648,
+      "_marketConfidence": 0.5776,
+      "_marketDispersionCV": 0.016124,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 4118,
-      "_finalAdjusted": 4118
+      "_rawComposite": 4124,
+      "_finalAdjusted": 4124
     },
     "Bijan Robinson": {
-      "ktc": 9998,
-      "ktcSfTep": 9998,
+      "ktc": 9999,
+      "ktcSfTep": 9999,
       "idpTradeCalc": 9999,
       "_sleeperId": "9509",
       "_composite": 9999,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9998,
-        "ktcSfTep": 9998,
+        "ktc": 9999,
+        "ktcSfTep": 9999,
         "idpTradeCalc": 9999
       },
       "_marketConfidence": 0.5938,
@@ -2392,7 +2392,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3279
       },
       "_marketConfidence": 0.5669,
-      "_marketDispersionCV": 0.026876,
+      "_marketDispersionCV": 0.026884,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2412,8 +2412,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 990,
         "idpTradeCalc": 989
       },
-      "_marketConfidence": 0.5277,
-      "_marketDispersionCV": 0.06607,
+      "_marketConfidence": 0.5276,
+      "_marketDispersionCV": 0.0661,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2434,7 +2434,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6024
       },
       "_marketConfidence": 0.569,
-      "_marketDispersionCV": 0.02475,
+      "_marketDispersionCV": 0.024752,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2540,7 +2540,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2661
       },
       "_marketConfidence": 0.5536,
-      "_marketDispersionCV": 0.040104,
+      "_marketDispersionCV": 0.040116,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2578,7 +2578,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2296
       },
       "_marketConfidence": 0.5303,
-      "_marketDispersionCV": 0.063447,
+      "_marketDispersionCV": 0.063462,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -2633,7 +2633,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1848
       },
       "_marketConfidence": 0.5243,
-      "_marketDispersionCV": 0.069463,
+      "_marketDispersionCV": 0.069482,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -2642,25 +2642,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1848
     },
     "Breece Hall": {
-      "ktc": 5411,
-      "ktcSfTep": 5411,
+      "ktc": 5414,
+      "ktcSfTep": 5414,
       "idpTradeCalc": 5367,
       "_sleeperId": "8155",
-      "_composite": 5411,
+      "_composite": 5414,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5411,
-        "ktcSfTep": 5411,
+        "ktc": 5414,
+        "ktcSfTep": 5414,
         "idpTradeCalc": 5367
       },
-      "_marketConfidence": 0.5692,
-      "_marketDispersionCV": 0.024549,
+      "_marketConfidence": 0.5694,
+      "_marketDispersionCV": 0.024326,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 25,
-      "_rawComposite": 5411,
-      "_finalAdjusted": 5411
+      "_rawComposite": 5414,
+      "_finalAdjusted": 5414
     },
     "Brenden Rice": {
       "ktc": 793,
@@ -2675,7 +2675,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 768
       },
       "_marketConfidence": 0.5277,
-      "_marketDispersionCV": 0.066004,
+      "_marketDispersionCV": 0.06604,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2695,8 +2695,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1560,
         "idpTradeCalc": 1352
       },
-      "_marketConfidence": 0.5786,
-      "_marketDispersionCV": 0.015194,
+      "_marketConfidence": 0.5785,
+      "_marketDispersionCV": 0.015208,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -2706,46 +2706,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1560
     },
     "Brenton Strange": {
-      "ktc": 2993,
-      "ktcSfTep": 3769,
+      "ktc": 2999,
+      "ktcSfTep": 3776,
       "idpTradeCalc": 3422,
       "_sleeperId": "9480",
-      "_composite": 3769,
+      "_composite": 3776,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2993,
-        "ktcSfTep": 3769,
+        "ktc": 2999,
+        "ktcSfTep": 3776,
         "idpTradeCalc": 3422
       },
-      "_marketConfidence": 0.5158,
-      "_marketDispersionCV": 0.077949,
+      "_marketConfidence": 0.5162,
+      "_marketDispersionCV": 0.077591,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 3769,
-      "_finalAdjusted": 3769
+      "_rawComposite": 3776,
+      "_finalAdjusted": 3776
     },
     "Brevin Jordan": {
-      "ktc": 1005,
-      "ktcSfTep": 1579,
+      "ktc": 1002,
+      "ktcSfTep": 1576,
       "idpTradeCalc": 1369,
       "_sleeperId": "7568",
-      "_composite": 1579,
+      "_composite": 1576,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1005,
-        "ktcSfTep": 1579,
+        "ktc": 1002,
+        "ktcSfTep": 1576,
         "idpTradeCalc": 1369
       },
-      "_marketConfidence": 0.4703,
-      "_marketDispersionCV": 0.12348,
+      "_marketConfidence": 0.4697,
+      "_marketDispersionCV": 0.124023,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 25,
-      "_rawComposite": 1579,
-      "_finalAdjusted": 1579
+      "_rawComposite": 1576,
+      "_finalAdjusted": 1576
     },
     "Brian Branch": {
       "idpTradeCalc": 3527,
@@ -2793,8 +2793,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2344,
         "idpTradeCalc": 2379
       },
-      "_marketConfidence": 0.5458,
-      "_marketDispersionCV": 0.047996,
+      "_marketConfidence": 0.5457,
+      "_marketDispersionCV": 0.048009,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2803,46 +2803,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2379
     },
     "Brian Thomas": {
-      "ktc": 4883,
-      "ktcSfTep": 4883,
+      "ktc": 4881,
+      "ktcSfTep": 4881,
       "idpTradeCalc": 4779,
       "_sleeperId": "11631",
-      "_composite": 4883,
+      "_composite": 4881,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4883,
-        "ktcSfTep": 4883,
+        "ktc": 4881,
+        "ktcSfTep": 4881,
         "idpTradeCalc": 4779
       },
-      "_marketConfidence": 0.5729,
-      "_marketDispersionCV": 0.020889,
+      "_marketConfidence": 0.5727,
+      "_marketDispersionCV": 0.021054,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 23,
-      "_rawComposite": 4883,
-      "_finalAdjusted": 4883
+      "_rawComposite": 4881,
+      "_finalAdjusted": 4881
     },
     "Brock Bowers": {
-      "ktc": 8139,
-      "ktcSfTep": 9842,
+      "ktc": 8143,
+      "ktcSfTep": 9847,
       "idpTradeCalc": 8937,
       "_sleeperId": "11604",
-      "_composite": 9254,
+      "_composite": 9257,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 8139,
-        "ktcSfTep": 9842,
+        "ktc": 8143,
+        "ktcSfTep": 9847,
         "idpTradeCalc": 8937
       },
       "_marketConfidence": 0.5257,
-      "_marketDispersionCV": 0.068066,
+      "_marketDispersionCV": 0.068026,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 23,
-      "_rawComposite": 9254,
-      "_finalAdjusted": 9254
+      "_rawComposite": 9257,
+      "_finalAdjusted": 9257
     },
     "Brock Purdy": {
       "ktc": 5861,
@@ -2857,7 +2857,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5851
       },
       "_marketConfidence": 0.5677,
-      "_marketDispersionCV": 0.02606,
+      "_marketDispersionCV": 0.026063,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2877,8 +2877,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1464,
         "idpTradeCalc": 1334
       },
-      "_marketConfidence": 0.4544,
-      "_marketDispersionCV": 0.139398,
+      "_marketConfidence": 0.4543,
+      "_marketDispersionCV": 0.139419,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -2933,7 +2933,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1215
       },
       "_marketConfidence": 0.581,
-      "_marketDispersionCV": 0.012789,
+      "_marketDispersionCV": 0.012797,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -2943,19 +2943,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1450
     },
     "Bryce Young": {
-      "ktc": 4306,
-      "ktcSfTep": 4306,
+      "ktc": 4302,
+      "ktcSfTep": 4302,
       "idpTradeCalc": 4467,
       "_sleeperId": "9228",
       "_composite": 4467,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4306,
-        "ktcSfTep": 4306,
+        "ktc": 4302,
+        "ktcSfTep": 4302,
         "idpTradeCalc": 4467
       },
-      "_marketConfidence": 0.5482,
-      "_marketDispersionCV": 0.04556,
+      "_marketConfidence": 0.5478,
+      "_marketDispersionCV": 0.045948,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2976,7 +2976,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 812
       },
       "_marketConfidence": 0.5159,
-      "_marketDispersionCV": 0.07781,
+      "_marketDispersionCV": 0.077845,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2985,19 +2985,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 812
     },
     "Bucky Irving": {
-      "ktc": 4710,
-      "ktcSfTep": 4710,
+      "ktc": 4707,
+      "ktcSfTep": 4707,
       "idpTradeCalc": 4799,
       "_sleeperId": "11584",
       "_composite": 4799,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4710,
-        "ktcSfTep": 4710,
+        "ktc": 4707,
+        "ktcSfTep": 4707,
         "idpTradeCalc": 4799
       },
-      "_marketConfidence": 0.5566,
-      "_marketDispersionCV": 0.037162,
+      "_marketConfidence": 0.5563,
+      "_marketDispersionCV": 0.03743,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -3075,19 +3075,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2537
     },
     "C.J. Stroud": {
-      "ktc": 4800,
-      "ktcSfTep": 4800,
+      "ktc": 4796,
+      "ktcSfTep": 4796,
       "idpTradeCalc": 4825,
       "_sleeperId": "9758",
       "_composite": 4825,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4800,
-        "ktcSfTep": 4800,
+        "ktc": 4796,
+        "ktcSfTep": 4796,
         "idpTradeCalc": 4825
       },
-      "_marketConfidence": 0.5622,
-      "_marketDispersionCV": 0.031524,
+      "_marketConfidence": 0.5619,
+      "_marketDispersionCV": 0.03187,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3125,8 +3125,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 949,
         "idpTradeCalc": 868
       },
-      "_marketConfidence": 0.5472,
-      "_marketDispersionCV": 0.046598,
+      "_marketConfidence": 0.5471,
+      "_marketDispersionCV": 0.046629,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3164,8 +3164,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1849,
         "idpTradeCalc": 1791
       },
-      "_marketConfidence": 0.5551,
-      "_marketDispersionCV": 0.038697,
+      "_marketConfidence": 0.555,
+      "_marketDispersionCV": 0.038714,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3175,68 +3175,68 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1849
     },
     "Cade Otton": {
-      "ktc": 2304,
-      "ktcSfTep": 2998,
+      "ktc": 2307,
+      "ktcSfTep": 3002,
       "idpTradeCalc": 2719,
       "_sleeperId": "8111",
-      "_composite": 2998,
+      "_composite": 3002,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2304,
-        "ktcSfTep": 2998,
+        "ktc": 2307,
+        "ktcSfTep": 3002,
         "idpTradeCalc": 2719
       },
-      "_marketConfidence": 0.5064,
-      "_marketDispersionCV": 0.087331,
+      "_marketConfidence": 0.5066,
+      "_marketDispersionCV": 0.087113,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 27,
-      "_rawComposite": 2998,
-      "_finalAdjusted": 2998
+      "_rawComposite": 3002,
+      "_finalAdjusted": 3002
     },
     "Cade Stover": {
-      "ktc": 1390,
-      "ktcSfTep": 1994,
+      "ktc": 1397,
+      "ktcSfTep": 2001,
       "idpTradeCalc": 1829,
       "_sleeperId": "11599",
-      "_composite": 1994,
+      "_composite": 2001,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1390,
-        "ktcSfTep": 1994,
+        "ktc": 1397,
+        "ktcSfTep": 2001,
         "idpTradeCalc": 1829
       },
-      "_marketConfidence": 0.4792,
-      "_marketDispersionCV": 0.114572,
+      "_marketConfidence": 0.4802,
+      "_marketDispersionCV": 0.113519,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 26,
-      "_rawComposite": 1994,
-      "_finalAdjusted": 1994
+      "_rawComposite": 2001,
+      "_finalAdjusted": 2001
     },
     "Caleb Douglas": {
-      "ktc": 1382,
-      "ktcSfTep": 1382,
+      "ktc": 1388,
+      "ktcSfTep": 1388,
       "idpTradeCalc": 1102,
       "_sleeperId": "13296",
-      "_composite": 1382,
+      "_composite": 1388,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1382,
-        "ktcSfTep": 1382,
+        "ktc": 1388,
+        "ktcSfTep": 1388,
         "idpTradeCalc": 1102
       },
-      "_marketConfidence": 0.5791,
-      "_marketDispersionCV": 0.014666,
+      "_marketConfidence": 0.5784,
+      "_marketDispersionCV": 0.015357,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 1382,
-      "_finalAdjusted": 1382
+      "_rawComposite": 1388,
+      "_finalAdjusted": 1388
     },
     "Caleb Downs": {
       "idpTradeCalc": 3609,
@@ -3257,25 +3257,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2988
     },
     "Caleb Williams": {
-      "ktc": 8048,
-      "ktcSfTep": 8048,
+      "ktc": 8047,
+      "ktcSfTep": 8047,
       "idpTradeCalc": 7977,
       "_sleeperId": "11560",
-      "_composite": 8048,
+      "_composite": 8047,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 8048,
-        "ktcSfTep": 8048,
+        "ktc": 8047,
+        "ktcSfTep": 8047,
         "idpTradeCalc": 7977
       },
       "_marketConfidence": 0.5742,
-      "_marketDispersionCV": 0.019526,
+      "_marketDispersionCV": 0.019579,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 8048,
-      "_finalAdjusted": 8048
+      "_rawComposite": 8047,
+      "_finalAdjusted": 8047
     },
     "Calen Bullock": {
       "idpTradeCalc": 829,
@@ -3324,7 +3324,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1454
       },
       "_marketConfidence": 0.5283,
-      "_marketDispersionCV": 0.065429,
+      "_marketDispersionCV": 0.065452,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3333,19 +3333,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1454
     },
     "Calvin Ridley": {
-      "ktc": 1859,
-      "ktcSfTep": 1859,
+      "ktc": 1856,
+      "ktcSfTep": 1856,
       "idpTradeCalc": 1869,
       "_sleeperId": "4981",
       "_composite": 1869,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1859,
-        "ktcSfTep": 1859,
+        "ktc": 1856,
+        "ktcSfTep": 1856,
         "idpTradeCalc": 1869
       },
-      "_marketConfidence": 0.5435,
-      "_marketDispersionCV": 0.050249,
+      "_marketConfidence": 0.5429,
+      "_marketDispersionCV": 0.050824,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -3354,25 +3354,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1869
     },
     "Cam Skattebo": {
-      "ktc": 4800,
-      "ktcSfTep": 4800,
+      "ktc": 4803,
+      "ktcSfTep": 4803,
       "idpTradeCalc": 4718,
       "_sleeperId": "12481",
-      "_composite": 4800,
+      "_composite": 4803,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4800,
-        "ktcSfTep": 4800,
+        "ktc": 4803,
+        "ktcSfTep": 4803,
         "idpTradeCalc": 4718
       },
-      "_marketConfidence": 0.571,
-      "_marketDispersionCV": 0.022792,
+      "_marketConfidence": 0.5712,
+      "_marketDispersionCV": 0.022548,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 24,
-      "_rawComposite": 4800,
-      "_finalAdjusted": 4800
+      "_rawComposite": 4803,
+      "_finalAdjusted": 4803
     },
     "Cam Taylor-Britt": {
       "idpTradeCalc": 837,
@@ -3392,19 +3392,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1153
     },
     "Cam Ward": {
-      "ktc": 5378,
-      "ktcSfTep": 5378,
+      "ktc": 5375,
+      "ktcSfTep": 5375,
       "idpTradeCalc": 5408,
       "_sleeperId": "12522",
       "_composite": 5408,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5378,
-        "ktcSfTep": 5378,
+        "ktc": 5375,
+        "ktcSfTep": 5375,
         "idpTradeCalc": 5408
       },
-      "_marketConfidence": 0.5636,
-      "_marketDispersionCV": 0.030101,
+      "_marketConfidence": 0.5634,
+      "_marketDispersionCV": 0.030336,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -3464,48 +3464,48 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1882
     },
     "Carnell Tate": {
-      "ktc": 5949,
-      "ktcSfTep": 5949,
+      "ktc": 5946,
+      "ktcSfTep": 5946,
       "idpTradeCalc": 5899,
       "_sleeperId": "13279",
-      "_composite": 5949,
+      "_composite": 5946,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5949,
-        "ktcSfTep": 5949,
+        "ktc": 5946,
+        "ktcSfTep": 5946,
         "idpTradeCalc": 5899
       },
-      "_marketConfidence": 0.5706,
-      "_marketDispersionCV": 0.02317,
+      "_marketConfidence": 0.5704,
+      "_marketDispersionCV": 0.02338,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 5949,
-      "_finalAdjusted": 5949
+      "_rawComposite": 5946,
+      "_finalAdjusted": 5946
     },
     "Carson Beck": {
-      "ktc": 2240,
-      "ktcSfTep": 2240,
+      "ktc": 2243,
+      "ktcSfTep": 2243,
       "idpTradeCalc": 1797,
       "_sleeperId": "13272",
-      "_composite": 2240,
+      "_composite": 2243,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2240,
-        "ktcSfTep": 2240,
+        "ktc": 2243,
+        "ktcSfTep": 2243,
         "idpTradeCalc": 1797
       },
-      "_marketConfidence": 0.5631,
-      "_marketDispersionCV": 0.030699,
+      "_marketConfidence": 0.5626,
+      "_marketDispersionCV": 0.031128,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 2240,
-      "_finalAdjusted": 2240
+      "_rawComposite": 2243,
+      "_finalAdjusted": 2243
     },
     "Carson Schwesinger": {
       "idpTradeCalc": 5651,
@@ -3560,19 +3560,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2692
     },
     "Cedric Tillman": {
-      "ktc": 1745,
-      "ktcSfTep": 1745,
+      "ktc": 1742,
+      "ktcSfTep": 1742,
       "idpTradeCalc": 1866,
       "_sleeperId": "10444",
       "_composite": 1866,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1745,
-        "ktcSfTep": 1745,
+        "ktc": 1742,
+        "ktcSfTep": 1742,
         "idpTradeCalc": 1866
       },
-      "_marketConfidence": 0.5221,
-      "_marketDispersionCV": 0.071635,
+      "_marketConfidence": 0.5215,
+      "_marketDispersionCV": 0.072251,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3593,7 +3593,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 7267
       },
       "_marketConfidence": 0.5671,
-      "_marketDispersionCV": 0.026647,
+      "_marketDispersionCV": 0.026648,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -3619,25 +3619,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1435
     },
     "Charlie Kolar": {
-      "ktc": 1022,
-      "ktcSfTep": 1597,
+      "ktc": 1019,
+      "ktcSfTep": 1594,
       "idpTradeCalc": 1371,
       "_sleeperId": "8127",
-      "_composite": 1597,
+      "_composite": 1594,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1022,
-        "ktcSfTep": 1597,
+        "ktc": 1019,
+        "ktcSfTep": 1594,
         "idpTradeCalc": 1371
       },
-      "_marketConfidence": 0.4729,
-      "_marketDispersionCV": 0.120862,
+      "_marketConfidence": 0.4724,
+      "_marketDispersionCV": 0.121387,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 27,
-      "_rawComposite": 1597,
-      "_finalAdjusted": 1597
+      "_rawComposite": 1594,
+      "_finalAdjusted": 1594
     },
     "Chase Brown": {
       "ktc": 5137,
@@ -3652,7 +3652,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5006
       },
       "_marketConfidence": 0.5753,
-      "_marketDispersionCV": 0.018483,
+      "_marketDispersionCV": 0.018486,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3690,7 +3690,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3162
       },
       "_marketConfidence": 0.5181,
-      "_marketDispersionCV": 0.075673,
+      "_marketDispersionCV": 0.075679,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3699,25 +3699,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3565
     },
     "Chimere Dike": {
-      "ktc": 2419,
-      "ktcSfTep": 2419,
+      "ktc": 2425,
+      "ktcSfTep": 2425,
       "idpTradeCalc": 2421,
       "_sleeperId": "12540",
-      "_composite": 2421,
+      "_composite": 2425,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2419,
-        "ktcSfTep": 2419,
+        "ktc": 2425,
+        "ktcSfTep": 2425,
         "idpTradeCalc": 2421
       },
-      "_marketConfidence": 0.5513,
-      "_marketDispersionCV": 0.042486,
+      "_marketConfidence": 0.5522,
+      "_marketDispersionCV": 0.041593,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 24,
-      "_rawComposite": 2421,
-      "_finalAdjusted": 2421
+      "_rawComposite": 2425,
+      "_finalAdjusted": 2425
     },
     "Chop Robinson": {
       "idpTradeCalc": 1961,
@@ -3737,26 +3737,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1897
     },
     "Chris Bell": {
-      "ktc": 3065,
-      "ktcSfTep": 3065,
+      "ktc": 3062,
+      "ktcSfTep": 3062,
       "idpTradeCalc": 2993,
       "_sleeperId": "13311",
-      "_composite": 3065,
+      "_composite": 3062,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3065,
-        "ktcSfTep": 3065,
+        "ktc": 3062,
+        "ktcSfTep": 3062,
         "idpTradeCalc": 2993
       },
-      "_marketConfidence": 0.5651,
-      "_marketDispersionCV": 0.028687,
+      "_marketConfidence": 0.5647,
+      "_marketDispersionCV": 0.029063,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 3065,
-      "_finalAdjusted": 3065
+      "_rawComposite": 3062,
+      "_finalAdjusted": 3062
     },
     "Chris Braswell": {
       "idpTradeCalc": 781,
@@ -3776,19 +3776,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1116
     },
     "Chris Brazzell": {
-      "ktc": 2492,
-      "ktcSfTep": 2492,
+      "ktc": 2495,
+      "ktcSfTep": 2495,
       "idpTradeCalc": 2630,
       "_sleeperId": "13353",
       "_composite": 2630,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2492,
-        "ktcSfTep": 2492,
+        "ktc": 2495,
+        "ktcSfTep": 2495,
         "idpTradeCalc": 2630
       },
-      "_marketConfidence": 0.5332,
-      "_marketDispersionCV": 0.060573,
+      "_marketConfidence": 0.5336,
+      "_marketDispersionCV": 0.060132,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3810,7 +3810,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1235
       },
       "_marketConfidence": 0.5697,
-      "_marketDispersionCV": 0.02403,
+      "_marketDispersionCV": 0.024051,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3831,7 +3831,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2925
       },
       "_marketConfidence": 0.5564,
-      "_marketDispersionCV": 0.037351,
+      "_marketDispersionCV": 0.037361,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -3857,19 +3857,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1865
     },
     "Chris Olave": {
-      "ktc": 5514,
-      "ktcSfTep": 5514,
+      "ktc": 5508,
+      "ktcSfTep": 5508,
       "idpTradeCalc": 5533,
       "_sleeperId": "8144",
       "_composite": 5533,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5514,
-        "ktcSfTep": 5514,
+        "ktc": 5508,
+        "ktcSfTep": 5508,
         "idpTradeCalc": 5533
       },
-      "_marketConfidence": 0.5648,
-      "_marketDispersionCV": 0.02892,
+      "_marketConfidence": 0.5644,
+      "_marketDispersionCV": 0.029375,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3890,7 +3890,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2589
       },
       "_marketConfidence": 0.56,
-      "_marketDispersionCV": 0.033782,
+      "_marketDispersionCV": 0.033794,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3996,7 +3996,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1972
       },
       "_marketConfidence": 0.5415,
-      "_marketDispersionCV": 0.052233,
+      "_marketDispersionCV": 0.052249,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4017,7 +4017,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4990
       },
       "_marketConfidence": 0.5644,
-      "_marketDispersionCV": 0.029325,
+      "_marketDispersionCV": 0.029329,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -4055,7 +4055,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3751
       },
       "_marketConfidence": 0.5761,
-      "_marketDispersionCV": 0.017675,
+      "_marketDispersionCV": 0.017681,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -4076,7 +4076,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3311
       },
       "_marketConfidence": 0.5578,
-      "_marketDispersionCV": 0.035932,
+      "_marketDispersionCV": 0.035941,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -4136,25 +4136,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1878
     },
     "Colby Parkinson": {
-      "ktc": 1868,
-      "ktcSfTep": 2517,
+      "ktc": 1865,
+      "ktcSfTep": 2513,
       "idpTradeCalc": 2254,
       "_sleeperId": "6865",
-      "_composite": 2517,
+      "_composite": 2513,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1868,
-        "ktcSfTep": 2517,
+        "ktc": 1865,
+        "ktcSfTep": 2513,
         "idpTradeCalc": 2254
       },
-      "_marketConfidence": 0.4992,
-      "_marketDispersionCV": 0.094566,
+      "_marketConfidence": 0.4989,
+      "_marketDispersionCV": 0.09485,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 27,
-      "_rawComposite": 2517,
-      "_finalAdjusted": 2517
+      "_rawComposite": 2513,
+      "_finalAdjusted": 2513
     },
     "Cole Bishop": {
       "idpTradeCalc": 1913,
@@ -4174,25 +4174,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1866
     },
     "Cole Kmet": {
-      "ktc": 1988,
-      "ktcSfTep": 2650,
+      "ktc": 1985,
+      "ktcSfTep": 2647,
       "idpTradeCalc": 2364,
       "_sleeperId": "6826",
-      "_composite": 2650,
+      "_composite": 2647,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1988,
-        "ktcSfTep": 2650,
+        "ktc": 1985,
+        "ktcSfTep": 2647,
         "idpTradeCalc": 2364
       },
-      "_marketConfidence": 0.5027,
-      "_marketDispersionCV": 0.091053,
+      "_marketConfidence": 0.5024,
+      "_marketDispersionCV": 0.091367,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 27,
-      "_rawComposite": 2650,
-      "_finalAdjusted": 2650
+      "_rawComposite": 2647,
+      "_finalAdjusted": 2647
     },
     "Cole Payton": {
       "ktc": 816,
@@ -4204,8 +4204,8 @@ window.DYNASTY_DATA = {
         "ktc": 816,
         "ktcSfTep": 816
       },
-      "_marketConfidence": 0.4929,
-      "_marketDispersionCV": 0.019648,
+      "_marketConfidence": 0.4928,
+      "_marketDispersionCV": 0.019653,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -4215,25 +4215,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 816
     },
     "Colston Loveland": {
-      "ktc": 6223,
-      "ktcSfTep": 7558,
+      "ktc": 6218,
+      "ktcSfTep": 7552,
       "idpTradeCalc": 6793,
       "_sleeperId": "12517",
-      "_composite": 7247,
+      "_composite": 7244,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6223,
-        "ktcSfTep": 7558,
+        "ktc": 6218,
+        "ktcSfTep": 7552,
         "idpTradeCalc": 6793
       },
-      "_marketConfidence": 0.5264,
-      "_marketDispersionCV": 0.067397,
+      "_marketConfidence": 0.5263,
+      "_marketDispersionCV": 0.067476,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 7247,
-      "_finalAdjusted": 7247
+      "_rawComposite": 7244,
+      "_finalAdjusted": 7244
     },
     "Cooper DeJean": {
       "idpTradeCalc": 3055,
@@ -4253,19 +4253,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2621
     },
     "Cooper Kupp": {
-      "ktc": 1736,
-      "ktcSfTep": 1736,
+      "ktc": 1733,
+      "ktcSfTep": 1733,
       "idpTradeCalc": 1765,
       "_sleeperId": "4039",
       "_composite": 1765,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1736,
-        "ktcSfTep": 1736,
+        "ktc": 1733,
+        "ktcSfTep": 1733,
         "idpTradeCalc": 1765
       },
-      "_marketConfidence": 0.5382,
-      "_marketDispersionCV": 0.055504,
+      "_marketConfidence": 0.5376,
+      "_marketDispersionCV": 0.056112,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -4291,19 +4291,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1106
     },
     "Courtland Sutton": {
-      "ktc": 3108,
-      "ktcSfTep": 3108,
+      "ktc": 3105,
+      "ktcSfTep": 3105,
       "idpTradeCalc": 3145,
       "_sleeperId": "5045",
       "_composite": 3145,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3108,
-        "ktcSfTep": 3108,
+        "ktc": 3105,
+        "ktcSfTep": 3105,
         "idpTradeCalc": 3145
       },
-      "_marketConfidence": 0.5525,
-      "_marketDispersionCV": 0.041245,
+      "_marketConfidence": 0.5521,
+      "_marketDispersionCV": 0.041628,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4339,7 +4339,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 931
       },
       "_marketConfidence": 0.4939,
-      "_marketDispersionCV": 0.018571,
+      "_marketDispersionCV": 0.018575,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -4361,7 +4361,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3557
       },
       "_marketConfidence": 0.5668,
-      "_marketDispersionCV": 0.026911,
+      "_marketDispersionCV": 0.026918,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4370,19 +4370,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3626
     },
     "DJ Moore": {
-      "ktc": 3598,
-      "ktcSfTep": 3598,
+      "ktc": 3595,
+      "ktcSfTep": 3595,
       "idpTradeCalc": 3688,
       "_sleeperId": "4983",
       "_composite": 3688,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3598,
-        "ktcSfTep": 3598,
+        "ktc": 3595,
+        "ktcSfTep": 3595,
         "idpTradeCalc": 3688
       },
-      "_marketConfidence": 0.5502,
-      "_marketDispersionCV": 0.043529,
+      "_marketConfidence": 0.5499,
+      "_marketDispersionCV": 0.043869,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4408,19 +4408,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1142
     },
     "DJ Giddens": {
-      "ktc": 2054,
-      "ktcSfTep": 2054,
+      "ktc": 2057,
+      "ktcSfTep": 2057,
       "idpTradeCalc": 2060,
       "_sleeperId": "12471",
       "_composite": 2060,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2054,
-        "ktcSfTep": 2054,
+        "ktc": 2057,
+        "ktcSfTep": 2057,
         "idpTradeCalc": 2060
       },
-      "_marketConfidence": 0.5467,
-      "_marketDispersionCV": 0.047005,
+      "_marketConfidence": 0.5472,
+      "_marketDispersionCV": 0.046506,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -4429,19 +4429,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2060
     },
     "DK Metcalf": {
-      "ktc": 3449,
-      "ktcSfTep": 3449,
+      "ktc": 3452,
+      "ktcSfTep": 3452,
       "idpTradeCalc": 3534,
       "_sleeperId": "5846",
       "_composite": 3534,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3449,
-        "ktcSfTep": 3449,
+        "ktc": 3452,
+        "ktcSfTep": 3452,
         "idpTradeCalc": 3534
       },
-      "_marketConfidence": 0.5497,
-      "_marketDispersionCV": 0.044084,
+      "_marketConfidence": 0.55,
+      "_marketDispersionCV": 0.043748,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4496,7 +4496,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4951
       },
       "_marketConfidence": 0.5575,
-      "_marketDispersionCV": 0.036242,
+      "_marketDispersionCV": 0.036246,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -4517,7 +4517,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2999
       },
       "_marketConfidence": 0.5118,
-      "_marketDispersionCV": 0.081983,
+      "_marketDispersionCV": 0.08199,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4543,46 +4543,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3361
     },
     "Dalton Kincaid": {
-      "ktc": 3125,
-      "ktcSfTep": 3922,
+      "ktc": 3122,
+      "ktcSfTep": 3918,
       "idpTradeCalc": 3700,
       "_sleeperId": "10236",
-      "_composite": 3922,
+      "_composite": 3918,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3125,
-        "ktcSfTep": 3922,
+        "ktc": 3122,
+        "ktcSfTep": 3918,
         "idpTradeCalc": 3700
       },
-      "_marketConfidence": 0.509,
-      "_marketDispersionCV": 0.084755,
+      "_marketConfidence": 0.5088,
+      "_marketDispersionCV": 0.084971,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 26,
-      "_rawComposite": 3922,
-      "_finalAdjusted": 3922
+      "_rawComposite": 3918,
+      "_finalAdjusted": 3918
     },
     "Dalton Schultz": {
-      "ktc": 2159,
-      "ktcSfTep": 2839,
+      "ktc": 2162,
+      "ktcSfTep": 2842,
       "idpTradeCalc": 2644,
       "_sleeperId": "5001",
-      "_composite": 2839,
+      "_composite": 2842,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2159,
-        "ktcSfTep": 2839,
+        "ktc": 2162,
+        "ktcSfTep": 2842,
         "idpTradeCalc": 2644
       },
-      "_marketConfidence": 0.498,
-      "_marketDispersionCV": 0.095713,
+      "_marketConfidence": 0.4984,
+      "_marketDispersionCV": 0.095395,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
       "age": 29,
-      "_rawComposite": 2839,
-      "_finalAdjusted": 2839
+      "_rawComposite": 2842,
+      "_finalAdjusted": 2842
     },
     "Dameon Pierce": {
       "ktc": 990,
@@ -4597,7 +4597,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 988
       },
       "_marketConfidence": 0.5279,
-      "_marketDispersionCV": 0.065817,
+      "_marketDispersionCV": 0.065848,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -4618,7 +4618,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1464
       },
       "_marketConfidence": 0.5417,
-      "_marketDispersionCV": 0.05207,
+      "_marketDispersionCV": 0.052091,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -4628,45 +4628,45 @@ window.DYNASTY_DATA = {
     },
     "Daniel Bellinger": {
       "ktc": 1427,
-      "ktcSfTep": 2032,
+      "ktcSfTep": 2031,
       "idpTradeCalc": 1823,
       "_sleeperId": "8225",
-      "_composite": 2032,
+      "_composite": 2031,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 1427,
-        "ktcSfTep": 2032,
+        "ktcSfTep": 2031,
         "idpTradeCalc": 1823
       },
-      "_marketConfidence": 0.4852,
-      "_marketDispersionCV": 0.108517,
+      "_marketConfidence": 0.4853,
+      "_marketDispersionCV": 0.108476,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 25,
-      "_rawComposite": 2032,
-      "_finalAdjusted": 2032
+      "_rawComposite": 2031,
+      "_finalAdjusted": 2031
     },
     "Daniel Jones": {
-      "ktc": 3918,
-      "ktcSfTep": 3918,
+      "ktc": 3915,
+      "ktcSfTep": 3915,
       "idpTradeCalc": 3911,
       "_sleeperId": "5870",
-      "_composite": 3918,
+      "_composite": 3915,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3918,
-        "ktcSfTep": 3918,
+        "ktc": 3915,
+        "ktcSfTep": 3915,
         "idpTradeCalc": 3911
       },
-      "_marketConfidence": 0.5617,
-      "_marketDispersionCV": 0.032006,
+      "_marketConfidence": 0.5614,
+      "_marketDispersionCV": 0.032316,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 29,
-      "_rawComposite": 3918,
-      "_finalAdjusted": 3918
+      "_rawComposite": 3915,
+      "_finalAdjusted": 3915
     },
     "Danielle Hunter": {
       "idpTradeCalc": 2999,
@@ -4754,19 +4754,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1189
     },
     "Darius Slayton": {
-      "ktc": 1502,
-      "ktcSfTep": 1502,
+      "ktc": 1505,
+      "ktcSfTep": 1505,
       "idpTradeCalc": 1565,
       "_sleeperId": "6149",
       "_composite": 1565,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1502,
-        "ktcSfTep": 1502,
+        "ktc": 1505,
+        "ktcSfTep": 1505,
         "idpTradeCalc": 1565
       },
-      "_marketConfidence": 0.5272,
-      "_marketDispersionCV": 0.066583,
+      "_marketConfidence": 0.5278,
+      "_marketDispersionCV": 0.065948,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4787,7 +4787,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2076
       },
       "_marketConfidence": 0.54,
-      "_marketDispersionCV": 0.053731,
+      "_marketDispersionCV": 0.053747,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4808,7 +4808,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2217
       },
       "_marketConfidence": 0.5064,
-      "_marketDispersionCV": 0.087302,
+      "_marketDispersionCV": 0.08731,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4851,25 +4851,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1009
     },
     "Davante Adams": {
-      "ktc": 3329,
-      "ktcSfTep": 3329,
+      "ktc": 3332,
+      "ktcSfTep": 3332,
       "idpTradeCalc": 3273,
       "_sleeperId": "2133",
-      "_composite": 3329,
+      "_composite": 3332,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3329,
-        "ktcSfTep": 3329,
+        "ktc": 3332,
+        "ktcSfTep": 3332,
         "idpTradeCalc": 3273
       },
-      "_marketConfidence": 0.5644,
-      "_marketDispersionCV": 0.029398,
+      "_marketConfidence": 0.5647,
+      "_marketDispersionCV": 0.029063,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 12,
       "age": 33,
-      "_rawComposite": 3329,
-      "_finalAdjusted": 3329
+      "_rawComposite": 3332,
+      "_finalAdjusted": 3332
     },
     "David Bailey": {
       "idpTradeCalc": 3603,
@@ -4901,8 +4901,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 964,
         "idpTradeCalc": 981
       },
-      "_marketConfidence": 0.5223,
-      "_marketDispersionCV": 0.071475,
+      "_marketConfidence": 0.5222,
+      "_marketDispersionCV": 0.071507,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4911,19 +4911,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 981
     },
     "David Montgomery": {
-      "ktc": 3388,
-      "ktcSfTep": 3388,
+      "ktc": 3382,
+      "ktcSfTep": 3382,
       "idpTradeCalc": 3405,
       "_sleeperId": "5892",
       "_composite": 3405,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3388,
-        "ktcSfTep": 3388,
+        "ktc": 3382,
+        "ktcSfTep": 3382,
         "idpTradeCalc": 3405
       },
-      "_marketConfidence": 0.5566,
-      "_marketDispersionCV": 0.037125,
+      "_marketConfidence": 0.5559,
+      "_marketDispersionCV": 0.037825,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4932,25 +4932,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3405
     },
     "David Njoku": {
-      "ktc": 2424,
-      "ktcSfTep": 3134,
+      "ktc": 2421,
+      "ktcSfTep": 3131,
       "idpTradeCalc": 2861,
       "_sleeperId": "4033",
-      "_composite": 3134,
+      "_composite": 3131,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2424,
-        "ktcSfTep": 3134,
+        "ktc": 2421,
+        "ktcSfTep": 3131,
         "idpTradeCalc": 2861
       },
-      "_marketConfidence": 0.507,
-      "_marketDispersionCV": 0.086782,
+      "_marketConfidence": 0.5067,
+      "_marketDispersionCV": 0.087063,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
       "age": 29,
-      "_rawComposite": 3134,
-      "_finalAdjusted": 3134
+      "_rawComposite": 3131,
+      "_finalAdjusted": 3131
     },
     "David Walker": {
       "idpTradeCalc": 768,
@@ -4982,7 +4982,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1310
       },
       "_marketConfidence": 0.4555,
-      "_marketDispersionCV": 0.138231,
+      "_marketDispersionCV": 0.138252,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4991,19 +4991,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1451
     },
     "Davis Mills": {
-      "ktc": 1270,
-      "ktcSfTep": 1270,
+      "ktc": 1267,
+      "ktcSfTep": 1267,
       "idpTradeCalc": 1351,
       "_sleeperId": "7585",
       "_composite": 1351,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1270,
-        "ktcSfTep": 1270,
+        "ktc": 1267,
+        "ktcSfTep": 1267,
         "idpTradeCalc": 1351
       },
-      "_marketConfidence": 0.5172,
-      "_marketDispersionCV": 0.076558,
+      "_marketConfidence": 0.5164,
+      "_marketDispersionCV": 0.077324,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -5024,7 +5024,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2147
       },
       "_marketConfidence": 0.4891,
-      "_marketDispersionCV": 0.104667,
+      "_marketDispersionCV": 0.10468,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5067,19 +5067,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "De'Von Achane": {
-      "ktc": 6864,
-      "ktcSfTep": 6864,
+      "ktc": 6869,
+      "ktcSfTep": 6869,
       "idpTradeCalc": 6920,
       "_sleeperId": "9226",
       "_composite": 6920,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6864,
-        "ktcSfTep": 6864,
+        "ktc": 6869,
+        "ktcSfTep": 6869,
         "idpTradeCalc": 6920
       },
-      "_marketConfidence": 0.5655,
-      "_marketDispersionCV": 0.02822,
+      "_marketConfidence": 0.5658,
+      "_marketDispersionCV": 0.027912,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5088,26 +5088,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 6920
     },
     "De'Zhaun Stribling": {
-      "ktc": 2710,
-      "ktcSfTep": 2710,
+      "ktc": 2713,
+      "ktcSfTep": 2713,
       "idpTradeCalc": 2447,
       "_sleeperId": "13417",
-      "_composite": 2710,
+      "_composite": 2713,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2710,
-        "ktcSfTep": 2710,
+        "ktc": 2713,
+        "ktcSfTep": 2713,
         "idpTradeCalc": 2447
       },
-      "_marketConfidence": 0.5843,
-      "_marketDispersionCV": 0.009447,
+      "_marketConfidence": 0.5844,
+      "_marketDispersionCV": 0.009341,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 2710,
-      "_finalAdjusted": 2710
+      "_rawComposite": 2713,
+      "_finalAdjusted": 2713
     },
     "DeForest Buckner": {
       "idpTradeCalc": 1928,
@@ -5156,7 +5156,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1945
       },
       "_marketConfidence": 0.5372,
-      "_marketDispersionCV": 0.056502,
+      "_marketDispersionCV": 0.056519,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5194,7 +5194,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5435
       },
       "_marketConfidence": 0.566,
-      "_marketDispersionCV": 0.027732,
+      "_marketDispersionCV": 0.027735,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -5232,7 +5232,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2156
       },
       "_marketConfidence": 0.5168,
-      "_marketDispersionCV": 0.076938,
+      "_marketDispersionCV": 0.076955,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5241,26 +5241,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2156
     },
     "Deion Burks": {
-      "ktc": 1160,
-      "ktcSfTep": 1160,
+      "ktc": 1163,
+      "ktcSfTep": 1163,
       "idpTradeCalc": 1121,
       "_sleeperId": "13333",
-      "_composite": 1160,
+      "_composite": 1163,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1160,
-        "ktcSfTep": 1160,
+        "ktc": 1163,
+        "ktcSfTep": 1163,
         "idpTradeCalc": 1121
       },
-      "_marketConfidence": 0.5412,
-      "_marketDispersionCV": 0.052553,
+      "_marketConfidence": 0.5419,
+      "_marketDispersionCV": 0.051822,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 1160,
-      "_finalAdjusted": 1160
+      "_rawComposite": 1163,
+      "_finalAdjusted": 1163
     },
     "Demarcus Robinson": {
       "ktc": 845,
@@ -5275,7 +5275,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 841
       },
       "_marketConfidence": 0.5237,
-      "_marketDispersionCV": 0.07005,
+      "_marketDispersionCV": 0.070084,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -5330,7 +5330,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1770
       },
       "_marketConfidence": 0.5712,
-      "_marketDispersionCV": 0.02257,
+      "_marketDispersionCV": 0.022585,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -5352,7 +5352,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3445
       },
       "_marketConfidence": 0.5587,
-      "_marketDispersionCV": 0.035072,
+      "_marketDispersionCV": 0.03508,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -5440,7 +5440,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 506
       },
       "_marketConfidence": 0.4889,
-      "_marketDispersionCV": 0.023567,
+      "_marketDispersionCV": 0.023575,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5512,7 +5512,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3944
       },
       "_marketConfidence": 0.5685,
-      "_marketDispersionCV": 0.025248,
+      "_marketDispersionCV": 0.025254,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -5568,7 +5568,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2164
       },
       "_marketConfidence": 0.5506,
-      "_marketDispersionCV": 0.043144,
+      "_marketDispersionCV": 0.043159,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -5593,25 +5593,6 @@ window.DYNASTY_DATA = {
       "_rawComposite": 1210,
       "_finalAdjusted": 1210
     },
-    "Deuce Vaughn": {
-      "ktc": 488,
-      "ktcSfTep": 488,
-      "_sleeperId": "9505",
-      "_composite": 488,
-      "_sites": 2,
-      "_canonicalSiteValues": {
-        "ktc": 488,
-        "ktcSfTep": 488
-      },
-      "_marketConfidence": 0.4886,
-      "_marketDispersionCV": 0.023857,
-      "_idpRealMarketSources": 0,
-      "_rookieOnlyDlfGuardrailApplied": false,
-      "_yearsExp": 3,
-      "age": 24,
-      "_rawComposite": 488,
-      "_finalAdjusted": 488
-    },
     "Devaughn Vele": {
       "ktc": 1440,
       "ktcSfTep": 1440,
@@ -5625,7 +5606,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1460
       },
       "_marketConfidence": 0.5343,
-      "_marketDispersionCV": 0.059421,
+      "_marketDispersionCV": 0.059444,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -5680,7 +5661,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2074
       },
       "_marketConfidence": 0.5396,
-      "_marketDispersionCV": 0.054111,
+      "_marketDispersionCV": 0.054127,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5701,7 +5682,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1256
       },
       "_marketConfidence": 0.5357,
-      "_marketDispersionCV": 0.058047,
+      "_marketDispersionCV": 0.058072,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5773,7 +5754,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1401
       },
       "_marketConfidence": 0.5392,
-      "_marketDispersionCV": 0.054561,
+      "_marketDispersionCV": 0.054583,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -5810,8 +5791,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1321,
         "idpTradeCalc": 1409
       },
-      "_marketConfidence": 0.5173,
-      "_marketDispersionCV": 0.076489,
+      "_marketConfidence": 0.5172,
+      "_marketDispersionCV": 0.076514,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5867,7 +5848,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1190
       },
       "_marketConfidence": 0.5247,
-      "_marketDispersionCV": 0.06902,
+      "_marketDispersionCV": 0.069047,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5921,8 +5902,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1918,
         "idpTradeCalc": 2007
       },
-      "_marketConfidence": 0.5312,
-      "_marketDispersionCV": 0.062593,
+      "_marketConfidence": 0.5311,
+      "_marketDispersionCV": 0.06261,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5931,25 +5912,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2007
     },
     "Dontayvion Wicks": {
-      "ktc": 2395,
-      "ktcSfTep": 2395,
+      "ktc": 2392,
+      "ktcSfTep": 2392,
       "idpTradeCalc": 2383,
       "_sleeperId": "9486",
-      "_composite": 2395,
+      "_composite": 2392,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2395,
-        "ktcSfTep": 2395,
+        "ktc": 2392,
+        "ktcSfTep": 2392,
         "idpTradeCalc": 2383
       },
-      "_marketConfidence": 0.553,
-      "_marketDispersionCV": 0.040713,
+      "_marketConfidence": 0.5526,
+      "_marketDispersionCV": 0.041182,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 2395,
-      "_finalAdjusted": 2395
+      "_rawComposite": 2392,
+      "_finalAdjusted": 2392
     },
     "Dorance Armstrong": {
       "idpTradeCalc": 1225,
@@ -5986,46 +5967,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1225
     },
     "Drake London": {
-      "ktc": 7159,
-      "ktcSfTep": 7159,
+      "ktc": 7166,
+      "ktcSfTep": 7166,
       "idpTradeCalc": 6958,
       "_sleeperId": "8112",
-      "_composite": 7159,
+      "_composite": 7166,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7159,
-        "ktcSfTep": 7159,
+        "ktc": 7166,
+        "ktcSfTep": 7166,
         "idpTradeCalc": 6958
       },
-      "_marketConfidence": 0.5807,
-      "_marketDispersionCV": 0.013053,
+      "_marketConfidence": 0.5811,
+      "_marketDispersionCV": 0.012677,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 24,
-      "_rawComposite": 7159,
-      "_finalAdjusted": 7159
+      "_rawComposite": 7166,
+      "_finalAdjusted": 7166
     },
     "Drake Maye": {
-      "ktc": 9409,
-      "ktcSfTep": 9409,
+      "ktc": 9405,
+      "ktcSfTep": 9405,
       "idpTradeCalc": 9375,
       "_sleeperId": "11564",
-      "_composite": 9409,
+      "_composite": 9405,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9409,
-        "ktcSfTep": 9409,
+        "ktc": 9405,
+        "ktcSfTep": 9405,
         "idpTradeCalc": 9375
       },
-      "_marketConfidence": 0.5741,
-      "_marketDispersionCV": 0.019642,
+      "_marketConfidence": 0.5739,
+      "_marketDispersionCV": 0.019823,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 23,
-      "_rawComposite": 9409,
-      "_finalAdjusted": 9409
+      "_rawComposite": 9405,
+      "_finalAdjusted": 9405
     },
     "Drake Thomas": {
       "idpTradeCalc": 1373,
@@ -6074,7 +6055,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.582,
-      "_marketDispersionCV": 0.011776,
+      "_marketDispersionCV": 0.01177,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6096,7 +6077,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 961
       },
       "_marketConfidence": 0.521,
-      "_marketDispersionCV": 0.072746,
+      "_marketDispersionCV": 0.072778,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -6139,19 +6120,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1204
     },
     "Dyami Brown": {
-      "ktc": 1341,
-      "ktcSfTep": 1341,
+      "ktc": 1338,
+      "ktcSfTep": 1338,
       "idpTradeCalc": 1400,
       "_sleeperId": "7587",
       "_composite": 1400,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1341,
-        "ktcSfTep": 1341,
+        "ktc": 1338,
+        "ktcSfTep": 1338,
         "idpTradeCalc": 1400
       },
-      "_marketConfidence": 0.5239,
-      "_marketDispersionCV": 0.069827,
+      "_marketConfidence": 0.5232,
+      "_marketDispersionCV": 0.070562,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -6170,7 +6151,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 488
       },
       "_marketConfidence": 0.4886,
-      "_marketDispersionCV": 0.023857,
+      "_marketDispersionCV": 0.023865,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -6191,7 +6172,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2741
       },
       "_marketConfidence": 0.5543,
-      "_marketDispersionCV": 0.039474,
+      "_marketDispersionCV": 0.039485,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6251,19 +6232,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2982
     },
     "Efton Chism": {
-      "ktc": 1189,
-      "ktcSfTep": 1189,
+      "ktc": 1186,
+      "ktcSfTep": 1186,
       "idpTradeCalc": 1266,
       "_sleeperId": "12542",
       "_composite": 1266,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1189,
-        "ktcSfTep": 1189,
+        "ktc": 1186,
+        "ktcSfTep": 1186,
         "idpTradeCalc": 1266
       },
-      "_marketConfidence": 0.5155,
-      "_marketDispersionCV": 0.078273,
+      "_marketConfidence": 0.5147,
+      "_marketDispersionCV": 0.079072,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6272,26 +6253,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1266
     },
     "Eli Heidenreich": {
-      "ktc": 1322,
-      "ktcSfTep": 1322,
+      "ktc": 1319,
+      "ktcSfTep": 1319,
       "idpTradeCalc": 1128,
       "_sleeperId": "13423",
-      "_composite": 1322,
+      "_composite": 1319,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1322,
-        "ktcSfTep": 1322,
+        "ktc": 1319,
+        "ktcSfTep": 1319,
         "idpTradeCalc": 1128
       },
-      "_marketConfidence": 0.5759,
-      "_marketDispersionCV": 0.017899,
+      "_marketConfidence": 0.5753,
+      "_marketDispersionCV": 0.018421,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 1322,
-      "_finalAdjusted": 1322
+      "_rawComposite": 1319,
+      "_finalAdjusted": 1319
     },
     "Eli Raridon": {
       "ktc": 1730,
@@ -6306,7 +6287,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1620
       },
       "_marketConfidence": 0.5037,
-      "_marketDispersionCV": 0.090081,
+      "_marketDispersionCV": 0.090079,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6316,41 +6297,41 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2365
     },
     "Eli Stowers": {
-      "ktc": 3596,
-      "ktcSfTep": 4464,
+      "ktc": 3599,
+      "ktcSfTep": 4466,
       "idpTradeCalc": 4208,
       "_sleeperId": "13349",
-      "_composite": 4464,
+      "_composite": 4466,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3596,
-        "ktcSfTep": 4464,
+        "ktc": 3599,
+        "ktcSfTep": 4466,
         "idpTradeCalc": 4208
       },
-      "_marketConfidence": 0.5126,
-      "_marketDispersionCV": 0.081173,
+      "_marketConfidence": 0.5128,
+      "_marketDispersionCV": 0.080938,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 4464,
-      "_finalAdjusted": 4464
+      "_rawComposite": 4466,
+      "_finalAdjusted": 4466
     },
     "Elic Ayomanor": {
-      "ktc": 2474,
-      "ktcSfTep": 2474,
+      "ktc": 2471,
+      "ktcSfTep": 2471,
       "idpTradeCalc": 2599,
       "_sleeperId": "12499",
       "_composite": 2599,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2474,
-        "ktcSfTep": 2474,
+        "ktc": 2471,
+        "ktcSfTep": 2471,
         "idpTradeCalc": 2599
       },
-      "_marketConfidence": 0.5347,
-      "_marketDispersionCV": 0.059047,
+      "_marketConfidence": 0.5342,
+      "_marketDispersionCV": 0.059516,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6359,46 +6340,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2599
     },
     "Elijah Arroyo": {
-      "ktc": 2429,
-      "ktcSfTep": 3139,
+      "ktc": 2423,
+      "ktcSfTep": 3132,
       "idpTradeCalc": 2895,
       "_sleeperId": "12521",
-      "_composite": 3139,
+      "_composite": 3132,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2429,
-        "ktcSfTep": 3139,
+        "ktc": 2423,
+        "ktcSfTep": 3132,
         "idpTradeCalc": 2895
       },
-      "_marketConfidence": 0.5051,
-      "_marketDispersionCV": 0.088674,
+      "_marketConfidence": 0.5045,
+      "_marketDispersionCV": 0.089209,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 3139,
-      "_finalAdjusted": 3139
+      "_rawComposite": 3132,
+      "_finalAdjusted": 3132
     },
     "Elijah Higgins": {
       "ktc": 1201,
-      "ktcSfTep": 1789,
+      "ktcSfTep": 1790,
       "idpTradeCalc": 1595,
       "_sleeperId": "10231",
-      "_composite": 1789,
+      "_composite": 1790,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 1201,
-        "ktcSfTep": 1789,
+        "ktcSfTep": 1790,
         "idpTradeCalc": 1595
       },
-      "_marketConfidence": 0.4763,
-      "_marketDispersionCV": 0.117468,
+      "_marketConfidence": 0.4762,
+      "_marketDispersionCV": 0.117541,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 1789,
-      "_finalAdjusted": 1789
+      "_rawComposite": 1790,
+      "_finalAdjusted": 1790
     },
     "Elijah Mitchell": {
       "ktc": 500,
@@ -6411,7 +6392,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 500
       },
       "_marketConfidence": 0.4888,
-      "_marketDispersionCV": 0.023663,
+      "_marketDispersionCV": 0.023671,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -6449,7 +6430,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1209
       },
       "_marketConfidence": 0.5206,
-      "_marketDispersionCV": 0.07312,
+      "_marketDispersionCV": 0.073147,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -6458,19 +6439,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1209
     },
     "Elijah Sarratt": {
-      "ktc": 2778,
-      "ktcSfTep": 2778,
+      "ktc": 2775,
+      "ktcSfTep": 2775,
       "idpTradeCalc": 2786,
       "_sleeperId": "13268",
       "_composite": 2786,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2778,
-        "ktcSfTep": 2778,
+        "ktc": 2775,
+        "ktcSfTep": 2775,
         "idpTradeCalc": 2786
       },
-      "_marketConfidence": 0.5535,
-      "_marketDispersionCV": 0.040214,
+      "_marketConfidence": 0.5531,
+      "_marketDispersionCV": 0.040632,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6480,19 +6461,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2786
     },
     "Emanuel Wilson": {
-      "ktc": 2026,
-      "ktcSfTep": 2026,
+      "ktc": 2023,
+      "ktcSfTep": 2023,
       "idpTradeCalc": 2074,
       "_sleeperId": "11435",
       "_composite": 2074,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2026,
-        "ktcSfTep": 2026,
+        "ktc": 2023,
+        "ktcSfTep": 2023,
         "idpTradeCalc": 2074
       },
-      "_marketConfidence": 0.5396,
-      "_marketDispersionCV": 0.054111,
+      "_marketConfidence": 0.5391,
+      "_marketDispersionCV": 0.054654,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6513,7 +6494,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1146
       },
       "_marketConfidence": 0.5341,
-      "_marketDispersionCV": 0.059628,
+      "_marketDispersionCV": 0.059655,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6522,19 +6503,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1155
     },
     "Emeka Egbuka": {
-      "ktc": 6066,
-      "ktcSfTep": 6066,
+      "ktc": 6069,
+      "ktcSfTep": 6069,
       "idpTradeCalc": 6076,
       "_sleeperId": "12514",
       "_composite": 6076,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6066,
-        "ktcSfTep": 6066,
+        "ktc": 6069,
+        "ktcSfTep": 6069,
         "idpTradeCalc": 6076
       },
-      "_marketConfidence": 0.5668,
-      "_marketDispersionCV": 0.026987,
+      "_marketConfidence": 0.567,
+      "_marketDispersionCV": 0.026782,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6561,19 +6542,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1976
     },
     "Emmett Johnson": {
-      "ktc": 2562,
-      "ktcSfTep": 2562,
+      "ktc": 2556,
+      "ktcSfTep": 2556,
       "idpTradeCalc": 2569,
       "_sleeperId": "13337",
       "_composite": 2569,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2562,
-        "ktcSfTep": 2562,
+        "ktc": 2556,
+        "ktcSfTep": 2556,
         "idpTradeCalc": 2569
       },
-      "_marketConfidence": 0.5519,
-      "_marketDispersionCV": 0.041877,
+      "_marketConfidence": 0.551,
+      "_marketDispersionCV": 0.042758,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6612,7 +6593,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.4861,
-      "_marketDispersionCV": 0.107645,
+      "_marketDispersionCV": 0.107659,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -6650,7 +6631,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2250
       },
       "_marketConfidence": 0.4944,
-      "_marketDispersionCV": 0.099327,
+      "_marketDispersionCV": 0.099338,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -6688,7 +6669,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5637
       },
       "_marketConfidence": 0.5589,
-      "_marketDispersionCV": 0.034801,
+      "_marketDispersionCV": 0.034804,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6744,7 +6725,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 871
       },
       "_marketConfidence": 0.5098,
-      "_marketDispersionCV": 0.083932,
+      "_marketDispersionCV": 0.083967,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 17,
@@ -6787,19 +6768,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3355
     },
     "Gabe Davis": {
-      "ktc": 1124,
-      "ktcSfTep": 1124,
+      "ktc": 1121,
+      "ktcSfTep": 1121,
       "idpTradeCalc": 1144,
       "_sleeperId": "6943",
       "_composite": 1144,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1124,
-        "ktcSfTep": 1124,
+        "ktc": 1121,
+        "ktcSfTep": 1121,
         "idpTradeCalc": 1144
       },
-      "_marketConfidence": 0.5265,
-      "_marketDispersionCV": 0.067217,
+      "_marketConfidence": 0.5257,
+      "_marketDispersionCV": 0.068036,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -6808,19 +6789,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1144
     },
     "Gardner Minshew": {
-      "ktc": 1129,
-      "ktcSfTep": 1129,
+      "ktc": 1132,
+      "ktcSfTep": 1132,
       "idpTradeCalc": 1142,
       "_sleeperId": "6011",
       "_composite": 1142,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1129,
-        "ktcSfTep": 1129,
+        "ktc": 1132,
+        "ktcSfTep": 1132,
         "idpTradeCalc": 1142
       },
-      "_marketConfidence": 0.5283,
-      "_marketDispersionCV": 0.065436,
+      "_marketConfidence": 0.5291,
+      "_marketDispersionCV": 0.064678,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -6841,7 +6822,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1682
       },
       "_marketConfidence": 0.5333,
-      "_marketDispersionCV": 0.060445,
+      "_marketDispersionCV": 0.060465,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6851,19 +6832,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1682
     },
     "Garrett Wilson": {
-      "ktc": 5675,
-      "ktcSfTep": 5675,
+      "ktc": 5679,
+      "ktcSfTep": 5679,
       "idpTradeCalc": 5704,
       "_sleeperId": "8146",
       "_composite": 5704,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5675,
-        "ktcSfTep": 5675,
+        "ktc": 5679,
+        "ktcSfTep": 5679,
         "idpTradeCalc": 5704
       },
-      "_marketConfidence": 0.5645,
-      "_marketDispersionCV": 0.029216,
+      "_marketConfidence": 0.5648,
+      "_marketDispersionCV": 0.028925,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -6872,25 +6853,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5704
     },
     "Geno Smith": {
-      "ktc": 2247,
-      "ktcSfTep": 2247,
+      "ktc": 2241,
+      "ktcSfTep": 2241,
       "idpTradeCalc": 2224,
       "_sleeperId": "1373",
-      "_composite": 2247,
+      "_composite": 2241,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2247,
-        "ktcSfTep": 2247,
+        "ktc": 2241,
+        "ktcSfTep": 2241,
         "idpTradeCalc": 2224
       },
-      "_marketConfidence": 0.5533,
-      "_marketDispersionCV": 0.040453,
+      "_marketConfidence": 0.5523,
+      "_marketDispersionCV": 0.041424,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
       "age": 35,
-      "_rawComposite": 2247,
-      "_finalAdjusted": 2247
+      "_rawComposite": 2241,
+      "_finalAdjusted": 2241
     },
     "George Holani": {
       "ktc": 1373,
@@ -6904,8 +6885,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1373,
         "idpTradeCalc": 1269
       },
-      "_marketConfidence": 0.5588,
-      "_marketDispersionCV": 0.034992,
+      "_marketConfidence": 0.5587,
+      "_marketDispersionCV": 0.035015,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -6943,7 +6924,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3669
       },
       "_marketConfidence": 0.5201,
-      "_marketDispersionCV": 0.073666,
+      "_marketDispersionCV": 0.073671,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -6964,7 +6945,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5875
       },
       "_marketConfidence": 0.5718,
-      "_marketDispersionCV": 0.021963,
+      "_marketDispersionCV": 0.021966,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -6990,26 +6971,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1197
     },
     "Germie Bernard": {
-      "ktc": 2985,
-      "ktcSfTep": 2985,
+      "ktc": 2982,
+      "ktcSfTep": 2982,
       "idpTradeCalc": 2963,
       "_sleeperId": "13274",
-      "_composite": 2985,
+      "_composite": 2982,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2985,
-        "ktcSfTep": 2985,
+        "ktc": 2982,
+        "ktcSfTep": 2982,
         "idpTradeCalc": 2963
       },
-      "_marketConfidence": 0.5587,
-      "_marketDispersionCV": 0.03506,
+      "_marketConfidence": 0.5583,
+      "_marketDispersionCV": 0.03545,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 2985,
-      "_finalAdjusted": 2985
+      "_rawComposite": 2982,
+      "_finalAdjusted": 2982
     },
     "Gervon Dexter": {
       "idpTradeCalc": 1227,
@@ -7040,8 +7021,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1005,
         "idpTradeCalc": 888
       },
-      "_marketConfidence": 0.4296,
-      "_marketDispersionCV": 0.164182,
+      "_marketConfidence": 0.4295,
+      "_marketDispersionCV": 0.164212,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7067,19 +7048,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1415
     },
     "Greg Dortch": {
-      "ktc": 1153,
-      "ktcSfTep": 1153,
+      "ktc": 1150,
+      "ktcSfTep": 1150,
       "idpTradeCalc": 1161,
       "_sleeperId": "5970",
       "_composite": 1161,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1153,
-        "ktcSfTep": 1153,
+        "ktc": 1150,
+        "ktcSfTep": 1150,
         "idpTradeCalc": 1161
       },
-      "_marketConfidence": 0.5301,
-      "_marketDispersionCV": 0.063619,
+      "_marketConfidence": 0.5293,
+      "_marketDispersionCV": 0.064422,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -7088,25 +7069,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1161
     },
     "Greg Dulcich": {
-      "ktc": 2006,
-      "ktcSfTep": 2670,
+      "ktc": 2009,
+      "ktcSfTep": 2674,
       "idpTradeCalc": 2220,
       "_sleeperId": "8172",
-      "_composite": 2670,
+      "_composite": 2674,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2006,
-        "ktcSfTep": 2670,
+        "ktc": 2009,
+        "ktcSfTep": 2674,
         "idpTradeCalc": 2220
       },
-      "_marketConfidence": 0.5122,
-      "_marketDispersionCV": 0.081553,
+      "_marketConfidence": 0.5123,
+      "_marketDispersionCV": 0.081464,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 26,
-      "_rawComposite": 2670,
-      "_finalAdjusted": 2670
+      "_rawComposite": 2674,
+      "_finalAdjusted": 2674
     },
     "Greg Rousseau": {
       "idpTradeCalc": 2006,
@@ -7126,25 +7107,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1927
     },
     "Gunnar Helm": {
-      "ktc": 2656,
-      "ktcSfTep": 3392,
+      "ktc": 2653,
+      "ktcSfTep": 3388,
       "idpTradeCalc": 3105,
       "_sleeperId": "12502",
-      "_composite": 3392,
+      "_composite": 3388,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2656,
-        "ktcSfTep": 3392,
+        "ktc": 2653,
+        "ktcSfTep": 3388,
         "idpTradeCalc": 3105
       },
-      "_marketConfidence": 0.5101,
-      "_marketDispersionCV": 0.083689,
+      "_marketConfidence": 0.5098,
+      "_marketDispersionCV": 0.083901,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 3392,
-      "_finalAdjusted": 3392
+      "_rawComposite": 3388,
+      "_finalAdjusted": 3388
     },
     "Haason Reddick": {
       "idpTradeCalc": 860,
@@ -7176,7 +7157,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5473
       },
       "_marketConfidence": 0.5213,
-      "_marketDispersionCV": 0.072481,
+      "_marketDispersionCV": 0.072485,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7220,25 +7201,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1423
     },
     "Harrison Bryant": {
-      "ktc": 494,
-      "ktcSfTep": 1009,
+      "ktc": 491,
+      "ktcSfTep": 1006,
       "idpTradeCalc": 851,
       "_sleeperId": "6850",
-      "_composite": 1009,
+      "_composite": 1006,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 494,
-        "ktcSfTep": 1009,
+        "ktc": 491,
+        "ktcSfTep": 1006,
         "idpTradeCalc": 851
       },
-      "_marketConfidence": 0.4374,
-      "_marketDispersionCV": 0.156389,
+      "_marketConfidence": 0.4365,
+      "_marketDispersionCV": 0.157212,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 1009,
-      "_finalAdjusted": 1009
+      "_rawComposite": 1006,
+      "_finalAdjusted": 1006
     },
     "Hassan Haskins": {
       "ktc": 874,
@@ -7252,8 +7233,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 874,
         "idpTradeCalc": 891
       },
-      "_marketConfidence": 0.5191,
-      "_marketDispersionCV": 0.074688,
+      "_marketConfidence": 0.519,
+      "_marketDispersionCV": 0.074721,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7280,24 +7261,24 @@ window.DYNASTY_DATA = {
     },
     "Hunter Henry": {
       "ktc": 2241,
-      "ktcSfTep": 2927,
+      "ktcSfTep": 2928,
       "idpTradeCalc": 2665,
       "_sleeperId": "3214",
-      "_composite": 2927,
+      "_composite": 2928,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 2241,
-        "ktcSfTep": 2927,
+        "ktcSfTep": 2928,
         "idpTradeCalc": 2665
       },
       "_marketConfidence": 0.5046,
-      "_marketDispersionCV": 0.089117,
+      "_marketDispersionCV": 0.089176,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
       "age": 31,
-      "_rawComposite": 2927,
-      "_finalAdjusted": 2927
+      "_rawComposite": 2928,
+      "_finalAdjusted": 2928
     },
     "Isaac Guerendo": {
       "ktc": 1515,
@@ -7312,7 +7293,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1598
       },
       "_marketConfidence": 0.5236,
-      "_marketDispersionCV": 0.070158,
+      "_marketDispersionCV": 0.07018,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7333,7 +7314,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2811
       },
       "_marketConfidence": 0.5466,
-      "_marketDispersionCV": 0.04711,
+      "_marketDispersionCV": 0.047121,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7353,8 +7334,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1999,
         "idpTradeCalc": 2013
       },
-      "_marketConfidence": 0.5448,
-      "_marketDispersionCV": 0.048993,
+      "_marketConfidence": 0.5447,
+      "_marketDispersionCV": 0.049009,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7375,7 +7356,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1844
       },
       "_marketConfidence": 0.5371,
-      "_marketDispersionCV": 0.056671,
+      "_marketDispersionCV": 0.056689,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7396,7 +7377,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 984
       },
       "_marketConfidence": 0.5427,
-      "_marketDispersionCV": 0.051025,
+      "_marketDispersionCV": 0.051054,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -7417,7 +7398,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3832
       },
       "_marketConfidence": 0.519,
-      "_marketDispersionCV": 0.07473,
+      "_marketDispersionCV": 0.074735,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7472,7 +7453,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2349
       },
       "_marketConfidence": 0.5492,
-      "_marketDispersionCV": 0.044578,
+      "_marketDispersionCV": 0.044591,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7493,7 +7474,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1011
       },
       "_marketConfidence": 0.5241,
-      "_marketDispersionCV": 0.069627,
+      "_marketDispersionCV": 0.069657,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -7531,7 +7512,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 863
       },
       "_marketConfidence": 0.5396,
-      "_marketDispersionCV": 0.054102,
+      "_marketDispersionCV": 0.054133,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7553,7 +7534,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2829
       },
       "_marketConfidence": 0.5431,
-      "_marketDispersionCV": 0.050666,
+      "_marketDispersionCV": 0.050677,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7562,25 +7543,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2829
     },
     "J.K. Dobbins": {
-      "ktc": 2974,
-      "ktcSfTep": 2974,
+      "ktc": 2977,
+      "ktcSfTep": 2977,
       "idpTradeCalc": 2939,
       "_sleeperId": "6806",
-      "_composite": 2974,
+      "_composite": 2977,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2974,
-        "ktcSfTep": 2974,
+        "ktc": 2977,
+        "ktcSfTep": 2977,
         "idpTradeCalc": 2939
       },
-      "_marketConfidence": 0.5602,
-      "_marketDispersionCV": 0.033552,
+      "_marketConfidence": 0.5606,
+      "_marketDispersionCV": 0.033183,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 27,
-      "_rawComposite": 2974,
-      "_finalAdjusted": 2974
+      "_rawComposite": 2977,
+      "_finalAdjusted": 2977
     },
     "JT Tuimoloau": {
       "idpTradeCalc": 1406,
@@ -7600,26 +7581,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1530
     },
     "Ja'Kobi Lane": {
-      "ktc": 2396,
-      "ktcSfTep": 2396,
+      "ktc": 2399,
+      "ktcSfTep": 2399,
       "idpTradeCalc": 2382,
       "_sleeperId": "13293",
-      "_composite": 2396,
+      "_composite": 2399,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2396,
-        "ktcSfTep": 2396,
+        "ktc": 2399,
+        "ktcSfTep": 2399,
         "idpTradeCalc": 2382
       },
-      "_marketConfidence": 0.5533,
-      "_marketDispersionCV": 0.040419,
+      "_marketConfidence": 0.5538,
+      "_marketDispersionCV": 0.039977,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 2396,
-      "_finalAdjusted": 2396
+      "_rawComposite": 2399,
+      "_finalAdjusted": 2399
     },
     "Ja'Lynn Polk": {
       "ktc": 1399,
@@ -7634,7 +7615,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1463
       },
       "_marketConfidence": 0.5244,
-      "_marketDispersionCV": 0.06933,
+      "_marketDispersionCV": 0.069354,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7643,15 +7624,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1463
     },
     "Ja'Marr Chase": {
-      "ktc": 9994,
-      "ktcSfTep": 9994,
+      "ktc": 9997,
+      "ktcSfTep": 9997,
       "idpTradeCalc": 9990,
       "_sleeperId": "7564",
-      "_composite": 9994,
+      "_composite": 9997,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9994,
-        "ktcSfTep": 9994,
+        "ktc": 9997,
+        "ktcSfTep": 9997,
         "idpTradeCalc": 9990
       },
       "_marketConfidence": 0.5938,
@@ -7660,8 +7641,8 @@ window.DYNASTY_DATA = {
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 26,
-      "_rawComposite": 9994,
-      "_finalAdjusted": 9994
+      "_rawComposite": 9997,
+      "_finalAdjusted": 9997
     },
     "Ja'Quan McMillian": {
       "idpTradeCalc": 759,
@@ -7681,40 +7662,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1102
     },
     "Ja'Tavion Sanders": {
-      "ktc": 2032,
-      "ktcSfTep": 2697,
+      "ktc": 2029,
+      "ktcSfTep": 2694,
       "idpTradeCalc": 2466,
       "_sleeperId": "11600",
-      "_composite": 2697,
+      "_composite": 2694,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2032,
-        "ktcSfTep": 2697,
+        "ktc": 2029,
+        "ktcSfTep": 2694,
         "idpTradeCalc": 2466
       },
-      "_marketConfidence": 0.4993,
-      "_marketDispersionCV": 0.09444,
+      "_marketConfidence": 0.499,
+      "_marketDispersionCV": 0.094778,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 23,
-      "_rawComposite": 2697,
-      "_finalAdjusted": 2697
+      "_rawComposite": 2694,
+      "_finalAdjusted": 2694
     },
     "Jack Bech": {
-      "ktc": 2477,
-      "ktcSfTep": 2477,
+      "ktc": 2480,
+      "ktcSfTep": 2480,
       "idpTradeCalc": 2530,
       "_sleeperId": "12483",
       "_composite": 2530,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2477,
-        "ktcSfTep": 2477,
+        "ktc": 2480,
+        "ktcSfTep": 2480,
         "idpTradeCalc": 2530
       },
-      "_marketConfidence": 0.5447,
-      "_marketDispersionCV": 0.049047,
+      "_marketConfidence": 0.5451,
+      "_marketDispersionCV": 0.048609,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7752,7 +7733,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1071
       },
       "_marketConfidence": 0.4473,
-      "_marketDispersionCV": 0.146408,
+      "_marketDispersionCV": 0.146432,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7824,8 +7805,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1088,
         "idpTradeCalc": 1078
       },
-      "_marketConfidence": 0.5327,
-      "_marketDispersionCV": 0.061088,
+      "_marketConfidence": 0.5326,
+      "_marketDispersionCV": 0.061116,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7869,19 +7850,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2985
     },
     "Jacoby Brissett": {
-      "ktc": 2663,
-      "ktcSfTep": 2663,
+      "ktc": 2666,
+      "ktcSfTep": 2666,
       "idpTradeCalc": 2666,
       "_sleeperId": "3257",
       "_composite": 2666,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2663,
-        "ktcSfTep": 2663,
+        "ktc": 2666,
+        "ktcSfTep": 2666,
         "idpTradeCalc": 2666
       },
-      "_marketConfidence": 0.5533,
-      "_marketDispersionCV": 0.040484,
+      "_marketConfidence": 0.5537,
+      "_marketDispersionCV": 0.040075,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -7902,7 +7883,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2952
       },
       "_marketConfidence": 0.555,
-      "_marketDispersionCV": 0.038715,
+      "_marketDispersionCV": 0.038725,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7923,7 +7904,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4852
       },
       "_marketConfidence": 0.5635,
-      "_marketDispersionCV": 0.030247,
+      "_marketDispersionCV": 0.030251,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7967,19 +7948,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1960
     },
     "Jahan Dotson": {
-      "ktc": 1628,
-      "ktcSfTep": 1628,
+      "ktc": 1625,
+      "ktcSfTep": 1625,
       "idpTradeCalc": 1666,
       "_sleeperId": "8119",
       "_composite": 1666,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1628,
-        "ktcSfTep": 1628,
+        "ktc": 1625,
+        "ktcSfTep": 1625,
         "idpTradeCalc": 1666
       },
-      "_marketConfidence": 0.5346,
-      "_marketDispersionCV": 0.059113,
+      "_marketConfidence": 0.534,
+      "_marketDispersionCV": 0.059751,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8005,15 +7986,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1456
     },
     "Jahmyr Gibbs": {
-      "ktc": 9944,
-      "ktcSfTep": 9944,
+      "ktc": 9942,
+      "ktcSfTep": 9942,
       "idpTradeCalc": 9676,
       "_sleeperId": "9221",
-      "_composite": 9944,
+      "_composite": 9942,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9944,
-        "ktcSfTep": 9944,
+        "ktc": 9942,
+        "ktcSfTep": 9942,
         "idpTradeCalc": 9676
       },
       "_marketConfidence": 0.5938,
@@ -8022,8 +8003,8 @@ window.DYNASTY_DATA = {
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 9944,
-      "_finalAdjusted": 9944
+      "_rawComposite": 9942,
+      "_finalAdjusted": 9942
     },
     "Jaishawn Barham": {
       "idpTradeCalc": 1250,
@@ -8055,8 +8036,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1023,
         "idpTradeCalc": 1100
       },
-      "_marketConfidence": 0.5095,
-      "_marketDispersionCV": 0.08427,
+      "_marketConfidence": 0.5094,
+      "_marketDispersionCV": 0.0843,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8065,23 +8046,23 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1100
     },
     "Jake Browning": {
-      "ktc": 502,
-      "ktcSfTep": 502,
+      "ktc": 505,
+      "ktcSfTep": 505,
       "_sleeperId": "6111",
-      "_composite": 502,
+      "_composite": 505,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 502,
-        "ktcSfTep": 502
+        "ktc": 505,
+        "ktcSfTep": 505
       },
       "_marketConfidence": 0.4889,
-      "_marketDispersionCV": 0.023631,
+      "_marketDispersionCV": 0.023591,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 30,
-      "_rawComposite": 502,
-      "_finalAdjusted": 502
+      "_rawComposite": 505,
+      "_finalAdjusted": 505
     },
     "Jake Ferguson": {
       "ktc": 3202,
@@ -8095,8 +8076,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 4010,
         "idpTradeCalc": 3670
       },
-      "_marketConfidence": 0.516,
-      "_marketDispersionCV": 0.077798,
+      "_marketConfidence": 0.5159,
+      "_marketDispersionCV": 0.077804,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8123,25 +8104,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2717
     },
     "Jake Tonges": {
-      "ktc": 2258,
-      "ktcSfTep": 2946,
+      "ktc": 2252,
+      "ktcSfTep": 2939,
       "idpTradeCalc": 2673,
       "_sleeperId": "8698",
-      "_composite": 2946,
+      "_composite": 2939,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2258,
-        "ktcSfTep": 2946,
+        "ktc": 2252,
+        "ktcSfTep": 2939,
         "idpTradeCalc": 2673
       },
-      "_marketConfidence": 0.5056,
-      "_marketDispersionCV": 0.088152,
+      "_marketConfidence": 0.5051,
+      "_marketDispersionCV": 0.088685,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 26,
-      "_rawComposite": 2946,
-      "_finalAdjusted": 2946
+      "_rawComposite": 2939,
+      "_finalAdjusted": 2939
     },
     "Jakobe Thomas": {
       "idpTradeCalc": 1253,
@@ -8174,7 +8155,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3145
       },
       "_marketConfidence": 0.5456,
-      "_marketDispersionCV": 0.048168,
+      "_marketDispersionCV": 0.048178,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -8195,7 +8176,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1478
       },
       "_marketConfidence": 0.5273,
-      "_marketDispersionCV": 0.06644,
+      "_marketDispersionCV": 0.066463,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8221,40 +8202,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2704
     },
     "Jalen Coker": {
-      "ktc": 3155,
-      "ktcSfTep": 3155,
+      "ktc": 3158,
+      "ktcSfTep": 3158,
       "idpTradeCalc": 3090,
       "_sleeperId": "11646",
-      "_composite": 3155,
+      "_composite": 3158,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3155,
-        "ktcSfTep": 3155,
+        "ktc": 3158,
+        "ktcSfTep": 3158,
         "idpTradeCalc": 3090
       },
-      "_marketConfidence": 0.5646,
-      "_marketDispersionCV": 0.029117,
+      "_marketConfidence": 0.565,
+      "_marketDispersionCV": 0.028769,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 3155,
-      "_finalAdjusted": 3155
+      "_rawComposite": 3158,
+      "_finalAdjusted": 3158
     },
     "Jalen Hurts": {
-      "ktc": 6140,
-      "ktcSfTep": 6140,
+      "ktc": 6139,
+      "ktcSfTep": 6139,
       "idpTradeCalc": 6201,
       "_sleeperId": "6904",
       "_composite": 6201,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6140,
-        "ktcSfTep": 6140,
+        "ktc": 6139,
+        "ktcSfTep": 6139,
         "idpTradeCalc": 6201
       },
       "_marketConfidence": 0.5635,
-      "_marketDispersionCV": 0.030204,
+      "_marketDispersionCV": 0.030275,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -8263,46 +8244,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 6201
     },
     "Jalen McMillan": {
-      "ktc": 3071,
-      "ktcSfTep": 3071,
+      "ktc": 3065,
+      "ktcSfTep": 3065,
       "idpTradeCalc": 2948,
       "_sleeperId": "11618",
-      "_composite": 3071,
+      "_composite": 3065,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3071,
-        "ktcSfTep": 3071,
+        "ktc": 3065,
+        "ktcSfTep": 3065,
         "idpTradeCalc": 2948
       },
-      "_marketConfidence": 0.571,
-      "_marketDispersionCV": 0.022727,
+      "_marketConfidence": 0.5703,
+      "_marketDispersionCV": 0.023445,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 3071,
-      "_finalAdjusted": 3071
+      "_rawComposite": 3065,
+      "_finalAdjusted": 3065
     },
     "Jalen Milroe": {
-      "ktc": 2238,
-      "ktcSfTep": 2238,
+      "ktc": 2244,
+      "ktcSfTep": 2244,
       "idpTradeCalc": 2235,
       "_sleeperId": "12510",
-      "_composite": 2238,
+      "_composite": 2244,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2238,
-        "ktcSfTep": 2238,
+        "ktc": 2244,
+        "ktcSfTep": 2244,
         "idpTradeCalc": 2235
       },
-      "_marketConfidence": 0.5502,
-      "_marketDispersionCV": 0.043542,
+      "_marketConfidence": 0.5512,
+      "_marketDispersionCV": 0.042595,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 2238,
-      "_finalAdjusted": 2238
+      "_rawComposite": 2244,
+      "_finalAdjusted": 2244
     },
     "Jalen Nailor": {
       "ktc": 2429,
@@ -8317,7 +8298,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2350
       },
       "_marketConfidence": 0.5628,
-      "_marketDispersionCV": 0.030957,
+      "_marketDispersionCV": 0.030969,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8389,7 +8370,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1862
       },
       "_marketConfidence": 0.5334,
-      "_marketDispersionCV": 0.060379,
+      "_marketDispersionCV": 0.060397,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8415,40 +8396,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1159
     },
     "Jalen Tolbert": {
-      "ktc": 1795,
-      "ktcSfTep": 1795,
+      "ktc": 1798,
+      "ktcSfTep": 1798,
       "idpTradeCalc": 1793,
       "_sleeperId": "8117",
-      "_composite": 1795,
+      "_composite": 1798,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1795,
-        "ktcSfTep": 1795,
+        "ktc": 1798,
+        "ktcSfTep": 1798,
         "idpTradeCalc": 1793
       },
-      "_marketConfidence": 0.5447,
-      "_marketDispersionCV": 0.049086,
+      "_marketConfidence": 0.5452,
+      "_marketDispersionCV": 0.048535,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 27,
-      "_rawComposite": 1795,
-      "_finalAdjusted": 1795
+      "_rawComposite": 1798,
+      "_finalAdjusted": 1798
     },
     "Jalin Hyatt": {
-      "ktc": 1206,
-      "ktcSfTep": 1206,
+      "ktc": 1203,
+      "ktcSfTep": 1203,
       "idpTradeCalc": 1230,
       "_sleeperId": "9497",
       "_composite": 1230,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1206,
-        "ktcSfTep": 1206,
+        "ktc": 1203,
+        "ktcSfTep": 1203,
         "idpTradeCalc": 1230
       },
-      "_marketConfidence": 0.5279,
-      "_marketDispersionCV": 0.065857,
+      "_marketConfidence": 0.5271,
+      "_marketDispersionCV": 0.06664,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8503,7 +8484,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 781
       },
       "_marketConfidence": 0.5272,
-      "_marketDispersionCV": 0.06651,
+      "_marketDispersionCV": 0.066545,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -8523,8 +8504,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 875,
         "idpTradeCalc": 913
       },
-      "_marketConfidence": 0.5135,
-      "_marketDispersionCV": 0.08027,
+      "_marketConfidence": 0.5134,
+      "_marketDispersionCV": 0.080304,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8545,7 +8526,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1393
       },
       "_marketConfidence": 0.5163,
-      "_marketDispersionCV": 0.077461,
+      "_marketDispersionCV": 0.077486,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -8554,19 +8535,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1393
     },
     "James Conner": {
-      "ktc": 1756,
-      "ktcSfTep": 1756,
+      "ktc": 1753,
+      "ktcSfTep": 1753,
       "idpTradeCalc": 1794,
       "_sleeperId": "4137",
       "_composite": 1794,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1756,
-        "ktcSfTep": 1756,
+        "ktc": 1753,
+        "ktcSfTep": 1753,
         "idpTradeCalc": 1794
       },
-      "_marketConfidence": 0.537,
-      "_marketDispersionCV": 0.056762,
+      "_marketConfidence": 0.5364,
+      "_marketDispersionCV": 0.057366,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -8586,8 +8567,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 6036,
         "idpTradeCalc": 5987
       },
-      "_marketConfidence": 0.5707,
-      "_marketDispersionCV": 0.0231,
+      "_marketConfidence": 0.5706,
+      "_marketDispersionCV": 0.023102,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8624,8 +8605,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 4674,
         "idpTradeCalc": 4697
       },
-      "_marketConfidence": 0.562,
-      "_marketDispersionCV": 0.031798,
+      "_marketConfidence": 0.5619,
+      "_marketDispersionCV": 0.031803,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8680,7 +8661,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4675
       },
       "_marketConfidence": 0.5641,
-      "_marketDispersionCV": 0.029608,
+      "_marketDispersionCV": 0.029613,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -8706,46 +8687,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2989
     },
     "Jared Wiley": {
-      "ktc": 1011,
-      "ktcSfTep": 1586,
+      "ktc": 1014,
+      "ktcSfTep": 1589,
       "idpTradeCalc": 1363,
       "_sleeperId": "11595",
-      "_composite": 1586,
+      "_composite": 1589,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1011,
-        "ktcSfTep": 1586,
+        "ktc": 1014,
+        "ktcSfTep": 1589,
         "idpTradeCalc": 1363
       },
-      "_marketConfidence": 0.4719,
-      "_marketDispersionCV": 0.121817,
+      "_marketConfidence": 0.4724,
+      "_marketDispersionCV": 0.121324,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 25,
-      "_rawComposite": 1586,
-      "_finalAdjusted": 1586
+      "_rawComposite": 1589,
+      "_finalAdjusted": 1589
     },
     "Jarquez Hunter": {
-      "ktc": 1676,
-      "ktcSfTep": 1676,
+      "ktc": 1679,
+      "ktcSfTep": 1679,
       "idpTradeCalc": 1657,
       "_sleeperId": "11569",
-      "_composite": 1676,
+      "_composite": 1679,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1676,
-        "ktcSfTep": 1676,
+        "ktc": 1679,
+        "ktcSfTep": 1679,
         "idpTradeCalc": 1657
       },
-      "_marketConfidence": 0.546,
-      "_marketDispersionCV": 0.047741,
+      "_marketConfidence": 0.5466,
+      "_marketDispersionCV": 0.047165,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 1676,
-      "_finalAdjusted": 1676
+      "_rawComposite": 1679,
+      "_finalAdjusted": 1679
     },
     "Jauan Jennings": {
       "ktc": 2588,
@@ -8760,7 +8741,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2678
       },
       "_marketConfidence": 0.5409,
-      "_marketDispersionCV": 0.052807,
+      "_marketDispersionCV": 0.052819,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -8780,8 +8761,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1097,
         "idpTradeCalc": 1075
       },
-      "_marketConfidence": 0.5358,
-      "_marketDispersionCV": 0.057984,
+      "_marketConfidence": 0.5357,
+      "_marketDispersionCV": 0.058012,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8853,7 +8834,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4512
       },
       "_marketConfidence": 0.5624,
-      "_marketDispersionCV": 0.031306,
+      "_marketDispersionCV": 0.03131,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -8874,7 +8855,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 873
       },
       "_marketConfidence": 0.5159,
-      "_marketDispersionCV": 0.07786,
+      "_marketDispersionCV": 0.077894,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8883,19 +8864,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 873
     },
     "Jaxon Smith-Njigba": {
-      "ktc": 9587,
-      "ktcSfTep": 9587,
+      "ktc": 9585,
+      "ktcSfTep": 9585,
       "idpTradeCalc": 9802,
       "_sleeperId": "9488",
       "_composite": 9802,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9587,
-        "ktcSfTep": 9587,
+        "ktc": 9585,
+        "ktcSfTep": 9585,
         "idpTradeCalc": 9802
       },
-      "_marketConfidence": 0.5819,
-      "_marketDispersionCV": 0.011862,
+      "_marketConfidence": 0.5818,
+      "_marketDispersionCV": 0.011943,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8904,19 +8885,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 9802
     },
     "Jaxson Dart": {
-      "ktc": 6446,
-      "ktcSfTep": 6446,
+      "ktc": 6452,
+      "ktcSfTep": 6452,
       "idpTradeCalc": 6591,
       "_sleeperId": "12508",
       "_composite": 6591,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6446,
-        "ktcSfTep": 6446,
+        "ktc": 6452,
+        "ktcSfTep": 6452,
         "idpTradeCalc": 6591
       },
-      "_marketConfidence": 0.559,
-      "_marketDispersionCV": 0.034775,
+      "_marketConfidence": 0.5594,
+      "_marketDispersionCV": 0.034378,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8942,25 +8923,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1200
     },
     "Jayden Daniels": {
-      "ktc": 7830,
-      "ktcSfTep": 7830,
+      "ktc": 7833,
+      "ktcSfTep": 7833,
       "idpTradeCalc": 7807,
       "_sleeperId": "11566",
-      "_composite": 7830,
+      "_composite": 7833,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7830,
-        "ktcSfTep": 7830,
+        "ktc": 7833,
+        "ktcSfTep": 7833,
         "idpTradeCalc": 7807
       },
-      "_marketConfidence": 0.5715,
-      "_marketDispersionCV": 0.022246,
+      "_marketConfidence": 0.5717,
+      "_marketDispersionCV": 0.022084,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 25,
-      "_rawComposite": 7830,
-      "_finalAdjusted": 7830
+      "_rawComposite": 7833,
+      "_finalAdjusted": 7833
     },
     "Jayden Higgins": {
       "ktc": 3463,
@@ -8975,7 +8956,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3404
       },
       "_marketConfidence": 0.5652,
-      "_marketDispersionCV": 0.028539,
+      "_marketDispersionCV": 0.028546,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8984,19 +8965,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3463
     },
     "Jayden Reed": {
-      "ktc": 3427,
-      "ktcSfTep": 3427,
+      "ktc": 3424,
+      "ktcSfTep": 3424,
       "idpTradeCalc": 3479,
       "_sleeperId": "10222",
       "_composite": 3479,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3427,
-        "ktcSfTep": 3427,
+        "ktc": 3424,
+        "ktcSfTep": 3424,
         "idpTradeCalc": 3479
       },
-      "_marketConfidence": 0.5531,
-      "_marketDispersionCV": 0.040683,
+      "_marketConfidence": 0.5527,
+      "_marketDispersionCV": 0.041036,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9005,40 +8986,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3479
     },
     "Jaydon Blue": {
-      "ktc": 2066,
-      "ktcSfTep": 2066,
+      "ktc": 2069,
+      "ktcSfTep": 2069,
       "idpTradeCalc": 2056,
       "_sleeperId": "12457",
-      "_composite": 2066,
+      "_composite": 2069,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2066,
-        "ktcSfTep": 2066,
+        "ktc": 2069,
+        "ktcSfTep": 2069,
         "idpTradeCalc": 2056
       },
-      "_marketConfidence": 0.5494,
-      "_marketDispersionCV": 0.044313,
+      "_marketConfidence": 0.5499,
+      "_marketDispersionCV": 0.043818,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 2066,
-      "_finalAdjusted": 2066
+      "_rawComposite": 2069,
+      "_finalAdjusted": 2069
     },
     "Jaylen Waddle": {
-      "ktc": 4767,
-      "ktcSfTep": 4767,
+      "ktc": 4761,
+      "ktcSfTep": 4761,
       "idpTradeCalc": 4778,
       "_sleeperId": "7526",
       "_composite": 4778,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4767,
-        "ktcSfTep": 4767,
+        "ktc": 4761,
+        "ktcSfTep": 4761,
         "idpTradeCalc": 4778
       },
-      "_marketConfidence": 0.5633,
-      "_marketDispersionCV": 0.030485,
+      "_marketConfidence": 0.5627,
+      "_marketDispersionCV": 0.031003,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -9059,7 +9040,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3165
       },
       "_marketConfidence": 0.5622,
-      "_marketDispersionCV": 0.031515,
+      "_marketDispersionCV": 0.031523,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9080,7 +9061,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2216
       },
       "_marketConfidence": 0.543,
-      "_marketDispersionCV": 0.050779,
+      "_marketDispersionCV": 0.050794,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9101,7 +9082,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1956
       },
       "_marketConfidence": 0.5576,
-      "_marketDispersionCV": 0.036111,
+      "_marketDispersionCV": 0.036126,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9122,7 +9103,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2683
       },
       "_marketConfidence": 0.5589,
-      "_marketDispersionCV": 0.034834,
+      "_marketDispersionCV": 0.034845,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9199,19 +9180,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1113
     },
     "Jeremiyah Love": {
-      "ktc": 7602,
-      "ktcSfTep": 7602,
+      "ktc": 7605,
+      "ktcSfTep": 7605,
       "idpTradeCalc": 7655,
       "_sleeperId": "13287",
       "_composite": 7655,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7602,
-        "ktcSfTep": 7602,
+        "ktc": 7605,
+        "ktcSfTep": 7605,
         "idpTradeCalc": 7655
       },
-      "_marketConfidence": 0.5671,
-      "_marketDispersionCV": 0.026665,
+      "_marketConfidence": 0.5673,
+      "_marketDispersionCV": 0.026496,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -9250,7 +9231,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 872
       },
       "_marketConfidence": 0.446,
-      "_marketDispersionCV": 0.147712,
+      "_marketDispersionCV": 0.147737,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9288,7 +9269,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1541
       },
       "_marketConfidence": 0.5347,
-      "_marketDispersionCV": 0.05906,
+      "_marketDispersionCV": 0.059082,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9309,7 +9290,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2633
       },
       "_marketConfidence": 0.5486,
-      "_marketDispersionCV": 0.04518,
+      "_marketDispersionCV": 0.045192,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9381,7 +9362,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1550
       },
       "_marketConfidence": 0.5387,
-      "_marketDispersionCV": 0.055032,
+      "_marketDispersionCV": 0.055053,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9407,25 +9388,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1106
     },
     "Joe Burrow": {
-      "ktc": 7451,
-      "ktcSfTep": 7451,
+      "ktc": 7445,
+      "ktcSfTep": 7445,
       "idpTradeCalc": 7425,
       "_sleeperId": "6770",
-      "_composite": 7451,
+      "_composite": 7445,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7451,
-        "ktcSfTep": 7451,
+        "ktc": 7445,
+        "ktcSfTep": 7445,
         "idpTradeCalc": 7425
       },
-      "_marketConfidence": 0.5712,
-      "_marketDispersionCV": 0.022533,
+      "_marketConfidence": 0.5709,
+      "_marketDispersionCV": 0.022874,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 29,
-      "_rawComposite": 7451,
-      "_finalAdjusted": 7451
+      "_rawComposite": 7445,
+      "_finalAdjusted": 7445
     },
     "Joe Flacco": {
       "ktc": 1123,
@@ -9440,7 +9421,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1098
       },
       "_marketConfidence": 0.5371,
-      "_marketDispersionCV": 0.056649,
+      "_marketDispersionCV": 0.056676,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 18,
@@ -9461,7 +9442,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1725
       },
       "_marketConfidence": 0.5343,
-      "_marketDispersionCV": 0.059406,
+      "_marketDispersionCV": 0.059426,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9482,7 +9463,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1097
       },
       "_marketConfidence": 0.5186,
-      "_marketDispersionCV": 0.075159,
+      "_marketDispersionCV": 0.075189,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -9542,19 +9523,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1106
     },
     "John Metchie": {
-      "ktc": 1427,
-      "ktcSfTep": 1427,
+      "ktc": 1424,
+      "ktcSfTep": 1424,
       "idpTradeCalc": 1512,
       "_sleeperId": "8147",
       "_composite": 1512,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1427,
-        "ktcSfTep": 1427,
+        "ktc": 1424,
+        "ktcSfTep": 1424,
         "idpTradeCalc": 1512
       },
-      "_marketConfidence": 0.5209,
-      "_marketDispersionCV": 0.072841,
+      "_marketConfidence": 0.5202,
+      "_marketDispersionCV": 0.073549,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9589,8 +9570,8 @@ window.DYNASTY_DATA = {
         "ktc": 560,
         "ktcSfTep": 560
       },
-      "_marketConfidence": 0.4898,
-      "_marketDispersionCV": 0.022747,
+      "_marketConfidence": 0.4897,
+      "_marketDispersionCV": 0.022754,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9599,26 +9580,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 560
     },
     "Jonah Coleman": {
-      "ktc": 3172,
-      "ktcSfTep": 3172,
+      "ktc": 3175,
+      "ktcSfTep": 3175,
       "idpTradeCalc": 3148,
       "_sleeperId": "13345",
-      "_composite": 3172,
+      "_composite": 3175,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3172,
-        "ktcSfTep": 3172,
+        "ktc": 3175,
+        "ktcSfTep": 3175,
         "idpTradeCalc": 3148
       },
-      "_marketConfidence": 0.56,
-      "_marketDispersionCV": 0.033755,
+      "_marketConfidence": 0.5603,
+      "_marketDispersionCV": 0.033403,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 3172,
-      "_finalAdjusted": 3172
+      "_rawComposite": 3175,
+      "_finalAdjusted": 3175
     },
     "Jonah Elliss": {
       "idpTradeCalc": 1259,
@@ -9706,19 +9687,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2572
     },
     "Jonathan Mingo": {
-      "ktc": 1070,
-      "ktcSfTep": 1070,
+      "ktc": 1073,
+      "ktcSfTep": 1073,
       "idpTradeCalc": 1084,
       "_sleeperId": "10225",
       "_composite": 1084,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1070,
-        "ktcSfTep": 1070,
+        "ktc": 1073,
+        "ktcSfTep": 1073,
         "idpTradeCalc": 1084
       },
-      "_marketConfidence": 0.5264,
-      "_marketDispersionCV": 0.067369,
+      "_marketConfidence": 0.5272,
+      "_marketDispersionCV": 0.066585,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9739,7 +9720,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6006
       },
       "_marketConfidence": 0.5683,
-      "_marketDispersionCV": 0.025403,
+      "_marketDispersionCV": 0.025405,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9748,25 +9729,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 6021
     },
     "Jonathon Brooks": {
-      "ktc": 3339,
-      "ktcSfTep": 3339,
+      "ktc": 3342,
+      "ktcSfTep": 3342,
       "idpTradeCalc": 3206,
       "_sleeperId": "11583",
-      "_composite": 3339,
+      "_composite": 3342,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3339,
-        "ktcSfTep": 3339,
+        "ktc": 3342,
+        "ktcSfTep": 3342,
         "idpTradeCalc": 3206
       },
-      "_marketConfidence": 0.5728,
-      "_marketDispersionCV": 0.020973,
+      "_marketConfidence": 0.5731,
+      "_marketDispersionCV": 0.020654,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 22,
-      "_rawComposite": 3339,
-      "_finalAdjusted": 3339
+      "_rawComposite": 3342,
+      "_finalAdjusted": 3342
     },
     "Jonathon Cooper": {
       "idpTradeCalc": 1941,
@@ -9797,8 +9778,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1546,
         "idpTradeCalc": 1395
       },
-      "_marketConfidence": 0.461,
-      "_marketDispersionCV": 0.132792,
+      "_marketConfidence": 0.4609,
+      "_marketDispersionCV": 0.132812,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -9807,19 +9788,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1546
     },
     "Jordan Addison": {
-      "ktc": 3970,
-      "ktcSfTep": 3970,
+      "ktc": 3973,
+      "ktcSfTep": 3973,
       "idpTradeCalc": 4018,
       "_sleeperId": "9756",
       "_composite": 4018,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3970,
-        "ktcSfTep": 3970,
+        "ktc": 3973,
+        "ktcSfTep": 3973,
         "idpTradeCalc": 4018
       },
-      "_marketConfidence": 0.5567,
-      "_marketDispersionCV": 0.037072,
+      "_marketConfidence": 0.557,
+      "_marketDispersionCV": 0.036775,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9874,7 +9855,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2134
       },
       "_marketConfidence": 0.5483,
-      "_marketDispersionCV": 0.045455,
+      "_marketDispersionCV": 0.04547,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9883,19 +9864,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2134
     },
     "Jordan Love": {
-      "ktc": 5520,
-      "ktcSfTep": 5520,
+      "ktc": 5514,
+      "ktcSfTep": 5514,
       "idpTradeCalc": 5566,
       "_sleeperId": "6804",
       "_composite": 5566,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5520,
-        "ktcSfTep": 5520,
+        "ktc": 5514,
+        "ktcSfTep": 5514,
         "idpTradeCalc": 5566
       },
-      "_marketConfidence": 0.5629,
-      "_marketDispersionCV": 0.030864,
+      "_marketConfidence": 0.5624,
+      "_marketDispersionCV": 0.031321,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9933,7 +9914,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2676
       },
       "_marketConfidence": 0.5518,
-      "_marketDispersionCV": 0.041943,
+      "_marketDispersionCV": 0.041955,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9953,8 +9934,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1088,
         "idpTradeCalc": 1111
       },
-      "_marketConfidence": 0.5248,
-      "_marketDispersionCV": 0.068989,
+      "_marketConfidence": 0.5247,
+      "_marketDispersionCV": 0.069018,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9963,19 +9944,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1111
     },
     "Jordan Whittington": {
-      "ktc": 1555,
-      "ktcSfTep": 1555,
+      "ktc": 1551,
+      "ktcSfTep": 1551,
       "idpTradeCalc": 1572,
       "_sleeperId": "11623",
       "_composite": 1572,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1555,
-        "ktcSfTep": 1555,
+        "ktc": 1551,
+        "ktcSfTep": 1551,
         "idpTradeCalc": 1572
       },
-      "_marketConfidence": 0.5372,
-      "_marketDispersionCV": 0.056529,
+      "_marketConfidence": 0.5364,
+      "_marketDispersionCV": 0.057398,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10001,26 +9982,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2605
     },
     "Jordyn Tyson": {
-      "ktc": 5376,
-      "ktcSfTep": 5376,
+      "ktc": 5379,
+      "ktcSfTep": 5379,
       "idpTradeCalc": 5374,
       "_sleeperId": "13281",
-      "_composite": 5376,
+      "_composite": 5379,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5376,
-        "ktcSfTep": 5376,
+        "ktc": 5379,
+        "ktcSfTep": 5379,
         "idpTradeCalc": 5374
       },
-      "_marketConfidence": 0.566,
-      "_marketDispersionCV": 0.02773,
+      "_marketConfidence": 0.5662,
+      "_marketDispersionCV": 0.027504,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 5376,
-      "_finalAdjusted": 5376
+      "_rawComposite": 5379,
+      "_finalAdjusted": 5379
     },
     "Josaiah Stewart": {
       "idpTradeCalc": 1256,
@@ -10057,15 +10038,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1437
     },
     "Josh Allen": {
-      "ktc": 9988,
-      "ktcSfTep": 9988,
+      "ktc": 9993,
+      "ktcSfTep": 9993,
       "idpTradeCalc": 9988,
       "_sleeperId": "4984",
-      "_composite": 9988,
+      "_composite": 9993,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9988,
-        "ktcSfTep": 9988,
+        "ktc": 9993,
+        "ktcSfTep": 9993,
         "idpTradeCalc": 9988
       },
       "_marketConfidence": 0.5938,
@@ -10074,29 +10055,29 @@ window.DYNASTY_DATA = {
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
       "age": 30,
-      "_rawComposite": 9988,
-      "_finalAdjusted": 9988
+      "_rawComposite": 9993,
+      "_finalAdjusted": 9993
     },
     "Josh Downs": {
-      "ktc": 3640,
-      "ktcSfTep": 3640,
+      "ktc": 3643,
+      "ktcSfTep": 3643,
       "idpTradeCalc": 3613,
       "_sleeperId": "9500",
-      "_composite": 3640,
+      "_composite": 3643,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3640,
-        "ktcSfTep": 3640,
+        "ktc": 3643,
+        "ktcSfTep": 3643,
         "idpTradeCalc": 3613
       },
-      "_marketConfidence": 0.5626,
-      "_marketDispersionCV": 0.03118,
+      "_marketConfidence": 0.5629,
+      "_marketDispersionCV": 0.030865,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 3640,
-      "_finalAdjusted": 3640
+      "_rawComposite": 3643,
+      "_finalAdjusted": 3643
     },
     "Josh Hines-Allen": {
       "idpTradeCalc": 3593,
@@ -10116,25 +10097,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2977
     },
     "Josh Jacobs": {
-      "ktc": 3855,
-      "ktcSfTep": 3855,
+      "ktc": 3859,
+      "ktcSfTep": 3859,
       "idpTradeCalc": 3602,
       "_sleeperId": "5850",
-      "_composite": 3855,
+      "_composite": 3859,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3855,
-        "ktcSfTep": 3855,
+        "ktc": 3859,
+        "ktcSfTep": 3859,
         "idpTradeCalc": 3602
       },
-      "_marketConfidence": 0.584,
-      "_marketDispersionCV": 0.009738,
+      "_marketConfidence": 0.5843,
+      "_marketDispersionCV": 0.00949,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 3855,
-      "_finalAdjusted": 3855
+      "_rawComposite": 3859,
+      "_finalAdjusted": 3859
     },
     "Joshua Metellus": {
       "idpTradeCalc": 1380,
@@ -10155,22 +10136,22 @@ window.DYNASTY_DATA = {
     },
     "Josh Oliver": {
       "ktc": 493,
-      "ktcSfTep": 1009,
+      "ktcSfTep": 1008,
       "_sleeperId": "5973",
-      "_composite": 1009,
+      "_composite": 1008,
       "_sites": 2,
       "_canonicalSiteValues": {
         "ktc": 493,
-        "ktcSfTep": 1009
+        "ktcSfTep": 1008
       },
-      "_marketConfidence": 0.3561,
-      "_marketDispersionCV": 0.156449,
+      "_marketConfidence": 0.3563,
+      "_marketDispersionCV": 0.156171,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 29,
-      "_rawComposite": 1009,
-      "_finalAdjusted": 1009
+      "_rawComposite": 1008,
+      "_finalAdjusted": 1008
     },
     "Josh Sweat": {
       "idpTradeCalc": 1939,
@@ -10202,7 +10183,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.5325,
-      "_marketDispersionCV": 0.06127,
+      "_marketDispersionCV": 0.061291,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -10239,7 +10220,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 488
       },
       "_marketConfidence": 0.4886,
-      "_marketDispersionCV": 0.023857,
+      "_marketDispersionCV": 0.023865,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -10293,8 +10274,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1345,
         "idpTradeCalc": 1361
       },
-      "_marketConfidence": 0.5331,
-      "_marketDispersionCV": 0.060677,
+      "_marketConfidence": 0.533,
+      "_marketDispersionCV": 0.060701,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -10314,8 +10295,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2052,
         "idpTradeCalc": 2059
       },
-      "_marketConfidence": 0.5466,
-      "_marketDispersionCV": 0.047189,
+      "_marketConfidence": 0.5465,
+      "_marketDispersionCV": 0.047205,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -10324,40 +10305,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2059
     },
     "Justin Herbert": {
-      "ktc": 6987,
-      "ktcSfTep": 6987,
+      "ktc": 6986,
+      "ktcSfTep": 6986,
       "idpTradeCalc": 6889,
       "_sleeperId": "6797",
-      "_composite": 6987,
+      "_composite": 6986,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6987,
-        "ktcSfTep": 6987,
+        "ktc": 6986,
+        "ktcSfTep": 6986,
         "idpTradeCalc": 6889
       },
       "_marketConfidence": 0.5748,
-      "_marketDispersionCV": 0.018928,
+      "_marketDispersionCV": 0.018988,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 6987,
-      "_finalAdjusted": 6987
+      "_rawComposite": 6986,
+      "_finalAdjusted": 6986
     },
     "Justin Jefferson": {
-      "ktc": 7603,
-      "ktcSfTep": 7603,
+      "ktc": 7602,
+      "ktcSfTep": 7602,
       "idpTradeCalc": 7756,
       "_sleeperId": "6794",
       "_composite": 7756,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7603,
-        "ktcSfTep": 7603,
+        "ktc": 7602,
+        "ktcSfTep": 7602,
         "idpTradeCalc": 7756
       },
       "_marketConfidence": 0.5616,
-      "_marketDispersionCV": 0.032134,
+      "_marketDispersionCV": 0.032191,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -10366,26 +10347,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 7756
     },
     "Justin Joly": {
-      "ktc": 1764,
-      "ktcSfTep": 2401,
+      "ktc": 1767,
+      "ktcSfTep": 2405,
       "idpTradeCalc": 1961,
       "_sleeperId": "13400",
-      "_composite": 2401,
+      "_composite": 2405,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1764,
-        "ktcSfTep": 2401,
+        "ktc": 1767,
+        "ktcSfTep": 2405,
         "idpTradeCalc": 1961
       },
-      "_marketConfidence": 0.5087,
-      "_marketDispersionCV": 0.08508,
+      "_marketConfidence": 0.5088,
+      "_marketDispersionCV": 0.084983,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 2401,
-      "_finalAdjusted": 2401
+      "_rawComposite": 2405,
+      "_finalAdjusted": 2405
     },
     "Justin Madubuike": {
       "idpTradeCalc": 1225,
@@ -10448,7 +10429,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2736
       },
       "_marketConfidence": 0.5058,
-      "_marketDispersionCV": 0.087905,
+      "_marketDispersionCV": 0.087913,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -10474,19 +10455,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1454
     },
     "KC Concepcion": {
-      "ktc": 4459,
-      "ktcSfTep": 4459,
+      "ktc": 4462,
+      "ktcSfTep": 4462,
       "idpTradeCalc": 4522,
       "_sleeperId": "13298",
       "_composite": 4522,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4459,
-        "ktcSfTep": 4459,
+        "ktc": 4462,
+        "ktcSfTep": 4462,
         "idpTradeCalc": 4522
       },
-      "_marketConfidence": 0.5577,
-      "_marketDispersionCV": 0.03608,
+      "_marketConfidence": 0.5579,
+      "_marketDispersionCV": 0.03581,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -10496,19 +10477,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4522
     },
     "KaVontae Turpin": {
-      "ktc": 1105,
-      "ktcSfTep": 1105,
+      "ktc": 1102,
+      "ktcSfTep": 1102,
       "idpTradeCalc": 1158,
       "_sleeperId": "8917",
       "_composite": 1158,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1105,
-        "ktcSfTep": 1105,
+        "ktc": 1102,
+        "ktcSfTep": 1102,
         "idpTradeCalc": 1158
       },
-      "_marketConfidence": 0.5182,
-      "_marketDispersionCV": 0.075554,
+      "_marketConfidence": 0.5174,
+      "_marketDispersionCV": 0.076388,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -10534,26 +10515,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2024
     },
     "Kaelon Black": {
-      "ktc": 1827,
-      "ktcSfTep": 1827,
+      "ktc": 1824,
+      "ktcSfTep": 1824,
       "idpTradeCalc": 1535,
       "_sleeperId": "13414",
-      "_composite": 1827,
+      "_composite": 1824,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1827,
-        "ktcSfTep": 1827,
+        "ktc": 1824,
+        "ktcSfTep": 1824,
         "idpTradeCalc": 1535
       },
-      "_marketConfidence": 0.581,
-      "_marketDispersionCV": 0.012707,
+      "_marketConfidence": 0.5813,
+      "_marketDispersionCV": 0.012443,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 1827,
-      "_finalAdjusted": 1827
+      "_rawComposite": 1824,
+      "_finalAdjusted": 1824
     },
     "Kain Medrano": {
       "idpTradeCalc": 771,
@@ -10585,7 +10566,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2390
       },
       "_marketConfidence": 0.5465,
-      "_marketDispersionCV": 0.047249,
+      "_marketDispersionCV": 0.047263,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10594,25 +10575,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2390
     },
     "Kalel Mullings": {
-      "ktc": 1079,
-      "ktcSfTep": 1079,
+      "ktc": 1082,
+      "ktcSfTep": 1082,
       "idpTradeCalc": 1056,
       "_sleeperId": "12516",
-      "_composite": 1079,
+      "_composite": 1082,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1079,
-        "ktcSfTep": 1079,
+        "ktc": 1082,
+        "ktcSfTep": 1082,
         "idpTradeCalc": 1056
       },
-      "_marketConfidence": 0.5356,
-      "_marketDispersionCV": 0.058186,
+      "_marketConfidence": 0.5363,
+      "_marketDispersionCV": 0.057417,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 1079,
-      "_finalAdjusted": 1079
+      "_rawComposite": 1082,
+      "_finalAdjusted": 1082
     },
     "Kamari Lassiter": {
       "idpTradeCalc": 1388,
@@ -10632,19 +10613,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1518
     },
     "Kameron Johnson": {
-      "ktc": 1199,
-      "ktcSfTep": 1199,
+      "ktc": 1202,
+      "ktcSfTep": 1202,
       "idpTradeCalc": 1204,
       "_sleeperId": "11994",
       "_composite": 1204,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1199,
-        "ktcSfTep": 1199,
+        "ktc": 1202,
+        "ktcSfTep": 1202,
         "idpTradeCalc": 1204
       },
-      "_marketConfidence": 0.532,
-      "_marketDispersionCV": 0.061748,
+      "_marketConfidence": 0.5327,
+      "_marketDispersionCV": 0.061021,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10687,19 +10668,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1141
     },
     "Kareem Hunt": {
-      "ktc": 597,
-      "ktcSfTep": 597,
+      "ktc": 594,
+      "ktcSfTep": 594,
       "idpTradeCalc": 842,
       "_sleeperId": "4098",
       "_composite": 842,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 597,
-        "ktcSfTep": 597,
+        "ktc": 594,
+        "ktcSfTep": 594,
         "idpTradeCalc": 842
       },
-      "_marketConfidence": 0.4369,
-      "_marketDispersionCV": 0.156878,
+      "_marketConfidence": 0.4357,
+      "_marketDispersionCV": 0.158095,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -10720,7 +10701,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2632
       },
       "_marketConfidence": 0.5405,
-      "_marketDispersionCV": 0.053215,
+      "_marketDispersionCV": 0.053227,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10729,26 +10710,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2632
     },
     "Kaytron Allen": {
-      "ktc": 2576,
-      "ktcSfTep": 2576,
+      "ktc": 2573,
+      "ktcSfTep": 2573,
       "idpTradeCalc": 2549,
       "_sleeperId": "13405",
-      "_composite": 2576,
+      "_composite": 2573,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2576,
-        "ktcSfTep": 2576,
+        "ktc": 2573,
+        "ktcSfTep": 2573,
         "idpTradeCalc": 2549
       },
-      "_marketConfidence": 0.5566,
-      "_marketDispersionCV": 0.037153,
+      "_marketConfidence": 0.5562,
+      "_marketDispersionCV": 0.037594,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 2576,
-      "_finalAdjusted": 2576
+      "_rawComposite": 2573,
+      "_finalAdjusted": 2573
     },
     "Kayvon Thibodeaux": {
       "idpTradeCalc": 2035,
@@ -10779,8 +10760,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1517,
         "idpTradeCalc": 1570
       },
-      "_marketConfidence": 0.5295,
-      "_marketDispersionCV": 0.064287,
+      "_marketConfidence": 0.5294,
+      "_marketDispersionCV": 0.064308,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10801,7 +10782,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2412
       },
       "_marketConfidence": 0.5634,
-      "_marketDispersionCV": 0.030316,
+      "_marketDispersionCV": 0.030328,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10839,7 +10820,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1340
       },
       "_marketConfidence": 0.5111,
-      "_marketDispersionCV": 0.082651,
+      "_marketDispersionCV": 0.082677,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -10929,8 +10910,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 791,
         "idpTradeCalc": 760
       },
-      "_marketConfidence": 0.5294,
-      "_marketDispersionCV": 0.064365,
+      "_marketConfidence": 0.5293,
+      "_marketDispersionCV": 0.0644,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10939,19 +10920,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 791
     },
     "Kendre Miller": {
-      "ktc": 1768,
-      "ktcSfTep": 1768,
+      "ktc": 1771,
+      "ktcSfTep": 1771,
       "idpTradeCalc": 1859,
       "_sleeperId": "9757",
       "_composite": 1859,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1768,
-        "ktcSfTep": 1768,
+        "ktc": 1771,
+        "ktcSfTep": 1771,
         "idpTradeCalc": 1859
       },
-      "_marketConfidence": 0.5279,
-      "_marketDispersionCV": 0.065872,
+      "_marketConfidence": 0.5284,
+      "_marketDispersionCV": 0.065304,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10972,7 +10953,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1416
       },
       "_marketConfidence": 0.506,
-      "_marketDispersionCV": 0.087724,
+      "_marketDispersionCV": 0.087749,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -10993,7 +10974,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2854
       },
       "_marketConfidence": 0.5625,
-      "_marketDispersionCV": 0.03121,
+      "_marketDispersionCV": 0.03122,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -11048,7 +11029,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5435
       },
       "_marketConfidence": 0.5687,
-      "_marketDispersionCV": 0.02509,
+      "_marketDispersionCV": 0.025093,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11068,8 +11049,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1024,
         "idpTradeCalc": 1015
       },
-      "_marketConfidence": 0.5307,
-      "_marketDispersionCV": 0.063071,
+      "_marketConfidence": 0.5306,
+      "_marketDispersionCV": 0.0631,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11106,8 +11087,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1044,
         "idpTradeCalc": 1077
       },
-      "_marketConfidence": 0.521,
-      "_marketDispersionCV": 0.072791,
+      "_marketConfidence": 0.5209,
+      "_marketDispersionCV": 0.07282,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11116,26 +11097,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1077
     },
     "Kenyon Sadiq": {
-      "ktc": 4055,
-      "ktcSfTep": 5001,
+      "ktc": 4050,
+      "ktcSfTep": 4995,
       "idpTradeCalc": 4680,
       "_sleeperId": "13330",
-      "_composite": 5001,
+      "_composite": 4995,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4055,
-        "ktcSfTep": 5001,
+        "ktc": 4050,
+        "ktcSfTep": 4995,
         "idpTradeCalc": 4680
       },
-      "_marketConfidence": 0.5161,
-      "_marketDispersionCV": 0.077616,
+      "_marketConfidence": 0.5159,
+      "_marketDispersionCV": 0.07788,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 5001,
-      "_finalAdjusted": 5001
+      "_rawComposite": 4995,
+      "_finalAdjusted": 4995
     },
     "Keon Coleman": {
       "ktc": 2429,
@@ -11150,7 +11131,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2483
       },
       "_marketConfidence": 0.544,
-      "_marketDispersionCV": 0.049734,
+      "_marketDispersionCV": 0.049747,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11193,26 +11174,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1412
     },
     "Kevin Coleman": {
-      "ktc": 1926,
-      "ktcSfTep": 1926,
+      "ktc": 1923,
+      "ktcSfTep": 1923,
       "idpTradeCalc": 1731,
       "_sleeperId": "13338",
-      "_composite": 1926,
+      "_composite": 1923,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1926,
-        "ktcSfTep": 1926,
+        "ktc": 1923,
+        "ktcSfTep": 1923,
         "idpTradeCalc": 1731
       },
-      "_marketConfidence": 0.5775,
-      "_marketDispersionCV": 0.016201,
+      "_marketConfidence": 0.5771,
+      "_marketDispersionCV": 0.016628,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 1926,
-      "_finalAdjusted": 1926
+      "_rawComposite": 1923,
+      "_finalAdjusted": 1923
     },
     "Kevin Winston": {
       "idpTradeCalc": 2022,
@@ -11267,19 +11248,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1414
     },
     "Khalil Shakir": {
-      "ktc": 2921,
-      "ktcSfTep": 2921,
+      "ktc": 2923,
+      "ktcSfTep": 2923,
       "idpTradeCalc": 2971,
       "_sleeperId": "8134",
       "_composite": 2971,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2921,
-        "ktcSfTep": 2921,
+        "ktc": 2923,
+        "ktcSfTep": 2923,
         "idpTradeCalc": 2971
       },
-      "_marketConfidence": 0.5495,
-      "_marketDispersionCV": 0.044295,
+      "_marketConfidence": 0.5497,
+      "_marketDispersionCV": 0.044043,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11300,7 +11281,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2194
       },
       "_marketConfidence": 0.5427,
-      "_marketDispersionCV": 0.051066,
+      "_marketDispersionCV": 0.051081,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11321,7 +11302,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1947
       },
       "_marketConfidence": 0.5358,
-      "_marketDispersionCV": 0.057928,
+      "_marketDispersionCV": 0.057946,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 14,
@@ -11359,7 +11340,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1364
       },
       "_marketConfidence": 0.521,
-      "_marketDispersionCV": 0.072746,
+      "_marketDispersionCV": 0.072771,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11437,38 +11418,38 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1421
     },
     "Kyle McCord": {
-      "ktc": 530,
-      "ktcSfTep": 530,
+      "ktc": 533,
+      "ktcSfTep": 533,
       "_sleeperId": "12494",
-      "_composite": 530,
+      "_composite": 533,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 530,
-        "ktcSfTep": 530
+        "ktc": 533,
+        "ktcSfTep": 533
       },
       "_marketConfidence": 0.4893,
-      "_marketDispersionCV": 0.023194,
+      "_marketDispersionCV": 0.023156,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 530,
-      "_finalAdjusted": 530
+      "_rawComposite": 533,
+      "_finalAdjusted": 533
     },
     "Kyle Monangai": {
-      "ktc": 3567,
-      "ktcSfTep": 3567,
+      "ktc": 3564,
+      "ktcSfTep": 3564,
       "idpTradeCalc": 3655,
       "_sleeperId": "12534",
       "_composite": 3655,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3567,
-        "ktcSfTep": 3567,
+        "ktc": 3564,
+        "ktcSfTep": 3564,
         "idpTradeCalc": 3655
       },
-      "_marketConfidence": 0.5502,
-      "_marketDispersionCV": 0.043541,
+      "_marketConfidence": 0.5499,
+      "_marketDispersionCV": 0.043884,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11477,25 +11458,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3655
     },
     "Kyle Pitts": {
-      "ktc": 4510,
-      "ktcSfTep": 5541,
+      "ktc": 4506,
+      "ktcSfTep": 5536,
       "idpTradeCalc": 4987,
       "_sleeperId": "7553",
-      "_composite": 5493,
+      "_composite": 5490,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4510,
-        "ktcSfTep": 5541,
+        "ktc": 4506,
+        "ktcSfTep": 5536,
         "idpTradeCalc": 4987
       },
-      "_marketConfidence": 0.5237,
-      "_marketDispersionCV": 0.07005,
+      "_marketConfidence": 0.5236,
+      "_marketDispersionCV": 0.070157,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 25,
-      "_rawComposite": 5493,
-      "_finalAdjusted": 5493
+      "_rawComposite": 5490,
+      "_finalAdjusted": 5490
     },
     "Kyle Van Noy": {
       "idpTradeCalc": 766,
@@ -11515,19 +11496,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1106
     },
     "Kyle Williams": {
-      "ktc": 2366,
-      "ktcSfTep": 2366,
+      "ktc": 2369,
+      "ktcSfTep": 2369,
       "idpTradeCalc": 2419,
       "_sleeperId": "12547",
       "_composite": 2419,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2366,
-        "ktcSfTep": 2366,
+        "ktc": 2369,
+        "ktcSfTep": 2369,
         "idpTradeCalc": 2419
       },
-      "_marketConfidence": 0.5434,
-      "_marketDispersionCV": 0.050335,
+      "_marketConfidence": 0.5439,
+      "_marketDispersionCV": 0.049882,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11553,46 +11534,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "Kyler Murray": {
-      "ktc": 4119,
-      "ktcSfTep": 4119,
+      "ktc": 4115,
+      "ktcSfTep": 4115,
       "idpTradeCalc": 4115,
       "_sleeperId": "5849",
-      "_composite": 4119,
+      "_composite": 4115,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4119,
-        "ktcSfTep": 4119,
+        "ktc": 4115,
+        "ktcSfTep": 4115,
         "idpTradeCalc": 4115
       },
-      "_marketConfidence": 0.5623,
-      "_marketDispersionCV": 0.03148,
+      "_marketConfidence": 0.5619,
+      "_marketDispersionCV": 0.031874,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 4119,
-      "_finalAdjusted": 4119
+      "_rawComposite": 4115,
+      "_finalAdjusted": 4115
     },
     "Kyren Williams": {
-      "ktc": 4863,
-      "ktcSfTep": 4863,
+      "ktc": 4866,
+      "ktcSfTep": 4866,
       "idpTradeCalc": 4837,
       "_sleeperId": "8150",
-      "_composite": 4863,
+      "_composite": 4866,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4863,
-        "ktcSfTep": 4863,
+        "ktc": 4866,
+        "ktcSfTep": 4866,
         "idpTradeCalc": 4837
       },
-      "_marketConfidence": 0.5666,
-      "_marketDispersionCV": 0.027184,
+      "_marketConfidence": 0.5668,
+      "_marketDispersionCV": 0.026938,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 25,
-      "_rawComposite": 4863,
-      "_finalAdjusted": 4863
+      "_rawComposite": 4866,
+      "_finalAdjusted": 4866
     },
     "L'Jarius Sneed": {
       "idpTradeCalc": 798,
@@ -11612,23 +11593,23 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1128
     },
     "LaJohntay Wester": {
-      "ktc": 499,
-      "ktcSfTep": 499,
+      "ktc": 502,
+      "ktcSfTep": 502,
       "_sleeperId": "12699",
-      "_composite": 499,
+      "_composite": 502,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 499,
-        "ktcSfTep": 499
+        "ktc": 502,
+        "ktcSfTep": 502
       },
-      "_marketConfidence": 0.4888,
-      "_marketDispersionCV": 0.023679,
+      "_marketConfidence": 0.4889,
+      "_marketDispersionCV": 0.023639,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 24,
-      "_rawComposite": 499,
-      "_finalAdjusted": 499
+      "_rawComposite": 502,
+      "_finalAdjusted": 502
     },
     "Ladd McConkey": {
       "ktc": 5559,
@@ -11643,7 +11624,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5468
       },
       "_marketConfidence": 0.5728,
-      "_marketDispersionCV": 0.020902,
+      "_marketDispersionCV": 0.020905,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11736,7 +11717,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 949
       },
       "_marketConfidence": 0.5039,
-      "_marketDispersionCV": 0.089827,
+      "_marketDispersionCV": 0.089861,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -11757,7 +11738,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2048
       },
       "_marketConfidence": 0.5468,
-      "_marketDispersionCV": 0.04698,
+      "_marketDispersionCV": 0.046996,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11811,8 +11792,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 940,
         "idpTradeCalc": 967
       },
-      "_marketConfidence": 0.5189,
-      "_marketDispersionCV": 0.074882,
+      "_marketConfidence": 0.5188,
+      "_marketDispersionCV": 0.074914,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -11850,7 +11831,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1693
       },
       "_marketConfidence": 0.5323,
-      "_marketDispersionCV": 0.061457,
+      "_marketDispersionCV": 0.061477,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11870,8 +11851,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2414,
         "idpTradeCalc": 2183
       },
-      "_marketConfidence": 0.4952,
-      "_marketDispersionCV": 0.098599,
+      "_marketConfidence": 0.4951,
+      "_marketDispersionCV": 0.09861,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11892,7 +11873,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1559
       },
       "_marketConfidence": 0.4716,
-      "_marketDispersionCV": 0.122109,
+      "_marketDispersionCV": 0.122126,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11901,25 +11882,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1732
     },
     "Luther Burden": {
-      "ktc": 5409,
-      "ktcSfTep": 5409,
+      "ktc": 5412,
+      "ktcSfTep": 5412,
       "idpTradeCalc": 5354,
       "_sleeperId": "12519",
-      "_composite": 5409,
+      "_composite": 5412,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5409,
-        "ktcSfTep": 5409,
+        "ktc": 5412,
+        "ktcSfTep": 5412,
         "idpTradeCalc": 5354
       },
-      "_marketConfidence": 0.57,
-      "_marketDispersionCV": 0.023744,
+      "_marketConfidence": 0.5702,
+      "_marketDispersionCV": 0.023522,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 5409,
-      "_finalAdjusted": 5409
+      "_rawComposite": 5412,
+      "_finalAdjusted": 5412
     },
     "Mac Jones": {
       "ktc": 2669,
@@ -11934,7 +11915,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2684
       },
       "_marketConfidence": 0.5517,
-      "_marketDispersionCV": 0.042015,
+      "_marketDispersionCV": 0.042027,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -11955,7 +11936,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1103
       },
       "_marketConfidence": 0.5285,
-      "_marketDispersionCV": 0.065205,
+      "_marketDispersionCV": 0.065234,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -11993,7 +11974,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5077
       },
       "_marketConfidence": 0.5664,
-      "_marketDispersionCV": 0.027381,
+      "_marketDispersionCV": 0.027385,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12014,8 +11995,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1224,
         "idpTradeCalc": 1219
       },
-      "_marketConfidence": 0.5349,
-      "_marketDispersionCV": 0.058892,
+      "_marketConfidence": 0.5348,
+      "_marketDispersionCV": 0.058918,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12036,7 +12017,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2702
       },
       "_marketConfidence": 0.5558,
-      "_marketDispersionCV": 0.037985,
+      "_marketDispersionCV": 0.037997,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12110,7 +12091,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1292
       },
       "_marketConfidence": 0.5603,
-      "_marketDispersionCV": 0.033466,
+      "_marketDispersionCV": 0.033488,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -12136,19 +12117,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1434
     },
     "Malik Nabers": {
-      "ktc": 7475,
-      "ktcSfTep": 7475,
+      "ktc": 7472,
+      "ktcSfTep": 7472,
       "idpTradeCalc": 7616,
       "_sleeperId": "11632",
       "_composite": 7616,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7475,
-        "ktcSfTep": 7475,
+        "ktc": 7472,
+        "ktcSfTep": 7472,
         "idpTradeCalc": 7616
       },
-      "_marketConfidence": 0.562,
-      "_marketDispersionCV": 0.031772,
+      "_marketConfidence": 0.5618,
+      "_marketDispersionCV": 0.031947,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12157,40 +12138,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 7616
     },
     "Malik Washington": {
-      "ktc": 2546,
-      "ktcSfTep": 2546,
+      "ktc": 2549,
+      "ktcSfTep": 2549,
       "idpTradeCalc": 2514,
       "_sleeperId": "11610",
-      "_composite": 2546,
+      "_composite": 2549,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2546,
-        "ktcSfTep": 2546,
+        "ktc": 2549,
+        "ktcSfTep": 2549,
         "idpTradeCalc": 2514
       },
-      "_marketConfidence": 0.5571,
-      "_marketDispersionCV": 0.036695,
+      "_marketConfidence": 0.5575,
+      "_marketDispersionCV": 0.036276,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 25,
-      "_rawComposite": 2546,
-      "_finalAdjusted": 2546
+      "_rawComposite": 2549,
+      "_finalAdjusted": 2549
     },
     "Malik Willis": {
-      "ktc": 3834,
-      "ktcSfTep": 3834,
+      "ktc": 3835,
+      "ktcSfTep": 3835,
       "idpTradeCalc": 3960,
       "_sleeperId": "8161",
       "_composite": 3960,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3834,
-        "ktcSfTep": 3834,
+        "ktc": 3835,
+        "ktcSfTep": 3835,
         "idpTradeCalc": 3960
       },
-      "_marketConfidence": 0.5483,
-      "_marketDispersionCV": 0.045488,
+      "_marketConfidence": 0.5484,
+      "_marketDispersionCV": 0.045389,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -12199,25 +12180,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3960
     },
     "MarShawn Lloyd": {
-      "ktc": 2143,
-      "ktcSfTep": 2143,
+      "ktc": 2146,
+      "ktcSfTep": 2146,
       "idpTradeCalc": 1982,
       "_sleeperId": "11581",
-      "_composite": 2143,
+      "_composite": 2146,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2143,
-        "ktcSfTep": 2143,
+        "ktc": 2146,
+        "ktcSfTep": 2146,
         "idpTradeCalc": 1982
       },
-      "_marketConfidence": 0.5733,
-      "_marketDispersionCV": 0.020468,
+      "_marketConfidence": 0.5737,
+      "_marketDispersionCV": 0.020044,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 25,
-      "_rawComposite": 2143,
-      "_finalAdjusted": 2143
+      "_rawComposite": 2146,
+      "_finalAdjusted": 2146
     },
     "Marcus Jones": {
       "idpTradeCalc": 1302,
@@ -12237,19 +12218,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1461
     },
     "Marcus Mariota": {
-      "ktc": 1245,
-      "ktcSfTep": 1245,
+      "ktc": 1248,
+      "ktcSfTep": 1248,
       "idpTradeCalc": 1273,
       "_sleeperId": "2307",
       "_composite": 1273,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1245,
-        "ktcSfTep": 1245,
+        "ktc": 1248,
+        "ktcSfTep": 1248,
         "idpTradeCalc": 1273
       },
-      "_marketConfidence": 0.528,
-      "_marketDispersionCV": 0.065712,
+      "_marketConfidence": 0.5288,
+      "_marketDispersionCV": 0.064997,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -12275,25 +12256,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1105
     },
     "Mark Andrews": {
-      "ktc": 2776,
-      "ktcSfTep": 3521,
+      "ktc": 2773,
+      "ktcSfTep": 3518,
       "idpTradeCalc": 3164,
       "_sleeperId": "5012",
-      "_composite": 3521,
+      "_composite": 3518,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2776,
-        "ktcSfTep": 3521,
+        "ktc": 2773,
+        "ktcSfTep": 3518,
         "idpTradeCalc": 3164
       },
-      "_marketConfidence": 0.5155,
-      "_marketDispersionCV": 0.078246,
+      "_marketConfidence": 0.5153,
+      "_marketDispersionCV": 0.078467,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
       "age": 30,
-      "_rawComposite": 3521,
-      "_finalAdjusted": 3521
+      "_rawComposite": 3518,
+      "_finalAdjusted": 3518
     },
     "Marlowe Wax": {
       "idpTradeCalc": 763,
@@ -12324,8 +12305,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1626,
         "idpTradeCalc": 1731
       },
-      "_marketConfidence": 0.5222,
-      "_marketDispersionCV": 0.071581,
+      "_marketConfidence": 0.5221,
+      "_marketDispersionCV": 0.071602,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -12334,19 +12315,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1731
     },
     "Marvin Harrison": {
-      "ktc": 4964,
-      "ktcSfTep": 4964,
+      "ktc": 4961,
+      "ktcSfTep": 4961,
       "idpTradeCalc": 5001,
       "_sleeperId": "11628",
       "_composite": 5001,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4964,
-        "ktcSfTep": 4964,
+        "ktc": 4961,
+        "ktcSfTep": 4961,
         "idpTradeCalc": 5001
       },
-      "_marketConfidence": 0.5618,
-      "_marketDispersionCV": 0.031933,
+      "_marketConfidence": 0.5616,
+      "_marketDispersionCV": 0.032186,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12355,25 +12336,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5001
     },
     "Marvin Mims": {
-      "ktc": 2116,
-      "ktcSfTep": 2116,
+      "ktc": 2113,
+      "ktcSfTep": 2113,
       "idpTradeCalc": 2112,
       "_sleeperId": "9494",
-      "_composite": 2116,
+      "_composite": 2113,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2116,
-        "ktcSfTep": 2116,
+        "ktc": 2113,
+        "ktcSfTep": 2113,
         "idpTradeCalc": 2112
       },
-      "_marketConfidence": 0.5491,
-      "_marketDispersionCV": 0.0447,
+      "_marketConfidence": 0.5485,
+      "_marketDispersionCV": 0.045218,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 2116,
-      "_finalAdjusted": 2116
+      "_rawComposite": 2113,
+      "_finalAdjusted": 2113
     },
     "Mason Graham": {
       "idpTradeCalc": 1306,
@@ -12393,44 +12374,44 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1464
     },
     "Mason Rudolph": {
-      "ktc": 519,
-      "ktcSfTep": 519,
+      "ktc": 517,
+      "ktcSfTep": 517,
       "_sleeperId": "4972",
-      "_composite": 519,
+      "_composite": 517,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 519,
-        "ktcSfTep": 519
+        "ktc": 517,
+        "ktcSfTep": 517
       },
       "_marketConfidence": 0.4891,
-      "_marketDispersionCV": 0.023363,
+      "_marketDispersionCV": 0.023402,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
       "age": 30,
-      "_rawComposite": 519,
-      "_finalAdjusted": 519
+      "_rawComposite": 517,
+      "_finalAdjusted": 517
     },
     "Mason Taylor": {
-      "ktc": 2364,
-      "ktcSfTep": 3066,
+      "ktc": 2361,
+      "ktcSfTep": 3062,
       "idpTradeCalc": 2785,
       "_sleeperId": "12498",
-      "_composite": 3066,
+      "_composite": 3062,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2364,
-        "ktcSfTep": 3066,
+        "ktc": 2361,
+        "ktcSfTep": 3062,
         "idpTradeCalc": 2785
       },
-      "_marketConfidence": 0.507,
-      "_marketDispersionCV": 0.086711,
+      "_marketConfidence": 0.5068,
+      "_marketDispersionCV": 0.086944,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 3066,
-      "_finalAdjusted": 3066
+      "_rawComposite": 3062,
+      "_finalAdjusted": 3062
     },
     "Mason Tipton": {
       "ktc": 912,
@@ -12445,7 +12426,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 957
       },
       "_marketConfidence": 0.5131,
-      "_marketDispersionCV": 0.08062,
+      "_marketDispersionCV": 0.080653,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12488,19 +12469,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1108
     },
     "Matthew Golden": {
-      "ktc": 3599,
-      "ktcSfTep": 3599,
+      "ktc": 3602,
+      "ktcSfTep": 3602,
       "idpTradeCalc": 3709,
       "_sleeperId": "12501",
       "_composite": 3709,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3599,
-        "ktcSfTep": 3599,
+        "ktc": 3602,
+        "ktcSfTep": 3602,
         "idpTradeCalc": 3709
       },
-      "_marketConfidence": 0.5482,
-      "_marketDispersionCV": 0.045595,
+      "_marketConfidence": 0.5485,
+      "_marketDispersionCV": 0.04527,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -12521,7 +12502,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1083
       },
       "_marketConfidence": 0.4698,
-      "_marketDispersionCV": 0.123924,
+      "_marketDispersionCV": 0.123941,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12531,47 +12512,47 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1367
     },
     "Matthew Stafford": {
-      "ktc": 3813,
-      "ktcSfTep": 3813,
+      "ktc": 3818,
+      "ktcSfTep": 3818,
       "idpTradeCalc": 3756,
       "_sleeperId": "421",
-      "_composite": 3813,
+      "_composite": 3818,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3813,
-        "ktcSfTep": 3813,
+        "ktc": 3818,
+        "ktcSfTep": 3818,
         "idpTradeCalc": 3756
       },
-      "_marketConfidence": 0.5662,
-      "_marketDispersionCV": 0.027501,
+      "_marketConfidence": 0.5668,
+      "_marketDispersionCV": 0.026998,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 17,
       "age": 38,
-      "_rawComposite": 3813,
-      "_finalAdjusted": 3813
+      "_rawComposite": 3818,
+      "_finalAdjusted": 3818
     },
     "Max Klare": {
-      "ktc": 2351,
-      "ktcSfTep": 3052,
+      "ktc": 2354,
+      "ktcSfTep": 3055,
       "idpTradeCalc": 2680,
       "_sleeperId": "13278",
-      "_composite": 3052,
+      "_composite": 3055,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2351,
-        "ktcSfTep": 3052,
+        "ktc": 2354,
+        "ktcSfTep": 3055,
         "idpTradeCalc": 2680
       },
-      "_marketConfidence": 0.5124,
-      "_marketDispersionCV": 0.081367,
+      "_marketConfidence": 0.5126,
+      "_marketDispersionCV": 0.081147,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 3052,
-      "_finalAdjusted": 3052
+      "_rawComposite": 3055,
+      "_finalAdjusted": 3055
     },
     "Maxx Crosby": {
       "idpTradeCalc": 3606,
@@ -12636,8 +12617,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 973,
         "idpTradeCalc": 990
       },
-      "_marketConfidence": 0.5226,
-      "_marketDispersionCV": 0.071172,
+      "_marketConfidence": 0.5225,
+      "_marketDispersionCV": 0.071203,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -12675,7 +12656,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2520
       },
       "_marketConfidence": 0.5099,
-      "_marketDispersionCV": 0.083889,
+      "_marketDispersionCV": 0.083897,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -12696,7 +12677,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3162
       },
       "_marketConfidence": 0.5452,
-      "_marketDispersionCV": 0.048519,
+      "_marketDispersionCV": 0.048528,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12705,19 +12686,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3162
     },
     "Michael Pittman": {
-      "ktc": 3352,
-      "ktcSfTep": 3352,
+      "ktc": 3349,
+      "ktcSfTep": 3349,
       "idpTradeCalc": 3357,
       "_sleeperId": "6819",
       "_composite": 3357,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3352,
-        "ktcSfTep": 3352,
+        "ktc": 3349,
+        "ktcSfTep": 3349,
         "idpTradeCalc": 3357
       },
-      "_marketConfidence": 0.5577,
-      "_marketDispersionCV": 0.036018,
+      "_marketConfidence": 0.5574,
+      "_marketDispersionCV": 0.036374,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -12727,40 +12708,40 @@ window.DYNASTY_DATA = {
     },
     "Michael Trigg": {
       "ktc": 1163,
-      "ktcSfTep": 1747,
+      "ktcSfTep": 1748,
       "idpTradeCalc": 1530,
       "_sleeperId": "13401",
-      "_composite": 1747,
+      "_composite": 1748,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 1163,
-        "ktcSfTep": 1747,
+        "ktcSfTep": 1748,
         "idpTradeCalc": 1530
       },
-      "_marketConfidence": 0.4777,
-      "_marketDispersionCV": 0.116095,
+      "_marketConfidence": 0.4776,
+      "_marketDispersionCV": 0.116175,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 1747,
-      "_finalAdjusted": 1747
+      "_rawComposite": 1748,
+      "_finalAdjusted": 1748
     },
     "Michael Wilson": {
-      "ktc": 3616,
-      "ktcSfTep": 3616,
+      "ktc": 3619,
+      "ktcSfTep": 3619,
       "idpTradeCalc": 3626,
       "_sleeperId": "10232",
       "_composite": 3626,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3616,
-        "ktcSfTep": 3616,
+        "ktc": 3619,
+        "ktcSfTep": 3619,
         "idpTradeCalc": 3626
       },
-      "_marketConfidence": 0.5586,
-      "_marketDispersionCV": 0.035117,
+      "_marketConfidence": 0.559,
+      "_marketDispersionCV": 0.034798,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -12781,7 +12762,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3288
       },
       "_marketConfidence": 0.5603,
-      "_marketDispersionCV": 0.033488,
+      "_marketDispersionCV": 0.033496,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 12,
@@ -12802,7 +12783,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1811
       },
       "_marketConfidence": 0.4913,
-      "_marketDispersionCV": 0.102475,
+      "_marketDispersionCV": 0.102487,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -12857,7 +12838,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2381
       },
       "_marketConfidence": 0.5364,
-      "_marketDispersionCV": 0.05733,
+      "_marketDispersionCV": 0.057345,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12913,7 +12894,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1537
       },
       "_marketConfidence": 0.4797,
-      "_marketDispersionCV": 0.114074,
+      "_marketDispersionCV": 0.114089,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -12990,19 +12971,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1524
     },
     "Najee Harris": {
-      "ktc": 1551,
-      "ktcSfTep": 1551,
+      "ktc": 1548,
+      "ktcSfTep": 1548,
       "idpTradeCalc": 1646,
       "_sleeperId": "7528",
       "_composite": 1646,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1551,
-        "ktcSfTep": 1551,
+        "ktc": 1548,
+        "ktcSfTep": 1548,
         "idpTradeCalc": 1646
       },
-      "_marketConfidence": 0.5222,
-      "_marketDispersionCV": 0.071561,
+      "_marketConfidence": 0.5215,
+      "_marketDispersionCV": 0.072229,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13088,8 +13069,8 @@ window.DYNASTY_DATA = {
         "ktc": 501,
         "ktcSfTep": 501
       },
-      "_marketConfidence": 0.4889,
-      "_marketDispersionCV": 0.023647,
+      "_marketConfidence": 0.4888,
+      "_marketDispersionCV": 0.023655,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13127,7 +13108,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2946
       },
       "_marketConfidence": 0.5482,
-      "_marketDispersionCV": 0.04557,
+      "_marketDispersionCV": 0.045581,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -13234,7 +13215,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 946
       },
       "_marketConfidence": 0.5366,
-      "_marketDispersionCV": 0.057132,
+      "_marketDispersionCV": 0.057162,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -13243,19 +13224,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 983
     },
     "Nico Collins": {
-      "ktc": 5599,
-      "ktcSfTep": 5599,
+      "ktc": 5596,
+      "ktcSfTep": 5596,
       "idpTradeCalc": 5603,
       "_sleeperId": "7569",
       "_composite": 5603,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5599,
-        "ktcSfTep": 5599,
+        "ktc": 5596,
+        "ktcSfTep": 5596,
         "idpTradeCalc": 5603
       },
-      "_marketConfidence": 0.5661,
-      "_marketDispersionCV": 0.027624,
+      "_marketConfidence": 0.5659,
+      "_marketDispersionCV": 0.027849,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13298,25 +13279,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1864
     },
     "Noah Fant": {
-      "ktc": 1404,
-      "ktcSfTep": 2008,
+      "ktc": 1398,
+      "ktcSfTep": 2002,
       "idpTradeCalc": 1760,
       "_sleeperId": "5857",
-      "_composite": 2008,
+      "_composite": 2002,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1404,
-        "ktcSfTep": 2008,
+        "ktc": 1398,
+        "ktcSfTep": 2002,
         "idpTradeCalc": 1760
       },
-      "_marketConfidence": 0.4883,
-      "_marketDispersionCV": 0.105475,
+      "_marketConfidence": 0.4874,
+      "_marketDispersionCV": 0.106304,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 2008,
-      "_finalAdjusted": 2008
+      "_rawComposite": 2002,
+      "_finalAdjusted": 2002
     },
     "Noah Gray": {
       "ktc": 1495,
@@ -13331,7 +13312,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1872
       },
       "_marketConfidence": 0.4894,
-      "_marketDispersionCV": 0.104361,
+      "_marketDispersionCV": 0.104373,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13402,8 +13383,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1256,
         "idpTradeCalc": 1257
       },
-      "_marketConfidence": 0.5343,
-      "_marketDispersionCV": 0.059483,
+      "_marketConfidence": 0.5342,
+      "_marketDispersionCV": 0.059508,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -13424,7 +13405,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2343
       },
       "_marketConfidence": 0.5571,
-      "_marketDispersionCV": 0.036654,
+      "_marketDispersionCV": 0.036667,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13462,7 +13443,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3862
       },
       "_marketConfidence": 0.544,
-      "_marketDispersionCV": 0.04978,
+      "_marketDispersionCV": 0.049787,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -13489,25 +13470,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1112
     },
     "Omarion Hampton": {
-      "ktc": 6888,
-      "ktcSfTep": 6888,
+      "ktc": 6885,
+      "ktcSfTep": 6885,
       "idpTradeCalc": 6817,
       "_sleeperId": "12507",
-      "_composite": 6888,
+      "_composite": 6885,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6888,
-        "ktcSfTep": 6888,
+        "ktc": 6885,
+        "ktcSfTep": 6885,
         "idpTradeCalc": 6817
       },
-      "_marketConfidence": 0.5731,
-      "_marketDispersionCV": 0.020606,
+      "_marketConfidence": 0.573,
+      "_marketDispersionCV": 0.020787,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 6888,
-      "_finalAdjusted": 6888
+      "_rawComposite": 6885,
+      "_finalAdjusted": 6885
     },
     "Omarr Norman-Lott": {
       "idpTradeCalc": 1226,
@@ -13527,25 +13508,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1411
     },
     "Oronde Gadsden": {
-      "ktc": 3629,
-      "ktcSfTep": 4500,
+      "ktc": 3626,
+      "ktcSfTep": 4497,
       "idpTradeCalc": 4083,
       "_sleeperId": "12493",
-      "_composite": 4500,
+      "_composite": 4497,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3629,
-        "ktcSfTep": 4500,
+        "ktc": 3626,
+        "ktcSfTep": 4497,
         "idpTradeCalc": 4083
       },
-      "_marketConfidence": 0.5204,
-      "_marketDispersionCV": 0.073373,
+      "_marketConfidence": 0.5202,
+      "_marketDispersionCV": 0.073541,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 4500,
-      "_finalAdjusted": 4500
+      "_rawComposite": 4497,
+      "_finalAdjusted": 4497
     },
     "Oscar Delp": {
       "ktc": 1726,
@@ -13570,40 +13551,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2361
     },
     "Parker Washington": {
-      "ktc": 3680,
-      "ktcSfTep": 3680,
+      "ktc": 3671,
+      "ktcSfTep": 3671,
       "idpTradeCalc": 3579,
       "_sleeperId": "9487",
-      "_composite": 3680,
+      "_composite": 3671,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3680,
-        "ktcSfTep": 3680,
+        "ktc": 3671,
+        "ktcSfTep": 3671,
         "idpTradeCalc": 3579
       },
-      "_marketConfidence": 0.5703,
-      "_marketDispersionCV": 0.0235,
+      "_marketConfidence": 0.5693,
+      "_marketDispersionCV": 0.024438,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 3680,
-      "_finalAdjusted": 3680
+      "_rawComposite": 3671,
+      "_finalAdjusted": 3671
     },
     "Pat Bryant": {
-      "ktc": 2450,
-      "ktcSfTep": 2450,
+      "ktc": 2447,
+      "ktcSfTep": 2447,
       "idpTradeCalc": 2521,
       "_sleeperId": "12492",
       "_composite": 2521,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2450,
-        "ktcSfTep": 2450,
+        "ktc": 2447,
+        "ktcSfTep": 2447,
         "idpTradeCalc": 2521
       },
-      "_marketConfidence": 0.5419,
-      "_marketDispersionCV": 0.05187,
+      "_marketConfidence": 0.5414,
+      "_marketDispersionCV": 0.052339,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13624,7 +13605,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2660
       },
       "_marketConfidence": 0.5005,
-      "_marketDispersionCV": 0.093217,
+      "_marketDispersionCV": 0.093227,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13662,7 +13643,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6694
       },
       "_marketConfidence": 0.5668,
-      "_marketDispersionCV": 0.026918,
+      "_marketDispersionCV": 0.026919,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -13768,7 +13749,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1193
       },
       "_marketConfidence": 0.5302,
-      "_marketDispersionCV": 0.063546,
+      "_marketDispersionCV": 0.063573,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13794,25 +13775,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1207
     },
     "Puka Nacua": {
-      "ktc": 8721,
-      "ktcSfTep": 8721,
+      "ktc": 8715,
+      "ktcSfTep": 8715,
       "idpTradeCalc": 8604,
       "_sleeperId": "9493",
-      "_composite": 8721,
+      "_composite": 8715,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 8721,
-        "ktcSfTep": 8721,
+        "ktc": 8715,
+        "ktcSfTep": 8715,
         "idpTradeCalc": 8604
       },
-      "_marketConfidence": 0.5769,
-      "_marketDispersionCV": 0.016833,
+      "_marketConfidence": 0.5766,
+      "_marketDispersionCV": 0.017119,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 8721,
-      "_finalAdjusted": 8721
+      "_rawComposite": 8715,
+      "_finalAdjusted": 8715
     },
     "Quan Martin": {
       "idpTradeCalc": 854,
@@ -13849,25 +13830,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2680
     },
     "Quentin Johnston": {
-      "ktc": 3579,
-      "ktcSfTep": 3579,
+      "ktc": 3570,
+      "ktcSfTep": 3570,
       "idpTradeCalc": 3369,
       "_sleeperId": "9754",
-      "_composite": 3579,
+      "_composite": 3570,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3579,
-        "ktcSfTep": 3579,
+        "ktc": 3570,
+        "ktcSfTep": 3570,
         "idpTradeCalc": 3369
       },
-      "_marketConfidence": 0.5807,
-      "_marketDispersionCV": 0.013082,
+      "_marketConfidence": 0.5799,
+      "_marketDispersionCV": 0.013899,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 3579,
-      "_finalAdjusted": 3579
+      "_rawComposite": 3570,
+      "_finalAdjusted": 3570
     },
     "Quentin Lake": {
       "idpTradeCalc": 1923,
@@ -13915,8 +13896,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1702,
         "idpTradeCalc": 1783
       },
-      "_marketConfidence": 0.5283,
-      "_marketDispersionCV": 0.065484,
+      "_marketConfidence": 0.5282,
+      "_marketDispersionCV": 0.065504,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13954,7 +13935,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5495
       },
       "_marketConfidence": 0.5693,
-      "_marketDispersionCV": 0.02445,
+      "_marketDispersionCV": 0.024453,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14010,7 +13991,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3432
       },
       "_marketConfidence": 0.5534,
-      "_marketDispersionCV": 0.040306,
+      "_marketDispersionCV": 0.040314,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14031,7 +14012,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2738
       },
       "_marketConfidence": 0.5579,
-      "_marketDispersionCV": 0.035829,
+      "_marketDispersionCV": 0.03584,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14040,19 +14021,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2765
     },
     "Raheim Sanders": {
-      "ktc": 1287,
-      "ktcSfTep": 1287,
+      "ktc": 1290,
+      "ktcSfTep": 1290,
       "idpTradeCalc": 1356,
       "_sleeperId": "12472",
       "_composite": 1356,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1287,
-        "ktcSfTep": 1287,
+        "ktc": 1290,
+        "ktcSfTep": 1290,
         "idpTradeCalc": 1356
       },
-      "_marketConfidence": 0.5203,
-      "_marketDispersionCV": 0.073465,
+      "_marketConfidence": 0.521,
+      "_marketDispersionCV": 0.072759,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14078,25 +14059,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1864
     },
     "Rashee Rice": {
-      "ktc": 4690,
-      "ktcSfTep": 4690,
+      "ktc": 4687,
+      "ktcSfTep": 4687,
       "idpTradeCalc": 4491,
       "_sleeperId": "10229",
-      "_composite": 4690,
+      "_composite": 4687,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4690,
-        "ktcSfTep": 4690,
+        "ktc": 4687,
+        "ktcSfTep": 4687,
         "idpTradeCalc": 4491
       },
-      "_marketConfidence": 0.5801,
-      "_marketDispersionCV": 0.01363,
+      "_marketConfidence": 0.5799,
+      "_marketDispersionCV": 0.013861,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 26,
-      "_rawComposite": 4690,
-      "_finalAdjusted": 4690
+      "_rawComposite": 4687,
+      "_finalAdjusted": 4687
     },
     "Rasheen Ali": {
       "ktc": 1210,
@@ -14110,8 +14091,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1210,
         "idpTradeCalc": 1212
       },
-      "_marketConfidence": 0.533,
-      "_marketDispersionCV": 0.060799,
+      "_marketConfidence": 0.5329,
+      "_marketDispersionCV": 0.060825,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14120,19 +14101,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1212
     },
     "Rashid Shaheed": {
-      "ktc": 2779,
-      "ktcSfTep": 2779,
+      "ktc": 2776,
+      "ktcSfTep": 2776,
       "idpTradeCalc": 2881,
       "_sleeperId": "8676",
       "_composite": 2881,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2779,
-        "ktcSfTep": 2779,
+        "ktc": 2776,
+        "ktcSfTep": 2776,
         "idpTradeCalc": 2881
       },
-      "_marketConfidence": 0.5416,
-      "_marketDispersionCV": 0.052174,
+      "_marketConfidence": 0.5412,
+      "_marketDispersionCV": 0.052599,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14153,7 +14134,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2083
       },
       "_marketConfidence": 0.5458,
-      "_marketDispersionCV": 0.047922,
+      "_marketDispersionCV": 0.047938,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -14174,7 +14155,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1968
       },
       "_marketConfidence": 0.5472,
-      "_marketDispersionCV": 0.04657,
+      "_marketDispersionCV": 0.046586,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14212,7 +14193,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2949
       },
       "_marketConfidence": 0.5562,
-      "_marketDispersionCV": 0.037576,
+      "_marketDispersionCV": 0.037586,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -14221,19 +14202,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2952
     },
     "Ricky Pearsall": {
-      "ktc": 3379,
-      "ktcSfTep": 3379,
+      "ktc": 3382,
+      "ktcSfTep": 3382,
       "idpTradeCalc": 3441,
       "_sleeperId": "11638",
       "_composite": 3441,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3379,
-        "ktcSfTep": 3379,
+        "ktc": 3382,
+        "ktcSfTep": 3382,
         "idpTradeCalc": 3441
       },
-      "_marketConfidence": 0.5516,
-      "_marketDispersionCV": 0.042102,
+      "_marketConfidence": 0.552,
+      "_marketDispersionCV": 0.041762,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14242,19 +14223,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3441
     },
     "Rico Dowdle": {
-      "ktc": 3145,
-      "ktcSfTep": 3145,
+      "ktc": 3142,
+      "ktcSfTep": 3142,
       "idpTradeCalc": 3171,
       "_sleeperId": "7021",
       "_composite": 3171,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3145,
-        "ktcSfTep": 3145,
+        "ktc": 3142,
+        "ktcSfTep": 3142,
         "idpTradeCalc": 3171
       },
-      "_marketConfidence": 0.5541,
-      "_marketDispersionCV": 0.039699,
+      "_marketConfidence": 0.5537,
+      "_marketDispersionCV": 0.040077,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -14275,7 +14256,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1746
       },
       "_marketConfidence": 0.5347,
-      "_marketDispersionCV": 0.05901,
+      "_marketDispersionCV": 0.059029,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14330,7 +14311,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1604
       },
       "_marketConfidence": 0.5317,
-      "_marketDispersionCV": 0.062041,
+      "_marketDispersionCV": 0.062062,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14351,7 +14332,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5411
       },
       "_marketConfidence": 0.5537,
-      "_marketDispersionCV": 0.04008,
+      "_marketDispersionCV": 0.040083,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14372,7 +14353,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3209
       },
       "_marketConfidence": 0.5423,
-      "_marketDispersionCV": 0.051489,
+      "_marketDispersionCV": 0.051499,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14410,7 +14391,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1504
       },
       "_marketConfidence": 0.5337,
-      "_marketDispersionCV": 0.060043,
+      "_marketDispersionCV": 0.060065,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14454,25 +14435,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1102
     },
     "Ryan Flournoy": {
-      "ktc": 1857,
-      "ktcSfTep": 1857,
+      "ktc": 1863,
+      "ktcSfTep": 1863,
       "idpTradeCalc": 1767,
       "_sleeperId": "11783",
-      "_composite": 1857,
+      "_composite": 1863,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1857,
-        "ktcSfTep": 1857,
+        "ktc": 1863,
+        "ktcSfTep": 1863,
         "idpTradeCalc": 1767
       },
-      "_marketConfidence": 0.5606,
-      "_marketDispersionCV": 0.033153,
+      "_marketConfidence": 0.5616,
+      "_marketDispersionCV": 0.032105,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 26,
-      "_rawComposite": 1857,
-      "_finalAdjusted": 1857
+      "_rawComposite": 1863,
+      "_finalAdjusted": 1863
     },
     "Sam Darnold": {
       "ktc": 4517,
@@ -14487,7 +14468,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4657
       },
       "_marketConfidence": 0.5513,
-      "_marketDispersionCV": 0.042447,
+      "_marketDispersionCV": 0.042452,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -14508,7 +14489,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1028
       },
       "_marketConfidence": 0.5405,
-      "_marketDispersionCV": 0.053264,
+      "_marketDispersionCV": 0.053292,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14517,25 +14498,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1072
     },
     "Sam LaPorta": {
-      "ktc": 4466,
-      "ktcSfTep": 5489,
+      "ktc": 4469,
+      "ktcSfTep": 5493,
       "idpTradeCalc": 5059,
       "_sleeperId": "10859",
-      "_composite": 5483,
+      "_composite": 5485,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4466,
-        "ktcSfTep": 5489,
+        "ktc": 4469,
+        "ktcSfTep": 5493,
         "idpTradeCalc": 5059
       },
-      "_marketConfidence": 0.52,
-      "_marketDispersionCV": 0.07377,
+      "_marketConfidence": 0.5201,
+      "_marketDispersionCV": 0.07367,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 5483,
-      "_finalAdjusted": 5483
+      "_rawComposite": 5485,
+      "_finalAdjusted": 5485
     },
     "Sam Roush": {
       "ktc": 850,
@@ -14550,7 +14531,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1246
       },
       "_marketConfidence": 0.4573,
-      "_marketDispersionCV": 0.136447,
+      "_marketDispersionCV": 0.136467,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14570,7 +14551,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 596
       },
       "_marketConfidence": 0.4903,
-      "_marketDispersionCV": 0.022238,
+      "_marketDispersionCV": 0.022244,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -14608,7 +14589,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4919
       },
       "_marketConfidence": 0.566,
-      "_marketDispersionCV": 0.027713,
+      "_marketDispersionCV": 0.027717,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -14645,8 +14626,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1662,
         "idpTradeCalc": 1711
       },
-      "_marketConfidence": 0.5333,
-      "_marketDispersionCV": 0.060486,
+      "_marketConfidence": 0.5332,
+      "_marketDispersionCV": 0.060506,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14667,7 +14648,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2174
       },
       "_marketConfidence": 0.566,
-      "_marketDispersionCV": 0.027762,
+      "_marketDispersionCV": 0.027776,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14688,7 +14669,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 926
       },
       "_marketConfidence": 0.5572,
-      "_marketDispersionCV": 0.036535,
+      "_marketDispersionCV": 0.036563,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14715,19 +14696,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "Shedeur Sanders": {
-      "ktc": 2708,
-      "ktcSfTep": 2708,
+      "ktc": 2714,
+      "ktcSfTep": 2714,
       "idpTradeCalc": 2747,
       "_sleeperId": "12524",
       "_composite": 2747,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2708,
-        "ktcSfTep": 2708,
+        "ktc": 2714,
+        "ktcSfTep": 2714,
         "idpTradeCalc": 2747
       },
-      "_marketConfidence": 0.5489,
-      "_marketDispersionCV": 0.044807,
+      "_marketConfidence": 0.5498,
+      "_marketDispersionCV": 0.043984,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14782,7 +14763,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 969
       },
       "_marketConfidence": 0.5242,
-      "_marketDispersionCV": 0.069563,
+      "_marketDispersionCV": 0.069594,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14820,7 +14801,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2538
       },
       "_marketConfidence": 0.5378,
-      "_marketDispersionCV": 0.055923,
+      "_marketDispersionCV": 0.055936,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14841,8 +14822,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 993,
         "idpTradeCalc": 977
       },
-      "_marketConfidence": 0.5316,
-      "_marketDispersionCV": 0.062192,
+      "_marketConfidence": 0.5315,
+      "_marketDispersionCV": 0.062222,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14869,19 +14850,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4173
     },
     "Spencer Rattler": {
-      "ktc": 1582,
-      "ktcSfTep": 1582,
+      "ktc": 1579,
+      "ktcSfTep": 1579,
       "idpTradeCalc": 1644,
       "_sleeperId": "11562",
       "_composite": 1644,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1582,
-        "ktcSfTep": 1582,
+        "ktc": 1579,
+        "ktcSfTep": 1579,
         "idpTradeCalc": 1644
       },
-      "_marketConfidence": 0.5292,
-      "_marketDispersionCV": 0.06457,
+      "_marketConfidence": 0.5285,
+      "_marketDispersionCV": 0.065225,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14890,19 +14871,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1644
     },
     "Stefon Diggs": {
-      "ktc": 2148,
-      "ktcSfTep": 2148,
+      "ktc": 2145,
+      "ktcSfTep": 2145,
       "idpTradeCalc": 2166,
       "_sleeperId": "2449",
       "_composite": 2166,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2148,
-        "ktcSfTep": 2148,
+        "ktc": 2145,
+        "ktcSfTep": 2145,
         "idpTradeCalc": 2166
       },
-      "_marketConfidence": 0.546,
-      "_marketDispersionCV": 0.047749,
+      "_marketConfidence": 0.5455,
+      "_marketDispersionCV": 0.048264,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -14910,26 +14891,45 @@ window.DYNASTY_DATA = {
       "_rawComposite": 2166,
       "_finalAdjusted": 2166
     },
+    "Sterling Shepard": {
+      "ktc": 487,
+      "ktcSfTep": 487,
+      "_sleeperId": "3200",
+      "_composite": 487,
+      "_sites": 2,
+      "_canonicalSiteValues": {
+        "ktc": 487,
+        "ktcSfTep": 487
+      },
+      "_marketConfidence": 0.4886,
+      "_marketDispersionCV": 0.023881,
+      "_idpRealMarketSources": 0,
+      "_rookieOnlyDlfGuardrailApplied": false,
+      "_yearsExp": 10,
+      "age": 33,
+      "_rawComposite": 487,
+      "_finalAdjusted": 487
+    },
     "T.J. Hockenson": {
-      "ktc": 2724,
-      "ktcSfTep": 3465,
+      "ktc": 2721,
+      "ktcSfTep": 3461,
       "idpTradeCalc": 3202,
       "_sleeperId": "5844",
-      "_composite": 3465,
+      "_composite": 3461,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2724,
-        "ktcSfTep": 3465,
+        "ktc": 2721,
+        "ktcSfTep": 3461,
         "idpTradeCalc": 3202
       },
-      "_marketConfidence": 0.5094,
-      "_marketDispersionCV": 0.084337,
+      "_marketConfidence": 0.5092,
+      "_marketDispersionCV": 0.084557,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 3465,
-      "_finalAdjusted": 3465
+      "_rawComposite": 3461,
+      "_finalAdjusted": 3461
     },
     "T.J. Edwards": {
       "idpTradeCalc": 1911,
@@ -15013,7 +15013,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1635
       },
       "_marketConfidence": 0.5461,
-      "_marketDispersionCV": 0.047661,
+      "_marketDispersionCV": 0.047681,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15022,19 +15022,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1656
     },
     "Tahj Washington": {
-      "ktc": 1361,
-      "ktcSfTep": 1361,
+      "ktc": 1364,
+      "ktcSfTep": 1364,
       "idpTradeCalc": 1469,
       "_sleeperId": "11821",
       "_composite": 1469,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1361,
-        "ktcSfTep": 1361,
+        "ktc": 1364,
+        "ktcSfTep": 1364,
         "idpTradeCalc": 1469
       },
-      "_marketConfidence": 0.5143,
-      "_marketDispersionCV": 0.079427,
+      "_marketConfidence": 0.515,
+      "_marketDispersionCV": 0.078742,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15055,7 +15055,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1294
       },
       "_marketConfidence": 0.5174,
-      "_marketDispersionCV": 0.076346,
+      "_marketDispersionCV": 0.076372,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15093,7 +15093,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2416
       },
       "_marketConfidence": 0.5603,
-      "_marketDispersionCV": 0.033467,
+      "_marketDispersionCV": 0.03348,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15114,7 +15114,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2535
       },
       "_marketConfidence": 0.5519,
-      "_marketDispersionCV": 0.041888,
+      "_marketDispersionCV": 0.0419,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15123,19 +15123,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2535
     },
     "Tanner McKee": {
-      "ktc": 1225,
-      "ktcSfTep": 1225,
+      "ktc": 1222,
+      "ktcSfTep": 1222,
       "idpTradeCalc": 1252,
       "_sleeperId": "9230",
       "_composite": 1252,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1225,
-        "ktcSfTep": 1225,
+        "ktc": 1222,
+        "ktcSfTep": 1222,
         "idpTradeCalc": 1252
       },
-      "_marketConfidence": 0.5277,
-      "_marketDispersionCV": 0.06602,
+      "_marketConfidence": 0.527,
+      "_marketDispersionCV": 0.066795,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15225,7 +15225,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 874
       },
       "_marketConfidence": 0.5636,
-      "_marketDispersionCV": 0.030116,
+      "_marketDispersionCV": 0.030143,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -15264,7 +15264,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2295
       },
       "_marketConfidence": 0.5831,
-      "_marketDispersionCV": 0.010649,
+      "_marketDispersionCV": 0.010655,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -15291,25 +15291,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1417
     },
     "Tee Higgins": {
-      "ktc": 4936,
-      "ktcSfTep": 4936,
+      "ktc": 4938,
+      "ktcSfTep": 4938,
       "idpTradeCalc": 4883,
       "_sleeperId": "6801",
-      "_composite": 4936,
+      "_composite": 4938,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4936,
-        "ktcSfTep": 4936,
+        "ktc": 4938,
+        "ktcSfTep": 4938,
         "idpTradeCalc": 4883
       },
-      "_marketConfidence": 0.5689,
-      "_marketDispersionCV": 0.024844,
+      "_marketConfidence": 0.5691,
+      "_marketDispersionCV": 0.024685,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 27,
-      "_rawComposite": 4936,
-      "_finalAdjusted": 4936
+      "_rawComposite": 4938,
+      "_finalAdjusted": 4938
     },
     "Terrance Ferguson": {
       "ktc": 2667,
@@ -15324,7 +15324,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3038
       },
       "_marketConfidence": 0.5149,
-      "_marketDispersionCV": 0.07888,
+      "_marketDispersionCV": 0.078886,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15359,8 +15359,8 @@ window.DYNASTY_DATA = {
         "ktc": 553,
         "ktcSfTep": 553
       },
-      "_marketConfidence": 0.4897,
-      "_marketDispersionCV": 0.022849,
+      "_marketConfidence": 0.4896,
+      "_marketDispersionCV": 0.022856,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15397,8 +15397,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 3495,
         "idpTradeCalc": 3464
       },
-      "_marketConfidence": 0.5624,
-      "_marketDispersionCV": 0.031393,
+      "_marketConfidence": 0.5623,
+      "_marketDispersionCV": 0.0314,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -15424,25 +15424,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1103
     },
     "Tetairoa McMillan": {
-      "ktc": 6556,
-      "ktcSfTep": 6556,
+      "ktc": 6551,
+      "ktcSfTep": 6551,
       "idpTradeCalc": 6540,
       "_sleeperId": "12526",
-      "_composite": 6556,
+      "_composite": 6551,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6556,
-        "ktcSfTep": 6556,
+        "ktc": 6551,
+        "ktcSfTep": 6551,
         "idpTradeCalc": 6540
       },
-      "_marketConfidence": 0.5694,
-      "_marketDispersionCV": 0.024392,
+      "_marketConfidence": 0.569,
+      "_marketDispersionCV": 0.024713,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 6556,
-      "_finalAdjusted": 6556
+      "_rawComposite": 6551,
+      "_finalAdjusted": 6551
     },
     "Tez Johnson": {
       "ktc": 2084,
@@ -15457,7 +15457,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2140
       },
       "_marketConfidence": 0.5392,
-      "_marketDispersionCV": 0.054528,
+      "_marketDispersionCV": 0.054544,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15477,8 +15477,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2864,
         "idpTradeCalc": 2643
       },
-      "_marketConfidence": 0.5007,
-      "_marketDispersionCV": 0.093098,
+      "_marketConfidence": 0.5006,
+      "_marketDispersionCV": 0.093108,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15498,8 +15498,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1024,
         "idpTradeCalc": 876
       },
-      "_marketConfidence": 0.4378,
-      "_marketDispersionCV": 0.155976,
+      "_marketConfidence": 0.4377,
+      "_marketDispersionCV": 0.156004,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15525,46 +15525,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1112
     },
     "Tommy Tremble": {
-      "ktc": 1255,
-      "ktcSfTep": 1845,
+      "ktc": 1252,
+      "ktcSfTep": 1841,
       "idpTradeCalc": 1680,
       "_sleeperId": "7694",
-      "_composite": 1845,
+      "_composite": 1841,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1255,
-        "ktcSfTep": 1845,
+        "ktc": 1252,
+        "ktcSfTep": 1841,
         "idpTradeCalc": 1680
       },
-      "_marketConfidence": 0.4752,
-      "_marketDispersionCV": 0.118502,
+      "_marketConfidence": 0.4748,
+      "_marketDispersionCV": 0.118963,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 26,
-      "_rawComposite": 1845,
-      "_finalAdjusted": 1845
+      "_rawComposite": 1841,
+      "_finalAdjusted": 1841
     },
     "Tony Pollard": {
-      "ktc": 2823,
-      "ktcSfTep": 2823,
+      "ktc": 2820,
+      "ktcSfTep": 2820,
       "idpTradeCalc": 2812,
       "_sleeperId": "5967",
-      "_composite": 2823,
+      "_composite": 2820,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2823,
-        "ktcSfTep": 2823,
+        "ktc": 2820,
+        "ktcSfTep": 2820,
         "idpTradeCalc": 2812
       },
-      "_marketConfidence": 0.5563,
-      "_marketDispersionCV": 0.037469,
+      "_marketConfidence": 0.5559,
+      "_marketDispersionCV": 0.037879,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 29,
-      "_rawComposite": 2823,
-      "_finalAdjusted": 2823
+      "_rawComposite": 2820,
+      "_finalAdjusted": 2820
     },
     "Tory Horton": {
       "ktc": 2628,
@@ -15579,7 +15579,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2699
       },
       "_marketConfidence": 0.5439,
-      "_marketDispersionCV": 0.049818,
+      "_marketDispersionCV": 0.04983,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15588,19 +15588,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2699
     },
     "Travis Etienne": {
-      "ktc": 4459,
-      "ktcSfTep": 4459,
+      "ktc": 4461,
+      "ktcSfTep": 4461,
       "idpTradeCalc": 4503,
       "_sleeperId": "7543",
       "_composite": 4503,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4459,
-        "ktcSfTep": 4459,
+        "ktc": 4461,
+        "ktcSfTep": 4461,
         "idpTradeCalc": 4503
       },
-      "_marketConfidence": 0.5593,
-      "_marketDispersionCV": 0.034424,
+      "_marketConfidence": 0.5595,
+      "_marketDispersionCV": 0.034247,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15609,25 +15609,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4503
     },
     "Travis Hunter": {
-      "ktc": 3327,
-      "ktcSfTep": 3327,
+      "ktc": 3329,
+      "ktcSfTep": 3329,
       "idpTradeCalc": 6444,
       "_sleeperId": "12530",
-      "_composite": 4844,
+      "_composite": 4845,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3327,
-        "ktcSfTep": 3327,
+        "ktc": 3329,
+        "ktcSfTep": 3329,
         "idpTradeCalc": 6444
       },
       "_marketConfidence": 0.3138,
-      "_marketDispersionCV": 0.31724,
+      "_marketDispersionCV": 0.316987,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 4844,
-      "_finalAdjusted": 4844
+      "_rawComposite": 4845,
+      "_finalAdjusted": 4845
     },
     "Travis Kelce": {
       "ktc": 2499,
@@ -15642,7 +15642,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2851
       },
       "_marketConfidence": 0.5135,
-      "_marketDispersionCV": 0.080283,
+      "_marketDispersionCV": 0.08029,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -15679,8 +15679,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2736,
         "idpTradeCalc": 2756
       },
-      "_marketConfidence": 0.5517,
-      "_marketDispersionCV": 0.042097,
+      "_marketConfidence": 0.5516,
+      "_marketDispersionCV": 0.042108,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15701,7 +15701,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2460
       },
       "_marketConfidence": 0.5568,
-      "_marketDispersionCV": 0.036951,
+      "_marketDispersionCV": 0.036964,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15722,7 +15722,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5443
       },
       "_marketConfidence": 0.5705,
-      "_marketDispersionCV": 0.023287,
+      "_marketDispersionCV": 0.02329,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15816,19 +15816,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1873
     },
     "Trevor Etienne": {
-      "ktc": 2038,
-      "ktcSfTep": 2038,
+      "ktc": 2035,
+      "ktcSfTep": 2035,
       "idpTradeCalc": 2060,
       "_sleeperId": "12531",
       "_composite": 2060,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2038,
-        "ktcSfTep": 2038,
+        "ktc": 2035,
+        "ktcSfTep": 2035,
         "idpTradeCalc": 2060
       },
-      "_marketConfidence": 0.544,
-      "_marketDispersionCV": 0.04977,
+      "_marketConfidence": 0.5434,
+      "_marketDispersionCV": 0.050307,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15837,19 +15837,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2060
     },
     "Trevor Lawrence": {
-      "ktc": 6349,
-      "ktcSfTep": 6349,
+      "ktc": 6350,
+      "ktcSfTep": 6350,
       "idpTradeCalc": 6383,
       "_sleeperId": "7523",
       "_composite": 6383,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6349,
-        "ktcSfTep": 6349,
+        "ktc": 6350,
+        "ktcSfTep": 6350,
         "idpTradeCalc": 6383
       },
-      "_marketConfidence": 0.5658,
-      "_marketDispersionCV": 0.027949,
+      "_marketConfidence": 0.5659,
+      "_marketDispersionCV": 0.027884,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15858,19 +15858,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 6383
     },
     "Trey Benson": {
-      "ktc": 2237,
-      "ktcSfTep": 2237,
+      "ktc": 2234,
+      "ktcSfTep": 2234,
       "idpTradeCalc": 2270,
       "_sleeperId": "11589",
       "_composite": 2270,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2237,
-        "ktcSfTep": 2237,
+        "ktc": 2234,
+        "ktcSfTep": 2234,
         "idpTradeCalc": 2270
       },
-      "_marketConfidence": 0.5448,
-      "_marketDispersionCV": 0.048956,
+      "_marketConfidence": 0.5443,
+      "_marketDispersionCV": 0.049457,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15908,7 +15908,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1141
       },
       "_marketConfidence": 0.5254,
-      "_marketDispersionCV": 0.06836,
+      "_marketDispersionCV": 0.068388,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15917,25 +15917,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1141
     },
     "Trey McBride": {
-      "ktc": 7347,
-      "ktcSfTep": 8899,
+      "ktc": 7348,
+      "ktcSfTep": 8900,
       "idpTradeCalc": 8373,
       "_sleeperId": "8130",
-      "_composite": 8520,
+      "_composite": 8521,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7347,
-        "ktcSfTep": 8899,
+        "ktc": 7348,
+        "ktcSfTep": 8900,
         "idpTradeCalc": 8373
       },
       "_marketConfidence": 0.5201,
-      "_marketDispersionCV": 0.073672,
+      "_marketDispersionCV": 0.073643,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 26,
-      "_rawComposite": 8520,
-      "_finalAdjusted": 8520
+      "_rawComposite": 8521,
+      "_finalAdjusted": 8521
     },
     "Trey Palmer": {
       "ktc": 1124,
@@ -15950,7 +15950,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1174
       },
       "_marketConfidence": 0.5195,
-      "_marketDispersionCV": 0.074229,
+      "_marketDispersionCV": 0.074257,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15970,8 +15970,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1456,
         "idpTradeCalc": 1506
       },
-      "_marketConfidence": 0.5287,
-      "_marketDispersionCV": 0.065095,
+      "_marketConfidence": 0.5286,
+      "_marketDispersionCV": 0.065118,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16014,19 +16014,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1218
     },
     "Troy Franklin": {
-      "ktc": 2585,
-      "ktcSfTep": 2585,
+      "ktc": 2588,
+      "ktcSfTep": 2588,
       "idpTradeCalc": 2651,
       "_sleeperId": "11627",
       "_composite": 2651,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2585,
-        "ktcSfTep": 2585,
+        "ktc": 2588,
+        "ktcSfTep": 2588,
         "idpTradeCalc": 2651
       },
-      "_marketConfidence": 0.5441,
-      "_marketDispersionCV": 0.049622,
+      "_marketConfidence": 0.5446,
+      "_marketDispersionCV": 0.049198,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16035,46 +16035,46 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2651
     },
     "Tua Tagovailoa": {
-      "ktc": 2778,
-      "ktcSfTep": 2778,
+      "ktc": 2784,
+      "ktcSfTep": 2784,
       "idpTradeCalc": 2710,
       "_sleeperId": "6768",
-      "_composite": 2778,
+      "_composite": 2784,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2778,
-        "ktcSfTep": 2778,
+        "ktc": 2784,
+        "ktcSfTep": 2784,
         "idpTradeCalc": 2710
       },
-      "_marketConfidence": 0.5632,
-      "_marketDispersionCV": 0.030518,
+      "_marketConfidence": 0.564,
+      "_marketDispersionCV": 0.029738,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 2778,
-      "_finalAdjusted": 2778
+      "_rawComposite": 2784,
+      "_finalAdjusted": 2784
     },
     "Tucker Kraft": {
-      "ktc": 4924,
-      "ktcSfTep": 6024,
+      "ktc": 4931,
+      "ktcSfTep": 6032,
       "idpTradeCalc": 5457,
       "_sleeperId": "9484",
-      "_composite": 5925,
+      "_composite": 5930,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4924,
-        "ktcSfTep": 6024,
+        "ktc": 4931,
+        "ktcSfTep": 6032,
         "idpTradeCalc": 5457
       },
-      "_marketConfidence": 0.524,
-      "_marketDispersionCV": 0.069788,
+      "_marketConfidence": 0.5242,
+      "_marketDispersionCV": 0.069587,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 5925,
-      "_finalAdjusted": 5925
+      "_rawComposite": 5930,
+      "_finalAdjusted": 5930
     },
     "Tuli Tuipulotu": {
       "idpTradeCalc": 3313,
@@ -16094,19 +16094,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2792
     },
     "Tutu Atwell": {
-      "ktc": 1562,
-      "ktcSfTep": 1562,
+      "ktc": 1565,
+      "ktcSfTep": 1565,
       "idpTradeCalc": 1620,
       "_sleeperId": "7562",
       "_composite": 1620,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1562,
-        "ktcSfTep": 1562,
+        "ktc": 1565,
+        "ktcSfTep": 1565,
         "idpTradeCalc": 1620
       },
-      "_marketConfidence": 0.5295,
-      "_marketDispersionCV": 0.064249,
+      "_marketConfidence": 0.5301,
+      "_marketDispersionCV": 0.063632,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -16125,7 +16125,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 705
       },
       "_marketConfidence": 0.4916,
-      "_marketDispersionCV": 0.020854,
+      "_marketDispersionCV": 0.02086,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16134,19 +16134,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 705
     },
     "Ty Johnson": {
-      "ktc": 1239,
-      "ktcSfTep": 1239,
+      "ktc": 1242,
+      "ktcSfTep": 1242,
       "idpTradeCalc": 1295,
       "_sleeperId": "6039",
       "_composite": 1295,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1239,
-        "ktcSfTep": 1239,
+        "ktc": 1242,
+        "ktcSfTep": 1242,
         "idpTradeCalc": 1295
       },
-      "_marketConfidence": 0.5217,
-      "_marketDispersionCV": 0.072048,
+      "_marketConfidence": 0.5224,
+      "_marketDispersionCV": 0.071327,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -16155,19 +16155,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1295
     },
     "Ty Simpson": {
-      "ktc": 3540,
-      "ktcSfTep": 3540,
+      "ktc": 3543,
+      "ktcSfTep": 3543,
       "idpTradeCalc": 3647,
       "_sleeperId": "13275",
       "_composite": 3647,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3540,
-        "ktcSfTep": 3540,
+        "ktc": 3543,
+        "ktcSfTep": 3543,
         "idpTradeCalc": 3647
       },
-      "_marketConfidence": 0.548,
-      "_marketDispersionCV": 0.045731,
+      "_marketConfidence": 0.5483,
+      "_marketDispersionCV": 0.045401,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -16206,7 +16206,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2590
       },
       "_marketConfidence": 0.5532,
-      "_marketDispersionCV": 0.040545,
+      "_marketDispersionCV": 0.040557,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16232,19 +16232,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1942
     },
     "Tyler Allgeier": {
-      "ktc": 2732,
-      "ktcSfTep": 2732,
+      "ktc": 2729,
+      "ktcSfTep": 2729,
       "idpTradeCalc": 2747,
       "_sleeperId": "8132",
       "_composite": 2747,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2732,
-        "ktcSfTep": 2732,
+        "ktc": 2729,
+        "ktcSfTep": 2729,
         "idpTradeCalc": 2747
       },
-      "_marketConfidence": 0.5523,
-      "_marketDispersionCV": 0.041484,
+      "_marketConfidence": 0.5518,
+      "_marketDispersionCV": 0.041908,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16264,8 +16264,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 970,
         "idpTradeCalc": 978
       },
-      "_marketConfidence": 0.5248,
-      "_marketDispersionCV": 0.068981,
+      "_marketConfidence": 0.5247,
+      "_marketDispersionCV": 0.069012,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16274,19 +16274,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 978
     },
     "Tyler Goodson": {
-      "ktc": 1037,
-      "ktcSfTep": 1037,
+      "ktc": 1040,
+      "ktcSfTep": 1040,
       "idpTradeCalc": 1104,
       "_sleeperId": "8207",
       "_composite": 1104,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1037,
-        "ktcSfTep": 1037,
+        "ktc": 1040,
+        "ktcSfTep": 1040,
         "idpTradeCalc": 1104
       },
-      "_marketConfidence": 0.5124,
-      "_marketDispersionCV": 0.081302,
+      "_marketConfidence": 0.5133,
+      "_marketDispersionCV": 0.080493,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16296,24 +16296,24 @@ window.DYNASTY_DATA = {
     },
     "Tyler Higbee": {
       "ktc": 1289,
-      "ktcSfTep": 1880,
+      "ktcSfTep": 1881,
       "idpTradeCalc": 1690,
       "_sleeperId": "3271",
-      "_composite": 1880,
+      "_composite": 1881,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 1289,
-        "ktcSfTep": 1880,
+        "ktcSfTep": 1881,
         "idpTradeCalc": 1690
       },
-      "_marketConfidence": 0.4795,
-      "_marketDispersionCV": 0.114253,
+      "_marketConfidence": 0.4794,
+      "_marketDispersionCV": 0.114322,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
       "age": 33,
-      "_rawComposite": 1880,
-      "_finalAdjusted": 1880
+      "_rawComposite": 1881,
+      "_finalAdjusted": 1881
     },
     "Tyler Huntley": {
       "ktc": 1211,
@@ -16328,7 +16328,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1164
       },
       "_marketConfidence": 0.544,
-      "_marketDispersionCV": 0.049706,
+      "_marketDispersionCV": 0.049732,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -16347,7 +16347,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 592
       },
       "_marketConfidence": 0.4902,
-      "_marketDispersionCV": 0.022293,
+      "_marketDispersionCV": 0.0223,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -16384,8 +16384,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 941,
         "idpTradeCalc": 962
       },
-      "_marketConfidence": 0.5205,
-      "_marketDispersionCV": 0.073298,
+      "_marketConfidence": 0.5204,
+      "_marketDispersionCV": 0.07333,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16406,7 +16406,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4883
       },
       "_marketConfidence": 0.5594,
-      "_marketDispersionCV": 0.034386,
+      "_marketDispersionCV": 0.03439,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16415,25 +16415,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4883
     },
     "Tyler Warren": {
-      "ktc": 5854,
-      "ktcSfTep": 7121,
+      "ktc": 5858,
+      "ktcSfTep": 7126,
       "idpTradeCalc": 6454,
       "_sleeperId": "12518",
-      "_composite": 6883,
+      "_composite": 6886,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5854,
-        "ktcSfTep": 7121,
+        "ktc": 5858,
+        "ktcSfTep": 7126,
         "idpTradeCalc": 6454
       },
       "_marketConfidence": 0.5252,
-      "_marketDispersionCV": 0.068578,
+      "_marketDispersionCV": 0.068508,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 24,
-      "_rawComposite": 6883,
-      "_finalAdjusted": 6883
+      "_rawComposite": 6886,
+      "_finalAdjusted": 6886
     },
     "Tyquan Thornton": {
       "ktc": 1795,
@@ -16447,8 +16447,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1795,
         "idpTradeCalc": 1853
       },
-      "_marketConfidence": 0.5342,
-      "_marketDispersionCV": 0.059582,
+      "_marketConfidence": 0.5341,
+      "_marketDispersionCV": 0.0596,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16486,7 +16486,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2001
       },
       "_marketConfidence": 0.5234,
-      "_marketDispersionCV": 0.070362,
+      "_marketDispersionCV": 0.07038,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -16524,7 +16524,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1019
       },
       "_marketConfidence": 0.5204,
-      "_marketDispersionCV": 0.073338,
+      "_marketDispersionCV": 0.073369,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16560,7 +16560,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 503
       },
       "_marketConfidence": 0.4889,
-      "_marketDispersionCV": 0.023615,
+      "_marketDispersionCV": 0.023623,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 15,
@@ -16581,7 +16581,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2666
       },
       "_marketConfidence": 0.5533,
-      "_marketDispersionCV": 0.040484,
+      "_marketDispersionCV": 0.040495,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16602,7 +16602,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1438
       },
       "_marketConfidence": 0.5235,
-      "_marketDispersionCV": 0.070219,
+      "_marketDispersionCV": 0.070243,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16655,7 +16655,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 556
       },
       "_marketConfidence": 0.4897,
-      "_marketDispersionCV": 0.022805,
+      "_marketDispersionCV": 0.022812,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -16716,19 +16716,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1490
     },
     "Wan'Dale Robinson": {
-      "ktc": 3502,
-      "ktcSfTep": 3502,
+      "ktc": 3504,
+      "ktcSfTep": 3504,
       "idpTradeCalc": 3536,
       "_sleeperId": "8126",
       "_composite": 3536,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3502,
-        "ktcSfTep": 3502,
+        "ktc": 3504,
+        "ktcSfTep": 3504,
         "idpTradeCalc": 3536
       },
-      "_marketConfidence": 0.5555,
-      "_marketDispersionCV": 0.038275,
+      "_marketConfidence": 0.5557,
+      "_marketDispersionCV": 0.038058,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16766,7 +16766,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1990
       },
       "_marketConfidence": 0.5418,
-      "_marketDispersionCV": 0.051971,
+      "_marketDispersionCV": 0.051988,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16804,7 +16804,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1352
       },
       "_marketConfidence": 0.5062,
-      "_marketDispersionCV": 0.087541,
+      "_marketDispersionCV": 0.087567,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16842,7 +16842,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1682
       },
       "_marketConfidence": 0.5281,
-      "_marketDispersionCV": 0.065622,
+      "_marketDispersionCV": 0.065643,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16868,19 +16868,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1108
     },
     "Woody Marks": {
-      "ktc": 2744,
-      "ktcSfTep": 2744,
+      "ktc": 2747,
+      "ktcSfTep": 2747,
       "idpTradeCalc": 2786,
       "_sleeperId": "12474",
       "_composite": 2786,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2744,
-        "ktcSfTep": 2744,
+        "ktc": 2747,
+        "ktcSfTep": 2747,
         "idpTradeCalc": 2786
       },
-      "_marketConfidence": 0.5489,
-      "_marketDispersionCV": 0.044863,
+      "_marketConfidence": 0.5493,
+      "_marketDispersionCV": 0.044461,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16918,7 +16918,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 869
       },
       "_marketConfidence": 0.5207,
-      "_marketDispersionCV": 0.073051,
+      "_marketDispersionCV": 0.073085,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16927,19 +16927,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 869
     },
     "Xavier Hutchinson": {
-      "ktc": 1611,
-      "ktcSfTep": 1611,
+      "ktc": 1614,
+      "ktcSfTep": 1614,
       "idpTradeCalc": 1682,
       "_sleeperId": "10218",
       "_composite": 1682,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1611,
-        "ktcSfTep": 1611,
+        "ktc": 1614,
+        "ktcSfTep": 1614,
         "idpTradeCalc": 1682
       },
-      "_marketConfidence": 0.5281,
-      "_marketDispersionCV": 0.065622,
+      "_marketConfidence": 0.5287,
+      "_marketDispersionCV": 0.065017,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16948,19 +16948,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1682
     },
     "Xavier Legette": {
-      "ktc": 1890,
-      "ktcSfTep": 1890,
+      "ktc": 1896,
+      "ktcSfTep": 1896,
       "idpTradeCalc": 1950,
       "_sleeperId": "11626",
       "_composite": 1950,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1890,
-        "ktcSfTep": 1890,
+        "ktc": 1896,
+        "ktcSfTep": 1896,
         "idpTradeCalc": 1950
       },
-      "_marketConfidence": 0.5355,
-      "_marketDispersionCV": 0.058248,
+      "_marketConfidence": 0.5366,
+      "_marketDispersionCV": 0.057155,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16998,7 +16998,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1289
       },
       "_marketConfidence": 0.518,
-      "_marketDispersionCV": 0.075746,
+      "_marketDispersionCV": 0.075772,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -17019,7 +17019,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3349
       },
       "_marketConfidence": 0.5578,
-      "_marketDispersionCV": 0.035947,
+      "_marketDispersionCV": 0.035956,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -17062,25 +17062,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2009
     },
     "Zach Charbonnet": {
-      "ktc": 3363,
-      "ktcSfTep": 3363,
+      "ktc": 3360,
+      "ktcSfTep": 3360,
       "idpTradeCalc": 3356,
       "_sleeperId": "9753",
-      "_composite": 3363,
+      "_composite": 3360,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3363,
-        "ktcSfTep": 3363,
+        "ktc": 3360,
+        "ktcSfTep": 3360,
         "idpTradeCalc": 3356
       },
-      "_marketConfidence": 0.5591,
-      "_marketDispersionCV": 0.034636,
+      "_marketConfidence": 0.5588,
+      "_marketDispersionCV": 0.03499,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 3363,
-      "_finalAdjusted": 3363
+      "_rawComposite": 3360,
+      "_finalAdjusted": 3360
     },
     "Zach Ertz": {
       "ktc": 924,
@@ -17094,8 +17094,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1495,
         "idpTradeCalc": 1392
       },
-      "_marketConfidence": 0.4519,
-      "_marketDispersionCV": 0.141881,
+      "_marketConfidence": 0.4518,
+      "_marketDispersionCV": 0.141902,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -17138,19 +17138,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "Zach Wilson": {
-      "ktc": 948,
-      "ktcSfTep": 948,
+      "ktc": 944,
+      "ktcSfTep": 944,
       "idpTradeCalc": 1001,
       "_sleeperId": "7538",
       "_composite": 1001,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 948,
-        "ktcSfTep": 948,
+        "ktc": 944,
+        "ktcSfTep": 944,
         "idpTradeCalc": 1001
       },
-      "_marketConfidence": 0.5125,
-      "_marketDispersionCV": 0.081251,
+      "_marketConfidence": 0.5113,
+      "_marketDispersionCV": 0.082463,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -17171,7 +17171,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2698
       },
       "_marketConfidence": 0.5559,
-      "_marketDispersionCV": 0.037877,
+      "_marketDispersionCV": 0.037888,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -17244,7 +17244,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 784
       },
       "_marketConfidence": 0.5203,
-      "_marketDispersionCV": 0.073444,
+      "_marketDispersionCV": 0.07348,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -17253,47 +17253,47 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 784
     },
     "Zavion Thomas": {
-      "ktc": 1412,
-      "ktcSfTep": 1412,
+      "ktc": 1409,
+      "ktcSfTep": 1409,
       "idpTradeCalc": 1281,
       "_sleeperId": "13411",
-      "_composite": 1412,
+      "_composite": 1409,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1412,
-        "ktcSfTep": 1412,
+        "ktc": 1409,
+        "ktcSfTep": 1409,
         "idpTradeCalc": 1281
       },
-      "_marketConfidence": 0.5646,
-      "_marketDispersionCV": 0.029161,
+      "_marketConfidence": 0.5639,
+      "_marketDispersionCV": 0.029802,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 1412,
-      "_finalAdjusted": 1412
+      "_rawComposite": 1409,
+      "_finalAdjusted": 1409
     },
     "Zay Flowers": {
-      "ktc": 4895,
-      "ktcSfTep": 4895,
+      "ktc": 4898,
+      "ktcSfTep": 4898,
       "idpTradeCalc": 4816,
       "_sleeperId": "9997",
-      "_composite": 4895,
+      "_composite": 4898,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4895,
-        "ktcSfTep": 4895,
+        "ktc": 4898,
+        "ktcSfTep": 4898,
         "idpTradeCalc": 4816
       },
-      "_marketConfidence": 0.5709,
-      "_marketDispersionCV": 0.022857,
+      "_marketConfidence": 0.5711,
+      "_marketDispersionCV": 0.022616,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 4895,
-      "_finalAdjusted": 4895
+      "_rawComposite": 4898,
+      "_finalAdjusted": 4898
     },
     "Zion Young": {
       "idpTradeCalc": 1251,
@@ -17314,7 +17314,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1427
     },
     "2026 Pick 1.01": {
-      "ktc": 6702,
+      "ktc": 6706,
       "idpTradeCalc": 8013,
       "_composite": 7655,
       "_sites": 2,
@@ -17322,15 +17322,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 7655
     },
     "2026 Pick 1.02": {
-      "ktc": 5957,
+      "ktc": 5961,
       "idpTradeCalc": 8323,
-      "_composite": 5949,
+      "_composite": 5946,
       "_sites": 2,
-      "_rawComposite": 5949,
-      "_finalAdjusted": 5949
+      "_rawComposite": 5946,
+      "_finalAdjusted": 5946
     },
     "2026 Pick 1.03": {
-      "ktc": 5213,
+      "ktc": 5215,
       "idpTradeCalc": 6647,
       "_composite": 5637,
       "_sites": 2,
@@ -17338,12 +17338,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5637
     },
     "2026 Pick 1.04": {
-      "ktc": 4468,
+      "ktc": 4470,
       "idpTradeCalc": 6486,
-      "_composite": 5376,
+      "_composite": 5379,
       "_sites": 2,
-      "_rawComposite": 5376,
-      "_finalAdjusted": 5376
+      "_rawComposite": 5379,
+      "_finalAdjusted": 5379
     },
     "2026 Pick 1.05": {
       "ktc": 5213,
@@ -17356,10 +17356,10 @@ window.DYNASTY_DATA = {
     "2026 Pick 1.06": {
       "ktc": 4786,
       "idpTradeCalc": 5575,
-      "_composite": 5001,
+      "_composite": 4995,
       "_sites": 2,
-      "_rawComposite": 5001,
-      "_finalAdjusted": 5001
+      "_rawComposite": 4995,
+      "_finalAdjusted": 4995
     },
     "2026 Pick 1.07": {
       "ktc": 4360,
@@ -17380,10 +17380,10 @@ window.DYNASTY_DATA = {
     "2026 Pick 1.09": {
       "ktc": 4343,
       "idpTradeCalc": 4908,
-      "_composite": 4464,
+      "_composite": 4466,
       "_sites": 2,
-      "_rawComposite": 4464,
-      "_finalAdjusted": 4464
+      "_rawComposite": 4466,
+      "_finalAdjusted": 4466
     },
     "2026 Pick 1.10": {
       "ktc": 4033,
@@ -17410,7 +17410,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3862
     },
     "2026 Early 1st": {
-      "ktc": 5585,
+      "ktc": 5588,
       "idpTradeCalc": 5631,
       "_composite": 6154,
       "_sites": 2,
@@ -17420,10 +17420,10 @@ window.DYNASTY_DATA = {
     "2026 Mid 1st": {
       "ktc": 4573,
       "idpTradeCalc": 4538,
-      "_composite": 4867,
+      "_composite": 4866,
       "_sites": 2,
-      "_rawComposite": 4867,
-      "_finalAdjusted": 4867
+      "_rawComposite": 4866,
+      "_finalAdjusted": 4866
     },
     "2026 Late 1st": {
       "ktc": 3878,
@@ -17452,37 +17452,37 @@ window.DYNASTY_DATA = {
     "2026 Pick 2.03": {
       "ktc": 3093,
       "idpTradeCalc": 3685,
-      "_composite": 3172,
+      "_composite": 3175,
       "_sites": 2,
-      "_rawComposite": 3172,
-      "_finalAdjusted": 3172
+      "_rawComposite": 3175,
+      "_finalAdjusted": 3175
     },
     "2026 Pick 2.04": {
       "ktc": 2651,
       "idpTradeCalc": 3528,
-      "_composite": 3065,
+      "_composite": 3062,
       "_sites": 2,
-      "_rawComposite": 3065,
-      "_finalAdjusted": 3065
+      "_rawComposite": 3062,
+      "_finalAdjusted": 3062
     },
     "2026 Pick 2.05": {
-      "ktc": 3397,
+      "ktc": 3398,
       "idpTradeCalc": 3430,
-      "_composite": 3052,
+      "_composite": 3055,
       "_sites": 2,
-      "_rawComposite": 3052,
-      "_finalAdjusted": 3052
+      "_rawComposite": 3055,
+      "_finalAdjusted": 3055
     },
     "2026 Pick 2.06": {
-      "ktc": 3119,
+      "ktc": 3120,
       "idpTradeCalc": 3308,
-      "_composite": 3029,
+      "_composite": 3032,
       "_sites": 2,
-      "_rawComposite": 3029,
-      "_finalAdjusted": 3029
+      "_rawComposite": 3032,
+      "_finalAdjusted": 3032
     },
     "2026 Pick 2.07": {
-      "ktc": 2841,
+      "ktc": 2842,
       "idpTradeCalc": 3261,
       "_composite": 2988,
       "_sites": 2,
@@ -17490,7 +17490,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2988
     },
     "2026 Pick 2.08": {
-      "ktc": 2563,
+      "ktc": 2564,
       "idpTradeCalc": 3144,
       "_composite": 2985,
       "_sites": 2,
@@ -17500,18 +17500,18 @@ window.DYNASTY_DATA = {
     "2026 Pick 2.09": {
       "ktc": 3138,
       "idpTradeCalc": 3088,
-      "_composite": 2985,
-      "_sites": 2,
-      "_rawComposite": 2985,
-      "_finalAdjusted": 2985
-    },
-    "2026 Pick 2.10": {
-      "ktc": 2914,
-      "idpTradeCalc": 3031,
       "_composite": 2984,
       "_sites": 2,
       "_rawComposite": 2984,
       "_finalAdjusted": 2984
+    },
+    "2026 Pick 2.10": {
+      "ktc": 2914,
+      "idpTradeCalc": 3031,
+      "_composite": 2982,
+      "_sites": 2,
+      "_rawComposite": 2982,
+      "_finalAdjusted": 2982
     },
     "2026 Pick 2.11": {
       "ktc": 2690,
@@ -17538,20 +17538,20 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3332
     },
     "2026 Mid 2nd": {
-      "ktc": 2980,
+      "ktc": 2981,
       "idpTradeCalc": 2987,
-      "_composite": 3014,
+      "_composite": 3015,
       "_sites": 2,
-      "_rawComposite": 3014,
-      "_finalAdjusted": 3014
+      "_rawComposite": 3015,
+      "_finalAdjusted": 3015
     },
     "2026 Late 2nd": {
       "ktc": 2802,
       "idpTradeCalc": 2799,
-      "_composite": 2925,
+      "_composite": 2924,
       "_sites": 2,
-      "_rawComposite": 2925,
-      "_finalAdjusted": 2925
+      "_rawComposite": 2924,
+      "_finalAdjusted": 2924
     },
     "2026 Pick 3.01": {
       "ktc": 2732,
@@ -17580,21 +17580,21 @@ window.DYNASTY_DATA = {
     "2026 Pick 3.04": {
       "ktc": 1822,
       "idpTradeCalc": 2350,
+      "_composite": 2713,
+      "_sites": 2,
+      "_rawComposite": 2713,
+      "_finalAdjusted": 2713
+    },
+    "2026 Pick 3.05": {
+      "ktc": 2476,
+      "idpTradeCalc": 2328,
       "_composite": 2712,
       "_sites": 2,
       "_rawComposite": 2712,
       "_finalAdjusted": 2712
     },
-    "2026 Pick 3.05": {
-      "ktc": 2475,
-      "idpTradeCalc": 2328,
-      "_composite": 2710,
-      "_sites": 2,
-      "_rawComposite": 2710,
-      "_finalAdjusted": 2710
-    },
     "2026 Pick 3.06": {
-      "ktc": 2272,
+      "ktc": 2273,
       "idpTradeCalc": 2285,
       "_composite": 2669,
       "_sites": 2,
@@ -17602,7 +17602,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2669
     },
     "2026 Pick 3.07": {
-      "ktc": 2070,
+      "ktc": 2071,
       "idpTradeCalc": 2243,
       "_composite": 2630,
       "_sites": 2,
@@ -17610,7 +17610,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2630
     },
     "2026 Pick 3.08": {
-      "ktc": 1867,
+      "ktc": 1868,
       "idpTradeCalc": 2140,
       "_composite": 2598,
       "_sites": 2,
@@ -17618,15 +17618,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2598
     },
     "2026 Pick 3.09": {
-      "ktc": 2378,
+      "ktc": 2381,
       "idpTradeCalc": 2062,
-      "_composite": 2576,
+      "_composite": 2573,
       "_sites": 2,
-      "_rawComposite": 2576,
-      "_finalAdjusted": 2576
+      "_rawComposite": 2573,
+      "_finalAdjusted": 2573
     },
     "2026 Pick 3.10": {
-      "ktc": 2208,
+      "ktc": 2211,
       "idpTradeCalc": 1962,
       "_composite": 2569,
       "_sites": 2,
@@ -17634,7 +17634,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2569
     },
     "2026 Pick 3.11": {
-      "ktc": 2038,
+      "ktc": 2041,
       "idpTradeCalc": 1912,
       "_composite": 2538,
       "_sites": 2,
@@ -17642,7 +17642,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2538
     },
     "2026 Pick 3.12": {
-      "ktc": 1868,
+      "ktc": 1871,
       "idpTradeCalc": 1766,
       "_composite": 2538,
       "_sites": 2,
@@ -17658,7 +17658,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2719
     },
     "2026 Mid 3rd": {
-      "ktc": 2171,
+      "ktc": 2172,
       "idpTradeCalc": 2137,
       "_composite": 2652,
       "_sites": 2,
@@ -17666,31 +17666,31 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2652
     },
     "2026 Late 3rd": {
-      "ktc": 2123,
+      "ktc": 2126,
       "idpTradeCalc": 2070,
-      "_composite": 2555,
+      "_composite": 2554,
       "_sites": 2,
-      "_rawComposite": 2555,
-      "_finalAdjusted": 2555
+      "_rawComposite": 2554,
+      "_finalAdjusted": 2554
     },
     "2026 Pick 4.01": {
-      "ktc": 2065,
+      "ktc": 2064,
       "idpTradeCalc": 1720,
-      "_composite": 2401,
+      "_composite": 2405,
       "_sites": 2,
-      "_rawComposite": 2401,
-      "_finalAdjusted": 2401
+      "_rawComposite": 2405,
+      "_finalAdjusted": 2405
     },
     "2026 Pick 4.02": {
-      "ktc": 1836,
+      "ktc": 1835,
       "idpTradeCalc": 1637,
-      "_composite": 2396,
+      "_composite": 2399,
       "_sites": 2,
-      "_rawComposite": 2396,
-      "_finalAdjusted": 2396
+      "_rawComposite": 2399,
+      "_finalAdjusted": 2399
     },
     "2026 Pick 4.03": {
-      "ktc": 1606,
+      "ktc": 1605,
       "idpTradeCalc": 1587,
       "_composite": 2381,
       "_sites": 2,
@@ -17698,7 +17698,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2381
     },
     "2026 Pick 4.04": {
-      "ktc": 1377,
+      "ktc": 1376,
       "idpTradeCalc": 1556,
       "_composite": 2365,
       "_sites": 2,
@@ -17716,10 +17716,10 @@ window.DYNASTY_DATA = {
     "2026 Pick 4.06": {
       "ktc": 1704,
       "idpTradeCalc": 1524,
-      "_composite": 2240,
+      "_composite": 2243,
       "_sites": 2,
-      "_rawComposite": 2240,
-      "_finalAdjusted": 2240
+      "_rawComposite": 2243,
+      "_finalAdjusted": 2243
     },
     "2026 Pick 4.07": {
       "ktc": 1552,
@@ -17738,7 +17738,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1976
     },
     "2026 Pick 4.09": {
-      "ktc": 1744,
+      "ktc": 1747,
       "idpTradeCalc": 1428,
       "_composite": 1965,
       "_sites": 2,
@@ -17746,7 +17746,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1965
     },
     "2026 Pick 4.10": {
-      "ktc": 1619,
+      "ktc": 1622,
       "idpTradeCalc": 1412,
       "_composite": 1955,
       "_sites": 2,
@@ -17754,15 +17754,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1955
     },
     "2026 Pick 4.11": {
-      "ktc": 1495,
+      "ktc": 1498,
       "idpTradeCalc": 1381,
-      "_composite": 1926,
+      "_composite": 1923,
       "_sites": 2,
-      "_rawComposite": 1926,
-      "_finalAdjusted": 1926
+      "_rawComposite": 1923,
+      "_finalAdjusted": 1923
     },
     "2026 Pick 4.12": {
-      "ktc": 1370,
+      "ktc": 1373,
       "idpTradeCalc": 1352,
       "_composite": 1922,
       "_sites": 2,
@@ -17770,12 +17770,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1922
     },
     "2026 Early 4th": {
-      "ktc": 1721,
+      "ktc": 1720,
       "idpTradeCalc": 1681,
-      "_composite": 2386,
+      "_composite": 2388,
       "_sites": 2,
-      "_rawComposite": 2386,
-      "_finalAdjusted": 2386
+      "_rawComposite": 2388,
+      "_finalAdjusted": 2388
     },
     "2026 Mid 4th": {
       "ktc": 1628,
@@ -17786,12 +17786,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2140
     },
     "2026 Late 4th": {
-      "ktc": 1557,
+      "ktc": 1560,
       "idpTradeCalc": 1497,
-      "_composite": 1942,
+      "_composite": 1941,
       "_sites": 2,
-      "_rawComposite": 1942,
-      "_finalAdjusted": 1942
+      "_rawComposite": 1941,
+      "_finalAdjusted": 1941
     },
     "2026 Pick 5.01": {
       "ktc": 1894,
@@ -17850,18 +17850,18 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1849
     },
     "2026 Pick 5.09": {
-      "ktc": 1827,
-      "_composite": 1827,
+      "ktc": 1824,
+      "_composite": 1824,
       "_sites": 1,
-      "_rawComposite": 1827,
-      "_finalAdjusted": 1827
+      "_rawComposite": 1824,
+      "_finalAdjusted": 1824
     },
     "2026 Pick 5.10": {
-      "ktc": 1747,
-      "_composite": 1747,
+      "ktc": 1748,
+      "_composite": 1748,
       "_sites": 1,
-      "_rawComposite": 1747,
-      "_finalAdjusted": 1747
+      "_rawComposite": 1748,
+      "_finalAdjusted": 1748
     },
     "2026 Pick 5.11": {
       "ktc": 1682,
@@ -18004,7 +18004,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1422
     },
     "2027 Early 1st": {
-      "ktc": 7060,
+      "ktc": 7059,
       "idpTradeCalc": 7129,
       "_composite": 6779,
       "_sites": 2,
@@ -18012,15 +18012,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 6779
     },
     "2027 Mid 1st": {
-      "ktc": 5595,
+      "ktc": 5598,
       "idpTradeCalc": 5675,
-      "_composite": 5378,
+      "_composite": 5379,
       "_sites": 2,
-      "_rawComposite": 5378,
-      "_finalAdjusted": 5378
+      "_rawComposite": 5379,
+      "_finalAdjusted": 5379
     },
     "2027 Late 1st": {
-      "ktc": 4923,
+      "ktc": 4921,
       "idpTradeCalc": 4905,
       "_composite": 4676,
       "_sites": 2,
@@ -18054,10 +18054,10 @@ window.DYNASTY_DATA = {
     "2027 Early 3rd": {
       "ktc": 2640,
       "idpTradeCalc": 2617,
-      "_composite": 2613,
+      "_composite": 2614,
       "_sites": 2,
-      "_rawComposite": 2613,
-      "_finalAdjusted": 2613
+      "_rawComposite": 2614,
+      "_finalAdjusted": 2614
     },
     "2027 Mid 3rd": {
       "ktc": 2521,
@@ -18078,10 +18078,10 @@ window.DYNASTY_DATA = {
     "2027 Early 4th": {
       "ktc": 1864,
       "idpTradeCalc": 1935,
-      "_composite": 2025,
+      "_composite": 2026,
       "_sites": 2,
-      "_rawComposite": 2025,
-      "_finalAdjusted": 2025
+      "_rawComposite": 2026,
+      "_finalAdjusted": 2026
     },
     "2027 Mid 4th": {
       "ktc": 1732,
@@ -18114,11 +18114,11 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1770
     },
     "2027 Late 5th": {
-      "ktc": 1619,
-      "_composite": 1619,
+      "ktc": 1618,
+      "_composite": 1618,
       "_sites": 1,
-      "_rawComposite": 1619,
-      "_finalAdjusted": 1619
+      "_rawComposite": 1618,
+      "_finalAdjusted": 1618
     },
     "2027 Early 6th": {
       "ktc": 1367,
@@ -18150,20 +18150,20 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5015
     },
     "2028 Mid 1st": {
-      "ktc": 4600,
+      "ktc": 4603,
       "idpTradeCalc": 4561,
-      "_composite": 4425,
+      "_composite": 4426,
       "_sites": 2,
-      "_rawComposite": 4425,
-      "_finalAdjusted": 4425
+      "_rawComposite": 4426,
+      "_finalAdjusted": 4426
     },
     "2028 Late 1st": {
-      "ktc": 4125,
+      "ktc": 4122,
       "idpTradeCalc": 4072,
-      "_composite": 3923,
+      "_composite": 3921,
       "_sites": 2,
-      "_rawComposite": 3923,
-      "_finalAdjusted": 3923
+      "_rawComposite": 3921,
+      "_finalAdjusted": 3921
     },
     "2028 Early 2nd": {
       "ktc": 3208,
@@ -18190,12 +18190,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2707
     },
     "2028 Early 3rd": {
-      "ktc": 2220,
+      "ktc": 2217,
       "idpTradeCalc": 2170,
-      "_composite": 2202,
+      "_composite": 2200,
       "_sites": 2,
-      "_rawComposite": 2202,
-      "_finalAdjusted": 2202
+      "_rawComposite": 2200,
+      "_finalAdjusted": 2200
     },
     "2028 Mid 3rd": {
       "ktc": 2096,
@@ -18206,20 +18206,20 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2115
     },
     "2028 Late 3rd": {
-      "ktc": 2009,
+      "ktc": 2015,
       "idpTradeCalc": 1989,
-      "_composite": 2027,
+      "_composite": 2028,
       "_sites": 2,
-      "_rawComposite": 2027,
-      "_finalAdjusted": 2027
+      "_rawComposite": 2028,
+      "_finalAdjusted": 2028
     },
     "2028 Early 4th": {
-      "ktc": 1645,
+      "ktc": 1642,
       "idpTradeCalc": 1622,
-      "_composite": 1741,
+      "_composite": 1740,
       "_sites": 2,
-      "_rawComposite": 1741,
-      "_finalAdjusted": 1741
+      "_rawComposite": 1740,
+      "_finalAdjusted": 1740
     },
     "2028 Mid 4th": {
       "ktc": 1576,
@@ -18230,7 +18230,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1627
     },
     "2028 Late 4th": {
-      "ktc": 1274,
+      "ktc": 1277,
       "idpTradeCalc": 1293,
       "_composite": 1386,
       "_sites": 2,
@@ -18252,18 +18252,18 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1513
     },
     "2028 Late 5th": {
-      "ktc": 1384,
-      "_composite": 1384,
+      "ktc": 1383,
+      "_composite": 1383,
       "_sites": 1,
-      "_rawComposite": 1384,
-      "_finalAdjusted": 1384
+      "_rawComposite": 1383,
+      "_finalAdjusted": 1383
     },
     "2028 Early 6th": {
-      "ktc": 1169,
-      "_composite": 1169,
+      "ktc": 1168,
+      "_composite": 1168,
       "_sites": 1,
-      "_rawComposite": 1169,
-      "_finalAdjusted": 1169
+      "_rawComposite": 1168,
+      "_finalAdjusted": 1168
     },
     "2028 Mid 6th": {
       "ktc": 1158,
@@ -18281,14 +18281,14 @@ window.DYNASTY_DATA = {
     },
     "Adam Thielen": {
       "_sleeperId": "1689",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 13,
       "age": 35,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Andy Borregales": {
       "_sleeperId": "12713",
@@ -18315,14 +18315,14 @@ window.DYNASTY_DATA = {
     },
     "Austin Ekeler": {
       "_sleeperId": "4663",
-      "_composite": 747,
+      "_composite": 749,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 9,
       "age": 31,
-      "_rawComposite": 747,
-      "_finalAdjusted": 747
+      "_rawComposite": 749,
+      "_finalAdjusted": 749
     },
     "Avieon Terrell": {
       "_sleeperId": "13389",
@@ -18373,14 +18373,14 @@ window.DYNASTY_DATA = {
     },
     "Bryan Thompson": {
       "_sleeperId": "11495",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 1,
       "age": 27,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Caden Curry": {
       "_sleeperId": "13373",
@@ -18476,14 +18476,14 @@ window.DYNASTY_DATA = {
     },
     "Curtis Samuel": {
       "_sleeperId": "4082",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 9,
       "age": 29,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "DJ Turner": {
       "_sleeperId": "10894",
@@ -18554,14 +18554,14 @@ window.DYNASTY_DATA = {
     },
     "DeAndre Hopkins": {
       "_sleeperId": "1426",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 13,
       "age": 34,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Dee Alford": {
       "_sleeperId": "8104",
@@ -18587,14 +18587,14 @@ window.DYNASTY_DATA = {
     },
     "Devin Duvernay": {
       "_sleeperId": "6847",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Evan McPherson": {
       "_sleeperId": "7839",
@@ -18655,14 +18655,14 @@ window.DYNASTY_DATA = {
     },
     "Isaiah Williams": {
       "_sleeperId": "11608",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 2,
       "age": 25,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Jack Jones": {
       "_sleeperId": "8261",
@@ -18766,15 +18766,15 @@ window.DYNASTY_DATA = {
     },
     "Jeff Caldwell": {
       "_sleeperId": "13392",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Jermod McCoy": {
       "_sleeperId": "13368",
@@ -18790,15 +18790,15 @@ window.DYNASTY_DATA = {
     },
     "John Michael Gyllenborg": {
       "_sleeperId": "13342",
-      "_composite": 927,
+      "_composite": 926,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 927,
-      "_finalAdjusted": 927
+      "_rawComposite": 926,
+      "_finalAdjusted": 926
     },
     "Jordan Davis": {
       "_sleeperId": "8269",
@@ -18813,14 +18813,14 @@ window.DYNASTY_DATA = {
     },
     "Jordan Nubin": {
       "_sleeperId": "14018",
-      "_composite": 747,
+      "_composite": 749,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
-      "_rawComposite": 747,
-      "_finalAdjusted": 747
+      "_rawComposite": 749,
+      "_finalAdjusted": 749
     },
     "Joshua Josephs": {
       "_sleeperId": "13366",
@@ -18985,26 +18985,26 @@ window.DYNASTY_DATA = {
     },
     "Nate Boerkircher": {
       "_sleeperId": "13299",
-      "_composite": 927,
+      "_composite": 926,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 927,
-      "_finalAdjusted": 927
+      "_rawComposite": 926,
+      "_finalAdjusted": 926
     },
     "Nick Chubb": {
       "_sleeperId": "4988",
-      "_composite": 747,
+      "_composite": 749,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 8,
       "age": 30,
-      "_rawComposite": 747,
-      "_finalAdjusted": 747
+      "_rawComposite": 749,
+      "_finalAdjusted": 749
     },
     "Paul Geelen": {
       "_sleeperId": "13990",
@@ -19054,14 +19054,14 @@ window.DYNASTY_DATA = {
     },
     "Stone Eby": {
       "_sleeperId": "13988",
-      "_composite": 927,
+      "_composite": 926,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
-      "_rawComposite": 927,
-      "_finalAdjusted": 927
+      "_rawComposite": 926,
+      "_finalAdjusted": 926
     },
     "Trey Smack": {
       "_sleeperId": "13545",
@@ -19088,25 +19088,25 @@ window.DYNASTY_DATA = {
     },
     "Tyler Conklin": {
       "_sleeperId": "5133",
-      "_composite": 927,
+      "_composite": 926,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 8,
       "age": 30,
-      "_rawComposite": 927,
-      "_finalAdjusted": 927
+      "_rawComposite": 926,
+      "_finalAdjusted": 926
     },
     "Tyler Lockett": {
       "_sleeperId": "2374",
-      "_composite": 758,
+      "_composite": 756,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 11,
       "age": 33,
-      "_rawComposite": 758,
-      "_finalAdjusted": 758
+      "_rawComposite": 756,
+      "_finalAdjusted": 756
     },
     "Upton Stout": {
       "_sleeperId": "12631",
@@ -19132,15 +19132,15 @@ window.DYNASTY_DATA = {
     },
     "Will Kacmarek": {
       "_sleeperId": "13434",
-      "_composite": 927,
+      "_composite": 926,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "rostered_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 927,
-      "_finalAdjusted": 927
+      "_rawComposite": 926,
+      "_finalAdjusted": 926
     },
     "Will Reichard": {
       "_sleeperId": "11792",
@@ -19166,14 +19166,14 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2361
     },
     "Jamarion Miller": {
-      "_composite": 1926,
+      "_composite": 1923,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_yearsExp": 2,
       "age": 26,
-      "_rawComposite": 1926,
-      "_finalAdjusted": 1926
+      "_rawComposite": 1923,
+      "_finalAdjusted": 1923
     },
     "Harrison Wallace": {
       "_composite": 1922,
@@ -19211,18 +19211,18 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1868
     },
     "Rahsul Faison": {
-      "_composite": 1827,
+      "_composite": 1824,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_sleeperId": "13323",
       "_yearsExp": 0,
       "_isRookie": true,
-      "_rawComposite": 1827,
-      "_finalAdjusted": 1827
+      "_rawComposite": 1824,
+      "_finalAdjusted": 1824
     },
     "Roman Hemby": {
-      "_composite": 1747,
+      "_composite": 1748,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19230,8 +19230,8 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 1747,
-      "_finalAdjusted": 1747
+      "_rawComposite": 1748,
+      "_finalAdjusted": 1748
     },
     "Tanner Koziol": {
       "_composite": 1682,
@@ -19352,13 +19352,13 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1413
     },
     "Trinidad Chambliss": {
-      "_composite": 1412,
+      "_composite": 1409,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_isRookie": true,
-      "_rawComposite": 1412,
-      "_finalAdjusted": 1412
+      "_rawComposite": 1409,
+      "_finalAdjusted": 1409
     },
     "Desmond Reid": {
       "_composite": 1367,
@@ -19373,7 +19373,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1367
     },
     "Joe Royer": {
-      "_composite": 1322,
+      "_composite": 1319,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19381,8 +19381,8 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 1322,
-      "_finalAdjusted": 1322
+      "_rawComposite": 1319,
+      "_finalAdjusted": 1319
     },
     "Kendrick Law": {
       "_composite": 1221,
@@ -19491,7 +19491,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 803
     },
     "Riley Nowakowski": {
-      "_composite": 681,
+      "_composite": 683,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19499,11 +19499,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 681,
-      "_finalAdjusted": 681
+      "_rawComposite": 683,
+      "_finalAdjusted": 683
     },
     "DJ Rogers": {
-      "_composite": 602,
+      "_composite": 603,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19511,11 +19511,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 602,
-      "_finalAdjusted": 602
+      "_rawComposite": 603,
+      "_finalAdjusted": 603
     },
     "Colbie Young": {
-      "_composite": 566,
+      "_composite": 567,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19523,20 +19523,20 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 566,
-      "_finalAdjusted": 566
+      "_rawComposite": 567,
+      "_finalAdjusted": 567
     },
     "Chip Trayanum": {
-      "_composite": 532,
+      "_composite": 533,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_isRookie": true,
-      "_rawComposite": 532,
-      "_finalAdjusted": 532
+      "_rawComposite": 533,
+      "_finalAdjusted": 533
     },
     "Malik Benson": {
-      "_composite": 500,
+      "_composite": 501,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19544,11 +19544,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 500,
-      "_finalAdjusted": 500
+      "_rawComposite": 501,
+      "_finalAdjusted": 501
     },
     "Josh Cuevas": {
-      "_composite": 470,
+      "_composite": 471,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19556,22 +19556,22 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 470,
-      "_finalAdjusted": 470
+      "_rawComposite": 471,
+      "_finalAdjusted": 471
     },
     "Donoven McCulley": {
-      "_composite": 442,
+      "_composite": 443,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 442,
-      "_finalAdjusted": 442
+      "_rawComposite": 443,
+      "_finalAdjusted": 443
     },
     "Emmanuel Henderson": {
-      "_composite": 390,
+      "_composite": 391,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19579,11 +19579,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 390,
-      "_finalAdjusted": 390
+      "_rawComposite": 391,
+      "_finalAdjusted": 391
     },
     "Kentrel Bullock": {
-      "_composite": 305,
+      "_composite": 306,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19591,11 +19591,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 305,
-      "_finalAdjusted": 305
+      "_rawComposite": 306,
+      "_finalAdjusted": 306
     },
     "RJ Maryland": {
-      "_composite": 287,
+      "_composite": 288,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19603,11 +19603,11 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 287,
-      "_finalAdjusted": 287
+      "_rawComposite": 288,
+      "_finalAdjusted": 288
     },
     "Romello Brinson": {
-      "_composite": 254,
+      "_composite": 255,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19615,17 +19615,17 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 24,
-      "_rawComposite": 254,
-      "_finalAdjusted": 254
+      "_rawComposite": 255,
+      "_finalAdjusted": 255
     },
     "Barika Kpeenu": {
-      "_composite": 225,
+      "_composite": 226,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
       "_isRookie": true,
-      "_rawComposite": 225,
-      "_finalAdjusted": 225
+      "_rawComposite": 226,
+      "_finalAdjusted": 226
     },
     "Matthew Hibner": {
       "_composite": 212,
@@ -25159,7 +25159,6 @@ window.DYNASTY_DATA = {
       "Derick Hall": "DL",
       "Derius Davis": "WR",
       "Derrick Moore": "DL",
-      "Deuce Vaughn": "RB",
       "Devonte Wyatt": "DL",
       "Donovan Edwards": "RB",
       "Donovan Wilson": "DB",
@@ -25300,6 +25299,7 @@ window.DYNASTY_DATA = {
       "Shaun Dolac": "LB",
       "Sione Vaki": "RB",
       "Skyy Moore": "WR",
+      "Sterling Shepard": "WR",
       "Ty Okada": "DB",
       "Tahj Washington": "WR",
       "Tai Felton": "WR",
@@ -26110,7 +26110,6 @@ window.DYNASTY_DATA = {
       "Derick Hall": "10911",
       "Derius Davis": "10234",
       "Derrick Moore": "13458",
-      "Deuce Vaughn": "9505",
       "Devonte Wyatt": "8270",
       "Donovan Edwards": "12515",
       "Donovan Wilson": "6291",
@@ -26251,6 +26250,7 @@ window.DYNASTY_DATA = {
       "Shaun Dolac": "13000",
       "Sione Vaki": "11729",
       "Skyy Moore": "8168",
+      "Sterling Shepard": "3200",
       "Ty Okada": "11233",
       "Tahj Washington": "11821",
       "Tai Felton": "12496",
@@ -27061,7 +27061,6 @@ window.DYNASTY_DATA = {
       "10911": "Derick Hall",
       "10234": "Derius Davis",
       "13458": "Derrick Moore",
-      "9505": "Deuce Vaughn",
       "8270": "Devonte Wyatt",
       "12515": "Donovan Edwards",
       "6291": "Donovan Wilson",
@@ -27202,6 +27201,7 @@ window.DYNASTY_DATA = {
       "13000": "Shaun Dolac",
       "11729": "Sione Vaki",
       "8168": "Skyy Moore",
+      "3200": "Sterling Shepard",
       "11233": "Ty Okada",
       "11821": "Tahj Washington",
       "12496": "Tai Felton",
@@ -31499,7 +31499,7 @@ window.DYNASTY_DATA = {
       }
     ],
     "tradeWindowDays": 365,
-    "tradeWindowStart": "2025-07-01T22:08:15.035531+00:00",
-    "tradeWindowCutoffMs": 1751407695035
+    "tradeWindowStart": "2025-07-01T23:56:03.790773+00:00",
+    "tradeWindowCutoffMs": 1751414163790
   }
 };
