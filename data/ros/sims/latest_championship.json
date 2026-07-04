@@ -1,22 +1,22 @@
 {
-  "computedAt": "2026-07-04T12:00:52.671281+00:00",
+  "computedAt": "2026-07-04T14:19:16.728377+00:00",
   "championshipOdds": [
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.4281,
-      "finalsOdds": 0.5488,
-      "semifinalOdds": 0.5514,
+      "championshipOdds": 0.4215,
+      "finalsOdds": 0.5449,
+      "semifinalOdds": 0.5491,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.37,
+      "expectedFinish": 3.39,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.3443,
-      "finalsOdds": 0.4468,
-      "semifinalOdds": 0.4486,
+      "championshipOdds": 0.3374,
+      "finalsOdds": 0.4492,
+      "semifinalOdds": 0.4509,
       "playoffOdds": 1.0,
       "expectedFinish": 3.86,
       "contenderTier": "Favorite"
@@ -24,31 +24,31 @@
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.1525,
-      "finalsOdds": 0.5985,
+      "championshipOdds": 0.1664,
+      "finalsOdds": 0.6066,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.25,
+      "expectedFinish": 2.23,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
-      "championshipOdds": 0.075,
-      "finalsOdds": 0.4015,
+      "championshipOdds": 0.0745,
+      "finalsOdds": 0.3934,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.52,
+      "expectedFinish": 2.53,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "championshipOdds": 0.0001,
-      "finalsOdds": 0.0044,
+      "championshipOdds": 0.0002,
+      "finalsOdds": 0.0059,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.0,
+      "expectedFinish": 2.99,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
