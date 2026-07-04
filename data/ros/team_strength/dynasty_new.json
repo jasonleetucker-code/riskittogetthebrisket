@@ -3,8 +3,8 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Brent",
-    "teamRosStrength": 484.16,
-    "startingLineupScore": 608.29,
+    "teamRosStrength": 487.27,
+    "startingLineupScore": 612.61,
     "benchDepthScore": 201.06,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -14,9 +14,9 @@
         "playerId": "4881",
         "canonicalName": "lamar jackson",
         "position": "QB",
-        "rosValue": 57.34,
-        "adjustedValue": 57.34,
-        "confidence": 0.765,
+        "rosValue": 61.66,
+        "adjustedValue": 61.66,
+        "confidence": 0.711,
         "flagged": null
       },
       {
@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 412.22,
+    "teamRosStrength": 412.21,
     "startingLineupScore": 513.45,
-    "benchDepthScore": 180.77,
+    "benchDepthScore": 180.69,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -311,9 +311,9 @@
         "playerId": "11631",
         "canonicalName": "brian thomas",
         "position": "WR",
-        "rosValue": 31.7,
+        "rosValue": 31.57,
         "depthFactor": 0.65,
-        "depthContribution": 20.61
+        "depthContribution": 20.52
       },
       {
         "playerId": "12481",
@@ -379,9 +379,9 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 382.3,
+    "teamRosStrength": 382.31,
     "startingLineupScore": 475.62,
-    "benchDepthScore": 165.86,
+    "benchDepthScore": 165.93,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -523,9 +523,9 @@
         "playerId": "12489",
         "canonicalName": "rj harvey",
         "position": "RB",
-        "rosValue": 26.73,
+        "rosValue": 26.84,
         "depthFactor": 0.65,
-        "depthContribution": 17.37
+        "depthContribution": 17.45
       },
       {
         "playerId": "12501",
@@ -1511,9 +1511,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 267.61,
+    "teamRosStrength": 267.65,
     "startingLineupScore": 336.84,
-    "benchDepthScore": 83.8,
+    "benchDepthScore": 84.05,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1623,9 +1623,9 @@
         "playerId": "12522",
         "canonicalName": "cam ward",
         "position": "QB",
-        "rosValue": 20.56,
+        "rosValue": 20.81,
         "depthFactor": 1.0,
-        "depthContribution": 20.56
+        "depthContribution": 20.81
       },
       {
         "playerId": "11603",
@@ -1699,9 +1699,9 @@
     "ownerId": "1033502330853302272",
     "rosterId": 8,
     "teamName": "cbonex21",
-    "teamRosStrength": 261.3,
-    "startingLineupScore": 325.09,
-    "benchDepthScore": 95.77,
+    "teamRosStrength": 258.41,
+    "startingLineupScore": 321.1,
+    "benchDepthScore": 95.66,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1710,9 +1710,9 @@
         "playerId": "11564",
         "canonicalName": "drake maye",
         "position": "QB",
-        "rosValue": 64.65,
-        "adjustedValue": 64.65,
-        "confidence": 0.725,
+        "rosValue": 60.66,
+        "adjustedValue": 60.66,
+        "confidence": 0.765,
         "flagged": null
       },
       {
@@ -1819,9 +1819,9 @@
         "playerId": "96",
         "canonicalName": "aaron rodgers",
         "position": "QB",
-        "rosValue": 19.68,
+        "rosValue": 19.57,
         "depthFactor": 1.0,
-        "depthContribution": 19.68
+        "depthContribution": 19.57
       },
       {
         "playerId": "9504",

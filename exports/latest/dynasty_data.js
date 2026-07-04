@@ -2,7 +2,7 @@
 window.DYNASTY_DATA = {
   "version": 4,
   "date": "2026-07-04",
-  "scrapeTimestamp": "2026-07-04T10:39:11.118291",
+  "scrapeTimestamp": "2026-07-04T11:59:36.007663",
   "settings": {
     "superflex": true,
     "tep": true,
@@ -18,7 +18,7 @@ window.DYNASTY_DATA = {
       "notes": "2026 slots map 1:1 to top-72 rookie composites (years_exp==0 + must-have list, minimum one source hit); 2027/2028 use tier model with outside-market blend and calibrated future discount."
     },
     "rankCurveDiagnostics": {
-      "generatedAt": "2026-07-04T10:39:04.157845+00:00",
+      "generatedAt": "2026-07-04T11:59:23.649019+00:00",
       "referencePath": "",
       "minSourceCount": 10,
       "minTargetCount": 24,
@@ -363,9 +363,9 @@ window.DYNASTY_DATA = {
     ],
     "dlfImport": {},
     "sourceRunSummary": {
-      "startedAt": "2026-07-04T10:36:39.903011+00:00",
-      "finishedAt": "2026-07-04T10:38:49.729647+00:00",
-      "durationSec": 129.83,
+      "startedAt": "2026-07-04T11:56:46.174981+00:00",
+      "finishedAt": "2026-07-04T11:58:57.250067+00:00",
+      "durationSec": 131.08,
       "overallStatus": "partial",
       "partialRun": true,
       "enabledSources": [
@@ -432,9 +432,9 @@ window.DYNASTY_DATA = {
           "enabled": true,
           "timeoutSec": 300,
           "state": "complete",
-          "startedAt": "2026-07-04T10:36:41.062212+00:00",
-          "finishedAt": "2026-07-04T10:36:59.566915+00:00",
-          "durationSec": 18.5,
+          "startedAt": "2026-07-04T11:56:47.690039+00:00",
+          "finishedAt": "2026-07-04T11:57:06.310908+00:00",
+          "durationSec": 18.62,
           "message": "KTC completed (4 mapped values)",
           "error": null,
           "valueCount": 4,
@@ -512,9 +512,9 @@ window.DYNASTY_DATA = {
           "enabled": true,
           "timeoutSec": 480,
           "state": "complete",
-          "startedAt": "2026-07-04T10:36:59.604500+00:00",
-          "finishedAt": "2026-07-04T10:38:49.690179+00:00",
-          "durationSec": 110.09,
+          "startedAt": "2026-07-04T11:57:06.343159+00:00",
+          "finishedAt": "2026-07-04T11:58:57.200825+00:00",
+          "durationSec": 110.86,
           "message": "IDPTradeCalc completed (4 mapped values)",
           "error": null,
           "valueCount": 4,
@@ -567,7 +567,7 @@ window.DYNASTY_DATA = {
           "timeoutSec": 300,
           "state": "partial",
           "startedAt": null,
-          "finishedAt": "2026-07-04T10:38:49.694908+00:00",
+          "finishedAt": "2026-07-04T11:58:57.206625+00:00",
           "durationSec": null,
           "message": "KTC trade DB skipped — no playerID→name mapping available",
           "error": null,
@@ -583,7 +583,7 @@ window.DYNASTY_DATA = {
           "timeoutSec": 300,
           "state": "partial",
           "startedAt": null,
-          "finishedAt": "2026-07-04T10:38:49.694925+00:00",
+          "finishedAt": "2026-07-04T11:58:57.206643+00:00",
           "durationSec": null,
           "message": "KTC waiver DB skipped — no playerID→name mapping available",
           "error": null,
@@ -622,12 +622,12 @@ window.DYNASTY_DATA = {
       "count": 1047
     },
     "ktc": {
-      "mean": 2762.61,
+      "mean": 2762.62,
       "stdev": 1747.39,
       "count": 704
     },
     "ktcSfTep": {
-      "mean": 2838.81,
+      "mean": 2838.82,
       "stdev": 1763.34,
       "count": 704
     }
@@ -642,13 +642,13 @@ window.DYNASTY_DATA = {
       "2026 1.06": 4804,
       "2026 1.07": 4376,
       "2026 1.08": 3947,
-      "2026 1.09": 4320,
-      "2026 1.10": 4011,
-      "2026 1.11": 3703,
-      "2026 1.12": 3394,
+      "2026 1.09": 4323,
+      "2026 1.10": 4014,
+      "2026 1.11": 3706,
+      "2026 1.12": 3397,
       "2026 Early 1st": 5605,
       "2026 Mid 1st": 4590,
-      "2026 Late 1st": 3857,
+      "2026 Late 1st": 3860,
       "2026 2.01": 3965,
       "2026 2.02": 3524,
       "2026 2.03": 3084,
@@ -709,7 +709,7 @@ window.DYNASTY_DATA = {
       "2026 Early 5th": 1888,
       "2026 Mid 5th": 1866,
       "2026 Late 5th": 1703,
-      "2026 6.01": 1474,
+      "2026 6.01": 1471,
       "2026 6.02": 1449,
       "2026 6.03": 1436,
       "2026 6.04": 1429,
@@ -721,15 +721,15 @@ window.DYNASTY_DATA = {
       "2026 6.10": 1423,
       "2026 6.11": 1423,
       "2026 6.12": 1422,
-      "2026 Early 6th": 1447,
+      "2026 Early 6th": 1446,
       "2026 Mid 6th": 1427,
       "2026 Late 6th": 1423,
       "2027 Early 1st": 7055,
       "2027 Mid 1st": 5622,
       "2027 Late 1st": 4905,
-      "2027 Early 2nd": 3863,
+      "2027 Early 2nd": 3860,
       "2027 Mid 2nd": 3415,
-      "2027 Late 2nd": 3149,
+      "2027 Late 2nd": 3152,
       "2027 Early 3rd": 2649,
       "2027 Mid 3rd": 2522,
       "2027 Late 3rd": 2211,
@@ -739,7 +739,7 @@ window.DYNASTY_DATA = {
       "2027 Early 5th": 1794,
       "2027 Mid 5th": 1772,
       "2027 Late 5th": 1618,
-      "2027 Early 6th": 1375,
+      "2027 Early 6th": 1374,
       "2027 Mid 6th": 1356,
       "2027 Late 6th": 1352,
       "2028 Early 1st": 5023,
@@ -749,15 +749,15 @@ window.DYNASTY_DATA = {
       "2028 Mid 2nd": 2983,
       "2028 Late 2nd": 2800,
       "2028 Early 3rd": 2239,
-      "2028 Mid 3rd": 2096,
-      "2028 Late 3rd": 2008,
+      "2028 Mid 3rd": 2093,
+      "2028 Late 3rd": 2011,
       "2028 Early 4th": 1636,
       "2028 Mid 4th": 1577,
       "2028 Late 4th": 1277,
       "2028 Early 5th": 1536,
       "2028 Mid 5th": 1517,
       "2028 Late 5th": 1385,
-      "2028 Early 6th": 1177,
+      "2028 Early 6th": 1176,
       "2028 Mid 6th": 1161,
       "2028 Late 6th": 1157
     },
@@ -858,13 +858,13 @@ window.DYNASTY_DATA = {
       "2026 1.06": 4804,
       "2026 1.07": 4376,
       "2026 1.08": 3947,
-      "2026 1.09": 4320,
-      "2026 1.10": 4011,
-      "2026 1.11": 3703,
-      "2026 1.12": 3394,
+      "2026 1.09": 4323,
+      "2026 1.10": 4014,
+      "2026 1.11": 3706,
+      "2026 1.12": 3397,
       "2026 Early 1st": 5605,
       "2026 Mid 1st": 4590,
-      "2026 Late 1st": 3857,
+      "2026 Late 1st": 3860,
       "2026 2.01": 3965,
       "2026 2.02": 3524,
       "2026 2.03": 3084,
@@ -925,7 +925,7 @@ window.DYNASTY_DATA = {
       "2026 Early 5th": 1888,
       "2026 Mid 5th": 1866,
       "2026 Late 5th": 1703,
-      "2026 6.01": 1474,
+      "2026 6.01": 1471,
       "2026 6.02": 1449,
       "2026 6.03": 1436,
       "2026 6.04": 1429,
@@ -937,15 +937,15 @@ window.DYNASTY_DATA = {
       "2026 6.10": 1423,
       "2026 6.11": 1423,
       "2026 6.12": 1422,
-      "2026 Early 6th": 1447,
+      "2026 Early 6th": 1446,
       "2026 Mid 6th": 1427,
       "2026 Late 6th": 1423,
       "2027 Early 1st": 7055,
       "2027 Mid 1st": 5622,
       "2027 Late 1st": 4905,
-      "2027 Early 2nd": 3863,
+      "2027 Early 2nd": 3860,
       "2027 Mid 2nd": 3415,
-      "2027 Late 2nd": 3149,
+      "2027 Late 2nd": 3152,
       "2027 Early 3rd": 2649,
       "2027 Mid 3rd": 2522,
       "2027 Late 3rd": 2211,
@@ -955,7 +955,7 @@ window.DYNASTY_DATA = {
       "2027 Early 5th": 1794,
       "2027 Mid 5th": 1772,
       "2027 Late 5th": 1618,
-      "2027 Early 6th": 1375,
+      "2027 Early 6th": 1374,
       "2027 Mid 6th": 1356,
       "2027 Late 6th": 1352,
       "2028 Early 1st": 5023,
@@ -965,15 +965,15 @@ window.DYNASTY_DATA = {
       "2028 Mid 2nd": 2983,
       "2028 Late 2nd": 2800,
       "2028 Early 3rd": 2239,
-      "2028 Mid 3rd": 2096,
-      "2028 Late 3rd": 2008,
+      "2028 Mid 3rd": 2093,
+      "2028 Late 3rd": 2011,
       "2028 Early 4th": 1636,
       "2028 Mid 4th": 1577,
       "2028 Late 4th": 1277,
       "2028 Early 5th": 1536,
       "2028 Mid 5th": 1517,
       "2028 Late 5th": 1385,
-      "2028 Early 6th": 1177,
+      "2028 Early 6th": 1176,
       "2028 Mid 6th": 1161,
       "2028 Late 6th": 1157
     },
@@ -1307,7 +1307,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5034
       },
       "_marketConfidence": 0.5609,
-      "_marketDispersionCV": 0.032859,
+      "_marketDispersionCV": 0.03286,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -1328,7 +1328,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3181
       },
       "_marketConfidence": 0.5158,
-      "_marketDispersionCV": 0.077939,
+      "_marketDispersionCV": 0.07794,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -1403,7 +1403,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2241
       },
       "_marketConfidence": 0.5571,
-      "_marketDispersionCV": 0.036638,
+      "_marketDispersionCV": 0.036639,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -1412,25 +1412,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2287
     },
     "Aaron Rodgers": {
-      "ktc": 1975,
-      "ktcSfTep": 1975,
+      "ktc": 1972,
+      "ktcSfTep": 1972,
       "idpTradeCalc": 1875,
       "_sleeperId": "96",
-      "_composite": 1975,
+      "_composite": 1972,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1975,
-        "ktcSfTep": 1975,
+        "ktc": 1972,
+        "ktcSfTep": 1972,
         "idpTradeCalc": 1875
       },
-      "_marketConfidence": 0.5632,
-      "_marketDispersionCV": 0.030543,
+      "_marketConfidence": 0.5627,
+      "_marketDispersionCV": 0.031053,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 21,
       "age": 42,
-      "_rawComposite": 1975,
-      "_finalAdjusted": 1975
+      "_rawComposite": 1972,
+      "_finalAdjusted": 1972
     },
     "Abdul Carter": {
       "idpTradeCalc": 5419,
@@ -1462,7 +1462,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1016
       },
       "_marketConfidence": 0.5761,
-      "_marketDispersionCV": 0.017677,
+      "_marketDispersionCV": 0.017679,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -1482,7 +1482,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1004
       },
       "_marketConfidence": 0.3545,
-      "_marketDispersionCV": 0.157955,
+      "_marketDispersionCV": 0.157956,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -1520,7 +1520,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2451
       },
       "_marketConfidence": 0.5676,
-      "_marketDispersionCV": 0.026154,
+      "_marketDispersionCV": 0.026155,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -1556,7 +1556,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 504
       },
       "_marketConfidence": 0.4897,
-      "_marketDispersionCV": 0.022786,
+      "_marketDispersionCV": 0.022787,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -1631,7 +1631,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4058
       },
       "_marketConfidence": 0.5551,
-      "_marketDispersionCV": 0.038603,
+      "_marketDispersionCV": 0.038604,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -1720,7 +1720,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 825
       },
       "_marketConfidence": 0.4873,
-      "_marketDispersionCV": 0.106427,
+      "_marketDispersionCV": 0.106431,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -1792,7 +1792,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2049
       },
       "_marketConfidence": 0.5465,
-      "_marketDispersionCV": 0.047254,
+      "_marketDispersionCV": 0.047256,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -1851,7 +1851,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1661
       },
       "_marketConfidence": 0.5399,
-      "_marketDispersionCV": 0.053804,
+      "_marketDispersionCV": 0.053806,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -1975,7 +1975,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2264
       },
       "_marketConfidence": 0.5389,
-      "_marketDispersionCV": 0.054889,
+      "_marketDispersionCV": 0.054891,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2013,7 +2013,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2995
       },
       "_marketConfidence": 0.5615,
-      "_marketDispersionCV": 0.032236,
+      "_marketDispersionCV": 0.032238,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -2052,7 +2052,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 977
       },
       "_marketConfidence": 0.5292,
-      "_marketDispersionCV": 0.064546,
+      "_marketDispersionCV": 0.064549,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -2146,7 +2146,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1567
       },
       "_marketConfidence": 0.5238,
-      "_marketDispersionCV": 0.069958,
+      "_marketDispersionCV": 0.069961,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2218,7 +2218,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4788
       },
       "_marketConfidence": 0.5589,
-      "_marketDispersionCV": 0.034892,
+      "_marketDispersionCV": 0.034893,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -2239,7 +2239,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1086
       },
       "_marketConfidence": 0.5189,
-      "_marketDispersionCV": 0.074819,
+      "_marketDispersionCV": 0.074822,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2314,7 +2314,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2126
       },
       "_marketConfidence": 0.4977,
-      "_marketDispersionCV": 0.09601,
+      "_marketDispersionCV": 0.096011,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2323,25 +2323,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2393
     },
     "Bhayshul Tuten": {
-      "ktc": 4121,
-      "ktcSfTep": 4121,
+      "ktc": 4123,
+      "ktcSfTep": 4123,
       "idpTradeCalc": 3952,
       "_sleeperId": "12490",
-      "_composite": 4121,
+      "_composite": 4123,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4121,
-        "ktcSfTep": 4121,
+        "ktc": 4123,
+        "ktcSfTep": 4123,
         "idpTradeCalc": 3952
       },
-      "_marketConfidence": 0.5773,
-      "_marketDispersionCV": 0.016407,
+      "_marketConfidence": 0.5775,
+      "_marketDispersionCV": 0.016231,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 4121,
-      "_finalAdjusted": 4121
+      "_rawComposite": 4123,
+      "_finalAdjusted": 4123
     },
     "Bijan Robinson": {
       "ktc": 9999,
@@ -2411,7 +2411,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3279
       },
       "_marketConfidence": 0.5645,
-      "_marketDispersionCV": 0.029261,
+      "_marketDispersionCV": 0.029263,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2432,7 +2432,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 989
       },
       "_marketConfidence": 0.527,
-      "_marketDispersionCV": 0.066738,
+      "_marketDispersionCV": 0.06674,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2453,7 +2453,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6024
       },
       "_marketConfidence": 0.5674,
-      "_marketDispersionCV": 0.026327,
+      "_marketDispersionCV": 0.026328,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2559,7 +2559,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2661
       },
       "_marketConfidence": 0.5539,
-      "_marketDispersionCV": 0.039801,
+      "_marketDispersionCV": 0.039803,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2585,19 +2585,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1104
     },
     "Brandon Aiyuk": {
-      "ktc": 2182,
-      "ktcSfTep": 2182,
+      "ktc": 2185,
+      "ktcSfTep": 2185,
       "idpTradeCalc": 2296,
       "_sleeperId": "6803",
       "_composite": 2296,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2182,
-        "ktcSfTep": 2182,
+        "ktc": 2185,
+        "ktcSfTep": 2185,
         "idpTradeCalc": 2296
       },
-      "_marketConfidence": 0.5319,
-      "_marketDispersionCV": 0.061895,
+      "_marketConfidence": 0.5324,
+      "_marketDispersionCV": 0.061394,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -2652,7 +2652,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1848
       },
       "_marketConfidence": 0.522,
-      "_marketDispersionCV": 0.071784,
+      "_marketDispersionCV": 0.071786,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -2673,7 +2673,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5367
       },
       "_marketConfidence": 0.5685,
-      "_marketDispersionCV": 0.025283,
+      "_marketDispersionCV": 0.025284,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2694,7 +2694,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 768
       },
       "_marketConfidence": 0.5277,
-      "_marketDispersionCV": 0.066088,
+      "_marketDispersionCV": 0.066092,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -2715,7 +2715,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1352
       },
       "_marketConfidence": 0.5792,
-      "_marketDispersionCV": 0.014576,
+      "_marketDispersionCV": 0.014577,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -2737,7 +2737,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3422
       },
       "_marketConfidence": 0.5177,
-      "_marketDispersionCV": 0.076096,
+      "_marketDispersionCV": 0.076097,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2746,25 +2746,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3808
     },
     "Brevin Jordan": {
-      "ktc": 1005,
-      "ktcSfTep": 1579,
+      "ktc": 1002,
+      "ktcSfTep": 1576,
       "idpTradeCalc": 1369,
       "_sleeperId": "7568",
-      "_composite": 1579,
+      "_composite": 1576,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1005,
-        "ktcSfTep": 1579,
+        "ktc": 1002,
+        "ktcSfTep": 1576,
         "idpTradeCalc": 1369
       },
-      "_marketConfidence": 0.4701,
-      "_marketDispersionCV": 0.123662,
+      "_marketConfidence": 0.4696,
+      "_marketDispersionCV": 0.124189,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 25,
-      "_rawComposite": 1579,
-      "_finalAdjusted": 1579
+      "_rawComposite": 1576,
+      "_finalAdjusted": 1576
     },
     "Brian Branch": {
       "idpTradeCalc": 3527,
@@ -2813,7 +2813,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2379
       },
       "_marketConfidence": 0.5464,
-      "_marketDispersionCV": 0.047335,
+      "_marketDispersionCV": 0.047336,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2822,25 +2822,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2379
     },
     "Brian Thomas": {
-      "ktc": 4888,
-      "ktcSfTep": 4888,
+      "ktc": 4891,
+      "ktcSfTep": 4891,
       "idpTradeCalc": 4779,
       "_sleeperId": "11631",
-      "_composite": 4888,
+      "_composite": 4891,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4888,
-        "ktcSfTep": 4888,
+        "ktc": 4891,
+        "ktcSfTep": 4891,
         "idpTradeCalc": 4779
       },
-      "_marketConfidence": 0.5732,
-      "_marketDispersionCV": 0.02053,
+      "_marketConfidence": 0.5735,
+      "_marketDispersionCV": 0.02029,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 23,
-      "_rawComposite": 4888,
-      "_finalAdjusted": 4888
+      "_rawComposite": 4891,
+      "_finalAdjusted": 4891
     },
     "Brock Bowers": {
       "ktc": 8151,
@@ -2876,7 +2876,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5851
       },
       "_marketConfidence": 0.5678,
-      "_marketDispersionCV": 0.025907,
+      "_marketDispersionCV": 0.025908,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -2897,7 +2897,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1334
       },
       "_marketConfidence": 0.4536,
-      "_marketDispersionCV": 0.140142,
+      "_marketDispersionCV": 0.140144,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -2940,26 +2940,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1452
     },
     "Bryce Lance": {
-      "ktc": 1474,
-      "ktcSfTep": 1474,
+      "ktc": 1471,
+      "ktcSfTep": 1471,
       "idpTradeCalc": 1215,
       "_sleeperId": "13420",
-      "_composite": 1474,
+      "_composite": 1471,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1474,
-        "ktcSfTep": 1474,
+        "ktc": 1471,
+        "ktcSfTep": 1471,
         "idpTradeCalc": 1215
       },
-      "_marketConfidence": 0.5816,
-      "_marketDispersionCV": 0.01215,
+      "_marketConfidence": 0.5817,
+      "_marketDispersionCV": 0.012073,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 1474,
-      "_finalAdjusted": 1474
+      "_rawComposite": 1471,
+      "_finalAdjusted": 1471
     },
     "Bryce Young": {
       "ktc": 4284,
@@ -2974,7 +2974,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4467
       },
       "_marketConfidence": 0.546,
-      "_marketDispersionCV": 0.047703,
+      "_marketDispersionCV": 0.047704,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -2995,7 +2995,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 812
       },
       "_marketConfidence": 0.5171,
-      "_marketDispersionCV": 0.076624,
+      "_marketDispersionCV": 0.076627,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -3004,19 +3004,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 812
     },
     "Bucky Irving": {
-      "ktc": 4685,
-      "ktcSfTep": 4685,
+      "ktc": 4687,
+      "ktcSfTep": 4687,
       "idpTradeCalc": 4799,
       "_sleeperId": "11584",
       "_composite": 4799,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4685,
-        "ktcSfTep": 4685,
+        "ktc": 4687,
+        "ktcSfTep": 4687,
         "idpTradeCalc": 4799
       },
-      "_marketConfidence": 0.5543,
-      "_marketDispersionCV": 0.039401,
+      "_marketConfidence": 0.5545,
+      "_marketDispersionCV": 0.039225,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -3106,7 +3106,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4825
       },
       "_marketConfidence": 0.56,
-      "_marketDispersionCV": 0.033794,
+      "_marketDispersionCV": 0.033795,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3145,7 +3145,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 868
       },
       "_marketConfidence": 0.5485,
-      "_marketDispersionCV": 0.045254,
+      "_marketDispersionCV": 0.045257,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3184,7 +3184,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1791
       },
       "_marketConfidence": 0.5568,
-      "_marketDispersionCV": 0.03698,
+      "_marketDispersionCV": 0.036982,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3206,7 +3206,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2719
       },
       "_marketConfidence": 0.5071,
-      "_marketDispersionCV": 0.086629,
+      "_marketDispersionCV": 0.08663,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3227,7 +3227,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1829
       },
       "_marketConfidence": 0.4773,
-      "_marketDispersionCV": 0.116469,
+      "_marketDispersionCV": 0.116471,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -3248,7 +3248,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1102
       },
       "_marketConfidence": 0.5735,
-      "_marketDispersionCV": 0.020209,
+      "_marketDispersionCV": 0.020207,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3276,25 +3276,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2988
     },
     "Caleb Williams": {
-      "ktc": 8042,
-      "ktcSfTep": 8042,
+      "ktc": 8039,
+      "ktcSfTep": 8039,
       "idpTradeCalc": 7977,
       "_sleeperId": "11560",
-      "_composite": 8042,
+      "_composite": 8039,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 8042,
-        "ktcSfTep": 8042,
+        "ktc": 8039,
+        "ktcSfTep": 8039,
         "idpTradeCalc": 7977
       },
-      "_marketConfidence": 0.5738,
-      "_marketDispersionCV": 0.019924,
+      "_marketConfidence": 0.5737,
+      "_marketDispersionCV": 0.020082,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 24,
-      "_rawComposite": 8042,
-      "_finalAdjusted": 8042
+      "_rawComposite": 8039,
+      "_finalAdjusted": 8039
     },
     "Calen Bullock": {
       "idpTradeCalc": 829,
@@ -3343,7 +3343,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1454
       },
       "_marketConfidence": 0.5264,
-      "_marketDispersionCV": 0.06738,
+      "_marketDispersionCV": 0.067382,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3364,7 +3364,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1869
       },
       "_marketConfidence": 0.5425,
-      "_marketDispersionCV": 0.051293,
+      "_marketDispersionCV": 0.051295,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -3385,7 +3385,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4718
       },
       "_marketConfidence": 0.5722,
-      "_marketDispersionCV": 0.021516,
+      "_marketDispersionCV": 0.021517,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -3423,7 +3423,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5408
       },
       "_marketConfidence": 0.5618,
-      "_marketDispersionCV": 0.031933,
+      "_marketDispersionCV": 0.031934,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -3495,7 +3495,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5899
       },
       "_marketConfidence": 0.5702,
-      "_marketDispersionCV": 0.023509,
+      "_marketDispersionCV": 0.02351,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3517,7 +3517,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1797
       },
       "_marketConfidence": 0.5622,
-      "_marketDispersionCV": 0.031549,
+      "_marketDispersionCV": 0.031547,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3610,7 +3610,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1866
       },
       "_marketConfidence": 0.5234,
-      "_marketDispersionCV": 0.070375,
+      "_marketDispersionCV": 0.070377,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3631,7 +3631,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 7267
       },
       "_marketConfidence": 0.5674,
-      "_marketDispersionCV": 0.026366,
+      "_marketDispersionCV": 0.026367,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -3657,25 +3657,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1435
     },
     "Charlie Kolar": {
-      "ktc": 1013,
-      "ktcSfTep": 1588,
+      "ktc": 1016,
+      "ktcSfTep": 1591,
       "idpTradeCalc": 1371,
       "_sleeperId": "8127",
-      "_composite": 1588,
+      "_composite": 1591,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1013,
-        "ktcSfTep": 1588,
+        "ktc": 1016,
+        "ktcSfTep": 1591,
         "idpTradeCalc": 1371
       },
-      "_marketConfidence": 0.4712,
-      "_marketDispersionCV": 0.122578,
+      "_marketConfidence": 0.4717,
+      "_marketDispersionCV": 0.122066,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 27,
-      "_rawComposite": 1588,
-      "_finalAdjusted": 1588
+      "_rawComposite": 1591,
+      "_finalAdjusted": 1591
     },
     "Chase Brown": {
       "ktc": 5138,
@@ -3690,7 +3690,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5006
       },
       "_marketConfidence": 0.5753,
-      "_marketDispersionCV": 0.018457,
+      "_marketDispersionCV": 0.018458,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3749,7 +3749,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2421
       },
       "_marketConfidence": 0.5508,
-      "_marketDispersionCV": 0.042905,
+      "_marketDispersionCV": 0.042907,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -3787,7 +3787,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2993
       },
       "_marketConfidence": 0.5663,
-      "_marketDispersionCV": 0.027464,
+      "_marketDispersionCV": 0.027465,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3826,7 +3826,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2630
       },
       "_marketConfidence": 0.5332,
-      "_marketDispersionCV": 0.060549,
+      "_marketDispersionCV": 0.060551,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -3848,7 +3848,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1235
       },
       "_marketConfidence": 0.5699,
-      "_marketDispersionCV": 0.023831,
+      "_marketDispersionCV": 0.023833,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -3869,7 +3869,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2925
       },
       "_marketConfidence": 0.5586,
-      "_marketDispersionCV": 0.035152,
+      "_marketDispersionCV": 0.035153,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -3907,7 +3907,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5533
       },
       "_marketConfidence": 0.5651,
-      "_marketDispersionCV": 0.028672,
+      "_marketDispersionCV": 0.028673,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -3928,7 +3928,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2589
       },
       "_marketConfidence": 0.5621,
-      "_marketDispersionCV": 0.03168,
+      "_marketDispersionCV": 0.031682,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4022,19 +4022,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1499
     },
     "Christian Kirk": {
-      "ktc": 1946,
-      "ktcSfTep": 1946,
+      "ktc": 1943,
+      "ktcSfTep": 1943,
       "idpTradeCalc": 1972,
       "_sleeperId": "4950",
       "_composite": 1972,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1946,
-        "ktcSfTep": 1946,
+        "ktc": 1943,
+        "ktcSfTep": 1943,
         "idpTradeCalc": 1972
       },
-      "_marketConfidence": 0.5421,
-      "_marketDispersionCV": 0.051629,
+      "_marketConfidence": 0.5416,
+      "_marketDispersionCV": 0.052171,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4055,7 +4055,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4990
       },
       "_marketConfidence": 0.5641,
-      "_marketDispersionCV": 0.029617,
+      "_marketDispersionCV": 0.029618,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -4093,7 +4093,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3751
       },
       "_marketConfidence": 0.5751,
-      "_marketDispersionCV": 0.018634,
+      "_marketDispersionCV": 0.018635,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -4114,7 +4114,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3311
       },
       "_marketConfidence": 0.5564,
-      "_marketDispersionCV": 0.037346,
+      "_marketDispersionCV": 0.037347,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -4186,7 +4186,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2254
       },
       "_marketConfidence": 0.4988,
-      "_marketDispersionCV": 0.094999,
+      "_marketDispersionCV": 0.095,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4224,7 +4224,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2364
       },
       "_marketConfidence": 0.5003,
-      "_marketDispersionCV": 0.093477,
+      "_marketDispersionCV": 0.093478,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4253,25 +4253,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 822
     },
     "Colston Loveland": {
-      "ktc": 6229,
-      "ktcSfTep": 7565,
+      "ktc": 6232,
+      "ktcSfTep": 7569,
       "idpTradeCalc": 6793,
       "_sleeperId": "12517",
-      "_composite": 7251,
+      "_composite": 7253,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6229,
-        "ktcSfTep": 7565,
+        "ktc": 6232,
+        "ktcSfTep": 7569,
         "idpTradeCalc": 6793
       },
       "_marketConfidence": 0.5265,
-      "_marketDispersionCV": 0.06724,
+      "_marketDispersionCV": 0.067212,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 7251,
-      "_finalAdjusted": 7251
+      "_rawComposite": 7253,
+      "_finalAdjusted": 7253
     },
     "Cooper DeJean": {
       "idpTradeCalc": 3055,
@@ -4303,7 +4303,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1765
       },
       "_marketConfidence": 0.5354,
-      "_marketDispersionCV": 0.05838,
+      "_marketDispersionCV": 0.058381,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -4341,7 +4341,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3145
       },
       "_marketConfidence": 0.5525,
-      "_marketDispersionCV": 0.041243,
+      "_marketDispersionCV": 0.041244,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4367,24 +4367,24 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1135
     },
     "Cyrus Allen": {
-      "ktc": 934,
-      "ktcSfTep": 934,
+      "ktc": 937,
+      "ktcSfTep": 937,
       "_sleeperId": "13413",
-      "_composite": 934,
+      "_composite": 937,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 934,
-        "ktcSfTep": 934
+        "ktc": 937,
+        "ktcSfTep": 937
       },
       "_marketConfidence": 0.4945,
-      "_marketDispersionCV": 0.018015,
+      "_marketDispersionCV": 0.017991,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 934,
-      "_finalAdjusted": 934
+      "_rawComposite": 937,
+      "_finalAdjusted": 937
     },
     "D'Andre Swift": {
       "ktc": 3650,
@@ -4399,7 +4399,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3557
       },
       "_marketConfidence": 0.5694,
-      "_marketDispersionCV": 0.024398,
+      "_marketDispersionCV": 0.024399,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4420,7 +4420,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3688
       },
       "_marketConfidence": 0.5489,
-      "_marketDispersionCV": 0.044877,
+      "_marketDispersionCV": 0.044878,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4458,7 +4458,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2060
       },
       "_marketConfidence": 0.5475,
-      "_marketDispersionCV": 0.04626,
+      "_marketDispersionCV": 0.046262,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -4479,7 +4479,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3534
       },
       "_marketConfidence": 0.5516,
-      "_marketDispersionCV": 0.042149,
+      "_marketDispersionCV": 0.04215,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4534,7 +4534,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4951
       },
       "_marketConfidence": 0.56,
-      "_marketDispersionCV": 0.033744,
+      "_marketDispersionCV": 0.033745,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -4555,7 +4555,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2999
       },
       "_marketConfidence": 0.5125,
-      "_marketDispersionCV": 0.081201,
+      "_marketDispersionCV": 0.081202,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -4593,7 +4593,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3700
       },
       "_marketConfidence": 0.51,
-      "_marketDispersionCV": 0.083747,
+      "_marketDispersionCV": 0.083748,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4603,24 +4603,24 @@ window.DYNASTY_DATA = {
     },
     "Dalton Schultz": {
       "ktc": 2156,
-      "ktcSfTep": 2835,
+      "ktcSfTep": 2836,
       "idpTradeCalc": 2644,
       "_sleeperId": "5001",
-      "_composite": 2835,
+      "_composite": 2836,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 2156,
-        "ktcSfTep": 2835,
+        "ktcSfTep": 2836,
         "idpTradeCalc": 2644
       },
-      "_marketConfidence": 0.4977,
-      "_marketDispersionCV": 0.09608,
+      "_marketConfidence": 0.4976,
+      "_marketDispersionCV": 0.09612,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
       "age": 29,
-      "_rawComposite": 2835,
-      "_finalAdjusted": 2835
+      "_rawComposite": 2836,
+      "_finalAdjusted": 2836
     },
     "Dameon Pierce": {
       "ktc": 993,
@@ -4635,7 +4635,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 988
       },
       "_marketConfidence": 0.529,
-      "_marketDispersionCV": 0.064786,
+      "_marketDispersionCV": 0.064789,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -4656,7 +4656,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1464
       },
       "_marketConfidence": 0.5398,
-      "_marketDispersionCV": 0.05392,
+      "_marketDispersionCV": 0.053923,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -4677,7 +4677,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1823
       },
       "_marketConfidence": 0.4851,
-      "_marketDispersionCV": 0.108649,
+      "_marketDispersionCV": 0.108651,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -4698,7 +4698,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3911
       },
       "_marketConfidence": 0.5614,
-      "_marketDispersionCV": 0.032332,
+      "_marketDispersionCV": 0.032333,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4804,7 +4804,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1565
       },
       "_marketConfidence": 0.5312,
-      "_marketDispersionCV": 0.062565,
+      "_marketDispersionCV": 0.062567,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4825,7 +4825,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2076
       },
       "_marketConfidence": 0.5366,
-      "_marketDispersionCV": 0.057198,
+      "_marketDispersionCV": 0.057199,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -4846,7 +4846,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2217
       },
       "_marketConfidence": 0.5061,
-      "_marketDispersionCV": 0.087679,
+      "_marketDispersionCV": 0.08768,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4901,7 +4901,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3273
       },
       "_marketConfidence": 0.565,
-      "_marketDispersionCV": 0.028714,
+      "_marketDispersionCV": 0.028716,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 12,
@@ -4940,7 +4940,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 981
       },
       "_marketConfidence": 0.5233,
-      "_marketDispersionCV": 0.070427,
+      "_marketDispersionCV": 0.070429,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -4961,7 +4961,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3405
       },
       "_marketConfidence": 0.556,
-      "_marketDispersionCV": 0.037709,
+      "_marketDispersionCV": 0.03771,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -4982,7 +4982,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2861
       },
       "_marketConfidence": 0.5072,
-      "_marketDispersionCV": 0.08653,
+      "_marketDispersionCV": 0.086531,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -5020,7 +5020,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1310
       },
       "_marketConfidence": 0.4559,
-      "_marketDispersionCV": 0.137892,
+      "_marketDispersionCV": 0.137894,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5041,7 +5041,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1351
       },
       "_marketConfidence": 0.5173,
-      "_marketDispersionCV": 0.076436,
+      "_marketDispersionCV": 0.076438,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -5062,7 +5062,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2147
       },
       "_marketConfidence": 0.4894,
-      "_marketDispersionCV": 0.10438,
+      "_marketDispersionCV": 0.104381,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5105,19 +5105,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "De'Von Achane": {
-      "ktc": 6854,
-      "ktcSfTep": 6854,
+      "ktc": 6852,
+      "ktcSfTep": 6852,
       "idpTradeCalc": 6920,
       "_sleeperId": "9226",
       "_composite": 6920,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6854,
-        "ktcSfTep": 6854,
+        "ktc": 6852,
+        "ktcSfTep": 6852,
         "idpTradeCalc": 6920
       },
-      "_marketConfidence": 0.5648,
-      "_marketDispersionCV": 0.02891,
+      "_marketConfidence": 0.5647,
+      "_marketDispersionCV": 0.029035,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5194,7 +5194,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1951
       },
       "_marketConfidence": 0.5384,
-      "_marketDispersionCV": 0.055356,
+      "_marketDispersionCV": 0.055358,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -5232,7 +5232,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5435
       },
       "_marketConfidence": 0.5644,
-      "_marketDispersionCV": 0.029386,
+      "_marketDispersionCV": 0.029387,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -5270,7 +5270,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2156
       },
       "_marketConfidence": 0.5147,
-      "_marketDispersionCV": 0.079089,
+      "_marketDispersionCV": 0.07909,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5291,7 +5291,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1121
       },
       "_marketConfidence": 0.5424,
-      "_marketDispersionCV": 0.051377,
+      "_marketDispersionCV": 0.051379,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -5313,7 +5313,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 841
       },
       "_marketConfidence": 0.5239,
-      "_marketDispersionCV": 0.069836,
+      "_marketDispersionCV": 0.069839,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -5368,7 +5368,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1770
       },
       "_marketConfidence": 0.5746,
-      "_marketDispersionCV": 0.019166,
+      "_marketDispersionCV": 0.019167,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -5390,7 +5390,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3445
       },
       "_marketConfidence": 0.5598,
-      "_marketDispersionCV": 0.033951,
+      "_marketDispersionCV": 0.033952,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -5550,7 +5550,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3944
       },
       "_marketConfidence": 0.5693,
-      "_marketDispersionCV": 0.024402,
+      "_marketDispersionCV": 0.024403,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -5606,7 +5606,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2164
       },
       "_marketConfidence": 0.5472,
-      "_marketDispersionCV": 0.046557,
+      "_marketDispersionCV": 0.046559,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -5644,7 +5644,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1460
       },
       "_marketConfidence": 0.5351,
-      "_marketDispersionCV": 0.05864,
+      "_marketDispersionCV": 0.058642,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -5718,7 +5718,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2074
       },
       "_marketConfidence": 0.5371,
-      "_marketDispersionCV": 0.056698,
+      "_marketDispersionCV": 0.0567,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5739,7 +5739,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1256
       },
       "_marketConfidence": 0.538,
-      "_marketDispersionCV": 0.055731,
+      "_marketDispersionCV": 0.055734,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -5811,7 +5811,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1401
       },
       "_marketConfidence": 0.5395,
-      "_marketDispersionCV": 0.054215,
+      "_marketDispersionCV": 0.054217,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -5849,7 +5849,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1409
       },
       "_marketConfidence": 0.5174,
-      "_marketDispersionCV": 0.076374,
+      "_marketDispersionCV": 0.076377,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5905,7 +5905,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1190
       },
       "_marketConfidence": 0.5249,
-      "_marketDispersionCV": 0.068874,
+      "_marketDispersionCV": 0.068876,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5960,7 +5960,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2007
       },
       "_marketConfidence": 0.5301,
-      "_marketDispersionCV": 0.063641,
+      "_marketDispersionCV": 0.063643,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -5981,7 +5981,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2383
       },
       "_marketConfidence": 0.5526,
-      "_marketDispersionCV": 0.041131,
+      "_marketDispersionCV": 0.041133,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6112,7 +6112,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.5817,
-      "_marketDispersionCV": 0.012052,
+      "_marketDispersionCV": 0.012051,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6134,7 +6134,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 961
       },
       "_marketConfidence": 0.5194,
-      "_marketDispersionCV": 0.074325,
+      "_marketDispersionCV": 0.074328,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -6189,7 +6189,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1400
       },
       "_marketConfidence": 0.5233,
-      "_marketDispersionCV": 0.070422,
+      "_marketDispersionCV": 0.070424,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -6229,7 +6229,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2741
       },
       "_marketConfidence": 0.5511,
-      "_marketDispersionCV": 0.04262,
+      "_marketDispersionCV": 0.042622,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6301,7 +6301,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1266
       },
       "_marketConfidence": 0.5156,
-      "_marketDispersionCV": 0.078139,
+      "_marketDispersionCV": 0.078142,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6322,7 +6322,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1128
       },
       "_marketConfidence": 0.5772,
-      "_marketDispersionCV": 0.016511,
+      "_marketDispersionCV": 0.016512,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6354,26 +6354,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2392
     },
     "Eli Stowers": {
-      "ktc": 3589,
-      "ktcSfTep": 4454,
+      "ktc": 3584,
+      "ktcSfTep": 4449,
       "idpTradeCalc": 4208,
       "_sleeperId": "13349",
-      "_composite": 4454,
+      "_composite": 4449,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3589,
-        "ktcSfTep": 4454,
+        "ktc": 3584,
+        "ktcSfTep": 4449,
         "idpTradeCalc": 4208
       },
-      "_marketConfidence": 0.5122,
-      "_marketDispersionCV": 0.081588,
+      "_marketConfidence": 0.5118,
+      "_marketDispersionCV": 0.081941,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 4454,
-      "_finalAdjusted": 4454
+      "_rawComposite": 4449,
+      "_finalAdjusted": 4449
     },
     "Elic Ayomanor": {
       "ktc": 2480,
@@ -6388,7 +6388,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2599
       },
       "_marketConfidence": 0.5356,
-      "_marketDispersionCV": 0.058112,
+      "_marketDispersionCV": 0.058113,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6409,7 +6409,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2895
       },
       "_marketConfidence": 0.5048,
-      "_marketDispersionCV": 0.088981,
+      "_marketDispersionCV": 0.088982,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -6430,7 +6430,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1595
       },
       "_marketConfidence": 0.4786,
-      "_marketDispersionCV": 0.115173,
+      "_marketDispersionCV": 0.115175,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6487,7 +6487,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1209
       },
       "_marketConfidence": 0.5208,
-      "_marketDispersionCV": 0.072978,
+      "_marketDispersionCV": 0.07298,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -6508,7 +6508,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2786
       },
       "_marketConfidence": 0.5527,
-      "_marketDispersionCV": 0.041012,
+      "_marketDispersionCV": 0.041013,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6530,7 +6530,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2074
       },
       "_marketConfidence": 0.5392,
-      "_marketDispersionCV": 0.054582,
+      "_marketDispersionCV": 0.054584,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6551,7 +6551,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1146
       },
       "_marketConfidence": 0.5343,
-      "_marketDispersionCV": 0.059471,
+      "_marketDispersionCV": 0.059474,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -6560,25 +6560,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1155
     },
     "Emeka Egbuka": {
-      "ktc": 6096,
-      "ktcSfTep": 6096,
+      "ktc": 6093,
+      "ktcSfTep": 6093,
       "idpTradeCalc": 6076,
       "_sleeperId": "12514",
-      "_composite": 6096,
+      "_composite": 6093,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6096,
-        "ktcSfTep": 6096,
+        "ktc": 6093,
+        "ktcSfTep": 6093,
         "idpTradeCalc": 6076
       },
-      "_marketConfidence": 0.5688,
-      "_marketDispersionCV": 0.024991,
+      "_marketConfidence": 0.5686,
+      "_marketDispersionCV": 0.025197,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 6096,
-      "_finalAdjusted": 6096
+      "_rawComposite": 6093,
+      "_finalAdjusted": 6093
     },
     "Emmanuel McNeil-Warren": {
       "idpTradeCalc": 2080,
@@ -6611,7 +6611,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2569
       },
       "_marketConfidence": 0.5515,
-      "_marketDispersionCV": 0.042284,
+      "_marketDispersionCV": 0.042286,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6650,7 +6650,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.4855,
-      "_marketDispersionCV": 0.10823,
+      "_marketDispersionCV": 0.108232,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -6688,7 +6688,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2250
       },
       "_marketConfidence": 0.4933,
-      "_marketDispersionCV": 0.100473,
+      "_marketDispersionCV": 0.100474,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -6782,7 +6782,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 871
       },
       "_marketConfidence": 0.5129,
-      "_marketDispersionCV": 0.080877,
+      "_marketDispersionCV": 0.08088,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 17,
@@ -6837,7 +6837,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1144
       },
       "_marketConfidence": 0.5275,
-      "_marketDispersionCV": 0.066274,
+      "_marketDispersionCV": 0.066277,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -6858,7 +6858,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1142
       },
       "_marketConfidence": 0.5316,
-      "_marketDispersionCV": 0.062152,
+      "_marketDispersionCV": 0.062154,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -6879,7 +6879,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1682
       },
       "_marketConfidence": 0.5315,
-      "_marketDispersionCV": 0.062212,
+      "_marketDispersionCV": 0.062214,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -6901,7 +6901,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5704
       },
       "_marketConfidence": 0.5634,
-      "_marketDispersionCV": 0.030303,
+      "_marketDispersionCV": 0.030304,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -6922,7 +6922,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2224
       },
       "_marketConfidence": 0.5529,
-      "_marketDispersionCV": 0.040883,
+      "_marketDispersionCV": 0.040884,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -6943,7 +6943,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1269
       },
       "_marketConfidence": 0.5615,
-      "_marketDispersionCV": 0.032244,
+      "_marketDispersionCV": 0.032246,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -6981,7 +6981,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3669
       },
       "_marketConfidence": 0.5192,
-      "_marketDispersionCV": 0.074501,
+      "_marketDispersionCV": 0.074502,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -7002,7 +7002,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5875
       },
       "_marketConfidence": 0.5712,
-      "_marketDispersionCV": 0.022577,
+      "_marketDispersionCV": 0.022578,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7040,7 +7040,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2963
       },
       "_marketConfidence": 0.5542,
-      "_marketDispersionCV": 0.039531,
+      "_marketDispersionCV": 0.039533,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7113,7 +7113,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1161
       },
       "_marketConfidence": 0.529,
-      "_marketDispersionCV": 0.064761,
+      "_marketDispersionCV": 0.064764,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -7160,25 +7160,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1927
     },
     "Gunnar Helm": {
-      "ktc": 2641,
-      "ktcSfTep": 3375,
+      "ktc": 2638,
+      "ktcSfTep": 3371,
       "idpTradeCalc": 3105,
       "_sleeperId": "12502",
-      "_composite": 3375,
+      "_composite": 3371,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2641,
-        "ktcSfTep": 3375,
+        "ktc": 2638,
+        "ktcSfTep": 3371,
         "idpTradeCalc": 3105
       },
-      "_marketConfidence": 0.5088,
-      "_marketDispersionCV": 0.084922,
+      "_marketConfidence": 0.5086,
+      "_marketDispersionCV": 0.085137,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 3375,
-      "_finalAdjusted": 3375
+      "_rawComposite": 3371,
+      "_finalAdjusted": 3371
     },
     "Haason Reddick": {
       "idpTradeCalc": 860,
@@ -7198,25 +7198,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1169
     },
     "Harold Fannin": {
-      "ktc": 4866,
-      "ktcSfTep": 5958,
+      "ktc": 4864,
+      "ktcSfTep": 5955,
       "idpTradeCalc": 5473,
       "_sleeperId": "12506",
-      "_composite": 5889,
+      "_composite": 5887,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4866,
-        "ktcSfTep": 5958,
+        "ktc": 4864,
+        "ktcSfTep": 5955,
         "idpTradeCalc": 5473
       },
       "_marketConfidence": 0.5216,
-      "_marketDispersionCV": 0.072119,
+      "_marketDispersionCV": 0.072164,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 21,
-      "_rawComposite": 5889,
-      "_finalAdjusted": 5889
+      "_rawComposite": 5887,
+      "_finalAdjusted": 5887
     },
     "Harold Landry": {
       "idpTradeCalc": 1916,
@@ -7283,7 +7283,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 891
       },
       "_marketConfidence": 0.5156,
-      "_marketDispersionCV": 0.078182,
+      "_marketDispersionCV": 0.078186,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7321,7 +7321,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2665
       },
       "_marketConfidence": 0.5051,
-      "_marketDispersionCV": 0.088614,
+      "_marketDispersionCV": 0.088615,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -7342,7 +7342,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1598
       },
       "_marketConfidence": 0.525,
-      "_marketDispersionCV": 0.068755,
+      "_marketDispersionCV": 0.068757,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7363,7 +7363,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2811
       },
       "_marketConfidence": 0.5468,
-      "_marketDispersionCV": 0.046957,
+      "_marketDispersionCV": 0.046958,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7384,7 +7384,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2013
       },
       "_marketConfidence": 0.5469,
-      "_marketDispersionCV": 0.046829,
+      "_marketDispersionCV": 0.04683,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7405,7 +7405,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1844
       },
       "_marketConfidence": 0.5383,
-      "_marketDispersionCV": 0.055452,
+      "_marketDispersionCV": 0.055454,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7426,7 +7426,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 984
       },
       "_marketConfidence": 0.5437,
-      "_marketDispersionCV": 0.050026,
+      "_marketDispersionCV": 0.050028,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -7502,7 +7502,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2349
       },
       "_marketConfidence": 0.5505,
-      "_marketDispersionCV": 0.043295,
+      "_marketDispersionCV": 0.043297,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -7523,7 +7523,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1011
       },
       "_marketConfidence": 0.5251,
-      "_marketDispersionCV": 0.068601,
+      "_marketDispersionCV": 0.068604,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -7561,7 +7561,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 863
       },
       "_marketConfidence": 0.5425,
-      "_marketDispersionCV": 0.051289,
+      "_marketDispersionCV": 0.051292,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7583,7 +7583,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2829
       },
       "_marketConfidence": 0.5423,
-      "_marketDispersionCV": 0.051488,
+      "_marketDispersionCV": 0.051489,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7604,7 +7604,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2939
       },
       "_marketConfidence": 0.5594,
-      "_marketDispersionCV": 0.034303,
+      "_marketDispersionCV": 0.034304,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -7642,7 +7642,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2382
       },
       "_marketConfidence": 0.5535,
-      "_marketDispersionCV": 0.040229,
+      "_marketDispersionCV": 0.04023,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7664,7 +7664,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1463
       },
       "_marketConfidence": 0.5231,
-      "_marketDispersionCV": 0.070605,
+      "_marketDispersionCV": 0.070608,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7723,7 +7723,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2466
       },
       "_marketConfidence": 0.4992,
-      "_marketDispersionCV": 0.094528,
+      "_marketDispersionCV": 0.094529,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7744,7 +7744,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2530
       },
       "_marketConfidence": 0.5483,
-      "_marketDispersionCV": 0.045438,
+      "_marketDispersionCV": 0.04544,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7782,7 +7782,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1071
       },
       "_marketConfidence": 0.4485,
-      "_marketDispersionCV": 0.145293,
+      "_marketDispersionCV": 0.145295,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -7855,7 +7855,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1078
       },
       "_marketConfidence": 0.5339,
-      "_marketDispersionCV": 0.059856,
+      "_marketDispersionCV": 0.059859,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -7911,7 +7911,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2666
       },
       "_marketConfidence": 0.5531,
-      "_marketDispersionCV": 0.040602,
+      "_marketDispersionCV": 0.040603,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -7932,7 +7932,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2952
       },
       "_marketConfidence": 0.555,
-      "_marketDispersionCV": 0.038706,
+      "_marketDispersionCV": 0.038707,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -7941,19 +7941,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2952
     },
     "Jadarian Price": {
-      "ktc": 4836,
-      "ktcSfTep": 4836,
+      "ktc": 4833,
+      "ktcSfTep": 4833,
       "idpTradeCalc": 4852,
       "_sleeperId": "13286",
       "_composite": 4852,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4836,
-        "ktcSfTep": 4836,
+        "ktc": 4833,
+        "ktcSfTep": 4833,
         "idpTradeCalc": 4852
       },
-      "_marketConfidence": 0.563,
-      "_marketDispersionCV": 0.030712,
+      "_marketConfidence": 0.5628,
+      "_marketDispersionCV": 0.030967,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -8009,7 +8009,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1666
       },
       "_marketConfidence": 0.5353,
-      "_marketDispersionCV": 0.058407,
+      "_marketDispersionCV": 0.058409,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8035,15 +8035,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1456
     },
     "Jahmyr Gibbs": {
-      "ktc": 9967,
-      "ktcSfTep": 9967,
+      "ktc": 9965,
+      "ktcSfTep": 9965,
       "idpTradeCalc": 9676,
       "_sleeperId": "9221",
-      "_composite": 9967,
+      "_composite": 9965,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 9967,
-        "ktcSfTep": 9967,
+        "ktc": 9965,
+        "ktcSfTep": 9965,
         "idpTradeCalc": 9676
       },
       "_marketConfidence": 0.5938,
@@ -8052,8 +8052,8 @@ window.DYNASTY_DATA = {
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 9967,
-      "_finalAdjusted": 9967
+      "_rawComposite": 9965,
+      "_finalAdjusted": 9965
     },
     "Jaishawn Barham": {
       "idpTradeCalc": 1250,
@@ -8086,7 +8086,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1100
       },
       "_marketConfidence": 0.5105,
-      "_marketDispersionCV": 0.083264,
+      "_marketDispersionCV": 0.083267,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8126,7 +8126,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3670
       },
       "_marketConfidence": 0.5151,
-      "_marketDispersionCV": 0.078629,
+      "_marketDispersionCV": 0.07863,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8153,25 +8153,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2717
     },
     "Jake Tonges": {
-      "ktc": 2240,
-      "ktcSfTep": 2927,
+      "ktc": 2237,
+      "ktcSfTep": 2924,
       "idpTradeCalc": 2673,
       "_sleeperId": "8698",
-      "_composite": 2927,
+      "_composite": 2924,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2240,
-        "ktcSfTep": 2927,
+        "ktc": 2237,
+        "ktcSfTep": 2924,
         "idpTradeCalc": 2673
       },
-      "_marketConfidence": 0.5038,
-      "_marketDispersionCV": 0.089923,
+      "_marketConfidence": 0.5035,
+      "_marketDispersionCV": 0.09022,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 26,
-      "_rawComposite": 2927,
-      "_finalAdjusted": 2927
+      "_rawComposite": 2924,
+      "_finalAdjusted": 2924
     },
     "Jakobe Thomas": {
       "idpTradeCalc": 1253,
@@ -8204,7 +8204,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3145
       },
       "_marketConfidence": 0.5475,
-      "_marketDispersionCV": 0.046262,
+      "_marketDispersionCV": 0.046263,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -8225,7 +8225,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1478
       },
       "_marketConfidence": 0.5212,
-      "_marketDispersionCV": 0.072513,
+      "_marketDispersionCV": 0.072515,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8263,7 +8263,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3090
       },
       "_marketConfidence": 0.5657,
-      "_marketDispersionCV": 0.028041,
+      "_marketDispersionCV": 0.028042,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8272,19 +8272,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3164
     },
     "Jalen Hurts": {
-      "ktc": 6132,
-      "ktcSfTep": 6132,
+      "ktc": 6130,
+      "ktcSfTep": 6130,
       "idpTradeCalc": 6201,
       "_sleeperId": "6904",
       "_composite": 6201,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6132,
-        "ktcSfTep": 6132,
+        "ktc": 6130,
+        "ktcSfTep": 6130,
         "idpTradeCalc": 6201
       },
-      "_marketConfidence": 0.5629,
-      "_marketDispersionCV": 0.030816,
+      "_marketConfidence": 0.5628,
+      "_marketDispersionCV": 0.030954,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -8305,7 +8305,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2948
       },
       "_marketConfidence": 0.571,
-      "_marketDispersionCV": 0.022712,
+      "_marketDispersionCV": 0.022713,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8314,19 +8314,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3071
     },
     "Jalen Milroe": {
-      "ktc": 2221,
-      "ktcSfTep": 2221,
+      "ktc": 2224,
+      "ktcSfTep": 2224,
       "idpTradeCalc": 2235,
       "_sleeperId": "12510",
       "_composite": 2235,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2221,
-        "ktcSfTep": 2221,
+        "ktc": 2224,
+        "ktcSfTep": 2224,
         "idpTradeCalc": 2235
       },
-      "_marketConfidence": 0.5475,
-      "_marketDispersionCV": 0.046239,
+      "_marketConfidence": 0.548,
+      "_marketDispersionCV": 0.045755,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8347,7 +8347,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2350
       },
       "_marketConfidence": 0.5639,
-      "_marketDispersionCV": 0.029891,
+      "_marketDispersionCV": 0.029892,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8419,7 +8419,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1862
       },
       "_marketConfidence": 0.5323,
-      "_marketDispersionCV": 0.061464,
+      "_marketDispersionCV": 0.061466,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8457,7 +8457,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1793
       },
       "_marketConfidence": 0.543,
-      "_marketDispersionCV": 0.05072,
+      "_marketDispersionCV": 0.050722,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8478,7 +8478,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1230
       },
       "_marketConfidence": 0.5265,
-      "_marketDispersionCV": 0.067231,
+      "_marketDispersionCV": 0.067234,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8533,7 +8533,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 781
       },
       "_marketConfidence": 0.5284,
-      "_marketDispersionCV": 0.06533,
+      "_marketDispersionCV": 0.065333,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -8554,7 +8554,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 913
       },
       "_marketConfidence": 0.5127,
-      "_marketDispersionCV": 0.081,
+      "_marketDispersionCV": 0.081003,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8575,7 +8575,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1393
       },
       "_marketConfidence": 0.5137,
-      "_marketDispersionCV": 0.080025,
+      "_marketDispersionCV": 0.080027,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -8596,7 +8596,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1794
       },
       "_marketConfidence": 0.5361,
-      "_marketDispersionCV": 0.05766,
+      "_marketDispersionCV": 0.057662,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -8617,7 +8617,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5987
       },
       "_marketConfidence": 0.5717,
-      "_marketDispersionCV": 0.022073,
+      "_marketDispersionCV": 0.022074,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -8643,25 +8643,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1910
     },
     "Jameson Williams": {
-      "ktc": 4699,
-      "ktcSfTep": 4699,
+      "ktc": 4702,
+      "ktcSfTep": 4702,
       "idpTradeCalc": 4697,
       "_sleeperId": "8148",
-      "_composite": 4699,
+      "_composite": 4702,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4699,
-        "ktcSfTep": 4699,
+        "ktc": 4702,
+        "ktcSfTep": 4702,
         "idpTradeCalc": 4697
       },
-      "_marketConfidence": 0.5641,
-      "_marketDispersionCV": 0.029666,
+      "_marketConfidence": 0.5643,
+      "_marketDispersionCV": 0.029407,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 25,
-      "_rawComposite": 4699,
-      "_finalAdjusted": 4699
+      "_rawComposite": 4702,
+      "_finalAdjusted": 4702
     },
     "Jamien Sherwood": {
       "idpTradeCalc": 2934,
@@ -8748,7 +8748,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1363
       },
       "_marketConfidence": 0.4748,
-      "_marketDispersionCV": 0.118998,
+      "_marketDispersionCV": 0.119,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8769,7 +8769,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1657
       },
       "_marketConfidence": 0.5485,
-      "_marketDispersionCV": 0.045276,
+      "_marketDispersionCV": 0.045278,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -8790,7 +8790,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2678
       },
       "_marketConfidence": 0.541,
-      "_marketDispersionCV": 0.052786,
+      "_marketDispersionCV": 0.052788,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -8810,8 +8810,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1082,
         "idpTradeCalc": 1075
       },
-      "_marketConfidence": 0.532,
-      "_marketDispersionCV": 0.0618,
+      "_marketConfidence": 0.5319,
+      "_marketDispersionCV": 0.061802,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8883,7 +8883,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4512
       },
       "_marketConfidence": 0.562,
-      "_marketDispersionCV": 0.031792,
+      "_marketDispersionCV": 0.031793,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -8904,7 +8904,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 873
       },
       "_marketConfidence": 0.5142,
-      "_marketDispersionCV": 0.079535,
+      "_marketDispersionCV": 0.079538,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -8925,7 +8925,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 9802
       },
       "_marketConfidence": 0.5816,
-      "_marketDispersionCV": 0.012176,
+      "_marketDispersionCV": 0.012177,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -8934,19 +8934,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 9802
     },
     "Jaxson Dart": {
-      "ktc": 6461,
-      "ktcSfTep": 6461,
+      "ktc": 6464,
+      "ktcSfTep": 6464,
       "idpTradeCalc": 6591,
       "_sleeperId": "12508",
       "_composite": 6591,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6461,
-        "ktcSfTep": 6461,
+        "ktc": 6464,
+        "ktcSfTep": 6464,
         "idpTradeCalc": 6591
       },
-      "_marketConfidence": 0.5599,
-      "_marketDispersionCV": 0.033844,
+      "_marketConfidence": 0.5601,
+      "_marketDispersionCV": 0.033646,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9005,7 +9005,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3404
       },
       "_marketConfidence": 0.563,
-      "_marketDispersionCV": 0.030773,
+      "_marketDispersionCV": 0.030774,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9026,7 +9026,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3479
       },
       "_marketConfidence": 0.5513,
-      "_marketDispersionCV": 0.042421,
+      "_marketDispersionCV": 0.042422,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9047,7 +9047,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2056
       },
       "_marketConfidence": 0.5525,
-      "_marketDispersionCV": 0.041205,
+      "_marketDispersionCV": 0.041206,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9089,7 +9089,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3165
       },
       "_marketConfidence": 0.5626,
-      "_marketDispersionCV": 0.031157,
+      "_marketDispersionCV": 0.031158,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9110,7 +9110,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2216
       },
       "_marketConfidence": 0.5445,
-      "_marketDispersionCV": 0.049245,
+      "_marketDispersionCV": 0.049246,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9131,7 +9131,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1956
       },
       "_marketConfidence": 0.5567,
-      "_marketDispersionCV": 0.037061,
+      "_marketDispersionCV": 0.037063,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9140,25 +9140,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2014
     },
     "Jaylin Noel": {
-      "ktc": 2732,
-      "ktcSfTep": 2732,
+      "ktc": 2735,
+      "ktcSfTep": 2735,
       "idpTradeCalc": 2683,
       "_sleeperId": "12536",
-      "_composite": 2732,
+      "_composite": 2735,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2732,
-        "ktcSfTep": 2732,
+        "ktc": 2735,
+        "ktcSfTep": 2735,
         "idpTradeCalc": 2683
       },
-      "_marketConfidence": 0.5606,
-      "_marketDispersionCV": 0.033183,
+      "_marketConfidence": 0.561,
+      "_marketDispersionCV": 0.03278,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 23,
-      "_rawComposite": 2732,
-      "_finalAdjusted": 2732
+      "_rawComposite": 2735,
+      "_finalAdjusted": 2735
     },
     "Jaylon Carlies": {
       "idpTradeCalc": 822,
@@ -9241,7 +9241,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 7655
       },
       "_marketConfidence": 0.5666,
-      "_marketDispersionCV": 0.027192,
+      "_marketDispersionCV": 0.027193,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -9280,7 +9280,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 872
       },
       "_marketConfidence": 0.4453,
-      "_marketDispersionCV": 0.148456,
+      "_marketDispersionCV": 0.148459,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9318,7 +9318,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1541
       },
       "_marketConfidence": 0.5348,
-      "_marketDispersionCV": 0.058958,
+      "_marketDispersionCV": 0.05896,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9339,7 +9339,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2633
       },
       "_marketConfidence": 0.546,
-      "_marketDispersionCV": 0.047758,
+      "_marketDispersionCV": 0.04776,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9411,7 +9411,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1550
       },
       "_marketConfidence": 0.5369,
-      "_marketDispersionCV": 0.056847,
+      "_marketDispersionCV": 0.056849,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9470,7 +9470,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1098
       },
       "_marketConfidence": 0.5391,
-      "_marketDispersionCV": 0.054669,
+      "_marketDispersionCV": 0.054672,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 18,
@@ -9491,7 +9491,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1725
       },
       "_marketConfidence": 0.5344,
-      "_marketDispersionCV": 0.059323,
+      "_marketDispersionCV": 0.059325,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9512,7 +9512,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1097
       },
       "_marketConfidence": 0.5146,
-      "_marketDispersionCV": 0.079164,
+      "_marketDispersionCV": 0.079167,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -9584,7 +9584,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1512
       },
       "_marketConfidence": 0.5157,
-      "_marketDispersionCV": 0.078022,
+      "_marketDispersionCV": 0.078024,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9629,26 +9629,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 567
     },
     "Jonah Coleman": {
-      "ktc": 3181,
-      "ktcSfTep": 3181,
+      "ktc": 3184,
+      "ktcSfTep": 3184,
       "idpTradeCalc": 3148,
       "_sleeperId": "13345",
-      "_composite": 3181,
+      "_composite": 3184,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3181,
-        "ktcSfTep": 3181,
+        "ktc": 3184,
+        "ktcSfTep": 3184,
         "idpTradeCalc": 3148
       },
-      "_marketConfidence": 0.5611,
-      "_marketDispersionCV": 0.032671,
+      "_marketConfidence": 0.5614,
+      "_marketDispersionCV": 0.032312,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 22,
-      "_rawComposite": 3181,
-      "_finalAdjusted": 3181
+      "_rawComposite": 3184,
+      "_finalAdjusted": 3184
     },
     "Jonah Elliss": {
       "idpTradeCalc": 1259,
@@ -9748,7 +9748,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1084
       },
       "_marketConfidence": 0.5274,
-      "_marketDispersionCV": 0.066392,
+      "_marketDispersionCV": 0.066395,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9769,7 +9769,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6006
       },
       "_marketConfidence": 0.5675,
-      "_marketDispersionCV": 0.026225,
+      "_marketDispersionCV": 0.026226,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9790,7 +9790,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3206
       },
       "_marketConfidence": 0.5725,
-      "_marketDispersionCV": 0.021297,
+      "_marketDispersionCV": 0.021298,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -9828,7 +9828,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1395
       },
       "_marketConfidence": 0.4631,
-      "_marketDispersionCV": 0.130674,
+      "_marketDispersionCV": 0.130676,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -9849,7 +9849,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4018
       },
       "_marketConfidence": 0.5586,
-      "_marketDispersionCV": 0.035182,
+      "_marketDispersionCV": 0.035183,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -9904,7 +9904,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2134
       },
       "_marketConfidence": 0.5453,
-      "_marketDispersionCV": 0.048424,
+      "_marketDispersionCV": 0.048426,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -9925,7 +9925,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5566
       },
       "_marketConfidence": 0.5618,
-      "_marketDispersionCV": 0.031977,
+      "_marketDispersionCV": 0.031978,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -9963,7 +9963,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2676
       },
       "_marketConfidence": 0.5518,
-      "_marketDispersionCV": 0.041922,
+      "_marketDispersionCV": 0.041923,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -9984,7 +9984,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1111
       },
       "_marketConfidence": 0.5252,
-      "_marketDispersionCV": 0.068561,
+      "_marketDispersionCV": 0.068564,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10005,7 +10005,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1572
       },
       "_marketConfidence": 0.5367,
-      "_marketDispersionCV": 0.057065,
+      "_marketDispersionCV": 0.057067,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10031,26 +10031,26 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2605
     },
     "Jordyn Tyson": {
-      "ktc": 5383,
-      "ktcSfTep": 5383,
+      "ktc": 5380,
+      "ktcSfTep": 5380,
       "idpTradeCalc": 5374,
       "_sleeperId": "13281",
-      "_composite": 5383,
+      "_composite": 5380,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5383,
-        "ktcSfTep": 5383,
+        "ktc": 5380,
+        "ktcSfTep": 5380,
         "idpTradeCalc": 5374
       },
-      "_marketConfidence": 0.5665,
-      "_marketDispersionCV": 0.027246,
+      "_marketConfidence": 0.5663,
+      "_marketDispersionCV": 0.027477,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 21,
-      "_rawComposite": 5383,
-      "_finalAdjusted": 5383
+      "_rawComposite": 5380,
+      "_finalAdjusted": 5380
     },
     "Josaiah Stewart": {
       "idpTradeCalc": 1256,
@@ -10108,25 +10108,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 9993
     },
     "Josh Downs": {
-      "ktc": 3625,
-      "ktcSfTep": 3625,
+      "ktc": 3627,
+      "ktcSfTep": 3627,
       "idpTradeCalc": 3613,
       "_sleeperId": "9500",
-      "_composite": 3625,
+      "_composite": 3627,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3625,
-        "ktcSfTep": 3625,
+        "ktc": 3627,
+        "ktcSfTep": 3627,
         "idpTradeCalc": 3613
       },
-      "_marketConfidence": 0.5609,
-      "_marketDispersionCV": 0.032808,
+      "_marketConfidence": 0.5612,
+      "_marketDispersionCV": 0.032593,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 3625,
-      "_finalAdjusted": 3625
+      "_rawComposite": 3627,
+      "_finalAdjusted": 3627
     },
     "Josh Hines-Allen": {
       "idpTradeCalc": 3593,
@@ -10146,25 +10146,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2977
     },
     "Josh Jacobs": {
-      "ktc": 3894,
-      "ktcSfTep": 3894,
+      "ktc": 3892,
+      "ktcSfTep": 3892,
       "idpTradeCalc": 3602,
       "_sleeperId": "5850",
-      "_composite": 3894,
+      "_composite": 3892,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3894,
-        "ktcSfTep": 3894,
+        "ktc": 3892,
+        "ktcSfTep": 3892,
         "idpTradeCalc": 3602
       },
-      "_marketConfidence": 0.5859,
-      "_marketDispersionCV": 0.00789,
+      "_marketConfidence": 0.5858,
+      "_marketDispersionCV": 0.007946,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 3894,
-      "_finalAdjusted": 3894
+      "_rawComposite": 3892,
+      "_finalAdjusted": 3892
     },
     "Joshua Metellus": {
       "idpTradeCalc": 1380,
@@ -10184,23 +10184,23 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1513
     },
     "Josh Oliver": {
-      "ktc": 487,
-      "ktcSfTep": 1003,
+      "ktc": 490,
+      "ktcSfTep": 1004,
       "_sleeperId": "5973",
-      "_composite": 1003,
+      "_composite": 1004,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 487,
-        "ktcSfTep": 1003
+        "ktc": 490,
+        "ktcSfTep": 1004
       },
-      "_marketConfidence": 0.3548,
-      "_marketDispersionCV": 0.157667,
+      "_marketConfidence": 0.3557,
+      "_marketDispersionCV": 0.156758,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 29,
-      "_rawComposite": 1003,
-      "_finalAdjusted": 1003
+      "_rawComposite": 1004,
+      "_finalAdjusted": 1004
     },
     "Josh Sweat": {
       "idpTradeCalc": 1939,
@@ -10232,7 +10232,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1590
       },
       "_marketConfidence": 0.5345,
-      "_marketDispersionCV": 0.059259,
+      "_marketDispersionCV": 0.059261,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -10305,7 +10305,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1361
       },
       "_marketConfidence": 0.5285,
-      "_marketDispersionCV": 0.065267,
+      "_marketDispersionCV": 0.065269,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -10326,7 +10326,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2059
       },
       "_marketConfidence": 0.5487,
-      "_marketDispersionCV": 0.045074,
+      "_marketDispersionCV": 0.045075,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -10335,40 +10335,40 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2064
     },
     "Justin Herbert": {
-      "ktc": 6970,
-      "ktcSfTep": 6970,
+      "ktc": 6972,
+      "ktcSfTep": 6972,
       "idpTradeCalc": 6889,
       "_sleeperId": "6797",
-      "_composite": 6970,
+      "_composite": 6972,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 6970,
-        "ktcSfTep": 6970,
+        "ktc": 6972,
+        "ktcSfTep": 6972,
         "idpTradeCalc": 6889
       },
-      "_marketConfidence": 0.5737,
-      "_marketDispersionCV": 0.020009,
+      "_marketConfidence": 0.5739,
+      "_marketDispersionCV": 0.019891,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
       "age": 28,
-      "_rawComposite": 6970,
-      "_finalAdjusted": 6970
+      "_rawComposite": 6972,
+      "_finalAdjusted": 6972
     },
     "Justin Jefferson": {
-      "ktc": 7577,
-      "ktcSfTep": 7577,
+      "ktc": 7578,
+      "ktcSfTep": 7578,
       "idpTradeCalc": 7756,
       "_sleeperId": "6794",
       "_composite": 7756,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 7577,
-        "ktcSfTep": 7577,
+        "ktc": 7578,
+        "ktcSfTep": 7578,
         "idpTradeCalc": 7756
       },
       "_marketConfidence": 0.5601,
-      "_marketDispersionCV": 0.033693,
+      "_marketDispersionCV": 0.033636,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -10459,7 +10459,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2736
       },
       "_marketConfidence": 0.5058,
-      "_marketDispersionCV": 0.087979,
+      "_marketDispersionCV": 0.08798,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -10485,19 +10485,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1454
     },
     "KC Concepcion": {
-      "ktc": 4485,
-      "ktcSfTep": 4485,
+      "ktc": 4482,
+      "ktcSfTep": 4482,
       "idpTradeCalc": 4522,
       "_sleeperId": "13298",
       "_composite": 4522,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 4485,
-        "ktcSfTep": 4485,
+        "ktc": 4482,
+        "ktcSfTep": 4482,
         "idpTradeCalc": 4522
       },
-      "_marketConfidence": 0.56,
-      "_marketDispersionCV": 0.033744,
+      "_marketConfidence": 0.5597,
+      "_marketDispersionCV": 0.034018,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -10519,7 +10519,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1158
       },
       "_marketConfidence": 0.5143,
-      "_marketDispersionCV": 0.079453,
+      "_marketDispersionCV": 0.079456,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -10584,19 +10584,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1110
     },
     "Kaleb Johnson": {
-      "ktc": 2362,
-      "ktcSfTep": 2362,
+      "ktc": 2359,
+      "ktcSfTep": 2359,
       "idpTradeCalc": 2390,
       "_sleeperId": "12504",
       "_composite": 2390,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2362,
-        "ktcSfTep": 2362,
+        "ktc": 2359,
+        "ktcSfTep": 2359,
         "idpTradeCalc": 2390
       },
-      "_marketConfidence": 0.547,
-      "_marketDispersionCV": 0.046747,
+      "_marketConfidence": 0.5465,
+      "_marketDispersionCV": 0.047215,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10617,7 +10617,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1056
       },
       "_marketConfidence": 0.5357,
-      "_marketDispersionCV": 0.058012,
+      "_marketDispersionCV": 0.058015,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10655,7 +10655,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1204
       },
       "_marketConfidence": 0.5324,
-      "_marketDispersionCV": 0.061351,
+      "_marketDispersionCV": 0.061353,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10710,7 +10710,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 842
       },
       "_marketConfidence": 0.4383,
-      "_marketDispersionCV": 0.155485,
+      "_marketDispersionCV": 0.155489,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -10731,7 +10731,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2632
       },
       "_marketConfidence": 0.5383,
-      "_marketDispersionCV": 0.055418,
+      "_marketDispersionCV": 0.055419,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10752,7 +10752,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2549
       },
       "_marketConfidence": 0.5575,
-      "_marketDispersionCV": 0.036269,
+      "_marketDispersionCV": 0.036271,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -10791,7 +10791,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1570
       },
       "_marketConfidence": 0.5289,
-      "_marketDispersionCV": 0.064841,
+      "_marketDispersionCV": 0.064843,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -10812,7 +10812,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2412
       },
       "_marketConfidence": 0.5604,
-      "_marketDispersionCV": 0.033309,
+      "_marketDispersionCV": 0.03331,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10850,7 +10850,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1340
       },
       "_marketConfidence": 0.5092,
-      "_marketDispersionCV": 0.08455,
+      "_marketDispersionCV": 0.084553,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -10941,7 +10941,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 760
       },
       "_marketConfidence": 0.5325,
-      "_marketDispersionCV": 0.061275,
+      "_marketDispersionCV": 0.061278,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -10962,7 +10962,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1859
       },
       "_marketConfidence": 0.5262,
-      "_marketDispersionCV": 0.067568,
+      "_marketDispersionCV": 0.06757,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -10983,7 +10983,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1416
       },
       "_marketConfidence": 0.5076,
-      "_marketDispersionCV": 0.086128,
+      "_marketDispersionCV": 0.086131,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -11004,7 +11004,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2854
       },
       "_marketConfidence": 0.5629,
-      "_marketDispersionCV": 0.030812,
+      "_marketDispersionCV": 0.030813,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -11059,7 +11059,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5435
       },
       "_marketConfidence": 0.5678,
-      "_marketDispersionCV": 0.02597,
+      "_marketDispersionCV": 0.025971,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11080,7 +11080,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1015
       },
       "_marketConfidence": 0.5284,
-      "_marketDispersionCV": 0.065392,
+      "_marketDispersionCV": 0.065395,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11118,7 +11118,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1077
       },
       "_marketConfidence": 0.5195,
-      "_marketDispersionCV": 0.074291,
+      "_marketDispersionCV": 0.074294,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11161,7 +11161,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2483
       },
       "_marketConfidence": 0.5427,
-      "_marketDispersionCV": 0.051079,
+      "_marketDispersionCV": 0.05108,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11216,7 +11216,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1731
       },
       "_marketConfidence": 0.5789,
-      "_marketDispersionCV": 0.01486,
+      "_marketDispersionCV": 0.014861,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -11290,7 +11290,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2971
       },
       "_marketConfidence": 0.5521,
-      "_marketDispersionCV": 0.041674,
+      "_marketDispersionCV": 0.041676,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11299,19 +11299,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2971
     },
     "Kimani Vidal": {
-      "ktc": 2155,
-      "ktcSfTep": 2155,
+      "ktc": 2158,
+      "ktcSfTep": 2158,
       "idpTradeCalc": 2194,
       "_sleeperId": "11647",
       "_composite": 2194,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2155,
-        "ktcSfTep": 2155,
+        "ktc": 2158,
+        "ktcSfTep": 2158,
         "idpTradeCalc": 2194
       },
-      "_marketConfidence": 0.5429,
-      "_marketDispersionCV": 0.050852,
+      "_marketConfidence": 0.5434,
+      "_marketDispersionCV": 0.050353,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11332,7 +11332,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1947
       },
       "_marketConfidence": 0.5348,
-      "_marketDispersionCV": 0.058978,
+      "_marketDispersionCV": 0.05898,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 14,
@@ -11370,7 +11370,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1364
       },
       "_marketConfidence": 0.5243,
-      "_marketDispersionCV": 0.069488,
+      "_marketDispersionCV": 0.06949,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11479,7 +11479,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3655
       },
       "_marketConfidence": 0.5514,
-      "_marketDispersionCV": 0.04233,
+      "_marketDispersionCV": 0.042331,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11526,19 +11526,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1106
     },
     "Kyle Williams": {
-      "ktc": 2361,
-      "ktcSfTep": 2361,
+      "ktc": 2364,
+      "ktcSfTep": 2364,
       "idpTradeCalc": 2419,
       "_sleeperId": "12547",
       "_composite": 2419,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2361,
-        "ktcSfTep": 2361,
+        "ktc": 2364,
+        "ktcSfTep": 2364,
         "idpTradeCalc": 2419
       },
-      "_marketConfidence": 0.5427,
-      "_marketDispersionCV": 0.05108,
+      "_marketConfidence": 0.5431,
+      "_marketDispersionCV": 0.050614,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11576,7 +11576,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4115
       },
       "_marketConfidence": 0.5633,
-      "_marketDispersionCV": 0.030443,
+      "_marketDispersionCV": 0.030444,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -11597,7 +11597,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4837
       },
       "_marketConfidence": 0.5657,
-      "_marketDispersionCV": 0.028063,
+      "_marketDispersionCV": 0.028064,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -11654,7 +11654,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5468
       },
       "_marketConfidence": 0.5717,
-      "_marketDispersionCV": 0.022051,
+      "_marketDispersionCV": 0.022052,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11747,7 +11747,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 949
       },
       "_marketConfidence": 0.5087,
-      "_marketDispersionCV": 0.085017,
+      "_marketDispersionCV": 0.08502,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -11768,7 +11768,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2048
       },
       "_marketConfidence": 0.5479,
-      "_marketDispersionCV": 0.045887,
+      "_marketDispersionCV": 0.045889,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -11823,7 +11823,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 967
       },
       "_marketConfidence": 0.5155,
-      "_marketDispersionCV": 0.078249,
+      "_marketDispersionCV": 0.078252,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -11861,7 +11861,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1693
       },
       "_marketConfidence": 0.5332,
-      "_marketDispersionCV": 0.060551,
+      "_marketDispersionCV": 0.060553,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -11882,7 +11882,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2183
       },
       "_marketConfidence": 0.4941,
-      "_marketDispersionCV": 0.099688,
+      "_marketDispersionCV": 0.099689,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11903,7 +11903,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1559
       },
       "_marketConfidence": 0.4725,
-      "_marketDispersionCV": 0.121244,
+      "_marketDispersionCV": 0.121246,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -11912,25 +11912,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1738
     },
     "Luther Burden": {
-      "ktc": 5450,
-      "ktcSfTep": 5450,
+      "ktc": 5453,
+      "ktcSfTep": 5453,
       "idpTradeCalc": 5354,
       "_sleeperId": "12519",
-      "_composite": 5450,
+      "_composite": 5453,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5450,
-        "ktcSfTep": 5450,
+        "ktc": 5453,
+        "ktcSfTep": 5453,
         "idpTradeCalc": 5354
       },
-      "_marketConfidence": 0.573,
-      "_marketDispersionCV": 0.020745,
+      "_marketConfidence": 0.5732,
+      "_marketDispersionCV": 0.020525,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 5450,
-      "_finalAdjusted": 5450
+      "_rawComposite": 5453,
+      "_finalAdjusted": 5453
     },
     "Mac Jones": {
       "ktc": 2672,
@@ -11945,7 +11945,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2684
       },
       "_marketConfidence": 0.5522,
-      "_marketDispersionCV": 0.041573,
+      "_marketDispersionCV": 0.041575,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -11966,7 +11966,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1103
       },
       "_marketConfidence": 0.5337,
-      "_marketDispersionCV": 0.060016,
+      "_marketDispersionCV": 0.060019,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -12004,7 +12004,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5077
       },
       "_marketConfidence": 0.5672,
-      "_marketDispersionCV": 0.026548,
+      "_marketDispersionCV": 0.026549,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12026,7 +12026,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1219
       },
       "_marketConfidence": 0.5305,
-      "_marketDispersionCV": 0.063236,
+      "_marketDispersionCV": 0.063238,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12047,7 +12047,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2702
       },
       "_marketConfidence": 0.5536,
-      "_marketDispersionCV": 0.040172,
+      "_marketDispersionCV": 0.040174,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12121,7 +12121,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1292
       },
       "_marketConfidence": 0.563,
-      "_marketDispersionCV": 0.030771,
+      "_marketDispersionCV": 0.030773,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -12180,7 +12180,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2514
       },
       "_marketConfidence": 0.5571,
-      "_marketDispersionCV": 0.036663,
+      "_marketDispersionCV": 0.036665,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12189,19 +12189,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2546
     },
     "Malik Willis": {
-      "ktc": 3828,
-      "ktcSfTep": 3828,
+      "ktc": 3831,
+      "ktcSfTep": 3831,
       "idpTradeCalc": 3960,
       "_sleeperId": "8161",
       "_composite": 3960,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3828,
-        "ktcSfTep": 3828,
+        "ktc": 3831,
+        "ktcSfTep": 3831,
         "idpTradeCalc": 3960
       },
-      "_marketConfidence": 0.5476,
-      "_marketDispersionCV": 0.046143,
+      "_marketConfidence": 0.5479,
+      "_marketDispersionCV": 0.045827,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -12222,7 +12222,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1982
       },
       "_marketConfidence": 0.5729,
-      "_marketDispersionCV": 0.020816,
+      "_marketDispersionCV": 0.020818,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12260,7 +12260,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1273
       },
       "_marketConfidence": 0.5304,
-      "_marketDispersionCV": 0.063362,
+      "_marketDispersionCV": 0.063364,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -12324,19 +12324,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1104
     },
     "Marquise Brown": {
-      "ktc": 1620,
-      "ktcSfTep": 1620,
+      "ktc": 1617,
+      "ktcSfTep": 1617,
       "idpTradeCalc": 1731,
       "_sleeperId": "5848",
       "_composite": 1731,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1620,
-        "ktcSfTep": 1620,
+        "ktc": 1617,
+        "ktcSfTep": 1617,
         "idpTradeCalc": 1731
       },
-      "_marketConfidence": 0.521,
-      "_marketDispersionCV": 0.072754,
+      "_marketConfidence": 0.5204,
+      "_marketDispersionCV": 0.073384,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -12357,7 +12357,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5001
       },
       "_marketConfidence": 0.5609,
-      "_marketDispersionCV": 0.032809,
+      "_marketDispersionCV": 0.03281,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12366,19 +12366,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5001
     },
     "Marvin Mims": {
-      "ktc": 2101,
-      "ktcSfTep": 2101,
+      "ktc": 2098,
+      "ktcSfTep": 2098,
       "idpTradeCalc": 2112,
       "_sleeperId": "9494",
       "_composite": 2112,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2101,
-        "ktcSfTep": 2101,
+        "ktc": 2098,
+        "ktcSfTep": 2098,
         "idpTradeCalc": 2112
       },
-      "_marketConfidence": 0.5466,
-      "_marketDispersionCV": 0.047172,
+      "_marketConfidence": 0.5461,
+      "_marketDispersionCV": 0.047681,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -12414,7 +12414,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 514
       },
       "_marketConfidence": 0.4899,
-      "_marketDispersionCV": 0.022637,
+      "_marketDispersionCV": 0.022638,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -12435,7 +12435,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2785
       },
       "_marketConfidence": 0.506,
-      "_marketDispersionCV": 0.087746,
+      "_marketDispersionCV": 0.087747,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -12456,7 +12456,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 957
       },
       "_marketConfidence": 0.5124,
-      "_marketDispersionCV": 0.081339,
+      "_marketDispersionCV": 0.081342,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12499,19 +12499,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1108
     },
     "Matthew Golden": {
-      "ktc": 3597,
-      "ktcSfTep": 3597,
+      "ktc": 3600,
+      "ktcSfTep": 3600,
       "idpTradeCalc": 3709,
       "_sleeperId": "12501",
       "_composite": 3709,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3597,
-        "ktcSfTep": 3597,
+        "ktc": 3600,
+        "ktcSfTep": 3600,
         "idpTradeCalc": 3709
       },
-      "_marketConfidence": 0.5479,
-      "_marketDispersionCV": 0.045833,
+      "_marketConfidence": 0.5482,
+      "_marketDispersionCV": 0.045501,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -12532,7 +12532,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1083
       },
       "_marketConfidence": 0.4687,
-      "_marketDispersionCV": 0.125092,
+      "_marketDispersionCV": 0.125093,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12542,25 +12542,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1360
     },
     "Matthew Stafford": {
-      "ktc": 3863,
-      "ktcSfTep": 3863,
+      "ktc": 3860,
+      "ktcSfTep": 3860,
       "idpTradeCalc": 3756,
       "_sleeperId": "421",
-      "_composite": 3863,
+      "_composite": 3860,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3863,
-        "ktcSfTep": 3863,
+        "ktc": 3860,
+        "ktcSfTep": 3860,
         "idpTradeCalc": 3756
       },
-      "_marketConfidence": 0.5713,
-      "_marketDispersionCV": 0.022497,
+      "_marketConfidence": 0.571,
+      "_marketDispersionCV": 0.022795,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 17,
       "age": 38,
-      "_rawComposite": 3863,
-      "_finalAdjusted": 3863
+      "_rawComposite": 3860,
+      "_finalAdjusted": 3860
     },
     "Max Klare": {
       "ktc": 2354,
@@ -12602,23 +12602,23 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2986
     },
     "Mecole Hardman": {
-      "ktc": 493,
-      "ktcSfTep": 493,
+      "ktc": 490,
+      "ktcSfTep": 490,
       "_sleeperId": "5917",
-      "_composite": 493,
+      "_composite": 490,
       "_sites": 2,
       "_canonicalSiteValues": {
-        "ktc": 493,
-        "ktcSfTep": 493
+        "ktc": 490,
+        "ktcSfTep": 490
       },
       "_marketConfidence": 0.4895,
-      "_marketDispersionCV": 0.022953,
+      "_marketDispersionCV": 0.022999,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 28,
-      "_rawComposite": 493,
-      "_finalAdjusted": 493
+      "_rawComposite": 490,
+      "_finalAdjusted": 490
     },
     "Micah McFadden": {
       "idpTradeCalc": 1234,
@@ -12667,7 +12667,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 990
       },
       "_marketConfidence": 0.5245,
-      "_marketDispersionCV": 0.069271,
+      "_marketDispersionCV": 0.069274,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -12726,7 +12726,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3162
       },
       "_marketConfidence": 0.542,
-      "_marketDispersionCV": 0.051709,
+      "_marketDispersionCV": 0.05171,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -12747,7 +12747,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3357
       },
       "_marketConfidence": 0.5588,
-      "_marketDispersionCV": 0.034982,
+      "_marketDispersionCV": 0.034983,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -12768,7 +12768,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1530
       },
       "_marketConfidence": 0.4772,
-      "_marketDispersionCV": 0.116577,
+      "_marketDispersionCV": 0.116578,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12790,7 +12790,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3626
       },
       "_marketConfidence": 0.5581,
-      "_marketDispersionCV": 0.035676,
+      "_marketDispersionCV": 0.035677,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -12811,7 +12811,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3288
       },
       "_marketConfidence": 0.5613,
-      "_marketDispersionCV": 0.032445,
+      "_marketDispersionCV": 0.032446,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 12,
@@ -12831,8 +12831,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2071,
         "idpTradeCalc": 1811
       },
-      "_marketConfidence": 0.4908,
-      "_marketDispersionCV": 0.103,
+      "_marketConfidence": 0.4907,
+      "_marketDispersionCV": 0.103001,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -12887,7 +12887,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2381
       },
       "_marketConfidence": 0.5381,
-      "_marketDispersionCV": 0.055689,
+      "_marketDispersionCV": 0.05569,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -12943,7 +12943,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1537
       },
       "_marketConfidence": 0.4796,
-      "_marketDispersionCV": 0.114171,
+      "_marketDispersionCV": 0.114172,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13032,7 +13032,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1646
       },
       "_marketConfidence": 0.5223,
-      "_marketDispersionCV": 0.071472,
+      "_marketDispersionCV": 0.071474,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13157,7 +13157,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2946
       },
       "_marketConfidence": 0.5486,
-      "_marketDispersionCV": 0.045163,
+      "_marketDispersionCV": 0.045165,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -13264,7 +13264,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 946
       },
       "_marketConfidence": 0.5343,
-      "_marketDispersionCV": 0.059471,
+      "_marketDispersionCV": 0.059474,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -13285,7 +13285,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5603
       },
       "_marketConfidence": 0.5667,
-      "_marketDispersionCV": 0.027088,
+      "_marketDispersionCV": 0.027089,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13340,7 +13340,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1760
       },
       "_marketConfidence": 0.4879,
-      "_marketDispersionCV": 0.105822,
+      "_marketDispersionCV": 0.105824,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -13350,24 +13350,24 @@ window.DYNASTY_DATA = {
     },
     "Noah Gray": {
       "ktc": 1471,
-      "ktcSfTep": 2080,
+      "ktcSfTep": 2079,
       "idpTradeCalc": 1872,
       "_sleeperId": "7828",
-      "_composite": 2080,
+      "_composite": 2079,
       "_sites": 3,
       "_canonicalSiteValues": {
         "ktc": 1471,
-        "ktcSfTep": 2080,
+        "ktcSfTep": 2079,
         "idpTradeCalc": 1872
       },
       "_marketConfidence": 0.4862,
-      "_marketDispersionCV": 0.107589,
+      "_marketDispersionCV": 0.107537,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 27,
-      "_rawComposite": 2080,
-      "_finalAdjusted": 2080
+      "_rawComposite": 2079,
+      "_finalAdjusted": 2079
     },
     "Noah Sewell": {
       "idpTradeCalc": 1282,
@@ -13433,7 +13433,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1257
       },
       "_marketConfidence": 0.5307,
-      "_marketDispersionCV": 0.063023,
+      "_marketDispersionCV": 0.063026,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -13454,7 +13454,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2343
       },
       "_marketConfidence": 0.5555,
-      "_marketDispersionCV": 0.03828,
+      "_marketDispersionCV": 0.038281,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13492,7 +13492,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3862
       },
       "_marketConfidence": 0.5425,
-      "_marketDispersionCV": 0.05122,
+      "_marketDispersionCV": 0.051221,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -13531,7 +13531,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6817
       },
       "_marketConfidence": 0.5741,
-      "_marketDispersionCV": 0.01966,
+      "_marketDispersionCV": 0.019661,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13590,7 +13590,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1700
       },
       "_marketConfidence": 0.5074,
-      "_marketDispersionCV": 0.086314,
+      "_marketDispersionCV": 0.086313,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -13612,7 +13612,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3579
       },
       "_marketConfidence": 0.5685,
-      "_marketDispersionCV": 0.025276,
+      "_marketDispersionCV": 0.025277,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -13633,7 +13633,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2521
       },
       "_marketConfidence": 0.5396,
-      "_marketDispersionCV": 0.054128,
+      "_marketDispersionCV": 0.05413,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13654,7 +13654,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2660
       },
       "_marketConfidence": 0.5011,
-      "_marketDispersionCV": 0.092666,
+      "_marketDispersionCV": 0.092667,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -13798,7 +13798,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1193
       },
       "_marketConfidence": 0.5273,
-      "_marketDispersionCV": 0.066467,
+      "_marketDispersionCV": 0.066469,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13824,25 +13824,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1207
     },
     "Puka Nacua": {
-      "ktc": 8712,
-      "ktcSfTep": 8712,
+      "ktc": 8714,
+      "ktcSfTep": 8714,
       "idpTradeCalc": 8604,
       "_sleeperId": "9493",
-      "_composite": 8712,
+      "_composite": 8714,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 8712,
-        "ktcSfTep": 8712,
+        "ktc": 8714,
+        "ktcSfTep": 8714,
         "idpTradeCalc": 8604
       },
-      "_marketConfidence": 0.5764,
-      "_marketDispersionCV": 0.017356,
+      "_marketConfidence": 0.5765,
+      "_marketDispersionCV": 0.01726,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 8712,
-      "_finalAdjusted": 8712
+      "_rawComposite": 8714,
+      "_finalAdjusted": 8714
     },
     "Quan Martin": {
       "idpTradeCalc": 854,
@@ -13879,25 +13879,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2680
     },
     "Quentin Johnston": {
-      "ktc": 3566,
-      "ktcSfTep": 3566,
+      "ktc": 3563,
+      "ktcSfTep": 3563,
       "idpTradeCalc": 3369,
       "_sleeperId": "9754",
-      "_composite": 3566,
+      "_composite": 3563,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3566,
-        "ktcSfTep": 3566,
+        "ktc": 3563,
+        "ktcSfTep": 3563,
         "idpTradeCalc": 3369
       },
-      "_marketConfidence": 0.5795,
-      "_marketDispersionCV": 0.014259,
+      "_marketConfidence": 0.5792,
+      "_marketDispersionCV": 0.01454,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 24,
-      "_rawComposite": 3566,
-      "_finalAdjusted": 3566
+      "_rawComposite": 3563,
+      "_finalAdjusted": 3563
     },
     "Quentin Lake": {
       "idpTradeCalc": 1923,
@@ -13946,7 +13946,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1783
       },
       "_marketConfidence": 0.5295,
-      "_marketDispersionCV": 0.064203,
+      "_marketDispersionCV": 0.064205,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -13972,25 +13972,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1881
     },
     "Quinshon Judkins": {
-      "ktc": 5553,
-      "ktcSfTep": 5553,
+      "ktc": 5557,
+      "ktcSfTep": 5557,
       "idpTradeCalc": 5495,
       "_sleeperId": "12512",
-      "_composite": 5553,
+      "_composite": 5557,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5553,
-        "ktcSfTep": 5553,
+        "ktc": 5557,
+        "ktcSfTep": 5557,
         "idpTradeCalc": 5495
       },
-      "_marketConfidence": 0.5704,
-      "_marketDispersionCV": 0.023327,
+      "_marketConfidence": 0.5707,
+      "_marketDispersionCV": 0.023034,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
       "age": 22,
-      "_rawComposite": 5553,
-      "_finalAdjusted": 5553
+      "_rawComposite": 5557,
+      "_finalAdjusted": 5557
     },
     "Quinyon Mitchell": {
       "idpTradeCalc": 783,
@@ -14040,7 +14040,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3432
       },
       "_marketConfidence": 0.5544,
-      "_marketDispersionCV": 0.039388,
+      "_marketDispersionCV": 0.039389,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14049,25 +14049,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3432
     },
     "Rachaad White": {
-      "ktc": 2778,
-      "ktcSfTep": 2778,
+      "ktc": 2780,
+      "ktcSfTep": 2780,
       "idpTradeCalc": 2738,
       "_sleeperId": "8136",
-      "_composite": 2778,
+      "_composite": 2780,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2778,
-        "ktcSfTep": 2778,
+        "ktc": 2780,
+        "ktcSfTep": 2780,
         "idpTradeCalc": 2738
       },
-      "_marketConfidence": 0.5597,
-      "_marketDispersionCV": 0.034064,
+      "_marketConfidence": 0.56,
+      "_marketDispersionCV": 0.033798,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
       "age": 27,
-      "_rawComposite": 2778,
-      "_finalAdjusted": 2778
+      "_rawComposite": 2780,
+      "_finalAdjusted": 2780
     },
     "Raheim Sanders": {
       "ktc": 1284,
@@ -14082,7 +14082,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1356
       },
       "_marketConfidence": 0.5197,
-      "_marketDispersionCV": 0.074075,
+      "_marketDispersionCV": 0.074078,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14120,7 +14120,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4491
       },
       "_marketConfidence": 0.5816,
-      "_marketDispersionCV": 0.012121,
+      "_marketDispersionCV": 0.012122,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14141,7 +14141,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1212
       },
       "_marketConfidence": 0.5338,
-      "_marketDispersionCV": 0.059905,
+      "_marketDispersionCV": 0.059908,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14150,19 +14150,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1213
     },
     "Rashid Shaheed": {
-      "ktc": 2762,
-      "ktcSfTep": 2762,
+      "ktc": 2759,
+      "ktcSfTep": 2759,
       "idpTradeCalc": 2881,
       "_sleeperId": "8676",
       "_composite": 2881,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2762,
-        "ktcSfTep": 2762,
+        "ktc": 2759,
+        "ktcSfTep": 2759,
         "idpTradeCalc": 2881
       },
-      "_marketConfidence": 0.5392,
-      "_marketDispersionCV": 0.054514,
+      "_marketConfidence": 0.5388,
+      "_marketDispersionCV": 0.054932,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14183,7 +14183,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2083
       },
       "_marketConfidence": 0.5449,
-      "_marketDispersionCV": 0.048896,
+      "_marketDispersionCV": 0.048897,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -14192,25 +14192,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2083
     },
     "Ray Davis": {
-      "ktc": 1974,
-      "ktcSfTep": 1974,
+      "ktc": 1977,
+      "ktcSfTep": 1977,
       "idpTradeCalc": 1968,
       "_sleeperId": "11575",
-      "_composite": 1974,
+      "_composite": 1977,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1974,
-        "ktcSfTep": 1974,
+        "ktc": 1977,
+        "ktcSfTep": 1977,
         "idpTradeCalc": 1968
       },
-      "_marketConfidence": 0.5478,
-      "_marketDispersionCV": 0.045974,
+      "_marketConfidence": 0.5483,
+      "_marketDispersionCV": 0.045447,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
       "age": 26,
-      "_rawComposite": 1974,
-      "_finalAdjusted": 1974
+      "_rawComposite": 1977,
+      "_finalAdjusted": 1977
     },
     "Reed Blankenship": {
       "idpTradeCalc": 851,
@@ -14242,7 +14242,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2949
       },
       "_marketConfidence": 0.5542,
-      "_marketDispersionCV": 0.039503,
+      "_marketDispersionCV": 0.039505,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -14263,7 +14263,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3441
       },
       "_marketConfidence": 0.5504,
-      "_marketDispersionCV": 0.043394,
+      "_marketDispersionCV": 0.043396,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14284,7 +14284,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3171
       },
       "_marketConfidence": 0.5545,
-      "_marketDispersionCV": 0.039207,
+      "_marketDispersionCV": 0.039208,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -14305,7 +14305,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1746
       },
       "_marketConfidence": 0.535,
-      "_marketDispersionCV": 0.058729,
+      "_marketDispersionCV": 0.058731,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14359,8 +14359,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1540,
         "idpTradeCalc": 1604
       },
-      "_marketConfidence": 0.528,
-      "_marketDispersionCV": 0.065799,
+      "_marketConfidence": 0.5279,
+      "_marketDispersionCV": 0.065801,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14369,19 +14369,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1604
     },
     "Rome Odunze": {
-      "ktc": 5252,
-      "ktcSfTep": 5252,
+      "ktc": 5253,
+      "ktcSfTep": 5253,
       "idpTradeCalc": 5411,
       "_sleeperId": "11620",
       "_composite": 5411,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 5252,
-        "ktcSfTep": 5252,
+        "ktc": 5253,
+        "ktcSfTep": 5253,
         "idpTradeCalc": 5411
       },
       "_marketConfidence": 0.5535,
-      "_marketDispersionCV": 0.040288,
+      "_marketDispersionCV": 0.040209,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14390,19 +14390,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 5411
     },
     "Romeo Doubs": {
-      "ktc": 3086,
-      "ktcSfTep": 3086,
+      "ktc": 3083,
+      "ktcSfTep": 3083,
       "idpTradeCalc": 3209,
       "_sleeperId": "8121",
       "_composite": 3209,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3086,
-        "ktcSfTep": 3086,
+        "ktc": 3083,
+        "ktcSfTep": 3083,
         "idpTradeCalc": 3209
       },
-      "_marketConfidence": 0.5423,
-      "_marketDispersionCV": 0.05149,
+      "_marketConfidence": 0.5419,
+      "_marketDispersionCV": 0.051871,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14440,7 +14440,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1504
       },
       "_marketConfidence": 0.5325,
-      "_marketDispersionCV": 0.06126,
+      "_marketDispersionCV": 0.061262,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14496,7 +14496,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1767
       },
       "_marketConfidence": 0.5623,
-      "_marketDispersionCV": 0.031464,
+      "_marketDispersionCV": 0.031466,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14517,7 +14517,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4657
       },
       "_marketConfidence": 0.5501,
-      "_marketDispersionCV": 0.043675,
+      "_marketDispersionCV": 0.043676,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -14538,7 +14538,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1028
       },
       "_marketConfidence": 0.5407,
-      "_marketDispersionCV": 0.053081,
+      "_marketDispersionCV": 0.053083,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14559,7 +14559,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5059
       },
       "_marketConfidence": 0.5195,
-      "_marketDispersionCV": 0.074202,
+      "_marketDispersionCV": 0.074203,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14580,7 +14580,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1246
       },
       "_marketConfidence": 0.4577,
-      "_marketDispersionCV": 0.136029,
+      "_marketDispersionCV": 0.136031,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14600,7 +14600,7 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 605
       },
       "_marketConfidence": 0.4911,
-      "_marketDispersionCV": 0.021385,
+      "_marketDispersionCV": 0.021386,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 9,
@@ -14638,7 +14638,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4919
       },
       "_marketConfidence": 0.5653,
-      "_marketDispersionCV": 0.028419,
+      "_marketDispersionCV": 0.02842,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 8,
@@ -14676,7 +14676,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1711
       },
       "_marketConfidence": 0.5346,
-      "_marketDispersionCV": 0.059185,
+      "_marketDispersionCV": 0.059187,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14696,8 +14696,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2285,
         "idpTradeCalc": 2174
       },
-      "_marketConfidence": 0.5667,
-      "_marketDispersionCV": 0.0271,
+      "_marketConfidence": 0.5666,
+      "_marketDispersionCV": 0.027101,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -14718,7 +14718,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 926
       },
       "_marketConfidence": 0.5605,
-      "_marketDispersionCV": 0.033264,
+      "_marketDispersionCV": 0.033266,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14745,19 +14745,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1410
     },
     "Shedeur Sanders": {
-      "ktc": 2700,
-      "ktcSfTep": 2700,
+      "ktc": 2706,
+      "ktcSfTep": 2706,
       "idpTradeCalc": 2747,
       "_sleeperId": "12524",
       "_composite": 2747,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2700,
-        "ktcSfTep": 2700,
+        "ktc": 2706,
+        "ktcSfTep": 2706,
         "idpTradeCalc": 2747
       },
-      "_marketConfidence": 0.5478,
-      "_marketDispersionCV": 0.045906,
+      "_marketConfidence": 0.5487,
+      "_marketDispersionCV": 0.04507,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -14812,7 +14812,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 969
       },
       "_marketConfidence": 0.5244,
-      "_marketDispersionCV": 0.069377,
+      "_marketDispersionCV": 0.06938,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14850,7 +14850,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2538
       },
       "_marketConfidence": 0.5401,
-      "_marketDispersionCV": 0.053607,
+      "_marketDispersionCV": 0.053608,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -14872,7 +14872,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 977
       },
       "_marketConfidence": 0.5309,
-      "_marketDispersionCV": 0.062849,
+      "_marketDispersionCV": 0.062852,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -14911,7 +14911,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1644
       },
       "_marketConfidence": 0.528,
-      "_marketDispersionCV": 0.065749,
+      "_marketDispersionCV": 0.065751,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -14932,7 +14932,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2166
       },
       "_marketConfidence": 0.548,
-      "_marketDispersionCV": 0.045706,
+      "_marketDispersionCV": 0.045707,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 11,
@@ -14941,25 +14941,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2166
     },
     "T.J. Hockenson": {
-      "ktc": 2724,
-      "ktcSfTep": 3465,
+      "ktc": 2721,
+      "ktcSfTep": 3461,
       "idpTradeCalc": 3202,
       "_sleeperId": "5844",
-      "_composite": 3465,
+      "_composite": 3461,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2724,
-        "ktcSfTep": 3465,
+        "ktc": 2721,
+        "ktcSfTep": 3461,
         "idpTradeCalc": 3202
       },
-      "_marketConfidence": 0.5094,
-      "_marketDispersionCV": 0.08439,
+      "_marketConfidence": 0.5091,
+      "_marketDispersionCV": 0.084604,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
       "age": 29,
-      "_rawComposite": 3465,
-      "_finalAdjusted": 3465
+      "_rawComposite": 3461,
+      "_finalAdjusted": 3461
     },
     "T.J. Edwards": {
       "idpTradeCalc": 1911,
@@ -15043,7 +15043,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1635
       },
       "_marketConfidence": 0.5486,
-      "_marketDispersionCV": 0.045175,
+      "_marketDispersionCV": 0.045177,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15064,7 +15064,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1469
       },
       "_marketConfidence": 0.518,
-      "_marketDispersionCV": 0.075789,
+      "_marketDispersionCV": 0.075792,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15084,8 +15084,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 1233,
         "idpTradeCalc": 1294
       },
-      "_marketConfidence": 0.5206,
-      "_marketDispersionCV": 0.073198,
+      "_marketConfidence": 0.5205,
+      "_marketDispersionCV": 0.0732,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15123,7 +15123,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2416
       },
       "_marketConfidence": 0.5564,
-      "_marketDispersionCV": 0.037398,
+      "_marketDispersionCV": 0.0374,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15144,7 +15144,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2535
       },
       "_marketConfidence": 0.5506,
-      "_marketDispersionCV": 0.043177,
+      "_marketDispersionCV": 0.043178,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15165,7 +15165,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1252
       },
       "_marketConfidence": 0.5286,
-      "_marketDispersionCV": 0.065134,
+      "_marketDispersionCV": 0.065137,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15255,7 +15255,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 874
       },
       "_marketConfidence": 0.5649,
-      "_marketDispersionCV": 0.028862,
+      "_marketDispersionCV": 0.028865,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -15333,7 +15333,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4883
       },
       "_marketConfidence": 0.5673,
-      "_marketDispersionCV": 0.026448,
+      "_marketDispersionCV": 0.026449,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -15428,7 +15428,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3464
       },
       "_marketConfidence": 0.5638,
-      "_marketDispersionCV": 0.029965,
+      "_marketDispersionCV": 0.029966,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -15487,7 +15487,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2140
       },
       "_marketConfidence": 0.5372,
-      "_marketDispersionCV": 0.056547,
+      "_marketDispersionCV": 0.056549,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15508,7 +15508,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2643
       },
       "_marketConfidence": 0.5012,
-      "_marketDispersionCV": 0.092593,
+      "_marketDispersionCV": 0.092594,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15529,7 +15529,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 876
       },
       "_marketConfidence": 0.4375,
-      "_marketDispersionCV": 0.156275,
+      "_marketDispersionCV": 0.156277,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15555,25 +15555,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1112
     },
     "Tommy Tremble": {
-      "ktc": 1252,
-      "ktcSfTep": 1841,
+      "ktc": 1255,
+      "ktcSfTep": 1844,
       "idpTradeCalc": 1680,
       "_sleeperId": "7694",
-      "_composite": 1841,
+      "_composite": 1844,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1252,
-        "ktcSfTep": 1841,
+        "ktc": 1255,
+        "ktcSfTep": 1844,
         "idpTradeCalc": 1680
       },
-      "_marketConfidence": 0.4747,
-      "_marketDispersionCV": 0.119086,
+      "_marketConfidence": 0.4752,
+      "_marketDispersionCV": 0.118595,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
       "age": 26,
-      "_rawComposite": 1841,
-      "_finalAdjusted": 1841
+      "_rawComposite": 1844,
+      "_finalAdjusted": 1844
     },
     "Tony Pollard": {
       "ktc": 2798,
@@ -15588,7 +15588,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2812
       },
       "_marketConfidence": 0.5529,
-      "_marketDispersionCV": 0.040805,
+      "_marketDispersionCV": 0.040806,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -15597,19 +15597,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2812
     },
     "Tory Horton": {
-      "ktc": 2625,
-      "ktcSfTep": 2625,
+      "ktc": 2622,
+      "ktcSfTep": 2622,
       "idpTradeCalc": 2699,
       "_sleeperId": "12497",
       "_composite": 2699,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 2625,
-        "ktcSfTep": 2625,
+        "ktc": 2622,
+        "ktcSfTep": 2622,
         "idpTradeCalc": 2699
       },
-      "_marketConfidence": 0.5435,
-      "_marketDispersionCV": 0.050229,
+      "_marketConfidence": 0.5431,
+      "_marketDispersionCV": 0.050662,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15630,7 +15630,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4503
       },
       "_marketConfidence": 0.558,
-      "_marketDispersionCV": 0.035742,
+      "_marketDispersionCV": 0.035743,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15651,7 +15651,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6444
       },
       "_marketConfidence": 0.3138,
-      "_marketDispersionCV": 0.317125,
+      "_marketDispersionCV": 0.317126,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15672,7 +15672,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2851
       },
       "_marketConfidence": 0.5139,
-      "_marketDispersionCV": 0.079809,
+      "_marketDispersionCV": 0.07981,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -15710,7 +15710,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2756
       },
       "_marketConfidence": 0.5514,
-      "_marketDispersionCV": 0.042354,
+      "_marketDispersionCV": 0.042356,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15731,7 +15731,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2460
       },
       "_marketConfidence": 0.5581,
-      "_marketDispersionCV": 0.035605,
+      "_marketDispersionCV": 0.035606,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -15858,7 +15858,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2060
       },
       "_marketConfidence": 0.5451,
-      "_marketDispersionCV": 0.048672,
+      "_marketDispersionCV": 0.048674,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -15879,7 +15879,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6383
       },
       "_marketConfidence": 0.5649,
-      "_marketDispersionCV": 0.028877,
+      "_marketDispersionCV": 0.028878,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15900,7 +15900,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2270
       },
       "_marketConfidence": 0.5448,
-      "_marketDispersionCV": 0.048913,
+      "_marketDispersionCV": 0.048915,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -15938,7 +15938,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1141
       },
       "_marketConfidence": 0.5271,
-      "_marketDispersionCV": 0.066622,
+      "_marketDispersionCV": 0.066625,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -15959,7 +15959,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 8373
       },
       "_marketConfidence": 0.5203,
-      "_marketDispersionCV": 0.073459,
+      "_marketDispersionCV": 0.07346,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -15980,7 +15980,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1174
       },
       "_marketConfidence": 0.5205,
-      "_marketDispersionCV": 0.073287,
+      "_marketDispersionCV": 0.07329,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16001,7 +16001,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1506
       },
       "_marketConfidence": 0.527,
-      "_marketDispersionCV": 0.066782,
+      "_marketDispersionCV": 0.066784,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16055,8 +16055,8 @@ window.DYNASTY_DATA = {
         "ktcSfTep": 2585,
         "idpTradeCalc": 2651
       },
-      "_marketConfidence": 0.5442,
-      "_marketDispersionCV": 0.0496,
+      "_marketConfidence": 0.5441,
+      "_marketDispersionCV": 0.049601,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16077,7 +16077,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2710
       },
       "_marketConfidence": 0.5626,
-      "_marketDispersionCV": 0.031158,
+      "_marketDispersionCV": 0.031159,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -16098,7 +16098,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 5457
       },
       "_marketConfidence": 0.5245,
-      "_marketDispersionCV": 0.069244,
+      "_marketDispersionCV": 0.069245,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16136,7 +16136,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1620
       },
       "_marketConfidence": 0.5309,
-      "_marketDispersionCV": 0.062882,
+      "_marketDispersionCV": 0.062884,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -16176,7 +16176,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1295
       },
       "_marketConfidence": 0.5236,
-      "_marketDispersionCV": 0.070177,
+      "_marketDispersionCV": 0.07018,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 7,
@@ -16197,7 +16197,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3647
       },
       "_marketConfidence": 0.5506,
-      "_marketDispersionCV": 0.043165,
+      "_marketDispersionCV": 0.043166,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -16236,7 +16236,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2590
       },
       "_marketConfidence": 0.5519,
-      "_marketDispersionCV": 0.04181,
+      "_marketDispersionCV": 0.041812,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16274,7 +16274,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2747
       },
       "_marketConfidence": 0.5506,
-      "_marketDispersionCV": 0.043122,
+      "_marketDispersionCV": 0.043124,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16283,19 +16283,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2747
     },
     "Tyler Badie": {
-      "ktc": 967,
-      "ktcSfTep": 967,
+      "ktc": 964,
+      "ktcSfTep": 964,
       "idpTradeCalc": 978,
       "_sleeperId": "8208",
       "_composite": 978,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 967,
-        "ktcSfTep": 967,
+        "ktc": 964,
+        "ktcSfTep": 964,
         "idpTradeCalc": 978
       },
-      "_marketConfidence": 0.5241,
-      "_marketDispersionCV": 0.06966,
+      "_marketConfidence": 0.5232,
+      "_marketDispersionCV": 0.070529,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16316,7 +16316,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1104
       },
       "_marketConfidence": 0.5126,
-      "_marketDispersionCV": 0.081144,
+      "_marketDispersionCV": 0.081146,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16337,7 +16337,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1690
       },
       "_marketConfidence": 0.4803,
-      "_marketDispersionCV": 0.113467,
+      "_marketDispersionCV": 0.113468,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -16358,7 +16358,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1164
       },
       "_marketConfidence": 0.5425,
-      "_marketDispersionCV": 0.051269,
+      "_marketDispersionCV": 0.051271,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 6,
@@ -16415,7 +16415,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 962
       },
       "_marketConfidence": 0.5198,
-      "_marketDispersionCV": 0.073994,
+      "_marketDispersionCV": 0.073997,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16436,7 +16436,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4883
       },
       "_marketConfidence": 0.5613,
-      "_marketDispersionCV": 0.03247,
+      "_marketDispersionCV": 0.032471,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16457,7 +16457,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 6454
       },
       "_marketConfidence": 0.5249,
-      "_marketDispersionCV": 0.068825,
+      "_marketDispersionCV": 0.068826,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16478,7 +16478,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1853
       },
       "_marketConfidence": 0.5319,
-      "_marketDispersionCV": 0.061829,
+      "_marketDispersionCV": 0.061831,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16516,7 +16516,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2001
       },
       "_marketConfidence": 0.5225,
-      "_marketDispersionCV": 0.071248,
+      "_marketDispersionCV": 0.07125,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 10,
@@ -16554,7 +16554,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1019
       },
       "_marketConfidence": 0.5189,
-      "_marketDispersionCV": 0.07488,
+      "_marketDispersionCV": 0.074883,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16611,7 +16611,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2666
       },
       "_marketConfidence": 0.555,
-      "_marketDispersionCV": 0.038785,
+      "_marketDispersionCV": 0.038787,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16632,7 +16632,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1438
       },
       "_marketConfidence": 0.5215,
-      "_marketDispersionCV": 0.072213,
+      "_marketDispersionCV": 0.072215,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16758,7 +16758,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3536
       },
       "_marketConfidence": 0.5542,
-      "_marketDispersionCV": 0.039526,
+      "_marketDispersionCV": 0.039527,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 4,
@@ -16796,7 +16796,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1990
       },
       "_marketConfidence": 0.5381,
-      "_marketDispersionCV": 0.055694,
+      "_marketDispersionCV": 0.055696,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16834,7 +16834,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1352
       },
       "_marketConfidence": 0.5056,
-      "_marketDispersionCV": 0.088182,
+      "_marketDispersionCV": 0.088185,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16872,7 +16872,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1682
       },
       "_marketConfidence": 0.5282,
-      "_marketDispersionCV": 0.065536,
+      "_marketDispersionCV": 0.065538,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -16910,7 +16910,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2786
       },
       "_marketConfidence": 0.5481,
-      "_marketDispersionCV": 0.045676,
+      "_marketDispersionCV": 0.045677,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -16948,7 +16948,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 869
       },
       "_marketConfidence": 0.5227,
-      "_marketDispersionCV": 0.071001,
+      "_marketDispersionCV": 0.071004,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16957,19 +16957,19 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 869
     },
     "Xavier Hutchinson": {
-      "ktc": 1614,
-      "ktcSfTep": 1614,
+      "ktc": 1617,
+      "ktcSfTep": 1617,
       "idpTradeCalc": 1682,
       "_sleeperId": "10218",
       "_composite": 1682,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 1614,
-        "ktcSfTep": 1614,
+        "ktc": 1617,
+        "ktcSfTep": 1617,
         "idpTradeCalc": 1682
       },
-      "_marketConfidence": 0.5288,
-      "_marketDispersionCV": 0.06491,
+      "_marketConfidence": 0.5295,
+      "_marketDispersionCV": 0.064288,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -16990,7 +16990,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1950
       },
       "_marketConfidence": 0.5356,
-      "_marketDispersionCV": 0.058184,
+      "_marketDispersionCV": 0.058186,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -17028,7 +17028,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1289
       },
       "_marketConfidence": 0.5174,
-      "_marketDispersionCV": 0.076374,
+      "_marketDispersionCV": 0.076377,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 1,
@@ -17049,7 +17049,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 3349
       },
       "_marketConfidence": 0.5585,
-      "_marketDispersionCV": 0.035257,
+      "_marketDispersionCV": 0.035258,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 2,
@@ -17092,25 +17092,25 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2009
     },
     "Zach Charbonnet": {
-      "ktc": 3361,
-      "ktcSfTep": 3361,
+      "ktc": 3357,
+      "ktcSfTep": 3357,
       "idpTradeCalc": 3356,
       "_sleeperId": "9753",
-      "_composite": 3361,
+      "_composite": 3357,
       "_sites": 3,
       "_canonicalSiteValues": {
-        "ktc": 3361,
-        "ktcSfTep": 3361,
+        "ktc": 3357,
+        "ktcSfTep": 3357,
         "idpTradeCalc": 3356
       },
-      "_marketConfidence": 0.5589,
-      "_marketDispersionCV": 0.034872,
+      "_marketConfidence": 0.5584,
+      "_marketDispersionCV": 0.035335,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
       "age": 25,
-      "_rawComposite": 3361,
-      "_finalAdjusted": 3361
+      "_rawComposite": 3357,
+      "_finalAdjusted": 3357
     },
     "Zach Ertz": {
       "ktc": 913,
@@ -17125,7 +17125,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1392
       },
       "_marketConfidence": 0.4494,
-      "_marketDispersionCV": 0.144313,
+      "_marketDispersionCV": 0.144315,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 13,
@@ -17180,7 +17180,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1001
       },
       "_marketConfidence": 0.5115,
-      "_marketDispersionCV": 0.082255,
+      "_marketDispersionCV": 0.082258,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 5,
@@ -17201,7 +17201,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 2698
       },
       "_marketConfidence": 0.5559,
-      "_marketDispersionCV": 0.037856,
+      "_marketDispersionCV": 0.037857,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -17274,7 +17274,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 784
       },
       "_marketConfidence": 0.5205,
-      "_marketDispersionCV": 0.073218,
+      "_marketDispersionCV": 0.073221,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -17295,7 +17295,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 1281
       },
       "_marketConfidence": 0.5696,
-      "_marketDispersionCV": 0.024165,
+      "_marketDispersionCV": 0.024167,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 0,
@@ -17317,7 +17317,7 @@ window.DYNASTY_DATA = {
         "idpTradeCalc": 4816
       },
       "_marketConfidence": 0.5697,
-      "_marketDispersionCV": 0.024047,
+      "_marketDispersionCV": 0.024048,
       "_idpRealMarketSources": 0,
       "_rookieOnlyDlfGuardrailApplied": false,
       "_yearsExp": 3,
@@ -17370,10 +17370,10 @@ window.DYNASTY_DATA = {
     "2026 Pick 1.04": {
       "ktc": 4484,
       "idpTradeCalc": 6486,
-      "_composite": 5383,
+      "_composite": 5380,
       "_sites": 2,
-      "_rawComposite": 5383,
-      "_finalAdjusted": 5383
+      "_rawComposite": 5380,
+      "_finalAdjusted": 5380
     },
     "2026 Pick 1.05": {
       "ktc": 5233,
@@ -17408,15 +17408,15 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4522
     },
     "2026 Pick 1.09": {
-      "ktc": 4320,
+      "ktc": 4323,
       "idpTradeCalc": 4908,
-      "_composite": 4454,
+      "_composite": 4449,
       "_sites": 2,
-      "_rawComposite": 4454,
-      "_finalAdjusted": 4454
+      "_rawComposite": 4449,
+      "_finalAdjusted": 4449
     },
     "2026 Pick 1.10": {
-      "ktc": 4011,
+      "ktc": 4014,
       "idpTradeCalc": 4845,
       "_composite": 4176,
       "_sites": 2,
@@ -17424,7 +17424,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4176
     },
     "2026 Pick 1.11": {
-      "ktc": 3703,
+      "ktc": 3706,
       "idpTradeCalc": 4553,
       "_composite": 4173,
       "_sites": 2,
@@ -17432,7 +17432,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4173
     },
     "2026 Pick 1.12": {
-      "ktc": 3394,
+      "ktc": 3397,
       "idpTradeCalc": 4409,
       "_composite": 3862,
       "_sites": 2,
@@ -17442,10 +17442,10 @@ window.DYNASTY_DATA = {
     "2026 Early 1st": {
       "ktc": 5605,
       "idpTradeCalc": 5631,
-      "_composite": 6155,
+      "_composite": 6154,
       "_sites": 2,
-      "_rawComposite": 6155,
-      "_finalAdjusted": 6155
+      "_rawComposite": 6154,
+      "_finalAdjusted": 6154
     },
     "2026 Mid 1st": {
       "ktc": 4590,
@@ -17456,12 +17456,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4857
     },
     "2026 Late 1st": {
-      "ktc": 3857,
+      "ktc": 3860,
       "idpTradeCalc": 3953,
-      "_composite": 4166,
+      "_composite": 4165,
       "_sites": 2,
-      "_rawComposite": 4166,
-      "_finalAdjusted": 4166
+      "_rawComposite": 4165,
+      "_finalAdjusted": 4165
     },
     "2026 Pick 2.01": {
       "ktc": 3965,
@@ -17482,10 +17482,10 @@ window.DYNASTY_DATA = {
     "2026 Pick 2.03": {
       "ktc": 3084,
       "idpTradeCalc": 3685,
-      "_composite": 3181,
+      "_composite": 3184,
       "_sites": 2,
-      "_rawComposite": 3181,
-      "_finalAdjusted": 3181
+      "_rawComposite": 3184,
+      "_finalAdjusted": 3184
     },
     "2026 Pick 2.04": {
       "ktc": 2643,
@@ -17562,10 +17562,10 @@ window.DYNASTY_DATA = {
     "2026 Early 2nd": {
       "ktc": 3304,
       "idpTradeCalc": 3294,
-      "_composite": 3339,
+      "_composite": 3340,
       "_sites": 2,
-      "_rawComposite": 3339,
-      "_finalAdjusted": 3339
+      "_rawComposite": 3340,
+      "_finalAdjusted": 3340
     },
     "2026 Mid 2nd": {
       "ktc": 2970,
@@ -17929,11 +17929,11 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1703
     },
     "2026 Pick 6.01": {
-      "ktc": 1474,
-      "_composite": 1474,
+      "ktc": 1471,
+      "_composite": 1471,
       "_sites": 1,
-      "_rawComposite": 1474,
-      "_finalAdjusted": 1474
+      "_rawComposite": 1471,
+      "_finalAdjusted": 1471
     },
     "2026 Pick 6.02": {
       "ktc": 1449,
@@ -18013,11 +18013,11 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1422
     },
     "2026 Early 6th": {
-      "ktc": 1447,
-      "_composite": 1447,
+      "ktc": 1446,
+      "_composite": 1446,
       "_sites": 1,
-      "_rawComposite": 1447,
-      "_finalAdjusted": 1447
+      "_rawComposite": 1446,
+      "_finalAdjusted": 1446
     },
     "2026 Mid 6th": {
       "ktc": 1427,
@@ -18058,12 +18058,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 4668
     },
     "2027 Early 2nd": {
-      "ktc": 3863,
+      "ktc": 3860,
       "idpTradeCalc": 3908,
-      "_composite": 3705,
+      "_composite": 3704,
       "_sites": 2,
-      "_rawComposite": 3705,
-      "_finalAdjusted": 3705
+      "_rawComposite": 3704,
+      "_finalAdjusted": 3704
     },
     "2027 Mid 2nd": {
       "ktc": 3415,
@@ -18074,12 +18074,12 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 3287
     },
     "2027 Late 2nd": {
-      "ktc": 3149,
+      "ktc": 3152,
       "idpTradeCalc": 3167,
-      "_composite": 3061,
+      "_composite": 3062,
       "_sites": 2,
-      "_rawComposite": 3061,
-      "_finalAdjusted": 3061
+      "_rawComposite": 3062,
+      "_finalAdjusted": 3062
     },
     "2027 Early 3rd": {
       "ktc": 2649,
@@ -18151,11 +18151,11 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1618
     },
     "2027 Early 6th": {
-      "ktc": 1375,
-      "_composite": 1375,
+      "ktc": 1374,
+      "_composite": 1374,
       "_sites": 1,
-      "_rawComposite": 1375,
-      "_finalAdjusted": 1375
+      "_rawComposite": 1374,
+      "_finalAdjusted": 1374
     },
     "2027 Mid 6th": {
       "ktc": 1356,
@@ -18228,20 +18228,20 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 2211
     },
     "2028 Mid 3rd": {
-      "ktc": 2096,
+      "ktc": 2093,
       "idpTradeCalc": 2092,
-      "_composite": 2116,
+      "_composite": 2115,
       "_sites": 2,
-      "_rawComposite": 2116,
-      "_finalAdjusted": 2116
+      "_rawComposite": 2115,
+      "_finalAdjusted": 2115
     },
     "2028 Late 3rd": {
-      "ktc": 2008,
+      "ktc": 2011,
       "idpTradeCalc": 1989,
-      "_composite": 2029,
+      "_composite": 2030,
       "_sites": 2,
-      "_rawComposite": 2029,
-      "_finalAdjusted": 2029
+      "_rawComposite": 2030,
+      "_finalAdjusted": 2030
     },
     "2028 Early 4th": {
       "ktc": 1636,
@@ -18289,11 +18289,11 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 1385
     },
     "2028 Early 6th": {
-      "ktc": 1177,
-      "_composite": 1177,
+      "ktc": 1176,
+      "_composite": 1176,
       "_sites": 1,
-      "_rawComposite": 1177,
-      "_finalAdjusted": 1177
+      "_rawComposite": 1176,
+      "_finalAdjusted": 1176
     },
     "2028 Mid 6th": {
       "ktc": 1161,
@@ -19474,7 +19474,7 @@ window.DYNASTY_DATA = {
       "_finalAdjusted": 949
     },
     "Chris Hilton": {
-      "_composite": 934,
+      "_composite": 937,
       "_sites": 1,
       "_fallbackValue": true,
       "_fallbackReason": "must_have_rookie_guarantee",
@@ -19482,8 +19482,8 @@ window.DYNASTY_DATA = {
       "_yearsExp": 0,
       "_isRookie": true,
       "age": 23,
-      "_rawComposite": 934,
-      "_finalAdjusted": 934
+      "_rawComposite": 937,
+      "_finalAdjusted": 937
     },
     "J. Michael Sturdivant": {
       "_composite": 927,
@@ -19795,1613 +19795,8 @@ window.DYNASTY_DATA = {
     "leagueName": "Risk It To Get The Brisket",
     "teams": [
       {
-        "name": "Team 1",
-        "sleeperTeamName": "Team 1",
-        "roster_id": 1,
-        "ownerId": "468418790212759552",
-        "players": [
-          "Aaron Jones",
-          "Andrew Mukuba",
-          "Andrew Van Ginkel",
-          "Ashton Gillotte",
-          "Barrett Carter",
-          "Bhayshul Tuten",
-          "Blake Cashman",
-          "Brock Bowers",
-          "Byron Murphy",
-          "Carnell Tate",
-          "Carson Schwesinger",
-          "Cedric Gray",
-          "Chris Olave",
-          "Chris Rodriguez",
-          "Cody Simon",
-          "Cooper DeJean",
-          "Dallas Turner",
-          "De'Zhaun Stribling",
-          "DeVonta Smith",
-          "Demond Claiborne",
-          "Devon Witherspoon",
-          "Edgerrin Cooper",
-          "Elijah Arroyo",
-          "Emeka Egbuka",
-          "Garrett Wilson",
-          "J.J. McCarthy",
-          "Jacob Parrish",
-          "Jake Golday",
-          "Jalen Redmond",
-          "Jauan Jennings",
-          "Jayden Daniels",
-          "Jeffery Simmons",
-          "Jihaad Campbell",
-          "Jordan Addison",
-          "Jordan Mason",
-          "Justin Jefferson",
-          "Kevin Winston",
-          "Kyler Murray",
-          "Laiatu Latu",
-          "Malachi Moore",
-          "Malaki Starks",
-          "Marcus Mariota",
-          "Mason Graham",
-          "Michael Mayer",
-          "Michael Penix",
-          "Nic Scourton",
-          "Nick Emmanwori",
-          "Omar Cooper",
-          "Patrick Queen",
-          "Shemar Stewart",
-          "Sonny Styles",
-          "T.J. Hockenson",
-          "Terrance Ferguson",
-          "Trevin Wallace",
-          "Tua Tagovailoa",
-          "Tyler Allgeier",
-          "Wan'Dale Robinson",
-          "Will Reichard"
-        ],
-        "playerIds": [
-          "10219",
-          "10891",
-          "11328",
-          "11559",
-          "11565",
-          "11566",
-          "11604",
-          "11667",
-          "11668",
-          "11669",
-          "11678",
-          "11687",
-          "11724",
-          "11742",
-          "11792",
-          "12487",
-          "12490",
-          "12514",
-          "12521",
-          "12560",
-          "12562",
-          "12566",
-          "12567",
-          "12573",
-          "12578",
-          "12588",
-          "12597",
-          "12604",
-          "12605",
-          "12623",
-          "12639",
-          "12646",
-          "12648",
-          "13276",
-          "13279",
-          "13347",
-          "13375",
-          "13391",
-          "13417",
-          "2307",
-          "4199",
-          "5844",
-          "5849",
-          "6125",
-          "6183",
-          "6217",
-          "6768",
-          "6794",
-          "6807",
-          "7049",
-          "7525",
-          "8126",
-          "8132",
-          "8144",
-          "8146",
-          "8408",
-          "9482",
-          "9756"
-        ],
-        "picks": [
-          "2026 1.03 (own)",
-          "2026 2.03 (own)",
-          "2026 3.03 (own)",
-          "2026 4.03 (own)",
-          "2026 5.03 (own)",
-          "2026 6.03 (own)",
-          "2027 Mid 1st (from Team 10)",
-          "2027 Mid 1st (from Team 12)",
-          "2027 Mid 1st (from Team 2)",
-          "2027 Mid 1st (from Team 3)",
-          "2027 Mid 1st (from Team 6)",
-          "2027 Mid 1st (from Team 8)",
-          "2027 Mid 1st (from Team 9)",
-          "2027 Mid 1st (own)",
-          "2027 Mid 2nd (from Team 10)",
-          "2027 Mid 2nd (from Team 2)",
-          "2027 Mid 2nd (from Team 3)",
-          "2027 Mid 2nd (from Team 6)",
-          "2027 Mid 2nd (from Team 7)",
-          "2027 Mid 2nd (from Team 8)",
-          "2027 Mid 2nd (from Team 9)",
-          "2027 Mid 2nd (own)",
-          "2027 Mid 3rd (from Team 10)",
-          "2027 Mid 3rd (from Team 12)",
-          "2027 Mid 3rd (from Team 2)",
-          "2027 Mid 3rd (from Team 6)",
-          "2027 Mid 3rd (from Team 9)",
-          "2027 Mid 3rd (own)",
-          "2027 Mid 4th (from Team 10)",
-          "2027 Mid 4th (from Team 2)",
-          "2027 Mid 4th (from Team 6)",
-          "2027 Mid 4th (from Team 7)",
-          "2027 Mid 4th (own)",
-          "2027 Mid 5th (from Team 2)",
-          "2027 Mid 5th (from Team 9)",
-          "2027 Mid 5th (own)",
-          "2027 Mid 6th (from Team 9)",
-          "2028 Mid 1st (from Team 2)",
-          "2028 Mid 1st (from Team 5)",
-          "2028 Mid 1st (from Team 6)",
-          "2028 Mid 2nd (from Team 12)",
-          "2028 Mid 2nd (from Team 2)",
-          "2028 Mid 2nd (from Team 6)",
-          "2028 Mid 2nd (from Team 8)",
-          "2028 Mid 2nd (from Team 9)",
-          "2028 Mid 3rd (from Team 10)",
-          "2028 Mid 3rd (from Team 2)",
-          "2028 Mid 3rd (from Team 7)",
-          "2028 Mid 3rd (from Team 9)",
-          "2028 Mid 3rd (own)",
-          "2028 Mid 4th (from Team 2)",
-          "2028 Mid 4th (from Team 3)",
-          "2028 Mid 4th (from Team 6)",
-          "2028 Mid 4th (from Team 9)",
-          "2028 Mid 4th (own)",
-          "2028 Mid 5th (from Team 5)",
-          "2028 Mid 5th (from Team 9)",
-          "2028 Mid 5th (own)",
-          "2028 Mid 6th (from Team 4)",
-          "2028 Mid 6th (from Team 9)",
-          "2028 Mid 6th (own)",
-          "2029 Mid 1st (own)",
-          "2029 Mid 2nd (from Team 2)",
-          "2029 Mid 2nd (own)",
-          "2029 Mid 3rd (from Team 2)",
-          "2029 Mid 3rd (own)",
-          "2029 Mid 4th (own)",
-          "2029 Mid 5th (own)",
-          "2029 Mid 6th (own)"
-        ],
-        "pickDetails": [
-          {
-            "season": 2026,
-            "round": 1,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 1.03 (own)",
-            "baseLabel": "2026 1.03"
-          },
-          {
-            "season": 2026,
-            "round": 2,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 2.03 (own)",
-            "baseLabel": "2026 2.03"
-          },
-          {
-            "season": 2026,
-            "round": 3,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 3.03 (own)",
-            "baseLabel": "2026 3.03"
-          },
-          {
-            "season": 2026,
-            "round": 4,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 4.03 (own)",
-            "baseLabel": "2026 4.03"
-          },
-          {
-            "season": 2026,
-            "round": 5,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 5.03 (own)",
-            "baseLabel": "2026 5.03"
-          },
-          {
-            "season": 2026,
-            "round": 6,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": 3,
-            "label": "2026 6.03 (own)",
-            "baseLabel": "2026 6.03"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (own)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 10)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 12,
-            "fromTeam": "Team 12",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 12)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 2)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 3)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 6)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 8,
-            "fromTeam": "Team 8",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 8)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 1st (from Team 9)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (own)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 10)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 2)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 3)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 6)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 7)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 8,
-            "fromTeam": "Team 8",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 8)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 2nd (from Team 9)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (own)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 10)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 12,
-            "fromTeam": "Team 12",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 12)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 2)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 6)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 9)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 4th (own)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 4th (from Team 10)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 4th (from Team 2)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 4th (from Team 6)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 4th (from Team 7)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 5,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 5th (own)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2027,
-            "round": 5,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 5th (from Team 2)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2027,
-            "round": 5,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 5th (from Team 9)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2027,
-            "round": 6,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2027 Mid 6th (from Team 9)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 1st (from Team 2)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 1st (from Team 5)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 1st (from Team 6)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 12,
-            "fromTeam": "Team 12",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 2nd (from Team 12)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 2nd (from Team 2)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 2nd (from Team 6)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 8,
-            "fromTeam": "Team 8",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 2nd (from Team 8)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 2nd (from Team 9)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 3rd (own)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 3rd (from Team 10)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 3rd (from Team 2)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 3rd (from Team 7)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 3rd (from Team 9)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 4th (own)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 4th (from Team 2)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 4th (from Team 3)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 6,
-            "fromTeam": "Team 6",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 4th (from Team 6)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 4th (from Team 9)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 5th (own)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 5th (from Team 5)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 5th (from Team 9)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 6th (own)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 4,
-            "fromTeam": "Team 4",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 6th (from Team 4)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2028 Mid 6th (from Team 9)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2029,
-            "round": 1,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 1st (own)",
-            "baseLabel": "2029 Mid 1st"
-          },
-          {
-            "season": 2029,
-            "round": 2,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 2nd (own)",
-            "baseLabel": "2029 Mid 2nd"
-          },
-          {
-            "season": 2029,
-            "round": 2,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 2nd (from Team 2)",
-            "baseLabel": "2029 Mid 2nd"
-          },
-          {
-            "season": 2029,
-            "round": 3,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 3rd (own)",
-            "baseLabel": "2029 Mid 3rd"
-          },
-          {
-            "season": 2029,
-            "round": 3,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 3rd (from Team 2)",
-            "baseLabel": "2029 Mid 3rd"
-          },
-          {
-            "season": 2029,
-            "round": 4,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 4th (own)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
-            "round": 5,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 5th (own)",
-            "baseLabel": "2029 Mid 5th"
-          },
-          {
-            "season": 2029,
-            "round": 6,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 1,
-            "slot": null,
-            "label": "2029 Mid 6th (own)",
-            "baseLabel": "2029 Mid 6th"
-          }
-        ]
-      },
-      {
-        "name": "Team 10",
-        "sleeperTeamName": "Team 10",
-        "roster_id": 10,
-        "ownerId": "1208452010173538304",
-        "players": [
-          "Alex Anzalone",
-          "Anthony Lucas",
-          "Byron Young",
-          "Calvin Ridley",
-          "Chris Boswell",
-          "Christen Miller",
-          "Christian McCaffrey",
-          "Curtis Samuel",
-          "DJ Turner",
-          "DK Metcalf",
-          "DaRon Bland",
-          "Darnell Mooney",
-          "Davante Adams",
-          "Dawson Knox",
-          "Deebo Samuel",
-          "Derrick Henry",
-          "Devin Duvernay",
-          "Devin White",
-          "Devontez Walker",
-          "Emari Demercado",
-          "Evan McPherson",
-          "Gardner Minshew",
-          "Garrett Nussmeier",
-          "Genesis Smith",
-          "George Karlaftis",
-          "George Kittle",
-          "Germie Bernard",
-          "Greg Rousseau",
-          "Hunter Henry",
-          "Jahan Dotson",
-          "Jawhar Jordan",
-          "Jaylen Watson",
-          "Jimmy Horn",
-          "Jordan Nubin",
-          "JuJu Smith-Schuster",
-          "K'Lavon Chaisson",
-          "KC Concepcion",
-          "KaVontae Turpin",
-          "Kenneth Murray",
-          "Lamar Jackson",
-          "Marcus Jones",
-          "Matthew Stafford",
-          "Minkah Fitzpatrick",
-          "Nahshon Wright",
-          "Rachaad White",
-          "Reed Blankenship",
-          "Riley Leonard",
-          "Roquan Smith",
-          "Spencer Rattler",
-          "Stefon Diggs",
-          "Tank Dell",
-          "Tony Pollard",
-          "Tre' Harris",
-          "Ty Simpson",
-          "Tyler Lockett",
-          "Uchenna Nwosu",
-          "Xavier Hutchinson",
-          "Xavier Legette"
-        ],
-        "playerIds": [
-          "10218",
-          "10894",
-          "10917",
-          "11199",
-          "11562",
-          "11588",
-          "11626",
-          "11629",
-          "12470",
-          "12509",
-          "12523",
-          "13274",
-          "13275",
-          "13298",
-          "13358",
-          "13387",
-          "13399",
-          "13404",
-          "14018",
-          "1945",
-          "2133",
-          "2374",
-          "2449",
-          "3198",
-          "3214",
-          "4034",
-          "4040",
-          "4082",
-          "4118",
-          "421",
-          "4217",
-          "4881",
-          "4960",
-          "4963",
-          "4981",
-          "5061",
-          "5846",
-          "5872",
-          "5906",
-          "5967",
-          "6011",
-          "6119",
-          "6800",
-          "6811",
-          "6847",
-          "7090",
-          "7627",
-          "7687",
-          "7839",
-          "8119",
-          "8136",
-          "8359",
-          "8373",
-          "8385",
-          "8406",
-          "8476",
-          "8917",
-          "9502"
-        ],
-        "picks": [
-          "2026 1.07 (own)",
-          "2026 2.07 (own)",
-          "2026 3.07 (own)",
-          "2026 4.07 (own)",
-          "2026 5.07 (own)",
-          "2026 6.07 (own)",
-          "2027 Mid 5th (own)",
-          "2027 Mid 6th (from Team 1)",
-          "2027 Mid 6th (own)",
-          "2028 Mid 1st (own)",
-          "2028 Mid 2nd (own)",
-          "2028 Mid 4th (own)",
-          "2028 Mid 5th (own)",
-          "2028 Mid 6th (own)",
-          "2029 Mid 1st (own)",
-          "2029 Mid 2nd (own)",
-          "2029 Mid 3rd (own)",
-          "2029 Mid 4th (own)",
-          "2029 Mid 5th (own)",
-          "2029 Mid 6th (own)"
-        ],
-        "pickDetails": [
-          {
-            "season": 2026,
-            "round": 1,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 1.07 (own)",
-            "baseLabel": "2026 1.07"
-          },
-          {
-            "season": 2026,
-            "round": 2,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 2.07 (own)",
-            "baseLabel": "2026 2.07"
-          },
-          {
-            "season": 2026,
-            "round": 3,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 3.07 (own)",
-            "baseLabel": "2026 3.07"
-          },
-          {
-            "season": 2026,
-            "round": 4,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 4.07 (own)",
-            "baseLabel": "2026 4.07"
-          },
-          {
-            "season": 2026,
-            "round": 5,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 5.07 (own)",
-            "baseLabel": "2026 5.07"
-          },
-          {
-            "season": 2026,
-            "round": 6,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": 7,
-            "label": "2026 6.07 (own)",
-            "baseLabel": "2026 6.07"
-          },
-          {
-            "season": 2027,
-            "round": 5,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2027 Mid 5th (own)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2027,
-            "round": 6,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2027 Mid 6th (from Team 1)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2027,
-            "round": 6,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2027 Mid 6th (own)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2028 Mid 1st (own)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2028 Mid 2nd (own)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2028 Mid 4th (own)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2028 Mid 5th (own)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2028 Mid 6th (own)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2029,
-            "round": 1,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 1st (own)",
-            "baseLabel": "2029 Mid 1st"
-          },
-          {
-            "season": 2029,
-            "round": 2,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 2nd (own)",
-            "baseLabel": "2029 Mid 2nd"
-          },
-          {
-            "season": 2029,
-            "round": 3,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 3rd (own)",
-            "baseLabel": "2029 Mid 3rd"
-          },
-          {
-            "season": 2029,
-            "round": 4,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 4th (own)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
-            "round": 5,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 5th (own)",
-            "baseLabel": "2029 Mid 5th"
-          },
-          {
-            "season": 2029,
-            "round": 6,
-            "fromRosterId": 10,
-            "fromTeam": "Team 10",
-            "ownerRosterId": 10,
-            "slot": null,
-            "label": "2029 Mid 6th (own)",
-            "baseLabel": "2029 Mid 6th"
-          }
-        ]
-      },
-      {
-        "name": "Team 11",
-        "sleeperTeamName": "Team 11",
-        "roster_id": 11,
-        "ownerId": "712035316776669184",
-        "players": [
-          "Adam Thielen",
-          "Alvin Kamara",
-          "Baker Mayfield",
-          "Bobby Okereke",
-          "CJ Allen",
-          "Cade Klubnik",
-          "Cam Skattebo",
-          "Carson Beck",
-          "Chris Jones",
-          "Chuba Hubbard",
-          "Dallas Goedert",
-          "Dalton Schultz",
-          "Dan Bailey",
-          "Denzel Boston",
-          "Dexter Lawrence",
-          "Dorian Williams",
-          "Dre Greenlaw",
-          "Emmett Johnson",
-          "Harrison Butker",
-          "Ivan Pace",
-          "Jake Elliott",
-          "Jalen Thompson",
-          "Jonah Coleman",
-          "Justin Fields",
-          "Kyle Dugger",
-          "Leo Chenal",
-          "Mac Jones",
-          "Makai Lemon",
-          "Mansoor Delane",
-          "Michael Pittman",
-          "Mike Evans",
-          "Mike Washington",
-          "Myles Murphy",
-          "Nakobe Dean",
-          "Pat Surtain",
-          "Pete Werner",
-          "Quincy Williams",
-          "Trent McDuffie",
-          "Tyreek Hill",
-          "Tyrice Knight",
-          "Xavier Restrepo",
-          "Xavier Watts",
-          "Yaya Diaby",
-          "Zachariah Branch"
-        ],
-        "playerIds": [
-          "10875",
-          "10921",
-          "10923",
-          "11086",
-          "11734",
-          "12481",
-          "12520",
-          "12591",
-          "13272",
-          "13294",
-          "13303",
-          "13305",
-          "13320",
-          "13337",
-          "13345",
-          "13346",
-          "13385",
-          "13388",
-          "1689",
-          "2216",
-          "3321",
-          "3558",
-          "4035",
-          "4195",
-          "4227",
-          "4892",
-          "5001",
-          "5022",
-          "5847",
-          "5944",
-          "6056",
-          "6214",
-          "6711",
-          "6819",
-          "6872",
-          "7527",
-          "7591",
-          "7594",
-          "7641",
-          "7647",
-          "8267",
-          "8362",
-          "8364",
-          "899"
-        ],
-        "picks": [
-          "2026 1.01 (own)",
-          "2026 2.01 (own)",
-          "2026 3.01 (own)",
-          "2026 4.01 (own)",
-          "2026 5.01 (own)",
-          "2026 6.01 (own)",
-          "2027 Mid 1st (own)",
-          "2027 Mid 2nd (own)",
-          "2027 Mid 3rd (own)",
-          "2027 Mid 4th (own)",
-          "2027 Mid 5th (own)",
-          "2027 Mid 6th (own)",
-          "2028 Mid 1st (own)",
-          "2028 Mid 2nd (own)",
-          "2028 Mid 3rd (own)",
-          "2028 Mid 4th (own)",
-          "2028 Mid 5th (own)",
-          "2028 Mid 6th (own)",
-          "2029 Mid 1st (own)",
-          "2029 Mid 2nd (own)",
-          "2029 Mid 3rd (own)",
-          "2029 Mid 4th (own)",
-          "2029 Mid 5th (own)",
-          "2029 Mid 6th (own)"
-        ],
-        "pickDetails": [
-          {
-            "season": 2026,
-            "round": 1,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 1.01 (own)",
-            "baseLabel": "2026 1.01"
-          },
-          {
-            "season": 2026,
-            "round": 2,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 2.01 (own)",
-            "baseLabel": "2026 2.01"
-          },
-          {
-            "season": 2026,
-            "round": 3,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 3.01 (own)",
-            "baseLabel": "2026 3.01"
-          },
-          {
-            "season": 2026,
-            "round": 4,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 4.01 (own)",
-            "baseLabel": "2026 4.01"
-          },
-          {
-            "season": 2026,
-            "round": 5,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 5.01 (own)",
-            "baseLabel": "2026 5.01"
-          },
-          {
-            "season": 2026,
-            "round": 6,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": 1,
-            "label": "2026 6.01 (own)",
-            "baseLabel": "2026 6.01"
-          },
-          {
-            "season": 2027,
-            "round": 1,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 1st (own)",
-            "baseLabel": "2027 Mid 1st"
-          },
-          {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 2nd (own)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 3rd (own)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 4th (own)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
-            "round": 5,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 5th (own)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2027,
-            "round": 6,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2027 Mid 6th (own)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 1st (own)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 2nd (own)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 3rd (own)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 4th (own)",
-            "baseLabel": "2028 Mid 4th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 5th (own)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2028 Mid 6th (own)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2029,
-            "round": 1,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 1st (own)",
-            "baseLabel": "2029 Mid 1st"
-          },
-          {
-            "season": 2029,
-            "round": 2,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 2nd (own)",
-            "baseLabel": "2029 Mid 2nd"
-          },
-          {
-            "season": 2029,
-            "round": 3,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 3rd (own)",
-            "baseLabel": "2029 Mid 3rd"
-          },
-          {
-            "season": 2029,
-            "round": 4,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 4th (own)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
-            "round": 5,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 5th (own)",
-            "baseLabel": "2029 Mid 5th"
-          },
-          {
-            "season": 2029,
-            "round": 6,
-            "fromRosterId": 11,
-            "fromTeam": "Team 11",
-            "ownerRosterId": 11,
-            "slot": null,
-            "label": "2029 Mid 6th (own)",
-            "baseLabel": "2029 Mid 6th"
-          }
-        ]
-      },
-      {
-        "name": "Team 12",
-        "sleeperTeamName": "Team 12",
+        "name": "Blaine",
+        "sleeperTeamName": "ughb",
         "roster_id": 12,
         "ownerId": "1303549304882892800",
         "players": [
@@ -21540,7 +19935,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 1,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 1.02 (own)",
@@ -21550,7 +19945,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 2,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 2.02 (own)",
@@ -21560,7 +19955,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 3,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 3.02 (own)",
@@ -21570,7 +19965,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 4,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 4.02 (own)",
@@ -21580,7 +19975,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 5,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 5.02 (own)",
@@ -21590,7 +19985,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 6,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": 2,
             "label": "2026 6.02 (own)",
@@ -21600,7 +19995,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 4,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2027 Mid 4th (own)",
@@ -21610,7 +20005,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 5,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2027 Mid 5th (own)",
@@ -21620,7 +20015,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 6,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2027 Mid 6th (own)",
@@ -21630,7 +20025,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 3,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2028 Mid 3rd (own)",
@@ -21640,7 +20035,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 4,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2028 Mid 4th (own)",
@@ -21650,7 +20045,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 5,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2028 Mid 5th (own)",
@@ -21660,7 +20055,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 6,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2028 Mid 6th (own)",
@@ -21670,7 +20065,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 1,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 1st (own)",
@@ -21680,7 +20075,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 2,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
@@ -21690,7 +20085,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 3,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
@@ -21700,7 +20095,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 4,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 4th (own)",
@@ -21710,7 +20105,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 5,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 5th (own)",
@@ -21720,7 +20115,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 6,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
+            "fromTeam": "Blaine",
             "ownerRosterId": 12,
             "slot": null,
             "label": "2029 Mid 6th (own)",
@@ -21729,428 +20124,138 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 2",
-        "sleeperTeamName": "Team 2",
-        "roster_id": 2,
-        "ownerId": "711452264774041600",
+        "name": "Brent",
+        "sleeperTeamName": "Car Ram Rod",
+        "roster_id": 9,
+        "ownerId": "1002085133723299840",
         "players": [
-          "AJ Barner",
-          "Alec Pierce",
-          "Anthony Richardson",
-          "Antonio Williams",
-          "Arvell Reese",
-          "Brandon Aubrey",
-          "Brian Thomas",
-          "C.J. Gardner-Johnson",
-          "Caleb Downs",
-          "Cashius Howell",
-          "Chase Young",
-          "Chris Brooks",
-          "Christian Rozeboom",
-          "Colby Parkinson",
-          "D'Andre Swift",
-          "DJ Giddens",
-          "Daniel Jones",
-          "DeMarcus Lawrence",
-          "DeMarvion Overshown",
-          "Deion Burks",
-          "Demario Davis",
-          "Drake Thomas",
-          "Dylan Sampson",
-          "Fernando Mendoza",
-          "Fred Warner",
-          "Gunnar Helm",
-          "Isaac Guerendo",
-          "J'Mari Taylor",
-          "J.K. Dobbins",
-          "Jake Ferguson",
-          "Jakobi Meyers",
-          "Jalen McMillan",
-          "Jalen Ramsey",
-          "Javonte Williams",
-          "Jeff Caldwell",
-          "Jerry Jeudy",
-          "John Michael Gyllenborg",
-          "Kayshon Boutte",
-          "Kenyon Sadiq",
-          "Malachi Lawrence",
-          "Max Klare",
-          "Mike Jackson",
-          "Nick Bosa",
-          "Odafe Oweh",
-          "Peter Woods",
-          "Quentin Lake",
-          "Quinnen Williams",
-          "Ryan Flournoy",
-          "Shavon Revel",
-          "Shemar James",
-          "SirVocea Dennis",
-          "Taylen Green",
-          "Tre Tucker",
-          "Trevor Lawrence",
-          "Tykee Smith",
-          "Tyrone Tracy",
-          "Zach Charbonnet"
+          "Aidan Hutchinson",
+          "Alex Singleton",
+          "Amon-Ra St. Brown",
+          "Bobby Wagner",
+          "Bryan Cook",
+          "Bucky Irving",
+          "Cameron Heyward",
+          "Chase McLaughlin",
+          "Dak Prescott",
+          "Darnell Washington",
+          "DeShon Elliott",
+          "Derwin James",
+          "Deshaun Watson",
+          "Drake London",
+          "Drew Allar",
+          "George Pickens",
+          "Harold Fannin",
+          "Jaleel McLaughlin",
+          "Jalen Tolbert",
+          "Jalon Kilgore",
+          "Jermaine Johnson",
+          "Jerome Ford",
+          "Joe Burrow",
+          "Joe Flacco",
+          "Jonathan Taylor",
+          "Jonnu Smith",
+          "Jordan Battle",
+          "Josh Jacobs",
+          "Joshua Metellus",
+          "Kaden Elliss",
+          "Kaleb Elarms-Orr",
+          "Kam Curl",
+          "Kareem Hunt",
+          "Kyle Pitts",
+          "Kyler Gordon",
+          "Luke McCaffrey",
+          "Mark Andrews",
+          "Matt Gay",
+          "Maxx Crosby",
+          "Micah Parsons",
+          "Mike Sainristil",
+          "Myles Garrett",
+          "Nate Landman",
+          "Patrick Mahomes",
+          "Puka Nacua",
+          "Quinshon Judkins",
+          "Rashee Rice",
+          "Rashod Bateman",
+          "Skyler Bell",
+          "T.J. Edwards",
+          "T.J. Watt",
+          "Tetairoa McMillan",
+          "Travis Etienne",
+          "Travis Hunter",
+          "Travis Kelce",
+          "Tre'von Moehrig",
+          "Will Kacmarek"
         ],
         "playerIds": [
-          "10213",
-          "1052",
-          "10933",
-          "10980",
-          "11370",
-          "11470",
-          "11533",
-          "11603",
-          "11618",
-          "11631",
-          "11651",
-          "11655",
-          "11705",
-          "11783",
-          "12469",
-          "12471",
-          "12502",
-          "12559",
-          "12614",
-          "13269",
-          "13278",
-          "13301",
-          "13306",
-          "13330",
-          "13333",
-          "13342",
-          "13348",
-          "13359",
-          "13364",
-          "13376",
-          "13377",
-          "13390",
-          "13392",
-          "2064",
-          "3160",
-          "5041",
-          "5816",
-          "5870",
-          "5893",
-          "5947",
-          "6025",
-          "6118",
-          "6782",
-          "6783",
-          "6790",
-          "6806",
-          "6865",
-          "7346",
-          "7523",
-          "7588",
-          "7626",
-          "8110",
-          "8142",
-          "8330",
-          "9229",
-          "9504",
-          "9753"
+          "10229",
+          "10927",
+          "11439",
+          "11584",
+          "11650",
+          "11676",
+          "1233",
+          "12506",
+          "12512",
+          "12526",
+          "12530",
+          "13289",
+          "13402",
+          "13434",
+          "13488",
+          "13511",
+          "1466",
+          "19",
+          "2617",
+          "3294",
+          "3973",
+          "4017",
+          "4046",
+          "4070",
+          "4098",
+          "4144",
+          "4971",
+          "5012",
+          "5071",
+          "5850",
+          "5960",
+          "5991",
+          "6083",
+          "6302",
+          "6650",
+          "6770",
+          "6813",
+          "6901",
+          "7136",
+          "7543",
+          "7547",
+          "7553",
+          "7571",
+          "7640",
+          "7659",
+          "8112",
+          "8117",
+          "8137",
+          "8143",
+          "8289",
+          "8294",
+          "8365",
+          "8398",
+          "843",
+          "8659",
+          "9479",
+          "9493"
         ],
         "picks": [
-          "2026 1.12 (own)",
-          "2026 2.12 (own)",
-          "2026 3.12 (own)",
-          "2026 4.12 (own)",
-          "2026 5.12 (own)",
-          "2026 6.12 (own)",
-          "2027 Mid 6th (own)",
-          "2028 Mid 5th (own)",
-          "2028 Mid 6th (own)",
-          "2029 Mid 1st (own)",
-          "2029 Mid 4th (from Team 9)",
-          "2029 Mid 4th (own)",
-          "2029 Mid 5th (own)",
-          "2029 Mid 6th (own)"
-        ],
-        "pickDetails": [
-          {
-            "season": 2026,
-            "round": 1,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 1.12 (own)",
-            "baseLabel": "2026 1.12"
-          },
-          {
-            "season": 2026,
-            "round": 2,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 2.12 (own)",
-            "baseLabel": "2026 2.12"
-          },
-          {
-            "season": 2026,
-            "round": 3,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 3.12 (own)",
-            "baseLabel": "2026 3.12"
-          },
-          {
-            "season": 2026,
-            "round": 4,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 4.12 (own)",
-            "baseLabel": "2026 4.12"
-          },
-          {
-            "season": 2026,
-            "round": 5,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 5.12 (own)",
-            "baseLabel": "2026 5.12"
-          },
-          {
-            "season": 2026,
-            "round": 6,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": 12,
-            "label": "2026 6.12 (own)",
-            "baseLabel": "2026 6.12"
-          },
-          {
-            "season": 2027,
-            "round": 6,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2027 Mid 6th (own)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2028 Mid 5th (own)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2028 Mid 6th (own)",
-            "baseLabel": "2028 Mid 6th"
-          },
-          {
-            "season": 2029,
-            "round": 1,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2029 Mid 1st (own)",
-            "baseLabel": "2029 Mid 1st"
-          },
-          {
-            "season": 2029,
-            "round": 4,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2029 Mid 4th (own)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
-            "round": 4,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2029 Mid 4th (from Team 9)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
-            "round": 5,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2029 Mid 5th (own)",
-            "baseLabel": "2029 Mid 5th"
-          },
-          {
-            "season": 2029,
-            "round": 6,
-            "fromRosterId": 2,
-            "fromTeam": "Team 2",
-            "ownerRosterId": 2,
-            "slot": null,
-            "label": "2029 Mid 6th (own)",
-            "baseLabel": "2029 Mid 6th"
-          }
-        ]
-      },
-      {
-        "name": "Team 3",
-        "sleeperTeamName": "Team 3",
-        "roster_id": 3,
-        "ownerId": "473973924808355840",
-        "players": [
-          "Brock Purdy",
-          "Budda Baker",
-          "C.J. Stroud",
-          "Cade Otton",
-          "Cam Bynum",
-          "Cedric Tillman",
-          "Chimere Dike",
-          "Cooper Kupp",
-          "Courtland Sutton",
-          "Darren Waller",
-          "Davis Mills",
-          "DeMario Douglas",
-          "Drue Tranquill",
-          "Elic Ayomanor",
-          "Elijah Sarratt",
-          "Emmanuel McNeil-Warren",
-          "Gabe Davis",
-          "Hassan Haskins",
-          "Isaiah Bond",
-          "Isaiah Pola-Mao",
-          "Jalen Milroe",
-          "James Cook",
-          "Jarrett Stidham",
-          "Jessie Bates",
-          "Joe Mixon",
-          "Jordan James",
-          "Josh Hines-Allen",
-          "Joshua Josephs",
-          "Juwan Johnson",
-          "Ka'imi Fairbairn",
-          "Kaytron Allen",
-          "Kenny Gainwell",
-          "Kerby Joseph",
-          "Kevin Byard",
-          "Khalil Shakir",
-          "L'Jarius Sneed",
-          "Malachi Fields",
-          "Nick Bolton",
-          "Nick Chubb",
-          "Nico Collins",
-          "Pat Bryant",
-          "Ray Davis",
-          "Ted Hurst",
-          "Tez Johnson",
-          "TreVeyon Henderson",
-          "Trey Hendrickson",
-          "Tyjae Spears",
-          "Tyler Higbee",
-          "Tyquan Thornton",
-          "Tyrel Dodson",
-          "Wil Lutz",
-          "Will Anderson",
-          "Woody Marks",
-          "Zach Ertz",
-          "Zach Sieler",
-          "Zaire Franklin"
-        ],
-        "playerIds": [
-          "10444",
-          "10892",
-          "11575",
-          "12467",
-          "12474",
-          "12485",
-          "12492",
-          "12499",
-          "12503",
-          "12510",
-          "12529",
-          "12540",
-          "13268",
-          "13285",
-          "13317",
-          "13360",
-          "13366",
-          "1339",
-          "13405",
-          "2505",
-          "3233",
-          "3271",
-          "3451",
-          "3678",
-          "4018",
-          "4039",
-          "4081",
-          "4135",
-          "4988",
-          "5017",
-          "5045",
-          "5297",
-          "5346",
-          "5840",
-          "6136",
-          "6141",
-          "6315",
-          "6943",
-          "7002",
-          "7117",
-          "7567",
-          "7569",
-          "7585",
-          "7648",
-          "7715",
-          "8111",
-          "8123",
-          "8134",
-          "8138",
-          "8183",
-          "8188",
-          "8348",
-          "8838",
-          "9501",
-          "9508",
-          "9758"
-        ],
-        "picks": [
-          "2026 1.08 (own)",
-          "2026 2.08 (own)",
-          "2026 3.08 (own)",
-          "2026 4.08 (own)",
-          "2026 5.08 (own)",
-          "2026 6.08 (own)",
-          "2027 Mid 4th (from Team 9)",
-          "2027 Mid 4th (own)",
-          "2027 Mid 5th (own)",
-          "2027 Mid 6th (own)",
-          "2028 Mid 1st (own)",
-          "2028 Mid 2nd (own)",
-          "2028 Mid 3rd (own)",
-          "2028 Mid 5th (own)",
-          "2028 Mid 6th (own)",
+          "2026 1.06 (own)",
+          "2026 2.06 (own)",
+          "2026 3.06 (own)",
+          "2026 4.06 (own)",
+          "2026 5.06 (own)",
+          "2026 6.06 (own)",
           "2029 Mid 1st (own)",
           "2029 Mid 2nd (own)",
           "2029 Mid 3rd (own)",
-          "2029 Mid 4th (own)",
           "2029 Mid 5th (own)",
           "2029 Mid 6th (own)"
         ],
@@ -22158,159 +20263,69 @@ window.DYNASTY_DATA = {
           {
             "season": 2026,
             "round": 1,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 1.08 (own)",
-            "baseLabel": "2026 1.08"
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 1.06 (own)",
+            "baseLabel": "2026 1.06"
           },
           {
             "season": 2026,
             "round": 2,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 2.08 (own)",
-            "baseLabel": "2026 2.08"
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 2.06 (own)",
+            "baseLabel": "2026 2.06"
           },
           {
             "season": 2026,
             "round": 3,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 3.08 (own)",
-            "baseLabel": "2026 3.08"
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 3.06 (own)",
+            "baseLabel": "2026 3.06"
           },
           {
             "season": 2026,
-            "round": 4,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 4.08 (own)",
-            "baseLabel": "2026 4.08"
-          },
-          {
-            "season": 2026,
-            "round": 5,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 5.08 (own)",
-            "baseLabel": "2026 5.08"
-          },
-          {
-            "season": 2026,
-            "round": 6,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": 8,
-            "label": "2026 6.08 (own)",
-            "baseLabel": "2026 6.08"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2027 Mid 4th (own)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
             "round": 4,
             "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2027 Mid 4th (from Team 9)",
-            "baseLabel": "2027 Mid 4th"
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 4.06 (own)",
+            "baseLabel": "2026 4.06"
           },
           {
-            "season": 2027,
+            "season": 2026,
             "round": 5,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2027 Mid 5th (own)",
-            "baseLabel": "2027 Mid 5th"
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 5.06 (own)",
+            "baseLabel": "2026 5.06"
           },
           {
-            "season": 2027,
+            "season": 2026,
             "round": 6,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2027 Mid 6th (own)",
-            "baseLabel": "2027 Mid 6th"
-          },
-          {
-            "season": 2028,
-            "round": 1,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2028 Mid 1st (own)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2028 Mid 2nd (own)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2028 Mid 3rd (own)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 5,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2028 Mid 5th (own)",
-            "baseLabel": "2028 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 6,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2028 Mid 6th (own)",
-            "baseLabel": "2028 Mid 6th"
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
+            "slot": 6,
+            "label": "2026 6.06 (own)",
+            "baseLabel": "2026 6.06"
           },
           {
             "season": 2029,
             "round": 1,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
             "slot": null,
             "label": "2029 Mid 1st (own)",
             "baseLabel": "2029 Mid 1st"
@@ -22318,9 +20333,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 2,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
             "baseLabel": "2029 Mid 2nd"
@@ -22328,29 +20343,19 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 3,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
             "baseLabel": "2029 Mid 3rd"
           },
           {
             "season": 2029,
-            "round": 4,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
-            "slot": null,
-            "label": "2029 Mid 4th (own)",
-            "baseLabel": "2029 Mid 4th"
-          },
-          {
-            "season": 2029,
             "round": 5,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
             "slot": null,
             "label": "2029 Mid 5th (own)",
             "baseLabel": "2029 Mid 5th"
@@ -22358,9 +20363,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 6,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 9,
             "slot": null,
             "label": "2029 Mid 6th (own)",
             "baseLabel": "2029 Mid 6th"
@@ -22368,8 +20373,8 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 4",
-        "sleeperTeamName": "Team 4",
+        "name": "Collin",
+        "sleeperTeamName": "CollinFoz",
         "roster_id": 4,
         "ownerId": "831633191830933504",
         "players": [
@@ -22504,7 +20509,7 @@ window.DYNASTY_DATA = {
           "2027 Mid 3rd (own)",
           "2027 Mid 4th (own)",
           "2027 Mid 5th (own)",
-          "2027 Mid 6th (from Team 5)",
+          "2027 Mid 6th (from MaKayla)",
           "2027 Mid 6th (own)",
           "2028 Mid 1st (own)",
           "2028 Mid 2nd (own)",
@@ -22523,7 +20528,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 1,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 1.05 (own)",
@@ -22533,7 +20538,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 2,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 2.05 (own)",
@@ -22543,7 +20548,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 3,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 3.05 (own)",
@@ -22553,7 +20558,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 4,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 4.05 (own)",
@@ -22563,7 +20568,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 5,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 5.05 (own)",
@@ -22573,7 +20578,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 6,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": 5,
             "label": "2026 6.05 (own)",
@@ -22583,7 +20588,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 1,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 1st (own)",
@@ -22593,7 +20598,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 2,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 2nd (own)",
@@ -22603,7 +20608,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 3,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 3rd (own)",
@@ -22613,7 +20618,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 4,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 4th (own)",
@@ -22623,7 +20628,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 5,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 5th (own)",
@@ -22633,7 +20638,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 6,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2027 Mid 6th (own)",
@@ -22643,17 +20648,17 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 6,
             "fromRosterId": 5,
-            "fromTeam": "Team 5",
+            "fromTeam": "MaKayla",
             "ownerRosterId": 4,
             "slot": null,
-            "label": "2027 Mid 6th (from Team 5)",
+            "label": "2027 Mid 6th (from MaKayla)",
             "baseLabel": "2027 Mid 6th"
           },
           {
             "season": 2028,
             "round": 1,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2028 Mid 1st (own)",
@@ -22663,7 +20668,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 2,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2028 Mid 2nd (own)",
@@ -22673,7 +20678,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 3,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2028 Mid 3rd (own)",
@@ -22683,7 +20688,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 4,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2028 Mid 4th (own)",
@@ -22693,7 +20698,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 5,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2028 Mid 5th (own)",
@@ -22703,7 +20708,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 1,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 1st (own)",
@@ -22713,7 +20718,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 2,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
@@ -22723,7 +20728,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 3,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
@@ -22733,7 +20738,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 4,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 4th (own)",
@@ -22743,7 +20748,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 5,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 5th (own)",
@@ -22753,7 +20758,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 6,
             "fromRosterId": 4,
-            "fromTeam": "Team 4",
+            "fromTeam": "Collin",
             "ownerRosterId": 4,
             "slot": null,
             "label": "2029 Mid 6th (own)",
@@ -22762,150 +20767,140 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 5",
-        "sleeperTeamName": "Team 5",
-        "roster_id": 5,
-        "ownerId": "714912789268865024",
+        "name": "Ed",
+        "sleeperTeamName": "Jasons archenemy",
+        "roster_id": 2,
+        "ownerId": "711452264774041600",
         "players": [
-          "Adonai Mitchell",
-          "Amani Hooker",
-          "Austin Booker",
-          "Brenen Thompson",
-          "Brian Burns",
-          "Caleb Douglas",
-          "Chase Brown",
-          "Chop Robinson",
-          "Chris Bell",
-          "Chris Godwin",
-          "Christian Watson",
-          "Dane Belton",
-          "Danny Stutsman",
-          "David Bailey",
-          "De'Von Achane",
-          "Devaughn Vele",
-          "Devin Neal",
-          "Efton Chism",
-          "Eli Stowers",
-          "Eric Wilson",
-          "Frankie Luvu",
-          "Grant Delpit",
-          "Greg Dulcich",
-          "Jack Bech",
-          "Jack Jones",
-          "Jacob Rodriguez",
-          "Jacoby Brissett",
-          "Jacory Croskey-Merritt",
-          "Jaelan Phillips",
-          "Jameis Winston",
-          "Jameson Williams",
-          "Jaquan Brisker",
-          "Jaxson Dart",
-          "Jaydon Blue",
-          "Jaylen Waddle",
-          "Jonathan Greenard",
-          "Jordyn Brooks",
-          "Jordyn Tyson",
-          "Josh Downs",
-          "Julian Love",
-          "Keaton Mitchell",
-          "Keionte Scott",
-          "Malik Nabers",
-          "Malik Washington",
-          "Malik Willis",
-          "Marvin Mims",
-          "Michael Wilson",
-          "Mike Gesicki",
-          "Nolan Smith",
-          "Quay Walker",
-          "Quinn Ewers",
-          "Tahj Brooks",
-          "Trevor Etienne",
-          "Troy Franklin",
-          "Tuli Tuipulotu",
-          "Tyler Warren",
-          "Walter Nolen",
-          "Zay Flowers"
+          "AJ Barner",
+          "Alec Pierce",
+          "Anthony Richardson",
+          "Antonio Williams",
+          "Arvell Reese",
+          "Brandon Aubrey",
+          "Brian Thomas",
+          "C.J. Gardner-Johnson",
+          "Caleb Downs",
+          "Cashius Howell",
+          "Chase Young",
+          "Chris Brooks",
+          "Christian Rozeboom",
+          "Colby Parkinson",
+          "D'Andre Swift",
+          "DJ Giddens",
+          "Daniel Jones",
+          "DeMarcus Lawrence",
+          "DeMarvion Overshown",
+          "Deion Burks",
+          "Demario Davis",
+          "Drake Thomas",
+          "Dylan Sampson",
+          "Fernando Mendoza",
+          "Fred Warner",
+          "Gunnar Helm",
+          "Isaac Guerendo",
+          "J'Mari Taylor",
+          "J.K. Dobbins",
+          "Jake Ferguson",
+          "Jakobi Meyers",
+          "Jalen McMillan",
+          "Jalen Ramsey",
+          "Javonte Williams",
+          "Jeff Caldwell",
+          "Jerry Jeudy",
+          "John Michael Gyllenborg",
+          "Kayshon Boutte",
+          "Kenyon Sadiq",
+          "Malachi Lawrence",
+          "Max Klare",
+          "Mike Jackson",
+          "Nick Bosa",
+          "Odafe Oweh",
+          "Peter Woods",
+          "Quentin Lake",
+          "Quinnen Williams",
+          "Ryan Flournoy",
+          "Shavon Revel",
+          "Shemar James",
+          "SirVocea Dennis",
+          "Taylen Green",
+          "Tre Tucker",
+          "Trevor Lawrence",
+          "Tykee Smith",
+          "Tyrone Tracy",
+          "Zach Charbonnet"
         ],
         "playerIds": [
-          "10232",
-          "10873",
-          "10898",
-          "11610",
-          "11625",
-          "11627",
-          "11632",
-          "11663",
-          "11760",
-          "11834",
-          "12457",
-          "12476",
-          "12483",
-          "12500",
-          "12508",
-          "12518",
-          "12531",
-          "12533",
-          "12542",
-          "12543",
-          "12552",
-          "12650",
-          "13281",
-          "13296",
-          "13311",
-          "13349",
-          "13363",
-          "13380",
-          "13382",
-          "13453",
-          "2306",
-          "3257",
-          "4037",
-          "4413",
-          "4993",
-          "5580",
-          "5862",
-          "5876",
-          "5908",
-          "6799",
-          "6900",
-          "6949",
-          "7526",
-          "7635",
-          "8148",
-          "8161",
-          "8167",
-          "8172",
-          "8261",
-          "8266",
-          "8323",
-          "8395",
-          "9224",
-          "9226",
-          "9494",
-          "9500",
-          "9511",
-          "9997"
+          "10213",
+          "1052",
+          "10933",
+          "10980",
+          "11370",
+          "11470",
+          "11533",
+          "11603",
+          "11618",
+          "11631",
+          "11651",
+          "11655",
+          "11705",
+          "11783",
+          "12469",
+          "12471",
+          "12502",
+          "12559",
+          "12614",
+          "13269",
+          "13278",
+          "13301",
+          "13306",
+          "13330",
+          "13333",
+          "13342",
+          "13348",
+          "13359",
+          "13364",
+          "13376",
+          "13377",
+          "13390",
+          "13392",
+          "2064",
+          "3160",
+          "5041",
+          "5816",
+          "5870",
+          "5893",
+          "5947",
+          "6025",
+          "6118",
+          "6782",
+          "6783",
+          "6790",
+          "6806",
+          "6865",
+          "7346",
+          "7523",
+          "7588",
+          "7626",
+          "8110",
+          "8142",
+          "8330",
+          "9229",
+          "9504",
+          "9753"
         ],
         "picks": [
-          "2026 1.09 (own)",
-          "2026 2.09 (own)",
-          "2026 3.09 (own)",
-          "2026 4.09 (own)",
-          "2026 5.09 (own)",
-          "2026 6.09 (own)",
-          "2027 Mid 1st (own)",
-          "2027 Mid 2nd (own)",
-          "2027 Mid 3rd (from Team 3)",
-          "2027 Mid 3rd (own)",
-          "2027 Mid 4th (own)",
-          "2027 Mid 5th (own)",
-          "2028 Mid 2nd (own)",
-          "2028 Mid 3rd (own)",
-          "2028 Mid 4th (own)",
+          "2026 1.12 (own)",
+          "2026 2.12 (own)",
+          "2026 3.12 (own)",
+          "2026 4.12 (own)",
+          "2026 5.12 (own)",
+          "2026 6.12 (own)",
+          "2027 Mid 6th (own)",
+          "2028 Mid 5th (own)",
           "2028 Mid 6th (own)",
           "2029 Mid 1st (own)",
-          "2029 Mid 2nd (own)",
-          "2029 Mid 3rd (own)",
+          "2029 Mid 4th (from Brent)",
           "2029 Mid 4th (own)",
           "2029 Mid 5th (own)",
           "2029 Mid 6th (own)"
@@ -22914,159 +20909,89 @@ window.DYNASTY_DATA = {
           {
             "season": 2026,
             "round": 1,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 1.09 (own)",
-            "baseLabel": "2026 1.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 1.12 (own)",
+            "baseLabel": "2026 1.12"
           },
           {
             "season": 2026,
             "round": 2,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 2.09 (own)",
-            "baseLabel": "2026 2.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 2.12 (own)",
+            "baseLabel": "2026 2.12"
           },
           {
             "season": 2026,
             "round": 3,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 3.09 (own)",
-            "baseLabel": "2026 3.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 3.12 (own)",
+            "baseLabel": "2026 3.12"
           },
           {
             "season": 2026,
             "round": 4,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 4.09 (own)",
-            "baseLabel": "2026 4.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 4.12 (own)",
+            "baseLabel": "2026 4.12"
           },
           {
             "season": 2026,
             "round": 5,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 5.09 (own)",
-            "baseLabel": "2026 5.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 5.12 (own)",
+            "baseLabel": "2026 5.12"
           },
           {
             "season": 2026,
             "round": 6,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": 9,
-            "label": "2026 6.09 (own)",
-            "baseLabel": "2026 6.09"
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
+            "slot": 12,
+            "label": "2026 6.12 (own)",
+            "baseLabel": "2026 6.12"
           },
           {
             "season": 2027,
-            "round": 1,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "round": 6,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
-            "label": "2027 Mid 1st (own)",
-            "baseLabel": "2027 Mid 1st"
+            "label": "2027 Mid 6th (own)",
+            "baseLabel": "2027 Mid 6th"
           },
           {
-            "season": 2027,
-            "round": 2,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2027 Mid 2nd (own)",
-            "baseLabel": "2027 Mid 2nd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 3,
-            "fromTeam": "Team 3",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2027 Mid 3rd (from Team 3)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 3,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2027 Mid 3rd (own)",
-            "baseLabel": "2027 Mid 3rd"
-          },
-          {
-            "season": 2027,
-            "round": 4,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2027 Mid 4th (own)",
-            "baseLabel": "2027 Mid 4th"
-          },
-          {
-            "season": 2027,
+            "season": 2028,
             "round": 5,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
-            "label": "2027 Mid 5th (own)",
-            "baseLabel": "2027 Mid 5th"
-          },
-          {
-            "season": 2028,
-            "round": 2,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2028 Mid 2nd (own)",
-            "baseLabel": "2028 Mid 2nd"
-          },
-          {
-            "season": 2028,
-            "round": 3,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2028 Mid 3rd (own)",
-            "baseLabel": "2028 Mid 3rd"
-          },
-          {
-            "season": 2028,
-            "round": 4,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2028 Mid 4th (own)",
-            "baseLabel": "2028 Mid 4th"
+            "label": "2028 Mid 5th (own)",
+            "baseLabel": "2028 Mid 5th"
           },
           {
             "season": 2028,
             "round": 6,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
             "label": "2028 Mid 6th (own)",
             "baseLabel": "2028 Mid 6th"
@@ -23074,39 +20999,29 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 1,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
             "label": "2029 Mid 1st (own)",
             "baseLabel": "2029 Mid 1st"
           },
           {
             "season": 2029,
-            "round": 2,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "round": 4,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 2,
             "slot": null,
-            "label": "2029 Mid 2nd (own)",
-            "baseLabel": "2029 Mid 2nd"
-          },
-          {
-            "season": 2029,
-            "round": 3,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
-            "slot": null,
-            "label": "2029 Mid 3rd (own)",
-            "baseLabel": "2029 Mid 3rd"
+            "label": "2029 Mid 4th (from Brent)",
+            "baseLabel": "2029 Mid 4th"
           },
           {
             "season": 2029,
             "round": 4,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
             "label": "2029 Mid 4th (own)",
             "baseLabel": "2029 Mid 4th"
@@ -23114,9 +21029,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 5,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
             "label": "2029 Mid 5th (own)",
             "baseLabel": "2029 Mid 5th"
@@ -23124,9 +21039,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 6,
-            "fromRosterId": 5,
-            "fromTeam": "Team 5",
-            "ownerRosterId": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 2,
             "slot": null,
             "label": "2029 Mid 6th (own)",
             "baseLabel": "2029 Mid 6th"
@@ -23134,8 +21049,8 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 6",
-        "sleeperTeamName": "Team 6",
+        "name": "Eric",
+        "sleeperTeamName": "Pop Trunk",
         "roster_id": 6,
         "ownerId": "609821340567941120",
         "players": [
@@ -23265,7 +21180,7 @@ window.DYNASTY_DATA = {
           "2026 4.11 (own)",
           "2026 5.11 (own)",
           "2026 6.11 (own)",
-          "2027 Mid 5th (from Team 8)",
+          "2027 Mid 5th (from Joey)",
           "2027 Mid 5th (own)",
           "2027 Mid 6th (own)",
           "2028 Mid 3rd (own)",
@@ -23283,7 +21198,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 1,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 1.11 (own)",
@@ -23293,7 +21208,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 2,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 2.11 (own)",
@@ -23303,7 +21218,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 3,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 3.11 (own)",
@@ -23313,7 +21228,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 4,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 4.11 (own)",
@@ -23323,7 +21238,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 5,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 5.11 (own)",
@@ -23333,7 +21248,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 6,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": 11,
             "label": "2026 6.11 (own)",
@@ -23343,7 +21258,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 5,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2027 Mid 5th (own)",
@@ -23353,17 +21268,17 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 5,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 6,
             "slot": null,
-            "label": "2027 Mid 5th (from Team 8)",
+            "label": "2027 Mid 5th (from Joey)",
             "baseLabel": "2027 Mid 5th"
           },
           {
             "season": 2027,
             "round": 6,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2027 Mid 6th (own)",
@@ -23373,7 +21288,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 3,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2028 Mid 3rd (own)",
@@ -23383,7 +21298,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 5,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2028 Mid 5th (own)",
@@ -23393,7 +21308,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 6,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2028 Mid 6th (own)",
@@ -23403,7 +21318,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 1,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 1st (own)",
@@ -23413,7 +21328,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 2,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
@@ -23423,7 +21338,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 3,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
@@ -23433,7 +21348,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 4,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 4th (own)",
@@ -23443,7 +21358,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 5,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 5th (own)",
@@ -23453,7 +21368,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 6,
             "fromRosterId": 6,
-            "fromTeam": "Team 6",
+            "fromTeam": "Eric",
             "ownerRosterId": 6,
             "slot": null,
             "label": "2029 Mid 6th (own)",
@@ -23462,139 +21377,196 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 7",
-        "sleeperTeamName": "Team 7",
-        "roster_id": 7,
-        "ownerId": "472206636534984704",
+        "name": "Jason",
+        "sleeperTeamName": "Russini Panini",
+        "roster_id": 1,
+        "ownerId": "468418790212759552",
         "players": [
-          "Alex Highsmith",
-          "Austin Ekeler",
-          "Avieon Terrell",
-          "Bradley Chubb",
-          "Brian Robinson",
-          "Bryce Young",
-          "Cameron Dicker",
-          "Carl Granderson",
-          "Christian Kirk",
-          "Daiyan Henley",
-          "Darius Slayton",
-          "DeAndre Hopkins",
-          "DeForest Buckner",
-          "Demetrius Knight",
-          "Derrick Barnes",
-          "Devin Lloyd",
-          "Dillon Gabriel",
-          "Geno Smith",
-          "Isaiah Likely",
-          "Jahdae Barron",
-          "Jaishawn Barham",
-          "Jalen Royals",
-          "Jarquez Hunter",
-          "Jermod McCoy",
-          "Joey Bosa",
-          "Justin Herbert",
-          "KeAndre Lambert-Smith",
-          "Keenan Allen",
-          "Keith Abney",
-          "Kendre Miller",
-          "Khalil Mack",
-          "Kyle Hamilton",
-          "Ladd McConkey",
-          "Lee Hunter",
-          "Marlon Humphrey",
-          "Marquise Brown",
-          "Mykel Williams",
-          "Najee Harris",
-          "Omarion Hampton",
-          "Oronde Gadsden",
-          "Paul Geelen",
-          "Rashan Gary",
-          "Sam Darnold",
-          "Samaje Perine",
-          "Sauce Gardner",
-          "Shedeur Sanders",
-          "Theo Johnson",
-          "Ty Johnson",
-          "Tyson Campbell",
-          "Will Howard",
-          "Zach Allen"
+          "Aaron Jones",
+          "Andrew Mukuba",
+          "Andrew Van Ginkel",
+          "Ashton Gillotte",
+          "Barrett Carter",
+          "Bhayshul Tuten",
+          "Blake Cashman",
+          "Brock Bowers",
+          "Byron Murphy",
+          "Carnell Tate",
+          "Carson Schwesinger",
+          "Cedric Gray",
+          "Chris Olave",
+          "Chris Rodriguez",
+          "Cody Simon",
+          "Cooper DeJean",
+          "Dallas Turner",
+          "De'Zhaun Stribling",
+          "DeVonta Smith",
+          "Demond Claiborne",
+          "Devon Witherspoon",
+          "Edgerrin Cooper",
+          "Elijah Arroyo",
+          "Emeka Egbuka",
+          "Garrett Wilson",
+          "J.J. McCarthy",
+          "Jacob Parrish",
+          "Jake Golday",
+          "Jalen Redmond",
+          "Jauan Jennings",
+          "Jayden Daniels",
+          "Jeffery Simmons",
+          "Jihaad Campbell",
+          "Jordan Addison",
+          "Jordan Mason",
+          "Justin Jefferson",
+          "Kevin Winston",
+          "Kyler Murray",
+          "Laiatu Latu",
+          "Malachi Moore",
+          "Malaki Starks",
+          "Marcus Mariota",
+          "Mason Graham",
+          "Michael Mayer",
+          "Michael Penix",
+          "Nic Scourton",
+          "Nick Emmanwori",
+          "Omar Cooper",
+          "Patrick Queen",
+          "Shemar Stewart",
+          "Sonny Styles",
+          "T.J. Hockenson",
+          "Terrance Ferguson",
+          "Trevin Wallace",
+          "Tua Tagovailoa",
+          "Tyler Allgeier",
+          "Wan'Dale Robinson",
+          "Will Reichard"
         ],
         "playerIds": [
-          "10914",
-          "11569",
-          "11597",
-          "11635",
-          "12486",
-          "12493",
-          "12505",
-          "12507",
-          "12511",
-          "12524",
-          "12557",
-          "12602",
-          "12617",
-          "12670",
-          "13362",
-          "13368",
-          "13381",
-          "13389",
-          "13397",
-          "1373",
-          "13990",
-          "1426",
-          "1479",
-          "2036",
-          "3156",
-          "3172",
-          "4071",
-          "4147",
-          "4663",
-          "4943",
-          "4950",
-          "4967",
-          "5839",
-          "5848",
-          "5871",
-          "5912",
-          "6039",
-          "6149",
-          "6797",
-          "7113",
-          "7528",
-          "7667",
-          "7726",
-          "8131",
-          "8154",
-          "8259",
-          "8290",
-          "8329",
-          "8339",
-          "9228",
-          "9757"
+          "10219",
+          "10891",
+          "11328",
+          "11559",
+          "11565",
+          "11566",
+          "11604",
+          "11667",
+          "11668",
+          "11669",
+          "11678",
+          "11687",
+          "11724",
+          "11742",
+          "11792",
+          "12487",
+          "12490",
+          "12514",
+          "12521",
+          "12560",
+          "12562",
+          "12566",
+          "12567",
+          "12573",
+          "12578",
+          "12588",
+          "12597",
+          "12604",
+          "12605",
+          "12623",
+          "12639",
+          "12646",
+          "12648",
+          "13276",
+          "13279",
+          "13347",
+          "13375",
+          "13391",
+          "13417",
+          "2307",
+          "4199",
+          "5844",
+          "5849",
+          "6125",
+          "6183",
+          "6217",
+          "6768",
+          "6794",
+          "6807",
+          "7049",
+          "7525",
+          "8126",
+          "8132",
+          "8144",
+          "8146",
+          "8408",
+          "9482",
+          "9756"
         ],
         "picks": [
-          "2026 1.04 (own)",
-          "2026 2.04 (own)",
-          "2026 3.04 (own)",
-          "2026 4.04 (own)",
-          "2026 5.04 (own)",
-          "2026 6.04 (own)",
+          "2026 1.03 (own)",
+          "2026 2.03 (own)",
+          "2026 3.03 (own)",
+          "2026 4.03 (own)",
+          "2026 5.03 (own)",
+          "2026 6.03 (own)",
+          "2027 Mid 1st (from Blaine)",
+          "2027 Mid 1st (from Brent)",
+          "2027 Mid 1st (from Ed)",
+          "2027 Mid 1st (from Eric)",
+          "2027 Mid 1st (from Joey)",
+          "2027 Mid 1st (from Kich)",
+          "2027 Mid 1st (from Ty)",
           "2027 Mid 1st (own)",
-          "2027 Mid 2nd (from Team 12)",
+          "2027 Mid 2nd (from Brent)",
+          "2027 Mid 2nd (from Ed)",
+          "2027 Mid 2nd (from Eric)",
+          "2027 Mid 2nd (from Joey)",
+          "2027 Mid 2nd (from Kich)",
+          "2027 Mid 2nd (from Roy)",
+          "2027 Mid 2nd (from Ty)",
+          "2027 Mid 2nd (own)",
+          "2027 Mid 3rd (from Blaine)",
+          "2027 Mid 3rd (from Brent)",
+          "2027 Mid 3rd (from Ed)",
+          "2027 Mid 3rd (from Eric)",
+          "2027 Mid 3rd (from Kich)",
           "2027 Mid 3rd (own)",
+          "2027 Mid 4th (from Ed)",
+          "2027 Mid 4th (from Eric)",
+          "2027 Mid 4th (from Kich)",
+          "2027 Mid 4th (from Roy)",
+          "2027 Mid 4th (own)",
+          "2027 Mid 5th (from Brent)",
+          "2027 Mid 5th (from Ed)",
           "2027 Mid 5th (own)",
-          "2027 Mid 6th (own)",
-          "2028 Mid 1st (from Team 1)",
-          "2028 Mid 1st (from Team 12)",
-          "2028 Mid 1st (from Team 9)",
-          "2028 Mid 1st (own)",
-          "2028 Mid 2nd (from Team 1)",
-          "2028 Mid 2nd (own)",
+          "2027 Mid 6th (from Brent)",
+          "2028 Mid 1st (from Ed)",
+          "2028 Mid 1st (from Eric)",
+          "2028 Mid 1st (from MaKayla)",
+          "2028 Mid 2nd (from Blaine)",
+          "2028 Mid 2nd (from Brent)",
+          "2028 Mid 2nd (from Ed)",
+          "2028 Mid 2nd (from Eric)",
+          "2028 Mid 2nd (from Joey)",
+          "2028 Mid 3rd (from Brent)",
+          "2028 Mid 3rd (from Ed)",
+          "2028 Mid 3rd (from Kich)",
+          "2028 Mid 3rd (from Roy)",
+          "2028 Mid 3rd (own)",
+          "2028 Mid 4th (from Brent)",
+          "2028 Mid 4th (from Ed)",
+          "2028 Mid 4th (from Eric)",
+          "2028 Mid 4th (from Ty)",
           "2028 Mid 4th (own)",
+          "2028 Mid 5th (from Brent)",
+          "2028 Mid 5th (from MaKayla)",
           "2028 Mid 5th (own)",
+          "2028 Mid 6th (from Brent)",
+          "2028 Mid 6th (from Collin)",
           "2028 Mid 6th (own)",
           "2029 Mid 1st (own)",
+          "2029 Mid 2nd (from Ed)",
           "2029 Mid 2nd (own)",
+          "2029 Mid 3rd (from Ed)",
           "2029 Mid 3rd (own)",
           "2029 Mid 4th (own)",
           "2029 Mid 5th (own)",
@@ -23604,99 +21576,359 @@ window.DYNASTY_DATA = {
           {
             "season": 2026,
             "round": 1,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 1.04 (own)",
-            "baseLabel": "2026 1.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 1.03 (own)",
+            "baseLabel": "2026 1.03"
           },
           {
             "season": 2026,
             "round": 2,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 2.04 (own)",
-            "baseLabel": "2026 2.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 2.03 (own)",
+            "baseLabel": "2026 2.03"
           },
           {
             "season": 2026,
             "round": 3,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 3.04 (own)",
-            "baseLabel": "2026 3.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 3.03 (own)",
+            "baseLabel": "2026 3.03"
           },
           {
             "season": 2026,
             "round": 4,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 4.04 (own)",
-            "baseLabel": "2026 4.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 4.03 (own)",
+            "baseLabel": "2026 4.03"
           },
           {
             "season": 2026,
             "round": 5,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 5.04 (own)",
-            "baseLabel": "2026 5.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 5.03 (own)",
+            "baseLabel": "2026 5.03"
           },
           {
             "season": 2026,
             "round": 6,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": 4,
-            "label": "2026 6.04 (own)",
-            "baseLabel": "2026 6.04"
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": 3,
+            "label": "2026 6.03 (own)",
+            "baseLabel": "2026 6.03"
           },
           {
             "season": 2027,
             "round": 1,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 12,
+            "fromTeam": "Blaine",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Blaine)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Brent)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Ed)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Eric)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2027 Mid 1st (own)",
             "baseLabel": "2027 Mid 1st"
           },
           {
             "season": 2027,
-            "round": 2,
-            "fromRosterId": 12,
-            "fromTeam": "Team 12",
-            "ownerRosterId": 7,
+            "round": 1,
+            "fromRosterId": 8,
+            "fromTeam": "Joey",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2027 Mid 2nd (from Team 12)",
+            "label": "2027 Mid 1st (from Joey)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Kich)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 1st (from Ty)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Brent)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Ed)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Eric)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (own)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 8,
+            "fromTeam": "Joey",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Joey)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Kich)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Roy)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Ty)",
             "baseLabel": "2027 Mid 2nd"
           },
           {
             "season": 2027,
             "round": 3,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 12,
+            "fromTeam": "Blaine",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Blaine)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Brent)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Ed)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Eric)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2027 Mid 3rd (own)",
             "baseLabel": "2027 Mid 3rd"
           },
           {
             "season": 2027,
-            "round": 5,
+            "round": 3,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Kich)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 4th (from Ed)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 4th (from Eric)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 4th (own)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 4th (from Kich)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 4,
             "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 4th (from Roy)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 5th (from Brent)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2027 Mid 5th (from Ed)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2027 Mid 5th (own)",
             "baseLabel": "2027 Mid 5th"
@@ -23704,99 +21936,249 @@ window.DYNASTY_DATA = {
           {
             "season": 2027,
             "round": 6,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2027 Mid 6th (own)",
+            "label": "2027 Mid 6th (from Brent)",
             "baseLabel": "2027 Mid 6th"
           },
           {
             "season": 2028,
             "round": 1,
-            "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 7,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2028 Mid 1st (from Team 1)",
+            "label": "2028 Mid 1st (from Ed)",
             "baseLabel": "2028 Mid 1st"
           },
           {
             "season": 2028,
             "round": 1,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 1st (from Eric)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 1st (from MaKayla)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 2,
             "fromRosterId": 12,
-            "fromTeam": "Team 12",
-            "ownerRosterId": 7,
+            "fromTeam": "Blaine",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2028 Mid 1st (from Team 12)",
-            "baseLabel": "2028 Mid 1st"
+            "label": "2028 Mid 2nd (from Blaine)",
+            "baseLabel": "2028 Mid 2nd"
           },
           {
             "season": 2028,
-            "round": 1,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
-            "slot": null,
-            "label": "2028 Mid 1st (own)",
-            "baseLabel": "2028 Mid 1st"
-          },
-          {
-            "season": 2028,
-            "round": 1,
+            "round": 2,
             "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 7,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2028 Mid 1st (from Team 9)",
-            "baseLabel": "2028 Mid 1st"
+            "label": "2028 Mid 2nd (from Brent)",
+            "baseLabel": "2028 Mid 2nd"
           },
           {
             "season": 2028,
             "round": 2,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 2nd (from Ed)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 2nd (from Eric)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 8,
+            "fromTeam": "Joey",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 2nd (from Joey)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 3rd (from Brent)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 3rd (from Ed)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
             "fromRosterId": 1,
-            "fromTeam": "Team 1",
-            "ownerRosterId": 7,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2028 Mid 2nd (from Team 1)",
-            "baseLabel": "2028 Mid 2nd"
+            "label": "2028 Mid 3rd (own)",
+            "baseLabel": "2028 Mid 3rd"
           },
           {
             "season": 2028,
-            "round": 2,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "round": 3,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 1,
             "slot": null,
-            "label": "2028 Mid 2nd (own)",
-            "baseLabel": "2028 Mid 2nd"
+            "label": "2028 Mid 3rd (from Kich)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 3rd (from Roy)",
+            "baseLabel": "2028 Mid 3rd"
           },
           {
             "season": 2028,
             "round": 4,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 4th (from Brent)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 4th (from Ed)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 6,
+            "fromTeam": "Eric",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 4th (from Eric)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2028 Mid 4th (own)",
             "baseLabel": "2028 Mid 4th"
           },
           {
             "season": 2028,
+            "round": 4,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 4th (from Ty)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
             "round": 5,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 5th (from Brent)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 5,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2028 Mid 5th (own)",
             "baseLabel": "2028 Mid 5th"
           },
           {
             "season": 2028,
+            "round": 5,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 5th (from MaKayla)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
             "round": 6,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 6th (from Brent)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 4,
+            "fromTeam": "Collin",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2028 Mid 6th (from Collin)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2028 Mid 6th (own)",
             "baseLabel": "2028 Mid 6th"
@@ -23804,9 +22186,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 1,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 1st (own)",
             "baseLabel": "2029 Mid 1st"
@@ -23814,9 +22196,19 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 2,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2029 Mid 2nd (from Ed)",
+            "baseLabel": "2029 Mid 2nd"
+          },
+          {
+            "season": 2029,
+            "round": 2,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
             "baseLabel": "2029 Mid 2nd"
@@ -23824,9 +22216,19 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 3,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 2,
+            "fromTeam": "Ed",
+            "ownerRosterId": 1,
+            "slot": null,
+            "label": "2029 Mid 3rd (from Ed)",
+            "baseLabel": "2029 Mid 3rd"
+          },
+          {
+            "season": 2029,
+            "round": 3,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
             "baseLabel": "2029 Mid 3rd"
@@ -23834,9 +22236,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 4,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 4th (own)",
             "baseLabel": "2029 Mid 4th"
@@ -23844,9 +22246,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 5,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 5th (own)",
             "baseLabel": "2029 Mid 5th"
@@ -23854,9 +22256,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 6,
-            "fromRosterId": 7,
-            "fromTeam": "Team 7",
-            "ownerRosterId": 7,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 1,
             "slot": null,
             "label": "2029 Mid 6th (own)",
             "baseLabel": "2029 Mid 6th"
@@ -23864,8 +22266,8 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 8",
-        "sleeperTeamName": "Team 8",
+        "name": "Joey",
+        "sleeperTeamName": "I’m Not Afraid Anymore!",
         "roster_id": 8,
         "ownerId": "1012114412049731584",
         "players": [
@@ -24015,7 +22417,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 1,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 1.10 (own)",
@@ -24025,7 +22427,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 2,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 2.10 (own)",
@@ -24035,7 +22437,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 3,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 3.10 (own)",
@@ -24045,7 +22447,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 4,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 4.10 (own)",
@@ -24055,7 +22457,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 5,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 5.10 (own)",
@@ -24065,7 +22467,7 @@ window.DYNASTY_DATA = {
             "season": 2026,
             "round": 6,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": 10,
             "label": "2026 6.10 (own)",
@@ -24075,7 +22477,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 3,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2027 Mid 3rd (own)",
@@ -24085,7 +22487,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 4,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2027 Mid 4th (own)",
@@ -24095,7 +22497,7 @@ window.DYNASTY_DATA = {
             "season": 2027,
             "round": 6,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2027 Mid 6th (own)",
@@ -24105,7 +22507,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 1,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2028 Mid 1st (own)",
@@ -24115,7 +22517,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 3,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2028 Mid 3rd (own)",
@@ -24125,7 +22527,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 4,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2028 Mid 4th (own)",
@@ -24135,7 +22537,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 5,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2028 Mid 5th (own)",
@@ -24145,7 +22547,7 @@ window.DYNASTY_DATA = {
             "season": 2028,
             "round": 6,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2028 Mid 6th (own)",
@@ -24155,7 +22557,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 1,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 1st (own)",
@@ -24165,7 +22567,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 2,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
@@ -24175,7 +22577,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 3,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
@@ -24185,7 +22587,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 4,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 4th (own)",
@@ -24195,7 +22597,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 5,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 5th (own)",
@@ -24205,7 +22607,7 @@ window.DYNASTY_DATA = {
             "season": 2029,
             "round": 6,
             "fromRosterId": 8,
-            "fromTeam": "Team 8",
+            "fromTeam": "Joey",
             "ownerRosterId": 8,
             "slot": null,
             "label": "2029 Mid 6th (own)",
@@ -24214,138 +22616,149 @@ window.DYNASTY_DATA = {
         ]
       },
       {
-        "name": "Team 9",
-        "sleeperTeamName": "Team 9",
-        "roster_id": 9,
-        "ownerId": "1002085133723299840",
+        "name": "Kich",
+        "sleeperTeamName": "killaKich00",
+        "roster_id": 10,
+        "ownerId": "1208452010173538304",
         "players": [
-          "Aidan Hutchinson",
-          "Alex Singleton",
-          "Amon-Ra St. Brown",
-          "Bobby Wagner",
-          "Bryan Cook",
-          "Bucky Irving",
-          "Cameron Heyward",
-          "Chase McLaughlin",
-          "Dak Prescott",
-          "Darnell Washington",
-          "DeShon Elliott",
-          "Derwin James",
-          "Deshaun Watson",
-          "Drake London",
-          "Drew Allar",
-          "George Pickens",
-          "Harold Fannin",
-          "Jaleel McLaughlin",
-          "Jalen Tolbert",
-          "Jalon Kilgore",
-          "Jermaine Johnson",
-          "Jerome Ford",
-          "Joe Burrow",
-          "Joe Flacco",
-          "Jonathan Taylor",
-          "Jonnu Smith",
-          "Jordan Battle",
-          "Josh Jacobs",
-          "Joshua Metellus",
-          "Kaden Elliss",
-          "Kaleb Elarms-Orr",
-          "Kam Curl",
-          "Kareem Hunt",
-          "Kyle Pitts",
-          "Kyler Gordon",
-          "Luke McCaffrey",
-          "Mark Andrews",
-          "Matt Gay",
-          "Maxx Crosby",
-          "Micah Parsons",
-          "Mike Sainristil",
-          "Myles Garrett",
-          "Nate Landman",
-          "Patrick Mahomes",
-          "Puka Nacua",
-          "Quinshon Judkins",
-          "Rashee Rice",
-          "Rashod Bateman",
-          "Skyler Bell",
-          "T.J. Edwards",
-          "T.J. Watt",
-          "Tetairoa McMillan",
-          "Travis Etienne",
-          "Travis Hunter",
-          "Travis Kelce",
-          "Tre'von Moehrig",
-          "Will Kacmarek"
+          "Alex Anzalone",
+          "Anthony Lucas",
+          "Byron Young",
+          "Calvin Ridley",
+          "Chris Boswell",
+          "Christen Miller",
+          "Christian McCaffrey",
+          "Curtis Samuel",
+          "DJ Turner",
+          "DK Metcalf",
+          "DaRon Bland",
+          "Darnell Mooney",
+          "Davante Adams",
+          "Dawson Knox",
+          "Deebo Samuel",
+          "Derrick Henry",
+          "Devin Duvernay",
+          "Devin White",
+          "Devontez Walker",
+          "Emari Demercado",
+          "Evan McPherson",
+          "Gardner Minshew",
+          "Garrett Nussmeier",
+          "Genesis Smith",
+          "George Karlaftis",
+          "George Kittle",
+          "Germie Bernard",
+          "Greg Rousseau",
+          "Hunter Henry",
+          "Jahan Dotson",
+          "Jawhar Jordan",
+          "Jaylen Watson",
+          "Jimmy Horn",
+          "Jordan Nubin",
+          "JuJu Smith-Schuster",
+          "K'Lavon Chaisson",
+          "KC Concepcion",
+          "KaVontae Turpin",
+          "Kenneth Murray",
+          "Lamar Jackson",
+          "Marcus Jones",
+          "Matthew Stafford",
+          "Minkah Fitzpatrick",
+          "Nahshon Wright",
+          "Rachaad White",
+          "Reed Blankenship",
+          "Riley Leonard",
+          "Roquan Smith",
+          "Spencer Rattler",
+          "Stefon Diggs",
+          "Tank Dell",
+          "Tony Pollard",
+          "Tre' Harris",
+          "Ty Simpson",
+          "Tyler Lockett",
+          "Uchenna Nwosu",
+          "Xavier Hutchinson",
+          "Xavier Legette"
         ],
         "playerIds": [
-          "10229",
-          "10927",
-          "11439",
-          "11584",
-          "11650",
-          "11676",
-          "1233",
-          "12506",
-          "12512",
-          "12526",
-          "12530",
-          "13289",
-          "13402",
-          "13434",
-          "13488",
-          "13511",
-          "1466",
-          "19",
-          "2617",
-          "3294",
-          "3973",
-          "4017",
-          "4046",
-          "4070",
-          "4098",
-          "4144",
-          "4971",
-          "5012",
-          "5071",
-          "5850",
-          "5960",
-          "5991",
-          "6083",
-          "6302",
-          "6650",
-          "6770",
-          "6813",
-          "6901",
-          "7136",
-          "7543",
-          "7547",
-          "7553",
-          "7571",
-          "7640",
-          "7659",
-          "8112",
-          "8117",
-          "8137",
-          "8143",
-          "8289",
-          "8294",
-          "8365",
-          "8398",
-          "843",
-          "8659",
-          "9479",
-          "9493"
+          "10218",
+          "10894",
+          "10917",
+          "11199",
+          "11562",
+          "11588",
+          "11626",
+          "11629",
+          "12470",
+          "12509",
+          "12523",
+          "13274",
+          "13275",
+          "13298",
+          "13358",
+          "13387",
+          "13399",
+          "13404",
+          "14018",
+          "1945",
+          "2133",
+          "2374",
+          "2449",
+          "3198",
+          "3214",
+          "4034",
+          "4040",
+          "4082",
+          "4118",
+          "421",
+          "4217",
+          "4881",
+          "4960",
+          "4963",
+          "4981",
+          "5061",
+          "5846",
+          "5872",
+          "5906",
+          "5967",
+          "6011",
+          "6119",
+          "6800",
+          "6811",
+          "6847",
+          "7090",
+          "7627",
+          "7687",
+          "7839",
+          "8119",
+          "8136",
+          "8359",
+          "8373",
+          "8385",
+          "8406",
+          "8476",
+          "8917",
+          "9502"
         ],
         "picks": [
-          "2026 1.06 (own)",
-          "2026 2.06 (own)",
-          "2026 3.06 (own)",
-          "2026 4.06 (own)",
-          "2026 5.06 (own)",
-          "2026 6.06 (own)",
+          "2026 1.07 (own)",
+          "2026 2.07 (own)",
+          "2026 3.07 (own)",
+          "2026 4.07 (own)",
+          "2026 5.07 (own)",
+          "2026 6.07 (own)",
+          "2027 Mid 5th (own)",
+          "2027 Mid 6th (from Jason)",
+          "2027 Mid 6th (own)",
+          "2028 Mid 1st (own)",
+          "2028 Mid 2nd (own)",
+          "2028 Mid 4th (own)",
+          "2028 Mid 5th (own)",
+          "2028 Mid 6th (own)",
           "2029 Mid 1st (own)",
           "2029 Mid 2nd (own)",
           "2029 Mid 3rd (own)",
+          "2029 Mid 4th (own)",
           "2029 Mid 5th (own)",
           "2029 Mid 6th (own)"
         ],
@@ -24353,69 +22766,149 @@ window.DYNASTY_DATA = {
           {
             "season": 2026,
             "round": 1,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 1.06 (own)",
-            "baseLabel": "2026 1.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 1.07 (own)",
+            "baseLabel": "2026 1.07"
           },
           {
             "season": 2026,
             "round": 2,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 2.06 (own)",
-            "baseLabel": "2026 2.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 2.07 (own)",
+            "baseLabel": "2026 2.07"
           },
           {
             "season": 2026,
             "round": 3,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 3.06 (own)",
-            "baseLabel": "2026 3.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 3.07 (own)",
+            "baseLabel": "2026 3.07"
           },
           {
             "season": 2026,
             "round": 4,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 4.06 (own)",
-            "baseLabel": "2026 4.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 4.07 (own)",
+            "baseLabel": "2026 4.07"
           },
           {
             "season": 2026,
             "round": 5,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 5.06 (own)",
-            "baseLabel": "2026 5.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 5.07 (own)",
+            "baseLabel": "2026 5.07"
           },
           {
             "season": 2026,
             "round": 6,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
-            "slot": 6,
-            "label": "2026 6.06 (own)",
-            "baseLabel": "2026 6.06"
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": 7,
+            "label": "2026 6.07 (own)",
+            "baseLabel": "2026 6.07"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2027 Mid 5th (own)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 6,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2027 Mid 6th (from Jason)",
+            "baseLabel": "2027 Mid 6th"
+          },
+          {
+            "season": 2027,
+            "round": 6,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2027 Mid 6th (own)",
+            "baseLabel": "2027 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2028 Mid 1st (own)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2028 Mid 2nd (own)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2028 Mid 4th (own)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 5,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2028 Mid 5th (own)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2028 Mid 6th (own)",
+            "baseLabel": "2028 Mid 6th"
           },
           {
             "season": 2029,
             "round": 1,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
             "slot": null,
             "label": "2029 Mid 1st (own)",
             "baseLabel": "2029 Mid 1st"
@@ -24423,9 +22916,9 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 2,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
             "slot": null,
             "label": "2029 Mid 2nd (own)",
             "baseLabel": "2029 Mid 2nd"
@@ -24433,19 +22926,29 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 3,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
             "slot": null,
             "label": "2029 Mid 3rd (own)",
             "baseLabel": "2029 Mid 3rd"
           },
           {
             "season": 2029,
+            "round": 4,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2029 Mid 4th (own)",
+            "baseLabel": "2029 Mid 4th"
+          },
+          {
+            "season": 2029,
             "round": 5,
-            "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
             "slot": null,
             "label": "2029 Mid 5th (own)",
             "baseLabel": "2029 Mid 5th"
@@ -24453,9 +22956,1506 @@ window.DYNASTY_DATA = {
           {
             "season": 2029,
             "round": 6,
+            "fromRosterId": 10,
+            "fromTeam": "Kich",
+            "ownerRosterId": 10,
+            "slot": null,
+            "label": "2029 Mid 6th (own)",
+            "baseLabel": "2029 Mid 6th"
+          }
+        ]
+      },
+      {
+        "name": "MaKayla",
+        "sleeperTeamName": "Rage Against The Achane ",
+        "roster_id": 5,
+        "ownerId": "714912789268865024",
+        "players": [
+          "Adonai Mitchell",
+          "Amani Hooker",
+          "Austin Booker",
+          "Brenen Thompson",
+          "Brian Burns",
+          "Caleb Douglas",
+          "Chase Brown",
+          "Chop Robinson",
+          "Chris Bell",
+          "Chris Godwin",
+          "Christian Watson",
+          "Dane Belton",
+          "Danny Stutsman",
+          "David Bailey",
+          "De'Von Achane",
+          "Devaughn Vele",
+          "Devin Neal",
+          "Efton Chism",
+          "Eli Stowers",
+          "Eric Wilson",
+          "Frankie Luvu",
+          "Grant Delpit",
+          "Greg Dulcich",
+          "Jack Bech",
+          "Jack Jones",
+          "Jacob Rodriguez",
+          "Jacoby Brissett",
+          "Jacory Croskey-Merritt",
+          "Jaelan Phillips",
+          "Jameis Winston",
+          "Jameson Williams",
+          "Jaquan Brisker",
+          "Jaxson Dart",
+          "Jaydon Blue",
+          "Jaylen Waddle",
+          "Jonathan Greenard",
+          "Jordyn Brooks",
+          "Jordyn Tyson",
+          "Josh Downs",
+          "Julian Love",
+          "Keaton Mitchell",
+          "Keionte Scott",
+          "Malik Nabers",
+          "Malik Washington",
+          "Malik Willis",
+          "Marvin Mims",
+          "Michael Wilson",
+          "Mike Gesicki",
+          "Nolan Smith",
+          "Quay Walker",
+          "Quinn Ewers",
+          "Tahj Brooks",
+          "Trevor Etienne",
+          "Troy Franklin",
+          "Tuli Tuipulotu",
+          "Tyler Warren",
+          "Walter Nolen",
+          "Zay Flowers"
+        ],
+        "playerIds": [
+          "10232",
+          "10873",
+          "10898",
+          "11610",
+          "11625",
+          "11627",
+          "11632",
+          "11663",
+          "11760",
+          "11834",
+          "12457",
+          "12476",
+          "12483",
+          "12500",
+          "12508",
+          "12518",
+          "12531",
+          "12533",
+          "12542",
+          "12543",
+          "12552",
+          "12650",
+          "13281",
+          "13296",
+          "13311",
+          "13349",
+          "13363",
+          "13380",
+          "13382",
+          "13453",
+          "2306",
+          "3257",
+          "4037",
+          "4413",
+          "4993",
+          "5580",
+          "5862",
+          "5876",
+          "5908",
+          "6799",
+          "6900",
+          "6949",
+          "7526",
+          "7635",
+          "8148",
+          "8161",
+          "8167",
+          "8172",
+          "8261",
+          "8266",
+          "8323",
+          "8395",
+          "9224",
+          "9226",
+          "9494",
+          "9500",
+          "9511",
+          "9997"
+        ],
+        "picks": [
+          "2026 1.09 (own)",
+          "2026 2.09 (own)",
+          "2026 3.09 (own)",
+          "2026 4.09 (own)",
+          "2026 5.09 (own)",
+          "2026 6.09 (own)",
+          "2027 Mid 1st (own)",
+          "2027 Mid 2nd (own)",
+          "2027 Mid 3rd (from Ty)",
+          "2027 Mid 3rd (own)",
+          "2027 Mid 4th (own)",
+          "2027 Mid 5th (own)",
+          "2028 Mid 2nd (own)",
+          "2028 Mid 3rd (own)",
+          "2028 Mid 4th (own)",
+          "2028 Mid 6th (own)",
+          "2029 Mid 1st (own)",
+          "2029 Mid 2nd (own)",
+          "2029 Mid 3rd (own)",
+          "2029 Mid 4th (own)",
+          "2029 Mid 5th (own)",
+          "2029 Mid 6th (own)"
+        ],
+        "pickDetails": [
+          {
+            "season": 2026,
+            "round": 1,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 1.09 (own)",
+            "baseLabel": "2026 1.09"
+          },
+          {
+            "season": 2026,
+            "round": 2,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 2.09 (own)",
+            "baseLabel": "2026 2.09"
+          },
+          {
+            "season": 2026,
+            "round": 3,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 3.09 (own)",
+            "baseLabel": "2026 3.09"
+          },
+          {
+            "season": 2026,
+            "round": 4,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 4.09 (own)",
+            "baseLabel": "2026 4.09"
+          },
+          {
+            "season": 2026,
+            "round": 5,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 5.09 (own)",
+            "baseLabel": "2026 5.09"
+          },
+          {
+            "season": 2026,
+            "round": 6,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": 9,
+            "label": "2026 6.09 (own)",
+            "baseLabel": "2026 6.09"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 1st (own)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 2nd (own)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 3rd (own)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 3rd (from Ty)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 4th (own)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2027 Mid 5th (own)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2028 Mid 2nd (own)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2028 Mid 3rd (own)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2028 Mid 4th (own)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2028 Mid 6th (own)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2029,
+            "round": 1,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 1st (own)",
+            "baseLabel": "2029 Mid 1st"
+          },
+          {
+            "season": 2029,
+            "round": 2,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 2nd (own)",
+            "baseLabel": "2029 Mid 2nd"
+          },
+          {
+            "season": 2029,
+            "round": 3,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 3rd (own)",
+            "baseLabel": "2029 Mid 3rd"
+          },
+          {
+            "season": 2029,
+            "round": 4,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 4th (own)",
+            "baseLabel": "2029 Mid 4th"
+          },
+          {
+            "season": 2029,
+            "round": 5,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 5th (own)",
+            "baseLabel": "2029 Mid 5th"
+          },
+          {
+            "season": 2029,
+            "round": 6,
+            "fromRosterId": 5,
+            "fromTeam": "MaKayla",
+            "ownerRosterId": 5,
+            "slot": null,
+            "label": "2029 Mid 6th (own)",
+            "baseLabel": "2029 Mid 6th"
+          }
+        ]
+      },
+      {
+        "name": "Roy",
+        "sleeperTeamName": "Chargers Team Doctor",
+        "roster_id": 7,
+        "ownerId": "472206636534984704",
+        "players": [
+          "Alex Highsmith",
+          "Austin Ekeler",
+          "Avieon Terrell",
+          "Bradley Chubb",
+          "Brian Robinson",
+          "Bryce Young",
+          "Cameron Dicker",
+          "Carl Granderson",
+          "Christian Kirk",
+          "Daiyan Henley",
+          "Darius Slayton",
+          "DeAndre Hopkins",
+          "DeForest Buckner",
+          "Demetrius Knight",
+          "Derrick Barnes",
+          "Devin Lloyd",
+          "Dillon Gabriel",
+          "Geno Smith",
+          "Isaiah Likely",
+          "Jahdae Barron",
+          "Jaishawn Barham",
+          "Jalen Royals",
+          "Jarquez Hunter",
+          "Jermod McCoy",
+          "Joey Bosa",
+          "Justin Herbert",
+          "KeAndre Lambert-Smith",
+          "Keenan Allen",
+          "Keith Abney",
+          "Kendre Miller",
+          "Khalil Mack",
+          "Kyle Hamilton",
+          "Ladd McConkey",
+          "Lee Hunter",
+          "Marlon Humphrey",
+          "Marquise Brown",
+          "Mykel Williams",
+          "Najee Harris",
+          "Omarion Hampton",
+          "Oronde Gadsden",
+          "Paul Geelen",
+          "Rashan Gary",
+          "Sam Darnold",
+          "Samaje Perine",
+          "Sauce Gardner",
+          "Shedeur Sanders",
+          "Theo Johnson",
+          "Ty Johnson",
+          "Tyson Campbell",
+          "Will Howard",
+          "Zach Allen"
+        ],
+        "playerIds": [
+          "10914",
+          "11569",
+          "11597",
+          "11635",
+          "12486",
+          "12493",
+          "12505",
+          "12507",
+          "12511",
+          "12524",
+          "12557",
+          "12602",
+          "12617",
+          "12670",
+          "13362",
+          "13368",
+          "13381",
+          "13389",
+          "13397",
+          "1373",
+          "13990",
+          "1426",
+          "1479",
+          "2036",
+          "3156",
+          "3172",
+          "4071",
+          "4147",
+          "4663",
+          "4943",
+          "4950",
+          "4967",
+          "5839",
+          "5848",
+          "5871",
+          "5912",
+          "6039",
+          "6149",
+          "6797",
+          "7113",
+          "7528",
+          "7667",
+          "7726",
+          "8131",
+          "8154",
+          "8259",
+          "8290",
+          "8329",
+          "8339",
+          "9228",
+          "9757"
+        ],
+        "picks": [
+          "2026 1.04 (own)",
+          "2026 2.04 (own)",
+          "2026 3.04 (own)",
+          "2026 4.04 (own)",
+          "2026 5.04 (own)",
+          "2026 6.04 (own)",
+          "2027 Mid 1st (own)",
+          "2027 Mid 2nd (from Blaine)",
+          "2027 Mid 3rd (own)",
+          "2027 Mid 5th (own)",
+          "2027 Mid 6th (own)",
+          "2028 Mid 1st (from Blaine)",
+          "2028 Mid 1st (from Brent)",
+          "2028 Mid 1st (from Jason)",
+          "2028 Mid 1st (own)",
+          "2028 Mid 2nd (from Jason)",
+          "2028 Mid 2nd (own)",
+          "2028 Mid 4th (own)",
+          "2028 Mid 5th (own)",
+          "2028 Mid 6th (own)",
+          "2029 Mid 1st (own)",
+          "2029 Mid 2nd (own)",
+          "2029 Mid 3rd (own)",
+          "2029 Mid 4th (own)",
+          "2029 Mid 5th (own)",
+          "2029 Mid 6th (own)"
+        ],
+        "pickDetails": [
+          {
+            "season": 2026,
+            "round": 1,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 1.04 (own)",
+            "baseLabel": "2026 1.04"
+          },
+          {
+            "season": 2026,
+            "round": 2,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 2.04 (own)",
+            "baseLabel": "2026 2.04"
+          },
+          {
+            "season": 2026,
+            "round": 3,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 3.04 (own)",
+            "baseLabel": "2026 3.04"
+          },
+          {
+            "season": 2026,
+            "round": 4,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 4.04 (own)",
+            "baseLabel": "2026 4.04"
+          },
+          {
+            "season": 2026,
+            "round": 5,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 5.04 (own)",
+            "baseLabel": "2026 5.04"
+          },
+          {
+            "season": 2026,
+            "round": 6,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": 4,
+            "label": "2026 6.04 (own)",
+            "baseLabel": "2026 6.04"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2027 Mid 1st (own)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 12,
+            "fromTeam": "Blaine",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2027 Mid 2nd (from Blaine)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2027 Mid 3rd (own)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2027 Mid 5th (own)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 6,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2027 Mid 6th (own)",
+            "baseLabel": "2027 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 12,
+            "fromTeam": "Blaine",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 1st (from Blaine)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 1,
             "fromRosterId": 9,
-            "fromTeam": "Team 9",
-            "ownerRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 1st (from Brent)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 1st (from Jason)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 1st (own)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 1,
+            "fromTeam": "Jason",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 2nd (from Jason)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 2nd (own)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 4th (own)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 5,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 5th (own)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2028 Mid 6th (own)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2029,
+            "round": 1,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 1st (own)",
+            "baseLabel": "2029 Mid 1st"
+          },
+          {
+            "season": 2029,
+            "round": 2,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 2nd (own)",
+            "baseLabel": "2029 Mid 2nd"
+          },
+          {
+            "season": 2029,
+            "round": 3,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 3rd (own)",
+            "baseLabel": "2029 Mid 3rd"
+          },
+          {
+            "season": 2029,
+            "round": 4,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 4th (own)",
+            "baseLabel": "2029 Mid 4th"
+          },
+          {
+            "season": 2029,
+            "round": 5,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 5th (own)",
+            "baseLabel": "2029 Mid 5th"
+          },
+          {
+            "season": 2029,
+            "round": 6,
+            "fromRosterId": 7,
+            "fromTeam": "Roy",
+            "ownerRosterId": 7,
+            "slot": null,
+            "label": "2029 Mid 6th (own)",
+            "baseLabel": "2029 Mid 6th"
+          }
+        ]
+      },
+      {
+        "name": "Ty",
+        "sleeperTeamName": "TyBWell",
+        "roster_id": 3,
+        "ownerId": "473973924808355840",
+        "players": [
+          "Brock Purdy",
+          "Budda Baker",
+          "C.J. Stroud",
+          "Cade Otton",
+          "Cam Bynum",
+          "Cedric Tillman",
+          "Chimere Dike",
+          "Cooper Kupp",
+          "Courtland Sutton",
+          "Darren Waller",
+          "Davis Mills",
+          "DeMario Douglas",
+          "Drue Tranquill",
+          "Elic Ayomanor",
+          "Elijah Sarratt",
+          "Emmanuel McNeil-Warren",
+          "Gabe Davis",
+          "Hassan Haskins",
+          "Isaiah Bond",
+          "Isaiah Pola-Mao",
+          "Jalen Milroe",
+          "James Cook",
+          "Jarrett Stidham",
+          "Jessie Bates",
+          "Joe Mixon",
+          "Jordan James",
+          "Josh Hines-Allen",
+          "Joshua Josephs",
+          "Juwan Johnson",
+          "Ka'imi Fairbairn",
+          "Kaytron Allen",
+          "Kenny Gainwell",
+          "Kerby Joseph",
+          "Kevin Byard",
+          "Khalil Shakir",
+          "L'Jarius Sneed",
+          "Malachi Fields",
+          "Nick Bolton",
+          "Nick Chubb",
+          "Nico Collins",
+          "Pat Bryant",
+          "Ray Davis",
+          "Ted Hurst",
+          "Tez Johnson",
+          "TreVeyon Henderson",
+          "Trey Hendrickson",
+          "Tyjae Spears",
+          "Tyler Higbee",
+          "Tyquan Thornton",
+          "Tyrel Dodson",
+          "Wil Lutz",
+          "Will Anderson",
+          "Woody Marks",
+          "Zach Ertz",
+          "Zach Sieler",
+          "Zaire Franklin"
+        ],
+        "playerIds": [
+          "10444",
+          "10892",
+          "11575",
+          "12467",
+          "12474",
+          "12485",
+          "12492",
+          "12499",
+          "12503",
+          "12510",
+          "12529",
+          "12540",
+          "13268",
+          "13285",
+          "13317",
+          "13360",
+          "13366",
+          "1339",
+          "13405",
+          "2505",
+          "3233",
+          "3271",
+          "3451",
+          "3678",
+          "4018",
+          "4039",
+          "4081",
+          "4135",
+          "4988",
+          "5017",
+          "5045",
+          "5297",
+          "5346",
+          "5840",
+          "6136",
+          "6141",
+          "6315",
+          "6943",
+          "7002",
+          "7117",
+          "7567",
+          "7569",
+          "7585",
+          "7648",
+          "7715",
+          "8111",
+          "8123",
+          "8134",
+          "8138",
+          "8183",
+          "8188",
+          "8348",
+          "8838",
+          "9501",
+          "9508",
+          "9758"
+        ],
+        "picks": [
+          "2026 1.08 (own)",
+          "2026 2.08 (own)",
+          "2026 3.08 (own)",
+          "2026 4.08 (own)",
+          "2026 5.08 (own)",
+          "2026 6.08 (own)",
+          "2027 Mid 4th (from Brent)",
+          "2027 Mid 4th (own)",
+          "2027 Mid 5th (own)",
+          "2027 Mid 6th (own)",
+          "2028 Mid 1st (own)",
+          "2028 Mid 2nd (own)",
+          "2028 Mid 3rd (own)",
+          "2028 Mid 5th (own)",
+          "2028 Mid 6th (own)",
+          "2029 Mid 1st (own)",
+          "2029 Mid 2nd (own)",
+          "2029 Mid 3rd (own)",
+          "2029 Mid 4th (own)",
+          "2029 Mid 5th (own)",
+          "2029 Mid 6th (own)"
+        ],
+        "pickDetails": [
+          {
+            "season": 2026,
+            "round": 1,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 1.08 (own)",
+            "baseLabel": "2026 1.08"
+          },
+          {
+            "season": 2026,
+            "round": 2,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 2.08 (own)",
+            "baseLabel": "2026 2.08"
+          },
+          {
+            "season": 2026,
+            "round": 3,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 3.08 (own)",
+            "baseLabel": "2026 3.08"
+          },
+          {
+            "season": 2026,
+            "round": 4,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 4.08 (own)",
+            "baseLabel": "2026 4.08"
+          },
+          {
+            "season": 2026,
+            "round": 5,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 5.08 (own)",
+            "baseLabel": "2026 5.08"
+          },
+          {
+            "season": 2026,
+            "round": 6,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": 8,
+            "label": "2026 6.08 (own)",
+            "baseLabel": "2026 6.08"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 9,
+            "fromTeam": "Brent",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2027 Mid 4th (from Brent)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2027 Mid 4th (own)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2027 Mid 5th (own)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 6,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2027 Mid 6th (own)",
+            "baseLabel": "2027 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2028 Mid 1st (own)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2028 Mid 2nd (own)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2028 Mid 3rd (own)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 5,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2028 Mid 5th (own)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2028 Mid 6th (own)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2029,
+            "round": 1,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 1st (own)",
+            "baseLabel": "2029 Mid 1st"
+          },
+          {
+            "season": 2029,
+            "round": 2,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 2nd (own)",
+            "baseLabel": "2029 Mid 2nd"
+          },
+          {
+            "season": 2029,
+            "round": 3,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 3rd (own)",
+            "baseLabel": "2029 Mid 3rd"
+          },
+          {
+            "season": 2029,
+            "round": 4,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 4th (own)",
+            "baseLabel": "2029 Mid 4th"
+          },
+          {
+            "season": 2029,
+            "round": 5,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 5th (own)",
+            "baseLabel": "2029 Mid 5th"
+          },
+          {
+            "season": 2029,
+            "round": 6,
+            "fromRosterId": 3,
+            "fromTeam": "Ty",
+            "ownerRosterId": 3,
+            "slot": null,
+            "label": "2029 Mid 6th (own)",
+            "baseLabel": "2029 Mid 6th"
+          }
+        ]
+      },
+      {
+        "name": "jstuedle",
+        "sleeperTeamName": "jstuedle",
+        "roster_id": 11,
+        "ownerId": "712035316776669184",
+        "players": [
+          "Adam Thielen",
+          "Alvin Kamara",
+          "Baker Mayfield",
+          "Bobby Okereke",
+          "CJ Allen",
+          "Cade Klubnik",
+          "Cam Skattebo",
+          "Carson Beck",
+          "Chris Jones",
+          "Chuba Hubbard",
+          "Dallas Goedert",
+          "Dalton Schultz",
+          "Dan Bailey",
+          "Denzel Boston",
+          "Dexter Lawrence",
+          "Dorian Williams",
+          "Dre Greenlaw",
+          "Emmett Johnson",
+          "Harrison Butker",
+          "Ivan Pace",
+          "Jake Elliott",
+          "Jalen Thompson",
+          "Jonah Coleman",
+          "Justin Fields",
+          "Kyle Dugger",
+          "Leo Chenal",
+          "Mac Jones",
+          "Makai Lemon",
+          "Mansoor Delane",
+          "Michael Pittman",
+          "Mike Evans",
+          "Mike Washington",
+          "Myles Murphy",
+          "Nakobe Dean",
+          "Pat Surtain",
+          "Pete Werner",
+          "Quincy Williams",
+          "Trent McDuffie",
+          "Tyreek Hill",
+          "Tyrice Knight",
+          "Xavier Restrepo",
+          "Xavier Watts",
+          "Yaya Diaby",
+          "Zachariah Branch"
+        ],
+        "playerIds": [
+          "10875",
+          "10921",
+          "10923",
+          "11086",
+          "11734",
+          "12481",
+          "12520",
+          "12591",
+          "13272",
+          "13294",
+          "13303",
+          "13305",
+          "13320",
+          "13337",
+          "13345",
+          "13346",
+          "13385",
+          "13388",
+          "1689",
+          "2216",
+          "3321",
+          "3558",
+          "4035",
+          "4195",
+          "4227",
+          "4892",
+          "5001",
+          "5022",
+          "5847",
+          "5944",
+          "6056",
+          "6214",
+          "6711",
+          "6819",
+          "6872",
+          "7527",
+          "7591",
+          "7594",
+          "7641",
+          "7647",
+          "8267",
+          "8362",
+          "8364",
+          "899"
+        ],
+        "picks": [
+          "2026 1.01 (own)",
+          "2026 2.01 (own)",
+          "2026 3.01 (own)",
+          "2026 4.01 (own)",
+          "2026 5.01 (own)",
+          "2026 6.01 (own)",
+          "2027 Mid 1st (own)",
+          "2027 Mid 2nd (own)",
+          "2027 Mid 3rd (own)",
+          "2027 Mid 4th (own)",
+          "2027 Mid 5th (own)",
+          "2027 Mid 6th (own)",
+          "2028 Mid 1st (own)",
+          "2028 Mid 2nd (own)",
+          "2028 Mid 3rd (own)",
+          "2028 Mid 4th (own)",
+          "2028 Mid 5th (own)",
+          "2028 Mid 6th (own)",
+          "2029 Mid 1st (own)",
+          "2029 Mid 2nd (own)",
+          "2029 Mid 3rd (own)",
+          "2029 Mid 4th (own)",
+          "2029 Mid 5th (own)",
+          "2029 Mid 6th (own)"
+        ],
+        "pickDetails": [
+          {
+            "season": 2026,
+            "round": 1,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 1.01 (own)",
+            "baseLabel": "2026 1.01"
+          },
+          {
+            "season": 2026,
+            "round": 2,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 2.01 (own)",
+            "baseLabel": "2026 2.01"
+          },
+          {
+            "season": 2026,
+            "round": 3,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 3.01 (own)",
+            "baseLabel": "2026 3.01"
+          },
+          {
+            "season": 2026,
+            "round": 4,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 4.01 (own)",
+            "baseLabel": "2026 4.01"
+          },
+          {
+            "season": 2026,
+            "round": 5,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 5.01 (own)",
+            "baseLabel": "2026 5.01"
+          },
+          {
+            "season": 2026,
+            "round": 6,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": 1,
+            "label": "2026 6.01 (own)",
+            "baseLabel": "2026 6.01"
+          },
+          {
+            "season": 2027,
+            "round": 1,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 1st (own)",
+            "baseLabel": "2027 Mid 1st"
+          },
+          {
+            "season": 2027,
+            "round": 2,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 2nd (own)",
+            "baseLabel": "2027 Mid 2nd"
+          },
+          {
+            "season": 2027,
+            "round": 3,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 3rd (own)",
+            "baseLabel": "2027 Mid 3rd"
+          },
+          {
+            "season": 2027,
+            "round": 4,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 4th (own)",
+            "baseLabel": "2027 Mid 4th"
+          },
+          {
+            "season": 2027,
+            "round": 5,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 5th (own)",
+            "baseLabel": "2027 Mid 5th"
+          },
+          {
+            "season": 2027,
+            "round": 6,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2027 Mid 6th (own)",
+            "baseLabel": "2027 Mid 6th"
+          },
+          {
+            "season": 2028,
+            "round": 1,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 1st (own)",
+            "baseLabel": "2028 Mid 1st"
+          },
+          {
+            "season": 2028,
+            "round": 2,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 2nd (own)",
+            "baseLabel": "2028 Mid 2nd"
+          },
+          {
+            "season": 2028,
+            "round": 3,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 3rd (own)",
+            "baseLabel": "2028 Mid 3rd"
+          },
+          {
+            "season": 2028,
+            "round": 4,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 4th (own)",
+            "baseLabel": "2028 Mid 4th"
+          },
+          {
+            "season": 2028,
+            "round": 5,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 5th (own)",
+            "baseLabel": "2028 Mid 5th"
+          },
+          {
+            "season": 2028,
+            "round": 6,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2028 Mid 6th (own)",
+            "baseLabel": "2028 Mid 6th"
+          },
+          {
+            "season": 2029,
+            "round": 1,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2029 Mid 1st (own)",
+            "baseLabel": "2029 Mid 1st"
+          },
+          {
+            "season": 2029,
+            "round": 2,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2029 Mid 2nd (own)",
+            "baseLabel": "2029 Mid 2nd"
+          },
+          {
+            "season": 2029,
+            "round": 3,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2029 Mid 3rd (own)",
+            "baseLabel": "2029 Mid 3rd"
+          },
+          {
+            "season": 2029,
+            "round": 4,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2029 Mid 4th (own)",
+            "baseLabel": "2029 Mid 4th"
+          },
+          {
+            "season": 2029,
+            "round": 5,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
+            "slot": null,
+            "label": "2029 Mid 5th (own)",
+            "baseLabel": "2029 Mid 5th"
+          },
+          {
+            "season": 2029,
+            "round": 6,
+            "fromRosterId": 11,
+            "fromTeam": "jstuedle",
+            "ownerRosterId": 11,
             "slot": null,
             "label": "2029 Mid 6th (own)",
             "baseLabel": "2029 Mid 6th"
@@ -27585,14 +27585,14 @@ window.DYNASTY_DATA = {
         "timestamp": 1779224492723,
         "sides": [
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Brian Thomas",
               "Colby Parkinson",
               "Trevor Lawrence",
-              "2029 Mid 4th (from Team 9)"
+              "2029 Mid 4th (from Brent)"
             ],
             "gave": [
               "Dak Prescott",
@@ -27601,9 +27601,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Dak Prescott",
               "Mark Andrews",
@@ -27613,7 +27613,7 @@ window.DYNASTY_DATA = {
               "Brian Thomas",
               "Colby Parkinson",
               "Trevor Lawrence",
-              "2029 Mid 4th (from Team 9)"
+              "2029 Mid 4th (from Brent)"
             ]
           }
         ]
@@ -27624,9 +27624,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1778634553041,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Brock Bowers"
             ],
@@ -27636,9 +27636,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 6",
+            "team": "Eric",
             "rosterId": 6,
-            "ownerId": "",
+            "ownerId": "609821340567941120",
             "got": [
               "Sam LaPorta",
               "Jeremiyah Love"
@@ -27655,12 +27655,12 @@ window.DYNASTY_DATA = {
         "timestamp": 1778618294745,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "J.J. McCarthy",
-              "2027 Mid 3rd (from Team 12)"
+              "2027 Mid 3rd (from Blaine)"
             ],
             "gave": [
               "Tory Horton",
@@ -27668,16 +27668,16 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 12",
+            "team": "Blaine",
             "rosterId": 12,
-            "ownerId": "",
+            "ownerId": "1303549304882892800",
             "got": [
               "Tory Horton",
               "Chris Brazzell"
             ],
             "gave": [
               "J.J. McCarthy",
-              "2027 Mid 3rd (from Team 12)"
+              "2027 Mid 3rd (from Blaine)"
             ]
           }
         ]
@@ -27688,12 +27688,12 @@ window.DYNASTY_DATA = {
         "timestamp": 1778617629458,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
-              "2029 Mid 2nd (from Team 2)",
-              "2029 Mid 3rd (from Team 2)"
+              "2029 Mid 2nd (from Ed)",
+              "2029 Mid 3rd (from Ed)"
             ],
             "gave": [
               "Dylan Sampson",
@@ -27701,16 +27701,16 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Dylan Sampson",
               "Zach Charbonnet"
             ],
             "gave": [
-              "2029 Mid 2nd (from Team 2)",
-              "2029 Mid 3rd (from Team 2)"
+              "2029 Mid 2nd (from Ed)",
+              "2029 Mid 3rd (from Ed)"
             ]
           }
         ]
@@ -27721,9 +27721,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1778616206229,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Chris Rodriguez",
               "Chris Olave"
@@ -27732,18 +27732,18 @@ window.DYNASTY_DATA = {
               "Jameis Winston",
               "Christian Watson",
               "Josh Downs",
-              "2027 Mid 3rd (from Team 3)"
+              "2027 Mid 3rd (from Ty)"
             ]
           },
           {
-            "team": "Team 5",
+            "team": "MaKayla",
             "rosterId": 5,
-            "ownerId": "",
+            "ownerId": "714912789268865024",
             "got": [
               "Jameis Winston",
               "Christian Watson",
               "Josh Downs",
-              "2027 Mid 3rd (from Team 3)"
+              "2027 Mid 3rd (from Ty)"
             ],
             "gave": [
               "Chris Rodriguez",
@@ -27758,9 +27758,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1778615479532,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Jameis Winston",
               "Marcus Mariota"
@@ -27770,9 +27770,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 3",
+            "team": "Ty",
             "rosterId": 3,
-            "ownerId": "",
+            "ownerId": "473973924808355840",
             "got": [
               "Jalen Milroe"
             ],
@@ -27789,29 +27789,29 @@ window.DYNASTY_DATA = {
         "timestamp": 1778611805475,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Bhayshul Tuten",
               "Josh Downs",
-              "2028 Mid 4th (from Team 2)"
+              "2028 Mid 4th (from Ed)"
             ],
             "gave": [
               "Fernando Mendoza"
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Fernando Mendoza"
             ],
             "gave": [
               "Bhayshul Tuten",
               "Josh Downs",
-              "2028 Mid 4th (from Team 2)"
+              "2028 Mid 4th (from Ed)"
             ]
           }
         ]
@@ -27822,25 +27822,25 @@ window.DYNASTY_DATA = {
         "timestamp": 1778272215906,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
-              "2027 Mid 5th (from Team 2)"
+              "2027 Mid 5th (from Ed)"
             ],
             "gave": [
               "Anthony Richardson"
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Anthony Richardson"
             ],
             "gave": [
-              "2027 Mid 5th (from Team 2)"
+              "2027 Mid 5th (from Ed)"
             ]
           }
         ]
@@ -27851,9 +27851,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1778192654110,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Aaron Jones",
               "Jordan Mason"
@@ -27864,9 +27864,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 5",
+            "team": "MaKayla",
             "rosterId": 5,
-            "ownerId": "",
+            "ownerId": "714912789268865024",
             "got": [
               "Chris Rodriguez",
               "Adonai Mitchell"
@@ -27884,9 +27884,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1777473575165,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Tyler Allgeier",
               "Christian Watson",
@@ -27900,9 +27900,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 12",
+            "team": "Blaine",
             "rosterId": 12,
-            "ownerId": "",
+            "ownerId": "1303549304882892800",
             "got": [
               "Saquon Barkley",
               "Cole Kmet",
@@ -27923,29 +27923,29 @@ window.DYNASTY_DATA = {
         "timestamp": 1777472656621,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Sam LaPorta",
               "Saquon Barkley"
             ],
             "gave": [
-              "2026 3.12 (from Team 2)",
-              "2026 1.09 (from Team 5)",
-              "2026 1.11 (from Team 6)",
-              "2026 2.04 (from Team 7)"
+              "2026 3.12 (from Ed)",
+              "2026 1.09 (from MaKayla)",
+              "2026 1.11 (from Eric)",
+              "2026 2.04 (from Roy)"
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
-              "2026 3.12 (from Team 2)",
-              "2026 1.09 (from Team 5)",
-              "2026 1.11 (from Team 6)",
-              "2026 2.04 (from Team 7)"
+              "2026 3.12 (from Ed)",
+              "2026 1.09 (from MaKayla)",
+              "2026 1.11 (from Eric)",
+              "2026 2.04 (from Roy)"
             ],
             "gave": [
               "Sam LaPorta",
@@ -27960,22 +27960,22 @@ window.DYNASTY_DATA = {
         "timestamp": 1777397022895,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Jauan Jennings"
             ],
             "gave": [
-              "2026 2.06 (from Team 9)"
+              "2026 2.06 (from Brent)"
             ]
           },
           {
-            "team": "Team 3",
+            "team": "Ty",
             "rosterId": 3,
-            "ownerId": "",
+            "ownerId": "473973924808355840",
             "got": [
-              "2026 2.06 (from Team 9)"
+              "2026 2.06 (from Brent)"
             ],
             "gave": [
               "Jauan Jennings"
@@ -27989,33 +27989,33 @@ window.DYNASTY_DATA = {
         "timestamp": 1777108274488,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "T.J. Hockenson",
-              "2026 1.09 (from Team 5)",
-              "2026 1.11 (from Team 6)"
+              "2026 1.09 (from MaKayla)",
+              "2026 1.11 (from Eric)"
             ],
             "gave": [
               "Oronde Gadsden",
               "Sam Darnold",
-              "2026 3.07 (from Team 10)"
+              "2026 3.07 (from Kich)"
             ]
           },
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
               "Oronde Gadsden",
               "Sam Darnold",
-              "2026 3.07 (from Team 10)"
+              "2026 3.07 (from Kich)"
             ],
             "gave": [
               "T.J. Hockenson",
-              "2026 1.09 (from Team 5)",
-              "2026 1.11 (from Team 6)"
+              "2026 1.09 (from MaKayla)",
+              "2026 1.11 (from Eric)"
             ]
           }
         ]
@@ -28026,9 +28026,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1777083381281,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Chris Rodriguez",
               "Oronde Gadsden",
@@ -28042,9 +28042,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Brian Thomas",
               "Harold Fannin",
@@ -28065,13 +28065,13 @@ window.DYNASTY_DATA = {
         "timestamp": 1776182605926,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Emeka Egbuka",
               "Kyler Murray",
-              "2028 Mid 4th (from Team 6)"
+              "2028 Mid 4th (from Eric)"
             ],
             "gave": [
               "Cam Ward",
@@ -28080,9 +28080,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 6",
+            "team": "Eric",
             "rosterId": 6,
-            "ownerId": "",
+            "ownerId": "609821340567941120",
             "got": [
               "Cam Ward",
               "A.J. Brown",
@@ -28091,7 +28091,7 @@ window.DYNASTY_DATA = {
             "gave": [
               "Emeka Egbuka",
               "Kyler Murray",
-              "2028 Mid 4th (from Team 6)"
+              "2028 Mid 4th (from Eric)"
             ]
           }
         ]
@@ -28102,33 +28102,33 @@ window.DYNASTY_DATA = {
         "timestamp": 1775504223484,
         "sides": [
           {
-            "team": "Team 6",
+            "team": "Eric",
             "rosterId": 6,
-            "ownerId": "",
+            "ownerId": "609821340567941120",
             "got": [
               "Ben Sinnott",
               "Brashard Smith",
-              "2027 Mid 5th (from Team 8)"
+              "2027 Mid 5th (from Joey)"
             ],
             "gave": [
               "Ja'Lynn Polk",
               "Isaac TeSlaa",
-              "2026 6.11 (from Team 6)"
+              "2026 6.11 (from Eric)"
             ]
           },
           {
-            "team": "Team 8",
+            "team": "Joey",
             "rosterId": 8,
-            "ownerId": "",
+            "ownerId": "1012114412049731584",
             "got": [
               "Ja'Lynn Polk",
               "Isaac TeSlaa",
-              "2026 6.11 (from Team 6)"
+              "2026 6.11 (from Eric)"
             ],
             "gave": [
               "Ben Sinnott",
               "Brashard Smith",
-              "2027 Mid 5th (from Team 8)"
+              "2027 Mid 5th (from Joey)"
             ]
           }
         ]
@@ -28139,9 +28139,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1775503927913,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Sam Darnold",
               "David Montgomery"
@@ -28152,33 +28152,33 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 5",
+            "team": "MaKayla",
             "rosterId": 5,
-            "ownerId": "",
+            "ownerId": "714912789268865024",
             "got": [
               "Jacory Croskey-Merritt",
               "Jameson Williams",
-              "2026 1.04 (from Team 7)"
+              "2026 1.04 (from Roy)"
             ],
             "gave": [
               "Jalen Hurts",
               "Tyler Allgeier",
-              "2026 3.09 (from Team 5)"
+              "2026 3.09 (from MaKayla)"
             ]
           },
           {
-            "team": "Team 12",
+            "team": "Blaine",
             "rosterId": 12,
-            "ownerId": "",
+            "ownerId": "1303549304882892800",
             "got": [
               "Jalen Hurts",
               "Tyler Allgeier",
-              "2026 3.09 (from Team 5)"
+              "2026 3.09 (from MaKayla)"
             ],
             "gave": [
               "Sam Darnold",
               "David Montgomery",
-              "2026 1.04 (from Team 7)"
+              "2026 1.04 (from Roy)"
             ]
           }
         ]
@@ -28189,9 +28189,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1773251844079,
         "sides": [
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Jalen McMillan",
               "Bhayshul Tuten",
@@ -28203,9 +28203,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Travis Hunter",
               "Kyle Pitts"
@@ -28224,9 +28224,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1773250698516,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Harold Fannin",
               "Cam Ward"
@@ -28237,9 +28237,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Sam LaPorta",
               "Saquon Barkley"
@@ -28257,26 +28257,26 @@ window.DYNASTY_DATA = {
         "timestamp": 1773239870887,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Sam LaPorta"
             ],
             "gave": [
-              "2027 Mid 2nd (from Team 12)",
-              "2028 Mid 1st (from Team 12)",
-              "2027 Mid 3rd (from Team 7)"
+              "2027 Mid 2nd (from Blaine)",
+              "2028 Mid 1st (from Blaine)",
+              "2027 Mid 3rd (from Roy)"
             ]
           },
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
-              "2027 Mid 2nd (from Team 12)",
-              "2028 Mid 1st (from Team 12)",
-              "2027 Mid 3rd (from Team 7)"
+              "2027 Mid 2nd (from Blaine)",
+              "2028 Mid 1st (from Blaine)",
+              "2027 Mid 3rd (from Roy)"
             ],
             "gave": [
               "Sam LaPorta"
@@ -28290,15 +28290,15 @@ window.DYNASTY_DATA = {
         "timestamp": 1773223765646,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Tetairoa McMillan",
-              "2027 Mid 6th (from Team 9)",
-              "2028 Mid 4th (from Team 9)",
-              "2028 Mid 5th (from Team 9)",
-              "2028 Mid 6th (from Team 9)"
+              "2027 Mid 6th (from Brent)",
+              "2028 Mid 4th (from Brent)",
+              "2028 Mid 5th (from Brent)",
+              "2028 Mid 6th (from Brent)"
             ],
             "gave": [
               "Bhayshul Tuten",
@@ -28306,19 +28306,19 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Bhayshul Tuten",
               "Quinshon Judkins"
             ],
             "gave": [
               "Tetairoa McMillan",
-              "2027 Mid 6th (from Team 9)",
-              "2028 Mid 4th (from Team 9)",
-              "2028 Mid 5th (from Team 9)",
-              "2028 Mid 6th (from Team 9)"
+              "2027 Mid 6th (from Brent)",
+              "2028 Mid 4th (from Brent)",
+              "2028 Mid 5th (from Brent)",
+              "2028 Mid 6th (from Brent)"
             ]
           }
         ]
@@ -28329,9 +28329,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1773105210706,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Tua Tagovailoa",
               "Wan'Dale Robinson",
@@ -28345,9 +28345,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 5",
+            "team": "MaKayla",
             "rosterId": 5,
-            "ownerId": "",
+            "ownerId": "714912789268865024",
             "got": [
               "Jack Bech",
               "Efton Chism",
@@ -28368,25 +28368,25 @@ window.DYNASTY_DATA = {
         "timestamp": 1773080844120,
         "sides": [
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
-              "2026 1.09 (from Team 5)"
+              "2026 1.09 (from MaKayla)"
             ],
             "gave": [
               "Travis Etienne"
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Travis Etienne"
             ],
             "gave": [
-              "2026 1.09 (from Team 5)"
+              "2026 1.09 (from MaKayla)"
             ]
           }
         ]
@@ -28397,9 +28397,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1771006682137,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Raheim Sanders",
               "Carson Schwesinger",
@@ -28413,9 +28413,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Drake Thomas",
               "Gunnar Helm",
@@ -28436,9 +28436,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1771006236864,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Cooper DeJean",
               "Andrew Mukuba"
@@ -28448,9 +28448,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
               "Kyle Hamilton"
             ],
@@ -28467,25 +28467,25 @@ window.DYNASTY_DATA = {
         "timestamp": 1770950777193,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
-              "2026 5.11 (from Team 6)"
+              "2026 5.11 (from Eric)"
             ],
             "gave": [
               "Calen Bullock"
             ]
           },
           {
-            "team": "Team 6",
+            "team": "Eric",
             "rosterId": 6,
-            "ownerId": "",
+            "ownerId": "609821340567941120",
             "got": [
               "Calen Bullock"
             ],
             "gave": [
-              "2026 5.11 (from Team 6)"
+              "2026 5.11 (from Eric)"
             ]
           }
         ]
@@ -28496,31 +28496,31 @@ window.DYNASTY_DATA = {
         "timestamp": 1770943501587,
         "sides": [
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "J.K. Dobbins",
               "Josh Downs",
-              "2026 5.06 (from Team 9)",
-              "2026 6.06 (from Team 9)"
+              "2026 5.06 (from Brent)",
+              "2026 6.06 (from Brent)"
             ],
             "gave": [
               "Josh Jacobs"
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Josh Jacobs"
             ],
             "gave": [
               "J.K. Dobbins",
               "Josh Downs",
-              "2026 5.06 (from Team 9)",
-              "2026 6.06 (from Team 9)"
+              "2026 5.06 (from Brent)",
+              "2026 6.06 (from Brent)"
             ]
           }
         ]
@@ -28531,14 +28531,14 @@ window.DYNASTY_DATA = {
         "timestamp": 1770942678173,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Michael Penix",
               "Jameson Williams",
-              "2028 Mid 3rd (from Team 2)",
-              "2026 3.06 (from Team 9)"
+              "2028 Mid 3rd (from Ed)",
+              "2026 3.06 (from Brent)"
             ],
             "gave": [
               "Harold Fannin",
@@ -28546,9 +28546,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Harold Fannin",
               "Daniel Jones"
@@ -28556,8 +28556,8 @@ window.DYNASTY_DATA = {
             "gave": [
               "Michael Penix",
               "Jameson Williams",
-              "2028 Mid 3rd (from Team 2)",
-              "2026 3.06 (from Team 9)"
+              "2028 Mid 3rd (from Ed)",
+              "2026 3.06 (from Brent)"
             ]
           }
         ]
@@ -28568,9 +28568,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1770939888782,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Harold Fannin",
               "Quinshon Judkins",
@@ -28583,9 +28583,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 9",
+            "team": "Brent",
             "rosterId": 9,
-            "ownerId": "",
+            "ownerId": "1002085133723299840",
             "got": [
               "Tetairoa McMillan",
               "Drake London"
@@ -28605,13 +28605,13 @@ window.DYNASTY_DATA = {
         "timestamp": 1770939678550,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Saquon Barkley",
               "Jalen Hurts",
-              "2026 2.08 (from Team 3)"
+              "2026 2.08 (from Ty)"
             ],
             "gave": [
               "TreVeyon Henderson",
@@ -28619,9 +28619,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 3",
+            "team": "Ty",
             "rosterId": 3,
-            "ownerId": "",
+            "ownerId": "473973924808355840",
             "got": [
               "TreVeyon Henderson",
               "Brock Purdy"
@@ -28629,7 +28629,7 @@ window.DYNASTY_DATA = {
             "gave": [
               "Saquon Barkley",
               "Jalen Hurts",
-              "2026 2.08 (from Team 3)"
+              "2026 2.08 (from Ty)"
             ]
           }
         ]
@@ -28640,9 +28640,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1770938621930,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "A.J. Brown",
               "Brock Purdy"
@@ -28653,9 +28653,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 2",
+            "team": "Ed",
             "rosterId": 2,
-            "ownerId": "",
+            "ownerId": "711452264774041600",
             "got": [
               "Cam Ward",
               "Travis Hunter"
@@ -28673,24 +28673,24 @@ window.DYNASTY_DATA = {
         "timestamp": 1770605541938,
         "sides": [
           {
-            "team": "Team 6",
+            "team": "Eric",
             "rosterId": 6,
-            "ownerId": "",
+            "ownerId": "609821340567941120",
             "got": [
               "Kenneth Walker"
             ],
             "gave": [
-              "2026 1.11 (from Team 6)",
-              "2026 3.11 (from Team 6)"
+              "2026 1.11 (from Eric)",
+              "2026 3.11 (from Eric)"
             ]
           },
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
-              "2026 1.11 (from Team 6)",
-              "2026 3.11 (from Team 6)"
+              "2026 1.11 (from Eric)",
+              "2026 3.11 (from Eric)"
             ],
             "gave": [
               "Kenneth Walker"
@@ -28704,24 +28704,24 @@ window.DYNASTY_DATA = {
         "timestamp": 1768473609751,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "TreVeyon Henderson"
             ],
             "gave": [
               "James Conner",
-              "2026 1.04 (from Team 7)"
+              "2026 1.04 (from Roy)"
             ]
           },
           {
-            "team": "Team 12",
+            "team": "Blaine",
             "rosterId": 12,
-            "ownerId": "",
+            "ownerId": "1303549304882892800",
             "got": [
               "James Conner",
-              "2026 1.04 (from Team 7)"
+              "2026 1.04 (from Roy)"
             ],
             "gave": [
               "TreVeyon Henderson"
@@ -28735,35 +28735,35 @@ window.DYNASTY_DATA = {
         "timestamp": 1768187653371,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
-              "2026 1.02 (from Team 12)",
-              "2026 2.02 (from Team 12)",
-              "2027 Mid 1st (from Team 12)",
-              "2027 Mid 2nd (from Team 12)",
-              "2028 Mid 1st (from Team 12)",
-              "2028 Mid 2nd (from Team 12)"
+              "2026 1.02 (from Blaine)",
+              "2026 2.02 (from Blaine)",
+              "2027 Mid 1st (from Blaine)",
+              "2027 Mid 2nd (from Blaine)",
+              "2028 Mid 1st (from Blaine)",
+              "2028 Mid 2nd (from Blaine)"
             ],
             "gave": [
               "Josh Allen"
             ]
           },
           {
-            "team": "Team 12",
+            "team": "Blaine",
             "rosterId": 12,
-            "ownerId": "",
+            "ownerId": "1303549304882892800",
             "got": [
               "Josh Allen"
             ],
             "gave": [
-              "2026 1.02 (from Team 12)",
-              "2026 2.02 (from Team 12)",
-              "2027 Mid 1st (from Team 12)",
-              "2027 Mid 2nd (from Team 12)",
-              "2028 Mid 1st (from Team 12)",
-              "2028 Mid 2nd (from Team 12)"
+              "2026 1.02 (from Blaine)",
+              "2026 2.02 (from Blaine)",
+              "2027 Mid 1st (from Blaine)",
+              "2027 Mid 2nd (from Blaine)",
+              "2028 Mid 1st (from Blaine)",
+              "2028 Mid 2nd (from Blaine)"
             ]
           }
         ]
@@ -28774,9 +28774,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1767903533746,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Brian Thomas"
             ],
@@ -28785,9 +28785,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 4",
+            "team": "Collin",
             "rosterId": 4,
-            "ownerId": "",
+            "ownerId": "831633191830933504",
             "got": [
               "Tucker Kraft"
             ],
@@ -28803,9 +28803,9 @@ window.DYNASTY_DATA = {
         "timestamp": 1767898098076,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Josh Allen"
             ],
@@ -28815,9 +28815,9 @@ window.DYNASTY_DATA = {
             ]
           },
           {
-            "team": "Team 5",
+            "team": "MaKayla",
             "rosterId": 5,
-            "ownerId": "",
+            "ownerId": "714912789268865024",
             "got": [
               "Malik Nabers",
               "Garrett Wilson"
@@ -28834,25 +28834,25 @@ window.DYNASTY_DATA = {
         "timestamp": 1767733917156,
         "sides": [
           {
-            "team": "Team 1",
+            "team": "Jason",
             "rosterId": 1,
-            "ownerId": "",
+            "ownerId": "468418790212759552",
             "got": [
               "Dylan Sampson",
               "Drake London"
             ],
             "gave": [
               "Ladd McConkey",
-              "2027 Mid 1st (from Team 7)"
+              "2027 Mid 1st (from Roy)"
             ]
           },
           {
-            "team": "Team 7",
+            "team": "Roy",
             "rosterId": 7,
-            "ownerId": "",
+            "ownerId": "472206636534984704",
             "got": [
               "Ladd McConkey",
-              "2027 Mid 1st (from Team 7)"
+              "2027 Mid 1st (from Roy)"
             ],
             "gave": [
               "Dylan Sampson",
@@ -31535,7 +31535,7 @@ window.DYNASTY_DATA = {
       }
     ],
     "tradeWindowDays": 365,
-    "tradeWindowStart": "2025-07-04T10:36:28.785587+00:00",
-    "tradeWindowCutoffMs": 1751625388785
+    "tradeWindowStart": "2025-07-04T11:56:41.428790+00:00",
+    "tradeWindowCutoffMs": 1751630201428
   }
 };
