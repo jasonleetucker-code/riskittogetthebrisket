@@ -8,7 +8,7 @@ Drake Maye,8781,6
 Puka Nacua,8479,7
 Brock Bowers,7902,8
 Amon-Ra St. Brown,7362,9
-Jayden Daniels,7301,10
+Jayden Daniels,7302,10
 Caleb Williams,7254,11
 Ashton Jeanty,7197,12
 Justin Jefferson,7130,13
@@ -16,7 +16,7 @@ Lamar Jackson,7107,14
 Trey McBride,6906,15
 Joe Burrow,6865,16
 Jeremiyah Love,6816,17
-Malik Nabers,6528,18
+Malik Nabers,6518,18
 CeeDee Lamb,6424,19
 Justin Herbert,6009,20
 Omarion Hampton,5963,21
@@ -35,7 +35,7 @@ George Pickens,4652,33
 Tyler Warren,4600,34
 Brock Purdy,4538,35
 Emeka Egbuka,4453,36
-Carnell Tate,4363,37
+Carnell Tate,4362,37
 Nico Collins,4300,38
 Christian McCaffrey,4177,39
 Garrett Wilson,4127,40
@@ -54,13 +54,13 @@ A.J. Brown,3802,52
 Chris Olave,3789,53
 Tucker Kraft,3538,54
 Kyren Williams,3535,55
-Jordyn Tyson,3522,56
+Jordyn Tyson,3521,56
 Rashee Rice,3502,57
 C.J. Stroud,3468,58
 Luther Burden,3439,59
 Jared Goff,3431,60
-Marvin Harrison Jr,3423,61
-Rome Odunze,3370,62
+Marvin Harrison Jr,3419,61
+Rome Odunze,3364,62
 DeVonta Smith,3364,63
 Makai Lemon,3324,64
 Zay Flowers,3295,65
@@ -87,8 +87,8 @@ Kenyon Sadiq,2690,85
 Bryce Young,2671,86
 Josh Jacobs,2657,87
 Daniel Jones,2446,88
-Malik Willis,2407,89
-Ty Simpson,2406,90
+Ty Simpson,2407,89
+Malik Willis,2407,90
 Bhayshul Tuten,2360,91
 Omar Cooper,2306,92
 Eli Stowers,2287,93
@@ -138,10 +138,10 @@ Tua Tagovailoa,1629,136
 Shedeur Sanders,1626,137
 Courtland Sutton,1610,138
 Kenneth Gainwell,1605,139
-Chris Bell,1597,140
+Chris Bell,1598,140
 Travis Kelce,1592,141
 Rico Dowdle,1591,142
-Rachaad White,1572,143
+Rachaad White,1573,143
 J.K. Dobbins,1570,144
 Tony Pollard,1564,145
 Jalen Coker,1557,146
@@ -161,8 +161,8 @@ Geno Smith,1461,159
 Khalil Shakir,1443,160
 Aaron Rodgers,1430,161
 Dallas Goedert,1423,162
-Rashid Shaheed,1402,163
-Zachariah Branch,1401,164
+Zachariah Branch,1402,163
+Rashid Shaheed,1402,164
 Dylan Sampson,1398,165
 Tyrone Tracy,1388,166
 Jacoby Brissett,1378,167
@@ -172,8 +172,8 @@ Tre' Harris,1335,170
 Elijah Sarratt,1334,171
 Tank Bigsby,1320,172
 Jordan Mason,1319,173
-Juwan Johnson,1308,174
-Malachi Fields,1307,175
+Malachi Fields,1308,174
+Juwan Johnson,1308,175
 Deshaun Watson,1299,176
 Stefon Diggs,1292,177
 Aaron Jones,1287,178
@@ -191,7 +191,7 @@ Braelon Allen,1202,189
 Jaylin Noel,1196,190
 Tank Dell,1191,191
 Jalen Nailor,1185,192
-Carson Beck,1175,193
+Carson Beck,1176,193
 Emmett Johnson,1172,194
 David Njoku,1172,195
 Tyreek Hill,1159,196
@@ -213,17 +213,17 @@ Jack Bech,1104,211
 Anthony Richardson,1098,212
 MarShawn Lloyd,1085,213
 Kirk Cousins,1079,214
-Jauan Jennings,1064,215
+Jauan Jennings,1065,215
 Mac Jones,1057,216
 Oscar Delp,1040,217
 Mike Washington,1006,218
 Ja'Kobi Lane,995,219
 Pat Bryant,978,220
-Mason Taylor,961,221
-Skyler Bell,956,222
-Jaydon Blue,952,223
-Kaelon Black,950,224
-Eli Raridon,935,225
+Kaelon Black,968,221
+Mason Taylor,961,222
+Skyler Bell,956,223
+Jaydon Blue,952,224
+Eli Raridon,936,225
 Deebo Samuel,928,226
 Elic Ayomanor,922,227
 Dontayvion Wicks,916,228
@@ -295,7 +295,7 @@ Malik Benson,335,293
 Michael Trigg,334,294
 Joe Milton,333,295
 Tyquan Thornton,326,296
-Brashard Smith,325,297
+Brashard Smith,326,297
 Riley Leonard,322,298
 Joe Flacco,322,299
 George Holani,312,300
@@ -312,11 +312,11 @@ Spencer Rattler,262,310
 Malik Davis,250,311
 Jalen Tolbert,250,312
 Jarquez Hunter,246,313
-Colbie Young,244,314
+Colbie Young,245,314
 Cedric Tillman,237,315
 Garrett Nussmeier,226,316
 Keenan Allen,224,317
-Jack Endries,215,318
+Jack Endries,214,318
 Emari Demercado,211,319
 Kendre Miller,205,320
 Devaughn Vele,204,321
@@ -344,7 +344,7 @@ Tyson Bagent,135,342
 Tyler Huntley,129,343
 Will Shipley,127,344
 Roman Hemby,124,345
-Roman Wilson,123,346
+Roman Wilson,124,346
 Erick All,110,347
 Phil Mafah,109,348
 Calvin Austin,109,349
@@ -363,8 +363,8 @@ Olamide Zaccheaus,83,361
 KeAndre Lambert-Smith,81,362
 Michael Carter,80,363
 Jerome Ford,77,364
-Xavier Hutchinson,76,365
-Zonovan Knight,75,366
+Zonovan Knight,75,365
+Xavier Hutchinson,74,366
 Damien Martinez,70,367
 Devin Singletary,69,368
 Dawson Knox,65,369
