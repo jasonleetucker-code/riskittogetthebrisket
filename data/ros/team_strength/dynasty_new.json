@@ -3,9 +3,9 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Brent",
-    "teamRosStrength": 471.76,
-    "startingLineupScore": 592.51,
-    "benchDepthScore": 195.27,
+    "teamRosStrength": 471.85,
+    "startingLineupScore": 592.65,
+    "benchDepthScore": 195.21,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -14,8 +14,8 @@
         "playerId": "4881",
         "canonicalName": "lamar jackson",
         "position": "QB",
-        "rosValue": 60.61,
-        "adjustedValue": 60.61,
+        "rosValue": 60.62,
+        "adjustedValue": 60.62,
         "confidence": 0.764,
         "flagged": null
       },
@@ -24,8 +24,8 @@
         "playerId": "9221",
         "canonicalName": "jahmyr gibbs",
         "position": "RB",
-        "rosValue": 84.73,
-        "adjustedValue": 84.73,
+        "rosValue": 84.75,
+        "adjustedValue": 84.75,
         "confidence": 0.833,
         "flagged": null
       },
@@ -34,8 +34,8 @@
         "playerId": "4034",
         "canonicalName": "christian mccaffrey",
         "position": "RB",
-        "rosValue": 67.25,
-        "adjustedValue": 67.25,
+        "rosValue": 67.27,
+        "adjustedValue": 67.27,
         "confidence": 0.749,
         "flagged": null
       },
@@ -44,9 +44,9 @@
         "playerId": "12517",
         "canonicalName": "colston loveland",
         "position": "TE",
-        "rosValue": 36.04,
-        "adjustedValue": 36.04,
-        "confidence": 0.819,
+        "rosValue": 36.09,
+        "adjustedValue": 36.09,
+        "confidence": 0.82,
         "flagged": null
       },
       {
@@ -54,8 +54,8 @@
         "playerId": "7564",
         "canonicalName": "jamarr chase",
         "position": "WR",
-        "rosValue": 70.22,
-        "adjustedValue": 70.22,
+        "rosValue": 70.24,
+        "adjustedValue": 70.24,
         "confidence": 0.912,
         "flagged": null
       },
@@ -64,9 +64,9 @@
         "playerId": "9488",
         "canonicalName": "jaxon smith njigba",
         "position": "WR",
-        "rosValue": 65.29,
-        "adjustedValue": 65.29,
-        "confidence": 0.898,
+        "rosValue": 65.12,
+        "adjustedValue": 65.12,
+        "confidence": 0.893,
         "flagged": null
       },
       {
@@ -74,9 +74,9 @@
         "playerId": "7569",
         "canonicalName": "nico collins",
         "position": "WR",
-        "rosValue": 50.88,
-        "adjustedValue": 50.88,
-        "confidence": 0.877,
+        "rosValue": 50.84,
+        "adjustedValue": 50.84,
+        "confidence": 0.876,
         "flagged": null
       },
       {
@@ -84,9 +84,9 @@
         "playerId": "8138",
         "canonicalName": "james cook",
         "position": "RB",
-        "rosValue": 60.75,
-        "adjustedValue": 60.75,
-        "confidence": 0.847,
+        "rosValue": 60.78,
+        "adjustedValue": 60.78,
+        "confidence": 0.848,
         "flagged": null
       },
       {
@@ -94,8 +94,8 @@
         "playerId": "5859",
         "canonicalName": "aj brown",
         "position": "WR",
-        "rosValue": 48.76,
-        "adjustedValue": 48.76,
+        "rosValue": 48.79,
+        "adjustedValue": 48.79,
         "confidence": 0.884,
         "flagged": null
       },
@@ -104,9 +104,9 @@
         "playerId": "6904",
         "canonicalName": "jalen hurts",
         "position": "QB",
-        "rosValue": 47.98,
-        "adjustedValue": 47.98,
-        "confidence": 0.856,
+        "rosValue": 48.15,
+        "adjustedValue": 48.15,
+        "confidence": 0.861,
         "flagged": null
       }
     ],
@@ -115,17 +115,17 @@
         "playerId": "5850",
         "canonicalName": "josh jacobs",
         "position": "RB",
-        "rosValue": 44.79,
+        "rosValue": 44.74,
         "depthFactor": 1.0,
-        "depthContribution": 44.79
+        "depthContribution": 44.74
       },
       {
         "playerId": "11632",
         "canonicalName": "malik nabers",
         "position": "WR",
-        "rosValue": 43.2,
+        "rosValue": 43.19,
         "depthFactor": 1.0,
-        "depthContribution": 43.2
+        "depthContribution": 43.19
       },
       {
         "playerId": "8183",
@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 391.99,
-    "startingLineupScore": 490.58,
-    "benchDepthScore": 159.85,
+    "teamRosStrength": 392.19,
+    "startingLineupScore": 490.76,
+    "benchDepthScore": 160.25,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -202,8 +202,8 @@
         "playerId": "11566",
         "canonicalName": "jayden daniels",
         "position": "QB",
-        "rosValue": 59.12,
-        "adjustedValue": 59.12,
+        "rosValue": 59.14,
+        "adjustedValue": 59.14,
         "confidence": 0.82,
         "flagged": null
       },
@@ -212,9 +212,9 @@
         "playerId": "9509",
         "canonicalName": "bijan robinson",
         "position": "RB",
-        "rosValue": 77.27,
-        "adjustedValue": 77.27,
-        "confidence": 0.814,
+        "rosValue": 77.46,
+        "adjustedValue": 77.46,
+        "confidence": 0.82,
         "flagged": null
       },
       {
@@ -222,9 +222,9 @@
         "playerId": "9226",
         "canonicalName": "devon achane",
         "position": "RB",
-        "rosValue": 52.89,
-        "adjustedValue": 52.89,
-        "confidence": 0.896,
+        "rosValue": 52.67,
+        "adjustedValue": 52.67,
+        "confidence": 0.891,
         "flagged": null
       },
       {
@@ -232,8 +232,8 @@
         "playerId": "10859",
         "canonicalName": "sam laporta",
         "position": "TE",
-        "rosValue": 28.23,
-        "adjustedValue": 28.23,
+        "rosValue": 28.25,
+        "adjustedValue": 28.25,
         "confidence": 0.848,
         "flagged": null
       },
@@ -242,9 +242,9 @@
         "playerId": "7547",
         "canonicalName": "amon ra st brown",
         "position": "WR",
-        "rosValue": 57.05,
-        "adjustedValue": 57.05,
-        "confidence": 0.906,
+        "rosValue": 56.95,
+        "adjustedValue": 56.95,
+        "confidence": 0.902,
         "flagged": null
       },
       {
@@ -252,9 +252,9 @@
         "playerId": "6786",
         "canonicalName": "ceedee lamb",
         "position": "WR",
-        "rosValue": 55.8,
-        "adjustedValue": 55.8,
-        "confidence": 0.889,
+        "rosValue": 55.74,
+        "adjustedValue": 55.74,
+        "confidence": 0.887,
         "flagged": null
       },
       {
@@ -262,9 +262,9 @@
         "playerId": "8146",
         "canonicalName": "garrett wilson",
         "position": "WR",
-        "rosValue": 38.66,
-        "adjustedValue": 38.66,
-        "confidence": 0.888,
+        "rosValue": 38.65,
+        "adjustedValue": 38.65,
+        "confidence": 0.887,
         "flagged": null
       },
       {
@@ -272,9 +272,9 @@
         "playerId": "13287",
         "canonicalName": "jeremiyah love",
         "position": "RB",
-        "rosValue": 45.71,
-        "adjustedValue": 45.71,
-        "confidence": 0.886,
+        "rosValue": 45.67,
+        "adjustedValue": 45.67,
+        "confidence": 0.885,
         "flagged": null
       },
       {
@@ -282,9 +282,9 @@
         "playerId": "8148",
         "canonicalName": "jameson williams",
         "position": "WR",
-        "rosValue": 38.32,
-        "adjustedValue": 38.32,
-        "confidence": 0.881,
+        "rosValue": 38.47,
+        "adjustedValue": 38.47,
+        "confidence": 0.886,
         "flagged": null
       },
       {
@@ -292,9 +292,9 @@
         "playerId": "12508",
         "canonicalName": "jaxson dart",
         "position": "QB",
-        "rosValue": 37.53,
-        "adjustedValue": 37.53,
-        "confidence": 0.829,
+        "rosValue": 37.76,
+        "adjustedValue": 37.76,
+        "confidence": 0.835,
         "flagged": null
       }
     ],
@@ -303,49 +303,49 @@
         "playerId": "11620",
         "canonicalName": "rome odunze",
         "position": "WR",
-        "rosValue": 33.59,
+        "rosValue": 33.67,
         "depthFactor": 1.0,
-        "depthContribution": 33.59
+        "depthContribution": 33.67
       },
       {
         "playerId": "11631",
         "canonicalName": "brian thomas",
         "position": "WR",
-        "rosValue": 31.33,
+        "rosValue": 31.35,
         "depthFactor": 0.65,
-        "depthContribution": 20.36
+        "depthContribution": 20.38
       },
       {
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
-        "rosValue": 27.52,
+        "rosValue": 27.51,
         "depthFactor": 0.423,
-        "depthContribution": 11.63
+        "depthContribution": 11.62
       },
       {
         "playerId": "5870",
         "canonicalName": "daniel jones",
         "position": "QB",
-        "rosValue": 26.86,
+        "rosValue": 26.87,
         "depthFactor": 1.0,
-        "depthContribution": 26.86
+        "depthContribution": 26.87
       },
       {
         "playerId": "7594",
         "canonicalName": "chuba hubbard",
         "position": "RB",
-        "rosValue": 25.19,
+        "rosValue": 25.21,
         "depthFactor": 1.0,
-        "depthContribution": 25.19
+        "depthContribution": 25.21
       },
       {
         "playerId": "12481",
         "canonicalName": "cam skattebo",
         "position": "RB",
-        "rosValue": 22.79,
+        "rosValue": 23.22,
         "depthFactor": 0.65,
-        "depthContribution": 14.81
+        "depthContribution": 15.09
       },
       {
         "playerId": "10236",
@@ -379,9 +379,9 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 378.68,
-    "startingLineupScore": 468.36,
-    "benchDepthScore": 174.77,
+    "teamRosStrength": 378.46,
+    "startingLineupScore": 468.12,
+    "benchDepthScore": 174.54,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -397,22 +397,22 @@
       },
       {
         "slot": "RB",
-        "playerId": "9224",
-        "canonicalName": "chase brown",
+        "playerId": "8151",
+        "canonicalName": "kenneth walker",
         "position": "RB",
-        "rosValue": 46.06,
-        "adjustedValue": 46.06,
-        "confidence": 0.887,
+        "rosValue": 45.9,
+        "adjustedValue": 45.9,
+        "confidence": 0.901,
         "flagged": null
       },
       {
         "slot": "RB",
-        "playerId": "8151",
-        "canonicalName": "kenneth walker",
+        "playerId": "9224",
+        "canonicalName": "chase brown",
         "position": "RB",
-        "rosValue": 45.94,
-        "adjustedValue": 45.94,
-        "confidence": 0.903,
+        "rosValue": 45.89,
+        "adjustedValue": 45.89,
+        "confidence": 0.882,
         "flagged": null
       },
       {
@@ -430,8 +430,8 @@
         "playerId": "9493",
         "canonicalName": "puka nacua",
         "position": "WR",
-        "rosValue": 73.15,
-        "adjustedValue": 73.15,
+        "rosValue": 73.17,
+        "adjustedValue": 73.17,
         "confidence": 0.911,
         "flagged": null
       },
@@ -440,9 +440,9 @@
         "playerId": "7526",
         "canonicalName": "jaylen waddle",
         "position": "WR",
-        "rosValue": 36.91,
-        "adjustedValue": 36.91,
-        "confidence": 0.898,
+        "rosValue": 36.99,
+        "adjustedValue": 36.99,
+        "confidence": 0.901,
         "flagged": null
       },
       {
@@ -450,8 +450,8 @@
         "playerId": "12519",
         "canonicalName": "luther burden",
         "position": "WR",
-        "rosValue": 32.57,
-        "adjustedValue": 32.57,
+        "rosValue": 32.58,
+        "adjustedValue": 32.58,
         "confidence": 0.855,
         "flagged": null
       },
@@ -460,8 +460,8 @@
         "playerId": "6790",
         "canonicalName": "dandre swift",
         "position": "RB",
-        "rosValue": 36.2,
-        "adjustedValue": 36.2,
+        "rosValue": 36.19,
+        "adjustedValue": 36.19,
         "confidence": 0.891,
         "flagged": null
       },
@@ -470,9 +470,9 @@
         "playerId": "13279",
         "canonicalName": "carnell tate",
         "position": "WR",
-        "rosValue": 32.13,
-        "adjustedValue": 32.13,
-        "confidence": 0.879,
+        "rosValue": 31.99,
+        "adjustedValue": 31.99,
+        "confidence": 0.875,
         "flagged": null
       },
       {
@@ -480,8 +480,8 @@
         "playerId": "3294",
         "canonicalName": "dak prescott",
         "position": "QB",
-        "rosValue": 45.38,
-        "adjustedValue": 45.38,
+        "rosValue": 45.39,
+        "adjustedValue": 45.39,
         "confidence": 0.837,
         "flagged": null
       }
@@ -491,41 +491,41 @@
         "playerId": "4892",
         "canonicalName": "baker mayfield",
         "position": "QB",
-        "rosValue": 32.57,
+        "rosValue": 32.48,
         "depthFactor": 1.0,
-        "depthContribution": 32.57
+        "depthContribution": 32.48
       },
       {
         "playerId": "5892",
         "canonicalName": "david montgomery",
         "position": "RB",
-        "rosValue": 31.34,
+        "rosValue": 31.26,
         "depthFactor": 1.0,
-        "depthContribution": 31.34
+        "depthContribution": 31.26
       },
       {
         "playerId": "5846",
         "canonicalName": "dk metcalf",
         "position": "WR",
-        "rosValue": 30.96,
+        "rosValue": 30.89,
         "depthFactor": 1.0,
-        "depthContribution": 30.96
+        "depthContribution": 30.89
       },
       {
         "playerId": "13281",
         "canonicalName": "jordyn tyson",
         "position": "WR",
-        "rosValue": 30.6,
+        "rosValue": 30.68,
         "depthFactor": 0.65,
-        "depthContribution": 19.89
+        "depthContribution": 19.94
       },
       {
         "playerId": "12489",
         "canonicalName": "rj harvey",
         "position": "RB",
-        "rosValue": 26.42,
+        "rosValue": 26.39,
         "depthFactor": 0.65,
-        "depthContribution": 17.17
+        "depthContribution": 17.15
       },
       {
         "playerId": "13330",
@@ -539,9 +539,9 @@
         "playerId": "6806",
         "canonicalName": "jk dobbins",
         "position": "RB",
-        "rosValue": 23.09,
+        "rosValue": 23.03,
         "depthFactor": 0.423,
-        "depthContribution": 9.76
+        "depthContribution": 9.73
       },
       {
         "playerId": "12501",
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 341.66,
-    "startingLineupScore": 421.52,
-    "benchDepthScore": 156.47,
+    "teamRosStrength": 341.22,
+    "startingLineupScore": 420.91,
+    "benchDepthScore": 156.45,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -578,9 +578,9 @@
         "playerId": "421",
         "canonicalName": "matthew stafford",
         "position": "QB",
-        "rosValue": 35.77,
-        "adjustedValue": 35.77,
-        "confidence": 0.914,
+        "rosValue": 35.3,
+        "adjustedValue": 35.3,
+        "confidence": 0.929,
         "flagged": null
       },
       {
@@ -588,9 +588,9 @@
         "playerId": "6813",
         "canonicalName": "jonathan taylor",
         "position": "RB",
-        "rosValue": 66.74,
-        "adjustedValue": 66.74,
-        "confidence": 0.863,
+        "rosValue": 66.76,
+        "adjustedValue": 66.76,
+        "confidence": 0.864,
         "flagged": null
       },
       {
@@ -598,8 +598,8 @@
         "playerId": "3198",
         "canonicalName": "derrick henry",
         "position": "RB",
-        "rosValue": 58.0,
-        "adjustedValue": 58.0,
+        "rosValue": 58.03,
+        "adjustedValue": 58.03,
         "confidence": 0.824,
         "flagged": null
       },
@@ -608,9 +608,9 @@
         "playerId": "4217",
         "canonicalName": "george kittle",
         "position": "TE",
-        "rosValue": 28.42,
-        "adjustedValue": 28.42,
-        "confidence": 0.882,
+        "rosValue": 28.53,
+        "adjustedValue": 28.53,
+        "confidence": 0.886,
         "flagged": null
       },
       {
@@ -618,9 +618,9 @@
         "playerId": "6794",
         "canonicalName": "justin jefferson",
         "position": "WR",
-        "rosValue": 48.07,
-        "adjustedValue": 48.07,
-        "confidence": 0.793,
+        "rosValue": 48.02,
+        "adjustedValue": 48.02,
+        "confidence": 0.792,
         "flagged": null
       },
       {
@@ -628,9 +628,9 @@
         "playerId": "9997",
         "canonicalName": "zay flowers",
         "position": "WR",
-        "rosValue": 41.24,
-        "adjustedValue": 41.24,
-        "confidence": 0.908,
+        "rosValue": 41.17,
+        "adjustedValue": 41.17,
+        "confidence": 0.906,
         "flagged": null
       },
       {
@@ -638,9 +638,9 @@
         "playerId": "12514",
         "canonicalName": "emeka egbuka",
         "position": "WR",
-        "rosValue": 37.0,
-        "adjustedValue": 37.0,
-        "confidence": 0.892,
+        "rosValue": 36.96,
+        "adjustedValue": 36.96,
+        "confidence": 0.89,
         "flagged": null
       },
       {
@@ -648,8 +648,8 @@
         "playerId": "8167",
         "canonicalName": "christian watson",
         "position": "WR",
-        "rosValue": 36.6,
-        "adjustedValue": 36.6,
+        "rosValue": 36.61,
+        "adjustedValue": 36.61,
         "confidence": 0.849,
         "flagged": null
       },
@@ -658,9 +658,9 @@
         "playerId": "2133",
         "canonicalName": "davante adams",
         "position": "WR",
-        "rosValue": 34.54,
-        "adjustedValue": 34.54,
-        "confidence": 0.887,
+        "rosValue": 34.47,
+        "adjustedValue": 34.47,
+        "confidence": 0.885,
         "flagged": null
       },
       {
@@ -668,9 +668,9 @@
         "playerId": "5849",
         "canonicalName": "kyler murray",
         "position": "QB",
-        "rosValue": 35.14,
-        "adjustedValue": 35.14,
-        "confidence": 0.904,
+        "rosValue": 35.06,
+        "adjustedValue": 35.06,
+        "confidence": 0.902,
         "flagged": null
       }
     ],
@@ -679,17 +679,17 @@
         "playerId": "6804",
         "canonicalName": "jordan love",
         "position": "QB",
-        "rosValue": 32.44,
+        "rosValue": 32.42,
         "depthFactor": 1.0,
-        "depthContribution": 32.44
+        "depthContribution": 32.42
       },
       {
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 26.84,
+        "rosValue": 26.78,
         "depthFactor": 1.0,
-        "depthContribution": 26.84
+        "depthContribution": 26.78
       },
       {
         "playerId": "5947",
@@ -711,17 +711,17 @@
         "playerId": "8408",
         "canonicalName": "jordan mason",
         "position": "RB",
-        "rosValue": 22.15,
+        "rosValue": 22.19,
         "depthFactor": 1.0,
-        "depthContribution": 22.15
+        "depthContribution": 22.19
       },
       {
         "playerId": "4199",
         "canonicalName": "aaron jones",
         "position": "RB",
-        "rosValue": 21.38,
+        "rosValue": 21.4,
         "depthFactor": 0.65,
-        "depthContribution": 13.9
+        "depthContribution": 13.91
       },
       {
         "playerId": "11646",
@@ -735,7 +735,7 @@
         "playerId": "8136",
         "canonicalName": "rachaad white",
         "position": "RB",
-        "rosValue": 19.38,
+        "rosValue": 19.39,
         "depthFactor": 0.423,
         "depthContribution": 8.19
       }
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 319.15,
-    "startingLineupScore": 397.0,
-    "benchDepthScore": 129.51,
+    "teamRosStrength": 319.26,
+    "startingLineupScore": 397.14,
+    "benchDepthScore": 129.54,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -766,9 +766,9 @@
         "playerId": "11560",
         "canonicalName": "caleb williams",
         "position": "QB",
-        "rosValue": 43.03,
-        "adjustedValue": 43.03,
-        "confidence": 0.832,
+        "rosValue": 43.31,
+        "adjustedValue": 43.31,
+        "confidence": 0.836,
         "flagged": null
       },
       {
@@ -776,9 +776,9 @@
         "playerId": "12527",
         "canonicalName": "ashton jeanty",
         "position": "RB",
-        "rosValue": 53.98,
-        "adjustedValue": 53.98,
-        "confidence": 0.893,
+        "rosValue": 53.84,
+        "adjustedValue": 53.84,
+        "confidence": 0.888,
         "flagged": null
       },
       {
@@ -786,8 +786,8 @@
         "playerId": "7588",
         "canonicalName": "javonte williams",
         "position": "RB",
-        "rosValue": 40.16,
-        "adjustedValue": 40.16,
+        "rosValue": 40.17,
+        "adjustedValue": 40.17,
         "confidence": 0.85,
         "flagged": null
       },
@@ -796,9 +796,9 @@
         "playerId": "11604",
         "canonicalName": "brock bowers",
         "position": "TE",
-        "rosValue": 44.46,
-        "adjustedValue": 44.46,
-        "confidence": 0.843,
+        "rosValue": 44.36,
+        "adjustedValue": 44.36,
+        "confidence": 0.84,
         "flagged": null
       },
       {
@@ -806,9 +806,9 @@
         "playerId": "6801",
         "canonicalName": "tee higgins",
         "position": "WR",
-        "rosValue": 42.83,
-        "adjustedValue": 42.83,
-        "confidence": 0.885,
+        "rosValue": 42.97,
+        "adjustedValue": 42.97,
+        "confidence": 0.89,
         "flagged": null
       },
       {
@@ -816,9 +816,9 @@
         "playerId": "12526",
         "canonicalName": "tetairoa mcmillan",
         "position": "WR",
-        "rosValue": 39.11,
-        "adjustedValue": 39.11,
-        "confidence": 0.868,
+        "rosValue": 39.15,
+        "adjustedValue": 39.15,
+        "confidence": 0.869,
         "flagged": null
       },
       {
@@ -826,9 +826,9 @@
         "playerId": "11628",
         "canonicalName": "marvin harrison",
         "position": "WR",
-        "rosValue": 31.88,
-        "adjustedValue": 31.88,
-        "confidence": 0.905,
+        "rosValue": 31.89,
+        "adjustedValue": 31.89,
+        "confidence": 0.906,
         "flagged": null
       },
       {
@@ -836,9 +836,9 @@
         "playerId": "11584",
         "canonicalName": "bucky irving",
         "position": "RB",
-        "rosValue": 36.45,
-        "adjustedValue": 36.45,
-        "confidence": 0.869,
+        "rosValue": 36.4,
+        "adjustedValue": 36.4,
+        "confidence": 0.868,
         "flagged": null
       },
       {
@@ -846,9 +846,9 @@
         "playerId": "12529",
         "canonicalName": "treveyon henderson",
         "position": "RB",
-        "rosValue": 34.21,
-        "adjustedValue": 34.21,
-        "confidence": 0.886,
+        "rosValue": 34.18,
+        "adjustedValue": 34.18,
+        "confidence": 0.885,
         "flagged": null
       },
       {
@@ -856,8 +856,8 @@
         "playerId": "5045",
         "canonicalName": "courtland sutton",
         "position": "WR",
-        "rosValue": 30.89,
-        "adjustedValue": 30.89,
+        "rosValue": 30.87,
+        "adjustedValue": 30.87,
         "confidence": 0.892,
         "flagged": null
       }
@@ -891,17 +891,17 @@
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
-        "rosValue": 23.01,
+        "rosValue": 23.04,
         "depthFactor": 0.55,
-        "depthContribution": 12.66
+        "depthContribution": 12.67
       },
       {
         "playerId": "11583",
         "canonicalName": "jonathon brooks",
         "position": "RB",
-        "rosValue": 21.53,
+        "rosValue": 21.55,
         "depthFactor": 0.65,
-        "depthContribution": 13.99
+        "depthContribution": 14.01
       },
       {
         "playerId": "10213",
@@ -943,8 +943,8 @@
     "ownerId": "1202064845743071232",
     "rosterId": 10,
     "teamName": "shayden18",
-    "teamRosStrength": 310.27,
-    "startingLineupScore": 385.68,
+    "teamRosStrength": 308.38,
+    "startingLineupScore": 383.05,
     "benchDepthScore": 125.47,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -964,9 +964,9 @@
         "playerId": "4866",
         "canonicalName": "saquon barkley",
         "position": "RB",
-        "rosValue": 54.1,
-        "adjustedValue": 54.1,
-        "confidence": 0.854,
+        "rosValue": 54.02,
+        "adjustedValue": 54.02,
+        "confidence": 0.852,
         "flagged": null
       },
       {
@@ -974,9 +974,9 @@
         "playerId": "12512",
         "canonicalName": "quinshon judkins",
         "position": "RB",
-        "rosValue": 33.76,
-        "adjustedValue": 33.76,
-        "confidence": 0.922,
+        "rosValue": 33.7,
+        "adjustedValue": 33.7,
+        "confidence": 0.92,
         "flagged": null
       },
       {
@@ -984,9 +984,9 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 21.63,
-        "adjustedValue": 21.63,
-        "confidence": 0.961,
+        "rosValue": 19.31,
+        "adjustedValue": 19.31,
+        "confidence": 0.904,
         "flagged": null
       },
       {
@@ -994,9 +994,9 @@
         "playerId": "10229",
         "canonicalName": "rashee rice",
         "position": "WR",
-        "rosValue": 44.21,
-        "adjustedValue": 44.21,
-        "confidence": 0.852,
+        "rosValue": 44.2,
+        "adjustedValue": 44.2,
+        "confidence": 0.851,
         "flagged": null
       },
       {
@@ -1004,8 +1004,8 @@
         "playerId": "8144",
         "canonicalName": "chris olave",
         "position": "WR",
-        "rosValue": 40.07,
-        "adjustedValue": 40.07,
+        "rosValue": 40.08,
+        "adjustedValue": 40.08,
         "confidence": 0.869,
         "flagged": null
       },
@@ -1024,9 +1024,9 @@
         "playerId": "4983",
         "canonicalName": "dj moore",
         "position": "WR",
-        "rosValue": 31.04,
-        "adjustedValue": 31.04,
-        "confidence": 0.901,
+        "rosValue": 31.05,
+        "adjustedValue": 31.05,
+        "confidence": 0.902,
         "flagged": null
       },
       {
@@ -1044,8 +1044,8 @@
         "playerId": "4046",
         "canonicalName": "patrick mahomes",
         "position": "QB",
-        "rosValue": 45.16,
-        "adjustedValue": 45.16,
+        "rosValue": 44.98,
+        "adjustedValue": 44.98,
         "confidence": 0.889,
         "flagged": null
       }
@@ -1055,9 +1055,9 @@
         "playerId": "4037",
         "canonicalName": "chris godwin",
         "position": "WR",
-        "rosValue": 23.71,
+        "rosValue": 23.7,
         "depthFactor": 1.0,
-        "depthContribution": 23.71
+        "depthContribution": 23.7
       },
       {
         "playerId": "4981",
@@ -1079,9 +1079,9 @@
         "playerId": "9228",
         "canonicalName": "bryce young",
         "position": "QB",
-        "rosValue": 22.54,
+        "rosValue": 22.55,
         "depthFactor": 1.0,
-        "depthContribution": 22.54
+        "depthContribution": 22.55
       },
       {
         "playerId": "8205",
@@ -1095,9 +1095,9 @@
         "playerId": "8676",
         "canonicalName": "rashid shaheed",
         "position": "WR",
-        "rosValue": 21.7,
+        "rosValue": 21.69,
         "depthFactor": 0.423,
-        "depthContribution": 9.17
+        "depthContribution": 9.16
       },
       {
         "playerId": "4017",
@@ -1133,9 +1133,9 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 295.64,
-    "startingLineupScore": 357.99,
-    "benchDepthScore": 154.92,
+    "teamRosStrength": 295.52,
+    "startingLineupScore": 357.83,
+    "benchDepthScore": 154.89,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1144,8 +1144,8 @@
         "playerId": "11563",
         "canonicalName": "bo nix",
         "position": "QB",
-        "rosValue": 38.21,
-        "adjustedValue": 38.21,
+        "rosValue": 38.13,
+        "adjustedValue": 38.13,
         "confidence": 0.893,
         "flagged": null
       },
@@ -1154,8 +1154,8 @@
         "playerId": "8150",
         "canonicalName": "kyren williams",
         "position": "RB",
-        "rosValue": 44.72,
-        "adjustedValue": 44.72,
+        "rosValue": 44.69,
+        "adjustedValue": 44.69,
         "confidence": 0.857,
         "flagged": null
       },
@@ -1164,9 +1164,9 @@
         "playerId": "8155",
         "canonicalName": "breece hall",
         "position": "RB",
-        "rosValue": 41.02,
-        "adjustedValue": 41.02,
-        "confidence": 0.913,
+        "rosValue": 41.0,
+        "adjustedValue": 41.0,
+        "confidence": 0.912,
         "flagged": null
       },
       {
@@ -1184,9 +1184,9 @@
         "playerId": "8112",
         "canonicalName": "drake london",
         "position": "WR",
-        "rosValue": 48.9,
-        "adjustedValue": 48.9,
-        "confidence": 0.912,
+        "rosValue": 48.83,
+        "adjustedValue": 48.83,
+        "confidence": 0.911,
         "flagged": null
       },
       {
@@ -1194,9 +1194,9 @@
         "playerId": "5927",
         "canonicalName": "terry mclaurin",
         "position": "WR",
-        "rosValue": 36.49,
-        "adjustedValue": 36.49,
-        "confidence": 0.91,
+        "rosValue": 36.52,
+        "adjustedValue": 36.52,
+        "confidence": 0.911,
         "flagged": null
       },
       {
@@ -1224,8 +1224,8 @@
         "playerId": "9756",
         "canonicalName": "jordan addison",
         "position": "WR",
-        "rosValue": 28.35,
-        "adjustedValue": 28.35,
+        "rosValue": 28.37,
+        "adjustedValue": 28.37,
         "confidence": 0.891,
         "flagged": null
       },
@@ -1234,8 +1234,8 @@
         "playerId": "12545",
         "canonicalName": "tyler shough",
         "position": "QB",
-        "rosValue": 29.26,
-        "adjustedValue": 29.26,
+        "rosValue": 29.25,
+        "adjustedValue": 29.25,
         "confidence": 0.918,
         "flagged": null
       }
@@ -1245,49 +1245,49 @@
         "playerId": "9758",
         "canonicalName": "cj stroud",
         "position": "QB",
-        "rosValue": 27.86,
+        "rosValue": 27.79,
         "depthFactor": 1.0,
-        "depthContribution": 27.86
+        "depthContribution": 27.79
       },
       {
         "playerId": "5967",
         "canonicalName": "tony pollard",
         "position": "RB",
-        "rosValue": 27.6,
+        "rosValue": 27.59,
         "depthFactor": 1.0,
-        "depthContribution": 27.6
+        "depthContribution": 27.59
       },
       {
         "playerId": "11624",
         "canonicalName": "xavier worthy",
         "position": "WR",
-        "rosValue": 27.24,
+        "rosValue": 27.26,
         "depthFactor": 1.0,
-        "depthContribution": 27.24
+        "depthContribution": 27.26
       },
       {
         "playerId": "10222",
         "canonicalName": "jayden reed",
         "position": "WR",
-        "rosValue": 27.05,
+        "rosValue": 27.06,
         "depthFactor": 0.65,
-        "depthContribution": 17.58
+        "depthContribution": 17.59
       },
       {
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 23.56,
+        "rosValue": 23.59,
         "depthFactor": 0.423,
-        "depthContribution": 9.95
+        "depthContribution": 9.97
       },
       {
         "playerId": "11586",
         "canonicalName": "blake corum",
         "position": "RB",
-        "rosValue": 23.39,
+        "rosValue": 23.41,
         "depthFactor": 0.65,
-        "depthContribution": 15.2
+        "depthContribution": 15.22
       },
       {
         "playerId": "12533",
@@ -1301,9 +1301,9 @@
         "playerId": "8110",
         "canonicalName": "jake ferguson",
         "position": "TE",
-        "rosValue": 19.96,
+        "rosValue": 19.95,
         "depthFactor": 1.0,
-        "depthContribution": 19.96
+        "depthContribution": 19.95
       }
     ],
     "unfilledSlots": [],
@@ -1321,8 +1321,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 258.47,
-    "startingLineupScore": 317.55,
+    "teamRosStrength": 258.22,
+    "startingLineupScore": 317.21,
     "benchDepthScore": 110.18,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1332,9 +1332,9 @@
         "playerId": "6797",
         "canonicalName": "justin herbert",
         "position": "QB",
-        "rosValue": 42.81,
-        "adjustedValue": 42.81,
-        "confidence": 0.841,
+        "rosValue": 42.38,
+        "adjustedValue": 42.38,
+        "confidence": 0.835,
         "flagged": null
       },
       {
@@ -1342,9 +1342,9 @@
         "playerId": "12507",
         "canonicalName": "omarion hampton",
         "position": "RB",
-        "rosValue": 47.34,
-        "adjustedValue": 47.34,
-        "confidence": 0.893,
+        "rosValue": 47.31,
+        "adjustedValue": 47.31,
+        "confidence": 0.891,
         "flagged": null
       },
       {
@@ -1352,9 +1352,9 @@
         "playerId": "7543",
         "canonicalName": "travis etienne",
         "position": "RB",
-        "rosValue": 38.98,
-        "adjustedValue": 38.98,
-        "confidence": 0.87,
+        "rosValue": 38.94,
+        "adjustedValue": 38.94,
+        "confidence": 0.869,
         "flagged": null
       },
       {
@@ -1362,9 +1362,9 @@
         "playerId": "5022",
         "canonicalName": "dallas goedert",
         "position": "TE",
-        "rosValue": 21.09,
-        "adjustedValue": 21.09,
-        "confidence": 0.908,
+        "rosValue": 21.14,
+        "adjustedValue": 21.14,
+        "confidence": 0.909,
         "flagged": null
       },
       {
@@ -1372,9 +1372,9 @@
         "playerId": "7525",
         "canonicalName": "devonta smith",
         "position": "WR",
-        "rosValue": 39.14,
-        "adjustedValue": 39.14,
-        "confidence": 0.897,
+        "rosValue": 39.17,
+        "adjustedValue": 39.17,
+        "confidence": 0.898,
         "flagged": null
       },
       {
@@ -1382,9 +1382,9 @@
         "playerId": "9754",
         "canonicalName": "quentin johnston",
         "position": "WR",
-        "rosValue": 28.13,
-        "adjustedValue": 28.13,
-        "confidence": 0.888,
+        "rosValue": 28.17,
+        "adjustedValue": 28.17,
+        "confidence": 0.889,
         "flagged": null
       },
       {
@@ -1412,9 +1412,9 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 23.0,
-        "adjustedValue": 23.0,
-        "confidence": 0.897,
+        "rosValue": 23.06,
+        "adjustedValue": 23.06,
+        "confidence": 0.9,
         "flagged": null
       },
       {
@@ -1422,8 +1422,8 @@
         "playerId": "4943",
         "canonicalName": "sam darnold",
         "position": "QB",
-        "rosValue": 26.01,
-        "adjustedValue": 26.01,
+        "rosValue": 25.99,
+        "adjustedValue": 25.99,
         "confidence": 0.943,
         "flagged": null
       }
@@ -1457,17 +1457,17 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 18.38,
+        "rosValue": 18.4,
         "depthFactor": 1.0,
-        "depthContribution": 18.38
+        "depthContribution": 18.4
       },
       {
         "playerId": "7567",
         "canonicalName": "kenny gainwell",
         "position": "RB",
-        "rosValue": 18.13,
+        "rosValue": 18.11,
         "depthFactor": 1.0,
-        "depthContribution": 18.13
+        "depthContribution": 18.11
       },
       {
         "playerId": "9511",
@@ -1511,9 +1511,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 252.83,
-    "startingLineupScore": 316.51,
-    "benchDepthScore": 83.0,
+    "teamRosStrength": 252.63,
+    "startingLineupScore": 316.23,
+    "benchDepthScore": 83.02,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1522,9 +1522,9 @@
         "playerId": "7523",
         "canonicalName": "trevor lawrence",
         "position": "QB",
-        "rosValue": 43.09,
-        "adjustedValue": 43.09,
-        "confidence": 0.869,
+        "rosValue": 42.83,
+        "adjustedValue": 42.83,
+        "confidence": 0.87,
         "flagged": null
       },
       {
@@ -1532,9 +1532,9 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 29.9,
-        "adjustedValue": 29.9,
-        "confidence": 0.907,
+        "rosValue": 29.71,
+        "adjustedValue": 29.71,
+        "confidence": 0.901,
         "flagged": null
       },
       {
@@ -1542,8 +1542,8 @@
         "playerId": "12490",
         "canonicalName": "bhayshul tuten",
         "position": "RB",
-        "rosValue": 25.9,
-        "adjustedValue": 25.9,
+        "rosValue": 25.91,
+        "adjustedValue": 25.91,
         "confidence": 0.896,
         "flagged": null
       },
@@ -1552,9 +1552,9 @@
         "playerId": "9484",
         "canonicalName": "tucker kraft",
         "position": "TE",
-        "rosValue": 35.55,
-        "adjustedValue": 35.55,
-        "confidence": 0.851,
+        "rosValue": 35.63,
+        "adjustedValue": 35.63,
+        "confidence": 0.854,
         "flagged": null
       },
       {
@@ -1562,9 +1562,9 @@
         "playerId": "8137",
         "canonicalName": "george pickens",
         "position": "WR",
-        "rosValue": 48.34,
-        "adjustedValue": 48.34,
-        "confidence": 0.885,
+        "rosValue": 48.31,
+        "adjustedValue": 48.31,
+        "confidence": 0.884,
         "flagged": null
       },
       {
@@ -1572,8 +1572,8 @@
         "playerId": "11635",
         "canonicalName": "ladd mcconkey",
         "position": "WR",
-        "rosValue": 37.44,
-        "adjustedValue": 37.44,
+        "rosValue": 37.42,
+        "adjustedValue": 37.42,
         "confidence": 0.923,
         "flagged": null
       },
@@ -1582,9 +1582,9 @@
         "playerId": "13294",
         "canonicalName": "makai lemon",
         "position": "WR",
-        "rosValue": 27.84,
-        "adjustedValue": 27.84,
-        "confidence": 0.863,
+        "rosValue": 27.95,
+        "adjustedValue": 27.95,
+        "confidence": 0.866,
         "flagged": null
       },
       {
@@ -1592,8 +1592,8 @@
         "playerId": "12534",
         "canonicalName": "kyle monangai",
         "position": "RB",
-        "rosValue": 24.58,
-        "adjustedValue": 24.58,
+        "rosValue": 24.57,
+        "adjustedValue": 24.57,
         "confidence": 0.909,
         "flagged": null
       },
@@ -1612,9 +1612,9 @@
         "playerId": "12522",
         "canonicalName": "cam ward",
         "position": "QB",
-        "rosValue": 20.14,
-        "adjustedValue": 20.14,
-        "confidence": 0.76,
+        "rosValue": 20.17,
+        "adjustedValue": 20.17,
+        "confidence": 0.761,
         "flagged": null
       }
     ],
@@ -1623,9 +1623,9 @@
         "playerId": "10219",
         "canonicalName": "chris rodriguez",
         "position": "RB",
-        "rosValue": 19.82,
+        "rosValue": 19.84,
         "depthFactor": 1.0,
-        "depthContribution": 19.82
+        "depthContribution": 19.84
       },
       {
         "playerId": "11603",
@@ -1699,9 +1699,9 @@
     "ownerId": "1033502330853302272",
     "rosterId": 8,
     "teamName": "cbonex21",
-    "teamRosStrength": 243.01,
-    "startingLineupScore": 300.37,
-    "benchDepthScore": 93.03,
+    "teamRosStrength": 244.6,
+    "startingLineupScore": 302.57,
+    "benchDepthScore": 93.06,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1710,8 +1710,8 @@
         "playerId": "11564",
         "canonicalName": "drake maye",
         "position": "QB",
-        "rosValue": 58.63,
-        "adjustedValue": 58.63,
+        "rosValue": 58.65,
+        "adjustedValue": 58.65,
         "confidence": 0.773,
         "flagged": null
       },
@@ -1720,9 +1720,9 @@
         "playerId": "8228",
         "canonicalName": "jaylen warren",
         "position": "RB",
-        "rosValue": 27.54,
-        "adjustedValue": 27.54,
-        "confidence": 0.897,
+        "rosValue": 27.5,
+        "adjustedValue": 27.5,
+        "confidence": 0.896,
         "flagged": null
       },
       {
@@ -1730,9 +1730,9 @@
         "playerId": "7021",
         "canonicalName": "rico dowdle",
         "position": "RB",
-        "rosValue": 27.14,
-        "adjustedValue": 27.14,
-        "confidence": 0.881,
+        "rosValue": 27.16,
+        "adjustedValue": 27.16,
+        "confidence": 0.882,
         "flagged": null
       },
       {
@@ -1740,8 +1740,8 @@
         "playerId": "12518",
         "canonicalName": "tyler warren",
         "position": "TE",
-        "rosValue": 34.95,
-        "adjustedValue": 34.95,
+        "rosValue": 34.97,
+        "adjustedValue": 34.97,
         "confidence": 0.856,
         "flagged": null
       },
@@ -1750,9 +1750,9 @@
         "playerId": "10232",
         "canonicalName": "michael wilson",
         "position": "WR",
-        "rosValue": 25.86,
-        "adjustedValue": 25.86,
-        "confidence": 0.908,
+        "rosValue": 25.88,
+        "adjustedValue": 25.88,
+        "confidence": 0.909,
         "flagged": null
       },
       {
@@ -1760,8 +1760,8 @@
         "playerId": "13298",
         "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 24.68,
-        "adjustedValue": 24.68,
+        "rosValue": 24.69,
+        "adjustedValue": 24.69,
         "confidence": 0.867,
         "flagged": null
       },
@@ -1770,9 +1770,9 @@
         "playerId": "8126",
         "canonicalName": "wandale robinson",
         "position": "WR",
-        "rosValue": 22.96,
-        "adjustedValue": 22.96,
-        "confidence": 0.889,
+        "rosValue": 23.06,
+        "adjustedValue": 23.06,
+        "confidence": 0.893,
         "flagged": null
       },
       {
@@ -1780,8 +1780,8 @@
         "playerId": "5012",
         "canonicalName": "mark andrews",
         "position": "TE",
-        "rosValue": 22.79,
-        "adjustedValue": 22.79,
+        "rosValue": 22.8,
+        "adjustedValue": 22.8,
         "confidence": 0.884,
         "flagged": null
       },
@@ -1800,9 +1800,9 @@
         "playerId": "3163",
         "canonicalName": "jared goff",
         "position": "QB",
-        "rosValue": 33.86,
-        "adjustedValue": 33.86,
-        "confidence": 0.928,
+        "rosValue": 35.9,
+        "adjustedValue": 35.9,
+        "confidence": 0.897,
         "flagged": null
       }
     ],
@@ -1811,17 +1811,17 @@
         "playerId": "96",
         "canonicalName": "aaron rodgers",
         "position": "QB",
-        "rosValue": 19.23,
+        "rosValue": 19.25,
         "depthFactor": 1.0,
-        "depthContribution": 19.23
+        "depthContribution": 19.25
       },
       {
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
-        "rosValue": 18.74,
+        "rosValue": 18.75,
         "depthFactor": 1.0,
-        "depthContribution": 18.74
+        "depthContribution": 18.75
       },
       {
         "playerId": "9504",
