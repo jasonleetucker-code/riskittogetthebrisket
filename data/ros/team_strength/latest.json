@@ -542,8 +542,8 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 520.31,
-    "startingLineupScore": 670.65,
+    "teamRosStrength": 520.36,
+    "startingLineupScore": 670.71,
     "benchDepthScore": 152.48,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -673,8 +673,8 @@
         "playerId": "7525",
         "canonicalName": "devonta smith",
         "position": "WR",
-        "rosValue": 39.71,
-        "adjustedValue": 39.71,
+        "rosValue": 39.77,
+        "adjustedValue": 39.77,
         "confidence": 0.912,
         "flagged": null
       },
@@ -810,9 +810,9 @@
     "ownerId": "609821340567941120",
     "rosterId": 6,
     "teamName": "Eric",
-    "teamRosStrength": 493.04,
-    "startingLineupScore": 631.98,
-    "benchDepthScore": 155.61,
+    "teamRosStrength": 493.07,
+    "startingLineupScore": 632.03,
+    "benchDepthScore": 155.6,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -951,8 +951,8 @@
         "playerId": "12519",
         "canonicalName": "luther burden",
         "position": "WR",
-        "rosValue": 33.3,
-        "adjustedValue": 33.3,
+        "rosValue": 33.35,
+        "adjustedValue": 33.35,
         "confidence": 0.875,
         "flagged": null
       },
@@ -1050,9 +1050,9 @@
         "playerId": "11583",
         "canonicalName": "jonathon brooks",
         "position": "RB",
-        "rosValue": 21.83,
+        "rosValue": 21.8,
         "depthFactor": 0.275,
-        "depthContribution": 6.0
+        "depthContribution": 5.99
       },
       {
         "playerId": "5726",
@@ -1081,8 +1081,8 @@
     "ownerId": "714912789268865024",
     "rosterId": 5,
     "teamName": "MaKayla",
-    "teamRosStrength": 485.26,
-    "startingLineupScore": 630.51,
+    "teamRosStrength": 485.06,
+    "startingLineupScore": 630.23,
     "benchDepthScore": 118.31,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1152,9 +1152,9 @@
         "playerId": "12508",
         "canonicalName": "jaxson dart",
         "position": "QB",
-        "rosValue": 38.96,
-        "adjustedValue": 38.96,
-        "confidence": 0.879,
+        "rosValue": 38.85,
+        "adjustedValue": 38.85,
+        "confidence": 0.88,
         "flagged": null
       },
       {
@@ -1202,8 +1202,8 @@
         "playerId": "9997",
         "canonicalName": "zay flowers",
         "position": "WR",
-        "rosValue": 41.29,
-        "adjustedValue": 41.29,
+        "rosValue": 41.34,
+        "adjustedValue": 41.34,
         "confidence": 0.915,
         "flagged": null
       },
@@ -1262,9 +1262,9 @@
         "playerId": "13281",
         "canonicalName": "jordyn tyson",
         "position": "WR",
-        "rosValue": 31.08,
-        "adjustedValue": 31.08,
-        "confidence": 0.877,
+        "rosValue": 30.86,
+        "adjustedValue": 30.86,
+        "confidence": 0.88,
         "flagged": null
       }
     ],
@@ -1352,8 +1352,8 @@
     "ownerId": "831633191830933504",
     "rosterId": 4,
     "teamName": "Collin",
-    "teamRosStrength": 473.31,
-    "startingLineupScore": 613.2,
+    "teamRosStrength": 473.26,
+    "startingLineupScore": 613.13,
     "benchDepthScore": 121.12,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1443,8 +1443,8 @@
         "playerId": "8155",
         "canonicalName": "breece hall",
         "position": "RB",
-        "rosValue": 40.95,
-        "adjustedValue": 40.95,
+        "rosValue": 40.88,
+        "adjustedValue": 40.88,
         "confidence": 0.914,
         "flagged": null
       },
@@ -1622,9 +1622,9 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "Ty",
-    "teamRosStrength": 422.67,
+    "teamRosStrength": 422.68,
     "startingLineupScore": 544.33,
-    "benchDepthScore": 115.29,
+    "benchDepthScore": 115.32,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1814,9 +1814,9 @@
         "playerId": "7567",
         "canonicalName": "kenny gainwell",
         "position": "RB",
-        "rosValue": 18.49,
+        "rosValue": 18.52,
         "depthFactor": 1.0,
-        "depthContribution": 18.49
+        "depthContribution": 18.52
       },
       {
         "playerId": "9508",
@@ -2167,7 +2167,7 @@
     "teamName": "Ed",
     "teamRosStrength": 388.31,
     "startingLineupScore": 492.7,
-    "benchDepthScore": 130.92,
+    "benchDepthScore": 130.91,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2397,9 +2397,9 @@
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
-        "rosValue": 18.78,
+        "rosValue": 18.76,
         "depthFactor": 0.65,
-        "depthContribution": 12.21
+        "depthContribution": 12.19
       },
       {
         "playerId": "9504",
@@ -2436,8 +2436,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 340.95,
-    "startingLineupScore": 433.37,
+    "teamRosStrength": 341.08,
+    "startingLineupScore": 433.55,
     "benchDepthScore": 105.15,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2517,9 +2517,9 @@
         "playerId": "12507",
         "canonicalName": "omarion hampton",
         "position": "RB",
-        "rosValue": 47.77,
-        "adjustedValue": 47.77,
-        "confidence": 0.904,
+        "rosValue": 47.88,
+        "adjustedValue": 47.88,
+        "confidence": 0.903,
         "flagged": null
       },
       {
@@ -2547,9 +2547,9 @@
         "playerId": "11635",
         "canonicalName": "ladd mcconkey",
         "position": "WR",
-        "rosValue": 37.39,
-        "adjustedValue": 37.39,
-        "confidence": 0.922,
+        "rosValue": 37.46,
+        "adjustedValue": 37.46,
+        "confidence": 0.921,
         "flagged": null
       },
       {
