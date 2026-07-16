@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 395.39,
+    "teamRosStrength": 395.41,
     "startingLineupScore": 494.49,
-    "benchDepthScore": 163.08,
+    "benchDepthScore": 163.2,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -335,9 +335,9 @@
         "playerId": "12481",
         "canonicalName": "cam skattebo",
         "position": "RB",
-        "rosValue": 25.81,
+        "rosValue": 25.93,
         "depthFactor": 1.0,
-        "depthContribution": 25.81
+        "depthContribution": 25.93
       },
       {
         "playerId": "7594",
@@ -379,8 +379,8 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 380.07,
-    "startingLineupScore": 470.44,
+    "teamRosStrength": 380.11,
+    "startingLineupScore": 470.49,
     "benchDepthScore": 174.19,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -440,8 +440,8 @@
         "playerId": "7526",
         "canonicalName": "jaylen waddle",
         "position": "WR",
-        "rosValue": 37.14,
-        "adjustedValue": 37.14,
+        "rosValue": 37.19,
+        "adjustedValue": 37.19,
         "confidence": 0.903,
         "flagged": null
       },
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 320.76,
+    "teamRosStrength": 320.75,
     "startingLineupScore": 399.87,
-    "benchDepthScore": 126.97,
+    "benchDepthScore": 126.93,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -891,9 +891,9 @@
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
-        "rosValue": 23.78,
+        "rosValue": 23.72,
         "depthFactor": 0.55,
-        "depthContribution": 13.08
+        "depthContribution": 13.05
       },
       {
         "playerId": "11583",
@@ -1699,8 +1699,8 @@
     "ownerId": "1033502330853302272",
     "rosterId": 8,
     "teamName": "cbonex21",
-    "teamRosStrength": 246.65,
-    "startingLineupScore": 305.3,
+    "teamRosStrength": 246.62,
+    "startingLineupScore": 305.26,
     "benchDepthScore": 93.51,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1760,9 +1760,9 @@
         "playerId": "13298",
         "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 25.22,
-        "adjustedValue": 25.22,
-        "confidence": 0.876,
+        "rosValue": 25.18,
+        "adjustedValue": 25.18,
+        "confidence": 0.877,
         "flagged": null
       },
       {

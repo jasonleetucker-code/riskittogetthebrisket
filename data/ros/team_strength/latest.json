@@ -1081,8 +1081,8 @@
     "ownerId": "714912789268865024",
     "rosterId": 5,
     "teamName": "MaKayla",
-    "teamRosStrength": 485.7,
-    "startingLineupScore": 630.96,
+    "teamRosStrength": 485.74,
+    "startingLineupScore": 631.01,
     "benchDepthScore": 118.95,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1222,8 +1222,8 @@
         "playerId": "7526",
         "canonicalName": "jaylen waddle",
         "position": "WR",
-        "rosValue": 37.14,
-        "adjustedValue": 37.14,
+        "rosValue": 37.19,
+        "adjustedValue": 37.19,
         "confidence": 0.903,
         "flagged": null
       },
@@ -1892,9 +1892,9 @@
     "ownerId": "1208452010173538304",
     "rosterId": 10,
     "teamName": "Kich",
-    "teamRosStrength": 416.63,
-    "startingLineupScore": 537.77,
-    "benchDepthScore": 107.97,
+    "teamRosStrength": 416.61,
+    "startingLineupScore": 537.74,
+    "benchDepthScore": 107.96,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2040,12 +2040,12 @@
       },
       {
         "slot": "FLEX",
-        "playerId": "13298",
-        "canonicalName": "kc concepcion",
+        "playerId": "5872",
+        "canonicalName": "deebo samuel",
         "position": "WR",
-        "rosValue": 25.22,
-        "adjustedValue": 25.22,
-        "confidence": 0.876,
+        "rosValue": 25.19,
+        "adjustedValue": 25.19,
+        "confidence": 0.925,
         "flagged": null
       },
       {
@@ -2081,12 +2081,12 @@
     ],
     "benchDepth": [
       {
-        "playerId": "5872",
-        "canonicalName": "deebo samuel",
+        "playerId": "13298",
+        "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 25.19,
+        "rosValue": 25.18,
         "depthFactor": 1.0,
-        "depthContribution": 25.19
+        "depthContribution": 25.18
       },
       {
         "playerId": "3214",
@@ -2165,9 +2165,9 @@
     "ownerId": "711452264774041600",
     "rosterId": 2,
     "teamName": "Ed",
-    "teamRosStrength": 388.53,
+    "teamRosStrength": 388.52,
     "startingLineupScore": 493.46,
-    "benchDepthScore": 129.11,
+    "benchDepthScore": 129.05,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2357,9 +2357,9 @@
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
-        "rosValue": 23.78,
+        "rosValue": 23.72,
         "depthFactor": 1.0,
-        "depthContribution": 23.78
+        "depthContribution": 23.72
       },
       {
         "playerId": "11533",
@@ -2982,8 +2982,8 @@
     "ownerId": "712035316776669184",
     "rosterId": 11,
     "teamName": "jstuedle",
-    "teamRosStrength": 307.48,
-    "startingLineupScore": 386.42,
+    "teamRosStrength": 307.57,
+    "startingLineupScore": 386.54,
     "benchDepthScore": 107.01,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -3063,9 +3063,9 @@
         "playerId": "12481",
         "canonicalName": "cam skattebo",
         "position": "RB",
-        "rosValue": 25.81,
-        "adjustedValue": 25.81,
-        "confidence": 0.707,
+        "rosValue": 25.93,
+        "adjustedValue": 25.93,
+        "confidence": 0.706,
         "flagged": null
       },
       {
