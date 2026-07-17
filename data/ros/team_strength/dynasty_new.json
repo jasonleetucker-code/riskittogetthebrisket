@@ -191,9 +191,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 395.41,
+    "teamRosStrength": 395.23,
     "startingLineupScore": 494.49,
-    "benchDepthScore": 163.2,
+    "benchDepthScore": 162.19,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -300,28 +300,36 @@
     ],
     "benchDepth": [
       {
-        "playerId": "11620",
-        "canonicalName": "rome odunze",
-        "position": "WR",
-        "rosValue": 33.88,
+        "playerId": "11584",
+        "canonicalName": "bucky irving",
+        "position": "RB",
+        "rosValue": 36.32,
         "depthFactor": 1.0,
-        "depthContribution": 33.88
+        "depthContribution": 36.32
+      },
+      {
+        "playerId": "12529",
+        "canonicalName": "treveyon henderson",
+        "position": "RB",
+        "rosValue": 34.55,
+        "depthFactor": 0.65,
+        "depthContribution": 22.46
       },
       {
         "playerId": "11631",
         "canonicalName": "brian thomas",
         "position": "WR",
         "rosValue": 31.41,
-        "depthFactor": 0.65,
-        "depthContribution": 20.42
+        "depthFactor": 1.0,
+        "depthContribution": 31.41
       },
       {
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
         "rosValue": 27.76,
-        "depthFactor": 0.423,
-        "depthContribution": 11.73
+        "depthFactor": 0.65,
+        "depthContribution": 18.04
       },
       {
         "playerId": "5870",
@@ -332,36 +340,28 @@
         "depthContribution": 27.21
       },
       {
-        "playerId": "12481",
-        "canonicalName": "cam skattebo",
+        "playerId": "7611",
+        "canonicalName": "rhamondre stevenson",
         "position": "RB",
-        "rosValue": 25.93,
-        "depthFactor": 1.0,
-        "depthContribution": 25.93
+        "rosValue": 26.22,
+        "depthFactor": 0.423,
+        "depthContribution": 11.08
       },
       {
         "playerId": "7594",
         "canonicalName": "chuba hubbard",
         "position": "RB",
         "rosValue": 25.37,
-        "depthFactor": 0.65,
-        "depthContribution": 16.49
-      },
-      {
-        "playerId": "10236",
-        "canonicalName": "dalton kincaid",
-        "position": "TE",
-        "rosValue": 21.88,
-        "depthFactor": 1.0,
-        "depthContribution": 21.88
+        "depthFactor": 0.275,
+        "depthContribution": 6.97
       },
       {
         "playerId": "11625",
         "canonicalName": "adonai mitchell",
         "position": "WR",
         "rosValue": 20.61,
-        "depthFactor": 0.275,
-        "depthContribution": 5.66
+        "depthFactor": 0.423,
+        "depthContribution": 8.71
       }
     ],
     "unfilledSlots": [],
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 320.75,
-    "startingLineupScore": 399.87,
-    "benchDepthScore": 126.93,
+    "teamRosStrength": 313.39,
+    "startingLineupScore": 388.81,
+    "benchDepthScore": 130.24,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -823,6 +823,16 @@
       },
       {
         "slot": "WR",
+        "playerId": "11620",
+        "canonicalName": "rome odunze",
+        "position": "WR",
+        "rosValue": 33.88,
+        "adjustedValue": 33.88,
+        "confidence": 0.907,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
         "playerId": "11628",
         "canonicalName": "marvin harrison",
         "position": "WR",
@@ -833,26 +843,6 @@
       },
       {
         "slot": "FLEX",
-        "playerId": "11584",
-        "canonicalName": "bucky irving",
-        "position": "RB",
-        "rosValue": 36.32,
-        "adjustedValue": 36.32,
-        "confidence": 0.872,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
-        "playerId": "12529",
-        "canonicalName": "treveyon henderson",
-        "position": "RB",
-        "rosValue": 34.55,
-        "adjustedValue": 34.55,
-        "confidence": 0.893,
-        "flagged": null
-      },
-      {
-        "slot": "SUPER_FLEX",
         "playerId": "5045",
         "canonicalName": "courtland sutton",
         "position": "WR",
@@ -860,17 +850,19 @@
         "adjustedValue": 30.98,
         "confidence": 0.894,
         "flagged": null
+      },
+      {
+        "slot": "SUPER_FLEX",
+        "playerId": "12481",
+        "canonicalName": "cam skattebo",
+        "position": "RB",
+        "rosValue": 25.93,
+        "adjustedValue": 25.93,
+        "confidence": 0.706,
+        "flagged": null
       }
     ],
     "benchDepth": [
-      {
-        "playerId": "7611",
-        "canonicalName": "rhamondre stevenson",
-        "position": "RB",
-        "rosValue": 26.22,
-        "depthFactor": 1.0,
-        "depthContribution": 26.22
-      },
       {
         "playerId": "5872",
         "canonicalName": "deebo samuel",
@@ -896,12 +888,20 @@
         "depthContribution": 13.05
       },
       {
+        "playerId": "10236",
+        "canonicalName": "dalton kincaid",
+        "position": "TE",
+        "rosValue": 21.88,
+        "depthFactor": 1.0,
+        "depthContribution": 21.88
+      },
+      {
         "playerId": "11583",
         "canonicalName": "jonathon brooks",
         "position": "RB",
         "rosValue": 21.84,
-        "depthFactor": 0.65,
-        "depthContribution": 14.2
+        "depthFactor": 1.0,
+        "depthContribution": 21.84
       },
       {
         "playerId": "10213",
