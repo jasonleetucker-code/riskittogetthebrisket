@@ -3,9 +3,9 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Brent",
-    "teamRosStrength": 475.4,
-    "startingLineupScore": 598.19,
-    "benchDepthScore": 192.78,
+    "teamRosStrength": 475.34,
+    "startingLineupScore": 598.11,
+    "benchDepthScore": 192.77,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -74,9 +74,9 @@
         "playerId": "7569",
         "canonicalName": "nico collins",
         "position": "WR",
-        "rosValue": 50.94,
-        "adjustedValue": 50.94,
-        "confidence": 0.88,
+        "rosValue": 50.86,
+        "adjustedValue": 50.86,
+        "confidence": 0.879,
         "flagged": null
       },
       {
@@ -139,7 +139,7 @@
         "playerId": "2449",
         "canonicalName": "stefon diggs",
         "position": "WR",
-        "rosValue": 26.02,
+        "rosValue": 26.01,
         "depthFactor": 0.65,
         "depthContribution": 16.91
       },
@@ -379,8 +379,8 @@
     "ownerId": "861387883699879936",
     "rosterId": 2,
     "teamName": "Bkesss",
-    "teamRosStrength": 376.19,
-    "startingLineupScore": 469.32,
+    "teamRosStrength": 376.22,
+    "startingLineupScore": 469.37,
     "benchDepthScore": 157.1,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -440,8 +440,8 @@
         "playerId": "7526",
         "canonicalName": "jaylen waddle",
         "position": "WR",
-        "rosValue": 37.15,
-        "adjustedValue": 37.15,
+        "rosValue": 37.2,
+        "adjustedValue": 37.2,
         "confidence": 0.903,
         "flagged": null
       },
@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 342.88,
+    "teamRosStrength": 342.9,
     "startingLineupScore": 422.88,
-    "benchDepthScore": 157.84,
+    "benchDepthScore": 157.92,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -679,9 +679,9 @@
         "playerId": "6804",
         "canonicalName": "jordan love",
         "position": "QB",
-        "rosValue": 33.01,
+        "rosValue": 33.09,
         "depthFactor": 1.0,
-        "depthContribution": 33.01
+        "depthContribution": 33.09
       },
       {
         "playerId": "7553",
@@ -755,9 +755,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 315.45,
+    "teamRosStrength": 315.44,
     "startingLineupScore": 391.45,
-    "benchDepthScore": 131.13,
+    "benchDepthScore": 131.09,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -883,9 +883,9 @@
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
-        "rosValue": 23.95,
+        "rosValue": 23.89,
         "depthFactor": 0.55,
-        "depthContribution": 13.17
+        "depthContribution": 13.14
       },
       {
         "playerId": "10236",
@@ -945,7 +945,7 @@
     "teamName": "shayden18",
     "teamRosStrength": 307.01,
     "startingLineupScore": 382.48,
-    "benchDepthScore": 120.15,
+    "benchDepthScore": 120.14,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1095,9 +1095,9 @@
         "playerId": "4981",
         "canonicalName": "calvin ridley",
         "position": "WR",
-        "rosValue": 18.5,
+        "rosValue": 18.48,
         "depthFactor": 0.423,
-        "depthContribution": 7.82
+        "depthContribution": 7.81
       },
       {
         "playerId": "8205",
@@ -1323,7 +1323,7 @@
     "teamName": "Roy",
     "teamRosStrength": 259.74,
     "startingLineupScore": 320.11,
-    "benchDepthScore": 107.03,
+    "benchDepthScore": 107.02,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1465,9 +1465,9 @@
         "playerId": "3321",
         "canonicalName": "tyreek hill",
         "position": "WR",
-        "rosValue": 16.67,
+        "rosValue": 16.65,
         "depthFactor": 0.65,
-        "depthContribution": 10.84
+        "depthContribution": 10.82
       },
       {
         "playerId": "9511",
@@ -1489,7 +1489,7 @@
         "playerId": "4039",
         "canonicalName": "cooper kupp",
         "position": "WR",
-        "rosValue": 14.67,
+        "rosValue": 14.68,
         "depthFactor": 0.275,
         "depthContribution": 4.03
       }
