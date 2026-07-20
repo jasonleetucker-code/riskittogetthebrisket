@@ -542,9 +542,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 521.82,
-    "startingLineupScore": 674.75,
-    "benchDepthScore": 144.46,
+    "teamRosStrength": 518.23,
+    "startingLineupScore": 670.17,
+    "benchDepthScore": 142.81,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -560,12 +560,12 @@
       },
       {
         "slot": "DB",
-        "playerId": "12597",
-        "canonicalName": "nick emmanwori",
+        "playerId": "10891",
+        "canonicalName": "devon witherspoon",
         "position": "DB",
-        "rosValue": 27.67,
-        "adjustedValue": 27.67,
-        "confidence": 0.898,
+        "rosValue": 23.09,
+        "adjustedValue": 23.09,
+        "confidence": 0.889,
         "flagged": null
       },
       {
@@ -763,14 +763,6 @@
         "depthContribution": 9.98
       },
       {
-        "playerId": "10891",
-        "canonicalName": "devon witherspoon",
-        "position": "DB",
-        "rosValue": 23.09,
-        "depthFactor": 1.0,
-        "depthContribution": 23.09
-      },
-      {
         "playerId": "13276",
         "canonicalName": "omar cooper",
         "position": "WR",
@@ -793,6 +785,14 @@
         "rosValue": 21.46,
         "depthFactor": 0.179,
         "depthContribution": 3.83
+      },
+      {
+        "playerId": "12588",
+        "canonicalName": "kevin winston",
+        "position": "DB",
+        "rosValue": 21.44,
+        "depthFactor": 1.0,
+        "depthContribution": 21.44
       }
     ],
     "unfilledSlots": [],
