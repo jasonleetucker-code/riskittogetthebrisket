@@ -1511,9 +1511,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 254.1,
+    "teamRosStrength": 255.02,
     "startingLineupScore": 318.21,
-    "benchDepthScore": 83.25,
+    "benchDepthScore": 88.39,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1652,14 +1652,6 @@
         "depthContribution": 9.89
       },
       {
-        "playerId": "13311",
-        "canonicalName": "chris bell",
-        "position": "WR",
-        "rosValue": 14.77,
-        "depthFactor": 0.423,
-        "depthContribution": 6.24
-      },
-      {
         "playerId": "12487",
         "canonicalName": "terrance ferguson",
         "position": "TE",
@@ -1672,16 +1664,24 @@
         "canonicalName": "jack bech",
         "position": "WR",
         "rosValue": 14.25,
-        "depthFactor": 0.275,
-        "depthContribution": 3.91
+        "depthFactor": 0.423,
+        "depthContribution": 6.02
       },
       {
         "playerId": "12535",
         "canonicalName": "isaac teslaa",
         "position": "WR",
         "rosValue": 13.15,
-        "depthFactor": 0.179,
-        "depthContribution": 2.35
+        "depthFactor": 0.275,
+        "depthContribution": 3.61
+      },
+      {
+        "playerId": "11571",
+        "canonicalName": "isaiah davis",
+        "position": "RB",
+        "rosValue": 12.32,
+        "depthFactor": 0.65,
+        "depthContribution": 8.01
       }
     ],
     "unfilledSlots": [],
