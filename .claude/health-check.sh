@@ -8,13 +8,21 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 echo "=== SITE HEALTH CHECK ==="
 
-# 1. Test suite
+# 1. Test collection (fast: ~1s)
+# A session-start hook must be quick, so we run collection-only rather than the
+# full suite. Collection catches the failure class worth catching at startup:
+# missing dependencies and import errors (e.g. a missing httpx breaking
+# TestClient). The full suite runs in CI/Linux, where it belongs — running it
+# here would take ~10min and, on Windows, throw environment-only false
+# positives (symlink privilege, /dev/null, cp1252 encoding).
+# The exit code is isolated so `set -e`/`pipefail` can't abort the health check.
 echo ""
-echo "--- Tests ---"
-TEST_OUT=$(python -m pytest tests/ -q --tb=no 2>&1 | tail -1)
-echo "$TEST_OUT"
-if echo "$TEST_OUT" | grep -q "failed"; then
-  echo "ACTION NEEDED: Fix failing tests"
+echo "--- Test Collection ---"
+COLLECT_OUT=$(python -m pytest tests/ -q --co 2>&1) && COLLECT_RC=0 || COLLECT_RC=$?
+echo "$COLLECT_OUT" | tail -1
+if (( COLLECT_RC != 0 )); then
+  echo "ACTION NEEDED: pytest collection failed (rc $COLLECT_RC) — likely a missing dependency or import error:"
+  echo "$COLLECT_OUT" | grep -iE "error|no module named|cannot import" | head -5
 fi
 
 # 2. Scrape data freshness
