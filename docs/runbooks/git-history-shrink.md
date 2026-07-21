@@ -142,7 +142,14 @@ backup taken in preconditions step 4:
 
 ```bash
 cd backup.git   # the --mirror clone taken before the rewrite
+# Same hidden-ref guard as step 4c: the untouched backup can still carry
+# refs/pull/*, which GitHub rejects on a --mirror push — do NOT let that
+# block an emergency restore.
+git for-each-ref --format='delete %(refname)' refs/pull refs/pull-requests \
+  | git update-ref --stdin || true
 git push --force --mirror origin
+# Fallback if a hidden-ref rejection still occurs:
+#   git push --force origin 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
 ```
 
 Then re-sync the prod box and collaborators to the restored history.
