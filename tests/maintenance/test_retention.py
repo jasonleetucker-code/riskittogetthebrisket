@@ -80,6 +80,29 @@ def test_exports_archive_age_cutoff_both_roots(tmp_path):
     assert (tmp_path / "exports" / "archive" / "dynasty_export_fresh.zip").exists()
 
 
+def test_archive_age_derived_from_filename_not_mtime(tmp_path):
+    """Age-based pruning must use the embedded filename timestamp, not
+    mtime.
+
+    A fresh ``actions/checkout`` in CI stamps every tracked file with the
+    checkout time, so mtime-only pruning would leave every committed
+    archive in place forever.  The archive names embed the write time
+    (``dynasty_export_YYYYMMDD_HHMMSS.zip``); that must drive the cutoff.
+    """
+    arch = tmp_path / "exports" / "archive"
+    # Old by NAME (well past the 14d cutoff) but FRESH mtime — the CI
+    # fresh-checkout case.  Must be pruned on the strength of the name.
+    stale = _touch(arch / "dynasty_export_20250101_000000.zip", age_days=0)
+    # Fresh by NAME (1 day before NOW) but ANCIENT mtime — embedded
+    # timestamp must win and keep it.
+    fresh = _touch(arch / "dynasty_export_20250614_000000.zip", age_days=999)
+
+    prune_data_dir(tmp_path, now=NOW)
+
+    assert not stale.exists(), "old embedded timestamp must prune despite fresh mtime"
+    assert fresh.exists(), "recent embedded timestamp must survive despite ancient mtime"
+
+
 def test_raw_sources_keep_newest_30(tmp_path):
     _build_tree(tmp_path)
     prune_data_dir(tmp_path, now=NOW)

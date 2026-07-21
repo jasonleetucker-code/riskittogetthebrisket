@@ -35,11 +35,22 @@ NEVER touched (hard-guarded, not merely un-globbed):
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+
+# Timestamp embedded in generated archive filenames, e.g.
+# ``dynasty_export_20260721_072249.zip`` or
+# ``dynasty_data_20260721T072249Z.json`` — 8 date digits, optionally
+# followed by 6 time digits (any single separator).  Age-based pruning
+# prefers this over ``st_mtime`` because a fresh ``actions/checkout`` in
+# CI stamps every tracked file with the checkout time, which would make
+# every archive look newer than its cutoff and silently never prune.
+_FILENAME_TS_RE = re.compile(r"(\d{8})(?:[._T-]?(\d{6}))?")
 
 # Retention knobs.  Kept as module constants (not env-driven) so the
 # behaviour is identical in tests, CI, and prod — there is no reason to
@@ -176,6 +187,35 @@ def _mtime(p: Path) -> float:
         return 0.0
 
 
+def _embedded_timestamp(p: Path) -> float | None:
+    """Return the epoch of a timestamp embedded in ``p``'s filename, or None.
+
+    Generated archives name themselves with the moment they were written
+    (``dynasty_export_20260721_072249.zip``).  That is a stable age even
+    after a fresh checkout rewrites filesystem mtimes, so age-based
+    pruning must derive the cutoff from it when present.  Returns None for
+    names without a parseable ``YYYYMMDD`` so the caller falls back to
+    ``st_mtime`` (and existing non-timestamped test fixtures keep their
+    mtime-driven behaviour).
+    """
+    m = _FILENAME_TS_RE.search(p.name)
+    if not m:
+        return None
+    stamp = m.group(1) + (m.group(2) or "000000")
+    try:
+        dt = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return dt.timestamp()
+
+
+def _age_source(p: Path) -> float:
+    """Epoch to age an entry by: embedded filename timestamp if present,
+    else filesystem mtime."""
+    embedded = _embedded_timestamp(p)
+    return embedded if embedded is not None else _mtime(p)
+
+
 def _purge_dir_contents(
     directory: Path, protected: list[Path], cat: CategoryResult, *, dry_run: bool
 ) -> None:
@@ -202,7 +242,7 @@ def _prune_by_age(
         return
     cutoff = now - max_age_days * _DAY_SECONDS
     for entry in sorted(directory.glob(pattern)):
-        if _mtime(entry) < cutoff:
+        if _age_source(entry) < cutoff:
             _delete(entry, directory, protected, cat, dry_run=dry_run)
         else:
             cat.kept += 1
