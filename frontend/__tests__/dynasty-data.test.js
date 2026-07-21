@@ -1124,8 +1124,6 @@ describe("source vendor grouping", () => {
     expect(vendorForSource("flockFantasySfRookies")).toBe("flock");
 
     // FBG and DraftSharks each publish SF + IDP — same vendor.
-    expect(vendorForSource("footballGuysSf")).toBe("footballGuys");
-    expect(vendorForSource("footballGuysIdp")).toBe("footballGuys");
     expect(vendorForSource("draftSharks")).toBe("draftSharks");
     expect(vendorForSource("draftSharksIdp")).toBe("draftSharks");
 

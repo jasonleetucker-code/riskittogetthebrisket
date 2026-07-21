@@ -233,7 +233,6 @@ def test_production_config_is_uniform_24h():
         "fantasyCalc",
         "dynastyDaddy",
         "fantasyPros",
-        "footballGuys",
         "yahooBoone",
         "idpShow",
     ):

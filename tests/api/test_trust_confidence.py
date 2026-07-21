@@ -460,7 +460,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # ``ktcSfTep`` alone (the prior 20-source count included both
         # KTC variants as separate blend votes); ``fantasyCalc`` was
         # added 2026-05-13; ``otcffbSf`` added 2026-05-15.
-        self.assertEqual(len(meth["sources"]), 21)
+        self.assertEqual(len(meth["sources"]), 19)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -477,8 +477,6 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "dynastyDaddySf",
                 "fantasyProsIdp",
                 "flockFantasySf",
-                "footballGuysSf",
-                "footballGuysIdp",
                 "yahooBoone",
                 "fantasyProsFitzmaurice",
                 "dlfRookieSf",

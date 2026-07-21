@@ -231,7 +231,6 @@ describe("idpMarketAction", () => {
     if (dlf != null) sourceRanks.dlfIdp = dlf;
     if (ipd != null) sourceRanks.idpShow = ipd;
     if (fp != null) sourceRanks.fantasyProsIdp = fp;
-    if (fbg != null) sourceRanks.footballGuysIdp = fbg;
     if (ds != null) sourceRanks.draftSharksIdp = ds;
     return { assetClass: "idp", pos: "LB", sourceRanks };
   }

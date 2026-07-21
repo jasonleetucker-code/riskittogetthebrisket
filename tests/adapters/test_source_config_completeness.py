@@ -25,8 +25,6 @@ ALLOWED_SOURCES = {
     "FANTASYCALC",
     "OTCFFB_SF",
     "FLOCK_FANTASY_SF",
-    "FOOTBALLGUYS_SF",
-    "FOOTBALLGUYS_IDP",
     "YAHOO_BOONE",
 }
 
@@ -39,8 +37,6 @@ EXPECTED_SCRAPER_EXPORTS = {
     "fantasyCalc.csv",
     "otcffbSf.csv",
     "flockFantasySf.csv",
-    "footballGuysSf.csv",
-    "footballGuysIdp.csv",
     "yahooBoone.csv",
 }
 
@@ -51,8 +47,6 @@ RANK_SIGNAL_SOURCES = {
     "DLF_IDP",
     "FANTASYPROS_SF",
     "FLOCK_FANTASY_SF",
-    "FOOTBALLGUYS_SF",
-    "FOOTBALLGUYS_IDP",
     "YAHOO_BOONE",
 }
 

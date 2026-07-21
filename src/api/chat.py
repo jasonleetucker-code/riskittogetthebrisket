@@ -79,7 +79,7 @@ Source key shortforms:
   dlf = DLF SuperFlex         dlfIdp = DLF IDP
   nerds = Dynasty Nerds SF    dd = Dynasty Daddy SF
   fp = FantasyPros SF         fpIdp = FantasyPros IDP
-  flock = Flock Fantasy       fbg = FootballGuys SF       fbgIdp = FootballGuys IDP
+  flock = Flock Fantasy
   yb = Yahoo / Justin Boone   ds = DraftSharks SF         dsIdp = DraftSharks IDP
   dlfRookSf / dlfRookIdp = DLF rookie-only boards
 
@@ -115,8 +115,6 @@ _SOURCE_SHORT: dict[str, str] = {
     "fantasyProsSf": "fp",
     "fantasyProsIdp": "fpIdp",
     "flockFantasySf": "flock",
-    "footballGuysSf": "fbg",
-    "footballGuysIdp": "fbgIdp",
     "yahooBoone": "yb",
     "draftSharks": "ds",
     "draftSharksIdp": "dsIdp",

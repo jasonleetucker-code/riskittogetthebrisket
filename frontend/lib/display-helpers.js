@@ -295,7 +295,6 @@ const IDP_CONSENSUS_KEYS = new Set([
   "dlfIdp",
   "idpShow",
   "fantasyProsIdp",
-  "footballGuysIdp",
   "draftSharksIdp",
 ]);
 

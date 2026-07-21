@@ -112,24 +112,6 @@ ROS_SOURCES: tuple[dict[str, Any], ...] = (
         "scraper": "src.ros.sources.fantasypros_ros_idp",
         "enabled": True,
     },
-    {
-        "key": "footballGuysRosIdp",
-        "display_name": "Footballguys IDP (ROS proxy)",
-        "source_url": "https://www.footballguys.com/rankings/idp",
-        "source_type": "dynasty_proxy",
-        "scoring_format": "ppr",
-        "is_superflex": False,
-        "is_2qb": False,
-        "is_te_premium": False,
-        "is_idp": True,
-        "is_ros": False,
-        "is_dynasty": True,
-        "is_projection_source": True,
-        "base_weight": 0.85,
-        "stale_after_hours": 168,
-        "scraper": "src.ros.sources.footballguys_ros_idp",
-        "enabled": True,
-    },
     # FantasyPros ROS Overall — the real ROS-specific ECR page.
     # Distinct from ``fantasyProsRosSf`` (which is the dynasty SF
     # page used as a season-long proxy): this targets the live

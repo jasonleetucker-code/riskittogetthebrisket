@@ -71,7 +71,6 @@ _OFFENSE_SIGNAL_KEYS = {
     "ktcSfTep",
     "dlfSf",
     "dynastyNerdsSfTep",
-    "footballGuysSf",
     "yahooBoone",
     "fantasyProsFitzmaurice",
 }
@@ -79,7 +78,6 @@ _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
     "dlfIdp",
     "fantasyProsIdp",
-    "footballGuysIdp",
     "idpShow",
 }
 
@@ -367,21 +365,6 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/flockFantasySfRookies.csv",
         "signal": "rank",
     },
-    # FootballGuys dynasty rankings — 6-expert offense board and
-    # 3-expert IDP board, exported from FootballGuys as a PDF by the
-    # user and converted to CSV via
-    # ``scripts/parse_footballguys_pdf.py``.  The parser splits the
-    # mixed overall ranking by position family, then dense-ranks 1..N
-    # within each universe so downstream rank-signal conversion sees
-    # a contiguous within-universe ordering.  Signal=rank.
-    "footballGuysSf": {
-        "path": "CSVs/site_raw/footballGuysSf.csv",
-        "signal": "rank",
-    },
-    "footballGuysIdp": {
-        "path": "CSVs/site_raw/footballGuysIdp.csv",
-        "signal": "rank",
-    },
     # Yahoo / Justin Boone dynasty trade value charts — scraped from
     # sports.yahoo.com via ``scripts/fetch_yahoo_boone.py``.  The
     # scraper combines Boone's QB (2QB column), RB, WR, and TE
@@ -512,10 +495,6 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "flockFantasySfRookies": 168,
     "dlfIdp": 720,
     "dlfSf": 720,
-    # FootballGuys rankings are a user-managed PDF→CSV export; allow
-    # a generous 30-day staleness window before flagging.
-    "footballGuysSf": 720,
-    "footballGuysIdp": 720,
     # Yahoo / Justin Boone trade value charts refresh ~monthly, so
     # allow a 30-day window; the fetcher also emits its own stale-
     # article warning if Yahoo's redirect chain ever stops resolving.
@@ -559,14 +538,6 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # historical 458-row snapshot) once a stable baseline is observed
     # in production.
     "flockFantasySf": 250,
-    # FootballGuys SF/IDP: after the PDF parse + offense/IDP split,
-    # raw rows are ~548 offense and ~406 IDP.  Actual canonical-name
-    # matches against the live Sleeper player pool are ~470 offense
-    # and ~291 IDP (many FBG-ranked deep veterans / prospects don't
-    # exist in the Sleeper database).  Floors set at ~80% of those
-    # match counts.
-    "footballGuysSf": 375,
-    "footballGuysIdp": 230,
     # Yahoo / Justin Boone charts: a complete QB+RB+WR+TE board is
     # ~450 raw rows that canonicalize to ~425 matches against the
     # Sleeper pool (this floor is checked against canonical matches,
@@ -1373,60 +1344,6 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": False,
         "needs_rookie_translation": True,
         "excludes_rookies": False,
-    },
-    {
-        # FootballGuys Dynasty Rankings — offense half (QB/RB/WR/TE).
-        # Scraped from ``www.footballguys.com/rankings/duration/dynasty``
-        # via ``scripts/fetch_footballguys.py`` using the authenticated
-        # league-synced view (``leagueid=16023``).  FBG natively
-        # publishes offense + IDP on ONE combined consensus rank, and
-        # the scraper preserves that cross-market rank in both this
-        # CSV and the IDP sibling below — so FBG SF rank 1 is Josh
-        # Allen (overall #1) while FBG IDP rank 19 is Jack Campbell
-        # (first IDP, overall #19).  6-expert offense consensus.
-        "key": "footballGuysSf",
-        "display_name": "FootballGuys Dynasty SF",
-        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
-        "position_group": None,
-        # Scraper typically produces ~560 offensive rows; depth=500
-        # for ``_expected_sources_for_position`` coverage expectations.
-        "depth": 500,
-        "weight": 1.0,
-        "is_backbone": False,
-        "is_retail": False,
-        "is_tep_premium": False,
-        "needs_shared_market_translation": False,
-        "excludes_rookies": False,
-        # Contributes to the multi-source cross-market anchor.  FBG
-        # differs from DraftSharks mechanically: FBG's CSV already
-        # carries the cross-market rank (no pre-pass needed), so the
-        # ``effective_rank`` stamped in Phase 1 is the combined rank
-        # directly.  ``_curve_for_source`` routes this through the
-        # GLOBAL Hill master via the ``is_cross_market`` flag.
-        "is_cross_market": True,
-    },
-    {
-        # FootballGuys Dynasty Rankings — IDP half (DL/LB/DB).  Same
-        # scrape as ``footballGuysSf`` but filtered to IDP rows.  3-
-        # expert IDP consensus on FBG's platform; ~440 IDP rows in
-        # the current snapshot.  Every row's ``rank`` column is the
-        # cross-market combined rank (e.g. Jack Campbell rank 19), so
-        # no shared-market translation is needed — the combined rank
-        # already puts FBG's IDPs on the offense+IDP ladder.
-        "key": "footballGuysIdp",
-        "display_name": "FootballGuys Dynasty IDP",
-        "scope": SOURCE_SCOPE_OVERALL_IDP,
-        "position_group": None,
-        "depth": 400,
-        "weight": 1.0,
-        "is_backbone": False,
-        "is_retail": False,
-        # Combined-rank CSV makes shared-market translation redundant;
-        # disabling it prevents the IDP backbone re-mapping from
-        # overwriting FBG's native cross-market rank.
-        "needs_shared_market_translation": False,
-        "excludes_rookies": False,
-        "is_cross_market": True,
     },
     {
         # Yahoo / Justin Boone Dynasty Trade Value Charts — monthly
@@ -3944,7 +3861,7 @@ _MARKET_ANCHOR_FALLBACKS: dict[str, list[str]] = {
         "fantasyProsFitzmaurice",
         "yahooBoone",
     ],
-    "idp": ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp", "footballGuysIdp"],
+    "idp": ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp"],
 }
 
 # Percentile at which we declare a drift "too extreme" and clamp it.

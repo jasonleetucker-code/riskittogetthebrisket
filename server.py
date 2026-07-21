@@ -3570,8 +3570,6 @@ async def get_health():
         "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
         # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
         "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
-        # Scraper POSTs FOOTBALLGUYS_EMAIL/PASSWORD on failure.
-        "footballguys_session.json": {"lifetimeDays": 30, "autoRefresh": True},
         # Substack captcha-gates password login — the ONLY way to
         # refresh these cookies is a manual browser dump.  Banner
         # alarms on this file specifically.
