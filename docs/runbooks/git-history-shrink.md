@@ -92,7 +92,18 @@ git count-objects -vH | grep size-pack
 #     same URL the mirror was cloned from in step 1.
 git remote add origin git@github.com:jasonleetucker-code/riskittogetthebrisket.git
 
+# 4c. Drop any GitHub-owned refs the mirror may carry. `push --mirror`
+#     force-updates EVERY ref under refs/, including read-only
+#     refs/pull/* (PR refs). GitHub rejects those as hidden refs and the
+#     whole push fails. Delete them from the local mirror first so the
+#     push only carries branches and tags.
+git for-each-ref --format='delete %(refname)' refs/pull refs/pull-requests \
+  | git update-ref --stdin || true
+
 # 5. Push the rewritten history. This is the irreversible step.
+#    --mirror so deleted branches are pruned on the remote too. If a
+#    hidden-ref rejection still slips through, push heads + tags only:
+#      git push --force origin 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
 git push --force --mirror origin
 ```
 
