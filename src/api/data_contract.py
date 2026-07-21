@@ -567,17 +567,22 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # match counts.
     "footballGuysSf": 375,
     "footballGuysIdp": 230,
-    # Yahoo / Justin Boone charts: a complete QB+RB+WR+TE board is
-    # ~450 raw rows that canonicalize to ~425 matches against the
-    # Sleeper pool (this floor is checked against canonical matches,
-    # not raw rows).  Boone is scraped as four independent per-position
-    # seed URLs; one silently dropping out (dead redirect / changed
-    # table) removes ~80-90 matches — losing TE alone drops the count
-    # to ~344.  scripts/fetch_yahoo_boone now fails loudly and
-    # preserves the last-good CSV in that case (``_YB_ROW_COUNT_FLOOR``
-    # 400 + per-position ``_YB_MIN_ROWS_PER_POSITION`` 30), so this
-    # contract floor is the second line of defence, not the first.
-    "yahooBoone": 400,
+    # Yahoo / Justin Boone charts: a complete QB+RB+WR+TE board runs
+    # ~500 raw rows at the post-draft April peak, contracting to ~410 in
+    # the deep offseason (all four positions shrink together — a normal
+    # seasonal tail trim, not a dropped seed).  Those canonicalize to
+    # ~380-460 matches against the Sleeper pool (this floor is checked
+    # against canonical matches, not raw rows).  Boone is scraped as four
+    # independent per-position seed URLs; one silently dropping out (dead
+    # redirect / changed table) removes ~80-90 matches.  That vanished-
+    # position failure mode is caught upstream by scripts/fetch_yahoo_boone
+    # (``_YB_ROW_COUNT_FLOOR`` 400 raw + per-position
+    # ``_YB_MIN_ROWS_PER_POSITION`` 30), which fails loudly and preserves
+    # the last-good CSV — so this contract floor is the second line of
+    # defence.  Set at ~80% of the offseason match baseline per the
+    # policy above (the prior 400 sat at ~90%+, tight enough that a
+    # normal offseason contraction false-tripped it).
+    "yahooBoone": 340,
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
