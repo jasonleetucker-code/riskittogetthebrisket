@@ -236,7 +236,6 @@ jobs:
           # The scraper auto-logs-in via Playwright on session refresh
           # when cached cookies are rejected; non-fatal if the site is
           # unreachable so the rest of the pipeline keeps running.
-          run_fetcher footballGuys:footballGuysSf:footballGuysIdp "FootballGuys" python scripts/fetch_footballguys.py
 
           # Fetch DraftSharks league-synced rankings (offense + IDP).
           # DS requires Playwright because league scoring is applied
