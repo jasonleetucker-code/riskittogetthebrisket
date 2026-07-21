@@ -259,7 +259,11 @@ def _prune_keep_newest(
 ) -> None:
     if not directory.is_dir():
         return
-    entries = sorted(directory.glob(pattern), key=_mtime, reverse=True)
+    # Sort by embedded filename timestamp (falling back to mtime) so
+    # "newest N" is stable in a fresh CI checkout, where every file
+    # carries the same checkout-time mtime — mtime-only sorting would
+    # keep an arbitrary N and could delete the newest-by-name snapshots.
+    entries = sorted(directory.glob(pattern), key=_age_source, reverse=True)
     for entry in entries[:keep]:
         cat.kept += 1
     for entry in entries[keep:]:

@@ -103,6 +103,33 @@ def test_archive_age_derived_from_filename_not_mtime(tmp_path):
     assert fresh.exists(), "recent embedded timestamp must survive despite ancient mtime"
 
 
+def test_keep_newest_ranks_by_filename_timestamp_not_mtime(tmp_path):
+    """Keep-newest must rank by embedded filename timestamp, not mtime.
+
+    In a fresh CI checkout every snapshot shares the checkout-time mtime,
+    so mtime-only ranking could keep an arbitrary N and delete the
+    newest-by-name raw history.  Here mtimes are shuffled INVERSELY to the
+    embedded timestamps: if ranking followed mtime the wrong files would
+    survive.
+    """
+    d = tmp_path / "data" / "raw_sources"
+    # 35 snapshots, embedded timestamps ascending 2026-06-01..2026-07-05.
+    # Give the NEWEST-named files the OLDEST mtimes to prove name wins.
+    for i in range(35):
+        day = 1 + i
+        month, dom = (6, day) if day <= 30 else (7, day - 30)
+        name = f"raw_source_snapshot_2026{month:02d}{dom:02d}T120000Z.json"
+        _touch(d / name, age_days=i)  # higher i (newer name) => older mtime
+
+    prune_data_dir(tmp_path, now=NOW)
+    remaining = sorted(p.name for p in d.glob("*.json"))
+    assert len(remaining) == retention.RAW_SOURCES_KEEP
+    # The 30 newest by embedded date (2026-06-06 .. 2026-07-05) survive;
+    # the 5 oldest by name (2026-06-01 .. 2026-06-05) are pruned.
+    assert "raw_source_snapshot_20260705T120000Z.json" in remaining
+    assert "raw_source_snapshot_20260601T120000Z.json" not in remaining
+
+
 def test_raw_sources_keep_newest_30(tmp_path):
     _build_tree(tmp_path)
     prune_data_dir(tmp_path, now=NOW)
