@@ -489,9 +489,27 @@ jobs:
           echo "=== Post-Deploy Smoke Test ==="
           echo "Target: ${URL}"
 
+          # The service is restarted moments before this step runs, so
+          # wait for it to finish loading its first payload before we
+          # probe — a cold-start blip must not false-fail the deploy.
+          echo "Waiting for ${URL}/api/health to become ready…"
+          for _i in $(seq 1 30); do
+            _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
+              --write-out '%{http_code}' "${URL}/api/health" || echo "000")
+            if [[ "${_hc}" == "200" ]]; then
+              echo "  health ready after ~$(( _i * 3 ))s"
+              break
+            fi
+            sleep 3
+          done
+
           check_endpoint "/api/health" 200
           check_endpoint "/api/status" 200
-          check_endpoint "/api/data" 200
+          # /api/data is intentionally gated by _private_api_gate in
+          # server.py — an unauthenticated probe MUST return 401.
+          # Expecting 401 here verifies the auth gate is active; a 200
+          # would mean the gate is broken and private data is exposed.
+          check_endpoint "/api/data" 401
           check_endpoint "/" 200
           check_endpoint "/league" 200
           check_endpoint "/api/public/league" 200
