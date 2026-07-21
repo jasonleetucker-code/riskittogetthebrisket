@@ -1083,7 +1083,7 @@
     "teamName": "MaKayla",
     "teamRosStrength": 485.43,
     "startingLineupScore": 630.35,
-    "benchDepthScore": 119.86,
+    "benchDepthScore": 119.87,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1321,7 +1321,7 @@
         "playerId": "3257",
         "canonicalName": "jacoby brissett",
         "position": "QB",
-        "rosValue": 20.43,
+        "rosValue": 20.44,
         "depthFactor": 0.55,
         "depthContribution": 11.24
       },
@@ -2436,9 +2436,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 342.2,
-    "startingLineupScore": 435.13,
-    "benchDepthScore": 105.06,
+    "teamRosStrength": 342.21,
+    "startingLineupScore": 435.14,
+    "benchDepthScore": 105.07,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2587,8 +2587,8 @@
         "playerId": "4950",
         "canonicalName": "christian kirk",
         "position": "WR",
-        "rosValue": 13.07,
-        "adjustedValue": 13.07,
+        "rosValue": 13.08,
+        "adjustedValue": 13.08,
         "confidence": 0.969,
         "flagged": null
       },
@@ -2665,6 +2665,14 @@
         "depthContribution": 4.27
       },
       {
+        "playerId": "5848",
+        "canonicalName": "marquise brown",
+        "position": "WR",
+        "rosValue": 12.08,
+        "depthFactor": 1.0,
+        "depthContribution": 12.08
+      },
+      {
         "playerId": "4147",
         "canonicalName": "samaje perine",
         "position": "RB",
@@ -2673,20 +2681,12 @@
         "depthContribution": 12.07
       },
       {
-        "playerId": "5848",
-        "canonicalName": "marquise brown",
-        "position": "WR",
-        "rosValue": 12.07,
-        "depthFactor": 1.0,
-        "depthContribution": 12.07
-      },
-      {
         "playerId": "7528",
         "canonicalName": "najee harris",
         "position": "RB",
-        "rosValue": 11.89,
+        "rosValue": 11.9,
         "depthFactor": 0.65,
-        "depthContribution": 7.73
+        "depthContribution": 7.74
       }
     ],
     "unfilledSlots": [],
@@ -2707,9 +2707,9 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "Blaine",
-    "teamRosStrength": 338.85,
-    "startingLineupScore": 434.63,
-    "benchDepthScore": 88.41,
+    "teamRosStrength": 338.87,
+    "startingLineupScore": 434.65,
+    "benchDepthScore": 88.44,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2848,8 +2848,8 @@
         "playerId": "4137",
         "canonicalName": "james conner",
         "position": "RB",
-        "rosValue": 13.37,
-        "adjustedValue": 13.37,
+        "rosValue": 13.39,
+        "adjustedValue": 13.39,
         "confidence": 0.852,
         "flagged": null
       },
@@ -2899,9 +2899,9 @@
         "playerId": "96",
         "canonicalName": "aaron rodgers",
         "position": "QB",
-        "rosValue": 19.8,
+        "rosValue": 19.81,
         "depthFactor": 1.0,
-        "depthContribution": 19.8
+        "depthContribution": 19.81
       },
       {
         "playerId": "11682",
@@ -2939,9 +2939,9 @@
         "playerId": "13302",
         "canonicalName": "adam randall",
         "position": "RB",
-        "rosValue": 10.25,
+        "rosValue": 10.27,
         "depthFactor": 1.0,
-        "depthContribution": 10.25
+        "depthContribution": 10.27
       },
       {
         "playerId": "8343",

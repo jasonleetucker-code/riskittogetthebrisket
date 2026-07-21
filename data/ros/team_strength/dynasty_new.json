@@ -1701,7 +1701,7 @@
     "teamName": "cbonex21",
     "teamRosStrength": 247.54,
     "startingLineupScore": 306.47,
-    "benchDepthScore": 93.78,
+    "benchDepthScore": 93.79,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1811,9 +1811,9 @@
         "playerId": "96",
         "canonicalName": "aaron rodgers",
         "position": "QB",
-        "rosValue": 19.8,
+        "rosValue": 19.81,
         "depthFactor": 1.0,
-        "depthContribution": 19.8
+        "depthContribution": 19.81
       },
       {
         "playerId": "11618",
@@ -1867,7 +1867,7 @@
         "playerId": "9506",
         "canonicalName": "sean tucker",
         "position": "RB",
-        "rosValue": 15.04,
+        "rosValue": 15.05,
         "depthFactor": 0.65,
         "depthContribution": 9.78
       }
