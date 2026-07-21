@@ -37,10 +37,10 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.player_valuation import (
+from src.canonical.player_valuation import (  # noqa: E402  (import follows sys.path bootstrap above)
     percentile_to_value,  # kept for shape invariants
 )
-from src.api.data_contract import _PERCENTILE_REFERENCE_N
+from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: E402
 
 
 KTC_CSV = REPO / "CSVs" / "site_raw" / "ktc.csv"
