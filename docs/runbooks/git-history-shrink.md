@@ -85,6 +85,13 @@ git filter-repo --force \
 # 4. Verify: repo should be dramatically smaller.
 git count-objects -vH | grep size-pack
 
+# 4b. Re-add origin. git-filter-repo REMOVES the origin remote after a
+#     full-history rewrite (a deliberate safety measure so you can't
+#     fat-finger a push before verifying). Without this, step 5 fails
+#     with "'origin' does not appear to be a git repository". Use the
+#     same URL the mirror was cloned from in step 1.
+git remote add origin git@github.com:jasonleetucker-code/riskittogetthebrisket.git
+
 # 5. Push the rewritten history. This is the irreversible step.
 git push --force --mirror origin
 ```
