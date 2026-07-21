@@ -567,8 +567,8 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 343.06,
-    "startingLineupScore": 423.05,
+    "teamRosStrength": 346.61,
+    "startingLineupScore": 427.98,
     "benchDepthScore": 158.14,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -618,9 +618,9 @@
         "playerId": "6794",
         "canonicalName": "justin jefferson",
         "position": "WR",
-        "rosValue": 47.97,
-        "adjustedValue": 47.97,
-        "confidence": 0.792,
+        "rosValue": 52.9,
+        "adjustedValue": 52.9,
+        "confidence": 0.873,
         "flagged": null
       },
       {
@@ -1511,9 +1511,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 255.02,
+    "teamRosStrength": 254.99,
     "startingLineupScore": 318.21,
-    "benchDepthScore": 88.39,
+    "benchDepthScore": 88.24,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1655,9 +1655,9 @@
         "playerId": "12487",
         "canonicalName": "terrance ferguson",
         "position": "TE",
-        "rosValue": 14.55,
+        "rosValue": 14.29,
         "depthFactor": 0.55,
-        "depthContribution": 8.0
+        "depthContribution": 7.86
       },
       {
         "playerId": "12483",
@@ -1701,7 +1701,7 @@
     "teamName": "cbonex21",
     "teamRosStrength": 247.76,
     "startingLineupScore": 306.77,
-    "benchDepthScore": 93.8,
+    "benchDepthScore": 93.83,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1827,17 +1827,17 @@
         "playerId": "9504",
         "canonicalName": "kayshon boutte",
         "position": "WR",
-        "rosValue": 18.67,
+        "rosValue": 18.69,
         "depthFactor": 0.65,
-        "depthContribution": 12.14
+        "depthContribution": 12.15
       },
       {
         "playerId": "9508",
         "canonicalName": "tyjae spears",
         "position": "RB",
-        "rosValue": 18.46,
+        "rosValue": 18.47,
         "depthFactor": 1.0,
-        "depthContribution": 18.46
+        "depthContribution": 18.47
       },
       {
         "playerId": "6149",
