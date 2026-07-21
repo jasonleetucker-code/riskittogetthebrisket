@@ -34,7 +34,9 @@ NEVER touched (hard-guarded, not merely un-globbed):
 
 from __future__ import annotations
 
+import argparse
 import shutil
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -297,3 +299,58 @@ def prune_data_dir(
     )
 
     return report
+
+
+# ──────────────────────────────────────────────────────────────────────
+# CLI entrypoint
+#
+# ``server.py`` calls ``prune_data_dir`` best-effort at scrape-end so the
+# prod box's local disk stays bounded.  The GitHub Actions
+# ``scheduled-refresh.yml`` job, however, scrapes and ``git add -f``s the
+# raw trees directly WITHOUT booting the server, so those working-tree
+# deletions never reached a commit and the tracked snapshots grew
+# unbounded.  This entrypoint lets the workflow run the identical policy
+# right before its commit step so the pruned state is what gets recorded.
+# ──────────────────────────────────────────────────────────────────────
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m src.maintenance.retention",
+        description=(
+            "Prune regenerable data/ and exports/ archives per the module "
+            "retention policy (keep newest N raw snapshots, age out zips, "
+            "etc.).  Never touches load-bearing paths."
+        ),
+    )
+    parser.add_argument(
+        "--base-dir",
+        type=Path,
+        default=_REPO_ROOT,
+        help="Repository root containing data/ and exports/ (default: repo root).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be pruned without deleting anything.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if any per-entry deletion error was counted.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+    report = prune_data_dir(args.base_dir, dry_run=args.dry_run)
+    print(f"retention: {report.summary()}")
+    if args.strict and report.total_errors:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -78,6 +78,14 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # Baselined 2026-04-20 against CSVs/site_raw/ktc.csv after the Final
 # Framework PR 3 transition to percentile-input Hill.
 #
+# Top-tier centers (ranks 5/12/24) re-baselined 2026-07-21: our Hill
+# curve is unchanged (``ours_expected`` still matches
+# ``percentile_to_value`` exactly at every rank), but KTC's live top-of-
+# board drifted over the intervening ~3 months, pushing rank 24 past its
+# ±3pp band and leaving 5/12 within ~1pp of theirs.  Per the maintenance
+# note above this is case (1) — KTC drift, not a curve re-fit — so the
+# affected pct centers are re-centered to the current fixture snapshot.
+#
 # ``ours_expected`` is the exact integer
 # ``percentile_to_value(p)`` output where
 # ``p = (rank − 1) / (_PERCENTILE_REFERENCE_N − 1)``.  Because
@@ -105,9 +113,9 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # ──────────────────────────────────────────────────────────────────────
 PINNED_DELTAS: list[tuple[int, int, float, float]] = [
     (1, 9999, 0.0, 3.0),
-    (5, 9544, -0.7, 3.0),
-    (12, 8675, 10.9, 3.0),
-    (24, 7371, 9.9, 3.0),
+    (5, 9544, 2.2, 3.0),
+    (12, 8675, 13.0, 3.0),
+    (24, 7371, 14.3, 3.0),
     (50, 5402, 3.1, 3.0),
     (100, 3436, -6.5, 5.0),
     (150, 2465, -12.5, 5.0),

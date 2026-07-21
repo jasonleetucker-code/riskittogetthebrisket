@@ -375,6 +375,21 @@ jobs:
           set -Eeuo pipefail
           python scripts/validate_scrape_sanity.py
 
+      - name: Prune regenerable archives (retention)
+        # ``server.py`` runs this same policy best-effort at scrape-end
+        # on the prod box, but this workflow scrapes and ``git add -f``s
+        # the raw trees WITHOUT booting the server — so without an
+        # explicit prune here the tracked raw_sources/raw snapshots grow
+        # unbounded (they had reached ~640MB).  Running it before the
+        # ``git add`` below means the working-tree deletions are staged
+        # and committed alongside the fresh snapshot.  Best-effort: a
+        # prune hiccup must never block shipping a good scrape, so this
+        # is non-strict and ``|| true``-guarded.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m src.maintenance.retention || true
+
       - name: Commit updated data
         shell: bash
         run: |
