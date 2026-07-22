@@ -2684,9 +2684,9 @@
         "playerId": "4147",
         "canonicalName": "samaje perine",
         "position": "RB",
-        "rosValue": 11.93,
+        "rosValue": 11.94,
         "depthFactor": 0.65,
-        "depthContribution": 7.75
+        "depthContribution": 7.76
       },
       {
         "playerId": "9757",
@@ -2717,9 +2717,9 @@
     "ownerId": "1303549304882892800",
     "rosterId": 12,
     "teamName": "Blaine",
-    "teamRosStrength": 316.57,
+    "teamRosStrength": 316.58,
     "startingLineupScore": 407.83,
-    "benchDepthScore": 71.84,
+    "benchDepthScore": 71.93,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2925,9 +2925,9 @@
         "playerId": "4177",
         "canonicalName": "mack hollins",
         "position": "WR",
-        "rosValue": 10.4,
+        "rosValue": 10.41,
         "depthFactor": 1.0,
-        "depthContribution": 10.4
+        "depthContribution": 10.41
       },
       {
         "playerId": "13302",
@@ -2946,20 +2946,20 @@
         "depthContribution": 6.03
       },
       {
+        "playerId": "13411",
+        "canonicalName": "zavion thomas",
+        "position": "WR",
+        "rosValue": 8.52,
+        "depthFactor": 0.423,
+        "depthContribution": 3.6
+      },
+      {
         "playerId": "13423",
         "canonicalName": "eli heidenreich",
         "position": "RB",
         "rosValue": 8.38,
         "depthFactor": 0.65,
         "depthContribution": 5.45
-      },
-      {
-        "playerId": "13411",
-        "canonicalName": "zavion thomas",
-        "position": "WR",
-        "rosValue": 8.32,
-        "depthFactor": 0.423,
-        "depthContribution": 3.52
       },
       {
         "playerId": "6826",
