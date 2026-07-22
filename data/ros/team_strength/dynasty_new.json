@@ -191,8 +191,8 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 396.19,
-    "startingLineupScore": 495.64,
+    "teamRosStrength": 396.21,
+    "startingLineupScore": 495.67,
     "benchDepthScore": 162.94,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -292,9 +292,9 @@
         "playerId": "12508",
         "canonicalName": "jaxson dart",
         "position": "QB",
-        "rosValue": 39.48,
-        "adjustedValue": 39.48,
-        "confidence": 0.89,
+        "rosValue": 39.51,
+        "adjustedValue": 39.51,
+        "confidence": 0.891,
         "flagged": null
       }
     ],
@@ -567,8 +567,8 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 346.56,
-    "startingLineupScore": 427.88,
+    "teamRosStrength": 346.49,
+    "startingLineupScore": 427.78,
     "benchDepthScore": 158.25,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -608,9 +608,9 @@
         "playerId": "4217",
         "canonicalName": "george kittle",
         "position": "TE",
-        "rosValue": 28.64,
-        "adjustedValue": 28.64,
-        "confidence": 0.895,
+        "rosValue": 28.54,
+        "adjustedValue": 28.54,
+        "confidence": 0.896,
         "flagged": null
       },
       {
@@ -1111,9 +1111,9 @@
         "playerId": "8154",
         "canonicalName": "brian robinson",
         "position": "RB",
-        "rosValue": 17.7,
+        "rosValue": 17.69,
         "depthFactor": 0.423,
-        "depthContribution": 7.48
+        "depthContribution": 7.47
       }
     ],
     "unfilledSlots": [],
@@ -1133,8 +1133,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 291.36,
-    "startingLineupScore": 353.36,
+    "teamRosStrength": 291.39,
+    "startingLineupScore": 353.4,
     "benchDepthScore": 149.66,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1204,8 +1204,8 @@
         "playerId": "9756",
         "canonicalName": "jordan addison",
         "position": "WR",
-        "rosValue": 28.82,
-        "adjustedValue": 28.82,
+        "rosValue": 28.86,
+        "adjustedValue": 28.86,
         "confidence": 0.907,
         "flagged": null
       },
@@ -1511,9 +1511,9 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 254.25,
-    "startingLineupScore": 318.64,
-    "benchDepthScore": 82.38,
+    "teamRosStrength": 254.28,
+    "startingLineupScore": 318.68,
+    "benchDepthScore": 82.37,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1532,8 +1532,8 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 30.32,
-        "adjustedValue": 30.32,
+        "rosValue": 30.36,
+        "adjustedValue": 30.36,
         "confidence": 0.916,
         "flagged": null
       },
@@ -1679,9 +1679,9 @@
         "playerId": "11610",
         "canonicalName": "malik washington",
         "position": "WR",
-        "rosValue": 12.47,
+        "rosValue": 12.46,
         "depthFactor": 0.179,
-        "depthContribution": 2.23
+        "depthContribution": 2.22
       }
     ],
     "unfilledSlots": [],
