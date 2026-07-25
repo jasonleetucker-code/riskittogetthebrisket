@@ -226,6 +226,16 @@ jobs:
           # No auth, no Playwright — see fetch_otcffb.py for details.
           run_fetcher otcffbSf "OTCFFB SF" python scripts/fetch_otcffb.py --mirror-data-dir
 
+          # Fetch Fantasy Navigator superflex dynasty board (public
+          # JSON API on Render; no auth, no Playwright).  Values are
+          # KTC-derived — see the registry entry in data_contract.py.
+          run_fetcher fantasyNavigatorSf "Fantasy Navigator" python scripts/fetch_fantasynavigator.py --mirror-data-dir
+
+          # Fetch Play for Keeps Dynasty master board (public Supabase
+          # PostgREST read with PFK's publishable anon key — the same
+          # anonymous access their site gives any visitor).
+          run_fetcher pfkDynasty "PFK Dynasty" python scripts/fetch_pfk.py --mirror-data-dir
+
           # Fetch Flock Fantasy SF rankings
           run_fetcher flockFantasy:flockFantasySf "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
 
@@ -395,7 +405,15 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json
+          # Guard each path: ``git add`` hard-fails (exit 128) on a
+          # pathspec that matches nothing, and these directories can
+          # legitimately vanish — retention (src/maintenance/retention)
+          # pruned the last data/canonical/ snapshots on 2026-07-25 and
+          # every subsequent refresh run died right here while the
+          # scrape itself had succeeded.
+          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
+            [ -e "$p" ] && git add -f -- "$p"
+          done
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else
