@@ -625,15 +625,16 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
     "draftSharks": 6,
     "draftSharksIdp": 6,
-    # Fantasy Navigator's dynasty rows update roughly monthly (the
-    # feed stamps ``_insert_date``); the fetcher runs on the standard
-    # 2-hour cadence but a 30-day freshness budget reflects the
-    # upstream editorial cadence.
-    "fantasyNavigatorSf": 720,
-    # PFK's master board is hand-maintained and moves with the market;
-    # allow a 1-week window like the other expert boards
-    # (flockFantasySf).
-    "pfkDynasty": 168,
+    # Fantasy Navigator + PFK are fetched by scheduled 2-hour API
+    # fetchers that rewrite the CSV on every SUCCESSFUL run — so mtime
+    # measures fetch success, not the vendors' editorial cadence, and
+    # the budget must match the other API-fetched sources (fantasyCalc
+    # / otcffbSf / dynastyDaddySf): 6 hours ≈ three missed cycles.
+    # (An earlier 720h/168h pair conflated this with how often the
+    # vendors PUBLISH — which mtime cannot observe; Codex review on
+    # PR #532.)
+    "fantasyNavigatorSf": 6,
+    "pfkDynasty": 6,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -3201,6 +3202,12 @@ def _parse_source_csv_cached(
         "3D Value +",
         "boone_value",
     )
+    # Optional Sleeper player-id column (today only pfkDynasty emits
+    # one).  When present it gives ID-grade identity that survives
+    # vendor/Sleeper name-spelling drift ("Kenneth Gainwell" vs
+    # "Kenny Gainwell") — the enrichment tries the ID join before the
+    # canonical-name cascade (Codex review on PR #532).
+    _SLEEPER_ID_ALIASES = ("sleeper_id", "sleeperId", "sleeper_player_id")
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
         for k in aliases:
@@ -3295,7 +3302,10 @@ def _parse_source_csv_cached(
                                 native_val = nv
                         except (TypeError, ValueError):
                             native_val = None
-                    csv_lookup.setdefault(key, []).append((name, synthetic, rank_val, native_val))
+                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
+                    csv_lookup.setdefault(key, []).append(
+                        (name, synthetic, rank_val, native_val, sid or None)
+                    )
                 else:
                     val = _pick(csvrow, _VALUE_ALIASES)
                     if not val:
@@ -3317,9 +3327,10 @@ def _parse_source_csv_cached(
                                 orig_rank = rv
                         except (TypeError, ValueError):
                             orig_rank = None
+                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
                     try:
                         csv_lookup.setdefault(key, []).append(
-                            (name, int(float(val)), orig_rank, None)
+                            (name, int(float(val)), orig_rank, None, sid or None)
                         )
                     except (ValueError, TypeError):
                         continue
@@ -3528,7 +3539,7 @@ def _enrich_from_source_csvs(
                 if not _pick_key:
                     continue
                 csv_lookup.setdefault(_pick_key, []).append(
-                    (_pick_name, _syn, float(rookie_rank), None)
+                    (_pick_name, _syn, float(rookie_rank), None, None)
                 )
 
         # Persist a structured per-source entry index keyed by the
@@ -3547,11 +3558,12 @@ def _enrich_from_source_csvs(
                 grp = next(iter(row_groups), "*")
                 # Pick the highest-valued entry for this canonical key.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank, best_native = entries_sorted[0]
+                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
                 per_source[f"{cname}::{grp}"] = {
                     "value": best_val,
                     "originalRank": best_orig_rank,
                     "nativeValue": best_native,
+                    "sleeperId": best_sid,
                     "displayName": best_name,
                     "ambiguous": len(entries) > 1,
                     "candidates": [t[0] for t in entries],
@@ -3563,18 +3575,32 @@ def _enrich_from_source_csvs(
                 # best entry across both groups but flag it as ambiguous
                 # so the row audit can downgrade trust.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank, best_native = entries_sorted[0]
+                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
                 for grp in row_groups:
                     per_source[f"{cname}::{grp}"] = {
                         "value": best_val,
                         "originalRank": best_orig_rank,
                         "nativeValue": best_native,
+                        "sleeperId": best_sid,
                         "displayName": best_name,
                         "ambiguous": True,
                         "candidates": [t[0] for t in entries],
                         "groupCollision": sorted(row_groups),
                     }
         csv_index[source_key] = per_source
+
+        # Sleeper-ID join index (sources whose CSV carries a
+        # sleeper_id column — today only pfkDynasty).  ID-grade
+        # identity survives vendor/Sleeper name-spelling drift that
+        # breaks the canonical-name cascade ("Kenneth Gainwell" in the
+        # PFK CSV vs Sleeper's "Kenny Gainwell" produce different
+        # canonical keys and silently dropped the vote — Codex review
+        # on PR #532).  Tried FIRST in the row loop below.
+        sid_index: dict[str, dict[str, Any]] = {}
+        for _entry in per_source.values():
+            _sid = _entry.get("sleeperId")
+            if _sid:
+                sid_index[str(_sid)] = _entry
 
         # Enrich missing values onto each row using the position-aware
         # key cascade.
@@ -3592,24 +3618,32 @@ def _enrich_from_source_csvs(
                 existing > 0 or (source_key in ds_combined_rank_keys and existing <= 0)
             ):
                 continue
-            nm = str(row.get("canonicalName") or row.get("displayName") or "")
-            if not nm:
-                continue
-            cname = _canonical_match_key(nm)
-            if not cname:
-                continue
-            grp = canonical_position_group(row.get("position"))
-            entry = per_source.get(f"{cname}::{grp}")
+            entry = None
+            if sid_index:
+                # Rows stamp the Sleeper id as ``playerId`` (mapped
+                # from the legacy ``_sleeperId``).
+                row_sid = str(row.get("playerId") or "").strip()
+                if row_sid:
+                    entry = sid_index.get(row_sid)
             if entry is None:
-                # Fall back to a name-only / unknown-group lookup so
-                # rows whose position is missing still receive an
-                # enrichment when a single non-ambiguous CSV entry
-                # exists.
-                fallback = per_source.get(f"{cname}::*")
-                if fallback is None and len(row_groups_by_key.get(cname, set())) == 1:
-                    only_grp = next(iter(row_groups_by_key[cname]))
-                    fallback = per_source.get(f"{cname}::{only_grp}")
-                entry = fallback
+                nm = str(row.get("canonicalName") or row.get("displayName") or "")
+                if not nm:
+                    continue
+                cname = _canonical_match_key(nm)
+                if not cname:
+                    continue
+                grp = canonical_position_group(row.get("position"))
+                entry = per_source.get(f"{cname}::{grp}")
+                if entry is None:
+                    # Fall back to a name-only / unknown-group lookup so
+                    # rows whose position is missing still receive an
+                    # enrichment when a single non-ambiguous CSV entry
+                    # exists.
+                    fallback = per_source.get(f"{cname}::*")
+                    if fallback is None and len(row_groups_by_key.get(cname, set())) == 1:
+                        only_grp = next(iter(row_groups_by_key[cname]))
+                        fallback = per_source.get(f"{cname}::{only_grp}")
+                    entry = fallback
             if not entry:
                 continue
             val = entry.get("value")
