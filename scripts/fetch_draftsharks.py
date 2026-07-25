@@ -313,7 +313,8 @@ _EXTRACT_JS = r"""() => {
 # For a logged-in account the per-league items are rendered alongside
 # the static "Use My League" / "Sync My League" entries, so we click
 # the toggle, then click the item whose Alpine ``@click`` handler
-# carries our league id — falling back to a league-NAME text match.
+# carries our league id — falling back to an EXACT normalized
+# league-NAME match (never substring; see round-16 note below).
 # Returns a status string; "no-item:..." reports COUNTS only (Codex
 # review round 15): the menu inventory contains the account's OTHER
 # synced leagues' names and ids, and the raise below streams into the
@@ -327,9 +328,18 @@ _ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
     const items = Array.from(root.querySelectorAll('.ds-dropdown__menu-item'));
     const handler = (el) =>
         (el.getAttribute('@click') || el.getAttribute('x-on:click') || '');
+    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ');
+    // Primary: exact league-ID match in the Alpine @click handler.
+    // Fallback (markup drift only): EXACT normalized-label equality —
+    // substring matching could click a different synced league whose
+    // label merely contains ours, e.g. a cloned league with a suffix
+    // (Codex review round 16).  The return value records which signal
+    // identified the item so the caller can calibrate confirmation.
     let target = items.find((el) => handler(el).includes(`'${leagueId}'`));
+    let mode = 'id';
     if (!target) {
-        target = items.find((el) => el.textContent.includes(leagueName));
+        target = items.find((el) => norm(el.textContent) === norm(leagueName));
+        mode = 'name';
     }
     if (!target) {
         const leagueLike = items.filter((el) =>
@@ -338,7 +348,7 @@ _ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
             + leagueLike + ' league-like), none matching target league';
     }
     target.click();
-    return 'clicked';
+    return 'clicked-' + mode;
 }"""
 
 # Confirmation probe: the dropdown's toggle label renders
@@ -382,15 +392,32 @@ async def _activate_league(page) -> None:
     # selection registered.
     status = "no-dropdown"
     label = ""
+    norm_name = " ".join(LEAGUE_NAME.split())
     for _ in range(8):
         status = await page.evaluate(_ACTIVATE_LEAGUE_JS, [LEAGUE_ID, LEAGUE_NAME])
-        if status == "clicked":
+        if status.startswith("clicked"):
             # Poll for the label flip (~3s) before trusting the click.
+            # Identity must rest on at least one EXACT signal (Codex
+            # review round 16): when the item was found by exact
+            # league-ID handler match, substring label containment is
+            # enough to prove the click registered; when it was found
+            # by the name fallback, the label must match the league
+            # name EXACTLY (normalized) — substring confirmation could
+            # bless a different synced league whose label contains
+            # ours.
             for _ in range(6):
                 await page.wait_for_timeout(500)
                 label = await page.evaluate(_LEAGUE_LABEL_JS)
-                if LEAGUE_NAME in label:
-                    print("[DS] league activated via Alpine dropdown (label confirmed)", flush=True)
+                norm_label = " ".join(label.split())
+                confirmed = (
+                    norm_label == norm_name if status == "clicked-name" else norm_name in norm_label
+                )
+                if confirmed:
+                    print(
+                        f"[DS] league activated via Alpine dropdown "
+                        f"(label confirmed, match={status[8:]})",
+                        flush=True,
+                    )
                     return
         else:
             await page.wait_for_timeout(1_000)
