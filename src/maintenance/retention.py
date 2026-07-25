@@ -34,10 +34,23 @@ NEVER touched (hard-guarded, not merely un-globbed):
 
 from __future__ import annotations
 
+import argparse
+import re
 import shutil
+import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+
+# Timestamp embedded in generated archive filenames, e.g.
+# ``dynasty_export_20260721_072249.zip`` or
+# ``dynasty_data_20260721T072249Z.json`` — 8 date digits, optionally
+# followed by 6 time digits (any single separator).  Age-based pruning
+# prefers this over ``st_mtime`` because a fresh ``actions/checkout`` in
+# CI stamps every tracked file with the checkout time, which would make
+# every archive look newer than its cutoff and silently never prune.
+_FILENAME_TS_RE = re.compile(r"(\d{8})(?:[._T-]?(\d{6}))?")
 
 # Retention knobs.  Kept as module constants (not env-driven) so the
 # behaviour is identical in tests, CI, and prod — there is no reason to
@@ -174,6 +187,35 @@ def _mtime(p: Path) -> float:
         return 0.0
 
 
+def _embedded_timestamp(p: Path) -> float | None:
+    """Return the epoch of a timestamp embedded in ``p``'s filename, or None.
+
+    Generated archives name themselves with the moment they were written
+    (``dynasty_export_20260721_072249.zip``).  That is a stable age even
+    after a fresh checkout rewrites filesystem mtimes, so age-based
+    pruning must derive the cutoff from it when present.  Returns None for
+    names without a parseable ``YYYYMMDD`` so the caller falls back to
+    ``st_mtime`` (and existing non-timestamped test fixtures keep their
+    mtime-driven behaviour).
+    """
+    m = _FILENAME_TS_RE.search(p.name)
+    if not m:
+        return None
+    stamp = m.group(1) + (m.group(2) or "000000")
+    try:
+        dt = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return dt.timestamp()
+
+
+def _age_source(p: Path) -> float:
+    """Epoch to age an entry by: embedded filename timestamp if present,
+    else filesystem mtime."""
+    embedded = _embedded_timestamp(p)
+    return embedded if embedded is not None else _mtime(p)
+
+
 def _purge_dir_contents(
     directory: Path, protected: list[Path], cat: CategoryResult, *, dry_run: bool
 ) -> None:
@@ -200,7 +242,7 @@ def _prune_by_age(
         return
     cutoff = now - max_age_days * _DAY_SECONDS
     for entry in sorted(directory.glob(pattern)):
-        if _mtime(entry) < cutoff:
+        if _age_source(entry) < cutoff:
             _delete(entry, directory, protected, cat, dry_run=dry_run)
         else:
             cat.kept += 1
@@ -217,7 +259,11 @@ def _prune_keep_newest(
 ) -> None:
     if not directory.is_dir():
         return
-    entries = sorted(directory.glob(pattern), key=_mtime, reverse=True)
+    # Sort by embedded filename timestamp (falling back to mtime) so
+    # "newest N" is stable in a fresh CI checkout, where every file
+    # carries the same checkout-time mtime — mtime-only sorting would
+    # keep an arbitrary N and could delete the newest-by-name snapshots.
+    entries = sorted(directory.glob(pattern), key=_age_source, reverse=True)
     for entry in entries[:keep]:
         cat.kept += 1
     for entry in entries[keep:]:
@@ -297,3 +343,58 @@ def prune_data_dir(
     )
 
     return report
+
+
+# ──────────────────────────────────────────────────────────────────────
+# CLI entrypoint
+#
+# ``server.py`` calls ``prune_data_dir`` best-effort at scrape-end so the
+# prod box's local disk stays bounded.  The GitHub Actions
+# ``scheduled-refresh.yml`` job, however, scrapes and ``git add -f``s the
+# raw trees directly WITHOUT booting the server, so those working-tree
+# deletions never reached a commit and the tracked snapshots grew
+# unbounded.  This entrypoint lets the workflow run the identical policy
+# right before its commit step so the pruned state is what gets recorded.
+# ──────────────────────────────────────────────────────────────────────
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m src.maintenance.retention",
+        description=(
+            "Prune regenerable data/ and exports/ archives per the module "
+            "retention policy (keep newest N raw snapshots, age out zips, "
+            "etc.).  Never touches load-bearing paths."
+        ),
+    )
+    parser.add_argument(
+        "--base-dir",
+        type=Path,
+        default=_REPO_ROOT,
+        help="Repository root containing data/ and exports/ (default: repo root).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be pruned without deleting anything.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if any per-entry deletion error was counted.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+    report = prune_data_dir(args.base_dir, dry_run=args.dry_run)
+    print(f"retention: {report.summary()}")
+    if args.strict and report.total_errors:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
