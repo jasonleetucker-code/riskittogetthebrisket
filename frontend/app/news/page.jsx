@@ -227,7 +227,7 @@ export default function NewsPage() {
             style={{ flex: "1 1 220px", minWidth: 180 }}
           />
           <select
-            className="input"
+            className="select"
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
             aria-label="Filter by NFL team"
@@ -241,7 +241,7 @@ export default function NewsPage() {
             ))}
           </select>
           <select
-            className="input"
+            className="select"
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value)}
             aria-label="Filter by source"
