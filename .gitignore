@@ -78,3 +78,8 @@ tmp_sync_*/
 Thumbs.db
 *.xlsx
 !CSVs/Draft Data.xlsx
+
+# One-off research captures — never tracked (a 19MB HAR + 13MB PDF sat
+# in the pack for months; see #527). Keep local copies out of commits.
+*.har
+CSVs/*.pdf
