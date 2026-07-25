@@ -72,6 +72,19 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "fantasy
 # _DEFAULT_SOURCE_ROW_FLOORS).
 _FN_ROW_COUNT_FLOOR: int = 200
 
+# Second, DYNAMIC guard (Codex review on PR #532, round 4): because
+# the parser keeps only the newest global ``_insert_date`` snapshot, a
+# fetch that lands MID-INSERT sees a partial new snapshot — 400 rows
+# with today's date would clear the absolute floor above yet silently
+# delete ~350 votes from the complete 758-row board.  So an extraction
+# may only replace an existing CSV when it retains at least this
+# fraction of the last-good row count; below that we exit 2 and keep
+# last-good (the next 2h cycle picks up the completed snapshot).  A
+# legitimate vendor board shrink >25% will hold last-good and stay
+# loudly stale until this pin is revisited — that is the correct
+# failure mode for an unattended pipeline.
+_FN_LAST_GOOD_RETENTION: float = 0.75
+
 _OFFENSE_POSITIONS: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 
 
@@ -147,6 +160,16 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     return sorted(best.values(), key=lambda r: r["value"], reverse=True)
 
 
+def _count_csv_rows(path: Path) -> int:
+    """Data-row count of an existing CSV (0 when absent/unreadable) —
+    the last-good baseline for the retention guard."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return max(0, sum(1 for _ in f) - 1)
+    except OSError:
+        return 0
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # Competition ranking ("1-2-2-4"): rows sharing a value share a
     # rank, so ties never become distinct rank-signal contributions
@@ -198,6 +221,16 @@ def main(argv: list[str] | None = None) -> int:
     if len(rows) < _FN_ROW_COUNT_FLOOR:
         print(
             f"[fetch_fantasynavigator] row count below floor: {len(rows)} < {_FN_ROW_COUNT_FLOOR}",
+            file=sys.stderr,
+        )
+        return 2
+    last_good = _count_csv_rows(args.dest)
+    if last_good > 0 and len(rows) < last_good * _FN_LAST_GOOD_RETENTION:
+        print(
+            f"[fetch_fantasynavigator] newest snapshot retains only "
+            f"{len(rows)} of {last_good} last-good rows "
+            f"(< {_FN_LAST_GOOD_RETENTION:.0%}) — likely a mid-insert "
+            f"partial snapshot; keeping last-good CSV",
             file=sys.stderr,
         )
         return 2

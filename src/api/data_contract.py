@@ -884,8 +884,20 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     flag based on :data:`_SOURCE_MAX_AGE_HOURS`.  Missing files return
     ``None`` for mtime rather than the empty string the legacy code used,
     so downstream can tell "no data yet" from "found it, here's when".
+
+    Freshness prefers the ``data/scrape_state/{key}_last_success``
+    stamp over CSV mtime, mirroring ``server._per_source_freshness()``:
+    the stamp is written on every SUCCESSFUL fetcher run regardless of
+    whether the CSV content changed, while ``git checkout``/``git
+    pull`` never rewrite byte-identical files — so a vendor whose
+    board is static between publishes (Fitzmaurice, Yahoo Boone, FN's
+    monthly snapshots) has a frozen CSV mtime that would false-flag
+    ``stale`` under fetch-success budgets despite green 2h fetches
+    (Codex review on PR #532).  The CSV must still exist — a stamp
+    without data is reported ``missing``.
     """
     repo_root = Path(__file__).resolve().parents[2]
+    state_dir = repo_root / "data" / "scrape_state"
     now = datetime.now(timezone.utc)
     out: dict[str, dict[str, Any]] = {}
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
@@ -910,7 +922,14 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
             except (FileNotFoundError, OSError):
                 entry["staleness"] = "missing"
             else:
-                mtime_dt = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                last_epoch = st.st_mtime
+                try:
+                    stamp_text = (state_dir / f"{source_key}_last_success").read_text().strip()
+                    if stamp_text:
+                        last_epoch = float(stamp_text)
+                except (OSError, ValueError):
+                    pass
+                mtime_dt = datetime.fromtimestamp(last_epoch, tz=timezone.utc)
                 age_hours = (now - mtime_dt).total_seconds() / 3600.0
                 entry["mtime"] = mtime_dt.isoformat()
                 entry["ageHours"] = round(age_hours, 3)
