@@ -386,8 +386,18 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
             "min_value": 2500,
             "allowed_buckets": ("low", "medium", "high"),
         },
+        # Warner max_rank widened 150 → 165 on 2026-07-25 after the
+        # weekly auto-refit (chore(calibration) 4b7d1545) resumed
+        # following a month-long jam (see #522) and re-fit the scope
+        # masters to a month of accumulated KTC drift in one step —
+        # Warner tipped 150 → 152.  Same class as the 2026-04-21
+        # entry above: an intentional curve refit, not a pipeline
+        # regression.  Real headroom per the Roquan precedent rather
+        # than a 2-rank chase; a genuine IDP-pricing break (Warner
+        # cratering past 165 or value collapsing below 2800) still
+        # trips.
         "Fred Warner": {
-            "max_rank": 150,
+            "max_rank": 165,
             "min_value": 2800,
             "allowed_buckets": ("low", "medium", "high"),
         },
