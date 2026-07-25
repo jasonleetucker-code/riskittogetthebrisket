@@ -314,9 +314,11 @@ _EXTRACT_JS = r"""() => {
 # the static "Use My League" / "Sync My League" entries, so we click
 # the toggle, then click the item whose Alpine ``@click`` handler
 # carries our league id — falling back to a league-NAME text match.
-# Returns a status string; "no-item:..." carries the menu inventory so
-# a future DS markup change shows up verbatim in the workflow log
-# instead of as a bare timeout.
+# Returns a status string; "no-item:..." reports COUNTS only (Codex
+# review round 15): the menu inventory contains the account's OTHER
+# synced leagues' names and ids, and the raise below streams into the
+# public workflow log — so a markup change surfaces as a shape
+# diagnostic, never as a verbatim league inventory.
 _ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
     const root = document.querySelector('.scoring-nav__league-dropdown');
     if (!root) return 'no-dropdown';
@@ -330,10 +332,10 @@ _ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
         target = items.find((el) => el.textContent.includes(leagueName));
     }
     if (!target) {
-        const inventory = items
-            .map((el) => `${el.textContent.trim()} [${handler(el)}]`)
-            .join(' | ');
-        return 'no-item:' + inventory;
+        const leagueLike = items.filter((el) =>
+            handler(el).includes('selectedUserLeagueId')).length;
+        return 'no-item:' + items.length + ' menu items ('
+            + leagueLike + ' league-like), none matching target league';
     }
     target.click();
     return 'clicked';
@@ -394,13 +396,16 @@ async def _activate_league(page) -> None:
             await page.wait_for_timeout(1_000)
     # Diagnostic dead-ends.  ``no-dropdown`` = the league widget moved
     # again; ``no-item:...`` = the dropdown exists but our league isn't
-    # in it (menu inventory included verbatim for the workflow log);
-    # ``clicked`` with an unconfirmed label = the click dispatched but
-    # the selection never registered (label text included).
+    # in it (counts only — see _ACTIVATE_LEAGUE_JS comment); ``clicked``
+    # with an unconfirmed label = the click dispatched but the selection
+    # never registered.  The toggle label is described, not quoted: on
+    # failure it can carry ANOTHER synced league's name, which must not
+    # stream into the workflow log (Codex review round 15).
+    label_desc = "empty" if not label else f"{len(label)} chars, target league name absent"
     raise RuntimeError(
         f"Failed to select league {LEAGUE_ID}: legacy #use-my-league-dropdown "
         f"absent; Alpine dropdown activation returned {status!r} with toggle "
-        f"label {label!r} (expected it to contain {LEAGUE_NAME!r})"
+        f"label {label_desc}"
     )
 
 
