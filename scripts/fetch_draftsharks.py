@@ -452,7 +452,26 @@ async def _scrape_one(page) -> list[dict]:
             return out;
         }""")
 
-    baseline = await _probe_values()
+    # Poll for a NON-EMPTY baseline before doing anything else (Codex
+    # review round 12): the first probe fires right after
+    # ``domcontentloaded``, and if the table hasn't hydrated yet a
+    # one-shot ``{}`` baseline would make the transition gate below
+    # structurally unpassable (``if baseline and ...`` can never see a
+    # delta from nothing) — turning every slow page load into a
+    # permanent false-raise.  Rows render within a few seconds; if
+    # none appear in 20s the page structure changed → raise loudly.
+    baseline: dict = {}
+    for _ in range(10):
+        baseline = await _probe_values()
+        if baseline:
+            break
+        await page.wait_for_timeout(2_000)
+    if not baseline:
+        raise RuntimeError(
+            "No ranked rows rendered within 20s of page load — cannot "
+            "establish a public-scoring baseline (page structure may have "
+            "changed).  Refusing to extract."
+        )
 
     # Already-active short-circuit (Codex review on PR #530): a cached
     # authenticated session can load the page with the league ALREADY
