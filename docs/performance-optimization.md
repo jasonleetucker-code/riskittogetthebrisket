@@ -81,18 +81,26 @@ of re-encoding. Also adds an `ETag` (with `If-None-Match` → `304`) and
 Covers both the loaded-league overlay and the cross-league null-sleeper
 responses.
 
+## Done (continued)
+
+### 4. Browser revalidation via If-None-Match/304
+`frontend/lib/dynasty-data.js::_fetchBaseContract` now uses `cache: "default"`
+instead of `cache: "no-store"`, allowing the browser to cache the response
+and revalidate via `If-None-Match` within the backend's `max-age=30 +
+stale-while-revalidate=300` window. Repeat navigations within 5 minutes reuse
+the cached multi-MB payload (via 304) instead of re-downloading, cutting
+bandwidth for mobile and slow-network users. The change is backward-compatible:
+older clients that don't support conditional revalidation fall back to
+conditional fetches as before.
+
 ## Planned (prioritized)
 
-1. **Let the client revalidate.** Drop `cache: "no-store"` on the base
-   contract fetch (or switch to a conditional fetch) so the browser can
-   send `If-None-Match` and get `304`s within the backend's
-   `max-age`/`stale-while-revalidate` window.
-3. **Frontend bundle analysis + code-splitting** for the heaviest routes
+1. **Frontend bundle analysis + code-splitting** for the heaviest routes
    (rankings, trade, league) to cut first-paint JS.
-4. **Render-path audit** of the rankings table and trade views:
+2. **Render-path audit** of the rankings table and trade views:
    memoization, virtualization for long lists, and avoiding recompute on
    sort/filter/scroll.
-5. **Navigation** — ensure route transitions reuse cached data instead of
+3. **Navigation** — ensure route transitions reuse cached data instead of
    refetching/recomputing.
 
 ## Validation notes

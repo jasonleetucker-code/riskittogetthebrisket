@@ -1284,7 +1284,11 @@ async function _fetchBaseContract() {
   if (view && view !== "delta") params.set("view", view);
   const qs = params.toString();
   const url = qs ? `${DEFAULT_DATA_URL}?${qs}` : DEFAULT_DATA_URL;
-  const res = await fetch(url, { cache: "no-store" });
+  // Allow browser to cache and revalidate via If-None-Match/304 within
+  // the backend's max-age=30 + stale-while-revalidate=300 window,
+  // avoiding re-downloads of the multi-MB payload for repeat navigations
+  // within 5 minutes.
+  const res = await fetch(url, { cache: "default" });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
