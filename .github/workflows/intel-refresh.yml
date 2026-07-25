@@ -1,0 +1,181 @@
+name: Intel Refresh
+
+# Daily crawl of the league-mate pool's Sleeper activity ("Sharp
+# Tracker", Phase 5).  Triggers POST /api/intel/refresh on the
+# production host (which runs the budgeted crawl on a backend daemon
+# thread) and polls GET /api/intel/refresh/status until the run
+# finishes or ~6 minutes elapse.
+#
+# Auth: the intel refresh + status endpoints accept a bearer token —
+# ``INTEL_REFRESH_TOKEN`` (falling back server-side to
+# ``SIGNAL_ALERT_CRON_TOKEN``).  Store the same value as the
+# ``INTEL_REFRESH_TOKEN`` repo secret.
+#
+# On failure this opens/updates an idempotent tracking issue labeled
+# ``intel-stale`` (same rolling-issue pattern as the scheduled-refresh
+# workflow's ``stale-sources`` handler).
+
+on:
+  schedule:
+    # Daily at 09:10 UTC — after the overnight data refresh cycles,
+    # before US morning traffic.
+    - cron: "10 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: intel-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve target URL
+        id: url
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          if [[ -z "${URL}" ]]; then
+            URL="https://riskittogetthebrisket.org"
+          fi
+          URL="${URL%/}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger intel refresh
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+          TOKEN: ${{ secrets.INTEL_REFRESH_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${TOKEN}" ]]; then
+            echo "::error title=Missing secret::INTEL_REFRESH_TOKEN is not set"
+            exit 1
+          fi
+          body_file="$(mktemp)"
+          code="$(curl --silent --show-error --globoff --max-time 30 \
+            --request POST \
+            --header "Authorization: Bearer ${TOKEN}" \
+            --output "${body_file}" --write-out '%{http_code}' \
+            "${URL}/api/intel/refresh" || echo 000)"
+          echo "trigger status=${code}"
+          cat "${body_file}" || true
+          # 202 = started; 409 = a run is already active (also fine —
+          # we just poll that run to completion below).
+          if [[ "${code}" != "202" && "${code}" != "409" ]]; then
+            echo "::error title=Intel refresh trigger failed::HTTP ${code} from ${URL}/api/intel/refresh"
+            exit 1
+          fi
+
+      - name: Poll refresh status
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+          TOKEN: ${{ secrets.INTEL_REFRESH_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          # ~6 minutes of polling: 24 attempts x 15s.
+          for attempt in $(seq 1 24); do
+            sleep 15
+            body_file="$(mktemp)"
+            code="$(curl --silent --show-error --globoff --max-time 20 \
+              --header "Authorization: Bearer ${TOKEN}" \
+              --output "${body_file}" --write-out '%{http_code}' \
+              "${URL}/api/intel/refresh/status" || echo 000)"
+            if [[ "${code}" != "200" ]]; then
+              echo "attempt ${attempt}: status endpoint HTTP ${code} — retrying"
+              continue
+            fi
+            if python3 - "${body_file}" <<'PY'; then
+          import json, sys
+          with open(sys.argv[1], "r", encoding="utf-8") as f:
+              d = json.load(f)
+          running = bool(d.get("isRunning"))
+          err = d.get("lastError")
+          result = d.get("lastResult") or {}
+          if running:
+              print(f"still running (started {d.get('startedAt')})")
+              raise SystemExit(2)   # keep polling
+          if err:
+              print(f"refresh finished with error: {err}")
+              raise SystemExit(1)   # hard fail
+          if not result:
+              print("no run recorded yet")
+              raise SystemExit(2)   # keep polling
+          print(
+              "refresh OK: calls={} events+={} members={} leagues={} exhausted={}".format(
+                  result.get("callsUsed"),
+                  result.get("newEventCount"),
+                  result.get("memberCount"),
+                  result.get("leagueCount"),
+                  result.get("budgetExhausted"),
+              )
+          )
+          raise SystemExit(0)
+          PY
+              echo "Intel refresh completed successfully."
+              exit 0
+            else
+              rc=$?
+              if [[ "${rc}" == "1" ]]; then
+                echo "::error title=Intel refresh failed::See status output above"
+                exit 1
+              fi
+              # rc 2 → still running / not started; keep polling.
+            fi
+          done
+          echo "::error title=Intel refresh timed out::Still running after ~6 minutes of polling"
+          exit 1
+
+      - name: Alert on workflow failure
+        # Idempotent tracking issue (mirrors scheduled-refresh.yml's
+        # ``stale-sources`` handler): ensure the label exists, comment
+        # on the existing open ``intel-stale`` issue when there is
+        # one, otherwise open a single labeled issue.
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(cat <<EOF
+          Daily intel refresh (Sharp Tracker crawl) failed.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Likely causes:
+          1. The trigger call failed (backend down, INTEL_REFRESH_TOKEN
+             secret missing/rotated — check the **Trigger intel refresh** step).
+          2. The crawl errored server-side (see \`lastError\` in the
+             **Poll refresh status** step output).
+          3. The crawl ran past the ~6 minute polling window (budget
+             exhaustion resumes next run — repeated timeouts mean the
+             pool outgrew the call budget).
+
+          The cron retries automatically tomorrow.  For an immediate
+          retry use ``workflow_dispatch``.
+          EOF
+          )
+          gh label create intel-stale \
+            --color B60205 \
+            --description "Auto-opened when the daily intel refresh fails" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --label intel-stale \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create \
+              --title "Daily intel refresh failing" \
+              --body "$BODY" \
+              --label intel-stale
+          fi
