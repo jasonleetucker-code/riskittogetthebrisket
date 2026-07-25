@@ -310,6 +310,33 @@ latest_startup_data: dict | None = None
 latest_startup_data_bytes: bytes | None = None
 latest_startup_data_gzip_bytes: bytes | None = None
 latest_startup_data_etag: str | None = None
+# Compact payload for mobile / slow networks (~90% smaller).  Precomputed
+# (bytes + gzip + etag) at refresh time so the ``?view=compact`` fast path
+# never re-runs ``compact_contract`` + ``json.dumps`` + gzip on the event
+# loop per request.
+latest_compact_data: dict | None = None
+latest_compact_data_bytes: bytes | None = None
+latest_compact_data_gzip_bytes: bytes | None = None
+latest_compact_data_etag: str | None = None
+# Serialized-bytes cache for the live-overlay /api/data responses.  The
+# overlay path splices per-league Sleeper data onto the rankings payload
+# and must re-serialize, but the overlay itself is cached ~15 min per
+# league, so the serialized result is stable within that window.
+#
+# Keyed by a STABLE slot — (kind, leagueKey, loadedLeague, view,
+# sleeper_matches) — with the freshness stamp carried INSIDE the value:
+# (etag, raw_bytes, gzip_bytes, version).  Refreshes replace their slot
+# rather than minting a new key beside it, so the cache holds at most one
+# multi-MB generation per slot no matter how many refresh cycles pass.
+# The key space is bounded by the registry (leagues × views), so the cap
+# below is a safety net, not the primary bound.
+_OVERLAY_RESPONSE_CACHE: dict = {}
+# Per-key single-flight locks so concurrent misses coalesce onto one
+# encode instead of each launching the multi-MB serialization.  Touched
+# only from the async handler on the single event-loop thread, so the
+# dict needs no extra synchronization.
+_OVERLAY_ENCODE_LOCKS: dict = {}
+_OVERLAY_RESPONSE_CACHE_MAX = 32
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -1412,6 +1439,11 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_bytes, \
         latest_startup_data_gzip_bytes, \
         latest_startup_data_etag
+    global \
+        latest_compact_data, \
+        latest_compact_data_bytes, \
+        latest_compact_data_gzip_bytes, \
+        latest_compact_data_etag
     global contract_health
     global served_source_coverage
     served_source_coverage = {}
@@ -1427,6 +1459,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_startup_data_bytes = None
     latest_startup_data_gzip_bytes = None
     latest_startup_data_etag = None
+    latest_compact_data = None
+    latest_compact_data_bytes = None
+    latest_compact_data_gzip_bytes = None
+    latest_compact_data_etag = None
     if not data:
         return
     try:
@@ -1579,6 +1615,27 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_bytes = startup_raw
         latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
         latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
+
+        # Compact payload: mobile / slow-network view (~90% smaller).
+        # Precompute bytes + gzip + etag here so ``?view=compact`` serves
+        # from the same fast path as the other views instead of running
+        # ``compact_contract`` + ``json.dumps`` + gzip per request on the
+        # event loop.
+        try:
+            from src.api.compact_view import compact_contract
+
+            compact_payload = compact_contract(contract_payload)
+            compact_raw = json.dumps(
+                compact_payload, ensure_ascii=False, separators=(",", ":")
+            ).encode("utf-8")
+            latest_compact_data = compact_payload
+            latest_compact_data_bytes = compact_raw
+            latest_compact_data_gzip_bytes = gzip.compress(compact_raw, compresslevel=5)
+            latest_compact_data_etag = hashlib.sha1(compact_raw).hexdigest()
+        except Exception as exc:  # noqa: BLE001
+            # Non-fatal: the endpoint falls back to on-demand compaction
+            # when the precomputed compact payload is unavailable.
+            log.warning("compact payload precompute failed: %s", exc)
     except Exception as e:
         contract_health = {
             "ok": False,
@@ -2445,6 +2502,98 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
         return None, f"{type(e).__name__}: {e}"
 
 
+def _overlay_encode_lock(cache_key) -> asyncio.Lock:
+    """Return the per-key single-flight lock, creating it on first use."""
+    lock = _OVERLAY_ENCODE_LOCKS.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _OVERLAY_ENCODE_LOCKS[cache_key] = lock
+    return lock
+
+
+def _evict_overlay_cache_if_oversized(keep_key) -> None:
+    """Safety net for the stable-slot cache.
+
+    Slots self-replace on refresh, so this should never fire in normal
+    operation — the key space is bounded by the league registry.  It only
+    guards against an unexpected key explosion (e.g. a registry reload
+    mid-flight).  ``keep_key`` is the slot about to be written, so we
+    never evict the entry this caller is in the middle of producing, and
+    in-flight locks are preserved: dropping a HELD lock would let a
+    second request create a fresh one and launch a duplicate encode.
+    """
+    if len(_OVERLAY_RESPONSE_CACHE) < _OVERLAY_RESPONSE_CACHE_MAX:
+        return
+    for k in [k for k in _OVERLAY_RESPONSE_CACHE if k != keep_key]:
+        del _OVERLAY_RESPONSE_CACHE[k]
+    # Safe without a guard: runs synchronously on the event-loop thread,
+    # no await between the check and the delete.
+    for k in [k for k, lk in _OVERLAY_ENCODE_LOCKS.items() if not lk.locked()]:
+        del _OVERLAY_ENCODE_LOCKS[k]
+
+
+async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, overlay_version=None):
+    """Serialize a live-overlay / cross-league ``/api/data`` response
+    without blocking the event loop.
+
+    The JSON encode (and gzip) of the multi-MB payload is offloaded to a
+    worker thread, and — since the spliced overlay is stable within its
+    ~15-min cache window — the encoded bytes are memoized under
+    ``cache_key`` so repeat requests reuse them instead of re-encoding.
+    Pass ``cache_key=None`` to skip the cache (still offloads the encode).
+    Adds an ``ETag`` (with ``If-None-Match`` 304 support) and
+    ``Vary: Accept-Encoding`` for the negotiated gzip/identity body.
+
+    Concurrent misses for the same key are single-flighted on the event
+    loop via a per-key ``asyncio.Lock``: only the first request offloads
+    the multi-MB encode; the rest await the lock and read the cached
+    result, so a burst after startup / overlay refresh can't fan out into
+    N duplicate serializations that saturate the worker pool.
+
+    Version info (overlay_version tuple) is stored inside the cache entry.
+    On cache hit, stale versions are re-encoded and replace the prior
+    generation in the same slot, bounding memory to at most one per slot.
+    """
+
+    def _encode():
+        raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        etag = hashlib.sha1(raw).hexdigest()
+        gz = gzip.compress(raw, compresslevel=5)
+        return etag, raw, gz, overlay_version
+
+    if cache_key is None:
+        # Uncacheable (no freshness/version key) — nothing to coalesce on.
+        etag, raw, gz, _ = await run_in_threadpool(_encode)
+    else:
+        entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+        # Check freshness: if cached version doesn't match current, treat as miss
+        if entry is not None and entry[3] != overlay_version:
+            entry = None
+        if entry is None:
+            async with _overlay_encode_lock(cache_key):
+                # Re-check: another coroutine may have encoded this key
+                # while we waited on the lock.
+                entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+                if entry is not None and entry[3] != overlay_version:
+                    entry = None
+                if entry is None:
+                    entry = await run_in_threadpool(_encode)
+                    _evict_overlay_cache_if_oversized(cache_key)
+                    _OVERLAY_RESPONSE_CACHE[cache_key] = entry
+        etag, raw, gz, _ = entry
+
+    headers["ETag"] = etag
+    headers["Vary"] = "Accept-Encoding"
+    incoming = request.headers.get("if-none-match", "").strip('"')
+    if incoming and incoming == etag:
+        return Response(status_code=304, headers=headers)
+    accept_encoding = (request.headers.get("accept-encoding") or "").lower()
+    if "gzip" in accept_encoding and gz:
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gz, media_type="application/json", headers=headers)
+    return Response(content=raw, media_type="application/json", headers=headers)
+
+
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request):
@@ -2533,16 +2682,28 @@ async def get_data(request: Request):
             # that doesn't know to ignore pruned fields breaks only
             # if it READS one of them, which the compact shape test
             # pins against.
-            from src.api.compact_view import compact_contract
-
-            compact_obj = compact_contract(latest_contract_data)
-            import json as _json
-
-            payload_bytes = _json.dumps(compact_obj).encode("utf-8")
-            payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
-            payload_etag = None
-            payload_obj = compact_obj
             payload_view_name = "compact"
+            if latest_compact_data_bytes is not None:
+                # Fast path: precomputed at refresh time (bytes + gzip +
+                # etag), so mobile requests skip the compaction + JSON
+                # serialization + gzip that used to run on the event loop
+                # for every request.
+                payload_bytes = latest_compact_data_bytes
+                payload_gzip_bytes = latest_compact_data_gzip_bytes
+                payload_etag = latest_compact_data_etag
+                payload_obj = latest_compact_data
+            else:
+                # Fallback: precompute unavailable (e.g. compaction raised
+                # during refresh) — build on demand.
+                from src.api.compact_view import compact_contract
+
+                compact_obj = compact_contract(latest_contract_data)
+                import json as _json
+
+                payload_bytes = _json.dumps(compact_obj).encode("utf-8")
+                payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
+                payload_etag = None
+                payload_obj = compact_obj
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
@@ -2656,7 +2817,27 @@ async def get_data(request: Request):
             scrubbed["meta"] = meta
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
-            return JSONResponse(content=scrubbed, headers=headers)
+            # Cache-key is stable across overlay refreshes: only the base
+            # league/view context determines the key. Version info
+            # (overlayFetchedAt + payloadETag) is stored inside the cache
+            # entry and checked on hit; stale versions are re-encoded in
+            # place, bounding memory to one generation per slot.
+            overlay_fetched_at = overlay.get("overlayFetchedAt")
+            overlay_cache_key = (
+                (
+                    "overlay",
+                    league_cfg.key,
+                    loaded_league or "",
+                    payload_view_name,
+                    bool(sleeper_matches),
+                )
+                if (overlay_fetched_at and payload_etag)
+                else None
+            )
+            overlay_version = (overlay_fetched_at, payload_etag) if overlay_cache_key else None
+            return await _serialize_overlaid_response(
+                request, scrubbed, headers, overlay_cache_key, overlay_version
+            )
 
         if not sleeper_matches:
             # Cross-league + overlay unavailable: null the sleeper
@@ -2672,10 +2853,30 @@ async def get_data(request: Request):
             scrubbed["sleeper"] = None
             scrubbed["meta"] = meta
             headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
-            return JSONResponse(content=scrubbed, headers=headers)
+            # Same stable-slot scheme as the overlay path: the key is the
+            # league/view context only, and the base ETag rides along as
+            # the entry version, so each scrape refresh REPLACES the slot
+            # instead of minting a new multi-MB generation beside it.
+            xleague_cache_key = (
+                ("xleague", league_cfg.key, loaded_league or "", payload_view_name)
+                if payload_etag
+                else None
+            )
+            xleague_version = (payload_etag,) if xleague_cache_key else None
+            return await _serialize_overlaid_response(
+                request, scrubbed, headers, xleague_cache_key, xleague_version
+            )
         # sleeper_matches=True + overlay unavailable: fall through to
         # the cached payload-bytes fast path below — serves the baked
         # sleeper block from the most recent scrape.
+
+        # This fast path serves gzip OR identity bytes off the same
+        # publicly-cacheable URL depending on ``Accept-Encoding``.  Since
+        # we set ``Content-Encoding`` by hand (bypassing GZipMiddleware,
+        # which would otherwise add this), we must advertise the
+        # negotiation so a shared/CDN cache keys the two encodings apart
+        # instead of serving gzip to an identity client (or vice versa).
+        headers["Vary"] = "Accept-Encoding"
 
         if payload_etag:
             headers["ETag"] = payload_etag

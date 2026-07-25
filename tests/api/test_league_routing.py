@@ -209,6 +209,45 @@ def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(two_league_reg
     assert body["meta"]["sleeperDataReady"] is False
 
 
+def test_api_data_compact_view_serves_precomputed_bytes(two_league_registry, monkeypatch):
+    """``view=compact`` must serve the payload precomputed at refresh time
+    (bytes + ETag) rather than re-running ``compact_contract`` +
+    ``json.dumps`` + gzip on the event loop for every mobile request."""
+    import json as _json
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        default_cfg = server._league_registry.get_default_league()
+        stub = {
+            "meta": {
+                "leagueKey": default_cfg.key,
+                "scoringProfile": default_cfg.scoring_profile,
+            },
+            "players": {"stub": {"name": "Stub"}},
+            "playersArray": [{"name": "Stub"}],
+            "sleeper": {"teams": []},
+        }
+        compact_obj = {"players": {"stub": {"name": "Stub"}}, "payloadView": "compact"}
+        compact_bytes = _json.dumps(compact_obj).encode("utf-8")
+        monkeypatch.setattr(server, "latest_contract_data", stub)
+        monkeypatch.setattr(server, "latest_compact_data", compact_obj)
+        monkeypatch.setattr(server, "latest_compact_data_bytes", compact_bytes)
+        monkeypatch.setattr(server, "latest_compact_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_compact_data_etag", "compact-etag-xyz")
+        # No live overlay → deterministic cached-bytes fast path.
+        monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kw: None)
+        res = c.get("/api/data?view=compact")
+
+    assert res.status_code == 200, res.text
+    assert res.headers.get("X-Payload-View", "").startswith("compact")
+    # ETag present ⇒ the precomputed fast path served it (the on-demand
+    # fallback leaves the ETag unset).
+    assert res.headers.get("ETag") == "compact-etag-xyz"
+    # The negotiated (gzip-or-identity) fast path must advertise Vary so a
+    # shared cache doesn't mis-serve encodings.
+    assert res.headers.get("Vary") == "Accept-Encoding"
+    assert res.json() == compact_obj
+
+
 # ── /api/trade/simulate ──────────────────────────────────────────
 
 
@@ -421,6 +460,182 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(shared_scoring_regist
     # X-Payload-View header tags the overlay path so ops can grep
     # logs to confirm the overlay merge fired.
     assert "overlay" in res.headers.get("X-Payload-View", "")
+
+
+def test_api_data_overlay_response_is_offloaded_and_cached(shared_scoring_registry, monkeypatch):
+    """The live-overlay response is serialized off the event loop and the
+    encoded bytes are cached by (league, view, overlay-freshness, base
+    ETag), so repeat requests within the overlay window reuse the dump
+    instead of re-encoding the multi-MB payload.  It also gains an ETag
+    with If-None-Match 304 support and Vary: Accept-Encoding."""
+    fresh_overlay = {
+        "teams": [{"ownerId": "oA", "name": "Team A", "players": ["p1"]}],
+        "leagueId": "L-MAIN",
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-04-29T11:30:00+00:00",
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_overlay", lambda **_kw: fresh_overlay
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        # A base ETag is required for the overlay response cache to engage.
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-1")
+        server._OVERLAY_RESPONSE_CACHE.clear()
+
+        # Count real encodes: gzip.compress runs once per fresh encode and
+        # is skipped on a cache hit.
+        encode_calls = {"n": 0}
+        real_compress = server.gzip.compress
+
+        def _counting(data, *a, **k):
+            encode_calls["n"] += 1
+            return real_compress(data, *a, **k)
+
+        monkeypatch.setattr(server.gzip, "compress", _counting)
+
+        r1 = c.get("/api/data?leagueKey=main")
+        r2 = c.get("/api/data?leagueKey=main")
+        etag = r1.headers.get("ETag")
+        r3 = c.get("/api/data?leagueKey=main", headers={"If-None-Match": etag})
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200
+    # Overlay content is intact and the path is tagged.
+    assert r1.json()["sleeper"]["teams"][0]["players"] == ["p1"]
+    assert "overlay" in r1.headers.get("X-Payload-View", "")
+    # Negotiated fast path advertises Vary + carries an ETag.
+    assert r1.headers.get("Vary") == "Accept-Encoding"
+    assert etag and r2.headers.get("ETag") == etag
+    # Encoded exactly once across two identical requests (2nd = cache hit).
+    assert encode_calls["n"] == 1
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+    # Conditional request short-circuits to 304 (no body re-encode).
+    assert r3.status_code == 304
+
+
+def test_overlay_serialize_single_flights_concurrent_misses(monkeypatch):
+    """Concurrent cache misses for the same key must coalesce onto a
+    single encode — the rest await the per-key lock and read the cached
+    result — so a burst can't fan out into N multi-MB serializations."""
+    import asyncio
+    import time
+
+    server._OVERLAY_RESPONSE_CACHE.clear()
+    server._OVERLAY_ENCODE_LOCKS.clear()
+
+    encode_calls = {"n": 0}
+    real_compress = server.gzip.compress
+
+    def slow_compress(data, *a, **k):
+        encode_calls["n"] += 1
+        time.sleep(0.2)  # widen the miss window so the burst overlaps
+        return real_compress(data, *a, **k)
+
+    monkeypatch.setattr(server.gzip, "compress", slow_compress)
+
+    class _FakeReq:
+        headers = {}  # .get("if-none-match") / .get("accept-encoding") → None
+
+    scrubbed = {"players": {"x": 1}, "meta": {"leagueKey": "main"}}
+    # Cache key is now stable (no version info); version is passed separately
+    key = ("overlay", "main", "", "full", True)
+    version = ("2026-04-29T11:30:00+00:00", "base-etag-1")
+
+    async def _fire():
+        return await asyncio.gather(
+            *[
+                server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version)
+                for _ in range(5)
+            ]
+        )
+
+    results = asyncio.run(_fire())
+
+    # Exactly one encode across five concurrent requests.
+    assert encode_calls["n"] == 1
+    assert all(r.status_code == 200 for r in results)
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+
+
+def test_overlay_serialize_cache_invalidates_on_version_change(monkeypatch):
+    """When the overlay refreshes (overlayFetchedAt or baseETag changes),
+    the cache key remains stable but the stored version is checked; a
+    mismatch triggers a re-encode in place, bounding memory to one
+    generation per slot."""
+    import asyncio
+
+    server._OVERLAY_RESPONSE_CACHE.clear()
+    server._OVERLAY_ENCODE_LOCKS.clear()
+
+    encode_calls = {"n": 0}
+    real_compress = server.gzip.compress
+
+    def _counting(data, *a, **k):
+        encode_calls["n"] += 1
+        return real_compress(data, *a, **k)
+
+    monkeypatch.setattr(server.gzip, "compress", _counting)
+
+    class _FakeReq:
+        headers = {}
+
+    scrubbed = {"players": {"x": 1}, "meta": {"leagueKey": "main"}}
+    key = ("overlay", "main", "", "full", True)
+    version_1 = ("2026-04-29T11:30:00+00:00", "base-etag-1")
+    version_2 = ("2026-04-29T11:45:00+00:00", "base-etag-1")  # different overlayFetchedAt
+
+    async def _run():
+        # First request with version_1 — encodes and caches
+        r1 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_1)
+        # Second request with same version_1 — cache hit, no encode
+        r2 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_1)
+        # Third request with version_2 (refresh) — version mismatch, re-encode in place
+        r3 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_2)
+        # Fourth request with version_2 — cache hit, no encode
+        r4 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_2)
+        return [r1, r2, r3, r4]
+
+    results = asyncio.run(_run())
+
+    assert all(r.status_code == 200 for r in results)
+    # Encoded twice: once for version_1, once for version_2 refresh
+    assert encode_calls["n"] == 2
+    # Cache has only one entry: same slot, version replaced
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+
+
+def test_cross_league_cache_slot_is_reused_across_refreshes(shared_scoring_registry, monkeypatch):
+    """The cross-league (overlay-unavailable) fallback must use the same
+    stable-slot scheme as the overlay path: a scrape refresh changes the
+    base ETag, which is the entry VERSION, not part of the key — so the
+    slot is replaced rather than accumulating a second multi-MB
+    generation beside it."""
+    # Overlay unavailable → the `not sleeper_matches` fallback branch.
+    monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **_kw: None)
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        server._OVERLAY_ENCODE_LOCKS.clear()
+
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-1")
+        r1 = c.get("/api/data?leagueKey=twin")
+        r2 = c.get("/api/data?leagueKey=twin")
+        assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+        key_after_first = next(iter(server._OVERLAY_RESPONSE_CACHE))
+
+        # A scrape lands: same league/view, new base payload version.
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-2")
+        r3 = c.get("/api/data?leagueKey=twin")
+
+    assert all(r.status_code == 200 for r in (r1, r2, r3))
+    # Still ONE entry — the refresh replaced the slot instead of adding one.
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+    assert next(iter(server._OVERLAY_RESPONSE_CACHE)) == key_after_first
+    # The base ETag is the entry version, never part of the key.
+    assert "base-etag-1" not in key_after_first
+    assert "base-etag-2" not in key_after_first
 
 
 def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_registry, monkeypatch):
