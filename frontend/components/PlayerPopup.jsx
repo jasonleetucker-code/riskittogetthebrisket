@@ -510,9 +510,14 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           // Fall through to contribution / canonicalSites if the raw
           // stamp is missing (legacy payload, partial scrape).
         }
+        // Vendor-native value for rank-signal sources (FC crowd value,
+        // OTC 0-100, PFK 0-9999, ...).  Display-only annotation — the
+        // bar/value stays on the normalized 9,999 contribution scale.
+        const nativeRaw = Number(row.sourceNativeValues?.[key]);
+        const native = Number.isFinite(nativeRaw) && nativeRaw > 0 ? nativeRaw : null;
         const contribution = Number(meta[key]?.valueContribution);
         if (Number.isFinite(contribution) && contribution > 0) {
-          return { key, label, value: contribution };
+          return { key, label, value: contribution, native };
         }
         // Legacy payloads may not carry ``valueContribution`` yet.
         // Fall back to ``canonicalSites`` only for value-based sources
@@ -890,8 +895,18 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                     transition: "width 0.3s",
                   }} />
                 </div>
-                <div style={{ minWidth: 56, textAlign: "right", fontSize: "0.76rem", fontWeight: 600 }}>
+                <div
+                  style={{ minWidth: 56, textAlign: "right", fontSize: "0.76rem", fontWeight: 600 }}
+                  title={s.native != null
+                    ? `Normalized contribution ${Math.round(s.value).toLocaleString()} — vendor's native value ${s.native.toLocaleString()}`
+                    : undefined}
+                >
                   {Math.round(s.value).toLocaleString()}
+                  {s.native != null && (
+                    <span className="muted" style={{ fontWeight: 400, fontSize: "0.66rem" }}>
+                      {" "}({s.native.toLocaleString()})
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
