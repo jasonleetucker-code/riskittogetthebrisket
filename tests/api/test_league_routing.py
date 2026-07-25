@@ -538,11 +538,13 @@ def test_overlay_serialize_single_flights_concurrent_misses(monkeypatch):
         headers = {}  # .get("if-none-match") / .get("accept-encoding") → None
 
     scrubbed = {"players": {"x": 1}, "meta": {"leagueKey": "main"}}
-    key = ("overlay", "main", "", "full", True, "ts-1", "base-etag-1")
+    # Cache key is now stable (no version info); version is passed separately
+    key = ("overlay", "main", "", "full", True)
+    version = ("2026-04-29T11:30:00+00:00", "base-etag-1")
 
     async def _fire():
         return await asyncio.gather(
-            *[server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key) for _ in range(5)]
+            *[server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version) for _ in range(5)]
         )
 
     results = asyncio.run(_fire())
@@ -550,6 +552,53 @@ def test_overlay_serialize_single_flights_concurrent_misses(monkeypatch):
     # Exactly one encode across five concurrent requests.
     assert encode_calls["n"] == 1
     assert all(r.status_code == 200 for r in results)
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+
+
+def test_overlay_serialize_cache_invalidates_on_version_change(monkeypatch):
+    """When the overlay refreshes (overlayFetchedAt or baseETag changes),
+    the cache key remains stable but the stored version is checked; a
+    mismatch triggers a re-encode in place, bounding memory to one
+    generation per slot."""
+    import asyncio
+
+    server._OVERLAY_RESPONSE_CACHE.clear()
+    server._OVERLAY_ENCODE_LOCKS.clear()
+
+    encode_calls = {"n": 0}
+    real_compress = server.gzip.compress
+
+    def _counting(data, *a, **k):
+        encode_calls["n"] += 1
+        return real_compress(data, *a, **k)
+
+    monkeypatch.setattr(server.gzip, "compress", _counting)
+
+    class _FakeReq:
+        headers = {}
+
+    scrubbed = {"players": {"x": 1}, "meta": {"leagueKey": "main"}}
+    key = ("overlay", "main", "", "full", True)
+    version_1 = ("2026-04-29T11:30:00+00:00", "base-etag-1")
+    version_2 = ("2026-04-29T11:45:00+00:00", "base-etag-1")  # different overlayFetchedAt
+
+    async def _run():
+        # First request with version_1 — encodes and caches
+        r1 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_1)
+        # Second request with same version_1 — cache hit, no encode
+        r2 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_1)
+        # Third request with version_2 (refresh) — version mismatch, re-encode in place
+        r3 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_2)
+        # Fourth request with version_2 — cache hit, no encode
+        r4 = await server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version_2)
+        return [r1, r2, r3, r4]
+
+    results = asyncio.run(_run())
+
+    assert all(r.status_code == 200 for r in results)
+    # Encoded twice: once for version_1, once for version_2 refresh
+    assert encode_calls["n"] == 2
+    # Cache has only one entry: same slot, version replaced
     assert len(server._OVERLAY_RESPONSE_CACHE) == 1
 
 

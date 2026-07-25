@@ -2506,7 +2506,7 @@ def _overlay_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
-async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
+async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, overlay_version=None):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
 
@@ -2523,43 +2523,37 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
     the multi-MB encode; the rest await the lock and read the cached
     result, so a burst after startup / overlay refresh can't fan out into
     N duplicate serializations that saturate the worker pool.
+
+    Version info (overlay_version tuple) is stored inside the cache entry.
+    On cache hit, stale versions are re-encoded and replace the prior
+    generation in the same slot, bounding memory to at most one per slot.
     """
 
     def _encode():
         raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         etag = hashlib.sha1(raw).hexdigest()
         gz = gzip.compress(raw, compresslevel=5)
-        return etag, raw, gz
+        return etag, raw, gz, overlay_version
 
     if cache_key is None:
         # Uncacheable (no freshness/version key) — nothing to coalesce on.
-        etag, raw, gz = await run_in_threadpool(_encode)
+        etag, raw, gz, _ = await run_in_threadpool(_encode)
     else:
         entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+        # Check freshness: if cached version doesn't match current, treat as miss
+        if entry is not None and entry[3] != overlay_version:
+            entry = None
         if entry is None:
             async with _overlay_encode_lock(cache_key):
                 # Re-check: another coroutine may have encoded this key
                 # while we waited on the lock.
                 entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+                if entry is not None and entry[3] != overlay_version:
+                    entry = None
                 if entry is None:
                     entry = await run_in_threadpool(_encode)
-                    # Crude but bounded: overlay refreshes mint new keys,
-                    # so old entries (and their locks) would otherwise
-                    # accumulate.  A handful of leagues × views keeps this
-                    # well under the cap in practice.
-                    if len(_OVERLAY_RESPONSE_CACHE) >= _OVERLAY_RESPONSE_CACHE_MAX:
-                        _OVERLAY_RESPONSE_CACHE.clear()
-                        # Prune only IDLE locks — never drop one that is
-                        # currently held (including this coroutine's own),
-                        # or a concurrent encode for another key would lose
-                        # its coordination and a second request could
-                        # launch a duplicate encode.  Safe without a guard:
-                        # this runs synchronously on the event-loop thread
-                        # (no await between the check and the delete).
-                        for _k in [k for k, lk in _OVERLAY_ENCODE_LOCKS.items() if not lk.locked()]:
-                            del _OVERLAY_ENCODE_LOCKS[_k]
                     _OVERLAY_RESPONSE_CACHE[cache_key] = entry
-        etag, raw, gz = entry
+        etag, raw, gz, _ = entry
 
     headers["ETag"] = etag
     headers["Vary"] = "Accept-Encoding"
@@ -2796,9 +2790,11 @@ async def get_data(request: Request):
             scrubbed["meta"] = meta
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
-            # Cache-key the encoded bytes by the overlay's freshness stamp
-            # + base payload version; only when both are present so we
-            # never serve stale content.
+            # Cache-key is stable across overlay refreshes: only the base
+            # league/view context determines the key. Version info
+            # (overlayFetchedAt + payloadETag) is stored inside the cache
+            # entry and checked on hit; stale versions are re-encoded in
+            # place, bounding memory to one generation per slot.
             overlay_fetched_at = overlay.get("overlayFetchedAt")
             overlay_cache_key = (
                 (
@@ -2807,13 +2803,12 @@ async def get_data(request: Request):
                     loaded_league or "",
                     payload_view_name,
                     bool(sleeper_matches),
-                    overlay_fetched_at,
-                    payload_etag,
                 )
                 if (overlay_fetched_at and payload_etag)
                 else None
             )
-            return await _serialize_overlaid_response(request, scrubbed, headers, overlay_cache_key)
+            overlay_version = (overlay_fetched_at, payload_etag) if overlay_cache_key else None
+            return await _serialize_overlaid_response(request, scrubbed, headers, overlay_cache_key, overlay_version)
 
         if not sleeper_matches:
             # Cross-league + overlay unavailable: null the sleeper
