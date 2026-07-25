@@ -2364,6 +2364,13 @@ _PUBLIC_API_EXACT = frozenset(
         # pick dollar values, owners) already viewable on Sleeper; no
         # private rankings / user state is leaked here.
         "/api/draft-capital",
+        # Aggregated public sports news (Sleeper trending + public
+        # RSS/sitemap providers).  Zero league-private data — no
+        # rosters, no rankings, no user state.  The public
+        # /league/player/<id> journey page server-renders a "Recent
+        # news" card from this endpoint, so it must be reachable
+        # without a session.
+        "/api/news",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -4013,8 +4020,9 @@ async def get_news(request: Request):
         )
     except Exception as exc:
         log.warning("/api/news aggregation failed: %s", exc)
-        # Signal "temporarily unavailable" — the frontend falls back
-        # to the mock fixture on 503 so the page stays functional.
+        # Signal "temporarily unavailable" — the frontend surfaces an
+        # explicit "news unavailable" state on 503 (there is no
+        # client-side fixture fallback).
         return JSONResponse(
             status_code=503,
             content={
@@ -4024,6 +4032,7 @@ async def get_news(request: Request):
                 "error": f"{type(exc).__name__}",
                 "generatedAt": datetime.now(timezone.utc).isoformat(),
             },
+            headers={"Cache-Control": "no-store"},
         )
 
     payload = aggregated.to_dict()
@@ -4034,9 +4043,8 @@ async def get_news(request: Request):
         payload["count"] = len(payload["items"])
 
     # Distinguish "providers worked, nothing trending" (legit 200
-    # with empty items — DEMO badge stays OFF) from "every provider
-    # errored out" (503 — frontend falls back to its mock fixture
-    # and re-shows the DEMO badge).
+    # with empty items) from "every provider errored out" (503 —
+    # the frontend renders its explicit "news unavailable" state).
     provider_runs = aggregated.provider_runs or []
     all_failed = bool(provider_runs) and not any(r.ok for r in provider_runs)
     if all_failed:
@@ -4047,8 +4055,16 @@ async def get_news(request: Request):
                 "source": "backend",
                 "error": "all_providers_failed",
             },
+            headers={"Cache-Control": "no-store"},
         )
-    return JSONResponse(content=payload)
+    # Public endpoint (see _PUBLIC_API_EXACT): a short shared-cache
+    # TTL keeps repeat public hits off the aggregator, consistent
+    # with the service's own 180s cache and the other public
+    # endpoints' Cache-Control conventions.
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=180"},
+    )
 
 
 @app.get("/api/scaffold/status")
