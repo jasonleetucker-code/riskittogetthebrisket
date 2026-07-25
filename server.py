@@ -2743,7 +2743,7 @@ async def get_data(request: Request):
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
-            "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
+            "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
             "X-Payload-View": payload_view_name,
         }
 
@@ -2998,7 +2998,7 @@ async def get_movers(request: Request):
                 "risers": [],
                 "fallers": [],
             },
-            headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+            headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
 
     # Index the live contract by displayName so we can stitch in
@@ -3108,7 +3108,7 @@ async def get_movers(request: Request):
             "risers": risers[:limit],
             "fallers": fallers[:limit],
         },
-        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+        headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
     )
 
 
@@ -3137,7 +3137,7 @@ async def get_rank_history(request: Request):
     history = _rank_history.load_history(days=days)
     return JSONResponse(
         content={"days": days, "history": history},
-        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+        headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
     )
 
 
@@ -3181,7 +3181,7 @@ async def get_player_source_history(request: Request):
             "assetClass": asset_class,
             **history,
         },
-        headers={"Cache-Control": "public, max-age=120, stale-while-revalidate=600"},
+        headers={"Cache-Control": "private, max-age=120, stale-while-revalidate=600"},
     )
 
 
@@ -3598,7 +3598,7 @@ async def get_league_comparison(request: Request):
         )
     return JSONResponse(
         content=payload,
-        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=3600"},
+        headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=3600"},
     )
 
 
