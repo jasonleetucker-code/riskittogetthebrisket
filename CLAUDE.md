@@ -224,28 +224,47 @@ only code path that determines live player values ("Final Framework").
 Steps:
 
 1. Common 0-9999 internal value scale
-2. Percentile normalization (effective rank / reference pool)
+2. Percentile normalization against a FIXED 500-rank combined-pool
+   reference (``_PERCENTILE_REFERENCE_N`` — ranks past 500 clamp to
+   the curve tail; this is deliberate top-500-board behavior)
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
-4. Value-based sources (KTC, IDPTradeCalc, DynastyNerds, DynastyDaddy)
-   as the training set for the per-source implied-curve fits that
-   combine into the scope masters (GLOBAL / OFFENSE / IDP / ROOKIE)
-5. Scope-appropriate routing for rank-only sources
-6. Hierarchical anchor + α-shrinkage ONLY for IDP and picks; offense
-   takes a flat count-aware mean-median across all sources
+4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly
+   ``ktcSfTep`` + ``idpTradeCalc``): ``raw / site_max × 9999``.
+   Every other source — including DynastyDaddy, Yahoo/Boone,
+   Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
+   conversions — votes via rank → percentile → Hill.  (The refit
+   workflow trains the scope masters on value-based observations.)
+5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
+   IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
+   tooling only — rookie sources ladder-translate first)
+6. Hierarchical anchor + α-shrinkage (α=0.10) ONLY for IDP and
+   picks; offense takes a flat count-aware mean-median across all
+   sources.  Pick rows widen the anchor set to include ktcSfTep so
+   the two real pick markets (KTC + IDPTC) average as peers.
 7. Count-aware aggregation (n=1 passthrough, n=2 mean, n=3-4 untrimmed
    mean-median, n≥5 trimmed mean-median)
-8. λ·MAD volatility penalty
-9. Soft fallback for unranked scope-eligible sources
+8. RETIRED: the λ·MAD volatility penalty is switched off
+   (``_MAD_PENALTY_LAMBDA = 0.0`` since 2026-04-20); ``sourceSpread``
+   is stamped as a pure diagnostic.  Likewise the soft fallback is
+   diagnostics-only (``softFallbackCount`` never touches the math).
+9. Single-source haircut: non-pick rows resting on one post-Hampel
+   source keep 30% of their blended value
 10. IDP calibration post-pass (``_apply_idp_calibration_post_pass``
-    reads ``config/idp_calibration.json``)
+    reads ``config/idp_calibration.json``), contained by the market
+    corridor clamp (IDP rows only, P90 drift band)
 11. Pick tethering — current-year slot picks inherit the merged
     rookie pool's values (offense + IDP rookies combined)
 12. Multiplicative future-year pick discount
+    (``config/weights/pick_year_discount.json``)
 
-Master curve constants auto-refit monthly by
+Master curve constants auto-refit weekly by
 ``.github/workflows/refit-hill-curves.yml`` (see
 ``scripts/auto_refit_hill_curves.py``).
+
+Blend weights live in the ``_RANKING_SOURCES`` registry (all 1.0 by
+policy).  ``config/weights/default_weights.json`` is historical
+documentation only — nothing loads it.
 
 ### Trade Engines
 Two independent trade suggestion systems in `src/trade/`:

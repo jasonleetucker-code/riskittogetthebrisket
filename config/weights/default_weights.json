@@ -1,32 +1,32 @@
 {
-  "version": 9,
-  "description": "Source weights for the canonical blend (KTC + IDPTradeCalc + DLF IDP + DLF SF + Dynasty Nerds SF-TEP + FantasyPros SF + FantasyPros IDP + Dynasty Daddy SF + FantasyCalc + OTCFFB SF + Flock Fantasy SF + Yahoo / Justin Boone).",
-  "weight_rationale": {
-    "KTC": "Primary crowdsourced offense market source with the largest player pool.",
-    "IDPTRADECALC": "Primary IDP value source covering both offense and IDP players. Backbone for IDP ladder translation.",
-    "DLF_IDP": "DLF Dynasty League Football full-board IDP expert consensus (185 players, DL/LB/DB together). Rank-based signal, blended via coverage-aware mean.",
-    "FANTASYPROS_SF": "FantasyPros Dynasty Superflex offense expert consensus. Rank-based signal (~250 QB/RB/WR/TE players).",
-    "DYNASTY_DADDY_SF": "Dynasty Daddy Superflex crowd-sourced trade values via JSON API. Value-based signal (~320 QB/RB/WR/TE players). Standard SF — no TE premium.",
-    "FANTASYCALC": "FantasyCalc Dynasty SF crowd-sourced trade values via public JSON API (api.fantasycalc.com). Value-based signal (~450 QB/RB/WR/TE players). Standard SF (numQbs=2) — the crowd does NOT natively price in TE premium, so the global tepMultiplier applies on top of this source's contribution.",
-    "OTCFFB_SF": "OTC Fantasy Football Superflex trade-derived values via public JSON API (otcffb.com/api/trade-values?format=sf). Value-based signal (~470 QB/RB/WR/TE players) on a 0-100 scale derived from ~350k tracked community trades. Standard SF — no TE premium.",
-    "FLOCK_FANTASY_SF": "Flock Fantasy Superflex expert consensus averaged ranks via JSON API. Rank-based signal (~370 QB/RB/WR/TE players). Standard SF — no TE premium.",
-    "YAHOO_BOONE": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE). Rank-based signal combining the 2QB QB column with the TE-premium TE column — natively sized to our Superflex + TEP league. ~500 players."
-  },
-  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Changes take effect on the next live contract rebuild (next scheduled scrape or manual /api/scrape).",
-  "universe_defaults": {
-    "offense_vet": 1.0,
-    "idp_vet": 1.0,
-    "picks": 1.0
-  },
-  "sources": {
-    "KTC": 1.0,
-    "IDPTRADECALC": 1.0,
-    "DLF_IDP": 1.0,
-    "FANTASYPROS_SF": 1.0,
-    "DYNASTY_DADDY_SF": 1.0,
-    "FANTASYCALC": 1.0,
-    "OTCFFB_SF": 1.0,
-    "FLOCK_FANTASY_SF": 1.0,
-    "YAHOO_BOONE": 1.0
-  }
+ "version": 9,
+ "description": "HISTORICAL DOCUMENTATION ONLY - this file is NOT loaded by any code. Live blend weights come from the _RANKING_SOURCES registry in src/api/data_contract.py (all 1.0 by policy, enforced by tests/api/test_source_registry_parity.py). Kept for the historical weight_rationale notes below. (2026-07-25 calculation audit, finding F-9.)",
+ "weight_rationale": {
+  "KTC": "Primary crowdsourced offense market source with the largest player pool.",
+  "IDPTRADECALC": "Primary IDP value source covering both offense and IDP players. Backbone for IDP ladder translation.",
+  "DLF_IDP": "DLF Dynasty League Football full-board IDP expert consensus (185 players, DL/LB/DB together). Rank-based signal, blended via coverage-aware mean.",
+  "FANTASYPROS_SF": "FantasyPros Dynasty Superflex offense expert consensus. Rank-based signal (~250 QB/RB/WR/TE players).",
+  "DYNASTY_DADDY_SF": "Dynasty Daddy Superflex crowd-sourced trade values via JSON API. Value-based signal (~320 QB/RB/WR/TE players). Standard SF \u2014 no TE premium.",
+  "FANTASYCALC": "FantasyCalc Dynasty SF crowd-sourced trade values via public JSON API (api.fantasycalc.com). Value-based signal (~450 QB/RB/WR/TE players). Standard SF (numQbs=2) \u2014 the crowd does NOT natively price in TE premium, so the global tepMultiplier applies on top of this source's contribution.",
+  "OTCFFB_SF": "OTC Fantasy Football Superflex trade-derived values via public JSON API (otcffb.com/api/trade-values?format=sf). Value-based signal (~470 QB/RB/WR/TE players) on a 0-100 scale derived from ~350k tracked community trades. Standard SF \u2014 no TE premium.",
+  "FLOCK_FANTASY_SF": "Flock Fantasy Superflex expert consensus averaged ranks via JSON API. Rank-based signal (~370 QB/RB/WR/TE players). Standard SF \u2014 no TE premium.",
+  "YAHOO_BOONE": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE). Rank-based signal combining the 2QB QB column with the TE-premium TE column \u2014 natively sized to our Superflex + TEP league. ~500 players."
+ },
+ "how_to_tune": "DO NOT EDIT EXPECTING EFFECT - editing this file changes nothing. To adjust a source weight, change its registry entry in src/api/data_contract.py::_RANKING_SOURCES (and mirror in frontend/lib/dynasty-data.js), or use per-user overrides via POST /api/rankings/overrides.",
+ "universe_defaults": {
+  "offense_vet": 1.0,
+  "idp_vet": 1.0,
+  "picks": 1.0
+ },
+ "sources": {
+  "KTC": 1.0,
+  "IDPTRADECALC": 1.0,
+  "DLF_IDP": 1.0,
+  "FANTASYPROS_SF": 1.0,
+  "DYNASTY_DADDY_SF": 1.0,
+  "FANTASYCALC": 1.0,
+  "OTCFFB_SF": 1.0,
+  "FLOCK_FANTASY_SF": 1.0,
+  "YAHOO_BOONE": 1.0
+ }
 }

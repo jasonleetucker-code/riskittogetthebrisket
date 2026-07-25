@@ -1555,6 +1555,41 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
 ]
 
 
+# ── Derived registry field: is_rank_signal ──────────────────────────────
+# Whether a source's vote travels the rank → percentile → Hill path
+# (vs the value-direct path).  Derived from the SAME ``signal`` field
+# ``_SOURCE_CSV_PATHS`` declares so the two can never drift — before
+# this (2026-07-25 calculation audit, F-8) the registry never set the
+# field, ``get_ranking_source_registry`` exported ``isRankSignal:
+# false`` for every source, and the frontend hand-maintained its own
+# copy (which was wrong for fantasyCalc/otcffbSf until PR #530).  The
+# parity check now compares the field, so a frontend mismatch fails
+# ``tests/api/test_source_registry_parity.py`` at PR time.
+for _src in _RANKING_SOURCES:
+    _cfg = _SOURCE_CSV_PATHS.get(str(_src.get("key") or ""))
+    if isinstance(_cfg, dict):
+        _signal = str(_cfg.get("signal") or "value").lower()
+    else:
+        _signal = "value"
+    _src["is_rank_signal"] = _signal == "rank"
+del _src, _cfg, _signal
+
+
+def rank_signal_source_keys() -> frozenset[str]:
+    """Source keys whose ``canonicalSiteValues`` slot holds a SYNTHETIC
+    RANK ENCODING (``999900 − rank×100`` bookkeeping numbers), NOT a
+    value.
+
+    ⚠ Any consumer doing arithmetic over ``canonicalSiteValues`` MUST
+    either skip these keys or read ``sourceRankMeta[key]
+    .valueContribution`` instead — mixing the six-digit encodings with
+    native 0-9999 values has produced two real bugs (trade dispersion
+    CV; rankings copy/export — both fixed in PR #530).  See the
+    2026-07-25 calculation audit, finding F-3.
+    """
+    return frozenset(str(s.get("key") or "") for s in _RANKING_SOURCES if s.get("is_rank_signal"))
+
+
 # ── Legitimate single-source allowlist ──────────────────────────────────
 # Every top-400 player that remains single-source MUST have an entry here
 # explaining *why*.  The build check ``assert_no_unexplained_single_source``
@@ -2349,6 +2384,10 @@ def assert_ranking_source_registry_parity(
             "isBackbone",
             "isRetail",
             "isTepPremium",
+            # Derived from _SOURCE_CSV_PATHS signal (audit F-8) — the
+            # field that controls value-vs-rank display semantics was
+            # exactly the one the parity check used to skip.
+            "isRankSignal",
         ):
             py_val = py.get(field)
             js_val = js.get(field)
@@ -5596,37 +5635,33 @@ def _compute_unified_rankings(
     When None / empty the pipeline is byte-for-byte identical to the
     default canonical run.
 
-    TE Premium (``tep_multiplier`` + ``tep_native_correction``)
+    TE Premium (``tep_multiplier`` + ``tep_native_multiplier``)
     ───────────────────────────────────────────────────────────
     League-wide TE premium normalization.  Applied as value-level
     multipliers during the Phase 2-3 blend to TE rows ONLY, in two
-    symmetric passes:
+    independent passes (KTC / ktcSfTep exempt from both — KTC's TE++
+    board is the canonical reference everyone else aligns to):
 
-      * Sources flagged ``is_tep_premium=False`` (KTC, DLF, FantasyPros,
-        etc.) have their raw TE values multiplied by
-        ``tep_multiplier``.  These sources price TEs for a standard
-        league; the multiplier boosts them to the league's actual TEP.
-      * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds SF-TEP,
-        Yahoo/Boone SF-TEP) have their raw TE values multiplied by
-        ``tep_native_correction``.  These sources bake in a fixed
-        industry-standard TEP bonus (assumed 1.15); the correction
-        re-normalizes them to the league's actual TEP.
+      * Sources flagged ``is_tep_premium=False`` (DLF, FantasyPros,
+        Flock, etc.) have their TE contributions multiplied by
+        ``tep_multiplier`` (default
+        ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` = 1.15, operator
+        slider clamped [1.0, 1.5]).  These sources price TEs for a
+        standard league; the multiplier boosts them to the league's
+        actual TEP.
+      * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds
+        SF-TEP, IDPTC) have their TE contributions multiplied by
+        ``tep_native_multiplier`` (default
+        ``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10) — a smaller nudge
+        from their already-TEP baseline up to our TE++ scoring.
 
-    The correction factor is the ratio
-    ``tep_multiplier / _TEP_NATIVE_ASSUMED_MULTIPLIER``.  At
-    ``tep_multiplier == 1.15`` (standard TEP-1.5), correction is
-    ``1.0`` and TEP-native sources pass through unchanged — the
-    pre-correction behavior.  For non-TEP leagues (tep_multiplier
-    1.0) the correction drops TEP-native values ~13%, undoing their
-    baked-in assumption.  For heavy-TEP leagues (tep_multiplier 1.30)
-    the correction lifts them ~13%.
+    NOTE (2026-07-25 audit F-5): the earlier ratio-correction design
+    (``tep_native_correction = tep_multiplier / 1.15``) is retired —
+    the parameter is still accepted for backwards compatibility but
+    acknowledged-unused; the two multipliers above are independent.
 
-    Non-TE positions are untouched by either multiplier.  Expected
-    range for ``tep_multiplier`` is ``[1.0, 1.5]`` — the same range
-    enforced at the API ingress (``normalize_tep_multiplier``) and at
-    the contract-summary stamp (``_summarize_source_overrides``).
-    ``1.0`` is a no-op for non-TEP sources but still triggers the
-    correction (drops TEP-native values to match).
+    Non-TE positions are untouched by either multiplier.  Boosted
+    values clamp to the 9,999 scale ceiling.
 
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
@@ -5683,10 +5718,11 @@ def _compute_unified_rankings(
 
     # Resolve the non-TEP-source TE multiplier.  ``None`` means the
     # caller did not supply a slider override, so use the operator's
-    # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25).  An
+    # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.15 — the
+    # platform's TEP-1.5 leagues; see the constant's docstring).  An
     # explicit float comes from the ``/settings`` "TE Premium" input
     # via :func:`normalize_tep_multiplier`, which clamps to [1.0, 1.5].
-    # The TEP-native default (1.10) is now operator-tunable too via
+    # The TEP-native default (1.10) is operator-tunable too via
     # :func:`normalize_tep_native_multiplier`; KTC stays exempt.
     _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
     effective_non_tep_multiplier: float = (
@@ -6215,6 +6251,18 @@ def _compute_unified_rankings(
         str(s.get("key") or "") for s in active_sources if s.get("is_cross_market")
     }
 
+    # Pick-row anchor set (2026-07-25 calculation audit, finding F-2):
+    # picks ride the hierarchical anchor+α path, and "cross-market"
+    # membership alone made IDPTC the sole anchor while ktcSfTep — the
+    # deepest, most liquid PICK market we ingest — landed in the
+    # subgroup with α=0.10 voice (~9:1 IDPTC:KTC on every pick).  For
+    # pick rows only, KTC's TE++ board joins the anchor set so the two
+    # real pick markets average as peers; offense/IDP rows keep the
+    # original anchor membership.
+    pick_anchor_keys: set[str] = cross_market_keys | (
+        {"ktcSfTep"} if "ktcSfTep" in active_keys else set()
+    )
+
     # Final Framework override (2026-04-20): value-based sources vote
     # with their raw site values, normalized so each site's top player
     # contributes 9999.  Pre-compute each source's max observed value
@@ -6336,7 +6384,11 @@ def _compute_unified_rankings(
                     value = min(value * effective_native_multiplier, 9999.0)
                     tep_native_corrected = True
             all_values.append(value)
-            is_anchor_source = source_key in cross_market_keys
+            # Pick rows use the widened anchor set (KTC joins IDPTC as
+            # a peer pick market — audit F-2); player rows keep the
+            # cross-market-only anchor membership.
+            anchor_keys = pick_anchor_keys if row_is_pick else cross_market_keys
+            is_anchor_source = source_key in anchor_keys
             all_value_pairs.append((source_key, value, is_anchor_source))
             if is_anchor_source:
                 cross_market_values.append(value)
@@ -6355,7 +6407,7 @@ def _compute_unified_rankings(
                 else "rank_hill"
             )
             meta["effectiveWeight"] = round(effective_weight, 4)
-            meta["isAnchor"] = bool(source_key in cross_market_keys)
+            meta["isAnchor"] = is_anchor_source
             if tep_applied:
                 meta["tepBoostApplied"] = True
                 meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)

@@ -372,8 +372,14 @@ def percentile_to_value(
     """Final Framework step 2→3: convert a percentile to a display value.
 
     Input:
-        percentile = (rank − 1) / (N − 1)  where N is the source's
-            NATIVE pool size.  Clamped to [0, 1].
+        percentile = (rank − 1) / (N − 1), clamped to [0, 1].  In the
+        LIVE pipeline N is the fixed 500-rank combined-pool reference
+        (``data_contract._PERCENTILE_REFERENCE_N``) for every source —
+        ranks past 500 clamp to p=1.0 and share the curve's tail
+        value.  (The per-source-native-pool design this docstring
+        previously described was retired with the 2026-04-21 ladder
+        translations; offline fit tooling may still pass native-pool
+        percentiles.)
 
     Formula:
         V(p) = 9999 / (1 + (p / midpoint)^slope)

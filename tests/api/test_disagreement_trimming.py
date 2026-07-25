@@ -114,3 +114,44 @@ class TestAnomalyFlagAllowance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRankSignalEncodingGuard(unittest.TestCase):
+    """Audit F-3 structural guard: the rank-signal key set is derivable
+    and the synthetic encoding stays clearly distinguishable from real
+    0-9999 values, so arithmetic consumers of ``canonicalSiteValues``
+    have an authoritative set to guard against."""
+
+    def test_rank_signal_keys_match_csv_signals(self):
+        from src.api.data_contract import (
+            _SOURCE_CSV_PATHS,
+            _RANKING_SOURCES,
+            rank_signal_source_keys,
+        )
+
+        voting = {str(s.get("key") or "") for s in _RANKING_SOURCES}
+        expected = {
+            key
+            for key, cfg in _SOURCE_CSV_PATHS.items()
+            if key in voting
+            and isinstance(cfg, dict)
+            and str(cfg.get("signal") or "value").lower() == "rank"
+        }
+        self.assertEqual(rank_signal_source_keys(), frozenset(expected))
+        # Sanity: the two value-direct sources are never in the set.
+        self.assertNotIn("ktcSfTep", rank_signal_source_keys())
+        self.assertNotIn("idpTradeCalc", rank_signal_source_keys())
+
+    def test_synthetic_encoding_cannot_collide_with_real_values(self):
+        # The encoding ``(10000 − rank) × 100`` stays far above the
+        # 0-9999 value scale for every realistic rank — the deepest
+        # pool any source ships is ~900 rows, and even a hypothetical
+        # 2,000-deep source encodes to 800,000.  (It is NOT
+        # structurally collision-proof: rank ≥ 9,901 would encode
+        # below 9,999 — this pin exists so a future ultra-deep source
+        # forces a conscious decision instead of a silent collision.)
+        from src.api.data_contract import _RANK_TO_SYNTHETIC_VALUE_OFFSET
+
+        deepest_plausible_rank = 2000
+        worst = (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100) - (deepest_plausible_rank * 100)
+        self.assertGreater(worst, 9999)

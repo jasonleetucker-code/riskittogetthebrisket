@@ -238,6 +238,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: true,
+    isRankSignal: false,
     isTepPremium: true,
   },
   {
@@ -262,6 +263,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: true,
     isRetail: false,
+    isRankSignal: false,
     // IDPTradeCalc is scraped with TEP=True (see Dynasty Scraper.py):
     // raw values come from ``value_sftep`` columns, which already bake
     // in a TE-premium board.  Treated as TEP-native so it gets the

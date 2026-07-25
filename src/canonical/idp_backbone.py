@@ -316,6 +316,12 @@ def coverage_weight(
     unchanged.  Sources with a declared depth shallower than
     ``min_full_depth`` are scaled linearly so a 20-deep list with declared
     weight 1.0 contributes only ``20 / min_full_depth``.
+
+    NOTE (2026-07-25 audit F-10): every currently-registered source
+    declares depth ≥ 62, so this factor is 1.0 across the board — the
+    mechanism is presently inert and exists as protection for any
+    future shallow (top-20 style) source.  Do not assume shallow-source
+    down-weighting is active today.
     """
     w = max(0.0, float(declared_weight or 0.0))
     if depth is None:
