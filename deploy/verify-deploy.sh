@@ -12,7 +12,14 @@ FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_BUILD_DIR="${FRONTEND_BUILD_DIR:-${APP_DIR}/frontend/.next}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 PUBLIC_URL="${PUBLIC_URL:-}"
-VERIFY_MAX_ATTEMPTS="${VERIFY_MAX_ATTEMPTS:-20}"
+# 45 x 2s = ~90s.  Backend boot parses the multi-MB cached contract and
+# primes 4 payload views before the port binds; the old 40s budget was
+# tight enough that ambient slowness (disk, CPU steal on the VPS) could
+# fail an otherwise-healthy deploy and trigger a full auto-rollback.
+# The Sleeper overlay warm is no longer on the pre-bind path (see
+# server.py::_warm_overlays_in_background), so 90s is generous, not a
+# band-aid over unbounded network work.
+VERIFY_MAX_ATTEMPTS="${VERIFY_MAX_ATTEMPTS:-45}"
 VERIFY_SLEEP_SECONDS="${VERIFY_SLEEP_SECONDS:-2}"
 VERIFY_CURL_TIMEOUT="${VERIFY_CURL_TIMEOUT:-8}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"

@@ -1418,6 +1418,62 @@ def _backup_freshness() -> dict:
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
+def _warm_overlays_in_background(contract_payload: dict) -> None:
+    """Force-refresh the Sleeper overlay cache for every active league
+    on a daemon thread.
+
+    Called by ``_prime_latest_payload`` after a scrape / startup prime.
+    Must never run inline on the event loop — see the call site for the
+    deploy-failure history.  Thread-safe: ``fetch_sleeper_overlay`` is
+    the same sync callable the request path already invokes via
+    ``run_in_threadpool``, and it guards its own per-league cache.
+    """
+
+    def _worker() -> None:
+        try:
+            loaded_sleeper = contract_payload.get("sleeper") or {}
+            id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+            warmed: list[str] = []
+            warm_failed: list[str] = []
+            for cfg in _league_registry.active_leagues():
+                try:
+                    overlay = _sleeper_overlay.fetch_sleeper_overlay(
+                        sleeper_league_id=cfg.sleeper_league_id,
+                        id_to_player=id_map if isinstance(id_map, dict) else {},
+                        force_refresh=True,
+                    )
+                    if overlay and overlay.get("teams"):
+                        warmed.append(cfg.key)
+                    else:
+                        warm_failed.append(cfg.key)
+                except Exception as inner:  # noqa: BLE001
+                    log.warning(
+                        "post-scrape overlay warm failed for %s: %s",
+                        cfg.key,
+                        inner,
+                    )
+                    warm_failed.append(cfg.key)
+            if warmed or warm_failed:
+                log.info(
+                    "post-scrape overlay warm: %d warmed, %d failed (warmed=%s failed=%s)",
+                    len(warmed),
+                    len(warm_failed),
+                    warmed,
+                    warm_failed,
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("post-scrape overlay warm pass failed: %s", exc)
+
+    try:
+        threading.Thread(
+            target=_worker,
+            name="sleeper-overlay-warm",
+            daemon=True,
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("post-scrape overlay warm thread failed to start: %s", exc)
+
+
 def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly.
 
@@ -1545,39 +1601,19 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         # (default + cross-league), warming the default league makes
         # the very first /api/data after a scrape return overlay-fresh
         # rosters too.  Non-fatal: any failure is logged + skipped.
-        try:
-            loaded_sleeper = contract_payload.get("sleeper") or {}
-            id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
-            warmed: list[str] = []
-            warm_failed: list[str] = []
-            for cfg in _league_registry.active_leagues():
-                try:
-                    overlay = _sleeper_overlay.fetch_sleeper_overlay(
-                        sleeper_league_id=cfg.sleeper_league_id,
-                        id_to_player=id_map if isinstance(id_map, dict) else {},
-                        force_refresh=True,
-                    )
-                    if overlay and overlay.get("teams"):
-                        warmed.append(cfg.key)
-                    else:
-                        warm_failed.append(cfg.key)
-                except Exception as inner:  # noqa: BLE001
-                    log.warning(
-                        "post-scrape overlay warm failed for %s: %s",
-                        cfg.key,
-                        inner,
-                    )
-                    warm_failed.append(cfg.key)
-            if warmed or warm_failed:
-                log.info(
-                    "post-scrape overlay warm: %d warmed, %d failed (warmed=%s failed=%s)",
-                    len(warmed),
-                    len(warm_failed),
-                    warmed,
-                    warm_failed,
-                )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("post-scrape overlay warm pass failed: %s", exc)
+        #
+        # Runs on a background daemon thread (same pattern as
+        # ``_kick_background_refresh``), NEVER inline: this function is
+        # called from the ``lifespan`` startup path BEFORE uvicorn binds
+        # the port, and from ``run_scraper`` on the event loop.  Inline,
+        # a slow Sleeper (per-league round-trips with read timeouts)
+        # blocked the socket bind past deploy verification's retry
+        # budget — the root cause of the 2026-07-25 deploy failures /
+        # auto-rollbacks — and stalled the loop at every scrape end.
+        # The warm is a cache-priming optimization; requests that land
+        # before it finishes simply fetch the overlay themselves via
+        # the existing threadpool path in ``get_data``.
+        _warm_overlays_in_background(contract_payload)
 
         if not contract_report.get("ok"):
             log.error(
