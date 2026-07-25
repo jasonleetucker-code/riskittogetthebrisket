@@ -7,6 +7,9 @@ import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
 import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useApp } from "@/components/AppShell";
+import { useNews } from "@/components/useNews";
+import { lookupPlayerNews } from "@/lib/player-name-match";
+import { timeAgo } from "@/lib/news-service";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
@@ -194,6 +197,81 @@ function RosContextSection({ row }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── News section ─────────────────────────────────────────────────────
+// Full news list for this player from ``useNews().byPlayer`` (all
+// items, newest first — not just the latest chip).  The hook is
+// single-flighted at module level, so mounting it here costs nothing
+// beyond the shared fetch.  Degrades silently: no news, unavailable
+// backend, or loading all render nothing.
+const _POPUP_NEWS_LIMIT = 5;
+
+function PlayerNewsSection({ playerName }) {
+  const { byPlayer } = useNews();
+  const items = useMemo(
+    () => lookupPlayerNews(byPlayer, playerName),
+    [byPlayer, playerName],
+  );
+  if (!items.length) return null;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="label" style={{ marginBottom: 6 }}>
+        News ({items.length})
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.slice(0, _POPUP_NEWS_LIMIT).map((item) => (
+          <div
+            key={item.id || `${item.ts}-${item.headline}`}
+            style={{
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              fontSize: "0.76rem",
+            }}
+          >
+            <div
+              className="muted"
+              style={{ display: "flex", gap: 8, fontSize: "0.66rem" }}
+            >
+              <span>{timeAgo(item.ts)}</span>
+              <span>{item.providerLabel || item.provider || "—"}</span>
+              {item.severity && (
+                <span
+                  style={{
+                    color:
+                      item.severity === "alert"
+                        ? "var(--red)"
+                        : item.severity === "watch"
+                          ? "var(--amber)"
+                          : "var(--subtext)",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                  }}
+                >
+                  {item.severity}
+                </span>
+              )}
+            </div>
+            <div style={{ marginTop: 2 }}>
+              {item.url ? (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--cyan)", textDecoration: "none" }}
+                >
+                  {item.headline}
+                </a>
+              ) : (
+                item.headline
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -869,6 +947,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
         <div style={{ marginTop: 14 }}>
           <PlayerRankHistoryChart row={row} />
         </div>
+
+        {/* Recent news for this player — renders nothing when the
+            player has no items or the feed is unavailable. */}
+        <PlayerNewsSection playerName={row.name} />
 
         {/* Source breakdown bars */}
         {siteDetails.length > 0 && (

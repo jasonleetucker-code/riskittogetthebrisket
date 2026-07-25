@@ -36,6 +36,7 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 const PRIMARY_NAV = [
   { href: "/rankings", label: "Rankings", hint: "Player value board" },
   { href: "/trending", label: "Trending", hint: "Biggest rank movers, last 1d/7d/30d" },
+  { href: "/news", label: "News", hint: "Aggregated player news + articles across sources" },
   {
     href: "/trade",
     label: "Trade",
@@ -340,6 +341,7 @@ function MobileTopBar() {
     const titles = {
       "": "Home",
       rankings: "Rankings",
+      news: "News",
       trade: "Trade",
       draft: "Draft",
       edge: "Edge",

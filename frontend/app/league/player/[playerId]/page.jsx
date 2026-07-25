@@ -10,6 +10,7 @@ import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
+import { newsItemsForPlayer } from "@/lib/player-name-match";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -30,6 +31,30 @@ async function fetchPlayer(playerId) {
   } catch {
     return null;
   }
+}
+
+// Recent news for this player from the aggregated feed.  Degrades
+// silently: any failure (backend down, non-200, parse error) returns
+// an empty list and the section simply doesn't render.
+async function fetchPlayerNews(playerName) {
+  if (!playerName) return [];
+  try {
+    const res = await fetch(`${_backend()}/api/news`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const payload = await res.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    return newsItemsForPlayer(items, playerName);
+  } catch {
+    return [];
+  }
+}
+
+function _newsTimestamp(iso) {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toISOString().slice(0, 10);
 }
 
 export async function generateMetadata({ params }) {
@@ -79,6 +104,7 @@ export default async function PlayerJourneyPage({ params }) {
   const managers = buildManagerLookup(payload.league);
   const p = payload.player;
   const ident = p.identity;
+  const newsItems = await fetchPlayerNews(ident?.playerName);
 
   return (
     <section>
@@ -237,6 +263,49 @@ export default async function PlayerJourneyPage({ params }) {
           </div>
         )}
       </div>
+
+      {newsItems.length > 0 && (
+        <Card title="Recent news" subtitle="Latest headlines mentioning this player">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {newsItems.slice(0, 6).map((item, i) => (
+              <div
+                key={item.id || `${item.ts}-${i}`}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  padding: 10,
+                }}
+              >
+                <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>
+                  {_newsTimestamp(item.ts)}
+                  {" · "}
+                  {item.providerLabel || item.provider || "news"}
+                  {item.severity ? ` · ${item.severity}` : ""}
+                </div>
+                <div style={{ fontSize: "0.82rem", marginTop: 2 }}>
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "var(--cyan)", fontWeight: 600 }}
+                    >
+                      {item.headline}
+                    </a>
+                  ) : (
+                    item.headline
+                  )}
+                </div>
+                {item.body && (
+                  <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
+                    {String(item.body).slice(0, 200)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="Transaction timeline" subtitle="Every trade, waiver, and FA event involving this player">
         {p.events.length === 0 ? (
