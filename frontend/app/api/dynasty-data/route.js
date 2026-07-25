@@ -188,6 +188,17 @@ function loadFromDisk() {
   return null;
 }
 
+// Copy the response headers we forward downstream (content-type,
+// cache-control, etag, vary — never content-encoding; see note above).
+function passThroughHeaders(res) {
+  const headers = new Headers();
+  for (const h of PASS_THROUGH_HEADERS) {
+    const v = res.headers.get(h);
+    if (v) headers.set(h, v);
+  }
+  return headers;
+}
+
 export async function GET(request) {
   try {
     const backendUrl = backendDataUrl(request.url);
@@ -196,28 +207,38 @@ export async function GET(request) {
     // Happy path: stream the backend response straight through without
     // buffering / re-serializing the multi-MB contract, preserving its
     // Cache-Control + ETag so the browser can revalidate.
-    if (backend && (backend.res.ok || backend.res.status === 304)) {
+    if (backend) {
       const { res, ctl } = backend;
-      const headers = new Headers();
-      for (const h of PASS_THROUGH_HEADERS) {
-        const v = res.headers.get(h);
-        if (v) headers.set(h, v);
+
+      // Conditional hit — no body to stream.
+      if (res.status === 304) {
+        return new NextResponse(null, { status: 304, headers: passThroughHeaders(res) });
       }
-      // 304 (or an empty body) — nothing to stream.
-      if (res.status === 304 || !res.body) {
-        return new NextResponse(null, { status: res.status, headers });
+
+      // A 200 is only streamable if it's actually the JSON contract.  We
+      // can't validate the full body without buffering (that would defeat
+      // streaming), but we can reject a non-JSON 200 — an HTML gateway
+      // page, an error interstitial, a scalar — up front so the client
+      // gets the disk snapshot instead of a body it can't parse.
+      const contentType = res.headers.get("content-type") || "";
+      const isJson = /\bapplication\/json\b/i.test(contentType);
+      if (res.ok && isJson) {
+        if (!res.body) {
+          return new NextResponse(null, { status: res.status, headers: passThroughHeaders(res) });
+        }
+        // Stream the body with a per-read (upstream-only) idle timeout.
+        return new NextResponse(streamWithUpstreamIdleAbort(res, ctl), {
+          status: res.status,
+          headers: passThroughHeaders(res),
+        });
       }
-      // Stream the body with a per-read (upstream-only) idle timeout.
-      return new NextResponse(streamWithUpstreamIdleAbort(res, ctl), {
-        status: res.status,
-        headers,
-      });
+      // Non-2xx, or a 200 that isn't JSON — fall through to disk.
     }
 
-    // Backend unreachable or errored at header time — fall back to a
-    // disk snapshot.  (Once streaming has started we can no longer fall
-    // back; a mid-stream stall aborts and surfaces as a fetch error.)
-    // Release the unconsumed backend response, if any.
+    // Backend unreachable / errored / served a non-contract response —
+    // fall back to a disk snapshot.  (Once streaming has started we can
+    // no longer fall back; a mid-stream stall aborts and surfaces as a
+    // fetch error.)  Release the unconsumed backend response, if any.
     if (backend) {
       try {
         backend.ctl.abort();

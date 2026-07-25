@@ -2549,7 +2549,15 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
                     # well under the cap in practice.
                     if len(_OVERLAY_RESPONSE_CACHE) >= _OVERLAY_RESPONSE_CACHE_MAX:
                         _OVERLAY_RESPONSE_CACHE.clear()
-                        _OVERLAY_ENCODE_LOCKS.clear()
+                        # Prune only IDLE locks — never drop one that is
+                        # currently held (including this coroutine's own),
+                        # or a concurrent encode for another key would lose
+                        # its coordination and a second request could
+                        # launch a duplicate encode.  Safe without a guard:
+                        # this runs synchronously on the event-loop thread
+                        # (no await between the check and the delete).
+                        for _k in [k for k, lk in _OVERLAY_ENCODE_LOCKS.items() if not lk.locked()]:
+                            del _OVERLAY_ENCODE_LOCKS[_k]
                     _OVERLAY_RESPONSE_CACHE[cache_key] = entry
         etag, raw, gz = entry
 
