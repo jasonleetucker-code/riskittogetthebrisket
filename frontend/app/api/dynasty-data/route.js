@@ -15,16 +15,25 @@ const BACKEND_ORIGIN = (() => {
   }
 })();
 
-// The backend's per-request Sleeper overlay can occasionally take a
-// beat on a cold 15-min window; keep a generous-but-bounded budget so
-// we prefer fresh data and only fall back to a disk snapshot when the
-// backend is genuinely unresponsive.
-const BACKEND_TIMEOUT_MS = 4000;
+// NOTE ON DEPLOYMENT SCOPE: in production, nginx routes every ``/api/*``
+// request (including ``/api/dynasty-data``) straight to the Python
+// backend — see ``deploy/nginx/riskittogetthebrisket.org.conf`` — where
+// ``server.py::get_dynasty_data_alias`` already honors the caller's
+// ``view``/``leagueKey``.  This Next route only handles the dev flow
+// (no nginx in front) and any Next-fronted deployment.  The improvements
+// here (param forwarding, stream-through, idle-abort) bring that dev
+// path in line with production; they are NOT a production data-path fix.
+
+// Idle (per-chunk) timeout: abort if the backend stalls for this long
+// without sending data, at header time OR mid-body.  Using an inactivity
+// timeout rather than a total-duration cap means a legitimately slow but
+// live transfer isn't killed, while a genuine stall still unblocks.
+const BACKEND_IDLE_TIMEOUT_MS = 4000;
 
 // Headers worth forwarding from the backend response.  We intentionally
-// DROP ``content-encoding``: Node's fetch has already decompressed the
-// body we read, so re-advertising gzip would corrupt it — Next.js
-// re-compresses on the way out.
+// DROP ``content-encoding``: undici exposes ``res.body`` as the DECODED
+// stream, so re-advertising gzip would corrupt it — Next.js re-compresses
+// on the way out.
 const PASS_THROUGH_HEADERS = ["content-type", "cache-control", "etag", "vary"];
 
 function backendDataUrl(reqUrl) {
@@ -42,9 +51,19 @@ function backendDataUrl(reqUrl) {
   return target.toString();
 }
 
+// Fetch the backend response.  The AbortController's idle timer stays
+// ARMED after this resolves — the caller is responsible for keeping it
+// alive across the body stream (or clearing it) so a mid-body stall
+// still aborts instead of hanging.  On a header-time failure we clear
+// the timer and return null so the caller can fall back to disk.
 async function fetchFromBackendApi(request, backendUrl) {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), BACKEND_TIMEOUT_MS);
+  const state = { timer: setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS) };
+  const resetIdle = () => {
+    clearTimeout(state.timer);
+    state.timer = setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS);
+  };
+  const clear = () => clearTimeout(state.timer);
   try {
     const headers = {};
     const cookie = request.headers.get("cookie");
@@ -53,16 +72,37 @@ async function fetchFromBackendApi(request, backendUrl) {
     // can round-trip as a 304 instead of re-sending the full contract.
     const inm = request.headers.get("if-none-match");
     if (inm) headers["If-None-Match"] = inm;
-    return await fetch(backendUrl, {
+    const res = await fetch(backendUrl, {
       cache: "no-store",
       signal: ctl.signal,
       headers,
     });
+    return { res, ctl, resetIdle, clear };
   } catch {
+    clear();
     return null;
-  } finally {
-    clearTimeout(timer);
   }
+}
+
+// Pipe the backend body through unchanged while keeping the idle-abort
+// timer armed: each chunk rearms the timeout, and a stall of
+// BACKEND_IDLE_TIMEOUT_MS aborts the upstream fetch so the stream errors
+// out instead of hanging forever.  Streaming (vs. buffering the whole
+// multi-MB payload) sends the first byte as soon as it arrives.
+function streamWithIdleAbort({ res, resetIdle, clear }) {
+  const ts = new TransformStream({
+    transform(chunk, controller) {
+      resetIdle();
+      controller.enqueue(chunk);
+    },
+    flush() {
+      clear();
+    },
+    cancel() {
+      clear();
+    },
+  });
+  return res.body.pipeThrough(ts);
 }
 
 function parseDynastyDataJs(jsText) {
@@ -129,23 +169,35 @@ function loadFromDisk() {
 export async function GET(request) {
   try {
     const backendUrl = backendDataUrl(request.url);
-    const res = await fetchFromBackendApi(request, backendUrl);
+    const backend = await fetchFromBackendApi(request, backendUrl);
 
     // Happy path: stream the backend response straight through without
-    // re-parsing / re-serializing the multi-MB contract, preserving its
-    // Cache-Control + ETag so the browser can revalidate.  A 304 carries
-    // no body.
-    if (res && (res.ok || res.status === 304)) {
+    // buffering / re-serializing the multi-MB contract, preserving its
+    // Cache-Control + ETag so the browser can revalidate.
+    if (backend && (backend.res.ok || backend.res.status === 304)) {
+      const { res, clear } = backend;
       const headers = new Headers();
       for (const h of PASS_THROUGH_HEADERS) {
         const v = res.headers.get(h);
         if (v) headers.set(h, v);
       }
-      const body = res.status === 304 ? null : await res.arrayBuffer();
-      return new NextResponse(body, { status: res.status, headers });
+      // 304 carries no body — release the idle timer and return.
+      if (res.status === 304 || !res.body) {
+        clear();
+        return new NextResponse(null, { status: res.status, headers });
+      }
+      // Stream the body; the idle-abort timer stays armed for the
+      // stream's lifetime (each chunk rearms it, flush clears it).
+      return new NextResponse(streamWithIdleAbort(backend), {
+        status: res.status,
+        headers,
+      });
     }
 
-    // Backend unreachable or errored — fall back to a disk snapshot.
+    // Backend unreachable or errored at header time — fall back to a
+    // disk snapshot.  (Once streaming has started we can no longer fall
+    // back; a mid-stream stall aborts and surfaces as a fetch error.)
+    if (backend) backend.clear();
     const parsed = loadFromDisk();
     if (parsed) {
       return NextResponse.json(parsed);
