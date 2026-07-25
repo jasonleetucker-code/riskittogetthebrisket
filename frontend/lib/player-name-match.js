@@ -77,7 +77,12 @@ export function normalizePlayerNameKey(name) {
   return s;
 }
 
-function itemPlayerNames(item) {
+/**
+ * Player display names mentioned on a news item — reads the rich
+ * ``players`` list first, falling back to the flat
+ * ``impactedPlayers`` alias.
+ */
+export function itemPlayerNames(item) {
   if (Array.isArray(item?.players) && item.players.length > 0) {
     return item.players.map((p) => (typeof p === "string" ? p : p?.name));
   }

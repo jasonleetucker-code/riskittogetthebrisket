@@ -31,8 +31,10 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
-from ..base import NewsItem, NewsProvider, stable_id, to_iso_utc
-from ._rss import classify, default_http_fetcher, match_players
+from src.utils.name_clean import normalize_player_name
+
+from ..base import NewsItem, NewsProvider, PlayerMention, stable_id, to_iso_utc
+from ._rss import classify, default_http_fetcher
 
 _SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 _ARTICLE_PATH_RE = re.compile(r"/article/([^/?#]+)")
@@ -47,6 +49,45 @@ def _humanize_slug(slug: str) -> str:
     """
     words = [w for w in slug.replace("_", "-").split("-") if w]
     return " ".join(w.capitalize() if not w.isupper() else w for w in words)
+
+
+def _match_players_normalized(
+    text: str,
+    *,
+    known_names: List[str],
+    impact: str,
+) -> List[PlayerMention]:
+    """Match known player names against slug-derived text.
+
+    The shared ``match_players`` helper does a literal lowercase
+    substring match, which fails on slugs because slugs strip
+    punctuation differently than display names carry it:
+    ``amon-ra-st-brown`` humanizes to ``Amon Ra St Brown`` while the
+    known name is ``Amon-Ra St. Brown``.  Normalizing BOTH sides with
+    the canonical ``normalize_player_name`` transform collapses those
+    differences.  The space-stripped comparison additionally covers
+    apostrophe names, where the slug splits on the apostrophe
+    (``ja-marr-chase`` → ``ja marr chase``) but normalization of the
+    display name removes it without a space (``jamarr chase``).
+    False-positive risk is bounded by the curated known-names
+    vocabulary, same as ``match_players``.
+    """
+    if not known_names or not text:
+        return []
+    hay = normalize_player_name(text)
+    hay_compact = hay.replace(" ", "")
+    if not hay:
+        return []
+    seen: set[str] = set()
+    out: List[PlayerMention] = []
+    for name in known_names:
+        key = normalize_player_name(name)
+        if not key or key in seen:
+            continue
+        if key in hay or key.replace(" ", "") in hay_compact:
+            out.append(PlayerMention(name=name, impact=impact))
+            seen.add(key)
+    return out
 
 
 def _parse_lastmod(raw: Optional[str]) -> Optional[datetime]:
@@ -122,7 +163,7 @@ class PfkArticlesProvider(NewsProvider):
             if not headline:
                 continue
             severity, _kind, impact = classify(headline)
-            mentions = match_players(headline, known_names=known, impact=impact)
+            mentions = _match_players_normalized(headline, known_names=known, impact=impact)
             out.append(
                 NewsItem(
                     id=stable_id(self.name, loc),

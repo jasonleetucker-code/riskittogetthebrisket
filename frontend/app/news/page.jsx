@@ -6,7 +6,8 @@ import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { filterByScope, timeAgo } from "@/lib/news-service";
-import { normalizePlayerNameKey } from "@/lib/player-name-match";
+import { itemPlayerNames, normalizePlayerNameKey } from "@/lib/player-name-match";
+import { buildPlayerMetaIndex, filterByPlayerFacets } from "@/lib/news-filters";
 
 // ── Filter option sets ───────────────────────────────────────────────────
 // Scope reuses the exact roster-scoping model from the terminal
@@ -47,26 +48,7 @@ function useLeagueNames(sleeperTeams) {
 // contract rows so news items can be filtered by NFL team / position
 // even though NewsItems only carry player names.
 function usePlayerMeta(rows) {
-  return useMemo(() => {
-    const meta = new Map();
-    if (!Array.isArray(rows)) return meta;
-    for (const r of rows) {
-      const key = normalizePlayerNameKey(r?.name);
-      if (!key || meta.has(key)) continue;
-      const family = String(r?.pos || "").toUpperCase().split("/")[0];
-      const team = String(r?.raw?.team || "").toUpperCase().trim();
-      meta.set(key, { team, family });
-    }
-    return meta;
-  }, [rows]);
-}
-
-function itemPlayerNames(item) {
-  if (Array.isArray(item?.players) && item.players.length > 0) {
-    return item.players.map((p) => (typeof p === "string" ? p : p?.name));
-  }
-  if (Array.isArray(item?.impactedPlayers)) return item.impactedPlayers;
-  return [];
+  return useMemo(() => buildPlayerMetaIndex(rows), [rows]);
 }
 
 function FilterPills({ options, value, onChange, ariaLabel }) {
@@ -139,21 +121,9 @@ export default function NewsPage() {
   const filtered = useMemo(() => {
     let items = filterByScope(news.scored, scope);
 
-    if (teamFilter !== "ALL" || posFilter !== "ALL") {
-      items = items.filter((item) => {
-        const metas = itemPlayerNames(item)
-          .map((n) => playerMeta.get(normalizePlayerNameKey(n)))
-          .filter(Boolean);
-        if (metas.length === 0) return false;
-        if (teamFilter !== "ALL" && !metas.some((m) => m.team === teamFilter)) {
-          return false;
-        }
-        if (posFilter !== "ALL" && !metas.some((m) => m.family === posFilter)) {
-          return false;
-        }
-        return true;
-      });
-    }
+    // Team + position must be satisfied by a SINGLE mention at once —
+    // see filterByPlayerFacets for the conjunction-per-mention rule.
+    items = filterByPlayerFacets(items, { teamFilter, posFilter, playerMeta });
 
     if (sourceFilter !== "ALL") {
       items = items.filter(

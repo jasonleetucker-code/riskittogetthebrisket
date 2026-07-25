@@ -98,6 +98,45 @@ class TestParse:
         assert len(tagged) == 1
         assert tagged[0].players[0].name == "Carnell Tate"
 
+    @pytest.mark.parametrize(
+        "slug,display_name",
+        [
+            # Hyphen + period in the display name, both flattened in
+            # the slug — literal substring match would miss all of
+            # these; normalized-key matching must not.
+            ("signal-or-noise-amon-ra-st-brown", "Amon-Ra St. Brown"),
+            # Apostrophe splits the slug ("ja marr") but the display
+            # name normalizes with the apostrophe removed and no
+            # space ("jamarr") — covered by compact comparison.
+            ("why-ja-marr-chase-is-a-hold", "Ja'Marr Chase"),
+            ("dandre-swift-buy-window", "D'Andre Swift"),
+            # Generational suffix present in the display name only.
+            ("kenneth-walker-breakout-case", "Kenneth Walker III"),
+            # Dotted initials in the display name, bare in the slug.
+            ("tj-hockenson-route-tree", "T.J. Hockenson"),
+        ],
+    )
+    def test_punctuated_names_match_via_normalized_keys(self, slug, display_name):
+        sitemap = (
+            b'<?xml version="1.0" encoding="UTF-8"?>\n'
+            b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            b"  <url>\n"
+            b"    <loc>https://playforkeepsdynasty.com/article/"
+            + slug.encode("utf-8")
+            + b"</loc>\n"
+            b"    <lastmod>2026-07-25</lastmod>\n"
+            b"  </url>\n"
+            b"</urlset>\n"
+        )
+        provider = PfkArticlesProvider(fetcher=lambda _url: sitemap)
+        items = provider.fetch(player_names=[display_name, "Bijan Robinson"])
+        assert len(items) == 1
+        assert [p.name for p in items[0].players] == [display_name]
+
+    def test_no_false_positive_on_unrelated_names(self):
+        items = _provider().fetch(player_names=["Tate Ratledge"])
+        assert all(not it.players for it in items)
+
     def test_stable_ids_across_refetch(self):
         first = _provider().fetch()
         second = _provider().fetch()

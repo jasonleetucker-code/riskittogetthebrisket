@@ -36,11 +36,23 @@ async function fetchPlayer(playerId) {
 // Recent news for this player from the aggregated feed.  Degrades
 // silently: any failure (backend down, non-200, parse error) returns
 // an empty list and the section simply doesn't render.
+//
+// The news card must never hold this page's render hostage: on a
+// cold news cache the backend runs every provider sequentially with
+// up to 5s timeouts each, so an unbounded await here could add tens
+// of seconds to an otherwise unrelated public page.  A hard 1.5s
+// deadline (AbortSignal.timeout) caps the worst case — the abort
+// lands in the catch below and the card simply doesn't render this
+// pass, while the backend keeps warming its own cache so the next
+// render (revalidate: 60) gets a fast hit.
+const NEWS_FETCH_DEADLINE_MS = 1500;
+
 async function fetchPlayerNews(playerName) {
   if (!playerName) return [];
   try {
     const res = await fetch(`${_backend()}/api/news`, {
       next: { revalidate: 60 },
+      signal: AbortSignal.timeout(NEWS_FETCH_DEADLINE_MS),
     });
     if (!res.ok) return [];
     const payload = await res.json();
