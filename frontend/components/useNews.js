@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchNews as fetchNewsRaw, rankByRelevance } from "@/lib/news-service";
+import { buildNewsIndexByPlayer } from "@/lib/player-name-match";
 
 /**
  * useNews — shared fetch + scoring hook for the landing page.
@@ -100,34 +101,18 @@ export function useNews({ rosterNames, leagueNames } = {}) {
     });
   }, [state.items, rosterNames, leagueNames]);
 
-  // Index news items by lowercase player name so consumers (e.g.
-  // /rankings table) can look up "is there recent news about this
-  // player?" in O(1).  Each entry is the most-recent news item that
-  // mentioned that player, with the player's items sorted newest-
-  // first so chip rendering can show the latest headline.
-  const byPlayer = useMemo(() => {
-    const out = new Map();
-    if (!state.items || !state.items.length) return out;
-    // Sort newest first so the first match per player wins.
-    const sorted = [...state.items].sort((a, b) => {
-      const ta = a?.ts || a?.publishedAt || 0;
-      const tb = b?.ts || b?.publishedAt || 0;
-      return new Date(tb).getTime() - new Date(ta).getTime();
-    });
-    for (const item of sorted) {
-      const players = Array.isArray(item.players)
-        ? item.players
-        : Array.isArray(item.impactedPlayers)
-          ? item.impactedPlayers
-          : [];
-      for (const p of players) {
-        const key = String(p?.name || p || "").trim().toLowerCase();
-        if (!key) continue;
-        if (!out.has(key)) out.set(key, item);
-      }
-    }
-    return out;
-  }, [state.items]);
+  // Index news items by normalized player-name key so consumers
+  // (rankings chip, PlayerPopup, News tab) can look up every item
+  // about a player in O(1).  Each entry is the FULL newest-first
+  // list for that player; look up with
+  // ``lookupPlayerNews(byPlayer, name)`` from
+  // ``@/lib/player-name-match`` so the fuzzy normalization (initials,
+  // suffixes, apostrophes, accents) matches the backend's
+  // ``normalize_player_name``.
+  const byPlayer = useMemo(
+    () => buildNewsIndexByPlayer(state.items),
+    [state.items],
+  );
 
   return { ...state, scored, byPlayer };
 }

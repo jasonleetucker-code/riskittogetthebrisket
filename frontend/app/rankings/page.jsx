@@ -37,6 +37,7 @@ import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import { useNews } from "@/components/useNews";
+import { lookupPlayerNews } from "@/lib/player-name-match";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -492,9 +493,10 @@ export default function RankingsPage() {
     [userState?.watchlist],
   );
   // Pull recent news so we can stamp a "📰" chip on rows whose
-  // player has fresh news / injury status.  Looks up by lowercase
-  // name in O(1).  News data is single-flighted at module level so
-  // this hook is essentially free for the rankings page.
+  // player has fresh news / injury status.  Looks up by normalized
+  // name key in O(1) (``lookupPlayerNews``).  News data is
+  // single-flighted at module level so this hook is essentially
+  // free for the rankings page.
   const { byPlayer: newsByPlayer } = useNews();
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
@@ -1366,7 +1368,7 @@ export default function RankingsPage() {
               </thead>
               <tbody>
                 {displayRows.map((row, idx) => {
-                  const newsItem = newsByPlayer.get(String(row.name || "").toLowerCase());
+                  const newsItem = lookupPlayerNews(newsByPlayer, row.name)[0];
                   const chips = rowChips(row, { newsItem });
                   const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
                   const band = valueBand(val);
