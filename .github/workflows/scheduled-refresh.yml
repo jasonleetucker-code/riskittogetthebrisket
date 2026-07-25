@@ -410,9 +410,18 @@ jobs:
           # legitimately vanish — retention (src/maintenance/retention)
           # pruned the last data/canonical/ snapshots on 2026-07-25 and
           # every subsequent refresh run died right here while the
-          # scrape itself had succeeded.
+          # scrape itself had succeeded.  A path that is absent from
+          # the worktree but still TRACKED must stage its deletions
+          # (``git add -A`` — verified to exit 0 with only a warning),
+          # otherwise the prune never lands in a commit and the next
+          # checkout resurrects the files forever (Codex review on
+          # PR #532).
           for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
-            [ -e "$p" ] && git add -f -- "$p"
+            if [ -e "$p" ]; then
+              git add -f -- "$p"
+            elif [ -n "$(git ls-files -- "$p")" ]; then
+              git add -A -- "$p"
+            fi
           done
           if git diff --cached --quiet; then
             echo "No data changes to commit"

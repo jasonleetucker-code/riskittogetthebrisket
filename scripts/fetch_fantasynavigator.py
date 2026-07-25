@@ -94,9 +94,14 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     """Extract superflex-dynasty ``(name, value)`` rows.
 
     Filters: ``roster_type == "sf_value"``, ``rank_type == "dynasty"``,
-    offensive positions, positive value.  Dedupes by name keeping the
-    highest value (the feed occasionally repeats players across insert
-    dates).
+    offensive positions, positive value.  The feed repeats players
+    across ``_insert_date`` snapshots, so dedupe by name keeping the
+    row with the NEWEST insert date (value as tiebreak within the same
+    date).  Keeping the highest historical value instead would freeze
+    a declining player at their old peak and corrupt this source's
+    rank vote until they exceeded it again (Codex review on PR #532).
+    ISO ``YYYY-MM-DD`` dates compare correctly as strings; rows
+    without a date sort oldest.
     """
     if not isinstance(data, list):
         raise FantasyNavigatorSchemaError(f"Expected JSON array, got {type(data).__name__}")
@@ -122,11 +127,14 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
         if value_f <= 0:
             continue
         key = name.strip()
-        row = {"name": key, "value": round(value_f, 2)}
+        insert_date = str(entry.get("_insert_date") or "")
+        row = {"name": key, "value": round(value_f, 2), "_insertDate": insert_date}
         prev = best.get(key)
-        if prev is None or row["value"] > prev["value"]:
+        if prev is None or (insert_date, row["value"]) > (prev["_insertDate"], prev["value"]):
             best[key] = row
     out = sorted(best.values(), key=lambda r: r["value"], reverse=True)
+    for row in out:
+        row.pop("_insertDate", None)
     return out
 
 
