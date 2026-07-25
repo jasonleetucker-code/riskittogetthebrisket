@@ -21,11 +21,20 @@ import { buildNewsIndexByPlayer } from "@/lib/player-name-match";
  */
 
 const TTL_MS = 60_000;
+// Failed fetches (unavailable state) get a much shorter cache life
+// so a transient 503 doesn't pin every mounted surface to "news
+// unavailable" for a full minute after the backend recovers.
+const FAILURE_TTL_MS = 15_000;
+// Retry cadence while a consumer stays mounted after a failure:
+// 15s, 30s, then 60s (capped).  Aligned with FAILURE_TTL_MS so the
+// first retry always misses the expired failure entry and actually
+// refetches.
+const RETRY_BASE_MS = 15_000;
+const RETRY_MAX_MS = 60_000;
 
-// Module-level cache: single entry.  The fixture is tiny and the
-// real endpoint (when wired) will return a compact list too, so we
-// don't need a multi-key cache — the scope filter is applied per
-// consumer, not baked into the key.
+// Module-level cache: single entry.  The payload is a compact
+// ~100-item list, so we don't need a multi-key cache — the scope
+// filter is applied per consumer, not baked into the key.
 let cache = null;            // { result, expires }
 let inflight = null;         // Promise<result>
 
@@ -35,7 +44,11 @@ async function getNews() {
   if (inflight) return inflight;
   inflight = fetchNewsRaw()
     .then((result) => {
-      cache = { result, expires: Date.now() + TTL_MS };
+      // Unavailable results are cached briefly (dedupe across the
+      // panels mounting together) but expire fast so recovery isn't
+      // blocked behind the success TTL.
+      const ttl = result?.unavailable ? FAILURE_TTL_MS : TTL_MS;
+      cache = { result, expires: Date.now() + ttl };
       inflight = null;
       return result;
     })
@@ -50,6 +63,21 @@ export function invalidateNewsCache() {
   cache = null;
 }
 
+/** Test-only: clear all module-level state (cache + inflight). */
+export function _resetNewsCacheForTests() {
+  cache = null;
+  inflight = null;
+}
+
+/** Retry delay for the (1-based) nth consecutive failure. */
+export function newsRetryDelayMs(attempt) {
+  const n = Math.max(1, attempt | 0);
+  return Math.min(RETRY_BASE_MS * 2 ** (n - 1), RETRY_MAX_MS);
+}
+
+// Exported for tests — the hook wraps this.
+export { getNews as _getNewsForTests };
+
 export function useNews({ rosterNames, leagueNames } = {}) {
   const [state, setState] = useState(() => ({
     loading: true,
@@ -62,31 +90,56 @@ export function useNews({ rosterNames, leagueNames } = {}) {
 
   useEffect(() => {
     let active = true;
-    getNews()
-      .then((res) => {
-        if (!active) return;
-        setState({
-          loading: false,
-          error: null,
-          items: Array.isArray(res.items) ? res.items : [],
-          source: res.source || null,
-          unavailable: !!res.unavailable,
-          reason: res.reason || null,
+    let timer = null;
+    let attempt = 0;
+
+    // Automatic recovery: while this consumer stays mounted, a
+    // failed fetch schedules a re-fetch with modest backoff
+    // (15s → 30s → 60s cap).  Combined with the short failure TTL
+    // in ``getNews`` the retry actually reaches the network, so a
+    // transient backend 503 clears itself instead of pinning the
+    // page to "news unavailable" until remount.
+    const scheduleRetry = () => {
+      attempt += 1;
+      timer = setTimeout(load, newsRetryDelayMs(attempt));
+    };
+
+    function load() {
+      getNews()
+        .then((res) => {
+          if (!active) return;
+          setState({
+            loading: false,
+            error: null,
+            items: Array.isArray(res.items) ? res.items : [],
+            source: res.source || null,
+            unavailable: !!res.unavailable,
+            reason: res.reason || null,
+          });
+          if (res.unavailable) {
+            scheduleRetry();
+          } else {
+            attempt = 0;
+          }
+        })
+        .catch((err) => {
+          if (!active) return;
+          setState({
+            loading: false,
+            error: err?.message || "Failed to load news",
+            items: [],
+            source: null,
+            unavailable: true,
+            reason: "fetch_failed",
+          });
+          scheduleRetry();
         });
-      })
-      .catch((err) => {
-        if (!active) return;
-        setState({
-          loading: false,
-          error: err?.message || "Failed to load news",
-          items: [],
-          source: null,
-          unavailable: true,
-          reason: "fetch_failed",
-        });
-      });
+    }
+
+    load();
     return () => {
       active = false;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
