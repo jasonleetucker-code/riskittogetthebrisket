@@ -18,7 +18,9 @@ Registered providers (ordered by priority — earliest first):
 8. **fftoday** — FFToday news RSS (explicit .xml endpoint).
 9. **playerprofiler** — Player Profiler analytics RSS.
 10. **razzball** — Razzball fantasy advice RSS.
-11. **rotowire** — stub, OFF until licensed.
+11. **pfk** — Play For Keeps dynasty articles (public sitemap;
+    the site is an SPA with no RSS feed).
+12. **rotowire** — stub, OFF until licensed.
 
 Every RSS provider inherits from ``RssNewsProvider`` (in
 ``_rss.py``) — adding another source is a 6-line subclass.
@@ -40,6 +42,7 @@ from .dynasty_focused import (
 )
 from .espn import EspnRssProvider
 from .fantasypros import FantasyProsRssProvider
+from .pfk import PfkArticlesProvider
 from .rotowire import RotowireProvider
 from .sleeper import SleeperTrendingProvider
 
@@ -61,6 +64,7 @@ _PROVIDER_FACTORIES: Dict[str, ProviderFactory] = {
     "fftoday": FfTodayProvider,
     "playerprofiler": PlayerProfilerProvider,
     "razzball": RazzballProvider,
+    "pfk": PfkArticlesProvider,
     "rotowire": RotowireProvider,
 }
 
@@ -87,6 +91,7 @@ __all__ = [
     "EspnRssProvider",
     "FantasyProsRssProvider",
     "FfTodayProvider",
+    "PfkArticlesProvider",
     "PffProvider",
     "PlayerProfilerProvider",
     "RazzballProvider",

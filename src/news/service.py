@@ -265,7 +265,10 @@ class NewsService:
 # ── factory helpers ─────────────────────────────────────────────
 # Enabled-by-default providers.  All public, no licence required.
 # Rotowire stays registered but OFF until its paid API is wired.
-_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs")
+# ``pfk`` is the Play For Keeps articles provider — one polite
+# sitemap request per cache refresh, isolated like every other
+# provider.
+_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs", "pfk")
 
 
 def build_default_service(
