@@ -476,7 +476,7 @@ jobs:
             # filenames like "app/api/public/league/[section]/route-*.js"
             # which preserve the brackets on disk.
             code=$(curl --silent --show-error --globoff --output /dev/null \
-              --write-out '%{http_code}' --max-time 15 "${full_url}" || echo "000")
+              --write-out '%{http_code}' --max-time 30 "${full_url}" || echo "000")
             if [[ "${code}" == "${expect_code}" ]]; then
               echo "PASS: ${path} -> ${code}"
               PASS=$((PASS + 1))
@@ -501,6 +501,27 @@ jobs:
               break
             fi
             sleep 3
+          done
+
+          # The public-league snapshot is ALWAYS cold right after a
+          # restart: the first request kicks a multi-season Sleeper
+          # rebuild that can take minutes.  The event loop stays
+          # responsive during the rebuild (threadpool offload, #519) —
+          # which is why /api/status passes while /league and
+          # /api/public/league still wait on the snapshot — but a 15s
+          # single-shot probe here false-failed the 2026-07-25 deploy
+          # AFTER verification had already passed.  Kick the rebuild
+          # and poll until warm (up to ~6 min) before the pass/fail
+          # probes below.
+          echo "Waiting for ${URL}/api/public/league snapshot to come warm…"
+          for _i in $(seq 1 24); do
+            _plc=$(curl --silent --globoff --output /dev/null --max-time 20 \
+              --write-out '%{http_code}' "${URL}/api/public/league" || echo "000")
+            if [[ "${_plc}" == "200" ]]; then
+              echo "  public-league snapshot warm after ~$(( _i * 15 ))s"
+              break
+            fi
+            sleep 15
           done
 
           check_endpoint "/api/health" 200
