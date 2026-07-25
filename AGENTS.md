@@ -10,6 +10,7 @@ This repository powers dynasty fantasy football valuation, rankings, trade calcu
 - Use a task branch for meaningful changes (`codex/...` for Codex, `claude/...` for Claude).
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
+- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
 
 ## Non-Negotiables
 - Do not assume a feature works because a helper, component, or file exists.

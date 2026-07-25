@@ -12,6 +12,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 - Use a task branch for meaningful changes (`claude/...` for Claude, `codex/...` for Codex).
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
+- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
 
 ## Tech Stack
 
