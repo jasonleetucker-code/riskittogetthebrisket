@@ -454,6 +454,29 @@ async def _scrape_one(page) -> list[dict]:
 
     baseline = await _probe_values()
 
+    # Already-active short-circuit (Codex review on PR #530): a cached
+    # authenticated session can load the page with the league ALREADY
+    # selected (DS remembers per-account state server-side).  Selecting
+    # the same league again changes nothing, so the transition gate
+    # below would false-raise every run and preserve increasingly
+    # stale CSVs.  If either UI generation already shows our league
+    # selected, the table is league-scored — skip activation and the
+    # transition gate entirely.
+    already_active = await page.evaluate(
+        r"""([leagueId, leagueName]) => {
+        const legacy = document.querySelector('#use-my-league-dropdown');
+        if (legacy && String(legacy.value) === String(leagueId)) return true;
+        const label = document.querySelector(
+            '.scoring-nav__league-dropdown .ds-dropdown__toggle-label');
+        return !!(label && label.textContent.includes(leagueName));
+    }""",
+        [LEAGUE_ID, LEAGUE_NAME],
+    )
+    if already_active:
+        print(f"[DS] league {LEAGUE_ID} already active — skipping activation", flush=True)
+        await page.wait_for_timeout(2_000)
+        return await _extract_rows(page)
+
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     await _activate_league(page)
 
@@ -486,6 +509,13 @@ async def _scrape_one(page) -> list[dict]:
             f"current={current!r}"
         )
 
+    return await _extract_rows(page)
+
+
+async def _extract_rows(page) -> list[dict]:
+    """Scroll the full table into the DOM, settle, and extract every
+    row.  Shared by the normal activation path and the already-active
+    short-circuit in ``_scrape_one``."""
     print("[DS] scrolling to load all rows …", flush=True)
     last_count = 0
     stable = 0

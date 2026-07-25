@@ -127,9 +127,16 @@ export function cautionLabels(row) {
     // source on each side only when 5+ sources contribute
     // (_PERCENTILE_SPREAD_TRIM_MIN_N in data_contract.py), so the
     // tooltip only claims trimming when it actually applied.
-    const effectiveCount = Object.keys(
-      row.effectiveSourceRanks || row.sourceRanks || {}
-    ).length;
+    // Length-checked fallback (mirrors display-helpers.marketEdge):
+    // the legacy view=app materializer supplies an EMPTY {} for
+    // effectiveSourceRanks, and an empty object is truthy — a bare
+    // `||` would never fall back to the populated sourceRanks and the
+    // trimming clause would never render on the main runtime payload.
+    const effectiveRanks =
+      row.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+        ? row.effectiveSourceRanks
+        : row.sourceRanks || {};
+    const effectiveCount = Object.keys(effectiveRanks).length;
     const trimNote =
       effectiveCount >= 5
         ? " (excluding the single most extreme source on each side)"
