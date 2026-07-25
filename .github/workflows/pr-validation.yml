@@ -17,7 +17,11 @@ jobs:
   validate:
     name: Validate PR
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 20-minute budget: the job legitimately takes ~11 minutes now
+    # (full pytest + vitest + lint gates).  At 10 the runner killed
+    # jobs during their final step and GitHub recorded them as
+    # "cancelled", which looked like mystery cancellations.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
