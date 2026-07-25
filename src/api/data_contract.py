@@ -3644,6 +3644,24 @@ def _enrich_from_source_csvs(
                 row_sid = str(row.get("playerId") or "").strip()
                 if row_sid:
                     entry = sid_index.get(row_sid)
+                if entry is not None:
+                    # Mirror the ID match into the name-keyed audit
+                    # index under the ROW's canonical key — the
+                    # source-audit lookup is name-keyed, so without
+                    # this alias an ID-only match (Kenneth vs Kenny
+                    # Gainwell) enriches the vote but the audit panel
+                    # misreports it as ``via: scraper_payload`` (Codex
+                    # review on PR #532 round 5).  ``per_source`` is
+                    # the same dict csv_index already references, so
+                    # the alias is visible to the audit pass.
+                    audit_nm = str(row.get("canonicalName") or row.get("displayName") or "")
+                    audit_cname = _canonical_match_key(audit_nm)
+                    if audit_cname:
+                        audit_grp = canonical_position_group(row.get("position"))
+                        per_source.setdefault(
+                            f"{audit_cname}::{audit_grp}",
+                            {**entry, "matchedVia": "sleeper_id"},
+                        )
             if entry is None:
                 nm = str(row.get("canonicalName") or row.get("displayName") or "")
                 if not nm:
@@ -6972,8 +6990,15 @@ def _compute_unified_rankings(
                     "rawValue": entry.get("value"),
                     "ambiguous": bool(entry.get("ambiguous")),
                     "candidates": list(entry.get("candidates") or [])[:6],
-                    "via": "csv_enrich",
+                    # ``sleeper_id`` when the enrichment matched via the
+                    # CSV's Sleeper-ID column instead of the canonical
+                    # name (see the sid_index alias in
+                    # ``_enrich_from_source_csvs``).
+                    "via": entry.get("matchedVia") or "csv_enrich",
                 }
+                native = entry.get("nativeValue")
+                if native is not None:
+                    matched_details[sk]["nativeValue"] = native
 
         if not actual_keys:
             reason = "no_source_match"
