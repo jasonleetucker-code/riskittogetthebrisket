@@ -122,6 +122,56 @@ class PublicLeagueRouteTests(unittest.TestCase):
         # Metrics endpoint should not be cached by clients.
         self.assertEqual(r.headers.get("cache-control"), "no-store")
 
+    def test_heavy_section_is_single_flight_cached(self) -> None:
+        """playoffOdds (a 10k-sim Monte Carlo) must be memoized per
+        snapshot: repeated requests reuse one build instead of each
+        launching an independent GIL-bound simulation in the threadpool.
+        """
+        import server
+
+        # Warm a single shared snapshot so both section calls key to it.
+        self.client.get("/api/public/league?refresh=1")
+        server._heavy_section_cache.clear()
+
+        calls = {"n": 0}
+        real = server.build_section_payload
+
+        def _counting(snapshot, section, **kw):
+            if section == "playoffOdds":
+                calls["n"] += 1
+            return real(snapshot, section, **kw)
+
+        server.build_section_payload = _counting
+        try:
+            r1 = self.client.get("/api/public/league/playoffOdds")
+            r2 = self.client.get("/api/public/league/playoffOdds")
+        finally:
+            server.build_section_payload = real
+
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r1.json()["section"], "playoffOdds")
+        # Single-flight: the expensive builder ran once; the second
+        # request was served from the per-snapshot cache.
+        self.assertEqual(calls["n"], 1)
+        # Both responses are identical (same cached payload).
+        self.assertEqual(r1.json()["data"], r2.json()["data"])
+
+    def test_only_playoff_odds_is_cached(self) -> None:
+        """Only ``playoffOdds`` (always-simulate, purely snapshot-derived)
+        is cached.  The file-backed ROS sections are intentionally NOT
+        cached — caching them by snapshot identity would hide fresh
+        results the ROS publisher writes between snapshot refreshes — and
+        cheap sections like ``awards`` must not silently go stale."""
+        import server
+
+        self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        # File-backed ROS sims read their artifact fresh each request.
+        self.assertNotIn("rosPlayoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("rosChampionship", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("awards", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("overview", server._HEAVY_SECTION_KEYS)
+
     def test_metrics_endpoint_never_leaks_private_fields(self) -> None:
         r = self.client.get("/api/public/league/metrics")
         blob = r.text.lower()
