@@ -131,6 +131,12 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # The driver rewrites constants/pins mechanically; normalize to
+          # the repo formatter BEFORE committing, or the refit commit
+          # fails pr-validation's repo-wide 'ruff format --check' for
+          # every PR until someone hand-formats (this happened with the
+          # 2026-07-25 refit — see #526).
+          python -m ruff format src/canonical/player_valuation.py tests/canonical/test_ktc_reconciliation.py
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add src/canonical/player_valuation.py tests/canonical/test_ktc_reconciliation.py
