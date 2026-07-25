@@ -514,6 +514,45 @@ def test_api_data_overlay_response_is_offloaded_and_cached(shared_scoring_regist
     assert r3.status_code == 304
 
 
+def test_overlay_serialize_single_flights_concurrent_misses(monkeypatch):
+    """Concurrent cache misses for the same key must coalesce onto a
+    single encode — the rest await the per-key lock and read the cached
+    result — so a burst can't fan out into N multi-MB serializations."""
+    import asyncio
+    import time
+
+    server._OVERLAY_RESPONSE_CACHE.clear()
+    server._OVERLAY_ENCODE_LOCKS.clear()
+
+    encode_calls = {"n": 0}
+    real_compress = server.gzip.compress
+
+    def slow_compress(data, *a, **k):
+        encode_calls["n"] += 1
+        time.sleep(0.2)  # widen the miss window so the burst overlaps
+        return real_compress(data, *a, **k)
+
+    monkeypatch.setattr(server.gzip, "compress", slow_compress)
+
+    class _FakeReq:
+        headers = {}  # .get("if-none-match") / .get("accept-encoding") → None
+
+    scrubbed = {"players": {"x": 1}, "meta": {"leagueKey": "main"}}
+    key = ("overlay", "main", "", "full", True, "ts-1", "base-etag-1")
+
+    async def _fire():
+        return await asyncio.gather(
+            *[server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key) for _ in range(5)]
+        )
+
+    results = asyncio.run(_fire())
+
+    # Exactly one encode across five concurrent requests.
+    assert encode_calls["n"] == 1
+    assert all(r.status_code == 200 for r in results)
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+
+
 def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_registry, monkeypatch):
     """The overlay's ``trades`` block now produces the same
     ``[{leagueId, week, timestamp, sides[]}, ...]`` shape that the

@@ -326,6 +326,11 @@ latest_compact_data_etag: str | None = None
 # overlayFetchedAt, baseEtag) → (etag, raw_bytes, gzip_bytes) so repeat
 # requests reuse the dump instead of re-encoding multi-MB on the loop.
 _OVERLAY_RESPONSE_CACHE: dict = {}
+# Per-key single-flight locks so concurrent misses coalesce onto one
+# encode instead of each launching the multi-MB serialization.  Touched
+# only from the async handler on the single event-loop thread, so the
+# dict needs no extra synchronization.
+_OVERLAY_ENCODE_LOCKS: dict = {}
 _OVERLAY_RESPONSE_CACHE_MAX = 32
 latest_data_source: dict = {
     "type": "",
@@ -2492,6 +2497,15 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
         return None, f"{type(e).__name__}: {e}"
 
 
+def _overlay_encode_lock(cache_key) -> asyncio.Lock:
+    """Return the per-key single-flight lock, creating it on first use."""
+    lock = _OVERLAY_ENCODE_LOCKS.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _OVERLAY_ENCODE_LOCKS[cache_key] = lock
+    return lock
+
+
 async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
@@ -2503,25 +2517,40 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
     Pass ``cache_key=None`` to skip the cache (still offloads the encode).
     Adds an ``ETag`` (with ``If-None-Match`` 304 support) and
     ``Vary: Accept-Encoding`` for the negotiated gzip/identity body.
+
+    Concurrent misses for the same key are single-flighted on the event
+    loop via a per-key ``asyncio.Lock``: only the first request offloads
+    the multi-MB encode; the rest await the lock and read the cached
+    result, so a burst after startup / overlay refresh can't fan out into
+    N duplicate serializations that saturate the worker pool.
     """
-    entry = _OVERLAY_RESPONSE_CACHE.get(cache_key) if cache_key is not None else None
-    if entry is None:
 
-        def _encode():
-            raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-            etag = hashlib.sha1(raw).hexdigest()
-            gz = gzip.compress(raw, compresslevel=5)
-            return etag, raw, gz
+    def _encode():
+        raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        etag = hashlib.sha1(raw).hexdigest()
+        gz = gzip.compress(raw, compresslevel=5)
+        return etag, raw, gz
 
+    if cache_key is None:
+        # Uncacheable (no freshness/version key) — nothing to coalesce on.
         etag, raw, gz = await run_in_threadpool(_encode)
-        if cache_key is not None:
-            # Crude but bounded: overlay refreshes mint new keys, so old
-            # entries would otherwise accumulate.  A handful of leagues ×
-            # views keeps this well under the cap in practice.
-            if len(_OVERLAY_RESPONSE_CACHE) >= _OVERLAY_RESPONSE_CACHE_MAX:
-                _OVERLAY_RESPONSE_CACHE.clear()
-            _OVERLAY_RESPONSE_CACHE[cache_key] = (etag, raw, gz)
     else:
+        entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+        if entry is None:
+            async with _overlay_encode_lock(cache_key):
+                # Re-check: another coroutine may have encoded this key
+                # while we waited on the lock.
+                entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
+                if entry is None:
+                    entry = await run_in_threadpool(_encode)
+                    # Crude but bounded: overlay refreshes mint new keys,
+                    # so old entries (and their locks) would otherwise
+                    # accumulate.  A handful of leagues × views keeps this
+                    # well under the cap in practice.
+                    if len(_OVERLAY_RESPONSE_CACHE) >= _OVERLAY_RESPONSE_CACHE_MAX:
+                        _OVERLAY_RESPONSE_CACHE.clear()
+                        _OVERLAY_ENCODE_LOCKS.clear()
+                    _OVERLAY_RESPONSE_CACHE[cache_key] = entry
         etag, raw, gz = entry
 
     headers["ETag"] = etag
