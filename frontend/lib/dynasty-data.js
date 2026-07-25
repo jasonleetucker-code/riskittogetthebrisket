@@ -1284,11 +1284,14 @@ async function _fetchBaseContract() {
   if (view && view !== "delta") params.set("view", view);
   const qs = params.toString();
   const url = qs ? `${DEFAULT_DATA_URL}?${qs}` : DEFAULT_DATA_URL;
-  // Allow browser to cache and revalidate via If-None-Match/304 within
-  // the backend's max-age=30 + stale-while-revalidate=300 window,
-  // avoiding re-downloads of the multi-MB payload for repeat navigations
-  // within 5 minutes.
-  const res = await fetch(url, { cache: "default" });
+  // ``no-store`` is deliberate and must stay until the response is
+  // auth-scoped.  This contract is private (``_private_api_gate``) but
+  // is served with ``Cache-Control: public, max-age=30,
+  // stale-while-revalidate=300``; letting the browser HTTP cache hold it
+  // would allow an authenticated payload to be replayed after logout, or
+  // to the next account on a shared browser, without ever revalidating
+  // against the gate.
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);

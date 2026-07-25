@@ -321,10 +321,15 @@ latest_compact_data_etag: str | None = None
 # Serialized-bytes cache for the live-overlay /api/data responses.  The
 # overlay path splices per-league Sleeper data onto the rankings payload
 # and must re-serialize, but the overlay itself is cached ~15 min per
-# league, so the serialized result is stable within that window.  Keyed
-# by (kind, leagueKey, loadedLeague, view, sleeper_matches,
-# overlayFetchedAt, baseEtag) → (etag, raw_bytes, gzip_bytes) so repeat
-# requests reuse the dump instead of re-encoding multi-MB on the loop.
+# league, so the serialized result is stable within that window.
+#
+# Keyed by a STABLE slot — (kind, leagueKey, loadedLeague, view,
+# sleeper_matches) — with the freshness stamp carried INSIDE the value:
+# (etag, raw_bytes, gzip_bytes, version).  Refreshes replace their slot
+# rather than minting a new key beside it, so the cache holds at most one
+# multi-MB generation per slot no matter how many refresh cycles pass.
+# The key space is bounded by the registry (leagues × views), so the cap
+# below is a safety net, not the primary bound.
 _OVERLAY_RESPONSE_CACHE: dict = {}
 # Per-key single-flight locks so concurrent misses coalesce onto one
 # encode instead of each launching the multi-MB serialization.  Touched
@@ -2506,6 +2511,27 @@ def _overlay_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
+def _evict_overlay_cache_if_oversized(keep_key) -> None:
+    """Safety net for the stable-slot cache.
+
+    Slots self-replace on refresh, so this should never fire in normal
+    operation — the key space is bounded by the league registry.  It only
+    guards against an unexpected key explosion (e.g. a registry reload
+    mid-flight).  ``keep_key`` is the slot about to be written, so we
+    never evict the entry this caller is in the middle of producing, and
+    in-flight locks are preserved: dropping a HELD lock would let a
+    second request create a fresh one and launch a duplicate encode.
+    """
+    if len(_OVERLAY_RESPONSE_CACHE) < _OVERLAY_RESPONSE_CACHE_MAX:
+        return
+    for k in [k for k in _OVERLAY_RESPONSE_CACHE if k != keep_key]:
+        del _OVERLAY_RESPONSE_CACHE[k]
+    # Safe without a guard: runs synchronously on the event-loop thread,
+    # no await between the check and the delete.
+    for k in [k for k, lk in _OVERLAY_ENCODE_LOCKS.items() if not lk.locked()]:
+        del _OVERLAY_ENCODE_LOCKS[k]
+
+
 async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, overlay_version=None):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
@@ -2552,6 +2578,7 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
                     entry = None
                 if entry is None:
                     entry = await run_in_threadpool(_encode)
+                    _evict_overlay_cache_if_oversized(cache_key)
                     _OVERLAY_RESPONSE_CACHE[cache_key] = entry
         etag, raw, gz, _ = entry
 
@@ -2826,14 +2853,19 @@ async def get_data(request: Request):
             scrubbed["sleeper"] = None
             scrubbed["meta"] = meta
             headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
-            # Deterministic given the base payload + league stamps, so
-            # cache on the base ETag when available.
+            # Same stable-slot scheme as the overlay path: the key is the
+            # league/view context only, and the base ETag rides along as
+            # the entry version, so each scrape refresh REPLACES the slot
+            # instead of minting a new multi-MB generation beside it.
             xleague_cache_key = (
-                ("xleague", league_cfg.key, loaded_league or "", payload_view_name, payload_etag)
+                ("xleague", league_cfg.key, loaded_league or "", payload_view_name)
                 if payload_etag
                 else None
             )
-            return await _serialize_overlaid_response(request, scrubbed, headers, xleague_cache_key)
+            xleague_version = (payload_etag,) if xleague_cache_key else None
+            return await _serialize_overlaid_response(
+                request, scrubbed, headers, xleague_cache_key, xleague_version
+            )
         # sleeper_matches=True + overlay unavailable: fall through to
         # the cached payload-bytes fast path below — serves the baked
         # sleeper block from the most recent scrape.

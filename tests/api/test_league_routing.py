@@ -605,6 +605,39 @@ def test_overlay_serialize_cache_invalidates_on_version_change(monkeypatch):
     assert len(server._OVERLAY_RESPONSE_CACHE) == 1
 
 
+def test_cross_league_cache_slot_is_reused_across_refreshes(shared_scoring_registry, monkeypatch):
+    """The cross-league (overlay-unavailable) fallback must use the same
+    stable-slot scheme as the overlay path: a scrape refresh changes the
+    base ETag, which is the entry VERSION, not part of the key — so the
+    slot is replaced rather than accumulating a second multi-MB
+    generation beside it."""
+    # Overlay unavailable → the `not sleeper_matches` fallback branch.
+    monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **_kw: None)
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        server._OVERLAY_ENCODE_LOCKS.clear()
+
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-1")
+        r1 = c.get("/api/data?leagueKey=twin")
+        r2 = c.get("/api/data?leagueKey=twin")
+        assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+        key_after_first = next(iter(server._OVERLAY_RESPONSE_CACHE))
+
+        # A scrape lands: same league/view, new base payload version.
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-2")
+        r3 = c.get("/api/data?leagueKey=twin")
+
+    assert all(r.status_code == 200 for r in (r1, r2, r3))
+    # Still ONE entry — the refresh replaced the slot instead of adding one.
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+    assert next(iter(server._OVERLAY_RESPONSE_CACHE)) == key_after_first
+    # The base ETag is the entry version, never part of the key.
+    assert "base-etag-1" not in key_after_first
+    assert "base-etag-2" not in key_after_first
+
+
 def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_registry, monkeypatch):
     """The overlay's ``trades`` block now produces the same
     ``[{leagueId, week, timestamp, sides[]}, ...]`` shape that the
