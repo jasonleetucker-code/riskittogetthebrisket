@@ -533,58 +533,98 @@ async def _scrape_one(page) -> list[dict]:
                 f"found ({deselected!r}) — cannot establish a provable "
                 f"baseline; refusing to extract over last-good CSVs."
             )
-        # Wait for the deselect to visibly take (values move back to
-        # public scoring).  This observed change doubles as proof the
-        # worker is alive.
+        # Wait for the deselect to take: the worker must show LIFE
+        # (some observed value change — the deselect landing, a stale
+        # in-flight league update landing, or both) and the output
+        # must then SETTLE (Codex round 14): right after page load the
+        # initial LEAGUE update may still be in flight, so the FIRST
+        # movement observed here can be that stale league update — a
+        # first-movement-wins gate would store league values as the
+        # supposed public baseline.  Only a settled post-deselect
+        # snapshot (3 identical consecutive probes, ~4s stable) may
+        # serve as the activation baseline: settling proves the
+        # worker's update queue drained past the deselect we clicked.
         pre_deselect = baseline
-        reverted = False
-        for _ in range(15):
+        moved = False
+        settled: dict = {}
+        prev: dict = {}
+        streak = 0
+        for _ in range(30):
             await page.wait_for_timeout(2_000)
             cur = await _probe_values()
-            if cur and any(
-                name in cur and abs(cur[name] - v) > 0.05 for name, v in pre_deselect.items()
-            ):
-                baseline = cur
-                reverted = True
+            if not cur:
+                prev = {}
+                streak = 0
+                continue
+            if not moved:
+                if any(
+                    name in cur and abs(cur[name] - v) > 0.05 for name, v in pre_deselect.items()
+                ):
+                    moved = True
+                elif prev and cur != prev:
+                    moved = True
+            streak = streak + 1 if (prev and cur == prev) else 0
+            prev = cur
+            if moved and streak >= 2:
+                settled = cur
                 break
-        if not reverted:
+        if not settled:
             raise RuntimeError(
-                f"Deselecting league {LEAGUE_ID} produced no value movement "
-                f"within 30s — worker unresponsive; refusing to extract."
+                f"Deselecting league {LEAGUE_ID} never produced settled "
+                f"post-deselect values within 60s (movement observed: {moved}) "
+                f"— worker unresponsive or still churning; refusing to extract."
             )
+        baseline = settled
         # Fall through to the normal activation path below with the
-        # fresh public baseline.
+        # settled public baseline.
 
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     await _activate_league(page)
 
-    # HARD GATE (Codex review on PR #530): if no probed value moves,
-    # the worker stalled and the table still carries PUBLIC scoring —
-    # continuing would let a structurally-valid public board overwrite
-    # the league-synced last-good CSVs.  Raise instead (the workflow
-    # treats a fetch failure as non-fatal keep-last-good, and the
-    # staleness watchdog surfaces repeats).  Known limitation: a league
-    # whose scoring produced IDENTICAL values for all probed players
-    # would false-raise — but in that case public values equal league
-    # values anyway, so keeping last-good loses nothing.
+    # HARD GATE (Codex reviews on PR #530, rounds 11+14): league
+    # scoring must be OBSERVED to apply — the probed values must move
+    # off the public baseline AND the moved output must SETTLE (3
+    # identical consecutive probes) before extraction.  First-movement
+    # is not enough: a stale queued update (e.g. the deselect from the
+    # pre-selected branch above landing late) could transiently
+    # satisfy an any-delta gate while the table still carries PUBLIC
+    # scoring.  Requiring the SETTLED snapshot to differ from the
+    # settled public baseline means a late stale update parks the loop
+    # (values == baseline → keep waiting for the real league update)
+    # instead of passing the gate.  If nothing qualifying settles, the
+    # worker stalled → raise (the workflow treats a fetch failure as
+    # non-fatal keep-last-good; the staleness watchdog surfaces
+    # repeats).  Known limitation (unchanged): a league whose scoring
+    # produces IDENTICAL values for every probed player would
+    # false-raise — but then public equals league output anyway, so
+    # keeping last-good loses nothing.
     applied = False
     current: dict = {}
+    prev = {}
+    streak = 0
     for _ in range(30):
+        await page.wait_for_timeout(2_000)
         current = await _probe_values()
-        if baseline and any(
+        if not current:
+            prev = {}
+            streak = 0
+            continue
+        streak = streak + 1 if (prev and current == prev) else 0
+        prev = current
+        differs = baseline and any(
             name in current and abs(current[name] - base_v) > 0.05
             for name, base_v in baseline.items()
-        ):
+        )
+        if differs and streak >= 2:
             applied = True
             break
-        await page.wait_for_timeout(1_000)
     if not applied:
         raise RuntimeError(
-            f"League scoring never applied — none of the probed dsValues moved "
-            f"within 30s despite confirmed league selection.  Refusing to "
-            f"extract: the table would carry PUBLIC scoring and overwrite the "
-            f"league-synced last-good CSVs.  baseline={baseline!r} "
-            f"current={current!r}"
+            f"League scoring never applied — probed dsValues never settled "
+            f"off the public baseline within 60s despite confirmed league "
+            f"selection.  Refusing to extract: the table would carry PUBLIC "
+            f"scoring and overwrite the league-synced last-good CSVs.  "
+            f"baseline={baseline!r} current={current!r}"
         )
 
     return await _extract_rows(page)
