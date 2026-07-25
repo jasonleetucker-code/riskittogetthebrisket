@@ -462,6 +462,58 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(shared_scoring_regist
     assert "overlay" in res.headers.get("X-Payload-View", "")
 
 
+def test_api_data_overlay_response_is_offloaded_and_cached(shared_scoring_registry, monkeypatch):
+    """The live-overlay response is serialized off the event loop and the
+    encoded bytes are cached by (league, view, overlay-freshness, base
+    ETag), so repeat requests within the overlay window reuse the dump
+    instead of re-encoding the multi-MB payload.  It also gains an ETag
+    with If-None-Match 304 support and Vary: Accept-Encoding."""
+    fresh_overlay = {
+        "teams": [{"ownerId": "oA", "name": "Team A", "players": ["p1"]}],
+        "leagueId": "L-MAIN",
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-04-29T11:30:00+00:00",
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_overlay", lambda **_kw: fresh_overlay
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        # A base ETag is required for the overlay response cache to engage.
+        monkeypatch.setattr(server, "latest_data_etag", "base-etag-1")
+        server._OVERLAY_RESPONSE_CACHE.clear()
+
+        # Count real encodes: gzip.compress runs once per fresh encode and
+        # is skipped on a cache hit.
+        encode_calls = {"n": 0}
+        real_compress = server.gzip.compress
+
+        def _counting(data, *a, **k):
+            encode_calls["n"] += 1
+            return real_compress(data, *a, **k)
+
+        monkeypatch.setattr(server.gzip, "compress", _counting)
+
+        r1 = c.get("/api/data?leagueKey=main")
+        r2 = c.get("/api/data?leagueKey=main")
+        etag = r1.headers.get("ETag")
+        r3 = c.get("/api/data?leagueKey=main", headers={"If-None-Match": etag})
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200
+    # Overlay content is intact and the path is tagged.
+    assert r1.json()["sleeper"]["teams"][0]["players"] == ["p1"]
+    assert "overlay" in r1.headers.get("X-Payload-View", "")
+    # Negotiated fast path advertises Vary + carries an ETag.
+    assert r1.headers.get("Vary") == "Accept-Encoding"
+    assert etag and r2.headers.get("ETag") == etag
+    # Encoded exactly once across two identical requests (2nd = cache hit).
+    assert encode_calls["n"] == 1
+    assert len(server._OVERLAY_RESPONSE_CACHE) == 1
+    # Conditional request short-circuits to 304 (no body re-encode).
+    assert r3.status_code == 304
+
+
 def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_registry, monkeypatch):
     """The overlay's ``trades`` block now produces the same
     ``[{leagueId, week, timestamp, sides[]}, ...]`` shape that the

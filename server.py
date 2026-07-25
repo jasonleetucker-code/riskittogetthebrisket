@@ -318,6 +318,15 @@ latest_compact_data: dict | None = None
 latest_compact_data_bytes: bytes | None = None
 latest_compact_data_gzip_bytes: bytes | None = None
 latest_compact_data_etag: str | None = None
+# Serialized-bytes cache for the live-overlay /api/data responses.  The
+# overlay path splices per-league Sleeper data onto the rankings payload
+# and must re-serialize, but the overlay itself is cached ~15 min per
+# league, so the serialized result is stable within that window.  Keyed
+# by (kind, leagueKey, loadedLeague, view, sleeper_matches,
+# overlayFetchedAt, baseEtag) → (etag, raw_bytes, gzip_bytes) so repeat
+# requests reuse the dump instead of re-encoding multi-MB on the loop.
+_OVERLAY_RESPONSE_CACHE: dict = {}
+_OVERLAY_RESPONSE_CACHE_MAX = 32
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -2483,6 +2492,50 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
         return None, f"{type(e).__name__}: {e}"
 
 
+async def _serialize_overlaid_response(request, scrubbed, headers, cache_key):
+    """Serialize a live-overlay / cross-league ``/api/data`` response
+    without blocking the event loop.
+
+    The JSON encode (and gzip) of the multi-MB payload is offloaded to a
+    worker thread, and — since the spliced overlay is stable within its
+    ~15-min cache window — the encoded bytes are memoized under
+    ``cache_key`` so repeat requests reuse them instead of re-encoding.
+    Pass ``cache_key=None`` to skip the cache (still offloads the encode).
+    Adds an ``ETag`` (with ``If-None-Match`` 304 support) and
+    ``Vary: Accept-Encoding`` for the negotiated gzip/identity body.
+    """
+    entry = _OVERLAY_RESPONSE_CACHE.get(cache_key) if cache_key is not None else None
+    if entry is None:
+
+        def _encode():
+            raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            etag = hashlib.sha1(raw).hexdigest()
+            gz = gzip.compress(raw, compresslevel=5)
+            return etag, raw, gz
+
+        etag, raw, gz = await run_in_threadpool(_encode)
+        if cache_key is not None:
+            # Crude but bounded: overlay refreshes mint new keys, so old
+            # entries would otherwise accumulate.  A handful of leagues ×
+            # views keeps this well under the cap in practice.
+            if len(_OVERLAY_RESPONSE_CACHE) >= _OVERLAY_RESPONSE_CACHE_MAX:
+                _OVERLAY_RESPONSE_CACHE.clear()
+            _OVERLAY_RESPONSE_CACHE[cache_key] = (etag, raw, gz)
+    else:
+        etag, raw, gz = entry
+
+    headers["ETag"] = etag
+    headers["Vary"] = "Accept-Encoding"
+    incoming = request.headers.get("if-none-match", "").strip('"')
+    if incoming and incoming == etag:
+        return Response(status_code=304, headers=headers)
+    accept_encoding = (request.headers.get("accept-encoding") or "").lower()
+    if "gzip" in accept_encoding and gz:
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gz, media_type="application/json", headers=headers)
+    return Response(content=raw, media_type="application/json", headers=headers)
+
+
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request):
@@ -2706,7 +2759,24 @@ async def get_data(request: Request):
             scrubbed["meta"] = meta
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
-            return JSONResponse(content=scrubbed, headers=headers)
+            # Cache-key the encoded bytes by the overlay's freshness stamp
+            # + base payload version; only when both are present so we
+            # never serve stale content.
+            overlay_fetched_at = overlay.get("overlayFetchedAt")
+            overlay_cache_key = (
+                (
+                    "overlay",
+                    league_cfg.key,
+                    loaded_league or "",
+                    payload_view_name,
+                    bool(sleeper_matches),
+                    overlay_fetched_at,
+                    payload_etag,
+                )
+                if (overlay_fetched_at and payload_etag)
+                else None
+            )
+            return await _serialize_overlaid_response(request, scrubbed, headers, overlay_cache_key)
 
         if not sleeper_matches:
             # Cross-league + overlay unavailable: null the sleeper
@@ -2722,7 +2792,14 @@ async def get_data(request: Request):
             scrubbed["sleeper"] = None
             scrubbed["meta"] = meta
             headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
-            return JSONResponse(content=scrubbed, headers=headers)
+            # Deterministic given the base payload + league stamps, so
+            # cache on the base ETag when available.
+            xleague_cache_key = (
+                ("xleague", league_cfg.key, loaded_league or "", payload_view_name, payload_etag)
+                if payload_etag
+                else None
+            )
+            return await _serialize_overlaid_response(request, scrubbed, headers, xleague_cache_key)
         # sleeper_matches=True + overlay unavailable: fall through to
         # the cached payload-bytes fast path below — serves the baked
         # sleeper block from the most recent scrape.

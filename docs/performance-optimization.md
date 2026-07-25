@@ -37,7 +37,7 @@ wins. The production win in this batch is the backend compact precompute.
 | Compact view precompute | **Production + dev** | `?view=compact` re-ran `compact_contract` + `json.dumps` + gzip **on the event loop** for every request (no precompute). Now precomputed. | **Fixed** |
 | Proxy view forwarding | Dev / Next-only | The Next proxy hardcoded `view=app`, so in the dev flow mobile's `view=compact` request was dropped (production was unaffected — it hits Python directly). | **Fixed** |
 | Proxy stream-through | Dev / Next-only | The Next proxy parsed + re-serialized the whole multi-MB contract per request, discarding the backend's gzip/ETag. Now streams the body through with an idle-abort timeout. | **Fixed** |
-| **Live-overlay serialization** | In normal operation (Sleeper overlay active for the loaded league), every `/api/data` request calls `JSONResponse(content=scrubbed)` → re-serializes the **entire multi-MB payload on the event loop**. The precomputed bytes fast path is only used when the overlay is *unavailable*. This is the single biggest backend cost and blocks the loop under concurrency. | **Planned (next, high priority)** |
+| **Live-overlay serialization** | In normal operation (Sleeper overlay active for the loaded league), every `/api/data` request called `JSONResponse(content=scrubbed)` → re-serialized the **entire multi-MB payload on the event loop**. Now offloaded to a worker and cached per overlay window; adds ETag/304 + Vary. | **Fixed** |
 | Client caching | The client fetches `/api/dynasty-data` with `cache: "no-store"`, so the browser never revalidates with `If-None-Match` — every navigation re-downloads the payload even when unchanged. | **Planned** |
 | Frontend bundle | No bundle-size analysis yet; large client bundles delay first paint. | **Planned** |
 | Render cost | Rankings table / trade views: audit for unmemoized recompute on sort/filter/scroll. | **Planned** |
@@ -65,16 +65,25 @@ on the event loop for every mobile request. Falls back to on-demand
 compaction if the precompute ever fails. Regression test:
 `tests/api/test_league_routing.py::test_api_data_compact_view_serves_precomputed_bytes`.
 
+### 3. Offload + cache the live-overlay serialization (production hot path)
+In normal operation the live Sleeper overlay is spliced onto every
+`/api/data` response, which previously meant `JSONResponse(content=scrubbed)`
+re-serialized the **entire multi-MB payload on the event loop for every
+request** — the precomputed fast path was only used when the overlay was
+unavailable. `server.py::_serialize_overlaid_response` now offloads the
+JSON encode (+ gzip) to a worker thread (`run_in_threadpool`) and memoizes
+the encoded bytes, keyed by `(kind, leagueKey, loadedLeague, view,
+sleeper_matches, overlayFetchedAt, baseETag)`. Since the overlay is cached
+~15 min per league, repeat requests in that window reuse the dump instead
+of re-encoding. Also adds an `ETag` (with `If-None-Match` → `304`) and
+`Vary: Accept-Encoding` to this path. Regression test:
+`tests/api/test_league_routing.py::test_api_data_overlay_response_is_offloaded_and_cached`.
+Covers both the loaded-league overlay and the cross-league null-sleeper
+responses.
+
 ## Planned (prioritized)
 
-1. **Offload + cache the live-overlay serialization.** Move the
-   `JSONResponse(content=scrubbed)` serialization off the event loop
-   (`run_in_threadpool`, mirroring the public-league fix) and cache the
-   overlaid, serialized bytes keyed by `(leagueKey, view,
-   overlayFetchedAt)`. The overlay is already cached ~15 min per league,
-   so the serialized result is stable within that window — repeat
-   requests can reuse it instead of re-dumping multi-MB per request.
-2. **Let the client revalidate.** Drop `cache: "no-store"` on the base
+1. **Let the client revalidate.** Drop `cache: "no-store"` on the base
    contract fetch (or switch to a conditional fetch) so the browser can
    send `If-None-Match` and get `304`s within the backend's
    `max-age`/`stale-while-revalidate` window.
