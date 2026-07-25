@@ -3,6 +3,14 @@
 ## Scope
 This repository powers dynasty fantasy football valuation, rankings, trade calculation, source ingestion, and scraper-backed data publishing.
 
+## Working Copy Coordination
+- Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
+- GitHub `main` is the shared source of truth for Claude, ChatGPT/Codex, and local work.
+- Before starting work, run `git pull --ff-only origin main` from the active working copy.
+- Use a task branch for meaningful changes (`codex/...` for Codex, `claude/...` for Claude).
+- Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
+- Do not let multiple assistants edit the same branch at the same time.
+
 ## Non-Negotiables
 - Do not assume a feature works because a helper, component, or file exists.
 - Trace the live execution path end to end before claiming anything is implemented.
