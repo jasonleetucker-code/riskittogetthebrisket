@@ -29,7 +29,9 @@ export async function GET(req, { params }) {
   } catch (err) {
     return NextResponse.json(
       { error: `Public league backend unreachable: ${err?.message || err}` },
-      { status: 503 },
+      // 502 (not 503): connectivity failure to FastAPI, mirroring nginx's
+      // upstream-down behavior, so the client treats it as retryable.
+      { status: 502 },
     );
   }
 }
