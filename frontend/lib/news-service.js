@@ -46,14 +46,23 @@ function resolveItems(raw) {
   return [];
 }
 
+// The route's hard ``?limit=`` ceiling.  Every consumer shares ONE
+// single-flighted fetch through useNews, and the News tab filters
+// (team / position / source / search) run client-side over that
+// payload — requesting anything less than the full window would let
+// the server truncate away matching items before the filters ever
+// see them (Codex P2).  The payload is still small (~100 compact
+// items), so the smaller surfaces just slice locally.
+export const NEWS_FETCH_LIMIT = 100;
+
 /**
  * Fetch news items.  Backend only — failures surface as an explicit
  * unavailable state instead of silently serving stale fixture data.
  * @returns {Promise<{items, source, providersUsed, unavailable, reason}>}
  */
-export async function fetchNews({ signal } = {}) {
+export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
   try {
-    const res = await fetch("/api/news", {
+    const res = await fetch(`/api/news?limit=${encodeURIComponent(limit)}`, {
       credentials: "same-origin",
       signal,
     });

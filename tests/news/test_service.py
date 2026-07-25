@@ -24,12 +24,14 @@ class _StaticProvider(NewsProvider):
         super().__init__()
         self._items = list(items or [])
         self._error = error
+        self.fetch_calls = 0
         if provider_name:
             self.name = provider_name
         if provider_label:
             self.label = provider_label
 
     def fetch(self, *, player_names=None, limit=50):
+        self.fetch_calls += 1
         if self._error is not None:
             raise self._error
         return self._items
@@ -140,29 +142,64 @@ def test_sort_alerts_float_above_info():
     assert [i.id for i in out.items] == ["b-alert", "c-watch", "a-info"]
 
 
-def test_expired_entries_evicted_on_miss():
-    """Many distinct team filters must not leak full payloads
-    into the cache forever.  Eviction sweeps on every miss
-    (Codex P2)."""
+def test_team_filters_share_one_cached_fetch():
+    """Public-endpoint hardening (Codex P2): the repeatable ``?team=``
+    param is caller-controlled, so it must NOT participate in the
+    cache key — otherwise any stranger could bypass the warm cache
+    (and re-run every sequential upstream provider) just by varying
+    the param.  Distinct team filters within TTL must be served from
+    ONE cached provider fetch, with the filter applied per request."""
     clock = {"t": 1000.0}
     provider = _StaticProvider(
         items=[
             _item("a-1", players=[PlayerMention(name="Alpha")]),
             _item("a-2", players=[PlayerMention(name="Beta")]),
-            _item("a-3", players=[PlayerMention(name="Gamma")]),
         ]
     )
-    svc = NewsService([provider], cache_ttl_s=30, clock=lambda: clock["t"])
-    # Three distinct team filters → three cache entries.
-    svc.aggregate(team_names=["Alpha"])
-    svc.aggregate(team_names=["Beta"])
-    svc.aggregate(team_names=["Gamma"])
-    assert len(svc._cache) == 3
+    svc = NewsService([provider], cache_ttl_s=60, clock=lambda: clock["t"])
 
-    # Advance past TTL, trigger one more miss — all three prior
-    # entries should get evicted, leaving only the fresh one.
+    first = svc.aggregate(team_names=["Alpha"])
+    assert provider.fetch_calls == 1
+    assert first.cache_hit is False
+    assert [i.id for i in first.items] == ["a-1"]
+
+    # Different team filter, same TTL window — must reuse the cached
+    # fetch AND still filter correctly.
+    second = svc.aggregate(team_names=["Beta"])
+    assert provider.fetch_calls == 1, "varying ?team= busted the cache"
+    assert second.cache_hit is True
+    assert [i.id for i in second.items] == ["a-2"]
+
+    # Unfiltered request shares the same entry too.
+    third = svc.aggregate()
+    assert provider.fetch_calls == 1
+    assert third.cache_hit is True
+    assert len(third.items) == 2
+
+    # Only ONE cache entry exists regardless of filter variety.
+    assert len(svc._cache) == 1
+
+    # Filtering projects a copy — the cached unfiltered aggregate is
+    # not mutated by narrower requests.
+    assert len(svc.aggregate().items) == 2
+
+
+def test_expired_entries_evicted_on_miss():
+    """Cache entries are keyed by the known-names universe (request
+    filters are excluded — see test above); expired universes are
+    swept on every miss so stale payloads don't accumulate."""
+    clock = {"t": 1000.0}
+    provider = _StaticProvider(items=[_item("a-1")])
+    svc = NewsService([provider], cache_ttl_s=30, clock=lambda: clock["t"])
+    # Two distinct known-names universes → two cache entries.
+    svc.aggregate(player_names=["Alpha"])
+    svc.aggregate(player_names=["Beta"])
+    assert len(svc._cache) == 2
+
+    # Advance past TTL, trigger one more miss — both prior entries
+    # should get evicted, leaving only the fresh one.
     clock["t"] += 60
-    svc.aggregate(team_names=["Delta"])
+    svc.aggregate(player_names=["Gamma"])
     assert len(svc._cache) == 1
 
 

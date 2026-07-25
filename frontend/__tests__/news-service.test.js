@@ -4,6 +4,7 @@ import {
   filterByScope,
   rankByRelevance,
   selectTickerAlerts,
+  NEWS_FETCH_LIMIT,
 } from "@/lib/news-service";
 
 function jsonResponse(payload, status = 200) {
@@ -20,20 +21,39 @@ afterEach(() => {
 
 describe("fetchNews fail-fast (no mock fallback)", () => {
   it("returns backend items on 200", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse({
-          items: [{ id: "n1", headline: "hi" }],
-          providersUsed: ["espn"],
-        }),
-      ),
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        items: [{ id: "n1", headline: "hi" }],
+        providersUsed: ["espn"],
+      }),
     );
+    vi.stubGlobal("fetch", fetchMock);
     const res = await fetchNews();
     expect(res.unavailable).toBe(false);
     expect(res.source).toBe("backend");
     expect(res.items).toHaveLength(1);
     expect(res.providersUsed).toEqual(["espn"]);
+  });
+
+  it("requests the route's full limit so client-side filters see the whole feed", async () => {
+    // The News tab's team/position/source/search filters run over
+    // this payload — a lighter default would let the server truncate
+    // matching items away before the filters run (Codex P2).
+    expect(NEWS_FETCH_LIMIT).toBe(100);
+    const fetchMock = vi.fn(async () => jsonResponse({ items: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchNews();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/news?limit=100",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+  });
+
+  it("honors an explicit limit override", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ items: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchNews({ limit: 25 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/news?limit=25");
   });
 
   it("503 surfaces an explicit unavailable state, not fixture items", async () => {

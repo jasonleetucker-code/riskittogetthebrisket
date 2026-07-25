@@ -50,7 +50,10 @@ const NEWS_FETCH_DEADLINE_MS = 1500;
 async function fetchPlayerNews(playerName) {
   if (!playerName) return [];
   try {
-    const res = await fetch(`${_backend()}/api/news`, {
+    // limit=100 (the route's ceiling): the per-player filter runs
+    // client-side below, so fetching less would let the server
+    // truncate away this player's items before we ever see them.
+    const res = await fetch(`${_backend()}/api/news?limit=100`, {
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(NEWS_FETCH_DEADLINE_MS),
     });

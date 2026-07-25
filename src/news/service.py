@@ -11,10 +11,14 @@ route.  Responsibilities:
    cheap).
 4. Cache the aggregated response for a short TTL so repeated
    ``/api/news`` hits from the landing-page cache-warm cycle
-   don't hammer upstream feeds.
+   don't hammer upstream feeds.  The cache stores the UNFILTERED
+   aggregate — request-level filters never participate in the
+   cache key (see ``aggregate``), so a public caller can't bust
+   the warm cache by varying query params.
 5. Optionally filter by a team-roster name list (query param on
    the route) so the response only contains items that mention
-   at least one of those names.
+   at least one of those names.  Applied per request on the way
+   out of the cache, never baked into the cached payload.
 
 No network I/O happens in this module directly — everything runs
 through the injected providers.  That keeps the cache + dedupe
@@ -151,9 +155,11 @@ class NewsService:
         self._total_limit = max(1, int(total_limit))
         self._clock = clock
         self._lock = threading.Lock()
-        # Single-entry cache keyed by the (frozenset of) player
-        # names the caller passed in — the aggregated payload is
-        # different per roster when a team filter is in play.
+        # Cache keyed by the known-names universe ONLY (the sorted
+        # ``player_names`` tuple the route derives from the live
+        # contract).  Request-level filters (``team_names``) are
+        # deliberately NOT part of the key — each entry stores the
+        # unfiltered aggregate and filters are projected per request.
         self._cache: dict[tuple, tuple[float, AggregatedNews]] = {}
 
     @property
@@ -173,32 +179,28 @@ class NewsService:
     ) -> AggregatedNews:
         known_names = sorted({n for n in (player_names or []) if n})
         team_filter = tuple(sorted({n for n in (team_names or []) if n}))
-        cache_key = (tuple(known_names), team_filter)
+        # The cache key deliberately EXCLUDES request-level filters.
+        # ``/api/news`` is public and the repeatable ``?team=`` param
+        # is caller-controlled: keying the cache on it (the previous
+        # behaviour) let any stranger bypass the warm cache — and
+        # re-run every sequential upstream provider — just by varying
+        # the param.  Instead the unfiltered aggregate is cached once
+        # per known-names universe and filters are projected onto a
+        # copy on the way out.
+        cache_key = tuple(known_names)
 
         now = self._clock()
         with self._lock:
             cached = self._cache.get(cache_key)
             if cached and (now - cached[0]) < self._ttl:
-                # Return a shallow copy with the cache flag flipped
-                # so the caller can tell live vs cached apart.
-                payload = cached[1]
-                return AggregatedNews(
-                    items=payload.items,
-                    providers_used=payload.providers_used,
-                    provider_runs=payload.provider_runs,
-                    generated_at=payload.generated_at,
-                    cache_hit=True,
-                )
+                return self._project(cached[1], team_filter, cache_hit=True)
 
         items, runs = self._fetch_all(known_names)
         items = _dedupe(items)
         items = _sort_items(items)
-        if team_filter:
-            items = _filter_by_team_names(items, team_filter)
-        items = items[: self._total_limit]
 
         providers_used = [r.name for r in runs if r.ok and r.count > 0]
-        result = AggregatedNews(
+        base = AggregatedNews(
             items=items,
             providers_used=providers_used,
             provider_runs=runs,
@@ -207,19 +209,42 @@ class NewsService:
         )
 
         with self._lock:
-            self._cache[cache_key] = (now, result)
-            # Evict expired entries on every miss (Codex P2).  The
-            # cache key is ``(player_names, team_filter)`` — many
-            # distinct team combinations would otherwise accumulate
-            # full aggregated payloads forever.  Doing the sweep at
-            # write time (not on every read) keeps the hot path
-            # lock-free-ish and bounds the work by miss rate, which
-            # is itself rate-limited by the TTL.
+            self._cache[cache_key] = (now, base)
+            # Evict expired entries on every miss (Codex P2).  With
+            # filters out of the key the entry count is bounded by
+            # the number of distinct known-names universes (one in
+            # production), but the sweep stays as cheap insurance.
+            # Doing it at write time (not on every read) keeps the
+            # hot path lock-free-ish and bounds the work by miss
+            # rate, which is itself rate-limited by the TTL.
             expired = [k for k, (ts, _v) in self._cache.items() if (now - ts) >= self._ttl]
             for k in expired:
                 self._cache.pop(k, None)
 
-        return result
+        return self._project(base, team_filter, cache_hit=False)
+
+    def _project(
+        self,
+        base: AggregatedNews,
+        team_filter: tuple[str, ...],
+        *,
+        cache_hit: bool,
+    ) -> AggregatedNews:
+        """Apply request-level filters + the total cap to a cached
+        aggregate, returning a shallow copy so the cached entry is
+        never mutated.  The cap runs AFTER the filter (matching the
+        pre-cache-restructure order) so a narrow team filter can
+        still surface items beyond the unfiltered top slice."""
+        items = list(base.items)
+        if team_filter:
+            items = _filter_by_team_names(items, team_filter)
+        return AggregatedNews(
+            items=items[: self._total_limit],
+            providers_used=base.providers_used,
+            provider_runs=base.provider_runs,
+            generated_at=base.generated_at,
+            cache_hit=cache_hit,
+        )
 
     # ── provider dispatch ───────────────────────────────────────
     def _fetch_all(self, known_names: list[str]) -> tuple[List[NewsItem], List[ProviderRunResult]]:
