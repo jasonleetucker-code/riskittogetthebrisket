@@ -117,7 +117,14 @@ jobs:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
-          python -m pytest tests/ -q
+          # Hard-gate on code tests only, matching pr-validation.yml.
+          # Data-coupled (livedata) tests must not block the refit:
+          # a routine source row-count dip is not a code defect, and
+          # the KTC drift pins are REWRITTEN by this very refit — so
+          # gating the refit commit on them is circular.  Four straight
+          # weekly refits (Jun 30 - Jul 21) died here on an unrelated
+          # yahooBoone row-floor dip while curve drift accumulated.
+          python -m pytest tests/ -q -m "not livedata"
 
       - name: Commit and push refit
         if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true

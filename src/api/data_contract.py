@@ -548,7 +548,13 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # preserves the last-good CSV in that case (``_YB_ROW_COUNT_FLOOR``
     # 400 + per-position ``_YB_MIN_ROWS_PER_POSITION`` 30), so this
     # contract floor is the second line of defence, not the first.
-    "yahooBoone": 400,
+    # Re-pinned 400 -> 360 (2026-07-25): the live canonical-match count
+    # drifted to ~380 (raw rows still clear the scraper's 400-raw floor;
+    # the Sleeper-pool match rate slipped with player churn).  360 still
+    # trips on the failure this floor exists for — a whole position
+    # dropping out lands at ~344.  At 400 this check was red for weeks,
+    # which also hard-blocked the weekly Hill-curve refit workflow.
+    "yahooBoone": 360,
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,

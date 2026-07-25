@@ -32,9 +32,16 @@ export async function GET(req) {
     if (cc) headers.set("cache-control", cc);
     return new NextResponse(body, { status: res.status, headers });
   } catch (err) {
+    // Connectivity failure between Next.js and FastAPI (backend down /
+    // restarting).  Emit 502 Bad Gateway — the same status nginx returns
+    // for an unreachable upstream in production — so it is treated as a
+    // transient, retryable gateway error by the client fetcher.  This is
+    // deliberately distinct from the backend's own application-level 503
+    // ("data unavailable"), which is passed through untouched above and
+    // is NOT retried.
     return NextResponse.json(
       { error: `Public league backend unreachable: ${err?.message || err}` },
-      { status: 503 },
+      { status: 502 },
     );
   }
 }

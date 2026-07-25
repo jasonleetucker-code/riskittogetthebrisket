@@ -5120,7 +5120,7 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
-import re
+import re  # noqa: E402 — KTC import block sits mid-file with its route group
 
 
 def _ktc_decay_curve(known_rookies, total_picks=72):
@@ -6576,19 +6576,19 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_public_snapshot,
     build_section_payload,
 )
-from src.public_league.public_contract import assert_public_payload_safe
-from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
-from src.public_league import snapshot_store as public_snapshot_store
-from src.public_league import csv_export as public_csv_export
-from src.public_league import matchup_recap as public_matchup_recap
-from src.public_league import player_journey as public_player_journey
+from src.public_league.public_contract import assert_public_payload_safe  # noqa: E402 — grouped with public-league block
+from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
+from src.public_league import snapshot_store as public_snapshot_store  # noqa: E402 — grouped with public-league block
+from src.public_league import csv_export as public_csv_export  # noqa: E402 — grouped with public-league block
+from src.public_league import matchup_recap as public_matchup_recap  # noqa: E402 — grouped with public-league block
+from src.public_league import player_journey as public_player_journey  # noqa: E402 — grouped with public-league block
 
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
 _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
 _PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
 
 
-from src.api.public_activity_valuation import (
+from src.api.public_activity_valuation import (  # noqa: E402 — grouped with public-league block
     build_valuation_from_contract as _build_valuation_from_contract,
 )
 
@@ -6621,6 +6621,83 @@ _public_league_cache: dict = {
     "refreshing": False,
 }
 _public_league_refresh_lock = threading.Lock()
+
+# ── Heavy-section single-flight cache ────────────────────────────────
+# ``playoffOdds`` ALWAYS runs a 10,000-run, pure-Python (GIL-bound)
+# Monte Carlo — it has no precomputed artifact to fall back on (unlike
+# ``rosPlayoffOdds`` / ``rosChampionship``, which prefer a file written
+# by the scheduled ROS job and only simulate on a cache miss).  Offloaded
+# naively, a burst of concurrent ``playoffOdds`` requests would each
+# launch an independent simulation and saturate the shared threadpool.
+#
+# So we single-flight + memoize ``playoffOdds`` only:
+#   * Coordination happens on the EVENT LOOP via a per-section
+#     ``asyncio.Lock`` (see ``_get_heavy_section_payload``), so waiters
+#     ``await`` on the loop instead of occupying AnyIO worker tokens.
+#     Exactly one request offloads the simulation to ``run_in_threadpool``;
+#     the rest wake to the cached result.
+#   * The result is keyed by the snapshot's identity + freshness
+#     (``root_league_id`` + ``generated_at``).  ``playoffOdds`` is derived
+#     purely from the snapshot (no external files), so that key is
+#     complete — a snapshot refresh mints a new ``generated_at`` and
+#     transparently invalidates the entry (bounded to one payload).
+#
+# The file-backed ROS sections are deliberately NOT cached here: they are
+# cheap file reads in the common case, and caching them by snapshot
+# identity would hide fresh results the ROS publisher writes between
+# snapshot refreshes.  They read their artifact fresh on every request.
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds"})
+_heavy_section_cache: dict = {}
+_heavy_section_async_locks: dict = {}
+
+
+def _heavy_section_async_lock(section: str) -> asyncio.Lock:
+    """Return the per-section ``asyncio.Lock``, creating it on first use.
+
+    Only ever touched from async handlers running on the single event-loop
+    thread, so the dict access needs no additional synchronization.
+    """
+    lock = _heavy_section_async_locks.get(section)
+    if lock is None:
+        lock = asyncio.Lock()
+        _heavy_section_async_locks[section] = lock
+    return lock
+
+
+async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=None):
+    """Single-flight + per-snapshot memoization for a heavy section,
+    coordinated on the event loop.
+
+    Callers must have already resolved ``snapshot`` (its ``generated_at``
+    is the cache key).  Waiters block on an ``asyncio.Lock`` on the loop —
+    NOT inside the threadpool — so they don't hold worker tokens hostage;
+    only the winner offloads ``build_section_payload`` to the threadpool.
+    The cached payload is already safety-checked inside
+    ``build_section_payload`` and is only ever read by callers, so sharing
+    one instance across concurrent requests is safe.
+    """
+    cache_key = (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+    )
+    cached = _heavy_section_cache.get(section)
+    if cached is not None and cached[0] == cache_key:
+        return cached[1]
+    async with _heavy_section_async_lock(section):
+        # Re-check: another coroutine may have computed this section for
+        # the same snapshot while we were waiting on the lock.
+        cached = _heavy_section_cache.get(section)
+        if cached is not None and cached[0] == cache_key:
+            return cached[1]
+        payload = await run_in_threadpool(
+            build_section_payload,
+            snapshot,
+            section,
+            activity_valuation=activity_valuation,
+        )
+        _heavy_section_cache[section] = (cache_key, payload)
+        return payload
+
 
 # Observability counters for the public-league snapshot cache.  Logged
 # at every serve path via ``_log_public_league_event`` so the uptime
@@ -6734,11 +6811,9 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             return cached
         started = time.time()
         snapshot = None
-        error = None
         try:
             snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
         except Exception as exc:  # noqa: BLE001
-            error = exc
             _public_league_metrics["rebuild_failures"] += 1
             _log_public_league_event(
                 "rebuild_failed",
@@ -6933,13 +7008,22 @@ async def get_public_league(refresh: str = ""):
     rankings / edge signals, and runs through an allowlist guard
     before serialization.
     """
-    try:
+
+    def _build():
+        # Snapshot fetch (blocking network I/O) AND contract assembly
+        # (potentially heavy per-section CPU) both run in the worker so
+        # the event loop is never starved — see the ``run_in_threadpool``
+        # note on the section endpoint below.
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
         )
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6970,7 +7054,8 @@ async def get_public_league_matchup(
     ``season`` is the season year string (e.g. ``"2025"``).
     Runs through the same safety allowlist as the rest of the contract.
     """
-    try:
+
+    def _build():
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         recap = public_matchup_recap.build_matchup_recap(
             snapshot,
@@ -6979,12 +7064,7 @@ async def get_public_league_matchup(
             int(matchup_id),
         )
         if recap is None:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "error": f"No matchup found at season={season} week={week} matchup_id={matchup_id}",
-                },
-            )
+            return None
         payload = {
             "contractVersion": "public-league-matchup/2026-04-17.v1",
             "league": {
@@ -7002,6 +7082,17 @@ async def get_public_league_matchup(
             "matchup": recap,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
+        if payload is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": f"No matchup found at season={season} week={week} matchup_id={matchup_id}",
+                },
+            )
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -7024,7 +7115,8 @@ async def get_public_league_matchup(
 async def list_public_league_matchups(refresh: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
-    try:
+
+    def _build():
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
@@ -7032,6 +7124,10 @@ async def list_public_league_matchups(refresh: str = ""):
             "generatedAt": snapshot.generated_at,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -7048,14 +7144,12 @@ async def list_public_league_matchups(refresh: str = ""):
 async def get_public_league_player(player_id: str, refresh: str = ""):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
-    try:
+
+    def _build():
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         journey = public_player_journey.build_player_journey(snapshot, player_id)
         if journey is None:
-            return JSONResponse(
-                status_code=404,
-                content={"error": f"No public journey data for player_id={player_id!r}"},
-            )
+            return None
         payload = {
             "contractVersion": "public-league-player/2026-04-17.v1",
             "league": {
@@ -7070,6 +7164,15 @@ async def get_public_league_player(player_id: str, refresh: str = ""):
             "player": journey,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
+        if payload is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"No public journey data for player_id={player_id!r}"},
+            )
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -7093,7 +7196,8 @@ async def list_public_league_players(refresh: str = ""):
     """Index endpoint — every player who appears on a roster or in a
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
-    try:
+
+    def _build():
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
@@ -7101,6 +7205,10 @@ async def list_public_league_players(refresh: str = ""):
             "generatedAt": snapshot.generated_at,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -7136,11 +7244,14 @@ async def get_public_league_section_csv(
     """
     if section == "hall_of_fame":
         # Hall of Fame is a derived projection of the history section.
-        try:
+        def _build_hof():
             snapshot = _get_public_snapshot(force_refresh=bool(refresh))
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
-            filename, text = public_csv_export.export_hall_of_fame(history_payload["data"])
+            return public_csv_export.export_hall_of_fame(history_payload["data"])
+
+        try:
+            filename, text = await run_in_threadpool(_build_hof)
             return Response(
                 content=text,
                 media_type="text/csv; charset=utf-8",
@@ -7164,16 +7275,33 @@ async def get_public_league_section_csv(
                 "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
             },
         )
+
     try:
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_section_payload(snapshot, section)
-        assert_public_payload_safe(payload)
-        kwargs = {}
-        if section == "franchise" and owner:
-            kwargs["owner_id"] = str(owner).strip()
-        if section == "archives" and kind:
-            kwargs["kind"] = str(kind).strip()
-        filename, text = public_csv_export.export_section(section, payload["data"], **kwargs)
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        if section in _HEAVY_SECTION_KEYS:
+            # playoffOdds.csv: reuse the single-flighted / cached payload
+            # (heavy sections take no owner/kind qualifier), then serialize
+            # to CSV in the worker.
+            payload = await _get_heavy_section_payload(snapshot, section)
+
+            def _export():
+                assert_public_payload_safe(payload)
+                return public_csv_export.export_section(section, payload["data"])
+
+            filename, text = await run_in_threadpool(_export)
+        else:
+
+            def _build_csv():
+                payload = build_section_payload(snapshot, section)
+                assert_public_payload_safe(payload)
+                kwargs = {}
+                if section == "franchise" and owner:
+                    kwargs["owner_id"] = str(owner).strip()
+                if section == "archives" and kind:
+                    kwargs["kind"] = str(kind).strip()
+                return public_csv_export.export_section(section, payload["data"], **kwargs)
+
+            filename, text = await run_in_threadpool(_build_csv)
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
@@ -7218,17 +7346,36 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
                 "availableSections": list(PUBLIC_SECTION_KEYS),
             },
         )
+
     try:
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_section_payload(
-            snapshot,
-            section,
-            activity_valuation=_build_public_activity_valuation(),
-        )
-        if section == "franchise" and owner:
-            detail_map = payload.get("data", {}).get("detail") or {}
-            payload["franchiseDetail"] = detail_map.get(str(owner).strip())
-        assert_public_payload_safe(payload)
+        # Snapshot fetch is blocking (network I/O) — offload it.  Its
+        # ``generated_at`` is the cache key for the heavy path below.
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        if section in _HEAVY_SECTION_KEYS:
+            # playoffOdds: single-flight + memoize, coordinated on the loop
+            # so concurrent waiters don't occupy threadpool workers.  Heavy
+            # sections are never ``franchise``, so no owner-detail step.
+            payload = await _get_heavy_section_payload(
+                snapshot,
+                section,
+                activity_valuation=_build_public_activity_valuation(),
+            )
+        else:
+            # Every other section still runs its build in the worker so a
+            # heavier-than-expected builder can't block the event loop.
+            def _build():
+                payload = build_section_payload(
+                    snapshot,
+                    section,
+                    activity_valuation=_build_public_activity_valuation(),
+                )
+                if section == "franchise" and owner:
+                    detail_map = payload.get("data", {}).get("detail") or {}
+                    payload["franchiseDetail"] = detail_map.get(str(owner).strip())
+                assert_public_payload_safe(payload)
+                return payload
+
+            payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
