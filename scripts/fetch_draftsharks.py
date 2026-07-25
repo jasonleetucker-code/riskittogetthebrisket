@@ -473,14 +473,14 @@ async def _scrape_one(page) -> list[dict]:
             "changed).  Refusing to extract."
         )
 
-    # Already-active short-circuit (Codex review on PR #530): a cached
+    # Already-active detection (Codex review on PR #530): a cached
     # authenticated session can load the page with the league ALREADY
     # selected (DS remembers per-account state server-side).  Selecting
     # the same league again changes nothing, so the transition gate
     # below would false-raise every run and preserve increasingly
-    # stale CSVs.  If either UI generation already shows our league
-    # selected, the table is league-scored — skip activation and the
-    # transition gate entirely.
+    # stale CSVs.  When either UI generation already shows our league
+    # selected, we first DESELECT back to the public board (see below)
+    # so the normal activation path gets a real transition to observe.
     already_active = await page.evaluate(
         r"""([leagueId, leagueName]) => {
         const legacy = document.querySelector('#use-my-league-dropdown');
@@ -492,31 +492,68 @@ async def _scrape_one(page) -> list[dict]:
         [LEAGUE_ID, LEAGUE_NAME],
     )
     if already_active:
-        # Codex review (round 11): the selection label proves league
-        # STATE, not worker COMPLETION — on a cached session the WASM
-        # worker may still be recomputing values when the page shows
-        # the league as selected.  There is no public-vs-league
-        # baseline to diff here (we never saw public values), so gate
-        # on OUTPUT SETTLING instead: two consecutive non-empty probe
-        # snapshots must be identical (worker finished reshuffling)
-        # before extraction.  Never settles → raise (keep last-good).
-        print(f"[DS] league {LEAGUE_ID} already active — waiting for worker settle", flush=True)
-        prev: dict = {}
-        settled = False
+        # Codex review (rounds 11+13): with the league pre-selected we
+        # have NO observable proof the visible values are league-scored
+        # — a stalled worker leaves public values that look perfectly
+        # "settled".  Stability cannot prove scoring identity.  So we
+        # CREATE the provable transition instead: deselect back to the
+        # public board (observing that change), then run the normal
+        # activation path with its full baseline→delta gate.  Every
+        # extraction now rests on an observed public→league value
+        # transition, whatever state the page loaded in.
+        print(
+            f"[DS] league {LEAGUE_ID} pre-selected — deselecting to establish "
+            f"a provable public baseline",
+            flush=True,
+        )
+        deselected = await page.evaluate(r"""() => {
+            const legacy = document.querySelector('#use-my-league-dropdown');
+            if (legacy) {
+                const blank = Array.from(legacy.options || []).find(o => !o.value);
+                if (!blank) return 'no-blank-option';
+                legacy.value = '';
+                legacy.dispatchEvent(new Event('change', { bubbles: true }));
+                return 'clicked';
+            }
+            const root = document.querySelector('.scoring-nav__league-dropdown');
+            if (!root) return 'no-dropdown';
+            const toggle = root.querySelector('.ds-dropdown__toggle');
+            if (toggle) toggle.click();
+            const items = Array.from(root.querySelectorAll('.ds-dropdown__menu-item'));
+            const handler = (el) =>
+                (el.getAttribute('@click') || el.getAttribute('x-on:click') || '');
+            const blank = items.find((el) => handler(el).includes("selectedUserLeagueId = ''"));
+            if (!blank) return 'no-blank-item';
+            blank.click();
+            return 'clicked';
+        }""")
+        if deselected != "clicked":
+            raise RuntimeError(
+                f"League {LEAGUE_ID} pre-selected but deselect control not "
+                f"found ({deselected!r}) — cannot establish a provable "
+                f"baseline; refusing to extract over last-good CSVs."
+            )
+        # Wait for the deselect to visibly take (values move back to
+        # public scoring).  This observed change doubles as proof the
+        # worker is alive.
+        pre_deselect = baseline
+        reverted = False
         for _ in range(15):
             await page.wait_for_timeout(2_000)
             cur = await _probe_values()
-            if cur and prev and cur == prev:
-                settled = True
+            if cur and any(
+                name in cur and abs(cur[name] - v) > 0.05 for name, v in pre_deselect.items()
+            ):
+                baseline = cur
+                reverted = True
                 break
-            prev = cur
-        if not settled:
+        if not reverted:
             raise RuntimeError(
-                f"League {LEAGUE_ID} shows active but probed dsValues never "
-                f"settled within 30s — worker may be stalled; refusing to "
-                f"extract over league-synced last-good CSVs.  last={prev!r}"
+                f"Deselecting league {LEAGUE_ID} produced no value movement "
+                f"within 30s — worker unresponsive; refusing to extract."
             )
-        return await _extract_rows(page)
+        # Fall through to the normal activation path below with the
+        # fresh public baseline.
 
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     await _activate_league(page)
