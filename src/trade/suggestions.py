@@ -429,15 +429,33 @@ def build_asset_pool_from_contract(
         # confidenceBucket (which the contract computes from the same
         # filtered set).  Fall back to the raw site-values keys for
         # legacy contracts that pre-date the Hampel stamps.
+        #
+        # Per-source magnitude: prefer ``sourceRankMeta[key]
+        # .valueContribution`` — the 9,999-scale value that actually
+        # enters the blend — over the raw ``canonicalSiteValues`` slot.
+        # Rank-signal sources (DLF, Dynasty Daddy, Yahoo Boone, FC/OTC
+        # since PR #530, ...) stamp a synthetic rank ENCODING
+        # (``999900 - rank*100`` bookkeeping numbers) into
+        # canonicalSiteValues; mixing those with native 0-9999 values
+        # made the CV read scale mismatch as source disagreement and
+        # could hang false ``high_dispersion`` edges on suggestions.
+        # Raw slots remain the fallback for legacy contracts without
+        # the meta stamp (their value-based slots are true values).
         site_values = row.get("canonicalSiteValues") or {}
+        source_meta = row.get("sourceRankMeta")
+        if not isinstance(source_meta, dict):
+            source_meta = {}
         effective_keys = _effective_source_keys(row, site_values)
         sv_list: list[float] = []
         if isinstance(site_values, dict):
             for key, v in site_values.items():
                 if effective_keys is not None and key not in effective_keys:
                     continue
+                meta = source_meta.get(key)
+                contrib = meta.get("valueContribution") if isinstance(meta, dict) else None
+                candidate = contrib if isinstance(contrib, (int, float)) and contrib > 0 else v
                 try:
-                    f = float(v) if v is not None else 0.0
+                    f = float(candidate) if candidate is not None else 0.0
                 except (TypeError, ValueError):
                     continue
                 if f > 0:
