@@ -6732,13 +6732,22 @@ async def get_public_league(refresh: str = ""):
     rankings / edge signals, and runs through an allowlist guard
     before serialization.
     """
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        # Snapshot fetch (blocking network I/O) AND contract assembly
+        # (potentially heavy per-section CPU) both run in the worker so
+        # the event loop is never starved — see the ``run_in_threadpool``
+        # note on the section endpoint below.
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
         )
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6769,8 +6778,9 @@ async def get_public_league_matchup(
     ``season`` is the season year string (e.g. ``"2025"``).
     Runs through the same safety allowlist as the rest of the contract.
     """
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         recap = public_matchup_recap.build_matchup_recap(
             snapshot,
             season,
@@ -6778,12 +6788,7 @@ async def get_public_league_matchup(
             int(matchup_id),
         )
         if recap is None:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "error": f"No matchup found at season={season} week={week} matchup_id={matchup_id}",
-                },
-            )
+            return None
         payload = {
             "contractVersion": "public-league-matchup/2026-04-17.v1",
             "league": {
@@ -6801,6 +6806,17 @@ async def get_public_league_matchup(
             "matchup": recap,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
+        if payload is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": f"No matchup found at season={season} week={week} matchup_id={matchup_id}",
+                },
+            )
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6823,14 +6839,19 @@ async def get_public_league_matchup(
 async def list_public_league_matchups(refresh: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "matchups": public_matchup_recap.list_matchups(snapshot),
             "generatedAt": snapshot.generated_at,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6847,14 +6868,12 @@ async def list_public_league_matchups(refresh: str = ""):
 async def get_public_league_player(player_id: str, refresh: str = ""):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         journey = public_player_journey.build_player_journey(snapshot, player_id)
         if journey is None:
-            return JSONResponse(
-                status_code=404,
-                content={"error": f"No public journey data for player_id={player_id!r}"},
-            )
+            return None
         payload = {
             "contractVersion": "public-league-player/2026-04-17.v1",
             "league": {
@@ -6869,6 +6888,15 @@ async def get_public_league_player(player_id: str, refresh: str = ""):
             "player": journey,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
+        if payload is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"No public journey data for player_id={player_id!r}"},
+            )
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6892,14 +6920,19 @@ async def list_public_league_players(refresh: str = ""):
     """Index endpoint — every player who appears on a roster or in a
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "players": public_player_journey.list_players_with_activity(snapshot),
             "generatedAt": snapshot.generated_at,
         }
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
@@ -6935,11 +6968,14 @@ async def get_public_league_section_csv(
     """
     if section == "hall_of_fame":
         # Hall of Fame is a derived projection of the history section.
-        try:
-            snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        def _build_hof():
+            snapshot = _get_public_snapshot(force_refresh=bool(refresh))
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
-            filename, text = public_csv_export.export_hall_of_fame(history_payload["data"])
+            return public_csv_export.export_hall_of_fame(history_payload["data"])
+
+        try:
+            filename, text = await run_in_threadpool(_build_hof)
             return Response(
                 content=text,
                 media_type="text/csv; charset=utf-8",
@@ -6963,8 +6999,9 @@ async def get_public_league_section_csv(
                 "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
             },
         )
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build_csv():
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_section_payload(snapshot, section)
         assert_public_payload_safe(payload)
         kwargs = {}
@@ -6972,7 +7009,10 @@ async def get_public_league_section_csv(
             kwargs["owner_id"] = str(owner).strip()
         if section == "archives" and kind:
             kwargs["kind"] = str(kind).strip()
-        filename, text = public_csv_export.export_section(section, payload["data"], **kwargs)
+        return public_csv_export.export_section(section, payload["data"], **kwargs)
+
+    try:
+        filename, text = await run_in_threadpool(_build_csv)
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
@@ -7017,8 +7057,14 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
                 "availableSections": list(PUBLIC_SECTION_KEYS),
             },
         )
-    try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+
+    def _build():
+        # The whole build runs in the worker thread: some sections
+        # (``playoffOdds``, ``rosPlayoffOdds``, ``rosChampionship``) run
+        # a 10,000-sim Monte Carlo in ``build_section_payload``, which
+        # would otherwise block the event loop and stall health checks /
+        # unrelated requests — the exact failure this offload prevents.
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_section_payload(
             snapshot,
             section,
@@ -7028,6 +7074,10 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
             detail_map = payload.get("data", {}).get("detail") or {}
             payload["franchiseDetail"] = detail_map.get(str(owner).strip())
         assert_public_payload_safe(payload)
+        return payload
+
+    try:
+        payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
