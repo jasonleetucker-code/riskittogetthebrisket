@@ -778,10 +778,18 @@ export default function RankingsPage() {
       const cautions = cautionLabels(row);
       const actionStr = [action?.label, ...cautions.map((c) => c.label)].filter(Boolean).join("; ");
       const sourceCells = RANKING_SOURCES.flatMap((src) => {
+        // Mirror formatSourceCell: export the 9,999-scale
+        // valueContribution the cell renders.  Rank-signal sources
+        // stamp a synthetic rank encoding into canonicalSites
+        // (999900-style bookkeeping numbers), so raw only serves as
+        // the legacy fallback for value-based sources.
+        const contrib = Number(row.sourceRankMeta?.[src.key]?.valueContribution);
         const raw = row.canonicalSites?.[src.key];
-        const valCell = raw != null && Number.isFinite(Number(raw))
-          ? Math.round(Number(raw))
-          : "";
+        const valCell = Number.isFinite(contrib)
+          ? Math.round(contrib)
+          : !src.isRankSignal && raw != null && Number.isFinite(Number(raw))
+            ? Math.round(Number(raw))
+            : "";
         const rankCell = row.sourceRanks?.[src.key] ?? "";
         return [valCell, rankCell];
       });
@@ -833,10 +841,18 @@ export default function RankingsPage() {
       const actionStr = [action?.label, ...cautions.map((c) => c.label)]
         .filter(Boolean).join("; ");
       const sourceCells = RANKING_SOURCES.flatMap((src) => {
+        // Mirror formatSourceCell: export the 9,999-scale
+        // valueContribution the cell renders.  Rank-signal sources
+        // stamp a synthetic rank encoding into canonicalSites
+        // (999900-style bookkeeping numbers), so raw only serves as
+        // the legacy fallback for value-based sources.
+        const contrib = Number(row.sourceRankMeta?.[src.key]?.valueContribution);
         const raw = row.canonicalSites?.[src.key];
-        const valCell = raw != null && Number.isFinite(Number(raw))
-          ? Math.round(Number(raw))
-          : "";
+        const valCell = Number.isFinite(contrib)
+          ? Math.round(contrib)
+          : !src.isRankSignal && raw != null && Number.isFinite(Number(raw))
+            ? Math.round(Number(raw))
+            : "";
         const rankCell = row.sourceRanks?.[src.key] ?? "";
         return [valCell, rankCell];
       });

@@ -116,6 +116,64 @@ _CONFIDENCE_PERCENTILE_MEDIUM = 0.20
 _CONFIDENCE_SPREAD_HIGH = 30
 _CONFIDENCE_SPREAD_MEDIUM = 80
 
+# ── Trimmed percentile spread ────────────────────────────────────────────────
+# With this many sources or more, ``_percentile_rank_spread`` ignores the
+# single most extreme percentile on EACH side before taking max-minus-min.
+#
+# Rationale (2026-07-25 caution-saturation audit): the raw max-minus-min
+# statistic grows mechanically with source count — with 12 sources the
+# spread is defined entirely by the single most optimistic and single
+# most pessimistic voice, so one straggler flags the row.  The 0.10 /
+# 0.20 disagreement thresholds were tuned when top players carried 4-6
+# sources; after the May-July source additions they carry ~12, and the
+# flags saturated: 72% of the top-200 board carried "wide disagreement"
+# (rows with >=3 sources flagged ~90% of the time, rising WITH coverage
+# — more data was reading as less confidence).  Trimming one voice per
+# side restores the intended semantics: a caution requires two
+# independent sources on each wing to genuinely split on the player.
+# Measured on the 2026-07-25 live board, top-200 disagreement drops
+# 143 -> ~40 rows and suspicious_disagreement 82 -> ~15.
+#
+# n >= 5 so trimming never reduces the statistic below a 3-source
+# core; below that the untrimmed range is still the right measure.
+_PERCENTILE_SPREAD_TRIM_MIN_N = 5
+
+# ── Depth-aware disagreement allowance ──────────────────────────────────────
+# Even after trimming, expected spread grows with rank depth — on the
+# 2026-07-25 board the MEDIAN trimmed spread is 0.068 inside the top
+# 100 but 0.30 at ranks 201-400.  Two structural reasons: (1) sources
+# genuinely order deep players near-randomly (that's where the market
+# hasn't converged), and (2) pool-size normalisation makes identical
+# ordinal placements read as different percentiles when source depths
+# differ (rank 66 in a 280-pool = 0.24 vs rank 44 in a 500-pool =
+# 0.09).  A flat threshold therefore either saturates the deep board
+# or never fires at the top.
+#
+# The caution/anomaly thresholds get a linear allowance equal to the
+# player's own consensus percentile (rank / ranked-pool-size), capped:
+# flag only the spread IN EXCESS of what is typical at that depth.
+# Confidence buckets deliberately do NOT get the allowance — they
+# describe absolute trust in the row's value, and a deep player with
+# 0.30 spread is genuinely less certain no matter how normal that is
+# for its neighbourhood.
+_DISAGREEMENT_BASE_THRESHOLD = 0.10  # hasSourceDisagreement (caution label)
+_SUSPICIOUS_PCT_BASE_THRESHOLD = 0.20  # suspicious_disagreement (anomaly flag)
+_DISAGREEMENT_DEPTH_ALLOWANCE_CAP = 0.25
+
+
+def _disagreement_depth_allowance(consensus_percentile: float | None) -> float:
+    """Linear depth allowance added to both disagreement thresholds.
+
+    ``consensus_percentile`` is the player's unified rank divided by
+    the ranked pool size (0..1); the allowance equals it, capped at
+    ``_DISAGREEMENT_DEPTH_ALLOWANCE_CAP`` so the flags can still fire
+    on the deep board's true pathologies.
+    """
+    if consensus_percentile is None:
+        return 0.0
+    return min(max(float(consensus_percentile), 0.0), _DISAGREEMENT_DEPTH_ALLOWANCE_CAP)
+
+
 # ── Anomaly flag rule constants ──────────────────────────────────────────────
 # Each rule produces a machine-readable string if triggered.  Multiple flags
 # can coexist on one player.
@@ -1682,6 +1740,7 @@ def _compute_anomaly_flags(
     source_meta: dict[str, dict[str, Any]] | None = None,
     percentile_spread: float | None = None,
     expected_sources: list[str] | None = None,
+    disagreement_allowance: float = 0.0,
 ) -> list[str]:
     """Return a list of machine-readable anomaly flag strings for a player.
 
@@ -1723,7 +1782,8 @@ def _compute_anomaly_flags(
     #
     # Preferred signal: the depth-aware percentile spread computed
     # by ``_percentile_rank_spread`` (max-minus-min of each source's
-    # raw rank divided by that source's pool size).  Fires when
+    # raw rank divided by that source's pool size, trimmed of the
+    # single most extreme source per side at 5+ sources).  Fires when
     # spread > 0.20 (sources place the player in tiers more than 20
     # percentile points apart).
     #
@@ -1733,7 +1793,7 @@ def _compute_anomaly_flags(
     # of more than ``_SUSPICIOUS_DISAGREEMENT_THRESHOLD`` ordinal
     # ranks across at least two contributing sources.
     if percentile_spread is not None:
-        if percentile_spread > 0.20:
+        if percentile_spread > _SUSPICIOUS_PCT_BASE_THRESHOLD + disagreement_allowance:
             flags.append("suspicious_disagreement")
     else:
         rank_values = list(source_ranks.values())
@@ -3465,8 +3525,13 @@ def _percentile_rank_spread(
     sources disagree, it means one is on a 1-185 scale and the other
     is on a 1-600 scale.
 
-    The spread is the max-minus-min of those percentiles in 0..1.
-    Returns ``None`` if fewer than two sources contributed.
+    The spread is the max-minus-min of those percentiles in 0..1 —
+    TRIMMED when ``_PERCENTILE_SPREAD_TRIM_MIN_N`` or more sources
+    contribute: the single most extreme percentile on each side is
+    ignored, so a lone straggler source cannot flag an otherwise-tight
+    consensus (see the constant's docstring for the saturation audit
+    that motivated this).  Returns ``None`` if fewer than two sources
+    contributed.
     """
     if not source_ranks or len(source_ranks) < 2:
         return None
@@ -3488,6 +3553,9 @@ def _percentile_rank_spread(
         pcts.append(max(0.0, min(1.0, pct)))
     if len(pcts) < 2:
         return None
+    if len(pcts) >= _PERCENTILE_SPREAD_TRIM_MIN_N:
+        pcts_sorted = sorted(pcts)
+        return float(pcts_sorted[-2] - pcts_sorted[1])
     return float(max(pcts) - min(pcts))
 
 
@@ -6633,6 +6701,10 @@ def _compute_unified_rankings(
         row["isSingleSource"] = len(source_ranks) == 1 and len(expected_keys) > 1
         row["isStructurallySingleSource"] = len(source_ranks) == 1 and len(expected_keys) <= 1
 
+    # Ranked pool size for the depth-aware disagreement allowance —
+    # the denominator of a row's consensus percentile.
+    total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
+
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
@@ -6687,7 +6759,10 @@ def _compute_unified_rankings(
         # ranks for the same player even when both were placing him
         # in the same relative tier.  ``percentileSpread`` is the
         # max-minus-min of each source's *raw* rank divided by that
-        # source's auto-detected pool size.
+        # source's auto-detected pool size — trimmed of the single
+        # most extreme source on each side once 5+ sources contribute
+        # (see ``_PERCENTILE_SPREAD_TRIM_MIN_N``), so one straggler
+        # can't flag a 12-source consensus.
         percentile_spread = _percentile_rank_spread(
             effective_source_ranks, effective_source_meta, source_pool_sizes
         )
@@ -6697,8 +6772,17 @@ def _compute_unified_rankings(
 
         # Preserve the semantic 1-src flag stamped in Phase 4a; do
         # not collapse it back to ``len(source_ranks) == 1`` here.
-        # Disagreement uses percentile spread.
-        row["hasSourceDisagreement"] = percentile_spread is not None and percentile_spread > 0.10
+        # Disagreement uses the trimmed percentile spread plus a
+        # depth allowance (see ``_disagreement_depth_allowance``):
+        # only spread in excess of what is typical at this rank depth
+        # earns the caution.
+        depth_allowance = _disagreement_depth_allowance(
+            overall_rank / float(total_ranked) if total_ranked else None
+        )
+        row["hasSourceDisagreement"] = (
+            percentile_spread is not None
+            and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
+        )
 
         gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
         row["marketGapDirection"] = gap_dir
@@ -6733,6 +6817,7 @@ def _compute_unified_rankings(
             canonical_sites=row.get("canonicalSiteValues") or {},
             percentile_spread=percentile_spread,
             expected_sources=list(audit.get("expectedSources") or []),
+            disagreement_allowance=depth_allowance,
         )
 
         # Backward compatibility: set ktcRank / idpRank if applicable.

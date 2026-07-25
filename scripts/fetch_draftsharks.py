@@ -339,12 +339,32 @@ _ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
     return 'clicked';
 }"""
 
+# Confirmation probe: the dropdown's toggle label renders
+# ``x-text="selectedUserLeagueText"`` — Alpine rewrites it to the
+# selected league's name once the selection has actually registered.
+# A raw DOM ``.click()`` dispatched before Alpine bound its handlers
+# is a no-op, so click dispatch alone must never count as success
+# (Codex review on PR #530: an unconfirmed activation would let the
+# scrape continue on PUBLIC scoring and overwrite the league-synced
+# last-good CSVs).  Returns the current label text.
+_LEAGUE_LABEL_JS = r"""() => {
+    const el = document.querySelector(
+        '.scoring-nav__league-dropdown .ds-dropdown__toggle-label');
+    return el ? el.textContent.trim() : '';
+}"""
+
 
 async def _activate_league(page) -> None:
     """Select the synced league so the WASM worker applies league
     scoring.  Tries the legacy ``<select>`` first (cheap, and keeps
     the fetcher working if DS ever rolls the redesign back), then the
-    Alpine dropdown that replaced it in the 2026-06-23 UI refresh."""
+    Alpine dropdown that replaced it in the 2026-06-23 UI refresh.
+
+    Success requires CONFIRMATION — the dropdown toggle label must
+    switch to the league name — not merely a dispatched click.  An
+    unconfirmed activation raises, which the workflow treats as
+    non-fatal (keep last-good CSVs); that is strictly better than
+    silently scraping public-scoring values into the league CSVs."""
     legacy = page.locator("#use-my-league-dropdown")
     if await legacy.count() > 0:
         try:
@@ -354,21 +374,33 @@ async def _activate_league(page) -> None:
             raise RuntimeError(f"Failed to select league {LEAGUE_ID} (legacy select): {exc}")
 
     # Alpine binds its @click handlers after init; with only
-    # ``domcontentloaded`` awaited the first attempt can race it, so
-    # retry for a few seconds before declaring the widget gone.
+    # ``domcontentloaded`` awaited the first attempts can race it, in
+    # which case ``target.click()`` dispatches into a void.  Retry the
+    # click-then-confirm cycle until the toggle label proves the
+    # selection registered.
     status = "no-dropdown"
+    label = ""
     for _ in range(8):
         status = await page.evaluate(_ACTIVATE_LEAGUE_JS, [LEAGUE_ID, LEAGUE_NAME])
         if status == "clicked":
-            print("[DS] league activated via Alpine dropdown", flush=True)
-            return
-        await page.wait_for_timeout(1_000)
+            # Poll for the label flip (~3s) before trusting the click.
+            for _ in range(6):
+                await page.wait_for_timeout(500)
+                label = await page.evaluate(_LEAGUE_LABEL_JS)
+                if LEAGUE_NAME in label:
+                    print("[DS] league activated via Alpine dropdown (label confirmed)", flush=True)
+                    return
+        else:
+            await page.wait_for_timeout(1_000)
     # Diagnostic dead-ends.  ``no-dropdown`` = the league widget moved
     # again; ``no-item:...`` = the dropdown exists but our league isn't
-    # in it (menu inventory included verbatim for the workflow log).
+    # in it (menu inventory included verbatim for the workflow log);
+    # ``clicked`` with an unconfirmed label = the click dispatched but
+    # the selection never registered (label text included).
     raise RuntimeError(
         f"Failed to select league {LEAGUE_ID}: legacy #use-my-league-dropdown "
-        f"absent and Alpine dropdown activation returned {status!r}"
+        f"absent; Alpine dropdown activation returned {status!r} with toggle "
+        f"label {label!r} (expected it to contain {LEAGUE_NAME!r})"
     )
 
 

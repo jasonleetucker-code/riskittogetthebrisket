@@ -16,7 +16,6 @@
 import {
   MARKET_PREMIUM_SPREAD,
   CONFIDENCE_SPREAD_HIGH,
-  CONFIDENCE_SPREAD_MEDIUM,
   PREMIUM_SUMMARY_SPREAD,
   LENS_DISAGREEMENT_SPREAD,
   LENS_INEFFICIENCY_SPREAD,
@@ -125,7 +124,13 @@ export function cautionLabels(row) {
     labels.push({
       label: "Caution: wide disagreement",
       css: "caution-disagree",
-      title: `Sources disagree by more than ${CONFIDENCE_SPREAD_MEDIUM} rank positions`,
+      // Backend stamp: trimmed percentile spread above the depth-aware
+      // threshold — sources split on this player's tier more than is
+      // typical at his rank depth, even after ignoring the single most
+      // extreme source on each side (5+ sources).  See
+      // _percentile_rank_spread / _disagreement_depth_allowance in
+      // data_contract.py.
+      title: "Sources split on this player's tier more than is typical at his rank depth (excluding the single most extreme source on each side)",
     });
   }
   return labels;
