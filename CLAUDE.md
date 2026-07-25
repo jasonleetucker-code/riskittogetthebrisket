@@ -4,6 +4,16 @@
 
 Dynasty fantasy football valuation and trade calculator platform. Ingests external rankings sources (DLF, KTC, FantasyCalc, DynastyDaddy, etc.), normalizes them to a canonical scale, and serves a web UI for trade analysis and rankings.
 
+## Working Copy Coordination
+
+- Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
+- GitHub `main` is the shared source of truth for Claude, ChatGPT/Codex, and local work.
+- Before starting work, run `git pull --ff-only origin main` from the active working copy.
+- Use a task branch for meaningful changes (`claude/...` for Claude, `codex/...` for Codex).
+- Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
+- Do not let multiple assistants edit the same branch at the same time.
+- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
+
 ## Tech Stack
 
 - **Backend**: Python 3, FastAPI, Uvicorn (port 8000)
