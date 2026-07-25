@@ -438,20 +438,41 @@ async def _scrape_one(page) -> list[dict]:
     # public value is 74, league-synced ~81 in a TE-premium + IDP-
     # heavy league; poll until his dsValue crosses 78 so we know the
     # worker has finished reshuffling.
-    async def _applied() -> bool:
-        val = await page.evaluate(r"""() => {
+    #
+    # HARD GATE (Codex review on PR #530): if the probe never crosses,
+    # the worker stalled and the table still carries PUBLIC scoring —
+    # continuing would let a structurally-valid public board overwrite
+    # the league-synced last-good CSVs.  Raise instead (the workflow
+    # treats a fetch failure as non-fatal keep-last-good, and the
+    # staleness watchdog surfaces repeats).  The error carries the
+    # observed value so a rotted 78-pin (e.g. DS repricing Mahomes)
+    # is diagnosable from a single log line rather than presenting
+    # as a permanent mystery timeout.
+    async def _probe_value() -> float | None:
+        return await page.evaluate(r"""() => {
             const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
             const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
             if (!probe) return null;
             const el = probe.querySelector('[data-attribute="dsValue"]');
             return el ? parseFloat(el.textContent.trim()) : null;
         }""")
-        return val is not None and val >= 78
 
+    probe_val: float | None = None
+    applied = False
     for _ in range(30):
-        if await _applied():
+        probe_val = await _probe_value()
+        if probe_val is not None and probe_val >= 78:
+            applied = True
             break
         await page.wait_for_timeout(1_000)
+    if not applied:
+        raise RuntimeError(
+            f"League scoring never applied — Mahomes dsValue probe stayed at "
+            f"{probe_val!r} (< 78) after 30s despite confirmed league selection. "
+            f"Refusing to extract: the table would carry PUBLIC scoring and "
+            f"overwrite the league-synced last-good CSVs.  If DS repriced "
+            f"Mahomes below 78, update the probe threshold in _scrape_one."
+        )
 
     print("[DS] scrolling to load all rows …", flush=True)
     last_count = 0
