@@ -2727,6 +2727,14 @@ async def get_data(request: Request):
         # the cached payload-bytes fast path below — serves the baked
         # sleeper block from the most recent scrape.
 
+        # This fast path serves gzip OR identity bytes off the same
+        # publicly-cacheable URL depending on ``Accept-Encoding``.  Since
+        # we set ``Content-Encoding`` by hand (bypassing GZipMiddleware,
+        # which would otherwise add this), we must advertise the
+        # negotiation so a shared/CDN cache keys the two encodings apart
+        # instead of serving gzip to an identity client (or vice versa).
+        headers["Vary"] = "Accept-Encoding"
+
         if payload_etag:
             headers["ETag"] = payload_etag
             incoming = request.headers.get("if-none-match", "").strip('"')

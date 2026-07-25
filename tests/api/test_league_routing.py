@@ -242,6 +242,9 @@ def test_api_data_compact_view_serves_precomputed_bytes(two_league_registry, mon
     # ETag present ⇒ the precomputed fast path served it (the on-demand
     # fallback leaves the ETag unset).
     assert res.headers.get("ETag") == "compact-etag-xyz"
+    # The negotiated (gzip-or-identity) fast path must advertise Vary so a
+    # shared cache doesn't mis-serve encodings.
+    assert res.headers.get("Vary") == "Accept-Encoding"
     assert res.json() == compact_obj
 
 

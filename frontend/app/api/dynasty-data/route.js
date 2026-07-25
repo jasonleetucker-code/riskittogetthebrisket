@@ -51,19 +51,15 @@ function backendDataUrl(reqUrl) {
   return target.toString();
 }
 
-// Fetch the backend response.  The AbortController's idle timer stays
-// ARMED after this resolves — the caller is responsible for keeping it
-// alive across the body stream (or clearing it) so a mid-body stall
-// still aborts instead of hanging.  On a header-time failure we clear
-// the timer and return null so the caller can fall back to disk.
+// Fetch the backend response with an idle timeout that covers ONLY the
+// header phase.  A header-time stall aborts and returns null so the
+// caller falls back to disk.  Once headers arrive the timer is cleared;
+// the body phase gets its own per-read idle timeout (see
+// ``streamWithUpstreamIdleAbort``) so header latency doesn't eat into
+// the first body chunk's budget.
 async function fetchFromBackendApi(request, backendUrl) {
   const ctl = new AbortController();
-  const state = { timer: setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS) };
-  const resetIdle = () => {
-    clearTimeout(state.timer);
-    state.timer = setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS);
-  };
-  const clear = () => clearTimeout(state.timer);
+  const headerTimer = setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS);
   try {
     const headers = {};
     const cookie = request.headers.get("cookie");
@@ -77,32 +73,58 @@ async function fetchFromBackendApi(request, backendUrl) {
       signal: ctl.signal,
       headers,
     });
-    return { res, ctl, resetIdle, clear };
+    clearTimeout(headerTimer);
+    return { res, ctl };
   } catch {
-    clear();
+    clearTimeout(headerTimer);
     return null;
   }
 }
 
-// Pipe the backend body through unchanged while keeping the idle-abort
-// timer armed: each chunk rearms the timeout, and a stall of
-// BACKEND_IDLE_TIMEOUT_MS aborts the upstream fetch so the stream errors
-// out instead of hanging forever.  Streaming (vs. buffering the whole
-// multi-MB payload) sends the first byte as soon as it arrives.
-function streamWithIdleAbort({ res, resetIdle, clear }) {
-  const ts = new TransformStream({
-    transform(chunk, controller) {
-      resetIdle();
-      controller.enqueue(chunk);
+// Stream the backend body through unchanged, timing out only while an
+// UPSTREAM read is actually in flight.  ``pull`` runs solely when the
+// downstream (client) is ready for more, so a slow client applying
+// backpressure never has a timer running against it — only a genuine
+// backend stall between chunks trips the abort.  Each read gets a fresh
+// full idle window, including the first body chunk after headers.
+function streamWithUpstreamIdleAbort(res, ctl) {
+  const reader = res.body.getReader();
+  return new ReadableStream({
+    async pull(controller) {
+      let timer;
+      try {
+        const idle = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            ctl.abort();
+            reject(new Error("backend idle timeout"));
+          }, BACKEND_IDLE_TIMEOUT_MS);
+        });
+        const { done, value } = await Promise.race([reader.read(), idle]);
+        clearTimeout(timer);
+        if (done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(value);
+      } catch (err) {
+        clearTimeout(timer);
+        try {
+          ctl.abort();
+        } catch {
+          /* already aborted */
+        }
+        controller.error(err);
+      }
     },
-    flush() {
-      clear();
-    },
-    cancel() {
-      clear();
+    cancel(reason) {
+      try {
+        ctl.abort();
+      } catch {
+        /* already aborted */
+      }
+      return reader.cancel(reason);
     },
   });
-  return res.body.pipeThrough(ts);
 }
 
 function parseDynastyDataJs(jsText) {
@@ -175,20 +197,18 @@ export async function GET(request) {
     // buffering / re-serializing the multi-MB contract, preserving its
     // Cache-Control + ETag so the browser can revalidate.
     if (backend && (backend.res.ok || backend.res.status === 304)) {
-      const { res, clear } = backend;
+      const { res, ctl } = backend;
       const headers = new Headers();
       for (const h of PASS_THROUGH_HEADERS) {
         const v = res.headers.get(h);
         if (v) headers.set(h, v);
       }
-      // 304 carries no body — release the idle timer and return.
+      // 304 (or an empty body) — nothing to stream.
       if (res.status === 304 || !res.body) {
-        clear();
         return new NextResponse(null, { status: res.status, headers });
       }
-      // Stream the body; the idle-abort timer stays armed for the
-      // stream's lifetime (each chunk rearms it, flush clears it).
-      return new NextResponse(streamWithIdleAbort(backend), {
+      // Stream the body with a per-read (upstream-only) idle timeout.
+      return new NextResponse(streamWithUpstreamIdleAbort(res, ctl), {
         status: res.status,
         headers,
       });
@@ -197,7 +217,14 @@ export async function GET(request) {
     // Backend unreachable or errored at header time — fall back to a
     // disk snapshot.  (Once streaming has started we can no longer fall
     // back; a mid-stream stall aborts and surfaces as a fetch error.)
-    if (backend) backend.clear();
+    // Release the unconsumed backend response, if any.
+    if (backend) {
+      try {
+        backend.ctl.abort();
+      } catch {
+        /* already aborted */
+      }
+    }
     const parsed = loadFromDisk();
     if (parsed) {
       return NextResponse.json(parsed);
