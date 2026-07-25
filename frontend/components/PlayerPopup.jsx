@@ -198,6 +198,88 @@ function RosContextSection({ row }) {
   );
 }
 
+// ── League-mate intel section (Sharp Tracker, Phase 5) ───────────────
+// Cross-league exposure line for the popup: how many league-mates hold
+// this player across their other Sleeper leagues, and the recent net
+// add activity.  Fetches GET /api/intel/player and degrades SILENTLY
+// when intel is unavailable (no snapshot yet, asset untracked, or the
+// endpoint errors) — the popup simply omits the section.
+const _intelCache = new Map(); // key → {payload|null, fetchedAt}
+const _INTEL_TTL_MS = 5 * 60 * 1000;
+
+async function _loadPlayerIntel(playerId, name) {
+  const key = playerId ? `id:${playerId}` : `name:${name}`;
+  const cached = _intelCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < _INTEL_TTL_MS) return cached.payload;
+  try {
+    const params = playerId
+      ? `playerId=${encodeURIComponent(playerId)}`
+      : `name=${encodeURIComponent(name)}`;
+    const res = await fetch(`/api/intel/player?${params}`);
+    const payload = res.ok ? await res.json() : null;
+    _intelCache.set(key, { payload, fetchedAt: Date.now() });
+    return payload;
+  } catch {
+    _intelCache.set(key, { payload: null, fetchedAt: Date.now() });
+    return null;
+  }
+}
+
+function IntelContextSection({ row }) {
+  const [intel, setIntel] = useState(null);
+  const playerId = String(row?.raw?.playerId || row?.playerId || "").trim();
+  const name = String(row?.name || "").trim();
+
+  useEffect(() => {
+    if (!playerId && !name) return;
+    let active = true;
+    setIntel(null);
+    _loadPlayerIntel(playerId, name).then((payload) => {
+      if (active) setIntel(payload);
+    });
+    return () => {
+      active = false;
+    };
+  }, [playerId, name]);
+
+  if (!intel) return null;
+  const holders = Number(intel.holderCount) || 0;
+  const heldLeagues = Number(intel.heldLeagueTotal) || 0;
+  const net7d = Number(intel.windows?.["7d"]?.net) || 0;
+  const buys7d = Number(intel.windows?.["7d"]?.buys) || 0;
+  const sells7d = Number(intel.windows?.["7d"]?.sells) || 0;
+  if (holders === 0 && buys7d === 0 && sells7d === 0) return null;
+
+  const parts = [];
+  if (holders > 0) {
+    parts.push(
+      `${holders} league-mate${holders === 1 ? "" : "s"} hold${holders === 1 ? "s" : ""} him ` +
+        `in ${heldLeagues} league${heldLeagues === 1 ? "" : "s"}`,
+    );
+  }
+  if (buys7d > 0 || sells7d > 0) {
+    parts.push(`net ${net7d > 0 ? "+" : ""}${net7d} add${Math.abs(net7d) === 1 ? "" : "s"} this week`);
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: "6px 10px",
+        borderRadius: 6,
+        background: "rgba(96, 165, 250, 0.06)",
+        border: "1px solid var(--border)",
+        fontSize: "0.76rem",
+      }}
+    >
+      <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>League-mate intel</span>
+      <span className="muted" style={{ marginLeft: 8 }}>
+        {parts.join(" · ")}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Build the ordered value-chain stages from a player row.
  *
@@ -811,6 +893,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             )}
           </div>
         )}
+
+        {/* League-mate intel (Sharp Tracker) — silently absent when
+            the intel snapshot has nothing for this asset */}
+        <IntelContextSection row={row} />
 
         {/* Edge signal */}
         {edge?.signal && (
