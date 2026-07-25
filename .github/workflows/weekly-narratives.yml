@@ -77,15 +77,36 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
+      # The generator hard-requires ANTHROPIC_API_KEY (repo secret).
+      # When the secret is absent/empty every weekly run fails with
+      # "ERROR: ANTHROPIC_API_KEY not set" (8 straight failures as of
+      # 2026-07-25) — that's a configuration gap, not a code defect,
+      # so surface it as a loud skip instead of a red run.  Add the
+      # secret in Settings -> Secrets and variables -> Actions to
+      # re-enable article generation.
+      - name: Check ANTHROPIC_API_KEY is configured
+        id: keycheck
+        shell: bash
+        run: |
+          if [[ -z "${ANTHROPIC_API_KEY}" ]]; then
+            echo "::warning title=ANTHROPIC_API_KEY not configured::Weekly narrative generation skipped — add the ANTHROPIC_API_KEY repository secret to enable it."
+            echo "have_key=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.keycheck.outputs.have_key == 'true'
         uses: actions/checkout@v6
 
       - name: Set up Python
+        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -98,6 +119,7 @@ jobs:
           pip install anthropic
 
       - name: Resolve mode (manual dispatch vs cron)
+        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         id: mode
         shell: bash
         run: |
@@ -115,6 +137,7 @@ jobs:
           echo "Resolved mode: ${MODE}"
 
       - name: Generate articles
+        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         id: generate
         shell: bash
         run: |
@@ -135,7 +158,7 @@ jobs:
           python scripts/generate_weekly_narratives.py ${ARGS} | tee narrative_report.txt
 
       - name: Append report to job summary
-        if: always()
+        if: ${{ (always()) && steps.keycheck.outputs.have_key == 'true' }}
         shell: bash
         run: |
           {
@@ -147,7 +170,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push new articles
-        if: success()
+        if: ${{ (success()) && steps.keycheck.outputs.have_key == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail

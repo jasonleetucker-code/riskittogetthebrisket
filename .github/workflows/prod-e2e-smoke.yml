@@ -50,7 +50,10 @@ jobs:
           URL: ${{ steps.url.outputs.url }}
         run: |
           set -Eeuo pipefail
-          code=$(curl --silent --show-error --max-time 15 \
+          # 30s: a cold /api/public/league snapshot takes longer than 15s
+          # even with the threadpool fix; the hourly warmup keeps it warm in
+          # steady state but the preflight must not flap on the cold case.
+          code=$(curl --silent --show-error --max-time 30 \
             --output /dev/null --write-out '%{http_code}' \
             "${URL}/api/public/league" || echo 000)
           if [[ "${code}" != "200" ]]; then
