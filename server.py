@@ -6421,6 +6421,73 @@ _public_league_cache: dict = {
 }
 _public_league_refresh_lock = threading.Lock()
 
+# ── Heavy-section single-flight cache ────────────────────────────────
+# A handful of public-league sections are pure-Python Monte Carlo
+# simulations (``playoffOdds`` runs 10,000 runs; ``rosPlayoffOdds`` and
+# ``rosChampionship`` likewise).  These run in the shared threadpool via
+# ``run_in_threadpool`` on the section / CSV endpoints, so without
+# protection a burst of concurrent requests would each launch an
+# independent 10k-run, GIL-bound job — saturating the pool and starving
+# unrelated ``run_in_threadpool`` endpoints of worker capacity.
+#
+# We memoize each heavy section's result keyed by the snapshot's
+# identity + freshness (``root_league_id`` + ``generated_at``) and guard
+# the compute with a per-section lock, so:
+#   * a burst of concurrent requests for the same section runs the
+#     simulation exactly ONCE (single-flight); the rest wait on the lock
+#     and read the cached result, and
+#   * repeat requests within a snapshot's lifetime are free.
+# A snapshot refresh mints a new ``generated_at``, which transparently
+# invalidates the cache (only the latest snapshot's result is retained,
+# so memory stays bounded to one payload per heavy section).
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "rosPlayoffOdds", "rosChampionship"})
+_heavy_section_cache: dict = {}
+_heavy_section_locks: dict = {}
+_heavy_section_locks_guard = threading.Lock()
+
+
+def _heavy_section_lock(section: str) -> threading.Lock:
+    """Return the per-section lock, creating it on first use."""
+    with _heavy_section_locks_guard:
+        lock = _heavy_section_locks.get(section)
+        if lock is None:
+            lock = threading.Lock()
+            _heavy_section_locks[section] = lock
+        return lock
+
+
+def _build_section_payload_cached(snapshot, section, *, activity_valuation=None):
+    """``build_section_payload`` with single-flight + per-snapshot caching
+    for the heavy Monte Carlo sections; every other section passes
+    straight through uncached.
+
+    Heavy sections depend only on ``snapshot`` (no ``owner``/``kind`` and
+    no ``activity_valuation``), so keying on the snapshot identity alone
+    is sound.  The cached payload is already safety-checked inside
+    ``build_section_payload`` and is only ever read (serialized to JSON /
+    CSV) by callers, never mutated, so sharing one instance across
+    concurrent requests is safe.
+    """
+    if section not in _HEAVY_SECTION_KEYS:
+        return build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+    cache_key = (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+    )
+    cached = _heavy_section_cache.get(section)
+    if cached is not None and cached[0] == cache_key:
+        return cached[1]
+    with _heavy_section_lock(section):
+        # Re-check under the lock: another thread may have computed this
+        # section for the same snapshot while we were waiting.
+        cached = _heavy_section_cache.get(section)
+        if cached is not None and cached[0] == cache_key:
+            return cached[1]
+        payload = build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+        _heavy_section_cache[section] = (cache_key, payload)
+        return payload
+
+
 # Observability counters for the public-league snapshot cache.  Logged
 # at every serve path via ``_log_public_league_event`` so the uptime
 # watchdog + log-scraping tooling can track cold-fetch regressions, the
@@ -7002,7 +7069,7 @@ async def get_public_league_section_csv(
 
     def _build_csv():
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_section_payload(snapshot, section)
+        payload = _build_section_payload_cached(snapshot, section)
         assert_public_payload_safe(payload)
         kwargs = {}
         if section == "franchise" and owner:
@@ -7065,7 +7132,7 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
         # would otherwise block the event loop and stall health checks /
         # unrelated requests — the exact failure this offload prevents.
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_section_payload(
+        payload = _build_section_payload_cached(
             snapshot,
             section,
             activity_valuation=_build_public_activity_valuation(),
