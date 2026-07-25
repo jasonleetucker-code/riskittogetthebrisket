@@ -544,7 +544,10 @@ def test_overlay_serialize_single_flights_concurrent_misses(monkeypatch):
 
     async def _fire():
         return await asyncio.gather(
-            *[server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version) for _ in range(5)]
+            *[
+                server._serialize_overlaid_response(_FakeReq(), scrubbed, {}, key, version)
+                for _ in range(5)
+            ]
         )
 
     results = asyncio.run(_fire())

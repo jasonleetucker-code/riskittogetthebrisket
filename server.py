@@ -2808,7 +2808,9 @@ async def get_data(request: Request):
                 else None
             )
             overlay_version = (overlay_fetched_at, payload_etag) if overlay_cache_key else None
-            return await _serialize_overlaid_response(request, scrubbed, headers, overlay_cache_key, overlay_version)
+            return await _serialize_overlaid_response(
+                request, scrubbed, headers, overlay_cache_key, overlay_version
+            )
 
         if not sleeper_matches:
             # Cross-league + overlay unavailable: null the sleeper
