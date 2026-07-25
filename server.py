@@ -4919,7 +4919,7 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
-import re
+import re  # noqa: E402 — KTC import block sits mid-file with its route group
 
 
 def _ktc_decay_curve(known_rookies, total_picks=72):
@@ -6375,19 +6375,19 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_public_snapshot,
     build_section_payload,
 )
-from src.public_league.public_contract import assert_public_payload_safe
-from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
-from src.public_league import snapshot_store as public_snapshot_store
-from src.public_league import csv_export as public_csv_export
-from src.public_league import matchup_recap as public_matchup_recap
-from src.public_league import player_journey as public_player_journey
+from src.public_league.public_contract import assert_public_payload_safe  # noqa: E402 — grouped with public-league block
+from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
+from src.public_league import snapshot_store as public_snapshot_store  # noqa: E402 — grouped with public-league block
+from src.public_league import csv_export as public_csv_export  # noqa: E402 — grouped with public-league block
+from src.public_league import matchup_recap as public_matchup_recap  # noqa: E402 — grouped with public-league block
+from src.public_league import player_journey as public_player_journey  # noqa: E402 — grouped with public-league block
 
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
 _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
 _PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
 
 
-from src.api.public_activity_valuation import (
+from src.api.public_activity_valuation import (  # noqa: E402 — grouped with public-league block
     build_valuation_from_contract as _build_valuation_from_contract,
 )
 
@@ -6533,11 +6533,9 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             return cached
         started = time.time()
         snapshot = None
-        error = None
         try:
             snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
         except Exception as exc:  # noqa: BLE001
-            error = exc
             _public_league_metrics["rebuild_failures"] += 1
             _log_public_league_event(
                 "rebuild_failed",
