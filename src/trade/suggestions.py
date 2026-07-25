@@ -1476,7 +1476,9 @@ def generate_suggestions_from_pool(
 
     # Phase 4: Deterministic ranking — applied AFTER enrichment so edge
     # and opponent-fit bonuses affect ordering.
-    sort_key = lambda s: _rank_sort_key(s, roster)
+    def sort_key(s):
+        return _rank_sort_key(s, roster)
+
     sell_high.sort(key=sort_key)
     buy_low.sort(key=sort_key)
     consolidation.sort(key=sort_key)

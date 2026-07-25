@@ -1863,7 +1863,6 @@ class TestConsolidationInLiveOutput:
     def test_deep_surplus_gets_consolidation(self):
         """A roster with deep surplus and mid-value depth produces packages."""
         snap = _sample_snapshot()
-        pool = build_asset_pool(snap)
         # Build a roster with deep LB surplus (mid-range depth, not elite)
         # so that pairs fall in range of real targets.
         roster_names = [
