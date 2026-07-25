@@ -2485,6 +2485,15 @@ def _active_sources(
     replaced.  Sources that inherit their defaults are passed through
     by reference so the hot path does not pay a copy tax when no
     overrides are in play.
+
+    A NON-POSITIVE effective weight also drops the source (Codex
+    review on PR #530): the Final Framework blend is unweighted —
+    every covered source votes with equal voice, weights gate
+    membership only — so "enabled with weight 0" has exactly one
+    coherent meaning: no vote.  Before this, a weight-0 source kept
+    voting at full strength in the subgroup/flat blend (and, until
+    the prior commit, anchoring).  Registry defaults are all 1.0, so
+    this only affects explicit user overrides.
     """
     if not source_overrides:
         return list(_RANKING_SOURCES)
@@ -2494,8 +2503,11 @@ def _active_sources(
             continue
         ov = source_overrides.get(src.get("key") or "") or {}
         if "weight" in ov:
+            eff_weight = _effective_source_weight(src, source_overrides)
+            if eff_weight <= 0:
+                continue
             copy = dict(src)
-            copy["weight"] = _effective_source_weight(src, source_overrides)
+            copy["weight"] = eff_weight
             out.append(copy)
         else:
             out.append(src)

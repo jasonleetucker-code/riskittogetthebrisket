@@ -431,47 +431,59 @@ async def _scrape_one(page) -> list[dict]:
         # Sentinel string picked up by _scrape() to trigger auto-login.
         raise RuntimeError("unauthenticated_session")
 
+    # Snapshot the PUBLIC-scoring dsValues of the first few rendered
+    # rows BEFORE activating the league, then require at least one of
+    # them to change afterward.  The WASM worker reshuffles values
+    # board-wide when league scoring applies, so any delta proves the
+    # transition happened — without pinning the gate to one player's
+    # mutable market value (the previous "Mahomes >= 78" pin broke if
+    # DS repriced, renamed, or dropped that one player; Codex review
+    # on PR #530).
+    async def _probe_values() -> dict:
+        return await page.evaluate(r"""() => {
+            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]')).slice(0, 8);
+            const out = {};
+            for (const tb of rows) {
+                const name = tb.getAttribute('data-player-name') || '';
+                const el = tb.querySelector('[data-attribute="dsValue"]');
+                const v = el ? parseFloat(el.textContent.trim()) : NaN;
+                if (name && Number.isFinite(v)) out[name] = v;
+            }
+            return out;
+        }""")
+
+    baseline = await _probe_values()
+
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     await _activate_league(page)
 
-    # Wait for the WASM worker to apply the league scoring.  Mahomes
-    # public value is 74, league-synced ~81 in a TE-premium + IDP-
-    # heavy league; poll until his dsValue crosses 78 so we know the
-    # worker has finished reshuffling.
-    #
-    # HARD GATE (Codex review on PR #530): if the probe never crosses,
+    # HARD GATE (Codex review on PR #530): if no probed value moves,
     # the worker stalled and the table still carries PUBLIC scoring —
     # continuing would let a structurally-valid public board overwrite
     # the league-synced last-good CSVs.  Raise instead (the workflow
     # treats a fetch failure as non-fatal keep-last-good, and the
-    # staleness watchdog surfaces repeats).  The error carries the
-    # observed value so a rotted 78-pin (e.g. DS repricing Mahomes)
-    # is diagnosable from a single log line rather than presenting
-    # as a permanent mystery timeout.
-    async def _probe_value() -> float | None:
-        return await page.evaluate(r"""() => {
-            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
-            const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
-            if (!probe) return null;
-            const el = probe.querySelector('[data-attribute="dsValue"]');
-            return el ? parseFloat(el.textContent.trim()) : null;
-        }""")
-
-    probe_val: float | None = None
+    # staleness watchdog surfaces repeats).  Known limitation: a league
+    # whose scoring produced IDENTICAL values for all probed players
+    # would false-raise — but in that case public values equal league
+    # values anyway, so keeping last-good loses nothing.
     applied = False
+    current: dict = {}
     for _ in range(30):
-        probe_val = await _probe_value()
-        if probe_val is not None and probe_val >= 78:
+        current = await _probe_values()
+        if baseline and any(
+            name in current and abs(current[name] - base_v) > 0.05
+            for name, base_v in baseline.items()
+        ):
             applied = True
             break
         await page.wait_for_timeout(1_000)
     if not applied:
         raise RuntimeError(
-            f"League scoring never applied — Mahomes dsValue probe stayed at "
-            f"{probe_val!r} (< 78) after 30s despite confirmed league selection. "
-            f"Refusing to extract: the table would carry PUBLIC scoring and "
-            f"overwrite the league-synced last-good CSVs.  If DS repriced "
-            f"Mahomes below 78, update the probe threshold in _scrape_one."
+            f"League scoring never applied — none of the probed dsValues moved "
+            f"within 30s despite confirmed league selection.  Refusing to "
+            f"extract: the table would carry PUBLIC scoring and overwrite the "
+            f"league-synced last-good CSVs.  baseline={baseline!r} "
+            f"current={current!r}"
         )
 
     print("[DS] scrolling to load all rows …", flush=True)

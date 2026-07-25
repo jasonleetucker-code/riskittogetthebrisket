@@ -186,5 +186,29 @@ class TestAnchorKeySets(unittest.TestCase):
         self.assertEqual(pick, {"ktcSfTep"})
 
 
+class TestActiveSourcesWeightGate(unittest.TestCase):
+    """PR #530 review: a non-positive weight override must drop the
+    source from voting entirely — the blend is unweighted, so
+    "enabled with weight 0" can only coherently mean "no vote"."""
+
+    def test_zero_weight_override_drops_source(self):
+        from src.api.data_contract import _active_sources
+
+        out = _active_sources({"ktcSfTep": {"weight": 0}})
+        self.assertNotIn("ktcSfTep", {s.get("key") for s in out})
+
+    def test_positive_weight_override_retained_with_new_weight(self):
+        from src.api.data_contract import _active_sources
+
+        out = _active_sources({"ktcSfTep": {"weight": 2.5}})
+        ktc = next(s for s in out if s.get("key") == "ktcSfTep")
+        self.assertEqual(float(ktc["weight"]), 2.5)
+
+    def test_no_overrides_returns_full_registry(self):
+        from src.api.data_contract import _RANKING_SOURCES, _active_sources
+
+        self.assertEqual(len(_active_sources(None)), len(_RANKING_SOURCES))
+
+
 if __name__ == "__main__":
     unittest.main()
