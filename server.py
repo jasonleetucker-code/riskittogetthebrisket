@@ -4152,15 +4152,19 @@ async def post_waiver_suggestions(request: Request):
     """Generate waiver-wire suggestions for the requesting league.
 
     Players currently free-agent (not on any team's roster) ranked
-    by adjusted value (or consensus when ``applyScoringFit`` is off).
-    Pre-draft window (Feb 1 – May 11) suppresses rookies.
+    by consensus value.  Pre-draft window (Feb 1 – May 11) suppresses
+    rookies.
 
     Request body (JSON):
       ``leagueKey``        optional — pin to a specific league
-      ``applyScoringFit``  bool — apply the scoring-fit weight
-      ``scoringFitWeight`` float 0-1 — strength of the adjustment
       ``minValue``         int — floor for ``rankDerivedValue``
       ``includeKicker``    bool — include K/DEF (default false)
+
+    (The former ``applyScoringFit`` / ``scoringFitWeight`` params were
+    documentation-only — the handler never read them and no code ever
+    produced the adjusted values they promised (2026-07-25 calculation
+    audit, F-1).  Unknown body fields are still accepted and ignored,
+    so old callers keep working.)
 
     Returns ``{by_position, by_family, total, rookies_excluded,
     leagueKey}``.

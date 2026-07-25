@@ -44,8 +44,15 @@ DEFAULT_STARTER_NEEDS: dict[str, int] = {
 # Minimum display value to consider a player "rosterable" (not a throw-in)
 MIN_RELEVANT_VALUE = 500
 
-# Fairness band: how close two trade sides need to be (display scale)
-FAIRNESS_TOLERANCE = 769  # ~1 "Lean" verdict worth
+# Fairness band: how close two trade sides need to be (display scale).
+# NOTE (2026-07-25 audit F-7): this scale (even <256 / lean <769 /
+# stretch ≥769, see _fairness_label) is INDEPENDENT of the trade
+# page's verdict bands (350/900/1800 in frontend/lib/trade-logic.js)
+# — the two surfaces intentionally use different vocabularies and the
+# old "~1 Lean verdict worth" comment here was wrong.  769's origin
+# is undocumented legacy tuning; change it only with before/after
+# suggestion-volume measurement.
+FAIRNESS_TOLERANCE = 769
 
 # How many suggestions per category
 MAX_SUGGESTIONS_PER_TYPE = 8
@@ -344,7 +351,6 @@ def build_asset_pool_from_contract(
     contract: dict[str, Any],
     *,
     ktc_top_n: int = KTC_TOP_N_FILTER,
-    apply_scoring_fit: bool = False,
 ) -> list[PlayerAsset]:
     """Primary pool builder — maps the live contract ``playersArray``
     to ``PlayerAsset`` objects for the trade-suggestion engine.
@@ -356,12 +362,6 @@ def build_asset_pool_from_contract(
     asset-dict path (see :func:`build_asset_pool`) so downstream
     consumers (roster analysis, sell/buy categories, balancer search)
     are unchanged.
-
-    ``apply_scoring_fit``: when True, IDP rows substitute their
-    ``idpScoringFitAdjustedValue`` for ``rankDerivedValue`` so trade
-    suggestions reflect THIS league's stacked scoring rules, not the
-    generic 19-source consensus.  Offense + picks unaffected.
-    Default False matches the existing behaviour.
 
     Mapping:
 
@@ -403,14 +403,14 @@ def build_asset_pool_from_contract(
         name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
         if not name:
             continue
-        # Apply Scoring Fit substitution for IDP rows when the toggle
-        # is on AND the row carries an adjusted value.  Offense + picks
-        # always read the consensus rankDerivedValue.
+        # Every row reads the consensus rankDerivedValue.  The former
+        # ``apply_scoring_fit`` toggle read ``idpScoringFitAdjustedValue``
+        # here, but NO code path ever produced that field (2026-07-25
+        # calculation audit, finding F-1) — the toggle was a silent
+        # no-op and has been removed rather than left as a dead
+        # promise.  If league-scoring fit is ever wired for real, the
+        # producer belongs in the contract build, not here.
         cv: Any = row.get("rankDerivedValue")
-        if apply_scoring_fit:
-            adjusted = row.get("idpScoringFitAdjustedValue")
-            if isinstance(adjusted, (int, float)) and adjusted > 0:
-                cv = adjusted
         if cv is None:
             continue
         try:
@@ -429,15 +429,33 @@ def build_asset_pool_from_contract(
         # confidenceBucket (which the contract computes from the same
         # filtered set).  Fall back to the raw site-values keys for
         # legacy contracts that pre-date the Hampel stamps.
+        #
+        # Per-source magnitude: prefer ``sourceRankMeta[key]
+        # .valueContribution`` — the 9,999-scale value that actually
+        # enters the blend — over the raw ``canonicalSiteValues`` slot.
+        # Rank-signal sources (DLF, Dynasty Daddy, Yahoo Boone, FC/OTC
+        # since PR #530, ...) stamp a synthetic rank ENCODING
+        # (``999900 - rank*100`` bookkeeping numbers) into
+        # canonicalSiteValues; mixing those with native 0-9999 values
+        # made the CV read scale mismatch as source disagreement and
+        # could hang false ``high_dispersion`` edges on suggestions.
+        # Raw slots remain the fallback for legacy contracts without
+        # the meta stamp (their value-based slots are true values).
         site_values = row.get("canonicalSiteValues") or {}
+        source_meta = row.get("sourceRankMeta")
+        if not isinstance(source_meta, dict):
+            source_meta = {}
         effective_keys = _effective_source_keys(row, site_values)
         sv_list: list[float] = []
         if isinstance(site_values, dict):
             for key, v in site_values.items():
                 if effective_keys is not None and key not in effective_keys:
                     continue
+                meta = source_meta.get(key)
+                contrib = meta.get("valueContribution") if isinstance(meta, dict) else None
+                candidate = contrib if isinstance(contrib, (int, float)) and contrib > 0 else v
                 try:
-                    f = float(v) if v is not None else 0.0
+                    f = float(candidate) if candidate is not None else 0.0
                 except (TypeError, ValueError):
                     continue
                 if f > 0:
@@ -1458,7 +1476,9 @@ def generate_suggestions_from_pool(
 
     # Phase 4: Deterministic ranking — applied AFTER enrichment so edge
     # and opponent-fit bonuses affect ordering.
-    sort_key = lambda s: _rank_sort_key(s, roster)
+    def sort_key(s):
+        return _rank_sort_key(s, roster)
+
     sell_high.sort(key=sort_key)
     buy_low.sort(key=sort_key)
     consolidation.sort(key=sort_key)

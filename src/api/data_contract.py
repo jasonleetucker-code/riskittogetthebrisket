@@ -116,6 +116,64 @@ _CONFIDENCE_PERCENTILE_MEDIUM = 0.20
 _CONFIDENCE_SPREAD_HIGH = 30
 _CONFIDENCE_SPREAD_MEDIUM = 80
 
+# ── Trimmed percentile spread ────────────────────────────────────────────────
+# With this many sources or more, ``_percentile_rank_spread`` ignores the
+# single most extreme percentile on EACH side before taking max-minus-min.
+#
+# Rationale (2026-07-25 caution-saturation audit): the raw max-minus-min
+# statistic grows mechanically with source count — with 12 sources the
+# spread is defined entirely by the single most optimistic and single
+# most pessimistic voice, so one straggler flags the row.  The 0.10 /
+# 0.20 disagreement thresholds were tuned when top players carried 4-6
+# sources; after the May-July source additions they carry ~12, and the
+# flags saturated: 72% of the top-200 board carried "wide disagreement"
+# (rows with >=3 sources flagged ~90% of the time, rising WITH coverage
+# — more data was reading as less confidence).  Trimming one voice per
+# side restores the intended semantics: a caution requires two
+# independent sources on each wing to genuinely split on the player.
+# Measured on the 2026-07-25 live board, top-200 disagreement drops
+# 143 -> ~40 rows and suspicious_disagreement 82 -> ~15.
+#
+# n >= 5 so trimming never reduces the statistic below a 3-source
+# core; below that the untrimmed range is still the right measure.
+_PERCENTILE_SPREAD_TRIM_MIN_N = 5
+
+# ── Depth-aware disagreement allowance ──────────────────────────────────────
+# Even after trimming, expected spread grows with rank depth — on the
+# 2026-07-25 board the MEDIAN trimmed spread is 0.068 inside the top
+# 100 but 0.30 at ranks 201-400.  Two structural reasons: (1) sources
+# genuinely order deep players near-randomly (that's where the market
+# hasn't converged), and (2) pool-size normalisation makes identical
+# ordinal placements read as different percentiles when source depths
+# differ (rank 66 in a 280-pool = 0.24 vs rank 44 in a 500-pool =
+# 0.09).  A flat threshold therefore either saturates the deep board
+# or never fires at the top.
+#
+# The caution/anomaly thresholds get a linear allowance equal to the
+# player's own consensus percentile (rank / ranked-pool-size), capped:
+# flag only the spread IN EXCESS of what is typical at that depth.
+# Confidence buckets deliberately do NOT get the allowance — they
+# describe absolute trust in the row's value, and a deep player with
+# 0.30 spread is genuinely less certain no matter how normal that is
+# for its neighbourhood.
+_DISAGREEMENT_BASE_THRESHOLD = 0.10  # hasSourceDisagreement (caution label)
+_SUSPICIOUS_PCT_BASE_THRESHOLD = 0.20  # suspicious_disagreement (anomaly flag)
+_DISAGREEMENT_DEPTH_ALLOWANCE_CAP = 0.25
+
+
+def _disagreement_depth_allowance(consensus_percentile: float | None) -> float:
+    """Linear depth allowance added to both disagreement thresholds.
+
+    ``consensus_percentile`` is the player's unified rank divided by
+    the ranked pool size (0..1); the allowance equals it, capped at
+    ``_DISAGREEMENT_DEPTH_ALLOWANCE_CAP`` so the flags can still fire
+    on the deep board's true pathologies.
+    """
+    if consensus_percentile is None:
+        return 0.0
+    return min(max(float(consensus_percentile), 0.0), _DISAGREEMENT_DEPTH_ALLOWANCE_CAP)
+
+
 # ── Anomaly flag rule constants ──────────────────────────────────────────────
 # Each rule produces a machine-readable string if triggered.  Multiple flags
 # can coexist on one player.
@@ -297,16 +355,32 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # filter to offensive positions (QB/RB/WR/TE) and write a
     # ``name,value,rank`` CSV.  Signal=value — FantasyCalc's value
     # distribution is well-spread (no display ceiling like Dynasty
-    # Daddy or Yahoo Boone), so the value-direct path scales the
-    # board's top to 9999 linearly and preserves cross-position
-    # separation.  Picks (position "PICK") are dropped here and
-    # tethered to rookie values in a dedicated downstream phase.
+    # Daddy or Yahoo Boone).  Picks (position "PICK") are dropped here
+    # and tethered to rookie values in a dedicated downstream phase.
     # Standard SF scoring — values are NOT TE-premium native, so the
     # frontend ``tepMultiplier`` boost applies on top of the blended
     # contribution (registry entry sets ``is_tep_premium=False``).
+    #
+    # Signal=rank (2026-07-25): added 2026-05-13 on the value-direct
+    # path under the "well-spread distribution" rationale, but the
+    # weekly Hampel audit flagged it EVERY week from its first Monday
+    # on the board (54.9% on 2026-05-18 → 56-58% through July).  The
+    # problem is the opposite of the Dynasty Daddy display-ceiling
+    # case: FantasyCalc's crowd values decay much *faster* down the
+    # board than the KTC-anchored Hill consensus (at consensus rank ~8
+    # FC contributes ~7,200 against a ~9,000 median — a 1,800+ point
+    # gap on row after row), so value-direct normalisation put it
+    # outside the Hampel window on half its rows and its vote was
+    # simply discarded.  Routing through the rank-signal path feeds
+    # its ordinal rank into the OFFENSE-scope Hill curve, matching the
+    # consensus decay shape while preserving FantasyCalc's ordering —
+    # the same conversion that fixed dynastyDaddySf (61% → 0%),
+    # yahooBoone (47% → ~2%), and fantasyProsFitzmaurice (19% → ~0%).
+    # The ``value`` column is still loaded into canonicalSiteValues
+    # for audit / display / trade-finder use.
     "fantasyCalc": {
         "path": "CSVs/site_raw/fantasyCalc.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # OTC Fantasy Football Superflex trade-derived values — fetched
     # from https://otcffb.com/api/trade-values?format=sf via
@@ -315,12 +389,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # from OTCFFB's tracked league trades (354k+ trades observed).
     # Independent signal from KTC / FantasyCalc — same crowd-sourced
     # spirit as FantasyCalc but pulled from a different community.
-    # Signal=value: the 0-100 distribution is well-spread, no display
-    # ceiling clustering.  Standard SF scoring — not TE-premium
-    # native, so the frontend ``tepMultiplier`` boost applies.
+    # Standard SF scoring — not TE-premium native, so the frontend
+    # ``tepMultiplier`` boost applies.
+    #
+    # Signal=rank (2026-07-25): same story and same fix as
+    # ``fantasyCalc`` above — added 2026-05-15 as value-direct,
+    # Hampel-flagged every week since (55.6% on 2026-05-18 climbing to
+    # 80-86% by July, the worst in the registry).  OTCFFB's trade-
+    # derived 0-100 values decay even faster than FantasyCalc's (79%
+    # of top value by rank 7 vs KTC's ~90% at rank 8), so the value-
+    # direct path made it a systematic low outlier on most of the
+    # board and four of every five of its votes were discarded.  The
+    # ``value`` column is still loaded for audit / display.
     "otcffbSf": {
         "path": "CSVs/site_raw/otcffbSf.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # Dynasty Daddy Superflex trade values — fetched from
     # https://dynasty-daddy.com/api/v1/player/all/today?market=14
@@ -1472,6 +1555,41 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
 ]
 
 
+# ── Derived registry field: is_rank_signal ──────────────────────────────
+# Whether a source's vote travels the rank → percentile → Hill path
+# (vs the value-direct path).  Derived from the SAME ``signal`` field
+# ``_SOURCE_CSV_PATHS`` declares so the two can never drift — before
+# this (2026-07-25 calculation audit, F-8) the registry never set the
+# field, ``get_ranking_source_registry`` exported ``isRankSignal:
+# false`` for every source, and the frontend hand-maintained its own
+# copy (which was wrong for fantasyCalc/otcffbSf until PR #530).  The
+# parity check now compares the field, so a frontend mismatch fails
+# ``tests/api/test_source_registry_parity.py`` at PR time.
+for _src in _RANKING_SOURCES:
+    _cfg = _SOURCE_CSV_PATHS.get(str(_src.get("key") or ""))
+    if isinstance(_cfg, dict):
+        _signal = str(_cfg.get("signal") or "value").lower()
+    else:
+        _signal = "value"
+    _src["is_rank_signal"] = _signal == "rank"
+del _src, _cfg, _signal
+
+
+def rank_signal_source_keys() -> frozenset[str]:
+    """Source keys whose ``canonicalSiteValues`` slot holds a SYNTHETIC
+    RANK ENCODING (``999900 − rank×100`` bookkeeping numbers), NOT a
+    value.
+
+    ⚠ Any consumer doing arithmetic over ``canonicalSiteValues`` MUST
+    either skip these keys or read ``sourceRankMeta[key]
+    .valueContribution`` instead — mixing the six-digit encodings with
+    native 0-9999 values has produced two real bugs (trade dispersion
+    CV; rankings copy/export — both fixed in PR #530).  See the
+    2026-07-25 calculation audit, finding F-3.
+    """
+    return frozenset(str(s.get("key") or "") for s in _RANKING_SOURCES if s.get("is_rank_signal"))
+
+
 # ── Legitimate single-source allowlist ──────────────────────────────────
 # Every top-400 player that remains single-source MUST have an entry here
 # explaining *why*.  The build check ``assert_no_unexplained_single_source``
@@ -1657,6 +1775,7 @@ def _compute_anomaly_flags(
     source_meta: dict[str, dict[str, Any]] | None = None,
     percentile_spread: float | None = None,
     expected_sources: list[str] | None = None,
+    disagreement_allowance: float = 0.0,
 ) -> list[str]:
     """Return a list of machine-readable anomaly flag strings for a player.
 
@@ -1698,7 +1817,8 @@ def _compute_anomaly_flags(
     #
     # Preferred signal: the depth-aware percentile spread computed
     # by ``_percentile_rank_spread`` (max-minus-min of each source's
-    # raw rank divided by that source's pool size).  Fires when
+    # raw rank divided by that source's pool size, trimmed of the
+    # single most extreme source per side at 5+ sources).  Fires when
     # spread > 0.20 (sources place the player in tiers more than 20
     # percentile points apart).
     #
@@ -1708,7 +1828,7 @@ def _compute_anomaly_flags(
     # of more than ``_SUSPICIOUS_DISAGREEMENT_THRESHOLD`` ordinal
     # ranks across at least two contributing sources.
     if percentile_spread is not None:
-        if percentile_spread > 0.20:
+        if percentile_spread > _SUSPICIOUS_PCT_BASE_THRESHOLD + disagreement_allowance:
             flags.append("suspicious_disagreement")
     else:
         rank_values = list(source_ranks.values())
@@ -2264,6 +2384,10 @@ def assert_ranking_source_registry_parity(
             "isBackbone",
             "isRetail",
             "isTepPremium",
+            # Derived from _SOURCE_CSV_PATHS signal (audit F-8) — the
+            # field that controls value-vs-rank display semantics was
+            # exactly the one the parity check used to skip.
+            "isRankSignal",
         ):
             py_val = py.get(field)
             js_val = js.get(field)
@@ -2313,6 +2437,44 @@ def _effective_source_weight(
     return w
 
 
+def _anchor_key_sets(
+    active_sources: list[dict[str, Any]],
+) -> tuple[set[str], set[str]]:
+    """Return ``(cross_market_keys, pick_anchor_keys)`` for the blend.
+
+    Anchor membership requires a POSITIVE effective weight: a source
+    the user left enabled but slid to weight 0 must not anchor
+    anything (Codex review on PR #530 — the membership-only check
+    promoted zero-weight KTC into the pick anchor at full peer
+    strength).  ``pick_anchor_keys`` additionally includes ktcSfTep —
+    the deepest pick market ingested — so on PICK rows the two real
+    pick markets (KTC + IDPTC) average as peers instead of KTC riding
+    in the α=0.10 subgroup (2026-07-25 calculation audit, F-2).
+
+    NOTE: subgroup/flat votes are deliberately UNWEIGHTED (the Final
+    Framework's count-aware mean-median gives every covered source an
+    equal voice; weights gate membership, they do not scale values).
+    A weight-0-but-enabled source therefore still votes in the
+    subgroup — that pre-existing behavior is unchanged here and
+    applies to every source, not just anchors.
+    """
+    positively_weighted: set[str] = set()
+    for s in active_sources:
+        try:
+            w = float(s.get("weight") or 0.0)
+        except (TypeError, ValueError):
+            w = 0.0
+        if w > 0:
+            positively_weighted.add(str(s.get("key") or ""))
+    cross_market = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if s.get("is_cross_market") and str(s.get("key") or "") in positively_weighted
+    }
+    pick_anchor = cross_market | ({"ktcSfTep"} & positively_weighted)
+    return cross_market, pick_anchor
+
+
 def _active_sources(
     source_overrides: dict[str, dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
@@ -2323,6 +2485,15 @@ def _active_sources(
     replaced.  Sources that inherit their defaults are passed through
     by reference so the hot path does not pay a copy tax when no
     overrides are in play.
+
+    A NON-POSITIVE effective weight also drops the source (Codex
+    review on PR #530): the Final Framework blend is unweighted —
+    every covered source votes with equal voice, weights gate
+    membership only — so "enabled with weight 0" has exactly one
+    coherent meaning: no vote.  Before this, a weight-0 source kept
+    voting at full strength in the subgroup/flat blend (and, until
+    the prior commit, anchoring).  Registry defaults are all 1.0, so
+    this only affects explicit user overrides.
     """
     if not source_overrides:
         return list(_RANKING_SOURCES)
@@ -2332,8 +2503,11 @@ def _active_sources(
             continue
         ov = source_overrides.get(src.get("key") or "") or {}
         if "weight" in ov:
+            eff_weight = _effective_source_weight(src, source_overrides)
+            if eff_weight <= 0:
+                continue
             copy = dict(src)
-            copy["weight"] = _effective_source_weight(src, source_overrides)
+            copy["weight"] = eff_weight
             out.append(copy)
         else:
             out.append(src)
@@ -3394,18 +3568,22 @@ def _expected_sources_for_position(
         # Exclude veteran-only sources for rookie players.
         if is_rookie and src.get("excludes_rookies"):
             continue
-        # Rookie-translation sources rank the current rookie class
-        # only, so they are never structurally expected to carry pick
-        # rows.  ``dlfRookieSf`` does stamp synthetic ``2026 Pick R.SS``
-        # entries into ``canonicalSiteValues`` for display, but the
-        # Phase 1 ordinal pass deliberately excludes picks (see the
-        # ``needs_rookie_xlate and assetClass == 'pick'`` skip in
-        # ``_compute_unified_rankings``) — picks get their final value
-        # from the Phase 11 anchor pass, not from a per-source rookie
-        # rank.  Keeping these sources out of the expected set here
-        # mirrors that exclusion in the audit so picks don't show up
-        # as "missing dlfRookieSf" in ``unmatchedSources``.
-        if pos_up == "PICK" and src.get("needs_rookie_translation"):
+        # Rookie-translation sources rank the CURRENT rookie class
+        # only, so they are structurally expected for rookies alone —
+        # never for veterans and never for pick rows.
+        #
+        # * Veterans (2026-07-25, Colston Loveland report): a
+        #   second-year player is inside these sources' scope+depth
+        #   window, so without this guard every vet near the top of
+        #   the board showed "DLF RK / Flock RK: Expected but did not
+        #   match" on the Source Audit panel — a structural
+        #   impossibility misreported as a matching failure.
+        # * Picks: ``dlfRookieSf`` does stamp synthetic ``2026 Pick
+        #   R.SS`` entries into ``canonicalSiteValues`` for display,
+        #   but the Phase 1 ordinal pass deliberately excludes picks
+        #   (picks get their final value from the rookie-anchor pass,
+        #   not from a per-source rookie rank).
+        if src.get("needs_rookie_translation") and (not is_rookie or pos_up == "PICK"):
             continue
         # Exclude shallow-depth sources for players ranked deeper than
         # their cutoff (with a 25% headroom so the rule doesn't
@@ -3440,8 +3618,13 @@ def _percentile_rank_spread(
     sources disagree, it means one is on a 1-185 scale and the other
     is on a 1-600 scale.
 
-    The spread is the max-minus-min of those percentiles in 0..1.
-    Returns ``None`` if fewer than two sources contributed.
+    The spread is the max-minus-min of those percentiles in 0..1 —
+    TRIMMED when ``_PERCENTILE_SPREAD_TRIM_MIN_N`` or more sources
+    contribute: the single most extreme percentile on each side is
+    ignored, so a lone straggler source cannot flag an otherwise-tight
+    consensus (see the constant's docstring for the saturation audit
+    that motivated this).  Returns ``None`` if fewer than two sources
+    contributed.
     """
     if not source_ranks or len(source_ranks) < 2:
         return None
@@ -3463,6 +3646,9 @@ def _percentile_rank_spread(
         pcts.append(max(0.0, min(1.0, pct)))
     if len(pcts) < 2:
         return None
+    if len(pcts) >= _PERCENTILE_SPREAD_TRIM_MIN_N:
+        pcts_sorted = sorted(pcts)
+        return float(pcts_sorted[-2] - pcts_sorted[1])
     return float(max(pcts) - min(pcts))
 
 
@@ -4596,19 +4782,6 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
         # + per-source winner display, but it no longer votes).
         "ktcSfTep",
         "idpTradeCalc",
-        # ``fantasyCalc`` carries the FantasyCalc public API's crowd-sourced
-        # dynasty SF+TEP values.  Unlike Dynasty Daddy / Yahoo Boone /
-        # Fitzmaurice, FantasyCalc's value distribution is well-spread
-        # across the board with no display-cap clustering at the top, so
-        # the value-direct path preserves cross-position separation
-        # faithfully (e.g. top WR's value vs top RB's value carries real
-        # signal, not just an arbitrary cap).
-        "fantasyCalc",
-        # ``otcffbSf`` carries OTCFFB's trade-derived 0-100 SF values.
-        # Same shape rationale as FantasyCalc: well-spread distribution,
-        # no top-of-curve display cap (Bijan=100, Allen=96, Gibbs=95.1
-        # cleanly differentiate), so the value-direct path is appropriate.
-        "otcffbSf",
         # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
         # were moved to the rank-signal path 2026-04-22 after the Hampel
         # audit flagged 61% / 47% / 19% drop rates respectively — all three
@@ -4619,6 +4792,14 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
         # See their ``_SOURCE_CSV_PATHS`` entries above for the full
         # rationale.  Fitzmaurice was reverted by an accidental PR #218
         # merge and restored here.
+        #
+        # ``fantasyCalc`` and ``otcffbSf`` followed the same road
+        # 2026-07-25 — added as value-direct in May under a "well-spread
+        # distribution" rationale, but their crowd/trade value curves
+        # decay far faster than the KTC-anchored consensus, and the
+        # weekly Hampel audit flagged both every single week they were
+        # live (fantasyCalc 55-58%, otcffbSf 56% climbing to 86%).
+        # Their ``_SOURCE_CSV_PATHS`` entries carry the full analysis.
     }
 )
 
@@ -5508,37 +5689,33 @@ def _compute_unified_rankings(
     When None / empty the pipeline is byte-for-byte identical to the
     default canonical run.
 
-    TE Premium (``tep_multiplier`` + ``tep_native_correction``)
+    TE Premium (``tep_multiplier`` + ``tep_native_multiplier``)
     ───────────────────────────────────────────────────────────
     League-wide TE premium normalization.  Applied as value-level
     multipliers during the Phase 2-3 blend to TE rows ONLY, in two
-    symmetric passes:
+    independent passes (KTC / ktcSfTep exempt from both — KTC's TE++
+    board is the canonical reference everyone else aligns to):
 
-      * Sources flagged ``is_tep_premium=False`` (KTC, DLF, FantasyPros,
-        etc.) have their raw TE values multiplied by
-        ``tep_multiplier``.  These sources price TEs for a standard
-        league; the multiplier boosts them to the league's actual TEP.
-      * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds SF-TEP,
-        Yahoo/Boone SF-TEP) have their raw TE values multiplied by
-        ``tep_native_correction``.  These sources bake in a fixed
-        industry-standard TEP bonus (assumed 1.15); the correction
-        re-normalizes them to the league's actual TEP.
+      * Sources flagged ``is_tep_premium=False`` (DLF, FantasyPros,
+        Flock, etc.) have their TE contributions multiplied by
+        ``tep_multiplier`` (default
+        ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` = 1.15, operator
+        slider clamped [1.0, 1.5]).  These sources price TEs for a
+        standard league; the multiplier boosts them to the league's
+        actual TEP.
+      * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds
+        SF-TEP, IDPTC) have their TE contributions multiplied by
+        ``tep_native_multiplier`` (default
+        ``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10) — a smaller nudge
+        from their already-TEP baseline up to our TE++ scoring.
 
-    The correction factor is the ratio
-    ``tep_multiplier / _TEP_NATIVE_ASSUMED_MULTIPLIER``.  At
-    ``tep_multiplier == 1.15`` (standard TEP-1.5), correction is
-    ``1.0`` and TEP-native sources pass through unchanged — the
-    pre-correction behavior.  For non-TEP leagues (tep_multiplier
-    1.0) the correction drops TEP-native values ~13%, undoing their
-    baked-in assumption.  For heavy-TEP leagues (tep_multiplier 1.30)
-    the correction lifts them ~13%.
+    NOTE (2026-07-25 audit F-5): the earlier ratio-correction design
+    (``tep_native_correction = tep_multiplier / 1.15``) is retired —
+    the parameter is still accepted for backwards compatibility but
+    acknowledged-unused; the two multipliers above are independent.
 
-    Non-TE positions are untouched by either multiplier.  Expected
-    range for ``tep_multiplier`` is ``[1.0, 1.5]`` — the same range
-    enforced at the API ingress (``normalize_tep_multiplier``) and at
-    the contract-summary stamp (``_summarize_source_overrides``).
-    ``1.0`` is a no-op for non-TEP sources but still triggers the
-    correction (drops TEP-native values to match).
+    Non-TE positions are untouched by either multiplier.  Boosted
+    values clamp to the 9,999 scale ceiling.
 
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
@@ -5595,10 +5772,11 @@ def _compute_unified_rankings(
 
     # Resolve the non-TEP-source TE multiplier.  ``None`` means the
     # caller did not supply a slider override, so use the operator's
-    # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.25).  An
+    # default (``_TE_BLANKET_NON_NATIVE_MULTIPLIER``, 1.15 — the
+    # platform's TEP-1.5 leagues; see the constant's docstring).  An
     # explicit float comes from the ``/settings`` "TE Premium" input
     # via :func:`normalize_tep_multiplier`, which clamps to [1.0, 1.5].
-    # The TEP-native default (1.10) is now operator-tunable too via
+    # The TEP-native default (1.10) is operator-tunable too via
     # :func:`normalize_tep_native_multiplier`; KTC stays exempt.
     _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
     effective_non_tep_multiplier: float = (
@@ -6123,9 +6301,7 @@ def _compute_unified_rankings(
     # consensus.  Subgroup = every other source, α=0.10 against the
     # averaged anchor.  See the hierarchical-blend block further
     # down for the math.
-    cross_market_keys: set[str] = {
-        str(s.get("key") or "") for s in active_sources if s.get("is_cross_market")
-    }
+    cross_market_keys, pick_anchor_keys = _anchor_key_sets(active_sources)
 
     # Final Framework override (2026-04-20): value-based sources vote
     # with their raw site values, normalized so each site's top player
@@ -6248,7 +6424,11 @@ def _compute_unified_rankings(
                     value = min(value * effective_native_multiplier, 9999.0)
                     tep_native_corrected = True
             all_values.append(value)
-            is_anchor_source = source_key in cross_market_keys
+            # Pick rows use the widened anchor set (KTC joins IDPTC as
+            # a peer pick market — audit F-2); player rows keep the
+            # cross-market-only anchor membership.
+            anchor_keys = pick_anchor_keys if row_is_pick else cross_market_keys
+            is_anchor_source = source_key in anchor_keys
             all_value_pairs.append((source_key, value, is_anchor_source))
             if is_anchor_source:
                 cross_market_values.append(value)
@@ -6267,7 +6447,7 @@ def _compute_unified_rankings(
                 else "rank_hill"
             )
             meta["effectiveWeight"] = round(effective_weight, 4)
-            meta["isAnchor"] = bool(source_key in cross_market_keys)
+            meta["isAnchor"] = is_anchor_source
             if tep_applied:
                 meta["tepBoostApplied"] = True
                 meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)
@@ -6613,6 +6793,10 @@ def _compute_unified_rankings(
         row["isSingleSource"] = len(source_ranks) == 1 and len(expected_keys) > 1
         row["isStructurallySingleSource"] = len(source_ranks) == 1 and len(expected_keys) <= 1
 
+    # Ranked pool size for the depth-aware disagreement allowance —
+    # the denominator of a row's consensus percentile.
+    total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
+
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
@@ -6667,7 +6851,10 @@ def _compute_unified_rankings(
         # ranks for the same player even when both were placing him
         # in the same relative tier.  ``percentileSpread`` is the
         # max-minus-min of each source's *raw* rank divided by that
-        # source's auto-detected pool size.
+        # source's auto-detected pool size — trimmed of the single
+        # most extreme source on each side once 5+ sources contribute
+        # (see ``_PERCENTILE_SPREAD_TRIM_MIN_N``), so one straggler
+        # can't flag a 12-source consensus.
         percentile_spread = _percentile_rank_spread(
             effective_source_ranks, effective_source_meta, source_pool_sizes
         )
@@ -6677,8 +6864,17 @@ def _compute_unified_rankings(
 
         # Preserve the semantic 1-src flag stamped in Phase 4a; do
         # not collapse it back to ``len(source_ranks) == 1`` here.
-        # Disagreement uses percentile spread.
-        row["hasSourceDisagreement"] = percentile_spread is not None and percentile_spread > 0.10
+        # Disagreement uses the trimmed percentile spread plus a
+        # depth allowance (see ``_disagreement_depth_allowance``):
+        # only spread in excess of what is typical at this rank depth
+        # earns the caution.
+        depth_allowance = _disagreement_depth_allowance(
+            overall_rank / float(total_ranked) if total_ranked else None
+        )
+        row["hasSourceDisagreement"] = (
+            percentile_spread is not None
+            and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
+        )
 
         gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
         row["marketGapDirection"] = gap_dir
@@ -6713,6 +6909,7 @@ def _compute_unified_rankings(
             canonical_sites=row.get("canonicalSiteValues") or {},
             percentile_spread=percentile_spread,
             expected_sources=list(audit.get("expectedSources") or []),
+            disagreement_allowance=depth_allowance,
         )
 
         # Backward compatibility: set ktcRank / idpRank if applicable.
@@ -6901,6 +7098,33 @@ def _compute_unified_rankings(
         tiered_rows,
         write_snapshot=not source_overrides,
     )
+
+    # ── Post-compaction disagreement re-stamp ──
+    # The depth-aware allowance was computed in Phase 4 from the
+    # PROVISIONAL rank/pool-size, but the compact pass above just
+    # suppressed generic picks, cleared anchor slot-pick ranks, and
+    # re-sequenced every surviving ``canonicalConsensusRank``.  A row
+    # sitting near either disagreement threshold could otherwise
+    # publish ``hasSourceDisagreement`` / ``suspicious_disagreement``
+    # keyed to a rank the public board no longer shows.  Recompute
+    # both flags from the FINAL rank and final ranked-pool size using
+    # the stamped trimmed spread — same formula, final inputs.
+    final_total = len(tiered_rows)
+    for r in tiered_rows:
+        ps = r.get("sourceRankPercentileSpread")
+        rk = r.get("canonicalConsensusRank")
+        if not isinstance(ps, (int, float)) or not isinstance(rk, int) or final_total <= 0:
+            continue
+        allowance = _disagreement_depth_allowance(rk / float(final_total))
+        r["hasSourceDisagreement"] = ps > _DISAGREEMENT_BASE_THRESHOLD + allowance
+        suspicious = ps > _SUSPICIOUS_PCT_BASE_THRESHOLD + allowance
+        flags = list(r.get("anomalyFlags") or [])
+        has_flag = "suspicious_disagreement" in flags
+        if suspicious and not has_flag:
+            flags.append("suspicious_disagreement")
+            r["anomalyFlags"] = flags
+        elif not suspicious and has_flag:
+            r["anomalyFlags"] = [f for f in flags if f != "suspicious_disagreement"]
 
     # (Phase 5b — value re-flattening — intentionally removed.) The
     # pre-sort ``rankDerivedValue`` is a weighted blend of per-source

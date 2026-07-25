@@ -6,7 +6,11 @@
  * No React dependencies — pure functions + constants.
  */
 
-import { effectiveAuctionPower } from "./auction-power";
+// Explicit .js extension: Next's webpack resolves extensionless
+// relative imports, but vitest's node environment does not — the
+// missing extension silently broke the entire trade-logic test suite
+// (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
+import { effectiveAuctionPower } from "./auction-power.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [

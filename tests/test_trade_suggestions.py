@@ -1863,7 +1863,6 @@ class TestConsolidationInLiveOutput:
     def test_deep_surplus_gets_consolidation(self):
         """A roster with deep surplus and mid-value depth produces packages."""
         snap = _sample_snapshot()
-        pool = build_asset_pool(snap)
         # Build a roster with deep LB surplus (mid-range depth, not elite)
         # so that pairs fall in range of real targets.
         roster_names = [
@@ -2223,6 +2222,35 @@ class TestBuildAssetPoolFromContract:
         consensus = next(p for p in pool if p.name == "Consensus Player")
         assert spread.dispersion_cv is not None and spread.dispersion_cv > 0
         assert consensus.dispersion_cv == 0 or consensus.dispersion_cv is None
+
+    def test_dispersion_cv_prefers_value_contribution_over_synthetic_encoding(self):
+        """Rank-signal sources stamp a synthetic rank ENCODING
+        (``999900 - rank*100``) into canonicalSiteValues; the CV must
+        read the 9,999-scale ``valueContribution`` from sourceRankMeta
+        instead, or the encoding's magnitude reads as massive source
+        disagreement (Codex review on PR #530)."""
+        from src.trade.suggestions import build_asset_pool_from_contract
+
+        row = self._row(
+            "Rank Signal Player",
+            "WR",
+            8000,
+            # fantasyCalc slot carries the synthetic encoding for rank 1
+            # — six-digit bookkeeping, NOT a value.
+            site_values={"ktc": 8000, "idpTradeCalc": 7900, "fantasyCalc": 999900},
+        )
+        row["sourceRankMeta"] = {
+            "ktc": {"valueContribution": 8000},
+            "idpTradeCalc": {"valueContribution": 7900},
+            "fantasyCalc": {"valueContribution": 8100},
+        }
+        pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
+        asset = next(p for p in pool if p.name == "Rank Signal Player")
+        # Contributions 8000/7900/8100 are near-consensus: CV must be
+        # tiny.  Raw slots (8000/7900/999900) would push CV above 1.3.
+        assert asset.dispersion_cv is not None
+        assert asset.dispersion_cv < 0.05
+        assert asset.source_count == 3
 
     def test_pool_sorted_by_display_value_desc(self):
         from src.trade.suggestions import build_asset_pool_from_contract

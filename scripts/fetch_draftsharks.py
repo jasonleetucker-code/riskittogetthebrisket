@@ -78,6 +78,7 @@ HOME_URL = "https://www.draftsharks.com/"
 LOGIN_URL = "https://www.draftsharks.com/login"
 RANKINGS_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
 LEAGUE_ID = "995704"  # "Risk It To Get The Brisket"
+LEAGUE_NAME = "Risk It To Get The Brisket"
 
 # Position-family classifier for the single combined DOM.  QB/RB/WR/TE
 # go to the SF CSV; DL/LB/DB (plus all common aliases) go to the IDP
@@ -305,6 +306,136 @@ _EXTRACT_JS = r"""() => {
 }"""
 
 
+# League-activation JS for the post-2026-06-23 DS UI.  The legacy
+# ``<select id="use-my-league-dropdown">`` was replaced by an Alpine.js
+# button dropdown (``.scoring-nav__league-dropdown``) whose menu items
+# set ``selectedUserLeagueId`` and call ``handleUserLeagueChange()``.
+# For a logged-in account the per-league items are rendered alongside
+# the static "Use My League" / "Sync My League" entries, so we click
+# the toggle, then click the item whose Alpine ``@click`` handler
+# carries our league id — falling back to an EXACT normalized
+# league-NAME match (never substring; see round-16 note below).
+# Returns a status string; "no-item:..." reports COUNTS only (Codex
+# review round 15): the menu inventory contains the account's OTHER
+# synced leagues' names and ids, and the raise below streams into the
+# public workflow log — so a markup change surfaces as a shape
+# diagnostic, never as a verbatim league inventory.
+_ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
+    const root = document.querySelector('.scoring-nav__league-dropdown');
+    if (!root) return 'no-dropdown';
+    const toggle = root.querySelector('.ds-dropdown__toggle');
+    if (toggle) toggle.click();
+    const items = Array.from(root.querySelectorAll('.ds-dropdown__menu-item'));
+    const handler = (el) =>
+        (el.getAttribute('@click') || el.getAttribute('x-on:click') || '');
+    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ');
+    // Primary: exact league-ID match in the Alpine @click handler.
+    // Fallback (markup drift only): EXACT normalized-label equality —
+    // substring matching could click a different synced league whose
+    // label merely contains ours, e.g. a cloned league with a suffix
+    // (Codex review round 16).  The return value records which signal
+    // identified the item so the caller can calibrate confirmation.
+    let target = items.find((el) => handler(el).includes(`'${leagueId}'`));
+    let mode = 'id';
+    if (!target) {
+        target = items.find((el) => norm(el.textContent) === norm(leagueName));
+        mode = 'name';
+    }
+    if (!target) {
+        const leagueLike = items.filter((el) =>
+            handler(el).includes('selectedUserLeagueId')).length;
+        return 'no-item:' + items.length + ' menu items ('
+            + leagueLike + ' league-like), none matching target league';
+    }
+    target.click();
+    return 'clicked-' + mode;
+}"""
+
+# Confirmation probe: the dropdown's toggle label renders
+# ``x-text="selectedUserLeagueText"`` — Alpine rewrites it to the
+# selected league's name once the selection has actually registered.
+# A raw DOM ``.click()`` dispatched before Alpine bound its handlers
+# is a no-op, so click dispatch alone must never count as success
+# (Codex review on PR #530: an unconfirmed activation would let the
+# scrape continue on PUBLIC scoring and overwrite the league-synced
+# last-good CSVs).  Returns the current label text.
+_LEAGUE_LABEL_JS = r"""() => {
+    const el = document.querySelector(
+        '.scoring-nav__league-dropdown .ds-dropdown__toggle-label');
+    return el ? el.textContent.trim() : '';
+}"""
+
+
+async def _activate_league(page) -> None:
+    """Select the synced league so the WASM worker applies league
+    scoring.  Tries the legacy ``<select>`` first (cheap, and keeps
+    the fetcher working if DS ever rolls the redesign back), then the
+    Alpine dropdown that replaced it in the 2026-06-23 UI refresh.
+
+    Success requires CONFIRMATION — the dropdown toggle label must
+    switch to the league name — not merely a dispatched click.  An
+    unconfirmed activation raises, which the workflow treats as
+    non-fatal (keep last-good CSVs); that is strictly better than
+    silently scraping public-scoring values into the league CSVs."""
+    legacy = page.locator("#use-my-league-dropdown")
+    if await legacy.count() > 0:
+        try:
+            await page.select_option("#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000)
+            return
+        except Exception as exc:
+            raise RuntimeError(f"Failed to select league {LEAGUE_ID} (legacy select): {exc}")
+
+    # Alpine binds its @click handlers after init; with only
+    # ``domcontentloaded`` awaited the first attempts can race it, in
+    # which case ``target.click()`` dispatches into a void.  Retry the
+    # click-then-confirm cycle until the toggle label proves the
+    # selection registered.
+    status = "no-dropdown"
+    label = ""
+    norm_name = " ".join(LEAGUE_NAME.split())
+    for _ in range(8):
+        status = await page.evaluate(_ACTIVATE_LEAGUE_JS, [LEAGUE_ID, LEAGUE_NAME])
+        if status.startswith("clicked"):
+            # Poll for the label flip (~3s) before trusting the click.
+            # Identity must rest on at least one EXACT signal (Codex
+            # review round 16): when the item was found by exact
+            # league-ID handler match, substring label containment is
+            # enough to prove the click registered; when it was found
+            # by the name fallback, the label must match the league
+            # name EXACTLY (normalized) — substring confirmation could
+            # bless a different synced league whose label contains
+            # ours.
+            for _ in range(6):
+                await page.wait_for_timeout(500)
+                label = await page.evaluate(_LEAGUE_LABEL_JS)
+                norm_label = " ".join(label.split())
+                confirmed = (
+                    norm_label == norm_name if status == "clicked-name" else norm_name in norm_label
+                )
+                if confirmed:
+                    print(
+                        f"[DS] league activated via Alpine dropdown "
+                        f"(label confirmed, match={status[8:]})",
+                        flush=True,
+                    )
+                    return
+        else:
+            await page.wait_for_timeout(1_000)
+    # Diagnostic dead-ends.  ``no-dropdown`` = the league widget moved
+    # again; ``no-item:...`` = the dropdown exists but our league isn't
+    # in it (counts only — see _ACTIVATE_LEAGUE_JS comment); ``clicked``
+    # with an unconfirmed label = the click dispatched but the selection
+    # never registered.  The toggle label is described, not quoted: on
+    # failure it can carry ANOTHER synced league's name, which must not
+    # stream into the workflow log (Codex review round 15).
+    label_desc = "empty" if not label else f"{len(label)} chars, target league name absent"
+    raise RuntimeError(
+        f"Failed to select league {LEAGUE_ID}: legacy #use-my-league-dropdown "
+        f"absent; Alpine dropdown activation returned {status!r} with toggle "
+        f"label {label_desc}"
+    )
+
+
 async def _scrape_one(page) -> list[dict]:
     """Load the DS offense-combined rankings page, activate the
     league so the WASM worker applies league scoring, scroll to
@@ -332,31 +463,209 @@ async def _scrape_one(page) -> list[dict]:
         # Sentinel string picked up by _scrape() to trigger auto-login.
         raise RuntimeError("unauthenticated_session")
 
-    print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
-    try:
-        await page.select_option("#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000)
-    except Exception as exc:
-        raise RuntimeError(f"Failed to select league {LEAGUE_ID}: {exc}")
-
-    # Wait for the WASM worker to apply the league scoring.  Mahomes
-    # public value is 74, league-synced ~81 in a TE-premium + IDP-
-    # heavy league; poll until his dsValue crosses 78 so we know the
-    # worker has finished reshuffling.
-    async def _applied() -> bool:
-        val = await page.evaluate(r"""() => {
-            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
-            const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
-            if (!probe) return null;
-            const el = probe.querySelector('[data-attribute="dsValue"]');
-            return el ? parseFloat(el.textContent.trim()) : null;
+    # Snapshot the PUBLIC-scoring dsValues of the first few rendered
+    # rows BEFORE activating the league, then require at least one of
+    # them to change afterward.  The WASM worker reshuffles values
+    # board-wide when league scoring applies, so any delta proves the
+    # transition happened — without pinning the gate to one player's
+    # mutable market value (the previous "Mahomes >= 78" pin broke if
+    # DS repriced, renamed, or dropped that one player; Codex review
+    # on PR #530).
+    async def _probe_values() -> dict:
+        return await page.evaluate(r"""() => {
+            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]')).slice(0, 8);
+            const out = {};
+            for (const tb of rows) {
+                const name = tb.getAttribute('data-player-name') || '';
+                const el = tb.querySelector('[data-attribute="dsValue"]');
+                const v = el ? parseFloat(el.textContent.trim()) : NaN;
+                if (name && Number.isFinite(v)) out[name] = v;
+            }
+            return out;
         }""")
-        return val is not None and val >= 78
 
-    for _ in range(30):
-        if await _applied():
+    # Poll for a NON-EMPTY baseline before doing anything else (Codex
+    # review round 12): the first probe fires right after
+    # ``domcontentloaded``, and if the table hasn't hydrated yet a
+    # one-shot ``{}`` baseline would make the transition gate below
+    # structurally unpassable (``if baseline and ...`` can never see a
+    # delta from nothing) — turning every slow page load into a
+    # permanent false-raise.  Rows render within a few seconds; if
+    # none appear in 20s the page structure changed → raise loudly.
+    baseline: dict = {}
+    for _ in range(10):
+        baseline = await _probe_values()
+        if baseline:
             break
-        await page.wait_for_timeout(1_000)
+        await page.wait_for_timeout(2_000)
+    if not baseline:
+        raise RuntimeError(
+            "No ranked rows rendered within 20s of page load — cannot "
+            "establish a public-scoring baseline (page structure may have "
+            "changed).  Refusing to extract."
+        )
 
+    # Already-active detection (Codex review on PR #530): a cached
+    # authenticated session can load the page with the league ALREADY
+    # selected (DS remembers per-account state server-side).  Selecting
+    # the same league again changes nothing, so the transition gate
+    # below would false-raise every run and preserve increasingly
+    # stale CSVs.  When either UI generation already shows our league
+    # selected, we first DESELECT back to the public board (see below)
+    # so the normal activation path gets a real transition to observe.
+    already_active = await page.evaluate(
+        r"""([leagueId, leagueName]) => {
+        const legacy = document.querySelector('#use-my-league-dropdown');
+        if (legacy && String(legacy.value) === String(leagueId)) return true;
+        const label = document.querySelector(
+            '.scoring-nav__league-dropdown .ds-dropdown__toggle-label');
+        return !!(label && label.textContent.includes(leagueName));
+    }""",
+        [LEAGUE_ID, LEAGUE_NAME],
+    )
+    if already_active:
+        # Codex review (rounds 11+13): with the league pre-selected we
+        # have NO observable proof the visible values are league-scored
+        # — a stalled worker leaves public values that look perfectly
+        # "settled".  Stability cannot prove scoring identity.  So we
+        # CREATE the provable transition instead: deselect back to the
+        # public board (observing that change), then run the normal
+        # activation path with its full baseline→delta gate.  Every
+        # extraction now rests on an observed public→league value
+        # transition, whatever state the page loaded in.
+        print(
+            f"[DS] league {LEAGUE_ID} pre-selected — deselecting to establish "
+            f"a provable public baseline",
+            flush=True,
+        )
+        deselected = await page.evaluate(r"""() => {
+            const legacy = document.querySelector('#use-my-league-dropdown');
+            if (legacy) {
+                const blank = Array.from(legacy.options || []).find(o => !o.value);
+                if (!blank) return 'no-blank-option';
+                legacy.value = '';
+                legacy.dispatchEvent(new Event('change', { bubbles: true }));
+                return 'clicked';
+            }
+            const root = document.querySelector('.scoring-nav__league-dropdown');
+            if (!root) return 'no-dropdown';
+            const toggle = root.querySelector('.ds-dropdown__toggle');
+            if (toggle) toggle.click();
+            const items = Array.from(root.querySelectorAll('.ds-dropdown__menu-item'));
+            const handler = (el) =>
+                (el.getAttribute('@click') || el.getAttribute('x-on:click') || '');
+            const blank = items.find((el) => handler(el).includes("selectedUserLeagueId = ''"));
+            if (!blank) return 'no-blank-item';
+            blank.click();
+            return 'clicked';
+        }""")
+        if deselected != "clicked":
+            raise RuntimeError(
+                f"League {LEAGUE_ID} pre-selected but deselect control not "
+                f"found ({deselected!r}) — cannot establish a provable "
+                f"baseline; refusing to extract over last-good CSVs."
+            )
+        # Wait for the deselect to take: the worker must show LIFE
+        # (some observed value change — the deselect landing, a stale
+        # in-flight league update landing, or both) and the output
+        # must then SETTLE (Codex round 14): right after page load the
+        # initial LEAGUE update may still be in flight, so the FIRST
+        # movement observed here can be that stale league update — a
+        # first-movement-wins gate would store league values as the
+        # supposed public baseline.  Only a settled post-deselect
+        # snapshot (3 identical consecutive probes, ~4s stable) may
+        # serve as the activation baseline: settling proves the
+        # worker's update queue drained past the deselect we clicked.
+        pre_deselect = baseline
+        moved = False
+        settled: dict = {}
+        prev: dict = {}
+        streak = 0
+        for _ in range(30):
+            await page.wait_for_timeout(2_000)
+            cur = await _probe_values()
+            if not cur:
+                prev = {}
+                streak = 0
+                continue
+            if not moved:
+                if any(
+                    name in cur and abs(cur[name] - v) > 0.05 for name, v in pre_deselect.items()
+                ):
+                    moved = True
+                elif prev and cur != prev:
+                    moved = True
+            streak = streak + 1 if (prev and cur == prev) else 0
+            prev = cur
+            if moved and streak >= 2:
+                settled = cur
+                break
+        if not settled:
+            raise RuntimeError(
+                f"Deselecting league {LEAGUE_ID} never produced settled "
+                f"post-deselect values within 60s (movement observed: {moved}) "
+                f"— worker unresponsive or still churning; refusing to extract."
+            )
+        baseline = settled
+        # Fall through to the normal activation path below with the
+        # settled public baseline.
+
+    print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
+    await _activate_league(page)
+
+    # HARD GATE (Codex reviews on PR #530, rounds 11+14): league
+    # scoring must be OBSERVED to apply — the probed values must move
+    # off the public baseline AND the moved output must SETTLE (3
+    # identical consecutive probes) before extraction.  First-movement
+    # is not enough: a stale queued update (e.g. the deselect from the
+    # pre-selected branch above landing late) could transiently
+    # satisfy an any-delta gate while the table still carries PUBLIC
+    # scoring.  Requiring the SETTLED snapshot to differ from the
+    # settled public baseline means a late stale update parks the loop
+    # (values == baseline → keep waiting for the real league update)
+    # instead of passing the gate.  If nothing qualifying settles, the
+    # worker stalled → raise (the workflow treats a fetch failure as
+    # non-fatal keep-last-good; the staleness watchdog surfaces
+    # repeats).  Known limitation (unchanged): a league whose scoring
+    # produces IDENTICAL values for every probed player would
+    # false-raise — but then public equals league output anyway, so
+    # keeping last-good loses nothing.
+    applied = False
+    current: dict = {}
+    prev = {}
+    streak = 0
+    for _ in range(30):
+        await page.wait_for_timeout(2_000)
+        current = await _probe_values()
+        if not current:
+            prev = {}
+            streak = 0
+            continue
+        streak = streak + 1 if (prev and current == prev) else 0
+        prev = current
+        differs = baseline and any(
+            name in current and abs(current[name] - base_v) > 0.05
+            for name, base_v in baseline.items()
+        )
+        if differs and streak >= 2:
+            applied = True
+            break
+    if not applied:
+        raise RuntimeError(
+            f"League scoring never applied — probed dsValues never settled "
+            f"off the public baseline within 60s despite confirmed league "
+            f"selection.  Refusing to extract: the table would carry PUBLIC "
+            f"scoring and overwrite the league-synced last-good CSVs.  "
+            f"baseline={baseline!r} current={current!r}"
+        )
+
+    return await _extract_rows(page)
+
+
+async def _extract_rows(page) -> list[dict]:
+    """Scroll the full table into the DOM, settle, and extract every
+    row.  Shared by the normal activation path and the already-active
+    short-circuit in ``_scrape_one``."""
     print("[DS] scrolling to load all rows …", flush=True)
     last_count = 0
     stable = 0
