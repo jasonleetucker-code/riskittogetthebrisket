@@ -112,10 +112,6 @@ class TestAnomalyFlagAllowance(unittest.TestCase):
         self.assertIn("suspicious_disagreement", self._flags(0.60, 0.25))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestRankSignalEncodingGuard(unittest.TestCase):
     """Audit F-3 structural guard: the rank-signal key set is derivable
     and the synthetic encoding stays clearly distinguishable from real
@@ -155,3 +151,40 @@ class TestRankSignalEncodingGuard(unittest.TestCase):
         deepest_plausible_rank = 2000
         worst = (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100) - (deepest_plausible_rank * 100)
         self.assertGreater(worst, 9999)
+
+
+class TestAnchorKeySets(unittest.TestCase):
+    """PR #530 review: anchor membership must require a positive
+    effective weight — an enabled-but-weight-0 source cannot anchor."""
+
+    def _srcs(self, ktc_weight=1.0, idptc_weight=1.0):
+        return [
+            {"key": "idpTradeCalc", "is_cross_market": True, "weight": idptc_weight},
+            {"key": "ktcSfTep", "is_cross_market": False, "weight": ktc_weight},
+            {"key": "dlfSf", "is_cross_market": False, "weight": 1.0},
+        ]
+
+    def test_default_membership(self):
+        from src.api.data_contract import _anchor_key_sets
+
+        cross, pick = _anchor_key_sets(self._srcs())
+        self.assertEqual(cross, {"idpTradeCalc"})
+        self.assertEqual(pick, {"idpTradeCalc", "ktcSfTep"})
+
+    def test_zero_weight_ktc_never_anchors_picks(self):
+        from src.api.data_contract import _anchor_key_sets
+
+        cross, pick = _anchor_key_sets(self._srcs(ktc_weight=0.0))
+        self.assertEqual(pick, {"idpTradeCalc"})
+        self.assertNotIn("ktcSfTep", pick)
+
+    def test_zero_weight_cross_market_never_anchors(self):
+        from src.api.data_contract import _anchor_key_sets
+
+        cross, pick = _anchor_key_sets(self._srcs(idptc_weight=0.0))
+        self.assertEqual(cross, set())
+        self.assertEqual(pick, {"ktcSfTep"})
+
+
+if __name__ == "__main__":
+    unittest.main()

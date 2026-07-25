@@ -2437,6 +2437,44 @@ def _effective_source_weight(
     return w
 
 
+def _anchor_key_sets(
+    active_sources: list[dict[str, Any]],
+) -> tuple[set[str], set[str]]:
+    """Return ``(cross_market_keys, pick_anchor_keys)`` for the blend.
+
+    Anchor membership requires a POSITIVE effective weight: a source
+    the user left enabled but slid to weight 0 must not anchor
+    anything (Codex review on PR #530 — the membership-only check
+    promoted zero-weight KTC into the pick anchor at full peer
+    strength).  ``pick_anchor_keys`` additionally includes ktcSfTep —
+    the deepest pick market ingested — so on PICK rows the two real
+    pick markets (KTC + IDPTC) average as peers instead of KTC riding
+    in the α=0.10 subgroup (2026-07-25 calculation audit, F-2).
+
+    NOTE: subgroup/flat votes are deliberately UNWEIGHTED (the Final
+    Framework's count-aware mean-median gives every covered source an
+    equal voice; weights gate membership, they do not scale values).
+    A weight-0-but-enabled source therefore still votes in the
+    subgroup — that pre-existing behavior is unchanged here and
+    applies to every source, not just anchors.
+    """
+    positively_weighted: set[str] = set()
+    for s in active_sources:
+        try:
+            w = float(s.get("weight") or 0.0)
+        except (TypeError, ValueError):
+            w = 0.0
+        if w > 0:
+            positively_weighted.add(str(s.get("key") or ""))
+    cross_market = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if s.get("is_cross_market") and str(s.get("key") or "") in positively_weighted
+    }
+    pick_anchor = cross_market | ({"ktcSfTep"} & positively_weighted)
+    return cross_market, pick_anchor
+
+
 def _active_sources(
     source_overrides: dict[str, dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
@@ -6247,21 +6285,7 @@ def _compute_unified_rankings(
     # consensus.  Subgroup = every other source, α=0.10 against the
     # averaged anchor.  See the hierarchical-blend block further
     # down for the math.
-    cross_market_keys: set[str] = {
-        str(s.get("key") or "") for s in active_sources if s.get("is_cross_market")
-    }
-
-    # Pick-row anchor set (2026-07-25 calculation audit, finding F-2):
-    # picks ride the hierarchical anchor+α path, and "cross-market"
-    # membership alone made IDPTC the sole anchor while ktcSfTep — the
-    # deepest, most liquid PICK market we ingest — landed in the
-    # subgroup with α=0.10 voice (~9:1 IDPTC:KTC on every pick).  For
-    # pick rows only, KTC's TE++ board joins the anchor set so the two
-    # real pick markets average as peers; offense/IDP rows keep the
-    # original anchor membership.
-    pick_anchor_keys: set[str] = cross_market_keys | (
-        {"ktcSfTep"} if "ktcSfTep" in active_keys else set()
-    )
+    cross_market_keys, pick_anchor_keys = _anchor_key_sets(active_sources)
 
     # Final Framework override (2026-04-20): value-based sources vote
     # with their raw site values, normalized so each site's top player
