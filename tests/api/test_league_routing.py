@@ -209,6 +209,42 @@ def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(two_league_reg
     assert body["meta"]["sleeperDataReady"] is False
 
 
+def test_api_data_compact_view_serves_precomputed_bytes(two_league_registry, monkeypatch):
+    """``view=compact`` must serve the payload precomputed at refresh time
+    (bytes + ETag) rather than re-running ``compact_contract`` +
+    ``json.dumps`` + gzip on the event loop for every mobile request."""
+    import json as _json
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        default_cfg = server._league_registry.get_default_league()
+        stub = {
+            "meta": {
+                "leagueKey": default_cfg.key,
+                "scoringProfile": default_cfg.scoring_profile,
+            },
+            "players": {"stub": {"name": "Stub"}},
+            "playersArray": [{"name": "Stub"}],
+            "sleeper": {"teams": []},
+        }
+        compact_obj = {"players": {"stub": {"name": "Stub"}}, "payloadView": "compact"}
+        compact_bytes = _json.dumps(compact_obj).encode("utf-8")
+        monkeypatch.setattr(server, "latest_contract_data", stub)
+        monkeypatch.setattr(server, "latest_compact_data", compact_obj)
+        monkeypatch.setattr(server, "latest_compact_data_bytes", compact_bytes)
+        monkeypatch.setattr(server, "latest_compact_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_compact_data_etag", "compact-etag-xyz")
+        # No live overlay → deterministic cached-bytes fast path.
+        monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kw: None)
+        res = c.get("/api/data?view=compact")
+
+    assert res.status_code == 200, res.text
+    assert res.headers.get("X-Payload-View", "").startswith("compact")
+    # ETag present ⇒ the precomputed fast path served it (the on-demand
+    # fallback leaves the ETag unset).
+    assert res.headers.get("ETag") == "compact-etag-xyz"
+    assert res.json() == compact_obj
+
+
 # ── /api/trade/simulate ──────────────────────────────────────────
 
 

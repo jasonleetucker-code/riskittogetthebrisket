@@ -310,6 +310,14 @@ latest_startup_data: dict | None = None
 latest_startup_data_bytes: bytes | None = None
 latest_startup_data_gzip_bytes: bytes | None = None
 latest_startup_data_etag: str | None = None
+# Compact payload for mobile / slow networks (~90% smaller).  Precomputed
+# (bytes + gzip + etag) at refresh time so the ``?view=compact`` fast path
+# never re-runs ``compact_contract`` + ``json.dumps`` + gzip on the event
+# loop per request.
+latest_compact_data: dict | None = None
+latest_compact_data_bytes: bytes | None = None
+latest_compact_data_gzip_bytes: bytes | None = None
+latest_compact_data_etag: str | None = None
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -1412,6 +1420,11 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_bytes, \
         latest_startup_data_gzip_bytes, \
         latest_startup_data_etag
+    global \
+        latest_compact_data, \
+        latest_compact_data_bytes, \
+        latest_compact_data_gzip_bytes, \
+        latest_compact_data_etag
     global contract_health
     global served_source_coverage
     served_source_coverage = {}
@@ -1427,6 +1440,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_startup_data_bytes = None
     latest_startup_data_gzip_bytes = None
     latest_startup_data_etag = None
+    latest_compact_data = None
+    latest_compact_data_bytes = None
+    latest_compact_data_gzip_bytes = None
+    latest_compact_data_etag = None
     if not data:
         return
     try:
@@ -1579,6 +1596,27 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_bytes = startup_raw
         latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
         latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
+
+        # Compact payload: mobile / slow-network view (~90% smaller).
+        # Precompute bytes + gzip + etag here so ``?view=compact`` serves
+        # from the same fast path as the other views instead of running
+        # ``compact_contract`` + ``json.dumps`` + gzip per request on the
+        # event loop.
+        try:
+            from src.api.compact_view import compact_contract
+
+            compact_payload = compact_contract(contract_payload)
+            compact_raw = json.dumps(
+                compact_payload, ensure_ascii=False, separators=(",", ":")
+            ).encode("utf-8")
+            latest_compact_data = compact_payload
+            latest_compact_data_bytes = compact_raw
+            latest_compact_data_gzip_bytes = gzip.compress(compact_raw, compresslevel=5)
+            latest_compact_data_etag = hashlib.sha1(compact_raw).hexdigest()
+        except Exception as exc:  # noqa: BLE001
+            # Non-fatal: the endpoint falls back to on-demand compaction
+            # when the precomputed compact payload is unavailable.
+            log.warning("compact payload precompute failed: %s", exc)
     except Exception as e:
         contract_health = {
             "ok": False,
@@ -2533,16 +2571,28 @@ async def get_data(request: Request):
             # that doesn't know to ignore pruned fields breaks only
             # if it READS one of them, which the compact shape test
             # pins against.
-            from src.api.compact_view import compact_contract
-
-            compact_obj = compact_contract(latest_contract_data)
-            import json as _json
-
-            payload_bytes = _json.dumps(compact_obj).encode("utf-8")
-            payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
-            payload_etag = None
-            payload_obj = compact_obj
             payload_view_name = "compact"
+            if latest_compact_data_bytes is not None:
+                # Fast path: precomputed at refresh time (bytes + gzip +
+                # etag), so mobile requests skip the compaction + JSON
+                # serialization + gzip that used to run on the event loop
+                # for every request.
+                payload_bytes = latest_compact_data_bytes
+                payload_gzip_bytes = latest_compact_data_gzip_bytes
+                payload_etag = latest_compact_data_etag
+                payload_obj = latest_compact_data
+            else:
+                # Fallback: precompute unavailable (e.g. compaction raised
+                # during refresh) — build on demand.
+                from src.api.compact_view import compact_contract
+
+                compact_obj = compact_contract(latest_contract_data)
+                import json as _json
+
+                payload_bytes = _json.dumps(compact_obj).encode("utf-8")
+                payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
+                payload_etag = None
+                payload_obj = compact_obj
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
