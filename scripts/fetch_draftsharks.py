@@ -78,6 +78,7 @@ HOME_URL = "https://www.draftsharks.com/"
 LOGIN_URL = "https://www.draftsharks.com/login"
 RANKINGS_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
 LEAGUE_ID = "995704"  # "Risk It To Get The Brisket"
+LEAGUE_NAME = "Risk It To Get The Brisket"
 
 # Position-family classifier for the single combined DOM.  QB/RB/WR/TE
 # go to the SF CSV; DL/LB/DB (plus all common aliases) go to the IDP
@@ -305,6 +306,72 @@ _EXTRACT_JS = r"""() => {
 }"""
 
 
+# League-activation JS for the post-2026-06-23 DS UI.  The legacy
+# ``<select id="use-my-league-dropdown">`` was replaced by an Alpine.js
+# button dropdown (``.scoring-nav__league-dropdown``) whose menu items
+# set ``selectedUserLeagueId`` and call ``handleUserLeagueChange()``.
+# For a logged-in account the per-league items are rendered alongside
+# the static "Use My League" / "Sync My League" entries, so we click
+# the toggle, then click the item whose Alpine ``@click`` handler
+# carries our league id — falling back to a league-NAME text match.
+# Returns a status string; "no-item:..." carries the menu inventory so
+# a future DS markup change shows up verbatim in the workflow log
+# instead of as a bare timeout.
+_ACTIVATE_LEAGUE_JS = r"""([leagueId, leagueName]) => {
+    const root = document.querySelector('.scoring-nav__league-dropdown');
+    if (!root) return 'no-dropdown';
+    const toggle = root.querySelector('.ds-dropdown__toggle');
+    if (toggle) toggle.click();
+    const items = Array.from(root.querySelectorAll('.ds-dropdown__menu-item'));
+    const handler = (el) =>
+        (el.getAttribute('@click') || el.getAttribute('x-on:click') || '');
+    let target = items.find((el) => handler(el).includes(`'${leagueId}'`));
+    if (!target) {
+        target = items.find((el) => el.textContent.includes(leagueName));
+    }
+    if (!target) {
+        const inventory = items
+            .map((el) => `${el.textContent.trim()} [${handler(el)}]`)
+            .join(' | ');
+        return 'no-item:' + inventory;
+    }
+    target.click();
+    return 'clicked';
+}"""
+
+
+async def _activate_league(page) -> None:
+    """Select the synced league so the WASM worker applies league
+    scoring.  Tries the legacy ``<select>`` first (cheap, and keeps
+    the fetcher working if DS ever rolls the redesign back), then the
+    Alpine dropdown that replaced it in the 2026-06-23 UI refresh."""
+    legacy = page.locator("#use-my-league-dropdown")
+    if await legacy.count() > 0:
+        try:
+            await page.select_option("#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000)
+            return
+        except Exception as exc:
+            raise RuntimeError(f"Failed to select league {LEAGUE_ID} (legacy select): {exc}")
+
+    # Alpine binds its @click handlers after init; with only
+    # ``domcontentloaded`` awaited the first attempt can race it, so
+    # retry for a few seconds before declaring the widget gone.
+    status = "no-dropdown"
+    for _ in range(8):
+        status = await page.evaluate(_ACTIVATE_LEAGUE_JS, [LEAGUE_ID, LEAGUE_NAME])
+        if status == "clicked":
+            print("[DS] league activated via Alpine dropdown", flush=True)
+            return
+        await page.wait_for_timeout(1_000)
+    # Diagnostic dead-ends.  ``no-dropdown`` = the league widget moved
+    # again; ``no-item:...`` = the dropdown exists but our league isn't
+    # in it (menu inventory included verbatim for the workflow log).
+    raise RuntimeError(
+        f"Failed to select league {LEAGUE_ID}: legacy #use-my-league-dropdown "
+        f"absent and Alpine dropdown activation returned {status!r}"
+    )
+
+
 async def _scrape_one(page) -> list[dict]:
     """Load the DS offense-combined rankings page, activate the
     league so the WASM worker applies league scoring, scroll to
@@ -333,10 +400,7 @@ async def _scrape_one(page) -> list[dict]:
         raise RuntimeError("unauthenticated_session")
 
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
-    try:
-        await page.select_option("#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000)
-    except Exception as exc:
-        raise RuntimeError(f"Failed to select league {LEAGUE_ID}: {exc}")
+    await _activate_league(page)
 
     # Wait for the WASM worker to apply the league scoring.  Mahomes
     # public value is 74, league-synced ~81 in a TE-premium + IDP-

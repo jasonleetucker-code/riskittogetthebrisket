@@ -297,16 +297,32 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # filter to offensive positions (QB/RB/WR/TE) and write a
     # ``name,value,rank`` CSV.  Signal=value — FantasyCalc's value
     # distribution is well-spread (no display ceiling like Dynasty
-    # Daddy or Yahoo Boone), so the value-direct path scales the
-    # board's top to 9999 linearly and preserves cross-position
-    # separation.  Picks (position "PICK") are dropped here and
-    # tethered to rookie values in a dedicated downstream phase.
+    # Daddy or Yahoo Boone).  Picks (position "PICK") are dropped here
+    # and tethered to rookie values in a dedicated downstream phase.
     # Standard SF scoring — values are NOT TE-premium native, so the
     # frontend ``tepMultiplier`` boost applies on top of the blended
     # contribution (registry entry sets ``is_tep_premium=False``).
+    #
+    # Signal=rank (2026-07-25): added 2026-05-13 on the value-direct
+    # path under the "well-spread distribution" rationale, but the
+    # weekly Hampel audit flagged it EVERY week from its first Monday
+    # on the board (54.9% on 2026-05-18 → 56-58% through July).  The
+    # problem is the opposite of the Dynasty Daddy display-ceiling
+    # case: FantasyCalc's crowd values decay much *faster* down the
+    # board than the KTC-anchored Hill consensus (at consensus rank ~8
+    # FC contributes ~7,200 against a ~9,000 median — a 1,800+ point
+    # gap on row after row), so value-direct normalisation put it
+    # outside the Hampel window on half its rows and its vote was
+    # simply discarded.  Routing through the rank-signal path feeds
+    # its ordinal rank into the OFFENSE-scope Hill curve, matching the
+    # consensus decay shape while preserving FantasyCalc's ordering —
+    # the same conversion that fixed dynastyDaddySf (61% → 0%),
+    # yahooBoone (47% → ~2%), and fantasyProsFitzmaurice (19% → ~0%).
+    # The ``value`` column is still loaded into canonicalSiteValues
+    # for audit / display / trade-finder use.
     "fantasyCalc": {
         "path": "CSVs/site_raw/fantasyCalc.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # OTC Fantasy Football Superflex trade-derived values — fetched
     # from https://otcffb.com/api/trade-values?format=sf via
@@ -315,12 +331,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # from OTCFFB's tracked league trades (354k+ trades observed).
     # Independent signal from KTC / FantasyCalc — same crowd-sourced
     # spirit as FantasyCalc but pulled from a different community.
-    # Signal=value: the 0-100 distribution is well-spread, no display
-    # ceiling clustering.  Standard SF scoring — not TE-premium
-    # native, so the frontend ``tepMultiplier`` boost applies.
+    # Standard SF scoring — not TE-premium native, so the frontend
+    # ``tepMultiplier`` boost applies.
+    #
+    # Signal=rank (2026-07-25): same story and same fix as
+    # ``fantasyCalc`` above — added 2026-05-15 as value-direct,
+    # Hampel-flagged every week since (55.6% on 2026-05-18 climbing to
+    # 80-86% by July, the worst in the registry).  OTCFFB's trade-
+    # derived 0-100 values decay even faster than FantasyCalc's (79%
+    # of top value by rank 7 vs KTC's ~90% at rank 8), so the value-
+    # direct path made it a systematic low outlier on most of the
+    # board and four of every five of its votes were discarded.  The
+    # ``value`` column is still loaded for audit / display.
     "otcffbSf": {
         "path": "CSVs/site_raw/otcffbSf.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # Dynasty Daddy Superflex trade values — fetched from
     # https://dynasty-daddy.com/api/v1/player/all/today?market=14
@@ -4596,19 +4621,6 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
         # + per-source winner display, but it no longer votes).
         "ktcSfTep",
         "idpTradeCalc",
-        # ``fantasyCalc`` carries the FantasyCalc public API's crowd-sourced
-        # dynasty SF+TEP values.  Unlike Dynasty Daddy / Yahoo Boone /
-        # Fitzmaurice, FantasyCalc's value distribution is well-spread
-        # across the board with no display-cap clustering at the top, so
-        # the value-direct path preserves cross-position separation
-        # faithfully (e.g. top WR's value vs top RB's value carries real
-        # signal, not just an arbitrary cap).
-        "fantasyCalc",
-        # ``otcffbSf`` carries OTCFFB's trade-derived 0-100 SF values.
-        # Same shape rationale as FantasyCalc: well-spread distribution,
-        # no top-of-curve display cap (Bijan=100, Allen=96, Gibbs=95.1
-        # cleanly differentiate), so the value-direct path is appropriate.
-        "otcffbSf",
         # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
         # were moved to the rank-signal path 2026-04-22 after the Hampel
         # audit flagged 61% / 47% / 19% drop rates respectively — all three
@@ -4619,6 +4631,14 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
         # See their ``_SOURCE_CSV_PATHS`` entries above for the full
         # rationale.  Fitzmaurice was reverted by an accidental PR #218
         # merge and restored here.
+        #
+        # ``fantasyCalc`` and ``otcffbSf`` followed the same road
+        # 2026-07-25 — added as value-direct in May under a "well-spread
+        # distribution" rationale, but their crowd/trade value curves
+        # decay far faster than the KTC-anchored consensus, and the
+        # weekly Hampel audit flagged both every single week they were
+        # live (fantasyCalc 55-58%, otcffbSf 56% climbing to 86%).
+        # Their ``_SOURCE_CSV_PATHS`` entries carry the full analysis.
     }
 )
 

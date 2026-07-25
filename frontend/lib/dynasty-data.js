@@ -431,9 +431,12 @@ export const RANKING_SOURCES = [
     // natively account for TE premium — declared `isTepPremium:
     // false` so the global tepMultiplier boost applies to its
     // contribution, just like Dynasty Daddy SF or FlockFantasy SF.
-    // Signal=value: FantasyCalc's value distribution is well-spread
-    // (no display ceiling), so the value-direct path preserves
-    // cross-position separation.
+    // Signal=rank (2026-07-25): FantasyCalc's crowd values decay far
+    // faster down the board than the KTC-anchored consensus, so the
+    // value-direct path made it a systematic Hampel outlier (~55-58%
+    // of its votes dropped every week since it was added).  Now
+    // routed through the rank-signal path like Dynasty Daddy SF —
+    // see the _SOURCE_CSV_PATHS entry in src/api/data_contract.py.
     key: "fantasyCalc",
     displayName: "FantasyCalc Dynasty SF",
     columnLabel: "FC",
@@ -444,7 +447,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
@@ -460,6 +463,10 @@ export const RANKING_SOURCES = [
     // Standard Superflex — no TE premium baked in.  The frontend
     // settings.tepMultiplier boost applies to its contribution like
     // FantasyCalc / Dynasty Daddy SF / Flock Fantasy SF.
+    // Signal=rank (2026-07-25): same conversion as fantasyCalc — the
+    // 0-100 trade-derived values decay far faster than consensus and
+    // were Hampel-dropped on 56-86% of rows; now routed through the
+    // rank-signal path.  See src/api/data_contract.py for analysis.
     key: "otcffbSf",
     displayName: "OTC Fantasy Football SF",
     columnLabel: "OTC",
@@ -470,7 +477,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
