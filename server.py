@@ -6733,9 +6733,7 @@ async def get_public_league(refresh: str = ""):
     before serialization.
     """
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
@@ -6772,9 +6770,7 @@ async def get_public_league_matchup(
     Runs through the same safety allowlist as the rest of the contract.
     """
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         recap = public_matchup_recap.build_matchup_recap(
             snapshot,
             season,
@@ -6828,9 +6824,7 @@ async def list_public_league_matchups(refresh: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "matchups": public_matchup_recap.list_matchups(snapshot),
@@ -6854,9 +6848,7 @@ async def get_public_league_player(player_id: str, refresh: str = ""):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         journey = public_player_journey.build_player_journey(snapshot, player_id)
         if journey is None:
             return JSONResponse(
@@ -6901,9 +6893,7 @@ async def list_public_league_players(refresh: str = ""):
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "players": public_player_journey.list_players_with_activity(snapshot),
@@ -6946,9 +6936,7 @@ async def get_public_league_section_csv(
     if section == "hall_of_fame":
         # Hall of Fame is a derived projection of the history section.
         try:
-            snapshot = await run_in_threadpool(
-                _get_public_snapshot, force_refresh=bool(refresh)
-            )
+            snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
             filename, text = public_csv_export.export_hall_of_fame(history_payload["data"])
@@ -6976,9 +6964,7 @@ async def get_public_league_section_csv(
             },
         )
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         payload = build_section_payload(snapshot, section)
         assert_public_payload_safe(payload)
         kwargs = {}
@@ -7032,9 +7018,7 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
             },
         )
     try:
-        snapshot = await run_in_threadpool(
-            _get_public_snapshot, force_refresh=bool(refresh)
-        )
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
         payload = build_section_payload(
             snapshot,
             section,
