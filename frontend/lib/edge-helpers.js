@@ -121,16 +121,23 @@ export function cautionLabels(row) {
     });
   }
   if (row.hasSourceDisagreement) {
+    // Backend stamp: percentile spread above the depth-aware threshold
+    // — sources split on this player's tier more than is typical at
+    // his rank depth.  The backend trims the single most extreme
+    // source on each side only when 5+ sources contribute
+    // (_PERCENTILE_SPREAD_TRIM_MIN_N in data_contract.py), so the
+    // tooltip only claims trimming when it actually applied.
+    const effectiveCount = Object.keys(
+      row.effectiveSourceRanks || row.sourceRanks || {}
+    ).length;
+    const trimNote =
+      effectiveCount >= 5
+        ? " (excluding the single most extreme source on each side)"
+        : "";
     labels.push({
       label: "Caution: wide disagreement",
       css: "caution-disagree",
-      // Backend stamp: trimmed percentile spread above the depth-aware
-      // threshold — sources split on this player's tier more than is
-      // typical at his rank depth, even after ignoring the single most
-      // extreme source on each side (5+ sources).  See
-      // _percentile_rank_spread / _disagreement_depth_allowance in
-      // data_contract.py.
-      title: "Sources split on this player's tier more than is typical at his rank depth (excluding the single most extreme source on each side)",
+      title: `Sources split on this player's tier more than is typical at his rank depth${trimNote}`,
     });
   }
   return labels;
