@@ -6422,54 +6422,59 @@ _public_league_cache: dict = {
 _public_league_refresh_lock = threading.Lock()
 
 # ── Heavy-section single-flight cache ────────────────────────────────
-# A handful of public-league sections are pure-Python Monte Carlo
-# simulations (``playoffOdds`` runs 10,000 runs; ``rosPlayoffOdds`` and
-# ``rosChampionship`` likewise).  These run in the shared threadpool via
-# ``run_in_threadpool`` on the section / CSV endpoints, so without
-# protection a burst of concurrent requests would each launch an
-# independent 10k-run, GIL-bound job — saturating the pool and starving
-# unrelated ``run_in_threadpool`` endpoints of worker capacity.
+# ``playoffOdds`` ALWAYS runs a 10,000-run, pure-Python (GIL-bound)
+# Monte Carlo — it has no precomputed artifact to fall back on (unlike
+# ``rosPlayoffOdds`` / ``rosChampionship``, which prefer a file written
+# by the scheduled ROS job and only simulate on a cache miss).  Offloaded
+# naively, a burst of concurrent ``playoffOdds`` requests would each
+# launch an independent simulation and saturate the shared threadpool.
 #
-# We memoize each heavy section's result keyed by the snapshot's
-# identity + freshness (``root_league_id`` + ``generated_at``) and guard
-# the compute with a per-section lock, so:
-#   * a burst of concurrent requests for the same section runs the
-#     simulation exactly ONCE (single-flight); the rest wait on the lock
-#     and read the cached result, and
-#   * repeat requests within a snapshot's lifetime are free.
-# A snapshot refresh mints a new ``generated_at``, which transparently
-# invalidates the cache (only the latest snapshot's result is retained,
-# so memory stays bounded to one payload per heavy section).
-_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "rosPlayoffOdds", "rosChampionship"})
+# So we single-flight + memoize ``playoffOdds`` only:
+#   * Coordination happens on the EVENT LOOP via a per-section
+#     ``asyncio.Lock`` (see ``_get_heavy_section_payload``), so waiters
+#     ``await`` on the loop instead of occupying AnyIO worker tokens.
+#     Exactly one request offloads the simulation to ``run_in_threadpool``;
+#     the rest wake to the cached result.
+#   * The result is keyed by the snapshot's identity + freshness
+#     (``root_league_id`` + ``generated_at``).  ``playoffOdds`` is derived
+#     purely from the snapshot (no external files), so that key is
+#     complete — a snapshot refresh mints a new ``generated_at`` and
+#     transparently invalidates the entry (bounded to one payload).
+#
+# The file-backed ROS sections are deliberately NOT cached here: they are
+# cheap file reads in the common case, and caching them by snapshot
+# identity would hide fresh results the ROS publisher writes between
+# snapshot refreshes.  They read their artifact fresh on every request.
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds"})
 _heavy_section_cache: dict = {}
-_heavy_section_locks: dict = {}
-_heavy_section_locks_guard = threading.Lock()
+_heavy_section_async_locks: dict = {}
 
 
-def _heavy_section_lock(section: str) -> threading.Lock:
-    """Return the per-section lock, creating it on first use."""
-    with _heavy_section_locks_guard:
-        lock = _heavy_section_locks.get(section)
-        if lock is None:
-            lock = threading.Lock()
-            _heavy_section_locks[section] = lock
-        return lock
+def _heavy_section_async_lock(section: str) -> asyncio.Lock:
+    """Return the per-section ``asyncio.Lock``, creating it on first use.
 
-
-def _build_section_payload_cached(snapshot, section, *, activity_valuation=None):
-    """``build_section_payload`` with single-flight + per-snapshot caching
-    for the heavy Monte Carlo sections; every other section passes
-    straight through uncached.
-
-    Heavy sections depend only on ``snapshot`` (no ``owner``/``kind`` and
-    no ``activity_valuation``), so keying on the snapshot identity alone
-    is sound.  The cached payload is already safety-checked inside
-    ``build_section_payload`` and is only ever read (serialized to JSON /
-    CSV) by callers, never mutated, so sharing one instance across
-    concurrent requests is safe.
+    Only ever touched from async handlers running on the single event-loop
+    thread, so the dict access needs no additional synchronization.
     """
-    if section not in _HEAVY_SECTION_KEYS:
-        return build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+    lock = _heavy_section_async_locks.get(section)
+    if lock is None:
+        lock = asyncio.Lock()
+        _heavy_section_async_locks[section] = lock
+    return lock
+
+
+async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=None):
+    """Single-flight + per-snapshot memoization for a heavy section,
+    coordinated on the event loop.
+
+    Callers must have already resolved ``snapshot`` (its ``generated_at``
+    is the cache key).  Waiters block on an ``asyncio.Lock`` on the loop —
+    NOT inside the threadpool — so they don't hold worker tokens hostage;
+    only the winner offloads ``build_section_payload`` to the threadpool.
+    The cached payload is already safety-checked inside
+    ``build_section_payload`` and is only ever read by callers, so sharing
+    one instance across concurrent requests is safe.
+    """
     cache_key = (
         getattr(snapshot, "root_league_id", ""),
         getattr(snapshot, "generated_at", ""),
@@ -6477,13 +6482,18 @@ def _build_section_payload_cached(snapshot, section, *, activity_valuation=None)
     cached = _heavy_section_cache.get(section)
     if cached is not None and cached[0] == cache_key:
         return cached[1]
-    with _heavy_section_lock(section):
-        # Re-check under the lock: another thread may have computed this
-        # section for the same snapshot while we were waiting.
+    async with _heavy_section_async_lock(section):
+        # Re-check: another coroutine may have computed this section for
+        # the same snapshot while we were waiting on the lock.
         cached = _heavy_section_cache.get(section)
         if cached is not None and cached[0] == cache_key:
             return cached[1]
-        payload = build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+        payload = await run_in_threadpool(
+            build_section_payload,
+            snapshot,
+            section,
+            activity_valuation=activity_valuation,
+        )
         _heavy_section_cache[section] = (cache_key, payload)
         return payload
 
@@ -7067,19 +7077,32 @@ async def get_public_league_section_csv(
             },
         )
 
-    def _build_csv():
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = _build_section_payload_cached(snapshot, section)
-        assert_public_payload_safe(payload)
-        kwargs = {}
-        if section == "franchise" and owner:
-            kwargs["owner_id"] = str(owner).strip()
-        if section == "archives" and kind:
-            kwargs["kind"] = str(kind).strip()
-        return public_csv_export.export_section(section, payload["data"], **kwargs)
-
     try:
-        filename, text = await run_in_threadpool(_build_csv)
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        if section in _HEAVY_SECTION_KEYS:
+            # playoffOdds.csv: reuse the single-flighted / cached payload
+            # (heavy sections take no owner/kind qualifier), then serialize
+            # to CSV in the worker.
+            payload = await _get_heavy_section_payload(snapshot, section)
+
+            def _export():
+                assert_public_payload_safe(payload)
+                return public_csv_export.export_section(section, payload["data"])
+
+            filename, text = await run_in_threadpool(_export)
+        else:
+
+            def _build_csv():
+                payload = build_section_payload(snapshot, section)
+                assert_public_payload_safe(payload)
+                kwargs = {}
+                if section == "franchise" and owner:
+                    kwargs["owner_id"] = str(owner).strip()
+                if section == "archives" and kind:
+                    kwargs["kind"] = str(kind).strip()
+                return public_csv_export.export_section(section, payload["data"], **kwargs)
+
+            filename, text = await run_in_threadpool(_build_csv)
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
@@ -7125,26 +7148,35 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
             },
         )
 
-    def _build():
-        # The whole build runs in the worker thread: some sections
-        # (``playoffOdds``, ``rosPlayoffOdds``, ``rosChampionship``) run
-        # a 10,000-sim Monte Carlo in ``build_section_payload``, which
-        # would otherwise block the event loop and stall health checks /
-        # unrelated requests — the exact failure this offload prevents.
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = _build_section_payload_cached(
-            snapshot,
-            section,
-            activity_valuation=_build_public_activity_valuation(),
-        )
-        if section == "franchise" and owner:
-            detail_map = payload.get("data", {}).get("detail") or {}
-            payload["franchiseDetail"] = detail_map.get(str(owner).strip())
-        assert_public_payload_safe(payload)
-        return payload
-
     try:
-        payload = await run_in_threadpool(_build)
+        # Snapshot fetch is blocking (network I/O) — offload it.  Its
+        # ``generated_at`` is the cache key for the heavy path below.
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        if section in _HEAVY_SECTION_KEYS:
+            # playoffOdds: single-flight + memoize, coordinated on the loop
+            # so concurrent waiters don't occupy threadpool workers.  Heavy
+            # sections are never ``franchise``, so no owner-detail step.
+            payload = await _get_heavy_section_payload(
+                snapshot,
+                section,
+                activity_valuation=_build_public_activity_valuation(),
+            )
+        else:
+            # Every other section still runs its build in the worker so a
+            # heavier-than-expected builder can't block the event loop.
+            def _build():
+                payload = build_section_payload(
+                    snapshot,
+                    section,
+                    activity_valuation=_build_public_activity_valuation(),
+                )
+                if section == "franchise" and owner:
+                    detail_map = payload.get("data", {}).get("detail") or {}
+                    payload["franchiseDetail"] = detail_map.get(str(owner).strip())
+                assert_public_payload_safe(payload)
+                return payload
+
+            payload = await run_in_threadpool(_build)
         return JSONResponse(
             content=payload,
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},

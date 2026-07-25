@@ -157,12 +157,18 @@ class PublicLeagueRouteTests(unittest.TestCase):
         # Both responses are identical (same cached payload).
         self.assertEqual(r1.json()["data"], r2.json()["data"])
 
-    def test_cheap_sections_bypass_the_heavy_cache(self) -> None:
-        """Only the flagged Monte Carlo sections are cached; a cheap
-        section like ``awards`` must not silently go stale."""
+    def test_only_playoff_odds_is_cached(self) -> None:
+        """Only ``playoffOdds`` (always-simulate, purely snapshot-derived)
+        is cached.  The file-backed ROS sections are intentionally NOT
+        cached — caching them by snapshot identity would hide fresh
+        results the ROS publisher writes between snapshot refreshes — and
+        cheap sections like ``awards`` must not silently go stale."""
         import server
 
         self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        # File-backed ROS sims read their artifact fresh each request.
+        self.assertNotIn("rosPlayoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("rosChampionship", server._HEAVY_SECTION_KEYS)
         self.assertNotIn("awards", server._HEAVY_SECTION_KEYS)
         self.assertNotIn("overview", server._HEAVY_SECTION_KEYS)
 
