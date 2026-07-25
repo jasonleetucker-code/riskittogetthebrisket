@@ -9816,6 +9816,219 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+# ── SLEEPER INTEL — "Sharp Tracker" (Phase 5) ───────────────────────────
+#
+# PFK-style league-mate market intelligence: crawls the active
+# league's members across ALL of their other Sleeper leagues (public
+# API, no auth) and aggregates per-asset buy/sell activity.  All
+# pipeline logic lives in ``src/intel/``; this section is only the
+# HTTP surface.
+#
+# Endpoints (all PRIVATE — no public cache headers; raw Sleeper
+# league IDs are never exposed in responses):
+#   GET  /api/intel/summary          — asset board sorted by trendScore
+#   GET  /api/intel/player           — per-asset drill-down (?playerId= / ?name=)
+#   GET  /api/intel/member/{ownerId} — one member's cross-league profile
+#   POST /api/intel/refresh          — 202 + daemon-thread crawl (409 when running)
+#   GET  /api/intel/refresh/status   — crawl status + snapshot staleness
+#
+# The refresh + status routes accept EITHER a session cookie or a
+# bearer token (``INTEL_REFRESH_TOKEN``, falling back to
+# ``SIGNAL_ALERT_CRON_TOKEN``) so the daily GitHub Actions cron
+# (.github/workflows/intel-refresh.yml) can drive them.  They are
+# added to the self-authed allowlist below so the session-cookie
+# middleware defers to the endpoints' own auth check — same model as
+# /api/signal-alerts/run.
+
+from src.intel import service as _intel_service  # noqa: E402
+
+_SELF_AUTHED_API_EXACT = _SELF_AUTHED_API_EXACT | {
+    "/api/intel/refresh",
+    "/api/intel/refresh/status",
+}
+
+INTEL_REFRESH_TOKEN = (
+    os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALERT_CRON_TOKEN
+)
+
+_INTEL_PRIVATE_CACHE_HEADERS = {
+    "Cache-Control": "private, max-age=60, stale-while-revalidate=300"
+}
+
+
+def _intel_bearer_auth_ok(request: Request) -> bool:
+    """True when the request carries the intel cron bearer token."""
+    if not INTEL_REFRESH_TOKEN:
+        return False
+    header = (request.headers.get("authorization") or "").strip()
+    if not header.lower().startswith("bearer "):
+        return False
+    presented = header.split(None, 1)[1].strip()
+    return hmac.compare_digest(presented, INTEL_REFRESH_TOKEN)
+
+
+def _intel_id_to_player() -> dict:
+    """NFL-wide Sleeper-ID → display-name map from the loaded
+    contract (empty when no contract is loaded yet — asset rows then
+    fall back to raw-id labels, never an error)."""
+    try:
+        sleeper_block = (latest_contract_data or {}).get("sleeper") or {}
+        id_map = sleeper_block.get("idToPlayer")
+        return id_map if isinstance(id_map, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _intel_name_to_player_id(name: str) -> str | None:
+    """Reverse lookup: display name → Sleeper player id (first match,
+    case-insensitive) via the loaded contract's id map."""
+    target = str(name or "").strip().lower()
+    if not target:
+        return None
+    for pid, label in _intel_id_to_player().items():
+        if str(label or "").strip().lower() == target:
+            return str(pid)
+    return None
+
+
+@app.get("/api/intel/summary")
+async def get_intel_summary(request: Request):
+    """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
+    windows, sorted by trendScore.  Stamps snapshot staleness."""
+    try:
+        limit = int(request.query_params.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(500, limit))
+    payload = await run_in_threadpool(
+        _intel_service.build_summary_payload,
+        limit=limit,
+        id_to_player=_intel_id_to_player(),
+    )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.get("/api/intel/player")
+async def get_intel_player(request: Request):
+    """Per-asset intel drill-down.  ``?playerId=`` (Sleeper id or
+    ``pick:<season>:<round>``) preferred; ``?name=`` resolves through
+    the loaded contract's id map."""
+    asset_id = str(request.query_params.get("playerId") or "").strip()
+    if not asset_id:
+        name = str(request.query_params.get("name") or "").strip()
+        if not name:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "missing_param", "message": "playerId or name required"},
+                headers={"Cache-Control": "no-store"},
+            )
+        asset_id = _intel_name_to_player_id(name) or ""
+        if not asset_id:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "unknown_player", "message": f"No Sleeper id for {name!r}"},
+                headers={"Cache-Control": "no-store"},
+            )
+    payload = await run_in_threadpool(
+        _intel_service.build_player_payload,
+        asset_id,
+        id_to_player=_intel_id_to_player(),
+    )
+    if payload is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "no_intel", "message": "No intel recorded for this asset"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.get("/api/intel/member/{owner_id}")
+async def get_intel_member(owner_id: str):
+    """One league-mate's cross-league profile: league count/names,
+    truncation flag, and their recent per-asset activity."""
+    payload = await run_in_threadpool(
+        _intel_service.build_member_payload,
+        owner_id,
+        id_to_player=_intel_id_to_player(),
+    )
+    if payload is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "unknown_member", "message": f"No intel for owner {owner_id!r}"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.post("/api/intel/refresh")
+async def post_intel_refresh(request: Request):
+    """Kick off a crawl on a daemon thread and return 202 immediately
+    — the crawl takes minutes (budgeted Sleeper calls with an
+    inter-call sleep) and must never run inline.  409 when a run is
+    already active.  Session OR bearer auth (see section header)."""
+    if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "auth_required", "message": "Sign-in or bearer token required."},
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    try:
+        status = _intel_service.start_refresh_async(
+            sleeper_league_id=league_cfg.sleeper_league_id,
+        )
+    except _intel_service.RefreshAlreadyRunning:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "already_running",
+                "alreadyRunning": True,
+                "status": _intel_service.refresh_status(),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "Intel refresh started in background",
+            "leagueKey": league_cfg.key,
+            "status": status,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/intel/refresh/status")
+async def get_intel_refresh_status(request: Request):
+    """Crawl status + snapshot staleness.  Session OR bearer auth so
+    the cron workflow can poll it."""
+    if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "auth_required", "message": "Sign-in or bearer token required."},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        content=_intel_service.refresh_status(),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/intel", response_class=HTMLResponse)
+async def serve_intel(request: Request):
+    """Sharp Tracker page shell — auth-gated like the other private
+    pages (nginx serves this via Next directly in production; this
+    route covers the backend-fronted dev flow)."""
+    redirect = _require_auth_or_redirect(request, "/intel")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/intel")
+
+
 # ── MAIN ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
