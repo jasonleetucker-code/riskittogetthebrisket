@@ -179,17 +179,27 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    # Competition ranking ("1-2-2-4"): rows sharing a crowd value share
+    # a rank, so ties never become distinct rank-signal contributions
+    # based on API response order (Codex review on PR #530 — same fix
+    # as scripts/fetch_otcffb.py).  ``rows`` arrive value-sorted
+    # descending from ``_parse_players``.
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = ["name", "value", "rank"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
+        prev_value: Any = object()
+        rank = 1
         for idx, row in enumerate(rows, start=1):
+            if row["value"] != prev_value:
+                rank = idx
+                prev_value = row["value"]
             writer.writerow(
                 {
                     "name": row["name"],
                     "value": row["value"],
-                    "rank": idx,
+                    "rank": rank,
                 }
             )
 

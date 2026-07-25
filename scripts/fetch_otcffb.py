@@ -148,17 +148,29 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    # Competition ranking ("1-2-2-4"): rows sharing a published value
+    # share a rank.  OTC's 0-100 one-decimal scale ties 300+ of ~460
+    # rows (14-way groups deep on the board); a sequential index would
+    # convert those ties into distinct rank-signal contributions based
+    # purely on API response order, letting arbitrary ordering move the
+    # blend (Codex review on PR #530).  ``rows`` arrive value-sorted
+    # descending from ``_parse_players``.
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = ["name", "value", "rank"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
+        prev_value: Any = object()
+        rank = 1
         for idx, row in enumerate(rows, start=1):
+            if row["value"] != prev_value:
+                rank = idx
+                prev_value = row["value"]
             writer.writerow(
                 {
                     "name": row["name"],
                     "value": row["value"],
-                    "rank": idx,
+                    "rank": rank,
                 }
             )
 
