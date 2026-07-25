@@ -473,8 +473,30 @@ async def _scrape_one(page) -> list[dict]:
         [LEAGUE_ID, LEAGUE_NAME],
     )
     if already_active:
-        print(f"[DS] league {LEAGUE_ID} already active — skipping activation", flush=True)
-        await page.wait_for_timeout(2_000)
+        # Codex review (round 11): the selection label proves league
+        # STATE, not worker COMPLETION — on a cached session the WASM
+        # worker may still be recomputing values when the page shows
+        # the league as selected.  There is no public-vs-league
+        # baseline to diff here (we never saw public values), so gate
+        # on OUTPUT SETTLING instead: two consecutive non-empty probe
+        # snapshots must be identical (worker finished reshuffling)
+        # before extraction.  Never settles → raise (keep last-good).
+        print(f"[DS] league {LEAGUE_ID} already active — waiting for worker settle", flush=True)
+        prev: dict = {}
+        settled = False
+        for _ in range(15):
+            await page.wait_for_timeout(2_000)
+            cur = await _probe_values()
+            if cur and prev and cur == prev:
+                settled = True
+                break
+            prev = cur
+        if not settled:
+            raise RuntimeError(
+                f"League {LEAGUE_ID} shows active but probed dsValues never "
+                f"settled within 30s — worker may be stalled; refusing to "
+                f"extract over league-synced last-good CSVs.  last={prev!r}"
+            )
         return await _extract_rows(page)
 
     print(f"[DS] activating league {LEAGUE_ID} …", flush=True)

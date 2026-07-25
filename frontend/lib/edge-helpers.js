@@ -127,18 +127,23 @@ export function cautionLabels(row) {
     // source on each side only when 5+ sources contribute
     // (_PERCENTILE_SPREAD_TRIM_MIN_N in data_contract.py), so the
     // tooltip only claims trimming when it actually applied.
-    // Length-checked fallback (mirrors display-helpers.marketEdge):
-    // the legacy view=app materializer supplies an EMPTY {} for
-    // effectiveSourceRanks, and an empty object is truthy — a bare
-    // `||` would never fall back to the populated sourceRanks and the
-    // trimming clause would never render on the main runtime payload.
-    const effectiveRanks =
-      row.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
-        ? row.effectiveSourceRanks
-        : row.sourceRanks || {};
-    const effectiveCount = Object.keys(effectiveRanks).length;
+    // Effective (post-Hampel) source count, computed conservatively
+    // (Codex review round 11): prefer the mirrored effective map;
+    // else derive it as sourceRanks minus droppedSources — counting
+    // raw sourceRanks alone would include Hampel-rejected sources and
+    // could claim trimming on a row whose effective count was < 5.
+    // When neither effective map nor droppedSources is available
+    // (legacy payloads mirror neither), effectiveCount stays null and
+    // the trimming claim is simply omitted rather than guessed.
+    let effectiveCount = null;
+    if (row.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0) {
+      effectiveCount = Object.keys(row.effectiveSourceRanks).length;
+    } else if (row.sourceRanks && Array.isArray(row.droppedSources)) {
+      const dropped = new Set(row.droppedSources);
+      effectiveCount = Object.keys(row.sourceRanks).filter((k) => !dropped.has(k)).length;
+    }
     const trimNote =
-      effectiveCount >= 5
+      effectiveCount != null && effectiveCount >= 5
         ? " (excluding the single most extreme source on each side)"
         : "";
     labels.push({

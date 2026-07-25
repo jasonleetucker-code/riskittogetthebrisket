@@ -3568,18 +3568,22 @@ def _expected_sources_for_position(
         # Exclude veteran-only sources for rookie players.
         if is_rookie and src.get("excludes_rookies"):
             continue
-        # Rookie-translation sources rank the current rookie class
-        # only, so they are never structurally expected to carry pick
-        # rows.  ``dlfRookieSf`` does stamp synthetic ``2026 Pick R.SS``
-        # entries into ``canonicalSiteValues`` for display, but the
-        # Phase 1 ordinal pass deliberately excludes picks (see the
-        # ``needs_rookie_xlate and assetClass == 'pick'`` skip in
-        # ``_compute_unified_rankings``) — picks get their final value
-        # from the Phase 11 anchor pass, not from a per-source rookie
-        # rank.  Keeping these sources out of the expected set here
-        # mirrors that exclusion in the audit so picks don't show up
-        # as "missing dlfRookieSf" in ``unmatchedSources``.
-        if pos_up == "PICK" and src.get("needs_rookie_translation"):
+        # Rookie-translation sources rank the CURRENT rookie class
+        # only, so they are structurally expected for rookies alone —
+        # never for veterans and never for pick rows.
+        #
+        # * Veterans (2026-07-25, Colston Loveland report): a
+        #   second-year player is inside these sources' scope+depth
+        #   window, so without this guard every vet near the top of
+        #   the board showed "DLF RK / Flock RK: Expected but did not
+        #   match" on the Source Audit panel — a structural
+        #   impossibility misreported as a matching failure.
+        # * Picks: ``dlfRookieSf`` does stamp synthetic ``2026 Pick
+        #   R.SS`` entries into ``canonicalSiteValues`` for display,
+        #   but the Phase 1 ordinal pass deliberately excludes picks
+        #   (picks get their final value from the rookie-anchor pass,
+        #   not from a per-source rookie rank).
+        if src.get("needs_rookie_translation") and (not is_rookie or pos_up == "PICK"):
             continue
         # Exclude shallow-depth sources for players ranked deeper than
         # their cutoff (with a 25% headroom so the rule doesn't
