@@ -7007,6 +7007,33 @@ def _compute_unified_rankings(
         write_snapshot=not source_overrides,
     )
 
+    # ── Post-compaction disagreement re-stamp ──
+    # The depth-aware allowance was computed in Phase 4 from the
+    # PROVISIONAL rank/pool-size, but the compact pass above just
+    # suppressed generic picks, cleared anchor slot-pick ranks, and
+    # re-sequenced every surviving ``canonicalConsensusRank``.  A row
+    # sitting near either disagreement threshold could otherwise
+    # publish ``hasSourceDisagreement`` / ``suspicious_disagreement``
+    # keyed to a rank the public board no longer shows.  Recompute
+    # both flags from the FINAL rank and final ranked-pool size using
+    # the stamped trimmed spread — same formula, final inputs.
+    final_total = len(tiered_rows)
+    for r in tiered_rows:
+        ps = r.get("sourceRankPercentileSpread")
+        rk = r.get("canonicalConsensusRank")
+        if not isinstance(ps, (int, float)) or not isinstance(rk, int) or final_total <= 0:
+            continue
+        allowance = _disagreement_depth_allowance(rk / float(final_total))
+        r["hasSourceDisagreement"] = ps > _DISAGREEMENT_BASE_THRESHOLD + allowance
+        suspicious = ps > _SUSPICIOUS_PCT_BASE_THRESHOLD + allowance
+        flags = list(r.get("anomalyFlags") or [])
+        has_flag = "suspicious_disagreement" in flags
+        if suspicious and not has_flag:
+            flags.append("suspicious_disagreement")
+            r["anomalyFlags"] = flags
+        elif not suspicious and has_flag:
+            r["anomalyFlags"] = [f for f in flags if f != "suspicious_disagreement"]
+
     # (Phase 5b — value re-flattening — intentionally removed.) The
     # pre-sort ``rankDerivedValue`` is a weighted blend of per-source
     # Hill-curve values plus any calibration multiplier, which
