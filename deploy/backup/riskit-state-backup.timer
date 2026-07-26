@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly Risk It state backup trigger
+Requires=riskit-state-backup.service
+
+[Timer]
+# 02:30 UTC daily — offset from riskit-backup.timer (02:00) so the two
+# backup jobs never contend for I/O.  Persistent=true replays a run
+# missed while the box was down.
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

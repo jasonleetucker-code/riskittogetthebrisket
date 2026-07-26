@@ -1,23 +1,19 @@
 "use client";
 
-import mockFixture from "./mock-news.json";
-
 /**
- * news-service — client-side adapter for the landing page's news
- * panel and ticker alerts.
+ * news-service — client-side adapter for the news tab, landing-page
+ * panels, and ticker alerts.
  *
  * Contract shape (NewsItem):
  *   { id, ts, provider, providerLabel, severity, kind,
  *     headline, body, players:[{name, impact}], url }
  *
- * Fetch strategy: try the backend first (``/api/news``).  On 404 or
- * 503, fall back to the bundled ``mock-news.json`` fixture and tag
- * the response ``{ source: "mock" }``.  This lets the UI render a
- * visible "DEMO" chip so readers know the panel isn't live yet.
- *
- * When the real ingestion endpoint ships, no UI change is needed —
- * the backend just starts answering 200 and the mock path goes
- * dormant.
+ * Fetch strategy: backend only (``/api/news``).  Any failure — HTTP
+ * error, 503, network — produces an explicit
+ * ``{ unavailable: true, reason }`` state so every surface renders
+ * an honest "news unavailable" treatment.  The previous silent
+ * fallback to a bundled ``mock-news.json`` fixture is gone: it
+ * masked real outages behind a stale 2026-04 snapshot.
  */
 
 export const NEWS_SEVERITY = Object.freeze({
@@ -50,13 +46,26 @@ function resolveItems(raw) {
   return [];
 }
 
+// The route's hard ``?limit=`` ceiling.  Every consumer shares ONE
+// single-flighted fetch through useNews, and the News tab filters
+// (team / position / source / search) run client-side over that
+// payload — requesting anything less than the full window would let
+// the server truncate away matching items before the filters ever
+// see them (Codex P2).  The payload is still small (~100 compact
+// items), so the smaller surfaces just slice locally.
+export const NEWS_FETCH_LIMIT = 100;
+
 /**
- * Fetch news items.  Backend-first with mock fallback.
- * @returns {Promise<{items, source, providersUsed, unavailable, reason}>}
+ * Fetch news items.  Backend only — failures surface as an explicit
+ * unavailable state instead of silently serving stale fixture data.
+ * ``digests`` carries the backend's per-player combined entries
+ * (``playerDigests`` — one entry per player with multiple recent
+ * stories; see src/news/digest.py).
+ * @returns {Promise<{items, digests, source, providersUsed, unavailable, reason}>}
  */
-export async function fetchNews({ signal } = {}) {
+export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
   try {
-    const res = await fetch("/api/news", {
+    const res = await fetch(`/api/news?limit=${encodeURIComponent(limit)}`, {
       credentials: "same-origin",
       signal,
     });
@@ -65,6 +74,9 @@ export async function fetchNews({ signal } = {}) {
       const items = resolveItems(payload);
       return {
         items,
+        digests: Array.isArray(payload?.playerDigests)
+          ? payload.playerDigests
+          : [],
         source: "backend",
         providersUsed: Array.isArray(payload?.providersUsed)
           ? payload.providersUsed
@@ -73,30 +85,28 @@ export async function fetchNews({ signal } = {}) {
         reason: null,
       };
     }
-    if (res.status === 404 || res.status === 503) {
-      return mockResponse();
-    }
     return {
       items: [],
+      digests: [],
       source: "backend",
       providersUsed: [],
       unavailable: true,
-      reason: `backend_error_${res.status}`,
+      reason:
+        res.status === 404 || res.status === 503
+          ? "backend_unavailable"
+          : `backend_error_${res.status}`,
     };
   } catch (err) {
     if (err?.name === "AbortError") throw err;
-    return mockResponse();
+    return {
+      items: [],
+      digests: [],
+      source: null,
+      providersUsed: [],
+      unavailable: true,
+      reason: "fetch_failed",
+    };
   }
-}
-
-function mockResponse() {
-  return {
-    items: resolveItems(mockFixture),
-    source: "mock",
-    providersUsed: ["mock"],
-    unavailable: false,
-    reason: "backend_not_configured",
-  };
 }
 
 /**

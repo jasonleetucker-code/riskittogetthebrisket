@@ -44,12 +44,10 @@ export default function TeamNewsFeed() {
     return filterByScope(news.scored, scope).slice(0, MAX_ITEMS);
   }, [news, scope]);
 
-  const isMock = news.source === "mock";
-
   return (
     <Panel
       title="News"
-      subtitle={isMock ? "Demo feed — backend adapter pending" : "Roster-relevant headlines"}
+      subtitle="Roster-relevant headlines"
       className="panel--news"
       actions={
         <div className="panel-tabs" role="tablist" aria-label="News scope">
@@ -68,12 +66,6 @@ export default function TeamNewsFeed() {
         </div>
       }
     >
-      {isMock && (
-        <div className="news-demo-badge" role="note" aria-label="Demo data notice">
-          DEMO · Using bundled fixture until backend /api/news lands
-        </div>
-      )}
-
       {news.loading && <NewsSkeleton rows={4} />}
 
       {!news.loading && news.unavailable && (
@@ -181,6 +173,8 @@ function humanizeReason(reason) {
   switch (reason) {
     case "fetch_failed":
       return "Could not reach the news endpoint. Check network and try again.";
+    case "backend_unavailable":
+      return "The news backend is temporarily unavailable. It will recover on its own.";
     case "no_provider_configured":
       return "No provider is configured yet; panel will populate when one is.";
     default:

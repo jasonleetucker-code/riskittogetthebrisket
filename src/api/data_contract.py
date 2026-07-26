@@ -7721,11 +7721,21 @@ def _derive_player_row(
         "displayName": canonical_name,
         "position": pos or None,
         "_positionFromSleeperOnly": position_from_sleeper_only,
+        # NFL team abbreviation ("FA" for matched free agents), stamped
+        # by the scraper's metadata pass from the Sleeper players blob
+        # (2026-07-26 — previously scaffolded but never written; the
+        # search/filter system needs it).
         "team": p_data.get("team") if isinstance(p_data.get("team"), str) else None,
         # Age: scaffolded for future use.  Populated when source data includes
         # age_raw (e.g. DLF CSV adapter).  Currently null for most players
         # because the scraper bridge does not supply age.
         "age": _to_int_or_none(p_data.get("age")) or _to_int_or_none(p_data.get("age_raw")),
+        # NFL years of experience from the Sleeper blob (rookie = 0).
+        # The legacy dict has carried ``_yearsExp`` since the rookie
+        # visibility pass; the row previously exposed only its
+        # ``rookie`` derivative — the experience-bucket filter needs
+        # the number itself.
+        "yearsExp": _to_int_or_none(p_data.get("_yearsExp")),
         # Two upstream rookie signals: ``_formatFitRookie`` is set by
         # the canonical pipeline's format-fit pass and is None for
         # rows that haven't been through it.  ``_isRookie`` is the

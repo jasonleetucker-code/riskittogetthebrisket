@@ -79,6 +79,7 @@ from src.api import league_registry as _league_registry
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
+from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -400,7 +401,16 @@ def _get_news_service() -> NewsService:
         return _news_service
     with _news_service_lock:
         if _news_service is None:
-            _news_service = build_default_service()
+            _news_service = build_default_service(
+                provider_config={
+                    # Per-player ESPN news: the provider trickle-
+                    # refreshes espn_id targets from the live board
+                    # through its own per-player TTL cache — the
+                    # supplier is read lazily on each provider fetch,
+                    # so it always sees the current contract.
+                    "espn_player": {"targets_supplier": _live_espn_news_targets},
+                }
+            )
     return _news_service
 
 
@@ -431,6 +441,124 @@ def _live_player_names() -> list[str]:
                 names.append(v.strip())
                 break
     return names
+
+
+# How many top-board players get per-player ESPN news coverage.
+# Rostered players cluster at the top of the board, and the provider
+# trickle-refreshes ~8 ids per 3-minute aggregate cycle, so 150
+# targets fully refresh roughly hourly at a polite request rate.
+#
+# Single source of truth: ``_ESPN_NEWS_TARGET_LIMIT`` is imported at
+# the top of this file as an alias of the provider's own
+# ``DEFAULT_MAX_TARGETS`` — the supplier below and the provider's
+# ``_valid_targets`` truncation can never drift apart (Codex P2:
+# a local 150 here vs the provider's default 100 silently discarded
+# targets 101-150).
+
+
+def _live_espn_news_targets() -> list[dict[str, str | None]]:
+    """Top-board players joined to their ESPN athlete ids.
+
+    Walks the live contract's ``playersArray`` in consensus-rank
+    order, resolves each row's Sleeper ``playerId`` through the
+    contract's Sleeper player directory (``sleeper.players`` — the
+    ``/v1/players/nfl`` shape, which carries ``espn_id``), and emits
+    ``{name, espnId, position, team}`` targets for the
+    ``espn_player`` news provider.  Rows without an espn_id mapping
+    are skipped; an unloaded contract yields [] and the provider
+    stays quiet.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    players_dir = (contract.get("sleeper") or {}).get("players") or {}
+    if not isinstance(players_dir, dict) or not rows:
+        return []
+
+    def _rank(row: dict) -> float:
+        try:
+            r = float(row.get("canonicalConsensusRank") or row.get("rank") or 0)
+            return r if r > 0 else float("inf")
+        except (TypeError, ValueError):
+            return float("inf")
+
+    targets: list[dict[str, str | None]] = []
+    for row in sorted((r for r in rows if isinstance(r, dict)), key=_rank):
+        sid = str(row.get("playerId") or "").strip()
+        if not sid:
+            continue
+        p = players_dir.get(sid)
+        if not isinstance(p, dict):
+            continue
+        espn_id = str(p.get("espn_id") or "").strip()
+        if not espn_id:
+            continue
+        name = ""
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                name = v.strip()
+                break
+        if not name:
+            continue
+        position = row.get("position")
+        team = row.get("team")
+        targets.append(
+            {
+                "name": name,
+                "espnId": espn_id,
+                "position": position.strip()
+                if isinstance(position, str) and position.strip()
+                else None,
+                "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+            }
+        )
+        if len(targets) >= _ESPN_NEWS_TARGET_LIMIT:
+            break
+    return targets
+
+
+def _live_player_meta() -> dict[str, dict[str, str | None]]:
+    """Map exact contract display names → {position, team}.
+
+    The news service stamps these identity discriminators onto
+    tagged mentions (``NewsService._enrich_player_mentions``) so
+    name-collision players (CJ Allen the LB vs C.J. Allen the WR)
+    can be told apart on per-player surfaces.  ``team`` is sparsely
+    populated until the next scrape cycle — null when absent;
+    position is always available on contract rows.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    meta: dict[str, dict[str, str | None]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = ""
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                name = v.strip()
+                break
+        if not name:
+            continue
+        position = row.get("position")
+        team = row.get("team")
+        entry = {
+            "position": position.strip()
+            if isinstance(position, str) and position.strip()
+            else None,
+            "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+        }
+        prior = meta.get(name)
+        if prior is None:
+            meta[name] = entry
+        elif prior != entry:
+            # Two contract rows share the EXACT display string with
+            # different identities — an exact-name lookup can't
+            # attribute a mention safely, so stamp nothing rather
+            # than the wrong player's identity.
+            meta[name] = {"position": None, "team": None}
+    return meta
 
 
 # R-9: Lightweight metrics counters
@@ -2363,6 +2491,13 @@ _PUBLIC_API_EXACT = frozenset(
         # pick dollar values, owners) already viewable on Sleeper; no
         # private rankings / user state is leaked here.
         "/api/draft-capital",
+        # Aggregated public sports news (Sleeper trending + public
+        # RSS/sitemap providers).  Zero league-private data — no
+        # rosters, no rankings, no user state.  The public
+        # /league/player/<id> journey page server-renders a "Recent
+        # news" card from this endpoint, so it must be reachable
+        # without a session.
+        "/api/news",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -4009,11 +4144,13 @@ async def get_news(request: Request):
             svc.aggregate,
             player_names=_live_player_names(),
             team_names=team_names or None,
+            player_meta=_live_player_meta(),
         )
     except Exception as exc:
         log.warning("/api/news aggregation failed: %s", exc)
-        # Signal "temporarily unavailable" — the frontend falls back
-        # to the mock fixture on 503 so the page stays functional.
+        # Signal "temporarily unavailable" — the frontend surfaces an
+        # explicit "news unavailable" state on 503 (there is no
+        # client-side fixture fallback).
         return JSONResponse(
             status_code=503,
             content={
@@ -4023,6 +4160,7 @@ async def get_news(request: Request):
                 "error": f"{type(exc).__name__}",
                 "generatedAt": datetime.now(timezone.utc).isoformat(),
             },
+            headers={"Cache-Control": "no-store"},
         )
 
     payload = aggregated.to_dict()
@@ -4033,9 +4171,8 @@ async def get_news(request: Request):
         payload["count"] = len(payload["items"])
 
     # Distinguish "providers worked, nothing trending" (legit 200
-    # with empty items — DEMO badge stays OFF) from "every provider
-    # errored out" (503 — frontend falls back to its mock fixture
-    # and re-shows the DEMO badge).
+    # with empty items) from "every provider errored out" (503 —
+    # the frontend renders its explicit "news unavailable" state).
     provider_runs = aggregated.provider_runs or []
     all_failed = bool(provider_runs) and not any(r.ok for r in provider_runs)
     if all_failed:
@@ -4046,8 +4183,16 @@ async def get_news(request: Request):
                 "source": "backend",
                 "error": "all_providers_failed",
             },
+            headers={"Cache-Control": "no-store"},
         )
-    return JSONResponse(content=payload)
+    # Public endpoint (see _PUBLIC_API_EXACT): a short shared-cache
+    # TTL keeps repeat public hits off the aggregator, consistent
+    # with the service's own 180s cache and the other public
+    # endpoints' Cache-Control conventions.
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=180"},
+    )
 
 
 @app.get("/api/scaffold/status")
@@ -8381,6 +8526,7 @@ async def get_terminal(request: Request):
                 lambda: _get_news_service(),
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
+                player_meta=_live_player_meta(),
             ),
             user_state=user_state,
             public_mode=not authed,

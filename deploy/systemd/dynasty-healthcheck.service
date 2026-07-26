@@ -1,0 +1,31 @@
+[Unit]
+Description=Dynasty backend liveness watchdog (restarts dynasty after consecutive no-response probes; app-degraded 503s are log-only)
+# Purely local probe — no point running before the network stack is up,
+# but do not Require the backend: the whole job is to notice it missing.
+After=network.target
+
+[Service]
+Type=oneshot
+# Root: the script must be able to `systemctl reset-failed` + `restart`.
+#
+# SECURITY: because this runs as root, ExecStart points at a ROOT-OWNED
+# copy installed OUTSIDE the deploy-user-writable checkout
+# (deploy/apply_hardening.sh installs it to /usr/local/lib/riskit/,
+# root:root 0755).  Executing the checkout copy directly would let a
+# compromised deploy account swap the script and get root within a
+# minute.  Script updates therefore flow through re-running
+# deploy/apply_hardening.sh — editing the checkout copy alone changes
+# nothing at runtime.
+ExecStart=/usr/local/lib/riskit/dynasty-healthcheck.sh
+# Which service the watchdog restarts.  deploy/apply_hardening.sh
+# rewrites this to match a SERVICE_NAME override at install time, so
+# the watchdog always targets the unit that was actually rendered.
+Environment="HEALTH_SERVICE=dynasty"
+RuntimeDirectory=dynasty-healthcheck
+RuntimeDirectoryPreserve=yes
+# Never let a wedged curl / systemctl stack up.
+TimeoutStartSec=90
+Nice=5
+# Environment overrides (see script header) go in a drop-in:
+#   systemctl edit dynasty-healthcheck.service
+# e.g. Environment="HEALTH_FAIL_THRESHOLD=5"

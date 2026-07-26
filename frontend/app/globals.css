@@ -1,7 +1,14 @@
 /* ══════════════════════════════════════════════════════════════════════════
    GLOBALS.CSS — Unified Design System
    Dynasty Trade Calculator · Next.js Frontend
+
+   Redesign R0: the new design-token layer + component styles are imported
+   first (CSS requires @import before any other rule). tokens.css is purely
+   additive — it defines only NEW custom properties and never overrides the
+   legacy tokens below. R1+ phases migrate pages onto it.
    ══════════════════════════════════════════════════════════════════════════ */
+@import "./tokens.css";
+@import "./ds.css";
 
 /* Skeleton shimmer animation — used by components/ui/Skeleton.jsx */
 @keyframes skeleton-shimmer {
@@ -74,8 +81,13 @@
   --radius-lg: 14px;
 
   /* Typography */
-  --font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+  /* R0: prepend the next/font-loaded families (set on <html> in layout.jsx).
+     Previously "Inter"/"JetBrains Mono" were named but never loaded, so every
+     platform fell back to system stacks. Fallback chain unchanged. */
+  --font: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --mono: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
+    "Fira Code", monospace;
 
   /* Layout */
   --shell-max: 1320px;
@@ -6166,18 +6178,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.74rem;
   color: var(--muted);
   line-height: 1.45;
-}
-.news-demo-badge {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--amber);
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 4px;
-  padding: 4px 8px;
-  align-self: flex-start;
 }
 .news-feed {
   list-style: none;

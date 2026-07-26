@@ -63,10 +63,25 @@ function FilterPills({ options, value, onChange, ariaLabel }) {
   );
 }
 
+function humanizeNewsReason(reason) {
+  switch (reason) {
+    case "fetch_failed":
+      return "Could not reach the news endpoint. Check your connection and reload.";
+    case "backend_unavailable":
+      return "The news backend is temporarily unavailable. This feed will recover once it responds again — nothing is cached or simulated.";
+    default:
+      return "The news feed returned an unexpected response.";
+  }
+}
+
 export default function ActivityPage() {
   const { rawData, loading, error } = useApp();
   const { state: userState } = useUserState();
-  const { items: newsItems } = useNews();
+  const {
+    items: newsItems,
+    unavailable: newsUnavailable,
+    reason: newsReason,
+  } = useNews();
   const [scope, setScope] = useState("league");
   const [type, setType] = useState("all");
 
@@ -130,15 +145,41 @@ export default function ActivityPage() {
         )}
       </div>
 
-      {events.length === 0 ? (
+      {/* News-outage handling (same honest treatment as the News
+          tab): the News-only view renders the explicit unavailable
+          state instead of a misleading "No activity"; mixed views
+          keep roster/transaction activity and just note that the
+          news portion is missing. */}
+      {newsUnavailable && type === "news" ? (
+        <div className="card" role="alert" style={{ borderColor: "var(--red)" }}>
+          <strong style={{ color: "var(--red)" }}>News unavailable</strong>
+          <div className="muted" style={{ fontSize: "0.78rem", marginTop: 4 }}>
+            {humanizeNewsReason(newsReason)}
+          </div>
+        </div>
+      ) : events.length === 0 ? (
         <div className="card">
           <EmptyState
             title="No activity in this view"
-            message="Try widening the scope or changing the type filter."
+            message={
+              newsUnavailable && type === "all"
+                ? "News is unavailable right now, and no trades or roster activity match these filters."
+                : "Try widening the scope or changing the type filter."
+            }
           />
         </div>
       ) : (
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {newsUnavailable && type === "all" && (
+            <div
+              role="status"
+              className="muted"
+              style={{ fontSize: "0.72rem", color: "var(--amber)" }}
+            >
+              News unavailable right now — showing trades and roster
+              activity only.
+            </div>
+          )}
           <div className="muted" style={{ fontSize: "0.7rem" }}>
             {events.length} event{events.length === 1 ? "" : "s"} · newest first
           </div>

@@ -10,6 +10,7 @@ import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
+import { newsItemsForPlayer } from "@/lib/player-name-match";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -30,6 +31,48 @@ async function fetchPlayer(playerId) {
   } catch {
     return null;
   }
+}
+
+// Recent news for this player from the aggregated feed.  Degrades
+// silently: any failure (backend down, non-200, parse error) returns
+// an empty list and the section simply doesn't render.
+//
+// The news card must never hold this page's render hostage: on a
+// cold news cache the backend runs every provider sequentially with
+// up to 5s timeouts each, so an unbounded await here could add tens
+// of seconds to an otherwise unrelated public page.  A hard 1.5s
+// deadline (AbortSignal.timeout) caps the worst case — the abort
+// lands in the catch below and the card simply doesn't render this
+// pass, while the backend keeps warming its own cache so the next
+// render (revalidate: 60) gets a fast hit.
+const NEWS_FETCH_DEADLINE_MS = 1500;
+
+async function fetchPlayerNews(playerName, { position, team } = {}) {
+  if (!playerName) return [];
+  try {
+    // limit=100 (the route's ceiling): the per-player filter runs
+    // client-side below, so fetching less would let the server
+    // truncate away this player's items before we ever see them.
+    const res = await fetch(`${_backend()}/api/news?limit=100`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(NEWS_FETCH_DEADLINE_MS),
+    });
+    if (!res.ok) return [];
+    const payload = await res.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    // Position/team context disambiguates name-collision players
+    // when an item's mention carries metadata; name-only items are
+    // kept (documented fallback in lookupPlayerNews).
+    return newsItemsForPlayer(items, playerName, { position, team });
+  } catch {
+    return [];
+  }
+}
+
+function _newsTimestamp(iso) {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toISOString().slice(0, 10);
 }
 
 export async function generateMetadata({ params }) {
@@ -79,6 +122,10 @@ export default async function PlayerJourneyPage({ params }) {
   const managers = buildManagerLookup(payload.league);
   const p = payload.player;
   const ident = p.identity;
+  const newsItems = await fetchPlayerNews(ident?.playerName, {
+    position: ident?.position,
+    team: ident?.nflTeam,
+  });
 
   return (
     <section>
@@ -237,6 +284,49 @@ export default async function PlayerJourneyPage({ params }) {
           </div>
         )}
       </div>
+
+      {newsItems.length > 0 && (
+        <Card title="Recent news" subtitle="Latest headlines mentioning this player">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {newsItems.slice(0, 6).map((item, i) => (
+              <div
+                key={item.id || `${item.ts}-${i}`}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  padding: 10,
+                }}
+              >
+                <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>
+                  {_newsTimestamp(item.ts)}
+                  {" · "}
+                  {item.providerLabel || item.provider || "news"}
+                  {item.severity ? ` · ${item.severity}` : ""}
+                </div>
+                <div style={{ fontSize: "0.82rem", marginTop: 2 }}>
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "var(--cyan)", fontWeight: 600 }}
+                    >
+                      {item.headline}
+                    </a>
+                  ) : (
+                    item.headline
+                  )}
+                </div>
+                {item.body && (
+                  <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
+                    {String(item.body).slice(0, 200)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="Transaction timeline" subtitle="Every trade, waiver, and FA event involving this player">
         {p.events.length === 0 ? (
