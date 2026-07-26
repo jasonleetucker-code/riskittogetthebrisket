@@ -14,6 +14,21 @@ high-fidelity recommendation:
   5. Team FAAB cap                 (never recommend more than they have)
   6. Marginal-upgrade floor        (net gain ≤ 0 ⇒ floor at $0)
 
+FAAB v2 (contention-aware) layers two optional inputs on top:
+
+  7. Budget-environment scaling    (league bid temperature; skipped
+                                    whenever step 4's per-position
+                                    calibration already fired)
+  8. Contention clearing           (sealed first-price auction: bid
+                                    the minimum that clears the
+                                    projected top rival — see
+                                    ``src/trade/faab_contention.py`` —
+                                    gated by replaceability, capped
+                                    at the player's value ceiling)
+
+plus a pacing warning whenever the standard bid exceeds 40% of the
+remaining budget.
+
 Each input is optional.  Missing inputs drop the confidence and
 surface a ``factors[].missing=true`` row so the UI can explain
 "this recommendation has lower confidence because we don't have
@@ -52,6 +67,34 @@ _TRENDING_TIER_BREAKPOINTS = (
 # historical noise overwhelm the math.
 _LEAGUE_CALIBRATION_BLEND = 0.5
 
+# ── FAAB v2 (contention-aware) tunables ────────────────────────
+
+# Replaceability gate: chase the projected clearing price only when
+# the add is meaningfully better than the next-best same-position
+# free agent.  dropoff = (add_value − next_best_FA) ÷ add_value.
+_DROPOFF_GATE = 0.15
+
+# Value ceiling scaling with irreplaceability:
+# ceiling = aggressive × (1 + 0.5 × clamp(dropoff, 0, 0.5)).
+_CEILING_DROPOFF_CLAMP = 0.5
+_CEILING_DROPOFF_SCALE = 0.5
+
+# Budget-environment scaling: leagues where the median winning bid
+# is a big share of the budget bid hot everywhere; scale the value
+# bid by clamp((median ÷ budget) ÷ 0.08, 0.6, 1.6).  Requires at
+# least 10 analyzed bids, and applies ONLY when the per-position
+# calibration did NOT (positionBids[pos].count < 3) — otherwise the
+# league's bid temperature would be counted twice (review-caught
+# double-count bug; pinned by a regression test).
+_ENV_SCALE_TARGET_SHARE = 0.08
+_ENV_SCALE_CLAMP = (0.6, 1.6)
+_ENV_MIN_BIDS_ANALYZED = 10
+_POSITION_CALIBRATION_MIN_COUNT = 3
+
+# Pacing warning: flag any standard bid above this share of the
+# team's remaining budget.
+_PACING_WARN_SHARE = 0.40
+
 
 @dataclass
 class _Factor:
@@ -67,6 +110,39 @@ class _Factor:
     contribution: str
     weight: float
     missing: bool = False
+
+
+def compute_confidence(factors: list[Any]) -> str:
+    """Weighted realized-share confidence bucket over factor rows.
+
+    Accepts ``_Factor`` objects or plain dicts (the serialized
+    ``factors`` shape from a ``recommend_faab`` response) so callers
+    that append factor rows AFTER the recommendation — e.g. the
+    endpoint's contention-missing note — can recompute the bucket and
+    keep the reported confidence honest about the full factor set.
+    """
+    total_weight = 0.0
+    realized_weight = 0.0
+    for f in factors:
+        if isinstance(f, _Factor):
+            weight, missing = f.weight, f.missing
+        elif isinstance(f, dict):
+            try:
+                weight = float(f.get("weight") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            missing = bool(f.get("missing"))
+        else:
+            continue
+        total_weight += weight
+        if not missing:
+            realized_weight += weight
+    realized_share = (realized_weight / total_weight) if total_weight > 0 else 0.0
+    if realized_share >= 0.85:
+        return "high"
+    if realized_share >= 0.55:
+        return "medium"
+    return "low"
 
 
 def _value_gain_modifier(add_value: float, drop_value: float) -> float:
@@ -106,7 +182,7 @@ def _position_calibration(
     pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
     avg_for_pos = pos_bids.get("avg")
     count_for_pos = pos_bids.get("count") or 0
-    if not isinstance(avg_for_pos, (int, float)) or count_for_pos < 3:
+    if not isinstance(avg_for_pos, (int, float)) or count_for_pos < _POSITION_CALIBRATION_MIN_COUNT:
         # Need at least 3 historical bids for the calibration to
         # be meaningful; otherwise we'd be calibrating against
         # noise.
@@ -115,6 +191,48 @@ def _position_calibration(
         1.0 - _LEAGUE_CALIBRATION_BLEND
     ) * float(bid_estimate)
     return max(0, round(blended))
+
+
+def _env_scale_factor(
+    league_faab_summary: dict[str, Any] | None,
+    position: str | None,
+    league_budget: int,
+) -> float | None:
+    """Budget-environment multiplier, or ``None`` when it must not
+    apply.
+
+    Applies only when:
+      * the league has ≥ ``_ENV_MIN_BIDS_ANALYZED`` analyzed bids
+        (otherwise the median is noise), AND
+      * the per-position calibration did NOT fire for ``position``
+        (``positionBids[pos].count < 3``).  When the position blend
+        already pulled the bid towards the league's real prices,
+        scaling again would double-count the league's bid
+        temperature.
+    """
+    if not league_faab_summary or league_budget <= 0:
+        return None
+    try:
+        total_bids = int(league_faab_summary.get("totalBidsAnalyzed") or 0)
+    except (TypeError, ValueError):
+        total_bids = 0
+    if total_bids < _ENV_MIN_BIDS_ANALYZED:
+        return None
+    median = league_faab_summary.get("leagueMedianWinningBid")
+    if not isinstance(median, (int, float)) or median <= 0:
+        return None
+    # Position calibration takes precedence — see docstring.
+    if position:
+        pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
+        try:
+            pos_count = int(pos_bids.get("count") or 0)
+        except (TypeError, ValueError):
+            pos_count = 0
+        if pos_count >= _POSITION_CALIBRATION_MIN_COUNT:
+            return None
+    share = float(median) / float(league_budget)
+    lo, hi = _ENV_SCALE_CLAMP
+    return max(lo, min(hi, share / _ENV_SCALE_TARGET_SHARE))
 
 
 def _ktc_crowd_blend(
@@ -153,11 +271,27 @@ def recommend_faab(
     ktc_crowd_bids: dict[str, Any] | None = None,
     league_budget: int = 100,
     top_value_in_pool: float | None = None,
+    contention: dict[str, Any] | None = None,
+    next_best_fa_value: float | None = None,
 ) -> dict[str, Any]:
     """Recommend a FAAB bid for a single add/drop pair.
 
     All inputs are keyword-only so callers can pass exactly what
     they have; missing inputs degrade confidence rather than crash.
+
+    FAAB v2 (contention-aware) inputs — both optional, both
+    additive to the original behavior:
+
+    ``contention``
+        Output of ``src.trade.faab_contention.estimate_rival_bids``
+        (needs ``clearing`` + ``topRival``).  Sealed first-price
+        auction policy: raise the standard bid to the projected
+        clearing price, never above the player's value ceiling.
+    ``next_best_fa_value``
+        Value of the next-best same-position free agent — powers
+        the replaceability gate.  ``dropoff = (add − next_best) ÷
+        add``; below ``_DROPOFF_GATE`` the clearing price is NOT
+        chased (a replaceable player only merits a value bid).
 
     Returns a dict with::
         {
@@ -287,6 +421,87 @@ def recommend_faab(
                 )
             )
 
+    # 4c. Budget-environment scaling (FAAB v2).  Hot-bidding leagues
+    # (median winning bid a big share of budget) get scaled up, cold
+    # leagues down — but ONLY when the per-position calibration did
+    # not already anchor the bid to league prices (double-count
+    # guard, see _env_scale_factor).
+    env = _env_scale_factor(league_faab_summary, add_player_position, int(league_budget))
+    if env is not None and standard > 0 and abs(env - 1.0) > 1e-9:
+        standard = max(0, round(standard * env))
+        factors.append(
+            _Factor(
+                label="Budget environment",
+                contribution=f"×{env:.2f}",
+                weight=0.10,
+            )
+        )
+
+    # 4d. Contention clearing (FAAB v2).  Sealed first-price auction
+    # policy: bid the minimum that clears the projected top rival —
+    # never above the player's own value ceiling.
+    if isinstance(contention, dict) and standard > 0:
+        clearing_raw = contention.get("clearing")
+        if isinstance(clearing_raw, (int, float)) and clearing_raw > 0:
+            dropoff: float | None = None
+            if next_best_fa_value is not None and add_player_value > 0:
+                dropoff = max(
+                    0.0,
+                    (float(add_player_value) - max(0.0, float(next_best_fa_value)))
+                    / float(add_player_value),
+                )
+            if dropoff is not None and dropoff < _DROPOFF_GATE:
+                # Replaceability gate: the next-best FA is close —
+                # chasing a clearing price on a replaceable player
+                # is how budgets die.  Value bid only.
+                factors.append(
+                    _Factor(
+                        label="Replaceable at position",
+                        contribution=(
+                            f"dropoff {dropoff:.0%} < {_DROPOFF_GATE:.0%} — value bid only"
+                        ),
+                        weight=0.15,
+                    )
+                )
+            else:
+                d = max(0.0, min(_CEILING_DROPOFF_CLAMP, dropoff if dropoff is not None else 0.0))
+                pre_aggressive = max(0, round(standard * 1.40))
+                ceiling = round(pre_aggressive * (1.0 + _CEILING_DROPOFF_SCALE * d))
+                clearing = int(round(float(clearing_raw)))
+                if clearing <= standard:
+                    factors.append(
+                        _Factor(
+                            label="Rival contention",
+                            contribution=(
+                                f"value bid already clears projected top rival "
+                                f"(${int(contention.get('topRival') or (clearing - 1))})"
+                            ),
+                            weight=0.15,
+                        )
+                    )
+                elif clearing <= ceiling:
+                    factors.append(
+                        _Factor(
+                            label="Rival contention",
+                            contribution=f"+${clearing - standard} to clear top rival",
+                            weight=0.15,
+                        )
+                    )
+                    standard = clearing
+                else:
+                    warnings.append(
+                        f"Likely outbid — projected clearing price ${clearing} "
+                        f"exceeds this player's value ceiling ${ceiling}."
+                    )
+                    factors.append(
+                        _Factor(
+                            label="Rival contention",
+                            contribution=f"stopped at value ceiling ${ceiling}",
+                            weight=0.15,
+                        )
+                    )
+                    standard = max(standard, ceiling)
+
     # 5. Marginal-upgrade floor: when the swap is even or negative,
     # bidding more than $1-$2 over reasonable_base is rarely worth
     # it.  We let the user see ``standard`` come down to $1 (a
@@ -294,8 +509,7 @@ def recommend_faab(
     # treats $0 as a bid which still gets contested.
     if drop_player_value > 0 and add_player_value <= drop_player_value:
         warnings.append(
-            "This is a marginal upgrade — your drop is worth as much "
-            "as your add.  Don't overspend."
+            "This is a marginal upgrade — your drop is worth as much as your add.  Don't overspend."
         )
         standard = min(standard, max(1, round(reasonable_base * 0.5)))
 
@@ -326,25 +540,26 @@ def recommend_faab(
     aggressive = max(0, min(cap_source, round(standard * 1.40)))
     max_bid = cap_source
 
+    # Budget pacing (FAAB v2): flag any bid that eats more than 40%
+    # of the remaining budget so the user consciously accepts the
+    # season-long tradeoff.
+    if standard > 0 and cap_source > 0 and standard > _PACING_WARN_SHARE * cap_source:
+        warnings.append(
+            f"Pacing: this bid is over {int(_PACING_WARN_SHARE * 100)}% of the "
+            f"remaining budget (${cap_source})."
+        )
+
     # Confidence: counts non-missing factors, weighted.
-    total_weight = sum(f.weight for f in factors)
-    realized_weight = sum(f.weight for f in factors if not f.missing)
-    realized_share = (realized_weight / total_weight) if total_weight > 0 else 0.0
-    if realized_share >= 0.85:
-        confidence = "high"
-    elif realized_share >= 0.55:
-        confidence = "medium"
-    else:
-        confidence = "low"
+    confidence = compute_confidence(factors)
 
     # Plain-English summary of the recommendation.
     if standard == 0:
         explanation = (
-            "We don't recommend bidding on this swap — the drop is " "worth more than the add."
+            "We don't recommend bidding on this swap — the drop is worth more than the add."
         )
     elif standard <= 2:
         explanation = (
-            f"Token bid (${standard}).  Marginal upgrade or low " "league budget — keep it cheap."
+            f"Token bid (${standard}).  Marginal upgrade or low league budget — keep it cheap."
         )
     elif drop_player_value > 0:
         net = add_player_value - drop_player_value

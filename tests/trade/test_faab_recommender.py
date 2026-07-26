@@ -12,7 +12,7 @@ explanation copy.
 
 from __future__ import annotations
 
-from src.trade.faab_recommender import recommend_faab
+from src.trade.faab_recommender import compute_confidence, recommend_faab
 
 
 # ── Baseline (fewest inputs) ────────────────────────────────────
@@ -280,7 +280,209 @@ def test_no_inputs_returns_low_confidence():
     assert out["confidence"] == "low"
 
 
+def test_compute_confidence_accepts_serialized_dict_rows():
+    """The endpoint appends dict-shaped factor rows AFTER the
+    recommendation and recomputes the bucket — the helper must read
+    both _Factor objects and the serialized dict shape."""
+    assert (
+        compute_confidence([{"weight": 0.9, "missing": False}, {"weight": 0.1, "missing": True}])
+        == "high"
+    )
+    assert (
+        compute_confidence([{"weight": 0.5, "missing": False}, {"weight": 0.5, "missing": True}])
+        == "low"
+    )
+    # Recomputing over a real response's factors matches the stamp.
+    out = recommend_faab(add_player_value=4000)
+    assert compute_confidence(out["factors"]) == out["confidence"]
+
+
 # ── Explanation copy ────────────────────────────────────────────
+
+
+# ── FAAB v2: contention clearing ────────────────────────────────
+
+
+def _baseline_v1(**overrides):
+    """The pre-contention value bid for a 4000-value FA in a $100
+    league (standard = $21 with these inputs)."""
+    kwargs = dict(add_player_value=4000, league_budget=100)
+    kwargs.update(overrides)
+    return recommend_faab(**kwargs)
+
+
+def test_contention_raises_to_clearing_price():
+    base = _baseline_v1()
+    out = _baseline_v1(
+        contention={"clearing": base["standard"] + 4, "topRival": base["standard"] + 3},
+        next_best_fa_value=0.0,  # irreplaceable — dropoff 100%
+    )
+    assert out["standard"] == base["standard"] + 4
+    factor = next(
+        (f for f in out["factors"] if f["label"] == "Rival contention"),
+        None,
+    )
+    assert factor is not None
+    assert "clear top rival" in factor["contribution"]
+
+
+def test_contention_already_cleared_keeps_value_bid():
+    base = _baseline_v1()
+    out = _baseline_v1(
+        contention={"clearing": base["standard"] - 5, "topRival": base["standard"] - 6},
+        next_best_fa_value=0.0,
+    )
+    assert out["standard"] == base["standard"]
+    factor = next(
+        (f for f in out["factors"] if f["label"] == "Rival contention"),
+        None,
+    )
+    assert factor is not None
+    assert "already clears" in factor["contribution"]
+
+
+def test_contention_stops_at_value_ceiling_with_warning():
+    """Projected clearing far above the value ceiling ⇒ stop at the
+    ceiling + 'likely outbid' warning — never chase past value."""
+    base = _baseline_v1()
+    # Ceiling for a fully-irreplaceable player: aggressive(=1.4×std)
+    # × 1.25 ⇒ std 21 → ceiling 36.  Clearing $80 blows past it.
+    out = _baseline_v1(
+        contention={"clearing": 80, "topRival": 79},
+        next_best_fa_value=0.0,
+    )
+    expected_ceiling = round(round(base["standard"] * 1.40) * 1.25)
+    assert out["standard"] == expected_ceiling
+    assert out["standard"] < 80
+    assert any("Likely outbid" in w for w in out["warnings"])
+
+
+def test_dropoff_gate_blocks_clearing_chase_for_replaceable_player():
+    """Next-best same-position FA within 15% ⇒ value bid only —
+    the clearing price is NOT chased."""
+    base = _baseline_v1()
+    out = _baseline_v1(
+        contention={"clearing": base["standard"] + 10, "topRival": base["standard"] + 9},
+        next_best_fa_value=3800.0,  # dropoff 5% < 15% gate
+    )
+    assert out["standard"] == base["standard"]
+    factor = next(
+        (f for f in out["factors"] if f["label"] == "Replaceable at position"),
+        None,
+    )
+    assert factor is not None
+    assert "value bid only" in factor["contribution"]
+
+
+def test_no_contention_input_is_pure_backward_compat():
+    """Omitting the new kwargs reproduces v1 output exactly."""
+    v1 = _baseline_v1()
+    v2 = _baseline_v1(contention=None, next_best_fa_value=None)
+    assert v1 == v2
+
+
+# ── FAAB v2: budget-environment scaling ─────────────────────────
+
+
+def test_env_scale_applies_in_hot_league_without_position_data():
+    """Median winning bid 16% of budget (2× the 8% target) in a
+    league with enough analyzed bids and NO per-position history ⇒
+    scale up (clamped at 1.6)."""
+    cold = recommend_faab(add_player_value=4000, league_budget=100)
+    hot = recommend_faab(
+        add_player_value=4000,
+        add_player_position="WR",
+        league_budget=100,
+        league_faab_summary={
+            "leagueMedianWinningBid": 16.0,
+            "totalBidsAnalyzed": 20,
+            "positionBids": {},
+        },
+    )
+    assert hot["standard"] == round(cold["standard"] * 1.6)
+    factor = next(
+        (f for f in hot["factors"] if f["label"] == "Budget environment"),
+        None,
+    )
+    assert factor is not None
+
+
+def test_env_scale_requires_ten_analyzed_bids():
+    out = recommend_faab(
+        add_player_value=4000,
+        add_player_position="WR",
+        league_budget=100,
+        league_faab_summary={
+            "leagueMedianWinningBid": 16.0,
+            "totalBidsAnalyzed": 9,  # below the floor
+            "positionBids": {},
+        },
+    )
+    assert not any(f["label"] == "Budget environment" for f in out["factors"])
+
+
+def test_env_scale_skipped_when_position_calibration_applied():
+    """REGRESSION (review-caught double-count bug): when
+    positionBids[pos].count ≥ 3 the position calibration already
+    anchors the bid to league prices — env scaling must NOT stack
+    on top."""
+    out = recommend_faab(
+        add_player_value=4000,
+        add_player_position="WR",
+        league_budget=100,
+        league_faab_summary={
+            "leagueMedianWinningBid": 16.0,
+            "totalBidsAnalyzed": 20,
+            "positionBids": {
+                "WR": {"avg": 30.0, "count": 10, "min": 5, "max": 60},
+            },
+        },
+    )
+    assert not any(f["label"] == "Budget environment" for f in out["factors"])
+    # The position calibration DID fire instead.
+    assert any(
+        f["label"].lower().startswith("league historical") and not f["missing"]
+        for f in out["factors"]
+    )
+
+
+def test_env_scale_clamps_cold_league_at_floor():
+    out = recommend_faab(
+        add_player_value=4000,
+        add_player_position="WR",
+        league_budget=100,
+        league_faab_summary={
+            "leagueMedianWinningBid": 1.0,  # 1% of budget → ratio 0.125 → clamp 0.6
+            "totalBidsAnalyzed": 20,
+            "positionBids": {},
+        },
+    )
+    cold = recommend_faab(add_player_value=4000, league_budget=100)
+    assert out["standard"] == round(cold["standard"] * 0.6)
+
+
+# ── FAAB v2: pacing warning ─────────────────────────────────────
+
+
+def test_pacing_warning_when_bid_exceeds_forty_pct_of_budget():
+    out = recommend_faab(
+        add_player_value=8000,
+        drop_player_value=1000,
+        team_faab_remaining=50,
+        league_budget=100,
+    )
+    assert out["standard"] > 0.40 * 50  # precondition for the assert below
+    assert any(w.startswith("Pacing:") for w in out["warnings"])
+
+
+def test_no_pacing_warning_for_small_bids():
+    out = recommend_faab(
+        add_player_value=1000,
+        team_faab_remaining=100,
+        league_budget=100,
+    )
+    assert out["standard"] <= 0.40 * 100
+    assert not any(w.startswith("Pacing:") for w in out["warnings"])
 
 
 def test_explanation_present_for_every_branch():
