@@ -1012,6 +1012,13 @@ function _materializePlayerArrayRow(player) {
 
   return {
     name,
+    // Stable Sleeper id for ID-first ownership resolution.  Backend
+    // playersArray rows and mergeRankingsDelta-synthesized rows carry
+    // it as ``playerId``; ``_sleeperId`` covers any legacy-shaped row
+    // routed through this materializer (Codex rounds 5+7 on PR #535;
+    // keep in lockstep with the legacy materializer + override
+    // synthesis).
+    playerId: String(player.playerId || player._sleeperId || "").trim() || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
@@ -1109,6 +1116,10 @@ function _materializePlayerArrayRow(player) {
     // to sourceOriginalRanks; keep both materializers in lockstep).
     sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
       ? player.sourceNativeValues : {},
+    // NFL years of experience (0 = rookie) — drives the experience
+    // filter; null when the Sleeper blob never matched this player.
+    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1151,10 +1162,22 @@ function _materializeLegacyDictRow(name, player, posMap) {
 
   return {
     name,
+    // Stable Sleeper id, materialized so ID-first ownership
+    // resolution works on the DEFAULT view=app path too — the legacy
+    // dict carries it as _sleeperId only (Codex round 5 on PR #535;
+    // keep in lockstep with the playersArray materializer + override
+    // synthesis).
+    playerId: String(player._sleeperId || "").trim() || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
-    rookie: Boolean(player._formatFitRookie),
+    // Combine BOTH upstream rookie signals like the contract row
+    // builder does (_formatFitRookie = format-fit pass, _isRookie =
+    // scraper's zero-experience flag) — the live export has rookies
+    // carrying only _isRookie, so reading one signal alone made
+    // rookie filters exclude every actual rookie on the view=app
+    // path (Codex round 4 on PR #535).
+    rookie: Boolean(player._formatFitRookie || player._isRookie || player.rookie),
     assetClass: classifyPos(pos || "?"),
     values,
     siteCount: Number(player.sourceCount || player._sites || 0),
@@ -1194,6 +1217,10 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // to sourceOriginalRanks; keep both materializers in lockstep).
     sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
       ? player.sourceNativeValues : {},
+    // NFL years of experience (0 = rookie) — drives the experience
+    // filter; null when the Sleeper blob never matched this player.
+    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1497,12 +1524,22 @@ export function mergeRankingsDelta(baseContract, delta) {
       const row = {
         displayName: id,
         canonicalName: String(legacy.canonicalName || id),
+        // Stable Sleeper id — required by ID-first ownership
+        // resolution (player-filters resolveOwnerTeam); without it
+        // every override-synthesized row degrades to name lookup and
+        // offense/IDP name twins can inherit each other's owner
+        // (Codex round 3 on PR #535).
+        playerId: String(legacy._sleeperId || "").trim() || null,
         position: isPick
           ? "PICK"
           : String(posMap[id] || legacy.position || ""),
         team: legacy.team != null ? legacy.team : null,
         age: legacy.age != null ? legacy.age : null,
-        rookie: Boolean(legacy._formatFitRookie || legacy.rookie),
+        // Override-invariant like team/age: without this copy the
+        // experience filters return an empty board whenever a source
+        // override is active (fail-closed predicate over null).
+        yearsExp: legacy._yearsExp != null ? legacy._yearsExp : null,
+        rookie: Boolean(legacy._formatFitRookie || legacy._isRookie || legacy.rookie),
         assetClass: String(legacy.assetClass || ""),
         identityConfidence: Number(legacy.identityConfidence ?? 0.7),
         identityMethod: String(legacy.identityMethod || "name_only"),

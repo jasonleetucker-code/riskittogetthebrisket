@@ -30,6 +30,13 @@ import {
   marketAction,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
+import {
+  EXPERIENCE_BUCKETS,
+  FREE_AGENT_OWNER,
+  rowMatches,
+  teamOptions,
+} from "@/lib/player-filters";
+import { buildTeamByPlayer } from "@/lib/waiver-logic";
 import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
 import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
@@ -540,6 +547,20 @@ export default function RankingsPage() {
   const [copyStatus, setCopyStatus] = useState("");
   const [showMethodology, setShowMethodology] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
+  // Advanced filter rail (Phase 3).  ``adv`` holds raw control values
+  // (strings from inputs); the criteria object handed to rowMatches is
+  // derived in ``advCriteria`` below.
+  const [advOpen, setAdvOpen] = useState(false);
+  const [adv, setAdv] = useState({});
+  const setAdvField = useCallback((key, value) => {
+    setAdv((prev) => {
+      const next = { ...prev };
+      if (value === "" || value === false || value == null) delete next[key];
+      else next[key] = value;
+      return next;
+    });
+  }, []);
+  const clearAdv = useCallback(() => setAdv({}), []);
 
 
   const handleSort = useCallback((col) => {
@@ -647,9 +668,49 @@ export default function RankingsPage() {
   // ── Edge summary ─────────────────────────────────────────────────
   const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
 
+  // ── Advanced filters (Phase 3) ──────────────────────────────────
+  // Ownership is league-scoped while rows are scoring-profile-scoped
+  // (the CLAUDE.md split), so the owner join happens here at render
+  // time via buildTeamByPlayer — never stamped into the contract.
+  const teamByPlayer = useMemo(
+    () => buildTeamByPlayer(rawData?.sleeper?.teams || []),
+    [rawData?.sleeper?.teams],
+  );
+  const ownerOptions = useMemo(
+    () =>
+      (rawData?.sleeper?.teams || [])
+        .map((t) => String(t?.name || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [rawData?.sleeper?.teams],
+  );
+  const nflTeamOptions = useMemo(() => teamOptions(eligible), [eligible]);
+  const advCriteria = useMemo(() => {
+    const c = {};
+    const numOrNull = (v) => {
+      if (v === "" || v == null) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    if (numOrNull(adv.ageMin) != null) c.ageMin = numOrNull(adv.ageMin);
+    if (numOrNull(adv.ageMax) != null) c.ageMax = numOrNull(adv.ageMax);
+    if (adv.experience) c.experience = adv.experience;
+    if (adv.nflTeam) c.nflTeam = adv.nflTeam;
+    if (adv.ownerTeam) c.ownerTeam = adv.ownerTeam;
+    if (numOrNull(adv.rankMin) != null) c.rankMin = numOrNull(adv.rankMin);
+    if (numOrNull(adv.rankMax) != null) c.rankMax = numOrNull(adv.rankMax);
+    if (numOrNull(adv.valueMin) != null) c.valueMin = numOrNull(adv.valueMin);
+    if (numOrNull(adv.valueMax) != null) c.valueMax = numOrNull(adv.valueMax);
+    if (adv.edge) c.edge = adv.edge;
+    if (adv.rookieOnly) c.rookieOnly = true;
+    if (adv.watchlistOnly) c.watchlist = watchlistLower;
+    return c;
+  }, [adv, watchlistLower]);
+  const advActiveCount = Object.keys(advCriteria).length;
+
   // ── Filtered + sorted list ──────────────────────────────────────
   const ranked = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
 
     // Start with lens-filtered list
     let list = applyLens(eligible, activeLens);
@@ -664,8 +725,11 @@ export default function RankingsPage() {
         return r.confidenceBucket === confFilter;
       });
     }
-    if (q) {
-      list = list.filter((r) => r.name.toLowerCase().includes(q));
+    // Token search (name / NFL team / pos / owner, with owner:/team:/
+    // pos: prefixes) + the advanced criteria, one predicate pass.
+    if (q || advActiveCount > 0) {
+      const criteria = q ? { ...advCriteria, query: q } : advCriteria;
+      list = list.filter((r) => rowMatches(r, criteria, { teamByPlayer }));
     }
 
     // If lens provides its own sort and user hasn't overridden, use it
@@ -747,10 +811,11 @@ export default function RankingsPage() {
       }
     });
     return sorted;
-  }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc]);
+  }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc, advCriteria, advActiveCount, teamByPlayer]);
 
   // Apply row limit — search/filter bypasses the limit
-  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus";
+  const hasActiveFilter =
+    query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus" || advActiveCount > 0;
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
@@ -1301,7 +1366,7 @@ export default function RankingsPage() {
           <div className="filter-bar">
             <input
               className="input"
-              placeholder="Search player..."
+              placeholder="Search — name, team, pos, owner: team: pos:"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{ flex: 1, minWidth: 140 }}
@@ -1344,7 +1409,162 @@ export default function RankingsPage() {
             >
               Tiers
             </button>
+            <button
+              className={`button ${advActiveCount > 0 ? "button-primary" : ""}`}
+              onClick={() => setAdvOpen((v) => !v)}
+              title="Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist"
+              aria-expanded={advOpen}
+            >
+              Filters{advActiveCount > 0 ? ` (${advActiveCount})` : ""}
+            </button>
           </div>
+
+          {/* Advanced filter rail (Phase 3) — every criterion routes
+              through lib/player-filters.js rowMatches; owner filtering
+              joins league rosters at render time via buildTeamByPlayer
+              (rows are scoring-profile-scoped; owners are league-scoped). */}
+          {advOpen && (
+            <div
+              className="filter-bar"
+              style={{ marginTop: 6, alignItems: "center", rowGap: 6 }}
+            >
+              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                Age
+                <input
+                  className="input"
+                  type="number"
+                  min="18"
+                  max="45"
+                  placeholder="min"
+                  value={adv.ageMin ?? ""}
+                  onChange={(e) => setAdvField("ageMin", e.target.value)}
+                  style={{ width: 62 }}
+                />
+                –
+                <input
+                  className="input"
+                  type="number"
+                  min="18"
+                  max="45"
+                  placeholder="max"
+                  value={adv.ageMax ?? ""}
+                  onChange={(e) => setAdvField("ageMax", e.target.value)}
+                  style={{ width: 62 }}
+                />
+              </label>
+              <select
+                className="select"
+                value={adv.experience ?? ""}
+                onChange={(e) => setAdvField("experience", e.target.value)}
+                title="Experience"
+              >
+                <option value="">Any experience</option>
+                {EXPERIENCE_BUCKETS.map((b) => (
+                  <option key={b.key} value={b.key}>{b.label}</option>
+                ))}
+              </select>
+              <select
+                className="select"
+                value={adv.nflTeam ?? ""}
+                onChange={(e) => setAdvField("nflTeam", e.target.value)}
+                title="NFL team"
+              >
+                <option value="">Any NFL team</option>
+                {nflTeamOptions.map((t) => (
+                  <option key={t} value={t}>{t === "FA" ? "Free agent (NFL)" : t}</option>
+                ))}
+              </select>
+              {ownerOptions.length > 0 && (
+                <select
+                  className="select"
+                  value={adv.ownerTeam ?? ""}
+                  onChange={(e) => setAdvField("ownerTeam", e.target.value)}
+                  title="Fantasy owner"
+                >
+                  <option value="">Any owner</option>
+                  <option value={FREE_AGENT_OWNER}>Unrostered</option>
+                  {ownerOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
+              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                Rank
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  placeholder="min"
+                  value={adv.rankMin ?? ""}
+                  onChange={(e) => setAdvField("rankMin", e.target.value)}
+                  style={{ width: 62 }}
+                />
+                –
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  placeholder="max"
+                  value={adv.rankMax ?? ""}
+                  onChange={(e) => setAdvField("rankMax", e.target.value)}
+                  style={{ width: 62 }}
+                />
+              </label>
+              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                Value
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="min"
+                  value={adv.valueMin ?? ""}
+                  onChange={(e) => setAdvField("valueMin", e.target.value)}
+                  style={{ width: 72 }}
+                />
+                –
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="max"
+                  value={adv.valueMax ?? ""}
+                  onChange={(e) => setAdvField("valueMax", e.target.value)}
+                  style={{ width: 72 }}
+                />
+              </label>
+              <select
+                className="select"
+                value={adv.edge ?? ""}
+                onChange={(e) => setAdvField("edge", e.target.value)}
+                title="Market edge direction"
+              >
+                <option value="">Any edge</option>
+                <option value="buy">Buy edge</option>
+                <option value="sell">Sell edge</option>
+              </select>
+              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={!!adv.rookieOnly}
+                  onChange={(e) => setAdvField("rookieOnly", e.target.checked)}
+                />
+                Rookies
+              </label>
+              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={!!adv.watchlistOnly}
+                  onChange={(e) => setAdvField("watchlistOnly", e.target.checked)}
+                />
+                Watchlist
+              </label>
+              {advActiveCount > 0 && (
+                <button className="button" onClick={clearAdv} title="Clear advanced filters">
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
           <p className="muted text-xs" style={{ margin: "6px 0 0" }}>
             {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown

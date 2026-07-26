@@ -433,6 +433,8 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
             _canonicalConsensusRank: 1,
             _canonicalSiteValues: { ktc: 9999, idpTradeCalc: 9800 },
             sourceNativeValues: { fantasyCalc: 10208 },
+            _sleeperId: "4984",
+            _yearsExp: 8,
             rankDerivedValue: 9800,
             sourceRanks: { ktc: 1, idpTradeCalc: 1 },
             sourceRankMeta: {
@@ -506,6 +508,19 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
       },
     };
   }
+
+  it("carries playerId + yearsExp through synthesis (Codex round 3)", () => {
+    // Without these copies, override mode breaks ID-first ownership
+    // resolution (name-twin contamination) and the fail-closed
+    // experience filters return an empty board.
+    const merged = mergeRankingsDelta(runtimeBaseContract(), deltaKtcOff());
+    const row = merged.data.playersArray.find((r) => r.displayName === "Player A");
+    expect(row.playerId).toBe("4984");
+    expect(row.yearsExp).toBe(8);
+    const rows = buildRows(merged.data);
+    const a = rows.find((r) => r.name === "Player A");
+    expect(a.yearsExp).toBe(8);
+  });
 
   it("carries override-invariant sourceNativeValues from the legacy dict", () => {
     // The delta deliberately omits native values (they never change

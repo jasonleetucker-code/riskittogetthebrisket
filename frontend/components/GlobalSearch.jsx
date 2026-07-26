@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolvedRank } from "@/lib/dynasty-data";
+import { matchesQuery } from "@/lib/player-filters";
 
 /**
  * Global search overlay — keyboard-first player/pick finder.
  * Triggered by "/" shortcut or search icon in nav.
  *
  * Props:
- *   rows       — All player rows from buildRows()
- *   isOpen     — Whether the search overlay is visible
- *   onClose    — Callback to close
- *   onSelect   — Callback when a player is selected: (row) => void
+ *   rows         — All player rows from buildRows()
+ *   isOpen       — Whether the search overlay is visible
+ *   onClose      — Callback to close
+ *   onSelect     — Callback when a player is selected: (row) => void
+ *   teamByPlayer — optional buildTeamByPlayer index for owner: tokens
  */
-export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
+export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect, teamByPlayer = null }) {
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef(null);
@@ -29,12 +31,26 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
     }
   }, [isOpen]);
 
-  // Filter results
-  const results = query.trim().length > 0
-    ? rows
-        .filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
-        .slice(0, 30)
-    : [];
+  // Filter results — token search over name / NFL team / pos / owner
+  // (lib/player-filters.js grammar: "wr chi", "owner:jason rb").  Name
+  // matches rank first (prefix, then substring) so typing a player
+  // name never buries them under position/team matches; within each
+  // tier the incoming rank order is preserved.
+  const q = query.trim();
+  let results = [];
+  if (q.length > 0) {
+    const extras = { teamByPlayer };
+    const ql = q.toLowerCase();
+    const matched = [];
+    for (const r of rows) {
+      if (!matchesQuery(r, q, extras)) continue;
+      const name = String(r.name || "").toLowerCase();
+      const tier = name.startsWith(ql) ? 0 : name.includes(ql) ? 1 : 2;
+      matched.push([tier, matched.length, r]);
+    }
+    matched.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    results = matched.slice(0, 30).map((m) => m[2]);
+  }
 
   // Keyboard navigation
   const onKeyDown = useCallback(
@@ -93,7 +109,7 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
             ref={inputRef}
             className="input global-search-input"
             type="text"
-            placeholder="Search players and picks..."
+            placeholder="Search — name, team, pos, owner:"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
@@ -156,6 +172,10 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
         {query.trim().length === 0 && (
           <div className="muted" style={{ padding: "16px 0", textAlign: "center", fontSize: "0.78rem" }}>
             Start typing to search players and picks.
+            <br />
+            <span style={{ fontSize: "0.7rem" }}>
+              Try <code>wr chi</code>, <code>owner:jason rb</code>, <code>pos:te team:kc</code>
+            </span>
             <br />
             <span style={{ fontSize: "0.7rem" }}>
               Use <kbd style={{ padding: "1px 4px", border: "1px solid var(--border)", borderRadius: 3 }}>&uarr;</kbd>{" "}
