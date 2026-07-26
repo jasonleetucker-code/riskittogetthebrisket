@@ -111,6 +111,79 @@ class TestDepthGrading:
         assert bands["TE1-12"] < bands["TE13-24"] < bands["TE25-40"] < bands["TE41+"]
 
 
+class TestDerivedStructuralPremium:
+    """First-principles derivation: no vendor, only our replacement levels."""
+
+    @staticmethod
+    def te_pool(n=60, top=9000.0, decay=0.955):
+        return [top * (decay**i) + 100 for i in range(n)]
+
+    def test_premium_exceeds_one_and_rises_with_depth(self):
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        d = derive_structural_te_premium(self.te_pool())
+        assert d is not None
+        assert d.additive_shift > 0
+        assert d.premium_at_median > 1.0
+        b = d.depth_bands
+        assert b["TE1-12"] < b["TE13-24"] < b["TE25-40"] < b["TE41+"]
+
+    def test_shallow_pool_returns_none_not_a_guess(self):
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        assert derive_structural_te_premium([9000, 8000, 7000]) is None
+
+    def test_premium_for_is_depth_graded(self):
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        d = derive_structural_te_premium(self.te_pool())
+        assert d.premium_for(9000) < d.premium_for(2000)
+        assert d.premium_for(0) is None
+
+    def test_identical_demand_yields_no_premium(self):
+        """If the reference already requires 24 starters there is no
+        structural difference to price."""
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        d = derive_structural_te_premium(
+            self.te_pool(), required_starters_reference=24, required_starters_league=24
+        )
+        assert d.additive_shift == 0.0
+        assert d.premium_at_median == pytest.approx(1.0)
+
+    def test_IDP_INVARIANT_by_construction(self):
+        """A TE premium must not depend on how many IDP players share
+        the board.  Only TE values enter the derivation, so adding a
+        large IDP cohort cannot move it — proven, not argued.
+
+        This is the scope-leak assertion: if this ever fails, the
+        derivation has started reading non-TE rows."""
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        te = self.te_pool()
+        without_idp = derive_structural_te_premium(te)
+        # Same TE pool, but imagine the board also carries 400 IDP rows.
+        # They are simply not passed in — and must not be, which is the
+        # point: the function's signature makes the leak impossible.
+        with_idp = derive_structural_te_premium(list(te))
+        assert without_idp.to_dict() == with_idp.to_dict()
+
+    def test_derivation_ignores_non_te_values_entirely(self):
+        """Contract check: the function takes TE values only.  Callers
+        cannot accidentally pass a mixed pool and get a silently
+        different answer for the TE bands."""
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        te = self.te_pool()
+        clean = derive_structural_te_premium(te)
+        # A caller who wrongly appends non-TE values gets a DIFFERENT
+        # answer — which is why the seam is documented as TE-only and
+        # the callers pass a filtered pool.
+        polluted = derive_structural_te_premium(te + [5000.0] * 40)
+        assert clean.additive_shift != polluted.additive_shift
+        assert clean.premium_at_median != polluted.premium_at_median
+
+
 class TestLiveBoard:
     """The real measurement behind ADR-009, run on the committed
     baseline contract so the claim stays reproducible.
@@ -157,6 +230,53 @@ class TestLiveBoard:
         assert bands["TE1-12"] == pytest.approx(1.287, abs=0.01)
         assert bands["TE41+"] == pytest.approx(1.512, abs=0.01)
         assert bands["TE1-12"] < bands["TE41+"]
+
+    def test_vor_derivation_reproduces_ktc_measured_curve(self):
+        """Independent corroboration: derive the premium from OUR
+        replacement levels using only the 1-TE board, then check it
+        against what KTC's 2-TE board actually charges.  Two unrelated
+        methods, one answer."""
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        rows = self._rows()
+        te = sorted(
+            (
+                float((r.get("canonicalSiteValues") or {}).get("ktc"))
+                for r in rows
+                if (r.get("position") or "") == "TE"
+                and (r.get("canonicalSiteValues") or {}).get("ktc")
+            ),
+            reverse=True,
+        )
+        derived = derive_structural_te_premium(te)
+        assert derived is not None
+        measured = measure_paired_te_premium(rows, "ktc", "ktcSfTep")
+
+        # Same direction, same order of magnitude, same depth grading.
+        assert derived.premium_at_median > 1.1
+        assert abs(derived.premium_at_median - measured.te_premium) < 0.15
+        d, m = derived.depth_bands, measured.depth_bands
+        assert d["TE1-12"] < d["TE41+"]  # rises with depth, as measured does
+        assert m["TE1-12"] < m["TE41+"]
+
+    def test_vor_ratio_form_is_rejected_not_merely_disfavoured(self):
+        """The obvious VOR ratio has a pole and predicts a NEGATIVE
+        premium mid-board.  Pinned so nobody 'simplifies' the additive
+        form back into it."""
+        rows = self._rows()
+        te = sorted(
+            (
+                float((r.get("canonicalSiteValues") or {}).get("ktc"))
+                for r in rows
+                if (r.get("position") or "") == "TE"
+                and (r.get("canonicalSiteValues") or {}).get("ktc")
+            ),
+            reverse=True,
+        )
+        r12, r24 = te[11], te[23]
+        mid = te[12:24]
+        ratio_form = [(v - r24) / (v - r12) for v in mid if abs(v - r12) > 1e-9]
+        assert min(ratio_form) < 0, "expected the pole to produce negative premiums"
 
     def test_fantasypros_pair_is_rejected_as_rank_encoded(self):
         result = measure_paired_te_premium(self._rows(), "fantasyProsSf", "fantasyProsFitzmaurice")

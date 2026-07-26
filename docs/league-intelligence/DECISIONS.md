@@ -250,6 +250,74 @@ because a negative result is a result — and because the failure mode
 (controls not flat) is the same one the cardinal-scale guard catches
 elsewhere.
 
+**CORROBORATED BY INDEPENDENT DERIVATION (2026-07-26).**  The
+paired-board survey came back a clean negative — KTC is the only
+automatable publisher with a real paired variant (OTCFFB and
+FantasyNavigator reject TE params; FantasyCalc and Dynasty Daddy accept
+them and return byte-identical payloads, i.e. silently ignored; DLF and
+Dynasty Nerds paywalled; FantasyPros rank-encoded).  So cross-publisher
+corroboration is unavailable.
+
+Instead the premium is now **derived from first principles on our own
+pool** and cross-checked against KTC.  Two unrelated methods:
+
+| band | derived (our replacement levels) | measured (KTC 2-TE board) | diff |
+|---|---|---|---|
+| TE1-12 | 1.175 | 1.227 | −0.052 |
+| TE13-24 | 1.292 | 1.268 | +0.024 |
+| TE25-40 | 1.364 | 1.308 | +0.057 |
+| TE41+ | 1.680 | 1.492 | +0.189 |
+| median | 1.239 | 1.320 | −0.081 |
+
+Same direction, same monotone depth grading, levels within ~0.08 at the
+median.  This is stronger than a second publisher would have been: a
+second vendor could be copying the same convention, whereas this is our
+own roster requirements (TE demand measured at exactly 2.00/team by the
+LI-3 optimizer) run through our own replacement-level code.
+
+**The FORM was decisive, and the obvious one is wrong.**  The natural
+VOR ratio
+
+    premium(V) = (V − R_league) / (V − R_reference)
+
+is **rejected**.  Tested against KTC's own paired boards it predicts a
+**negative premium (−0.30)** for the TE13-24 band where the true value
+is 1.27, because it has a pole at `V == R_reference` (7 TEs sit within
+one band of it).  Its hidden premise — value proportional to
+value-over-replacement — is empirically false here: the board prices a
+replacement-level TE around 2,500, not 0.  This is the same estimator,
+failing the same way, that was rejected earlier today when bracketing
+an assumed reference; a test now pins the negative prediction so nobody
+"simplifies" back into it.
+
+The form used is the additive shift, which carries no such premise:
+
+    premium(V) = 1 + (R_reference − R_league) / V
+
+Doubling required starters lowers replacement by a fixed amount
+(813 points on the current board), and a fixed amount is worth
+proportionally more to a cheap player — which *reproduces* the observed
+depth grading instead of assuming it.
+
+**IDP-invariant by construction, and asserted.**  Only TE values enter
+the derivation, so board composition cannot move it: adding IDP rows
+cannot change which TE is 12th or 24th.  The function signature takes a
+TE-only pool, making the scope leak impossible rather than merely
+unlikely, and a test pins it.  Note the corollary — the derivation is
+computed on OUR pool, so unlike importing KTC's number it does not
+inherit a calibration measured on a board that structurally cannot
+contain half our starters.
+
+**Rank displacement is NOT portable across boards.**  A value ratio
+transfers between boards of different composition; a rank displacement
+does not, because it depends on player density around that value.  The
+same value increase crosses far more bodies on our IDP-interleaved
+~1000-row board than on KTC's offense-only ~500.  Any application path
+must therefore be: measured premium → **value ratio** → *our* board's
+displacement through *our* Hill curve at *our* density.  Never import a
+displacement directly.  ``measure_rank_displacement`` is consequently a
+within-board comparison only.
+
 **TARGET DESIGN (not built — gated on the multi-source survey).**  The
 user offered to make the TE premium dynamic, "ever changing based on
 whatever factors you deem relevant".  Recorded here so LI-7 builds

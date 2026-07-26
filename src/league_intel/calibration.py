@@ -29,15 +29,17 @@ assigned a premium by analogy — see ADR-009.
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "CARDINAL_MIN_DYNAMIC_RANGE",
     "CONTROL_POSITIONS",
     "MIN_POSITIVE_CONTROL_POWER",
+    "DerivedStructuralPremium",
     "PairedCalibration",
     "RankDisplacement",
+    "derive_structural_te_premium",
     "measure_paired_te_premium",
     "measure_rank_displacement",
 ]
@@ -344,4 +346,118 @@ def measure_rank_displacement(
         signal_ranks=signal,
         control_dispersion=dispersion,
         signal_over_sd=(signal / dispersion) if dispersion > 0 else None,
+    )
+
+
+# ── First-principles derivation from our own replacement levels ───────
+
+
+@dataclass(frozen=True)
+class DerivedStructuralPremium:
+    """TE premium derived from replacement levels, not from any vendor.
+
+    Comparable to :class:`PairedCalibration` by design so the two
+    independent routes can be diffed directly.
+    """
+
+    required_starters_reference: int
+    required_starters_league: int
+    replacement_reference: float
+    replacement_league: float
+    additive_shift: float
+    premium_at_median: float | None
+    depth_bands: dict[str, float] = field(default_factory=dict)
+    pool_size: int = 0
+    form: str = "additive_shift"
+
+    def premium_for(self, value: float) -> float | None:
+        """Depth-graded multiplier for a TE worth ``value``."""
+        if value is None or value <= 0:
+            return None
+        return 1.0 + (self.additive_shift / value)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "requiredStartersReference": self.required_starters_reference,
+            "requiredStartersLeague": self.required_starters_league,
+            "replacementReference": self.replacement_reference,
+            "replacementLeague": self.replacement_league,
+            "additiveShift": self.additive_shift,
+            "premiumAtMedian": self.premium_at_median,
+            "depthBands": dict(self.depth_bands),
+            "poolSize": self.pool_size,
+            "form": self.form,
+        }
+
+
+def derive_structural_te_premium(
+    te_values: Sequence[float],
+    *,
+    required_starters_reference: int = 12,
+    required_starters_league: int = 24,
+    band: int = 2,
+    depth_bands: tuple[tuple[str, int, int], ...] = DEFAULT_DEPTH_BANDS,
+) -> DerivedStructuralPremium | None:
+    """Derive the 2-TE structural premium from OUR pool's replacement levels.
+
+    Independent of any vendor: the only inputs are this league's TE
+    value curve and how many TE starters each calibration requires.
+
+    **Form matters more than the concept.**  The obvious VOR ratio
+
+        premium(V) = (V - R_league) / (V - R_reference)
+
+    is REJECTED.  It has a pole at ``V == R_reference`` and, tested
+    against KTC's own paired boards, predicts a **negative** premium
+    (-0.30) for the TE13-24 band where the true value is 1.27.  Its
+    hidden premise — that value is proportional to value-over-
+    replacement — is empirically false for these boards: a
+    replacement-level TE is priced around 2,500, not 0.
+
+    The additive-shift form used here carries no such premise:
+
+        premium(V) = 1 + (R_reference - R_league) / V
+
+    Doubling required starters pushes replacement down by a fixed
+    amount, and that fixed amount is worth proportionally more to a
+    cheap player than a expensive one — which reproduces the observed
+    depth grading rather than assuming it.
+
+    **IDP-invariant by construction.**  Only TE values enter.  Adding
+    or removing IDP players cannot change which TE is 12th or 24th, so
+    the premium is unaffected by board composition — provable, not
+    assumed, and pinned by test.
+
+    Returns ``None`` when the pool is too shallow to locate both
+    replacement levels.
+    """
+    values = sorted((float(v) for v in te_values if v and float(v) > 0), reverse=True)
+    if len(values) < max(required_starters_league, required_starters_reference) + band:
+        return None
+
+    def banded(rank: int) -> float:
+        idx = min(max(1, rank), len(values)) - 1
+        lo, hi = max(0, idx - band), min(len(values), idx + band + 1)
+        return statistics.fmean(values[lo:hi])
+
+    r_ref = banded(required_starters_reference)
+    r_league = banded(required_starters_league)
+    shift = r_ref - r_league
+
+    bands: dict[str, float] = {}
+    for label, lo, hi in depth_bands:
+        chunk = values[lo:hi]
+        if chunk:
+            bands[label] = statistics.median(1.0 + (shift / v) for v in chunk)
+
+    median_value = statistics.median(values[:required_starters_league])
+    return DerivedStructuralPremium(
+        required_starters_reference=required_starters_reference,
+        required_starters_league=required_starters_league,
+        replacement_reference=r_ref,
+        replacement_league=r_league,
+        additive_shift=shift,
+        premium_at_median=(1.0 + shift / median_value) if median_value > 0 else None,
+        depth_bands=bands,
+        pool_size=len(values),
     )
