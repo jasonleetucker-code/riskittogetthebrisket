@@ -34,13 +34,31 @@ Impact = Literal["positive", "negative", "neutral"]
 
 @dataclass(frozen=True)
 class PlayerMention:
-    """Single player reference attached to a news item."""
+    """Single player reference attached to a news item.
+
+    ``position`` and ``team`` are additive, nullable identity
+    discriminators: mentions are tagged from the live contract's
+    display names, and the service layer stamps the matched row's
+    position + NFL team onto each mention
+    (``NewsService._enrich_player_mentions``) so name-collision
+    players (CJ Allen the LB vs C.J. Allen the WR) can be told apart
+    downstream.  ``team`` stays ``None`` when the contract row has no
+    team stamp; providers may also pre-fill these when their upstream
+    already knows (the enricher never overwrites non-null values).
+    """
 
     name: str
     impact: Impact = "neutral"
+    position: Optional[str] = None
+    team: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "impact": self.impact}
+        return {
+            "name": self.name,
+            "impact": self.impact,
+            "position": self.position,
+            "team": self.team,
+        }
 
 
 @dataclass(frozen=True)

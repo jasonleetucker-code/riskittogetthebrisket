@@ -145,6 +145,75 @@ def test_sort_alerts_float_above_info():
     assert [i.id for i in out.items] == ["b-alert", "c-watch", "a-info"]
 
 
+def test_mention_enrichment_stamps_position_and_team():
+    """The service stamps identity discriminators from the live
+    contract onto tagged mentions — the exact display name that
+    matched attributes the mention to the specific row, including
+    name-collision pairs whose display strings differ (CJ Allen the
+    LB vs C.J. Allen the WR)."""
+    provider = _StaticProvider(
+        items=[
+            _item("wr-1", players=[PlayerMention(name="C.J. Allen")]),
+            _item("lb-1", players=[PlayerMention(name="CJ Allen")]),
+            _item("plain-1", players=[PlayerMention(name="Mystery Man")]),
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    out = svc.aggregate(
+        player_meta={
+            "C.J. Allen": {"position": "WR", "team": "ATL"},
+            # Team sparsely populated until the next scrape cycle —
+            # stamp what's available, null otherwise.
+            "CJ Allen": {"position": "LB", "team": None},
+        }
+    )
+    by_id = {i.id: i for i in out.items}
+    wr = by_id["wr-1"].players[0]
+    assert (wr.position, wr.team) == ("WR", "ATL")
+    lb = by_id["lb-1"].players[0]
+    assert (lb.position, lb.team) == ("LB", None)
+    # Unknown names stay name-only.
+    plain = by_id["plain-1"].players[0]
+    assert (plain.position, plain.team) == (None, None)
+
+    # The serialized payload carries the fields end-to-end.
+    payload = out.to_dict()
+    serialized = {i["id"]: i for i in payload["items"]}
+    assert serialized["wr-1"]["players"][0]["position"] == "WR"
+    assert serialized["wr-1"]["players"][0]["team"] == "ATL"
+    assert serialized["plain-1"]["players"][0]["position"] is None
+
+
+def test_mention_enrichment_never_overwrites_provider_stamps():
+    """A provider whose upstream already knows the identity keeps
+    its own stamp — enrichment only fills name-only mentions."""
+    provider = _StaticProvider(
+        items=[
+            _item(
+                "pre-1",
+                players=[PlayerMention(name="C.J. Allen", position="WR", team="ATL")],
+            )
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    out = svc.aggregate(player_meta={"C.J. Allen": {"position": "LB", "team": "TEN"}})
+    m = out.items[0].players[0]
+    assert (m.position, m.team) == ("WR", "ATL")
+
+
+def test_mention_enrichment_survives_the_cache():
+    """The cached base stores ENRICHED mentions, so whichever caller
+    warms the cache, later cache hits still carry identity stamps."""
+    clock = {"t": 1000.0}
+    provider = _StaticProvider(items=[_item("a-1", players=[PlayerMention(name="CJ Allen")])])
+    svc = NewsService([provider], cache_ttl_s=60, clock=lambda: clock["t"])
+    svc.aggregate(player_meta={"CJ Allen": {"position": "LB", "team": None}})
+    clock["t"] += 30
+    hit = svc.aggregate()  # cache hit without meta
+    assert hit.cache_hit is True
+    assert hit.items[0].players[0].position == "LB"
+
+
 def test_team_filters_share_one_cached_fetch():
     """Public-endpoint hardening (Codex P2): the repeatable ``?team=``
     param is caller-controlled, so it must NOT participate in the

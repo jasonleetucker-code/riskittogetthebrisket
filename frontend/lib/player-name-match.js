@@ -163,13 +163,24 @@ export function buildNewsIndexByPlayer(items) {
  *
  * Name collisions (the repo documents CJ Allen the LB vs C.J. Allen
  * the WR in ``src/utils/name_clean.py``) share one index key, so an
- * optional ``context`` — ``{ position/family, team }`` from the
- * requesting row — disambiguates: items whose mention carries
- * metadata that CONTRADICTS the context (position-family mismatch,
- * or team mismatch when both sides know the team) are dropped.
- * Name-only mentions (the backend's current tagging) can't be
- * attributed to either identity, so they are KEPT for both — the
- * documented fallback; over-filtering would lose real news.
+ * optional ``context`` from the requesting row disambiguates:
+ *
+ * * ``{ position/family, team }`` — items whose mention carries
+ *   identity metadata (the backend stamps position/team onto
+ *   mentions at aggregation time) that CONTRADICTS the context are
+ *   dropped.
+ * * ``{ playerMeta }`` — the ``news-filters`` meta index over the
+ *   live pool.  When it shows the normalized key maps to MULTIPLE
+ *   distinct pool players, a name-only mention is AMBIGUOUS and is
+ *   suppressed from this per-player surface.  Tradeoff, on purpose:
+ *   for ambiguous names, a false negative on a player page beats
+ *   attributing another player's news — the item stays visible in
+ *   the general feeds (News tab, activity), which don't filter
+ *   per-player.
+ *
+ * Name-only mentions for UNAMBIGUOUS names are always kept — with a
+ * single pool identity there's nothing to misattribute, and
+ * over-filtering would lose real news.
  */
 export function lookupPlayerNews(index, name, context) {
   if (!(index instanceof Map)) return [];
@@ -178,10 +189,18 @@ export function lookupPlayerNews(index, name, context) {
   const items = index.get(key) || [];
   const family = positionFamily(context?.family || context?.position);
   const team = String(context?.team || "").toUpperCase().trim();
-  if (!family && !team) return items;
+  const metaIndex =
+    context?.playerMeta instanceof Map ? context.playerMeta : null;
+  const candidates = metaIndex ? metaIndex.get(key) : null;
+  const ambiguous = Array.isArray(candidates) && candidates.length > 1;
+  if (!family && !team && !ambiguous) return items;
   return items.filter((item) => {
     const meta = mentionMetaFor(item, key);
-    if (!meta) return true; // name-only tag — documented fallback
+    if (!meta) {
+      // Name-only mention: keep only when the live pool has a single
+      // identity behind this key (see the tradeoff note above).
+      return !ambiguous;
+    }
     if (meta.family && family && meta.family !== family) return false;
     if (meta.team && team && meta.team !== team) return false;
     return true;

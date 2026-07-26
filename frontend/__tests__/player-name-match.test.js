@@ -5,6 +5,7 @@ import {
   lookupPlayerNews,
   newsItemsForPlayer,
 } from "@/lib/player-name-match";
+import { buildPlayerMetaIndex } from "@/lib/news-filters";
 
 describe("normalizePlayerNameKey", () => {
   it("mirrors the backend normalize_player_name cases", () => {
@@ -200,5 +201,69 @@ describe("lookupPlayerNews — collision disambiguation via row context", () => 
         team: "ATL",
       }).map((i) => i.id),
     ).toEqual(["wr1", "plain1"]);
+  });
+});
+
+describe("lookupPlayerNews — ambiguity suppression via the pool meta index", () => {
+  // Live pool contains BOTH identities behind "cj allen", plus a
+  // unique name for the contrast case.
+  const POOL_META = buildPlayerMetaIndex([
+    { name: "CJ Allen", pos: "LB", raw: { team: "TEN" } },
+    { name: "C.J. Allen", pos: "WR", raw: { team: "ATL" } },
+    { name: "Bijan Robinson", pos: "RB", raw: { team: "ATL" } },
+  ]);
+  const index = buildNewsIndexByPlayer(COLLISION_ITEMS);
+
+  it("suppresses AMBIGUOUS name-only items from both player pages", () => {
+    // Tradeoff, on purpose: with two distinct pool identities behind
+    // the key and no mention metadata, a false negative on a player
+    // page beats attributing the other player's news.
+    const wr = lookupPlayerNews(index, "C.J. Allen", {
+      position: "WR",
+      team: "ATL",
+      playerMeta: POOL_META,
+    });
+    expect(wr.map((i) => i.id)).toEqual(["wr1"]);
+    const lb = lookupPlayerNews(index, "CJ Allen", {
+      position: "LB",
+      team: "TEN",
+      playerMeta: POOL_META,
+    });
+    expect(lb.map((i) => i.id)).toEqual(["lb1"]);
+  });
+
+  it("enriched mentions still resolve end-to-end under ambiguity", () => {
+    // The backend stamps position/team at aggregation time — those
+    // items keep flowing to exactly the right identity.
+    const wr = lookupPlayerNews(index, "C.J. Allen", {
+      position: "WR",
+      playerMeta: POOL_META,
+    });
+    expect(wr.map((i) => i.id)).toEqual(["wr1"]);
+  });
+
+  it("keeps name-only items for UNAMBIGUOUS names", () => {
+    const idx = buildNewsIndexByPlayer([
+      {
+        id: "u1",
+        ts: "2026-07-24T10:00:00+00:00",
+        headline: "Unique-name note",
+        players: [{ name: "Bijan Robinson" }],
+      },
+    ]);
+    const items = lookupPlayerNews(idx, "Bijan Robinson", {
+      position: "RB",
+      team: "ATL",
+      playerMeta: POOL_META,
+    });
+    expect(items.map((i) => i.id)).toEqual(["u1"]);
+  });
+
+  it("general feeds (no per-player context) still see ambiguous items", () => {
+    // Suppression is scoped to per-player surfaces — an uncontexted
+    // lookup (or the raw feed) keeps the item visible.
+    expect(lookupPlayerNews(index, "CJ Allen").map((i) => i.id)).toContain(
+      "plain1",
+    );
   });
 });

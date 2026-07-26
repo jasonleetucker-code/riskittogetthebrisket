@@ -433,6 +433,48 @@ def _live_player_names() -> list[str]:
     return names
 
 
+def _live_player_meta() -> dict[str, dict[str, str | None]]:
+    """Map exact contract display names → {position, team}.
+
+    The news service stamps these identity discriminators onto
+    tagged mentions (``NewsService._enrich_player_mentions``) so
+    name-collision players (CJ Allen the LB vs C.J. Allen the WR)
+    can be told apart on per-player surfaces.  ``team`` is sparsely
+    populated until the next scrape cycle — null when absent;
+    position is always available on contract rows.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    meta: dict[str, dict[str, str | None]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = ""
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                name = v.strip()
+                break
+        if not name:
+            continue
+        position = row.get("position")
+        team = row.get("team")
+        entry = {
+            "position": position.strip() if isinstance(position, str) and position.strip() else None,
+            "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+        }
+        prior = meta.get(name)
+        if prior is None:
+            meta[name] = entry
+        elif prior != entry:
+            # Two contract rows share the EXACT display string with
+            # different identities — an exact-name lookup can't
+            # attribute a mention safely, so stamp nothing rather
+            # than the wrong player's identity.
+            meta[name] = {"position": None, "team": None}
+    return meta
+
+
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -4017,6 +4059,7 @@ async def get_news(request: Request):
             svc.aggregate,
             player_names=_live_player_names(),
             team_names=team_names or None,
+            player_meta=_live_player_meta(),
         )
     except Exception as exc:
         log.warning("/api/news aggregation failed: %s", exc)
@@ -8398,6 +8441,7 @@ async def get_terminal(request: Request):
                 lambda: _get_news_service(),
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
+                player_meta=_live_player_meta(),
             ),
             user_state=user_state,
             public_mode=not authed,

@@ -9,6 +9,7 @@ import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useApp } from "@/components/AppShell";
 import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
+import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { timeAgo } from "@/lib/news-service";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
@@ -211,13 +212,21 @@ const _POPUP_NEWS_LIMIT = 5;
 
 function PlayerNewsSection({ playerName, position, team }) {
   const { byPlayer } = useNews();
-  // Row context disambiguates name-collision players (CJ Allen LB vs
-  // C.J. Allen WR) when an item's mention carries position/team
-  // metadata; name-only items still show for both (documented
-  // fallback in lookupPlayerNews).
+  const { rows: liveRows } = useApp();
+  // Live-pool meta index: name-only items for a name that is
+  // AMBIGUOUS in the pool (CJ Allen LB vs C.J. Allen WR) are
+  // suppressed here rather than shown on the wrong player's popup;
+  // mentions carrying backend-stamped position/team resolve to the
+  // right identity instead.
+  const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(liveRows), [liveRows]);
   const items = useMemo(
-    () => lookupPlayerNews(byPlayer, playerName, { position, team }),
-    [byPlayer, playerName, position, team],
+    () =>
+      lookupPlayerNews(byPlayer, playerName, {
+        position,
+        team,
+        playerMeta: newsPlayerMeta,
+      }),
+    [byPlayer, playerName, position, team, newsPlayerMeta],
   );
   if (!items.length) return null;
   return (

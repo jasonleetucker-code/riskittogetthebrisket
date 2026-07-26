@@ -1155,18 +1155,22 @@ def gather_news_items(
     news_service_factory: Callable[[], Any],
     live_names: list[str] | None,
     team_name: str | None,
+    player_meta: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Pull raw news items through the existing NewsService aggregator.
 
     Failure is non-fatal — the terminal payload still renders without
     news.  Service lookup is lazy so tests can pass a factory that
-    returns a stub.
+    returns a stub.  ``player_meta`` (display name → {position, team})
+    is forwarded so mention enrichment happens regardless of whether
+    the route or the terminal warms the shared cache.
     """
     try:
         svc = news_service_factory()
         aggregated = svc.aggregate(
             player_names=live_names or [],
             team_names=[team_name] if team_name else None,
+            player_meta=player_meta,
         )
     except Exception:
         return []

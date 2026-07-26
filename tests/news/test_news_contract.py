@@ -48,7 +48,13 @@ def test_to_dict_preserves_legacy_fields():
     ):
         assert key in item, f"missing legacy field: {key}"
     assert item["providerLabel"] == "ESPN"
-    assert item["players"] == [{"name": "Bijan Robinson", "impact": "negative"}]
+    # ``position``/``team`` are additive nullable identity fields
+    # (stamped by the service's mention enrichment when the live
+    # contract knows the player) — null here because this mention
+    # was built name-only.
+    assert item["players"] == [
+        {"name": "Bijan Robinson", "impact": "negative", "position": None, "team": None}
+    ]
 
 
 def test_to_dict_includes_enriched_aliases():

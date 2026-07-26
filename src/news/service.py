@@ -30,9 +30,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Optional, Sequence
+from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from .base import NewsItem, NewsProvider
 from .providers import available_provider_names, build_provider
@@ -135,6 +135,55 @@ def _sort_items(items: List[NewsItem]) -> List[NewsItem]:
     return sorted(items, key=key, reverse=True)
 
 
+def _enrich_player_mentions(
+    items: Sequence[NewsItem],
+    player_meta: Optional[Mapping[str, Mapping[str, Any]]],
+) -> List[NewsItem]:
+    """Stamp position/team from the live contract onto mentions.
+
+    ``player_meta`` maps EXACT contract display names to
+    ``{"position": ..., "team": ...}``.  Mentions are tagged from
+    those same display names (every provider matches against the
+    known-names list the route derives from the contract), so an
+    exact-name lookup attributes each mention to the specific row
+    that produced it — including name-collision pairs whose display
+    strings differ ("CJ Allen" the LB vs "C.J. Allen" the WR).
+
+    One central pass covers every provider (RSS, Sleeper, PFK)
+    without touching their taggers.  Mentions that already carry
+    position/team (a provider whose upstream knows) are left alone;
+    unknown names and null metadata stay name-only.  ``team`` is
+    sparsely populated in the contract until the next scrape cycle —
+    stamp what's available, null otherwise.
+    """
+    if not player_meta:
+        return list(items)
+    out: List[NewsItem] = []
+    for item in items:
+        if not item.players:
+            out.append(item)
+            continue
+        changed = False
+        mentions: List[Any] = []
+        for m in item.players:
+            if m.position or m.team:
+                mentions.append(m)
+                continue
+            meta = player_meta.get(m.name)
+            if not isinstance(meta, Mapping):
+                mentions.append(m)
+                continue
+            position = meta.get("position") or None
+            team = meta.get("team") or None
+            if position or team:
+                mentions.append(replace(m, position=position, team=team))
+                changed = True
+            else:
+                mentions.append(m)
+        out.append(replace(item, players=mentions) if changed else item)
+    return out
+
+
 def _filter_by_team_names(
     items: Sequence[NewsItem],
     team_names: Iterable[str],
@@ -195,7 +244,15 @@ class NewsService:
         *,
         player_names: Optional[Iterable[str]] = None,
         team_names: Optional[Iterable[str]] = None,
+        player_meta: Optional[Mapping[str, Mapping[str, Any]]] = None,
     ) -> AggregatedNews:
+        """Aggregate all providers.
+
+        ``player_meta`` (optional) maps exact contract display names
+        to ``{"position", "team"}`` for mention enrichment — it is
+        derived from the same live contract as ``player_names``, so
+        it deliberately does NOT participate in the cache key.
+        """
         known_names = sorted({n for n in (player_names or []) if n})
         team_filter = tuple(sorted({n for n in (team_names or []) if n}))
         # The cache key deliberately EXCLUDES request-level filters.
@@ -233,6 +290,11 @@ class NewsService:
             items, runs = self._fetch_all(known_names)
             items = _dedupe(items)
             items = _sort_items(items)
+            # Stamp position/team identity discriminators onto
+            # mentions before caching, so every consumer of the
+            # cached aggregate (route + terminal) sees enriched
+            # payloads regardless of which caller warmed the cache.
+            items = _enrich_player_mentions(items, player_meta)
 
             providers_used = [r.name for r in runs if r.ok and r.count > 0]
             base = AggregatedNews(

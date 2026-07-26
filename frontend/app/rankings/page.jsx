@@ -38,6 +38,7 @@ import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
+import { buildPlayerMetaIndex } from "@/lib/news-filters";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -522,6 +523,11 @@ export default function RankingsPage() {
   // single-flighted at module level so this hook is essentially
   // free for the rankings page.
   const { byPlayer: newsByPlayer } = useNews();
+  // Live-pool meta index — lets lookupPlayerNews suppress AMBIGUOUS
+  // name-only items (normalized name shared by multiple distinct
+  // pool players) instead of stamping one player's chip with the
+  // other's news.
+  const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(rows), [rows]);
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
@@ -1399,6 +1405,7 @@ export default function RankingsPage() {
                   const newsItem = lookupPlayerNews(newsByPlayer, row.name, {
                     position: row.pos,
                     team: row.raw?.team,
+                    playerMeta: newsPlayerMeta,
                   })[0];
                   const chips = rowChips(row, { newsItem });
                   const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
