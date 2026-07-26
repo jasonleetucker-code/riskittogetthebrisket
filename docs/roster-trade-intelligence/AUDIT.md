@@ -63,12 +63,28 @@ therefore a **no-op between these two sources** — there is no units
 mismatch. This is an undocumented, unpinned, unalarmed assumption (P3),
 not a P1 live defect.
 
-**2. Remediation was an over-correction.** Suppressing or labelling mixed
-packages removes working functionality to fix a ~1% median error. WS-E's
-suppression path should be reserved for genuine outliers, not applied at
-15% of mixed packages. **Open disagreement between WS-E and review** —
-WS-E measured 15% suppression as correct; review argues that is too
-aggressive given the measured error. Resolve before wiring `angle.py`.
+**2. Remediation was an over-correction — RESOLVED, and the resolution
+beats both starting positions.** WS-E re-examined its own 15% suppression
+bucket and it did not survive: all 25 packages contained an asset IDPTC
+declines to price, max value **1,004**, overall KTC ranks ~445-477 (Josh
+Oliver, Carson Wentz, Ray-Ray McCloud). IDPTC simply doesn't price the
+tail. **Restricted to assets anyone would actually trade (value ≥ 1500),
+100% of mixed packages resolve on the exact path** across 2-, 3- and
+4-asset combinations — zero suppression, zero conversion. The original 15%
+was an artifact of sampling players nobody trades.
+
+The gate is now **materiality, not presence**: fringe assets convert at the
+measured per-position ratio, and a package is withheld only when the
+conversion's 80% uncertainty band (p10 0.886 / p90 1.054) exceeds a 5%
+threshold — deliberately the same gate `angle.py` applies to
+`market_gain_pct`, so the test is "could this uncertainty flip the caller's
+decision," not "did a conversion happen." Measured: a fringe asset inside a
+real package converts at ~1% band and stays rankable; the same asset
+dominating a two-asset package still suppresses at ~10%.
+
+WS-E's one temper on the review: ~1% is the *median*, and the p10/p90
+spread is 0.886-1.054. That tail is why a gate remains at all — it now
+fires on magnitude rather than existence.
 
 **3. Location wrong.** I put the defect in the counter-side `combo`, which
 requires `include_idp=True`. The frontend never sends `includeIdp`
