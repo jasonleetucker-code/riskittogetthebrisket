@@ -60,6 +60,29 @@ ordering below is enforced by the size of the caps, not by convention.
    trades each, a manager effect estimated from acceptances alone
    would be indistinguishable from noise. The gate is a real branch
    with a real threshold, not a comment.
+
+──────────────────────────────────────────────────────────────────────
+Confidence is a ranking input, not a label
+──────────────────────────────────────────────────────────────────────
+``acceptanceConfidence`` reflects the strength of the EVIDENCE, never
+the size of the estimate — a wildly generous offer and an insulting
+one, assessed from the same inputs, carry identical confidence.
+
+It is then *used*: :func:`assess_partner` shrinks the estimate toward
+the prior in proportion to confidence before computing
+``tradePartnerFitScore``. The operative consequence, pinned by tests,
+is that **a higher raw estimate built on thinner evidence ranks below
+a lower one built on real signal.** Two things reduce it:
+
+* the tier ceiling — :data:`MAX_CONFIDENCE_WITHOUT_DECISION_DATA`,
+  binding on every tier reachable today
+* structural coverage — :data:`STRUCTURAL_COVERAGE_FLOOR`, docking
+  confidence for each of fairness / roster fit / window fit that had
+  to abstain rather than measure
+
+Evidence tiers key on whether a term could be *measured*, never on how
+large its contribution was. A perfectly balanced offer contributes a
+fairness delta of exactly zero and is still a measurement.
 """
 
 from __future__ import annotations
@@ -685,16 +708,12 @@ def assess_partner(inp: PartnerInputs) -> PartnerAssessment:
         )
 
     if tier is not AcceptanceEvidence.DECISION_CALIBRATED:
-        bound = confidence > MAX_CONFIDENCE_WITHOUT_DECISION_DATA
+        verb = "capped at" if confidence > MAX_CONFIDENCE_WITHOUT_DECISION_DATA else "held under"
         confidence = min(confidence, MAX_CONFIDENCE_WITHOUT_DECISION_DATA)
         notes.append(
-            (
-                "acceptanceConfidence capped at " f"{MAX_CONFIDENCE_WITHOUT_DECISION_DATA}: "
-                if bound
-                else f"acceptanceConfidence held under {MAX_CONFIDENCE_WITHOUT_DECISION_DATA}: "
-            )
-            + "no rejection data exists, so this estimate is a plausibility "
-            "score in probability units, not a calibrated acceptance probability"
+            f"acceptanceConfidence {verb} {MAX_CONFIDENCE_WITHOUT_DECISION_DATA}: no "
+            "rejection data exists, so this estimate is a plausibility score in "
+            "probability units, not a calibrated acceptance probability"
         )
 
     # ── the ranking quantity ─────────────────────────────────────────
