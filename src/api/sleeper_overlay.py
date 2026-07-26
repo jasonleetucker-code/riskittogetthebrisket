@@ -59,6 +59,13 @@ _CACHE_TTL_SEC = 15 * 60
 _HTTP_TIMEOUT_SEC = 8.0
 _USER_AGENT = "brisket-sleeper-overlay/1.0"
 
+# Teams-only fast-path cache (see ``fetch_sleeper_teams_overlay``).
+# Separate from the full-overlay cache so a cold full overlay never
+# forces the FAAB recommend path to pay the trades+waivers history
+# cost; short TTL because FAAB balances move on waiver runs.
+_TEAMS_CACHE: dict[str, dict[str, Any]] = {}
+_TEAMS_CACHE_TTL_SEC = 5 * 60
+
 # Live-draft caches.  These are deliberately separate from the overlay
 # cache so a 2-3s polling loop on /api/sleeper/draft/picks never poisons
 # the 15-minute team/trade overlay cache and vice versa.
@@ -1133,13 +1140,92 @@ def reset_fallback_name_cache() -> None:
         _FALLBACK_ATTEMPT_AT = 0.0
 
 
+def fetch_sleeper_teams_overlay(
+    *,
+    sleeper_league_id: str,
+    id_to_player: dict[str, str] | None = None,
+    force_refresh: bool = False,
+) -> dict[str, Any] | None:
+    """Teams + FAAB balances ONLY — no trades/waivers history.
+
+    The full :func:`fetch_sleeper_overlay` builds the trade AND
+    waiver history on a cold cache — up to dozens of serial
+    transaction requests across two seasons — while some callers
+    (the FAAB recommend endpoint) only need rosters and balances.
+    This fast path answers from, in order:
+
+      1. a FRESH full-overlay cache entry (free — reuse its teams),
+      2. its own short teams cache (``_TEAMS_CACHE_TTL_SEC``),
+      3. a live ``_build_teams_block`` fetch — rosters + users +
+         league settings + traded picks, ~4 requests total.
+
+    Returns ``{"teams": [...], "overlayFetchedAt": iso-str}`` where
+    ``overlayFetchedAt`` is when THOSE teams were actually fetched
+    (an honest freshness stamp even on the stale-fallback path), or
+    ``None`` when nothing is available at all.  On a live fetch
+    failure it degrades to the most recent cached teams (stale full
+    overlay, then stale teams cache) before giving up.
+    """
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    if not sleeper_league_id:
+        return None
+
+    now = time.time()
+
+    def _from_full_cache(entry: dict[str, Any] | None) -> dict[str, Any] | None:
+        payload = (entry or {}).get("payload") or {}
+        if payload.get("teams"):
+            return {
+                "teams": payload["teams"],
+                "overlayFetchedAt": payload.get("overlayFetchedAt"),
+            }
+        return None
+
+    if not force_refresh:
+        with _CACHE_LOCK:
+            full = _CACHE.get(sleeper_league_id)
+            if full and (now - float(full.get("_cached_at") or 0)) < _CACHE_TTL_SEC:
+                hit = _from_full_cache(full)
+                if hit is not None:
+                    return hit
+            teams_cached = _TEAMS_CACHE.get(sleeper_league_id)
+            if (
+                teams_cached
+                and (now - float(teams_cached.get("_cached_at") or 0)) < _TEAMS_CACHE_TTL_SEC
+            ):
+                return dict(teams_cached["payload"])
+
+    teams = _build_teams_block(sleeper_league_id, id_to_player)
+    if teams is None:
+        # Hard fetch failure — serve the most recent teams we have
+        # (stale is better than nothing; the stamp stays honest).
+        with _CACHE_LOCK:
+            stale_full = _from_full_cache(_CACHE.get(sleeper_league_id))
+            if stale_full is not None:
+                return stale_full
+            teams_cached = _TEAMS_CACHE.get(sleeper_league_id)
+            if teams_cached:
+                return dict(teams_cached["payload"])
+        return None
+
+    payload = {
+        "teams": teams,
+        "overlayFetchedAt": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    with _CACHE_LOCK:
+        _TEAMS_CACHE[sleeper_league_id] = {"payload": dict(payload), "_cached_at": now}
+    return payload
+
+
 def invalidate_overlay_cache(sleeper_league_id: str | None = None) -> None:
     """Drop cached overlay(s).  ``None`` clears everything."""
     with _CACHE_LOCK:
         if sleeper_league_id is None:
             _CACHE.clear()
+            _TEAMS_CACHE.clear()
             return
         _CACHE.pop(str(sleeper_league_id), None)
+        _TEAMS_CACHE.pop(str(sleeper_league_id), None)
 
 
 # ── Live draft sync ─────────────────────────────────────────────────────
