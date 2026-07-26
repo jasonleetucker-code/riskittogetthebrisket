@@ -104,12 +104,13 @@ export function positionFamily(pos) {
 /**
  * Disambiguating metadata a news item carries for the mention whose
  * name normalizes to ``key``: ``{ family, team }`` when the mention
- * object has ``position``/``pos`` and/or ``team``/``nflTeam`` fields,
- * or ``null`` for name-only tags (the backend's PlayerMention emits
- * name-only today — this reads richer tags whenever a provider or a
- * future contract bump supplies them).
+ * object has ``position``/``pos`` and/or ``team``/``nflTeam`` fields
+ * (the backend's service-level enrichment stamps these from the live
+ * contract), or ``null`` for name-only tags.  Exported so
+ * ``news-filters`` evaluates facets against the same identity
+ * contract the per-player lookup uses.
  */
-function mentionMetaFor(item, key) {
+export function mentionMetaFor(item, key) {
   const players = Array.isArray(item?.players) ? item.players : [];
   for (const p of players) {
     if (!p || typeof p === "string") continue;

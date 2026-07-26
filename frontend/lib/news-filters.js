@@ -17,6 +17,7 @@
 
 import {
   itemPlayerNames,
+  mentionMetaFor,
   normalizePlayerNameKey,
   positionFamily,
 } from "./player-name-match";
@@ -88,12 +89,20 @@ export function buildMentionButtons(item) {
  * Filter items by NFL team and/or position family.
  *
  * An item passes when at least ONE mentioned player satisfies ALL
- * active facets at once — conjunction within a candidate meta,
- * disjunction across a mention's candidate metas (name-collision
- * players carry several) and across mentions.  With both facets at
- * "ALL" the input is returned untouched.  Items whose mentions can't
- * be resolved against the live board are dropped whenever any facet
- * is active.
+ * active facets at once.  Identity resolution per mention (kept in
+ * lockstep with ``lookupPlayerNews``):
+ *
+ * * A mention carrying its OWN stamped position/team (the backend's
+ *   service-level enrichment) is evaluated against THAT identity
+ *   only — the pool's other name-collision twin cannot satisfy a
+ *   facet on its behalf.  A facet field the stamp doesn't carry may
+ *   be confirmed by pool candidates CONSISTENT with the stamp.
+ * * A name-only mention falls back to the pool candidate list —
+ *   conjunction within a candidate, disjunction across candidates.
+ *
+ * With both facets at "ALL" the input is returned untouched.  Items
+ * whose mentions can't be resolved are dropped whenever any facet is
+ * active.
  */
 export function filterByPlayerFacets(
   items,
@@ -107,8 +116,31 @@ export function filterByPlayerFacets(
     (posFilter === "ALL" || m.family === posFilter);
   return items.filter((item) =>
     itemPlayerNames(item).some((n) => {
-      const candidates = index.get(normalizePlayerNameKey(n));
-      return Array.isArray(candidates) && candidates.some(metaSatisfies);
+      const key = normalizePlayerNameKey(n);
+      if (!key) return false;
+      const pool = index.get(key) || [];
+      const stamped = mentionMetaFor(item, key);
+      if (stamped) {
+        // Pool candidates that don't contradict the stamp — used
+        // only to confirm a facet field the stamp doesn't carry.
+        const consistent = pool.filter(
+          (c) =>
+            (!stamped.family || !c.family || c.family === stamped.family) &&
+            (!stamped.team || !c.team || c.team === stamped.team),
+        );
+        const teamOk =
+          teamFilter === "ALL" ||
+          (stamped.team
+            ? stamped.team === teamFilter
+            : consistent.some((c) => c.team === teamFilter));
+        const famOk =
+          posFilter === "ALL" ||
+          (stamped.family
+            ? stamped.family === posFilter
+            : consistent.some((c) => c.family === posFilter));
+        return teamOk && famOk;
+      }
+      return pool.some(metaSatisfies);
     }),
   );
 }

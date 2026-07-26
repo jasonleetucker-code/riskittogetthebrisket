@@ -142,6 +142,106 @@ describe("filterByPlayerFacets — conjunction per mention", () => {
   });
 });
 
+describe("filterByPlayerFacets — stamped mention identity takes precedence", () => {
+  // Backend-enriched mention: the item KNOWS which CJ Allen it is.
+  const LB_TAGGED = {
+    id: "t1",
+    headline: "Titans defensive rep report",
+    players: [{ name: "CJ Allen", position: "LB", team: "TEN" }],
+  };
+  const NAME_ONLY = {
+    id: "t2",
+    headline: "Allen note",
+    players: [{ name: "CJ Allen" }],
+  };
+
+  it("a tagged LB/TEN item passes its own facets", () => {
+    expect(
+      filterByPlayerFacets([LB_TAGGED], {
+        teamFilter: "TEN",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("a tagged LB/TEN item is rejected under the WR twin's facets", () => {
+    // Pool candidates include the ATL WR twin — but the mention names
+    // its own identity, so the twin can't satisfy facets for it.
+    expect(
+      filterByPlayerFacets([LB_TAGGED], {
+        teamFilter: "ATL",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+    expect(
+      filterByPlayerFacets([LB_TAGGED], {
+        teamFilter: "ATL",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+    expect(
+      filterByPlayerFacets([LB_TAGGED], {
+        teamFilter: "TEN",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+  });
+
+  it("a partial stamp completes missing facet fields from CONSISTENT pool candidates", () => {
+    const posOnly = {
+      id: "t3",
+      headline: "Position-only stamp",
+      players: [{ name: "CJ Allen", position: "LB" }],
+    };
+    // Team facet confirmed by the pool's LB candidate (TEN)...
+    expect(
+      filterByPlayerFacets([posOnly], {
+        teamFilter: "TEN",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+    // ...but the WR twin's team can't vouch for an LB-stamped mention.
+    expect(
+      filterByPlayerFacets([posOnly], {
+        teamFilter: "ATL",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+  });
+
+  it("name-only mentions still use the pool candidate list", () => {
+    // No stamp → either twin's facets match (round-5 semantics).
+    expect(
+      filterByPlayerFacets([NAME_ONLY], {
+        teamFilter: "TEN",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+    expect(
+      filterByPlayerFacets([NAME_ONLY], {
+        teamFilter: "ATL",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+    // Cross-matched facets still rejected.
+    expect(
+      filterByPlayerFacets([NAME_ONLY], {
+        teamFilter: "TEN",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("buildMentionButtons — every mention gets a button", () => {
   it("renders unmatched (All-scope, out-of-pool) players as general buttons", () => {
     // rankByRelevance stamped nothing for this player (or the item
