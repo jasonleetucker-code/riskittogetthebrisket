@@ -1,0 +1,235 @@
+/* news.module.css — /news structural styles (R3, token-driven).
+   Severity/tone color lives on ds Badge; everything here is layout,
+   density, and the two feed idioms (digest rows + story rows). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Coverage strip ───────────────────────────────────────────────── */
+.coverage {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 768px) {
+  .coverage {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Controls ─────────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.controlsSearch {
+  flex: 1;
+  min-width: 180px;
+}
+.controlsSelect {
+  width: auto;
+  min-width: 120px;
+}
+.controlsSpacer {
+  flex: 1;
+}
+
+/* ── Shared feed scaffolding ──────────────────────────────────────── */
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feed > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Meta line: time · source · severity. Mono for the timestamp so
+   the column edge stays put as ages tick over. */
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.metaTime {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.metaSource {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ── Story rows ───────────────────────────────────────────────────── */
+.story {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+.story:hover {
+  background: var(--surface-hover);
+}
+/* Roster-relevant stories get a gold edge — the one place accent
+   earns its keep in the feed: "this is about YOUR guy". */
+.storyRoster {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.headline {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  color: var(--text-primary);
+}
+.headlineLink {
+  color: inherit;
+  text-decoration: none;
+}
+.headlineLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.body {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+  /* Two lines is the scan budget; the source link carries the rest. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mentions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.mention {
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-1);
+  padding: 1px var(--space-2);
+  cursor: pointer;
+}
+.mention:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.mentionRoster {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.mentionLeague {
+  color: var(--text-primary);
+}
+
+/* ── Digest rows ──────────────────────────────────────────────────── */
+/* Identity rail + digest body. The fixed identity column is what
+   makes the list scan like a terminal rather than a blog roll. */
+.digest {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+.digest:hover {
+  background: var(--surface-hover);
+}
+@media (width < 768px) {
+  .digest {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+}
+.digestIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.digestPlayer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.digestPlayer:hover {
+  color: var(--accent);
+}
+.digestIdentityMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.digestPos {
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.digestBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* The synthesized digest text. Mechanical today (one attributed line
+   per story from src/news/digest.py); LLM prose slots in unchanged. */
+.digestSummary {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+.digestSources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.digestCount {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* Panel footnote: the count line under a populated feed. */
+.footnote {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}

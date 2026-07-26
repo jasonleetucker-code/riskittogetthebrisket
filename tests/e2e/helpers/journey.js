@@ -39,6 +39,14 @@ const SEL = {
   // resolves, so it doubles as the "authenticated UI is hydrated"
   // readiness signal.  (R1 shell.)
   navSearchButton: ".shell-search-btn",
+  // /news (R3) — digest-first wire. The page renders one of two feeds
+  // depending on the view tab; both row kinds carry a stable hook
+  // class alongside their CSS-module class.
+  newsControls: ".news-controls",
+  newsDigestRow: ".news-digest-row",
+  newsStoryRow: ".news-story-row",
+  // /news — the player button inside a digest row (opens the profile).
+  newsDigestPlayer: ".news-digest-row button",
 };
 
 function isMobileProject(testInfo) {
