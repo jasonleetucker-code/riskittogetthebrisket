@@ -107,6 +107,121 @@ describe("DataTable sorting", () => {
   });
 });
 
+describe("DataTable R2 extension props", () => {
+  it("presorted: trusts caller row order but still stamps aria-sort via controlled sort", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+    // rows deliberately NOT in name order — presorted must not reorder
+    render(
+      <DataTable
+        caption="t"
+        columns={COLUMNS}
+        rows={ROWS}
+        presorted
+        sort={{ key: "name", direction: "asc" }}
+        onSortChange={onSortChange}
+      />
+    );
+    expect(bodyCellText(0)).toEqual(["Chase", "Jefferson", "Bijan"]);
+    expect(
+      screen.getByRole("columnheader", { name: "Player" })
+    ).toHaveAttribute("aria-sort", "ascending");
+    await user.click(screen.getByRole("button", { name: "Player" }));
+    expect(onSortChange).toHaveBeenCalledWith({ key: "name", direction: "desc" });
+  });
+
+  it("firstDirection overrides the first-activation direction", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+    const columns = [
+      { key: "rank", header: "Rk", numeric: true, sortable: true, firstDirection: "asc" },
+      ...COLUMNS,
+    ];
+    render(
+      <DataTable
+        caption="t"
+        columns={columns}
+        rows={ROWS.map((r, i) => ({ ...r, rank: i + 1 }))}
+        presorted
+        sort={null}
+        onSortChange={onSortChange}
+      />
+    );
+    // numeric column would default to desc; firstDirection forces asc
+    await user.click(screen.getByRole("button", { name: "Rk" }));
+    expect(onSortChange).toHaveBeenCalledWith({ key: "rank", direction: "asc" });
+  });
+
+  it("renderBeforeRow / renderAfterRow interleave caller-authored rows", () => {
+    render(
+      <DataTable
+        caption="t"
+        columns={COLUMNS}
+        rows={ROWS}
+        renderBeforeRow={(row, i) =>
+          i === 1 ? (
+            <tr data-testid="separator">
+              <td colSpan={3}>Tier break</td>
+            </tr>
+          ) : null
+        }
+        renderAfterRow={(row) =>
+          row.id === "a" ? (
+            <tr data-testid="expanded">
+              <td colSpan={3}>Audit for {row.name}</td>
+            </tr>
+          ) : null
+        }
+      />
+    );
+    const rows = screen.getAllByRole("row");
+    // header + 3 data + 1 separator + 1 expanded
+    expect(rows).toHaveLength(6);
+    expect(screen.getByTestId("expanded")).toHaveTextContent("Audit for Chase");
+    // the separator precedes the second data row
+    const separator = screen.getByTestId("separator");
+    const secondDataRow = screen.getByText("Jefferson").closest("tr");
+    expect(
+      separator.compareDocumentPosition(secondDataRow) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("rowClassName adds caller classes; headerTitle lands on th", () => {
+    render(
+      <DataTable
+        caption="t"
+        columns={[{ key: "name", header: "Player", headerTitle: "who dis" }]}
+        rows={ROWS}
+        rowClassName={(row) => (row.id === "b" ? "is-flagged" : "")}
+      />
+    );
+    expect(screen.getByRole("columnheader", { name: "Player" })).toHaveAttribute(
+      "title",
+      "who dis"
+    );
+    expect(screen.getByText("Jefferson").closest("tr")).toHaveClass("is-flagged");
+    expect(screen.getByText("Chase").closest("tr")).not.toHaveClass("is-flagged");
+  });
+
+  it("align center applies the center cell class to th and td", () => {
+    render(
+      <DataTable
+        caption="t"
+        columns={[{ key: "pos", header: "Pos", align: "center" }]}
+        rows={ROWS}
+      />
+    );
+    expect(screen.getByRole("columnheader", { name: "Pos" })).toHaveClass(
+      "ds-table__cell--center"
+    );
+    const firstRow = screen.getAllByRole("row")[1];
+    expect(within(firstRow).getAllByRole("cell")[0]).toHaveClass(
+      "ds-table__cell--center"
+    );
+  });
+});
+
 describe("sortRows helper", () => {
   it("sinks null/empty values to the bottom in both directions", () => {
     const rows = [

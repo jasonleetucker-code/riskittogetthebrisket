@@ -1,0 +1,184 @@
+name: Audit Identity Matches
+
+# Guards the CSV -> player-pool identity join against vendor name drift.
+#
+# Why this exists: ``scheduled-refresh.yml`` pushes freshly scraped
+# CSVs and a new export to ``main`` every two hours WITHOUT running
+# pytest, so the alias collision-delta invariant pinned in
+# ``tests/scripts/test_audit_identity_matches.py`` never gets evaluated
+# against the data that actually changed.  A vendor renaming a player
+# into an existing pool name would silently merge two players' votes
+# and nothing would catch it until someone ran the audit by hand —
+# historically "never" (same gap that motivated
+# ``audit-dropped-sources.yml``).
+#
+# This job runs the audit against the refreshed data and fails when the
+# collision-delta check finds anything.  It is deliberately a SEPARATE
+# workflow from the refresh: an advisory data finding must never block
+# the data refresh itself, so the refresh stays green and this job goes
+# red (plus a rolling issue) when the board needs a human.
+#
+# Exit codes (from ``scripts/audit_identity_matches.py``):
+#   0  - no alias-introduced collisions; workflow green
+#   1  - at least one collision (``--fail-on-collision``); workflow red
+#        with the offending names in the job summary
+#
+# Unmatched rows are reported but never fail the job — deep vendor
+# boards legitimately list players outside the Sleeper pool (retired
+# veterans, non-Sleeper prospects).  Only collisions are a hard defect.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # The refresh commits land here; run the check on the new data.
+      - "CSVs/site_raw/**"
+      - "exports/latest/dynasty_data_*.json"
+      # ...and whenever the join or the alias table itself changes.
+      - "src/utils/name_clean.py"
+      - "src/api/data_contract.py"
+      - "scripts/audit_identity_matches.py"
+  schedule:
+    # 08:17 UTC daily — backstop in case a refresh lands without
+    # touching the path filters above.
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: audit-identity-matches
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: Audit CSV -> pool identity join
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          set -Eeuo pipefail
+          # Runtime manifest only — this job does not run the test
+          # suite.  No ``|| true``: a genuine install failure must
+          # surface as a red workflow, not a green-but-useless run.
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip check
+
+      - name: Locate latest snapshot
+        id: snapshot
+        run: |
+          set -Eeuo pipefail
+          SNAPSHOT=$(ls -t exports/latest/dynasty_data_*.json 2>/dev/null | head -1 || true)
+          if [ -z "$SNAPSHOT" ]; then
+            # A missing snapshot is itself the alert: the export
+            # pipeline has broken.  Returning 0 here would make
+            # "audit didn't run" look identical to "board is healthy".
+            echo "::error title=Missing snapshot::no dynasty_data_*.json in exports/latest/ — export pipeline may be broken"
+            exit 1
+          fi
+          echo "Using snapshot: $SNAPSHOT"
+          echo "path=$SNAPSHOT" >> "$GITHUB_OUTPUT"
+
+      - name: Run identity match audit (fails on alias collision)
+        run: |
+          set -Eeuo pipefail
+          python scripts/audit_identity_matches.py \
+            --json-path "${{ steps.snapshot.outputs.path }}" \
+            --json "${RUNNER_TEMP}/identity_audit.json" \
+            --limit 10 \
+            --github-summary \
+            --fail-on-collision
+
+      - name: Upload full report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-audit-report
+          path: ${{ runner.temp }}/identity_audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Open / update rolling issue on collision
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          REPORT="${RUNNER_TEMP}/identity_audit.json"
+          # jq, not inline python: an indented python -c heredoc inside a
+          # YAML block scalar is an IndentationError waiting to happen.
+          DETAIL="(no report produced — the job failed before the check ran)"
+          if [[ -f "$REPORT" ]]; then
+            DETAIL=$(jq -r '
+              (.aliasCollisions // [])
+              | if length == 0 then
+                  "(no collisions recorded — the job failed outside the check)"
+                else
+                  map("- " + (if .crossFamily then "**CROSS-FAMILY** " else "" end)
+                      + "`" + .canonicalName + "` merges: " + (.mergedNames | join(", ")))
+                  | join("\n")
+                end' "$REPORT" || echo "$DETAIL")
+          fi
+          # Body written flush-left on purpose: an indented heredoc would
+          # render the whole issue as a markdown code block.
+          BODY=$(cat <<EOF
+          The identity-match audit found an **alias-introduced collision** on the live board.
+
+          A collision means two DISTINCT player-pool rows now resolve to one canonical
+          name, so their source votes merge and both players' values are corrupted.
+          Cross-family collisions are worse: the name-only CSV join replicates a matched
+          entry across every position group sharing the name.
+
+          **Collisions:**
+
+          ${DETAIL}
+
+          - Workflow run: ${RUN_URL}
+          - Commit: \`${GITHUB_SHA}\`
+          - Detected: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Likely causes:
+          1. A vendor renamed a player into a spelling that already exists in the pool
+             (most common — check the newest \`CSVs/site_raw\` diffs).
+          2. A newly added entry in \`CANONICAL_NAME_ALIASES\` (\`src/utils/name_clean.py\`)
+             merged two real players.
+          3. The Sleeper pool gained a second row for a player we alias.
+
+          Triage: run \`python scripts/audit_identity_matches.py\` locally; see
+          \`docs/identity-audit-2026-07.md\` for the verification standard (an alias is
+          only correct when position + team + age agree, or an explicit ID matches).
+          EOF
+          )
+          # Strip the YAML block-scalar indentation from every line so the
+          # issue body is valid markdown rather than one big code block.
+          BODY=$(printf '%s\n' "$BODY" | sed 's/^          //')
+          gh label create identity-collision \
+            --color B60205 \
+            --description "Auto-opened when the identity-match audit finds an alias collision" \
+            2>/dev/null || true
+          # Idempotent rolling issue: comment on the open one if it
+          # exists, else open a single labelled issue and reuse it.
+          EXISTING=$(gh issue list --state open --label identity-collision \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create \
+              --title "Identity audit: alias-introduced collision on the live board" \
+              --body "$BODY" \
+              --label identity-collision
+          fi

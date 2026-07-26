@@ -15,6 +15,10 @@
  *     hideBelow: "sm"|"md"|"lg" — hides the column (header + body cells)
  *       below the canonical breakpoint: sm < 480px, md < 768px,
  *       lg < 1024px (media rules live in ds.css)
+ *     headerTitle: string — native tooltip on the <th>
+ *     firstDirection: "asc"|"desc" — override the first-activation sort
+ *       direction (default: numeric → desc, text → asc)
+ *     align: "center" — center-align this column (numeric wins if both)
  *   }
  *
  * Props:
@@ -32,6 +36,15 @@
  *   onRowClick (row)=>void — rows become keyboard-interactive
  *   maxHeight  CSS length — scrolling body with sticky header
  *   emptyState ReactNode — rendered instead of the table when rows empty
+ *   presorted  boolean — trust the caller's row order (complex external
+ *              sort pipelines, e.g. the rankings lens system). Headers
+ *              still cycle direction + stamp aria-sort via
+ *              sort/onSortChange; DataTable just skips its own sortRows.
+ *   rowClassName (row,i)=>string — extra classes per body row
+ *   renderBeforeRow (row,i)=>node — caller-authored <tr>(s) rendered
+ *              BEFORE the row (tier/group separators). Not interactive.
+ *   renderAfterRow (row,i)=>node — caller-authored <tr>(s) rendered
+ *              AFTER the row (expansion panels). Not interactive.
  *
  * Behavior:
  *   - First activation sorts numeric columns DESC (terminal convention:
@@ -47,7 +60,7 @@
  */
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useMemo, useState } from "react";
 import { Icon } from "./Icon";
 
 function defaultRowKey(row, index) {
@@ -63,11 +76,12 @@ function defaultRowKey(row, index) {
 const INTERACTIVE_SELECTOR =
   'a,button,input,select,textarea,[role="button"],[role="link"],[contenteditable]';
 
-/** Shared th/td class for a column: numeric alignment + responsive hide. */
+/** Shared th/td class for a column: alignment + responsive hide. */
 function cellClass(col) {
   return (
     [
       col.numeric ? "ds-table__cell--num" : "",
+      !col.numeric && col.align === "center" ? "ds-table__cell--center" : "",
       col.hideBelow ? `ds-col-hide-${col.hideBelow}` : "",
     ]
       .filter(Boolean)
@@ -130,6 +144,10 @@ export function DataTable({
   maxHeight,
   emptyState = null,
   className = "",
+  presorted = false,
+  rowClassName = null,
+  renderBeforeRow = null,
+  renderAfterRow = null,
 }) {
   const [internalSort, setInternalSort] = useState(defaultSort);
   const sort = controlledSort !== undefined ? controlledSort : internalSort;
@@ -144,7 +162,7 @@ export function DataTable({
 
   const handleSortClick = useCallback(
     (col) => {
-      const first = col.numeric ? "desc" : "asc";
+      const first = col.firstDirection || (col.numeric ? "desc" : "asc");
       if (!sort || sort.key !== col.key) {
         setSort({ key: col.key, direction: first });
       } else {
@@ -157,7 +175,10 @@ export function DataTable({
     [sort, setSort]
   );
 
-  const sorted = useMemo(() => sortRows(rows, columns, sort), [rows, columns, sort]);
+  const sorted = useMemo(
+    () => (presorted ? rows : sortRows(rows, columns, sort)),
+    [rows, columns, sort, presorted]
+  );
 
   // Pre-sort identity: each row's ORIGINAL index, computed once per rows
   // array. Fallback keys must never use the post-sort position, or a sort
@@ -211,6 +232,7 @@ export function DataTable({
                   aria-sort={ariaSort}
                   className={cellClass(col)}
                   style={col.width ? { width: col.width } : undefined}
+                  title={col.headerTitle}
                 >
                   {col.sortable ? (
                     <button
@@ -237,10 +259,16 @@ export function DataTable({
           {sorted.map((row, i) => {
             const interactive = typeof onRowClick === "function";
             const stableIndex = originalIndex.get(row) ?? i;
+            const extraClass = rowClassName ? rowClassName(row, i) : "";
             return (
+              <Fragment key={getKey(row, stableIndex)}>
+              {renderBeforeRow ? renderBeforeRow(row, i) : null}
               <tr
-                key={getKey(row, stableIndex)}
-                className={interactive ? "ds-table__row--interactive" : undefined}
+                className={
+                  [interactive ? "ds-table__row--interactive" : "", extraClass]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
                 tabIndex={interactive ? 0 : undefined}
                 onClick={
                   interactive
@@ -271,6 +299,8 @@ export function DataTable({
                   );
                 })}
               </tr>
+              {renderAfterRow ? renderAfterRow(row, i) : null}
+              </Fragment>
             );
           })}
         </tbody>
