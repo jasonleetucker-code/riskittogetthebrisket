@@ -200,6 +200,25 @@ class TestSnapCounts:
         assert agg[0]["side"] == "offense"
         assert agg[0]["pct"] == pytest.approx(60.0)
 
+    def test_kicker_with_trick_play_snap_still_classifies_st(self, tmp_path):
+        # Regression (Codex round 4 on PR #539): one offensive snap
+        # (fake FG / trick play) made ``off_total > 0`` true and the
+        # kicker classified "offense" at ~0% — all THREE unit totals
+        # must compete and the max wins.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                # off_pct 0.02 → 1 offensive snap; st_pct 0.9 → 27 ST snaps.
+                _snap_row("Kicky McLeg", 1, 0.02, st_pct=0.9, pos="K", pfr="McLeKi00"),
+                _snap_row("Kicky McLeg", 2, 0.0, st_pct=0.9, pos="K", pfr="McLeKi00"),
+            ],
+        )
+        agg = norm.aggregate_snaps(norm.parse_snap_counts(p))
+        assert len(agg) == 1
+        assert agg[0]["side"] == "st"
+        assert agg[0]["pct"] == pytest.approx(90.0)
+
     def test_idless_traded_player_aggregates_across_teams(self, tmp_path):
         # Regression (Codex round 2 on PR #539): the ID-less fallback
         # key included the team, so a traded player's season split into

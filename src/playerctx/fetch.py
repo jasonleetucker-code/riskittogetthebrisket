@@ -183,6 +183,16 @@ def fetch_url(
             _save_meta(dest, meta)
             return FetchResult(key=key, path=dest, status="not-modified")
         if resp.status_code == 404:
+            if dest.exists():
+                # The asset vanished upstream (removed / temporarily
+                # unavailable) but we HAVE a local copy of this exact
+                # file.  Discarding it would let the seasonal walk
+                # replace current-season data with last year's —
+                # degrade to the cached copy like any other failure.
+                log.warning("playerctx[%s]: upstream 404; keeping stale local copy", key)
+                return FetchResult(
+                    key=key, path=dest, status="error", detail="404 (stale local copy)"
+                )
             return FetchResult(key=key, path=None, status="missing", detail="404")
         if resp.status_code != 200:
             detail = f"HTTP {resp.status_code}"

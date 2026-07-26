@@ -85,6 +85,20 @@ class TestDownload:
         res = fetch_url("https://x.invalid/d", tmp_path / "d.csv", key="d", session=session)
         assert res == FetchResult(key="d", path=None, status="missing", detail="404")
 
+    def test_404_with_cached_copy_degrades_to_stale(self, tmp_path):
+        # Regression (Codex round 4 on PR #539): a 404 on a file we
+        # already hold locally (asset removed / temporarily
+        # unavailable upstream) must NOT discard the cache — that
+        # would let the seasonal walk replace current-season data
+        # with last year's.
+        dest = tmp_path / "d.csv"
+        dest.write_bytes(b"cached-current")
+        session = _FakeSession(_FakeResponse(status_code=404))
+        res = fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
+        assert res.status == "error"  # NOT "missing" — the walk must stop here
+        assert res.path == dest
+        assert dest.read_bytes() == b"cached-current"
+
 
 class TestStaleCacheDegradation:
     def test_request_start_failure_keeps_stale_copy(self, tmp_path):
@@ -208,6 +222,27 @@ class TestSeasonalTransientFailures:
         assert path == dest
         assert season == 2026
         assert dest.read_bytes() == b"stale-current-season"
+        assert any("stale" in w for w in warns)
+
+    def test_404_with_cached_current_season_uses_stale_not_prior_season(self, tmp_path):
+        # Regression (Codex round 4 on PR #539): current-season asset
+        # 404s while a local current-season cache exists — the walk
+        # must use the cached CURRENT season, never regress to the
+        # prior season.
+        dest = tmp_path / self.FILE_TMPL.format(season=2026)
+        dest.write_bytes(b"cached-2026")
+        session = _FakeSession(
+            by_url={
+                self.URL_TMPL.format(season=2026): _FakeResponse(status_code=404),
+                self.URL_TMPL.format(season=2025): _FakeResponse(chunks=[b"last-year"]),
+            }
+        )
+        path, season, warns = self._seasonal(tmp_path, session)
+        assert path == dest
+        assert season == 2026
+        assert dest.read_bytes() == b"cached-2026"
+        # The prior season must never even be requested.
+        assert [c["url"] for c in session.calls] == [self.URL_TMPL.format(season=2026)]
         assert any("stale" in w for w in warns)
 
 

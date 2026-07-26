@@ -371,3 +371,148 @@ class TestAmbiguousNames:
             overrides_path=no_overrides,
         )
         assert set(records) == {"00-0036322"}
+
+    @pytest.fixture
+    def fa_dup_pool(self, players_dir):
+        # Same-name-same-family pair where one is a FREE AGENT (empty
+        # team) and one is rostered.
+        pool = dict(players_dir)
+        pool["9003"] = {
+            "player_id": "9003",
+            "full_name": "Lamar Woods",
+            "position": "WR",
+            "team": "",  # free agent
+            "gsis_id": "00-0900003",
+            "espn_id": "913",
+        }
+        pool["9004"] = {
+            "player_id": "9004",
+            "full_name": "Lamar Woods",
+            "position": "WR",
+            "team": "NYJ",
+            "gsis_id": "00-0900004",
+            "espn_id": "914",
+        }
+        return pool
+
+    def test_teamless_row_never_pseudo_matches_the_free_agent(self, fa_dup_pool, no_overrides):
+        # Regression (Codex round 4 on PR #539): a teamless source row
+        # queried the team rung with team_u == "", which key-matched
+        # the lone FREE AGENT (empty-team pool entry) and accepted it
+        # before the ambiguity check ever saw the rostered candidate.
+        # The team rung must be skipped entirely without a source team.
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=fa_dup_pool,
+            overrides_path=no_overrides,
+        )
+        assert records == {}  # ambiguous → dropped, NOT matched to the FA
+        assert stats["contracts"]["matched"] == 0
+
+    def test_teamless_fa_ambiguity_is_override_rescuable(self, fa_dup_pool, tmp_path):
+        ov = tmp_path / "id_overrides.json"
+        ov.write_text(
+            json.dumps(
+                {"9004": {"gsis_id": "00-0900004", "espn_id": "914", "full_name": "Lamar Woods"}}
+            ),
+            encoding="utf-8",
+        )
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=fa_dup_pool,
+            overrides_path=ov,
+        )
+        assert set(records) == {"00-0900004"}
+        assert records["00-0900004"]["sleeperId"] == "9004"
+
+
+class TestTeamScopedFuzzy:
+    """Regression (Codex round 4 on PR #539): ``resolve_player``'s
+    fuzzy walk ignores its team argument, so a closer-spelled player
+    on ANOTHER team could steal a row even when a candidate on the
+    source's own team clears the confidence bar.  When the source
+    names a team, fuzzy now runs against that team's sub-pool only —
+    team match is decisive; with no same-team candidate the row
+    drops."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_override_cache(self):
+        unified_mapper.reload_overrides()
+        yield
+        unified_mapper.reload_overrides()
+
+    @pytest.fixture
+    def no_overrides(self, tmp_path):
+        p = tmp_path / "no_overrides.json"
+        p.write_text("{}", encoding="utf-8")
+        return p
+
+    @pytest.fixture
+    def fuzzy_pool(self, players_dir):
+        pool = dict(players_dir)
+        # A: closer spelling to the source name, WRONG team.
+        pool["9101"] = {
+            "player_id": "9101",
+            "full_name": "Marquise Brown",
+            "position": "WR",
+            "team": "LAC",
+            "gsis_id": "00-0910001",
+            "espn_id": "921",
+        }
+        # B: worse fuzzy score, but on the SOURCE's team.
+        pool["9102"] = {
+            "player_id": "9102",
+            "full_name": "Marquis Browner",
+            "position": "WR",
+            "team": "KC",
+            "gsis_id": "00-0910002",
+            "espn_id": "922",
+        }
+        return pool
+
+    def test_team_match_beats_closer_spelling_on_other_team(self, fuzzy_pool, no_overrides):
+        # "Marquis Brown" scores 0.963 vs A (LAC) and 0.929 vs B (KC).
+        # Full-pool fuzzy would pick A; team-scoped fuzzy must pick B.
+        records, stats = norm.build_player_context(
+            contracts=[],
+            snaps=[_snap("Marquis Brown", "KC", "WR")],
+            depth=[],
+            players_dir=fuzzy_pool,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0910002"}
+        assert records["00-0910002"]["sleeperId"] == "9102"
+        assert stats["snapCounts"]["matched"] == 1
+
+    def test_only_conflicting_team_candidate_is_dropped(self, players_dir, no_overrides):
+        pool = dict(players_dir)
+        pool["9101"] = {
+            "player_id": "9101",
+            "full_name": "Marquise Brown",
+            "position": "WR",
+            "team": "LAC",
+            "gsis_id": "00-0910001",
+            "espn_id": "921",
+        }
+        records, _ = norm.build_player_context(
+            contracts=[],
+            snaps=[_snap("Marquis Brown", "KC", "WR")],  # KC has no candidates
+            depth=[],
+            players_dir=pool,
+            overrides_path=no_overrides,
+        )
+        assert records == {}  # never crosses teams on a fuzzy guess
+
+    def test_teamless_row_still_uses_full_pool_fuzzy(self, fuzzy_pool, no_overrides):
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Marquise Browne", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=fuzzy_pool,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0910001"}  # best full-pool fuzzy match

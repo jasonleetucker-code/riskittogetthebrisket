@@ -376,17 +376,22 @@ def aggregate_snaps(rows: list[dict[str, Any]], *, recent_games: int = 3) -> lis
                 )
                 continue
         games.sort(key=lambda g: (_GAME_TYPE_ORDER.get(g["gameType"], 9), g["week"]))
-        off_total = sum(g["offSnaps"] for g in games)
-        def_total = sum(g["defSnaps"] for g in games)
-        st_total = sum(g["stSnaps"] for g in games)
-        if def_total > off_total:
-            side, pct_key = "defense", "defPct"
-        elif off_total > 0:
-            side, pct_key = "offense", "offPct"
-        elif st_total > 0:
-            side, pct_key = "st", "stPct"
-        else:  # degenerate all-zero row set — keep the legacy label
-            side, pct_key = "offense", "offPct"
+        totals = {
+            "defense": sum(g["defSnaps"] for g in games),
+            "offense": sum(g["offSnaps"] for g in games),
+            "st": sum(g["stSnaps"] for g in games),
+        }
+        # The unit with the MOST snaps wins — all three compared, so a
+        # kicker with one trick-play offensive snap still classifies
+        # "st", not "offense at ~0%".  Tie precedence (rare, equal
+        # totals): defense > offense > st — ``max`` keeps the first of
+        # the iteration order.  Degenerate all-zero rows keep the
+        # legacy "offense" label.
+        if any(totals.values()):
+            side = max(("defense", "offense", "st"), key=lambda s: totals[s])
+        else:
+            side = "offense"
+        pct_key = {"defense": "defPct", "offense": "offPct", "st": "stPct"}[side]
         pcts = [g[pct_key] * 100.0 for g in games]
         season_mean = sum(pcts) / len(pcts)
         recent = pcts[-recent_games:]
@@ -597,6 +602,14 @@ def build_player_context(
         by_name_pos.setdefault((norm_name, pos), []).append(p)
         by_name.setdefault(norm_name, []).append(p)
 
+    # Per-team sub-pools for the fuzzy tail: when a source row names a
+    # team, fuzzy matching is scoped to that team's players only.
+    pool_by_team: dict[str, dict[str, dict[str, Any]]] = {}
+    for sid, p in players_dir.items():
+        team = str(p.get("team") or "").upper()
+        if team:
+            pool_by_team.setdefault(team, {})[sid] = p
+
     resolve_cache: dict[tuple[str, str, str], dict[str, Any] | None] = {}
 
     def _sole(cands: list[dict[str, Any]] | None) -> tuple[dict[str, Any] | None, bool]:
@@ -623,7 +636,15 @@ def build_player_context(
         # player).  Team match that narrows to exactly one wins;
         # otherwise ambiguity is only resolvable by a manual override,
         # never by guessing.
-        hit, ambiguous = _sole(by_name_team_pos.get((norm_name, team_u, fam)))
+        #
+        # The team rung is consulted ONLY when the source actually
+        # supplied a team: with team_u == "" the key would pair the
+        # name with pool players whose team is empty (free agents) — a
+        # pseudo-match that would accept a lone FA before the
+        # ambiguity check ever saw the rostered candidates.
+        hit, ambiguous = (None, False)
+        if team_u:
+            hit, ambiguous = _sole(by_name_team_pos.get((norm_name, team_u, fam)))
         if hit is None and not ambiguous:
             hit, ambiguous = _sole(by_name_pos.get((norm_name, fam)))
         if hit is None and not ambiguous:
@@ -643,14 +664,24 @@ def build_player_context(
             # its candidate walk is first-match-wins, i.e. exactly the
             # arbitrary pick this rung refuses; without an override an
             # ambiguous row is dropped (drop-don't-guess).
-            got = resolve_player(
-                players_dir,
-                name=name,
-                team=team_u or None,
-                position=fam or None,
-                min_confidence=min_confidence,
-            )
-            hit = players_dir.get(got.sleeper_id) if got else None
+            #
+            # Team is DECISIVE here: ``resolve_player``'s fuzzy walk
+            # ignores its team argument, so a closer-spelled player on
+            # another team could steal the row.  When the source names
+            # a team, fuzzy runs against that team's sub-pool only — a
+            # team-matching candidate wins even at a lower score, and
+            # if no same-team candidate clears min_confidence the row
+            # drops rather than crossing teams.
+            scope = pool_by_team.get(team_u, {}) if team_u else players_dir
+            if scope:
+                got = resolve_player(
+                    scope,
+                    name=name,
+                    team=team_u or None,
+                    position=fam or None,
+                    min_confidence=min_confidence,
+                )
+                hit = scope.get(got.sleeper_id) if got else None
         resolve_cache[key] = hit
         return hit
 
