@@ -11,6 +11,8 @@ from __future__ import annotations
 import pytest
 
 from src.league_intel.cross_market import (
+    _RATIO_P10,
+    _RATIO_P90,
     MARKET_IDPTC,
     MARKET_KTC,
     NORMALIZATION_VERSION,
@@ -209,6 +211,118 @@ class TestScalarConversionIsLabelled:
         )
         assert any("uncertainty band" in w for w in pkg.warnings)
         assert pkg.to_dict()["uncertaintyBand"] > 0
+
+
+class TestScalarFallbackFlagIsLive:
+    """P1-a regression: ``allow_scalar_fallback`` was declared and never
+    read, so the scalar path ran unconditionally and the docstring's
+    "opt-in only" promise was false.  A parameter that changes nothing
+    is worse than no parameter — a caller can believe it opted out.
+
+    The default is True: the measurement in the module docstring shows
+    the assets the fallback rescues are entirely fringe, so refusing
+    them protected no decision.  These tests pin that BOTH settings are
+    honoured, and that they actually differ.
+    """
+
+    @staticmethod
+    def _needs_conversion():
+        # IDP forces IDPTC; the fringe WR is KTC-only -> no single
+        # market covers the package.
+        return [asset("Fringe", "WR", ktc=1000), asset("LB1", "LB", idptc=4200)]
+
+    def test_explicit_true_converts(self):
+        pkg = value_package(self._needs_conversion(), allow_scalar_fallback=True)
+        assert pkg.strategy is NormalizationStrategy.SCALAR_FALLBACK
+        assert pkg.is_rankable is True
+
+    def test_explicit_false_suppresses_instead_of_converting(self):
+        pkg = value_package(self._needs_conversion(), allow_scalar_fallback=False)
+        assert pkg.strategy is NormalizationStrategy.SUPPRESSED
+        assert pkg.is_rankable is False
+        assert pkg.total is None
+
+    def test_the_flag_actually_changes_the_outcome(self):
+        """The exact assertion the inert parameter would have failed."""
+        rows = self._needs_conversion()
+        assert (
+            value_package(rows, allow_scalar_fallback=True).strategy
+            is not value_package(rows, allow_scalar_fallback=False).strategy
+        )
+
+    def test_strict_suppression_names_the_offending_asset(self):
+        pkg = value_package(self._needs_conversion(), allow_scalar_fallback=False)
+        assert "Fringe" in pkg.label
+        assert "Fringe" in pkg.suppressed_reason
+        assert "fallback is disabled" in pkg.suppressed_reason
+
+    def test_strict_mode_does_not_touch_packages_that_never_needed_it(self):
+        rows = [asset("WR1", "WR", ktc=6000, idptc=6050), asset("LB1", "LB", idptc=3000)]
+        strict = value_package(rows, allow_scalar_fallback=False)
+        assert strict.strategy is NormalizationStrategy.SINGLE_MARKET
+        assert strict.total == 9050
+
+
+class TestExactArithmeticIsNotACertainAnswer:
+    """P1-b regression: a mixed offense/IDP package summed on IDPTC was
+    stamped ``uncertainty_band = 0.0``, which said the number was beyond
+    doubt.  The ARITHMETIC is exact — no conversion happened — but the
+    total still rests wholly on SHARED_SCALE_ASSUMPTION.  A zero band
+    made the straddle check in compare_packages() unreachable for
+    exactly the packages that assumption is load-bearing for.
+    """
+
+    def test_mixed_single_market_package_must_not_report_a_zero_band(self):
+        pkg = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6050), asset("LB1", "LB", idptc=3000)]
+        )
+        assert pkg.strategy is NormalizationStrategy.SINGLE_MARKET  # still exact arithmetic
+        assert pkg.uncertainty_band > 0, "assumption-priced total reported as certain"
+
+    def test_band_is_the_idp_subtotal_times_the_measured_spread(self):
+        pkg = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6050), asset("LB1", "LB", idptc=3000)]
+        )
+        assert pkg.uncertainty_band == pytest.approx(3000 * (_RATIO_P90 - _RATIO_P10))
+
+    def test_offense_only_package_keeps_a_zero_band(self):
+        """The assumption is never used, so there is nothing to size."""
+        pkg = value_package([asset("WR1", "WR", ktc=6000), asset("RB1", "RB", ktc=4000)])
+        assert pkg.uncertainty_band == 0.0
+
+    def test_the_band_reaches_the_verdict(self):
+        """The reported symptom: a mixed IDPTC package landing just
+        under a 5% gate came back verdict_certain=True."""
+        counter = value_package(
+            [asset("WR1", "WR", ktc=3100, idptc=3000), asset("LB1", "LB", idptc=2200)]
+        )
+        offer = value_package([asset("WR2", "WR", ktc=5000)])
+        cmp = compare_packages(counter, offer, gate_pct=5.0)
+        assert cmp.market_gain_pct == pytest.approx(4.0)
+        assert cmp.gain_low_pct < 5.0 < cmp.gain_high_pct
+        assert cmp.verdict_certain is False
+        assert cmp.is_rankable is False
+
+    def test_far_from_the_gate_the_assumption_band_is_harmless(self):
+        """It must not become a blanket suppression of IDP packages."""
+        counter = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6000), asset("LB1", "LB", idptc=3000)]
+        )
+        offer = value_package([asset("WR2", "WR", ktc=2000)])
+        cmp = compare_packages(counter, offer, gate_pct=5.0)
+        assert counter.uncertainty_band > 0
+        assert cmp.verdict_certain is True
+
+    def test_mixed_package_warning_says_exact_but_assumed(self):
+        pkg = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6050), asset("LB1", "LB", idptc=3000)]
+        )
+        assert any("no conversion" in w and "assumed" in w for w in pkg.warnings)
+
+    def test_scalar_path_stacks_conversion_and_assumption_bands(self):
+        pkg = value_package([asset("Fringe", "WR", ktc=1000), asset("LB1", "LB", idptc=4200)])
+        spread = _RATIO_P90 - _RATIO_P10
+        assert pkg.uncertainty_band == pytest.approx(1000 * spread + 4200 * spread)
 
 
 class TestStamps:
