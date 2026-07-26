@@ -19,6 +19,7 @@ import {
   Meter,
   Modal,
   Movement,
+  Confidence,
   PageHeader,
   Panel,
   SegmentedControl,
@@ -311,6 +312,24 @@ export default function DesignGallery() {
             <Movement delta={62} confidence={0.15} />
             <Movement delta={0} />
             <Movement delta={12.5} />
+          </div>
+          <div className={styles.row} style={{ gap: "var(--space-6)" }}>
+            {/* Confidence annotates values that have no DIRECTION. Note
+                the first pair: a confident value renders NOTHING, which
+                is the point — the marker's presence is the signal, so a
+                healthy page stays quiet. */}
+            <span>
+              9,541 <Confidence confidence={0.95} />
+            </span>
+            <span>
+              4,120 <Confidence confidence={0.5} limitedBy="role" />
+            </span>
+            <span>
+              ~800 <Confidence confidence={0.12} limitedBy="sample size" />
+            </span>
+            <span>
+              9,541 <Confidence confidence={0.95} showWhen="always" />
+            </span>
           </div>
         </div>
       </Panel>

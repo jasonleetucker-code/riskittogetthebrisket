@@ -690,6 +690,36 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   opacity: 0.9;
 }
 
+/* Standalone confidence meter. Deliberately its OWN class set rather
+   than sharing .ds-movement__tick*: Movement's classes are a shipped
+   contract and renaming them to something generic would be a mutation
+   with app-wide blast radius, to save nine lines. The tick geometry is
+   shared where it matters (TICK_HEIGHTS in Badge.jsx).
+
+   Inherits currentColor, so it takes the tone of whatever text it sits
+   beside — never a status hue of its own. Low confidence is thin
+   evidence, not a bad outcome. */
+.ds-confidence {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  color: var(--text-tertiary);
+}
+.ds-confidence__ticks {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+.ds-confidence__tick {
+  width: 3px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+.ds-confidence__tick--on {
+  opacity: 0.9;
+}
+
 /* ══ Tooltip ════════════════════════════════════════════════════════════ */
 .ds-tooltip-anchor {
   position: relative;
