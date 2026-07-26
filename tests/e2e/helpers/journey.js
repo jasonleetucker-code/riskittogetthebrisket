@@ -118,6 +118,14 @@ function isMobileProject(testInfo) {
  * loads while API requests keep the shared baseURL.  When unset
  * (e.g. prod smoke runs against the real domain) paths pass through
  * unchanged.
+ *
+ * Post-R1 this is a CORRECTNESS requirement, not just a timeout
+ * workaround: served through the proxy, "/" renders the ANONYMOUS
+ * landing shell even with a valid session cookie — /api/auth/status
+ * returns authenticated:true while the proxied page still shows
+ * "Sign In" — whereas Next serves the authed dashboard for the same
+ * cookie.  Any spec asserting on signed-in chrome must navigate
+ * through here or it silently tests the logged-out page.
  */
 function pageUrl(path) {
   let origin = process.env.E2E_PAGE_ORIGIN;

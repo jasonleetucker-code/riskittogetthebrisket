@@ -16,6 +16,7 @@ const {
   desktopOnly,
   gotoRankingsBoard,
   attachConsoleGuards,
+  pageUrl,
 } = require("../helpers/journey");
 
 test.describe("journey: settings source toggles", () => {
@@ -32,7 +33,7 @@ test.describe("journey: settings source toggles", () => {
       : Object.keys(sources).length;
     expect(registeredCount).toBeGreaterThan(3);
 
-    await page.goto("/settings", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toContainText(/Ranking Sources/i, { timeout: 30_000 });
 
     // One include-in-blend toggle per registered dynasty source.
@@ -49,7 +50,7 @@ test.describe("journey: settings source toggles", () => {
     test.setTimeout(180_000);
     const guard = attachConsoleGuards(page);
 
-    await page.goto("/settings", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
     const toggles = page.locator('input.settings-src-toggle[aria-label^="Include "]');
     await expect(toggles.first()).toBeVisible({ timeout: 30_000 });
 

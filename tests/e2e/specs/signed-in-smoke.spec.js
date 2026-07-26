@@ -21,11 +21,17 @@
  *   export E2E_TEST_SECRET=<hex>    # on the Playwright runner
  */
 const { test, expect } = require("../helpers/auth-fixture");
+// Page navigations go through pageUrl() (Next.js directly),
+// mirroring production's nginx topology.  Critical for "/": through
+// the backend's page proxy it renders the ANONYMOUS landing shell
+// even with a valid session, so this whole file would assert against
+// logged-out chrome.  API assertions below keep the backend baseURL.
+const { pageUrl } = require("../helpers/journey");
 
 
 test.describe("signed-in: basic navigation + UI render", () => {
   test("home page renders with team switcher hydrated", async ({ authedPage }) => {
-    await authedPage.goto("/");
+    await authedPage.goto(pageUrl("/"));
     // The team switcher is client-hydrated; wait for it to appear.
     // It shows the team name once data loads, or 'Pick your team'.
     // 60s: hydration sits behind the ~5 MB contract fetch, which can
@@ -37,21 +43,21 @@ test.describe("signed-in: basic navigation + UI render", () => {
   });
 
   test("trade calculator page renders", async ({ authedPage }) => {
-    await authedPage.goto("/trade");
+    await authedPage.goto(pageUrl("/trade"));
     await expect(authedPage.locator("body")).toContainText(/Trade|Side/i, {
       timeout: 30000,
     });
   });
 
   test("rosters page renders", async ({ authedPage }) => {
-    await authedPage.goto("/rosters");
+    await authedPage.goto(pageUrl("/rosters"));
     await expect(authedPage.locator("body")).toContainText(/Roster|Team/i, {
       timeout: 30000,
     });
   });
 
   test("settings page renders", async ({ authedPage }) => {
-    await authedPage.goto("/settings");
+    await authedPage.goto(pageUrl("/settings"));
     await expect(authedPage.locator("body")).toContainText(/Settings|Notification|Signal/i, {
       timeout: 30000,
     });

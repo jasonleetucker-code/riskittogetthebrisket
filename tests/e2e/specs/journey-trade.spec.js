@@ -11,14 +11,14 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, attachConsoleGuards, SEL } = require("../helpers/journey");
+const { desktopOnly, attachConsoleGuards, pageUrl, SEL } = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("/trade renders the builder with working controls", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/trade", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/trade"), { waitUntil: "domcontentloaded" });
 
     // Header renders, then the player pool finishes loading (the
     // "Loading player pool..." sentinel clears once /api/data lands).
@@ -38,7 +38,7 @@ test.describe("journey: trade surfaces", () => {
 
   test("/trades renders history (real trades or explicit empty state)", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/trades", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/trades"), { waitUntil: "domcontentloaded" });
 
     // R4 replaced the "Loading trade data..." sentinel with a skeleton,
     // so waiting for that string to vanish is now vacuous — and the
@@ -56,12 +56,17 @@ test.describe("journey: trade surfaces", () => {
 
   test("/finder renders the arbitrage board with result rows", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/finder", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/finder"), { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("body")).toContainText(/Finder/i, { timeout: 30_000 });
 
     // Data-driven: the results table materializes once /api/data lands.
-    const rows = page.locator(".table-wrap table tbody tr");
+    // Accepts the legacy `.table-wrap` and the ds `DataTable` wrapper the
+    // redesign moves these pages onto, so this spec spans the rebuild
+    // instead of needing a flag-day edit the day R3 lands.
+    const rows = page.locator(
+      ".table-wrap table tbody tr, .ds-table-wrap table tbody tr",
+    );
     await expect(rows.first(), "finder should render result rows").toBeVisible({
       timeout: 60_000,
     });

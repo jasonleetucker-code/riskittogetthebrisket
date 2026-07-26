@@ -119,10 +119,21 @@ jobs:
           # the SERVER process only: the startup scrape's browser
           # launch fails immediately, load_from_disk keeps the seeded
           # snapshot, and no external ranking site is ever contacted.
+          #
+          # RATE_LIMIT_BYPASS_IPS exempts the runner from the public-API
+          # rate limiter (60/min + 1000/hour per IP, src/api/rate_limit.py).
+          # A full suite run fires thousands of public calls
+          # (/api/auth/status on every page load, /api/public/league/*);
+          # the hour bucket drains mid-run and the resulting 429s don't
+          # look like rate limiting downstream — create-session 429 makes
+          # signed-in specs skip, and an /api/auth/status 429 makes pages
+          # render the logged-out shell, so they surface as bogus auth or
+          # render failures.
           mkdir -p /tmp/no-pw-browsers
           UPTIME_CHECK_ENABLED=false \
           ALLOW_DEFAULT_LOGIN_DEV=1 \
           E2E_TEST_MODE=1 \
+          RATE_LIMIT_BYPASS_IPS=127.0.0.1 \
           PLAYWRIGHT_BROWSERS_PATH=/tmp/no-pw-browsers \
           nohup python server.py > "$RUNNER_TEMP/backend.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/backend.pid"
@@ -171,11 +182,20 @@ jobs:
         shell: bash
         env:
           E2E_BASE_URL: http://127.0.0.1:8000
-          # Page navigations go straight to Next.js — mirrors the
-          # production topology (nginx routes pages to Next directly;
-          # server.py's page proxy has a 5s timeout that slow SSR
-          # passes like /league exceed, and its explicit page-route
-          # list doesn't cover every Next page, e.g. /waivers).
+          # Page navigations go straight to Next.js — production's nginx
+          # topology, where nginx routes pages to Next directly.  Through
+          # the backend's page proxy, "/" renders the anonymous shell even
+          # for a signed-in session, and slow SSR passes like /league
+          # exceed the proxy's 5s timeout.  See helpers/journey.js.
+          #
+          # This key was previously declared TWICE here, with the same
+          # value and two complementary comments — a merge artifact.  YAML
+          # parsers silently keep the last one; GitHub Actions REJECTS the
+          # workflow outright, so every run of this file was a startup
+          # failure with zero jobs.  A workflow that cannot start looks
+          # exactly like one that starts and finds nothing wrong, which is
+          # why the scheduled E2E run appeared healthy while never
+          # executing.  Keep this key declared once.
           E2E_PAGE_ORIGIN: http://127.0.0.1:3000
           # Visual-regression baselines are not committed to the repo,
           # so pixel comparisons are skipped; the visual specs still

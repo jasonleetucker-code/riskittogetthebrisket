@@ -10,28 +10,70 @@ serves data seeded from the committed snapshot (`exports/latest/`,
 kept fresh by `scheduled-refresh.yml`), and authentication uses the
 test-only session endpoint.
 
-## Running locally
+## Running it — the one command
+
+From a clean checkout, in any container, with no stack running and no
+environment set up:
 
 ```bash
-npm install                       # root deps (@playwright/test)
-npm --prefix frontend install     # frontend deps (Next.js build)
-npm run regression:install        # one-time: download chromium
-
-# Chromium-only safety net (desktop + mobile viewport):
-export E2E_TEST_MODE=1            # enables /api/test/create-session
-export E2E_TEST_SECRET=localdev   # shared by server + test runner
-export ALLOW_DEFAULT_LOGIN_DEV=1  # placeholder login password for dev
-npm run e2e
-
-npm run e2e:report                # open the HTML report
+npm ci && npm --prefix frontend ci && npm run e2e
 ```
 
-`npm run e2e` runs preflight (compile checks, contract validation,
-**data seeding** — it copies `exports/latest/dynasty_data_*.json` into
-`data/` when `data/` has no snapshot), then the suite on the
-`desktop-1366` + `mobile-chromium` projects with `--ignore-snapshots`
-(pixel baselines are not committed; the visual specs still run their
-structural assertions).
+That is the whole recipe.  It works offline, needs no credentials, and
+if anything is missing it tells you exactly what to fix.  `npm run e2e`:
+
+1. **Preflight** — compile checks, contract validation, and it
+   **guarantees a usable snapshot** in `data/`, seeding from the
+   committed `exports/latest/` when the newest snapshot is missing,
+   empty, or truncated (a failed scrape leaves one behind, and
+   `load_from_disk` always takes the newest by name).
+2. **Boots the stack itself** — backend on :8000 with every var it
+   needs, frontend built and served on :3000.  Already-running servers
+   on those ports are reused.
+3. **Verifies the stack can actually serve the suite** before any spec
+   runs — snapshot loaded, test sessions unlocked, an *authenticated*
+   `/api/data` populated, frontend responding — and fails with a
+   fix-it message rather than a wall of timeouts.
+4. Runs `desktop-1366` + `mobile-chromium` with `--ignore-snapshots`
+   (no pixel baselines are committed; visual specs still run their
+   structural assertions).
+
+```bash
+npm run e2e:report                # open the HTML report afterwards
+```
+
+### Why `npm ci` and not `npm install`
+
+Both lockfiles are committed.  `npm ci` installs exactly what they
+pin and **never rewrites them**, so it is safe under coordination
+rules that forbid lockfile edits — no agent needs a lockfile change to
+get a runnable suite.  Preflight fails with this exact command when
+either `node_modules` is missing.
+
+### Don't trust these signals — they're misleading here
+
+Two agents in a row concluded the stack was broken from symptoms that
+are all **expected**:
+
+| Signal | What it actually means |
+|---|---|
+| `GET /api/health` → **503** | Normal offline.  The startup scrape can't reach ranking sites, so the backend is permanently "degraded".  Not a data problem. |
+| `GET /api/data` → **401** | Correct — that endpoint is auth-gated.  Use a session (the suite does). |
+| `last_success_at: null` | Expected.  The suite runs on the **committed snapshot**, never a live scrape. |
+| backend exits instantly | `server.py` raises at import without `JASON_LOGIN_PASSWORD`.  `npm run e2e` sets `ALLOW_DEFAULT_LOGIN_DEV=1` for you; if you boot the backend by hand, you must too. |
+
+The check that actually matters is `/api/status` → `has_data: true`,
+and global setup asserts it (plus an authenticated `/api/data`) before
+the first spec.  A green run without those would mean signed-in specs
+skipped silently.
+
+### Pre-installed Chromium (sandboxed containers)
+
+If `PLAYWRIGHT_BROWSERS_PATH` holds a Chromium whose revision doesn't
+match this `@playwright/test` (common in agent containers, where
+`playwright install` isn't possible), the config **auto-detects and
+uses it** — no flag needed.  `E2E_CHROMIUM_PATH` still overrides
+explicitly.
 
 The Playwright config boots both servers itself (`webServer`) and
 re-uses them when they already answer, so you can also keep your own
@@ -56,8 +98,10 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | Var | Effect |
 |---|---|
 | `E2E_BASE_URL` | Target an already-running stack; skips the `webServer` boot |
-| `E2E_PAGE_ORIGIN` | Origin for **page** navigations (APIs keep `E2E_BASE_URL`).  Defaults to `http://127.0.0.1:3000` in webServer mode, empty when `E2E_BASE_URL` is set.  Needed because server.py's page proxy has a 5s timeout (slow SSR passes like `/league` exceed it) and doesn't register every Next page (e.g. `/waivers`) — production routes pages straight to Next via nginx, and this reproduces that topology |
-| `E2E_TEST_MODE=1` + `E2E_TEST_SECRET` | Enable the test-session endpoint on the server; the same secret on the runner side unlocks the signed-in specs (they **skip cleanly** when unset) |
+| `E2E_PAGE_ORIGIN` | Origin for **page** navigations (APIs keep `E2E_BASE_URL`).  Defaults to `http://127.0.0.1:3000` in webServer mode, empty when `E2E_BASE_URL` is set.  Production routes pages straight to Next via nginx; this reproduces that topology.  Required for correctness, not just speed: through the backend's page proxy, `/` renders the **anonymous** shell even for a signed-in session (`/api/auth/status` says `authenticated:true` while the proxied page shows "Sign In"), the proxy's 5s timeout is exceeded by slow SSR passes like `/league`, and it doesn't register every Next page (`/waivers`, `/news`) |
+| `RATE_LIMIT_BYPASS_IPS=127.0.0.1` | **Server-side, needed for repeated full runs.**  Exempts the runner from the public-API rate limiter (60/min + 1000/hour per IP — `src/api/rate_limit.py`).  A full run fires thousands of public calls (`/api/auth/status` per page load, `/api/public/league/*`); when the hour bucket drains, the 429s surface as bogus auth/render failures (create-session 429 → signed-in specs skip; `/api/auth/status` 429 → pages render the logged-out shell) |
+| `E2E_TEST_MODE=1` + `E2E_TEST_SECRET` | Enable the test-session endpoint on the server; the same secret on the runner side unlocks the signed-in specs (they **skip cleanly** when unset).  Set automatically when the config boots the backend — you only need these when driving your own stack |
+| `ALLOW_DEFAULT_LOGIN_DEV=1` | **Server-side, mandatory.**  `server.py` raises at import without `JASON_LOGIN_PASSWORD`; the resulting boot failure looks like a data problem downstream.  Set automatically for the backend the config boots |
 | `E2E_FRONTEND_CMD` | Override the frontend `webServer` command (default: production build + start) |
 | `E2E_CHROMIUM_PATH` | Launch a pre-installed Chromium binary instead of the revision-pinned download (sandboxes / air-gapped runners) |
 | `SKIP_VISUAL_REGRESSION=1` | Skip the two visual-regression specs entirely |
