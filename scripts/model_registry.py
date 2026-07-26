@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -36,6 +34,16 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+from src.model_registry.hill_masters import (  # noqa: E402
+    CONSTANT_NAMES,
+    MODEL_ID,
+    PLAYER_VALUATION,
+    git_sha as _git_sha,
+    load_or_seed_registry as _load_or_seed,
+    read_committed_constants,
+    training_input_paths as _training_input_paths,
+    write_committed_constants,
+)
 from src.model_registry.holdout import (  # noqa: E402
     HoldoutError,
     evaluate_offense_master,
@@ -48,95 +56,6 @@ from src.model_registry.versioning import (  # noqa: E402
     RegistryError,
     fingerprint_inputs,
 )
-
-MODEL_ID = "hill_scope_masters"
-PLAYER_VALUATION = REPO / "src" / "canonical" / "player_valuation.py"
-
-CONSTANT_NAMES: tuple[str, ...] = (
-    "HILL_GLOBAL_PERCENTILE_C",
-    "HILL_GLOBAL_PERCENTILE_S",
-    "HILL_PERCENTILE_C",
-    "HILL_PERCENTILE_S",
-    "IDP_HILL_PERCENTILE_C",
-    "IDP_HILL_PERCENTILE_S",
-    "HILL_ROOKIE_PERCENTILE_C",
-    "HILL_ROOKIE_PERCENTILE_S",
-)
-
-
-def read_committed_constants() -> dict[str, float]:
-    text = PLAYER_VALUATION.read_text()
-    out: dict[str, float] = {}
-    for name in CONSTANT_NAMES:
-        m = re.search(rf"^{re.escape(name)}:\s*float\s*=\s*([0-9.]+)\s*$", text, re.MULTILINE)
-        if not m:
-            raise RegistryError(f"could not find {name!r} in {PLAYER_VALUATION}")
-        out[name] = float(m.group(1))
-    return out
-
-
-def write_committed_constants(params: dict[str, float]) -> None:
-    text = PLAYER_VALUATION.read_text()
-    for name in CONSTANT_NAMES:
-        if name not in params:
-            raise RegistryError(f"champion params missing {name!r}")
-        literal = f"{params[name]:.4f}" if name.endswith("_C") else f"{params[name]:.3f}"
-        text, n = re.subn(
-            rf"^({re.escape(name)}:\s*float\s*=\s*)[0-9.]+(\s*)$",
-            rf"\g<1>{literal}\g<2>",
-            text,
-            flags=re.MULTILINE,
-        )
-        if n != 1:
-            raise RegistryError(f"expected 1 match for {name!r}, got {n}")
-    PLAYER_VALUATION.write_text(text)
-
-
-def _git_sha() -> str:
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=str(REPO),
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    except Exception:  # noqa: BLE001
-        return "unknown"
-
-
-def _training_input_paths() -> dict[str, Path]:
-    return {role.label: REPO / role.path for role in source_roles() if role.role == "train"}
-
-
-def _load_or_seed() -> ModelRegistry:
-    """Load the registry, seeding from live constants on first use.
-
-    Seeding records what is ALREADY live as v1 champion.  It is not a
-    claim that those constants won anything — ``qualified`` stays False
-    until someone evaluates them.
-    """
-    try:
-        return ModelRegistry.load(MODEL_ID)
-    except RegistryError:
-        reg = ModelRegistry(MODEL_ID)
-        reg.seed_champion(
-            ModelVersion(
-                model_id=MODEL_ID,
-                version=1,
-                params=read_committed_constants(),
-                fitted_at="unknown",
-                producer="seeded from committed constants in player_valuation.py",
-                training_inputs=fingerprint_inputs(_training_input_paths()),
-                notes=(
-                    "seeded, not validated: these constants were live before the "
-                    "registry existed and carry no out-of-sample score",
-                ),
-            )
-        )
-        reg.save()
-        return reg
-
 
 # ── subcommands ────────────────────────────────────────────────────
 

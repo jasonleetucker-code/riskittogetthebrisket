@@ -1,29 +1,34 @@
 name: Refit Hill Curves
 
-# Re-fits the four scope-level master Hill curves (GLOBAL/OFFENSE/IDP/ROOKIE)
-# from the latest value-based sources and commits new constants when the
-# drift exceeds the 50-RMSE-point threshold.  See
-# scripts/auto_refit_hill_curves.py for the drift metric and the exact
-# files rewritten (src/canonical/player_valuation.py + the pinned deltas
-# in tests/canonical/test_ktc_reconciliation.py).
+# Weekly re-fit of the four scope-level master Hill curves
+# (GLOBAL/OFFENSE/IDP/ROOKIE).
+#
+# This workflow NO LONGER SHIPS CONSTANTS.  Until 2026-07-26 it rewrote
+# src/canonical/player_valuation.py and pushed to main, triggering a
+# deploy, with nothing checking the result — see ADR-008 for the three
+# independent reasons the guard could not fail, the third being that
+# the guard was auto-marked `livedata` and this workflow's own
+# `-m "not livedata"` filter deselected it (13 deselected, 0 run).
+#
+# Now: fit -> challenger -> score against boards the fit never reads ->
+# record in the model registry -> report.  Production constants move
+# only via `scripts/model_registry.py promote` + `apply`, run by a
+# human.  The only file this workflow commits is the registry JSON.
 #
 # Behaviour by exit code from the driver:
-#   0 (no drift)  - no files changed, workflow ends green
-#   1 (applied)   - files rewritten, tests run, commit + push on success
-#   2 (error)     - workflow fails, human investigates
+#   0 champion stands  - no drift, or challenger missed the margin. Green.
+#   1 promotable       - green, and opens an issue so it is acted on.
+#   2 error            - RED. Fit failed, or the gate could not be scored.
+#   3 regression alarm - RED, and opens an issue. Points at the fit or
+#                        its inputs, not at the curve.
 
 on:
   schedule:
-    # Weekly Tuesday at 06:17 UTC (off the top-of-hour thundering
-    # herd, after the morning scheduled-refresh tick).  Tuesday lines
-    # up with nflverse republish cadence so the refit consumes fresh
-    # data, and the audit-dropped-sources Sunday cron has already run
-    # so any source-side regressions are already surfaced when this
-    # fires.  Auto-commits when drift exceeds the 50-RMSE-point
-    # threshold (see ``scripts/auto_refit_hill_curves.py`` exit codes
-    # — code 1 = applied, 0 = no drift).  Bumped from monthly per
-    # audit OPEN_QUESTIONS_FOR_PRODUCT.md → Q4 → option A (auto-commit
-    # weekly).
+    # Weekly Tuesday at 06:17 UTC (off the top-of-hour thundering herd,
+    # after the morning scheduled-refresh tick).  Tuesday lines up with
+    # nflverse republish cadence so the refit consumes fresh data, and
+    # the audit-dropped-sources Sunday cron has already run so
+    # source-side regressions are surfaced before this fires.
     - cron: "17 6 * * 2"
   workflow_dispatch:
     inputs:
@@ -33,7 +38,12 @@ on:
         type: string
         default: ""
       dry_run:
-        description: "Report drift but do not rewrite files"
+        description: "Evaluate and report, but do not record the challenger"
+        required: false
+        type: boolean
+        default: false
+      force:
+        description: "Evaluate even when drift is below the threshold"
         required: false
         type: boolean
         default: false
@@ -44,10 +54,11 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   refit:
-    name: Fit + Drift Check + Apply
+    name: Fit + Held-Out Gate + Record
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -64,14 +75,23 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          # Unified manifest: requirements-dev.txt pulls in runtime deps
-          # via ``-r requirements.txt`` and adds pytest + httpx for the
-          # post-refit regression step below.
           pip install -r requirements-dev.txt
           pip check
           python scripts/check_env.py
 
-      - name: Run auto-refit driver
+      - name: Self-test the gate before trusting it
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The gate is only worth running if its own code is sound.
+          # Cheap (<1s) and directly relevant, unlike the full suite —
+          # which this workflow used to run against constants it had
+          # just rewritten, while skipping the one test that guarded
+          # them.  Nothing in this job modifies application code now,
+          # so there is nothing for a full sweep to regress.
+          python -m pytest tests/model_registry/ -q
+
+      - name: Run refit + held-out gate
         id: refit
         shell: bash
         run: |
@@ -83,80 +103,91 @@ jobs:
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             ARGS="${ARGS} --dry-run"
           fi
+          if [[ "${{ inputs.force }}" == "true" ]]; then
+            ARGS="${ARGS} --force"
+          fi
           set +e
-          python scripts/auto_refit_hill_curves.py ${ARGS} | tee refit_report.txt
+          python scripts/auto_refit_hill_curves.py ${ARGS} 2>&1 | tee refit_report.txt
           CODE=${PIPESTATUS[0]}
           set -e
           echo "exit_code=${CODE}" >> "$GITHUB_OUTPUT"
-          if (( CODE == 2 )); then
-            echo "::error title=Refit failed::auto_refit_hill_curves.py exited 2"
-            exit 1
-          fi
+          echo "Driver exited ${CODE}"
 
-      - name: Append drift report to job summary
+      - name: Job summary
         if: always()
         shell: bash
         run: |
-          echo "## Hill scope master drift report" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat refit_report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no report)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Hill refit — held-out gate"
+            echo ""
+            case "${{ steps.refit.outputs.exit_code }}" in
+              0) echo "**Champion stands.** No drift, or the challenger did not clear the margin." ;;
+              1) echo "**Challenger is PROMOTABLE.** A human must promote it — see the issue." ;;
+              2) echo "**ERROR.** The fit failed or the gate could not be scored." ;;
+              3) echo "**REGRESSION ALARM.** Challenger far worse than champion." ;;
+              *) echo "Driver exit code \`${{ steps.refit.outputs.exit_code }}\`." ;;
+            esac
+            echo ""
+            echo '```'
+            cat refit_report.txt 2>/dev/null || echo "(no report)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run test suite on refit
-        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
-        shell: bash
-        env:
-          # ``server.py`` raises at import time when JASON_LOGIN_PASSWORD
-          # is unset and ALLOW_DEFAULT_LOGIN_DEV isn't truthy (audit M1
-          # removed the source-code default).  Several tests under
-          # ``tests/api/`` import ``server`` at collection time, so the
-          # full ``pytest tests/`` sweep can't even collect without one
-          # of those.  Match pr-validation.yml: enable the dev escape
-          # hatch on the CI runner.  Without this every Tuesday refit
-          # run that hits drift fails at the test step before commit.
-          ALLOW_DEFAULT_LOGIN_DEV: "1"
-        run: |
-          set -Eeuo pipefail
-          # Hard-gate on code tests only, matching pr-validation.yml.
-          # Data-coupled (livedata) tests must not block the refit:
-          # a routine source row-count dip is not a code defect, and
-          # the KTC drift pins are REWRITTEN by this very refit — so
-          # gating the refit commit on them is circular.  Four straight
-          # weekly refits (Jun 30 - Jul 21) died here on an unrelated
-          # yahooBoone row-floor dip while curve drift accumulated.
-          python -m pytest tests/ -q -m "not livedata"
-
-      - name: Commit and push refit
-        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
+      # The registry is the audit trail: a dated entry every time the
+      # gate runs, whatever the verdict.  A rejected challenger is kept
+      # rather than discarded — it is evidence about the search space,
+      # and a MISSING weekly entry is itself the signal that this
+      # workflow stopped running.
+      - name: Commit the registry record
+        if: steps.refit.outputs.exit_code != '2' && inputs.dry_run != true
         shell: bash
         run: |
           set -Eeuo pipefail
-          # The driver rewrites constants/pins mechanically; normalize to
-          # the repo formatter BEFORE committing, or the refit commit
-          # fails pr-validation's repo-wide 'ruff format --check' for
-          # every PR until someone hand-formats (this happened with the
-          # 2026-07-25 refit — see #526).
-          python -m ruff format src/canonical/player_valuation.py tests/canonical/test_ktc_reconciliation.py
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/canonical/player_valuation.py tests/canonical/test_ktc_reconciliation.py
+          # ONLY the registry. Never player_valuation.py, never the
+          # reconciliation pins. If this path ever grows another file,
+          # the autonomous-rewrite prohibition is gone.
+          git add config/model_registry/
           if git diff --cached --quiet; then
-            echo "Refit driver reported drift but staging diff is empty — skipping commit"
+            echo "No registry change to commit"
             exit 0
           fi
           git commit -m "$(cat <<'EOF'
-          chore(calibration): auto-refit Hill scope masters
+          chore(calibration): record Hill refit challenger
 
-          Drift exceeded the 50-RMSE-point threshold on at least one
-          scope — see the workflow summary for the per-scope report.
-          Rewrites the eight HILL_*_C/S constants in
-          src/canonical/player_valuation.py and rebaselines the pinned
-          deltas in tests/canonical/test_ktc_reconciliation.py.
+          Held-out gate result recorded in config/model_registry/.
+          No production constants changed — promotion is a human
+          action (scripts/model_registry.py promote + apply).
           EOF
           )"
           git pull --rebase origin main
           git push
-          # deploy.yml auto-triggers on push to main (paths-ignore only
-          # skips data/** and exports/**, not src/**), so no explicit
-          # dispatch needed.  That also avoids needing actions:write on
-          # the GITHUB_TOKEN — which the default workflow token lacks.
+
+      - name: Open an issue when a human must act
+        if: steps.refit.outputs.exit_code == '1' || steps.refit.outputs.exit_code == '3'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${{ steps.refit.outputs.exit_code }}" == "1" ]]; then
+            TITLE="Hill refit: challenger cleared the held-out gate"
+            LEAD="A challenger beat the champion out of sample and is waiting for a human to promote it."
+          else
+            TITLE="Hill refit: REGRESSION ALARM"
+            LEAD="The challenger scored far worse than the champion. That usually means a collapsed or stale source, not a bad curve."
+          fi
+          BODY=$(printf '%s\n\n```\n%s\n```\n\nRun: %s\n' \
+            "${LEAD}" \
+            "$(cat refit_report.txt)" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
+            || gh issue create --title "${TITLE}" --body "${BODY}"
+
+      - name: Fail loudly on error or regression
+        if: steps.refit.outputs.exit_code == '2' || steps.refit.outputs.exit_code == '3'
+        shell: bash
+        run: |
+          echo "::error title=Hill refit gate::driver exited ${{ steps.refit.outputs.exit_code }}"
+          exit 1

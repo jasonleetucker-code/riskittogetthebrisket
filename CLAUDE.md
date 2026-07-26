@@ -258,9 +258,16 @@ Steps:
 12. Multiplicative future-year pick discount
     (``config/weights/pick_year_discount.json``)
 
-Master curve constants auto-refit weekly by
+Master curve constants are refit weekly by
 ``.github/workflows/refit-hill-curves.yml`` (see
-``scripts/auto_refit_hill_curves.py``).
+``scripts/auto_refit_hill_curves.py``), but the refit **no longer
+ships them**.  It produces a *challenger*, scores it against dynasty
+boards the fit never reads (``src/model_registry/holdout.py``), records
+the verdict in ``config/model_registry/``, and stops.  Production
+constants move only via ``scripts/model_registry.py promote`` +
+``apply``, run by a human — see ADR-008 in
+``docs/roster-trade-intelligence/DECISIONS.md`` for the three reasons
+the previous auto-commit path had no working guard.
 
 Blend weights live in the ``_RANKING_SOURCES`` registry (all 1.0 by
 policy).  ``config/weights/default_weights.json`` is historical
