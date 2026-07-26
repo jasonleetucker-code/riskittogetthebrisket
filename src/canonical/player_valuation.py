@@ -104,12 +104,27 @@ IDP_HILL_PERCENTILE_C: float = 0.0930
 IDP_HILL_PERCENTILE_S: float = 0.970
 #
 # ROOKIE master — fit from KTC + IDPTC rookie slices of the latest
-# snapshot.  Used for every rookie-only source's contributions
-# (DLF Rookie SF, DLF Rookie IDP).  Rookie sources use their NATIVE
-# pool size N_j (~40-50 rookies) for the percentile denominator; the
-# rookie master's flatter shape captures rookie-relative value decay
-# (rookie #1 = 9999, rookie ~#25 ≈ mid-pack) directly, so the prior
-# rookie-ladder translation via reference source is no longer needed.
+# snapshot.
+#
+# NOT ROUTED.  This curve is refit weekly by
+# ``.github/workflows/refit-hill-curves.yml`` but no live code path
+# selects it: ``data_contract.py::_curve_for_source`` routes
+# cross-market -> GLOBAL, overall_idp -> IDP, and everything else
+# (offense AND picks) -> OFFENSE.  Rookie-only sources ladder-translate
+# their rank into combined-pool space *before* reaching that function,
+# so the OFFENSE/IDP master is the correct curve by the time they get
+# there.  ``_build_hill_curves_block`` stamps ``routed: false`` on this
+# entry accordingly, and CLAUDE.md describes it as refit tooling only.
+#
+# The previous version of this comment said the curve was "used for
+# every rookie-only source's contributions (DLF Rookie SF, DLF Rookie
+# IDP)" with their NATIVE pool size as the percentile denominator.
+# That described the pre-2026-04-21 routing, which the ladder
+# translation retired; it survived here as a stale comment and
+# contradicted both the code and CLAUDE.md.  Corrected 2026-07-26.
+# Keep the constants — the refit workflow maintains them, and routing
+# the curve is a live option — but do not read this block as a
+# description of current behaviour.
 HILL_ROOKIE_PERCENTILE_C: float = 0.1280
 HILL_ROOKIE_PERCENTILE_S: float = 0.865
 

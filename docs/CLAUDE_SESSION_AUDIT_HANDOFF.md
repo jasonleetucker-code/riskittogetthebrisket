@@ -44,6 +44,17 @@ distinction is tracked per item.
 Their branches advance after this snapshot. Commit counts are as of
 2026-07-26 ~19:45 UTC.
 
+**0. MERGE STATE MOVED UNDER THIS DOCUMENT.** §1–§15 were written when
+almost nothing was merged, and §9 still says so. Since then **#550, #551,
+#552, #554, #556, #558, #559, #560, #562, #564 and #565 have all landed
+on `main`.** The
+most consequential is **#550**: the stale-registry and
+`DEFAULT_STARTER_NEEDS` defect that §16.6 called the highest-impact live
+problem **is fixed in production**. §16.6 and §16.9 #9 are annotated with
+the current state; §9's "nothing is merged" framing is a snapshot of
+2026-07-26 ~19:45 UTC and should be read as history, not status. Verify
+merge state from `git log`, never from this document.
+
 **5. §16 was added after this document merged, and partly contradicts
 §1–§15.** A second session independently wrote a competing version of this
 file (PR #557) with no shared context, and **read the large modules §4D
@@ -325,7 +336,7 @@ merge when genuinely ready.
 | League registry | `src/api/league_registry.py`, `config/leagues/registry.json` | ✅ |
 | League Intelligence | `src/league_intel/` | 🔶 PR #550 |
 | ROS / lineup | `src/ros/` | ✅ (exact optimizer 🔶) |
-| Roster Intelligence | `src/roster_intel/` | 🔶 unmerged |
+| Roster Intelligence | `src/roster_intel/` | ✅ **merged #562** — but reachable only from Python; no API endpoint, no UI |
 | Trade engines | `src/trade/` | ✅ (IDP fix 🔶 #556) |
 | Sharp Tracker intel | `src/intel/` | ✅ |
 | News | `src/news/`, `frontend/app/news/` | ✅ |
@@ -636,11 +647,11 @@ Items still marked `—` remain unread by anyone.
 
 | System | File / function | Now read? |
 |---|---|---|
-| Exact scoring engine (141 keys) | `src/league_intel/scorer.py::score_stat_line` | → §16.6 (branch-only) |
+| Exact scoring engine (141 keys) | `src/league_intel/scorer.py::score_stat_line` | → §16.6 (**now on `main`**, #550) |
 | Best-ball optimizer | `src/ros/lineup.py::optimize_lineup`, `solve_optimal_assignment` | → §16.6 |
-| Replacement levels, scarcity | `src/league_intel/replacement.py` | → §16.6 (branch-only) |
-| Guardrails, evidence tiers | `src/league_intel/adjustment.py` | → §16.6 (branch-only) |
-| Value schema, selector | `src/league_intel/values.py::get_active_value` | → §16.6 (branch-only) |
+| Replacement levels, scarcity | `src/league_intel/replacement.py` | → §16.6 (**now on `main`**, #550) |
+| Guardrails, evidence tiers | `src/league_intel/adjustment.py` | → §16.6 (**now on `main`**, #550) |
+| Value schema, selector | `src/league_intel/values.py::get_active_value` | → §16.6 (**now on `main`**, #550) |
 | ROS aggregation | `src/ros/aggregate.py` | — |
 | Team strength composite | `src/ros/team_strength.py` | — |
 | Playoff/championship sim | `src/ros/playoff_sim.py` | — |
@@ -662,8 +673,11 @@ Items still marked `—` remain unread by anyone.
 
 ## 5. Roster Analysis System
 
-**Status: partially implemented, unmerged, on `claude/ws-j-roster-intel`
-(24 commits).**
+**Status: MERGED (#562, 2026-07-26).** Originally written up here as
+unmerged branch work. `src/roster_intel/` is now on `main` — but it is
+**imported by nothing outside its own package and tests**: no API
+endpoint, no UI, no `/gameplan` surface. The correctness work landed;
+the engine-to-surface gap did not close.
 
 ### Implemented and measured
 
@@ -1897,12 +1911,24 @@ gets an identical classification.
 
 ---
 
-### 16.6 Branch-only engines — #550's findings, restated
+### 16.6 #550's findings, restated — **#550 has since MERGED**
+
+> **Status correction, 2026-07-26 (later the same day).** When §16 was
+> written, #550 was open and everything below was branch-only. **It has
+> merged.** Verified on `main`: `config/leagues/registry.json` now reads
+> `rosterSize 58`, `taxiSize 0`, `TE 2`, `DL/LB/DB 3`, `K 1`,
+> `IDP_FLEX 0`, and `suggestions.py::DEFAULT_STARTER_NEEDS` now reads
+> `{QB 2, RB 3, WR 4, TE 2, DL 3, LB 3, DB 3}`. **The single
+> highest-impact live defect either document identified is fixed in
+> production.** The text below is kept as the record of what the merge
+> brought, with the "not on `main`" framing corrected in place. The one
+> part that did **not** change is the duplication — see the note at the
+> end of this subsection, which is now the live residual.
 
 §5 and §9 above describe the WS-J roster work. #557 read **#550's**
 league-intelligence branch, which §1–§15 mostly reference rather than
-describe. The following are **not on `main`** and are recorded here so the
-auditor knows what the merge would bring:
+describe. The following were branch-only when §16 was written and are
+**now on `main`**:
 
 - **Exact league scorer** (`src/league_intel/scorer.py::score_stat_line`)
   over all 141 keys. Key empirical finding (ADR-006, superseding ADR-005's
@@ -1931,7 +1957,7 @@ auditor knows what the merge would bring:
   hybrid IDP was locked out of half its legal slots in production.** Found
   empirically, not by inspection: the reconstruction scored *below* the
   host on 5 of 10 weeks and the diff was hybrids the host had started.
-  Fixed on the branch; **not on `main`.** This is the strongest form of
+  Fixed by #550, **now on `main`.** This is the strongest form of
   evidence in either document — a mechanism check that failed before it
   passed — and it is the §2b rule working as intended.
 - **`_positional_coverage` was a constant.** It returned exactly 100.00 for
@@ -1948,8 +1974,11 @@ auditor knows what the merge would bring:
   described as "the defining fact of a superflex league." Two deliberate
   deviations (ADR-008): unpriced players excluded from level pools;
   `waiverScarcity` measured against the best-ball starter floor rather than
-  the noisy roster tail. **Not merged, not surfaced in any UI, and — the
-  point #557 presses — with no path into trade or waiver valuation.**
+  the noisy roster tail. **Now merged with #550 — but still not surfaced
+  in any UI, and still with no path into trade or waiver valuation.** The
+  merge closed the correctness defect; it did not close the
+  engine-to-surface gap #557 presses on, which remains the largest
+  built-but-unused asset in the repo.
 - **League-adjusted value (LI-4) is a no-op by construction.**
   `build_player_values` raises if anyone flips `LEAGUE_ADJUSTED_IS_NOOP`
   without supplying a validated model. Consensus is *read* from
@@ -1967,22 +1996,25 @@ auditor knows what the merge would bring:
 live defect in either document, and it needs stating precisely because the
 two states are different:
 
-| | Current `main` (`253568bc`) | PR #550 branch (unmerged) |
+| | `main` **before** #550 (`253568bc`) | `main` **after** #550 — current |
 |---|---|---|
-| `config/leagues/registry.json` → `dynasty_main.rosterSettings` | `rosterSize 30`, `taxiSize 5`, `TE 1`, `DL 2`, `LB 2`, `DB 2`, `IDP_FLEX 2`, **no K** | `rosterSize 58`, `taxiSize 0`, `TE 2`, `DL 3`, `LB 3`, `DB 3`, `IDP_FLEX 0`, `K 1` |
-| `src/trade/suggestions.py::DEFAULT_STARTER_NEEDS` | `{QB 2, RB 3, WR 4, TE 1, DL 3, LB 3, DB 2}` | `{QB 2, RB 3, WR 4, TE 2, DL 3, LB 3, DB 3}` |
+| `config/leagues/registry.json` → `dynasty_main.rosterSettings` | `rosterSize 30`, `taxiSize 5`, `TE 1`, `DL 2`, `LB 2`, `DB 2`, `IDP_FLEX 2`, **no K** | `rosterSize 58`, `taxiSize 0`, `TE 2`, `DL 3`, `LB 3`, `DB 3`, `IDP_FLEX 0`, `K 1` ✅ |
+| `src/trade/suggestions.py::DEFAULT_STARTER_NEEDS` | `{QB 2, RB 3, WR 4, TE 1, DL 3, LB 3, DB 2}` | `{QB 2, RB 3, WR 4, TE 2, DL 3, LB 3, DB 3}` ✅ |
 
-Both verified by direct read of `main` and of `pull/550/head`. The live
-league's actual lineup is **QB1 RB2 WR3 TE2 FLEX2 SFLEX1 K1 DL3 LB3 DB3**,
-roster 58, taxi 0 — as recorded in §1 of this document. **So `main` is
-wrong on 8 registry fields and on TE and DB in the hardcoded dict, and the
-fix exists only on an unmerged PR.**
+Both columns verified by direct read — the "before" column against
+`253568bc` and `pull/550/head`, the "after" column against `main` once
+#550 landed. The live league's actual lineup is **QB1 RB2 WR3 TE2 FLEX2
+SFLEX1 K1 DL3 LB3 DB3**, roster 58, taxi 0 — as recorded in §1 — so the
+current values are correct.
 
-Consumers of the wrong lineup on production today: ROS lineup slots, FAAB
-`analyze_roster`, trade `DEFAULT_STARTER_NEEDS`, and the need/surplus
-labels every trade suggestion is built from. **Until #550 merges, every
-trade suggestion, every need/surplus label and every FAAB need factor in
-production is computed against a lineup this league does not use.**
+The consumers that were modelling the wrong lineup — ROS lineup slots,
+FAAB `analyze_roster`, trade `DEFAULT_STARTER_NEEDS`, and the
+need/surplus labels every trade suggestion is built from — are now on the
+right one. **This was the highest-impact live defect in either document
+and it is closed.** For the period it was open, every trade suggestion,
+need/surplus label and FAAB need factor in production was computed
+against a lineup this league does not use; any advice a user acted on
+before this merge carries that caveat.
 
 > **The duplication survives the fix, and this is the part that matters
 > most.** #550 corrects the *values* in both places but does not eliminate
@@ -2100,14 +2132,23 @@ the future-year pick discount.
 > `rankDerivedValue`, which is what `/rankings`, the player popup and
 > `suggestions.py` all serve. So the "consensus of 21 sources" *is*
 > constrained toward one source on IDP — on **the board the user actually
-> sees** — and that is not disclosed in the UI. And it means the two trade
-> engines are working from IDP values that differ systematically. Both
-> carried to §16.9.
+> sees** — and that is not disclosed in the UI. That half stands and is
+> carried to §16.9 #2.
+>
+> **The other half — that the clamp therefore makes the two engines'
+> IDP values diverge — was a hypothesis, and §17.3 measured it and found
+> it backwards.** Clamped IDP rows are the *tightly bounded* ones (max
+> divergence 412 vs 1742 for unclamped): the clamp pulls the board toward
+> IDPTC, and the composite is IDPTC-driven for IDP, so clamping moves the
+> two pipelines **closer together**. IDP turns out to be the
+> best-behaved cohort and offense the worst. Recorded here rather than
+> quietly amended, because this section's whole purpose is showing what
+> happened to each claim — including the ones it made itself.
 
 **3. "`config/leagues/registry.json` is stale and `DEFAULT_STARTER_NEEDS`
 mirrors it."** *Verified in full, on both `main` and #550.* Stated
 precisely in §16.6 above — **still broken on `main`, fixed only on an
-unmerged PR**, with the duplication surviving the fix. This is the finding
+PR that has since merged**, with the duplication surviving the fix. This is the finding
 that most deserved carrying over, and #557 is right that it is the
 highest-impact live defect either document found.
 
@@ -2310,18 +2351,20 @@ correct contribution; a confidently-worded guess is not.
 |---|---|---|---|
 | 1 | Is `SINGLE_SOURCE_DISCOUNT = 0.88` the right value while F-6 stands? | It is the only haircut on the finder's path and is load-bearing; its "matches the frontend" anchor is gone. Removing it is known-harmful. | Not a tuning exercise. Execute the F-6 migration onto `rankDerivedValue` with before/after numbers on every threshold, then delete the constant. Confirm first that the composite and `rankDerivedValue` scales are comparable at all — if their shapes differ materially, `MIN_ASSET_VALUE`/`MAX_BOARD_LOSS`/`JUNK_THRESHOLD`/`ELITE_THRESHOLD`/`MULTI_FOR_ONE_MIN_RATIO` need re-derivation, not re-testing. |
 | 2 | Should the ±15% IDP corridor clamp be disclosed in the UI? | It genuinely binds `rankDerivedValue` — the board users see — toward one source on IDP. It does **not** bind the finder (§16.7 item 2). | A product decision, not a measurement. But quantify it first: what fraction of IDP rows are actually clamped on a live build, and by how much? The clamp already stamps `marketCorridorClamp` on every clamped row, so the number is one query away. |
-| 3 | Do the two trade engines disagree on IDP because one is clamped and one is not? | `suggestions.py` reads clamped `rankDerivedValue`; `finder.py` reads unclamped `_finalAdjusted`. Nobody has measured the divergence. | Run both engines on one live contract and diff their IDP asset valuations. This is cheap and has never been done. It also directly bounds how much F-6 will move. |
+| 3 | ~~Do the two trade engines disagree on IDP because one is clamped and one is not?~~ **ANSWERED — §17. The premise was backwards.** | Measured on one build: IDP is the *best*-agreeing cohort (Spearman 0.9645; residual median **21** after a single scale factor), and **clamped** rows are the tightly bounded ones (max divergence 412 vs 1742 unclamped). The clamp is a convergence force between the engines. Offense is the divergent cohort (residual median 226), and picks have the highest material-inversion rate (4.96%). | **Closed.** Two genuinely open items were spun out of it: the **coverage** asymmetry (§17.1 — 162 players the finder trades and the board cannot price) and whether `k ≈ 0.88` is stable across scrapes (§17.5) before anyone hard-codes it. |
 | 4 | Is α = 0.10 defensible when the joint backtest optimum was α = 0? | α=0 is the degenerate "use IDPTC alone" solution, rejected on declared-objective grounds at a recorded ~2× stability cost. | Genuinely open — it is a values question wearing a metric. Worth asking whether a third formulation (per-position α, or shrinking toward the subgroup rather than the anchor) preserves multi-source voice without the variance. Nobody has tried one. |
 | 5 | Is `_PERCENTILE_REFERENCE_N = 500` distorting the deep board? | Ranks past 500 clamp to the tail; the rostered universe is 696 spots. Described as deliberate top-500-board behavior. | Quantify the compression between rank 500 and rank 696 on a live build, and check how many *rostered* players sit in the flat region. If the answer is "few, and all waiver-fodder," this closes. |
 | 6 | Is `_HAMPEL_K = 2.75` right, and is the 1000-point floor now too permissive? | The floor has a documented empirical justification (§16.3). **K itself has no cited backtest**, unlike α and λ which have named report files. | A K-sweep against the same stability metric the α×λ backtest used. The harness exists. |
 | 7 | Where do the pick-year discounts 0.82 / 0.66 / 0.53 (and `fallbackBase` 0.80) come from? | Unsourced in config and code. The table is near-geometric at 0.82 while the fallback base is 0.80 — two rates for one phenomenon. | Either cite the derivation or refit against observed pick-trade prices. Failing both, collapse to a single base and say so. |
 | 8 | Is `trend_score = 3·net48h + 2·net7d + 1·net30d` over **nested** windows intended? | Verified nested. A 30-hour event gets effective weight 6; a 20-day event gets 1. Weights unsourced. | Ask the author. If intended, document it as an effective decay curve and state the implied half-life. If not, it is a bug. Either way the current state — an undocumented triple-count — is not defensible. |
-| 9 | Should `DEFAULT_STARTER_NEEDS` be derived rather than mirrored? | #550 fixes the values but keeps the dict. Three representations of the lineup remain. | Derive from `league_registry` and **add a parity test asserting registry, ROS slot flattening and the derived needs all agree.** That test would have caught this defect. Not currently in §13. |
+| 9 | Should `DEFAULT_STARTER_NEEDS` be derived rather than mirrored? **Now the live residual — #550 has merged.** | #550 landed and fixed the *values* in both places, so the correctness defect is closed. It **kept the dict**: three independent representations of the lineup still exist (registry JSON, ROS slot flattening, this dict). The thing that went stale is now correct; the mechanism that let it go stale is untouched. | Derive from `league_registry` and **add a parity test asserting all three agree.** That test would have caught the original defect and is the only thing that prevents a recurrence. Still not in §13's plan. This is now the highest-value cheap fix in the document. |
 | 10 | Did `grant-ssh-access.yml` ever execute? | Added 14:08, deleted 14:41 on 2026-07-26. Purpose is known (§16.7 item 7). Execution status is not. | GitHub Actions run history for the deleted workflow. If it ran, rotate anything reachable from it. |
 | 11 | Has `scripts/refit_tier_thresholds.py` ever run? | It exists; **no workflow invokes it**; the config points at a different filename that does not exist. Thresholds are self-described priors. | Check whether a month of canonical-contract history now exists, then run it and diff. Also fix the config comment's filename. |
 | 12 | Is the two-way player boost's `max()` the right operator? | Verified one-directional — it can only raise a value. Optimistic by construction for genuinely two-way players. | Count how many rows it actually fires on. If it is a handful of players, this is a curiosity; if it is structural, a coverage-weighted blend is the obvious alternative. |
 | 13 | Is `run_valuation` safe to delete? | **Resolved as dead in production** (§16.3) — only the `__init__` re-export and its own tests reference it. But `rank_to_value`/`percentile_to_value`/`detect_tiers` in the same module *are* live. | Nothing further to verify. It needs a decision, not an investigation: delete `run_valuation` + `W_MEDIAN`/`W_MEAN`/`CLIFF_*`/`VOL_*`/`compute_tier_adjustments`/`compute_volatility_adjustments` and their tests, or route them. |
 | 14 | Does the ToS/licensing posture hold? | No legal review is recorded anywhere in the repository (§16.8). | Outside this document's competence and outside any agent's. It needs a human with the relevant expertise, and the trigger is any move beyond private single-user use. |
+| 15 | **Why can the finder trade 162 players the board cannot price?** (spun out of #3, §17.1) | 194 assets clear `MIN_ASSET_VALUE` on `_finalAdjusted` but have **no `canonicalConsensusRank`** at all — 91 IDP, 71 offense, 32 picks. The 32 picks are deliberate (generic tier rows are board-suppressed in favour of slot rows). The 162 players are not obviously deliberate. | Determine whether those rows are genuinely unrankable or whether the blend is dropping them. Then decide the product question the F-6 migration forces: **should the finder trade unranked players at all?** Migrating it onto `rankDerivedValue` removes all 162 from its universe — that should be a decision, not a discovery. |
+| 16 | **Is the ~12% level offset (`k ≈ 0.88`) stable across scrapes?** (spun out of #3, §17.5) | Measured once, on the 2026-07-26 build: k = 0.871 IDP / 0.900 offense / 0.872 pick. `scripts/measure_engine_value_divergence.py` is committed and re-runnable. | Run it across several scrapes. **This matters before anyone rescales a finder threshold by 0.88** — a level offset that drifts week to week is not a constant to hard-code, and F-6's threshold re-derivation depends on which it is. **#564 gives this a home:** `src/model_registry/` versions the Hill scope masters with per-training-input sha256 provenance and a single champion pointer, so "did `k` move because the masters moved?" becomes answerable by diffing champion versions rather than by inference. Pair the measurement with the registry version it was taken against. |
 
 **One methodological note the reviewer should carry into all of the
 above.** §4A.2 records that the ~1.12 TE premium was measured with
@@ -2339,6 +2382,265 @@ TE axis is held `ABSENT` in `adjustment.py`. #557's H1 and its Day-2 item
 6 read the gap as a contradiction awaiting a decision; it is better read as
 a measurement awaiting an independent reference. **Adopting 1.12 on the
 current evidence would be the same error in the opposite direction.**
+
+---
+
+## 17. Measured: how far apart the two trade engines' values actually are
+
+**This section answers §16.9 #3, and it refutes the hypothesis that
+§16.7 attached to it.** Reproduce with:
+
+```
+python scripts/measure_engine_value_divergence.py
+```
+
+### 17.0 What was measured, and what the numbers can support
+
+F-6 records that the two live trade engines read different values for
+the same asset: `suggestions.py` reads `rankDerivedValue` (the Final
+Framework output), `finder.py` reads `_finalAdjusted` (a verbatim deep
+copy of the raw scraper composite, which `server.py` hands it as
+`contract["players"]`). §16.9 #3 recorded that nobody had measured the
+consequence.
+
+**Method.** One raw scrape payload
+(`exports/latest/dynasty_data_2026-07-26.json`, scrape
+`2026-07-26T19:56:11`), the contract built from **that same payload**,
+then a per-asset comparison. Holding the input constant is the point:
+every difference below is attributable to the transformation path
+alone, not to two data vintages. 803 assets are valued by both engines.
+
+**Deep-copy claim confirmed empirically as a side effect:**
+`_finalAdjusted` is byte-identical between the raw payload and
+`contract["players"]` for all 1,077 scraped rows. F-6's central
+mechanical claim is true.
+
+**What this cannot support — §2b applied to my own measurement.** Both
+values descend from the **same upstream scrape**. Agreement between
+them is therefore **not** independent corroboration that either value is
+correct; it is one input reflected back through two transforms, which is
+exactly the failure mode §2b exists to catch. Nothing here says which
+engine's number is more accurate — there is no ground truth in this
+comparison, and none is available. What it *does* establish is the
+magnitude and **shape** of the divergence with the input held constant,
+which is precisely what the F-6 decision needs and did not have.
+
+**Offense and picks are carried as controls.** The IDP-specific
+machinery — calibration post-pass, hierarchical anchoring, corridor
+clamp — applies only to IDP and picks. Reporting IDP alone would have
+invited the false attribution the whole exercise is meant to avoid.
+
+### 17.1 Coverage — assets only one engine can value
+
+Before any value comparison: the two engines do not see the same
+universe.
+
+| | count | breakdown |
+|---|---|---|
+| Comparable on both | **803** | IDP 280 · offense 429 · pick 94 |
+| **Tradeable to the finder, no board value at all** | **194** | **IDP 91 · offense 71 · pick 32** |
+| Board only, invisible to the finder | 9 | pick 9 — the synthetic `2029 Early/Mid/Late` tier rows |
+
+"Tradeable to the finder" means `_finalAdjusted ≥ MIN_ASSET_VALUE`
+(800) and a position outside `EXCLUDED_POSITIONS` — i.e. the finder
+will actually put them in a package.
+
+**All 194 carry no `canonicalConsensusRank`.** They are rows the blend
+never ranked, so `rankDerivedValue` is absent and `suggestions.py`
+cannot see them — while the finder happily trades them at composite
+values up to 6,141. The 32 picks are a *deliberate* case (generic tier
+rows are board-suppressed in favour of slot-specific rows). **The 162
+players are not obviously deliberate**, and 91 of them are IDP.
+
+This is a divergence no value comparison would have surfaced, and it is
+arguably larger than the valuation gap: **one engine will trade 162
+players the other cannot price at all.**
+
+### 17.2 Level, shape and ordering
+
+| Cohort | n | Spearman ρ | scale k | residual median | residual p90 | median &#124;diff&#124; | max &#124;diff&#124; |
+|---|---|---|---|---|---|---|---|
+| **IDP** | 280 | **0.9645** | **0.871** | **21** | 458 | 194 | 1742 |
+| offense | 429 | 0.9734 | 0.900 | **226** | 812 | 318 | 2012 |
+| pick | 94 | 0.9568 | 0.872 | 152 | 565 | 280 | 1716 |
+| ALL | 803 | 0.9626 | 0.880 | 133 | 671 | 231 | 2012 |
+
+`k = median(board / finder)` — a single scale factor.
+`residual = |board − k × finder|` — **what a pure rescale could not reconcile.**
+
+Three things fall out:
+
+**1. There is a systematic level offset, and it answers an open F-6
+precondition.** F-6 lists as a prerequisite: *"Confirm the two scales
+are comparable at all. If the composite and `rankDerivedValue` differ
+materially in shape, the thresholds are not portable and the change is a
+recalibration, not a migration."* **They are not at the same level.**
+The board runs ~12% *below* the composite across every cohort
+(k = 0.871–0.900). Shape, however, is close — see point 2.
+
+> **A trap for the next reader:** k ≈ 0.88 is *not* related to
+> `SINGLE_SOURCE_DISCOUNT = 0.88`. That constant applies only to
+> single-source assets inside the finder; this is a board-wide level
+> offset measured across all 803. The numerical coincidence is pure
+> chance and conflating them would be an error.
+
+**2. Ordering agreement is high, and IDP is nearly a pure rescale.**
+Spearman ρ ≈ 0.96–0.97 in every cohort. For **IDP the residual median
+is 21 points** — after a single scale factor, the two engines agree on
+IDP almost exactly. For **offense the residual median is 226**, an order
+of magnitude worse. So the genuine per-player disagreement is
+concentrated in **offense**, not IDP.
+
+**3. The verdict-relevant question — do they order assets
+differently?** A pure scale factor preserves the sign of
+`board_delta = recv − give`, so it cannot flip the finder's core gate.
+Only *inversions* can — pairs the two engines rank oppositely:
+
+| Cohort | inverted pairs | material (≥ 256 apart) |
+|---|---|---|
+| IDP | 5.29% | **0.63%** |
+| offense | 6.01% | **3.10%** |
+| pick | 6.04% | **4.96%** |
+| ALL | 7.11% | 3.65% |
+
+**Picks are the worst cohort and IDP is the best.** By the "would a user
+notice" standard the assignment asked for — a disagreement of at least
+the `even` fairness band edge (256) — the two engines can disagree about
+which of two picks is more valuable in **1 pair in 20**, about two
+offensive players in **1 in 32**, and about two IDP players in only
+**1 in 159**.
+
+Raw absolute divergence tells the same story: the share of each cohort
+differing by ≥ 256 is IDP **7.5%**, offense **59.0%**, pick **54.3%**.
+
+### 17.3 The corridor clamp does the opposite of what §16.7 predicted
+
+§16.7 item 2 corrected #557's claim that the ±15% corridor clamp bounds
+the finder's IDP arbitrage — it does not, because the finder never reads
+the clamped value. But it then advanced a **successor hypothesis**: that
+the clamp, by binding `rankDerivedValue` toward IDPTC while
+`_finalAdjusted` runs free, would make the two engines' IDP values
+diverge. **That hypothesis is wrong, and the measurement is
+unambiguous:**
+
+| IDP rows | n | scale k | median &#124;diff&#124; | p90 | **max &#124;diff&#124;** |
+|---|---|---|---|---|---|
+| clamp fired | 127 | 0.876 | 209 | 248 | **412** |
+| clamp did not fire | 153 | 0.866 | 192 | 266 | **1742** |
+
+**Clamped rows are the tightly-bounded ones.** Their worst divergence is
+412; unclamped rows reach 1742 — 4.2× worse. Every one of the six worst
+IDP divergences is **unclamped**:
+
+| player | pos | board | finder | diff | ratio | clamped |
+|---|---|---|---|---|---|---|
+| Carson Schwesinger | LB | 6099 | 4357 | +1742 | 1.400 | — |
+| Aidan Hutchinson | DL | 6373 | 4871 | +1502 | 1.308 | — |
+| Will Anderson | DL | 5910 | 4553 | +1357 | 1.298 | — |
+| Micah Parsons | DL | 5363 | 4193 | +1170 | 1.279 | — |
+| Malachi Moore | DB | 1498 | 497 | +1001 | **3.014** | — |
+| Edgerrin Cooper | LB | 3828 | 2992 | +836 | 1.279 | — |
+| Myles Garrett | DL | 4602 | 4190 | +412 | 1.098 | **yes** |
+
+The mechanism is obvious in hindsight and was not obvious in prospect:
+**the clamp pulls the board toward IDPTC, and the composite is also
+IDPTC-driven for IDP — so clamping moves the two pipelines *closer
+together*, not further apart.** The clamp is a convergence force between
+the engines, not a divergence force.
+
+> **This is the second time in this document that a plausible reading of
+> the corridor clamp turned out backwards** — #557 got the direction
+> wrong in §16.7 item 2, and §16.7's own replacement hypothesis was also
+> wrong, in the same direction. Both errors came from reasoning about
+> what the clamp *should* do rather than measuring it. That is the exact
+> pattern §12 catalogues, and it is worth noting that the correction
+> required no new information — only running the numbers.
+
+### 17.4 What this implies for F-6 — argument only, no code changed
+
+F-6 is explicitly deferred and needs its own before/after investigation.
+**No code was changed.** What the measurement contributes to that
+decision:
+
+1. **The migration is a recalibration, not a swap** — F-6's own stated
+   fork, now resolved in favour of the harder branch. The board runs
+   ~12% below the composite, so `MIN_ASSET_VALUE` (800),
+   `JUNK_THRESHOLD` (400), `ELITE_THRESHOLD` (7500) and
+   `MAX_BOARD_LOSS` (−200) sit on a scale running ~14% hot relative to
+   the values they would receive. **Porting them unchanged would
+   silently tighten every absolute gate by ~12%** — more assets read as
+   junk, fewer as elite, a stricter board-loss tolerance. That is a
+   behaviour change disguised as a refactor.
+2. **Ratio-based logic is largely safe.** `opp_appeal`,
+   `board_gain_norm`, `MULTI_FOR_ONE_MIN_RATIO`, `ELITE_MULTI_MIN_RATIO`
+   and `PACKAGE_ANCHOR_MIN_PCT` are all ratios, and a uniform scale
+   factor cancels in a ratio. The sign of `board_delta` is likewise
+   preserved under a pure rescale. So the risk is concentrated in the
+   absolute thresholds and in the residual, not in the core arbitrage
+   arithmetic.
+3. **Expect picks to move most**, exactly as F-6 predicted: highest
+   material-inversion rate (4.96%), and 32 pick rows are currently
+   finder-only. IDP will move least — the opposite of what the audit
+   trail would have led anyone to expect.
+4. **The coverage asymmetry (§17.1) is the part with no rescaling
+   answer.** Migrating the finder onto `rankDerivedValue` would remove
+   162 players from its universe outright, because they have no board
+   value. That is a product decision — *should* the finder trade
+   unranked players? — and it should be made deliberately rather than
+   discovered after the migration.
+5. **`SINGLE_SOURCE_DISCOUNT = 0.88` still deletes rather than retunes**
+   on migration (§16.7 item 1). Nothing here changes that.
+
+### 17.5 Open questions this measurement did *not* settle
+
+- **Which value is more accurate.** Not answerable from this data, and
+  not answerable from any data currently in the repository. It needs an
+  external outcome — realized trade prices, or a held-out market — that
+  does not exist here. Any future claim that one pipeline is "better"
+  must state what it was scored against.
+- **Why 162 ranked-pool misses exist.** All 194 finder-only assets lack
+  a `canonicalConsensusRank`. Whether that is correct (genuinely
+  unrankable rows) or a coverage defect in the blend was not
+  investigated. §10's existing `data/ros/aggregate` join-failure item
+  may be related; this is a different join.
+- **Whether the offense residual (median 226) is one mechanism or
+  several.** Offense takes the flat count-aware blend with no clamp and
+  no calibration pass, so its divergence from the composite has more
+  free parameters than IDP's. Decomposing it was out of scope.
+- **Single-scrape result.** Every figure is from one build at one
+  timestamp. The script is committed and re-runnable, so the stability
+  of `k` across scrapes is a cheap follow-up — and worth doing before
+  anyone rescales a threshold by 0.88, because a level offset that
+  drifts week to week is not a constant to hard-code.
+
+> **A dependency of this measurement that is itself unguarded.** The
+> board side of every comparison above is produced by the scope-level
+> Hill masters, which `.github/workflows/refit-hill-curves.yml` rewrites
+> weekly. A separate audit found that **the refit's own regression guard
+> never executes**: `tests/conftest.py::_LIVEDATA_MODULES` lists
+> `test_ktc_reconciliation.py`, and the refit workflow runs
+> `pytest -m "not livedata"`, so the reconciliation test is deselected by
+> the very step meant to be gated by it. *(Attributed to that audit and
+> verified by its author against `main`; I did not re-verify it here.)*
+>
+> This does not invalidate anything in §17 — the comparison holds the
+> input constant and both sides are read from one build — but it bounds
+> what `k` means. **As measured on 2026-07-26, `k ≈ 0.88` is a property
+> of the specific Hill constants committed that day**, and the guard that
+> would have caught a bad refit did not run. On that build, a refit could
+> move the masters, nothing would fail, and `k` would move silently.
+>
+> **Both halves of that are being closed, so date any restatement of it.**
+> #564 landed `src/model_registry/` — provenance-stamped versioning of the
+> Hill scope masters, a single champion pointer, and held-out validation
+> against four value-publishing boards the fit never reads — and the refit
+> rewiring that makes the reconciliation guard actually execute is
+> approved and in progress. **Read the claim as "true of the 2026-07-26
+> build", not as "the constants are permanently unvalidated"**; the second
+> reading will be wrong shortly and possibly already is. What survives
+> regardless: `k` is an observation about one champion version, so it
+> should be re-measured against, and recorded alongside, whichever
+> registry version is champion at the time — not hard-coded.
 
 ---
 
@@ -2361,4 +2663,5 @@ current evidence would be the same error in the opposite direction.**
 | 13 | Next Steps | ✅ complete |
 | 14 | Reviewer Questions | ✅ complete |
 | 15 | Appendix | ✅ complete |
-| 16 | **Independent cross-audit (PR #557)** | ✅ added post-merge. Fills most of §4D from source; corrects two errors in §3/§9/§10; records 13 findings that did **not** survive verification (§16.7) and 14 open questions (§16.9) |
+| 16 | **Independent cross-audit (PR #557)** | ✅ added post-merge. Fills most of §4D from source; corrects two errors in §3/§9/§10; records 13 findings that did **not** survive verification (§16.7) and 16 open questions (§16.9) |
+| 17 | **Measured: trade-engine value divergence** | ✅ answers §16.9 #3 and **refutes the hypothesis §16.7 attached to it**. Reproducible via `scripts/measure_engine_value_divergence.py`. Measurement only — no code changed, F-6 explicitly not actioned |

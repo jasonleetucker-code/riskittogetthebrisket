@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-position Cohen's-d thresholds for the tiering engine (src/scoring/tiering.py). Refit monthly via scripts/fit_tier_thresholds.py. Changes >15% open a PR; smaller drifts update silently. These values are priors — let the fitter replace them once we have a month of canonical-contract history to calibrate against.",
+  "_comment": "Per-position Cohen's-d thresholds for the tiering engine (src/scoring/tiering.py). STATUS 2026-07-26: these are still HAND-SET PRIORS and have never been fitted. The fitter is scripts/refit_tier_thresholds.py — an earlier version of this comment pointed at scripts/fit_tier_thresholds.py, which does not exist and never did. No workflow in .github/workflows/ invokes the fitter, so the 'refit monthly' cadence described here has never run. Treat every number below as a prior, not a measurement. To change that: wire refit_tier_thresholds.py into a scheduled workflow once a month of canonical-contract history exists, then diff before adopting. Policy when it does run: changes >15% open a PR; smaller drifts update silently.",
   "thresholds": {
     "QB": 0.35,
     "RB": 0.22,
