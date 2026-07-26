@@ -4,17 +4,35 @@ Given a roster + per-player ROS values + the league's roster_settings,
 return the highest-scoring eligible lineup plus a residual "depth"
 score for the bench — best-ball-aware.
 
-PR 1 uses a deterministic-mean approximation:
-
-    starting_lineup_score = Σ ros_value over best eligible lineup
+    starting_lineup_score = Σ ros_value over the OPTIMAL eligible lineup
     bb_depth_score        = Σ ros_value over the next ``DEPTH_BENCH_LIMIT``
                             players, decayed by position (best-ball
                             spike-week premium for WR/RB/TE).
 
-PR 3 will replace this with Monte Carlo sims that draw weekly scores
-from each player's distribution and pick the optimal lineup per draw.
-For PR 1 the deterministic approximation is good enough to power the
-new /league section and gives us a stable target to validate against.
+Exactness (LI-3, ADR-004)
+─────────────────────────
+The lineup fill is an **exact** maximum-weight assignment, not a
+heuristic.  It was previously a slot-ordered greedy ("walk slots
+most-restrictive-first, take the best eligible unused player"), which
+is optimal only while the slot eligibility sets form a *laminar*
+family (each pair nested or disjoint).  That happens to hold for this
+league's slots today (QB ⊂ SUPER_FLEX; RB/WR/TE ⊂ FLEX ⊂ SUPER_FLEX;
+DL/LB/DB ⊂ IDP_FLEX; K disjoint) — so the old code produced correct
+answers by an unstated precondition nobody was enforcing.  A single
+non-laminar slot (a WR/TE-only flex beside the RB/WR/TE FLEX, a
+QB/RB-only slot, a two-family IDP flex) breaks it *silently*: no
+error, just a quietly suboptimal lineup.
+
+``optimize_lineup`` now solves the assignment exactly via weight-
+descending matroid greedy with augmenting paths (Kuhn's algorithm on
+the bipartite player↔slot graph).  Because slot eligibility defines a
+transversal matroid and each player's weight is slot-independent,
+processing players in descending weight and augmenting when possible
+yields a provably maximum-weight assignment for ANY eligibility
+structure — laminar or not.  Cost is O(P·S·E), trivial at roster
+scale (≤60 players × ≤25 slots), and it is dependency-free.
+``tests/league_intel/test_lineup_exactness.py`` pins equivalence with
+brute force and includes the non-laminar case the old greedy failed.
 
 Slot eligibility map mirrors Sleeper's roster_positions naming:
 
@@ -61,7 +79,16 @@ _DEFAULT_DECAY = 0.50
 
 @dataclass(frozen=True)
 class RosterPlayer:
-    """Roster entry for the optimizer.  Immutable so the order doesn't matter."""
+    """Roster entry for the optimizer.  Immutable so the order doesn't matter.
+
+    ``fantasy_positions`` mirrors Sleeper's per-player
+    ``fantasy_positions`` list — the field the host itself uses for
+    slot eligibility.  It is frequently WIDER than ``position``: a
+    pass-rushing linebacker ships as ``position="DL"`` with
+    ``fantasy_positions=["DL", "LB"]`` and is legal in either slot.
+    Empty (the default) means "fall back to ``position``", so existing
+    callers keep working unchanged.
+    """
 
     player_id: str
     canonical_name: str
@@ -70,6 +97,16 @@ class RosterPlayer:
     confidence: float = 1.0
     injured: bool = False
     bye: bool = False
+    fantasy_positions: tuple[str, ...] = ()
+
+    def eligible_positions(self) -> tuple[str, ...]:
+        """Every position this player may be slotted at."""
+        if self.fantasy_positions:
+            merged = {p.strip().upper() for p in self.fantasy_positions if p and p.strip()}
+            if self.position:
+                merged.add(self.position.strip().upper())
+            return tuple(sorted(merged))
+        return (self.position.strip().upper(),) if self.position else ()
 
 
 @dataclass
@@ -110,6 +147,18 @@ def _eligible_for_slot(slot: str, position: str) -> bool:
     return pos == norm
 
 
+def _player_eligible_for_slot(slot: str, player: RosterPlayer) -> bool:
+    """Slot eligibility over ALL of a player's fantasy positions.
+
+    Sleeper evaluates eligibility against ``fantasy_positions``, so a
+    DL/LB hybrid legally fills either an LB or a DL slot.  Checking
+    only ``position`` (as this module used to) silently benches the
+    better lineup — confirmed against real Sleeper best-ball weeks in
+    ``tests/league_intel/test_lineup_exactness.py``.
+    """
+    return any(_eligible_for_slot(slot, pos) for pos in player.eligible_positions())
+
+
 def _value_with_health_penalty(player: RosterPlayer) -> float:
     """Discount ros_value when the player is injured / on bye."""
     base = max(0.0, float(player.ros_value or 0.0))
@@ -120,17 +169,115 @@ def _value_with_health_penalty(player: RosterPlayer) -> float:
     return base
 
 
+def solve_optimal_assignment(
+    pool: list[RosterPlayer],
+    slots: list[str],
+) -> dict[int, RosterPlayer]:
+    """Exact maximum-weight player→slot assignment.
+
+    Returns ``{slot_index: player}`` maximizing Σ adjusted value over
+    assigned players, subject to each player filling at most one slot
+    and each slot holding at most one eligible player.
+
+    Algorithm: matroid greedy with augmenting paths.  Slot eligibility
+    defines a transversal matroid and each player's weight is the same
+    whichever slot they fill, so processing players in descending
+    weight and admitting a player whenever an augmenting path to a
+    free slot exists is provably optimal — for any eligibility
+    structure, laminar or not.  (Admitting a player may reshuffle
+    already-assigned players between slots; it never evicts one,
+    which is exactly why the exchange argument holds.)
+
+    Deterministic: players are ordered by ``(-value, player_id)`` and
+    augmenting paths explore slots in index order, so equal-value ties
+    resolve the same way on every run.
+    """
+    ordered = sorted(pool, key=lambda p: (-_value_with_health_penalty(p), p.player_id))
+    eligible_slots: list[list[int]] = [
+        [i for i, slot in enumerate(slots) if _player_eligible_for_slot(slot, p)] for p in ordered
+    ]
+    # slot index -> index into `ordered`
+    slot_owner: dict[int, int] = {}
+
+    def _augment(player_idx: int, seen: set[int]) -> bool:
+        for slot_idx in eligible_slots[player_idx]:
+            if slot_idx in seen:
+                continue
+            seen.add(slot_idx)
+            owner = slot_owner.get(slot_idx)
+            if owner is None or _augment(owner, seen):
+                slot_owner[slot_idx] = player_idx
+                return True
+        return False
+
+    seen_ids: set[str] = set()
+    for idx, player in enumerate(ordered):
+        # Guard against a roster carrying the same player twice — the
+        # matching would otherwise happily start them in two slots.
+        if player.player_id in seen_ids:
+            continue
+        seen_ids.add(player.player_id)
+        _augment(idx, set())
+
+    assignment = {slot_idx: ordered[p_idx] for slot_idx, p_idx in slot_owner.items()}
+    return _canonicalize_slots(assignment, slots)
+
+
+def _canonicalize_slots(
+    assignment: dict[int, RosterPlayer],
+    slots: list[str],
+) -> dict[int, RosterPlayer]:
+    """Pick a canonical representative among equally-optimal lineups.
+
+    A maximum-weight assignment is rarely unique: a WR worth the same
+    in the WR slot and the FLEX slot can sit in either without changing
+    the score.  Which one the matching happens to return is an artifact
+    of augmenting-path order, and it leaks into the UI ("why is my WR1
+    listed as my FLEX?").
+
+    Callers expect the intuitive labelling: higher-value players in the
+    more restrictive slots, which is the order ``slots`` is already
+    sorted in.  This pass repeatedly (a) slides a player into an
+    earlier empty slot they are eligible for, and (b) swaps two
+    assigned players when the earlier slot holds the lower value and
+    both are cross-eligible.  Both moves keep the multiset of started
+    players — and therefore the total — identical, so optimality is
+    preserved by construction.
+    """
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(slots)):
+            for j in range(i + 1, len(slots)):
+                here, there = assignment.get(i), assignment.get(j)
+                if there is None:
+                    continue
+                if here is None:
+                    if _player_eligible_for_slot(slots[i], there):
+                        assignment[i] = there
+                        del assignment[j]
+                        changed = True
+                    continue
+                if _value_with_health_penalty(here) >= _value_with_health_penalty(there):
+                    continue
+                if _player_eligible_for_slot(slots[i], there) and _player_eligible_for_slot(
+                    slots[j], here
+                ):
+                    assignment[i], assignment[j] = there, here
+                    changed = True
+    return assignment
+
+
 def optimize_lineup(
     roster: Iterable[RosterPlayer],
     *,
     starter_slots: Iterable[str],
 ) -> LineupSolution:
-    """Greedy best-projected lineup over the configured starter slots.
+    """Exact best-projected lineup over the configured starter slots.
 
-    Greedy approach: walk slots in restrictiveness order (specific
-    positions before flex / super-flex), pick the highest-value eligible
-    unused player.  Optimal under the deterministic-mean assumption
-    because per-slot decisions are independent given fixed values.
+    The starting lineup is a true maximum-weight assignment (see
+    ``solve_optimal_assignment`` and the module docstring); slots are
+    reported in restrictiveness order for stable output.
 
     Returns:
         LineupSolution with starting_lineup_score = Σ best lineup, plus
@@ -148,19 +295,14 @@ def optimize_lineup(
         key=_slot_priority,
     )
 
+    assignment = solve_optimal_assignment(pool, slot_order)
+
     starting_total = 0.0
     starting_rows: list[dict[str, Any]] = []
     unfilled: list[str] = []
 
-    for slot in slot_order:
-        pick: RosterPlayer | None = None
-        for player in pool:
-            if player.player_id in used:
-                continue
-            if not _eligible_for_slot(slot, player.position):
-                continue
-            pick = player
-            break
+    for slot_idx, slot in enumerate(slot_order):
+        pick = assignment.get(slot_idx)
         if pick is None:
             unfilled.append(slot)
             continue
