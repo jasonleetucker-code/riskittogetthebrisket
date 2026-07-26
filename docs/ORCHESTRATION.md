@@ -46,6 +46,28 @@ Old mode (per-task PR, merge-on-green, ~13 merges/day) is retired. New:
 6. Safety: no destructive resets, no force-push on shared branches, no
    cross-agent file edits without registry entry, secrets untouched.
 
+## 2b. Standing evidentiary rule (all workstreams)
+
+**An external check that agrees with a number derived under an assumption
+is not evidence — it is the assumption reflected back.**
+
+Recorded because it has now happened three times in the LI workstream
+alone, each time looking like an independent source landing on our number:
+
+1. FantasyPros "1.0015 premium" — artifact of scale compression; nearly
+   certified a false calibration.
+2. Naive-cut 1.239 "agreement" — the endpoint asymmetry, opposite sign.
+3. 1.316 vs KTC's 1.320 (0.004 apart) — a *measured* league endpoint
+   against an *assumed* reference.
+
+Before citing agreement with an external source as corroboration, state
+which side of the comparison is measured and which is assumed. If either
+end rests on an assumption the external source does not share, the
+agreement carries no information. This is the same failure mode as the
+vacuous-pass gates ("controls at unity" when controls cannot move by
+construction) and the five self-caught vacuous checks — always ask what
+the check would look like if the hypothesis were false.
+
 ## 3. Shared contracts (frozen unless custodian approves)
 
 - **ds/ component APIs + tokens** (design custodian) — R3/R4 consume, may
@@ -85,10 +107,28 @@ G tracks A-D (SEL registry). H independent. I independent (user unblocks intel).
 
 ## 6. Open merge blockers
 
-**PR #550 (WS-E) — headline flex-allocation finding is a measurement
-artifact.** CI is green and LI-1..LI-5 is otherwise sound, but the number
-the PR leads with is wrong and it is load-bearing: every replacement level
-and scarcity figure rests on it.
+**PR #550 (WS-E) — RESOLVED 2026-07-26 (`4e3e0d95`).** All three blockers
+cleared: PR body headline corrected (old `TE 0` / "overstated 46%" lines
+explicitly retracted rather than quietly deleted), `replacement.py`
+docstring corrected with a KNOWN LIMITATION section plus a warning at
+`measure_endogenous_starters` itself, and the ADR restructured so the
+endpoint asymmetry leads. Retained below as the record of what was wrong
+and why.
+
+**Orchestrator decision — the `src/ros/lineup.py` fix is NOT being pulled
+forward** ahead of the Jul 29 window, despite the load-bearing numbers
+being unverifiable on main until #550 merges. Rationale: the production
+impact is bounded — composite team-strength values move but **rank order
+is unchanged across all 12 teams**, so Pick Projector output is stable
+today — and splitting a coordinated-territory file out of a batched branch
+risks more than three days of earlier verifiability buys. Anyone needing to
+cross-check the flex/TE figures before the window should check out
+`claude/league-intel-foundation` rather than expect main to reproduce them.
+Revisit if a second workstream is actually blocked on verification.
+
+**The original defect.** CI was green and LI-1..LI-5 otherwise sound, but
+the number the PR led with was wrong and load-bearing: every replacement
+level and scarcity figure rested on it.
 
 `measure_endogenous_starters` runs the exact optimizer on `rosValue`, a
 season-long **mean**. On a point estimate a TE can only take a flex slot if
