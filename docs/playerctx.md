@@ -68,7 +68,13 @@ an offensive formation ("3WR 1TE"), "Base 3-4 D" / "Base 4-3 D", or
      `year_signed`), nickname → abbreviation.
    * snaps: newest season in the file, per-player mean snap % (0–100),
      last-3-games mean, `trend` = recent − season (postseason ordered
-     after REG), `side` = offense/defense by snap volume.
+     after REG), `side` = `offense`/`defense` by snap volume — or `st`
+     for pure special-teamers (kickers live entirely in
+     `st_snaps`/`st_pct`).  Aggregation identity is `pfr_player_id`;
+     ID-less rows fall back to normalized name + position family
+     *without* team so a traded player's stints stay one season line,
+     and an ID-less group whose rows play the same week twice (two
+     distinct humans on one key) is dropped rather than merged.
    * depth: newest `dt` per team, fantasy slots only (OL and
      non-kicker specialists dropped), slot abbreviations collapsed to
      `POSITION_ALIASES` families, `rank` = 1-based standing among the
@@ -125,7 +131,7 @@ an offensive formation ("3WR 1TE"), "Base 3-4 D" / "Base 4-3 D", or
         "years": 4, "yearSigned": 2020, "endYear": 2023, "team": "CAR"
       },
       "snaps": {                        // optional block
-        "season": 2025, "games": 19, "side": "offense",
+        "season": 2025, "games": 19, "side": "offense",  // "offense" | "defense" | "st"
         "pct": 81.7, "recentPct": 75.3, "trend": -6.4
       },
       "depth": {                        // optional block

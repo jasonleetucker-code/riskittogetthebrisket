@@ -90,6 +90,7 @@ def _snap_row(
     week: int,
     off_pct: float,
     def_pct: float = 0.0,
+    st_pct: float = 0.0,
     season: int = 2025,
     game_type: str = "REG",
     team: str = "SF",
@@ -98,9 +99,10 @@ def _snap_row(
 ) -> str:
     off_snaps = int(off_pct * 70)
     def_snaps = int(def_pct * 70)
+    st_snaps = int(st_pct * 30)
     return (
         f"2025_{week:02d}_{team}_XX,x{week},{season},{game_type},{week},{name},{pfr},"
-        f"{pos},{team},XX,{off_snaps},{off_pct},{def_snaps},{def_pct},0,0"
+        f"{pos},{team},XX,{off_snaps},{off_pct},{def_snaps},{def_pct},{st_snaps},{st_pct}"
     )
 
 
@@ -161,6 +163,92 @@ class TestSnapCounts:
         p = write_csv(tmp_path / "snaps.csv", broken, [_snap_row("X", 1, 0.5)])
         with pytest.raises(SchemaRegressionError, match="offense_pct"):
             norm.parse_snap_counts(p)
+
+    def test_missing_st_column_is_schema_regression(self, tmp_path):
+        broken = SNAPS_HEADER.replace("st_pct", "st_pct_renamed")
+        p = write_csv(tmp_path / "snaps.csv", broken, [_snap_row("X", 1, 0.5)])
+        with pytest.raises(SchemaRegressionError, match="st_pct"):
+            norm.parse_snap_counts(p)
+
+    def test_kicker_publishes_st_share(self, tmp_path):
+        # Regression (Codex round 2 on PR #539): kickers live entirely
+        # in st_snaps/st_pct; discarding the ST unit classified every
+        # K as "offense" with a misleading 0% share.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Kicky McLeg", 1, 0.0, st_pct=0.28, pos="K", pfr="McLeKi00"),
+                _snap_row("Kicky McLeg", 2, 0.0, st_pct=0.32, pos="K", pfr="McLeKi00"),
+            ],
+        )
+        agg = norm.aggregate_snaps(norm.parse_snap_counts(p))
+        assert len(agg) == 1
+        kicker = agg[0]
+        assert kicker["side"] == "st"
+        assert kicker["pct"] == pytest.approx(30.0)  # mean of 28/32
+        assert kicker["games"] == 2
+
+    def test_offense_still_wins_over_incidental_st_snaps(self, tmp_path):
+        # A skill player with a few ST snaps must stay "offense".
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [_snap_row("RB Guy", 1, 0.6, st_pct=0.2)],
+        )
+        agg = norm.aggregate_snaps(norm.parse_snap_counts(p))
+        assert agg[0]["side"] == "offense"
+        assert agg[0]["pct"] == pytest.approx(60.0)
+
+    def test_idless_traded_player_aggregates_across_teams(self, tmp_path):
+        # Regression (Codex round 2 on PR #539): the ID-less fallback
+        # key included the team, so a traded player's season split into
+        # per-stint aggregates that later overwrote each other on the
+        # same Sleeper record.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Traded Guy", 1, 0.40, team="CAR", pfr=""),
+                _snap_row("Traded Guy", 2, 0.50, team="CAR", pfr=""),
+                _snap_row("Traded Guy", 3, 0.80, team="SF", pfr=""),
+            ],
+        )
+        agg = norm.aggregate_snaps(norm.parse_snap_counts(p))
+        assert len(agg) == 1  # one season line, not one per stint
+        rec = agg[0]
+        assert rec["games"] == 3
+        assert rec["team"] == "SF"  # latest stint
+        assert rec["pct"] == pytest.approx(56.7, abs=0.05)  # mean of 40/50/80
+
+    def test_idless_same_week_collision_is_dropped(self, tmp_path):
+        # Two DISTINCT ID-less players sharing name+position betray
+        # themselves by playing the same week twice — the group must be
+        # dropped, not merged into a chimera.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Common Name", 1, 0.5, team="CAR", pfr=""),
+                _snap_row("Common Name", 1, 0.7, team="SF", pfr=""),
+            ],
+        )
+        assert norm.aggregate_snaps(norm.parse_snap_counts(p)) == []
+
+    def test_pfr_id_groups_are_exempt_from_collision_drop(self, tmp_path):
+        # An ID-bearing group is a single human by definition; the
+        # duplicate-week guard only applies to the ID-less fallback.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Id Guy", 1, 0.5, team="CAR", pfr="GuyId00"),
+                _snap_row("Id Guy", 2, 0.5, team="SF", pfr="GuyId00"),
+            ],
+        )
+        agg = norm.aggregate_snaps(norm.parse_snap_counts(p))
+        assert len(agg) == 1
+        assert agg[0]["games"] == 2
 
 
 # ── Depth charts ─────────────────────────────────────────────────────

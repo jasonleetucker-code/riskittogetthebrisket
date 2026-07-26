@@ -80,6 +80,8 @@ SNAPS_REQUIRED_COLS: frozenset[str] = frozenset(
         "offense_pct",
         "defense_snaps",
         "defense_pct",
+        "st_snaps",
+        "st_pct",
     }
 )
 DEPTH_REQUIRED_COLS: frozenset[str] = frozenset(
@@ -321,6 +323,8 @@ def parse_snap_counts(path: Path) -> list[dict[str, Any]]:
                     "offPct": _to_float(row.get("offense_pct")) or 0.0,
                     "defSnaps": _to_int(row.get("defense_snaps")) or 0,
                     "defPct": _to_float(row.get("defense_pct")) or 0.0,
+                    "stSnaps": _to_int(row.get("st_snaps")) or 0,
+                    "stPct": _to_float(row.get("st_pct")) or 0.0,
                 }
             )
     return [r for r in rows if r["season"] == max_season]
@@ -331,20 +335,58 @@ def aggregate_snaps(rows: list[dict[str, Any]], *, recent_games: int = 3) -> lis
 
     ``pct`` / ``recentPct`` are 0-100 with one decimal; ``trend`` is
     recent-minus-season (positive = usage climbing late).  ``side`` is
-    whichever unit the player actually plays (more snaps wins).
+    whichever unit the player actually plays (more snaps wins):
+    ``"offense"`` / ``"defense"``, or ``"st"`` for pure special-teamers
+    (kickers — retained in the pool as K — live entirely in
+    ``st_snaps``/``st_pct``; without this they'd publish a misleading
+    "offense 0%" block).
+
+    Aggregation identity: ``pfr_player_id`` when present.  The ID-less
+    fallback is normalized name + position family WITHOUT team — a
+    traded player's stints must aggregate into one season line, not
+    split per team (both stints would resolve to the same Sleeper
+    record and the last one would silently overwrite the block).  If
+    two DISTINCT ID-less players collide on that key they betray
+    themselves by playing the same week twice; such ambiguous groups
+    are dropped with a warning rather than merged (same
+    drop-don't-guess convention as the identity pipeline).
     """
     by_player: dict[str, list[dict[str, Any]]] = {}
+    fallback_keys: set[str] = set()
     for r in rows:
-        key = r["pfrId"] or f"{r['name'].lower()}|{r['team']}"
+        key = r["pfrId"]
+        if not key:
+            key = f"{normalize_player_name(r['name'])}|{normalize_position(r['position'])}"
+            fallback_keys.add(key)
         by_player.setdefault(key, []).append(r)
 
     out: list[dict[str, Any]] = []
-    for games in by_player.values():
+    for key, games in by_player.items():
+        if key in fallback_keys:
+            game_slots = [(g["gameType"], g["week"]) for g in games]
+            if len(set(game_slots)) != len(game_slots):
+                # Two rows in the same week can't be one human — this
+                # ID-less key covers distinct players.  Merging would
+                # publish a chimera; drop instead.
+                log.warning(
+                    "playerctx: dropping ambiguous ID-less snap aggregate %r "
+                    "(%d rows, duplicate week entries)",
+                    games[0]["name"],
+                    len(games),
+                )
+                continue
         games.sort(key=lambda g: (_GAME_TYPE_ORDER.get(g["gameType"], 9), g["week"]))
         off_total = sum(g["offSnaps"] for g in games)
         def_total = sum(g["defSnaps"] for g in games)
-        side = "defense" if def_total > off_total else "offense"
-        pct_key = "defPct" if side == "defense" else "offPct"
+        st_total = sum(g["stSnaps"] for g in games)
+        if def_total > off_total:
+            side, pct_key = "defense", "defPct"
+        elif off_total > 0:
+            side, pct_key = "offense", "offPct"
+        elif st_total > 0:
+            side, pct_key = "st", "stPct"
+        else:  # degenerate all-zero row set — keep the legacy label
+            side, pct_key = "offense", "offPct"
         pcts = [g[pct_key] * 100.0 for g in games]
         season_mean = sum(pcts) / len(pcts)
         recent = pcts[-recent_games:]
