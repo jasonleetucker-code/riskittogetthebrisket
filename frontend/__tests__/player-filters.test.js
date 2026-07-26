@@ -129,6 +129,22 @@ describe("resolveOwnerTeam — real buildTeamByPlayer shape", () => {
   it("still accepts the plain-object fixture shape", () => {
     expect(resolveOwnerTeam(row(), { "test player": "Brisket Bros" })).toBe("Brisket Bros");
   });
+
+  it("a definitive ID miss does NOT fall back to the name twin", () => {
+    // Offense/IDP same-display-name collision: the unrostered twin
+    // carries a different playerId; the populated byId index missing
+    // it is definitive — no name fallback (Codex round 2 on #535).
+    const unrosteredTwin = row({ name: "Test Player", playerId: "7777" });
+    expect(resolveOwnerTeam(unrosteredTwin, index)).toBe(null);
+    expect(rowMatches(unrosteredTwin, { ownerTeam: FREE_AGENT_OWNER }, { teamByPlayer: index })).toBe(true);
+  });
+
+  it("name fallback still applies when the index has no ids", () => {
+    const nameOnlyIndex = buildTeamByPlayer([
+      { name: "Brisket Bros", ownerId: "u1", players: ["Test Player"], playerIds: [] },
+    ]);
+    expect(resolveOwnerTeam(row({ playerId: "7777" }), nameOnlyIndex)).toBe("Brisket Bros");
+  });
 });
 
 describe("matchesQuery — token grammar", () => {

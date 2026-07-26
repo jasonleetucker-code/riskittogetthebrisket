@@ -60,7 +60,18 @@ export function resolveOwnerTeam(row, teamByPlayer) {
   const byName = teamByPlayer.byName instanceof Map ? teamByPlayer.byName : null;
   if (byId || byName) {
     const pid = String(row?.playerId || row?.raw?.playerId || "").trim();
-    if (byId && pid && byId.has(pid)) return teamName(byId.get(pid)) || null;
+    if (byId && byId.size > 0 && pid) {
+      // A populated ID index missing this row's stable id is a
+      // DEFINITIVE answer: this exact player is unrostered.  Falling
+      // through to the name map here would let an unrostered player
+      // inherit their offense/IDP name-twin's team (Codex round 2 on
+      // PR #535).  Assumption: byId is built from every team's
+      // playerIds in one pass (buildTeamByPlayer), so it is complete
+      // whenever it is non-empty.
+      return byId.has(pid) ? teamName(byId.get(pid)) || null : null;
+    }
+    // Name fallback only when the row has no usable id or the index
+    // carries no ids (legacy rows, picks, id-less league payloads).
     const key = norm(row?.name);
     if (byName && key && byName.has(key)) return teamName(byName.get(key)) || null;
     return null;
