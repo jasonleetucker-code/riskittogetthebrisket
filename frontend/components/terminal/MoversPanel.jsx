@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Movement, Panel } from "@/components/ds";
+import { Movement, Panel, SegmentedControl, SkeletonText } from "@/components/ds";
 import styles from "./terminal.module.css";
 import { PlayerImage } from "@/components/ui";
 import { useApp } from "@/components/AppShell";
@@ -47,14 +47,10 @@ function MoverRow({ row, openPlayerPopup }) {
 
   return (
     <div
-      style={{
-        borderBottom: "1px solid var(--border)",
-        padding: "6px 4px",
-        cursor: "pointer",
-      }}
+      className={styles.moverRow}
       onClick={() => setExpanded((v) => !v)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className={styles.moverMain}>
         <PlayerImage
           playerId={row.playerId}
           team={row.team}
@@ -62,11 +58,9 @@ function MoverRow({ row, openPlayerPopup }) {
           name={row.name}
           size={22}
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "0.78rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {row.name}
-          </div>
-          <div style={{ fontSize: "0.62rem", color: "var(--subtext)" }}>
+        <div className={styles.moverIdentity}>
+          <div className={styles.moverName}>{row.name}</div>
+          <div className={styles.moverMeta}>
             {posLabel}
             {row.team ? ` · ${row.team}` : ""} · #{row.rankNow}
             {row.valueNow ? ` · ${row.valueNow.toLocaleString()}` : ""}
@@ -84,38 +78,17 @@ function MoverRow({ row, openPlayerPopup }) {
         </div>
       </div>
       {expanded && row.currentSourceRanks && (
-        <div
-          style={{
-            marginTop: 6,
-            padding: "6px 4px",
-            background: "rgba(8, 19, 44, 0.4)",
-            borderRadius: 6,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 4,
-            fontSize: "0.62rem",
-            fontFamily: "var(--mono)",
-          }}
-        >
+        <div className={styles.moverSources}>
           {Object.entries(row.currentSourceRanks).map(([src, rank]) => (
-            <span
-              key={src}
-              style={{
-                background: "rgba(255, 199, 4, 0.06)",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                padding: "2px 6px",
-              }}
-              title={`${src}: rank ${rank}`}
-            >
-              <span style={{ color: "var(--subtext)" }}>{src}</span>{" "}
-              <span style={{ color: "var(--cyan)" }}>#{rank}</span>
+            <span key={src} className={styles.moverSourceChip} title={`${src}: rank ${rank}`}>
+              <span className={styles.moverSourceName}>{src}</span>{" "}
+              <span className={styles.moverSourceRank}>#{rank}</span>
             </span>
           ))}
           {openPlayerPopup && (
             <button
               type="button"
-              className="button-reset"
+              className={styles.moverOpen}
               onClick={(e) => {
                 e.stopPropagation();
                 // Look up the row in the live rankings + open the
@@ -125,15 +98,8 @@ function MoverRow({ row, openPlayerPopup }) {
                 // contract row downstream.
                 openPlayerPopup({ name: row.name, assetClass: row.assetClass });
               }}
-              style={{
-                marginLeft: "auto",
-                color: "var(--cyan)",
-                fontSize: "0.62rem",
-                cursor: "pointer",
-                textDecoration: "underline dotted",
-              }}
             >
-              Open player →
+              Open player
             </button>
           )}
         </div>
@@ -178,39 +144,24 @@ export default function MoversPanel() {
       title="Top movers"
       subtitle={`Rank deltas vs. ${windowDays}d ago · click a row for source breakdown`}
       actions={
-        <div style={{ display: "flex", gap: 4 }}>
-          {WINDOW_OPTIONS.map((opt) => (
-            <button
-              key={opt.days}
-              type="button"
-              className="button"
-              onClick={() => setWindowDays(opt.days)}
-              style={{
-                padding: "2px 8px",
-                fontSize: "0.66rem",
-                minHeight: "unset",
-                borderColor: opt.days === windowDays ? "var(--cyan)" : "var(--border)",
-                color: opt.days === windowDays ? "var(--cyan)" : "var(--subtext)",
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={WINDOW_OPTIONS.map((o) => ({ value: o.days, label: o.label }))}
+          value={windowDays}
+          onChange={setWindowDays}
+          label="Mover window"
+        />
       }
     >
-      {loading && <div className="muted" style={{ fontSize: "0.72rem", padding: 8 }}>Loading…</div>}
-      {error && <div style={{ fontSize: "0.72rem", color: "var(--red)", padding: 8 }}>{error}</div>}
+      {loading && <SkeletonText lines={4} />}
+      {error && <p className={styles.moverError}>{error}</p>}
       {!loading && !error && (
-        <div className="row" style={{ gap: 12, alignItems: "stretch" }}>
-          <div style={{ flex: "1 1 220px" }}>
-            <div style={{ fontSize: "0.62rem", color: "var(--green)", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+        <div className={styles.moverColumns}>
+          <div className={styles.moverColumn}>
+            <h3 className={`${styles.moverColumnTitle} ${styles.moverColumnTitleUp}`}>
               Risers — buy-low candidates
-            </div>
+            </h3>
             {risers.length === 0 ? (
-              <div className="muted" style={{ fontSize: "0.7rem", padding: "6px 0" }}>
-                No qualifying movers in this window.
-              </div>
+              <p className={styles.moverEmpty}>No qualifying movers in this window.</p>
             ) : (
               risers.map((r) => (
                 <MoverRow
@@ -221,14 +172,12 @@ export default function MoversPanel() {
               ))
             )}
           </div>
-          <div style={{ flex: "1 1 220px" }}>
-            <div style={{ fontSize: "0.62rem", color: "var(--red)", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+          <div className={styles.moverColumn}>
+            <h3 className={`${styles.moverColumnTitle} ${styles.moverColumnTitleDown}`}>
               Fallers — sell-high candidates
-            </div>
+            </h3>
             {fallers.length === 0 ? (
-              <div className="muted" style={{ fontSize: "0.7rem", padding: "6px 0" }}>
-                No qualifying movers in this window.
-              </div>
+              <p className={styles.moverEmpty}>No qualifying movers in this window.</p>
             ) : (
               fallers.map((r) => (
                 <MoverRow
