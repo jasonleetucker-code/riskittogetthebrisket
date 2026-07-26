@@ -112,15 +112,43 @@ packages resolve on the exact single-market path** — 2, 3 and 4-asset
 combinations alike, zero suppression, zero conversion.  The original
 15% was an artifact of sampling players nobody trades.
 
-So suppression now fires on **materiality, not presence**: fringe
-assets are converted with the measured per-position ratio, and the
-package is withheld only when the conversion's 80% uncertainty band
-(from the measured p10 0.886 / p90 1.054) exceeds
-`MATERIALITY_THRESHOLD` — set to 5%, the same gate `angle.py` applies
-to `market_gain_pct`, so the test is precisely "could this flip the
-caller's decision".  A fringe asset inside a real package converts
-(band ≈1% of total); the same asset dominating a two-asset package
-still suppresses (band ≈10%).
+**Then a second revision, also wrong, and the reviewer's refinement
+fixed it.**  Revision 2 suppressed on band-vs-package-total.  Better,
+but it asked the question somewhere it cannot be answered: **a package
+in isolation has no decision boundary.**  The verdict is a threshold
+crossing on `market_gain_pct`, which exists only when two packages are
+compared.  An 11% band is irrelevant to a package showing a 60% market
+gain and decisive for one showing 4% against a 5% gate.
+
+So the materiality decision now lives in `compare_packages()`, where
+the boundary exists.  It propagates each side's conversion band into a
+range on `market_gain_pct`; if that range straddles the gate the
+verdict is **not certain** and the comparison is withheld.  Otherwise
+it is rankable however wide the band.  `value_package()` measures and
+*stamps* the uncertainty and no longer pretends to adjudicate it;
+package-level suppression is reserved for the genuinely unvaluable (an
+asset priced on neither board, an empty package).
+
+Measured behaviour: a converted counter at 160% gain stays certain
+despite a 168-point band; the same counter against a 4.2% gain is
+withheld because the band spans [0.9%, 7.6%] across the 5% gate; and
+an exact-path package 4.0% from the gate stays certain because it has
+no band at all.
+
+**Suppression is labelled, never silent.**  Every withheld result
+carries a caller-renderable `label` plus `suppressed_reason`, so a
+reader can distinguish "withheld because uncertain" from "data
+missing" — the failure mode where a next reader concludes the data is
+absent and goes looking for a bug that isn't there.
+
+**Reviewer credit and the retraction.**  The over-correction call was
+right about revision 1 and was retracted on the measurement; the
+boundary-proximity refinement was right about revision 2 and is
+adopted.  Their offense-only-overlap caveat is also correct and worth
+recording: the 476-player paired sample is by construction offensive
+players, so it calibrates IDPTC's *offense half* against KTC and says
+nothing about the 425 IDP-only rows — which is exactly why
+`SHARED_SCALE_ASSUMPTION` is stamped rather than treated as validated.
 
 **The reachable call site is the OFFER side, not the counter combo.**
 Also from the reviewer, and verified: `angle.py`'s counter-side pool

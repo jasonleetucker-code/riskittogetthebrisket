@@ -15,6 +15,7 @@ from src.league_intel.cross_market import (
     MARKET_KTC,
     NORMALIZATION_VERSION,
     NormalizationStrategy,
+    compare_packages,
     value_package,
 )
 
@@ -72,17 +73,12 @@ class TestSingleMarketIsExact:
         assert pkg.warnings == []
 
 
-class TestSuppressionIsMaterialityGated:
-    """Suppression must fire on whether the conversion uncertainty can
-    change the answer — NOT on whether a conversion happened.
+class TestPackageLevelSuppressionIsOnlyForUnvaluable:
+    """A package in isolation has NO decision boundary, so it cannot
+    adjudicate materiality.  It measures and stamps; the verdict-level
+    decision lives in compare_packages."""
 
-    An earlier revision suppressed any package containing an asset the
-    target board did not price.  Measured, that bucket was entirely
-    fringe (max value 1,004; KTC ranks ~445-477), so it withheld
-    working trades to avoid an error that could not flip a verdict.
-    """
-
-    def test_fringe_asset_inside_a_real_package_is_converted_not_suppressed(self):
+    def test_fringe_asset_is_converted_not_suppressed(self):
         pkg = value_package(
             [
                 asset("Fringe", "WR", ktc=493),  # unpriced on IDPTC
@@ -94,32 +90,86 @@ class TestSuppressionIsMaterialityGated:
         assert pkg.is_rankable is True
         assert pkg.uncertainty_band > 0
 
-    def test_fringe_asset_dominating_a_small_package_still_suppresses(self):
-        """When the band IS a big share of the total, the uncertainty
-        genuinely could flip the verdict."""
+    def test_small_package_with_a_big_band_is_still_valued(self):
+        """Revision 2's mistake: suppressing here presumed a boundary
+        the package does not have."""
         pkg = value_package([asset("Fringe", "WR", ktc=493), asset("LB1", "LB", idptc=300)])
-        assert pkg.strategy is NormalizationStrategy.SUPPRESSED
-        assert pkg.is_rankable is False
-        assert "materiality threshold" in pkg.suppressed_reason
+        assert pkg.strategy is NormalizationStrategy.SCALAR_FALLBACK
+        assert pkg.uncertainty_band > 0
 
-    def test_threshold_matches_the_gate_it_protects(self):
-        from src.league_intel.cross_market import MATERIALITY_THRESHOLD
-
-        # angle.py gates market_gain_pct at 5.0% by default.
-        assert MATERIALITY_THRESHOLD == 0.05
-
-    def test_suppressed_package_has_zero_confidence(self):
-        pkg = value_package([asset("Fringe", "WR", ktc=493), asset("LB1", "LB", idptc=300)])
-        assert pkg.normalization_confidence == 0.0
-
-    def test_empty_package_is_suppressed(self):
+    def test_empty_package_is_suppressed_and_labelled(self):
         pkg = value_package([])
         assert pkg.strategy is NormalizationStrategy.SUPPRESSED
         assert pkg.is_rankable is False
+        assert pkg.label
 
-    def test_asset_priced_on_neither_market_always_suppresses(self):
+    def test_asset_priced_on_neither_market_suppresses_and_labels(self):
         pkg = value_package([asset("Ghost", "WR"), asset("LB1", "LB", idptc=3000)])
         assert pkg.strategy is NormalizationStrategy.SUPPRESSED
+        assert "Ghost" in pkg.label
+
+
+class TestBoundaryAwareComparison:
+    """The materiality decision, where the boundary exists."""
+
+    @staticmethod
+    def _converted_counter():
+        # IDP forces IDPTC; the fringe WR has no IDPTC value -> converted.
+        return value_package([asset("Fringe", "WR", ktc=1000), asset("LB1", "LB", idptc=4200)])
+
+    def test_far_from_the_gate_a_wide_band_does_not_matter(self):
+        counter = self._converted_counter()
+        offer = value_package([asset("WR2", "WR", ktc=2000, idptc=2000)])
+        cmp = compare_packages(counter, offer)
+        assert counter.uncertainty_band > 0
+        assert cmp.market_gain_pct > 100
+        assert cmp.verdict_certain is True
+        assert cmp.is_rankable is True
+
+    def test_near_the_gate_the_same_band_withholds(self):
+        counter = self._converted_counter()
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        cmp = compare_packages(counter, offer)
+        assert cmp.gain_low_pct < cmp.gate_pct < cmp.gain_high_pct
+        assert cmp.verdict_certain is False
+        assert cmp.is_rankable is False
+
+    def test_exact_path_near_the_gate_stays_certain(self):
+        """No conversion means no band means no doubt, however close."""
+        counter = value_package([asset("WR1", "WR", ktc=5200, idptc=5200)])
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        cmp = compare_packages(counter, offer)
+        assert counter.uncertainty_band == 0
+        assert abs(cmp.market_gain_pct - 4.0) < 0.1
+        assert cmp.verdict_certain is True
+
+    def test_withheld_comparison_is_labelled_not_silent(self):
+        counter = self._converted_counter()
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        cmp = compare_packages(counter, offer)
+        assert cmp.label
+        assert "too close to call" in cmp.label
+        assert "uncertainty band" in cmp.suppressed_reason
+
+    def test_unvaluable_side_propagates_its_label(self):
+        counter = value_package([asset("Ghost", "WR"), asset("LB1", "LB", idptc=3000)])
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        cmp = compare_packages(counter, offer)
+        assert cmp.is_rankable is False
+        assert "Ghost" in cmp.label
+
+    def test_gate_is_configurable(self):
+        counter = self._converted_counter()
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        wide = compare_packages(counter, offer, gate_pct=50.0)
+        assert wide.verdict_certain is True  # 4.2% nowhere near a 50% gate
+
+    def test_comparison_serializes_with_the_band(self):
+        counter = self._converted_counter()
+        offer = value_package([asset("WR2", "WR", ktc=5000, idptc=5000)])
+        d = compare_packages(counter, offer).to_dict()
+        for key in ("marketGainPct", "gainLowPct", "gainHighPct", "verdictCertain", "label"):
+            assert key in d
 
 
 class TestScalarConversionIsLabelled:

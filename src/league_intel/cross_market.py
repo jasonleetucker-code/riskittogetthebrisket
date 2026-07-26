@@ -52,24 +52,35 @@ asset in it:
 
 That is *exact* — no conversion, no fitted parameter, no error term.
 
-Suppression is MATERIALITY-gated, not presence-gated
-────────────────────────────────────────────────────
-An earlier revision suppressed any package containing an asset the
-target board does not price.  That was an over-correction, and the
-bucket proves it: **all 25 such assets are fringe** — maximum value
-1,004, overall KTC ranks ~445-477 (Josh Oliver, Carson Wentz, Ray-Ray
-McCloud).  IDPTC simply does not price the tail.  Withholding a trade
-because it includes a 493-point WR is removing working functionality
-to avoid an error that cannot change the answer.
+Suppression keys on PROXIMITY TO THE DECISION BOUNDARY
+──────────────────────────────────────────────────────
+Two revisions got this wrong before it was right, and the sequence is
+worth keeping.
 
-So conversion is now the default for those assets, and suppression
-fires only when the conversion's *uncertainty band* is large enough to
-flip the caller's decision.  The band comes from the measured p10/p90
-of the paired ratio (0.886 / 1.054), applied per asset; if it exceeds
-:data:`MATERIALITY_THRESHOLD` of the package total — the same 5% that
-``angle.py`` gates ``market_gain_pct`` on — the package is withheld.
-A single fringe asset alone is dominated by its own band and still
-suppresses; the same asset inside a real package does not.
+*Revision 1 suppressed on presence* — any package containing an asset
+the target board does not price.  Measured, that bucket is entirely
+fringe: **all 25 such assets** top out at value 1,004, KTC ranks
+~445-477 (Josh Oliver, Carson Wentz, Ray-Ray McCloud).  Among assets
+anyone would actually trade (value ≥ 1,500), **100% of mixed packages
+resolve on the exact path**.  Withholding a trade because it includes
+a 493-point WR removed working functionality.
+
+*Revision 2 suppressed on band-vs-total* — better, but it asked the
+question in a place that cannot answer it.  **A package in isolation
+has no decision boundary.**  The verdict is a threshold crossing on
+``market_gain_pct``, which only exists when two packages are compared.
+An 11% band is irrelevant to a package showing a 60% market gain and
+decisive for one showing 4% against a 5% gate.
+
+So the materiality decision lives in :func:`compare_packages`, where
+the boundary exists.  ``value_package`` measures and *stamps* the
+uncertainty; it no longer pretends to adjudicate it.  Package-level
+suppression is now reserved for what is genuinely unvaluable — an
+asset priced on neither board, or an empty package.
+
+Suppression is always LABELLED, never silent: every withheld result
+carries a caller-renderable ``label`` and ``suppressed_reason``, so a
+reader can tell "withheld because uncertain" from "data missing".
 
 Which call site actually matters
 ────────────────────────────────
@@ -93,9 +104,12 @@ __all__ = [
     "MARKET_IDPTC",
     "SHARED_SCALE_ASSUMPTION",
     "POSITION_SCALE_RATIOS",
+    "DEFAULT_GATE_PCT",
     "NormalizationStrategy",
     "AssetValuation",
     "PackageValuation",
+    "PackageComparison",
+    "compare_packages",
     "value_package",
 ]
 
@@ -132,11 +146,11 @@ _POOLED_SCALE_RATIO = 0.9997
 _RATIO_P10 = 0.886
 _RATIO_P90 = 1.054
 
-MATERIALITY_THRESHOLD = 0.05
-"""Conversion uncertainty, as a fraction of the package total, above
-which the package is withheld.  Set to the same 5% that ``angle.py``
-gates ``market_gain_pct`` on: below it the band cannot flip the
-caller's decision, above it it can."""
+DEFAULT_GATE_PCT = 5.0
+"""The caller's decision threshold on ``market_gain_pct``, in percent.
+Mirrors ``angle.py``'s ``max_market_gain_pct`` default.  Materiality is
+judged against DISTANCE FROM THIS BOUNDARY, not against the band in
+isolation — see :func:`compare_packages`."""
 
 _IDP_POSITIONS = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "SS", "FS"}
@@ -201,6 +215,7 @@ class PackageValuation:
     normalization_confidence: float = 0.0
     uncertainty_band: float = 0.0
     suppressed_reason: str | None = None
+    label: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -225,6 +240,7 @@ class PackageValuation:
             "normalizationConfidence": self.normalization_confidence,
             "uncertaintyBand": self.uncertainty_band,
             "suppressedReason": self.suppressed_reason,
+            "label": self.label,
             "warnings": list(self.warnings),
             "assets": [a.to_dict() for a in self.assets],
         }
@@ -288,6 +304,7 @@ def value_package(
             market=None,
             total=None,
             suppressed_reason="empty package",
+            label="No assets to value",
         )
 
     has_idp = any(_is_idp(r.get("position")) for r in rows)
@@ -356,6 +373,7 @@ def value_package(
                 market=None,
                 total=None,
                 suppressed_reason=(f"{r.get('displayName') or '?'} is priced on neither market"),
+                label=f"Not priced by either market: {r.get('displayName') or 'unknown asset'}",
             )
         ratio = _position_ratio(r.get("position"))
         converted_value = other * ratio if preferred == MARKET_IDPTC else other / ratio
@@ -375,20 +393,7 @@ def value_package(
         )
         total += converted_value
 
-    band_share = (uncertainty / total) if total > 0 else float("inf")
-    if band_share > MATERIALITY_THRESHOLD:
-        return PackageValuation(
-            strategy=NormalizationStrategy.SUPPRESSED,
-            market=None,
-            total=None,
-            assets=valuations,
-            suppressed_reason=(
-                f"conversion uncertainty {band_share:.1%} of package total exceeds the "
-                f"{MATERIALITY_THRESHOLD:.0%} materiality threshold "
-                f"(converted: {', '.join(converted_names[:3])})"
-            ),
-        )
-
+    band_share = (uncertainty / total) if total > 0 else 0.0
     return PackageValuation(
         strategy=NormalizationStrategy.SCALAR_FALLBACK,
         market=preferred,
@@ -399,7 +404,129 @@ def value_package(
         warnings=[
             SHARED_SCALE_ASSUMPTION,
             f"{len(converted_names)} asset(s) converted with the measured per-position "
-            f"ratio; 80% uncertainty band {uncertainty:.0f} pts = {band_share:.1%} of the "
-            f"total, under the {MATERIALITY_THRESHOLD:.0%} materiality threshold",
+            f"ratio; 80% uncertainty band {uncertainty:.0f} pts ({band_share:.1%} of the "
+            "total). Whether that matters depends on distance from the verdict "
+            "boundary — see compare_packages().",
         ],
+    )
+
+
+# ── Where the materiality decision actually belongs ───────────────────
+
+
+@dataclass
+class PackageComparison:
+    """A counter-vs-offer verdict, plus whether uncertainty could flip it.
+
+    The verdict is a THRESHOLD CROSSING on ``market_gain_pct``, so
+    conversion uncertainty only matters relative to the distance from
+    that threshold.  A 60% gain is untouched by an 11% band; a 4% gain
+    against a 5% gate is decided by it.
+    """
+
+    counter: PackageValuation
+    offer: PackageValuation
+    market_gain_pct: float | None
+    gate_pct: float
+    gain_low_pct: float | None = None
+    gain_high_pct: float | None = None
+    passes_gate: bool | None = None
+    verdict_certain: bool = False
+    suppressed_reason: str | None = None
+    label: str | None = None
+
+    @property
+    def is_rankable(self) -> bool:
+        return self.market_gain_pct is not None and self.verdict_certain
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "marketGainPct": self.market_gain_pct,
+            "gainLowPct": self.gain_low_pct,
+            "gainHighPct": self.gain_high_pct,
+            "gatePct": self.gate_pct,
+            "passesGate": self.passes_gate,
+            "verdictCertain": self.verdict_certain,
+            "isRankable": self.is_rankable,
+            "suppressedReason": self.suppressed_reason,
+            "label": self.label,
+            "counter": self.counter.to_dict(),
+            "offer": self.offer.to_dict(),
+        }
+
+
+def compare_packages(
+    counter: PackageValuation,
+    offer: PackageValuation,
+    *,
+    gate_pct: float = DEFAULT_GATE_PCT,
+) -> PackageComparison:
+    """Decide whether a counter/offer verdict survives its uncertainty.
+
+    ``gate_pct`` is the caller's decision threshold — ``angle.py``
+    defaults ``max_market_gain_pct`` to 5.0.  The comparison propagates
+    each side's conversion band into a range on ``market_gain_pct``; if
+    that range straddles the gate the verdict is **not certain** and the
+    package is withheld with a renderable label.  Otherwise it is
+    rankable, however wide the band, because it cannot change the
+    answer.
+    """
+    if not counter.is_rankable or not offer.is_rankable:
+        blocked = counter if not counter.is_rankable else offer
+        return PackageComparison(
+            counter=counter,
+            offer=offer,
+            market_gain_pct=None,
+            gate_pct=gate_pct,
+            suppressed_reason=blocked.suppressed_reason or "package could not be valued",
+            label=blocked.label or "Cannot be valued on a single market",
+        )
+
+    c_total, o_total = counter.total or 0.0, offer.total or 0.0
+    if o_total <= 0:
+        return PackageComparison(
+            counter=counter,
+            offer=offer,
+            market_gain_pct=None,
+            gate_pct=gate_pct,
+            suppressed_reason="offer side has no positive market total",
+            label="Offer side has no market value",
+        )
+
+    gain = 100.0 * (c_total - o_total) / o_total
+    # Worst/best case: push each side's band in the direction that most
+    # moves the gain.
+    c_lo, c_hi = c_total - counter.uncertainty_band, c_total + counter.uncertainty_band
+    o_lo, o_hi = o_total - offer.uncertainty_band, o_total + offer.uncertainty_band
+    gain_low = 100.0 * (c_lo - o_hi) / o_hi if o_hi > 0 else gain
+    gain_high = 100.0 * (c_hi - o_lo) / o_lo if o_lo > 0 else gain
+
+    passes = gain <= gate_pct
+    straddles = gain_low <= gate_pct <= gain_high
+    if straddles and (counter.uncertainty_band > 0 or offer.uncertainty_band > 0):
+        return PackageComparison(
+            counter=counter,
+            offer=offer,
+            market_gain_pct=gain,
+            gate_pct=gate_pct,
+            gain_low_pct=gain_low,
+            gain_high_pct=gain_high,
+            passes_gate=passes,
+            verdict_certain=False,
+            suppressed_reason=(
+                f"market gain {gain:.1f}% sits within the conversion uncertainty band "
+                f"[{gain_low:.1f}%, {gain_high:.1f}%] of the {gate_pct:.1f}% gate"
+            ),
+            label="Withheld: too close to call after cross-market conversion",
+        )
+
+    return PackageComparison(
+        counter=counter,
+        offer=offer,
+        market_gain_pct=gain,
+        gate_pct=gate_pct,
+        gain_low_pct=gain_low,
+        gain_high_pct=gain_high,
+        passes_gate=passes,
+        verdict_certain=True,
     )
