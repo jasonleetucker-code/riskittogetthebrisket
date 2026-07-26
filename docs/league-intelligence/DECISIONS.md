@@ -70,11 +70,33 @@ commissioner deleted it for 2026.
 **Consequence — the scoring-axis TE residual is negative.**  Consensus
 boosts TEs ~15% for a premium this league no longer grants, so on the
 scoring axis alone the league-adjusted correction is roughly
-`1 / 1.15 ≈ 0.87` against non-native contributions.  Note the registry
-still labels the profile `superflex_tep15_ppr1`, which is now wrong on
-the TEP axis for 2026 — flagged, not changed here (scoring profiles
-are shared across leagues per CLAUDE.md, so renaming is a
-cross-league decision, not a league-intel one).
+`1 / 1.15 ≈ 0.87` against non-native contributions.
+
+**A wrong inference was encoded at the derivation site, and is now
+retracted.**  `_TE_BLANKET_NON_NATIVE_MULTIPLIER` carried this
+justification in `src/api/data_contract.py`:
+
+> "Sleeper's API does not expose `bonus_rec_te` for these leagues
+> (always 0.0), so the 'non-TEP fallback' is in practice the platform
+> default and must reflect TEP-1.5, not a generic 1.25."
+
+The author read an exposed zero as *missing data* and hardcoded a
+premium to compensate.  The scorer disproves it: the API reports
+`bonus_rec_te` faithfully and the value is a real 0.0.  The comment has
+been replaced with the empirical finding, the 2025-vs-2026 numbers, and
+a pointer to the golden fixtures — a wrong inference in a comment is
+worse than no comment, because it persuades the next reader not to
+check.  **The constant itself is deliberately unchanged at 1.15**:
+moving it shifts live consensus values on the default board for every
+league sharing the profile, which is a product decision.
+
+**Profile name: verified cosmetic, do not re-raise.**  The registry
+still labels this `superflex_tep15_ppr1`, now wrong on the TEP axis.
+Every consumer was checked: `scoring_profile` is used only as an opaque
+identifier for equality comparison and response stamping — nothing
+parses `"tep15"` to derive behavior.  The staleness is documentary, not
+functional, and renaming would orphan profile-keyed history for
+cosmetic gain.  Leave it.
 
 **Partially offset by structure, which must NOT be double-counted.**
 The league starts **2 dedicated TE slots**, and LI-5's endogenous
