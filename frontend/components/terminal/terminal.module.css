@@ -107,17 +107,37 @@
 /* Three explicit columns at desktop, two at tablet, one on mobile —
    no auto-fit. Column assignment is by information role, not by
    whatever happens to fit. */
+/* Source order matters below: a media query adds NO specificity, so
+   `.col` inside `@media` and bare `.col` are both (0,1,0) and the
+   later one simply wins.  Base rules therefore come first, then
+   tablet, then mobile LAST — otherwise the mobile `display: contents`
+   loses to the base `display: flex` and the whole reorder is inert. */
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* At tablet the right column's contents fold under the left pair
+   rather than creating a third orphan column. */
 @media (width < 1320px) {
   .grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+  .colRight {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
+
 @media (width < 768px) {
   .grid {
     grid-template-columns: 1fr;
@@ -130,8 +150,11 @@
      down, which is the exact opposite of the reading order this page
      is built around ("what changed, and what should I do about it").
      Restores main's `.terminal-col { display: contents }` behaviour,
-     lost when the columns moved to CSS modules. */
-  .col {
+     lost when the columns moved to CSS modules.
+     `.colRight` needs it explicitly: the tablet rule above makes it a
+     grid, and that rule would otherwise still be in force here. */
+  .col,
+  .colRight {
     display: contents;
   }
   /* Mobile priority.  Panels with no rule here keep order 0 and lead:
@@ -154,26 +177,6 @@
   }
   .col :global(.panel--actions) {
     order: 60;
-  }
-}
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-/* At tablet the right column's contents fold under the left pair
-   rather than creating a third orphan column. */
-@media (width < 1320px) {
-  .colRight {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (width < 768px) {
-  .colRight {
-    grid-template-columns: 1fr;
   }
 }
 
