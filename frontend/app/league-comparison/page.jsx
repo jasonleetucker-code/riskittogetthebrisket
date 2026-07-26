@@ -10,6 +10,7 @@ import FlexComparison from "./sections/FlexComparison";
 import ComparisonCharts from "./sections/Charts";
 import YearByYear from "./sections/YearByYear";
 import Methodology from "./sections/Methodology";
+import { Panel } from "@/components/ds";
 
 const TABS = [
   { key: "summary", label: "Summary" },
@@ -86,7 +87,7 @@ export default function LeagueComparisonPage() {
       )}
 
       {error && !loading && (
-        <div className="card">
+        <Panel>
           <p className="text-red" style={{ fontWeight: 600 }}>
             League comparison unavailable
           </p>
@@ -99,7 +100,7 @@ export default function LeagueComparisonPage() {
           >
             Retry
           </button>
-        </div>
+        </Panel>
       )}
 
       {data && !loading && (

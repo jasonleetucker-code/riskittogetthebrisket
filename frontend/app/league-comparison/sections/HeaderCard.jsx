@@ -1,5 +1,7 @@
 "use client";
 
+import { Panel } from "@/components/ds";
+
 /**
  * HeaderCard — top-of-page metadata block.
  *
@@ -24,7 +26,7 @@ export default function HeaderCard({ data }) {
   const seasonsLabel = formatSeasonsBySource(available, sources);
 
   return (
-    <div className="card">
+    <Panel>
       <div style={{ display: "grid", gap: "var(--space-md)", gridTemplateColumns: "1fr 1fr" }}>
         <LeagueBlock title="My League" league={my} accent="cyan" />
         <LeagueBlock title="Standard Baseline" league={base} accent="gold" />
@@ -52,7 +54,7 @@ export default function HeaderCard({ data }) {
           <Tag tone="muted">Computed in {meta.computeMs} ms</Tag>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }
 

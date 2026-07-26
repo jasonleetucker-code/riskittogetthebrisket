@@ -1,5 +1,7 @@
 "use client";
 
+import { Panel } from "@/components/ds";
+
 /**
  * PositionalTable — main comparison grid.
  *
@@ -13,7 +15,7 @@ export default function PositionalTable({ data, method, setMethod }) {
   const positions = data?.positions || {};
 
   return (
-    <div className="card">
+    <Panel>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Positional Comparison</h2>
         <div style={{ display: "flex", gap: 6 }}>
@@ -87,7 +89,7 @@ export default function PositionalTable({ data, method, setMethod }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 

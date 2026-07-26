@@ -1,5 +1,7 @@
 "use client";
 
+import { Panel } from "@/components/ds";
+
 /**
  * Methodology — explains the formulas and limitations to anyone
  * inspecting the numbers.  Static text, but pulls live config values
@@ -14,7 +16,7 @@ export default function Methodology({ data }) {
   const idp = data?.idp || {};
 
   return (
-    <div className="card">
+    <Panel>
       <h2 className="section-title">Methodology</h2>
 
       <h3 style={{ marginTop: "var(--space-md)" }}>What this page does</h3>
@@ -171,6 +173,6 @@ export default function Methodology({ data }) {
         <li>The most-recent season may use Sleeper as the data source until nflverse publishes — both sources feed the same scoring engine, so results are directly comparable.</li>
         <li>Recommendations are heuristic culprit-hints, not prescriptive — they never auto-modify scoring settings.</li>
       </ul>
-    </div>
+    </Panel>
   );
 }

@@ -6,6 +6,7 @@ import {
   formatNumber,
   linearScale,
 } from "@/lib/chart-primitives";
+import { Panel } from "@/components/ds";
 
 /**
  * ComparisonCharts — pure-SVG charts for the summary tab.
@@ -50,7 +51,7 @@ export default function ComparisonCharts({ data, method }) {
   });
 
   return (
-    <div className="card">
+    <Panel>
       <h2 className="section-title">Charts</h2>
       <div style={{ display: "grid", gap: "var(--space-md)", gridTemplateColumns: "1fr 1fr", marginTop: "var(--space-sm)" }}>
         <ChartPanel title="Blended Score by Position">
@@ -73,7 +74,7 @@ export default function ComparisonCharts({ data, method }) {
           <DiffBarChart rows={diffSeries} />
         </ChartPanel>
       </div>
-    </div>
+    </Panel>
   );
 }
 

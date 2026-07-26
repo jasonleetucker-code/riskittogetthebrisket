@@ -1,5 +1,7 @@
 "use client";
 
+import { Panel } from "@/components/ds";
+
 /**
  * FlexComparison — side-by-side detail for the Top-96 offensive flex
  * pool (RB ∪ WR ∪ TE, QB excluded).  This tells you whether the broad
@@ -10,13 +12,13 @@ export default function FlexComparison({ data }) {
   const flex = data?.flex;
   if (!flex || !flex.my) {
     return (
-      <div className="card">
+      <Panel>
         <p className="muted">Flex comparison unavailable.</p>
-      </div>
+      </Panel>
     );
   }
   return (
-    <div className="card">
+    <Panel>
       <h2 className="section-title">Top-96 Offensive Flex</h2>
       <p className="muted text-sm" style={{ marginTop: 6, lineHeight: 1.5 }}>
         Top-96 of the RB / WR / TE pool (QBs excluded), under each
@@ -40,7 +42,7 @@ export default function FlexComparison({ data }) {
         </div>
         <p className="text-sm" style={{ marginTop: 10 }}>{flex.interpretation}</p>
       </div>
-    </div>
+    </Panel>
   );
 }
 
