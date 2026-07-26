@@ -38,6 +38,229 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-009 (AUDIT, pre-LI-7): the league deleted its TE premium; consensus still charges for it
+**Status:** finding recorded 2026-07-26 — **no code change yet.**  This
+is the §22 "audit the existing TEP pipeline first" step.  The residual
+model itself lands in LI-7.
+
+**What consensus already embeds.**  `_compute_unified_rankings`
+applies TE-only, value-level multipliers during the blend:
+* non-TEP-native sources (DLF, FantasyPros, Flock, …): TE
+  contributions × `tep_multiplier`, default 1.15, operator slider
+  clamped [1.0, 1.5]
+* TEP-native sources (Dynasty Nerds SF-TEP, IDPTC): × 1.10
+* KTC / `ktcSfTep` exempt — its TE++ board is the reference everyone
+  else is aligned to
+
+So a TE's `consensusValue` already carries a ~10-15% premium
+calibrated for a "TEP-1.5" league.
+
+**What this league actually scores in 2026: nothing extra for TE.**
+From the canonical config, `bonus_rec_te = 0.0` and `bonus_fd_te =
+1.0` — identical to `bonus_fd_wr`.  Receptions, yards and TDs are
+position-independent keys.  Verified empirically through the LI-2
+scorer: the same receiving line scores **21.55 as a TE and 21.55 as a
+WR**.  The TE scoring premium is exactly zero.
+
+**It used to exist and was removed.**  The 2025 season had
+`bonus_rec_te = 0.35` and `bonus_fd_te = 1.35`; the identical line
+scored **25.05 as a TE vs 21.55 as a WR — a +16.2% premium**.  The
+commissioner deleted it for 2026.
+
+**Consequence — the scoring-axis TE residual is negative.**  Consensus
+boosts TEs ~15% for a premium this league no longer grants, so on the
+scoring axis alone the league-adjusted correction is roughly
+`1 / 1.15 ≈ 0.87` against non-native contributions.
+
+**A wrong inference was encoded at the derivation site, and is now
+retracted.**  `_TE_BLANKET_NON_NATIVE_MULTIPLIER` carried this
+justification in `src/api/data_contract.py`:
+
+> "Sleeper's API does not expose `bonus_rec_te` for these leagues
+> (always 0.0), so the 'non-TEP fallback' is in practice the platform
+> default and must reflect TEP-1.5, not a generic 1.25."
+
+The author read an exposed zero as *missing data* and hardcoded a
+premium to compensate.  The scorer disproves it: the API reports
+`bonus_rec_te` faithfully and the value is a real 0.0.  The comment has
+been replaced with the empirical finding, the 2025-vs-2026 numbers, and
+a pointer to the golden fixtures — a wrong inference in a comment is
+worse than no comment, because it persuades the next reader not to
+check.  **The constant itself is deliberately unchanged at 1.15**:
+moving it shifts live consensus values on the default board for every
+league sharing the profile, which is a product decision.
+
+**Profile name: verified cosmetic, do not re-raise.**  The registry
+still labels this `superflex_tep15_ppr1`, now wrong on the TEP axis.
+Every consumer was checked: `scoring_profile` is used only as an opaque
+identifier for equality comparison and response stamping — nothing
+parses `"tep15"` to derive behavior.  The staleness is documentary, not
+functional, and renaming would orphan profile-keyed history for
+cosmetic gain.  Leave it.
+
+**The structural reference is MEASURED, not assumed (2026-07-26 update).**
+The user confirms they removed the TE scoring premium deliberately and
+separately moved to starting 2 TEs, intending to account for scarcity
+structurally.  KTC publishes its **TE++ board specifically for 2-TE
+leagues** — so `ktcSfTep`, already our market anchor, is a
+2-TE-calibrated board.  That turns an unmeasurable assumption into an
+observable: `ktc` (standard) and `ktcSfTep` (TE++) are the same board
+differing on exactly this axis.
+
+Measured across the live board:
+
+| position | n | median `ktcSfTep / ktc` |
+|---|---|---|
+| QB | 69 | **1.0000** |
+| RB | 134 | **1.0000** |
+| WR | 185 | **1.0000** |
+| TE | 74 | **1.3682** |
+
+The two boards are byte-identical for every non-TE position, so there
+is no board-scale term to control for and **the measured 2-TE
+structural premium is ×1.368**.  The sensitivity bracket collapses:
+controlling on WR, RB, QB, their median, or nothing at all all give
+1.3682 — the estimate is invariant to the control choice, unlike the
+earlier assumption-based attempt.
+
+The premium is **depth-graded, not flat** — exactly the VOR shape one
+would predict when required starters double from 12 to 24:
+
+| TE band | measured premium |
+|---|---|
+| TE1-12 | 1.287 |
+| TE13-24 | 1.319 |
+| TE25-40 | 1.349 |
+| TE41+ | 1.512 |
+
+**Superseded: the earlier assumption-based estimate was unidentifiable
+AND badly conditioned.**  Bracketing an unmeasurable "typical league"
+gave a mid-TE residual spanning [−20.1, 3.08].  Root cause was a pole
+in the multiplicative form `(V − R_ours)/(V − R_ref)` at `V = R_ref`,
+not merely wide uncertainty — an estimator defect.  It is discarded in
+favour of the market-measured calibration above.  Recorded because the
+failure is instructive: a multiplicative residual against a replacement
+level is ill-conditioned for players near that level.
+
+**Per-source calibration survey: exactly ONE source is measurable.**
+Every publisher shipping both a standard and a TE-premium variant is
+another candidate natural experiment.  Surveyed all 20 site keys on the
+live board; only two pairs exist, and only one survives:
+
+| pair | verdict |
+|---|---|
+| `ktc` / `ktcSfTep` | **USABLE** — cardinal scale (526× dynamic range); controls **byte-identical on all 388 non-TE rows** (69 QB + 134 RB + 185 WR), 0 of 74 TE rows identical |
+| `fantasyProsSf` / `fantasyProsFitzmaurice` | **REJECTED** — rank-encoded scale (values 953800-999900, 1.05× dynamic range) |
+| all 16 other sources | **no paired variant exists** — not calibratable |
+
+**A methodological trap, caught only on the second pass.**  My first
+survey reported the FantasyPros pair as *usable* with a TE premium of
+1.0015 — i.e. "Fitzmaurice charges no TE premium despite being flagged
+`is_tep_premium: True`".  That was an artifact.  On a rank encoding
+every ratio compresses to ~1.0 **including the controls**, so the
+"controls at unity" test passes vacuously and then certifies a
+meaningless number.  A paired calibration therefore needs two
+conditions, not one: controls at unity AND a genuinely cardinal scale.
+`src/league_intel/calibration.py` enforces both and returns
+`te_premium=None` — never a fallback — when either fails.
+
+Note the KTC control is far stronger than "at unity": the two boards
+carry *identical bytes* for every non-TE player, so they are provably
+the same file differing only on TE.
+
+**Rule for the 16 uncalibratable sources: do not guess.**  A source of
+unknown TE posture must not inherit KTC's 1.368 by analogy.  "TEP-
+native" in the registry means TE-premium *scoring*, which is a
+different axis from 2-TE *structure* — no evidence links the two.  Such
+sources shrink toward the measured value with an interval that widens
+with ignorance, and the confidence machinery must show that widening
+rather than presenting a borrowed number as measured.
+
+**Consequence for the existing multipliers — right size, wrong reason.**
+The blend gives non-TE++ sources ×1.15 and TEP-native ×1.10, justified
+as a *scoring* premium that does not exist.  The market says the real,
+structural need is ~1.29–1.51 depending on depth.  So the constants are
+in the right neighbourhood by luck, are **flat where the market is
+depth-graded**, and rest on a retracted rationale.  Changing them moves
+live consensus for every league on this profile — a product decision,
+deliberately not taken here.
+
+**Market anchor is CLEAN — verified in code, not from the comment.**
+`ktcSfTep` embeds the 2-TE premium already, so if it also received the
++10% native multiplier that would be a live double-count on the anchor
+itself.  It does not: `data_contract.py` line ~6701 reads
+`if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:` and
+that single guard wraps **both** multiplier branches, with both `ktc`
+and `ktcSfTep` in the exempt set.  Pinned by
+`tests/league_intel/test_te_premium_invariants.py`, which also fails if
+a refactor moves either branch outside the guard.  No action needed —
+recorded plainly so this is not re-raised.
+
+**Partially offset by structure, which must NOT be double-counted.**
+The league starts **2 dedicated TE slots**, and LI-5's endogenous
+measurement shows TE demand is exactly 2.00/team — TE never wins a
+FLEX slot.  That is a real, structural TE premium that scoring-based
+reasoning alone would miss.  The LI-7 residual is therefore the NET of
+a negative scoring-axis term and a positive structural term, computed
+against what consensus already embeds — never applied on top of it.
+The spec's non-duplication test exists precisely to pin this.
+
+## ADR-008: replacement levels use endogenous flex allocation, and scarcity stays six numbers
+**Context:** LI-5 (spec §19) needs replacement levels per position.
+The conventional shortcut is to preassign flex slots by an even split
+across eligible positions (a FLEX contributes 1/3 to each of RB/WR/TE).
+
+**Finding — the shortcut is badly wrong for this league.**  Now that
+the optimizer is exact (ADR-007), the actual fill rates are directly
+measurable.  On the live 12-team pool:
+
+| slot | who actually fills it (12 teams) |
+|---|---|
+| FLEX ×2 | WR 12, RB 12, **TE 0** |
+| SUPER_FLEX | **QB 9**, RB 2, WR 1 |
+
+Endogenous vs even-split starters per team: **QB 1.75 vs 1.25
+(understated 40%)**, **TE 2.00 vs 2.92 (overstated 46%)**, RB 3.17 vs
+2.92, WR 4.08 vs 3.92.  A preassigned model would misprice the two
+positions the format most distorts — precisely the ones a superflex
+TE-premium league exists to distort.  Hybrid IDPs also move real
+volume: 5 LBs start in DL slots and 4 CBs in DB slots.
+
+**Decision:** starter thresholds are measured by running the exact
+optimizer over every real roster and recording what it started —
+never by preassigning flex.  ``measure_endogenous_starters`` returns
+starters-per-team, each team's *marginal* (weakest) starter per
+position, and the raw slot→position fill counts for audit.
+
+Four tiers, each answering a different question: ``starter`` (median
+of team marginals — the typical last starter), ``bestBallStarter``
+(the deepest anyone dips — the honest "startable" floor when there is
+no set lineup), ``roster``, ``waiver``.  Rank-indexed tiers read a
+smoothed band (±2 ranks) rather than a single rank, so no threshold is
+hostage to one player's projection; the starter tiers are smoothed by
+averaging across teams instead.
+
+**Scarcity stays six separate numbers** (lineupScarcity,
+rosterScarcity, waiverScarcity, eliteSeparation, starterSeparation,
+replacementGap).  Collapsing them destroys the distinction between
+"this position is top-heavy" and "there is nothing on waivers" — those
+call for opposite roster moves.  On live data QB shows
+waiverScarcity 0.75 against RB's 0.21, which is the single most
+important scarcity fact about a superflex league; a blended score
+would bury it.
+
+**Two deviations from a naive reading of the spec, both deliberate:**
+1. *Unpriced players are excluded from the level pools.*  Teams carry
+   unranked dart throws; reading the roster tier off the literal last
+   body returns 0.0 for most positions and collapses every downstream
+   ratio.  They still appear in ``rosteredCount`` (vs ``pricedCount``).
+2. *``waiverScarcity`` is measured against the best-ball starter floor,
+   not the last rostered player.*  The roster tail is the noisiest
+   number in the league and absorbs every identity-join miss, while
+   the decision it informs — "if I lose a starter, how far do I fall?"
+   — is about the startable floor.
+**Status:** accepted 2026-07-26.
+
 ## ADR-007: lineup.py was greedy-correct-by-accident; Sleeper eligibility is `fantasy_positions`
 **Context:** ADR-004 required auditing `src/ros/lineup.py` before
 replacing it.  Verdict below; implemented in LI-3.
@@ -103,13 +326,15 @@ and the 2 that differ score identically (equal-value ties).  That also
 and are real, and both Sleeper and the optimizer are free to break them
 differently without affecting totals.
 
-**Known gap (deliberately NOT changed):** `_positional_coverage` is a
-0-100 heuristic feeding 5% of the team-strength composite and still
-scores only QB/RB/WR/TE depth — in a league that starts nine IDP and a
-kicker, a team with no linebackers can still score full coverage.
-Fixing it changes live team-strength numbers for every team, which
-needs its own before/after measurement, so it is deferred to LI-5/LI-8
-rather than smuggled into an exactness PR.
+**Known gap (deferred at LI-3, FIXED in LI-5):** `_positional_coverage`
+scored only QB/RB/WR/TE depth against a hardcoded table.  Measured on
+the live pool it returned **exactly 100.00 for all 12 teams** — not
+merely IDP-blind but a *constant*, contributing a flat 5 points to
+every composite and discriminating nothing.  LI-5 replaced it with a
+slot-derived, demand-weighted, eligibility-aware score (see the
+before/after in the LI-5 PR body).  Callers that don't pass
+`starter_slots` keep the historical offense-only behavior, so nothing
+outside ROS shifts silently.
 **Status:** accepted 2026-07-26; ADR-004 discharged.
 
 ## ADR-004: Audit/extend src/ros/lineup.py rather than writing a second optimizer

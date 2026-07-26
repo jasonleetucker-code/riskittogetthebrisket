@@ -5363,22 +5363,55 @@ _TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
 #     TE++ scoring.  This factor is hardcoded.
 #   * Non-TEP sources (DLF, FBG, FP consensus, Flock, etc.) — no TEP
 #     bake at all, so they need a larger boost.  The factor defaults
-#     to ``1.25×`` but is operator-tunable from ``/settings`` via the
-#     "TE Premium" slider; the slider value flows through
-#     ``tep_multiplier`` on POST /api/rankings/overrides and overrides
-#     the default for the duration of that request.
+#     to ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.15, below) but is
+#     operator-tunable from ``/settings`` via the "TE Premium" slider;
+#     the slider value flows through ``tep_multiplier`` on
+#     POST /api/rankings/overrides and overrides the default for the
+#     duration of that request.
 #
 # KTC is exempt regardless: both ``ktc`` (standard SF) and ``ktcSfTep``
 # (KTC TE++) skip both factors.  ktc is mathematically
 # ``is_tep_premium=False`` and would normally pick up the non-TEP
 # multiplier; the exemption set below short-circuits that.
 #
-# The non-native default is 1.15: this platform's leagues are TEP-1.5
-# (``superflex_tep15_ppr1``), and the derivation formula
-# ``1.0 + 0.5*0.30`` maps TEP-1.5 → 1.15.  Sleeper's API does not
-# expose ``bonus_rec_te`` for these leagues (always 0.0), so the
-# "non-TEP fallback" is in practice the platform default and must
-# reflect TEP-1.5, not a generic 1.25.
+# ── CORRECTION 2026-07-26 (LI-7 / ADR-009).  READ BEFORE TUNING. ──
+#
+# This constant previously carried the justification:
+#
+#     "Sleeper's API does not expose bonus_rec_te for these leagues
+#      (always 0.0), so the 'non-TEP fallback' is in practice the
+#      platform default and must reflect TEP-1.5, not a generic 1.25."
+#
+# That inference is WRONG and is retracted.  ``bonus_rec_te: 0.0`` is
+# not unexposed data — it is a real, exposed zero.  The API reports the
+# key faithfully; the primary league simply grants TEs no scoring
+# premium in 2026.
+#
+# Proven empirically, not argued.  Running an identical receiving line
+# through the deterministic scorer (``src/league_intel/scorer.py``,
+# golden-validated to 0.011 against 1,415 host-awarded player-weeks):
+#
+#     2026 rates:  TE 21.55  vs  WR 21.55   → premium ×1.000
+#     2025 rates:  TE 25.05  vs  WR 21.55   → premium ×1.162
+#
+# 2025 had ``bonus_rec_te 0.35`` / ``bonus_fd_te 1.35``; 2026 has
+# ``bonus_rec_te 0.0`` / ``bonus_fd_te 1.0`` (identical to WR).  The
+# commissioner removed the premium.  So on the SCORING axis this 1.15
+# boost now prices a premium the league does not grant.
+#
+# The constant is deliberately LEFT AT 1.15 anyway — changing it moves
+# live consensus values on the default board for every league sharing
+# this scoring profile, which is a product decision, not a code one.
+# Two things partly justify keeping it: TE demand here is structural
+# (2 dedicated TE slots; measured starter demand exactly 2.00/team,
+# and TE never wins a FLEX — see LI-5), and other leagues on this
+# profile may still run a scoring premium.
+#
+# What must NOT happen: a league-adjusted TE correction computed on
+# top of this multiplier.  That would double-count.  The LI-7 residual
+# is netted against what this blend already embeds — see
+# ``docs/league-intelligence/DECISIONS.md`` ADR-009 and the
+# non-duplication test in ``tests/league_intel/``.
 _TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.15
 _TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
 _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
