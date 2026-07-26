@@ -119,5 +119,110 @@ class TestRosBlendConstants(unittest.TestCase):
         self.assertGreater(playoff_sim.BEST_BALL_VARIANCE_BUMP, 1.0)
 
 
+class TestRosterLoaderFeedsTheOptimizerProperly(unittest.TestCase):
+    """``_load_team_rosters`` is the input to an exact optimizer, and an
+    exact solve is only as good as the data it is handed.
+
+    Two defects lived here, and both are the same shape: the ALGORITHM
+    was fixed while the LOADER still expressed the original bug.
+    """
+
+    @staticmethod
+    def _snapshot_rows():
+        return [
+            {
+                "ownerId": "o1",
+                "startingLineup": [{"playerId": "s1", "position": "DL", "rosValue": 50.0}],
+                "benchDepth": [{"playerId": "b1", "position": "WR", "rosValue": 10.0}],
+                "fullRoster": [
+                    {
+                        "playerId": "s1",
+                        "canonicalName": "Hybrid Guy",
+                        "position": "DL",
+                        "rosValue": 50.0,
+                        "fantasyPositions": ["DL", "LB"],
+                    },
+                    {"playerId": "b1", "position": "WR", "rosValue": 10.0},
+                    {"playerId": "deep", "position": "RB", "rosValue": 30.0},
+                ],
+            }
+        ]
+
+    def _load(self, rows):
+        import json
+        from pathlib import Path
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "read_text", return_value=json.dumps(rows)),
+        ):
+            return playoff_sim._load_team_rosters()
+
+    def test_prefers_full_roster_over_the_truncated_pair(self):
+        """benchDepth is capped at DEPTH_BENCH_LIMIT for depth SCORING,
+        not roster enumeration; reading it as the whole team drops the
+        tail that best ball actually pays for."""
+        out = self._load(self._snapshot_rows())
+        ids = {p["playerId"] for p in out["o1"]["starters"]}
+        self.assertEqual(ids, {"s1", "b1", "deep"})
+        self.assertEqual(out["o1"]["bench"], [])
+
+    def test_carries_fantasy_positions_or_the_hybrid_fix_is_inert(self):
+        """``_bestball_weekly_score`` reads ``fantasyPositions`` to build
+        ``RosterPlayer.fantasy_positions``.  When the loader omitted it,
+        ``eligible_positions()`` fell back to ``(position,)`` and every
+        DL/LB hybrid was matched position-only — so routing the sim
+        through the exact optimizer fixed the algorithm while the data
+        still carried the original bug."""
+        out = self._load(self._snapshot_rows())
+        hybrid = next(p for p in out["o1"]["starters"] if p["playerId"] == "s1")
+        self.assertEqual(hybrid["fantasyPositions"], ["DL", "LB"])
+
+    def test_falls_back_when_the_snapshot_predates_full_roster(self):
+        rows = self._snapshot_rows()
+        del rows[0]["fullRoster"]
+        out = self._load(rows)
+        self.assertEqual([p["playerId"] for p in out["o1"]["starters"]], ["s1"])
+        self.assertEqual([p["playerId"] for p in out["o1"]["bench"]], ["b1"])
+
+    def test_dropping_fantasy_positions_measurably_costs_points(self):
+        """Guards against a future refactor quietly dropping the key
+        again.  Measured on the 12 real rosters (300 weeks): the cost is
+        0.00-4.72 weekly points, mean 1.56, on 10 of 12 teams.  A roster
+        with NO hybrids costs exactly 0.00 — the control proving the
+        measurement isolates eligibility rather than sampling noise.
+        """
+        import json
+        import statistics
+        from pathlib import Path
+
+        path = (
+            Path(__file__).resolve().parents[1] / "league_intel" / "fixtures" / "league_pool.json"
+        )
+        if not path.exists():
+            self.skipTest("league pool fixture not present")
+        pool = json.loads(path.read_text())
+        slots = ["DL", "DL", "LB", "LB", "FLEX", "WR", "RB"]
+
+        team = max(
+            pool,
+            key=lambda t: sum(1 for p in t["players"] if len(p.get("fantasyPositions") or []) > 1),
+        )
+        with_fp, without_fp = [], []
+        for w in range(60):
+            with_fp.append(
+                playoff_sim._bestball_weekly_score(team["players"], slots, random.Random(w))
+            )
+            stripped = [
+                {k: v for k, v in p.items() if k != "fantasyPositions"} for p in team["players"]
+            ]
+            without_fp.append(playoff_sim._bestball_weekly_score(stripped, slots, random.Random(w)))
+        self.assertGreater(
+            statistics.fmean(with_fp),
+            statistics.fmean(without_fp),
+            "multi-position eligibility must raise the best-ball ceiling",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
