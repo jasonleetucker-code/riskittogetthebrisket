@@ -1,5 +1,5 @@
 [Unit]
-Description=Dynasty backend health check (restarts dynasty after consecutive failures)
+Description=Dynasty backend liveness watchdog (restarts dynasty after consecutive no-response probes; app-degraded 503s are log-only)
 # Purely local probe — no point running before the network stack is up,
 # but do not Require the backend: the whole job is to notice it missing.
 After=network.target

@@ -26,7 +26,7 @@ systemctl list-timers riskit-*
 |---|---|---|
 | `riskit-backup.service`+ `.timer` | Nightly online SQLite backup of user_kv + session_store | Daily 02:00 UTC |
 | `riskit-backup-restore-test.service` + `.timer` | Integrity check of the latest backup | Weekly Mon 03:30 UTC |
-| `dynasty-healthcheck.service` + `.timer` + `.sh` | Backend watchdog: probes `/api/health`, restarts `dynasty` after 3 consecutive failures | Every 1 min |
+| `dynasty-healthcheck.service` + `.timer` + `.sh` | Backend LIVENESS watchdog: probes `/api/health`, restarts `dynasty` after 3 consecutive no-response probes; app-degraded 503s (stale data / failed scrape) are log-only and never restart | Every 1 min |
 
 Related units living elsewhere in deploy/:
 

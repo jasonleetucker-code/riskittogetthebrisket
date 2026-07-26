@@ -58,14 +58,34 @@ with `deploy/verify-deploy.sh`.
 
 New: `dynasty-healthcheck.sh` + `.service` + `.timer`.
 
-- Every minute, curls `http://127.0.0.1:8000/api/health` (25s budget —
-  generous so a busy event loop mid-scrape isn't misread as down).
-- After **3 consecutive** failures: `systemctl reset-failed dynasty`
-  (clears a tripped StartLimit brake) then `systemctl restart dynasty`,
-  and resets the counter so an unhelpful restart re-triggers only after
-  another full threshold.
-- Counter lives in `/run/dynasty-healthcheck` (RuntimeDirectory —
-  clean slate on reboot).  Logs to the journal.
+**Liveness and application health are deliberately separate.**
+`/api/health` returns HTTP 503 with `status: "degraded"` for stale
+data, a failed/stalled scrape, or contract validation failure while
+the process is **up and serving cached data**
+(`server.py::get_health` — `status_code=200 if is_ok else 503`).
+Restarting on a degraded 503 would bounce a healthy process, and
+worse: the restart clears the in-memory scrape error and reloads the
+disk cache with a fresh `loadedAt`, flipping health green **without a
+successful scrape** — the watchdog would actively conceal ingestion
+faults.  So:
+
+- **Liveness probe** (every minute, curls
+  `http://127.0.0.1:8000/api/health` *without* `-f`, 25s budget):
+  **any** HTTP response — 200, 401, 404, 503 — is proof of life; the
+  probe hits 127.0.0.1 directly, so no proxy can answer on a dead
+  backend's behalf.  Only a connection-level failure (refused,
+  timeout, empty reply — a non-zero curl exit) counts toward the
+  restart threshold.
+- After **3 consecutive** liveness failures: `systemctl reset-failed
+  dynasty` (clears a tripped StartLimit brake) then `systemctl
+  restart dynasty`, and the counter resets so an unhelpful restart
+  re-triggers only after another full threshold.
+- **Degraded 503s are log-only**, reported on state transitions (one
+  journal line entering degraded, one on clearing) with a pointer to
+  `/api/status` and the service journal.  The watchdog never restarts
+  a process that is answering HTTP.
+- Counter and degraded flag live in `/run/dynasty-healthcheck`
+  (RuntimeDirectory — clean slate on reboot).  Logs to the journal.
 - Tunables (`HEALTH_FAIL_THRESHOLD`, `HEALTH_URL`, …) via
   `systemctl edit dynasty-healthcheck.service`.
 - Runs as root because it must drive systemctl; the frontend is left to
