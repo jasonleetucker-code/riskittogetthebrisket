@@ -20,7 +20,8 @@ constant main-branch stability.
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
 | G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | **RISK CLEARED — PR #554**: verified pass on the full stacked redesign (main + #549 + #551 + #552), **149 passed / 0 failed / 29 gated skips**, one command, verified cold. Conflicts with main; rebase in flight |
 | H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | #547 merged; residual aggregate-join defect handed to WS-H by PR #550 (6 duplicate rows, 40/666 join failures) |
-| I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | Steady; intel 401 user-blocked (issue #545) |
+| I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | **#545 RESOLVED** — intel crawl green (2m10s). Domain lost, site rehomed to bare IP; operator SSH access restored |
+| J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Audit done (`817009a8`); **blocked on cross-market normalization**, see §6 |
 | R | Fresh-eyes review | reviewer agent | read-only | PR comments | Running on #551 + #552 |
 
 Idle agents with retained domain context (resume, never cold-spawn):
@@ -352,6 +353,53 @@ Merge order at the window stays R3 → R4 → LI → E2E, per §4.
 (four independent samples today). A run in progress for less than that is
 normal, not hung — one agent misread a 2-minute-old run as 40 minutes and
 nearly reported a stalled job.
+
+### WS-J dispatch (2026-07-26 18:30) — all six agents active
+
+| Agent | Assignment | Branch |
+|---|---|---|
+| league-intel | **Cross-market normalization** — gating | claude/league-intel-foundation |
+| FAAB/trade | Roster Intelligence Engine | claude/ws-j-roster-intel |
+| news/TEP | Partner fit + acceptance model | claude/ws-j-partner-fit |
+| reviewer | Adversarial audit of the three trade engines | read-only |
+| E2E | `useAuth` fix + proxy route list (#555) | claude/auth-proxy-fixes |
+| design custodian | R5 purge plan + WS-J dashboard spec | claude/redesign-r5-polish |
+
+**F-1 gates the package generator.** `angle.py::_make_candidate` sums
+market values across a combo never constrained to one market, so mixed
+offense/IDP packages have their fairness gate computed by adding KTC
+points to IDPTC points. No normalization exists repo-wide. Live today.
+Until normalization is built *and validated*, mixed packages must be
+suppressed or labelled — never silently ranked. "No defensible
+normalization is possible yet" is an accepted outcome; with 12 managers
+and thin trade history it may be the true one.
+
+Unverified suspicion handed to the reviewer rather than asserted: the
+KTC top-150 quality filter both trade engines enforce may exclude IDP
+entirely, which would make them offense-only in practice.
+
+### Ops incident closed (2026-07-26)
+
+`riskittogetthebrisket.org` lapsed and now resolves to a third party.
+Site rehomed to the bare IP over HTTP and healthy throughout — it was
+never down. Three workflows had a hardcoded fallback to the lost domain;
+`intel-refresh.yml` sent a bearer token there on every scheduled run.
+Fallbacks removed, all three now fail loudly on an unset
+`PROD_PUBLIC_URL`.
+
+**#545 was two stacked bugs**, the first masking the second: wrong target,
+*and* `INTEL_REFRESH_TOKEN` never present in the service environment at
+all — which predates the domain loss and would have 401'd regardless.
+Both fixed; crawl green in 2m10s.
+
+Operator SSH access was also lost (VPS rebuilt 2026-07-20, no keys
+carried over, provider key store is provisioning-only). Restored via a
+one-shot dispatch-only workflow using the existing deploy credentials.
+**That workflow must be deleted** — it is a standing path to production
+shell for anyone who can dispatch it.
+
+Still outstanding for the operator: no TLS on the bare IP (login
+credentials cross the network in plaintext until a new domain + certbot).
 
 ## 7. Risks
 
