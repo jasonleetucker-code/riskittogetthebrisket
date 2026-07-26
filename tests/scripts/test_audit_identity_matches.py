@@ -77,13 +77,35 @@ class TestAliasCollisionDelta:
         collisions = _mod.alias_collision_delta(pool)
         assert len(collisions) == 1
         assert sorted(collisions[0]["mergedNames"]) == ["Kenneth Gainwell", "Kenny Gainwell"]
+        assert collisions[0]["crossFamily"] is False
 
-    def test_cross_group_spellings_do_not_collide(self):
-        # Position groups keep same-name different-group entities
-        # apart even when an alias maps the names together.
+    def test_cross_family_merge_is_detected(self):
+        # Regression for the detector's original blind spot.  A
+        # group-keyed check reported this pool clean because the two
+        # rows land on different ``name::group`` keys — but the CSV
+        # join is name-only and REPLICATES a matched entry across every
+        # position group sharing the canonical name, so the hypothetical
+        # WR would absorb the CB's draftSharksIdp vote.  Cross-family
+        # merges must be reported, and flagged as such.
         pool = [
             {"canonicalName": "Michael Jackson", "position": "WR"},
             {"canonicalName": "Mike Jackson", "position": "CB"},
+        ]
+        collisions = _mod.alias_collision_delta(pool)
+        assert len(collisions) == 1
+        assert collisions[0]["crossFamily"] is True
+        assert collisions[0]["positionGroups"] == ["IDP", "OFFENSE"]
+        assert sorted(collisions[0]["mergedNames"]) == ["Michael Jackson", "Mike Jackson"]
+
+    def test_preexisting_name_collision_is_not_alias_introduced(self):
+        # "DJ Turner" (WR) and "DJ Turner II" (CB) collapse to the same
+        # normalized name WITHOUT any alias — the suffix stripper does
+        # it.  This is a delta check, so that pre-existing class must
+        # not be attributed to the alias table (the position-aware
+        # canonical_player_key is what keeps those two apart).
+        pool = [
+            {"canonicalName": "DJ Turner", "position": "WR"},
+            {"canonicalName": "DJ Turner II", "position": "CB"},
         ]
         assert _mod.alias_collision_delta(pool) == []
 

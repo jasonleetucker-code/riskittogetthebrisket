@@ -19,21 +19,33 @@ reports, per source:
 
 It also runs an **alias collision-delta check**: the
 ``CANONICAL_NAME_ALIASES`` table must never merge two DISTINCT pool
-players onto one canonical key.  For every pool row we compute the
-pre-alias key (``normalize_player_name`` + position group) and the
-post-alias key (``canonical_player_key``); any post-alias key that
-absorbs more than one pre-alias key is reported as an
-alias-introduced collision.  ``tests/utils/test_name_clean.py`` pins
-this set empty against the committed exports.
+players onto one canonical name.  See :func:`alias_collision_delta`
+for the method and for why the check runs at name granularity rather
+than ``name::position_group`` granularity.
 
-This is an AUDIT, not a gate: the script always exits 0 (unless the
-payload itself cannot be loaded).
+This is an AUDIT, not a gate: it exits 0 by default even with findings.
+Pass ``--fail-on-collision`` to exit 1 when the collision-delta check
+finds anything — that is the mode
+``.github/workflows/audit-identity-matches.yml`` runs against freshly
+refreshed CSVs, so vendor drift that introduces a collision surfaces
+without blocking the data refresh itself.
+
+.. warning::
+   **Re-verifying alias impact with an A/B contract build?**
+   ``src.api.data_contract._SOURCE_CSV_PARSE_CACHE`` is keyed on
+   ``(csv path, mtime)`` and stores a lookup whose keys are ALREADY
+   alias-resolved.  Building the contract, mutating the alias table
+   in-process, and rebuilding therefore reuses the first build's
+   resolved keys and reports a false "0 delta".  Run each arm in a
+   FRESH interpreter (or clear the cache between arms) — this script
+   and the tests do.
 
 Usage:
     python scripts/audit_identity_matches.py [--json-path PATH]
                                              [--json OUT.json]
                                              [--near-miss-cutoff 0.84]
                                              [--limit N]
+                                             [--fail-on-collision]
 """
 
 from __future__ import annotations
@@ -62,7 +74,6 @@ from src.api.data_contract import (  # noqa: E402
     set_observed_current_draft_year,
 )
 from src.utils.name_clean import (  # noqa: E402
-    canonical_player_key,
     canonical_position_group,
     normalize_player_name,
 )
@@ -153,33 +164,65 @@ def _count_csv_rows(csv_path: Path) -> int:
 def alias_collision_delta(pool_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return alias-introduced collisions among distinct pool players.
 
-    A collision is a post-alias ``canonical_player_key`` that absorbs
-    more than one distinct pre-alias key (``normalize_player_name`` +
-    position group).  The alias table must be collision-free: each
-    entry may only re-label a name, never merge two real pool rows.
+    The check runs at **name granularity**, not ``name::group``
+    granularity, because that is the granularity the join it protects
+    actually uses: ``_enrich_from_source_csvs`` builds ``csv_lookup``
+    keyed by the name-only ``_canonical_match_key``, and when one
+    canonical name maps to pool rows in more than one position group
+    it *replicates* the best CSV entry across every one of those
+    groups (the ``len(row_groups) > 1`` branch).  A group-keyed check
+    therefore cannot see the worst failure mode: an alias that pulls
+    two players of DIFFERENT position families onto one name, e.g. a
+    hypothetical WR "Michael Jackson" absorbing CB "Mike Jackson"'s
+    draftSharksIdp vote.  An earlier revision of this function keyed on
+    ``canonical_player_key`` and reported that case clean.
+
+    Method: for every pool row compute the pre-alias name
+    (``normalize_player_name``) and the post-alias name
+    (``resolve_canonical_name``).  A post-alias name that absorbs more
+    than one DISTINCT pre-alias name is an alias-introduced collision —
+    the alias, not the normalizer, is what merged them.  Pool rows that
+    already shared a pre-alias name (e.g. "DJ Turner" WR vs "DJ Turner
+    II" CB) collide *without* the alias table and are deliberately not
+    reported here: this is a delta check, and that pre-existing class is
+    handled by the position-aware ``canonical_player_key`` used
+    elsewhere.
+
+    Each reported collision carries ``crossFamily`` — True when the
+    merged rows span more than one position group, which is the
+    vote-replication case above and always a hard defect.  A
+    same-family collision is also a defect (two real players merged)
+    unless the pool genuinely contains one player twice.
     """
-    post_to_pre: dict[str, dict[str, list[str]]] = {}
+    post_to_pre: dict[str, dict[str, list[dict[str, str]]]] = {}
     for row in pool_rows:
         nm = str(row.get("canonicalName") or row.get("displayName") or "")
         if not nm:
             continue
-        grp = canonical_position_group(row.get("position"))
-        pre_key = f"{normalize_player_name(nm)}::{grp}"
-        post_key = canonical_player_key(nm, row.get("position"))
-        if not post_key:
+        pre_name = normalize_player_name(nm)
+        post_name = _canonical_match_key(nm)
+        if not post_name:
             continue
-        post_to_pre.setdefault(post_key, {}).setdefault(pre_key, []).append(nm)
+        grp = canonical_position_group(row.get("position"))
+        post_to_pre.setdefault(post_name, {}).setdefault(pre_name, []).append(
+            {"name": nm, "group": grp}
+        )
 
     collisions: list[dict[str, Any]] = []
-    for post_key, pre_map in sorted(post_to_pre.items()):
-        if len(pre_map) > 1:
-            collisions.append(
-                {
-                    "canonicalKey": post_key,
-                    "mergedNames": sorted(nm for names in pre_map.values() for nm in names),
-                    "preAliasKeys": sorted(pre_map.keys()),
-                }
-            )
+    for post_name, pre_map in sorted(post_to_pre.items()):
+        if len(pre_map) < 2:
+            continue
+        entries = [e for group in pre_map.values() for e in group]
+        groups = sorted({e["group"] for e in entries})
+        collisions.append(
+            {
+                "canonicalName": post_name,
+                "mergedNames": sorted(e["name"] for e in entries),
+                "preAliasNames": sorted(pre_map),
+                "positionGroups": groups,
+                "crossFamily": len(groups) > 1,
+            }
+        )
     return collisions
 
 
@@ -361,7 +404,11 @@ def _print_human(report: dict[str, Any], *, limit: int) -> None:
     if collisions:
         print(f"!! ALIAS-INTRODUCED COLLISIONS: {len(collisions)}")
         for c in collisions:
-            print(f"  {c['canonicalKey']}: merges {c['mergedNames']}")
+            tag = "CROSS-FAMILY " if c.get("crossFamily") else ""
+            print(
+                f"  {tag}{c['canonicalName']}: merges {c['mergedNames']} "
+                f"({'/'.join(c['positionGroups'])})"
+            )
     else:
         print("Alias collision-delta check: clean (0 alias-introduced pool collisions)")
 
@@ -379,6 +426,19 @@ def main() -> int:
     ap.add_argument(
         "--limit", type=int, default=15, help="max unmatched rows printed per source (default 15)"
     )
+    ap.add_argument(
+        "--fail-on-collision",
+        action="store_true",
+        help=(
+            "exit 1 when the alias collision-delta check finds anything "
+            "(CI gate mode; the audit is exit-0-always without it)"
+        ),
+    )
+    ap.add_argument(
+        "--github-summary",
+        action="store_true",
+        help="append a Markdown summary to $GITHUB_STEP_SUMMARY when set",
+    )
     args = ap.parse_args()
 
     path, payload = _load_payload(args.json_path)
@@ -392,7 +452,61 @@ def main() -> int:
         with out.open("w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
         print(f"\nJSON report written: {out}")
+
+    collisions = report.get("aliasCollisions") or []
+    if args.github_summary:
+        _write_github_summary(report, collisions)
+    if collisions and args.fail_on_collision:
+        for c in collisions:
+            kind = "cross-family " if c.get("crossFamily") else ""
+            print(
+                f"::error title=Alias collision::{kind}'{c['canonicalName']}' "
+                f"merges {c['mergedNames']}"
+            )
+        return 1
     return 0
+
+
+def _write_github_summary(report: dict[str, Any], collisions: list[dict[str, Any]]) -> None:
+    """Append a Markdown summary to ``$GITHUB_STEP_SUMMARY`` if present."""
+    import os  # noqa: PLC0415
+
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    lines = ["## Identity match audit", ""]
+    lines.append(f"- Payload: `{report.get('payload')}`")
+    lines.append(f"- Pool: **{report['poolRows']}** rows")
+    lines.append("")
+    if collisions:
+        lines.append(f"### {len(collisions)} alias-introduced collision(s)")
+        lines.append("")
+        lines.append("| canonical name | merged pool rows | position groups | cross-family |")
+        lines.append("|---|---|---|---|")
+        for c in collisions:
+            lines.append(
+                f"| `{c['canonicalName']}` | {', '.join(c['mergedNames'])} | "
+                f"{'/'.join(c['positionGroups'])} | {'**yes**' if c['crossFamily'] else 'no'} |"
+            )
+    else:
+        lines.append("### Alias collision-delta: clean")
+        lines.append("")
+        lines.append("No alias-introduced pool collisions.")
+    lines.append("")
+    lines.append("| source | csv rows | matched | unmatched | rate |")
+    lines.append("|---|---|---|---|---|")
+    for key, info in report["sources"].items():
+        if "error" in info:
+            lines.append(f"| `{key}` | — | — | — | ERROR: {info['error']} |")
+            continue
+        rate = info["matchRate"]
+        rate_s = "—" if rate is None else f"{rate * 100:.1f}%"
+        lines.append(
+            f"| `{key}` | {info['csvRows']} | {info['matchedRows']} | "
+            f"{info['unmatchedRows']} | {rate_s} |"
+        )
+    with open(summary_path, "a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

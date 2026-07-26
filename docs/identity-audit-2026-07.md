@@ -85,39 +85,109 @@ C.J. Gardner-Johnson, Mike Jackson, Sauce Gardner (draftSharksIdp).
 ## Aliases added (all in `CANONICAL_NAME_ALIASES`, `src/utils/name_clean.py`)
 
 Verification rule: an alias was added only when position, age, and
-(where the CSV carries it) team agree between the vendor row and the
-pool row.  Ages below are pool vs DraftSharks CSV (the only source
-publishing age).
+team agree between the vendor row and the pool row.  Age pairs below
+read *pool / DraftSharks* — DS is the only source publishing age, and
+its figures are decimal and re-derived on every refresh, so they drift
+~0.1 between snapshots (values here are the 2026-07-26 refresh).  Team
+is the pool's `team` field; the 2026-07-26 DS refresh ships an **empty
+Team column**, so DS-side team corroboration comes from the 2026-07-25
+snapshot when the column was still populated.
 
 | Vendor spelling (sources) | Pool spelling | Evidence |
 |---|---|---|
-| Kenneth Gainwell (ktc, ktcSfTep, idpTradeCalc, dlfSf, dynastyNerds, fantasyProsSf, flockFantasySf, draftSharks, pfkDynasty) | Kenny Gainwell | RB, TB, 27/27.3; pfkDynasty sleeper_id 7567 join already proved identity |
-| Gabriel Davis (ktc, ktcSfTep, idpTradeCalc) | Gabe Davis | WR, 27; KTC value 1074 consistent with the veteran WR |
-| Alim McNeil (idpTradeCalc) | Alim McNeill | DL, DET, 26/26.1 — vendor single-l typo; draftSharksIdp spells it McNeill |
-| Andru Phillips (idpTradeCalc, idpShow, draftSharksIdp) | Dru Phillips | CB, NYG, 24/24.5 |
-| Camryn Bynum (idpTradeCalc, idpShow, draftSharksIdp) | Cam Bynum | S, IND, 28/27.9 |
+| Kenneth Gainwell (ktc, ktcSfTep, idpTradeCalc, dlfSf, dynastyNerds, fantasyProsSf, flockFantasySf, draftSharks, pfkDynasty) | Kenny Gainwell | RB, TB, 27/27.3; pfkDynasty sleeper_id **7567** join already proved identity |
+| Gabriel Davis (ktc, ktcSfTep, idpTradeCalc) | Gabe Davis | WR, FA, 27; KTC value 1071 consistent with the veteran WR |
+| Alim McNeil (idpTradeCalc) | Alim McNeill | DL, DET, 26/26.2 — vendor single-l typo; draftSharksIdp spells it McNeill |
+| Andru Phillips (idpTradeCalc, idpShow, draftSharksIdp) | Dru Phillips | DB, NYG, 24/24.6 |
+| Camryn Bynum (idpTradeCalc, idpShow, draftSharksIdp) | Cam Bynum | DB, IND, 28/28.0 |
 | Nickolas Martin (idpTradeCalc, idpShow) | Nick Martin | LB, SF, age 23 rules out the retired IND center |
 | Josh Palmer (dlfSf) | Joshua Palmer | WR, BUF, 26 |
-| Cameron Skattebo (draftSharks) | Cam Skattebo | RB, NYG, 24/24.3 |
-| Cameron Ward (draftSharks) | Cam Ward | QB, TEN, 24/24.0 |
-| Nathan Landman (draftSharksIdp) | Nate Landman | LB, LAR, 27/27.6 |
-| Patrick Surtain II (draftSharksIdp) | Pat Surtain | CB, DEN, 26/26.2 |
-| Daxton Hill (draftSharksIdp) | Dax Hill | S, CIN, 25/25.7 |
-| Donaven McCulley (draftSharks) | Donoven McCulley | WR, MIA UDFA, 23/23.4 — vendor a/o vowel drift |
-| Chauncey Gardner-Johnson (draftSharksIdp) | C.J. Gardner-Johnson | DB, BUF, 28/28.5 — legal first name |
-| Michael Jackson (draftSharksIdp) | Mike Jackson | CB, CAR, 29/29.4 |
-| Ahmad Gardner (draftSharksIdp) | Sauce Gardner | CB, IND, 24/24.8 — legal first name |
-| Justin Madubuike (dlfIdp) | Nnamdi Madubuike | DL, BAL, 28/28.6 — player renamed 2024; DLF IDP still uses the old name |
-| Robert Henry Jr. (fantasyProsSf, draftSharks, fantasyCalc) | Rob Henry | RB, UTSA UDFA → WAS, 24/24.4 |
+| Cameron Skattebo (draftSharks) | Cam Skattebo | RB, NYG, 24/24.4 |
+| Cameron Ward (draftSharks) | Cam Ward | QB, TEN, 24/24.2 |
+| Nathan Landman (draftSharksIdp) | Nate Landman | LB, LAR, 27/27.7 |
+| Patrick Surtain II (draftSharksIdp) | Pat Surtain | CB, DEN, 26/26.3 |
+| Daxton Hill (draftSharksIdp) | Dax Hill | DB, CIN, 25/25.8 |
+| Donaven McCulley (draftSharks) | Donoven McCulley | WR, MIA UDFA, 23/23.5 — vendor a/o vowel drift |
+| Chauncey Gardner-Johnson (draftSharksIdp) | C.J. Gardner-Johnson | DB, BUF, 28/28.6 — legal first name |
+| Michael Jackson (draftSharksIdp) | Mike Jackson | CB, CAR, 29/29.5 |
+| Ahmad Gardner (draftSharksIdp) | Sauce Gardner | DB, IND, 24/24.8 — legal first name |
+| Justin Madubuike (dlfIdp) | Nnamdi Madubuike | DL, BAL, 28/28.7 — player renamed 2024; DLF IDP still uses the old name |
+| Robert Henry Jr. (fantasyProsSf, draftSharks, fantasyCalc) | Rob Henry | RB, UTSA UDFA → WAS, 24/24.5 |
 
-Collision safety: `scripts/audit_identity_matches.py` computes an
-**alias collision-delta** on every run — a post-alias
-`canonical_player_key` that absorbs more than one pre-alias pool key
-would mean the table merged two real players.  Result with all 18
-entries: **0 collisions**.  The invariant is pinned by
-`tests/scripts/test_audit_identity_matches.py` (including a synthetic
-proof the detector fires when a merge IS present) and the per-alias
-collapses by `tests/utils/test_name_clean.py::TestIdentitySweepAliases`.
+### Collision safety
+
+`scripts/audit_identity_matches.py` computes an **alias
+collision-delta** on every run: for each pool row it compares the
+pre-alias name (`normalize_player_name`) with the post-alias name
+(`resolve_canonical_name`), and reports any post-alias name that
+absorbs more than one distinct pre-alias name — i.e. an alias, not the
+normalizer, merged two real pool rows.  Result with all 18 entries:
+**0 collisions**, so no whitelist is needed.
+
+The check runs at **name granularity, not `name::position_group`
+granularity**, and that distinction is load-bearing.  The CSV join in
+`_enrich_from_source_csvs` keys `csv_lookup` by the name-only
+`_canonical_match_key`; when one canonical name maps to pool rows in
+several position groups it *replicates* the matched entry across all
+of them (the `len(row_groups) > 1` branch).  A group-keyed check is
+therefore blind to the worst case — an alias pulling two players of
+different position families onto one name (a hypothetical WR "Michael
+Jackson" absorbing CB Mike Jackson's draftSharksIdp vote).  An earlier
+revision of this function keyed on `canonical_player_key` and reported
+exactly that case clean; it now reports it as a collision with
+`crossFamily: true`.  Pre-existing same-name collisions that occur
+*without* any alias (e.g. "DJ Turner" WR vs "DJ Turner II" CB, merged
+by the suffix stripper) are deliberately excluded — this is a delta
+check, and that class is handled by the position-aware
+`canonical_player_key` used elsewhere.
+
+Pinned by `tests/scripts/test_audit_identity_matches.py` (same-family
+merge detected, cross-family merge detected, pre-existing collision
+correctly not attributed to the alias table, plus an end-to-end run
+against the committed CSVs) and per-alias by
+`tests/utils/test_name_clean.py::TestIdentitySweepAliases`.
+
+### Where the invariant runs
+
+`scheduled-refresh.yml` pushes new CSVs and exports to `main` every two
+hours without running pytest, so the invariant would never be
+evaluated against the data that actually changes.
+`.github/workflows/audit-identity-matches.yml` closes that gap: it runs
+this audit with `--fail-on-collision` on every push touching
+`CSVs/site_raw/**` or `exports/latest/dynasty_data_*.json` (plus a
+daily cron backstop), fails the job on any collision, and opens/updates
+a rolling `identity-collision` issue.  It is a **separate** workflow by
+design — an advisory data finding must never block the data refresh
+itself.  Unmatched rows never fail the job; only collisions do.
+
+### Blast radius beyond this audit
+
+The audit only measures the `_SOURCE_CSV_PATHS` → player-pool join, but
+`CANONICAL_NAME_ALIASES` is consumed more widely.  Other readers of the
+same table (via `resolve_canonical_name` / `canonical_player_key`):
+
+* `src/identity/matcher.py` — `_identity_canonical_key` builds master
+  `player::<canon>::<group>` identity records from it.
+* `src/ros/mapping.py` — rest-of-season projection name mapping.
+* `src/api/data_contract.py` — `_canonical_match_key` /
+  `_canonical_player_key`, used by enrichment joins beyond the CSV pass.
+
+An alias is therefore correct only if it is correct for *all* of these,
+not just for CSV match counts.  The collision-delta check is
+pool-level, so it protects the shared identity space rather than any
+one consumer — but a future alias should still be sanity-checked
+against the identity matcher if it touches a player with master-record
+history.
+
+### Gotcha for anyone re-verifying this work
+
+`src/api/data_contract._SOURCE_CSV_PARSE_CACHE` is keyed on
+`(csv path, mtime)` and caches a lookup whose keys are **already
+alias-resolved**.  An A/B contract build that mutates the alias table
+in-process between arms reuses the first arm's resolved keys and
+reports a false "0 delta".  Run each arm in a fresh interpreter (or
+clear the cache between arms).  The before/after numbers in this
+document were produced that way.
 
 ## Normalizer changes
 
@@ -161,6 +231,11 @@ diacritics handling) should have collapsed but didn't.
 2. Vendors could be asked/patched at the fetcher level to emit
    sleeper ids where their APIs expose them (fantasyNavigator rows
    carry `ktc_player_id` today, unused).
-3. Re-run `python scripts/audit_identity_matches.py` after any scrape
+3. **DraftSharks stopped emitting its `Team` column** in the
+   2026-07-26 refresh (header still declares `Team`, every value is
+   empty).  Nothing in the pipeline reads it today, but it was the
+   strongest corroborating field for alias verification — worth a
+   fetcher-side check before the next identity sweep.
+4. Re-run `python scripts/audit_identity_matches.py` after any scrape
    schema change or monthly; unmatched `near_miss` rows ≥0.84
    similarity are the triage queue.
