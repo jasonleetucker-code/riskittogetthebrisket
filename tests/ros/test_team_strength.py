@@ -156,5 +156,61 @@ class TestTeamStrengthComposite(unittest.TestCase):
         self.assertEqual(out[1]["rank"], 2)
 
 
+class TestFullRosterIsServerOnly(unittest.TestCase):
+    """``fullRoster`` exists so playoff_sim / league_intel.sim can
+    simulate off the whole roster (ADR-011).  It must NOT reach the UI:
+    measured on the 12 real rosters it costs +102 KB raw / +12.5 KB
+    gzipped on ``/api/ros/team-strength``, 7x the raw payload, for a
+    field no frontend reads.
+    """
+
+    @staticmethod
+    def _rows():
+        teams = [
+            {
+                "ownerId": "o1",
+                "rosterId": 1,
+                "teamName": "T1",
+                "players": [
+                    {"playerId": "1", "name": "A", "position": "QB"},
+                    {"playerId": "2", "name": "B", "position": "RB"},
+                ],
+            }
+        ]
+        agg = [_agg("A", "QB", 90), _agg("B", "RB", 40)]
+        return compute_team_strength(teams, aggregated_players=agg, starter_slots=["QB"])
+
+    def test_snapshot_carries_full_roster_for_server_consumers(self):
+        rows = self._rows()
+        self.assertEqual(len(rows[0]["fullRoster"]), 2)
+        # Includes the bench player the starting lineup left out.
+        self.assertEqual(len(rows[0]["startingLineup"]), 1)
+
+    def test_api_strips_it_before_the_wire(self):
+        from src.ros.api import _public_team_rows
+
+        public = _public_team_rows(self._rows())
+        self.assertNotIn("fullRoster", public[0])
+        # Everything the UI actually reads survives.
+        for key in ("teamName", "teamRosStrength", "startingLineup", "benchDepth", "rank"):
+            self.assertIn(key, public[0])
+
+    def test_stripping_does_not_mutate_the_snapshot(self):
+        """Server-side consumers read the same rows; a stripping bug
+        that mutated in place would silently truncate the simulators
+        back to the defect ADR-011 fixed."""
+        from src.ros.api import _public_team_rows
+
+        rows = self._rows()
+        public = _public_team_rows(rows)
+        self.assertIn("fullRoster", rows[0])  # source untouched
+        self.assertNotIn("fullRoster", public[0])
+
+    def test_none_snapshot_is_an_empty_list_not_a_crash(self):
+        from src.ros.api import _public_team_rows
+
+        self.assertEqual(_public_team_rows(None), [])
+
+
 if __name__ == "__main__":
     unittest.main()

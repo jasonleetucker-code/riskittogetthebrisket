@@ -170,7 +170,12 @@ POSITION_SCALE_RATIOS: Mapping[str, float] = {
 }
 _POOLED_SCALE_RATIO = 0.9997
 
-# Measured p10/p90 of the paired ratio (n=476).  Used to size the
+# Measured p10/p90 of the paired ratio (n=476).  CLAUDE.md and
+# src/trade/finder.py quote p10 0.888 for the same relation; that is
+# n=475 anchored on KTC's 500 rows rather than the paired set, so the
+# 0.002 gap is population, not disagreement.  Not worth reconciling —
+# it moves the spread by ~1% — but flagged so nobody chases it.
+# Used to size the
 # uncertainty a conversion introduces, so suppression can be decided on
 # whether that uncertainty MATTERS rather than on whether a conversion
 # happened at all.  Also reused — as an explicit PROXY, see the module
