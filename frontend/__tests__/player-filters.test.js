@@ -12,9 +12,11 @@ import {
   FREE_AGENT_OWNER,
   filterRows,
   matchesQuery,
+  resolveOwnerTeam,
   rowMatches,
   teamOptions,
 } from "../lib/player-filters.js";
+import { buildTeamByPlayer } from "../lib/waiver-logic.js";
 
 const row = (over = {}) => ({
   name: "Test Player",
@@ -90,6 +92,42 @@ describe("rowMatches — individual criteria", () => {
     expect(rowMatches(row(), { rookieOnly: true })).toBe(false);
     expect(rowMatches(row(), { watchlist: new Set(["test player"]) })).toBe(true);
     expect(rowMatches(row(), { watchlist: new Set(["someone else"]) })).toBe(false);
+  });
+});
+
+describe("resolveOwnerTeam — real buildTeamByPlayer shape", () => {
+  // The REAL helper returns { byId: Map, byName: Map } with full team
+  // objects as values (waiver-logic.js) — Codex round 1 on PR #535
+  // caught the engine assuming a plain object. Pin the real shape.
+  const teams = [
+    { name: "Brisket Bros", ownerId: "u1", players: ["Test Player"], playerIds: ["1234"] },
+    { name: "Other Team", ownerId: "u2", players: ["Someone Else"], playerIds: ["5678"] },
+  ];
+  const index = buildTeamByPlayer(teams);
+
+  it("resolves by stable playerId first", () => {
+    expect(resolveOwnerTeam(row({ playerId: "1234", name: "Renamed Player" }), index)).toBe("Brisket Bros");
+  });
+
+  it("falls back to normalized name when the row has no id", () => {
+    expect(resolveOwnerTeam(row({ playerId: null }), index)).toBe("Brisket Bros");
+  });
+
+  it("returns null for unrostered players (FREE_AGENT_OWNER works)", () => {
+    const fa = row({ name: "Nobody Owns Me", playerId: "9999" });
+    expect(resolveOwnerTeam(fa, index)).toBe(null);
+    expect(rowMatches(fa, { ownerTeam: FREE_AGENT_OWNER }, { teamByPlayer: index })).toBe(true);
+  });
+
+  it("owner filter + owner: query work end-to-end with the real index", () => {
+    const extras = { teamByPlayer: index };
+    expect(rowMatches(row({ playerId: "1234" }), { ownerTeam: "Brisket Bros" }, extras)).toBe(true);
+    expect(rowMatches(row({ playerId: "1234" }), { ownerTeam: "Other Team" }, extras)).toBe(false);
+    expect(matchesQuery(row({ playerId: "1234" }), "owner:brisket", extras)).toBe(true);
+  });
+
+  it("still accepts the plain-object fixture shape", () => {
+    expect(resolveOwnerTeam(row(), { "test player": "Brisket Bros" })).toBe("Brisket Bros");
   });
 });
 

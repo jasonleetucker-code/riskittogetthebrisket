@@ -7,10 +7,11 @@
 //     the redesign lands, the R2 terminal board) applies these
 //     client-side over ~1.1k rows, which is fast enough that no
 //     memoization layer is needed here.
-//   • Owner filtering takes an externally-built name→team map
-//     (buildTeamByPlayer from waiver-logic.js) because ownership is
-//     league-scoped while rows are scoring-profile-scoped — the
-//     CLAUDE.md split.  Rows never carry the owner.
+//   • Owner filtering takes buildTeamByPlayer's { byId, byName }
+//     index (waiver-logic.js) — or a plain name→teamName object —
+//     because ownership is league-scoped while rows are
+//     scoring-profile-scoped (the CLAUDE.md split).  Rows never
+//     carry the owner; see resolveOwnerTeam.
 //   • Every criterion is optional; an empty criteria object matches
 //     every row.  Unknown/null row fields fail closed for range
 //     filters (a player with unknown age is excluded by an age
@@ -38,6 +39,37 @@ function num(v) {
 
 function norm(s) {
   return String(s || "").trim().toLowerCase();
+}
+
+/**
+ * Resolve a row's fantasy-owner TEAM NAME from whichever ownership
+ * shape the caller supplied:
+ *   • waiver-logic's ``buildTeamByPlayer(...)`` → ``{ byId: Map,
+ *     byName: Map }`` whose values are full team objects — preferred:
+ *     resolve by the row's stable Sleeper ``playerId`` first (avoids
+ *     offense/IDP cross-universe name collisions), then normalized
+ *     name.
+ *   • a plain ``normalizedName → teamName`` object (test fixtures /
+ *     lightweight callers).
+ * Returns the owner team's display name, or null when unrostered.
+ */
+export function resolveOwnerTeam(row, teamByPlayer) {
+  if (!teamByPlayer) return null;
+  const teamName = (t) => (t && typeof t === "object" ? String(t.name || "") : String(t || ""));
+  const byId = teamByPlayer.byId instanceof Map ? teamByPlayer.byId : null;
+  const byName = teamByPlayer.byName instanceof Map ? teamByPlayer.byName : null;
+  if (byId || byName) {
+    const pid = String(row?.playerId || row?.raw?.playerId || "").trim();
+    if (byId && pid && byId.has(pid)) return teamName(byId.get(pid)) || null;
+    const key = norm(row?.name);
+    if (byName && key && byName.has(key)) return teamName(byName.get(key)) || null;
+    return null;
+  }
+  if (typeof teamByPlayer === "object") {
+    const hit = teamByPlayer[norm(row?.name)];
+    return hit ? teamName(hit) || null : null;
+  }
+  return null;
 }
 
 /**
@@ -76,7 +108,8 @@ export function teamOptions(rows) {
  *   watchlist:   Set of lowercase names (row must be in it)
  *   query:       free-text token search (see matchesQuery)
  * }
- * extras = { teamByPlayer } — name → fantasy team name map.
+ * extras = { teamByPlayer } — buildTeamByPlayer's { byId, byName }
+ * index (preferred) or a plain normalizedName → teamName object.
  */
 export const FREE_AGENT_OWNER = "__free_agent__";
 
@@ -105,7 +138,7 @@ export function rowMatches(row, criteria, extras = {}) {
   }
 
   if (c.ownerTeam) {
-    const owner = (extras.teamByPlayer || {})[norm(row.name)] || null;
+    const owner = resolveOwnerTeam(row, extras.teamByPlayer);
     if (c.ownerTeam === FREE_AGENT_OWNER) {
       if (owner) return false;
     } else if (norm(owner) !== norm(c.ownerTeam)) {
@@ -152,7 +185,7 @@ export function matchesQuery(row, query, extras = {}) {
   const name = norm(row.name);
   const team = norm(row.team);
   const pos = norm(row.pos);
-  const owner = norm((extras.teamByPlayer || {})[name] || "");
+  const owner = norm(resolveOwnerTeam(row, extras.teamByPlayer) || "");
   for (const token of tokens) {
     let ok;
     if (token.startsWith("owner:")) {
