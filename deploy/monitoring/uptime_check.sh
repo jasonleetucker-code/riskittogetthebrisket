@@ -57,18 +57,25 @@ logline() {
 }
 
 # probe <label> <url>  — records "label=CODE/SECONDS" and tracks failure.
+# Exactly ONE curl per endpoint: -w output is emitted even when curl
+# exits non-zero (000/0.000 on connection failure, the real HTTP code
+# on -f HTTP errors), and the `out=$(...)` assignment keeps that stdout
+# regardless of exit status.  A second "get the code" probe would
+# double the worst-case runtime — with three hung endpoints that blew
+# past the unit's TimeoutStartSec and systemd killed the run before it
+# could record DOWN.  Budget: 3 probes x CURL_TIMEOUT(20s) = 60s worst
+# case, inside riskit-uptime.service's TimeoutStartSec=90 with margin.
+# If you raise CURL_TIMEOUT, keep 3 x CURL_TIMEOUT + 10s <= TimeoutStartSec.
 probe() {
     local label="$1" url="$2"
-    local out code secs
-    if out="$(curl -fsS -o /dev/null --max-time "${CURL_TIMEOUT}" \
-                  -w '%{http_code}/%{time_total}' "${url}" 2>/dev/null)"; then
-        code="${out%%/*}"
-        secs="${out##*/}"
+    local out code secs rc=0
+    out="$(curl -fsS -o /dev/null --max-time "${CURL_TIMEOUT}" \
+               -w '%{http_code}/%{time_total}' "${url}" 2>/dev/null)" || rc=$?
+    code="${out%%/*}"
+    secs="${out##*/}"
+    if (( rc == 0 )); then
         RESULTS+=("${label}=ok(${code},${secs}s)")
     else
-        # curl prints http_code 000 on connection failure while ALSO
-        # exiting non-zero, so capture with `|| true` and default after.
-        code="$(curl -s -o /dev/null --max-time "${CURL_TIMEOUT}" -w '%{http_code}' "${url}" 2>/dev/null || true)"
         RESULTS+=("${label}=FAIL(${code:-000})")
         FAILED=1
     fi

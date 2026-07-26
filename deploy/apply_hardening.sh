@@ -36,6 +36,21 @@ APP_USER="${APP_USER:-dynasty}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 NGINX_SITE="${NGINX_SITE:-riskittogetthebrisket.org}"
 
+# VENV_DIR must be derived from the APP_USER's home, NOT from $HOME:
+# under the documented `sudo bash` invocation HOME=/root, and
+# install-systemd-service.sh's own default (${HOME}/.venvs/<slug>)
+# would render dynasty.service against /root/.venvs/... — a
+# nonexistent interpreter that takes the backend down on the next
+# restart.  getent keeps this correct for any APP_USER override.
+if [[ -z "${VENV_DIR:-}" ]]; then
+    APP_USER_HOME="$(getent passwd "${APP_USER}" | cut -d: -f6)"
+    if [[ -z "${APP_USER_HOME}" ]]; then
+        printf '[apply-hardening][ERROR] cannot resolve home directory for APP_USER=%s\n' "${APP_USER}" >&2
+        exit 1
+    fi
+    VENV_DIR="${APP_USER_HOME}/.venvs/$(basename "${APP_DIR}")"
+fi
+
 DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
@@ -60,13 +75,18 @@ show_diff() {
 
 # install_unit <src> <dest> [render]
 # render=yes rewrites the canonical repo path inside the unit to APP_DIR
-# so a non-default checkout location still points at real scripts.
+# so a non-default checkout location still points at real scripts, and
+# rewrites the watchdog's HEALTH_SERVICE to SERVICE_NAME so a renamed
+# service is restarted — not the default "dynasty" (the second pattern
+# only exists in dynasty-healthcheck.service; it is a no-op elsewhere).
 install_unit() {
     local src="$1" dest="$2" render="${3:-no}"
     local staged
     staged="$(mktemp)"
     if [[ "${render}" == "yes" ]]; then
-        sed "s|/home/dynasty/trade-calculator|${APP_DIR}|g" "${src}" > "${staged}"
+        sed -e "s|/home/dynasty/trade-calculator|${APP_DIR}|g" \
+            -e "s|HEALTH_SERVICE=dynasty|HEALTH_SERVICE=${SERVICE_NAME}|g" \
+            "${src}" > "${staged}"
     else
         cp "${src}" "${staged}"
     fi
@@ -146,15 +166,27 @@ apply_nginx() {
 
 # ── 2. dynasty + dynasty-frontend units from hardened templates ──────
 apply_app_services() {
+    # Pre-flight: never rewrite the backend unit to point at an
+    # interpreter that does not exist (that is a guaranteed outage on
+    # the next restart).
+    if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+        err "pre-flight FAILED: ${VENV_DIR}/bin/python does not exist or is not executable."
+        err "Refusing to rewrite ${SERVICE_NAME}.service against a missing interpreter."
+        err "Set VENV_DIR explicitly if the venv lives elsewhere."
+        exit 1
+    fi
+    log "pre-flight OK: ${VENV_DIR}/bin/python exists"
     log "re-rendering ${SERVICE_NAME}/${SERVICE_NAME}-frontend units from templates"
     if [[ "${DRY_RUN}" == "true" ]]; then
-        log "(dry-run) would run: FORCE_SERVICE_INSTALL=true deploy/install-systemd-service.sh"
+        log "(dry-run) would run: FORCE_SERVICE_INSTALL=true VENV_DIR=${VENV_DIR} deploy/install-systemd-service.sh"
         return 0
     fi
-    # install-systemd-service.sh resolves the venv + npm paths itself and
-    # writes both units; FORCE ensures the hardened templates land even
-    # though the units already exist.  It does NOT restart anything.
+    # install-systemd-service.sh resolves the npm path itself and writes
+    # both units; FORCE ensures the hardened templates land even though
+    # the units already exist.  It does NOT restart anything.  VENV_DIR
+    # is passed explicitly — see the derivation note at the top.
     if ! APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" SERVICE_NAME="${SERVICE_NAME}" \
+         VENV_DIR="${VENV_DIR}" \
          FORCE_SERVICE_INSTALL=true bash "${APP_DIR}/deploy/install-systemd-service.sh"; then
         err "install-systemd-service.sh failed — app units NOT updated"
         exit 1

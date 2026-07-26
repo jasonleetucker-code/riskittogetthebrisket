@@ -213,7 +213,10 @@ if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
             ERRORS=$((ERRORS + 1))
         fi
     else
-        warn "OFFBOX_RSYNC_DEST set but rsync not installed — skipping mirror"
+        # The operator explicitly requested an off-box copy; a missing
+        # rsync must surface as a failed run, not a silent skip.
+        warn "OFFBOX_RSYNC_DEST set but rsync not installed — off-box mirror NOT performed"
+        ERRORS=$((ERRORS + 1))
     fi
 fi
 

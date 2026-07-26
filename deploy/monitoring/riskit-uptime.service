@@ -12,6 +12,10 @@ ExecStart=/home/dynasty/trade-calculator/deploy/monitoring/uptime_check.sh
 #   Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-private-topic>"
 # or
 #   Environment="NOTIFY_CMD=mail -s riskit-alert you@example.com"
+# Runtime budget: the script runs at most 3 probes x CURL_TIMEOUT (20s
+# default) = 60s worst case, single curl per endpoint.  90s leaves
+# margin; if you raise CURL_TIMEOUT via drop-in, raise this to keep
+# 3 x CURL_TIMEOUT + 10s <= TimeoutStartSec.
 TimeoutStartSec=90
 Nice=10
 # The probe exits 1 while the site is down — that is signal, not a unit

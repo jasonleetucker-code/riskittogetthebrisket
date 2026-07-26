@@ -8,6 +8,10 @@ After=network.target
 Type=oneshot
 # Root: the script must be able to `systemctl reset-failed` + `restart`.
 ExecStart=/home/dynasty/trade-calculator/deploy/systemd/dynasty-healthcheck.sh
+# Which service the watchdog restarts.  deploy/apply_hardening.sh
+# rewrites this to match a SERVICE_NAME override at install time, so
+# the watchdog always targets the unit that was actually rendered.
+Environment="HEALTH_SERVICE=dynasty"
 RuntimeDirectory=dynasty-healthcheck
 RuntimeDirectoryPreserve=yes
 # Never let a wedged curl / systemctl stack up.

@@ -121,10 +121,17 @@ Root-only, idempotent, `--dry-run` supported.  Order of operations:
    backup automatically on failure) → `systemctl reload nginx`.
 2. Re-renders `dynasty`/`dynasty-frontend` units from the hardened
    templates via the existing `install-systemd-service.sh`
-   (`FORCE_SERVICE_INSTALL=true`; no restart performed).
+   (`FORCE_SERVICE_INSTALL=true`; no restart performed).  `VENV_DIR`
+   is derived from the **APP_USER's** home via `getent` — never from
+   `$HOME`, which is `/root` under `sudo` and would have rendered the
+   backend unit against a nonexistent `/root/.venvs/...` interpreter —
+   and a pre-flight assertion refuses to rewrite the units unless
+   `$VENV_DIR/bin/python` actually exists.
 3. Installs the healthcheck / state-backup / uptime units (diff-aware;
    rewrites the canonical `/home/dynasty/trade-calculator` path to
-   `APP_DIR` when the checkout lives elsewhere).
+   `APP_DIR`, and the watchdog's `HEALTH_SERVICE` to `SERVICE_NAME`,
+   when overridden — so the watchdog always restarts the unit that was
+   actually rendered).
 4. `daemon-reload`, `enable --now` on the three timers.
 5. Prints the full verification checklist.
 
