@@ -41,6 +41,7 @@ from .dynasty_focused import (
     RazzballProvider,
 )
 from .espn import EspnRssProvider
+from .espn_player import EspnPlayerNewsProvider
 from .fantasypros import FantasyProsRssProvider
 from .pfk import PfkArticlesProvider
 from .rotowire import RotowireProvider
@@ -56,6 +57,7 @@ ProviderFactory = Callable[..., NewsProvider]
 _PROVIDER_FACTORIES: Dict[str, ProviderFactory] = {
     "sleeper": SleeperTrendingProvider,
     "espn": EspnRssProvider,
+    "espn_player": EspnPlayerNewsProvider,
     "fantasypros": FantasyProsRssProvider,
     "cbs": CbsFantasyRssProvider,
     "dlf": DynastyLeagueFootballProvider,
@@ -91,6 +93,7 @@ __all__ = [
     "EspnRssProvider",
     "FantasyProsRssProvider",
     "FfTodayProvider",
+    "EspnPlayerNewsProvider",
     "PfkArticlesProvider",
     "PffProvider",
     "PlayerProfilerProvider",

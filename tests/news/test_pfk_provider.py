@@ -17,13 +17,22 @@ No HTTP happens anywhere below — the fetcher is always injected.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from src.news.providers import available_provider_names, build_provider
 from src.news.providers.pfk import PfkArticlesProvider, _humanize_slug
 from src.news.service import _DEFAULT_ENABLED, NewsService
 
-SITEMAP_FIXTURE = b"""<?xml version="1.0" encoding="UTF-8"?>
+# Fixture dates are generated relative to real now: service-level
+# tests route through the aggregation layer's 7-day freshness cutoff,
+# so static dates would silently age the fixture out of every
+# assertion within a week of writing it.
+_TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+_FIVE_DAYS_AGO = (datetime.now(timezone.utc) - timedelta(days=5)).strftime("%Y-%m-%d")
+
+SITEMAP_FIXTURE = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://playforkeepsdynasty.com/</loc>
@@ -36,22 +45,22 @@ SITEMAP_FIXTURE = b"""<?xml version="1.0" encoding="UTF-8"?>
   </url>
   <url>
     <loc>https://playforkeepsdynasty.com/article/signal-or-noise-carnell-tate</loc>
-    <lastmod>2026-07-25</lastmod>
+    <lastmod>{_TODAY}</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
     <loc>https://playforkeepsdynasty.com/article/bi-weekly-brew-new-orleans-saints-edition</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>{_FIVE_DAYS_AGO}</lastmod>
   </url>
   <url>
     <loc>https://playforkeepsdynasty.com/article/undated-legacy-piece</loc>
   </url>
   <url>
     <loc>https://playforkeepsdynasty.com/trade-finder</loc>
-    <lastmod>2026-07-25</lastmod>
+    <lastmod>{_TODAY}</lastmod>
   </url>
 </urlset>
-"""
+""".encode("utf-8")
 
 
 def _provider(**kwargs) -> PfkArticlesProvider:
@@ -81,8 +90,8 @@ class TestParse:
 
     def test_lastmod_becomes_iso_utc_ts_newest_first(self):
         items = _provider().fetch()
-        assert items[0].ts.startswith("2026-07-25")
-        assert items[1].ts.startswith("2026-07-20")
+        assert items[0].ts.startswith(_TODAY)
+        assert items[1].ts.startswith(_FIVE_DAYS_AGO)
         assert items[0].ts.endswith("+00:00")
         # Undated entries sink to the bottom instead of posing as fresh.
         assert items[-1].headline == "Undated Legacy Piece"
@@ -139,12 +148,18 @@ class TestParse:
 
 
 def _single_slug_sitemap(slug: str) -> bytes:
+    # lastmod is stamped as TODAY so the service-level tests below
+    # survive the aggregation layer's 7-day freshness cutoff no
+    # matter when they run.
+    from datetime import datetime, timezone
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d").encode("utf-8")
     return (
         b'<?xml version="1.0" encoding="UTF-8"?>\n'
         b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         b"  <url>\n"
         b"    <loc>https://playforkeepsdynasty.com/article/" + slug.encode("utf-8") + b"</loc>\n"
-        b"    <lastmod>2026-07-25</lastmod>\n"
+        b"    <lastmod>" + today + b"</lastmod>\n"
         b"  </url>\n"
         b"</urlset>\n"
     )
@@ -249,8 +264,15 @@ class TestFailureIsolation:
         healthy = _provider()
         svc = NewsService([failing, healthy], cache_ttl_s=0)
         result = svc.aggregate()
-        # The healthy provider's items survive; PFK contributes zero.
-        assert len(result.items) == 3
+        # The healthy provider's DATED items survive; PFK's failing
+        # instance contributes zero.  The static fixture's third
+        # (undated) entry is stamped epoch by the provider and falls
+        # to the service's 7-day freshness cutoff — deliberately:
+        # an article that can't prove its age doesn't ship.
+        assert {i.headline for i in result.items} == {
+            "Signal Or Noise Carnell Tate",
+            "Bi Weekly Brew New Orleans Saints Edition",
+        }
         runs = {r.name: r for r in result.provider_runs}
         # Both instances share name "pfk"; the failing one ran first
         # so assert via the run list directly.

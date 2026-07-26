@@ -8,6 +8,8 @@ query-param parsing, response shape, 503 on all-failures.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -52,7 +54,9 @@ class _FakeProvider:
 def _make_item(id_, players=None):
     return NewsItem(
         id=id_,
-        ts="2026-04-23T10:00:00+00:00",
+        # Recent timestamp — the service drops anything older than
+        # its 7-day freshness cutoff at aggregation time.
+        ts=datetime.now(timezone.utc).isoformat(),
         provider="fake",
         provider_label="Fake",
         severity="alert",

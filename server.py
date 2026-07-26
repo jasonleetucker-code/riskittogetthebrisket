@@ -400,7 +400,16 @@ def _get_news_service() -> NewsService:
         return _news_service
     with _news_service_lock:
         if _news_service is None:
-            _news_service = build_default_service()
+            _news_service = build_default_service(
+                provider_config={
+                    # Per-player ESPN news: the provider trickle-
+                    # refreshes espn_id targets from the live board
+                    # through its own per-player TTL cache — the
+                    # supplier is read lazily on each provider fetch,
+                    # so it always sees the current contract.
+                    "espn_player": {"targets_supplier": _live_espn_news_targets},
+                }
+            )
     return _news_service
 
 
@@ -431,6 +440,74 @@ def _live_player_names() -> list[str]:
                 names.append(v.strip())
                 break
     return names
+
+
+# How many top-board players get per-player ESPN news coverage.
+# Rostered players cluster at the top of the board, and the provider
+# trickle-refreshes ~8 ids per 3-minute aggregate cycle, so 150
+# targets fully refresh roughly hourly at a polite request rate.
+_ESPN_NEWS_TARGET_LIMIT = 150
+
+
+def _live_espn_news_targets() -> list[dict[str, str | None]]:
+    """Top-board players joined to their ESPN athlete ids.
+
+    Walks the live contract's ``playersArray`` in consensus-rank
+    order, resolves each row's Sleeper ``playerId`` through the
+    contract's Sleeper player directory (``sleeper.players`` — the
+    ``/v1/players/nfl`` shape, which carries ``espn_id``), and emits
+    ``{name, espnId, position, team}`` targets for the
+    ``espn_player`` news provider.  Rows without an espn_id mapping
+    are skipped; an unloaded contract yields [] and the provider
+    stays quiet.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    players_dir = (contract.get("sleeper") or {}).get("players") or {}
+    if not isinstance(players_dir, dict) or not rows:
+        return []
+
+    def _rank(row: dict) -> float:
+        try:
+            r = float(row.get("canonicalConsensusRank") or row.get("rank") or 0)
+            return r if r > 0 else float("inf")
+        except (TypeError, ValueError):
+            return float("inf")
+
+    targets: list[dict[str, str | None]] = []
+    for row in sorted((r for r in rows if isinstance(r, dict)), key=_rank):
+        sid = str(row.get("playerId") or "").strip()
+        if not sid:
+            continue
+        p = players_dir.get(sid)
+        if not isinstance(p, dict):
+            continue
+        espn_id = str(p.get("espn_id") or "").strip()
+        if not espn_id:
+            continue
+        name = ""
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                name = v.strip()
+                break
+        if not name:
+            continue
+        position = row.get("position")
+        team = row.get("team")
+        targets.append(
+            {
+                "name": name,
+                "espnId": espn_id,
+                "position": position.strip()
+                if isinstance(position, str) and position.strip()
+                else None,
+                "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+            }
+        )
+        if len(targets) >= _ESPN_NEWS_TARGET_LIMIT:
+            break
+    return targets
 
 
 def _live_player_meta() -> dict[str, dict[str, str | None]]:
