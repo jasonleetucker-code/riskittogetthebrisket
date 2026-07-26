@@ -63,6 +63,77 @@ describe("Field", () => {
     expect(input).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("merges a child's pre-existing aria-describedby with the hint id", () => {
+    render(
+      <>
+        <Field label="Bio" hint="Max 200 characters">
+          <Input aria-describedby="char-counter" />
+        </Field>
+        <span id="char-counter">42 / 200</span>
+      </>
+    );
+    const input = screen.getByLabelText("Bio");
+    const described = input.getAttribute("aria-describedby").split(" ");
+    expect(described).toHaveLength(2);
+    expect(described[0]).toBe("char-counter"); // child's ids kept, first
+    expect(document.getElementById(described[1])).toHaveTextContent(
+      "Max 200 characters"
+    );
+  });
+
+  it("keeps the child's own aria-describedby when Field has no hint or error", () => {
+    render(
+      <Field label="Bio">
+        <Input aria-describedby="char-counter" />
+      </Field>
+    );
+    expect(screen.getByLabelText("Bio")).toHaveAttribute(
+      "aria-describedby",
+      "char-counter"
+    );
+  });
+
+  it("appends error AND hint ids after the child's own, deduped", () => {
+    render(
+      <Field label="Bio" hint="Max 200 characters" error="Too long">
+        <Input aria-describedby="char-counter extra-note" />
+      </Field>
+    );
+    const input = screen.getByLabelText("Bio");
+    const described = input.getAttribute("aria-describedby").split(" ");
+    expect(described).toHaveLength(4);
+    expect(described.slice(0, 2)).toEqual(["char-counter", "extra-note"]);
+    expect(document.getElementById(described[2])).toHaveTextContent("Too long");
+    expect(document.getElementById(described[3])).toHaveTextContent(
+      "Max 200 characters"
+    );
+    expect(new Set(described).size).toBe(4);
+  });
+
+  it("preserves the child's own aria-invalid when Field has no error", () => {
+    render(
+      <Field label="Bio">
+        <Input aria-invalid="true" />
+      </Field>
+    );
+    expect(screen.getByLabelText("Bio")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    );
+  });
+
+  it("a Field error forces aria-invalid true over the child's own value", () => {
+    render(
+      <Field label="Bio" error="Required">
+        <Input aria-invalid={false} />
+      </Field>
+    );
+    expect(screen.getByLabelText("Bio")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    );
+  });
+
   it("error-only: no dangling hint reference", () => {
     render(
       <Field label="Bid" error="Required">

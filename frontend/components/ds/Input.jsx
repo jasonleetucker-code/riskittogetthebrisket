@@ -18,7 +18,11 @@
  *   tabular-nums treatment for value entry.
  *
  * A11y: label is a real <label htmlFor>; error text is linked via
- * aria-describedby and flips aria-invalid on the control.
+ * aria-describedby and flips aria-invalid on the control. Wiring MERGES
+ * with the child's own accessibility props: a pre-existing
+ * aria-describedby keeps its ids (Field's error/hint ids are appended,
+ * space-separated, deduped) and a child's own aria-invalid passes
+ * through unless a Field error forces it true.
  */
 "use client";
 
@@ -29,14 +33,32 @@ export function Field({ label, hint, error, id, children }) {
   const controlId = id || `ds-field-${autoId}`;
   const hintId = hint ? `${controlId}-hint` : undefined;
   const errorId = error ? `${controlId}-error` : undefined;
-  const describedBy =
-    [errorId, hintId].filter(Boolean).join(" ") || undefined;
 
   const control = React.Children.only(children);
+
+  // MERGE with the child's own accessibility props, never clobber
+  // (mirrors Tooltip): a control that brings its own aria-describedby
+  // (character counter, external guidance) keeps those ids — Field's
+  // error/hint ids are appended (deduped). aria-invalid: a Field error
+  // forces true; otherwise the child's own value passes through.
+  const childDescribedBy = control.props["aria-describedby"];
+  const describedBy =
+    [
+      ...new Set(
+        [
+          ...String(childDescribedBy || "")
+            .split(/\s+/)
+            .filter(Boolean),
+          errorId,
+          hintId,
+        ].filter(Boolean)
+      ),
+    ].join(" ") || undefined;
+
   const wired = React.cloneElement(control, {
     id: controlId,
     "aria-describedby": describedBy,
-    "aria-invalid": error ? true : undefined,
+    "aria-invalid": error ? true : control.props["aria-invalid"],
   });
 
   return (
