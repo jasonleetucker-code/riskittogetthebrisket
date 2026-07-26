@@ -218,6 +218,71 @@ Seeded from audit §5; PR review checks against this list.
 13. **Gold is not a paint bucket.** One primary action per region; accent
     never used as large background fill or body-text color.
 14. **No cycled chart palettes** — slots in fixed order; >6 series folds.
+15. **No `role="tab"` on a control that owns no tabpanel.** A tab that
+    controls nothing announces "tab, 1 of 4" and then leads nowhere —
+    worse than a plain button, because it promises a structure that
+    isn't there. Filters and toggles are `SegmentedControl`, or `Button`
+    + `aria-pressed`. **Never fix one by hand-adding `aria-controls`**:
+    that names a region that does not exist. Enforced by
+    `__tests__/a11y-tab-roles.test.js` (ratcheted baseline).
+
+---
+
+## 5a. Two migration lessons that cost us real time
+
+Both were learned the expensive way during R5. They generalise well
+beyond this codebase, so they live here rather than only in the
+migration doc that gets archived when the migration ends.
+
+### "Migrations come in under budget" is a property of DELETIONS
+
+R2, R3 and R4 each landed *smaller* than the code they replaced, and
+that became an assumption. It broke immediately on the first migration
+phase that didn't delete anything: `/league`'s `Card` → `Panel` swap
+went **167.8 → 171.0 KB and over budget**, because the legacy `.card`
+rule and its 80-odd remaining consumers all stayed.
+
+> Those earlier phases came in under because they **deleted what they
+> replaced** — the old container died, hand-rolled tables died, inline
+> styles collapsed into shared CSS. A migration only pays for itself in
+> the phase where the old thing is *removed*.
+
+**Budget an additive phase as additive.** If a migration is staged so
+that adoption lands before removal, expect the adoption phase to cost
+and say so up front — don't let a bundle check be the thing that
+discovers it. (Confirmed in the other direction too: the first deleting
+slice of phase B gave 0.9 KB straight back.)
+
+### Tree-shaking follows MODULE granularity, not export granularity
+
+`Panel` imported `Icon` for one disclosure chevron, and every Panel
+consumer paid ~2.2 KB for the entire glyph set. The instinct — "give
+`Icon` per-glyph named exports so bundlers can drop the rest" — does not
+work, and it's worth knowing why before spending a day on it:
+
+1. **A map in a single object literal cannot be shaken.** No bundler
+   drops members of an object literal, whatever the export shape.
+2. **A runtime lookup defeats it regardless.** `<Icon name={x} />`
+   selects by string at run time; static analysis cannot know which
+   glyph is reachable.
+3. **One `Object.keys(PATHS)` retains everything.** A single reference
+   to the whole map (here, to build `ICON_NAMES`) pins all of it.
+
+Plus `sideEffects` was absent from `package.json`, which would have
+defeated shaking on its own — and setting it isn't free, since
+`globals.css` is imported for effect and needs `sideEffects: ["*.css"]`
+rather than `false`.
+
+**What works is splitting the file.** `glyph-chevron-down.jsx` holds the
+one glyph, `Panel` imports that module, and the rest of the set never
+enters the graph — measured 171.0 → 169.0 KB. The public `Icon` API is
+unchanged and sources its geometry from the same exported constant, so
+there is one definition, not two to drift.
+
+**Rule:** a shared primitive that needs *one* item from a large module
+should import it as its own module. And when you're told a change will
+tree-shake, measure it — the three blockers above are invisible in a
+diff and obvious in a build.
 
 ---
 

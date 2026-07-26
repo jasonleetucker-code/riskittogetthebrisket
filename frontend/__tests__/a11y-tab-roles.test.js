@@ -78,7 +78,20 @@ function walk(dir, out = []) {
 
 const FILES = SCAN.flatMap((d) => walk(path.join(ROOT, d)));
 const rel = (p) => path.relative(ROOT, p).split(path.sep).join("/");
-const sources = new Map(FILES.map((f) => [rel(f), fs.readFileSync(f, "utf8")]));
+/**
+ * Comments are stripped before scanning. A file that EXPLAINS why it is
+ * not using `role="tab"` necessarily contains the literal `role="tab"`
+ * in prose, and counting that as a violation makes the guard punish the
+ * very documentation it asks people to write. (Caught exactly that way:
+ * fixing `/trade` added a comment naming the pattern, and the scanner
+ * flagged the comment.)
+ */
+const sources = new Map(
+  FILES.map((f) => [
+    rel(f),
+    fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, ""),
+  ]),
+);
 
 /** The attribute text of the JSX element containing index `i`. */
 function attrsAround(src, i) {
@@ -174,10 +187,19 @@ describe('role="tab" must control something', () => {
   it("the ds Tabs primitive is itself compliant", () => {
     // The fix for every baseline entry is "use the primitive", so the
     // primitive had better be right.
+    //
+    // NOTE: Tabs deliberately renders NO tabpanels — it emits
+    // aria-controls={tabPanelId(prefix, id)} and the caller renders the
+    // matching role="tabpanel". So asserting role="tabpanel" *here* is
+    // wrong, and until comments were stripped this assertion was
+    // passing on Tabs' own docblock rather than on its markup: a
+    // vacuous check hiding in a compliance test.
     const src = sources.get("components/ds/Tabs.jsx");
     expect(src).toBeTruthy();
     expect(src).toMatch(/role=["']tab["']/);
-    expect(src).toMatch(/aria-controls/);
-    expect(src).toMatch(/role=["']tabpanel["']/);
+    // every tab it renders names the panel it controls
+    expect(src).toMatch(/aria-controls=\{tabPanelId\(/);
+    // and it exports the helper callers need to stamp that panel id
+    expect(src).toMatch(/export function tabPanelId/);
   });
 });
