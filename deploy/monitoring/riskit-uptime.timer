@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Risk It uptime probe every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

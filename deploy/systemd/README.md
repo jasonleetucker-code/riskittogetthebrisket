@@ -10,6 +10,7 @@ sudo systemctl daemon-reload
 # Enable + start the timers (the .service units are triggered by them).
 sudo systemctl enable --now riskit-backup.timer
 sudo systemctl enable --now riskit-backup-restore-test.timer
+sudo systemctl enable --now dynasty-healthcheck.timer
 
 # Optional: logrotate (uses Linux's own logrotate cron, NOT a timer here).
 sudo cp deploy/logrotate.conf /etc/logrotate.d/riskit
@@ -25,6 +26,20 @@ systemctl list-timers riskit-*
 |---|---|---|
 | `riskit-backup.service`+ `.timer` | Nightly online SQLite backup of user_kv + session_store | Daily 02:00 UTC |
 | `riskit-backup-restore-test.service` + `.timer` | Integrity check of the latest backup | Weekly Mon 03:30 UTC |
+| `dynasty-healthcheck.service` + `.timer` + `.sh` | Backend watchdog: probes `/api/health`, restarts `dynasty` after 3 consecutive failures | Every 1 min |
+
+Related units living elsewhere in deploy/:
+
+- `deploy/backup/riskit-state-backup.*` — nightly full-state backup
+  (sqlite + public_league/ + intel/ + scraper session secrets), 02:30 UTC.
+- `deploy/monitoring/riskit-uptime.*` — public-URL uptime probe, 5 min.
+
+`deploy/apply_hardening.sh` installs/refreshes all of the above
+idempotently (see docs/PROD-HARDENING.md).
+
+`dynasty.service.template` / `dynasty-frontend.service.template` are
+rendered (placeholder substitution) by `deploy/install-systemd-service.sh`
+— do not copy them into /etc/systemd/system verbatim.
 
 ## Manual runs
 

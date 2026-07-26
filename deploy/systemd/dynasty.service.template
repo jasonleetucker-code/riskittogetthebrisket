@@ -1,7 +1,16 @@
 [Unit]
 Description=Dynasty Trade Calculator (__SERVICE_NAME__)
-After=network.target __SERVICE_NAME__-frontend.service
-Wants=__SERVICE_NAME__-frontend.service
+After=network-online.target __SERVICE_NAME__-frontend.service
+Wants=network-online.target __SERVICE_NAME__-frontend.service
+# Crash-loop brake: with RestartSec=5 a hard crash loop burns ~12
+# restarts/minute.  Allow up to 30 restarts inside a 5-minute window
+# before systemd stops retrying — enough to ride out transient failures
+# (disk pressure, OOM during a scrape) without letting a genuinely
+# broken build spin forever.  Once tripped, the unit needs
+# `systemctl reset-failed` before it will start again; the
+# dynasty-healthcheck timer does exactly that before its restart.
+StartLimitIntervalSec=300
+StartLimitBurst=30
 
 [Service]
 Type=simple
@@ -11,8 +20,30 @@ WorkingDirectory=__APP_DIR__
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/server.py
 Restart=always
 RestartSec=5
+# Boot parses the multi-MB cached contract before binding the port —
+# see deploy/verify-deploy.sh (~90s budget).  Give systemd the same
+# generosity so a slow cold start is not mistaken for a hang.
+TimeoutStartSec=180
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-__APP_DIR__/.env
+
+# ── Resource sanity ─────────────────────────────────────────────────
+# Assumes a >=4 GB Hetzner box (see docs/PROD-HARDENING.md; verify
+# with `free -m` before applying).  Steady-state RSS is dominated by
+# the in-memory contract + payload views; Playwright scrape cycles
+# spike it.  MemoryHigh throttles/reclaims first; MemoryMax is the
+# hard OOM line, after which Restart=always brings the service back.
+# Comment both out on a smaller box rather than guessing lower.
+MemoryHigh=2560M
+MemoryMax=3G
+
+# ── Sandbox-lite hardening ──────────────────────────────────────────
+# PrivateTmp gives the service (and Playwright browser profiles) an
+# isolated /tmp.  Stronger knobs are deliberately NOT enabled:
+# NoNewPrivileges/ProtectSystem can break Chromium's sandbox helper
+# during scrapes — do not add them without testing a full scrape cycle.
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=Dynasty backend health check (restarts dynasty after consecutive failures)
+# Purely local probe — no point running before the network stack is up,
+# but do not Require the backend: the whole job is to notice it missing.
+After=network.target
+
+[Service]
+Type=oneshot
+# Root: the script must be able to `systemctl reset-failed` + `restart`.
+ExecStart=/home/dynasty/trade-calculator/deploy/systemd/dynasty-healthcheck.sh
+RuntimeDirectory=dynasty-healthcheck
+RuntimeDirectoryPreserve=yes
+# Never let a wedged curl / systemctl stack up.
+TimeoutStartSec=90
+Nice=5
+# Environment overrides (see script header) go in a drop-in:
+#   systemctl edit dynasty-healthcheck.service
+# e.g. Environment="HEALTH_FAIL_THRESHOLD=5"

@@ -1,0 +1,23 @@
+[Unit]
+Description=Risk It nightly state backup (sqlite + dirs + scraper sessions)
+After=network.target
+
+[Service]
+Type=oneshot
+# Root so the job can (a) write the primary /var/backups location and
+# (b) read root-owned session files under /var/lib/*-fetch.  The
+# script itself umasks 077 and chmods session copies to 0600.
+ExecStart=/home/dynasty/trade-calculator/deploy/backup/riskit-state-backup.sh
+StandardOutput=append:/var/log/riskit-state-backup.log
+StandardError=append:/var/log/riskit-state-backup.log
+Environment="APP_DIR=/home/dynasty/trade-calculator"
+Environment="BACKUP_ROOT=/var/backups/riskit-state"
+Environment="KEEP_DAILY=14"
+# Optional off-box mirror — set via drop-in
+# (`systemctl edit riskit-state-backup.service`):
+#   Environment="OFFBOX_RSYNC_DEST=backup@host:riskit-state/"
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

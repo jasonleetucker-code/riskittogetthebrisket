@@ -1,0 +1,22 @@
+[Unit]
+Description=Risk It uptime probe (public site + local backend)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/dynasty/trade-calculator/deploy/monitoring/uptime_check.sh
+# The probe is log-only by default.  To enable notifications, add a
+# drop-in (`systemctl edit riskit-uptime.service`):
+#   [Service]
+#   Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-private-topic>"
+# or
+#   Environment="NOTIFY_CMD=mail -s riskit-alert you@example.com"
+TimeoutStartSec=90
+Nice=10
+# The probe exits 1 while the site is down — that is signal, not a unit
+# failure worth systemd's failed-state bookkeeping between runs.
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

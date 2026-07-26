@@ -1,0 +1,12 @@
+[Unit]
+Description=Run dynasty backend health check every minute
+
+[Timer]
+# Give the stack breathing room after boot before the first probe —
+# backend cold start parses the multi-MB contract (~90s worst case).
+OnBootSec=3min
+OnUnitActiveSec=1min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
