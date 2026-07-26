@@ -78,6 +78,41 @@ surfaced only because a test asserted confidence should rise and it
 didn't. **Write the test that fails if the mechanism is disconnected**,
 not just the test that passes when it works.
 
+**A named failure mode: an underfed fixture is indistinguishable from a
+collapsed metric.** When a metric reads constant across every real
+subject, there are two candidate explanations and they look identical
+from the outside — the metric collapsed, or the harness never supplied
+the input the metric needs. Check the second one first; it is cheaper
+to rule out and, in this repo, has been the answer.
+
+WS-J measured the competitive window across the 12 real rosters and
+found the trajectory axis pinned at exactly 0.500 for every team, with
+`productive_struggle` the most-likely state for none of them. That
+reads as a broken classifier. It was a starved fixture: the test joined
+rosters to the ROS aggregate, which carries no ages, while
+`data/public_league/nfl_players_full.json` had been sitting in the repo
+the whole time with 10,954 ages and 11,866 `fantasy_positions` entries.
+Joining it moved trajectory to 0.196–0.684 and the window to all five
+states. The first report went out claiming "no committed artifact
+carries ages" — a data-gap finding that was really a harness bug, and
+the more damaging error of the two because it would have sent someone
+to build an ingestion path for data already present.
+
+The `_positional_coverage` incident (100.00 for all 12 teams) is the
+same shape from the other direction, which is exactly why the two
+cannot be told apart by staring at the output. **Before reporting a
+constant as a finding, prove the metric was fed** — assert the input
+coverage the fixture achieved, not just the output it produced.
+
+The inverse has teeth too: **a state that can never fire looks exactly
+like a state that never happens.** `productive_struggle` was not rare
+on this league, it was unreachable — one axis being inert made a whole
+category structurally impossible, and no amount of staring at the
+distribution would have shown that, because the other four states
+summed to 1.0 and looked plausible. When a category never appears, ask
+whether it *can* appear before concluding anything about the world.
+The same logic condemned LI-7's `projection_corroborated` above.
+
 A third form: the fix that reads correctly but cannot take effect. R3's
 mobile-order restoration was **inert on first write** — a media query adds
 no specificity, so `.col{display:contents}` inside `@media` and a bare
