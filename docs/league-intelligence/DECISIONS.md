@@ -272,6 +272,69 @@ displacement cannot be converted to a comparable premium without DN's
 own value curve (see the portability note below).  A two-way result is
 the expected strong position, not an incomplete one.
 
+**DEPTH DEFINITION MATTERS AS MUCH AS THE PARAMETER (2026-07-26).**
+"Deepest TE rank that ever entered an optimal lineup" is a **max over
+weeks**, so its mean is outlier-driven — one TE5 spike in week 9 sets a
+team's figure to 5 for the season.  Re-derived using **marginal
+best-ball value** (spec §16.3-16.4): expected optimal lineup points
+with a player minus without, a MEAN of contribution rather than a max
+of rank.  824 player-week removals across 170 real 2025 team-weeks,
+scored through the exact optimizer.
+
+| TE season rank | mean marginal | median | % weeks > 0 |
+|---|---|---|---|
+| TE1 | 7.95 | 5.78 | 68.1% |
+| TE2 | 5.59 | 2.10 | 58.9% |
+| TE3 | 3.69 | 0.05 | 50.0% |
+| TE4 | 3.50 | 0.00 | 37.0% |
+| TE5 | 1.87 | 0.00 | 29.8% |
+| TE6 | 2.66 | 0.00 | 30.9% |
+| TE7 | 0.76 | 0.00 | 18.8% |
+
+Marginal-weighted effective depth: **3.79 TE/team**.  Note the medians
+hit 0.00 from TE4 down — a deep TE contributes nothing in most weeks
+and earns its keep purely through occasional spikes, which is exactly
+the variance-capture value the max statistic over-weights.
+
+Premium under all three definitions:
+
+| definition | TE/team | cut | median | TE1-12 | TE13-24 | TE25-40 | TE41+ |
+|---|---|---|---|---|---|---|---|
+| naive (slots only) | 2.00 | TE24 | 1.239 | 1.175 | 1.292 | 1.364 | 1.680 |
+| **marginal value (mean)** | **3.79** | TE45 | **1.592** | 1.336 | 1.562 | 1.701 | 2.309 |
+| max-of-rank (outlier-driven) | 4.29 | TE51 | 1.815 | 1.414 | 1.691 | 1.862 | 2.610 |
+| *KTC measured (reference)* | | | *1.320* | *1.227* | *1.268* | *1.308* | *1.492* |
+
+**The marginal-value figure (1.592) is the operative one**; the
+max-based 1.815 is superseded as inflated.  Sensitivity to the
+*definition* (1.24 → 1.59 → 1.82) is comparable to sensitivity to the
+parameter, which is why both are shown.
+
+*Noise caveat:* rank-level means are non-monotone at depth (TE6 > TE5,
+TE8 > TE7) on small n — the 3.79 aggregate is more stable than any
+individual rank.
+
+**HOLD BOTH READINGS OF THE KTC DIVERGENCE.**  At 1.592 vs KTC's 1.320
+the gap narrowed but did not close.  Two live explanations, and the
+first is self-serving:
+1. KTC encodes a *scoring* axis and never measured this quantity, so
+   divergence is expected;
+2. **our depth parameter is still too aggressive and the premium is
+   overstated** — the max-statistic defect was a concrete mechanism for
+   exactly that, and correcting it moved us 0.22 toward KTC.
+That the refinement moved *toward* KTC is mild evidence for (2).
+"The external check measures something else" is the comfortable story
+whenever your own number diverges; it is not yet established.
+
+**STRUCTURAL LIMIT OF THE ONLY AVAILABLE DATA (load-bearing, not a
+footnote).**  The 2025 source weeks ran a **1-TE lineup**.  Two-slot
+logic was applied to rosters built under one-slot incentives, and teams
+in a genuine 2-TE league roster differently — likely deeper at TE,
+which would *raise* true marginal contribution at depth.  Direction of
+the bias is unknown-but-plausibly-downward; magnitude unmeasurable.
+This cannot be solved with available data and belongs beside the
+headline number.
+
 **BEST BALL CORRECTION — supersedes the 1.239 figure.**  The naive
 "2 slots x 12 teams = TE24" replacement cut is wrong for this league
 and **biases the premium down**.  In best ball you never set a lineup,
@@ -311,6 +374,47 @@ quantity and the earlier agreement was coincidence — exactly the
 failure the axis warning predicted.  The two corrections interact, and
 the corrected divergence is weak independent evidence that KTC encodes
 a different axis.
+
+**A FIFTH broken check — this one in my own gate.**  The rank-encoded
+path was reported as having an unsatisfiable "controls at zero
+displacement" condition.  On inspection the *signal* was already
+difference-in-differences (`TE median − control median`), which is
+correctly immune to the zero-sum permutation identity — a ranking is a
+permutation, so a real TE gain forces an equal aggregate loss
+elsewhere, and subtracting the control median absorbs it.  On the live
+KTC pair that shows as TE +72, controls −11, signal 83.
+
+But the **power denominator** was broken.  With controls in perfect
+lockstep their dispersion is 0, `signal / 0` returned `None`, and
+`detected` read that as **False** — so the *cleanest possible* signal
+(TE +80, controls −20 in unison, signal 100) was reported as not
+detected.  Zero dispersion is the strongest evidence, not the absence
+of it.  Fixed: a non-zero signal with zero control dispersion counts as
+detected.
+
+Added alongside it: **control cohesion**, the Spearman correlation of
+the controls' own base-vs-comparison ranks.  This is the invariant that
+*is* satisfiable — controls may all shift down together (valid) but
+must keep their relative order; a board-wide reshuffle (invalid) breaks
+it.  KTC scores >0.9; a scrambled control group falls below.
+
+**A third distinct rejection mode: cardinal-but-uncontrolled.**  The DN
+value pair passed the cardinal-scale gate (955× dynamic range) yet
+failed on control drift of 6.83%, with only 27/240 control rows
+identical and movement in both directions.  So DN's two boards differ
+in more than the TE axis — they were never a single-variable
+experiment the way KTC's are.  Three named failure modes now:
+rank-encoded (scale), confounded (controls drift), and insufficient
+overlap.
+
+**SHAPE IS CORROBORATED EVEN THOUGH LEVEL IS NOT.**  Levels are not
+comparable across KTC, DN and our derivation — different axes,
+different universes, different methods.  But all three agree the
+premium **grows with TE depth**, and our replacement derivation
+produces that monotone shape independently rather than being fitted to
+it.  That is the part of the corroboration which survives the
+axis-ambiguity objection, and it should be stated separately:
+**shape-corroborated, level-uncertain.**
 
 **A fourth vacuous check, caught and recorded.**  The first attempt at
 this measured "TE availability" as "the host produced a score", which

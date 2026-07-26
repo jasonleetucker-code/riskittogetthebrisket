@@ -208,6 +208,97 @@ class TestDerivedStructuralPremium:
         assert clean.premium_at_median != polluted.premium_at_median
 
 
+class TestRankDisplacementZeroSum:
+    """A ranking is a PERMUTATION, so a real TE gain forces an equal
+    aggregate loss elsewhere.  Any gate demanding controls sit at zero
+    displacement is unsatisfiable whenever the signal is real — it
+    would reject every true positive.  These tests pin the correct
+    invariants."""
+
+    @staticmethod
+    def _zero_sum_board(te_gain=True):
+        rows = []
+        for i in range(20):
+            b = 100000 - i * 5 if te_gain else 1000 - i * 5
+            rows.append({"position": "TE", "canonicalSiteValues": {"a": 1000 - i * 5, "b": b}})
+        for i in range(80):
+            v = 1010 + i * 5
+            rows.append(
+                {
+                    "position": ["QB", "RB", "WR"][i % 3],
+                    "canonicalSiteValues": {"a": v, "b": v},
+                }
+            )
+        return rows
+
+    def test_controls_shift_down_when_tes_shift_up(self):
+        """Documents the arithmetic so nobody 'fixes' it as a bug."""
+        from src.league_intel.calibration import measure_rank_displacement
+
+        d = measure_rank_displacement(self._zero_sum_board(), "a", "b")
+        assert d.te_median_shift > 0
+        assert d.control_median_shift < 0  # compensating, by construction
+
+    def test_perfect_lockstep_controls_are_DETECTED_not_rejected(self):
+        """Zero control dispersion is the CLEANEST signal.  An earlier
+        version divided by it, returned None, and reported not-detected
+        for a maximally clean result."""
+        from src.league_intel.calibration import measure_rank_displacement
+
+        d = measure_rank_displacement(self._zero_sum_board(), "a", "b")
+        assert d.control_dispersion == 0.0
+        assert d.signal_ranks == pytest.approx(100.0)
+        assert d.detected is True
+
+    def test_control_cohesion_high_when_only_tes_move(self):
+        from src.league_intel.calibration import measure_rank_displacement
+
+        d = measure_rank_displacement(self._zero_sum_board(), "a", "b")
+        assert d.control_cohesion == pytest.approx(1.0)
+
+    def test_control_cohesion_drops_when_the_whole_board_reshuffles(self):
+        """Distinguishes 'TEs moved, everyone shifted uniformly' (valid)
+        from 'the board reshuffled' (invalid) — the discrimination the
+        zero-displacement gate could not make."""
+        import random
+
+        from src.league_intel.calibration import measure_rank_displacement
+
+        rng = random.Random(7)
+        rows = []
+        for i in range(20):
+            rows.append(
+                {"position": "TE", "canonicalSiteValues": {"a": 1000 - i * 5, "b": 100000 - i * 5}}
+            )
+        for i in range(80):
+            rows.append(
+                {
+                    "position": ["QB", "RB", "WR"][i % 3],
+                    "canonicalSiteValues": {
+                        "a": 1010 + i * 5,
+                        "b": 1010 + rng.randint(0, 400) * 5,  # scrambled
+                    },
+                }
+            )
+        d = measure_rank_displacement(rows, "a", "b")
+        assert d.control_cohesion is not None
+        assert d.control_cohesion < 0.9
+
+    def test_real_ktc_board_has_cohesive_controls(self):
+        import json
+        from pathlib import Path
+
+        from src.league_intel.calibration import measure_rank_displacement
+
+        path = Path(__file__).resolve().parents[2] / "audit" / "baseline" / "api_data.json"
+        if not path.exists():
+            pytest.skip("baseline snapshot not present")
+        rows = json.loads(path.read_text())["playersArray"]
+        d = measure_rank_displacement(rows, "ktc", "ktcSfTep")
+        assert d.detected is True
+        assert d.control_cohesion > 0.9  # controls kept their own order
+
+
 class TestPremiumConsensus:
     """Reconciliation policy: ours is operative, market is cross-check."""
 

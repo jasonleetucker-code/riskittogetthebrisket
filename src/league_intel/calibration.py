@@ -254,9 +254,28 @@ class RankDisplacement:
     control_dispersion: float | None
     signal_over_sd: float | None
 
+    control_cohesion: float | None = None
+    """Rank correlation among the control positions' displacements —
+    near 1.0 means the controls kept their relative order while
+    shifting together (valid), low means the whole board reshuffled."""
+
     @property
     def detected(self) -> bool:
-        """True when the TE shift stands clear of control dispersion."""
+        """True when the TE shift stands clear of control dispersion.
+
+        ZERO-DISPERSION IS THE CLEANEST CASE, NOT AN UNDETECTABLE ONE.
+        A ranking is a permutation, so a real TE gain forces an equal
+        aggregate loss elsewhere — controls SHOULD shift.  When they
+        shift in perfect lockstep their dispersion is 0, and an earlier
+        version divided by it, returned ``None``, and reported
+        ``detected=False`` for a maximally clean signal.  That is the
+        opposite of correct, so a non-zero signal with zero control
+        dispersion now counts as detected.
+        """
+        if self.signal_ranks is None:
+            return False
+        if self.control_dispersion == 0:
+            return abs(self.signal_ranks) > 0
         return self.signal_over_sd is not None and abs(self.signal_over_sd) >= 1.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -271,6 +290,7 @@ class RankDisplacement:
             "signalRanks": self.signal_ranks,
             "controlDispersion": self.control_dispersion,
             "signalOverSd": self.signal_over_sd,
+            "controlCohesion": self.control_cohesion,
             "detected": self.detected,
         }
 
@@ -337,6 +357,22 @@ def measure_rank_displacement(
     ctrl_med = statistics.median(control_shifts)
     dispersion = statistics.pstdev(control_shifts)
     signal = te_med - ctrl_med
+
+    # Control COHESION, not control stillness.  Because a ranking is a
+    # permutation, demanding the controls sit at zero displacement is
+    # unsatisfiable whenever the TE signal is real — it would reject
+    # every true positive.  The meaningful invariant is that the
+    # controls keep their relative order among themselves while
+    # shifting together: a TE premium must not reorder QB against RB
+    # against WR.  Measured as the Spearman correlation between each
+    # control's base and comparison rank.
+    ctrl_pairs = [
+        (base_rank[i], cmp_rank[i])
+        for i, (pos, _, _) in enumerate(pairs)
+        if pos in CONTROL_POSITIONS
+    ]
+    cohesion = _spearman(ctrl_pairs)
+
     return RankDisplacement(
         base_key=base_key,
         compare_key=compare_key,
@@ -348,7 +384,31 @@ def measure_rank_displacement(
         signal_ranks=signal,
         control_dispersion=dispersion,
         signal_over_sd=(signal / dispersion) if dispersion > 0 else None,
+        control_cohesion=cohesion,
     )
+
+
+def _spearman(pairs: list[tuple[float, float]]) -> float | None:
+    """Spearman correlation between two rankings of the same items."""
+    n = len(pairs)
+    if n < 3:
+        return None
+    xs = [p[0] for p in pairs]
+    ys = [p[1] for p in pairs]
+
+    def ranks(vals: list[float]) -> list[float]:
+        order = sorted(range(len(vals)), key=lambda i: vals[i])
+        out = [0.0] * len(vals)
+        for r, i in enumerate(order, 1):
+            out[i] = float(r)
+        return out
+
+    rx, ry = ranks(xs), ranks(ys)
+    mx, my = statistics.fmean(rx), statistics.fmean(ry)
+    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    dx = sum((a - mx) ** 2 for a in rx) ** 0.5
+    dy = sum((b - my) ** 2 for b in ry) ** 0.5
+    return (num / (dx * dy)) if dx > 0 and dy > 0 else None
 
 
 # ── First-principles derivation from our own replacement levels ───────
