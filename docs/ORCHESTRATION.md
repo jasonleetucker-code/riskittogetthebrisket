@@ -12,16 +12,16 @@ constant main-branch stability.
 
 | WS | Workstream | Owner (agent) | Branch | Scope (exclusive) | Status |
 |---|---|---|---|---|---|
-| A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | Testing (PR imminent) |
-| B | Redesign R3 — dashboard, news, market surfaces | news-domain agent (launch after R2 merges) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | Ready (awaiting R2) |
-| C | Redesign R4 — draft war room + trade surfaces | trade-domain agent (launch after R2 merges) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | Ready (awaiting R2) |
+| A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **MERGED** `9ccdecea` |
+| B | Redesign R3 — dashboard, news, market surfaces | news-domain agent | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | **PR #551 open, CI green**, rebased onto main (`622117cb`); in fresh-eyes review |
+| C | Redesign R4 — draft war room + trade surfaces | trade-domain agent | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | **PR #552 open, CI green**, rebased onto main (`79bde6f6`); in fresh-eyes review |
 | D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
-| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | In progress (LI-1/2 at suite gate) |
+| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **PR #550 open (LI-1..LI-5), CI green — MERGE-BLOCKED**, see §6 |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
-| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | In progress |
-| H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | Converging (status poked) |
+| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | In progress — **suite has never had a verified end-to-end pass**; top board risk |
+| H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | #547 merged; residual aggregate-join defect handed to WS-H by PR #550 (6 duplicate rows, 40/666 join failures) |
 | I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | Steady; intel 401 user-blocked (issue #545) |
-| R | Fresh-eyes review | reviewer agent | read-only | PR comments | At integration checkpoints only |
+| R | Fresh-eyes review | reviewer agent | read-only | PR comments | Running on #551 + #552 |
 
 Idle agents with retained domain context (resume, never cold-spawn):
 intel, FAAB, playerctx, news, prod-hardening — reassigned as B/C owners or
@@ -82,6 +82,55 @@ G tracks A-D (SEL registry). H independent. I independent (user unblocks intel).
   consensus); R5 sweep; LI-8 sim extension; golden backtests.
 - **Fri–Sat**: final integration window — full-suite + E2E + visual pass,
   perf, docs, release checklist, deploy, VPS apply notes for user.
+
+## 6. Open merge blockers
+
+**PR #550 (WS-E) — headline flex-allocation finding is a measurement
+artifact.** CI is green and LI-1..LI-5 is otherwise sound, but the number
+the PR leads with is wrong and it is load-bearing: every replacement level
+and scarcity figure rests on it.
+
+`measure_endogenous_starters` runs the exact optimizer on `rosValue`, a
+season-long **mean**. On a point estimate a TE can only take a flex slot if
+its average beats the best spare RB/WR, which essentially never happens —
+hence the claimed `FLEX: TE 0` and `TE 2.00/team`. Best ball pays for
+weekly spikes, not averages, so the input collapses exactly the variance
+the format monetizes. The optimizer is exact; the input is wrong.
+
+Measured on **actual 2025 weekly scoring** — 170 real team-weeks, same exact
+optimizer, re-solved under the current 21-slot vector:
+
+| slot | filled by |
+|---|---|
+| FLEX ×2 | RB 172 (50.6%) · WR 128 (37.6%) · **TE 40 (11.8%)** |
+| SUPER_FLEX ×1 | QB 140 · WR 18 · TE 7 · RB 5 |
+
+TE started per team-week **2.28** (median 2, max 5); 20.6% of team-weeks
+start 3+ TEs; TE rostered 5.10/team. Under the *old* 1-TE vector the same
+data gives TE 29.1% of flex — the isolated rules effect, and the reason
+2025 lineups cannot be read without re-solving.
+
+Roster-era bias is now empirical, not argued: live 2026 rosters carry
+**5.42 TE/team** vs 5.10 in 2025 (+6% behavioral response), so the bias
+direction is **up** — small, and within noise at n=12.
+
+Before #550 merges: correct the PR headline and the `replacement.py`
+docstring; reconcile `starters_per_team` for TE against 2.28 and restate
+downstream numbers; ADR the durable fix (calibrate the depth constant from
+actual weekly outcomes, or sample around projections with the Gaussian
+model already in `playoff_sim.py:248-265`).
+
+Harness + fixtures live in the WS-E worktree
+(`scripts/measure_flex_allocation_actuals.py`,
+`tests/league_intel/fixtures/matchups_2025/`). Caveats on the measurement
+itself: single season; 2026 rules applied counterfactually to 2025 rosters;
+170 of ~204 team-weeks used (short-roster entries skipped — check that
+exclusion for correlation with roster construction); missing
+`players_points` treated as 0; the exact optimizer + `fantasy_positions`
+fix exists only on the WS-E branch, so this is **not reproducible on main
+today**.
+
+## 7. Risks
 
 Risks: credit outages (mitigated: liveness tick auto-resumes agents);
 LI golden validation may hit Sleeper stats-API gaps (fallback documented
