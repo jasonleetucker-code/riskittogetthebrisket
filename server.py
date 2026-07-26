@@ -10277,15 +10277,64 @@ INTEL_REFRESH_TOKEN = os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALE
 _INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-while-revalidate=300"}
 
 
+# Rate limit for the bearer-rejection warnings below: they fire on
+# UNAUTHENTICATED requests, so an unthrottled log line would be a
+# journal-spam vector from the public host.  At most one line per
+# interval, tracked with a cheap monotonic timestamp guard.
+_INTEL_AUTH_LOG_INTERVAL_SEC = 60.0
+_intel_auth_log_last_monotonic = 0.0
+
+
+def _intel_auth_log(message: str, *args) -> None:
+    global _intel_auth_log_last_monotonic
+    now = time.monotonic()
+    if now - _intel_auth_log_last_monotonic < _INTEL_AUTH_LOG_INTERVAL_SEC:
+        return
+    _intel_auth_log_last_monotonic = now
+    log.warning(message, *args)
+
+
 def _intel_bearer_auth_ok(request: Request) -> bool:
-    """True when the request carries the intel cron bearer token."""
-    if not INTEL_REFRESH_TOKEN:
-        return False
+    """True when the request carries the intel cron bearer token.
+
+    Logs WHICH branch rejected a presented bearer (never the token
+    itself, and no metadata about the configured secret beyond a
+    length-EQUALITY boolean — the journal is quoted in ops issues
+    per the workflow's 401 checklist, so even the secret's length
+    must not leak) so a cron 401 is diagnosable from the journal:
+    "no token configured" means the .env var never reached this
+    process (check the dynasty unit's EnvironmentFile + that the
+    line is plain ``KEY=value`` — systemd ignores ``export`` lines —
+    and that the service restarted after the edit); "mismatch"
+    means the workflow secret and the server value differ.
+    """
     header = (request.headers.get("authorization") or "").strip()
-    if not header.lower().startswith("bearer "):
+    has_bearer = header.lower().startswith("bearer ")
+    if not INTEL_REFRESH_TOKEN:
+        if has_bearer:
+            _intel_auth_log(
+                "intel bearer auth rejected: token presented but neither "
+                "INTEL_REFRESH_TOKEN nor SIGNAL_ALERT_CRON_TOKEN is configured "
+                "server-side (env not loaded?)"
+            )
+        return False
+    if not has_bearer:
         return False
     presented = header.split(None, 1)[1].strip()
-    return hmac.compare_digest(presented, INTEL_REFRESH_TOKEN)
+    # Compare as BYTES: Starlette decodes header values as latin-1,
+    # and ``hmac.compare_digest`` raises TypeError on non-ASCII str
+    # input — which would turn a garbage bearer into an unhandled
+    # 500 instead of a 401.  surrogateescape keeps any str encodable.
+    presented_b = presented.encode("utf-8", "surrogateescape")
+    configured_b = INTEL_REFRESH_TOKEN.encode("utf-8", "surrogateescape")
+    if hmac.compare_digest(presented_b, configured_b):
+        return True
+    _intel_auth_log(
+        "intel bearer auth rejected: presented token does not match the "
+        "configured INTEL_REFRESH_TOKEN (lengths match: %s)",
+        len(presented) == len(INTEL_REFRESH_TOKEN),
+    )
+    return False
 
 
 def _intel_id_to_player() -> dict:
