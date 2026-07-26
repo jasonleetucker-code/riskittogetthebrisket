@@ -196,92 +196,139 @@ Never inline.
 Five probabilities, not a label. Collapsing them to "Contender" throws
 away the only interesting part.
 
-### Form
+### Form — **decided: grouped dot plot with intervals. Not a diverging bar.**
 
-The five outcomes lie on an **ordered axis** (rebuild → … → win-now).
-Per the dataviz form heuristic, ordered-scale share is a **diverging
-stacked bar centred on the neutral middle outcome** — not a categorical
-stacked bar, not five tiles, not a gauge.
+The earlier draft specified a diverging stacked bar centred on the middle
+outcome. The engine agent's answer retires it, and the reason is worth
+keeping: mutual exclusivity and sum-to-1 hold, but **the axis is not
+fully ordered.** It conflates two different things — *current
+competitiveness* (championship-contender, playoff-contender) and
+*directional intent* (retool, productive-struggle, rebuild). The ends are
+solidly ordered. `retool` vs `productive-struggle` is not: similar
+competitiveness, opposite strategies, neither obviously "more
+contending".
 
-Why this form specifically:
+A diverging bar's centre would have landed **exactly on that pair** — the
+one boundary the model can't defend. The form would have asserted its
+strongest claim at its weakest joint. Dropped.
 
-- **One bar reads as one distribution.** Five tiles read as five
-  independent facts and invite the reader to take the largest as *the*
-  answer.
-- **Centring on neutral makes the shape legible at a glance**, which is
-  the actual information: 41/39 split across two adjacent outcomes is a
-  completely different decision from 41/12/12/12/23, even though both
-  have the same modal outcome.
+**Chosen: a dot plot on a shared 0–100% axis, one row per outcome, each
+carrying its own interval, rows grouped by competitiveness family.**
+
+```
+Competing now
+  Championship contender   ●———————             34%  [28–41]
+  Playoff contender        ●—————               22%  [17–28]
+Not competing now
+  Retool                 ●————                  19%  [13–26]
+  Productive struggle    ●—————                 15%  [ 9–23]
+  Rebuild               ●——                     10%  [ 6–15]
+```
+
+Why this over the ordered simple stacked bar (the other option offered):
+
+- **A stacked bar still asserts an order.** Adjacency in a sequence reads
+  as rank; putting retool beside productive-struggle implies one is more
+  contending than the other. It makes a weaker claim than divergence, but
+  it is the same unsupported claim.
+- **Grouping asserts only what the model can defend.** Two families
+  ("competing now" / "not competing now") is an ordering the engine is
+  confident about. Within the ambiguous group the rows are siblings, not
+  a ranking — and the spec says so in the UI, so the reader isn't left to
+  infer a scale from row order.
+- **Position on a common axis is the most precisely-readable encoding.**
+  Several probabilities will be close together, and comparing close
+  values is exactly what stacked segments are worst at (non-aligned
+  baselines) — the anti-pattern catalog's own reason for preferring bars
+  over pies.
+- **Per-outcome intervals are more honest than one confidence for the
+  whole distribution.** Uncertainty is not uniform across five outcomes,
+  and the dot plot is the only one of the three forms with somewhere to
+  put it.
+
+What is lost, and how it is paid for: a stacked bar shows part-to-whole
+instantly, and five dots do not. Mitigate in copy, not geometry — keep
+the axis a full 0–100% and state the exhaustiveness in one line ("five
+mutually exclusive outcomes, summing to 100%"). Do **not** add a second
+stacked strip to recover the gestalt; that reintroduces the ordering
+claim this form exists to avoid.
 
 ### Copy rules
 
-- The headline names the modal outcome **with its probability
-  attached** — "Contend 41%", never "Contender".
+- The headline names the modal outcome **with its probability attached**
+  — "Contend 41%", never "Contender".
 - **When the top two are within ~10 points, the headline names both** —
   "between retool and contend". The ambiguity is the finding; asserting
   one of them is a fabrication.
+- **Never compare across the group boundary as if it were a scale.**
+  "More likely to retool than to productively struggle" is not a
+  statement this model supports.
 - A one-word decisiveness read ("concentrated" / "genuinely uncertain")
   earns its place. A single-word *label* does not.
 
-### Color — computed, not eyeballed
+### Color
 
-The project has **no diverging pair.** `--chart-1…6` is categorical;
-`--positive`/`--negative` are reserved status (and green↔red is the
-worst possible CVD choice, besides moralising "rebuild = bad").
+The form change **removes the palette problem rather than solving it.**
+With one labelled row per outcome, colour carries no identity — the
+labels do. So:
 
-Proposed poles from the existing chart family, blue ↔ orange (a
-warm/cool pair, which the anti-pattern catalog names as a succeeding
-one), with a neutral gray midpoint:
+- **One hue for all five dots** (`--chart-1`), with **emphasis** on the
+  modal outcome and the rest recessive. This is the "one series is the
+  point, the rest are context" case, and emphasis is the correct form
+  for it.
+- Intervals in a neutral rule, not a second hue.
+- **No categorical palette is needed, so no adjacent-pair CVD check
+  applies.** Single-hue-plus-neutral cannot fail the separation check.
 
-| Slot | Value |
-|---|---|
-| rebuild pole | `--chart-2` `#3987e5` |
-| midpoint | neutral gray (`--neutral-400` `#8b82a3` family) |
-| contend pole | `--chart-6` `#d95926` |
+**The diverging pair is not wasted.** It stands as a recorded, validated
+result for the next genuinely diverging measure:
 
-**Validated with `scripts/validate_palette.js`, both modes:**
+| Slot | Value | |
+|---|---|---|
+| cool pole | `--chart-2` `#3987e5` | dark: PASS · light: PASS |
+| neutral midpoint | `--neutral-400` `#8b82a3` | intentionally low-chroma |
+| warm pole | `--chart-6` `#d95926` | CVD ΔE 26.8 protan / 32.4 tritan |
 
-```
-poles, dark  (surface #14111c): ALL CHECKS PASS  — CVD ΔE 26.8 protan / 32.4 tritan
-poles, light (surface #fdfcfe): ALL CHECKS PASS  — same separation
-```
-
-Recorded so it is not re-litigated: running the **three**-colour set
-through the validator FAILs the chroma floor on the midpoint. That is
-**correct and expected** — a diverging midpoint is supposed to read as
-nothing. Do not "fix" it by saturating the middle; that is itself an
-anti-pattern (a hue at the diverging midpoint). Validate the poles;
-check the intermediate steps for lightness monotonicity toward the
-midpoint.
-
-The two intermediate steps do not exist yet — see §6.
+Established in the process: **the project has no diverging pair** —
+`--chart-*` is categorical and `--positive`/`--negative` are reserved
+status (green↔red, the worst CVD choice available). Also recorded so it
+is not "fixed" later: running the three-colour set through the validator
+FAILs the chroma floor on the midpoint, and that is **correct** — a
+diverging midpoint is supposed to read as nothing. Saturating it is
+itself an anti-pattern.
 
 ### Mark rules (from the dataviz spec, non-negotiable)
 
-- 2px **surface gap** between segments — not borders.
-- Labels inside a segment only when they fit with padding; otherwise
-  outside the bar or in the tooltip. Small probabilities will not fit —
-  plan for it rather than clipping.
-- Legend present (5 series); direct-label selectively, not every
-  segment.
-- Per-segment hover tooltip.
-- A table view of the same five numbers must exist — this is a value
+- Markers ≥8px; a 2px surface ring where a marker overlaps its interval
+  rule or another mark.
+- Direct-label the value at the row end. Rows are few and named, so a
+  legend is unnecessary — the labels are the legend.
+- Recessive hairline axis and gridlines, solid, never dashed.
+- Per-row hover tooltip carrying the interval and its basis.
+- A table view of the same five numbers must exist; this is a value
   users will want to read exactly.
-- Size the container to include the label band; no nested scrollbar.
+- Size the container to include the axis label band — no nested
+  scrollbar.
 
-### The one assumption to confirm
+### Interaction with the `Confidence` primitive
 
-This form is correct **iff** the five outcomes are (a) mutually
-exclusive, (b) sum to 1, and (c) genuinely ordered.
+**Do not put `Confidence` ticks on these rows.** The interval already
+draws the uncertainty; adding a tick meter double-encodes the same fact
+in two visual languages and makes the row harder to read, not more
+honest.
 
-**Intended as all three** per the coordinator — to be confirmed against
-the engine when the window actually lands, since intent and output can
-diverge. If it comes back as unordered scenarios, the diverging form is
-wrong and this becomes a plain categorical stacked bar; §4's palette
-work still holds, but the centring and the two intermediate ramp steps
-do not.
+General rule, worth carrying beyond this page: **where uncertainty can be
+drawn geometrically, draw it — `Confidence` is for values that have no
+room for an interval** (a number in a table cell, a stat tile, a rank).
+That is the boundary between the two mechanisms.
 
----
+### Remaining dependency
+
+The grouping above assumes the engine's five outcomes partition cleanly
+into "competing now" / "not competing now". That follows from the
+agent's own description, but the exact family assignment should be
+confirmed against the shipped enum — particularly which side `retool`
+lands on, since a retooling team may read as competing.
 
 ## 5. Design problem 3 — seven value types must stay distinct
 
@@ -351,15 +398,17 @@ because a primitive with one speculative consumer is a liability):
    the primitive rather than in each caller, and `limitedBy` carries the
    single binding dimension. Tier 0 (precision as the encoding) is a
    formatting decision for the page, not a component.
-2. **A diverging distribution bar.** `Meter` is single-value,
-   single-series; `Sparkline` is a series over time. A 100%-stacked
-   diverging bar exists nowhere. Build it **page-local first** and
-   promote to `ds/` only when a second consumer appears.
-3. **Diverging ramp tokens.** `--chart-*` is categorical;
-   `--positive`/`--negative` are reserved status. §4 needs 5 ordered
-   steps (two poles — validated above — plus two intermediates and a
-   neutral midpoint) as real tokens, added to `tokens.css` and the
-   `token-contract.js` contract, validated in both themes.
+2. **An interval / dot-plot mark.** `Meter` is a single value against a
+   max; `Sparkline` is a series over time. Neither draws a point
+   estimate with an interval on a shared axis. Build it **page-local
+   first** and promote to `ds/` only when a second consumer appears.
+   (Supersedes the earlier "diverging distribution bar" gap — the form
+   decision in §4 retired it.)
+3. ~~**Diverging ramp tokens.**~~ **NOT NEEDED for §4.** The dot plot
+   uses one hue plus a neutral, so no diverging ramp and no categorical
+   palette are required. The validated blue↔orange pair stands recorded
+   in §4 for the next genuinely diverging measure; nothing needs adding
+   to `tokens.css` for this page.
 
 Nothing else in this spec requires a new primitive. If a build turns up
 a fourth gap, that is a signal to re-read the spec before adding one.

@@ -60,14 +60,38 @@ listed here, stop and re-derive.
 deletes it and moves its eight consumers to the ds `Panel`, which is why
 these become dead the moment R3 lands and not before.
 
-Worth keeping when the rules go: `.panel-body` carried
-`content-visibility: auto` + `contain-intrinsic-size: 1px 320px`, and
-`.panel` carried `contain: layout paint`. That is a real mobile
-performance behaviour, not decoration. Confirm the ds `Panel`'s
-equivalent containment is in `ds.css` before deleting, and if it is
-absent, port it rather than dropping it — a silent loss here shows up as
-jank on the dashboard where 6+ panels stack, which is precisely where it
-was introduced.
+#### Containment — checked, and the answer is **do not port it**
+
+The legacy rules carried real performance behaviour: `.panel` had
+`contain: layout paint`, `.panel-body` had `content-visibility: auto` +
+`contain-intrinsic-size: 1px 320px`. **ds `Panel` has neither** —
+verified, `ds.css` contains no `contain` or `content-visibility` on
+`.ds-panel`. So R3's migration already dropped it.
+
+The obvious follow-up is to port it onto `.ds-panel`. **Don't.** Both
+halves are unsafe as a blanket rule now that `Panel` is the app-wide
+container:
+
+- **`contain: paint` would clip ds `Tooltip`.** `.ds-tooltip` is
+  `position: absolute; bottom: calc(100% + …); left: 50%;
+  transform: translateX(-50%)` — it deliberately escapes its anchor's
+  box on all sides. Any tooltip on a panel's top row or near its side
+  edges gets cut off. The legacy `.panel` never hit this because
+  terminal panels didn't use ds `Tooltip`; every ds Panel can.
+- **`contain-intrinsic-size: 1px 320px` was tuned for terminal panels.**
+  Applied to every ds Panel across rankings, edge, finder, trade and
+  draft — whose real heights vary enormously — it makes scrollbar length
+  and scroll position jumpy as panels enter the viewport.
+
+So this is **not** a silent regression to fix by restoring the rules; it
+is a behaviour that has to be re-earned narrowly. If dashboard scroll
+performance is measurably worse after R3, add an **opt-in** modifier
+(a `Panel` prop or a dashboard-scoped class) applying containment only
+to the stacked terminal panels, and measure first. Do not add either
+property to the base `.ds-panel` rule.
+
+Either way it does not block the purge — deleting the dead rules removes
+nothing that is currently in effect.
 
 ### RETAIN — live
 
@@ -139,26 +163,42 @@ the module's `:global(...)` selectors target. Only the globals.css
 
 ## 4. Optional — retiring `.panel-tabs` / `.panel-tab`
 
-Not required for the purge. If R5 wants the block gone entirely, three
-components must be re-tagged **first**, and they are not the same shape:
+Not required for the purge, and **blocked on R3 merging** — all three
+components are modified by R3, so re-tagging them from a `main`-based
+branch would collide with a PR in the integration window. The analysis
+is done so the work is mechanical once R3 lands.
 
-| Component | Current | Correct target |
-|---|---|---|
-| `PlayerMarketMovement.jsx:138` | `.panel-tabs` with `role="tablist"`, `aria-label="Window"` | ds `Tabs` or `SegmentedControl` |
-| `TeamNewsFeed.jsx:53` | `.panel-tabs` with `role="tablist"`, `aria-label="News scope"` | ds `Tabs` or `SegmentedControl` |
-| `BuySellHold.jsx:220` | a lone `.panel-tab` for `showDismissed` — **no tablist, no tabpanel** | ds `Button` (toggle, `aria-pressed`) — **not** Tabs |
+**Answered: none of these are tabs, and none should become `Tabs`.**
 
-That third row is the trap: a blanket "migrate every `.panel-tab` to
-Tabs" would wrap a binary show/hide toggle in tab semantics and announce
-a one-tab tablist. Check the ds control-choice rule in
-`docs/DESIGN-SYSTEM.md` before picking `Tabs` vs `SegmentedControl` for
-the first two — both are ≤4 values, which is `SegmentedControl`
-territory unless they genuinely own a tabpanel.
+The open question was whether the existing `role="tablist"` markup has
+real tabpanel counterparts. It does not. Neither `TeamNewsFeed` nor
+`PlayerMarketMovement` contains a single `role="tabpanel"` or
+`aria-controls` — they are `role="tablist"` + `role="tab"` +
+`aria-selected` on controls that own nothing. **Today's ARIA is already
+wrong**, so the migration is a fix, not a like-for-like port; say so in
+the PR rather than letting it read as cosmetic.
 
-Also verify whether the existing `role="tablist"` markup has real
-`tabpanel` counterparts. If it does not, today's semantics are already
-wrong and the migration is a fix, not a like-for-like port — worth
-saying so in the PR rather than letting it read as cosmetic.
+Once that is established, each control turns out to be a **filter over
+one view**, not a switch between views — so the naive "tablist →
+`Tabs`" mapping is wrong in all three cases:
+
+| Component | Current | Correct target | Why |
+|---|---|---|---|
+| `TeamNewsFeed.jsx:53` | `.panel-tabs`, 3 values, "News scope" | ds `SegmentedControl` | filters one feed; ≤4 values |
+| `PlayerMarketMovement.jsx:138` | `.panel-tabs`, "Window" | ds `SegmentedControl` | time-window filter over one table |
+| `PlayerMarketMovement.jsx:155` | `.pmm-scope`, "Movement scope" | ds `SegmentedControl` | **second** fake tablist, different class — same defect, so the fix is wider than `.panel-tab` |
+| `BuySellHold.jsx:220` | lone `.panel-tab`, `showDismissed` | ds `Button` + `aria-pressed` | binary toggle; **no tablist at all** |
+
+Two traps in that table. The last row is the one a blanket migration
+destroys — wrapping a binary show/hide in tab semantics and announcing a
+one-tab tablist, which is worse than what ships today. The
+`PlayerMarketMovement.jsx:155` row is the one a `.panel-tab`-scoped
+grep misses entirely.
+
+If all four move, additionally delete `.panel-tabs`, `.panel-tab`,
+`.panel-tab.is-active`, `.panel-tab:disabled`, and remove `.panel-tab`
+from the ~6545 touch-target selector list (leave the other four
+selectors in that rule intact).
 
 If all three move, additionally delete `.panel-tabs`, `.panel-tab`,
 `.panel-tab.is-active`, `.panel-tab:disabled`, and remove `.panel-tab`
@@ -195,12 +235,29 @@ rather than a screenshot.
    `frontend/app`, `frontend/components`, `frontend/lib` (exclude
    `.next/` — build artifacts contain the old classes and will produce
    false hits; this bit me while deriving this plan). Expect zero.
-2. **Single-owner assertion — add this test.** Extend
-   `frontend/__tests__/terminal-mobile-order.test.js` with a case
-   asserting that `globals.css` contains no `order:` declaration
-   targeting a `.panel--*` selector, i.e. the ordering contract lives in
-   exactly one file. This is what makes the §3 landmine unrepeatable —
-   a future half-deletion fails a test instead of shipping.
+2. **Pairing assertion — ALREADY LANDED**,
+   `frontend/__tests__/panel-order-pairing.test.js` (3 tests).
+   I specified this originally as "assert `globals.css` contains no
+   `order:` targeting `.panel--*`", which was wrong: that assertion is
+   red today, when the rules are present and correct, so it could not
+   be landed before the purge and would have to be written blind.
+   It asserts the **pairing** instead, which holds across the purge:
+
+   | state | result |
+   |---|---|
+   | today — both halves present | PASS |
+   | **half deleted — the landmine** | **FAIL** |
+   | after the purge — both gone | PASS |
+
+   All three verified by mutating `globals.css` and re-running, so the
+   guard is known to be non-vacuous rather than assumed to be. It also
+   pins that the reset is declared *after* the base orders (equal
+   specificity, so source order decides) and *inside* a `min-width`
+   query rather than unconditionally.
+
+   Because it is green before and after, it can land — and has landed —
+   ahead of the purge, so the landmine is guarded during the window
+   rather than after it.
 3. **Existing suite.** `terminal-mobile-order.test.js` must stay green
    unchanged; it already pins `display: contents`, all six panel rules,
    their relative priority, and that the base `.col` box precedes the
