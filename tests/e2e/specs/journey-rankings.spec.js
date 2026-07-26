@@ -164,7 +164,9 @@ test.describe("journey: rankings board", () => {
     await page.locator("h1").first().click();
     await page.keyboard.press("/");
 
-    const searchInput = page.getByLabel(/search players and picks/i);
+    // R1 command palette — combobox labelled "Search players, picks,
+    // and pages".
+    const searchInput = page.getByLabel(/search players, picks/i);
     await expect(searchInput).toBeVisible({ timeout: 10_000 });
     await searchInput.fill(fragment);
 
