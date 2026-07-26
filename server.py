@@ -4674,7 +4674,9 @@ async def post_waiver_faab_recommend(request: Request):
     # Phase-5 intel snapshot — defensive plain-JSON read, no
     # ``src.intel`` import (may not be merged/deployed).  Loaded
     # regardless of contention so ``inputsAsOf.intel`` is honest.
-    intel_snapshot = _faab_contention.load_intel_snapshot()
+    # Snapshots are LEAGUE-PARTITIONED (intel is roster-scoped →
+    # league-scoped), so the resolved league's partition is read.
+    intel_snapshot = _faab_contention.load_intel_snapshot(league_key=league_cfg.key)
     intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
 
     # Rival contention (FAAB v2).  Requires a ``teamOwnerId`` that

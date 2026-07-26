@@ -86,7 +86,9 @@ def faab_env(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kwargs: None)
     monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: None)
-    monkeypatch.setattr(faab_contention, "load_intel_snapshot", lambda path=None: None)
+    monkeypatch.setattr(
+        faab_contention, "load_intel_snapshot", lambda path=None, league_key=None: None
+    )
 
     # Trending adapter serves a canned snapshot (primary path).
     from src.adapters import sleeper_trending

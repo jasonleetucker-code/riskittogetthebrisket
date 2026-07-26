@@ -27,7 +27,8 @@ Factors
              helpers (``src.trade.suggestions.analyze_roster``):
              need → 1.0, neutral → 0.55, surplus → 0.25.
 ``intel_f``  Cross-league intel from the Phase-5 Sharp Tracker
-             snapshot (``data/intel/snapshot.json``), read
+             snapshot (league-partitioned:
+             ``data/intel/snapshot_<leagueKey>.json``), read
              DEFENSIVELY as plain JSON — no import dependency on
              ``src/intel/`` (which may not be merged/deployed).
              Player-level signal (this owner added THIS player in
@@ -38,6 +39,7 @@ Factors
 from __future__ import annotations
 
 import json
+import re
 import logging
 import time
 from datetime import datetime, timezone
@@ -75,10 +77,27 @@ SAFETY_MARGIN = 1.15
 # a live signal (the snapshot itself retains 45 days).
 INTEL_WINDOW_MS = 14 * 24 * 3600 * 1000
 
-# Default intel snapshot location — must match
-# ``src/intel/store.py::SNAPSHOT_PATH`` without importing it.
+# Intel snapshot location — SEAM RESOLUTION between #538 (FAAB v2)
+# and #534 (Sharp Tracker): the intel pipeline persists snapshots
+# LEAGUE-PARTITIONED at ``data/intel/snapshot_<leagueKey>.json``
+# (intel is roster-scoped → league-scoped per CLAUDE.md).  The path
+# derivation here must mirror ``src/intel/store.py::snapshot_path``
+# — same directory, same ``snapshot_<key>.json`` naming, same key
+# sanitisation — WITHOUT importing ``src.intel`` (this module's
+# defensive no-import contract; drift is pinned by a parity test in
+# tests/trade/test_faab_contention.py).  A legacy single-file
+# ``data/intel/snapshot.json`` never shipped; reading it would pin
+# ``intel_f`` at 1.0 forever.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-INTEL_SNAPSHOT_PATH = _REPO_ROOT / "data" / "intel" / "snapshot.json"
+INTEL_DATA_DIR = _REPO_ROOT / "data" / "intel"
+DEFAULT_INTEL_LEAGUE_KEY = "default"
+
+
+def intel_snapshot_path(league_key: str | None = None) -> Path:
+    """The league's intel snapshot partition (see seam note above)."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(league_key or DEFAULT_INTEL_LEAGUE_KEY))
+    return INTEL_DATA_DIR / f"snapshot_{safe}.json"
+
 
 # Staleness ceilings (seconds) for the recommend endpoint's
 # ``staleInputs`` stamp.  An input is stale when its timestamp is
@@ -98,15 +117,21 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 # ── Intel snapshot (defensive, import-free) ────────────────────
 
 
-def load_intel_snapshot(path: Path | None = None) -> dict[str, Any] | None:
+def load_intel_snapshot(
+    path: Path | None = None,
+    league_key: str | None = None,
+) -> dict[str, Any] | None:
     """Read the Phase-5 intel snapshot as plain JSON.
 
-    Returns ``None`` when the file is missing, unreadable, or not a
-    JSON object.  Never raises and never imports ``src.intel`` —
-    the Sharp Tracker may not be merged/deployed alongside this
-    module.
+    ``league_key`` selects the league's snapshot partition (the FAAB
+    endpoint passes its resolved league; snapshots are per-league —
+    see the seam note on ``intel_snapshot_path``).  An explicit
+    ``path`` wins over ``league_key`` for tests.  Returns ``None``
+    when the file is missing, unreadable, or not a JSON object.
+    Never raises and never imports ``src.intel`` — the Sharp Tracker
+    may not be merged/deployed alongside this module.
     """
-    p = path or INTEL_SNAPSHOT_PATH
+    p = path or intel_snapshot_path(league_key)
     try:
         if not p.exists():
             return None
