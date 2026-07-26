@@ -176,20 +176,50 @@ sources shrink toward the measured value with an interval that widens
 with ignorance, and the confidence machinery must show that widening
 rather than presenting a borrowed number as measured.
 
-**The premium DRIFTS — do not hardcode 1.368.**  Re-measured on the
-2026-07-26 scrape (three months after the April baseline): the
-structure replicates perfectly — controls **byte-identical on all 389
-non-TE rows**, depth profile monotone 1.227 → 1.268 → 1.308 → 1.492 —
-but the level is **1.3196, not 1.3682**, a real ~3.6% drift.  KTC's TE++
-premium is a live market quantity, not a constant.  Any consumer must
-re-measure rather than bake in a number; the committed-fixture test
-pins April's value only so this ADR stays checkable.
+**DESIGN CONSTRAINT: the premium is a live market quantity, so no
+shipped code may hardcode it.**  Re-measured on the 2026-07-26 scrape,
+three months after the April baseline: the structure replicates
+perfectly — controls **byte-identical on all 389 non-TE rows**, depth
+profile monotone 1.227 → 1.268 → 1.308 → 1.492 — but the level is
+**1.3196, not 1.3682**, a real ~3.6% move.
+
+This is not an observation about one stale file; it is a binding
+constraint on the design.  A premium whose *structure* is stable while
+its *level* drifts several percent per quarter cannot be captured by a
+constant, and that holds regardless of what any future measurement
+says.  Anything that ships must therefore:
+
+* **recompute from current source values** at build time, never read a
+  baked-in number;
+* **stamp the measurement date and the observed value** so a consumer
+  can see how old the calibration is;
+* **surface the drift** rather than smoothing it away — a premium that
+  has moved since the last recompute is information, not noise.
+
+The committed-fixture test pins April's value only so this ADR stays
+checkable; the structural assertions are deliberately banded so a
+legitimate data refresh is not misread as a regression.
 
 **Rejected: the blend-vs-anchor "TE gap" as a basis for correction.**
 Proposal was to measure `blend / ktcSfTep` per player and treat the TE
 distribution's excess over the QB/RB/WR distributions as a
-self-calibrating correction.  Measured on a contract built from
-today's scrape.  Three property checks were run first:
+self-calibrating correction.
+
+*Primary reason — the quantity is mislabeled, independent of any
+measurement.*  The blend already multiplies every non-exempt source's
+TE contribution by 1.15 **specifically to align it to KTC's TE++
+baseline**.  So `blend / ktcSfTep` measures residual misalignment
+**after** that correction: it is a diagnostic of whether 1.15 is the
+right constant, not an independent signal about our league.  Worse,
+"correcting" the gap to zero would by construction replace blended TE
+values with the anchor's — discarding exactly the multi-source
+diversification the blend exists to provide — while labelling the
+result a league adjustment.  **This objection holds even if every
+number below came out clean.**  Numbers can be re-measured; a
+mislabeled quantity stays mislabeled.
+
+*Corroborating measurements* (on a contract rebuilt from today's
+scrape).  Three property checks were run:
 
 1. *Self-reference* — **not the problem.**  The anchor is a median 7.7%
    of a TE's blend (12-13 live sources per row).  A leave-one-out
@@ -219,6 +249,49 @@ blend's diversification while calling it a league adjustment.
 because a negative result is a result — and because the failure mode
 (controls not flat) is the same one the cardinal-scale guard catches
 elsewhere.
+
+**TARGET DESIGN (not built — gated on the multi-source survey).**  The
+user offered to make the TE premium dynamic, "ever changing based on
+whatever factors you deem relevant".  Recorded here so LI-7 builds
+toward it, with one part approved and one part explicitly refused.
+
+*Approved in principle: recomputed, never hardcoded.*  The drift
+finding above makes a frozen constant indefensible, and the repo
+already has the pattern — the Hill curves auto-refit weekly.
+
+*Refused: a richly multi-factor premium.*  The tempting inputs — TE
+injury rates, rookie-class strength, this season's TE cliff steepness —
+are **already priced into the underlying source values**.  The
+premium's job is narrow and structural: re-express a 1-TE-calibrated
+board onto a 2-TE footing.  Feeding player-level scarcity signals into
+it double-counts what the boards already reflect — the *same* error as
+conflating the scoring axis with the structural one, and as reading
+blend-vs-anchor as an independent signal.  A sophisticated premium
+would look impressive and be wrong.  Keep it narrow.
+
+*Shape, if and only if the survey licenses a correction:*
+1. recomputed from the paired-board measurement on a schedule, through
+   the existing `calibration.py` validity gates;
+2. **smoothed** (EWMA or equivalent) so measurement noise does not
+   reach player values — a TE must not move 3% for reasons unrelated
+   to the player;
+3. **movement-bounded per refresh**, so a bad scrape or a publisher
+   methodology change cannot swing the board;
+4. **gated with last-good fallback** — a refresh that fails
+   controls-at-unity or the cardinal-scale check keeps the previous
+   value rather than accepting a number the method just declared
+   untrustworthy;
+5. **separately attributed** — premium movement surfaces as its own
+   category, never blended into player-level movement.  §32 already
+   separates toggle movement from weekly movement; this is a third and
+   needs its own label or the user sees unexplainable drift.
+
+*The gate.*  The paired-variant survey across publishers decides it.
+**One** publisher means a dynamic premium tracks *KTC's methodology
+changes* — strictly worse than a constant, because it adds movement
+without adding truth.  **Several clustering** near one value means it
+tracks something real and it gets built as specified.  **Scatter**
+means no correction at all, and there is nothing to make dynamic.
 
 **Consequence for the existing multipliers — right size, wrong reason.**
 The blend gives non-TE++ sources ×1.15 and TEP-native ×1.10, justified
