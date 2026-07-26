@@ -460,7 +460,9 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
         position = row.get("position")
         team = row.get("team")
         entry = {
-            "position": position.strip() if isinstance(position, str) and position.strip() else None,
+            "position": position.strip()
+            if isinstance(position, str) and position.strip()
+            else None,
             "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
         }
         prior = meta.get(name)
