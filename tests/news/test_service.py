@@ -40,7 +40,21 @@ class _StaticProvider(NewsProvider):
         return self._items
 
 
-def _item(id_, provider="static", severity="info", ts="2026-04-23T10:00:00+00:00", players=None):
+def _now_iso(hours_ago: float = 0.0) -> str:
+    """Recent ISO timestamp relative to real now.
+
+    The service applies a hard 7-day freshness cutoff at aggregation
+    (``MAX_ITEM_AGE_DAYS``), so fixture items must be freshly dated
+    or every real-clock test silently loses its items.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+
+
+def _item(id_, provider="static", severity="info", ts=None, players=None):
+    if ts is None:
+        ts = _now_iso()
     return NewsItem(
         id=id_,
         ts=ts,
@@ -116,6 +130,61 @@ def test_team_name_filter_drops_non_matching_items():
     assert [i.id for i in out.items] == ["a-1"]
 
 
+def test_seven_day_cutoff_drops_old_items():
+    """Hard freshness requirement: every item older than 7 days is
+    dropped at aggregation so all surfaces inherit the cutoff."""
+    provider = _StaticProvider(
+        items=[
+            _item("fresh", ts=_now_iso(hours_ago=2)),
+            _item("six-days", ts=_now_iso(hours_ago=6 * 24)),
+            _item("eight-days", ts=_now_iso(hours_ago=8 * 24)),
+            _item("ancient", ts="1970-01-01T00:00:00+00:00"),
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    out = svc.aggregate()
+    ids = {i.id for i in out.items}
+    assert ids == {"fresh", "six-days"}
+
+
+def test_seven_day_cutoff_drops_unparseable_timestamps():
+    """An item that can't prove freshness doesn't ship."""
+    provider = _StaticProvider(
+        items=[
+            _item("good", ts=_now_iso()),
+            _item("bad-ts", ts="not-a-date"),
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    out = svc.aggregate()
+    assert [i.id for i in out.items] == ["good"]
+
+
+def test_payload_carries_player_digests():
+    """to_dict computes per-player digests from the (already
+    cutoff-filtered) item list so every consumer inherits both."""
+    provider = _StaticProvider(
+        items=[
+            _item(
+                "d-1",
+                ts=_now_iso(hours_ago=1),
+                players=[PlayerMention(name="Bijan Robinson", position="RB", team="ATL")],
+            ),
+            _item(
+                "d-2",
+                ts=_now_iso(hours_ago=2),
+                players=[PlayerMention(name="Bijan Robinson", position="RB", team="ATL")],
+            ),
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    payload = svc.aggregate().to_dict()
+    digests = payload["playerDigests"]
+    assert len(digests) == 1
+    assert digests[0]["player"] == "Bijan Robinson"
+    assert digests[0]["storyCount"] == 2
+
+
 def test_dedup_by_id_across_providers():
     a = _StaticProvider(
         items=[_item("shared-1"), _item("only-a")],
@@ -135,9 +204,9 @@ def test_dedup_by_id_across_providers():
 def test_sort_alerts_float_above_info():
     provider = _StaticProvider(
         items=[
-            _item("a-info", severity="info", ts="2026-04-23T12:00:00+00:00"),
-            _item("b-alert", severity="alert", ts="2026-04-23T09:00:00+00:00"),
-            _item("c-watch", severity="watch", ts="2026-04-23T10:00:00+00:00"),
+            _item("a-info", severity="info", ts=_now_iso(hours_ago=1)),
+            _item("b-alert", severity="alert", ts=_now_iso(hours_ago=4)),
+            _item("c-watch", severity="watch", ts=_now_iso(hours_ago=3)),
         ]
     )
     svc = NewsService([provider], cache_ttl_s=0)

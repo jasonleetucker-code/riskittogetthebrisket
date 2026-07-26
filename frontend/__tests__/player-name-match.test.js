@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   normalizePlayerNameKey,
   buildNewsIndexByPlayer,
+  buildDigestIndex,
+  lookupPlayerDigest,
   lookupPlayerNews,
   newsItemsForPlayer,
 } from "@/lib/player-name-match";
@@ -317,5 +319,38 @@ describe("lookupPlayerNews — ambiguity suppression via the pool meta index", (
         playerMeta: POOL_META,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("digest index — buildDigestIndex + lookupPlayerDigest", () => {
+  const DIGESTS = [
+    { player: "Bijan Robinson", position: "RB", team: "ATL", storyCount: 2 },
+    // Collision twins: distinct digest entries behind one name key.
+    { player: "C.J. Allen", position: "WR", team: "ATL", storyCount: 2 },
+    { player: "CJ Allen", position: "LB", team: "TEN", storyCount: 3 },
+  ];
+  const index = buildDigestIndex(DIGESTS);
+
+  it("resolves a unique player's digest regardless of name variant", () => {
+    expect(lookupPlayerDigest(index, "Bijan Robinson").storyCount).toBe(2);
+    expect(lookupPlayerDigest(index, "bijan  robinson").storyCount).toBe(2);
+  });
+
+  it("collision twins resolve by position and never cross over", () => {
+    const wr = lookupPlayerDigest(index, "C.J. Allen", { position: "WR" });
+    expect(wr.team).toBe("ATL");
+    const lb = lookupPlayerDigest(index, "CJ Allen", { position: "LB" });
+    expect(lb.storyCount).toBe(3);
+    // Ambiguous without a position → null, not a guess.
+    expect(lookupPlayerDigest(index, "CJ Allen")).toBeNull();
+    // Position that matches neither twin → null.
+    expect(lookupPlayerDigest(index, "CJ Allen", { position: "QB" })).toBeNull();
+  });
+
+  it("is defensive about bad input", () => {
+    expect(buildDigestIndex(null).size).toBe(0);
+    expect(lookupPlayerDigest(null, "Anyone")).toBeNull();
+    expect(lookupPlayerDigest(index, "")).toBeNull();
+    expect(lookupPlayerDigest(index, "Nobody Here")).toBeNull();
   });
 });

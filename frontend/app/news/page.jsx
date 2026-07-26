@@ -6,7 +6,11 @@ import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { filterByScope, timeAgo } from "@/lib/news-service";
-import { itemPlayerNames, normalizePlayerNameKey } from "@/lib/player-name-match";
+import {
+  itemPlayerNames,
+  normalizePlayerNameKey,
+  positionFamily,
+} from "@/lib/player-name-match";
 import {
   buildMentionButtons,
   buildPlayerMetaIndex,
@@ -18,6 +22,15 @@ import {
 // TeamNewsFeed: relevance is scored by useNews/rankByRelevance against
 // the selected team's roster + the league-wide player pool, then
 // filterByScope slices on the score.
+// Stories = the raw chronological feed; By player = one combined
+// digest card per player with multiple recent articles (backend
+// ``playerDigests`` — see src/news/digest.py).  Raw items stay a
+// toggle away, never hidden.
+const VIEW_TABS = [
+  { key: "stories", label: "Stories" },
+  { key: "players", label: "By player" },
+];
+
 const SCOPE_TABS = [
   { key: "roster", label: "My Roster" },
   { key: "league", label: "League" },
@@ -95,6 +108,7 @@ export default function NewsPage() {
   const playerMeta = usePlayerMeta(rows);
 
   const [scope, setScope] = useState("all");
+  const [view, setView] = useState("stories");
   const [query, setQuery] = useState("");
   const [teamFilter, setTeamFilter] = useState("ALL");
   const [posFilter, setPosFilter] = useState("ALL");
@@ -125,6 +139,64 @@ export default function NewsPage() {
     }
     return [...teams].sort();
   }, [playerMeta]);
+
+  // Digest ("By player") view — the same facet vocabulary applied to
+  // the backend's per-player digest entries.
+  const rosterKeys = useMemo(
+    () => new Set(rosterNames.map(normalizePlayerNameKey).filter(Boolean)),
+    [rosterNames],
+  );
+  const leagueKeys = useMemo(
+    () => new Set(leagueNames.map(normalizePlayerNameKey).filter(Boolean)),
+    [leagueNames],
+  );
+  const filteredDigests = useMemo(() => {
+    let list = Array.isArray(news.digests) ? news.digests : [];
+    if (scope === "roster") {
+      list = list.filter((d) => rosterKeys.has(normalizePlayerNameKey(d.player)));
+    } else if (scope === "league") {
+      list = list.filter((d) => {
+        const key = normalizePlayerNameKey(d.player);
+        return rosterKeys.has(key) || leagueKeys.has(key);
+      });
+    }
+    if (teamFilter !== "ALL") {
+      list = list.filter(
+        (d) => String(d.team || "").toUpperCase() === teamFilter,
+      );
+    }
+    if (posFilter !== "ALL") {
+      list = list.filter((d) => positionFamily(d.position) === posFilter);
+    }
+    if (sourceFilter !== "ALL") {
+      const wanted = sourceOptions.find((s) => s.key === sourceFilter)?.label;
+      list = list.filter(
+        (d) => Array.isArray(d.sources) && wanted && d.sources.includes(wanted),
+      );
+    }
+    const q = query.trim();
+    if (q) {
+      const qKey = normalizePlayerNameKey(q);
+      list = list.filter((d) => {
+        const key = normalizePlayerNameKey(d.player);
+        return (
+          (qKey && key.includes(qKey)) ||
+          String(d.player || "").toLowerCase().includes(q.toLowerCase())
+        );
+      });
+    }
+    return list;
+  }, [
+    news.digests,
+    scope,
+    rosterKeys,
+    leagueKeys,
+    teamFilter,
+    posFilter,
+    sourceFilter,
+    sourceOptions,
+    query,
+  ]);
 
   const filtered = useMemo(() => {
     let items = filterByScope(news.scored, scope);
@@ -190,6 +262,12 @@ export default function NewsPage() {
           }}
         >
           <FilterPills
+            options={VIEW_TABS}
+            value={view}
+            onChange={setView}
+            ariaLabel="News view"
+          />
+          <FilterPills
             options={SCOPE_TABS}
             value={scope}
             onChange={setScope}
@@ -253,30 +331,99 @@ export default function NewsPage() {
           />
         )}
 
-        {!news.loading && !news.unavailable && filtered.length === 0 && (
-          <EmptyState
-            title="No matching news"
-            message={
-              scope === "roster"
-                ? "No roster-relevant headlines match these filters. Widen the scope or clear a filter."
-                : "No headlines match these filters. Try clearing the search or filters."
-            }
-          />
-        )}
+        {!news.loading &&
+          !news.unavailable &&
+          view === "stories" &&
+          filtered.length === 0 && (
+            <EmptyState
+              title="No matching news"
+              message={
+                scope === "roster"
+                  ? "No roster-relevant headlines match these filters. Widen the scope or clear a filter."
+                  : "No headlines match these filters. Try clearing the search or filters."
+              }
+            />
+          )}
 
-        {!news.loading && !news.unavailable && filtered.length > 0 && (
-          <ul className="news-feed">
-            {filtered.map((item) => (
-              <NewsRow
-                key={item.id || `${item.ts}-${item.headline}`}
-                item={item}
-                onPlayerClick={openPlayerPopup}
-              />
-            ))}
-          </ul>
-        )}
+        {!news.loading &&
+          !news.unavailable &&
+          view === "stories" &&
+          filtered.length > 0 && (
+            <ul className="news-feed">
+              {filtered.map((item) => (
+                <NewsRow
+                  key={item.id || `${item.ts}-${item.headline}`}
+                  item={item}
+                  onPlayerClick={openPlayerPopup}
+                />
+              ))}
+            </ul>
+          )}
+
+        {!news.loading &&
+          !news.unavailable &&
+          view === "players" &&
+          filteredDigests.length === 0 && (
+            <EmptyState
+              title="No player digests"
+              message="Digests appear when a player has two or more stories inside the 7-day window. Switch to Stories for the raw feed."
+            />
+          )}
+
+        {!news.loading &&
+          !news.unavailable &&
+          view === "players" &&
+          filteredDigests.length > 0 && (
+            <ul className="news-feed">
+              {filteredDigests.map((d) => (
+                <DigestRow
+                  key={`${d.player}-${d.position || ""}`}
+                  digest={d}
+                  onPlayerClick={openPlayerPopup}
+                />
+              ))}
+            </ul>
+          )}
       </div>
     </section>
+  );
+}
+
+function DigestRow({ digest, onPlayerClick }) {
+  const sevClass = `news-item--sev-${digest.severity || "info"}`;
+  return (
+    <li className={`news-item ${sevClass}`}>
+      <div className="news-item-meta">
+        <span className="news-item-time">{timeAgo(digest.latestTs)}</span>
+        <span className="news-item-provider">
+          {(digest.sources || []).join(" · ") || "—"}
+        </span>
+        {digest.severity && (
+          <span
+            className={`news-item-severity news-item-severity--${digest.severity}`}
+          >
+            {digest.severity}
+          </span>
+        )}
+      </div>
+      <h3 className="news-item-headline">
+        <button
+          type="button"
+          className="news-item-player news-item-player--general"
+          onClick={() => onPlayerClick?.(digest.player)}
+          title={`Open ${digest.player}`}
+          style={{ fontSize: "inherit", fontWeight: "inherit" }}
+        >
+          {digest.player}
+        </button>
+        {digest.position ? ` · ${digest.position}` : ""}
+        {digest.team ? ` · ${digest.team}` : ""}
+        {` — ${digest.storyCount} stories`}
+      </h3>
+      <p className="news-item-body" style={{ whiteSpace: "pre-line" }}>
+        {digest.summary}
+      </p>
+    </li>
   );
 }
 

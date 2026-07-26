@@ -35,11 +35,17 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from .base import NewsItem, NewsProvider
+from .digest import build_player_digests
 from .providers import available_provider_names, build_provider
 
 log = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TTL_S = 180  # 3 minutes — rate-limit-safe for all providers
+# Hard freshness cutoff: every surface (news tab, popups, chips)
+# must only show news from the last week, so the drop happens HERE
+# at aggregation — not per consumer.  Items whose timestamp cannot
+# be parsed are dropped too: they can't prove freshness.
+MAX_ITEM_AGE_DAYS = 7
 # All-failed aggregates get a much shorter cache life: caching an
 # outage for the full TTL would keep the client's 15/30/60s retries
 # hitting the stale failure for minutes after upstreams recover.
@@ -102,7 +108,36 @@ class AggregatedNews:
             "generatedAt": self.generated_at,
             "cacheHit": self.cache_hit,
             "count": len(self.items),
+            # One combined entry per player with multiple recent
+            # stories (see src/news/digest.py — including the LLM
+            # synthesis seam).  Computed from the already-filtered
+            # item list so every surface inherits the age cutoff.
+            "playerDigests": build_player_digests(self.items),
         }
+
+
+def _drop_stale_items(
+    items: Sequence[NewsItem],
+    *,
+    now_epoch: float,
+    max_age_days: int = MAX_ITEM_AGE_DAYS,
+) -> List[NewsItem]:
+    """Drop every item older than the hard freshness cutoff.
+
+    ``now_epoch`` comes from the service clock so tests with a fake
+    clock stay deterministic.  Unparseable timestamps are dropped —
+    an item that can't prove it is under a week old doesn't ship.
+    """
+    cutoff = now_epoch - max_age_days * 86400.0
+    out: List[NewsItem] = []
+    for it in items:
+        try:
+            ts = datetime.fromisoformat(str(it.ts).replace("Z", "+00:00")).timestamp()
+        except (TypeError, ValueError):
+            continue
+        if ts >= cutoff:
+            out.append(it)
+    return out
 
 
 def _dedupe(items: Sequence[NewsItem]) -> List[NewsItem]:
@@ -292,6 +327,11 @@ class NewsService:
 
         try:
             items, runs = self._fetch_all(known_names)
+            # Hard 7-day freshness cutoff — applied at aggregation so
+            # every downstream surface inherits it.  The cache TTL
+            # (≤180s) is far below the cutoff granularity, so cached
+            # entries can't meaningfully age past it between misses.
+            items = _drop_stale_items(items, now_epoch=self._clock())
             items = _dedupe(items)
             items = _sort_items(items)
             # Stamp position/team identity discriminators onto
@@ -411,7 +451,7 @@ class NewsService:
 # ``pfk`` is the Play For Keeps articles provider — one polite
 # sitemap request per cache refresh, isolated like every other
 # provider.
-_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs", "pfk")
+_DEFAULT_ENABLED = ("sleeper", "espn", "espn_player", "fantasypros", "cbs", "pfk")
 
 
 def build_default_service(
@@ -451,6 +491,8 @@ __all__ = [
     "DEFAULT_CACHE_TTL_S",
     "DEFAULT_LIMIT_PER_PROVIDER",
     "DEFAULT_TOTAL_LIMIT",
+    "FAILURE_CACHE_TTL_S",
+    "MAX_ITEM_AGE_DAYS",
     "NewsService",
     "ProviderRunResult",
     "build_default_service",

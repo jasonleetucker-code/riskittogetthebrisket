@@ -8,6 +8,8 @@ query-param parsing, response shape, 503 on all-failures.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -52,7 +54,9 @@ class _FakeProvider:
 def _make_item(id_, players=None):
     return NewsItem(
         id=id_,
-        ts="2026-04-23T10:00:00+00:00",
+        # Recent timestamp — the service drops anything older than
+        # its 7-day freshness cutoff at aggregation time.
+        ts=datetime.now(timezone.utc).isoformat(),
         provider="fake",
         provider_label="Fake",
         severity="alert",
@@ -124,6 +128,17 @@ def test_api_news_limit_caps_response(client):
     assert len(data["items"]) == 3
     assert data["count"] == 3
     assert data["limit"] == 3
+
+
+def test_espn_target_limit_is_the_provider_default():
+    """Single source of truth: server.py imports the espn_player
+    provider's DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT, so the
+    supplier's emission cap and the provider's _valid_targets
+    truncation can never drift apart (Codex P2 — a local 150 vs the
+    provider's old default 100 silently discarded targets 101-150)."""
+    from src.news.providers.espn_player import DEFAULT_MAX_TARGETS
+
+    assert server._ESPN_NEWS_TARGET_LIMIT == DEFAULT_MAX_TARGETS
 
 
 def test_api_news_returns_503_when_all_providers_fail(client):

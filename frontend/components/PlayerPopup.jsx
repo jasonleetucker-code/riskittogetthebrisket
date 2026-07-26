@@ -8,7 +8,7 @@ import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useApp } from "@/components/AppShell";
 import { useNews } from "@/components/useNews";
-import { lookupPlayerNews } from "@/lib/player-name-match";
+import { lookupPlayerDigest, lookupPlayerNews } from "@/lib/player-name-match";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { timeAgo } from "@/lib/news-service";
 import { useTeam } from "@/components/useTeam";
@@ -211,7 +211,7 @@ function RosContextSection({ row }) {
 const _POPUP_NEWS_LIMIT = 5;
 
 function PlayerNewsSection({ playerName, position, team }) {
-  const { byPlayer } = useNews();
+  const { byPlayer, digestByPlayer } = useNews();
   const { rows: liveRows } = useApp();
   // Live-pool meta index: name-only items for a name that is
   // AMBIGUOUS in the pool (CJ Allen LB vs C.J. Allen WR) are
@@ -228,12 +228,44 @@ function PlayerNewsSection({ playerName, position, team }) {
       }),
     [byPlayer, playerName, position, team, newsPlayerMeta],
   );
+  // Backend per-player digest — ONE combined entry when the player
+  // has multiple recent stories.  Rendered above the raw list; raw
+  // items stay accessible below it.
+  const digest = useMemo(
+    () => lookupPlayerDigest(digestByPlayer, playerName, { position }),
+    [digestByPlayer, playerName, position],
+  );
   if (!items.length) return null;
   return (
     <div style={{ marginTop: 14 }}>
       <div className="label" style={{ marginBottom: 6 }}>
         News ({items.length})
       </div>
+      {digest && (
+        <div
+          style={{
+            border: "1px solid var(--border-bright)",
+            borderRadius: 6,
+            padding: "8px 10px",
+            marginBottom: 6,
+            background: "rgba(34, 211, 238, 0.06)",
+            fontSize: "0.76rem",
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>{digest.headline}</div>
+          <div
+            className="muted"
+            style={{ whiteSpace: "pre-line", marginTop: 4, fontSize: "0.72rem" }}
+          >
+            {digest.summary}
+          </div>
+          {Array.isArray(digest.sources) && digest.sources.length > 0 && (
+            <div className="muted" style={{ marginTop: 4, fontSize: "0.66rem" }}>
+              Sources: {digest.sources.join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.slice(0, _POPUP_NEWS_LIMIT).map((item) => (
           <div
