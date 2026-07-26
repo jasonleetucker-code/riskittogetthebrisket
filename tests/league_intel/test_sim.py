@@ -214,3 +214,88 @@ class TestVariesAcrossRealRosters:
         assert len(means) == 12
         assert statistics.pstdev(means) > 10  # real spread, not a constant
         assert statistics.pstdev(sds) > 0.5
+
+
+class TestPointsModelSeam:
+    """The rosValue->points model is a SEAM, not a hardcoded formula.
+
+    ``claude/league-intel-sim`` derives the real model from actual stat
+    lines (``sim_calibration.PointsModel``, exposing
+    ``draw(ros_value, position, rng)``).  These pin that this module
+    CONSUMES that shape rather than carrying a second copy of the
+    arithmetic — and that the default is a strict no-op, so nothing
+    changes until a calibrated model is passed in.
+    """
+
+    class _DoubleModel:
+        """The legacy model with every draw scaled by exactly 2.
+
+        Deliberately a scalar multiple rather than an independently
+        parameterised Gaussian.  Best ball scores a MAX statistic, and
+        max(2X) == 2*max(X) exactly, so the expected effect is a clean
+        2x with no distributional confound.  A model with different
+        variance would move the result by an amount that depends on the
+        selection effect, and the test would be asserting on a number
+        nobody could derive — a first draft of this test did exactly
+        that and had to guess a threshold.
+        """
+
+        source = "test-double"
+
+        def draw(self, ros_value, position, rng):
+            from src.league_intel.sim import _LEGACY_POINTS_MODEL
+
+            return 2.0 * _LEGACY_POINTS_MODEL.draw(ros_value, position, rng)
+
+    @staticmethod
+    def _roster():
+        return [player(f"p{i}", "WR", 1000 + i * 10) for i in range(14)]
+
+    def test_default_is_a_no_op(self):
+        """Passing None must equal passing nothing at all."""
+        a = simulate_roster(self._roster(), SLOTS, weeks=30, seed=3)
+        b = simulate_roster(self._roster(), SLOTS, weeks=30, seed=3, points_model=None)
+        assert a.mean == b.mean
+        assert a.sd == b.sd
+
+    def test_an_injected_model_actually_drives_the_draw(self):
+        """The assertion an ignored parameter would fail.
+
+        Exact, not approximate: doubling every draw doubles the
+        best-ball total, because the lineup is a max over the same
+        draws in the same order.
+        """
+        base = simulate_roster(self._roster(), SLOTS, weeks=30, seed=3)
+        doubled = simulate_roster(
+            self._roster(), SLOTS, weeks=30, seed=3, points_model=self._DoubleModel()
+        )
+        # Tolerance is not hand-waving: ``optimize_lineup`` returns
+        # ``starting_lineup_score=round(total, 2)``, so 2*round(x) and
+        # round(2x) differ by up to 0.005 per week.  Against an sd of
+        # ~406 that is ~1e-6 relative — exactly the observed gap, and
+        # just outside pytest.approx's 1e-6 default.
+        assert doubled.mean == pytest.approx(2.0 * base.mean, rel=1e-5)
+        assert doubled.sd == pytest.approx(2.0 * base.sd, rel=1e-5)
+
+    def test_trade_delta_threads_the_model_through_both_arms(self):
+        before = self._roster()
+        after = before[:-1]
+        d = simulate_trade_delta(
+            before, after, SLOTS, weeks=30, seed=3, points_model=self._DoubleModel()
+        )
+        assert d.is_available
+        # Monotonicity must survive the swap: dropping a player cannot help.
+        assert d.mean_delta <= 0.0
+
+    def test_the_model_source_is_stamped_not_assumed(self):
+        legacy = simulate_trade_delta(self._roster(), self._roster(), SLOTS, weeks=10, seed=3)
+        assert any("legacy-constants" in a for a in legacy.assumptions)
+        injected = simulate_trade_delta(
+            self._roster(),
+            self._roster(),
+            SLOTS,
+            weeks=10,
+            seed=3,
+            points_model=self._DoubleModel(),
+        )
+        assert any("test-double" in a for a in injected.assumptions)

@@ -48,17 +48,32 @@ as ``None`` with a reason, never as 0.0 — "no change" and "cannot say"
 are different answers and collapsing them is how a UI ends up asserting
 a trade is neutral when it simply has no data.
 
-The draw model's known limit
-────────────────────────────
-Per-player weeks are ``Gaussian(rosValue / 2.7, cv-by-position)``,
+The draw model's known limit, and who is fixing it
+──────────────────────────────────────────────────
+Per-player weeks default to ``Gaussian(rosValue / 2.7, cv-by-position)``,
 inherited from ``playoff_sim``.  Real weekly scores are right-skewed
 and zero-inflated (injuries, benchings, game script), which a Gaussian
 understates in both tails.  Best ball rewards the UPPER tail
 specifically, so this most likely **understates** the value of
-high-variance depth — the exact thing the format pays for.  Fixing it
-needs per-player weekly histories, not a different closed form.  Every
-result stamps this in ``assumptions`` rather than leaving it to the
-reader to know.
+high-variance depth — the exact thing the format pays for.
+
+Two separable problems live in that sentence, and only one is mine:
+
+* the ``/2.7`` divisor and the CV table are **uncalibrated magic
+  constants**.  ``claude/league-intel-sim`` fixes this properly, in
+  ``src/league_intel/sim_calibration.py``, by deriving both from real
+  stat lines scored through the exact scorer under this league's own
+  settings.  That branch owns the schema; ``points_model`` here is the
+  seam that consumes it, matching its
+  ``draw(ros_value, position, rng)`` signature so its calibrated model
+  drops in as a parameter with no edit to this file.  **Do not add a
+  second calibration here.**
+* the Gaussian *shape* is still an approximation even once calibrated.
+  Fixing that needs per-player weekly histories, not a different closed
+  form, and is unclaimed.
+
+Every result stamps which model produced it in ``assumptions`` rather
+than leaving it to the reader to know.
 """
 
 from __future__ import annotations
@@ -158,10 +173,46 @@ class TradeDelta:
         }
 
 
+class _LegacyPointsModel:
+    """The pre-calibration rosValue->points model, behind the same
+    interface ``sim_calibration.PointsModel`` exposes.
+
+    This exists so the draw model is a SEAM rather than a hardcoded
+    formula.  ``claude/league-intel-sim`` derives the real thing —
+    ``ros_value_per_point`` and the per-position CV table — from actual
+    stat lines scored under this league's own settings, replacing two
+    magic constants (a ``/2.7`` divisor tuned by eye and a CV table
+    citing a dataset named nowhere in the repo).  Its ``PointsModel``
+    already exposes ``draw(ros_value, position, rng)``; matching that
+    signature here means its calibrated model drops in as a parameter
+    with no edit to this module and no second copy of the arithmetic.
+
+    That branch owns the schema.  This is the consumer.
+    """
+
+    source = "legacy-constants"
+
+    def draw(self, ros_value: float, position: str, rng: Any) -> float:
+        from src.ros.playoff_sim import (  # noqa: PLC0415
+            _DEFAULT_PLAYER_CV,
+            _PLAYER_CV_BY_POSITION,
+        )
+
+        mean = max(0.0, float(ros_value) / 2.7)
+        if mean <= 0.0:
+            return 0.0
+        cv = _PLAYER_CV_BY_POSITION.get((position or "").upper(), _DEFAULT_PLAYER_CV)
+        return max(0.0, rng.gauss(mean, max(0.5, mean * cv)))
+
+
+_LEGACY_POINTS_MODEL = _LegacyPointsModel()
+
+
 def _draw_week(
     players: Sequence[Mapping[str, Any]],
     week: int,
     seed: int,
+    points_model: Any = None,
 ):
     """One week of per-player draws, as optimizer-ready rows.
 
@@ -180,11 +231,8 @@ def _draw_week(
     the paired comparison is real.
     """
     from src.ros.lineup import RosterPlayer  # noqa: PLC0415
-    from src.ros.playoff_sim import (  # noqa: PLC0415
-        _DEFAULT_PLAYER_CV,
-        _PLAYER_CV_BY_POSITION,
-    )
 
+    model = points_model or _LEGACY_POINTS_MODEL
     drawn: list[RosterPlayer] = []
     for p in players:
         ros = float(p.get("rosValue") or 0.0)
@@ -192,15 +240,13 @@ def _draw_week(
             continue
         pos = str(p.get("position") or "").upper()
         pid = str(p.get("playerId") or p.get("canonicalName") or "")
-        mean = max(0.0, ros / 2.7)
-        cv = _PLAYER_CV_BY_POSITION.get(pos, _DEFAULT_PLAYER_CV)
         rng = random.Random(f"{seed}|{week}|{pid}")
         drawn.append(
             RosterPlayer(
                 player_id=pid,
                 canonical_name=str(p.get("canonicalName") or ""),
                 position=pos,
-                ros_value=max(0.0, rng.gauss(mean, max(0.5, mean * cv))),
+                ros_value=model.draw(ros, pos, rng),
                 fantasy_positions=tuple(
                     str(fp).upper() for fp in (p.get("fantasyPositions") or ())
                 ),
@@ -215,6 +261,7 @@ def simulate_roster(
     *,
     weeks: int = DEFAULT_SIM_WEEKS,
     seed: int = 0,
+    points_model: Any = None,
 ) -> RosterDistribution:
     """Simulate one roster's weekly best-ball scoring distribution.
 
@@ -222,6 +269,12 @@ def simulate_roster(
     no ROS value are counted but cannot be drawn; when too few are
     priced the distribution is reported unavailable rather than
     fabricated from a handful.
+
+    ``points_model`` is the rosValue->points seam: anything exposing
+    ``draw(ros_value, position, rng)``, which is
+    ``sim_calibration.PointsModel``'s signature.  ``None`` keeps the
+    legacy constants, so this is a no-op until a calibrated model is
+    passed in.
     """
     roster = list(players)
     priced = sum(1 for p in roster if float(p.get("rosValue") or 0.0) > 0)
@@ -244,7 +297,7 @@ def simulate_roster(
 
     scores = [
         optimize_lineup(
-            _draw_week(roster, week, seed), starter_slots=list(starter_slots)
+            _draw_week(roster, week, seed, points_model), starter_slots=list(starter_slots)
         ).starting_lineup_score
         for week in range(weeks)
     ]
@@ -267,6 +320,7 @@ def simulate_trade_delta(
     *,
     weeks: int = DEFAULT_SIM_WEEKS,
     seed: int = 0,
+    points_model: Any = None,
 ) -> TradeDelta:
     """How a roster change moves the weekly scoring distribution.
 
@@ -279,12 +333,17 @@ def simulate_trade_delta(
     roster cannot be simulated.  That is deliberately distinct from a
     delta of 0.0.
     """
-    before = simulate_roster(roster_before, starter_slots, weeks=weeks, seed=seed)
-    after = simulate_roster(roster_after, starter_slots, weeks=weeks, seed=seed)
+    before = simulate_roster(
+        roster_before, starter_slots, weeks=weeks, seed=seed, points_model=points_model
+    )
+    after = simulate_roster(
+        roster_after, starter_slots, weeks=weeks, seed=seed, points_model=points_model
+    )
 
+    model_source = getattr(points_model or _LEGACY_POINTS_MODEL, "source", "unknown")
     assumptions = [
-        "weekly scores drawn from playoff_sim's Gaussian model on rosValue; "
-        "the model is an approximation, not a fitted per-player distribution",
+        f"weekly scores drawn from the '{model_source}' points model; a Gaussian "
+        "approximation on rosValue, not a fitted per-player distribution",
         "lineup solved exactly per simulated week (src.ros.lineup)",
         "paired seeds: before/after share draws so the delta isolates the " "roster change",
     ]

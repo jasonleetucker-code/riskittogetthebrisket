@@ -118,6 +118,66 @@ specifically, so this model probably *understates* the value of
 high-variance depth.  Fixing it needs per-player weekly histories, not
 a different formula.
 
+## ADR-012: the LI-8 collision with `claude/league-intel-sim`, and who owns which half
+**Status:** accepted 2026-07-26.  Seam built on this branch; the other
+branch is unmerged.
+
+**Two branches implemented LI-8 independently.**  `claude/league-intel-sim`
+carries `05a9426fd` ("LI-8: exact lineups in the sim, one flattener,
+shared-seed trade deltas"), which overlaps this branch's LI-8 work.
+Measured rather than assumed — `git merge-tree` against that branch
+conflicts in exactly **two** files: `src/ros/playoff_sim.py` and
+`tests/league_intel/test_registry_consumers.py`.
+
+**Their work is a superset of this branch's on `playoff_sim.py`, with
+one exception.**  They also did the exact-lineup fix and also deleted
+the duplicated `_eligible_for_slot`; on top of that they canonicalised
+the starter-slot flattener (a third copy this branch never touched),
+made the sim count adaptive on convergence, added Wilson intervals,
+added a real championship bracket, and added `sim_calibration.py`.
+Their version should win those hunks.
+
+**The exception is the one thing worth carrying forward.**  Their
+`_load_team_rosters` still reads `startingLineup + benchDepth` — so the
+more sophisticated sim is running exact lineups, converged counts and
+Wilson intervals over **29 of 44-58 players** (ADR-011).  Better
+calibration on a half-truncated roster is still the wrong team.  The
+`fullRoster` preference is this branch's hunk to keep; everything else
+in that file should take theirs.
+
+**Their paired-seed design does NOT have the desync defect ADR-011
+found, and the reason is structural.**  They apply a trade as a scalar
+`strength_delta` on each team's *mean* before simulating, so both arms
+draw the identical number of values in the identical order and a shared
+stream stays aligned.  This branch's defect arose only because it
+redraws per PLAYER on a roster whose size changes.  Both are correct
+for their own shape; neither generalises to the other.
+
+**Which makes the two genuinely complementary, not duplicative.**
+Their design copies `sd=d.sd` unchanged, so the *variance* effect of a
+trade is discarded — and in best ball that is exactly what roster depth
+changes.  This branch's `sim.py` computes mean AND sd from the real
+roster, which is the input their `strength_delta` needs and the sd
+change their design currently drops.  The right composition is
+`sim.py` → `strength_delta` → `playoff_sim`, not two simulators.
+
+**Seam built, in their direction, on their schema.**  Their
+`PointsModel` exposes `draw(ros_value, position, rng)`.  `sim.py` now
+takes an optional `points_model` with exactly that signature,
+defaulting to a `_LegacyPointsModel` wrapping the old constants — so it
+is a **strict no-op** until a calibrated model is passed, and their
+work drops in as a parameter with no edit to this file.  They own the
+schema because they own the calibration; this is the consumer.  Tests
+pin that the default is byte-identical to passing nothing, that an
+injected model actually drives the draw, and that the model source is
+stamped rather than assumed.
+
+Recommended resolution when they rebase: take theirs for
+`playoff_sim.py` except `_load_team_rosters`, take theirs for
+`test_registry_consumers.py` (they retargeted this branch's test at the
+canonical module, which is the right call), and delete nothing from
+`sim.py` / `sim_calibration.py` — they do not overlap.
+
 ## ADR-010: cross-market packages are valued on ONE market, or not at all (WS-J F-1)
 **Status:** accepted 2026-07-26.  Interface + suppression path built;
 `src/trade/angle.py` not yet rewired (that is WS-J's call site).
