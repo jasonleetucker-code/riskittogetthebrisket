@@ -83,6 +83,15 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "pfkDyna
 # establishes over a few scheduled cycles; then re-pin at ~75-80%.
 _PFK_ROW_COUNT_FLOOR: int = 120
 
+# Second, DYNAMIC guard (Codex review on PR #532, round 6 — same
+# rationale as fetch_fantasynavigator's): a transiently-partial
+# PostgREST response above the absolute floor (say 300 of 496 rows)
+# would otherwise overwrite the complete last-good board and delete
+# ~200 votes.  An extraction may only replace an existing CSV when it
+# retains at least this fraction of the last-good row count; below
+# that, exit 2 keeps last-good and the next 2h cycle retries.
+_PFK_LAST_GOOD_RETENTION: float = 0.75
+
 
 _OFFENSE_POSITIONS: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 
@@ -144,6 +153,16 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     return sorted(best.values(), key=lambda r: r["value"], reverse=True)
 
 
+def _count_csv_rows(path: Path) -> int:
+    """Data-row count of an existing CSV (0 when absent/unreadable) —
+    the last-good baseline for the retention guard."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return max(0, sum(1 for _ in f) - 1)
+    except OSError:
+        return 0
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # Competition ranking ("1-2-2-4") — same convention as the other
     # fetchers (see PR #530): tied values share a rank so feed
@@ -201,6 +220,15 @@ def main(argv: list[str] | None = None) -> int:
     if len(rows) < _PFK_ROW_COUNT_FLOOR:
         print(
             f"[fetch_pfk] row count below floor: {len(rows)} < {_PFK_ROW_COUNT_FLOOR}",
+            file=sys.stderr,
+        )
+        return 2
+    last_good = _count_csv_rows(args.dest)
+    if last_good > 0 and len(rows) < last_good * _PFK_LAST_GOOD_RETENTION:
+        print(
+            f"[fetch_pfk] extraction retains only {len(rows)} of "
+            f"{last_good} last-good rows (< {_PFK_LAST_GOOD_RETENTION:.0%}) "
+            f"— likely a partial response; keeping last-good CSV",
             file=sys.stderr,
         )
         return 2
