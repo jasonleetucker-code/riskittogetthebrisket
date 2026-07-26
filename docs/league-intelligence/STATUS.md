@@ -1,5 +1,28 @@
 # League Intelligence — Status
 
+**2026-07-26 (LI-7 groundwork)** — §22 TEP audit done (ADR-009, no code).
+
+- **The league deleted its TE premium for 2026.**  `bonus_rec_te` 0.0
+  and `bonus_fd_te` 1.0 (= WR).  Verified through the LI-2 scorer: an
+  identical receiving line scores **21.55 as a TE and 21.55 as a WR**.
+  In 2025 the same line scored 25.05 vs 21.55 — a **+16.2% premium**
+  that has been removed.
+- Consensus still applies **+15% / +10% TE multipliers** calibrated for
+  a TEP-1.5 league, so the scoring-axis residual is **negative**
+  (~`1/1.15 ≈ 0.87`).  Partially offset by the structural premium of
+  2 dedicated TE slots (endogenous demand exactly 2.00/team — TE never
+  wins a FLEX).  LI-7 computes the NET residual against what consensus
+  already embeds; the spec's non-duplication test pins it.
+- Registry profile is still named `superflex_tep15_ppr1`, now wrong on
+  the TEP axis.  Flagged, not changed — scoring profiles are shared
+  across leagues, so it is a cross-league decision.
+- **LI-6 constraint that shapes LI-7:** the projections agent's audit
+  found *no repo source exposes raw statistical categories* (the ROS
+  row contract is a single scalar) and no permitted raw-category
+  source exists today.  LI-7 must therefore treat re-scored
+  projections as an **optional enrichment**, not a required input, and
+  work from consensusValue + league config + LI-5 replacement levels.
+
 **2026-07-26 (LI-5)** — coverage fix + replacement levels (ADR-008).
 
 - **ADR-007 coverage defect fixed.** `_positional_coverage` returned

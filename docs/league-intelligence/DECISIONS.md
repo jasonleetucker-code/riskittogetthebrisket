@@ -38,6 +38,53 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-009 (AUDIT, pre-LI-7): the league deleted its TE premium; consensus still charges for it
+**Status:** finding recorded 2026-07-26 — **no code change yet.**  This
+is the §22 "audit the existing TEP pipeline first" step.  The residual
+model itself lands in LI-7.
+
+**What consensus already embeds.**  `_compute_unified_rankings`
+applies TE-only, value-level multipliers during the blend:
+* non-TEP-native sources (DLF, FantasyPros, Flock, …): TE
+  contributions × `tep_multiplier`, default 1.15, operator slider
+  clamped [1.0, 1.5]
+* TEP-native sources (Dynasty Nerds SF-TEP, IDPTC): × 1.10
+* KTC / `ktcSfTep` exempt — its TE++ board is the reference everyone
+  else is aligned to
+
+So a TE's `consensusValue` already carries a ~10-15% premium
+calibrated for a "TEP-1.5" league.
+
+**What this league actually scores in 2026: nothing extra for TE.**
+From the canonical config, `bonus_rec_te = 0.0` and `bonus_fd_te =
+1.0` — identical to `bonus_fd_wr`.  Receptions, yards and TDs are
+position-independent keys.  Verified empirically through the LI-2
+scorer: the same receiving line scores **21.55 as a TE and 21.55 as a
+WR**.  The TE scoring premium is exactly zero.
+
+**It used to exist and was removed.**  The 2025 season had
+`bonus_rec_te = 0.35` and `bonus_fd_te = 1.35`; the identical line
+scored **25.05 as a TE vs 21.55 as a WR — a +16.2% premium**.  The
+commissioner deleted it for 2026.
+
+**Consequence — the scoring-axis TE residual is negative.**  Consensus
+boosts TEs ~15% for a premium this league no longer grants, so on the
+scoring axis alone the league-adjusted correction is roughly
+`1 / 1.15 ≈ 0.87` against non-native contributions.  Note the registry
+still labels the profile `superflex_tep15_ppr1`, which is now wrong on
+the TEP axis for 2026 — flagged, not changed here (scoring profiles
+are shared across leagues per CLAUDE.md, so renaming is a
+cross-league decision, not a league-intel one).
+
+**Partially offset by structure, which must NOT be double-counted.**
+The league starts **2 dedicated TE slots**, and LI-5's endogenous
+measurement shows TE demand is exactly 2.00/team — TE never wins a
+FLEX slot.  That is a real, structural TE premium that scoring-based
+reasoning alone would miss.  The LI-7 residual is therefore the NET of
+a negative scoring-axis term and a positive structural term, computed
+against what consensus already embeds — never applied on top of it.
+The spec's non-duplication test exists precisely to pin this.
+
 ## ADR-008: replacement levels use endogenous flex allocation, and scarcity stays six numbers
 **Context:** LI-5 (spec §19) needs replacement levels per position.
 The conventional shortcut is to preassign flex slots by an even split
