@@ -3,18 +3,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
+import {
+  Badge,
+  Banner,
+  Button,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Panel,
+  Select,
+  SkeletonTable,
+  StatTile,
+} from "@/components/ds";
+import styles from "./angle.module.css";
 
-// ── Trade Finder ─────────────────────────────────────────────────────
+// ── /angle — the counter-pitch builder ────────────────────────────────
+//
 // Pick one or more players on your roster, optionally pick a target
 // team, get back ranked counter-packages where the trade wins on your
 // league's calibrated rankings (default ≥5%) but still looks fair-or-
 // better on the market the counterparty consults (default ≤5%). Market
 // is per-position: IDP Trade Calculator for DL/LB/DB, KTC for everyone
-// else — backend handles routing automatically.
+// else — the backend routes automatically.
 //
 // When players from the target team are selected the page switches to
-// "acquire" mode: the backend finds what to give up from your roster
-// to get those specific players back.
+// "acquire" mode: the backend finds what to give up from your roster to
+// get those specific players back.
+//
+// Every package, value, and percentage on this page is computed by
+// POST /api/angle/packages. Nothing here recomputes trade math.
 
 const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
 
@@ -32,9 +51,99 @@ function fmtValue(v) {
 
 function fmtSignedPct(v) {
   const n = Number(v || 0);
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(1)}%`;
+  return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
 }
+
+// ── Roster picker ─────────────────────────────────────────────────────
+
+function RosterPicker({
+  names,
+  valueByName,
+  selected,
+  onToggle,
+  disabled,
+  emptyMessage,
+}) {
+  if (names.length === 0) {
+    return <div className={styles.rosterEmpty}>{emptyMessage}</div>;
+  }
+  return (
+    <div className={styles.rosterList}>
+      {names.map((name) => {
+        const info = valueByName.get(name);
+        const checked = selected.has(name);
+        return (
+          <label
+            key={name}
+            className={`${styles.rosterRow} ${
+              checked ? styles.rosterRowSelected : ""
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggle(name)}
+              disabled={disabled}
+            />
+            <span className={styles.rosterName}>
+              <span className={styles.rosterNameText}>{name}</span>
+              <Badge tone="outline">{info?.position || "—"}</Badge>
+            </span>
+            {info?.my_value ? (
+              <span className={styles.rosterValue}>
+                {fmtValue(info.my_value)}
+              </span>
+            ) : null}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Results ───────────────────────────────────────────────────────────
+
+function PackagePlayers({ players }) {
+  return (
+    <div className={styles.packagePlayers}>
+      {(players || []).map((p) => (
+        <span key={p.name} className={styles.packagePlayer}>
+          <Badge tone="outline">{p.position}</Badge>
+          <span className={styles.packagePlayerName}>{p.name}</span>
+          <span className={styles.packagePlayerValue}>
+            {fmtValue(p.my_value)} · {fmtValue(p.market_value)}{" "}
+            {marketLabelForSource(p.market_source)}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function FixedSidePanel({ fixedSide, resultIsAcquire }) {
+  if (!fixedSide) return null;
+  return (
+    <Panel
+      title={resultIsAcquire ? "You receive" : "You send"}
+      headingLevel={2}
+    >
+      <div className={styles.fixedSide}>
+        <PackagePlayers players={fixedSide.players} />
+        {fixedSide.my_total || fixedSide.market_total ? (
+          <div className={styles.fixedTotals}>
+            <StatTile label="My total" value={fmtValue(fixedSide.my_total)} />
+            <StatTile
+              label="Market total"
+              value={fmtValue(fixedSide.market_total)}
+            />
+          </div>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────
 
 export default function AnglePage() {
   const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
@@ -55,14 +164,10 @@ export default function AnglePage() {
       if (!name) continue;
       const pos = r?.pos || r?.position || "";
       const source = marketSourceForPos(pos);
-      const my_v = Number(r?.rankDerivedValue) || 0;
-      const market_v =
-        Number(r?.canonicalSites?.[source]) ||
-        Number(r?.canonicalSites?.ktc) ||
-        0;
       m.set(name, {
-        my_value: my_v,
-        market_value: market_v,
+        my_value: Number(r?.rankDerivedValue) || 0,
+        market_value:
+          Number(r?.canonicalSites?.[source]) || Number(r?.canonicalSites?.ktc) || 0,
         market_source: source,
         position: pos,
       });
@@ -84,10 +189,7 @@ export default function AnglePage() {
 
   useEffect(() => {
     if (ownerId) return;
-    if (
-      activeOwnerId &&
-      teams.some((t) => String(t.ownerId) === String(activeOwnerId))
-    ) {
+    if (activeOwnerId && teams.some((t) => String(t.ownerId) === String(activeOwnerId))) {
       setOwnerId(String(activeOwnerId));
     } else if (teams.length > 0) {
       setOwnerId(String(teams[0].ownerId || ""));
@@ -98,50 +200,45 @@ export default function AnglePage() {
     () => teams.find((t) => String(t.ownerId || "") === String(ownerId)),
     [teams, ownerId],
   );
-
   const opposingTeams = useMemo(
     () => teams.filter((t) => String(t.ownerId || "") !== String(ownerId)),
     [teams, ownerId],
   );
-
   const targetTeam = useMemo(
     () => teams.find((t) => String(t.ownerId || "") === String(targetOwnerId)),
     [teams, targetOwnerId],
   );
 
-  // Filter + sort the user's roster.
+  const sortByValue = useMemo(
+    () => (a, b) => {
+      const av = valueByName.get(a)?.my_value || 0;
+      const bv = valueByName.get(b)?.my_value || 0;
+      return bv !== av ? bv - av : a.localeCompare(b);
+    },
+    [valueByName],
+  );
+
   const roster = useMemo(() => {
     if (!myTeam) return [];
     const q = playerSearch.trim().toLowerCase();
     return [...(myTeam.players || [])]
       .filter((name) => !q || name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const av = valueByName.get(a)?.my_value || 0;
-        const bv = valueByName.get(b)?.my_value || 0;
-        if (bv !== av) return bv - av;
-        return a.localeCompare(b);
-      });
-  }, [myTeam, playerSearch, valueByName]);
+      .sort(sortByValue);
+  }, [myTeam, playerSearch, sortByValue]);
 
-  // Filter + sort the target team's roster.
   const targetRoster = useMemo(() => {
     if (!targetTeam) return [];
     const q = targetPlayerSearch.trim().toLowerCase();
     return [...(targetTeam.players || [])]
       .filter((name) => !q || name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const av = valueByName.get(a)?.my_value || 0;
-        const bv = valueByName.get(b)?.my_value || 0;
-        if (bv !== av) return bv - av;
-        return a.localeCompare(b);
-      });
-  }, [targetTeam, targetPlayerSearch, valueByName]);
+      .sort(sortByValue);
+  }, [targetTeam, targetPlayerSearch, sortByValue]);
 
-  // Wipe all selections + stale results when the user switches their own team.
-  // targetPlayerNames must also be cleared — the new team may own some of those
+  // Wipe selections + stale results when the user switches their own team.
+  // targetPlayerNames must clear too — the new team may own some of those
   // players, and the backend silently drops self-owned acquire targets.
-  // targetOwnerId is cleared when it now points at the newly selected team,
-  // which would render the user's own roster as "players to acquire."
+  // targetOwnerId clears when it now points at the newly selected team,
+  // which would render the user's own roster as "players to acquire".
   useEffect(() => {
     setPlayerNames(new Set());
     setTargetPlayerNames(new Set());
@@ -150,7 +247,6 @@ export default function AnglePage() {
     setErr(null);
   }, [ownerId]);
 
-  // Wipe target player selection when target team changes.
   useEffect(() => {
     setTargetPlayerNames(new Set());
     setTargetPlayerSearch("");
@@ -158,92 +254,84 @@ export default function AnglePage() {
     setErr(null);
   }, [targetOwnerId]);
 
-  function togglePlayer(name) {
-    setPlayerNames((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  function toggleIn(setter) {
+    return (name) =>
+      setter((prev) => {
+        const next = new Set(prev);
+        if (next.has(name)) next.delete(name);
+        else next.add(name);
+        return next;
+      });
   }
-
-  function toggleTargetPlayer(name) {
-    setTargetPlayerNames((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
+  const togglePlayer = toggleIn(setPlayerNames);
+  const toggleTargetPlayer = toggleIn(setTargetPlayerNames);
 
   const playerNameList = useMemo(() => Array.from(playerNames), [playerNames]);
-  const targetPlayerNameList = useMemo(() => Array.from(targetPlayerNames), [targetPlayerNames]);
+  const targetPlayerNameList = useMemo(
+    () => Array.from(targetPlayerNames),
+    [targetPlayerNames],
+  );
 
-  // Acquire mode when the user has picked target players to receive.
-  // Offer mode otherwise (find what to get back for your send players).
+  // Acquire mode when the user picked target players to receive; offer
+  // mode otherwise (find what to get back for your send players).
   const isAcquireMode = targetPlayerNameList.length > 0;
 
-  const offerTotals = useMemo(() => {
-    let my = 0;
-    let market = 0;
-    for (const name of playerNameList) {
-      const info = valueByName.get(name);
-      if (info) {
-        my += info.my_value || 0;
-        market += info.market_value || 0;
+  const totalsFor = useMemo(
+    () => (nameList) => {
+      let my = 0;
+      let market = 0;
+      for (const name of nameList) {
+        const info = valueByName.get(name);
+        if (info) {
+          my += info.my_value || 0;
+          market += info.market_value || 0;
+        }
       }
-    }
-    return { my, market };
-  }, [playerNameList, valueByName]);
-
-  const targetTotals = useMemo(() => {
-    let my = 0;
-    let market = 0;
-    for (const name of targetPlayerNameList) {
-      const info = valueByName.get(name);
-      if (info) {
-        my += info.my_value || 0;
-        market += info.market_value || 0;
-      }
-    }
-    return { my, market };
-  }, [targetPlayerNameList, valueByName]);
+      return { my, market };
+    },
+    [valueByName],
+  );
+  const offerTotals = useMemo(
+    () => totalsFor(playerNameList),
+    [totalsFor, playerNameList],
+  );
+  const targetTotals = useMemo(
+    () => totalsFor(targetPlayerNameList),
+    [totalsFor, targetPlayerNameList],
+  );
 
   async function findTrades() {
     if (!ownerId) {
       setErr("Pick your team.");
       return;
     }
-    if (isAcquireMode) {
-      // Acquire mode: find what to give up from your roster to get the target players.
-    } else if (playerNameList.length === 0) {
-      setErr("Pick at least one player on your roster to send, or select players from the target team to acquire.");
+    if (!isAcquireMode && playerNameList.length === 0) {
+      setErr(
+        "Pick at least one player on your roster to send, or select players from the target team to acquire.",
+      );
       return;
     }
     setLoading(true);
     setErr(null);
     try {
-      let body;
-      if (isAcquireMode) {
-        body = {
-          mode: "acquire",
-          ownerId,
-          acquirePlayerNames: targetPlayerNameList,
-          minMyGainPct: Number(minMyGainPct),
-          maxMarketGainPct: Number(maxMarketGainPct),
-        };
-        if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
-      } else {
-        body = {
-          mode: "offer",
-          ownerId,
-          playerNames: playerNameList,
-          minMyGainPct: Number(minMyGainPct),
-          maxMarketGainPct: Number(maxMarketGainPct),
-        };
-        if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
-      }
+      const body = isAcquireMode
+        ? {
+            mode: "acquire",
+            ownerId,
+            acquirePlayerNames: targetPlayerNameList,
+            minMyGainPct: Number(minMyGainPct),
+            maxMarketGainPct: Number(maxMarketGainPct),
+          }
+        : {
+            mode: "offer",
+            ownerId,
+            playerNames: playerNameList,
+            minMyGainPct: Number(minMyGainPct),
+            maxMarketGainPct: Number(maxMarketGainPct),
+          };
+      if (targetOwnerId) body.targetTeamOwnerIds = [targetOwnerId];
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
+
       const res = await fetch("/api/angle/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -252,13 +340,11 @@ export default function AnglePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
-        if (res.status === 503) {
-          setErr(
-            "Roster data not loaded for this league yet — try again in a moment.",
-          );
-        } else {
-          setErr(data?.error || `HTTP ${res.status}`);
-        }
+        setErr(
+          res.status === 503
+            ? "Roster data not loaded for this league yet — try again in a moment."
+            : data?.error || `HTTP ${res.status}`,
+        );
         setResult(null);
       } else {
         setResult(data);
@@ -271,300 +357,240 @@ export default function AnglePage() {
     }
   }
 
+  // Drive result rendering from the mode stamped on the RESPONSE, not the
+  // current UI selection — otherwise clearing a selection after a search
+  // re-labels stale results.
+  const resultIsAcquire = (result?.mode ?? null) === "acquire";
+  const fixedSide = resultIsAcquire ? result?.acquire || null : result?.offer || null;
+  const candidates = result?.candidates || [];
+  const warnings = result?.warnings || [];
+
+  const canSubmit = !!ownerId && (isAcquireMode || playerNameList.length > 0) && !loading;
+
+  const packageColumns = useMemo(
+    () => [
+      {
+        key: "players",
+        header: "Package",
+        accessor: (c) => (c.players || []).map((p) => p.name).join(", "),
+        render: (c) => (
+          <div className={styles.packageAssets}>
+            <span className={styles.packageOrigin}>
+              {resultIsAcquire
+                ? `Give to ${targetTeam?.name || "them"}`
+                : `From ${c.team || "(unknown)"}`}{" "}
+              · {c.size} {c.size === 1 ? "player" : "players"}
+            </span>
+            <PackagePlayers players={c.players} />
+          </div>
+        ),
+      },
+      {
+        key: "my_total",
+        header: "My total",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (c) => c.my_total,
+        render: (c) => fmtValue(c.my_total),
+      },
+      {
+        key: "market_total",
+        header: "Market total",
+        numeric: true,
+        sortable: true,
+        hideBelow: "lg",
+        accessor: (c) => c.market_total,
+        render: (c) => fmtValue(c.market_total),
+      },
+      {
+        key: "my_gain_pct",
+        header: "My gain",
+        numeric: true,
+        sortable: true,
+        accessor: (c) => c.my_gain_pct,
+        render: (c) => fmtSignedPct(c.my_gain_pct),
+        headerTitle: "How far the package beats your offer on your own board.",
+      },
+      {
+        key: "market_gain_pct",
+        header: "Market gap",
+        numeric: true,
+        sortable: true,
+        accessor: (c) => c.market_gain_pct,
+        render: (c) => fmtSignedPct(c.market_gain_pct),
+        headerTitle: "How the package reads on the market the counterparty consults.",
+      },
+      {
+        key: "arb_score",
+        header: "Arb",
+        numeric: true,
+        sortable: true,
+        accessor: (c) => c.arb_score,
+        render: (c) => <Badge tone="accent">{fmtSignedPct(c.arb_score)}</Badge>,
+        headerTitle: "Arbitrage edge — your gain net of the market gap.",
+      },
+    ],
+    [resultIsAcquire, targetTeam],
+  );
+
   if (dataLoading) {
     return (
-      <div className="page-shell">
-        <p className="muted">Loading data…</p>
-      </div>
+      <main className={`main-shell ${styles.page}`}>
+        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <Panel flush>
+          <SkeletonTable rows={5} columns={4} />
+        </Panel>
+      </main>
     );
   }
   if (dataError) {
     return (
-      <div className="page-shell">
-        <p className="err-text">Failed to load data: {String(dataError)}</p>
-      </div>
+      <main className={`main-shell ${styles.page}`}>
+        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <Banner tone="negative" title="Failed to load data">
+          {String(dataError)}
+        </Banner>
+      </main>
     );
   }
 
-  const canSubmit =
-    !!ownerId &&
-    (isAcquireMode || playerNameList.length > 0) &&
-    !loading;
-
-  // Drive result rendering from the mode stamped on the response, not the
-  // current UI selection.  This prevents re-labelling stale results when the
-  // user clears their selection after a search without re-running.
-  const resultMode = result?.mode ?? null;
-  const resultIsAcquire = resultMode === "acquire";
-  const fixedSide = resultIsAcquire ? (result?.acquire || null) : (result?.offer || null);
-  const candidates = result?.candidates || [];
-  const warnings = result?.warnings || [];
-
-  const submitLabel = loading
-    ? "Searching…"
-    : isAcquireMode
-      ? `Find what to give up (${targetPlayerNameList.length})`
-      : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`;
-
   return (
-    <div className="page-shell angle-page">
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Trade Finder</h1>
-          <p className="page-subtitle muted" style={{ marginTop: 4 }}>
-            Pick players from your roster to send and get back ranked return
-            packages — or select players from the target team you want to
-            acquire and find what you&apos;d need to give up.
-          </p>
-        </div>
-      </div>
+    <main className={`main-shell ${styles.page} angle-page`}>
+      <PageHeader
+        eyebrow="Counter-pitch"
+        title="Trade Finder"
+        description="Pick players to send and get ranked return packages — or pick players you want from a target team and find what you'd have to give up."
+      />
 
-      <section className="card">
-        <div className="angle-form-grid">
-          {/* ── Column 1: Your team ───────────────────────────── */}
-          <label className="angle-field">
-            <span className="muted">Your team</span>
-            <select
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              disabled={loading || teams.length === 0}
-            >
-              {teams.length === 0 ? (
-                <option value="">No teams loaded</option>
-              ) : (
-                teams.map((t) => (
-                  <option key={t.ownerId} value={String(t.ownerId || "")}>
-                    {t.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+      <Panel
+        className="angle-form"
+        title="Build the pitch"
+        subtitle={
+          isAcquireMode
+            ? "Acquire mode — finding what you'd need to give up for the selected players."
+            : "Offer mode — finding what you could get back."
+        }
+      >
+        <div className={styles.formGrid}>
+          {/* Column 1 — your team */}
+          <div className={styles.field}>
+            <Field label="Your team" id="angle-owner">
+              <Select
+                id="angle-owner"
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
+                disabled={loading || teams.length === 0}
+              >
+                {teams.length === 0 ? (
+                  <option value="">No teams loaded</option>
+                ) : (
+                  teams.map((t) => (
+                    <option key={t.ownerId} value={String(t.ownerId || "")}>
+                      {t.name}
+                    </option>
+                  ))
+                )}
+              </Select>
+            </Field>
+          </div>
 
-          {/* ── Column 2: Your players to send ───────────────── */}
-          <div className="angle-field">
-            <span className="muted">
-              Your players to send{" "}
-              <span style={{ fontWeight: 400 }}>
-                ({playerNameList.length} selected)
+          {/* Column 2 — your players to send */}
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>
+              Players to send
+              <span className={styles.fieldCount}>
+                {playerNameList.length} selected
               </span>
-              {isAcquireMode && (
-                <span className="muted" style={{ fontSize: "0.75rem", marginLeft: 6 }}>
-                  — optional in acquire mode
-                </span>
-              )}
+              {isAcquireMode ? <Badge tone="outline">optional</Badge> : null}
             </span>
-            <input
+            <Input
               type="search"
               placeholder="Search your roster…"
               value={playerSearch}
               onChange={(e) => setPlayerSearch(e.target.value)}
               disabled={loading || !myTeam}
-              style={{ marginBottom: 6 }}
+              aria-label="Search your roster"
             />
-            <div
-              style={{
-                maxHeight: 220,
-                overflowY: "auto",
-                border: "1px solid var(--border, #2a2a3a)",
-                borderRadius: 6,
-                padding: "4px 6px",
-                background: "var(--surface-2, transparent)",
-              }}
-            >
-              {roster.length === 0 ? (
-                <div className="muted" style={{ padding: 8, fontSize: "0.85rem" }}>
-                  {myTeam ? "No matches" : "No players on this roster"}
-                </div>
-              ) : (
-                roster.map((name) => {
-                  const info = valueByName.get(name);
-                  const checked = playerNames.has(name);
-                  return (
-                    <label
-                      key={name}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 4px",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                        borderRadius: 4,
-                        background: checked
-                          ? "rgba(95, 199, 255, 0.08)"
-                          : "transparent",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => togglePlayer(name)}
-                        disabled={loading}
-                      />
-                      <span style={{ flex: 1 }}>
-                        {name}
-                        <span
-                          className="muted"
-                          style={{ marginLeft: 6, fontSize: "0.78rem" }}
-                        >
-                          {info?.position || "—"}
-                        </span>
-                      </span>
-                      {info?.my_value ? (
-                        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                          {fmtValue(info.my_value)}
-                        </span>
-                      ) : null}
-                    </label>
-                  );
-                })
-              )}
-            </div>
-            {playerNameList.length > 1 && offerTotals.my > 0 && (
-              <div
-                className="muted"
-                style={{ marginTop: 4, fontSize: "0.78rem" }}
-              >
+            <RosterPicker
+              names={roster}
+              valueByName={valueByName}
+              selected={playerNames}
+              onToggle={togglePlayer}
+              disabled={loading}
+              emptyMessage={myTeam ? "No matches" : "No players on this roster"}
+            />
+            {playerNameList.length > 1 && offerTotals.my > 0 ? (
+              <span className={styles.selectionTotal}>
                 Offer total: {fmtValue(offerTotals.my)} my ·{" "}
                 {fmtValue(offerTotals.market)} market
-              </div>
-            )}
+              </span>
+            ) : null}
           </div>
 
-          {/* ── Column 3: Trade with + optional target roster ── */}
-          <div className="angle-field">
-            <span className="muted">Trade with</span>
-            <select
-              value={targetOwnerId}
-              onChange={(e) => setTargetOwnerId(e.target.value)}
-              disabled={loading || opposingTeams.length === 0}
-            >
-              <option value="">Any team</option>
-              {opposingTeams.map((t) => (
-                <option key={t.ownerId} value={String(t.ownerId || "")}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+          {/* Column 3 — counterparty + acquire targets + advanced */}
+          <div className={styles.field}>
+            <Field label="Trade with" id="angle-target">
+              <Select
+                id="angle-target"
+                value={targetOwnerId}
+                onChange={(e) => setTargetOwnerId(e.target.value)}
+                disabled={loading || opposingTeams.length === 0}
+              >
+                <option value="">Any team</option>
+                {opposingTeams.map((t) => (
+                  <option key={t.ownerId} value={String(t.ownerId || "")}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-            {/* Target team roster — appears when a team is selected */}
-            {targetTeam && (
-              <div style={{ marginTop: 10 }}>
-                <div className="muted" style={{ fontSize: "0.78rem", marginBottom: 4 }}>
-                  Players to acquire from {targetTeam.name}
-                  {targetPlayerNameList.length > 0 && (
-                    <span> ({targetPlayerNameList.length} selected)</span>
-                  )}
-                </div>
-                <input
+            {targetTeam ? (
+              <>
+                <span className={styles.fieldLabel}>
+                  Acquire from {targetTeam.name}
+                  {targetPlayerNameList.length > 0 ? (
+                    <span className={styles.fieldCount}>
+                      {targetPlayerNameList.length} selected
+                    </span>
+                  ) : null}
+                </span>
+                <Input
                   type="search"
                   placeholder={`Search ${targetTeam.name}…`}
                   value={targetPlayerSearch}
                   onChange={(e) => setTargetPlayerSearch(e.target.value)}
                   disabled={loading}
-                  style={{ marginBottom: 6, width: "100%" }}
+                  aria-label={`Search ${targetTeam.name}`}
                 />
-                <div
-                  style={{
-                    maxHeight: 220,
-                    overflowY: "auto",
-                    border: "1px solid var(--border, #2a2a3a)",
-                    borderRadius: 6,
-                    padding: "4px 6px",
-                    background: "var(--surface-2, transparent)",
-                  }}
-                >
-                  {targetRoster.length === 0 ? (
-                    <div className="muted" style={{ padding: 8, fontSize: "0.85rem" }}>
-                      No matches
-                    </div>
-                  ) : (
-                    targetRoster.map((name) => {
-                      const info = valueByName.get(name);
-                      const checked = targetPlayerNames.has(name);
-                      return (
-                        <label
-                          key={name}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "4px 4px",
-                            cursor: "pointer",
-                            fontSize: "0.85rem",
-                            borderRadius: 4,
-                            background: checked
-                              ? "rgba(110, 224, 123, 0.08)"
-                              : "transparent",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleTargetPlayer(name)}
-                            disabled={loading}
-                          />
-                          <span style={{ flex: 1 }}>
-                            {name}
-                            <span
-                              className="muted"
-                              style={{ marginLeft: 6, fontSize: "0.78rem" }}
-                            >
-                              {info?.position || "—"}
-                            </span>
-                          </span>
-                          {info?.my_value ? (
-                            <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                              {fmtValue(info.my_value)}
-                            </span>
-                          ) : null}
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-                {targetPlayerNameList.length > 1 && targetTotals.my > 0 && (
-                  <div
-                    className="muted"
-                    style={{ marginTop: 4, fontSize: "0.78rem" }}
-                  >
+                <RosterPicker
+                  names={targetRoster}
+                  valueByName={valueByName}
+                  selected={targetPlayerNames}
+                  onToggle={toggleTargetPlayer}
+                  disabled={loading}
+                  emptyMessage="No matches"
+                />
+                {targetPlayerNameList.length > 1 && targetTotals.my > 0 ? (
+                  <span className={styles.selectionTotal}>
                     Target total: {fmtValue(targetTotals.my)} my ·{" "}
                     {fmtValue(targetTotals.market)} market
-                  </div>
-                )}
-              </div>
-            )}
-
-            <details style={{ marginTop: 12 }}>
-              <summary
-                className="muted"
-                style={{ cursor: "pointer", fontSize: "0.82rem" }}
-              >
-                Advanced options
-              </summary>
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  marginTop: 8,
-                  fontSize: "0.85rem",
-                }}
-              >
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
-                >
-                  <span className="muted" style={{ fontSize: "0.78rem" }}>
-                    Min my-value gain %{" "}
-                    <span style={{ fontStyle: "italic" }}>
-                      (counter beats offer by ≥)
-                    </span>
                   </span>
-                  <input
+                ) : null}
+              </>
+            ) : null}
+
+            <details>
+              <summary>Advanced thresholds</summary>
+              <div className={styles.advanced}>
+                <Field
+                  label="Min my-value gain %"
+                  hint="Counter must beat the offer by at least this much on your board."
+                  id="angle-min-gain"
+                >
+                  <Input
+                    id="angle-min-gain"
                     type="number"
                     step="1"
                     min="0"
@@ -572,246 +598,95 @@ export default function AnglePage() {
                     onChange={(e) => setMinMyGainPct(e.target.value)}
                     disabled={loading}
                   />
-                </label>
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
+                </Field>
+                <Field
+                  label="Max market gap %"
+                  hint="KTC for offense, IDPTC for IDP."
+                  id="angle-max-market"
                 >
-                  <span className="muted" style={{ fontSize: "0.78rem" }}>
-                    Max market gap %{" "}
-                    <span style={{ fontStyle: "italic" }}>
-                      (KTC for offense, IDPTC for IDP)
-                    </span>
-                  </span>
-                  <input
+                  <Input
+                    id="angle-max-market"
                     type="number"
                     step="1"
                     value={maxMarketGainPct}
                     onChange={(e) => setMaxMarketGainPct(e.target.value)}
                     disabled={loading}
                   />
-                </label>
+                </Field>
               </div>
             </details>
           </div>
         </div>
 
-        <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={findTrades}
-            disabled={!canSubmit}
-            style={{ minHeight: 42 }}
-          >
-            {submitLabel}
-          </button>
-          {(playerNameList.length > 0 || targetPlayerNameList.length > 0) && !loading && (
-            <button
-              type="button"
-              className="button"
+        <div className={styles.actions}>
+          <Button variant="primary" onClick={findTrades} disabled={!canSubmit} loading={loading}>
+            {isAcquireMode
+              ? `Find what to give up (${targetPlayerNameList.length})`
+              : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`}
+          </Button>
+          {(playerNameList.length > 0 || targetPlayerNameList.length > 0) && !loading ? (
+            <Button
               onClick={() => {
                 setPlayerNames(new Set());
                 setTargetPlayerNames(new Set());
               }}
-              style={{ minHeight: 42 }}
             >
               Clear selection
-            </button>
-          )}
+            </Button>
+          ) : null}
         </div>
-        {isAcquireMode && (
-          <p className="muted" style={{ marginTop: 8, fontSize: "0.8rem" }}>
-            Acquire mode — finding what you&apos;d need to give up for the selected players.
-          </p>
-        )}
-        {err && (
-          <p className="err-text" style={{ marginTop: 12 }}>
-            {err}
-          </p>
-        )}
-      </section>
 
-      {warnings.length > 0 && (
-        <section className="card" style={{ borderColor: "var(--amber, #d4a64a)" }}>
-          <strong style={{ display: "block", marginBottom: 6 }}>Note</strong>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {err ? (
+          <Banner tone="negative" title="Couldn't find packages">
+            {err}
+          </Banner>
+        ) : null}
+      </Panel>
+
+      {warnings.length > 0 ? (
+        <Banner tone="warning" title="Note">
+          <ul>
             {warnings.map((w, i) => (
-              <li key={i} className="muted" style={{ fontSize: "0.85rem" }}>
-                {w}
-              </li>
+              <li key={i}>{w}</li>
             ))}
           </ul>
-        </section>
-      )}
+        </Banner>
+      ) : null}
 
-      {fixedSide && (
-        <section className="card">
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "baseline",
-              gap: 12,
-              justifyContent: "space-between",
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div className="muted" style={{ fontSize: "0.75rem" }}>
-                {resultIsAcquire ? "You receive" : "You send"}
-              </div>
-              <ul
-                style={{
-                  margin: "4px 0 0",
-                  paddingLeft: 18,
-                  fontSize: "0.95rem",
-                }}
-              >
-                {(fixedSide.players || []).map((p) => (
-                  <li key={p.name}>
-                    <strong>{p.name}</strong>{" "}
-                    <span className="muted" style={{ fontSize: "0.78rem" }}>
-                      {p.position}
-                    </span>{" "}
-                    <span style={{ fontSize: "0.82rem" }}>
-                      — {fmtValue(p.my_value)} my ·{" "}
-                      {fmtValue(p.market_value)}{" "}
-                      {marketLabelForSource(p.market_source)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {(fixedSide.my_total || fixedSide.market_total) && (
-              <div style={{ display: "flex", gap: 18, fontSize: "0.9rem" }}>
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    My total
-                  </div>
-                  <div style={{ fontWeight: 600 }}>
-                    {fmtValue(fixedSide.my_total)}
-                  </div>
-                </div>
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    Market total
-                  </div>
-                  <div style={{ fontWeight: 600 }}>
-                    {fmtValue(fixedSide.market_total)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+      <FixedSidePanel fixedSide={fixedSide} resultIsAcquire={resultIsAcquire} />
 
-      {result && (
-        <section className="card">
-          <div style={{ marginBottom: 10 }}>
-            <strong style={{ fontSize: "1rem" }}>
-              {resultIsAcquire
-                ? `What to give up${targetTeam ? ` to ${targetTeam.name}` : ""}`
-                : targetTeam
-                  ? `Return options from ${targetTeam.name}`
-                  : "Return options from any team"}
-            </strong>
-            <div className="muted" style={{ fontSize: "0.78rem", marginTop: 2 }}>
-              Sorted by best edge. Each package clears +
-              {Number(minMyGainPct)}% on your board and stays within ±
-              {Number(maxMarketGainPct)}% on the market the other side
-              consults.
-            </div>
-          </div>
-
-          {candidates.length === 0 ? (
-            <p className="muted" style={{ margin: 0 }}>
-              No packages clear the +{Number(minMyGainPct)}% / ±
-              {Number(maxMarketGainPct)}% bar with this selection
-              {targetTeam ? ` against ${targetTeam.name}` : ""}. Try a
-              different selection, loosen the percentages under
-              Advanced, or remove the team filter.
-            </p>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {candidates.map((c, idx) => (
-                <div
-                  key={`${c.owner_id}-${idx}-${(c.players || []).map((p) => p.name).join("|")}`}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: 16,
-                    alignItems: "center",
-                    padding: "10px 12px",
-                    border: "1px solid var(--border, #2a2a3a)",
-                    borderRadius: 6,
-                    background: "var(--surface, transparent)",
-                  }}
-                >
-                  <div>
-                    <div
-                      className="muted"
-                      style={{ fontSize: "0.7rem", marginBottom: 2 }}
-                    >
-                      {resultIsAcquire
-                        ? `Give to ${targetTeam?.name || "them"}`
-                        : `From ${c.team || "(unknown)"}`}{" "}
-                      · {c.size} {c.size === 1 ? "player" : "players"}
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {(c.players || []).map((p) => (
-                        <li key={p.name} style={{ fontSize: "0.92rem" }}>
-                          <strong>{p.name}</strong>{" "}
-                          <span
-                            className="muted"
-                            style={{ fontSize: "0.78rem" }}
-                          >
-                            {p.position}
-                          </span>{" "}
-                          <span style={{ fontSize: "0.8rem" }}>
-                            — {fmtValue(p.my_value)} my ·{" "}
-                            {fmtValue(p.market_value)}{" "}
-                            {marketLabelForSource(p.market_source)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: 2,
-                      fontSize: "0.82rem",
-                      minWidth: 130,
-                    }}
-                  >
-                    <div className="muted" style={{ fontSize: "0.7rem" }}>
-                      {fmtValue(c.my_total)} my · {fmtValue(c.market_total)}{" "}
-                      market
-                    </div>
-                    <div style={{ color: "var(--cyan, #5fc7ff)" }}>
-                      {fmtSignedPct(c.my_gain_pct)} mine
-                    </div>
-                    <div className="muted" style={{ fontSize: "0.78rem" }}>
-                      {fmtSignedPct(c.market_gain_pct)} market
-                    </div>
-                    <div
-                      style={{ color: "var(--green, #6ee07b)", fontWeight: 600 }}
-                    >
-                      arb {fmtSignedPct(c.arb_score)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-    </div>
+      {result ? (
+        <Panel
+          flush
+          title={
+            resultIsAcquire
+              ? `What to give up${targetTeam ? ` to ${targetTeam.name}` : ""}`
+              : targetTeam
+                ? `Return options from ${targetTeam.name}`
+                : "Return options from any team"
+          }
+          subtitle={`Each package clears +${Number(minMyGainPct)}% on your board and stays within ±${Number(maxMarketGainPct)}% on the market the other side consults.`}
+        >
+          <DataTable
+            caption="Ranked counter-packages, best arbitrage edge first"
+            columns={packageColumns}
+            rows={candidates}
+            rowKey={(c, i) =>
+              `${c.owner_id}-${i}-${(c.players || []).map((p) => p.name).join("|")}`
+            }
+            density="compact"
+            defaultSort={{ key: "arb_score", direction: "desc" }}
+            emptyState={
+              <EmptyState
+                title="No packages clear the bar"
+                description={`Nothing hits +${Number(minMyGainPct)}% / ±${Number(maxMarketGainPct)}% with this selection${
+                  targetTeam ? ` against ${targetTeam.name}` : ""
+                }. Try a different selection, loosen the thresholds under Advanced, or remove the team filter.`}
+              />
+            }
+          />
+        </Panel>
+      ) : null}
+    </main>
   );
 }

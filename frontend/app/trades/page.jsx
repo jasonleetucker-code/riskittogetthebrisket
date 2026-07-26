@@ -4,23 +4,376 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
-import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import {
+  Badge,
+  Banner,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  Movement,
+  PageHeader,
+  Panel,
+  Select,
+  SkeletonTable,
+} from "@/components/ds";
+import { PlayerImage } from "@/components/ui";
 import { TRADE_ALPHA } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
   analyzeTradeTendencies,
   buildCombinedPairTrade,
-  POS_GROUP_COLORS,
 } from "@/lib/league-analysis";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
 import { useRankHistory } from "@/components/useRankHistory";
 import { buildHistoryLookup } from "@/lib/value-history";
 import { gradeRetro } from "@/lib/trade-retro-value";
+import styles from "./trades.module.css";
 
-const POS_COLORS = {
-  QB: "#e74c3c", RB: "#27ae60", WR: "#3498db", TE: "#e67e22",
-  PICK: "var(--amber)", DL: "#9b59b6", LB: "#8e44ad", DB: "#16a085",
+// ── /trades — the trade ledger ────────────────────────────────────────
+//
+// Every analyzed league trade, the running winners/losers table, and
+// per-manager tendencies.  All grading, value, and retro math lives in
+// lib/league-analysis + lib/trade-retro-value + lib/value-history; this
+// file only arranges the results.
+
+const RETRO_LABEL = {
+  aged_well: "Aged well",
+  aged_poorly: "Aged poorly",
+  stable: "Stable",
 };
+
+const RETRO_TONE = {
+  aged_well: "positive",
+  aged_poorly: "negative",
+  stable: "neutral",
+};
+
+function fmtSigned(n) {
+  const v = Math.round(Number(n) || 0);
+  return `${v >= 0 ? "+" : "−"}${Math.abs(v).toLocaleString()}`;
+}
+
+// ── Winners & losers ──────────────────────────────────────────────────
+
+function TeamScoresPanel({ teamScores, alpha }) {
+  const rows = useMemo(
+    () =>
+      Object.entries(teamScores).map(([key, s]) => ({
+        key,
+        team: s.displayName || "Unknown",
+        trades: s.trades,
+        won: s.won,
+        lost: s.lost,
+        totalGain: s.totalGain,
+        // Same de-scaling the legacy card did: undo the alpha exponent
+        // so the number reads on the display value scale.
+        netValue:
+          Math.sign(s.totalGain) *
+          Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha)),
+      })),
+    [teamScores, alpha],
+  );
+
+  const columns = useMemo(
+    () => [
+      {
+        key: "team",
+        header: "Team",
+        sortable: true,
+        accessor: (r) => r.team,
+      },
+      {
+        key: "trades",
+        header: "Trades",
+        numeric: true,
+        sortable: true,
+        accessor: (r) => r.trades,
+      },
+      {
+        key: "record",
+        header: "W-L",
+        align: "center",
+        accessor: (r) => r.won,
+        render: (r) => `${r.won}-${r.lost}`,
+      },
+      {
+        key: "netValue",
+        header: "Net value",
+        numeric: true,
+        sortable: true,
+        accessor: (r) => r.netValue,
+        render: (r) => (
+          <Movement delta={r.netValue} format={(n) => n.toLocaleString()} />
+        ),
+      },
+    ],
+    [],
+  );
+
+  if (!rows.length) return null;
+
+  return (
+    <Panel
+      flush
+      title="Trade winners & losers"
+      subtitle={`Cumulative net value across every analyzed trade (alpha=${alpha}).`}
+    >
+      <DataTable
+        caption="Per-team cumulative trade net value, best first"
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.key}
+        density="compact"
+        defaultSort={{ key: "netValue", direction: "desc" }}
+      />
+    </Panel>
+  );
+}
+
+function TendenciesPanel({ tendencies }) {
+  const columns = useMemo(
+    () => [
+      { key: "manager", header: "Manager", sortable: true, accessor: (t) => t.manager },
+      { key: "trades", header: "Trades", numeric: true, sortable: true, accessor: (t) => t.trades },
+      {
+        key: "avgGiven",
+        header: "Avg given",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (t) => t.avgGiven,
+        render: (t) => t.avgGiven.toLocaleString(),
+      },
+      {
+        key: "avgGot",
+        header: "Avg got",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (t) => t.avgGot,
+        render: (t) => t.avgGot.toLocaleString(),
+      },
+      {
+        key: "net",
+        header: "Net",
+        numeric: true,
+        sortable: true,
+        accessor: (t) => t.net,
+        render: (t) => <Movement delta={t.net} format={(n) => n.toLocaleString()} />,
+      },
+      { key: "tendency", header: "Tendency", accessor: (t) => t.tendency },
+    ],
+    [],
+  );
+
+  if (!tendencies.length) return null;
+
+  return (
+    <Panel flush title="Trade tendencies" subtitle="How each manager trades.">
+      <DataTable
+        caption="Per-manager trade tendencies"
+        columns={columns}
+        rows={tendencies}
+        rowKey={(t) => t.id || t.manager}
+        density="compact"
+        defaultSort={{ key: "trades", direction: "desc" }}
+      />
+    </Panel>
+  );
+}
+
+// ── Trade entry ───────────────────────────────────────────────────────
+
+function AssetPill({ item }) {
+  return (
+    <span className={styles.assetPill}>
+      <PlayerImage
+        playerId={item.playerId}
+        team={item.team}
+        position={item.pos}
+        name={item.name}
+        size={20}
+      />
+      <Badge tone="outline">{item.isPick ? "PICK" : item.pos}</Badge>
+      <span className={styles.assetPillName}>{item.name}</span>
+      <span className={styles.assetPillValue}>{item.val.toLocaleString()}</span>
+    </span>
+  );
+}
+
+function AssetGroup({ label, items, total }) {
+  return (
+    <div className={styles.assetGroup}>
+      <span className={styles.assetLabel}>
+        {label}{" "}
+        <span className={styles.assetLabelTotal}>
+          ({Math.round(total).toLocaleString()})
+        </span>
+      </span>
+      {items.length === 0 ? (
+        <span className={styles.assetEmpty}>Nothing</span>
+      ) : (
+        <div className={styles.assetPills}>
+          {items.map((item, j) => (
+            <AssetPill key={j} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TradeEntry({ analysis: a, retroSides = [] }) {
+  // Headline reflects the largest grievance — winner OR loser, whichever
+  // has the biggest magnitude pctGap.  Under ±3% the trade reads fair.
+  const showBadge = a.pctGap >= 3 && a.headlineSide;
+  const isLoserHeadline = showBadge && a.headlineDirection === "overpaid";
+
+  // Build a /trade?share=... href so clicking pre-loads the calculator.
+  // Each calculator side mirrors what that team RECEIVED — the natural
+  // "show me this as a 2-team deal" visualization.
+  const shareHref = useMemo(() => {
+    try {
+      const sides = (a.sides || []).map((side) => ({
+        name: String(side?.team || "").slice(0, 40),
+        players: (side.got || [])
+          .map((it) => String(it?.name || "").trim())
+          .filter(Boolean),
+      }));
+      if (sides.length < 2 || sides.every((s) => s.players.length === 0)) {
+        return null;
+      }
+      return `/trade?${SHARE_PARAM}=${encodeTrade({ sides })}`;
+    } catch {
+      return null;
+    }
+  }, [a.sides]);
+
+  const body = (
+    <>
+      <div className={styles.entryHeader}>
+        <span className={styles.entryDate}>
+          {a.combined
+            ? `${a.teamA} ↔ ${a.teamB} · ${a.tradeCount} trade${a.tradeCount === 1 ? "" : "s"} combined`
+            : `Week ${a.trade.week} · ${a.date}`}
+        </span>
+        {showBadge ? (
+          <Badge tone={isLoserHeadline ? "negative" : "positive"}>
+            {a.headlineSide.team}{" "}
+            {isLoserHeadline ? "overpaid by" : "won by"} {a.pctGap.toFixed(1)}%
+          </Badge>
+        ) : (
+          <Badge tone="neutral">Fair trade</Badge>
+        )}
+      </div>
+
+      <div
+        className={styles.sides}
+        data-sides={a.sides.length > 2 ? "3" : "2"}
+      >
+        {a.sides.map((side, i) => {
+          const retro = retroSides[i];
+          const retroLabel = retro ? RETRO_LABEL[retro.verdict] : null;
+          const retroDelta = Number.isFinite(retro?.verdictDelta)
+            ? Math.round(retro.verdictDelta)
+            : null;
+          // The V13-adjusted net is the meaningful "did this team win"
+          // quantity; VA contribution shown inline when it moved things.
+          const net = side.netAdjusted ?? side.netValue;
+          return (
+            <div key={i} className={styles.side}>
+              <div className={styles.sideHead}>
+                <span className={styles.sideTeam}>{side.team}</span>
+                {side.grade ? (
+                  <>
+                    <span className={styles.sideGrade}>{side.grade.grade}</span>
+                    <span className={styles.entryDate}>{side.grade.label}</span>
+                  </>
+                ) : null}
+              </div>
+              <AssetGroup label="Gave" items={side.gave} total={side.gaveValue} />
+              <AssetGroup label="Got" items={side.got} total={side.gotValue} />
+              <div className={styles.sideNet}>
+                <span>Net {fmtSigned(net)}</span>
+                {side.vaNet != null && Math.abs(side.vaNet) >= 1 ? (
+                  <span className={styles.sideNetVa}>
+                    ({fmtSigned(side.vaNet)} VA)
+                  </span>
+                ) : null}
+                {retroLabel ? (
+                  <Badge tone={RETRO_TONE[retro.verdict] || "neutral"}>
+                    {retroDelta != null
+                      ? `${retroLabel} (${fmtSigned(retroDelta)})`
+                      : retroLabel}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {shareHref ? (
+        <div className={styles.entryFooter}>Open in the trade calculator →</div>
+      ) : null}
+    </>
+  );
+
+  const entryClass = [
+    styles.entry,
+    showBadge ? (isLoserHeadline ? styles.entryLost : styles.entryWon) : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (shareHref) {
+    return (
+      <Panel
+        as={Link}
+        href={shareHref}
+        className={`${entryClass} ${styles.entryLink}`}
+        aria-label={`Open the ${a.sides.map((s) => s.team).join(" / ")} trade in the calculator`}
+      >
+        {body}
+      </Panel>
+    );
+  }
+
+  return <Panel className={entryClass}>{body}</Panel>;
+}
+
+function CombinedSection({ combined, teamA, teamB }) {
+  if (!combined) {
+    return (
+      <Panel>
+        <EmptyState
+          title="No head-to-head trades"
+          description={`${teamA} and ${teamB} have never traded directly with each other (3+ team trades are not combined).`}
+        />
+      </Panel>
+    );
+  }
+  if (combined.wash) {
+    return (
+      <Panel>
+        <EmptyState
+          title="Net wash"
+          description={`Across ${combined.tradeCount} trade${
+            combined.tradeCount === 1 ? "" : "s"
+          }, every asset ${teamA} and ${teamB} swapped eventually came back — the combined trade nets to nothing.`}
+        />
+      </Panel>
+    );
+  }
+  return (
+    <div className={styles.ledger}>
+      <TradeEntry analysis={combined} retroSides={[]} />
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────
 
 export default function TradesPage() {
   const { rows, rawData, loading, error } = useApp();
@@ -31,36 +384,33 @@ export default function TradesPage() {
 
   const alpha = settings.alpha || TRADE_ALPHA;
   const windowDays = settings.tradeHistoryWindowDays || 365;
-    const analysis = useMemo(
+  const analysis = useMemo(
     () => analyzeSleeperTradeHistory(rawData, rows, windowDays, alpha),
     [rawData, rows, windowDays, alpha],
   );
 
-  // Pull rank history so we can value each trade at the date it
-  // happened.  ``useRankHistory`` is single-flight + cached for 60s.
+  // Rank history lets each trade be valued at the date it happened.
+  // ``useRankHistory`` is single-flight + cached for 60s.
   const { history: rankHistory } = useRankHistory({ days: 365 });
-  const historyLookup = useMemo(
-    () => buildHistoryLookup(rankHistory),
-    [rankHistory],
-  );
-  // Map of (analyzed trade.id) → per-side retro grade so the renderer
-  // can stamp an "aged well / aged poorly / stable" chip on each side.
+  const historyLookup = useMemo(() => buildHistoryLookup(rankHistory), [rankHistory]);
+
   const retroByTrade = useMemo(() => {
     if (!analysis?.analyzed?.length) return new Map();
     const out = new Map();
     for (const a of analysis.analyzed) {
-      const ts = Number(a.trade?._statusUpdatedMs)
-        || Date.parse(a.date)
-        || Date.now();
-      const perSide = (a.sides || []).map((side) =>
-        gradeRetro({
-          side,
-          currentNet: side.netValue,
-          asOfMs: ts,
-          historyLookup,
-        }),
+      const ts =
+        Number(a.trade?._statusUpdatedMs) || Date.parse(a.date) || Date.now();
+      out.set(
+        a.id,
+        (a.sides || []).map((side) =>
+          gradeRetro({
+            side,
+            currentNet: side.netValue,
+            asOfMs: ts,
+            historyLookup,
+          }),
+        ),
       );
-      out.set(a.id, perSide);
     }
     return out;
   }, [analysis, historyLookup]);
@@ -77,15 +427,11 @@ export default function TradesPage() {
     const q = playerQuery.trim().toLowerCase();
     let results = analysis.analyzed;
     if (teamFilter) {
-      results = results.filter((a) =>
-        a.sides.some((s) => s.team === teamFilter),
-      );
+      results = results.filter((a) => a.sides.some((s) => s.team === teamFilter));
     }
     if (q) {
-      // Match against every item name on either side of the trade,
-      // regardless of whether the player/pick was given or received.
-      // ``item.name`` covers both players ("Patrick Mahomes") and
-      // picks ("2026 Pick 1.06") so one query input does both.
+      // Match any item name on either side — ``item.name`` covers both
+      // players and picks, so one input does both.
       const itemMatches = (item) =>
         String(item?.name || "").toLowerCase().includes(q);
       results = results.filter((a) =>
@@ -97,11 +443,11 @@ export default function TradesPage() {
     return results;
   }, [analysis, teamFilter, playerQuery]);
 
-  // When two distinct teams are picked, collapse their entire
-  // head-to-head history into one synthetic "big trade" — assets that
-  // bounced back and forth cancel out (see buildCombinedPairTrade).
+  // Two distinct teams ⇒ collapse their head-to-head history into one
+  // synthetic trade; assets that bounced back and forth cancel out.
+  const combineMode = !!(teamFilter && teamFilterB && teamFilter !== teamFilterB);
   const combined = useMemo(() => {
-    if (!teamFilter || !teamFilterB || teamFilter === teamFilterB) return null;
+    if (!combineMode) return null;
     return buildCombinedPairTrade(
       analysis,
       teamFilter,
@@ -110,524 +456,143 @@ export default function TradesPage() {
       rows,
       alpha,
     );
-  }, [analysis, teamFilter, teamFilterB, rawData, rows, alpha]);
-  const combineMode = !!(teamFilter && teamFilterB && teamFilter !== teamFilterB);
+  }, [combineMode, analysis, teamFilter, teamFilterB, rawData, rows, alpha]);
 
   const tendencies = useMemo(
     () => analyzeTradeTendencies(rawData, rows),
     [rawData, rows],
   );
 
-  if (loading) return <LoadingState message="Loading trade data..." />;
-  if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
-
   const hasTrades = analysis.analyzed.length > 0;
 
   return (
-    <section>
-      <div className="card">
-        <PageHeader
-          title="Trade History"
-          subtitle={
-            combineMode
-              ? `Combined head-to-head history: ${teamFilter} ↔ ${teamFilterB} (assets that bounced back cancel out)`
-              : `Analyzing ${analysis.analyzed.length} trades in the last ${windowDays} days using alpha=${alpha}`
-          }
-          actions={
-            hasTrades && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {!combineMode && (
-                  <input
-                    className="input"
-                    type="search"
-                    placeholder="Search player or pick..."
-                    value={playerQuery}
-                    onChange={(e) => setPlayerQuery(e.target.value)}
-                    style={{ minWidth: 200 }}
-                  />
-                )}
-                {teams.length > 0 && (
-                  <select
-                    className="input"
+    <main className={`main-shell ${styles.page} trades-page`}>
+      <PageHeader
+        eyebrow="Ledger"
+        title="Trade History"
+        description={
+          combineMode
+            ? `Combined head-to-head: ${teamFilter} ↔ ${teamFilterB} — assets that bounced back cancel out.`
+            : `${analysis.analyzed.length} trades in the last ${windowDays} days, graded at alpha=${alpha}.`
+        }
+      />
+
+      {loading ? (
+        <Panel flush title="Trade History">
+          <SkeletonTable rows={6} columns={4} />
+        </Panel>
+      ) : error ? (
+        <Banner tone="negative" title="Couldn't load trade data">
+          {error}
+        </Banner>
+      ) : !hasTrades ? (
+        <Panel>
+          <EmptyState
+            title="No trades found"
+            description="Load dynasty data with a Sleeper league to see trade history."
+          />
+        </Panel>
+      ) : (
+        <>
+          <Panel dense className="trades-controls">
+            <div className={styles.controls}>
+              {!combineMode ? (
+                <div className={styles.controlsSearch}>
+                  <Field label="Search" id="trades-search">
+                    <Input
+                      id="trades-search"
+                      type="search"
+                      placeholder="Player or pick…"
+                      value={playerQuery}
+                      onChange={(e) => setPlayerQuery(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              ) : null}
+              {teams.length > 0 ? (
+                <Field label="Team" id="trades-team">
+                  <Select
+                    id="trades-team"
                     value={teamFilter}
                     onChange={(e) => {
                       const v = e.target.value;
                       setTeamFilter(v);
-                      // Clearing the first team, or matching the
-                      // second, drops the combine selection.
+                      // Clearing the first team, or matching the second,
+                      // drops the combine selection.
                       if (!v || v === teamFilterB) setTeamFilterB("");
                     }}
-                    style={{ minWidth: 160 }}
                   >
                     <option value="">All teams</option>
                     {teams.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
                     ))}
-                  </select>
-                )}
-                {teams.length > 0 && teamFilter && (
-                  <select
-                    className="input"
+                  </Select>
+                </Field>
+              ) : null}
+              {teams.length > 0 && teamFilter ? (
+                <Field label="Combine with" id="trades-team-b">
+                  <Select
+                    id="trades-team-b"
                     value={teamFilterB}
                     onChange={(e) => setTeamFilterB(e.target.value)}
-                    style={{ minWidth: 180 }}
-                    aria-label="Combine with a second team"
                   >
-                    <option value="">+ combine 2nd team…</option>
+                    <option value="">— none —</option>
                     {teams
                       .filter((t) => t !== teamFilter)
                       .map((t) => (
-                        <option key={t} value={t}>vs {t}</option>
+                        <option key={t} value={t}>
+                          vs {t}
+                        </option>
                       ))}
-                  </select>
-                )}
-              </div>
-            )
-          }
-        />
-      </div>
-
-      {!hasTrades && (
-        <div className="card">
-          <EmptyState
-            title="No trades found"
-            message="Load dynasty data with a Sleeper league to see trade history."
-          />
-        </div>
-      )}
-
-      {/* Two-team combined view: one synthetic "big trade". */}
-      {hasTrades && combineMode && (
-        <CombinedTradeSection
-          combined={combined}
-          teamA={teamFilter}
-          teamB={teamFilterB}
-        />
-      )}
-
-      {hasTrades && !combineMode && (
-        <>
-          {/* Winners & Losers stats card */}
-          <TeamScoresCard teamScores={analysis.teamScores} alpha={alpha} />
-
-          {/* Trade tendencies */}
-          {tendencies.length > 0 && <TradeTendenciesCard tendencies={tendencies} />}
-
-          {/* Trade list */}
-          {filtered.length > 0 && (
-            <div className="list" style={{ marginTop: "var(--space-md)" }}>
-              {filtered.map((a, idx) => (
-                <TradeCard
-                  key={idx}
-                  analysis={a}
-                  retroSides={retroByTrade.get(a.id) || []}
-                />
-              ))}
+                  </Select>
+                </Field>
+              ) : null}
             </div>
-          )}
+          </Panel>
 
-          {(teamFilter || playerQuery) && filtered.length === 0 && (
-            <div className="card">
-              <EmptyState
-                title="No trades match"
-                message={
-                  teamFilter && playerQuery
-                    ? `No trades for ${teamFilter} involving "${playerQuery}".`
-                    : playerQuery
-                      ? `No trades involving "${playerQuery}".`
-                      : `No trades found for ${teamFilter}.`
-                }
-              />
-            </div>
+          {combineMode ? (
+            <CombinedSection
+              combined={combined}
+              teamA={teamFilter}
+              teamB={teamFilterB}
+            />
+          ) : (
+            <>
+              <TeamScoresPanel teamScores={analysis.teamScores} alpha={alpha} />
+              <TendenciesPanel tendencies={tendencies} />
+
+              {filtered.length > 0 ? (
+                <div className={styles.ledger}>
+                  {filtered.map((a, idx) => (
+                    <TradeEntry
+                      key={a.id ?? idx}
+                      analysis={a}
+                      retroSides={retroByTrade.get(a.id) || []}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {(teamFilter || playerQuery) && filtered.length === 0 ? (
+                <Panel>
+                  <EmptyState
+                    title="No trades match"
+                    description={
+                      teamFilter && playerQuery
+                        ? `No trades for ${teamFilter} involving "${playerQuery}".`
+                        : playerQuery
+                          ? `No trades involving "${playerQuery}".`
+                          : `No trades found for ${teamFilter}.`
+                    }
+                  />
+                </Panel>
+              ) : null}
+            </>
           )}
         </>
       )}
-    </section>
-  );
-}
-
-function TeamScoresCard({ teamScores, alpha }) {
-  // Iterate Object.entries so each card's React key matches the
-  // aggregation key (ownerId-first).  Using rosterId alone collides
-  // in the orphan-takeover case where two owners share a rosterId.
-  const sorted = useMemo(
-    () => Object.entries(teamScores).sort((a, b) => b[1].totalGain - a[1].totalGain),
-    [teamScores],
-  );
-
-  if (!sorted.length) return null;
-
-  return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
-        Trade Winners & Losers
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-        {sorted.map(([key, s]) => {
-          const teamName = s.displayName || "Unknown";
-          const netVal = Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha));
-          const netSign = s.totalGain >= 0 ? "+" : "-";
-          const netColor = s.totalGain >= 0 ? "var(--green)" : "var(--red)";
-          const borderColor = s.totalGain >= 0 ? "var(--green)" : s.totalGain < -50 ? "var(--red)" : "var(--border)";
-
-          return (
-            <div
-              key={key}
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: `3px solid ${borderColor}`,
-                borderRadius: 6,
-                padding: "10px 14px",
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: "0.78rem" }}>{teamName}</div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: "0.68rem", color: "var(--subtext)", margin: "2px 0" }}>
-                {s.trades} trades &middot; {s.won}W-{s.lost}L
-              </div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem", fontWeight: 700, color: netColor }}>
-                {netSign}{netVal.toLocaleString()} net value
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TradeTendenciesCard({ tendencies }) {
-  return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
-        Trade Tendencies
-      </div>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Manager</th>
-              <th style={{ textAlign: "right" }}>Trades</th>
-              <th style={{ textAlign: "right" }}>Avg Given</th>
-              <th style={{ textAlign: "right" }}>Avg Got</th>
-              <th style={{ textAlign: "right" }}>Net</th>
-              <th>Tendency</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tendencies.map((t) => {
-              const netColor = t.net >= 0 ? "var(--green)" : "var(--red)";
-              const netSign = t.net >= 0 ? "+" : "";
-              return (
-                <tr key={t.id || t.manager}>
-                  <td style={{ fontWeight: 600 }}>{t.manager}</td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.trades}</td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.avgGiven.toLocaleString()}</td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.avgGot.toLocaleString()}</td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 700, color: netColor }}>
-                    {netSign}{t.net.toLocaleString()}
-                  </td>
-                  <td style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>{t.tendency}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function AssetPill({ item }) {
-  const posLabel = item.isPick ? "PICK" : item.pos;
-  const posColor = item.isPick ? POS_COLORS.PICK : (POS_COLORS[item.pos] || "#9b59b6");
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        fontSize: "0.66rem",
-        padding: "2px 6px 2px 2px",
-        border: "1px solid var(--border)",
-        borderRadius: 4,
-        background: "var(--bg-soft)",
-      }}
-    >
-      <PlayerImage
-        playerId={item.playerId}
-        team={item.team}
-        position={item.pos}
-        name={item.name}
-        size={20}
-      />
-      <span style={{ color: posColor, fontWeight: 700, fontSize: "0.58rem" }}>{posLabel}</span>
-      {item.name}
-      <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{item.val.toLocaleString()}</span>
-    </span>
-  );
-}
-
-function AssetRow({ label, items, total }) {
-  return (
-    <div style={{ marginBottom: 4 }}>
-      <div style={{ fontSize: "0.6rem", color: "var(--subtext)", fontWeight: 600, marginBottom: 2 }}>
-        {label} <span style={{ fontFamily: "var(--mono)", fontWeight: 400 }}>({Math.round(total).toLocaleString()})</span>
-      </div>
-      {items.length === 0 ? (
-        <div style={{ fontSize: "0.62rem", color: "var(--subtext)", fontStyle: "italic" }}>—</div>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {items.map((item, j) => (
-            <AssetPill key={j} item={item} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const RETRO_META = {
-  aged_well: { label: "Aged well", color: "var(--green)", soft: "var(--green-soft)" },
-  aged_poorly: { label: "Aged poorly", color: "var(--red)", soft: "var(--red-soft)" },
-  stable: { label: "Stable", color: "var(--subtext)", soft: "transparent" },
-  unknown: null,
-};
-
-function fmtRetro(retro) {
-  if (!retro) return null;
-  const meta = RETRO_META[retro.verdict];
-  if (!meta) return null;
-  const delta = Number.isFinite(retro.verdictDelta) ? Math.round(retro.verdictDelta) : null;
-  const sign = delta != null && delta !== 0 ? (delta > 0 ? "+" : "") : "";
-  return {
-    ...meta,
-    label: delta != null
-      ? `${meta.label} (${sign}${delta.toLocaleString()})`
-      : meta.label,
-    title: `Value at trade: ${retro.atTradeNet > 0 ? "+" : ""}${Math.round(retro.atTradeNet).toLocaleString()} · current: ${retro.currentNet > 0 ? "+" : ""}${Math.round(retro.currentNet || 0).toLocaleString()}`,
-  };
-}
-
-function CombinedTradeSection({ combined, teamA, teamB }) {
-  if (!combined) {
-    return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <EmptyState
-          title="No head-to-head trades"
-          message={`${teamA} and ${teamB} have never traded directly with each other (3+ team trades are not combined).`}
-        />
-      </div>
-    );
-  }
-  if (combined.wash) {
-    return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <EmptyState
-          title="Net wash"
-          message={`Across ${combined.tradeCount} trade${
-            combined.tradeCount === 1 ? "" : "s"
-          }, every asset ${teamA} and ${teamB} swapped eventually came back — the combined trade nets to nothing.`}
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="list" style={{ marginTop: "var(--space-md)" }}>
-      <TradeCard analysis={combined} retroSides={[]} />
-    </div>
-  );
-}
-
-function TradeCard({ analysis: a, retroSides = [] }) {
-  // Headline reflects the largest grievance — winner OR loser,
-  // whichever has the biggest magnitude pctGap.  If no side clears
-  // ±3%, the trade reads as fair on both the card header and the
-  // per-side grades.
-  const showBadge = a.pctGap >= 3 && a.headlineSide;
-  const isLoserHeadline = showBadge && a.headlineDirection === "overpaid";
-  const badgeBg = isLoserHeadline ? "var(--red-soft)" : "var(--green-soft)";
-  const badgeColor = isLoserHeadline ? "var(--red)" : "var(--green)";
-  const borderColor = isLoserHeadline ? "var(--red)" : "var(--green)";
-
-  // Build a /trade?share=... href so clicking the card pre-loads the
-  // trade in the calculator.  Each calculator side mirrors what that
-  // historical team RECEIVED, which is the natural visualization
-  // ("show me what this trade looked like as a 2-team deal").  Picks
-  // and players come through with their canonical names so the
-  // calculator's rowByName lookup resolves them on hydration.
-  const shareHref = useMemo(() => {
-    try {
-      const teamPlayerNames = (items) =>
-        (items || [])
-          .map((it) => String(it?.name || "").trim())
-          .filter(Boolean);
-      const sides = (a.sides || []).map((side) => ({
-        name: String(side?.team || "").slice(0, 40),
-        players: teamPlayerNames(side.got),
-      }));
-      // ``encodeTrade`` rejects empty sides arrays; defensively
-      // fall back to a non-clickable card if the data is malformed.
-      if (sides.length < 2 || sides.every((s) => s.players.length === 0)) {
-        return null;
-      }
-      const encoded = encodeTrade({ sides });
-      return `/trade?${SHARE_PARAM}=${encoded}`;
-    } catch {
-      return null;
-    }
-  }, [a.sides]);
-
-  const cardContent = (
-    <>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-          {a.combined
-            ? `${a.teamA} ↔ ${a.teamB} · ${a.tradeCount} trade${a.tradeCount === 1 ? "" : "s"} combined`
-            : `Week ${a.trade.week} · ${a.date}`}
-        </span>
-        {showBadge ? (
-          <span className="badge" style={{ background: badgeBg, color: badgeColor }}>
-            {a.headlineSide.team}{" "}
-            {a.headlineDirection === "overpaid" ? "overpaid by" : "won by"}{" "}
-            {/* Headline pct is V13-aware (driven by netAdjusted, see
-                league-analysis.js).  Per-side Net renders the
-                absolute V13 number + VA chip below — headline keeps
-                the percentage for at-a-glance scale-aware feedback. */}
-            {a.pctGap.toFixed(1)}%
-          </span>
-        ) : (
-          <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
-            Fair trade
-          </span>
-        )}
-      </div>
-
-      {/* Sides: each shows Gave + Got + Net so 3+ team trades are legible. */}
-      <div
-        className="grid-responsive"
-        style={{
-          display: "grid",
-          gridTemplateColumns: a.sides.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr",
-          gap: 12,
-        }}
-      >
-        {a.sides.map((side, i) => {
-          const grade = side.grade;
-          const netColor = side.pctGap >= 3
-            ? "var(--green)"
-            : side.pctGap <= -3
-              ? "var(--red)"
-              : "var(--subtext)";
-          const netSign = side.netValue >= 0 ? "+" : "−";
-          const retroChip = fmtRetro(retroSides[i]);
-          return (
-            <div key={i}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <span style={{ fontWeight: 600, fontSize: "0.74rem" }}>{side.team}</span>
-                {grade && (
-                  <>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 800, color: grade.color }}>{grade.grade}</span>
-                    <span style={{ fontSize: "0.52rem", color: "var(--subtext)" }}>{grade.label}</span>
-                  </>
-                )}
-              </div>
-              <AssetRow label="Gave" items={side.gave} total={side.gaveValue} />
-              <AssetRow label="Got" items={side.got} total={side.gotValue} />
-              <div style={{
-                fontFamily: "var(--mono)",
-                fontSize: "0.62rem",
-                color: netColor,
-                fontWeight: 600,
-                marginTop: 2,
-              }}>
-                {/* Show the V13-adjusted net (linear + VA) as a single
-                    number — that's the meaningful "did this team win
-                    or lose" quantity.  Surface the VA contribution
-                    inline so users see when the stud-scarcity rule
-                    moved the verdict. */}
-                Net: {(side.netAdjusted ?? side.netValue) >= 0 ? "+" : "−"}
-                {Math.abs(Math.round(side.netAdjusted ?? side.netValue)).toLocaleString()}
-                {side.vaNet != null && Math.abs(side.vaNet) >= 1 && (
-                  <span style={{ color: "var(--subtext)", fontWeight: 400 }}>
-                    {" "}({side.vaNet >= 0 ? "+" : "−"}
-                    {Math.abs(Math.round(side.vaNet)).toLocaleString()} VA)
-                  </span>
-                )}
-              </div>
-              {retroChip && (
-                <div
-                  className="badge"
-                  title={retroChip.title}
-                  style={{
-                    fontSize: "0.6rem",
-                    fontFamily: "var(--mono)",
-                    background: retroChip.soft,
-                    color: retroChip.color,
-                    marginTop: 2,
-                    display: "inline-block",
-                  }}
-                >
-                  {retroChip.label}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Click-to-import affordance — hint at bottom so users learn
-          the card is interactive without forcing them to discover it. */}
-      {shareHref && (
-        <div style={{
-          marginTop: 8,
-          paddingTop: 8,
-          borderTop: "1px dashed var(--border)",
-          fontSize: "0.62rem",
-          color: "var(--subtext)",
-          textAlign: "right",
-          fontStyle: "italic",
-        }}>
-          Click to open in trade calculator →
-        </div>
-      )}
-    </>
-  );
-
-  // When a valid share URL was built, wrap the card content in a
-  // Next ``Link`` so click navigates the user to ``/trade?share=...``
-  // with the trade pre-loaded.  The trade page's existing share-URL
-  // hydration code (frontend/app/trade/page.jsx, "Share-URL decoder")
-  // resolves the player names against ``rowByName`` and populates
-  // both sides on mount.  Falls back to a plain card when the trade
-  // can't be encoded (malformed data, empty sides, etc.).
-  const cardStyle = {
-    borderLeft: `3px solid ${borderColor}`,
-    cursor: shareHref ? "pointer" : "default",
-    // Inherit the card's normal text color even when wrapped in a
-    // <Link> (which would otherwise paint everything in the link
-    // accent color).
-    color: "inherit",
-    textDecoration: "none",
-    display: "block",
-  };
-
-  if (shareHref) {
-    return (
-      <Link
-        href={shareHref}
-        className="card"
-        style={cardStyle}
-        aria-label={`Open this trade in the calculator`}
-      >
-        {cardContent}
-      </Link>
-    );
-  }
-
-  return (
-    <div className="card" style={{ borderLeft: `3px solid ${borderColor}` }}>
-      {cardContent}
-    </div>
+    </main>
   );
 }
