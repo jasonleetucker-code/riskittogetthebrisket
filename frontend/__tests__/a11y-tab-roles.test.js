@@ -55,12 +55,16 @@ const SCAN = ["app", "components"];
  */
 const BASELINE = {
   "app/trending/page.jsx": 1,
-  "app/news/page.jsx": 1,
   "app/league/activity/page.jsx": 1,
   "components/terminal/MarketTicker.jsx": 2,
   "components/terminal/PlayerMarketMovement.jsx": 2,
   "components/terminal/TeamNewsFeed.jsx": 1,
 };
+// Burned down so far:
+//   app/news/page.jsx — R3 (#551) moved it onto ds `Tabs`, which stamps
+//   a real role="tabpanel" + aria-controls. De-listed when the
+//   stale-entry assertion caught it on the first rebase onto merged
+//   main, which is precisely the job that assertion exists to do.
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -462,6 +462,22 @@ a { color: inherit; text-decoration: none; }
   margin-top: var(--space-md);
 }
 
+/* INTERIM — delete with the last `.card` consumer (R5 phase B).
+ *
+ * /league's `Card` became a ds `Panel` in phase A, and Panel sets no
+ * margins by design: vertical rhythm belongs to the page. But the
+ * /league sections render sequential Cards with no stack container, so
+ * without this the migration would silently collapse the spacing on all
+ * ~70 of them. This preserves the exact previous value while getting it
+ * off the inline style it used to live in.
+ *
+ * Phase B gives each section a real grid/flex gap; this rule goes with
+ * it. See docs/redesign/R5-PHASE-A-READY.md.
+ */
+.league-card {
+  margin-top: var(--space-md);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    PAGE HEADER
    ══════════════════════════════════════════════════════════════════════════ */

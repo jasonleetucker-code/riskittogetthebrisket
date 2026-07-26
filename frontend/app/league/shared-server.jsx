@@ -6,6 +6,12 @@
 // state) live in shared.jsx with a "use client" directive.
 
 import { avatarUrlFor, nameFor, fmtPoints } from "./shared-helpers.js";
+// Imported from the MODULE, not the @/components/ds barrel, on purpose:
+// the barrel re-exports CollapsiblePanel, which carries a client
+// directive, and pulling that into this server module would drag it
+// into the server graph for nothing.  ds Panel itself is hook-free and
+// server-safe (pinned by __tests__/components/ds/panel-server-safe.test.js).
+import { Panel } from "@/components/ds/Panel";
 
 export function Avatar({ managers, ownerId, size = 24, title }) {
   const url = avatarUrlFor(managers, ownerId);
@@ -51,33 +57,36 @@ export function Avatar({ managers, ownerId, size = 24, title }) {
   );
 }
 
+/**
+ * The /league container. Now a thin adapter over ds `Panel` — R5 phase A.
+ *
+ * Every one of its ~70 call sites is unchanged: the prop shape is kept
+ * (`action` singular maps to Panel's `actions`, `id` rides through), so
+ * this one edit migrates the whole surface.
+ *
+ * `className="league-card"` carries the vertical rhythm that used to be
+ * an inline `marginTop`. Panel sets no margins by design — spacing
+ * belongs to the page — but the /league sections render sequential
+ * Cards with no stack container, so dropping it would collapse the
+ * spacing on all 70. The `.league-card` rule is explicitly INTERIM and
+ * deletes in one line once phase B gives each section a real gap.
+ *
+ * Heading: Panel renders a real <h2> where this used to render a bare
+ * bold div. Verified safe before switching — a depth scan of every
+ * <Card>/</Card> pair across app/league found no nesting anywhere (max
+ * depth 1), so these are all siblings under each page's <h1>.
+ */
 export function Card({ title, subtitle, action, children, id }) {
   return (
-    <div className="card" id={id} style={{ marginTop: "var(--space-md)" }}>
-      {(title || action) && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 10,
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            {title && <div style={{ fontWeight: 700 }}>{title}</div>}
-            {subtitle && (
-              <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
-                {subtitle}
-              </div>
-            )}
-          </div>
-          {action}
-        </div>
-      )}
-      <div>{children}</div>
-    </div>
+    <Panel
+      className="league-card"
+      id={id}
+      title={title}
+      subtitle={subtitle}
+      actions={action}
+    >
+      {children}
+    </Panel>
   );
 }
 
