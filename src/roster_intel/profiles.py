@@ -134,12 +134,7 @@ def classify_tier(
     roster = replacement.value("roster")
     # Strict ladder. `elite` is ignored unless it genuinely separates
     # from `starter`, otherwise the top tier swallows the one below it.
-    if (
-        elite is not None
-        and starter is not None
-        and elite > starter
-        and value >= elite
-    ):
+    if elite is not None and starter is not None and elite > starter and value >= elite:
         return "elite"
     if starter is not None and value >= starter:
         return "starter"

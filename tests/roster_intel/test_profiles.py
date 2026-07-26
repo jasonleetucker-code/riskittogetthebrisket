@@ -394,9 +394,9 @@ class TestTierLadder:
         assert counts["starter"] > 0, f"starter tier unreachable: {dict(counts)}"
         assert counts["elite"] > 0, f"elite tier unreachable: {dict(counts)}"
         total = sum(counts.values())
-        assert counts["elite"] / total < 0.25, (
-            f"elite is {100 * counts['elite'] / total:.0f}% of the league: {dict(counts)}"
-        )
+        assert (
+            counts["elite"] / total < 0.25
+        ), f"elite is {100 * counts['elite'] / total:.0f}% of the league: {dict(counts)}"
 
     def test_an_ordinary_starter_is_not_elite(self):
         """Property 3."""
