@@ -1,0 +1,6 @@
+player_name,position,team,pass_yd,pass_td,pass_int,pass_cmp,rush_att,rush_yd,rush_td,rec,rec_yd,rec_td,fum_lost
+Josh Allen,QB,BUF,4200,32,12,385,105,580,9,0,0,0,4
+Bijan Robinson,RB,ATL,0,0,0,0,272,1210,8,68,540,3,2
+Ja'Marr Chase,WR,CIN,0,0,0,0,3,18,0,104,1420,11,1
+Trey McBride,TE,ARI,0,0,0,0,0,0,0,91,930,5,1
+Rookie Unknown,WR,DAL,0,0,0,0,0,0,0,40,480,3,0

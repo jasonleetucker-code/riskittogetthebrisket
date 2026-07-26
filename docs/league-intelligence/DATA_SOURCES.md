@@ -233,6 +233,29 @@ Rules:
 
 ## 4. Conclusions and recommended posture
 
+> ### ⚠ Consequence for LI-7 — read this before assuming re-scoring is live
+>
+> **Projection re-scoring is BUILT but UNFED.** The pipeline in
+> `src/league_intel/projections.py` is real, tested, and exercised
+> end-to-end against a fixture — but as of this audit **there is no
+> automated source supplying it**, because no provider permits automated
+> access to raw statistical categories (§2). The only live input path is
+> a human exporting a CSV from a subscription they already hold.
+>
+> The practical consequence: **league-adjusted values will initially rest
+> on the market/consensus anchor plus the best-ball and replacement
+> structure (LI-3 / LI-5), NOT on re-scored raw projections.** Any reader
+> — human or agent — who sees `projections.py` and assumes re-scored
+> stat lines are flowing into LI-7 is wrong until this section says
+> otherwise.
+>
+> This is not a defect in LI-6. It is the honest state of what is
+> obtainable without a licence, and it is exactly why the manual-import
+> adapter was built first: the moment a licence or a subscriber export
+> exists, the pipeline behind it is already validated.
+>
+> **Status: awaiting operator answer on §5.1 / §5.2.**
+
 1. **No permitted raw-category projection source exists today.** Every
    candidate with real statistical projections is either subscriber-gated
    (FBG, ETR, FTN, 4for4), licence-gated (RotoWire, FantasyPros API), or
@@ -279,3 +302,64 @@ Rules:
    internal use but restrict republication. Our values are shown only to
    league members, which is likely fine, but it must be confirmed rather
    than assumed.
+
+---
+
+## 6. Manual import contract (operator-facing)
+
+This is the unblocked ingestion path. Every source in §2 is either
+subscriber-gated or licence-gated, so **a CSV you export by hand is the
+input the pipeline is designed around** — not a workaround. A future
+licensed feed becomes a thin adapter emitting the same objects.
+
+Parser: `src/league_intel/projections.py::parse_manual_import`.
+Worked example: `tests/league_intel/fixtures/manual_projection_import.csv`
+(exercised end-to-end in `test_projections.py::TestEndToEnd`).
+
+### 6.1 Columns
+
+**Identity (required):**
+
+| Column | Required | Notes |
+|---|---|---|
+| `player_name` | ✔ | Display name; resolved via `src/identity/unified_mapper.py` downstream |
+| `position` | ✔ | `QB` / `RB` / `WR` / `TE` / `K` plus IDP positions |
+| `team` | ✘ | NFL abbreviation — improves identity resolution, especially for name collisions |
+| `week` | ✘ | Integer for weekly rows; **omit entirely for rest-of-season** |
+
+**Stats:** any subset of the league's **Sleeper scoring keys**. Common
+offensive ones: `pass_yd`, `pass_td`, `pass_int`, `pass_cmp`, `rush_att`,
+`rush_yd`, `rush_td`, `rec`, `rec_yd`, `rec_td`, `fum_lost`.
+
+Column headers must be the Sleeper key exactly. A header that isn't a
+league scoring key is **reported as a warning, never silently dropped** —
+an unrecognized column almost always means a mis-mapped export header,
+and quietly ignoring it is how a scored category goes missing.
+
+### 6.2 What you do NOT need to supply
+
+You do not need `rec_0_4` … `rec_40p` or `bonus_fd_*`. Almost no provider
+projects them, so LI-6 derives them (§3) from your projected volumes and
+the player's realized play-by-play rates, tagging each with its
+provenance tier. **Supply them only if your source genuinely projects
+them** — a direct value always beats a derived one and will be kept.
+
+### 6.3 Behaviour guarantees
+
+* One malformed row never kills an import — it is skipped with a warning.
+* Rows with no usable stats are skipped rather than scored as zero.
+* `week` present → the row is treated as weekly; absent → rest-of-season.
+* Nothing is fabricated: if you don't project `rec`, no reception bands
+  or receiving first downs are invented for that player.
+
+### 6.4 Example
+
+```csv
+player_name,position,team,rush_att,rush_yd,rush_td,rec,rec_yd,rec_td,fum_lost
+Bijan Robinson,RB,ATL,272,1210,8,68,540,3,2
+```
+
+Re-scored under this league's rules, that row yields league points with
+a full explainable breakdown, `bonus_fd_rb` derived from Robinson's own
+carry/target first-down rates (tier B) and his reception bands
+distributed from his realized catch-depth mix.
