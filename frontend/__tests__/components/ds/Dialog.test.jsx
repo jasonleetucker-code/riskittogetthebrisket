@@ -132,6 +132,79 @@ describe("Stacked overlays", () => {
   });
 });
 
+describe("focus restore when the opener disappears", () => {
+  it("falls back to the main landmark instead of stranding focus on <body>", async () => {
+    // Reachable on /draft: the row control that opened the dialog
+    // unmounts when the player is marked drafted, so the stored opener
+    // is detached by the time the dialog closes.
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      const [openerGone, setOpenerGone] = useState(false);
+      return (
+        <>
+          <main id="main" tabIndex={-1}>
+            {!openerGone && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(true);
+                }}
+              >
+                Open
+              </button>
+            )}
+          </main>
+          <Modal
+            open={open}
+            onClose={() => {
+              // the opener unmounts in the same commit as the close
+              setOpenerGone(true);
+              setOpen(false);
+            }}
+            title="Record pick"
+          >
+            body
+          </Modal>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open" })).toBeNull();
+    // focus landed on the content landmark, NOT on <body>
+    expect(document.activeElement).toBe(document.getElementById("main"));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("still prefers the real opener when it is still mounted", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <main id="main" tabIndex={-1} />
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <Modal open={open} onClose={() => setOpen(false)} title="T">
+            body
+          </Modal>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Open" });
+    await user.click(opener);
+    await user.keyboard("{Escape}");
+    expect(opener).toHaveFocus();
+  });
+});
+
 describe("Dialog semantics", () => {
   it("renders role=dialog with aria-modal and a labelling title", () => {
     render(

@@ -3,11 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
-  RANKING_SOURCES,
-  SOURCE_VENDOR_LABELS,
-  vendorForSource,
-} from "@/lib/dynasty-data";
-import {
   VALUE_MODES,
   STORAGE_KEY,
   verdictFromGap,
@@ -15,24 +10,16 @@ import {
   verdictBarPosition,
   adjustedSideTotals,
   multiAdjustedSideTotals,
-  tradeGapAdjusted,
   sideTotal,
   effectiveValue,
-  displayValue,
-  getPlayerEdge,
   findBalancers,
   parsePickToken,
   resolvePickRow,
-  meterVerdict,
-  percentageGap,
-  multiTeamAnalysis,
   createSide,
   serializeWorkspaceMulti,
   tradeWorkspaceToCSV,
   tradeWorkspaceToJSON,
   deserializeWorkspaceMulti,
-  valueAdjustmentFromSideArrays,
-  defaultDestination,
   computeSideFlows,
   computeSideFlowAssets,
   SIDE_LABELS,
@@ -50,308 +37,54 @@ import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import RosTradeFitPanel from "@/components/RosTradeFitPanel";
 import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
-import { posBadgeClass } from "@/lib/display-helpers";
 import {
   buildShareUrl,
   parseShareParam,
-  SHARE_PARAM,
 } from "@/lib/trade-share";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
-import { MonteCarloButton, ValueBandBadge, PlayerImage } from "@/components/ui";
-import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
+import {
+  Banner,
+  Button,
+  Panel,
+  PageHeader,
+  Select,
+  SkeletonTable,
+} from "@/components/ds";
+import {
+  KtcImportPanel,
+  MobileQuickAddBar,
+  PickTeamSelectors,
+  ProactiveSuggestionsRail,
+  SideCard,
+  SimulationPanel,
+  SuggestionsDesk,
+  SUGG_TYPES,
+} from "./trade-sections";
+import styles from "./trade.module.css";
+
+// ── /trade — the trading terminal ─────────────────────────────────────
+//
+// Multi-team trade calculator: give/get ledgers per side, a live
+// fairness verdict, per-source breakdown, draft-capital stack effects,
+// Monte Carlo simulation, and the roster-aware suggestion desk.
+//
+// R4 decomposed the render into ./trade-sections.jsx; this file keeps
+// all state and orchestration.  Every value, gap, adjustment and
+// verdict still comes from lib/trade-logic or the /api/trade/*
+// responses — no trade math was moved, added, or reimplemented here.
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
-const SUGG_TYPES = [
-  { key: "sellHigh", label: "Sell High" },
-  { key: "buyLow", label: "Buy Low" },
-  { key: "consolidation", label: "Consolidation" },
-  { key: "positionalUpgrades", label: "Upgrades" },
-];
 
-function fairnessColor(f) {
-  if (f === "even") return "var(--green)";
-  if (f === "lean") return "var(--cyan)";
-  return "var(--red)";
-}
-
-// Compact "Recommended right now" rail.  Surfaces the top
-// suggestion from each populated category so the user sees
-// actionable trade ideas at-a-glance — instead of having to scroll
-// down + click ``Get Suggestions`` first.  Click a card to populate
-// the trade builder with the give/get pair.
-const SUGGESTION_RAIL_LABELS = {
-  sellHigh: { label: "Sell High", color: "var(--cyan)", hint: "These pieces have peaked — convert before the market cools." },
-  buyLow: { label: "Buy Low", color: "var(--green)", hint: "Undervalued by the consensus right now." },
-  consolidation: { label: "Consolidation", color: "var(--amber)", hint: "Trade pile-of-assets for a single anchor." },
-  positionalUpgrades: { label: "Upgrade", color: "var(--purple)", hint: "Direct positional swaps that net you value." },
-};
-
-// Mobile-only sticky quick-add bar.  The full per-side search inputs
-// live deep in the page (after the suggestions rail, controls bar,
-// and side headers) — on a 390px viewport that's ~600-800px of scroll
-// before a user can type a name.  This bar surfaces a single search
-// at the top with an explicit "active side" indicator and a one-tap
-// side toggle, so dynasty owners tinkering on the couch can populate
-// both sides without scrolling away from the live verdict bar above.
-//
-// Hidden on desktop (CSS ``mobile-only``); the per-side search inputs
-// stay there because their position next to each side's asset list
-// makes them more discoverable on a wide layout.
-function MobileQuickAddBar({
-  activeSide,
-  sides,
-  onAddToActiveSide,
-  searchAssets,
-  settings,
-  onSetActiveSide,
-}) {
-  const [query, setQuery] = useState("");
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef(null);
-
-  const trimmed = query.trim();
-  const results = focused && trimmed ? searchAssets(query) : [];
-  const showResults = focused && trimmed.length > 0;
-
-  const sideLabel = sides[activeSide]?.label || sides[0]?.label || "A";
-
-  function handleAdd(row) {
-    onAddToActiveSide(row);
-    setQuery("");
-    requestAnimationFrame(() => {
-      inputRef.current?.focus({ preventScroll: true });
-    });
-  }
-
-  function cycleSide() {
-    if (sides.length < 2) return;
-    onSetActiveSide((activeSide + 1) % sides.length);
-  }
-
-  return (
-    <div className="mobile-quick-add mobile-only" role="region" aria-label="Quick add player to trade">
-      <div className="mobile-quick-add-row">
-        <button
-          type="button"
-          className="mobile-quick-add-side-badge"
-          onClick={cycleSide}
-          aria-label={`Currently adding to Side ${sideLabel}. Tap to switch sides.`}
-          title={
-            sides.length >= 2
-              ? `Adding to Side ${sideLabel} — tap to switch`
-              : `Adding to Side ${sideLabel}`
-          }
-          disabled={sides.length < 2}
-        >
-          <span className="mobile-quick-add-side-arrow" aria-hidden="true">→</span>
-          <span className="mobile-quick-add-side-letter">{sideLabel}</span>
-          {sides.length >= 2 && (
-            <span className="mobile-quick-add-side-toggle" aria-hidden="true">⇄</span>
-          )}
-        </button>
-        <input
-          ref={inputRef}
-          className="input mobile-quick-add-input"
-          placeholder={`Quick add to Side ${sideLabel}…`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            // Delay so a tap on a result registers before the dropdown
-            // unmounts (mirrors the per-side search inputs).
-            setTimeout(() => setFocused(false), 120);
-          }}
-          inputMode="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck="false"
-        />
-      </div>
-      {showResults && (
-        <div className="mobile-quick-add-results">
-          {results.length === 0 ? (
-            <div className="mobile-quick-add-empty muted">No matches.</div>
-          ) : (
-            results.map((r) => (
-              <button
-                key={`mobile-quick-${r.name}`}
-                type="button"
-                className="button-reset mobile-quick-add-result"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleAdd(r);
-                }}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  handleAdd(r);
-                }}
-              >
-                <PlayerImage
-                  playerId={r.raw?.playerId}
-                  team={r.team}
-                  position={r.pos}
-                  name={r.name}
-                  size={26}
-                />
-                <div className="mobile-quick-add-result-body">
-                  <div className="mobile-quick-add-result-name">{r.name}</div>
-                  <div className="mobile-quick-add-result-meta">
-                    <span className={posBadgeClass(r)}>{r.pos}</span>
-                    <span className="muted">
-                      {r.blendedSourceRank != null ? `#${r.blendedSourceRank.toFixed(1)}` : "—"}
-                      {" · "}
-                      {Math.round(displayValue(r, settings)).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProactiveSuggestionsRail({ suggestions, onApply }) {
-  // For each category, take the top suggestion (already sorted by
-  // the engine).  Skip categories with zero results.
-  const cards = [];
-  for (const [key, meta] of Object.entries(SUGGESTION_RAIL_LABELS)) {
-    const list = suggestions[key] || [];
-    if (list.length === 0) continue;
-    cards.push({ key, meta, top: list[0], remaining: list.length - 1 });
-  }
-  if (cards.length === 0) return null;
-  return (
-    <div
-      className="card"
-      style={{
-        marginBottom: 10,
-        padding: "10px 12px",
-        background: "rgba(255, 199, 4, 0.04)",
-        border: "1px solid rgba(255, 199, 4, 0.18)",
-      }}
-    >
-      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-        Recommended right now · top idea per category
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 8,
-        }}
-      >
-        {cards.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            className="button-reset"
-            onClick={() => onApply(c.top)}
-            title={c.meta.hint}
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "8px 10px",
-              background: "rgba(8, 19, 44, 0.55)",
-              cursor: "pointer",
-              textAlign: "left",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: "0.62rem", color: c.meta.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                {c.meta.label}
-              </span>
-              {c.remaining > 0 && (
-                <span style={{ fontSize: "0.58rem", color: "var(--subtext)" }}>
-                  +{c.remaining} more
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: "0.78rem", lineHeight: 1.3 }}>
-              <span style={{ color: "var(--subtext)" }}>Give:</span>{" "}
-              <span style={{ fontWeight: 600 }}>
-                {(c.top.give || []).map((p) => p.name).join(" + ") || "—"}
-              </span>
-            </div>
-            <div style={{ fontSize: "0.78rem", lineHeight: 1.3 }}>
-              <span style={{ color: "var(--subtext)" }}>Get:</span>{" "}
-              <span style={{ fontWeight: 600, color: c.meta.color }}>
-                {(c.top.receive || []).map((p) => p.name).join(" + ") || "—"}
-              </span>
-            </div>
-            <div style={{ fontSize: "0.62rem", color: "var(--subtext)", marginTop: 2 }}>
-              Tap to load into the trade builder ↓
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function fairnessLabel(f) {
-  if (f === "even") return "Even value";
-  if (f === "lean") return "Slight lean";
-  return "Stretch";
-}
-
-function confidenceBadge(c) {
-  if (c === "high") return { label: "High consensus", bg: "rgba(52,211,153,0.15)", border: "rgba(52,211,153,0.4)", color: "var(--green)" };
-  if (c === "medium") return { label: "Moderate consensus", bg: "rgba(255, 199, 4,0.12)", border: "rgba(255, 199, 4,0.35)", color: "var(--cyan)" };
-  return { label: "Low consensus", bg: "rgba(153,166,200,0.1)", border: "var(--border)", color: "var(--muted)" };
-}
-
-function edgeBadge(edge) {
-  if (!edge) return null;
-  if (edge === "market_discount") return { text: "Buy Low", bg: "rgba(52,211,153,0.15)", color: "var(--green)" };
-  if (edge === "market_premium") return { text: "Sell High", bg: "rgba(248,113,113,0.15)", color: "var(--red)" };
-  if (edge === "high_dispersion") return { text: "Sources Disagree", bg: "rgba(251,191,36,0.15)", color: "#fbbf24" };
-  return null;
-}
-
-/* ── Trade Meter Component ───────────────────────────────────────────── */
-
-// TradeMeter + TradeSourceBreakdown live as shared components
-// under frontend/components/trade/ (extracted 2026-04-30) so
-// /waivers can reuse the same fairness bar + per-source breakdown
-// for its add/drop calculator.  The local re-exports here
-// preserve every existing call site in this file.
+// TradeMeter + TradeSourceBreakdown live as shared components under
+// frontend/components/trade/ so /waivers can reuse the same fairness bar
+// and per-source breakdown for its add/drop calculator.
 const TradeMeter = SharedTradeMeter;
-
-/* ── Per-source Trade Breakdown ──────────────────────────────────────── */
-
-/**
- * Render a per-vendor winner table below the main trade meter.
- *
- * Sources that share a vendor (e.g. dlfSf + dlfIdp + dlfRookieSf +
- * dlfRookieIdp all belong to DLF) are consolidated into one row so
- * rookie-for-veteran trades don't artificially split the DLF opinion
- * across its sub-boards.  For each vendor + side, we sum every
- * covered sub-source's ``sourceRankMeta[subKey].valueContribution``
- * — the per-source Hill-curve output on the canonical 0-9999 scale —
- * which puts every vendor on the same axis as KTC instead of the
- * pre-cap synthetic 999,XXX values used internally for sort ordering.
- *
- * Margin is rendered as a percent of the winner's total so a 5%
- * margin on DLF is directly comparable to a 5% margin on KTC even
- * though their total scales aren't identical.
- */
-// Re-export of the shared per-vendor breakdown — see SharedTradeMeter
-// note above.  Local alias preserves every caller in this file.
 const TradeSourceBreakdown = SharedTradeSourceBreakdown;
-
-/* ── Main Trade Page ─────────────────────────────────────────────────── */
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
@@ -1694,47 +1427,76 @@ export default function TradePage() {
     return Object.fromEntries(SUGG_TYPES.map((t) => [t.key, (suggestions[t.key] || []).length]));
   }, [suggestions]);
 
-  // Determine grid columns class for the sides container
-  const sidesGridClass = sides.length === 2
-    ? "trade-sides-grid trade-sides-2"
-    : sides.length === 3
-      ? "trade-sides-grid trade-sides-3"
-      : "trade-sides-grid trade-sides-multi";
+  // Balancer payload for a given side — the label + list the SideCard
+  // renders.  Returns null when that side has no balancer suggestion.
+  function balancersForSide(sideIdx) {
+    const isUnderpaying =
+      sides.length === 2
+        ? sideIdx === 0
+          ? pwGap < -350
+          : pwGap > 350
+        : false;
+    if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
+      return {
+        label: balancers.teamName
+          ? `Add from ${balancers.teamName}'s roster`
+          : "To balance, consider adding",
+        list: balancers.list,
+      };
+    }
+    if (
+      multiBalancers &&
+      sideIdx === multiBalancers.underpayingIdx &&
+      multiBalancers.suggestions.length > 0
+    ) {
+      const losing = `Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(
+        multiBalancers.gap,
+      ).toLocaleString()}`;
+      return {
+        label: multiBalancers.teamName
+          ? `Add from ${multiBalancers.teamName}'s roster (${losing})`
+          : `To balance (${losing})`,
+        list: multiBalancers.suggestions,
+      };
+    }
+    return null;
+  }
+
+  const hasAssets = sides.some((s) => (s.assets || []).length > 0);
 
   return (
-    <section className="card">
-      <h1 style={{ marginTop: 0 }}>Trade Builder</h1>
-      <p className="muted" style={{ marginTop: 4 }}>Multi-team trade calculator with live fairness visualization.</p>
+    <main className={`main-shell ${styles.page} trade-page`}>
+      <PageHeader
+        eyebrow="Terminal"
+        title="Trade Builder"
+        description="Multi-team trade calculator with live fairness visualization."
+      />
 
-      {loading && <p>Loading player pool...</p>}
-      {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
+      {loading ? (
+        <Panel flush>
+          <SkeletonTable rows={6} columns={4} />
+        </Panel>
+      ) : null}
+      {loading ? <span className="ds-visually-hidden">Loading player pool...</span> : null}
 
-      {!loading && !error && leagueMismatch && (
-        <div
-          className="card"
-          style={{
-            marginBottom: 10,
-            padding: "8px 12px",
-            border: "1px solid var(--cyan)",
-            background: "rgba(255, 199, 4, 0.05)",
-            fontSize: "0.78rem",
-          }}
-        >
-          <strong style={{ color: "var(--cyan)" }}>Roster data not ready for this league.</strong>{" "}
-          Rankings + values are available (scoring is shared), but team-specific
-          features — Sleeper roster import, the "Simulate on my team" button,
-          and league-mate pickers — need this league&apos;s scrape to complete
-          first.  Switch back to the primary league from the nav to use those
-          features.
-        </div>
-      )}
+      {error ? (
+        <Banner tone="negative" title="Couldn't load the player pool">
+          {error}
+        </Banner>
+      ) : null}
 
-      {/* Mobile-only sticky quick-add bar.  Sits above the suggestions
-          rail so the search input is the FIRST interactive element a
-          mobile user reaches — no scrolling needed to start populating
-          a trade.  Hidden on desktop where the per-side search inputs
-          inside each side's card are more discoverable. */}
-      {!loading && !error && (
+      {!loading && !error && leagueMismatch ? (
+        <Banner tone="warning" title="Roster data not ready for this league">
+          Rankings and values are available (scoring is shared), but
+          team-specific features — Sleeper roster import, &quot;Simulate on my
+          team&quot;, and league-mate pickers — need this league&apos;s scrape to
+          finish. Switch back to the primary league to use them.
+        </Banner>
+      ) : null}
+
+      {/* Mobile-only quick-add: the FIRST interactive element a phone
+          user reaches, so populating a trade needs no scrolling. */}
+      {!loading && !error ? (
         <MobileQuickAddBar
           activeSide={activeSide}
           sides={sides}
@@ -1743,584 +1505,174 @@ export default function TradePage() {
           settings={settings}
           onSetActiveSide={setActiveSide}
         />
-      )}
+      ) : null}
 
-      {/* Proactive "Recommended right now" rail.  Surfaces top
-          suggestion from each category when ``/api/trade/suggestions``
-          has a non-empty result for the user's roster.  Each card
-          previews the give/get and one-click-applies the suggestion
-          to the trade builder below. */}
-      {!loading && !error && !leagueMismatch && suggestions && suggestions.totalSuggestions > 0 && (
+      {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
         <ProactiveSuggestionsRail
           suggestions={suggestions}
           onApply={(s) => {
             applySuggestion(s);
-            // Scroll into view so the user sees the populated builder.
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
-      )}
+      ) : null}
 
-      {!loading && !error && (
+      {!loading && !error ? (
         <>
-          <div className="row trade-controls" style={{ marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-            <select className="select" value={valueMode} onChange={(e) => setValueMode(e.target.value)}>
-              {VALUE_MODES.map((m) => (<option key={m.key} value={m.key}>{m.label}</option>))}
-            </select>
-            <button className="button" onClick={swapSides}>
-              {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
-            </button>
-            <button className="button" onClick={clearTrade}>Clear Trade</button>
-            {sides.length < MAX_SIDES && (
-              <button className="button" onClick={addTeam} style={{ borderColor: "var(--green)", color: "var(--green)" }}>
-                + Add Team
-              </button>
-            )}
-            <button
-              className="button"
-              onClick={() => {
-                setKtcImportOpen((v) => !v);
-                setKtcImportError("");
-              }}
-              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-              title="Paste a KeepTradeCut trade-calculator URL to load its players into sides A + B"
-            >
-              + Import KTC
-            </button>
-            <button
-              className="button"
-              onClick={copyShareLink}
-              disabled={!sides.some((s) => (s.assets || []).length > 0)}
-              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-              title="Copy a shareable link that pre-loads this trade for anyone who opens it"
-            >
-              🔗 Copy Share Link
-            </button>
-            <button
-              className="button"
-              onClick={exportKtcUrl}
-              disabled={sides.length !== 2 || !sides.some((s) => (s.assets || []).length > 0)}
-              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-              title="Copy a KeepTradeCut trade-calculator URL for sides A + B"
-            >
-              ↗ Copy KTC URL
-            </button>
-            <button
-              className="button"
-              onClick={exportCsv}
-              disabled={!sides.some((s) => (s.assets || []).length > 0)}
-              title="Download this trade as CSV"
-            >
-              ⬇ CSV
-            </button>
-            <button
-              className="button"
-              onClick={exportJson}
-              disabled={!sides.some((s) => (s.assets || []).length > 0)}
-              title="Download this trade as JSON"
-            >
-              ⬇ JSON
-            </button>
-            {exportStatus && (
-              <span className="muted" style={{ fontSize: "0.72rem", flexBasis: "100%", color: "var(--cyan)" }}>
-                {exportStatus}
-              </span>
-            )}
-            {sides.length === 2 && selectedTeam && (
-              <button
-                className="button"
-                onClick={runSimulateTrade}
-                disabled={simLoading || !sides.some((s) => (s.assets || []).length > 0)}
-                style={{ borderColor: "var(--green)", color: "var(--green)" }}
-                title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
+          <Panel dense className="trade-controls">
+            <div className={styles.controls}>
+              <Select
+                value={valueMode}
+                onChange={(e) => setValueMode(e.target.value)}
+                aria-label="Value mode"
               >
-                {simLoading ? "Simulating…" : "⚙ Simulate impact"}
-              </button>
-            )}
-          </div>
-
-          {shareStatus && (
-            <div
-              className="muted"
-              style={{
-                fontSize: "0.74rem",
-                marginBottom: 8,
-                paddingLeft: 2,
-              }}
-            >
-              <span style={{ color: "var(--cyan)" }}>Share:</span>{" "}
-              {shareStatus}
-              <button
-                className="button"
-                style={{
-                  marginLeft: 8,
-                  padding: "1px 8px",
-                  fontSize: "0.66rem",
-                  minHeight: "unset",
-                }}
-                onClick={() => setShareStatus("")}
-                title="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {(simResult || simError) && (
-            <div
-              className="card"
-              style={{
-                marginBottom: 10,
-                padding: "10px 12px",
-                border: "1px solid var(--green)",
-                background: "rgba(52,211,153,0.05)",
-              }}
-            >
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-              }}>
-                <div style={{ fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.04em" }}>
-                  IMPACT ON {simResult?.team?.name?.toUpperCase?.() || (selectedTeam?.name || "").toUpperCase()}
-                </div>
-                <button
-                  className="button"
-                  style={{ fontSize: "0.66rem", padding: "1px 8px", minHeight: "unset" }}
-                  onClick={resetSim}
-                  title="Clear simulation"
-                >
-                  ×
-                </button>
-              </div>
-              {simError && (
-                <div style={{ color: "var(--red)", fontSize: "0.78rem" }}>
-                  {simError}
-                </div>
-              )}
-              {simResult && (
-                <div>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0,1fr))",
-                    gap: 10,
-                    marginBottom: 8,
-                  }}>
-                    <div>
-                      <div className="muted" style={{ fontSize: "0.66rem" }}>Before</div>
-                      <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
-                        {Math.round(simResult.before?.totalValue || 0).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="muted" style={{ fontSize: "0.66rem" }}>After</div>
-                      <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
-                        {Math.round(simResult.after?.totalValue || 0).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="muted" style={{ fontSize: "0.66rem" }}>Δ Total Value</div>
-                      <div style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 700,
-                        color: (simResult.delta?.totalValue || 0) >= 0 ? "var(--green)" : "var(--red)",
-                      }}>
-                        {(simResult.delta?.totalValue || 0) >= 0 ? "+" : ""}
-                        {Math.round(simResult.delta?.totalValue || 0).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
-                    gap: 8,
-                    fontSize: "0.72rem",
-                  }}>
-                    {["QB", "RB", "WR", "TE"].map((pos) => {
-                      const row = simResult.delta?.byPosition?.[pos];
-                      if (!row) return null;
-                      const d = row.value || 0;
-                      return (
-                        <div key={pos} style={{
-                          padding: "4px 8px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                        }}>
-                          <span className="muted">{pos}</span>{" "}
-                          <span style={{
-                            color: d === 0 ? "var(--muted)" : d > 0 ? "var(--green)" : "var(--red)",
-                            fontWeight: 600,
-                          }}>
-                            {d > 0 ? "+" : ""}{Math.round(d).toLocaleString()}
-                          </span>
-                          {row.count !== 0 && (
-                            <span className="muted" style={{ marginLeft: 4 }}>
-                              ({row.count > 0 ? "+" : ""}{row.count})
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {simResult.teamImpact && (() => {
-                    const ti = simResult.teamImpact;
-                    const verdictColor = {
-                      "accept": "var(--green)",
-                      "lean accept": "var(--green)",
-                      "neutral": "var(--muted)",
-                      "lean decline": "var(--red)",
-                      "decline": "var(--red)",
-                    }[ti.verdict] || "var(--muted)";
-                    const starterPosEntries = Object.entries(ti.starterValueDelta || {})
-                      .filter(([, v]) => v !== 0);
-                    return (
-                      <div style={{
-                        marginTop: 10,
-                        paddingTop: 8,
-                        borderTop: "1px solid var(--border)",
-                      }}>
-                        <div style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 6,
-                        }}>
-                          <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.04em" }}>
-                            ROSTER FIT
-                          </div>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <span style={{
-                              fontSize: "0.66rem",
-                              padding: "2px 8px",
-                              borderRadius: 4,
-                              background: verdictColor,
-                              color: "var(--bg)",
-                              fontWeight: 700,
-                              textTransform: "uppercase",
-                            }}>
-                              {ti.verdict}
-                            </span>
-                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: verdictColor }}>
-                              {ti.compositeScore >= 0 ? "+" : ""}{ti.compositeScore.toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, minmax(0,1fr))",
-                          gap: 6,
-                          fontSize: "0.68rem",
-                          marginBottom: 6,
-                        }}>
-                          <div>
-                            <div className="muted" style={{ fontSize: "0.62rem" }}>Fit</div>
-                            <div style={{
-                              fontWeight: 700,
-                              color: ti.fitScore >= 0 ? "var(--green)" : "var(--red)",
-                            }}>
-                              {ti.fitScore >= 0 ? "+" : ""}{ti.fitScore.toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="muted" style={{ fontSize: "0.62rem" }}>Equity</div>
-                            <div style={{
-                              fontWeight: 700,
-                              color: ti.equityScore >= 0 ? "var(--green)" : "var(--red)",
-                            }}>
-                              {ti.equityScore >= 0 ? "+" : ""}{ti.equityScore.toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="muted" style={{ fontSize: "0.62rem" }}>
-                              {ti.posture}
-                            </div>
-                            <div style={{
-                              fontWeight: 700,
-                              color: ti.windowFit >= 0 ? "var(--green)" : "var(--red)",
-                            }}>
-                              window {ti.windowFit >= 0 ? "+" : ""}{ti.windowFit.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                        {starterPosEntries.length > 0 && (
-                          <div style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))",
-                            gap: 4,
-                            fontSize: "0.66rem",
-                            marginBottom: 6,
-                          }}>
-                            {starterPosEntries.map(([pos, dv]) => (
-                              <div key={pos} style={{
-                                padding: "2px 6px",
-                                border: "1px solid var(--border)",
-                                borderRadius: 3,
-                              }}>
-                                <span className="muted">{pos} starter </span>
-                                <span style={{
-                                  color: dv > 0 ? "var(--green)" : "var(--red)",
-                                  fontWeight: 600,
-                                }}>
-                                  {dv > 0 ? "+" : ""}{Math.round(dv).toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {ti.rationale?.length > 0 && (
-                          <ul style={{
-                            margin: "4px 0 0",
-                            paddingLeft: 18,
-                            fontSize: "0.7rem",
-                            lineHeight: 1.4,
-                          }}>
-                            {ti.rationale.map((r, i) => (
-                              <li key={i}>{r}</li>
-                            ))}
-                          </ul>
-                        )}
-                        {ti.redundancy?.length > 0 && (
-                          <div style={{
-                            marginTop: 6,
-                            fontSize: "0.68rem",
-                            color: "var(--red)",
-                          }}>
-                            Redundant:{" "}
-                            {ti.redundancy.map((r) => `${r.name} (${r.pos})`).join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(simResult.unresolvedIn?.length > 0 || simResult.unresolvedOut?.length > 0) && (
-                    <div className="muted" style={{ fontSize: "0.7rem", marginTop: 6, color: "var(--red)" }}>
-                      Unresolved:{" "}
-                      {[...(simResult.unresolvedIn || []), ...(simResult.unresolvedOut || [])].join(", ")}
-                    </div>
-                  )}
-                  <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
-                    Equity (receiving − sending): {simResult.equity >= 0 ? "+" : ""}
-                    {Math.round(simResult.equity || 0).toLocaleString()}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {ktcImportOpen && (
-            <div
-              className="card"
-              style={{
-                marginBottom: 10,
-                padding: "10px 12px",
-                border: "1px solid var(--cyan)",
-                background: "rgba(255, 199, 4,0.04)",
-              }}
-            >
-              <div style={{ fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.04em", marginBottom: 6 }}>
-                IMPORT FROM KEEPTRADECUT
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="https://keeptradecut.com/trade-calculator?teamOne=…&teamTwo=…"
-                  value={ktcImportUrl}
-                  onChange={(e) => setKtcImportUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !ktcImportBusy) importKtcTradeUrl();
-                    if (e.key === "Escape") {
-                      setKtcImportOpen(false);
-                      setKtcImportError("");
-                    }
-                  }}
-                  disabled={ktcImportBusy}
-                  style={{ flex: "1 1 360px", minWidth: 260 }}
-                  autoFocus
-                />
-                <button
-                  className="button"
-                  onClick={importKtcTradeUrl}
-                  disabled={ktcImportBusy || !ktcImportUrl.trim()}
-                  style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-                >
-                  {ktcImportBusy ? "Loading…" : "Load trade"}
-                </button>
-                <button
-                  className="button"
-                  onClick={() => {
-                    setKtcImportOpen(false);
-                    setKtcImportError("");
-                    setKtcImportUrl("");
-                  }}
-                  disabled={ktcImportBusy}
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="muted" style={{ fontSize: "0.72rem", marginTop: 6 }}>
-                Replaces sides A and B; extra sides (3+ team trades) are left untouched.
-                Unknown KTC IDs and players we can't match by name are reported below.
-              </div>
-              {ktcImportError && (
-                <div style={{ color: "var(--red)", fontSize: "0.76rem", marginTop: 6 }}>
-                  {ktcImportError}
-                </div>
-              )}
-            </div>
-          )}
-
-          {ktcImportStatus && !ktcImportOpen && (
-            <div
-              className="muted"
-              style={{
-                fontSize: "0.74rem",
-                marginBottom: 8,
-                paddingLeft: 2,
-              }}
-            >
-              <span style={{ color: "var(--cyan)" }}>KTC import:</span>{" "}
-              {ktcImportStatus}
-              <button
-                className="button"
-                style={{
-                  marginLeft: 8,
-                  padding: "1px 8px",
-                  fontSize: "0.66rem",
-                  minHeight: "unset",
-                }}
-                onClick={() => setKtcImportStatus("")}
-                title="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* ── Team selectors (drive the draft-capital stack effect) ── */}
-          {tradeHasPicks && sleeperTeams && (
-            <div
-              style={{
-                margin: "10px 0",
-                padding: "10px 12px",
-                border: stackGateUnmet
-                  ? "1px solid var(--cyan)"
-                  : "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 8,
-                background: "rgba(8, 19, 44, 0.55)",
-              }}
-            >
-              <div
-                className="muted"
-                style={{ fontSize: "0.72rem", marginBottom: 8 }}
-              >
-                Picks are in this trade — their worth depends on each
-                team&rsquo;s draft-capital stack. Select the team on each
-                side:
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {sides.map((s, i) => (
-                  <label
-                    key={s.id ?? i}
-                    style={{
-                      fontSize: "0.8rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span style={{ fontWeight: 600 }}>Side {s.label}</span>
-                    <select
-                      className="input"
-                      style={{ minWidth: 150 }}
-                      value={sideTeamNames[i] ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value || null;
-                        setSideTeamNames((prev) => {
-                          const next = [...prev];
-                          next[i] = v;
-                          return next;
-                        });
-                        // Picking a team locks it (don't re-infer);
-                        // the blank option unlocks → auto-infer again.
-                        setSideTeamLocked((prev) => {
-                          const next = [...prev];
-                          next[i] = v != null;
-                          return next;
-                        });
-                      }}
-                    >
-                      <option value="">— select team —</option>
-                      {sleeperTeams.map((t) => (
-                        <option key={t.name} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                {VALUE_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
                 ))}
-              </div>
-              {stackGateUnmet && (
-                <div
-                  style={{
-                    fontSize: "0.72rem",
-                    color: "var(--cyan)",
-                    marginTop: 8,
-                  }}
-                >
-                  Verdict is showing pure board value. Assign a team to
-                  every side a pick is traded to or from to apply the
-                  draft-capital stack effect.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Trade Meter (inline fairness visualization) ──────── */}
-          <TradeMeter sides={sides} sideTotals={sideTotals} flows={sideFlows} valueMode={valueMode} settings={settings} />
-
-          {/* ── Stack-effect transparency (never a silent verdict shift) ── */}
-          {stackContext &&
-            sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) && (
-              <div
-                className="muted"
-                style={{ fontSize: "0.74rem", margin: "6px 0 2px" }}
-                title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+              </Select>
+              <Button onClick={swapSides}>
+                {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
+              </Button>
+              <Button onClick={clearTrade}>Clear Trade</Button>
+              {sides.length < MAX_SIDES ? (
+                <Button onClick={addTeam}>Add Team</Button>
+              ) : null}
+              <Button
+                onClick={() => {
+                  setKtcImportOpen((v) => !v);
+                  setKtcImportError("");
+                }}
+                aria-expanded={ktcImportOpen}
               >
-                Draft-capital stack effect —{" "}
-                {sideTotals
-                  .map((t, i) => {
-                    const v = Math.round(t?.stackAdjustment || 0);
-                    const sign = v > 0 ? "+" : "";
-                    return `Side ${sides[i]?.label ?? i + 1}: ${sign}${v}`;
-                  })
-                  .join(" · ")}
-              </div>
-            )}
+                Import KTC
+              </Button>
+              <Button onClick={copyShareLink} disabled={!hasAssets}>
+                Copy share link
+              </Button>
+              <Button
+                onClick={exportKtcUrl}
+                disabled={sides.length !== 2 || !hasAssets}
+              >
+                Copy KTC URL
+              </Button>
+              <Button onClick={exportCsv} disabled={!hasAssets}>
+                CSV
+              </Button>
+              <Button onClick={exportJson} disabled={!hasAssets}>
+                JSON
+              </Button>
+              {sides.length === 2 && selectedTeam ? (
+                <Button
+                  variant="primary"
+                  onClick={runSimulateTrade}
+                  disabled={simLoading || !hasAssets}
+                  loading={simLoading}
+                  title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
+                >
+                  Simulate impact
+                </Button>
+              ) : null}
+              {exportStatus ? (
+                <span className={styles.controlsNote}>{exportStatus}</span>
+              ) : null}
+            </div>
+          </Panel>
 
-          {/* ── Why this trade is fair: 1-2 sentence explanation that
-              calls out the biggest source driver / dissenter so users
-              don't have to scan the per-vendor table below to figure
-              out *why* the verdict is what it is. */}
+          {shareStatus ? (
+            <Banner tone="positive" onDismiss={() => setShareStatus("")}>
+              {shareStatus}
+            </Banner>
+          ) : null}
+
+          <SimulationPanel
+            simResult={simResult}
+            simError={simError}
+            selectedTeam={selectedTeam}
+            onReset={resetSim}
+          />
+
+          {ktcImportOpen ? (
+            <KtcImportPanel
+              url={ktcImportUrl}
+              onUrlChange={setKtcImportUrl}
+              busy={ktcImportBusy}
+              error={ktcImportError}
+              onSubmit={importKtcTradeUrl}
+              onCancel={() => {
+                setKtcImportOpen(false);
+                setKtcImportError("");
+                setKtcImportUrl("");
+              }}
+            />
+          ) : null}
+
+          {ktcImportStatus && !ktcImportOpen ? (
+            <Banner tone="info" onDismiss={() => setKtcImportStatus("")}>
+              KTC import: {ktcImportStatus}
+            </Banner>
+          ) : null}
+
+          {tradeHasPicks && sleeperTeams ? (
+            <PickTeamSelectors
+              sides={sides}
+              sleeperTeams={sleeperTeams}
+              sideTeamNames={sideTeamNames}
+              stackGateUnmet={stackGateUnmet}
+              onSetTeam={(i, v) => {
+                setSideTeamNames((prev) => {
+                  const next = [...prev];
+                  next[i] = v;
+                  return next;
+                });
+                // Picking a team locks it (don't re-infer); the blank
+                // option unlocks → auto-infer resumes.
+                setSideTeamLocked((prev) => {
+                  const next = [...prev];
+                  next[i] = v != null;
+                  return next;
+                });
+              }}
+            />
+          ) : null}
+
+          {/* Fairness verdict + the explanations behind it. */}
+          <TradeMeter
+            sides={sides}
+            sideTotals={sideTotals}
+            flows={sideFlows}
+            valueMode={valueMode}
+            settings={settings}
+          />
+
+          {/* Stack-effect transparency — never a silent verdict shift. */}
+          {stackContext &&
+          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
+            <p
+              className={styles.controlsNote}
+              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+            >
+              Draft-capital stack effect —{" "}
+              {sideTotals
+                .map((t, i) => {
+                  const v = Math.round(t?.stackAdjustment || 0);
+                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
+                })
+                .join(" · ")}
+            </p>
+          ) : null}
+
           <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
-
-          {/* ── Per-source winner breakdown (below the fairness meter) ── */}
-          <TradeSourceBreakdown sides={sides} settings={settings} valueMode={valueMode} />
-
-          {/* ── ROS Fit panel (informational; gated by settings) ──── */}
+          <TradeSourceBreakdown
+            sides={sides}
+            settings={settings}
+            valueMode={valueMode}
+          />
           <RosTradeFitPanel sides={sides} settings={settings} />
 
-          {/* ── Value delta histogram (graphical complement to meter) ──── */}
           {sides.length === 2 ? (
-            <div className="card" style={{ padding: "var(--space-sm) var(--space-md)" }}>
+            <Panel>
               <TradeDeltaHistogram
                 sides={[
                   {
@@ -2333,712 +1685,144 @@ export default function TradePage() {
                   },
                 ]}
               />
-            </div>
+            </Panel>
           ) : null}
 
-          {/* Multi-team Sankey-style flow visual.  Only renders when
-              there are 3+ sides — the existing 2-team trade meter
-              already makes flow obvious for a 1-on-1 deal.  Reads
-              the same ``sideFlowAssets`` the side cards consume so
-              the picture stays in lockstep with what each side
-              shows. */}
-          {sides.length >= 3 && (
+          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
+              already makes flow obvious for a 1-on-1 deal. */}
+          {sides.length >= 3 ? (
             <MultiTradeFlow
               sides={sides}
               sideFlowAssets={sideFlowAssets}
               valueMode={valueMode}
               settings={settings}
             />
-          )}
+          ) : null}
 
-          {/* ── Side Cards ──────────────────────────────────────── */}
-          <div className={sidesGridClass} style={{ paddingBottom: 78 }}>
-            {sides.map((side, sideIdx) => {
-              const total = sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 };
-              const isOverpaying = sides.length === 2
-                ? (sideIdx === 0 ? pwGap > 350 : pwGap < -350)
-                : false;
-              const isUnderpaying = sides.length === 2
-                ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350)
-                : false;
-
-              const isMySide = sideIdx === mySideIdx;
-              return (
-                <div
-                  className="card"
-                  key={side.id}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    // Subtle gold accent on the user's own side so it
-                    // stays visually identifiable even after the tray
-                    // scrolls or the user adds/removes assets.
-                    borderColor: isMySide ? "rgba(255, 199, 4, 0.4)" : undefined,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <h3 style={{ margin: 0 }}>Side {side.label}</h3>
-                      {isMySide && selectedTeam?.name && (
-                        <span
-                          className="badge"
-                          title={`This side matches your roster: ${selectedTeam.name}`}
-                          style={{
-                            fontSize: "0.6rem",
-                            padding: "2px 6px",
-                            color: "var(--cyan)",
-                            borderColor: "rgba(255, 199, 4, 0.45)",
-                            background: "rgba(255, 199, 4, 0.08)",
-                          }}
-                        >
-                          You · {selectedTeam.name}
-                        </span>
-                      )}
-                      {sides.length > MIN_SIDES && (
-                        <button
-                          className="button button-danger"
-                          style={{ fontSize: "0.66rem", padding: "2px 6px", minHeight: "unset" }}
-                          onClick={() => removeTeam(sideIdx)}
-                          title={`Remove Side ${side.label}`}
-                        >
-                          X
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <div className="value">{Math.round(total.adjusted).toLocaleString()}</div>
-                        {total.adjustment > 0 ? (
-                          <div
-                            className="muted"
-                            style={{ fontSize: "0.64rem", color: "var(--cyan)" }}
-                            title="Consolidation / roster-spot premium: the side with fewer pieces frees up a roster spot, so KTC-style math adds this bonus on top of the raw total."
-                          >
-                            Raw {Math.round(total.raw).toLocaleString()} + VA {Math.round(total.adjustment).toLocaleString()}
-                          </div>
-                        ) : (
-                          <div className="muted" style={{ fontSize: "0.64rem" }}>Raw: {Math.round(total.raw).toLocaleString()}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Inline search — KTC-style.  Type 2-3 letters and a
-                      compact dropdown of the top 5 matches appears
-                      below the input.  Tap one to add it to this side
-                      and keep typing for the next addition. */}
-                  {(() => {
-                    const sideQuery = sideQueries[sideIdx] || "";
-                    const isFocused = focusedSideIdx === sideIdx;
-                    const results = isFocused ? searchAssets(sideQuery) : [];
-                    const showResults = isFocused && sideQuery.trim().length > 0;
-                    return (
-                      <div className="trade-side-search">
-                        <input
-                          ref={(el) => { sideInputRefs.current[sideIdx] = el; }}
-                          className="input trade-side-search-input"
-                          placeholder={`Search to add to Side ${side.label}…`}
-                          value={sideQuery}
-                          onChange={(e) =>
-                            setSideQueries((prev) => ({ ...prev, [sideIdx]: e.target.value }))
-                          }
-                          onFocus={() => {
-                            setFocusedSideIdx(sideIdx);
-                            setActiveSide(sideIdx);
-                          }}
-                          onBlur={() => {
-                            // Delay so a tap on a result registers before
-                            // the dropdown unmounts.  ``onMouseDown`` on
-                            // the result also pre-empts blur, but the
-                            // delay is a belt-and-braces guard for touch.
-                            setTimeout(() => {
-                              setFocusedSideIdx((prev) => (prev === sideIdx ? null : prev));
-                            }, 120);
-                          }}
-                        />
-                        {showResults && (
-                          <div className="trade-side-search-results">
-                            {results.length === 0 ? (
-                              <div className="trade-side-search-empty muted">No matches.</div>
-                            ) : (
-                              results.map((r) => (
-                                <button
-                                  key={`search-${side.label}-${r.name}`}
-                                  type="button"
-                                  className="trade-side-search-result button-reset"
-                                  onMouseDown={(e) => {
-                                    // Prevent the input blur so focus
-                                    // stays on the search field after the
-                                    // tap — the keyboard doesn't dismiss.
-                                    e.preventDefault();
-                                    addFromSearch(r, sideIdx);
-                                  }}
-                                  onTouchStart={(e) => {
-                                    e.preventDefault();
-                                    addFromSearch(r, sideIdx);
-                                  }}
-                                >
-                                  <PlayerImage
-                                    playerId={r.raw?.playerId}
-                                    team={r.team}
-                                    position={r.pos}
-                                    name={r.name}
-                                    size={26}
-                                  />
-                                  <div className="trade-side-search-result-body">
-                                    <div className="trade-side-search-result-name">{r.name}</div>
-                                    <div className="trade-side-search-result-meta">
-                                      <span className={posBadgeClass(r)}>{r.pos}</span>
-                                      <span className="muted">
-                                        {r.blendedSourceRank != null ? `#${r.blendedSourceRank.toFixed(1)}` : "—"}
-                                        {" · "}
-                                        {Math.round(displayValue(r, settings)).toLocaleString()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {sides.length > 2 && (
-                    <div
-                      className="label"
-                      style={{
-                        marginTop: 10,
-                        fontSize: "0.68rem",
-                        color: "var(--red)",
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      GIVING
-                    </div>
-                  )}
-                  <div className="list" style={{ marginTop: sides.length > 2 ? 4 : 10 }}>
-                    {side.assets.map((r) => {
-                      const edge = getPlayerEdge(r);
-                      // In 3+-team trades, each asset has an explicit
-                      // destination side so the fairness bar can compute
-                      // per-team NET flow.  The dropdown is rendered
-                      // only when N > 2; for 2-team trades the other
-                      // side is implicit and the dropdown is hidden.
-                      const storedDest = side.destinations?.[r.name];
-                      const parsedDest = Number(storedDest);
-                      const currentDest =
-                        Number.isInteger(parsedDest) &&
-                        parsedDest >= 0 &&
-                        parsedDest < sides.length &&
-                        parsedDest !== sideIdx
-                          ? parsedDest
-                          : defaultDestination(sideIdx, sides.length);
-                      return (
-                        <div className="asset-row" key={`${side.label}-${r.name}`}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                            <PlayerImage
-                              playerId={r.raw?.playerId}
-                              team={r.team}
-                              position={r.pos}
-                              name={r.name}
-                              size={28}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                              <div className="asset-name">
-                                <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
-                                {edge.signal && (
-                                  <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
-                                    color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                                    borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
-                                    {edge.signal} {edge.edgePct}%
-                                  </span>
-                                )}
-                              </div>
-                              <div className="asset-meta" style={{ display: "flex", alignItems: "center", gap: 2, overflow: "hidden" }}>
-                                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 }}>
-                                  {r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} ·
-                                </span>
-                                <input
-                                  type="number"
-                                  className={`asset-value-override-input${valueOverrides[r.name] != null ? " overridden" : ""}`}
-                                  value={valueOverrides[r.name] != null ? valueOverrides[r.name] : ""}
-                                  placeholder={Math.round(effectiveValue(r, valueMode, settings))}
-                                  onChange={(e) => setValueOverride(r.name, e.target.value)}
-                                  onBlur={(e) => { if (e.target.value === "") clearValueOverride(r.name); }}
-                                  title="Override this player's value for this trade only"
-                                />
-                                {valueOverrides[r.name] != null && (
-                                  <button
-                                    className="button-reset"
-                                    onClick={() => clearValueOverride(r.name)}
-                                    title="Reset to default value"
-                                    style={{ color: "var(--muted)", fontSize: "0.7rem", lineHeight: 1, padding: "0 1px", flexShrink: 0 }}
-                                  >×</button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            {sides.length > 2 && (
-                              <label
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontSize: "0.68rem",
-                                }}
-                                title="Which side this asset is going to"
-                              >
-                                <span className="muted" style={{ fontSize: "0.66rem" }}>→</span>
-                                <select
-                                  className="select trade-dest-select"
-                                  value={currentDest}
-                                  onChange={(e) => setAssetDestination(sideIdx, r.name, e.target.value)}
-                                  style={{
-                                    padding: "2px 4px",
-                                    minHeight: "unset",
-                                    height: "auto",
-                                  }}
-                                >
-                                  {sides.map((s, i) =>
-                                    i === sideIdx ? null : (
-                                      <option key={i} value={i}>
-                                        Side {s.label}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
-                              </label>
-                            )}
-                            <button className="button trade-remove-btn" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {side.assets.length === 0 && <div className="muted">No assets yet.</div>}
-                  </div>
-                  {/* Receiving section — 3+-team mode only.  Shows the
-                      assets that other sides have routed to THIS side,
-                      so each card answers both "what am I giving up?"
-                      and "what am I getting back?" in the same place. */}
-                  {sides.length > 2 && (
-                    <>
-                      <div
-                        className="label"
-                        style={{
-                          marginTop: 10,
-                          fontSize: "0.68rem",
-                          color: "var(--green)",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
-                        RECEIVING
-                      </div>
-                      <div className="list" style={{ marginTop: 4 }}>
-                        {(sideFlowAssets[sideIdx]?.incoming || []).length > 0 ? (
-                          sideFlowAssets[sideIdx].incoming.map(({ asset, fromSideIdx }) => {
-                            const edge = getPlayerEdge(asset);
-                            return (
-                              <div
-                                className="asset-row"
-                                key={`recv-${side.label}-${asset.name}`}
-                                style={{ borderLeft: "2px solid var(--green)", paddingLeft: 6 }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                  <PlayerImage
-                                    playerId={asset.raw?.playerId}
-                                    team={asset.team}
-                                    position={asset.pos}
-                                    name={asset.name}
-                                    size={24}
-                                  />
-                                <div style={{ minWidth: 0 }}>
-                                  <div className="asset-name">
-                                    <span
-                                      style={{ cursor: "pointer", textDecoration: "underline dotted" }}
-                                      onClick={() => openPlayerPopup?.(asset)}
-                                    >
-                                      {asset.name}
-                                    </span>
-                                    {edge.signal && (
-                                      <span
-                                        className="badge"
-                                        style={{
-                                          marginLeft: 6,
-                                          fontSize: "0.6rem",
-                                          padding: "1px 4px",
-                                          color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                                          borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                                        }}
-                                      >
-                                        {edge.signal} {edge.edgePct}%
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="asset-meta">
-                                    {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
-                                    <span style={valueOverrides[asset.name] != null ? { color: "var(--amber)" } : undefined}>
-                                      {Math.round(valueOverrides[asset.name] ?? effectiveValue(asset, valueMode, settings)).toLocaleString()}
-                                    </span>
-                                  </div>
-                                </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="muted" style={{ fontSize: "0.72rem" }}>
-                            Nothing incoming. Assign a destination on another side to route here.
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                  {/* Balancers (2-team mode only) */}
-                  {sides.length === 2 && isUnderpaying && balancers.list.length > 0 && (
-                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255, 199, 4,0.06)", borderRadius: 6 }}>
-                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
-                        {balancers.teamName
-                          ? `Add from ${balancers.teamName}'s roster:`
-                          : "To balance, consider adding:"}
-                      </div>
-                      {balancers.list.map((b) => (
-                        <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
-                          onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, sideIdx); }}>
-                          {b.name} ({b.pos}) · {b.value.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {/* Balancers (3+ team mode) - show on the side getting the best deal */}
-                  {multiBalancers && sideIdx === multiBalancers.underpayingIdx && multiBalancers.suggestions.length > 0 && (
-                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255, 199, 4,0.06)", borderRadius: 6 }}>
-                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
-                        {multiBalancers.teamName
-                          ? `Add from ${multiBalancers.teamName}'s roster (Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(multiBalancers.gap).toLocaleString()}):`
-                          : `To balance (Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(multiBalancers.gap).toLocaleString()}):`}
-                      </div>
-                      {multiBalancers.suggestions.map((b) => (
-                        <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
-                          onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, sideIdx); }}>
-                          {b.name} ({b.pos}) · {b.value.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div
+            className={styles.sidesGrid}
+            data-sides={String(Math.min(4, sides.length))}
+          >
+            {sides.map((side, sideIdx) => (
+              <SideCard
+                key={side.id}
+                side={side}
+                sideIdx={sideIdx}
+                sides={sides}
+                total={sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 }}
+                isMySide={sideIdx === mySideIdx}
+                selectedTeam={selectedTeam}
+                sideQuery={sideQueries[sideIdx]}
+                isFocused={focusedSideIdx === sideIdx}
+                searchResults={
+                  focusedSideIdx === sideIdx
+                    ? searchAssets(sideQueries[sideIdx] || "")
+                    : []
+                }
+                settings={settings}
+                valueMode={valueMode}
+                valueOverrides={valueOverrides}
+                incoming={sideFlowAssets[sideIdx]?.incoming || []}
+                balancers={balancersForSide(sideIdx)}
+                canRemoveTeam={sides.length > MIN_SIDES}
+                onSideQueryChange={(idx, v) =>
+                  setSideQueries((prev) => ({ ...prev, [idx]: v }))
+                }
+                onSideFocus={(idx) => {
+                  setFocusedSideIdx(idx);
+                  setActiveSide(idx);
+                }}
+                onSideBlur={(idx) => {
+                  // Delay so a tap on a result registers before the
+                  // dropdown unmounts (onMouseDown also pre-empts blur;
+                  // this is the belt-and-braces guard for touch).
+                  setTimeout(() => {
+                    setFocusedSideIdx((prev) => (prev === idx ? null : prev));
+                  }, 120);
+                }}
+                onAddFromSearch={addFromSearch}
+                onOpenPlayer={openPlayerPopup}
+                onSetValueOverride={setValueOverride}
+                onClearValueOverride={clearValueOverride}
+                onRemoveAsset={removeFromSide}
+                onSetDestination={setAssetDestination}
+                onRemoveTeam={removeTeam}
+                onAddBalancer={(name, idx) => {
+                  const row = rowByName.get(name);
+                  if (row) addToSide(row, idx);
+                }}
+                registerInputRef={(idx, el) => {
+                  sideInputRefs.current[idx] = el;
+                }}
+              />
+            ))}
           </div>
 
-          {/* ── Suggestions Panel ─────────────────────────────────── */}
-          <div className="card" style={{ marginTop: 12 }}>
-            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Trade Suggestions</h2>
-            <p className="muted" style={{ margin: "4px 0 10px", fontSize: "0.76rem" }}>
-              {sleeperTeams
-                ? "Select your team from the league, or enter a roster manually."
-                : "Enter your roster to get roster-aware trade ideas."}
-            </p>
+          <SuggestionsDesk
+            sleeperTeams={sleeperTeams}
+            selectedTeamIdx={selectedTeamIdx}
+            onSelectTeam={selectTeam}
+            leagueRosters={leagueRosters}
+            rosterInput={rosterInput}
+            onRosterInputChange={(v) => {
+              setRosterInput(v);
+              setSelectedTeamIdx(-1);
+              setLeagueRosters(null);
+            }}
+            onFetch={fetchSuggestions}
+            loading={suggestionsLoading}
+            error={suggestionsError}
+            suggestions={suggestions}
+            suggestionTab={suggestionTab}
+            onTabChange={setSuggestionTab}
+            suggestionCounts={suggestionCounts}
+            rosterCount={parseRoster().length}
+            onApply={applySuggestion}
+          />
 
-            {/* Team selector from Sleeper league */}
-            {sleeperTeams && (
-              <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
-                <select
-                  className="select"
-                  value={selectedTeamIdx}
-                  onChange={(e) => selectTeam(e.target.value)}
-                  style={{ flex: 1, maxWidth: 320 }}
-                >
-                  <option value={-1}>Select your team...</option>
-                  {sleeperTeams.map((t, i) => (
-                    <option key={i} value={i}>
-                      {t.name} ({(t.players || []).length} players, {(t.picks || []).length} picks)
-                    </option>
-                  ))}
-                </select>
-                {selectedTeamIdx >= 0 && sleeperTeams[selectedTeamIdx] && (
-                  <span className="muted" style={{ fontSize: "0.72rem" }}>
-                    Loaded {(sleeperTeams[selectedTeamIdx].players || []).length} players + {(sleeperTeams[selectedTeamIdx].picks || []).length} picks
-                    {leagueRosters ? ` · ${leagueRosters.length} opponents` : ""}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <textarea
-              className="input roster-textarea"
-              placeholder="Enter roster (comma or newline separated): Josh Allen, Bijan Robinson, Ja'Marr Chase, ..."
-              value={rosterInput}
-              onChange={(e) => { setRosterInput(e.target.value); setSelectedTeamIdx(-1); setLeagueRosters(null); }}
-              rows={3}
-              style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
-            />
-
-            <div className="row" style={{ marginTop: 8, alignItems: "center" }}>
-              <button
-                className="button"
-                onClick={fetchSuggestions}
-                disabled={suggestionsLoading}
-                style={{ fontWeight: 700, borderColor: "var(--cyan)", color: "var(--cyan)" }}
-              >
-                {suggestionsLoading ? "Analyzing..." : "Get Suggestions"}
-              </button>
-              {suggestions && (
-                <span className="muted" style={{ fontSize: "0.76rem" }}>
-                  {suggestions.totalSuggestions} suggestions · {suggestions.metadata?.rosterMatched || 0}/{parseRoster().length} matched
-                  {(suggestions.metadata?.opponentRostersAnalyzed || 0) > 0
-                    ? ` · ${suggestions.metadata.opponentRostersAnalyzed} opponents analyzed`
-                    : ""}
-                </span>
-              )}
-            </div>
-
-            {suggestionsError && (
-              <p style={{ color: "var(--red)", fontSize: "0.82rem", margin: "8px 0 0" }}>{suggestionsError}</p>
-            )}
-
-            {/* Roster analysis summary */}
-            {suggestions?.rosterAnalysis && (
-              <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.78rem" }}>
-                {suggestions.rosterAnalysis.surplusPositions.length > 0 && (
-                  <span>
-                    <span className="label">Can trade from </span>
-                    <span style={{ color: "var(--green)", fontWeight: 600 }}>
-                      {suggestions.rosterAnalysis.surplusPositions.join(", ")}
-                    </span>
-                  </span>
-                )}
-                {suggestions.rosterAnalysis.needPositions.length > 0 && (
-                  <span>
-                    <span className="label">Should target </span>
-                    <span style={{ color: "var(--red)", fontWeight: 600 }}>
-                      {suggestions.rosterAnalysis.needPositions.join(", ")}
-                    </span>
-                  </span>
-                )}
-                {suggestions.rosterAnalysis.surplusPositions.length === 0 &&
-                 suggestions.rosterAnalysis.needPositions.length === 0 && (
-                  <span className="muted">Roster is balanced — no clear surplus or need detected.</span>
-                )}
-              </div>
-            )}
-
-            {/* Category tabs */}
-            {suggestions && suggestions.totalSuggestions > 0 && (
-              <>
-                <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-                  {SUGG_TYPES.map((t) => {
-                    const count = suggestionCounts[t.key] || 0;
-                    const isActive = suggestionTab === t.key;
-                    const isEmpty = count === 0;
-                    return (
-                      <button
-                        key={t.key}
-                        className="button"
-                        onClick={() => setSuggestionTab(t.key)}
-                        style={{
-                          fontSize: "0.76rem",
-                          padding: "5px 10px",
-                          borderColor: isActive ? "var(--cyan)" : "var(--border)",
-                          color: isActive ? "var(--cyan)" : isEmpty ? "var(--border)" : "var(--muted)",
-                          background: isActive ? "rgba(255, 199, 4,0.08)" : undefined,
-                          opacity: isEmpty && !isActive ? 0.5 : 1,
-                        }}
-                      >
-                        {t.label}{count > 0 ? ` (${count})` : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Suggestion cards */}
-                <div className="list" style={{ marginTop: 10 }}>
-                  {(suggestions[suggestionTab] || []).map((s, i) => {
-                    const eb = edgeBadge(s.edge);
-                    const cb = confidenceBadge(s.confidence);
-                    const rs = s.rankScore;
-                    const isTopPick = i === 0 && rs && rs.total >= 12;
-                    return (
-                      <div
-                        key={`${suggestionTab}-${i}`}
-                        className="card"
-                        style={{
-                          padding: 10,
-                          borderColor: isTopPick ? "rgba(52,211,153,0.5)" : s.edge ? "rgba(255, 199, 4,0.3)" : undefined,
-                          borderWidth: isTopPick ? 2 : undefined,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                          <div style={{ flex: 1 }}>
-                            {/* Rank + Give / Get */}
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                              <span style={{
-                                fontSize: "0.68rem", fontWeight: 700, color: i === 0 ? "var(--green)" : "var(--muted)",
-                                minWidth: 18,
-                              }}>#{i + 1}</span>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.82rem" }}>
-                                  <span style={{ color: "var(--red)", fontWeight: 600 }}>Give </span>
-                                  {s.give.map((p, pi) => (
-                                    <span key={pi}>
-                                      {pi > 0 && <span className="muted"> + </span>}
-                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
-                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div style={{ fontSize: "0.82rem", marginTop: 3 }}>
-                                  <span style={{ color: "var(--green)", fontWeight: 600 }}>Get </span>
-                                  {s.receive.map((p, pi) => (
-                                    <span key={pi}>
-                                      {pi > 0 && <span className="muted"> + </span>}
-                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
-                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Badges row */}
-                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", marginLeft: 24 }}>
-                              <span className="badge" style={{ color: fairnessColor(s.fairness), borderColor: fairnessColor(s.fairness) }}>
-                                {fairnessLabel(s.fairness)}
-                                {s.gap !== 0 && ` (${s.gap > 0 ? "+" : ""}${s.gap.toLocaleString()})`}
-                              </span>
-                              <span className="badge" style={{ color: cb.color, borderColor: cb.border, background: cb.bg }}>
-                                {cb.label}
-                              </span>
-                              {s.strategy !== "neutral" && (
-                                <span className="badge" style={{ textTransform: "capitalize" }}>
-                                  {s.strategy === "contender" ? "Contender move" : "Rebuilder move"}
-                                </span>
-                              )}
-                              {eb && (
-                                <span className="badge" style={{ color: eb.color, background: eb.bg, borderColor: eb.color }}>
-                                  {eb.text}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Rationale */}
-                            <div style={{ marginLeft: 24 }}>
-                              <div className="muted" style={{ fontSize: "0.74rem", marginTop: 5 }}>{s.rationale}</div>
-                              {s.whyThisHelps && (
-                                <div style={{ fontSize: "0.74rem", marginTop: 2, color: "var(--cyan)" }}>{s.whyThisHelps}</div>
-                              )}
-                              {s.edgeExplanation && (
-                                <div style={{ fontSize: "0.72rem", marginTop: 2, fontStyle: "italic", color: "#fbbf24" }}>{s.edgeExplanation}</div>
-                              )}
-
-                              {/* Balancers */}
-                              {s.suggestedBalancers?.length > 0 && (
-                                <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
-                                  To even it out, add: {s.suggestedBalancers.map((b) => `${b.name} (${b.displayValue.toLocaleString()})`).join(", ")}
-                                </div>
-                              )}
-
-                              {/* Opponent fit */}
-                              {s.opponentFit && (
-                                <div style={{ fontSize: "0.72rem", marginTop: 3, color: "var(--cyan)" }}>
-                                  {s.opponentFit}
-                                </div>
-                              )}
-
-                              {/* Rank score transparency (collapsed by default) */}
-                              {rs && (
-                                <details style={{ marginTop: 4 }}>
-                                  <summary className="muted" style={{ fontSize: "0.66rem", cursor: "pointer" }}>
-                                    Why #{i + 1}? Score {rs.total}
-                                  </summary>
-                                  <div className="muted" style={{ fontSize: "0.66rem", marginTop: 2, lineHeight: 1.5 }}>
-                                    Value {rs.base_value} + Fairness {rs.fairness} + Consensus {rs.confidence}
-                                    {rs.need_severity > 0 && ` + Need ${rs.need_severity}`}
-                                    {rs.edge > 0 && ` + Edge ${rs.edge}`}
-                                    {rs.opponent_fit > 0 && ` + Partner ${rs.opponent_fit}`}
-                                    {" "}= {rs.total}
-                                  </div>
-                                </details>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Apply button */}
-                          <button
-                            className="button"
-                            style={{ fontSize: "0.72rem", padding: "4px 8px", whiteSpace: "nowrap" }}
-                            onClick={() => applySuggestion(s)}
-                          >
-                            Load Trade
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(suggestions[suggestionTab] || []).length === 0 && (
-                    <div className="muted" style={{ fontSize: "0.82rem", padding: "8px 0" }}>
-                      {suggestionTab === "sellHigh"
-                        ? "No sell-high opportunities found. You may not have enough depth at any position to move a piece."
-                        : suggestionTab === "buyLow"
-                        ? "No buy-low targets found. Your surplus positions may not have tradeable pieces in the right value range."
-                        : suggestionTab === "consolidation"
-                        ? "No consolidation trades found. This requires 2+ depth pieces that combine into a single upgrade."
-                        : "No positional upgrades found. Your starters may already be top-tier, or no upgrade targets match your depth value."}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {suggestions && suggestions.totalSuggestions === 0 && (
-              <div style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.82rem" }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>No trade suggestions found</div>
-                <div className="muted" style={{ fontSize: "0.76rem", lineHeight: 1.5 }}>
-                  {suggestions.metadata?.rosterMatched < 5
-                    ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${parseRoster().length} players matched our database. Check spelling or try adding more players.`
-                    : suggestions.rosterAnalysis?.surplusPositions?.length === 0
-                    ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
-                    : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Sticky verdict tray (kept for scroll context, 2-team only) */}
-          {sides.length === 2 && (
+          {/* Sticky verdict tray — 2-team only, keeps the verdict in
+              view while the user scrolls the side ledgers. */}
+          {sides.length === 2 ? (
             <div className="trade-sticky-tray">
               <div className="trade-tray-main">
                 <div>
                   <div className="label">Side A</div>
-                  <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalA).toLocaleString()}</div>
+                  <div className="value">{Math.round(pwTotalA).toLocaleString()}</div>
                 </div>
                 <div style={{ flex: 1, maxWidth: 220 }}>
-                  {/* Verdict bar */}
-                  <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 5, overflow: "hidden", margin: "6px 0" }}>
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, var(--green), transparent 40%, transparent 60%, var(--red))", opacity: 0.3, borderRadius: 5 }} />
-                    <div style={{
-                      position: "absolute", top: -1, width: 12, height: 12, borderRadius: "50%",
-                      background: colorFromGap(pwGap) === "green" ? "var(--green)" : colorFromGap(pwGap) === "red" ? "var(--red)" : "var(--cyan)",
-                      border: "2px solid var(--bg)", left: `calc(${verdictBarPosition(pwGap)}% - 6px)`, transition: "left 0.3s",
-                    }} />
+                  {/* Verdict bar: marker position is layout math from
+                      verdictBarPosition(), the same helper the pre-R4
+                      tray used. */}
+                  <div className={styles.verdictTrack} aria-hidden="true">
+                    <div className={styles.verdictField} />
+                    <div
+                      className={`${styles.verdictMarker} ${
+                        colorFromGap(pwGap) === "green"
+                          ? styles.verdictMarkerPositive
+                          : colorFromGap(pwGap) === "red"
+                            ? styles.verdictMarkerNegative
+                            : ""
+                      }`}
+                      style={{ "--marker-pos": `${verdictBarPosition(pwGap)}%` }}
+                    />
                   </div>
-                  <div className={`verdict ${colorFromGap(pwGap)}`} style={{ textAlign: "center", fontSize: "0.82rem" }}>
-                    {verdictFromGap(pwGap)}{pctGap > 0 ? ` (${pctGap}%)` : ""}
+                  <div className={`verdict ${colorFromGap(pwGap)}`}>
+                    {verdictFromGap(pwGap)}
+                    {pctGap > 0 ? ` (${pctGap}%)` : ""}
                   </div>
-                  <div className="muted" style={{ fontSize: "0.66rem", textAlign: "center" }}>
+                  <div className={styles.controlsNote}>
                     Gap {Math.round(pwGap).toLocaleString()}
                   </div>
                 </div>
                 <div>
                   <div className="label">Side B</div>
-                  <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalB).toLocaleString()}</div>
+                  <div className="value">{Math.round(pwTotalB).toLocaleString()}</div>
                 </div>
               </div>
             </div>
-          )}
-
+          ) : null}
         </>
-      )}
-    </section>
+      ) : null}
+    </main>
   );
 }

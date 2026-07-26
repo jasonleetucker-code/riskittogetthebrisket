@@ -1,15 +1,11 @@
 "use client";
 
 /**
- * ManualAddDrop — trade-calculator-style add/drop selector for
- * the /waivers page.
+ * ManualAddDrop — the single-transaction bench of the claim desk.
  *
- * Lets the user pick a roster player to drop and an unrostered
- * pool player to add, then renders the same fairness bar +
- * per-vendor breakdown the trade calculator uses for any 2-side
- * comparison.  Sits ABOVE the existing FilterBar +
- * recommendation tables on /waivers; the bestMoves / addable /
- * droppable engine below is unchanged.
+ * Pick one roster player to drop and one pool player to add, then read
+ * the same fairness bar + per-vendor breakdown the trade calculator
+ * uses, plus the FAAB v2 bid desk (FaabRecommendation).
  *
  * Reuses (no duplication):
  *   - SharedTradeMeter        ← components/trade/TradeMeter
@@ -17,90 +13,37 @@
  *   - effectiveValue + sideTotal + adjustedSideTotals from
  *     lib/trade-logic (KTC V13 Value Adjustment math)
  *   - ResilientSection wrapper for crash isolation
- *   - PlayerImage + posBadgeClass for the picker rows
  *
- * Why a purpose-built waiver picker (and not a generic
- * SideAssetList lifted from /trade)?  The trade page's side block
- * carries multi-team destination dropdowns, receiving sections,
- * focused-side state and 4 layers of conditional rendering.
- * Forcing all of that into a reusable component would either
- * regress the trade page or hand the waiver page complexity it
- * doesn't need.  This file keeps the picker simple — single-asset
- * select per side — and inherits the same ``trade-side-search-*``
- * styling so the look matches.
+ * Why a purpose-built waiver picker (and not a generic SideAssetList
+ * lifted from /trade)?  The trade page's side block carries multi-team
+ * destination dropdowns, receiving sections, focused-side state and
+ * four layers of conditional rendering.  Forcing all of that into a
+ * reusable component would either regress the trade page or hand the
+ * waiver page complexity it doesn't need.  This file keeps the picker
+ * simple — single asset per side.
+ *
+ * R4: migrated off the legacy `.card` + inline-style system onto ds
+ * primitives and the waivers module CSS.  All value math is unchanged
+ * and still lives in lib/trade-logic + lib/waiver-logic.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import {
-  adjustedSideTotals,
-  effectiveValue,
-  sideTotal,
-} from "@/lib/trade-logic";
+import { adjustedSideTotals, effectiveValue, sideTotal } from "@/lib/trade-logic";
 import {
   buildOwnedNameSet,
   buildTopWaiverPool,
   normalizeName,
 } from "@/lib/waiver-logic";
-import { posBadgeClass } from "@/lib/display-helpers";
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
 import FaabRecommendation from "@/components/waivers/FaabRecommendation";
 import { MonteCarloButton, PlayerImage } from "@/components/ui";
+import { Badge, Button, Input, Panel, StatTile } from "@/components/ds";
+import styles from "@/app/waivers/waivers.module.css";
 
 // ── helpers ────────────────────────────────────────────────────
-
-/**
- * Always-visible FAAB header stat — shows the user's current
- * remaining FAAB + the league's average winning bid even before
- * any player is picked.  This is the "what do I have to spend
- * and what do others usually pay" question the calculator
- * exists to answer; burying it inside a collapsed FAAB panel
- * meant new users couldn't find it without selecting a player
- * AND expanding a toggle.
- */
-function FaabHeaderStat({ selectedTeam, leagueFaab }) {
-  const remaining = selectedTeam?.faabRemaining;
-  const budget = selectedTeam?.faabBudget ?? leagueFaab?.leagueBudget;
-  const avg = leagueFaab?.leagueAvgWinningBid;
-  const median = leagueFaab?.leagueMedianWinningBid;
-  // Skip rendering when neither piece is available — saves a
-  // confusing "—" row when the contract hasn't loaded yet.
-  if (remaining == null && avg == null) return null;
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 12,
-        padding: "8px 10px",
-        marginBottom: 12,
-        background: "rgba(52,211,153,0.06)",
-        border: "1px solid rgba(52,211,153,0.18)",
-        borderRadius: 8,
-        fontSize: "0.82rem",
-      }}
-    >
-      {remaining != null && (
-        <span>
-          <strong style={{ color: "var(--green, #34d399)" }}>
-            ${remaining.toLocaleString()}
-          </strong>
-          <span className="muted">
-            {budget ? ` / $${budget.toLocaleString()} FAAB left` : " FAAB left"}
-          </span>
-        </span>
-      )}
-      {avg != null && avg > 0 && (
-        <span className="muted">
-          League avg winning bid: <strong>${Math.round(avg)}</strong>
-          {median != null && median > 0 ? ` · median $${Math.round(median)}` : ""}
-        </span>
-      )}
-    </div>
-  );
-}
 
 export function normName(s) {
   return String(s || "")
@@ -112,8 +55,8 @@ export function normName(s) {
  * Build the lookup map: roster name (string from selectedTeam.players)
  *   → row object from the public ``rows`` array.
  *
- * Skips players we can't price (no value) and picks (waiver
- * /add-drop applies to NFL players only).
+ * Skips players we can't price (no value) and picks (add/drop applies
+ * to NFL players only).
  */
 export function rosterRowsForTeam(rows, rosterNames) {
   if (!Array.isArray(rows) || !Array.isArray(rosterNames)) return [];
@@ -134,30 +77,49 @@ export function rosterRowsForTeam(rows, rosterNames) {
     if ((Number(row.values?.full) || 0) <= 0) continue;
     out.push(row);
   }
-  // Sort lowest-value first so the natural drop candidates
-  // surface at the top of the picker.
+  // Lowest value first so natural drop candidates surface at the top.
   return out.sort(
-    (a, b) =>
-      (Number(a.values?.full) || 0) - (Number(b.values?.full) || 0),
+    (a, b) => (Number(a.values?.full) || 0) - (Number(b.values?.full) || 0),
+  );
+}
+
+/**
+ * Always-visible FAAB context — what the user has to spend and what
+ * the league usually pays, before any player is picked.
+ */
+function FaabHeaderStat({ selectedTeam, leagueFaab }) {
+  const remaining = selectedTeam?.faabRemaining;
+  const budget = selectedTeam?.faabBudget ?? leagueFaab?.leagueBudget;
+  const avg = leagueFaab?.leagueAvgWinningBid;
+  const median = leagueFaab?.leagueMedianWinningBid;
+  if (remaining == null && avg == null) return null;
+  return (
+    <div className={styles.faabStrip}>
+      <StatTile
+        label="Your FAAB"
+        value={remaining != null ? `$${remaining.toLocaleString()}` : "—"}
+        meta={budget ? `of $${budget.toLocaleString()}` : null}
+      />
+      <StatTile
+        label="League average bid"
+        value={avg != null && avg > 0 ? `$${Math.round(avg)}` : "—"}
+        meta="winning bids"
+      />
+      <StatTile
+        label="League median bid"
+        value={median != null && median > 0 ? `$${Math.round(median)}` : "—"}
+        meta="winning bids"
+      />
+    </div>
   );
 }
 
 /**
  * Lightweight typeahead picker.  Single-asset selection.
- *
- * Props:
- *   label         — accessibility + heading text ("Drop", "Add").
- *   accent        — border-left color for the selected card.
- *   pool          — array of row objects to search (already filtered).
- *   selected      — currently-selected row (or null).
- *   onSelect(row) — fired when the user picks a search result.
- *   onClear()     — fired when the user removes the selected row.
- *   emptyMsg      — copy shown when ``pool`` is empty.
- *   placeholder   — input placeholder.
  */
 function SidePicker({
   label,
-  accent,
+  variant,
   pool,
   selected,
   onSelect,
@@ -169,48 +131,22 @@ function SidePicker({
 }) {
   const [q, setQ] = useState("");
   const [focused, setFocused] = useState(false);
-  const inputRef = useRef(null);
 
   const results = useMemo(() => {
     const term = normName(q);
-    if (!term) {
-      // No query: show top-of-pool entries (already pre-sorted).
-      return pool.slice(0, 8);
-    }
-    return pool
-      .filter((r) => normName(r?.name).includes(term))
-      .slice(0, 8);
+    if (!term) return pool.slice(0, 8);
+    return pool.filter((r) => normName(r?.name).includes(term)).slice(0, 8);
   }, [q, pool]);
 
-  const showResults = focused && results.length >= 0 && !selected;
+  const showResults = focused && !selected;
 
   return (
     <div
-      className="trade-side"
-      style={{
-        // flex-basis 240px ensures the two pickers stack on
-        // viewports ≤ ~520px (240*2 + gap > 480) — desktop keeps
-        // them side-by-side; phone narrows to a clean column.
-        flex: "1 1 240px",
-        minWidth: 0,
-        background: "var(--surface, rgba(255,255,255,0.03))",
-        border: "1px solid var(--border, rgba(255,255,255,0.08))",
-        borderLeft: `3px solid ${accent}`,
-        borderRadius: 10,
-        padding: "10px 12px",
-      }}
+      className={`${styles.side} ${
+        variant === "drop" ? styles.sideDrop : styles.sideAdd
+      }`}
     >
-      <div
-        className="label"
-        style={{
-          fontSize: "0.7rem",
-          letterSpacing: "0.05em",
-          color: accent,
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </div>
+      <span className={styles.sideLabel}>{label}</span>
 
       {selected ? (
         <SelectedCard
@@ -220,10 +156,9 @@ function SidePicker({
           onClear={onClear}
         />
       ) : (
-        <div className="trade-side-search" style={{ position: "relative" }}>
-          <input
-            ref={inputRef}
-            className="input trade-side-search-input"
+        <div className={`${styles.sideSearch} trade-side-search`}>
+          <Input
+            className="trade-side-search-input"
             type="text"
             value={q}
             placeholder={placeholder}
@@ -231,9 +166,8 @@ function SidePicker({
             onChange={(e) => setQ(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => {
-              // Slight delay so a tap/click on a result registers
-              // before the dropdown collapses.  Mirrors the trade
-              // page's pattern.
+              // Slight delay so a tap/click on a result registers before
+              // the dropdown collapses.
               setTimeout(() => setFocused(false), 120);
             }}
           />
@@ -268,11 +202,9 @@ function SidePicker({
                       size={26}
                     />
                     <div className="trade-side-search-result-body">
-                      <div className="trade-side-search-result-name">
-                        {r.name}
-                      </div>
+                      <div className="trade-side-search-result-name">{r.name}</div>
                       <div className="trade-side-search-result-meta">
-                        <span className={posBadgeClass(r)}>{r.pos}</span>
+                        <Badge tone="outline">{r.pos}</Badge>
                         <span className="muted">
                           {r.blendedSourceRank != null
                             ? `#${r.blendedSourceRank.toFixed(1)}`
@@ -298,8 +230,8 @@ function SidePicker({
 function SelectedCard({ row, valueMode, settings, onClear }) {
   const v = Math.round(effectiveValue(row, valueMode, settings) || 0);
   return (
-    <div className="asset-row">
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+    <div className={styles.selectedCard}>
+      <div className={styles.selectedBody}>
         <PlayerImage
           playerId={row.raw?.playerId}
           team={row.team}
@@ -308,54 +240,27 @@ function SelectedCard({ row, valueMode, settings, onClear }) {
           size={28}
         />
         <div style={{ minWidth: 0 }}>
-          <div className="asset-name">{row.name}</div>
-          <div className="asset-meta">
-            <span className={posBadgeClass(row)}>{row.pos}</span>
-            {" · "}
-            {row.blendedSourceRank != null
-              ? `#${row.blendedSourceRank.toFixed(1)}`
-              : "—"}
-            {" · "}
-            {v.toLocaleString()}
+          <div className={styles.selectedName}>{row.name}</div>
+          <div className={styles.selectedMeta}>
+            <Badge tone="outline">{row.pos}</Badge>
+            <span>
+              {row.blendedSourceRank != null
+                ? `#${row.blendedSourceRank.toFixed(1)}`
+                : "—"}
+            </span>
+            <span className={styles.selectedValue}>{v.toLocaleString()}</span>
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        className="button trade-remove-btn"
-        onClick={onClear}
-        aria-label="Clear selection"
-      >
+      <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear selection">
         Remove
-      </button>
+      </Button>
     </div>
   );
 }
 
 // ── main component ─────────────────────────────────────────────
 
-/**
- * ManualAddDrop — top-level entry rendered ABOVE the FilterBar
- * on /waivers.
- *
- * Props:
- *   rows             — public-contract player rows (from useApp).
- *   selectedTeam     — selected fantasy team object (from useTeam).
- *                      Must have ``.players`` (array of names).
- *   sleeperTeams     — array of sleeper team objects (from
- *                      rawData.sleeper.teams).  Used to compute the
- *                      league-wide owned name set for the add pool.
- *   idpEnabled       — whether the league has IDP positions (from
- *                      selectedLeague.idpEnabled).
- *   includeRookies   — whether to surface rookies in the add pool
- *                      (mirrors the page's ``Include rookies``
- *                      toggle).
- *   valueMode        — "full" / "rookie" / etc. (defaults "full").
- *   settings         — settings context for value-adjustment math.
- *
- * If anything's missing (no team, empty rows), the component
- * returns a compact info banner instead of crashing.
- */
 export default function ManualAddDrop({
   rows,
   selectedTeam,
@@ -370,14 +275,10 @@ export default function ManualAddDrop({
   const [addRow, setAddRow] = useState(null);
   const [leagueFaab, setLeagueFaab] = useState(null);
 
-  // Fetch league FAAB analytics once per leagueKey.  The endpoint
-  // is a lazy public-league section (Phase B5) so it's a one-shot
-  // load — cached client-side until the leagueKey changes or the
-  // page reloads.  The downstream FaabRecommendation panel reads
-  // ``leagueFaab`` to render the historical-context block.  When
-  // the fetch fails we just don't show the context — the bid pills
-  // still work because the recommender does its own analytics
-  // lookup server-side.
+  // Fetch league FAAB analytics once per leagueKey.  Lazy public-league
+  // section, cached client-side until the key changes.  On failure the
+  // context panel simply stays hidden — the bid pills still work
+  // because the recommender does its own analytics lookup server-side.
   useEffect(() => {
     if (!leagueKey) {
       setLeagueFaab(null);
@@ -392,10 +293,9 @@ export default function ManualAddDrop({
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
-        // The /api/public/league/{section} endpoint wraps the
-        // builder output as ``{section, body}`` so unwrap.
-        const body = data?.body || data;
-        setLeagueFaab(body || null);
+        // The /api/public/league/{section} endpoint wraps the builder
+        // output as ``{section, body}`` so unwrap.
+        setLeagueFaab(data?.body || data || null);
       } catch {
         // Silent failure — context panel just stays hidden.
       }
@@ -410,18 +310,13 @@ export default function ManualAddDrop({
     [rows, selectedTeam?.players],
   );
 
-  // Add side: top-50 league-wide pool with position minimums.  This
-  // is intentionally roster-INDEPENDENT — the user might want to
-  // evaluate a strong waiver target who doesn't strictly upgrade
-  // their lowest-value bench filler but still represents a real
-  // option.  The fairness bar / source breakdown / Monte Carlo
-  // tell the truth about whether the trade is even.
+  // Add side: top-50 league-wide pool with position minimums.  Roster-
+  // INDEPENDENT on purpose — a strong waiver target is worth evaluating
+  // even when it doesn't strictly upgrade the lowest bench filler.
   const addPoolResult = useMemo(() => {
     const ownedNameSet = buildOwnedNameSet(sleeperTeams);
     const myRosterNameSet = new Set(
-      (selectedTeam?.players || [])
-        .map(normalizeName)
-        .filter(Boolean),
+      (selectedTeam?.players || []).map(normalizeName).filter(Boolean),
     );
     return buildTopWaiverPool(rows, ownedNameSet, {
       limit: 50,
@@ -441,10 +336,8 @@ export default function ManualAddDrop({
     [dropRow, addRow],
   );
 
-  // sideTotals: when both sides are populated we want the full
-  // KTC V13 Value Adjustment.  When only one (or neither) is
-  // populated, fall back to a flat sum so the meter still renders
-  // a sensible "0 vs N" preview.
+  // Both sides populated ⇒ full KTC V13 Value Adjustment.  Otherwise a
+  // flat sum so the meter still renders a sensible "0 vs N" preview.
   const sideTotals = useMemo(() => {
     const both = sides[0].assets.length > 0 && sides[1].assets.length > 0;
     if (both) {
@@ -462,51 +355,24 @@ export default function ManualAddDrop({
     });
   }, [sides, valueMode, settings]);
 
-  const noTeam = !selectedTeam;
-
   return (
-    <section
-      className="card"
-      style={{ padding: 16, marginBottom: 16 }}
+    <Panel
+      title="Manual add/drop calculator"
+      subtitle="One player out, one in — the trade calculator's fairness bar and per-vendor breakdown, applied to a single transaction."
       aria-label="Manual add/drop calculator"
     >
-      <header style={{ marginBottom: 10 }}>
-        <h2 className="card-title" style={{ margin: 0, fontSize: "1.05rem" }}>
-          Manual add/drop calculator
-        </h2>
-        <p
-          className="muted"
-          style={{ margin: "4px 0 0", fontSize: "0.78rem" }}
-        >
-          Pick one player from your roster to drop and one off the waiver
-          wire to add — the same fairness bar and per-vendor breakdown the
-          trade calculator uses, applied to a single transaction.
+      {!selectedTeam ? (
+        <p className="muted">
+          Select a team below to use the manual add/drop calculator.
         </p>
-      </header>
-
-      {noTeam ? (
-        <div className="muted" style={{ padding: 8 }}>
-          Select a team in the filter bar below to use the manual
-          add/drop calculator.
-        </div>
       ) : (
-        <>
-          <FaabHeaderStat
-            selectedTeam={selectedTeam}
-            leagueFaab={leagueFaab}
-          />
+        <div className={styles.calc}>
+          <FaabHeaderStat selectedTeam={selectedTeam} leagueFaab={leagueFaab} />
 
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              marginBottom: 10,
-            }}
-          >
+          <div className={styles.sides}>
             <SidePicker
               label="DROP"
-              accent="var(--red, #ef4444)"
+              variant="drop"
               pool={dropPool}
               selected={dropRow}
               onSelect={setDropRow}
@@ -518,7 +384,7 @@ export default function ManualAddDrop({
             />
             <SidePicker
               label="ADD"
-              accent="var(--green, #34d399)"
+              variant="add"
               pool={addPool}
               selected={addRow}
               onSelect={setAddRow}
@@ -538,24 +404,20 @@ export default function ManualAddDrop({
             />
           </div>
 
-          {/* Fairness bar.  Renders an "Even — 0 vs 0" placeholder
-              before any selection so the user sees the surface
-              they'll get once both sides are filled. */}
+          {/* Fairness bar — renders an "Even — 0 vs 0" placeholder before
+              any selection so the surface is visible up front. */}
           <ResilientSection name="Manual add/drop fairness bar">
             <SharedTradeMeter sides={sides} sideTotals={sideTotals} />
           </ResilientSection>
 
-          {/* Per-vendor breakdown only renders meaningfully when
-              both sides are populated; the underlying component
-              already guards on empty assets and returns null. */}
+          {/* Per-vendor breakdown guards on empty assets internally. */}
           <ResilientSection name="Manual add/drop per-source breakdown">
             <SharedTradeSourceBreakdown sides={sides} settings={settings} />
           </ResilientSection>
 
-          {/* FAAB bid recommendation panel — fires when an add is
-              selected (drop optional).  Wrapped in ResilientSection
-              so a recommender API failure can't take down the
-              calculator. */}
+          {/* FAAB bid desk — fires when an add is selected (drop
+              optional).  Isolated so a recommender failure can't take
+              down the calculator. */}
           {addRow && (
             <ResilientSection name="Manual add/drop FAAB recommendation">
               <FaabRecommendation
@@ -569,17 +431,15 @@ export default function ManualAddDrop({
             </ResilientSection>
           )}
 
-          {/* Monte Carlo simulator — disabled when either side is
-              empty (the underlying button computes a no-op state).
-              Wrapped in ResilientSection so an MC failure can't
-              take down the calculator. */}
+          {/* Monte Carlo — the underlying button computes a no-op state
+              when either side is empty. */}
           {dropRow && addRow && (
             <ResilientSection name="Manual add/drop Monte Carlo">
               <MonteCarloButton sides={sides} />
             </ResilientSection>
           )}
-        </>
+        </div>
       )}
-    </section>
+    </Panel>
   );
 }

@@ -1,0 +1,172 @@
+/* angle.module.css — /angle structural styles (R4, token-driven).
+   The counter-pitch builder: a three-column pitch form and the ranked
+   package results. Structure only — all color from tokens. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Pitch form ── */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (width < 1024px) {
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (width < 768px) {
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fieldLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.fieldCount {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ── Roster pickers ── */
+.rosterList {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  padding: var(--space-1);
+}
+.rosterEmpty {
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.rosterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-1);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.rosterRow:hover {
+  background: var(--surface-hover);
+}
+/* Selection is carried by the checkbox state; the wash is reinforcement
+   only, never the sole signal. */
+.rosterRowSelected {
+  background: var(--accent-muted);
+}
+.rosterName {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rosterNameText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+.rosterValue {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.selectionTotal {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Advanced options ── */
+.advanced {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* ── Actions ── */
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+/* ── Fixed side (what you send / receive) ── */
+.fixedSide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.fixedTotals {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Package results ── */
+.packageAssets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.packageOrigin {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.packagePlayers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.packagePlayer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+}
+.packagePlayerName {
+  color: var(--text-primary);
+}
+.packagePlayerValue {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
