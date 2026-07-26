@@ -1505,11 +1505,21 @@ export function mergeRankingsDelta(baseContract, delta) {
       const row = {
         displayName: id,
         canonicalName: String(legacy.canonicalName || id),
+        // Stable Sleeper id — required by ID-first ownership
+        // resolution (player-filters resolveOwnerTeam); without it
+        // every override-synthesized row degrades to name lookup and
+        // offense/IDP name twins can inherit each other's owner
+        // (Codex round 3 on PR #535).
+        playerId: String(legacy._sleeperId || "").trim() || null,
         position: isPick
           ? "PICK"
           : String(posMap[id] || legacy.position || ""),
         team: legacy.team != null ? legacy.team : null,
         age: legacy.age != null ? legacy.age : null,
+        // Override-invariant like team/age: without this copy the
+        // experience filters return an empty board whenever a source
+        // override is active (fail-closed predicate over null).
+        yearsExp: legacy._yearsExp != null ? legacy._yearsExp : null,
         rookie: Boolean(legacy._formatFitRookie || legacy.rookie),
         assetClass: String(legacy.assetClass || ""),
         identityConfidence: Number(legacy.identityConfidence ?? 0.7),
