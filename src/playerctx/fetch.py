@@ -201,6 +201,17 @@ def fetch_url(
                         fh.write(chunk)
                         size += len(chunk)
             tmp.replace(dest)
+        except requests.RequestException as exc:
+            # A connection reset MID-STREAM (very possible on the
+            # 35-55 MB depth-chart file) must degrade to the stale
+            # local copy exactly like a failure at request start —
+            # never fail the whole refresh while a usable cache sits
+            # on disk.
+            tmp.unlink(missing_ok=True)
+            if dest.exists():
+                log.warning("playerctx[%s]: stream failed (%s); keeping stale local copy", key, exc)
+                return FetchResult(key=key, path=dest, status="error", detail=f"stream: {exc}")
+            return FetchResult(key=key, path=None, status="error", detail=f"stream: {exc}")
         except BaseException:
             tmp.unlink(missing_ok=True)
             raise

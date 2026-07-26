@@ -133,6 +133,25 @@ def refresh_playerctx(
                 f"new snapshot retains only {len(records)} of {prev_n} last-good players "
                 f"(< {_LAST_GOOD_RETENTION:.0%}); keeping last-good"
             )
+        # Per-source retention: the union check above can't see one
+        # source collapsing semantically (e.g. a contracts naming-
+        # convention change producing zero matches) while the other
+        # two keep the total player count healthy — that would publish
+        # a snapshot silently missing every contract block.  Each
+        # source's matched count must hold its own retention ratio
+        # against last-good.
+        prev_counts = last_good.get("counts") or {}
+        for source_key in ("contracts", "snapCounts", "depthCharts"):
+            prev_matched = (prev_counts.get(source_key) or {}).get("matched")
+            if not isinstance(prev_matched, int) or prev_matched <= 0:
+                continue  # older snapshot without per-source counts
+            new_matched = stats[source_key]["matched"]
+            if new_matched < prev_matched * _LAST_GOOD_RETENTION:
+                raise SchemaRegressionError(
+                    f"{source_key}: matched {new_matched} retains less than "
+                    f"{_LAST_GOOD_RETENTION:.0%} of last-good {prev_matched}; "
+                    "keeping last-good"
+                )
 
     sources = {
         "contracts": {"url": fetch_mod.CONTRACTS_URL},

@@ -42,7 +42,7 @@ import logging
 from pathlib import Path
 from typing import Any, TextIO
 
-from src.identity.unified_mapper import resolve_player
+from src.identity.unified_mapper import _load_overrides, resolve_player
 from src.utils.name_clean import normalize_player_name, normalize_position
 
 log = logging.getLogger(__name__)
@@ -485,6 +485,7 @@ def build_player_context(
     depth: list[dict[str, Any]],
     players_dir: dict[str, dict[str, Any]],
     min_confidence: float = 0.90,
+    overrides_path: Path | None = None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     """Join the three datasets to the Sleeper pool.
 
@@ -501,11 +502,40 @@ def build_player_context(
     deterministic name ladder the unified mapper implements
     (name+team+pos → name+pos → unique name, built here as O(1)
     indexes because ``resolve_player`` re-indexes the pool on every
-    call); residual misses fall through to
-    :func:`src.identity.unified_mapper.resolve_player` so its manual
-    override + fuzzy layers get the last word.  Rows that still don't
-    map to the Sleeper pool are dropped and counted.
+    call).
+
+    Manual overrides (``config/identity/id_overrides.json``, same file
+    and loader as the unified mapper — ``overrides_path`` overrides the
+    location for tests) genuinely get the last word: the override
+    entries are reverse-indexed by normalized full_name / gsis_id /
+    espn_id → sleeper_id and consulted after the deterministic rungs
+    miss but BEFORE the fuzzy fallback, so an operator-pinned mapping
+    beats a fuzzy guess and a source row that depends on an override is
+    never dropped.  (``resolve_player`` alone can't do this for source
+    rows — its override rung only fires when a ``sleeper_id`` is
+    supplied, which external datasets never have.)  Residual misses
+    still fall through to
+    :func:`src.identity.unified_mapper.resolve_player` for its fuzzy
+    layer.  Rows that still don't map to the Sleeper pool are dropped
+    and counted.
     """
+    overrides = _load_overrides(overrides_path)
+    alias_by_name: dict[str, str] = {}
+    alias_by_gsis: dict[str, str] = {}
+    alias_by_espn: dict[str, str] = {}
+    for sid, ov in overrides.items():
+        if not isinstance(ov, dict):
+            continue
+        ov_name = normalize_player_name(str(ov.get("full_name") or ""))
+        if ov_name:
+            alias_by_name.setdefault(ov_name, str(sid))
+        ov_gsis = str(ov.get("gsis_id") or "").strip()
+        if ov_gsis:
+            alias_by_gsis.setdefault(ov_gsis, str(sid))
+        ov_espn = str(ov.get("espn_id") or "").strip()
+        if ov_espn:
+            alias_by_espn.setdefault(ov_espn, str(sid))
+
     by_gsis: dict[str, dict[str, Any]] = {}
     by_espn: dict[str, dict[str, Any]] = {}
     by_name_team_pos: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -539,10 +569,18 @@ def build_player_context(
             or by_name_pos.get((norm_name, fam))
             or (by_name[norm_name][0] if len(by_name.get(norm_name, [])) == 1 else None)
         )
+        if hit is None and norm_name in alias_by_name:
+            # Manual override (id_overrides.json) — an operator-pinned
+            # source-name → sleeper_id mapping beats the fuzzy guess
+            # below.  ``resolve_player`` can't reach its own override
+            # rung for source rows (it requires a sleeper_id input),
+            # so the alias index is what makes overrides effective
+            # here.
+            hit = players_dir.get(alias_by_name[norm_name])
         if hit is None:
-            # Tail cases only: the mapper's manual-override + fuzzy
-            # layers.  Too slow for the hot path (it re-indexes the
-            # pool per call) but right for the residue.
+            # Tail cases only: the mapper's fuzzy layer.  Too slow for
+            # the hot path (it re-indexes the pool per call) but right
+            # for the residue.
             got = resolve_player(
                 players_dir,
                 name=name,
@@ -589,6 +627,10 @@ def build_player_context(
 
     for d in compute_depth_ranks(depth):
         pool_rec = by_gsis.get(d["gsisId"]) or by_espn.get(d["espnId"])
+        if pool_rec is None and d["gsisId"] in alias_by_gsis:
+            pool_rec = players_dir.get(alias_by_gsis[d["gsisId"]])
+        if pool_rec is None and d["espnId"] in alias_by_espn:
+            pool_rec = players_dir.get(alias_by_espn[d["espnId"]])
         if pool_rec is None:
             pool_rec = _resolve_by_name(d["name"], d["team"], d["position"])
         if pool_rec is None:

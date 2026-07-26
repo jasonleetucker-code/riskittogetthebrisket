@@ -1,9 +1,14 @@
 """Join correctness for ``normalize.build_player_context`` against a
-fake Sleeper pool — exact-ID joins, unified-mapper name joins, and
-the drop rules.  No network."""
+fake Sleeper pool — exact-ID joins, unified-mapper name joins, manual
+override aliases, and the drop rules.  No network."""
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
+from src.identity import unified_mapper
 from src.playerctx import normalize as norm
 
 
@@ -161,3 +166,99 @@ class TestBuildPlayerContext:
         assert stats["contracts"]["parsed"] == 1
         assert stats["snapCounts"]["parsed"] == 0
         assert stats["depthCharts"]["parsed"] == 1
+
+
+class TestManualOverrides:
+    """Regression: manual overrides (``id_overrides.json``) must be
+    reachable for source rows.  ``resolve_player``'s own override rung
+    only fires when given a ``sleeper_id`` — which external datasets
+    never carry — so ``build_player_context`` reverse-indexes the
+    override file by normalized name / gsis_id / espn_id and consults
+    it before dropping a row (Codex round 1, finding 1 on PR #539)."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_override_cache(self):
+        unified_mapper.reload_overrides()
+        yield
+        unified_mapper.reload_overrides()
+
+    @pytest.fixture
+    def overrides_path(self, tmp_path):
+        p = tmp_path / "id_overrides.json"
+        p.write_text(
+            json.dumps(
+                {
+                    # Source-name alias for a player whose pool name is
+                    # nothing like the source's ("Zzyzx Quixote" fails
+                    # every exact rung AND the fuzzy ladder).
+                    "4034": {
+                        "gsis_id": "00-0033280",
+                        "espn_id": "3117251",
+                        "full_name": "Zzyzx Quixote",
+                    },
+                    # ID alias for the no-gsis pool player: maps an
+                    # external gsis/espn the pool doesn't know.
+                    "7777": {
+                        "gsis_id": "00-0777777",
+                        "espn_id": "7654321",
+                        "full_name": "Ghost Nogsis",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return p
+
+    def test_name_alias_rescues_unmatchable_source_row(self, players_dir, overrides_path):
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Zzyzx Quixote", "SF", "RB")],
+            snaps=[_snap("Zzyzx Quixote", "SF", "RB")],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=overrides_path,
+        )
+        assert set(records) == {"00-0033280"}
+        rec = records["00-0033280"]
+        assert rec["sleeperId"] == "4034"
+        assert rec["name"] == "Christian McCaffrey"  # pool stays canonical
+        assert rec["contract"]["apy"] == 12_000_000
+        assert rec["snaps"]["pct"] == 80.0
+        assert stats["contracts"]["matched"] == 1
+        assert stats["snapCounts"]["matched"] == 1
+
+    def test_same_row_is_dropped_without_the_override(self, players_dir, tmp_path):
+        empty = tmp_path / "no_overrides.json"
+        empty.write_text("{}", encoding="utf-8")
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Zzyzx Quixote", "SF", "RB")],
+            snaps=[],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=empty,
+        )
+        assert records == {}
+
+    def test_gsis_alias_rescues_depth_row(self, players_dir, overrides_path):
+        # Depth row: unknown display name, gsis only known via the
+        # override entry → must land on sleeper 7777.
+        records, stats = norm.build_player_context(
+            contracts=[],
+            snaps=[],
+            depth=[_depth("Totally Different Name", gsis="00-0777777", team="CHI", pos="WR")],
+            players_dir=players_dir,
+            overrides_path=overrides_path,
+        )
+        assert set(records) == {"00-0777777"}  # source gsis backfills the key
+        assert records["00-0777777"]["sleeperId"] == "7777"
+        assert stats["depthCharts"]["matched"] == 1
+
+    def test_espn_alias_rescues_depth_row(self, players_dir, overrides_path):
+        records, _ = norm.build_player_context(
+            contracts=[],
+            snaps=[],
+            depth=[_depth("Totally Different Name", gsis="", espn="7654321", team="CHI", pos="WR")],
+            players_dir=players_dir,
+            overrides_path=overrides_path,
+        )
+        assert len(records) == 1
+        assert next(iter(records.values()))["sleeperId"] == "7777"

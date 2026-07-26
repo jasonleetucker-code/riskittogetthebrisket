@@ -136,6 +136,59 @@ class TestRefreshPlayerctx:
         with pytest.raises(RuntimeError, match="sleeper"):
             service.refresh_playerctx(fetcher=_fetcher(fixture_bundle))
 
+    def test_per_source_retention_guard(self, tmp_path, fixture_bundle, players_dir, small_floors):
+        # Regression (Codex round 1, finding 3 on PR #539): if ONE
+        # source collapses semantically (contracts matching almost
+        # nothing after a naming-convention change) while the union of
+        # player keys stays healthy, the union-only guard would publish
+        # a snapshot silently missing every contract block.  Each
+        # source's matched count must hold the retention ratio on its
+        # own.
+        target = tmp_path / "snapshot.json"
+        # Last-good: same 3 players (union check passes: 3 >= 3*0.75)
+        # but contracts historically matched 50 rows.
+        prev_players = {
+            f"00-{i:07d}": {"gsisId": f"00-{i:07d}", "sleeperId": str(i), "name": f"P{i}"}
+            for i in range(3)
+        }
+        store.write_snapshot(
+            prev_players,
+            counts={
+                "contracts": {"parsed": 60, "matched": 50},
+                "snapCounts": {"parsed": 3, "matched": 3},
+                "depthCharts": {"parsed": 3, "matched": 3},
+            },
+            path=target,
+        )
+        before = target.read_text(encoding="utf-8")
+        # New run only matches 2 contracts (fixture_bundle) — far under
+        # 75% of 50 — while depth+snaps keep the union at 3 players.
+        with pytest.raises(SchemaRegressionError, match="contracts: matched 2"):
+            service.refresh_playerctx(
+                fetcher=_fetcher(fixture_bundle),
+                players_dir=players_dir,
+                snapshot_path=target,
+            )
+        assert target.read_text(encoding="utf-8") == before  # last-good untouched
+
+    def test_per_source_guard_skips_snapshots_without_counts(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        # Older snapshots (or hand-rolled ones) without per-source
+        # counts must not trip the guard.
+        target = tmp_path / "snapshot.json"
+        prev_players = {
+            f"00-{i:07d}": {"gsisId": f"00-{i:07d}", "sleeperId": str(i), "name": f"P{i}"}
+            for i in range(3)
+        }
+        store.write_snapshot(prev_players, counts={}, path=target)
+        summary = service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=target,
+        )
+        assert summary["counts"]["players"] == 3
+
 
 class TestLoadPlayerctx:
     def test_defensive_load(self, tmp_path):
