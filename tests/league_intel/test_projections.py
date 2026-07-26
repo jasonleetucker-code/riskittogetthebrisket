@@ -382,6 +382,27 @@ class TestDisagreement:
         out = measure_disagreement(calm + contested)
         assert [d.player_name for d in out] == ["Contested", "Calm"]
 
+    def test_li7_handoff_keys_on_displayname_like_playervalues(self, scoring):
+        """The cross-workstream interface must join to PlayerValues by key."""
+        d = measure_disagreement(self._scored(scoring, {"a": 900.0, "b": 1100.0}))[0]
+        sig = d.to_li7_signal()
+        assert sig["displayName"] == "Contested"
+        assert 0.0 <= sig["agreement"] <= 1.0
+        assert sig["sourceCount"] == 2
+        assert set(sig) == {
+            "displayName",
+            "position",
+            "sourceCount",
+            "medianPoints",
+            "spreadPoints",
+            "agreement",
+        }
+
+    def test_li7_signal_marks_single_source_unadjustable(self, scoring):
+        sig = measure_disagreement(self._scored(scoring, {"only": 900.0}))[0].to_li7_signal()
+        assert sig["sourceCount"] == 1
+        assert sig["agreement"] == 0.0
+
     def test_per_source_points_are_retained_for_explanation(self, scoring):
         d = measure_disagreement(self._scored(scoring, {"fbg": 1000.0, "rw": 1200.0}))[0]
         assert set(d.per_source) == {"fbg", "rw"}

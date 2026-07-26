@@ -661,6 +661,36 @@ class SourceDisagreement:
     confidence: float
     per_source: Mapping[str, float] = field(default_factory=dict)
 
+    def to_li7_signal(self) -> dict[str, Any]:
+        """The handoff shape LI-7 consumes to scale adjustment strength.
+
+        **Proposed cross-workstream interface — LI-7 owns the consuming
+        side.** Deliberately keyed by ``displayName`` to match
+        ``values.PlayerValues``, so a join is a dict lookup rather than
+        a name-reconciliation exercise between two vocabularies.
+
+        Contract:
+
+        * ``agreement`` ∈ [0, 1] — multiply an adjustment by this
+          directly. 1.0 = sources agree exactly; 0.0 = single source
+          (absence of evidence, NOT consensus).
+        * ``sourceCount`` — LI-7 should refuse to adjust on 1.
+        * ``spreadPoints`` / ``medianPoints`` — in **league points**,
+          already re-scored under this league's exact rules, so they
+          are directly comparable across players.
+
+        If LI-7 needs a different shape, change it here rather than
+        adapting downstream — one owner per interface.
+        """
+        return {
+            "displayName": self.player_name,
+            "position": self.position,
+            "sourceCount": self.source_count,
+            "medianPoints": round(self.median_points, 4),
+            "spreadPoints": round(self.spread_points, 4),
+            "agreement": round(self.agreement, 4),
+        }
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "playerName": self.player_name,
