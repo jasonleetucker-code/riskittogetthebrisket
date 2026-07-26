@@ -34,6 +34,9 @@
  *   - Sort is stable; null/undefined always sink to the bottom.
  *   - Sticky header + horizontal scroll wrapper are built in — a bare
  *     unwrapped <table> can no longer happen.
+ *   - Row activation ignores events that originate inside interactive
+ *     cell content (links, buttons, inputs, role=button/link,
+ *     contenteditable) — cell renderers never need stopPropagation.
  */
 "use client";
 
@@ -42,6 +45,24 @@ import { Icon } from "./Icon";
 
 function defaultRowKey(row, index) {
   return row?.id ?? index;
+}
+
+/**
+ * True when an event originated inside an interactive descendant of the
+ * row (link, button, form control, custom widget). Cell renderers are part
+ * of the column API — a Movement link or an inline input must not need
+ * stopPropagation to avoid also activating the row.
+ */
+const INTERACTIVE_SELECTOR =
+  'a,button,input,select,textarea,[role="button"],[role="link"],[contenteditable]';
+
+function fromInteractiveDescendant(event) {
+  const target = event.target;
+  if (!target || typeof target.closest !== "function") return false;
+  const hit = target.closest(INTERACTIVE_SELECTOR);
+  return Boolean(
+    hit && hit !== event.currentTarget && event.currentTarget.contains(hit)
+  );
 }
 
 function compareValues(a, b) {
@@ -188,10 +209,18 @@ export function DataTable({
                 key={getKey(row, i)}
                 className={interactive ? "ds-table__row--interactive" : undefined}
                 tabIndex={interactive ? 0 : undefined}
-                onClick={interactive ? () => onRowClick(row) : undefined}
+                onClick={
+                  interactive
+                    ? (e) => {
+                        if (fromInteractiveDescendant(e)) return;
+                        onRowClick(row);
+                      }
+                    : undefined
+                }
                 onKeyDown={
                   interactive
                     ? (e) => {
+                        if (fromInteractiveDescendant(e)) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           onRowClick(row);

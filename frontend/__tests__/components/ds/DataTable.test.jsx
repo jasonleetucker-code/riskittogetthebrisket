@@ -184,6 +184,97 @@ describe("DataTable structure & interaction", () => {
     expect(onRowClick).toHaveBeenCalledTimes(2);
   });
 
+  it("clicks on interactive cell content do NOT activate the row", async () => {
+    const user = userEvent.setup();
+    const onRowClick = vi.fn();
+    const onCellAction = vi.fn();
+    const columns = [
+      ...COLUMNS,
+      {
+        key: "actions",
+        header: "Actions",
+        render: (r) => (
+          <button type="button" onClick={() => onCellAction(r.id)}>
+            Compare
+          </button>
+        ),
+      },
+    ];
+    render(
+      <DataTable
+        caption="t"
+        columns={columns}
+        rows={ROWS}
+        onRowClick={onRowClick}
+      />
+    );
+    // cell button fires its own action only
+    await user.click(screen.getAllByRole("button", { name: "Compare" })[0]);
+    expect(onCellAction).toHaveBeenCalledWith("a");
+    expect(onRowClick).not.toHaveBeenCalled();
+    // a plain (non-interactive) cell still activates the row
+    await user.click(screen.getByText("Chase"));
+    expect(onRowClick).toHaveBeenCalledWith(ROWS[0]);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("keyboard events inside interactive cell content do NOT activate the row", async () => {
+    const user = userEvent.setup();
+    const onRowClick = vi.fn();
+    const columns = [
+      ...COLUMNS,
+      {
+        key: "bid",
+        header: "Bid",
+        render: () => <input aria-label="Bid amount" />,
+      },
+    ];
+    render(
+      <DataTable
+        caption="t"
+        columns={columns}
+        rows={ROWS}
+        onRowClick={onRowClick}
+      />
+    );
+    const input = screen.getAllByRole("textbox", { name: "Bid amount" })[0];
+    input.focus();
+    await user.keyboard("{Enter} ");
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("links and role=button widgets in cells are also exempt from row activation", async () => {
+    const user = userEvent.setup();
+    const onRowClick = vi.fn();
+    const columns = [
+      {
+        key: "name",
+        header: "Player",
+        render: (r) => <a href={`/player/${r.id}`}>{r.name}</a>,
+      },
+      {
+        key: "w",
+        header: "Widget",
+        render: () => (
+          <span role="button" tabIndex={0}>
+            widget
+          </span>
+        ),
+      },
+    ];
+    render(
+      <DataTable
+        caption="t"
+        columns={columns}
+        rows={[ROWS[0]]}
+        onRowClick={onRowClick}
+      />
+    );
+    await user.click(screen.getByRole("link", { name: "Chase" }));
+    await user.click(screen.getByRole("button", { name: "widget" }));
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
   it("renders emptyState instead of a table when rows are empty", () => {
     render(
       <DataTable
