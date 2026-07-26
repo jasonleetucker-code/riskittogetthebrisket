@@ -36,9 +36,10 @@ def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False, sour
         position=pos,
         team=team,
         model_value=model,
-        ktc_value=ktc,
+        market_value=ktc,
         is_pick=is_pick,
         source_count=source_count,
+        market_source="ktcSfTep" if ktc is not None else None,
     )
 
 
@@ -1177,11 +1178,11 @@ class TestExplainabilityFields:
         assert rf["rosterFitBonus"] == 0.0  # Not in find_trades context
 
         # Flags
-        assert "full_ktc" in tc.flags
+        assert "full_market" in tc.flags
         assert "high_confidence" in tc.flags
 
     def test_partial_ktc_flags(self):
-        """Partial coverage trade should have partial_ktc flag and lower confidence tier."""
+        """Partial coverage trade should have partial_market flag and lower confidence tier."""
         give = [_make_asset("A", model=4000, ktc=5000, source_count=2)]
         recv = [
             _make_asset("B", model=3000, ktc=3000, source_count=1),
@@ -1189,7 +1190,7 @@ class TestExplainabilityFields:
         ]
         tc = _score_trade(give, recv)
         assert tc is not None
-        assert "partial_ktc" in tc.flags
+        assert "partial_market" in tc.flags
         assert "partial KTC" in tc.summary
 
     def test_2for1_elite_has_elite_and_anchor_flags(self):
@@ -1318,7 +1319,7 @@ class TestBeforeAfterExplainability:
         assert d["confidenceTier"] == "high"
         assert d["edgeLabel"] == "Strong Edge"
         assert "you gain 2,000" in d["summary"]
-        assert "full_ktc" in d["flags"]
+        assert "full_market" in d["flags"]
         assert "high_confidence" in d["flags"]
         assert d["rankingFactors"]["boardEdge"] > 0
 
@@ -1334,7 +1335,7 @@ class TestBeforeAfterExplainability:
         d = tc.to_dict()
 
         # This trade is partial-KTC with single-source — very low confidence
-        assert "partial_ktc" in d["flags"]
+        assert "partial_market" in d["flags"]
         assert "partial KTC" in d["summary"]
 
     def test_example_receive_all_no_ktc_rejected(self):
@@ -1547,3 +1548,187 @@ class TestKtcTopNFilter:
                     assert (
                         player["name"] in eligible_names
                     ), f"{player['name']} in {side} is outside KTC top 30"
+
+
+# ── WS-J F-3: per-market quality gate (IDP was silently excluded) ────────
+
+
+def _make_idp_player_data(model, idptc=None, pos="LB", team="BAL", sites=5):
+    """Raw payload for an IDP asset.
+
+    IDP players carry an ``idpTradeCalc`` value and NO KTC value —
+    KTC's board has no defenders at all.  This is the shape that the
+    pre-fix KTC-only top-N filter silently dropped.
+    """
+    d = {
+        "_finalAdjusted": model,
+        "_rawComposite": model,
+        "_composite": model,
+        "_sites": sites,
+        "position": pos,
+        "team": team,
+    }
+    if idptc is not None:
+        d["_canonicalSiteValues"] = {"idpTradeCalc": idptc}
+    return d
+
+
+class TestPerMarketQualityGate:
+    """The quality gate must be per-market, not KTC-only.
+
+    KTC publishes no IDP players, so ranking every asset against KTC
+    and keeping the top N removed 100% of IDP from the pool — in an
+    IDP league the engine silently returned offense-only results.
+    IDP assets are anchored on IDPTradeCalc instead, which publishes
+    offense, IDP and picks on one native 0-9999 scale.
+    """
+
+    def test_idp_asset_survives_default_filter(self):
+        """An IDP player with IDPTC coverage must reach the pool."""
+        players = {
+            "Aidan Hutchinson": _make_idp_player_data(6400, idptc=6444, pos="DL"),
+            "Josh Allen": _make_player_data(9000, ktc=8500, pos="QB"),
+        }
+        pool = build_asset_pool(players)
+        names = {a.name for a in pool}
+        assert "Aidan Hutchinson" in names, (
+            "IDP asset was dropped by the quality gate — this is the "
+            "offense-only regression (WS-J F-3)"
+        )
+
+    def test_idp_market_value_reads_idptc(self):
+        players = {"Micah Parsons": _make_idp_player_data(5400, idptc=5419, pos="LB")}
+        pool = build_asset_pool(players)
+        asset = pool[0]
+        assert asset.market_value == 5419
+        assert asset.market_source == "idpTradeCalc"
+
+    def test_offense_market_value_still_reads_ktc(self):
+        players = {"Ja'Marr Chase": _make_player_data(9900, ktc=9996, pos="WR")}
+        pool = build_asset_pool(players)
+        asset = pool[0]
+        assert asset.market_value == 9996
+        assert asset.market_source in ("ktcSfTep", "ktc")
+
+    def test_market_rank_is_computed_within_market(self):
+        """An IDP player must not be ranked against offensive players.
+
+        Offense values run to 9999; IDP tops out near 6400.  Ranking
+        them in one list buries every defender below the offensive
+        board and a top-N cut removes them all.
+        """
+        players = {
+            "WR1": _make_player_data(9900, ktc=9990, pos="WR"),
+            "WR2": _make_player_data(9800, ktc=9900, pos="WR"),
+            "TopLB": _make_idp_player_data(6400, idptc=6444, pos="LB"),
+            "NextLB": _make_idp_player_data(5400, idptc=5419, pos="LB"),
+        }
+        pool = build_asset_pool(players, ktc_top_n=0)
+        by_name = {a.name: a for a in pool}
+        # Each market ranks from 1 independently.
+        assert by_name["WR1"].market_rank == 1
+        assert by_name["WR2"].market_rank == 2
+        assert by_name["TopLB"].market_rank == 1
+        assert by_name["NextLB"].market_rank == 2
+
+    def test_top_n_cut_applies_per_market(self):
+        """A top-1 cut keeps the best offense asset AND the best IDP asset."""
+        players = {
+            "WR1": _make_player_data(9900, ktc=9990, pos="WR"),
+            "WR2": _make_player_data(9800, ktc=9900, pos="WR"),
+            "TopLB": _make_idp_player_data(6400, idptc=6444, pos="LB"),
+            "NextLB": _make_idp_player_data(5400, idptc=5419, pos="LB"),
+        }
+        pool = build_asset_pool(players, ktc_top_n=1)
+        names = {a.name for a in pool}
+        assert names == {"WR1", "TopLB"}
+
+    def test_asset_with_no_market_coverage_is_excluded_by_gate(self):
+        """No board lists them at all → still filtered by the quality gate."""
+        players = {
+            "WR1": _make_player_data(9900, ktc=9990, pos="WR"),
+            "Ghost": _make_player_data(5000, ktc=None, pos="WR"),
+        }
+        pool = build_asset_pool(players, ktc_top_n=150)
+        assert {a.name for a in pool} == {"WR1"}
+
+    def test_idp_league_produces_idp_trades(self):
+        """End-to-end: an IDP-heavy league must surface IDP in trades.
+
+        Real arbitrage shape — I give an offensive player the market
+        prices above our board, and receive a defender our board rates
+        above his IDPTradeCalc price.  Pre-fix this returned nothing
+        involving IDP because no defender ever reached the pool.
+        """
+        players = {
+            # Market loves him more than we do → good to send out.
+            "OffOverpriced": _make_player_data(5000, ktc=8000, pos="WR"),
+            "OffFiller": _make_player_data(4000, ktc=4200, pos="RB"),
+            # We love him more than IDPTradeCalc does → good to acquire.
+            "IdpUnderpriced": _make_idp_player_data(8000, idptc=5000, pos="LB"),
+            "IdpFiller": _make_idp_player_data(3000, idptc=3100, pos="DL"),
+        }
+        sleeper_teams = _make_sleeper_teams(
+            {
+                "Me": ["OffOverpriced", "OffFiller"],
+                "Them": ["IdpUnderpriced", "IdpFiller"],
+            }
+        )
+        result = find_trades(players, "Me", ["Them"], sleeper_teams)
+        traded_names = set()
+        for trade in result.get("trades", []):
+            for side in ("give", "receive"):
+                for p in trade[side]:
+                    traded_names.add(p["name"])
+        assert "IdpUnderpriced" in traded_names, (
+            "no IDP asset appeared in any trade for an IDP league — "
+            f"the engine is still offense-only (got {traded_names})"
+        )
+
+    def test_idp_only_pool_does_not_warn_offense_only(self):
+        """The offense-only warning must not fire when IDP is priced."""
+        players = {
+            "OffOverpriced": _make_player_data(5000, ktc=8000, pos="WR"),
+            "IdpUnderpriced": _make_idp_player_data(8000, idptc=5000, pos="LB"),
+        }
+        sleeper_teams = _make_sleeper_teams(
+            {"Me": ["OffOverpriced"], "Them": ["IdpUnderpriced"]}
+        )
+        result = find_trades(players, "Me", ["Them"], sleeper_teams)
+        assert not any("offense-only" in w for w in result.get("warnings", []))
+
+    def test_unpriced_idp_league_warns_offense_only(self):
+        """IDP present but unpriced → the engine must say it is offense-only.
+
+        This is the regression made visible: rather than silently
+        returning offense trades, the result now carries a warning.
+        """
+        players = {
+            "OffOverpriced": _make_player_data(5000, ktc=8000, pos="WR"),
+            "OffFiller": _make_player_data(4000, ktc=4200, pos="RB"),
+            # IDP with NO market coverage at all.
+            "IdpUnpriced": _make_idp_player_data(8000, idptc=None, pos="LB"),
+        }
+        sleeper_teams = _make_sleeper_teams(
+            {"Me": ["OffOverpriced"], "Them": ["OffFiller", "IdpUnpriced"]}
+        )
+        result = find_trades(players, "Me", ["Them"], sleeper_teams)
+        assert any("offense-only" in w for w in result.get("warnings", [])), (
+            f"expected an offense-only warning, got {result.get('warnings')}"
+        )
+
+    def test_metadata_reports_per_market_filter(self):
+        """The engine must say what it filtered, per market."""
+        players = {
+            "WR1": _make_player_data(9900, ktc=9990, pos="WR"),
+            "TopLB": _make_idp_player_data(6400, idptc=6444, pos="LB"),
+        }
+        sleeper_teams = _make_sleeper_teams({"Me": ["WR1"], "Them": ["TopLB"]})
+        result = find_trades(players, "Me", ["Them"], sleeper_teams)
+        meta = result["metadata"]
+        assert "marketTopNFilter" in meta
+        assert meta["marketTopNFilter"] == KTC_TOP_N_FILTER
+        # Per-market coverage must be reported so an offense-only result
+        # in an IDP league is visible rather than silent.
+        assert "marketCoverage" in meta
+        assert set(meta["marketCoverage"]) >= {"ktcSfTep", "idpTradeCalc"}
