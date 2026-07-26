@@ -38,6 +38,86 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-011: the trade primitive is a weekly scoring DISTRIBUTION, and it runs on the full roster (LI-8)
+**Status:** accepted 2026-07-26.  Library + tests land; no endpoint and
+no UI, so nothing user-visible ships.
+
+**Why a third simulator is not what this is.**  The repo already has
+two, and both answer real questions:
+`src/trade/monte_carlo.py` asks *"which side of this trade got more
+value"* by sampling consensus bands (and says in its own disclaimer
+that this is not a real-world win probability), and
+`src/ros/playoff_sim.py` asks *"what are this team's playoff odds"*
+from a league snapshot.  Neither answers the question a manager
+actually asks about a trade: **"how does this change my team's weekly
+scoring distribution?"**  That is the quantity playoff odds are
+computed *from*, so it is the right primitive to expose — and it needs
+no schedule, standings or snapshot, which is what makes it testable.
+
+Per the repo's "prefer modifying existing architecture" rule,
+`src/league_intel/sim.py` reimplements nothing: the per-player weekly
+draw model is imported from `playoff_sim` and the lineup solve from
+`src/ros/lineup.py`, so a change to either propagates rather than
+drifts.
+
+**Two upstream defects had to be fixed first, and both were real.**
+
+*Defect 1 — `playoff_sim` was simulating 29 of 44-58 players.*  It
+built its rosters from `startingLineup + benchDepth`, but `benchDepth`
+is capped at `DEPTH_BENCH_LIMIT = 8` because it exists to *score*
+depth, not to enumerate a roster.  Best ball is precisely the format
+where that truncation bites.  Fixed by adding a `fullRoster` field to
+`team_strength.py` and preferring it in `_load_team_rosters`.
+
+Measured on the 12 real rosters (400 weeks, seed 7): the truncated
+input understates the weekly mean by **+1.1 to +9.4 points**, varying
+about 8x by team, with deep rosters losing most.  **Stated against the
+flattering reading:** that distortion changes **zero** rank orderings —
+all 12 teams hold position under both inputs.  So the justification is
+"a truncated roster is the wrong input to a tail-sensitive format, and
+the error is team-dependent rather than a constant that cancels", NOT
+"the power rankings were wrong."  An earlier draft of this note claimed
++5.8 to +34.2; that was measured before defect 2 was fixed, was
+inflated by it, and is retracted.
+
+*Defect 2 — a shared RNG stream made paired comparison a fiction.*  The
+first revision drew all players for a week from one `random.Random`.
+A shared stream advances once per player, so **removing a player shifts
+every subsequent draw** and desynchronises the before/after comparison.
+It reported **+2.55 weekly points for DROPPING a player** — impossible
+in best ball, where removing an option is weakly negative by
+construction.  Fixed by seeding each player's draw independently from
+`(seed, week, player_id)`, which makes a player's weekly score
+invariant to roster composition and ordering.
+
+Monotonicity is now a **test-enforced invariant**, not an expectation:
+dropping any player never raises the mean, identical rosters give
+*exactly* 0.0, and reordering gives exactly 0.0.  That last one is the
+direct regression on defect 2, which was order- and size-sensitive.
+
+**Unavailable is not zero.**  A delta the model cannot compute returns
+`mean_delta = None` with a reason and `confidence = 0.0`, never 0.0.
+"No change" and "cannot say" are different answers, and collapsing them
+is how a UI ends up asserting a trade is neutral when it has no data.
+`sd_delta` is reported independently of `mean_delta` because in best
+ball a trade that raises the ceiling while lowering the floor is a
+strategic choice, not noise.
+
+**Varies across the 12 real teams** (the standing check before any
+metric is reported): means 163.9 → 377.1, all 12 distinct, pstdev 58.3;
+sds 14.65 → 33.19.  Fixture `tests/league_intel/fixtures/league_pool.json`
+(12 teams, 666 players).
+
+**Known limit, stated rather than buried.**  The per-player draw is
+`Gaussian(rosValue / 2.7, cv-by-position)` inherited from `playoff_sim`
+— an approximation, not a fitted per-player distribution, and it is
+stamped as such in every result's `assumptions`.  Real weekly scores
+are right-skewed and zero-inflated (injuries, benchings), which a
+Gaussian understates in both tails.  Best ball rewards the upper tail
+specifically, so this model probably *understates* the value of
+high-variance depth.  Fixing it needs per-player weekly histories, not
+a different formula.
+
 ## ADR-010: cross-market packages are valued on ONE market, or not at all (WS-J F-1)
 **Status:** accepted 2026-07-26.  Interface + suppression path built;
 `src/trade/angle.py` not yet rewired (that is WS-J's call site).
@@ -88,8 +168,10 @@ covering every asset:
 That is **exact** — no conversion, no fitted parameter, no error term.
 Measured coverage on live data: **85% of mixed offense+IDP packages
 resolve on the exact path; 15% suppress.**  A scalar per-position
-fallback exists but is **opt-in only** (`allow_scalar_fallback`),
-stamped at roughly half confidence, and carries its measured error
+fallback exists but is ~~**opt-in only** (`allow_scalar_fallback`)~~
+— *retracted, see "Third revision" below: the flag was inert and the
+default is now `True`* — stamped at roughly half confidence, and
+carries its measured error
 (median 3.0%, p90 11.7%).  Anything unvaluable is **suppressed**:
 `is_rankable` is False and the caller must withhold or label it.
 
@@ -132,8 +214,73 @@ asset priced on neither board, an empty package).
 Measured behaviour: a converted counter at 160% gain stays certain
 despite a 168-point band; the same counter against a 4.2% gain is
 withheld because the band spans [0.9%, 7.6%] across the 5% gate; and
-an exact-path package 4.0% from the gate stays certain because it has
-no band at all.
+~~an exact-path package 4.0% from the gate stays certain because it has
+no band at all~~ — *partially retracted; true only for an offense-only
+package, see "Third revision" below.*
+
+**Third revision — two P1s from a fresh-eyes pass, both real.**
+
+*P1-a: `allow_scalar_fallback` was declared and never read.*  The
+parameter existed on `value_package()`, the docstring promised "opt-in
+only", an inline comment three lines from the code said "the default",
+and the scalar path ran unconditionally regardless.  A caller could
+believe it had opted out of conversion and silently get converted
+totals — worse than having no flag, because the flag manufactures false
+assurance.  Fixed by making it gate the path for real.  **The default
+is `True`, not `False`**, which preserves current behaviour exactly and
+follows the evidence above: the assets the fallback rescues are
+entirely fringe, so refusing them protected no decision anyone makes.
+`allow_scalar_fallback=False` now genuinely suppresses, with a label
+naming the assets that forced it.
+
+*P1-b: the exact path stamped a zero uncertainty band, which conflated
+exact arithmetic with a certain answer.*  A mixed offense/IDP package
+summed on IDPTC really does involve no conversion — but its total rests
+**wholly** on `SHARED_SCALE_ASSUMPTION`, the one thing in this ADR that
+is explicitly *not* validatable.  Stamping `uncertainty_band = 0.0`
+told `compare_packages()` there was nothing to doubt, which made the
+straddle check **unreachable for exactly the packages the assumption is
+load-bearing for**.  Concretely: a mixed IDPTC package landing at 4.65%
+against a 5.0% gate returned `verdict_certain: True` — a coin flip
+reported as a decision.  This is the same class of defect as the
+vacuous checks in §2b: a guard that cannot fire where it matters most.
+
+Fixed by sizing a band on the exact path too:
+
+    band = (IDP subtotal) × (_RATIO_P90 − _RATIO_P10)
+
+applied whenever a package contains IDP assets, and **stacked on top
+of** the conversion band on the scalar path.  Offense-only packages
+keep a zero band — the assumption is never used there, so there is
+nothing to size.
+
+§2b on the fix itself, because it has the same shape as the thing it
+fixes: the spread (p10 0.886 / p90 1.054, n=476) is **measured**, but
+it is measured on *offense↔offense* disagreement and applied to an
+*offense↔IDP* rate.  That transfer is **assumed**.  It is a proxy, and
+deliberately not presented as more.  The offense↔IDP rate has no ground
+truth to measure against — that is the entire reason
+`SHARED_SCALE_ASSUMPTION` exists, so no sizing of its uncertainty can
+be better than a proxy.  What the change buys is not accuracy; it is
+that the assumption now flows through the same materiality machinery as
+everything else instead of being invisible to it.
+
+Checked that it does not become a blanket suppression of IDP packages:
+a mixed counter at a 350% gain stays `verdict_certain: True` despite a
+504-point band.  Only near-boundary verdicts are withheld, which is the
+point.
+
+*Known over-correction in the P1-b fix, recorded not hidden.*  For a
+**pure-IDP** package the exchange rate is a common factor across the
+whole total, so it cancels in a ratio against another pure-IDP package
+— but not against an offense one.  `value_package()` cannot see the
+other side of the comparison, so one of those two cases is necessarily
+mis-sized.  The implementation errs toward the wider band (toward
+withholding), matching the module's posture everywhere else, and the
+case is rare today because `angle.py`'s counter combos are offense-only
+(`include_idp` defaults False).  The real fix, if it starts mattering,
+is to move the sizing into `compare_packages()` where both
+compositions are visible.
 
 **Suppression is labelled, never silent.**  Every withheld result
 carries a caller-renderable `label` plus `suppressed_reason`, so a
