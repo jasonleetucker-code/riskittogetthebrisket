@@ -32,7 +32,8 @@ No human sees the diff. That is the "model autonomously rewriting
 production code" the directive prohibits, and the prohibition is not
 academic: the constants determine every displayed value on the board.
 
-**The guard cannot fail.** Two independent reasons, either sufficient:
+**The guard cannot fail.** Three independent reasons, any one
+sufficient:
 
 * *The pins are recomputed from the challenger.*
   `rebaseline_ktc_reconciliation` computes `ours = _hill(p, c_new,
@@ -51,6 +52,14 @@ academic: the constants determine every displayed value on the board.
   `percentile_to_value` uses and the test evaluates. Scoring a fit
   against its own training data is ORCHESTRATION.md §2b: the
   assumption reflected back.
+* *The guard is not even run.* `tests/conftest.py` auto-marks
+  `test_ktc_reconciliation.py` as `livedata`, and the refit workflow's
+  regression step is `pytest tests/ -q -m "not livedata"`. Verified:
+  that command deselects all 13 of the guard's tests. The refit
+  rewrites the guard's expectations and then skips the guard.
+
+So the constants reach production, and trigger a deploy, with no check
+of any kind — not a weak check, none.
 
 The repo already half-knew this. The workflow's own comment says the
 pins "are REWRITTEN by this very refit — so gating the refit commit on
@@ -168,7 +177,9 @@ The minimal follow-up, for review as its own change:
 5. Commit **only** `config/model_registry/*.json`. Production constants
    move solely via `promote` + `apply`, run by a human.
 
-That removes both halves of the defect: the constants stop being
-rewritten unreviewed, and the guard stops being rewritten at all.
+That removes all three defects: the constants stop being rewritten
+unreviewed, the guard stops being rewritten at all, and the gate that
+does run is one the fit never saw — so `-m "not livedata"` no longer
+skips the only thing checking it.
 
 **Status:** accepted 2026-07-26; implementation in `src/model_registry/`.

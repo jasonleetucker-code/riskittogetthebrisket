@@ -180,3 +180,37 @@ class TestTheCircularityIsReal:
 
                 assert ours == pinned_ours
                 assert abs(actual_pct - pinned_pct) <= 10.0
+
+
+class TestTheGuardIsNotEvenRun:
+    """Reason three, independent of the other two.
+
+    ``tests/conftest.py`` auto-marks ``test_ktc_reconciliation.py``
+    ``livedata``, and the refit workflow's regression step runs
+    ``pytest tests/ -q -m "not livedata"``.  So the refit rewrites the
+    guard's expectations and then deselects the guard.
+
+    Each of the three defects is individually sufficient; together they
+    mean the constants reach production with no check of any kind.
+    """
+
+    def test_the_guard_module_is_auto_marked_livedata(self):
+        conftest = (REPO / "tests" / "conftest.py").read_text()
+        block = conftest.split("_LIVEDATA_MODULES")[1].split(")")[0]
+        assert '"test_ktc_reconciliation.py"' in block
+
+    def test_the_refit_workflow_excludes_livedata(self):
+        wf = WORKFLOW.read_text()
+        assert 'pytest tests/ -q -m "not livedata"' in wf
+
+    def test_the_two_combine_to_deselect_the_guard(self):
+        """MECHANISM TEST. Fails if either the marking or the filter
+        changes such that the guard would actually run — at which point
+        the other two defects become load-bearing again."""
+        conftest = (REPO / "tests" / "conftest.py").read_text()
+        marked = '"test_ktc_reconciliation.py"' in conftest.split("_LIVEDATA_MODULES")[1]
+        excluded = 'm "not livedata"' in WORKFLOW.read_text()
+        assert marked and excluded, (
+            "the refit's regression step would now run the KTC guard; "
+            "re-check whether the rebaseline circularity still makes it vacuous"
+        )
