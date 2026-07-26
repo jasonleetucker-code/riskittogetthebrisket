@@ -230,22 +230,34 @@ _EVIDENCE_CONFIDENCE: Mapping[AcceptanceEvidence, float] = {
 
 
 # ── Consumed contracts ───────────────────────────────────────────────
-# The roster engine (claude/ws-j-roster-intel) owns production of
-# RosterSignal. This module declares the shape it consumes and degrades
-# cleanly when it is absent, so the two workstreams can land in either
-# order.
+# The roster engine owns production of RosterProfile / CompetitiveWindow
+# (``profiles.py``, ``window.py``). RosterSignal is the narrow view this
+# module needs, built from those via :meth:`RosterSignal.from_engine`.
+#
+# It stays a separate type on purpose: the partner model uses only
+# relative positional magnitudes and a scalar win-now read, and binding
+# directly to RosterProfile would couple every future change in the
+# roster engine's rich per-position output to this model's arithmetic.
 
 
 @dataclass(frozen=True)
 class RosterSignal:
-    """What the roster engine tells us about one roster.
+    """What the partner model needs to know about one roster.
 
     ``surplus`` / ``deficit`` map position → magnitude in whatever
     positive-is-more units the engine emits; only their RELATIVE sizes
     are used here, so the engine's scale is not baked in.
 
-    ``contend_probability`` ∈ [0,1] is the engine's competitive-window
-    read: 1.0 = firmly contending, 0.0 = firmly rebuilding.
+    ``contend_probability`` ∈ [0,1] collapses the roster engine's
+    five-state window onto a single contend↔rebuild scalar. **That
+    collapse loses information the engine deliberately preserves** — a
+    45/40 retool/rebuild split and a firm 85% retool land on similar
+    scalars while being different strategic positions. It is acceptable
+    *here* because the window term only asks "are these two rosters
+    pointed in usefully opposite directions", and it is bounded to the
+    smallest budget of the three structural terms. Anything reasoning
+    about strategy rather than counterparty-matching should consume
+    ``CompetitiveWindow`` directly instead.
     """
 
     owner_id: str
@@ -256,6 +268,62 @@ class RosterSignal:
     @property
     def has_window(self) -> bool:
         return self.contend_probability is not None
+
+    @classmethod
+    def from_engine(
+        cls,
+        owner_id: str,
+        profile: Any | None = None,
+        window: Any | None = None,
+    ) -> RosterSignal:
+        """Build from the roster engine's ``RosterProfile`` /
+        ``CompetitiveWindow``.
+
+        Typed loosely and imported lazily so this module keeps no import
+        dependency on the roster engine — the partner model must remain
+        usable with hand-built signals in tests and callers.
+
+        Surplus comes from ``tradeable_surplus`` (lineup-derived: value
+        that does not enter the optimal lineup and is not needed as
+        absence insurance) rather than headcount. Deficit combines the
+        engine's ``urgent_need`` flag with fragility, so a position that
+        collapses on one absence registers as a need even when it is
+        nominally staffed.
+
+        Positions the engine could not attribute — FLEX / SUPER_FLEX /
+        IDP_FLEX — are absent from its per-position output by design,
+        and are therefore absent here too rather than being split by
+        assumption.
+        """
+        surplus: dict[str, float] = {}
+        deficit: dict[str, float] = {}
+        if profile is not None:
+            for pos, pp in (getattr(profile, "positions", None) or {}).items():
+                ts = float(getattr(pp, "tradeable_surplus", 0.0) or 0.0)
+                if ts > 0:
+                    surplus[pos] = ts
+                frag = float(getattr(pp, "fragility", 0.0) or 0.0)
+                marg = float(getattr(pp, "marginal_points", 0.0) or 0.0)
+                need = frag * marg
+                if getattr(pp, "urgent_need", False) or need > 0:
+                    # Urgent positions floor at the group's contribution so a
+                    # structurally unfilled slot is never scored as a smaller
+                    # need than a merely fragile one.
+                    deficit[pos] = max(need, marg if getattr(pp, "urgent_need", False) else 0.0)
+
+        contend: float | None = None
+        if window is not None:
+            probs = getattr(window, "probabilities", None) or {}
+            contend = float(probs.get("championship_contender", 0.0)) + float(
+                probs.get("playoff_contender", 0.0)
+            )
+
+        return cls(
+            owner_id=owner_id,
+            surplus=surplus,
+            deficit=deficit,
+            contend_probability=contend,
+        )
 
 
 @dataclass(frozen=True)
