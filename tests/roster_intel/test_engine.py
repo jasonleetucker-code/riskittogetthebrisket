@@ -347,11 +347,14 @@ class TestInputDisclosure:
     """Two inputs can be silently absent and leave a plausible payload
     behind.  Both must announce themselves.
 
-    Measured on the real league: no committed artifact carries player
-    ages, so every roster's trajectory axis sat at exactly 0.500 with
-    sample size 0, and ``productive_struggle`` — the state that needs a
-    young roster with a bad record — was unreachable for all 12 teams.
-    Nothing in the payload said so.
+    Measured on the real league with ages omitted: every roster's
+    trajectory axis sat at exactly 0.500 with sample size 0, and
+    ``productive_struggle`` — the state that needs a young roster with
+    a bad record — was unreachable for all 12 teams.  Nothing in the
+    payload said so.  Ages were available the whole time in
+    ``data/public_league/nfl_players_full.json``; the caller simply had
+    not passed them.  That is precisely why the absence has to announce
+    itself rather than degrade quietly.
     """
 
     _POOL = [

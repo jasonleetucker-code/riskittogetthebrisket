@@ -414,9 +414,13 @@ def analyze_roster(
         # distribution reduces to a one-dimensional read of
         # competitiveness — which silently makes some states (a young
         # roster losing now) unreachable.  Measured on the real league:
-        # with ages absent, `productive_struggle` was the most-likely
-        # state for zero of twelve teams.  That is a wiring gap, not a
-        # property of the league, and it must not read as a finding.
+        # ages absent, `productive_struggle` was the most-likely state
+        # for zero of twelve teams; ages joined, for one.  That is a
+        # wiring gap, not a property of the league, and it must not read
+        # as a finding.  Ages are available offline in
+        # data/public_league/nfl_players_full.json (10,954 of 12,201
+        # entries) and on the live Sleeper overlay — there is no reason
+        # for a caller to leave this empty.
         notes.append(
             "no ages reached the window for any lineup entrant; the trajectory "
             "axis is pinned neutral and the distribution is a competitiveness-only "

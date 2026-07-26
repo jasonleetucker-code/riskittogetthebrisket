@@ -1,6 +1,6 @@
 """Variation guards against the REAL 12 rosters, at full roster depth.
 
-Two lessons are encoded here.
+Three lessons are encoded here.
 
 1. ``_positional_coverage`` once returned exactly 100.00 for all 12
    teams — a constant masquerading as a score.  Synthetic fixtures would
@@ -14,6 +14,17 @@ Two lessons are encoded here.
    direction.  These tests join the FULL Sleeper rosters
    (``data/sleeper_last_good.json``) to ROS values and pin the roster
    sizes so a future truncation regresses loudly.
+
+3. An underfed FIXTURE produces the same symptom as a broken metric.
+   This file first measured the competitive window without eligibility
+   or ages, because the fixture supplied neither — the trajectory axis
+   read exactly 0.500 for all 12 teams and ``productive_struggle`` was
+   unreachable for every one of them.  Both inputs were sitting in
+   ``data/public_league/nfl_players_full.json`` the whole time (12,201
+   entries, 11,866 with ``fantasy_positions``, 10,954 with ``age``).
+   The fixture now joins that dump, and pins the coverage it achieves,
+   so a constant here means the METRIC collapsed rather than the test
+   having starved it.
 
 Marked ``livedata``: they read the live snapshots and are excluded from
 the blocking suite (``-m "not livedata"``), matching the repo's existing
@@ -36,6 +47,13 @@ from src.roster_intel.marginal import (
     position_marginals,
     to_roster_players,
 )
+from src.roster_intel.roster_source import (
+    build_nfl_position_index,
+    build_roster_pool,
+    build_value_index,
+    hybrid_coverage,
+    normalize_name,
+)
 from src.roster_intel.window import COMPETITIVE_STATES
 
 pytestmark = pytest.mark.livedata
@@ -43,6 +61,7 @@ pytestmark = pytest.mark.livedata
 REPO = Path(__file__).resolve().parents[2]
 SLEEPER = REPO / "data" / "sleeper_last_good.json"
 AGGREGATE = REPO / "data" / "ros" / "aggregate" / "latest.json"
+NFL_DUMP = REPO / "data" / "public_league" / "nfl_players_full.json"
 
 
 def _norm(s: str) -> str:
@@ -56,16 +75,30 @@ def league():
 
     agg = json.loads(AGGREGATE.read_text())
     rows = agg if isinstance(agg, list) else (agg.get("players") or list(agg.values())[0])
-    by_name: dict[str, dict] = {}
-    for r in rows:
-        k = _norm(r.get("canonicalName"))
-        if not k:
+    # build_value_index applies the WS-E duplicate rule (higher rosValue
+    # wins) — the same rule this fixture used to hand-roll.
+    values = build_value_index(rows)
+
+    # Sleeper's own player dump: the ONLY source of slot eligibility
+    # (fantasy_positions) and of ages.  The ROS aggregate carries
+    # neither, so joining rosters to it alone reintroduces ADR-007 and
+    # leaves the window's trajectory axis inert.
+    if not NFL_DUMP.exists():
+        pytest.skip("nfl player dump not present in this checkout")
+    dump = json.loads(NFL_DUMP.read_text())
+    eligibility = build_nfl_position_index(dump)
+
+    ages: dict[str, dict[str, float]] = {}
+    for record in dump.values():
+        if not isinstance(record, dict):
             continue
-        # The WS-E audit recorded duplicate rows with split values; keep
-        # the higher one rather than whichever happens to be last.
-        if k in by_name and float(r.get("rosValue") or 0) <= float(by_name[k].get("rosValue") or 0):
-            continue
-        by_name[k] = r
+        full = record.get("full_name") or (
+            f"{record.get('first_name') or ''} {record.get('last_name') or ''}".strip()
+        )
+        key = normalize_name(full)
+        age = record.get("age")
+        if key and age:
+            ages.setdefault(key, {"age": float(age)})
 
     teams = json.loads(SLEEPER.read_text())["rosterData"]["teams"]
 
@@ -98,21 +131,7 @@ def league():
     built = []
     for t in teams:
         names = t.get("players") or []
-        pool_rows = []
-        for nm in names:
-            hit = by_name.get(_norm(nm))
-            if hit is None:
-                continue
-            pool_rows.append(
-                {
-                    "playerId": nm,
-                    "canonicalName": nm,
-                    "position": hit.get("position") or "",
-                    "rosValue": float(hit.get("rosValue") or 0.0),
-                    "confidence": float(hit.get("confidence") or 0.0),
-                    "fantasyPositions": (),
-                }
-            )
+        pool_rows, report = build_roster_pool(names, values=values, eligibility=eligibility)
         pool = to_roster_players(pool_rows)
         built.append(
             {
@@ -121,6 +140,12 @@ def league():
                 "slots": slots,
                 "rows": pool_rows,
                 "pool": pool,
+                "report": report,
+                "meta": {
+                    r["playerId"]: ages[normalize_name(r["canonicalName"])]
+                    for r in pool_rows
+                    if normalize_name(r["canonicalName"]) in ages
+                },
                 "rostered": len(names),
                 "matched": len(pool_rows),
                 "marginals": position_marginals(pool, slots),
@@ -134,21 +159,26 @@ def league():
 def intel(league):
     """Full :func:`analyze_roster` output for all 12 real rosters.
 
-    Replacement levels are computed from the same 12 rosters (the
-    league IS the replacement market), and lineup scores are passed so
-    the window's competitiveness axis has a real source rather than the
-    "unavailable" default — the default would hand every team the same
-    median and manufacture the constant this file exists to catch.
+    Every optional input is supplied, because an absent one produces a
+    constant that looks exactly like a broken metric: replacement
+    levels from the same 12 rosters (the league IS the replacement
+    market), lineup scores so the competitiveness axis has a real
+    source rather than the median default, and ages so the trajectory
+    axis is not pinned at neutral.
     """
     slots = league[0]["slots"]
     replacement = compute_replacement_levels([{"players": t["rows"]} for t in league], slots)
     lineup_scores = {t["owner"]: optimal_score(t["pool"], slots) for t in league}
+    meta: dict[str, dict[str, float]] = {}
+    for t in league:
+        meta.update(t["meta"])
     return [
         analyze_roster(
             t["owner"],
             t["pool"],
             slots,
             replacement=replacement,
+            player_meta=meta,
             lineup_scores=lineup_scores,
         )
         for t in league
@@ -354,33 +384,64 @@ def test_window_probabilities_vary_and_stay_normalized(intel):
         assert abs(sum(serialized.values()) - 1.0) < 1e-9
 
 
-def test_window_assigns_more_than_one_state_across_the_league(intel):
+def test_window_reaches_every_state_across_the_league(intel):
     """A 12-team league that reads as one state is a broken classifier,
-    not a uniform league."""
+    not a uniform league.
+
+    All five states are reachable on this data — but ONLY with ages
+    joined.  Without them the trajectory axis pins at 0.500 and
+    ``productive_struggle`` (young roster, losing now) becomes
+    unreachable no matter what the roster looks like; that measured as
+    4 of 5 states before the fixture joined the player dump.
+    """
     labels = [t.window.most_likely for t in intel]
-    assert len(set(labels)) >= 3, f"only {set(labels)} across 12 rosters"
+    assert set(labels) == set(COMPETITIVE_STATES), (
+        f"only {sorted(set(labels))} reached across 12 rosters — a state that "
+        "no roster can reach usually means one of the window's axes is inert"
+    )
     assert max(labels.count(x) for x in set(labels)) <= 6
 
 
-def test_missing_ages_are_disclosed_rather_than_absorbed(intel):
-    """MECHANISM TEST for the live wiring gap.
+def test_trajectory_axis_is_live_not_pinned(intel):
+    """MECHANISM TEST. Fails if ages stop reaching the window.
 
-    No committed artifact carries player ages — they arrive only on the
-    live Sleeper overlay — so on this data the trajectory axis is
-    pinned neutral and the window is a competitiveness-only read. That
-    is survivable ONLY because it is stated. This fails if the note is
-    dropped, or if a future age source lands and the note is left
-    stale.
+    A dead trajectory axis does not error — it returns exactly 0.500
+    for every roster and quietly reduces the five-state distribution to
+    a one-dimensional read of competitiveness.
     """
+    samples = [t.window.inputs.trajectory_sample for t in intel]
+    assert min(samples) > 10, f"ages reached almost nothing: {samples}"
+
+    traj = [t.window.inputs.trajectory for t in intel]
+    assert len(set(round(v, 4) for v in traj)) == len(traj), "trajectory has ties across 12"
+    assert statistics.pstdev(traj) > 0.05, f"trajectory barely moves: sd={statistics.pstdev(traj)}"
+    assert min(traj) < 0.45 and max(traj) > 0.55, "no roster reads as young or as old"
+
     for t in intel:
-        has_ages = t.window.inputs.trajectory_sample > 0
-        disclosed = any("ages" in n for n in t.notes)
-        assert has_ages != disclosed, (
-            f"{t.owner_id}: trajectory_sample={t.window.inputs.trajectory_sample} "
-            f"but age disclosure={disclosed}"
-        )
-        if not has_ages:
-            assert t.window.inputs.trajectory == pytest.approx(0.5)
+        assert not any("ages" in n for n in t.notes), f"{t.owner_id} still reports missing ages"
+
+
+def test_eligibility_join_is_complete_on_the_real_league(intel, league):
+    """MECHANISM TEST for ADR-007, from the data side.
+
+    A DL/LB/DB-family player with no ``fantasy_positions`` can be
+    benched illegally by the optimizer, and the only symptom is a
+    quietly lower IDP marginal.  The player dump covers every rostered
+    player here, so any shortfall means the join was dropped.
+    """
+    rows = [r for t in league for r in t["rows"]]
+    cov = hybrid_coverage(rows)
+    assert cov.multi_family > 0, "no multi-family players found — the join lost positions"
+    assert cov.multi_family_without_eligibility == 0, (
+        f"{cov.multi_family_without_eligibility} IDP-family players carry no "
+        "fantasy_positions; their positions' marginals are a lower bound"
+    )
+    assert sum(t["report"].hybrids_found for t in league) > 0
+
+    for pos in ("DL", "LB", "DB"):
+        vals = [t.needs[pos].actual_contribution for t in intel if pos in t.needs]
+        assert len(vals) == 12
+        assert len(set(round(v, 3) for v in vals)) == 12, f"{pos} contribution has ties"
 
 
 def test_odds_absence_is_disclosed(intel):
