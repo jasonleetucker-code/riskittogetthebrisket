@@ -4380,8 +4380,28 @@ async def post_waiver_faab_recommend(request: Request):
     try:
         snap_obj = public_snapshot_store.load_snapshot()
         if snap_obj is not None:
-            league_summary = faab_analytics.summarize_league_faab(snap_obj)
-            league_analytics_as_of = getattr(snap_obj, "generated_at", None)
+            # League-scoping guard (CLAUDE.md: rosters/analytics are
+            # per-league).  The public-league pipeline serves ONE
+            # global snapshot today (the default league), so with two
+            # active leagues sharing owners, another league's
+            # aggression/median would corrupt every estimate here.
+            # On mismatch, treat league analytics as UNAVAILABLE
+            # (aggression → 1.0 + lowSample, env scaling skipped,
+            # missing-input factor) rather than consume wrong-league
+            # data.  Eventual fix: per-league analytics snapshots.
+            snap_league_id = str(getattr(snap_obj, "root_league_id", "") or "")
+            if snap_league_id and snap_league_id != str(league_cfg.sleeper_league_id):
+                log.info(
+                    "faab-recommend: public snapshot is for league %s but "
+                    "request resolved to %s (%s) — league analytics "
+                    "treated as unavailable",
+                    snap_league_id,
+                    league_cfg.sleeper_league_id,
+                    league_cfg.key,
+                )
+            else:
+                league_summary = faab_analytics.summarize_league_faab(snap_obj)
+                league_analytics_as_of = getattr(snap_obj, "generated_at", None)
     except Exception as exc:  # noqa: BLE001
         log.warning(
             "faab analytics build failed for %s: %s",
@@ -4451,7 +4471,7 @@ async def post_waiver_faab_recommend(request: Request):
     ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
 
     from src.trade import faab_contention as _faab_contention  # noqa: PLC0415
-    from src.trade.faab_recommender import recommend_faab  # noqa: PLC0415
+    from src.trade.faab_recommender import compute_confidence, recommend_faab  # noqa: PLC0415
 
     base_kwargs = dict(
         add_player_value=add_value,
@@ -4466,9 +4486,10 @@ async def post_waiver_faab_recommend(request: Request):
         top_value_in_pool=top_pool_value if top_pool_value > 0 else None,
     )
 
-    # First pass — pure value recommendation.  Its ``standard`` is
-    # also the rival model's base bid: rivals price the same player
-    # off the same public value signals.
+    # First pass — the user's pure value recommendation (their drop
+    # side + their FAAB cap applied).  NOT the rival base: rivals get
+    # a separate team-independent neutral pass below so their modeled
+    # demand never depends on the user's budget or roster choice.
     rec = recommend_faab(**base_kwargs)
 
     # Phase-5 intel snapshot — defensive plain-JSON read, no
@@ -4501,10 +4522,21 @@ async def post_waiver_faab_recommend(request: Request):
                 intel_snapshot,
                 id_to_position=_faab_contention.player_position_map(latest_contract_data),
             )
+        # The rival base must be TEAM-INDEPENDENT: the user's own
+        # ``standard`` bakes in THEIR remaining-FAAB cap and THEIR
+        # drop-side value modifier, so using it would make rival
+        # demand a function of the user's budget and roster choice
+        # (a broke user would model an empty rival field even with
+        # flush opponents).  Neutral pass: same public value signals,
+        # no drop adjustment, no team cap — each rival is then capped
+        # by their OWN faabRemaining inside the estimator.
+        neutral_rec = recommend_faab(
+            **{**base_kwargs, "drop_player_value": 0.0, "team_faab_remaining": None}
+        )
         try:
             contention = await run_in_threadpool(
                 lambda: _faab_contention.estimate_rival_bids(
-                    base_bid=int(rec.get("standard") or 0),
+                    base_bid=int(neutral_rec.get("standard") or 0),
                     add_position=add_position,
                     add_player_id=add_player_id or None,
                     opponents=opponents,
@@ -4550,6 +4582,11 @@ async def post_waiver_faab_recommend(request: Request):
                 "missing": True,
             }
         )
+        # The factor row above landed AFTER recommend_faab computed
+        # its confidence — recompute so the reported bucket honestly
+        # reflects the full factor set (a missing 0.15-weight factor
+        # must be able to pull "high" down).
+        rec["confidence"] = compute_confidence(rec["factors"])
         rec["contention"] = {
             "clearing": None,
             "topRival": None,

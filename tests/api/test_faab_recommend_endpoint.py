@@ -143,9 +143,67 @@ def _stub_contract():
     }
 
 
-def _post(client, monkeypatch, body):
-    monkeypatch.setattr(server, "latest_contract_data", _stub_contract())
+def _post(client, monkeypatch, body, mutate=None):
+    contract = _stub_contract()
+    if mutate is not None:
+        mutate(contract)
+    monkeypatch.setattr(server, "latest_contract_data", contract)
     return client.post("/api/waiver/faab-recommend", json=body)
+
+
+# League analytics stand-in for the snapshot-scoping tests.  WR has
+# ≥3 historical bids so the per-position calibration fires (which in
+# turn keeps env scaling off), and o1 has a real aggression history
+# while "departed" belongs to an owner no longer in the league.
+_FAKE_SUMMARY = {
+    "leagueBudget": 100,
+    "leagueAvgWinningBid": 12.0,
+    "leagueMedianWinningBid": 10.0,
+    "totalBidsAnalyzed": 20,
+    "positionBids": {"WR": {"avg": 30.0, "count": 10, "min": 5, "max": 60}},
+    "tierBids": {},
+    "teamAggression": {
+        "o1": {
+            "avgBid": 20.0,
+            "winningCount": 5,
+            "totalCount": 5,
+            "totalSpent": 100,
+            "maxBid": 40,
+        },
+        "departed": {
+            "avgBid": 99.0,
+            "winningCount": 9,
+            "totalCount": 9,
+            "totalSpent": 891,
+            "maxBid": 99,
+        },
+    },
+    "recentWins": [],
+    "playerHistory": {},
+}
+
+
+def _install_snapshot(monkeypatch, league_id, summary=None):
+    """Fake public snapshot for ``league_id``; ``summary=None`` arms
+    a tripwire that fails the test if the endpoint tries to build
+    analytics from a wrong-league snapshot."""
+    import types
+
+    from src.api import faab_analytics
+
+    snap = types.SimpleNamespace(
+        root_league_id=league_id,
+        generated_at="2026-07-25T11:00:00+00:00",
+    )
+    monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: snap)
+    if summary is not None:
+        monkeypatch.setattr(faab_analytics, "summarize_league_faab", lambda s: summary)
+    else:
+
+        def _boom(s):
+            raise AssertionError("summarize_league_faab must not run for a wrong-league snapshot")
+
+        monkeypatch.setattr(faab_analytics, "summarize_league_faab", _boom)
 
 
 def test_backward_compat_keys_and_additive_v2_keys(faab_env, monkeypatch):
@@ -246,3 +304,91 @@ def test_unknown_player_still_404s(faab_env, monkeypatch):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = _post(c, monkeypatch, {"addPlayerName": "Ghost Player"})
     assert res.status_code == 404
+
+
+def test_broke_user_still_gets_populated_rival_field(faab_env, monkeypatch):
+    """Codex P2 #1: the rival base is TEAM-INDEPENDENT.  A user with
+    $0 remaining gets their own bid capped to $0, but rival demand is
+    modeled from the add's public value — flush opponents still
+    produce positive estimates and a positive clearing price."""
+
+    def broke_me(contract):
+        for t in contract["sleeper"]["teams"]:
+            if t["ownerId"] == "me":
+                t["faabRemaining"] = 0
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+            mutate=broke_me,
+        )
+    payload = res.json()
+    assert payload["standard"] == 0  # the USER's bid is capped at $0
+    contention = payload["contention"]
+    assert contention["skipped"] is False
+    assert contention["perOpponent"], "rival field must not be empty"
+    assert any(r["expBid"] > 0 for r in contention["perOpponent"])
+    assert contention["topRival"] > 0
+    assert contention["clearing"] == contention["topRival"] + 1
+
+
+def test_missing_contention_lowers_reported_confidence(faab_env, monkeypatch):
+    """Codex P2 #2: the contention-missing factor must count against
+    confidence.  With baseline + trending + league calibration all
+    present, the pre-append bucket would be 'high'; the appended
+    0.15-weight missing factor pulls the honest bucket to 'medium'."""
+    _install_snapshot(monkeypatch, "L-MAIN", summary=_FAKE_SUMMARY)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    payload = res.json()
+    missing = [f for f in payload["factors"] if f["missing"]]
+    assert any(f["label"] == "Rival contention" for f in missing)
+    assert payload["confidence"] == "medium"  # not "high"
+
+
+def test_wrong_league_snapshot_treated_as_unavailable(faab_env, monkeypatch):
+    """Codex P2 #3: a snapshot for ANOTHER league must not feed
+    aggression/median/env into this league's estimates — analytics
+    degrade to unavailable instead."""
+    _install_snapshot(monkeypatch, "L-OTHER", summary=None)  # tripwire
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+        )
+    payload = res.json()
+    # League analytics reported as a missing input, not consumed.
+    assert payload["inputsAsOf"]["leagueAnalytics"] is None
+    assert "leagueAnalytics" in payload["staleInputs"]
+    assert any("league" in f["label"].lower() and f["missing"] for f in payload["factors"])
+    # Every rival defaults to neutral aggression with the lowSample flag.
+    contention = payload["contention"]
+    assert contention["perOpponent"]
+    assert all(r["lowSample"] for r in contention["perOpponent"])
+    assert all(r["aggression"] == 1.0 for r in contention["perOpponent"])
+    assert any("sample floor" in n for n in contention["notes"])
+
+
+def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
+    """Counterpart to the wrong-league test: a snapshot for the
+    RESOLVED league flows through — o1's real aggression history is
+    used and the departed owner's entry never reaches the model."""
+    _install_snapshot(monkeypatch, "L-MAIN", summary=_FAKE_SUMMARY)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+        )
+    payload = res.json()
+    assert payload["inputsAsOf"]["leagueAnalytics"] == "2026-07-25T11:00:00+00:00"
+    assert "leagueAnalytics" not in payload["staleInputs"]
+    contention = payload["contention"]
+    per = {r["ownerId"]: r for r in contention["perOpponent"]}
+    assert set(per) == {"o1", "o2"}  # "departed" filtered out
+    # o1: avgBid 20 vs median 10 → aggression 2.0, real sample.
+    assert per["o1"]["aggression"] == 2.0
+    assert per["o1"]["lowSample"] is False

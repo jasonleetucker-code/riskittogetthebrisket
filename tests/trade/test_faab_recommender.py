@@ -12,7 +12,7 @@ explanation copy.
 
 from __future__ import annotations
 
-from src.trade.faab_recommender import recommend_faab
+from src.trade.faab_recommender import compute_confidence, recommend_faab
 
 
 # ── Baseline (fewest inputs) ────────────────────────────────────
@@ -278,6 +278,23 @@ def test_all_inputs_present_returns_high_confidence():
 def test_no_inputs_returns_low_confidence():
     out = recommend_faab(add_player_value=4000)
     assert out["confidence"] == "low"
+
+
+def test_compute_confidence_accepts_serialized_dict_rows():
+    """The endpoint appends dict-shaped factor rows AFTER the
+    recommendation and recomputes the bucket — the helper must read
+    both _Factor objects and the serialized dict shape."""
+    assert (
+        compute_confidence([{"weight": 0.9, "missing": False}, {"weight": 0.1, "missing": True}])
+        == "high"
+    )
+    assert (
+        compute_confidence([{"weight": 0.5, "missing": False}, {"weight": 0.5, "missing": True}])
+        == "low"
+    )
+    # Recomputing over a real response's factors matches the stamp.
+    out = recommend_faab(add_player_value=4000)
+    assert compute_confidence(out["factors"]) == out["confidence"]
 
 
 # ── Explanation copy ────────────────────────────────────────────

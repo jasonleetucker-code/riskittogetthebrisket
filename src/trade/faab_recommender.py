@@ -112,6 +112,39 @@ class _Factor:
     missing: bool = False
 
 
+def compute_confidence(factors: list[Any]) -> str:
+    """Weighted realized-share confidence bucket over factor rows.
+
+    Accepts ``_Factor`` objects or plain dicts (the serialized
+    ``factors`` shape from a ``recommend_faab`` response) so callers
+    that append factor rows AFTER the recommendation — e.g. the
+    endpoint's contention-missing note — can recompute the bucket and
+    keep the reported confidence honest about the full factor set.
+    """
+    total_weight = 0.0
+    realized_weight = 0.0
+    for f in factors:
+        if isinstance(f, _Factor):
+            weight, missing = f.weight, f.missing
+        elif isinstance(f, dict):
+            try:
+                weight = float(f.get("weight") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            missing = bool(f.get("missing"))
+        else:
+            continue
+        total_weight += weight
+        if not missing:
+            realized_weight += weight
+    realized_share = (realized_weight / total_weight) if total_weight > 0 else 0.0
+    if realized_share >= 0.85:
+        return "high"
+    if realized_share >= 0.55:
+        return "medium"
+    return "low"
+
+
 def _value_gain_modifier(add_value: float, drop_value: float) -> float:
     """1 + (netGain ÷ drop_value) × 0.5, clamped to [0.5, 1.8].
 
@@ -517,15 +550,7 @@ def recommend_faab(
         )
 
     # Confidence: counts non-missing factors, weighted.
-    total_weight = sum(f.weight for f in factors)
-    realized_weight = sum(f.weight for f in factors if not f.missing)
-    realized_share = (realized_weight / total_weight) if total_weight > 0 else 0.0
-    if realized_share >= 0.85:
-        confidence = "high"
-    elif realized_share >= 0.55:
-        confidence = "medium"
-    else:
-        confidence = "low"
+    confidence = compute_confidence(factors)
 
     # Plain-English summary of the recommendation.
     if standard == 0:
