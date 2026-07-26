@@ -47,7 +47,7 @@ Key confirmations and §3 question resolutions:
 | Pass yds | `pass_yd: 0.0333…` (=1/30) | matches 1pt/30yd |
 | Completions / incompletions | `pass_cmp 0.15` / `pass_inc -0.22` | match |
 | INT / pick-six | `pass_int -4` AND `pass_int_td -2` | **separate keys → a pick-six = −6 total (stacks). Verify empirically in golden tests (LI-2)** |
-| First downs | generic `pass_fd`/`rush_fd`/`rec_fd` all **0**; `bonus_fd_qb 0.67`, `bonus_fd_rb/wr/te 1.0` | position-based bonuses are the ONLY first-down scoring. Sleeper semantics: `bonus_fd_<pos>` awards per first down GAINED by that player (rush or reception; QB also passing) — verify stacking empirically in LI-2 |
+| First downs | generic `pass_fd`/`rush_fd`/`rec_fd` all **0**; `bonus_fd_qb 0.67`, `bonus_fd_rb/wr/te 1.0` | position-based bonuses are the ONLY first-down scoring. **CORRECTED 2026-07-26 (ADR-006):** `bonus_fd_<pos>` is not a derived bonus computed off `rush_fd`/`rec_fd` — Sleeper ships it as its own precomputed **stat key** in the weekly payload, already equal to first downs gained. The scorer multiplies it directly like any other key. Empirically confirmed in LI-2. |
 | Reception distance | `rec 0.08` + `rec_0_4 0.17`, `rec_5_9 0.42`, `rec_10_19 0.67`, `rec_20_29 0.92`, `rec_30_39 1.17`, `rec_40p 1.92` | Sleeper bands key on RECEPTION YARDAGE GAINED on the play. Hypothesis: base `rec` stacks with band (0.25/0.50/0.75/1.00/1.25/2.00 effective) — golden tests must confirm |
 | Rushing | `rush_att 0.08`, `rush_yd 0.1`, `rush_td 6` | match |
 | Fumbles | `fum 0`, `fum_lost -4`, `fum_rec_td 6` | match |
@@ -57,13 +57,33 @@ Key confirmations and §3 question resolutions:
 | Bonuses (10+ tkl, 2+ sack, 3+ PD, 40/50yd TDs, yardage milestones) | all **0** | resolved: none active |
 | Team DEF keys | `pts_allow*`, `yds_allow*`, `def_*` populated | **irrelevant — no DEF roster slot**; note only |
 
-## Remaining unknowns (LI-2 scope)
+## Open questions — RESOLVED 2026-07-26 (LI-2 golden validation)
 
-- Empirical stacking confirmation for: pick-six (−6?), first-down bonuses,
-  reception base+band, IDP multi-event plays, `idp_blk_kick` vs `blk_kick`.
-  Method: golden player-weeks — reconstruct from official stats through the
-  scorer and compare to Sleeper-awarded `players_points` in historical
-  matchups (available via `/v1/league/{id}/matchups/{week}`).
-- Scoring precision/rounding on Sleeper display vs stored floats.
-- Tie handling among equivalent legal best-ball lineups (affects optimizer
-  validation only, not totals).
+All empirical stacking questions are answered in
+`SCORING_VALIDATION.md` (1,415/1,415 player-weeks reconcile as a pure
+dot product over shared stat keys; verdicts frozen as golden tests in
+`tests/league_intel/`):
+
+- Pick-six: **stacks** — `pass_int` + `pass_int_td` both charge (−6
+  total under 2026 rates).
+- First-down bonuses: **`bonus_fd_<pos>` is itself a precomputed stat
+  key** (= first downs gained; QB variant includes passing FDs).
+- Reception base+band: **stacks mechanically** (zero-exception dot
+  product); direct nonzero-rate confirmation pends first scored 2026
+  week because the 2025 `rec` base rate was 0.
+- IDP multi-event: **all events on a play stack** (sack + sack yds +
+  QB hit + TFL + solo).
+- `idp_blk_kick` vs `blk_kick`: **no double-count** — individual
+  defenders only ever carry `idp_blk_kick`; `blk_kick` is a TEAM/DEF
+  stat this league can't roster.
+- Rounding: host per-player scores are 2-decimal; scorer comparisons
+  use 0.01 tolerance.
+
+Still open (not scoring): tie handling among equivalent legal
+best-ball lineups (affects LI-3 optimizer validation only, not
+totals).
+
+**Registry fix landed** (LI-1, same PR as this update): dynasty_main
+rosterSettings now match the live truth (TE 2, K 1, DL/LB/DB 3,
+IDP_FLEX 0, rosterSize 58, taxiSize 0, 21 starters); every consumer
+verified in `tests/league_intel/test_registry_consumers.py`.

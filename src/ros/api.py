@@ -45,6 +45,27 @@ def _read_json(path) -> Any:
         return None
 
 
+_SERVER_ONLY_TEAM_FIELDS = frozenset({"fullRoster"})
+"""Snapshot fields written for server-side consumers and never sent to
+the UI.
+
+``fullRoster`` exists so ``playoff_sim`` and ``league_intel.sim`` can
+simulate off the whole roster instead of the truncated
+``startingLineup + benchDepth`` view (see ADR-011).  No frontend reads
+it, and shipping it costs **+102 KB raw / +12.5 KB gzipped** on a
+12-team league — 7x the raw payload of this endpoint, measured on the
+real rosters.  That is exactly the "oversized payload" the repo's
+performance rules forbid, so it is stripped at the API boundary rather
+than left for a reader to notice."""
+
+
+def _public_team_rows(rows: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Snapshot rows with server-only fields removed."""
+    return [
+        {k: v for k, v in row.items() if k not in _SERVER_ONLY_TEAM_FIELDS} for row in (rows or [])
+    ]
+
+
 def _registry_payload(overrides: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Strip internal fields (scraper module path) from the registry."""
     enabled = {s["key"] for s in enabled_ros_sources(overrides)}
@@ -144,7 +165,7 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
             {"teams": [], "leagueKey": resolved_key, "error": "no_snapshot"},
             status_code=200,
         )
-    return JSONResponse({"teams": snapshot, "leagueKey": resolved_key})
+    return JSONResponse({"teams": _public_team_rows(snapshot), "leagueKey": resolved_key})
 
 
 @router.get("/pick-projections")
@@ -352,7 +373,7 @@ def build_section(snapshot: Any) -> dict[str, Any]:
         pass
     payload = load_team_strength_snapshot(league_key)
     return {
-        "teams": payload or [],
+        "teams": _public_team_rows(payload),
         "leagueKey": league_key,
         "computedAt": datetime.now(timezone.utc).isoformat(),
         "stale": payload is None,

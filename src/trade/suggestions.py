@@ -30,15 +30,20 @@ from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 �
 
 # ── Configuration ────────────────────────────────────────────────────
 
-# Starter demand per position in default SF/TEP/IDP (effective starters per team)
+# Starter demand per position in default SF/TEP/IDP (effective starters per
+# team).  Aligned with the live dynasty_main lineup (config/leagues/registry
+# rosterSettings, corrected 2026-07-26 per docs/league-intelligence/
+# SETTINGS_AUDIT.md): QB1 RB2 WR3 TE2 FLEX2 SFLEX1 K1 DL3 LB3 DB3, no
+# IDP_FLEX.  K is deliberately absent — kickers are not tradeable assets in
+# the suggestion engine (they carry no dynasty value on the board).
 DEFAULT_STARTER_NEEDS: dict[str, int] = {
     "QB": 2,  # 1 QB + ~1 SFLEX
     "RB": 3,  # 2 RB + ~1 FLEX
     "WR": 4,  # 3 WR + ~1 FLEX
-    "TE": 1,  # 1 TE
-    "DL": 3,  # 2 DL + ~1 IDP_FLEX
-    "LB": 3,  # 2 LB + ~1 IDP_FLEX
-    "DB": 2,  # 2 DB
+    "TE": 2,  # 2 TE
+    "DL": 3,  # 3 DL (fixed slots; league has no IDP_FLEX)
+    "LB": 3,  # 3 LB
+    "DB": 3,  # 3 DB
 }
 
 # Minimum display value to consider a player "rosterable" (not a throw-in)

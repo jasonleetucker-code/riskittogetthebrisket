@@ -13,19 +13,20 @@
       "aliases": ["main", "idp", "primary"],
       "rosterSettings": {
         "teamCount": 12,
-        "rosterSize": 30,
-        "taxiSize": 5,
+        "rosterSize": 58,
+        "taxiSize": 0,
         "starters": {
           "QB": 1,
           "RB": 2,
           "WR": 3,
-          "TE": 1,
+          "TE": 2,
           "FLEX": 2,
           "SFLEX": 1,
-          "DL": 2,
-          "LB": 2,
-          "DB": 2,
-          "IDP_FLEX": 2
+          "K": 1,
+          "DL": 3,
+          "LB": 3,
+          "DB": 3,
+          "IDP_FLEX": 0
         },
         "flexEligible": ["RB", "WR", "TE"],
         "sflexEligible": ["QB", "RB", "WR", "TE"],
