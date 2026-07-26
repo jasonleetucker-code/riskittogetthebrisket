@@ -184,6 +184,51 @@ class TestDerivedStructuralPremium:
         assert clean.premium_at_median != polluted.premium_at_median
 
 
+class TestPremiumConsensus:
+    """Reconciliation policy: ours is operative, market is cross-check."""
+
+    def test_derived_is_always_operative_even_when_market_disagrees(self):
+        from src.league_intel.calibration import compare_premium_estimates
+
+        c = compare_premium_estimates(derived=1.239, market={"ktc": 1.320, "dn": 1.290})
+        assert c.operative == 1.239
+        assert "derived" in c.operative_source
+
+    def test_clustering_detected(self):
+        from src.league_intel.calibration import compare_premium_estimates
+
+        c = compare_premium_estimates(derived=1.239, market={"ktc": 1.320})
+        assert c.spread == pytest.approx(0.081, abs=0.001)
+        assert c.clustered is True
+
+    def test_scatter_is_flagged_not_averaged_away(self):
+        from src.league_intel.calibration import compare_premium_estimates
+
+        c = compare_premium_estimates(derived=1.10, market={"ktc": 1.32, "dn": 1.65})
+        assert c.clustered is False
+        assert any("investigate before applying" in n for n in c.notes)
+        assert c.operative == 1.10  # still ours; scatter does not switch the source
+
+    def test_unmeasurable_publisher_is_absent_not_disagreement(self):
+        """The trap: thin coverage must never read as 'the market
+        scatters'."""
+        from src.league_intel.calibration import compare_premium_estimates
+
+        c = compare_premium_estimates(
+            derived=1.239, market={"ktc": 1.320, "fantasyPros": None, "otcffb": None}
+        )
+        assert set(c.estimates) == {"derived", "ktc"}
+        assert sum("NOT evidence of disagreement" in n for n in c.notes) == 2
+        assert c.clustered is True
+
+    def test_single_estimate_reports_no_cross_check(self):
+        from src.league_intel.calibration import compare_premium_estimates
+
+        c = compare_premium_estimates(derived=1.239, market={})
+        assert c.spread is None
+        assert any("no cross-check" in n for n in c.notes)
+
+
 class TestLiveBoard:
     """The real measurement behind ADR-009, run on the committed
     baseline contract so the claim stays reproducible.

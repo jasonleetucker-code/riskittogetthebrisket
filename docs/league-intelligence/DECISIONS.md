@@ -318,6 +318,34 @@ displacement through *our* Hill curve at *our* density.  Never import a
 displacement directly.  ``measure_rank_displacement`` is consequently a
 within-board comparison only.
 
+**APPLICATION POLICY (decided 2026-07-26; applies when the gate opens).**
+
+*Which number is operative:* **ours.**  The derivation is computed on
+our actual pool, our actual TE curve, and our measured starter demand
+(2.00/team).  KTC's and Dynasty Nerds' figures are market observations
+of a **different universe** — offense-only boards that structurally
+cannot contain half our starters.  Their agreement with our derivation
+validates the *method*; it does not make their *number* more applicable
+to our board than our own.  So: our derivation is the operative value,
+market measurements are cross-checks, and a divergence between them is
+a signal to investigate rather than a reason to switch.
+
+*How it is computed:* **recomputed live, never frozen.**  Per the drift
+constraint above, 1.239 is no more permissible as a hardcoded constant
+than 1.368 was.  Anything that ships recomputes from current source
+values, stamps the measurement date and observed value, and surfaces
+movement rather than smoothing it.
+
+*Third data point — pending.*  Dynasty Nerds embeds a `SFLEX` (no TE
+premium) array beside `SFLEXTEP` in the same payload already
+downloaded.  As of 2026-07-26 the built contract carries
+`dynastyNerdsSfTep` (289 rows) but **not** the standard sibling, so the
+three-way comparison (derived / KTC-measured / DN-measured) is not yet
+possible.  When DN's standard array is captured, run all three; if they
+cluster the question is settled, and if DN diverges from KTC that is
+itself informative about whether ~1.3 is a market convention or one
+vendor's house view.
+
 **TARGET DESIGN (not built — gated on the multi-source survey).**  The
 user offered to make the TE premium dynamic, "ever changing based on
 whatever factors you deem relevant".  Recorded here so LI-7 builds

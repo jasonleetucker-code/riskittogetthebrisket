@@ -38,7 +38,9 @@ __all__ = [
     "MIN_POSITIVE_CONTROL_POWER",
     "DerivedStructuralPremium",
     "PairedCalibration",
+    "PremiumConsensus",
     "RankDisplacement",
+    "compare_premium_estimates",
     "derive_structural_te_premium",
     "measure_paired_te_premium",
     "measure_rank_displacement",
@@ -460,4 +462,87 @@ def derive_structural_te_premium(
         premium_at_median=(1.0 + shift / median_value) if median_value > 0 else None,
         depth_bands=bands,
         pool_size=len(values),
+    )
+
+
+# ── Reconciling the independent estimates ─────────────────────────────
+
+CLUSTER_TOLERANCE = 0.10
+"""Estimates within this absolute spread are treated as agreeing.  Wide
+enough to tolerate real board differences, tight enough that a house
+view stands out."""
+
+
+@dataclass(frozen=True)
+class PremiumConsensus:
+    """Reconciliation of independent TE-premium estimates.
+
+    ``operative`` is ALWAYS the derived value when present.  Market
+    measurements are cross-checks: they are observations of
+    offense-only boards that structurally cannot contain half this
+    league's starters, so their agreement validates the method rather
+    than making their number more applicable than ours.
+    """
+
+    operative: float | None
+    operative_source: str
+    estimates: dict[str, float] = field(default_factory=dict)
+    spread: float | None = None
+    clustered: bool = False
+    notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "operative": self.operative,
+            "operativeSource": self.operative_source,
+            "estimates": dict(self.estimates),
+            "spread": self.spread,
+            "clustered": self.clustered,
+            "notes": list(self.notes),
+        }
+
+
+def compare_premium_estimates(
+    *,
+    derived: float | None,
+    market: Mapping[str, float | None] | None = None,
+    tolerance: float = CLUSTER_TOLERANCE,
+) -> PremiumConsensus:
+    """Reconcile the derived premium against market measurements.
+
+    ``market`` maps a publisher label to its measured premium (``None``
+    for publishers that could not be measured — they are recorded as
+    absent rather than dropped, so thin coverage never reads as
+    disagreement).
+    """
+    estimates: dict[str, float] = {}
+    notes: list[str] = []
+    for label, value in (market or {}).items():
+        if value is None:
+            notes.append(f"{label}: not measurable — absent, NOT evidence of disagreement")
+        else:
+            estimates[label] = float(value)
+
+    if derived is not None:
+        estimates["derived"] = float(derived)
+
+    values = list(estimates.values())
+    spread = (max(values) - min(values)) if len(values) >= 2 else None
+    clustered = spread is not None and spread <= tolerance
+    if spread is not None and not clustered:
+        notes.append(
+            f"estimates span {spread:.3f} (> {tolerance:.2f}) — investigate before applying"
+        )
+    if len(values) < 2:
+        notes.append("single estimate only — no cross-check available")
+
+    return PremiumConsensus(
+        operative=derived,
+        operative_source="derived (our pool, our replacement levels)"
+        if derived is not None
+        else "none",
+        estimates=estimates,
+        spread=spread,
+        clustered=clustered,
+        notes=notes,
     )
