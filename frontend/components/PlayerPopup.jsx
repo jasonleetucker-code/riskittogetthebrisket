@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
 import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
@@ -16,10 +16,20 @@ import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
 import { useSettings } from "@/components/useSettings";
+import { PlayerImage } from "@/components/ui";
+import { Badge, Button, Drawer, Icon, Movement, StatTile } from "@/components/ds";
+import styles from "./player-card.module.css";
 
+// ── PLAYER PROFILE DRAWER (Redesign R2) ──────────────────────────────
+// The scouting-card experience: identity header, Our Value + source
+// breakdown, value chain, rank history, league-mate intel (#534), news
+// digest (#540), and the NEW playerctx section (#539 — contracts, snap
+// share, depth-chart standing, first UI surface).  Rebuilt on the ds
+// Drawer (focus trap, Escape, restore, overlay stack) — every data
+// derivation from the pre-R2 popup is preserved verbatim.
 
 // ── ROS context section ──────────────────────────────────────────────
-// Read-only contender-layer labels surfaced inside PlayerPopup.  Never
+// Read-only contender-layer labels surfaced inside the profile.  Never
 // mutates dynasty values; gated by ``settings.showRosTags``.  Caches
 // the player-values JSON at module level so opening multiple popups
 // doesn't refetch the 500-row payload each time.
@@ -77,16 +87,16 @@ async function _loadRosValuesByName() {
   return promise;
 }
 
-const _ROS_TAG_COLOR = {
-  "Win-now target": "var(--cyan)",
-  "Contender upgrade": "var(--cyan)",
-  "Seller cash-out": "var(--amber)",
-  "Rebuilder hold": "var(--green)",
-  "Avoid unless contending": "var(--red)",
-  "Depth spike option": "var(--subtext)",
-  "Best-ball boost": "var(--cyan)",
-  "IDP contender target": "var(--cyan)",
-  "Injury/bye cover": "var(--subtext)",
+const _ROS_TAG_TONE = {
+  "Win-now target": "accent",
+  "Contender upgrade": "accent",
+  "Seller cash-out": "warning",
+  "Rebuilder hold": "positive",
+  "Avoid unless contending": "negative",
+  "Depth spike option": "neutral",
+  "Best-ball boost": "accent",
+  "IDP contender target": "accent",
+  "Injury/bye cover": "neutral",
 };
 const _VET_AGE = { QB: 32, RB: 26, WR: 29, TE: 30, DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29 };
 
@@ -133,11 +143,7 @@ function RosContextSection({ row }) {
   if (!enabled || !row) return null;
   if (!ros || !ros.rosValue) {
     return (
-      <div
-        className="muted"
-        style={{ fontSize: "0.7rem", paddingBottom: 6 }}
-        title="No ROS source ranked this player today."
-      >
+      <div className={styles.quietNote} title="No ROS source ranked this player today.">
         ROS · no data yet
       </div>
     );
@@ -152,50 +158,28 @@ function RosContextSection({ row }) {
     volatilityFlag: ros.volatilityFlag,
   });
   return (
-    <div
-      style={{
-        marginTop: 6,
-        paddingTop: 6,
-        borderTop: "1px dashed rgba(255,255,255,0.08)",
-        fontSize: "0.72rem",
-      }}
-    >
-      <div style={{ color: "var(--subtext)", marginBottom: 4 }}>
-        Short-term context (ROS) · informational only
-      </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--mono)" }}>
-          ROS value <strong style={{ color: "var(--cyan)" }}>{Math.round(ros.rosValue)}</strong>
+    <div className={styles.section}>
+      <p className={styles.sectionLabel}>Short-term context (ROS) · informational only</p>
+      <div className={styles.rosRow}>
+        <span className="ds-mono">
+          ROS value <strong>{Math.round(ros.rosValue)}</strong>
         </span>
         {ros.rosRank != null && (
-          <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>
-            #{ros.rosRank} overall
-          </span>
+          <span className={`ds-mono ${styles.quietNote}`}>#{ros.rosRank} overall</span>
         )}
-        {ros.tier != null && (
-          <span style={{ color: "var(--subtext)" }}>Tier {ros.tier}</span>
-        )}
+        {ros.tier != null && <span className={styles.quietNote}>Tier {ros.tier}</span>}
         {ros.confidence != null && (
-          <span style={{ color: "var(--subtext)" }}>
+          <span className={styles.quietNote}>
             confidence {Math.round(ros.confidence * 100)}%
           </span>
         )}
       </div>
       {tags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+        <div className={styles.rosTags}>
           {tags.map((tag) => (
-            <span
-              key={tag}
-              style={{
-                fontSize: "0.62rem",
-                padding: "1px 6px",
-                borderRadius: 4,
-                border: `1px solid ${_ROS_TAG_COLOR[tag] || "var(--subtext)"}`,
-                color: _ROS_TAG_COLOR[tag] || "var(--subtext)",
-              }}
-            >
+            <Badge key={tag} tone={_ROS_TAG_TONE[tag] || "outline"}>
               {tag}
-            </span>
+            </Badge>
           ))}
         </div>
       )}
@@ -204,15 +188,13 @@ function RosContextSection({ row }) {
 }
 
 // ── League-mate intel section (Sharp Tracker, Phase 5) ───────────────
-// Cross-league exposure line for the popup: how many league-mates hold
-// this player across their other Sleeper leagues, and the recent net
-// add activity.  Fetches GET /api/intel/player and degrades SILENTLY
-// when intel is unavailable (no snapshot yet, asset untracked, or the
-// endpoint errors) — the popup simply omits the section.
+// Cross-league exposure line: how many league-mates hold this player
+// across their other Sleeper leagues, and the recent net add activity.
+// Fetches GET /api/intel/player and degrades SILENTLY when intel is
+// unavailable — the profile simply omits the section.
 //
 // Intel is league-scoped, so the cache is keyed on (leagueKey, asset)
-// and the active leagueKey rides on every request — switching leagues
-// re-fetches instead of serving the previous league's counts.
+// and the active leagueKey rides on every request.
 const _intelCache = new Map(); // `${leagueKey}::asset` → {payload|null, fetchedAt}
 const _INTEL_TTL_MS = 5 * 60 * 1000;
 
@@ -274,30 +256,131 @@ function IntelContextSection({ row }) {
   }
 
   return (
-    <div
-      style={{
-        marginTop: 10,
-        padding: "6px 10px",
-        borderRadius: 6,
-        background: "rgba(96, 165, 250, 0.06)",
-        border: "1px solid var(--border)",
-        fontSize: "0.76rem",
-      }}
-    >
-      <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>League-mate intel</span>
-      <span className="muted" style={{ marginLeft: 8 }}>
-        {parts.join(" · ")}
-      </span>
+    <div className={`${styles.signalBox} ${styles.signalInfo}`}>
+      <span className={styles.signalTitle}>League-mate intel</span>
+      <span className={styles.signalBody}>{parts.join(" · ")}</span>
+    </div>
+  );
+}
+
+// ── Player context section (playerctx, #539 — first UI surface) ──────
+// Contracts, snap share, and depth-chart standing from the nflverse
+// snapshot behind GET /api/playerctx/player.  Sleeper-id keyed (the
+// only stable join the frontend holds); every block is optional —
+// render what exists, hide what doesn't; the whole section degrades
+// silently when the snapshot has nothing for this player.
+const _ctxCache = new Map(); // playerId → {payload|null, fetchedAt}
+const _CTX_TTL_MS = 30 * 60 * 1000;
+
+export async function _loadPlayerContext(playerId) {
+  const key = String(playerId || "").trim();
+  if (!key) return null;
+  const cached = _ctxCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < _CTX_TTL_MS) return cached.payload;
+  try {
+    const res = await fetch(`/api/playerctx/player?playerId=${encodeURIComponent(key)}`);
+    const payload = res.ok ? await res.json() : null;
+    _ctxCache.set(key, { payload, fetchedAt: Date.now() });
+    return payload;
+  } catch {
+    _ctxCache.set(key, { payload: null, fetchedAt: Date.now() });
+    return null;
+  }
+}
+
+function formatMoney(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `$${Math.round(num / 1_000)}K`;
+  return `$${num}`;
+}
+
+export function PlayerContextSection({ row }) {
+  const [ctx, setCtx] = useState(null);
+  const playerId = String(row?.raw?.playerId || row?.playerId || "").trim();
+
+  useEffect(() => {
+    if (!playerId) return;
+    let active = true;
+    setCtx(null);
+    _loadPlayerContext(playerId).then((payload) => {
+      if (active) setCtx(payload?.player || null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [playerId]);
+
+  if (!ctx) return null;
+  const { contract, snaps, depth } = ctx;
+  if (!contract && !snaps && !depth) return null;
+
+  return (
+    <div className={styles.section} data-testid="player-context">
+      <p className={styles.sectionLabel}>Player context</p>
+      <div className={styles.ctxGrid}>
+        {contract && (
+          <div className={styles.ctxRow}>
+            <span className={styles.ctxKey}>Contract</span>
+            <span className={styles.ctxVal}>
+              {formatMoney(contract.apy) || "—"}/yr
+              {contract.endYear ? ` thru ${contract.endYear}` : ""}
+            </span>
+            {formatMoney(contract.guaranteed) && (
+              <span className={styles.ctxNote}>{formatMoney(contract.guaranteed)} gtd</span>
+            )}
+            {contract.team && contract.team !== ctx.team && (
+              <span
+                className={styles.ctxNote}
+                title="OTC contracts keep the SIGNING franchise — a traded player's deal still shows its origin team. End year can undershoot for in-contract extensions."
+              >
+                signed with {contract.team}
+              </span>
+            )}
+          </div>
+        )}
+        {snaps && Number.isFinite(Number(snaps.pct)) && (
+          <div className={styles.ctxRow}>
+            <span className={styles.ctxKey}>Snaps</span>
+            <span className={styles.ctxVal}>{Number(snaps.pct).toFixed(1)}%</span>
+            <span className={styles.ctxNote}>
+              {snaps.season} season · {snaps.games} gm ({snaps.side})
+            </span>
+            {Number.isFinite(Number(snaps.trend)) && Number(snaps.trend) !== 0 && (
+              <Movement
+                delta={Number(snaps.trend)}
+                format={(n) => `${n.toFixed(1)}%`}
+                srLabel={`snap share ${Number(snaps.trend) > 0 ? "up" : "down"} ${Math.abs(Number(snaps.trend)).toFixed(1)} percentage points over the last three games`}
+              />
+            )}
+          </div>
+        )}
+        {depth && depth.rank != null && (
+          <div className={styles.ctxRow}>
+            <span className={styles.ctxKey}>Depth</span>
+            <span className={styles.ctxVal}>
+              {depth.position}
+              {depth.rank}
+            </span>
+            {depth.team && <span className={styles.ctxNote}>on {depth.team}</span>}
+            {depth.rank === 1 ? (
+              <Badge tone="positive">starter</Badge>
+            ) : (
+              <Badge>backup</Badge>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // ── News section ─────────────────────────────────────────────────────
 // Full news list for this player from ``useNews().byPlayer`` (all
-// items, newest first — not just the latest chip).  The hook is
-// single-flighted at module level, so mounting it here costs nothing
-// beyond the shared fetch.  Degrades silently: no news, unavailable
-// backend, or loading all render nothing.
+// items, newest first).  The hook is single-flighted at module level.
+// Degrades silently: no news, unavailable backend, or loading all
+// render nothing.
 const _POPUP_NEWS_LIMIT = 5;
 
 function PlayerNewsSection({ playerName, position, team }) {
@@ -305,7 +388,7 @@ function PlayerNewsSection({ playerName, position, team }) {
   const { rows: liveRows } = useApp();
   // Live-pool meta index: name-only items for a name that is
   // AMBIGUOUS in the pool (CJ Allen LB vs C.J. Allen WR) are
-  // suppressed here rather than shown on the wrong player's popup;
+  // suppressed here rather than shown on the wrong player's profile;
   // mentions carrying backend-stamped position/team resolve to the
   // right identity instead.
   const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(liveRows), [liveRows]);
@@ -319,94 +402,58 @@ function PlayerNewsSection({ playerName, position, team }) {
     [byPlayer, playerName, position, team, newsPlayerMeta],
   );
   // Backend per-player digest — ONE combined entry when the player
-  // has multiple recent stories.  Rendered above the raw list; raw
-  // items stay accessible below it.
+  // has multiple recent stories.  Rendered above the raw list.
   const digest = useMemo(
     () => lookupPlayerDigest(digestByPlayer, playerName, { position }),
     [digestByPlayer, playerName, position],
   );
   if (!items.length) return null;
   return (
-    <div style={{ marginTop: 14 }}>
-      <div className="label" style={{ marginBottom: 6 }}>
-        News ({items.length})
-      </div>
+    <div className={styles.section}>
+      <p className={styles.sectionLabel}>News ({items.length})</p>
       {digest && (
-        <div
-          style={{
-            border: "1px solid var(--border-bright)",
-            borderRadius: 6,
-            padding: "8px 10px",
-            marginBottom: 6,
-            background: "rgba(34, 211, 238, 0.06)",
-            fontSize: "0.76rem",
-          }}
-        >
-          <div style={{ fontWeight: 700 }}>{digest.headline}</div>
-          <div
-            className="muted"
-            style={{ whiteSpace: "pre-line", marginTop: 4, fontSize: "0.72rem" }}
-          >
-            {digest.summary}
-          </div>
+        <div className={styles.newsDigest}>
+          <div className={styles.newsDigestHeadline}>{digest.headline}</div>
+          <div className={styles.newsDigestSummary}>{digest.summary}</div>
           {Array.isArray(digest.sources) && digest.sources.length > 0 && (
-            <div className="muted" style={{ marginTop: 4, fontSize: "0.66rem" }}>
+            <div className={styles.quietNote} style={{ marginTop: 4 }}>
               Sources: {digest.sources.join(" · ")}
             </div>
           )}
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {items.slice(0, _POPUP_NEWS_LIMIT).map((item) => (
-          <div
-            key={item.id || `${item.ts}-${item.headline}`}
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              padding: "6px 10px",
-              fontSize: "0.76rem",
-            }}
-          >
-            <div
-              className="muted"
-              style={{ display: "flex", gap: 8, fontSize: "0.66rem" }}
-            >
-              <span>{timeAgo(item.ts)}</span>
-              <span>{item.providerLabel || item.provider || "—"}</span>
-              {item.severity && (
-                <span
-                  style={{
-                    color:
-                      item.severity === "alert"
-                        ? "var(--red)"
-                        : item.severity === "watch"
-                          ? "var(--amber)"
-                          : "var(--subtext)",
-                    textTransform: "uppercase",
-                    fontWeight: 700,
-                  }}
-                >
-                  {item.severity}
-                </span>
-              )}
-            </div>
-            <div style={{ marginTop: 2 }}>
-              {item.url ? (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "var(--cyan)", textDecoration: "none" }}
-                >
-                  {item.headline}
-                </a>
-              ) : (
-                item.headline
-              )}
-            </div>
+      {items.slice(0, _POPUP_NEWS_LIMIT).map((item) => (
+        <div key={item.id || `${item.ts}-${item.headline}`} className={styles.newsItem}>
+          <div className={styles.newsMeta}>
+            <span>{timeAgo(item.ts)}</span>
+            <span>{item.providerLabel || item.provider || "—"}</span>
+            {item.severity && (
+              <span
+                className={styles.newsSeverity}
+                style={{
+                  color:
+                    item.severity === "alert"
+                      ? "var(--negative-text)"
+                      : item.severity === "watch"
+                        ? "var(--warning-text)"
+                        : "var(--text-tertiary)",
+                }}
+              >
+                {item.severity}
+              </span>
+            )}
           </div>
-        ))}
-      </div>
+          <div style={{ marginTop: 2 }}>
+            {item.url ? (
+              <a href={item.url} target="_blank" rel="noopener noreferrer" className={styles.newsLink}>
+                {item.headline}
+              </a>
+            ) : (
+              item.headline
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -422,13 +469,10 @@ function PlayerNewsSection({ playerName, position, team }) {
  *      values, shrunk by α into the anchor baseline: center =
  *      anchor + α·(subgroup − anchor).  Only emitted when both
  *      anchor and subgroup contribute.
- *   3. MAD volatility penalty — center − λ·MAD (players only; picks
- *      skip this stage).
- *   4. Combined output → ``rankDerivedValue``.
+ *   3. Combined output → ``rankDerivedValue``.
  *
- * (The former IDP calibration post-pass — family_scale × bucket
- * multiplier — was retired alongside the rest of the calibration
- * system, so the chain no longer has a Stage 5.)
+ * (The λ·MAD volatility penalty and the IDP calibration post-pass were
+ * both retired — ``sourceSpread`` renders as a pure diagnostic.)
  */
 function computeValueChain(row) {
   if (!row) return [];
@@ -489,8 +533,6 @@ function computeValueChain(row) {
     });
   }
 
-  // λ·MAD penalty retired 2026-04-20.  ``sourceSpread`` is rendered
-  // below the chain as a pure transparency metric.
   const blended = Number(row.rankDerivedValue) || null;
   if (blended !== null && blended > 0 && stages.length === 0) {
     // Offense rows (no anchor/subgroup stamps) — surface the final
@@ -507,49 +549,26 @@ function computeValueChain(row) {
     });
   }
 
-
   return stages;
 }
 
 /**
- * Player detail popup — multi-source breakdown, value diagnostics, edge signal.
- * Triggered by clicking a player name anywhere in the app.
+ * Player profile drawer — multi-source breakdown, value diagnostics,
+ * edge signal, intel, news, and player context.  Triggered by clicking
+ * a player name anywhere in the app.
  *
  * Props:
- *   row       — Player row object from buildRows() (null to hide popup)
+ *   row       — Player row object from buildRows() (null to hide)
  *   siteKeys  — Array of site key strings from dynasty data
- *   onClose   — Callback to close the popup
+ *   onClose   — Callback to close
  *   onAddToTrade — Optional callback to add player to trade builder
  */
 export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade }) {
   const [chainOpen, setChainOpen] = useState(false);
 
-  // Close on Escape + lock body scroll while open.
-  //
-  // Body-scroll lock: when the popup is open we set ``overflow:
-  // hidden`` on ``document.body`` so a user scrolling inside the
-  // popup doesn't accidentally drive the page behind.  On unmount
-  // (or when ``row`` flips back to null) we restore whatever was
-  // there before — reading the prior value rather than hard-coding
-  // "" avoids clobbering a parent component that might have set
-  // ``overflow: scroll`` for its own reasons.  Combined with
-  // ``overscroll-behavior: contain`` on the sheet in CSS, this
-  // fully isolates scrolling inside the popup.
-  useEffect(() => {
-    if (!row) return;
-    function onKey(e) { if (e.key === "Escape") onClose?.(); }
-    document.addEventListener("keydown", onKey);
-    const priorOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = priorOverflow;
-    };
-  }, [row, onClose]);
-
   // Reset the chain panel when switching players — the new row's
   // transforms are different, so starting collapsed keeps the
-  // popup compact for casual lookups.
+  // profile compact for casual lookups.
   useEffect(() => {
     setChainOpen(false);
   }, [row?.name]);
@@ -559,13 +578,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
 
   // ── Ownership: which team holds this player + their depth-chart slot.
   // ``rawData.sleeper.teams[].name`` is already the owner's first name
-  // (resolved server-side via ``src/utils/owner_names.py``), so the
-  // popup just surfaces it.  Position rank is computed by walking the
-  // team's roster, restricting to the player's position, and counting
-  // how many same-position teammates outrank them on
-  // ``rankDerivedValue``.  Looks up by Sleeper playerId first (avoids
-  // the offense/IDP cross-universe name-collision case), falling back
-  // to normalized name for rows that don't carry a playerId stamp.
+  // (resolved server-side via ``src/utils/owner_names.py``).  Position
+  // rank walks the team's roster restricted to the player's position,
+  // by Sleeper playerId first (avoids the offense/IDP cross-universe
+  // name-collision case), falling back to normalized name.
   const { rows: allRows, rawData } = useApp();
   const ownership = useMemo(() => {
     if (!row) return null;
@@ -655,7 +671,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     return { impact: hit.injuryImpact, adjustedValue: hit.injuryAdjustedValue };
   }, [serverSignals, row?.name]);
 
-  // Watchlist toggle — wires the ⭐ button in the popup header to
+  // Watchlist toggle — wires the star button in the header to
   // useUserState.toggleWatchlist.  ``serverBacked`` drives the
   // tooltip so users know whether the state syncs across devices.
   const { state: userState, toggleWatchlist, serverBacked: userStateServerBacked } = useUserState();
@@ -673,13 +689,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     // the same number rendered in the rankings row chips.  Reading
     // ``canonicalSites`` here (the previous behaviour) mixed value
     // sources' raw native scale with rank-signal sources' synthetic
-    // rank encoding (``_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - rank *
-    // 100``), so IDP expert boards like DLF IDP / FBG IDP were either
-    // dwarfed to invisible bars or dropped entirely by the
-    // normalized-vs-maxVal math — producing the classic "Only 1 source
-    // — speculative" line on a player that actually had 4 sources
-    // contributing.  Using ``sourceRankMeta[key].valueContribution``
-    // keeps the popup in lockstep with the rankings table.
+    // rank encoding, so IDP expert boards were either dwarfed to
+    // invisible bars or dropped entirely.  Using
+    // ``sourceRankMeta[key].valueContribution`` keeps the profile in
+    // lockstep with the rankings table.
     //
     // Two exceptions to the contribution-first rule:
     //   * ``RAW_VALUE_PREFERRED_KEYS`` — sources whose published
@@ -687,13 +700,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     //     KTC TE++).  Read raw scrape from ``row.rawSourceValues``
     //     so users can cross-check against keeptradecut.com.
     //   * ``RETIRED_FROM_CHART_KEYS`` — sources retired from the
-    //     blend whose canonical replacement covers the same signal
-    //     (e.g. ``ktc`` standard SF, replaced by ``ktcSfTep``).
-    //     These are still loaded into ``canonicalSiteValues`` for the
-    //     trade-page arbitrage finder + per-source winner row, but
-    //     should not appear in the popup chip render.  Mirrors
-    //     ``_RETIRED_FROM_CHART_KEYS`` in
-    //     ``src/api/source_history.py``.
+    //     blend whose canonical replacement covers the same signal.
     const meta = row.sourceRankMeta || {};
     const canonicalSites = row.canonicalSites || {};
     const rawSourceValues = row.rawSourceValues || {};
@@ -763,66 +770,70 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     return `Sources disagree significantly (CV ${(cv * 100).toFixed(0)}%) — high volatility player`;
   }, [siteDetails]);
 
-  if (!row) return null;
-
-  const rank = resolvedRank(row);
-  const values = row.values || {};
+  const rank = row ? resolvedRank(row) : Infinity;
+  const values = row?.values || {};
 
   return (
-    <div className="picker-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
-      <div
-        className="picker-sheet picker-sheet--scrollable"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 520, width: "95vw" }}
-      >
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{row.name}</h2>
-            <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
-              <span className="badge">{row.pos}</span>
-              {row.raw?.team && <span className="muted" style={{ fontSize: "0.76rem" }}>{row.raw.team}</span>}
-              {row.raw?.rookie && <span className="badge" style={{ color: "var(--cyan)", borderColor: "var(--cyan)" }}>ROOKIE</span>}
-              {rank < Infinity && (
-                <span className="muted" style={{ fontSize: "0.72rem" }}>Rank #{rank}</span>
-              )}
-            </div>
-            {ownership && ownership.ownerLabel && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  marginTop: 4,
-                  alignItems: "center",
-                  fontSize: "0.76rem",
-                }}
-              >
-                <span className="muted">Owned by</span>
-                {ownership.ownerId ? (
-                  <Link
-                    href={`/league/franchise/${encodeURIComponent(ownership.ownerId)}`}
-                    onClick={() => onClose?.()}
-                    style={{ color: "var(--cyan)", textDecoration: "none", fontWeight: 600 }}
-                  >
-                    {ownership.ownerLabel}
-                  </Link>
-                ) : (
-                  <strong>{ownership.ownerLabel}</strong>
-                )}
-                {ownership.positionLabel && (
-                  <span className="muted" style={{ fontSize: "0.72rem" }}>
-                    · {ownership.positionLabel} on roster
+    <Drawer
+      open={Boolean(row)}
+      onClose={onClose}
+      title={row ? row.name : ""}
+      closeLabel="Close player details"
+      className={styles.wideDrawer}
+    >
+      {row && (
+        <>
+          {/* ── Identity header ── */}
+          <div className={styles.identity}>
+            <PlayerImage
+              playerId={row.raw?.playerId}
+              team={row.raw?.team || row.team}
+              position={row.pos}
+              name={row.name}
+              size={44}
+            />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className={styles.identityMeta}>
+                <Badge>{row.pos}</Badge>
+                {row.raw?.team && <span>{row.raw.team}</span>}
+                {row.age != null && <span>age {row.age}</span>}
+                {row.yearsExp != null && (
+                  <span>
+                    {row.yearsExp === 0 ? "rookie year" : `${row.yearsExp} yr exp`}
                   </span>
                 )}
+                {row.raw?.rookie && <Badge tone="info">ROOKIE</Badge>}
+                {rank < Infinity && <span className="ds-mono">Rank #{rank}</span>}
               </div>
-            )}
+              {ownership && ownership.ownerLabel && (
+                <div className={styles.ownership} style={{ marginTop: 4 }}>
+                  <span>Owned by</span>
+                  {ownership.ownerId ? (
+                    <Link
+                      href={`/league/franchise/${encodeURIComponent(ownership.ownerId)}`}
+                      onClick={() => onClose?.()}
+                      className={styles.ownerLink}
+                    >
+                      {ownership.ownerLabel}
+                    </Link>
+                  ) : (
+                    <strong>{ownership.ownerLabel}</strong>
+                  )}
+                  {ownership.positionLabel && (
+                    <span>· {ownership.positionLabel} on roster</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className={`button player-popup-watchlist${onWatchlist ? " is-active" : ""}`}
-              onClick={() => toggleWatchlist(row.name)}
+
+          <div className={styles.identityActions}>
+            <Button
+              size="sm"
+              variant={onWatchlist ? "secondary" : "ghost"}
               aria-pressed={onWatchlist}
+              icon={<Icon name={onWatchlist ? "star-filled" : "star"} size={13} />}
+              onClick={() => toggleWatchlist(row.name)}
               title={
                 onWatchlist
                   ? userStateServerBacked
@@ -833,324 +844,206 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                   : "Add to watchlist (local)"
               }
             >
-              {onWatchlist ? "★" : "☆"}
-            </button>
+              {onWatchlist ? "Watching" : "Watch"}
+            </Button>
             {onAddToTrade && (
-              <button
-                className="button player-popup-action"
+              <Button
+                size="sm"
+                variant="primary"
                 onClick={() => { onAddToTrade(row); onClose?.(); }}
                 aria-label={`Add ${row.name} to trade`}
               >
                 Add to Trade
-              </button>
+              </Button>
             )}
-            <button
-              className="button player-popup-close"
-              onClick={onClose}
-              aria-label="Close player details"
-              title="Close"
-            >
-              &times;
-            </button>
           </div>
-        </div>
 
-        {/* Primary value — ``Our Value`` is the live blended
-            ``rankDerivedValue`` with no post-blend adjustments.  The
-            IDP calibration post-pass was retired, so there are no
-            longer two values to compare (the "Raw / Delta" pair from
-            the original legacy pipeline was already removed earlier
-            for a separate reason — it subtracted a legacy composite
-            from the Hill blend, which produced misleading four-digit
-            "discounts" on every IDP row).
-
-            For IDPs with a scoring-fit adjustment, the popup ALSO
-            renders a "Scoring Fit" cell next to "Our Value" so the
-            user can see both numbers side-by-side regardless of
-            whether the global toggle is on.  Click toggles between
-            them. */}
-        <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div>
-            <div className="label">Our Value</div>
-            <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
-          </div>
-          {injury && injury.impact?.appliedDiscountPct > 0 && (
-            <div>
-              <div className="label" style={{ color: "var(--red)" }}>
-                Adjusted (injury −{Number(injury.impact.appliedDiscountPct).toFixed(
+          {/* ── Primary value — the live blended rankDerivedValue with
+              no post-blend adjustments. ── */}
+          <div className={styles.valueRow}>
+            <StatTile bare label="Our Value" value={Math.round(values.full || 0).toLocaleString()} />
+            {injury && injury.impact?.appliedDiscountPct > 0 && (
+              <StatTile
+                bare
+                label={`Adjusted (injury −${Number(injury.impact.appliedDiscountPct).toFixed(
                   injury.impact.appliedDiscountPct < 1 ? 2 : 1,
-                )}%)
-              </div>
-              <div className="value" style={{ fontSize: "1.4rem", color: "var(--red)" }}>
-                {Number.isFinite(Number(injury.adjustedValue))
-                  ? Number(injury.adjustedValue).toLocaleString()
-                  : "—"}
-              </div>
-            </div>
-          )}
-          {injury && injury.impact?.offseasonSuppressed && (
-            <div
-              className="muted"
-              style={{ fontSize: "0.72rem", fontStyle: "italic", paddingBottom: 6 }}
-              title={`Headline: ${injury.impact.headline}`}
-            >
-              Injury news · offseason (value unchanged)
-            </div>
-          )}
-          {/* ── Short-term context (ROS) ──────────────────────────
-              Read-only contender-layer labels.  Never mutates the
-              dynasty value above.  Gated by ``settings.showRosTags``
-              (default true). */}
-          <RosContextSection row={row} />
-        </div>
-
-        {/* Scoring-fit explainer — what's driving the league-aware
-            value.  Renders only when the backend stamped per-stat
-            contributions on the row (i.e. the player has realized
-            data, not a synthetic rookie).  Shows the top stats by
-            absolute points contribution so users can see EXACTLY
-            why their league rates this player higher / lower than
-            consensus does.
-
-            Example: a fit-positive EDGE will show "Sack 14 → 56 pts
-            (32%)", "QB Hit 28 → 42 pts (24%)", "TFL 15 → 30 pts
-            (17%)" — surfacing that this league's stacked sack
-            scoring is what's pulling them above market. */}
-
-        {/* Value chain — how we arrived at Our Value */}
-        {valueChain.length > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={() => setChainOpen((v) => !v)}
-              style={{
-                background: "transparent",
-                border: "1px dashed var(--border-bright)",
-                color: "var(--cyan)",
-                padding: "4px 10px",
-                borderRadius: 6,
-                fontSize: "0.72rem",
-                cursor: "pointer",
-                fontFamily: "var(--font)",
-                width: "100%",
-                textAlign: "left",
-              }}
-              title={
-                chainOpen
-                  ? "Hide the stage-by-stage value derivation"
-                  : "See how the blended value + volatility + calibration produced the final number"
-              }
-            >
-              {chainOpen ? "▼" : "▶"} Value chain — how we got {Math.round(values.full || 0).toLocaleString()}
-              {!chainOpen && (
-                <span className="muted" style={{ marginLeft: 8, fontSize: "0.68rem" }}>
-                  {valueChain.length} stage{valueChain.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </button>
-            {chainOpen && (
-              <div
-                style={{
-                  marginTop: 6,
-                  border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  padding: "8px 10px",
-                  background: "rgba(79, 33, 133, 0.12)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                }}
+                )}%)`}
+                value={
+                  Number.isFinite(Number(injury.adjustedValue))
+                    ? Number(injury.adjustedValue).toLocaleString()
+                    : "—"
+                }
+                meta={<Badge tone="negative">injury</Badge>}
+              />
+            )}
+            {injury && injury.impact?.offseasonSuppressed && (
+              <span
+                className={styles.quietNote}
+                title={`Headline: ${injury.impact.headline}`}
               >
-                {valueChain.map((stage, i) => (
-                  <div
-                    key={stage.key}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      paddingBottom: i === valueChain.length - 1 ? 0 : 6,
-                      borderBottom:
-                        i === valueChain.length - 1
-                          ? "none"
-                          : "1px dashed var(--border)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        minWidth: 22,
-                        textAlign: "center",
-                        color: "var(--cyan)",
-                        fontWeight: 700,
-                        fontSize: "0.72rem",
-                      }}
-                    >
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "0.78rem", fontWeight: 600 }}>
-                        {stage.label}
-                      </div>
-                      <div
-                        className="muted"
-                        style={{ fontSize: "0.68rem", marginTop: 2 }}
-                      >
-                        {stage.description}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        minWidth: 72,
-                        textAlign: "right",
-                        fontFamily: "var(--mono)",
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {stage.value.toLocaleString()}
-                      {stage.delta !== null && stage.delta !== 0 && (
-                        <div
-                          style={{
-                            fontSize: "0.66rem",
-                            fontWeight: 500,
-                            color:
-                              stage.delta > 0
-                                ? "var(--green)"
-                                : "var(--red)",
-                          }}
-                        >
-                          {stage.delta > 0 ? "+" : ""}
-                          {stage.delta.toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                Injury news · offseason (value unchanged)
+              </span>
             )}
           </div>
-        )}
 
-        {/* League-mate intel (Sharp Tracker) — silently absent when
-            the intel snapshot has nothing for this asset */}
-        <IntelContextSection row={row} />
+          {/* ── Short-term context (ROS) — read-only labels, never
+              mutates the dynasty value.  Gated by settings.showRosTags. ── */}
+          <RosContextSection row={row} />
 
-        {/* Edge signal */}
-        {edge?.signal && (
-          <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6,
-            background: edge.signal === "BUY" ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>
-            <span style={{ fontWeight: 700, fontSize: "0.82rem",
-              color: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
-              {edge.signal === "BUY" ? "Buy Low" : "Sell High"}
-            </span>
-            <span className="muted" style={{ marginLeft: 8, fontSize: "0.76rem" }}>
-              {edge.signal === "BUY"
-                ? `Consensus ranks ${edge.rankGap} spots higher than KTC — market is cheap`
-                : `KTC ranks ${edge.rankGap} spots higher than consensus — market overvalues`}
-              {edge.edgePct > 0 && <> · ~{edge.edgePct}% value gap</>}
-            </span>
-          </div>
-        )}
+          {/* ── Player context (contracts / snaps / depth) ── */}
+          <PlayerContextSection row={row} />
 
-        {/* Pick value projection — surfaces the package-now-or-wait
-            decision the operator faces on every offseason trade
-            involving forward picks.  ``pickProjectedDraftValue`` is
-            stamped on every valued pick row by the contract builder
-            (``_stamp_pick_value_projections``); we render it only when
-            there's a positive gain to show, i.e. future-year picks.
-            Baseline-year picks have zero gain and would render a
-            no-op line.  Non-pick rows leave these fields undefined. */}
-        {row?.assetClass === "pick"
-          && Number.isFinite(row?.pickProjectedDraftValue)
-          && Number(row?.pickProjectedDraftValueGain) > 0 && (
-            <div style={{
-              marginTop: 10,
-              padding: "6px 10px",
-              borderRadius: 6,
-              background: "rgba(96, 165, 250, 0.08)",
-              border: "1px solid rgba(96, 165, 250, 0.22)",
-            }}>
-              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--text)" }}>
-                📅 Projected at draft
-              </span>
-              <span className="muted" style={{ marginLeft: 8, fontSize: "0.76rem" }}>
-                ~{Number(row.pickProjectedDraftValue).toLocaleString()} by the {row.pickProjectedDraftYear} draft
-                {Number(row.pickProjectedDraftValueGainPct) > 0 && (
-                  <>
-                    {" · "}
-                    <span style={{ color: "var(--green)" }}>
-                      ▲ {row.pickProjectedDraftValueGainPct}%
-                    </span>
-                    {" gain"}
-                  </>
+          {/* Value chain — how we arrived at Our Value */}
+          {valueChain.length > 0 && (
+            <div className={styles.section}>
+              <button
+                type="button"
+                className={styles.chainToggle}
+                onClick={() => setChainOpen((v) => !v)}
+                aria-expanded={chainOpen}
+                title={
+                  chainOpen
+                    ? "Hide the stage-by-stage value derivation"
+                    : "See how the blend produced the final number"
+                }
+              >
+                <Icon name={chainOpen ? "chevron-down" : "chevron-right"} size={10} />
+                Value chain — how we got {Math.round(values.full || 0).toLocaleString()}
+                {!chainOpen && (
+                  <span className={styles.quietNote}>
+                    {valueChain.length} stage{valueChain.length !== 1 ? "s" : ""}
+                  </span>
                 )}
+              </button>
+              {chainOpen && (
+                <div className={styles.chainBody}>
+                  {valueChain.map((stage, i) => (
+                    <div key={stage.key} className={styles.chainStage}>
+                      <div className={styles.chainIndex}>{i + 1}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className={styles.chainLabel}>{stage.label}</div>
+                        <div className={styles.chainDescription}>{stage.description}</div>
+                      </div>
+                      <div className={styles.chainValue}>
+                        {stage.value.toLocaleString()}
+                        {stage.delta !== null && stage.delta !== 0 && (
+                          <div>
+                            <Movement delta={stage.delta} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* League-mate intel (Sharp Tracker) — silently absent when
+              the intel snapshot has nothing for this asset */}
+          <IntelContextSection row={row} />
+
+          {/* Edge signal */}
+          {edge?.signal && (
+            <div
+              className={`${styles.signalBox} ${edge.signal === "BUY" ? styles.signalBuy : styles.signalSell}`}
+            >
+              <span className={styles.signalTitle}>
+                {edge.signal === "BUY" ? "Buy Low" : "Sell High"}
+              </span>
+              <span className={styles.signalBody}>
+                {edge.signal === "BUY"
+                  ? `Consensus ranks ${edge.rankGap} spots higher than KTC — market is cheap`
+                  : `KTC ranks ${edge.rankGap} spots higher than consensus — market overvalues`}
+                {edge.edgePct > 0 && <> · ~{edge.edgePct}% value gap</>}
               </span>
             </div>
           )}
 
-        {/* 180-day rank-history mini-chart */}
-        <div style={{ marginTop: 14 }}>
-          <PlayerRankHistoryChart row={row} />
-        </div>
-
-        {/* Recent news for this player — renders nothing when the
-            player has no items or the feed is unavailable. */}
-        <PlayerNewsSection
-          playerName={row.name}
-          position={row.pos}
-          team={row.raw?.team}
-        />
-
-        {/* Source breakdown bars */}
-        {siteDetails.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <div className="label" style={{ marginBottom: 6 }}>Source Breakdown</div>
-            {siteDetails.map((s) => (
-              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <div
-                  style={{ minWidth: 90, fontSize: "0.72rem" }}
-                  className="muted"
-                  title={s.key}
-                >
-                  {s.label}
-                </div>
-                <div style={{ flex: 1, height: 14, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{
-                    width: `${Math.min(100, s.pct)}%`, height: "100%", borderRadius: 3,
-                    background: s.pct >= 90 ? "var(--green)" : s.pct >= 50 ? "var(--cyan)" : "var(--red)",
-                    transition: "width 0.3s",
-                  }} />
-                </div>
-                <div
-                  style={{ minWidth: 56, textAlign: "right", fontSize: "0.76rem", fontWeight: 600 }}
-                  title={s.native != null
-                    ? `Normalized contribution ${Math.round(s.value).toLocaleString()} — vendor's native value ${s.native.toLocaleString()}`
-                    : undefined}
-                >
-                  {Math.round(s.value).toLocaleString()}
-                  {s.native != null && (
-                    <span className="muted" style={{ fontWeight: 400, fontSize: "0.66rem" }}>
-                      {" "}({s.native.toLocaleString()})
-                    </span>
+          {/* Pick value projection — package-now-or-wait context for
+              future picks.  ``pickProjectedDraftValue`` is stamped on
+              every valued pick row; render only on a positive gain. */}
+          {row?.assetClass === "pick"
+            && Number.isFinite(row?.pickProjectedDraftValue)
+            && Number(row?.pickProjectedDraftValueGain) > 0 && (
+              <div className={`${styles.signalBox} ${styles.signalInfo}`}>
+                <span className={styles.signalTitle}>Projected at draft</span>
+                <span className={styles.signalBody}>
+                  ~{Number(row.pickProjectedDraftValue).toLocaleString()} by the {row.pickProjectedDraftYear} draft
+                  {Number(row.pickProjectedDraftValueGainPct) > 0 && (
+                    <>
+                      {" · "}
+                      <Movement
+                        delta={Number(row.pickProjectedDraftValueGainPct)}
+                        format={(n) => `${n}%`}
+                      />
+                      {" gain"}
+                    </>
                   )}
-                </div>
+                </span>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* Consensus narrative */}
-        {consensusText && (
-          <div className="muted" style={{ marginTop: 10, fontSize: "0.74rem", fontStyle: "italic" }}>
-            {consensusText}
+          {/* 180-day rank-history mini-chart */}
+          <div className={styles.section}>
+            <PlayerRankHistoryChart row={row} />
           </div>
-        )}
 
-        {/* Source count + site count */}
-        <div className="muted" style={{ marginTop: 8, fontSize: "0.7rem", borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          {row.siteCount > 0 && <span>{row.siteCount} source{row.siteCount !== 1 ? "s" : ""} contributing</span>}
-          {row.canonicalTierId && <span> · Tier {row.canonicalTierId}</span>}
-        </div>
-      </div>
-    </div>
+          {/* Recent news for this player — renders nothing when the
+              player has no items or the feed is unavailable. */}
+          <PlayerNewsSection
+            playerName={row.name}
+            position={row.pos}
+            team={row.raw?.team}
+          />
+
+          {/* Source breakdown bars */}
+          {siteDetails.length > 0 && (
+            <div className={styles.section}>
+              <p className={styles.sectionLabel}>Source Breakdown</p>
+              {siteDetails.map((s) => (
+                <div key={s.key} className={styles.sourceRow}>
+                  <div className={styles.sourceLabel} title={s.key}>
+                    {s.label}
+                  </div>
+                  <div className={styles.sourceTrack}>
+                    <div
+                      className={styles.sourceFill}
+                      style={{ width: `${Math.min(100, s.pct)}%` }}
+                    />
+                  </div>
+                  <div
+                    className={styles.sourceValue}
+                    title={s.native != null
+                      ? `Normalized contribution ${Math.round(s.value).toLocaleString()} — vendor's native value ${s.native.toLocaleString()}`
+                      : undefined}
+                  >
+                    {Math.round(s.value).toLocaleString()}
+                    {s.native != null && (
+                      <span className={styles.sourceNative}>
+                        {" "}({s.native.toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Consensus narrative */}
+          {consensusText && (
+            <p className={styles.quietNote} style={{ marginTop: 10, fontStyle: "italic" }}>
+              {consensusText}
+            </p>
+          )}
+
+          {/* Source count + tier footer */}
+          <div className={styles.footer}>
+            {row.siteCount > 0 && <span>{row.siteCount} source{row.siteCount !== 1 ? "s" : ""} contributing</span>}
+            {row.canonicalTierId && <span> · Tier {row.canonicalTierId}</span>}
+          </div>
+        </>
+      )}
+    </Drawer>
   );
 }

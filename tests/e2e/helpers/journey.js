@@ -19,21 +19,26 @@ const { expect } = require("@playwright/test");
 // (which encode BEHAVIOR, not markup) should pass unchanged.
 const SEL = {
   // /rankings — the board table and its rows (one row per player).
-  boardRow: ".table-wrap table tbody tr.rankings-row-clickable",
-  // /rankings — clickable player name inside a row (opens the popup).
+  // R2: the board renders through the ds DataTable primitive; the
+  // rankings-row-clickable class is kept as the stable E2E hook.
+  boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
+  // /rankings — clickable player name inside a row (opens the profile).
   playerName: ".rankings-player-name",
-  // /rankings — the filter bar's search input + position <select>.
-  searchInput: ".filter-bar input.input",
-  posSelect: ".filter-bar select.select",
-  // Player popup / global search overlay sheet.
-  overlaySheet: ".picker-sheet",
-  // Global search result rows.
-  searchResult: ".picker-sheet .asset-row",
-  searchResultName: ".picker-sheet .asset-name",
+  // /rankings — the controls strip's search input + position <select>
+  // (rankings-controls is the stable hook class; controls are ds
+  // primitives).
+  searchInput: ".rankings-controls input.ds-input",
+  posSelect: ".rankings-controls select.ds-select",
+  // Any modal overlay: the player profile drawer (ds Drawer) and the
+  // command palette (ds Modal) both render role=dialog panels.
+  overlaySheet: '[role="dialog"]',
+  // Command-palette result rows (R1 CommandPalette).
+  searchResult: ".shell-palette-option",
+  searchResultName: ".shell-palette-option-name",
   // Top-nav search affordance — renders once the client auth check
   // resolves, so it doubles as the "authenticated UI is hydrated"
-  // readiness signal.
-  navSearchButton: ".nav-search-btn",
+  // readiness signal.  (R1 shell.)
+  navSearchButton: ".shell-search-btn",
 };
 
 function isMobileProject(testInfo) {

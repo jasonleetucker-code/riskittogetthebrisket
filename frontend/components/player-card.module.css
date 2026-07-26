@@ -1,0 +1,300 @@
+/* player-card.module.css — the player profile drawer (R2).
+   Token-driven; layout only (semantic colors come from ds classes). */
+
+.wideDrawer {
+  width: min(560px, 96vw);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.identityMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.identityActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.ownership {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.ownerLink {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+}
+.ownerLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Value row ── */
+.valueRow {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+/* ── Section scaffolding ── */
+.section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.sectionLabel {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+}
+.quietNote {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Player context (contracts / snaps / depth — playerctx) ── */
+.ctxGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ctxRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  flex-wrap: wrap;
+}
+.ctxKey {
+  min-width: 72px;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.ctxVal {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.ctxNote {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Value chain ── */
+.chainToggle {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--accent);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-2);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.chainBody {
+  margin-top: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.chainStage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border-subtle);
+}
+.chainStage:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.chainIndex {
+  min-width: 20px;
+  text-align: center;
+  color: var(--accent);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xs);
+}
+.chainLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.chainDescription {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.chainValue {
+  min-width: 72px;
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Signal banners ── */
+.signalBox {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--font-size-sm);
+}
+.signalBuy {
+  background: var(--positive-muted);
+}
+.signalSell {
+  background: var(--negative-muted);
+}
+.signalInfo {
+  background: var(--info-muted);
+}
+.signalTitle {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+}
+.signalBuy .signalTitle {
+  color: var(--positive-text);
+}
+.signalSell .signalTitle {
+  color: var(--negative-text);
+}
+.signalBody {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Source breakdown bars ── */
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.sourceLabel {
+  min-width: 90px;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.sourceTrack {
+  flex: 1;
+  height: 12px;
+  background: var(--surface-active);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+}
+.sourceFill {
+  height: 100%;
+  border-radius: var(--radius-1);
+  background: var(--chart-1);
+  transition: width var(--motion-slow) var(--ease-out);
+}
+.sourceValue {
+  min-width: 64px;
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+.sourceNative {
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── News ── */
+.newsDigest {
+  border: 1px solid var(--info);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--info-muted);
+  font-size: var(--font-size-xs);
+}
+.newsDigestHeadline {
+  font-weight: var(--font-weight-bold);
+}
+.newsDigestSummary {
+  white-space: pre-line;
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-2xs);
+}
+.newsItem {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-1);
+}
+.newsMeta {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.newsSeverity {
+  text-transform: uppercase;
+  font-weight: var(--font-weight-bold);
+}
+.newsLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+.newsLink:hover {
+  text-decoration: underline;
+}
+
+/* ── ROS tags ── */
+.rosRow {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+}
+.rosTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+/* ── Footer ── */
+.footer {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
