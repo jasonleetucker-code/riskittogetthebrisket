@@ -129,6 +129,34 @@ hex — CI-enforced), keyboard/a11y correct, doc comment with usage rules.
 Living reference: **`/design`** (unlinked, noindexed) renders every ramp and
 component state.
 
+### Showing uncertainty: draw it if there's room, tick it if there isn't
+
+One rule governs `Confidence` and every chart that carries an interval:
+
+> **Where uncertainty can be drawn geometrically, draw it. `Confidence`
+> is for values with no room for an interval.**
+
+An error bar, an interval rule, a band, a range label — these *are* the
+uncertainty, stated in the same visual language and on the same scale as
+the value. A tick meter beside one is not extra rigour; it is the same
+fact re-encoded in a second language, which costs horizontal space, adds
+a second thing to learn, and makes the row harder to read rather than
+more honest. Pick one per value:
+
+| The value lives in | Use |
+|---|---|
+| a chart with an axis (dot plot, bar, line) | the interval — drawn, on the axis |
+| a table cell, `StatTile`, badge, or inline rank | `Confidence` |
+| a chart *and* a table view of the same number | interval in the chart, `Confidence` in the table |
+
+The last row is the common case and the reason the rule is worth
+stating: the same number legitimately gets different treatment in
+different surfaces. What is never right is both, on one value, at once.
+
+Corollary for precision: coarsening a number is itself an uncertainty
+encoding (`+3.4` → `+3` → `+2 to +5`). It composes with either mechanism
+and costs nothing, so reach for it before adding chrome.
+
 ---
 
 ## 4. Migration playbook (R1-R5)

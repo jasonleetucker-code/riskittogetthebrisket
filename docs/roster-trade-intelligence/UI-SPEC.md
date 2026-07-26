@@ -196,7 +196,7 @@ Never inline.
 Five probabilities, not a label. Collapsing them to "Contender" throws
 away the only interesting part.
 
-### Form — **decided: grouped dot plot with intervals. Not a diverging bar.**
+### Form — **decided: banded dot plot with intervals. Not a diverging bar.**
 
 The earlier draft specified a diverging stacked bar centred on the middle
 outcome. The engine agent's answer retires it, and the reason is worth
@@ -213,45 +213,91 @@ one boundary the model can't defend. The form would have asserted its
 strongest claim at its weakest joint. Dropped.
 
 **Chosen: a dot plot on a shared 0–100% axis, one row per outcome, each
-carrying its own interval, rows grouped by competitiveness family.**
+carrying its own interval, rows in THREE bands.**
 
 ```
-Competing now
-  Championship contender   ●———————             34%  [28–41]
-  Playoff contender        ●—————               22%  [17–28]
-Not competing now
-  Retool                 ●————                  19%  [13–26]
-  Productive struggle    ●—————                 15%  [ 9–23]
-  Rebuild               ●——                     10%  [ 6–15]
+  Competing now
+    Championship contender   ●———————            34%  [28–41]
+    Playoff contender        ●—————              22%  [17–28]
+
+  Not ranked against each other  (ⓘ why)
+    Retool                   ●————               19%  [13–26]
+    Productive struggle      ●———                15%  [ 9–23]
+
+  Not competing
+    Rebuild                  ●——                 10%  [ 6–15]
+
+  0%                                                          100%
+  Five mutually exclusive outcomes, summing to 100%.
 ```
 
-Why this over the ordered simple stacked bar (the other option offered):
+**Two bands would have been wrong**, and this is the correction that
+matters most in this section. Splitting competing / not-competing forces
+`retool` onto one side, which asserts that it outranks its sibling — the
+single ordering the engine explicitly declined to make. The claim just
+moves from segment adjacency into whitespace. Three bands make the
+ambiguity *structural*: the middle band's own header is the caveat, so
+the uncertainty is the thing the reader sees rather than something the
+layout quietly resolves.
+
+#### The distinction that caused the original error
+
+Keep these apart — conflating them is what made the diverging bar look
+reasonable:
+
+- **The probabilities are ordered.** 19% > 15% is a fact, and rows may be
+  sorted by it inside a band.
+- **The outcomes are not.** There is no defensible competitiveness axis
+  running through `retool` and `productive-struggle`.
+
+The diverging bar used *outcome position* as its axis, so it had to rank
+them. The dot plot's axis is *probability*, so it never does. Sorting
+rows by probability within a band is therefore safe: it orders the
+numbers, not the outcomes. The banding is the only thing carrying a claim
+about the outcome axis, which is exactly why the bands must come from the
+model.
+
+#### Render the bands from the payload, not from a constant
+
+`ORDERING_CAVEAT` ships in the engine's response. The UI must derive the
+banding from it rather than hardcoding a split:
+
+- outcomes named by a caveat render as one band, with the caveat's own
+  text as the band header;
+- outcomes outside any caveat render in engine order, in their own bands.
+
+Two things this buys. A hardcoded split silently drifts the moment the
+model's outcome set or its confidence changes — and it would drift into
+asserting an ordering the model had withdrawn, which is the failure mode
+with no visible symptom. And when a future model version *does* resolve
+the pair, the caveat disappears from the payload, the middle band
+dissolves on its own, and the rows simply order. No UI change, no stale
+claim.
+
+Corollary: if `ORDERING_CAVEAT` is absent or unrecognised, render
+**ungrouped ordered rows** — never guess a grouping. An unbanded plot
+understates structure; a wrong band asserts something false.
+
+#### Why this over the ordered simple stacked bar (the other option)
 
 - **A stacked bar still asserts an order.** Adjacency in a sequence reads
   as rank; putting retool beside productive-struggle implies one is more
-  contending than the other. It makes a weaker claim than divergence, but
-  it is the same unsupported claim.
-- **Grouping asserts only what the model can defend.** Two families
-  ("competing now" / "not competing now") is an ordering the engine is
-  confident about. Within the ambiguous group the rows are siblings, not
-  a ranking — and the spec says so in the UI, so the reader isn't left to
-  infer a scale from row order.
+  contending. Weaker than divergence, but the same unsupported claim.
 - **Position on a common axis is the most precisely-readable encoding.**
-  Several probabilities will be close together, and comparing close
+  Several probabilities will sit close together, and comparing close
   values is exactly what stacked segments are worst at (non-aligned
   baselines) — the anti-pattern catalog's own reason for preferring bars
   over pies.
 - **Per-outcome intervals are more honest than one confidence for the
   whole distribution.** Uncertainty is not uniform across five outcomes,
-  and the dot plot is the only one of the three forms with somewhere to
+  and the dot plot is the only one of the three forms with anywhere to
   put it.
 
 What is lost, and how it is paid for: a stacked bar shows part-to-whole
 instantly, and five dots do not. Mitigate in copy, not geometry — keep
-the axis a full 0–100% and state the exhaustiveness in one line ("five
-mutually exclusive outcomes, summing to 100%"). Do **not** add a second
-stacked strip to recover the gestalt; that reintroduces the ordering
-claim this form exists to avoid.
+the axis a full 0–100% and state exhaustiveness in one line. Do **not**
+add a second stacked strip to recover the gestalt; that reintroduces the
+ordering claim this form exists to avoid.
 
 ### Copy rules
 
@@ -260,9 +306,13 @@ claim this form exists to avoid.
 - **When the top two are within ~10 points, the headline names both** —
   "between retool and contend". The ambiguity is the finding; asserting
   one of them is a fabrication.
-- **Never compare across the group boundary as if it were a scale.**
-  "More likely to retool than to productively struggle" is not a
-  statement this model supports.
+- **Never phrase a within-band comparison as a competitiveness claim.**
+  "Retool is more likely than productive struggle" is fine — it compares
+  probabilities. "Closer to competing than to a productive struggle" is
+  not: it asserts the outcome ordering the model withheld.
+- **Never write copy that names the middle band's members in a
+  sequence.** Prose has no whitespace to disclaim with, so an ordering
+  the layout carefully avoids gets reasserted in a sentence.
 - A one-word decisiveness read ("concentrated" / "genuinely uncertain")
   earns its place. A single-word *label* does not.
 
@@ -317,18 +367,32 @@ draws the uncertainty; adding a tick meter double-encodes the same fact
 in two visual languages and makes the row harder to read, not more
 honest.
 
-General rule, worth carrying beyond this page: **where uncertainty can be
-drawn geometrically, draw it — `Confidence` is for values that have no
-room for an interval** (a number in a table cell, a stat tile, a rank).
-That is the boundary between the two mechanisms.
+This generalises, and now lives where the primitive is documented rather
+than only here: **`docs/DESIGN-SYSTEM.md` § "Showing uncertainty"** —
+draw it if there's room, tick it if there isn't, never both on one value.
+Note the case that rule calls out explicitly, since this page hits it:
+the same probability legitimately carries an **interval in the plot** and
+a **`Confidence` tick in the table view** beside it. Different surfaces,
+different treatment, one encoding each.
 
-### Remaining dependency
+### Remaining dependency — narrowed to a contract, not a judgement
 
-The grouping above assumes the engine's five outcomes partition cleanly
-into "competing now" / "not competing now". That follows from the
-agent's own description, but the exact family assignment should be
-confirmed against the shipped enum — particularly which side `retool`
-lands on, since a retooling team may read as competing.
+The earlier draft asked which side `retool` belongs on. That question is
+now **retired**: the answer was "neither", and forcing it was the defect.
+Nothing here needs the family assignment settled.
+
+What the build does need is the **shape of `ORDERING_CAVEAT`** — enough
+to render a band from it:
+
+- which outcomes a caveat names (an ordered list or a set of keys);
+- the human-readable text to use as the band header, ideally supplied by
+  the engine so the UI is not authoring the caveat's wording;
+- whether more than one caveat can be present at once (two ambiguous
+  pairs would mean more than three bands, which the layout supports but
+  the copy rules above assume away).
+
+If any of that is unavailable, the fallback is defined and safe:
+ungrouped ordered rows.
 
 ## 5. Design problem 3 — seven value types must stay distinct
 
