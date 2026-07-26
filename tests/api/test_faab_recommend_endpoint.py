@@ -22,6 +22,11 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import league_registry
+
+# Captured at import time — BEFORE the fixture stubs the module
+# attribute — so the fast-path tripwire test can restore the real
+# implementation.
+from src.api.sleeper_overlay import fetch_sleeper_teams_overlay as _REAL_TEAMS_OVERLAY
 from src.trade import faab_contention
 
 # The v1 response keys — the frozen backward-compat surface.
@@ -74,6 +79,11 @@ def faab_env(tmp_path, monkeypatch):
 
     # Kill every external input: overlay (rosters come from the baked
     # stub block), public snapshot (league analytics), intel snapshot.
+    # Both overlay entry points are stubbed — the endpoint uses the
+    # teams-only fast path; background warm threads use the full one.
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_teams_overlay", lambda **kwargs: None
+    )
     monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kwargs: None)
     monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: None)
     monkeypatch.setattr(faab_contention, "load_intel_snapshot", lambda path=None: None)
@@ -437,6 +447,123 @@ def test_unmatched_team_owner_skips_contention(faab_env, monkeypatch):
     from src.trade.faab_recommender import compute_confidence
 
     assert payload["confidence"] == compute_confidence(payload["factors"])
+
+
+def test_cold_cache_uses_teams_only_fast_path(faab_env, monkeypatch):
+    """Codex round-3 P1: with a cold overlay cache the endpoint must
+    take the teams-only fast path — the heavy trades/waivers history
+    builders (dozens of serial Sleeper requests) are tripwired to
+    fail the test if invoked."""
+    from src.api import sleeper_overlay
+
+    sleeper_overlay.invalidate_overlay_cache()
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("heavy overlay builder invoked on the FAAB recommend path")
+
+    monkeypatch.setattr(sleeper_overlay, "_build_trades_block", _boom)
+    monkeypatch.setattr(sleeper_overlay, "_build_waivers_block", _boom)
+    fresh_teams = [
+        {
+            "ownerId": "me",
+            "name": "My Team",
+            "players": [],
+            "faabRemaining": 77,
+            "faabBudget": 100,
+        },
+        {
+            "ownerId": "o1",
+            "name": "Rival One",
+            "players": [],
+            "faabRemaining": 55,
+            "faabBudget": 100,
+        },
+    ]
+    monkeypatch.setattr(
+        sleeper_overlay, "_build_teams_block", lambda lid, id_map: list(fresh_teams)
+    )
+    # Restore the REAL teams-only fetch (the fixture stubs it to None).
+    monkeypatch.setattr(sleeper_overlay, "fetch_sleeper_teams_overlay", _REAL_TEAMS_OVERLAY)
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = _post(
+                c,
+                monkeypatch,
+                {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+            )
+        payload = res.json()
+        assert res.status_code == 200
+        # Honest freshness stamp from the live teams-only fetch.
+        assert payload["inputsAsOf"]["rosters"]
+        assert "rosters" not in payload["staleInputs"]
+        # The fast-path teams (not the baked stub block) were used.
+        contention = payload["contention"]
+        assert contention["skipped"] is False
+        assert {r["ownerId"] for r in contention["perOpponent"]} == {"o1"}
+    finally:
+        # The fast path cached its teams under this league id — drop
+        # them so no other test inherits the tripwire fixture's data.
+        sleeper_overlay.invalidate_overlay_cache()
+
+
+def test_all_missing_balances_skip_contention(faab_env, monkeypatch):
+    """Codex round-3 P2: rosters loaded but every faabRemaining is
+    absent (degraded league-settings fetch) — contention must skip
+    with the missing-input factor + honest confidence, never model
+    unverifiable rivals at full bid."""
+
+    def wipe_balances(contract):
+        for t in contract["sleeper"]["teams"]:
+            t["faabRemaining"] = None
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+            mutate=wipe_balances,
+        )
+    payload = res.json()
+    contention = payload["contention"]
+    assert contention["skipped"] is True
+    assert contention["perOpponent"] == []
+    assert any("FAAB balances unavailable" in n for n in contention["notes"])
+    missing_factor = next(
+        (f for f in payload["factors"] if f["label"] == "Rival contention"),
+        None,
+    )
+    assert missing_factor is not None and missing_factor["missing"] is True
+    from src.trade.faab_recommender import compute_confidence
+
+    assert payload["confidence"] == compute_confidence(payload["factors"])
+
+
+def test_mixed_balances_run_with_unknown_rival_excluded(faab_env, monkeypatch):
+    """Half the rivals carry a balance (o1) — contention runs, but the
+    unknown-balance rival (o2) is flagged and excluded from the
+    clearing math (documented conservative behavior)."""
+
+    def unknown_o2(contract):
+        for t in contract["sleeper"]["teams"]:
+            if t["ownerId"] == "o2":
+                t["faabRemaining"] = None
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
+            mutate=unknown_o2,
+        )
+    payload = res.json()
+    contention = payload["contention"]
+    assert contention["skipped"] is False
+    per = {r["ownerId"]: r for r in contention["perOpponent"]}
+    assert per["o2"]["balanceUnknown"] is True
+    assert per["o1"]["balanceUnknown"] is False
+    # The clearing price is driven by the verifiable rival only.
+    assert contention["topRival"] == per["o1"]["expBid"]
+    assert any("no visible FAAB balance" in n for n in contention["notes"])
 
 
 def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):

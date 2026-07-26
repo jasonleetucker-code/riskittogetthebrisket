@@ -309,10 +309,17 @@ def estimate_rival_bids(
             "clearing": int,          # topRival + 1
             "perOpponent": [{ownerId, teamName, expBid, faabRemaining,
                              needLevel, aggression, lowSample,
-                             intelLevel, capped}, ...],
+                             intelLevel, capped, balanceUnknown}, ...],
             "estimateOnly": True,     # winning-bid selection bias
             "notes": [str, ...],
         }
+
+    Rows with a missing/non-integer ``faabRemaining`` are flagged
+    ``balanceUnknown`` and EXCLUDED from ``topRival``/``clearing`` —
+    an unverifiable rival (who might be broke) must never raise the
+    user's bid.  Callers should gate on the SHARE of usable balances
+    before invoking (the endpoint skips contention entirely when
+    fewer than half the rivals carry one).
     """
     notes: list[str] = [
         "Rival bids are estimates from winning-bid history only — "
@@ -374,6 +381,7 @@ def estimate_rival_bids(
         faab_remaining = team.get("faabRemaining")
         if not isinstance(faab_remaining, int):
             faab_remaining = None
+        balance_unknown = faab_remaining is None
         capped = False
         if faab_remaining is not None and exp > faab_remaining:
             exp = float(faab_remaining)
@@ -390,11 +398,26 @@ def estimate_rival_bids(
                 "lowSample": low_sample,
                 "intelLevel": intel_level,
                 "capped": capped,
+                # An absent balance is unverifiable — the row is shown
+                # as an estimate but EXCLUDED from the topRival /
+                # clearing math (conservative: a rival that might be
+                # broke must never raise the user's bid).
+                "balanceUnknown": balance_unknown,
             }
         )
 
     per_opponent.sort(key=lambda r: -r["expBid"])
-    top_rival = per_opponent[0]["expBid"] if per_opponent else 0
+    top_rival = max(
+        (r["expBid"] for r in per_opponent if not r["balanceUnknown"]),
+        default=0,
+    )
+    unknown_balance_count = sum(1 for r in per_opponent if r["balanceUnknown"])
+    if unknown_balance_count:
+        notes.append(
+            f"{unknown_balance_count} opponent(s) have no visible FAAB balance — "
+            "shown as estimates but excluded from the clearing price "
+            "(an unverifiable rival must never raise your bid)."
+        )
     if low_sample_owners:
         notes.append(
             f"{len(low_sample_owners)} opponent(s) below the "

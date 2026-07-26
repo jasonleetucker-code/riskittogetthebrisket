@@ -4384,19 +4384,27 @@ async def post_waiver_faab_recommend(request: Request):
     drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
     add_position = add_row.get("position") or add_row.get("pos") or None
 
-    # Rosters: prefer the live Sleeper overlay (15-min cache) — its
+    # Rosters: prefer the live Sleeper TEAMS-ONLY overlay — its
     # ``teams`` carry ``faabRemaining`` (the baked scrape block does
     # not), which both the team cap and the rival-contention model
-    # need.  Fall back to the baked block when the overlay is down.
+    # need.  Deliberately NOT the full ``fetch_sleeper_overlay``:
+    # on a cold/expired cache that path also rebuilds the trades +
+    # waivers history (dozens of serial transaction requests across
+    # two seasons) and would stall this recommendation for many
+    # seconds; ``fetch_sleeper_teams_overlay`` reuses a fresh full-
+    # overlay cache when one exists and otherwise fetches only
+    # rosters/users/settings behind its own short TTL.  Fall back to
+    # the baked block when even that is down.
     sleeper = latest_contract_data.get("sleeper") or {}
     rosters_as_of: str | None = None
     sleeper_teams = sleeper.get("teams") or []
     try:
         _overlay_id_map = sleeper.get("idToPlayer") if isinstance(sleeper, dict) else {}
         overlay = await run_in_threadpool(
-            _sleeper_overlay.fetch_sleeper_overlay,
-            sleeper_league_id=league_cfg.sleeper_league_id,
-            id_to_player=_overlay_id_map if isinstance(_overlay_id_map, dict) else {},
+            lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=_overlay_id_map if isinstance(_overlay_id_map, dict) else {},
+            )
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("faab-recommend overlay fetch failed for %s: %s", league_cfg.key, exc)
@@ -4593,12 +4601,33 @@ async def post_waiver_faab_recommend(request: Request):
     # the user's own team as a rival and poisoning the clearing
     # price.
     contention: dict | None = None
+    contention_skip_reason: str | None = None
+    opponents: list[dict] = []
     if requested_team and requested_team_matched:
         opponents = [
             t
             for t in sleeper_teams
             if isinstance(t, dict) and str(t.get("ownerId") or "") != str(requested_team)
         ]
+        # Usable-balance gate: when the roster fetch degraded (e.g.
+        # the league-settings call failed) every ``faabRemaining``
+        # can be absent, and the estimator treats a missing balance
+        # as unverifiable — broke rivals would otherwise be modeled
+        # at full bid, inflating the clearing price while reporting
+        # skipped:false.  Require at least half the rivals to carry
+        # an integer balance; below that, contention is skipped as
+        # an explicitly-missing input.  (Individually missing
+        # balances above the threshold are handled conservatively
+        # inside ``estimate_rival_bids`` — flagged ``balanceUnknown``
+        # and EXCLUDED from the topRival/clearing math.)
+        usable_balances = sum(1 for t in opponents if isinstance(t.get("faabRemaining"), int))
+        if not opponents:
+            contention_skip_reason = "no opponent rosters available — rival contention skipped."
+        elif usable_balances * 2 < len(opponents):
+            contention_skip_reason = (
+                "rival FAAB balances unavailable for most opponents — " "rival contention skipped."
+            )
+    if requested_team and requested_team_matched and contention_skip_reason is None:
         # teamAggression keyed by historical ownerIds — filter to
         # CURRENT owners so departed managers' histories don't
         # drift into the estimates.
@@ -4669,6 +4698,8 @@ async def post_waiver_faab_recommend(request: Request):
                 "teamOwnerId does not match any current roster in this "
                 "league — rival contention skipped."
             )
+        elif contention_skip_reason is not None:
+            skip_reason = contention_skip_reason
         else:
             skip_reason = "rival contention unavailable for this request."
         rec["factors"].append(

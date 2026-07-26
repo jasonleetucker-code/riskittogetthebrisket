@@ -270,6 +270,30 @@ def test_rival_capped_by_faab_remaining():
     assert out["clearing"] == 9
 
 
+def test_unknown_balance_rival_excluded_from_clearing():
+    """A rival with no visible faabRemaining is unverifiable — their
+    row is reported (flagged ``balanceUnknown``) but must never drive
+    ``topRival``/``clearing`` upward."""
+    out = estimate_rival_bids(
+        base_bid=30,
+        add_position="WR",
+        opponents=[
+            _team("o1", [_WR_NAMES[0]], faab=10),  # verifiable, capped at $10
+            _team("o2", [_WR_NAMES[1]], faab=None),  # balance unknown
+        ],
+        asset_pool=_POOL,
+        team_aggression={},
+        league_median_winning_bid=10.0,
+    )
+    per = {r["ownerId"]: r for r in out["perOpponent"]}
+    assert per["o1"]["balanceUnknown"] is False
+    assert per["o2"]["balanceUnknown"] is True
+    assert per["o2"]["expBid"] > per["o1"]["expBid"]  # bigger raw estimate...
+    assert out["topRival"] == per["o1"]["expBid"]  # ...but excluded
+    assert out["clearing"] == per["o1"]["expBid"] + 1
+    assert any("no visible FAAB balance" in n for n in out["notes"])
+
+
 def test_all_broke_rivals_clear_at_one_dollar():
     out = estimate_rival_bids(
         base_bid=30,
