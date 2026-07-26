@@ -2,9 +2,16 @@
 
 Contracts, snap share, and depth-chart standing for every player in
 the Sleeper pool — the scouting-report-grade context the redesigned
-player profiles will consume.  This layer is **data + tooling only**:
-nothing in `server.py`, `data_contract.py`, or `frontend/` reads it
-yet.  Consumption wiring lands with the player-profile redesign (R2).
+player profiles consume.
+
+**Consumers (wired in R2):** `GET /api/playerctx/player?playerId=<sleeper id>`
+in `server.py` serves per-player blocks from the snapshot (mtime-cached
+read, Sleeper-id keyed through `sleeperIndex`); the player profile card
+(`frontend/components/PlayerPopup.jsx` → `PlayerContextSection`) renders
+them.  Missing snapshot / unmatched player is a clean 404 the UI
+degrades on silently.  `data_contract.py` does **not** read this layer —
+player context is global metadata, deliberately kept off the
+scoring-profile contract.
 
 ## Datasets
 
@@ -187,13 +194,40 @@ few weeks in the offseason), snap counts only change in-season, and
 depth charts are refreshed daily upstream but only matter at weekly
 granularity for dynasty context.  A run takes ~3 minutes (dominated by
 the fuzzy-match tail and the ~35 MB depth-chart download; unchanged
-files are skipped via ETag).  No GitHub Actions workflow is added in
-this PR — schedule `python3 scripts/refresh_playerctx.py` alongside
-the existing weekly jobs when the UI starts consuming the snapshot.
+files are skipped via ETag).
 
 `data/` is gitignored, so the snapshot is **not** a committed
 artifact: production materializes it by running the refresh script,
 same as the other `data/` pipeline outputs.
+
+### Scheduling (wired in R2, when the UI started consuming it)
+
+A **prod-side systemd timer** owns the refresh — NOT a GitHub Actions
+workflow.  The reader (`GET /api/playerctx/player` →
+`store.load_snapshot`) opens a **local file** under
+`data/playerctx/`, and `data/` is gitignored, so a snapshot built on a
+CI runner could never reach the VPS.  The producer has to run where the
+reader lives — the same reasoning behind the DLF / IDP-show fetch
+timers.
+
+| Unit | Cadence |
+|---|---|
+| `dynasty-playerctx-refresh.service` + `.timer` (templates in `deploy/systemd/`) | Weekly, Tue 05:40 UTC (+ up to 10 min jitter) |
+
+`deploy/install-systemd-service.sh` renders and enables both units
+idempotently on every deploy.  No credentials are involved (public
+nflverse release assets), so — unlike the alert and DLF timers — this
+one installs unconditionally.  On the first install, when no snapshot
+exists yet, the script also kicks a one-off background build so the
+profile card's context section isn't dark until the first Tuesday.
+
+Operational notes:
+
+* Exit 1 (soft/network) and exit 2 (schema regression) both leave the
+  **last-good snapshot untouched** and surface as a failed unit in the
+  journal — stale context beats no context.
+* Manual run: `sudo systemctl start dynasty-playerctx-refresh.service`
+* Next fire: `systemctl list-timers 'dynasty-playerctx*'`
 
 ## Observed baseline (2026-07-26 run)
 

@@ -10609,6 +10609,82 @@ async def serve_intel(request: Request):
     return await _serve_app_shell("/intel")
 
 
+# ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────
+# R2 player-profile surface.  Serves per-player blocks from the
+# ``src/playerctx`` snapshot (``data/playerctx/snapshot.json``,
+# produced by ``scripts/refresh_playerctx.py``).  This is GLOBAL player
+# metadata — public NFL data joined to the Sleeper pool — so it follows
+# the scoring-profile side of the CLAUDE.md split: no league resolution,
+# no per-league branching.  "No snapshot yet" is a normal state (the UI
+# degrades silently), so missing data is a clean 404, never a 5xx.
+_playerctx_cache: dict[str, object] = {"snapshot": None, "mtime": None}
+
+
+def _playerctx_snapshot() -> dict | None:
+    """Mtime-cached read of the playerctx snapshot.  Re-reads only when
+    the file's mtime changes (weekly refresh cadence), so the per-player
+    endpoint never pays the ~1 MB JSON parse per request."""
+    from src.playerctx.store import SNAPSHOT_PATH, load_snapshot
+
+    try:
+        mtime = SNAPSHOT_PATH.stat().st_mtime
+    except OSError:
+        _playerctx_cache["snapshot"] = None
+        _playerctx_cache["mtime"] = None
+        return None
+    if _playerctx_cache["mtime"] != mtime:
+        _playerctx_cache["snapshot"] = load_snapshot()
+        _playerctx_cache["mtime"] = mtime
+    return _playerctx_cache["snapshot"]  # type: ignore[return-value]
+
+
+def _playerctx_lookup(player_id: str) -> dict | None:
+    """Resolve a Sleeper player id to its context record, or None.
+    Record keys are gsis ids when known, else ``sleeper:<id>`` — always
+    go through ``sleeperIndex`` (docs/playerctx.md consumer rules)."""
+    snapshot = _playerctx_snapshot()
+    if not snapshot:
+        return None
+    record_key = (snapshot.get("sleeperIndex") or {}).get(str(player_id))
+    if not record_key:
+        return None
+    record = (snapshot.get("players") or {}).get(record_key)
+    if not isinstance(record, dict):
+        return None
+    return {"player": record, "generatedAt": snapshot.get("generatedAt")}
+
+
+@app.get("/api/playerctx/player")
+async def get_playerctx_player(request: Request):
+    """Per-player context blocks (contract / snaps / depth) for the
+    profile card.  ``?playerId=`` is the Sleeper id (the only stable
+    join key the frontend holds).  404 with a machine-readable error
+    when the snapshot is missing or doesn't cover the player — both are
+    normal, silent-degrade states for the UI."""
+    player_id = str(request.query_params.get("playerId") or "").strip()
+    if not player_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "missing_param", "message": "playerId required"},
+            headers={"Cache-Control": "no-store"},
+        )
+    payload = await run_in_threadpool(_playerctx_lookup, player_id)
+    if payload is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "no_context",
+                "message": "No player-context data for this player",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+    # Weekly-cadence data: cacheable for an hour client-side.
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
 # ── MAIN ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn

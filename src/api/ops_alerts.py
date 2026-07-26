@@ -200,8 +200,8 @@ def format_ops_email(alerts: list[OpsAlert]) -> tuple[str, str]:
             lines.append(f"  • {a.title}")
             lines.append(f"    {a.detail}")
         lines.append("")
-    lines.append("Status: https://riskittogetthebrisket.org/api/status")
-    lines.append("Health: https://riskittogetthebrisket.org/api/health")
+    lines.append("Status: http://169.58.50.224/api/status")
+    lines.append("Health: http://169.58.50.224/api/health")
     return subject, "\n".join(lines)
 
 

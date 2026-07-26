@@ -29,7 +29,7 @@ Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-__APP_DIR__/.env
 
 # ── Resource sanity ─────────────────────────────────────────────────
-# Assumes a >=4 GB Hetzner box (see docs/PROD-HARDENING.md; verify
+# Assumes a >=4 GB production VPS (see docs/PROD-HARDENING.md; verify
 # with `free -m` before applying).  Steady-state RSS is dominated by
 # the in-memory contract + payload views; Playwright scrape cycles
 # spike it.  MemoryHigh throttles/reclaims first; MemoryMax is the

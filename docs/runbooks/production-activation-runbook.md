@@ -10,7 +10,7 @@
 _Prepared: 2026-03-22 | Repo commit: 9dff2dc_
 
 This document contains four operational checklists to be run on the production
-server (`178.156.148.92`, user `dynasty`, app `/home/dynasty/trade-calculator`).
+server (`<DEPLOY_HOST>`, user `dynasty`, app `/home/dynasty/trade-calculator`).
 
 ---
 

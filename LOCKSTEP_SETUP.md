@@ -33,7 +33,7 @@ Expected:
 - HEAD hash returned
 - dry-run push does not fail auth
 
-## 2) Hetzner server access (production)
+## 2) Production server access
 
 Current production target:
 - host: `178.156.148.92`

@@ -20,7 +20,7 @@ function _origin() {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.PUBLIC_SITE_URL ||
-    "https://riskittogetthebrisket.org"
+    "http://169.58.50.224"
   ).replace(/\/$/, "");
 }
 

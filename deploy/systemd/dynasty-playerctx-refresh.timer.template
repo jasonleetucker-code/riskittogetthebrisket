@@ -1,0 +1,24 @@
+[Unit]
+Description=Weekly player-context (contracts/snaps/depth) refresh for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-playerctx-refresh.service
+
+[Timer]
+# Weekly, Tuesday 05:40 UTC.  Cadence rationale (docs/playerctx.md):
+# contracts move on OTC's multi-week offseason cadence, snap counts
+# only change in-season, and depth charts — refreshed daily upstream —
+# only matter at weekly granularity for dynasty context.
+#
+# Slot rationale: Tuesday matches the nflverse republish cadence the
+# Hill-curve refit already targets, and 05:40 sits BEFORE that job's
+# 06:17 tick and off the top-of-hour herd, so the two never contend
+# for the box.  Persistent=true backfills a missed run after a reboot;
+# the randomized delay keeps us off nflverse's release CDN on the
+# same second as every other weekly consumer.
+OnCalendar=Tue *-*-* 05:40:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-playerctx-refresh.service
+
+[Install]
+WantedBy=timers.target

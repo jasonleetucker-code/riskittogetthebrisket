@@ -29,7 +29,7 @@ lower for top players. This is expected.
 
 ## Prerequisites
 
-- [ ] SSH access to production: `ssh -i ~/.ssh/brisket_prod_clean root@178.156.148.92`
+- [ ] SSH access to production: `ssh -i ~/.ssh/brisket_prod_clean root@<DEPLOY_HOST>`
 - [ ] Repo updated: `cd /home/dynasty/trade-calculator && git fetch origin claude/codebase-review-zBumx && git checkout claude/codebase-review-zBumx`
 - [ ] Canonical snapshot exists: `ls data/canonical/canonical_snapshot_*.json`
 - [ ] KTC CSV exists: `wc -l exports/latest/site_raw/ktc.csv` (expect 400+)
@@ -126,4 +126,4 @@ After activation, check these within the first hour:
 
 ---
 
-_Service: `dynasty` | Host: `178.156.148.92` | App: `/home/dynasty/trade-calculator`_
+_Service: `dynasty` | Host: `<DEPLOY_HOST>` | App: `/home/dynasty/trade-calculator`_

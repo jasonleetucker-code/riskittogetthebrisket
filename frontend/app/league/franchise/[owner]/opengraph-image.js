@@ -85,7 +85,7 @@ export default async function FranchiseOGImage({ params }) {
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", color: "#99a6c8", fontSize: 22 }}>
-          <div>riskittogetthebrisket.org</div>
+          <div>Risk It To Get The Brisket</div>
           <div style={{ fontFamily: "monospace" }}>
             {fr?.topRival ? `Rival: ${fr.topRival.displayName} · Index ${fr.topRival.rivalryIndex}` : ""}
           </div>

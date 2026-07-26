@@ -275,14 +275,14 @@ def need_level_for(
 def build_opponent_asset_pool(contract: dict[str, Any]) -> list[Any]:
     """UNFILTERED asset pool for opponent roster analysis.
 
-    ``build_asset_pool_from_contract`` defaults to the KTC top-150
+    ``build_asset_pool_from_contract`` defaults to the blended-board top-150
     quality gate — correct for trade suggestions, wrong here: an
     opponent's depth chart is mostly outside the top 150, and a
     truncated pool would misread every roster as all-need.
     """
     from src.trade.suggestions import build_asset_pool_from_contract  # noqa: PLC0415
 
-    return build_asset_pool_from_contract(contract, ktc_top_n=0)
+    return build_asset_pool_from_contract(contract, board_top_n=0)
 
 
 def player_position_map(contract: dict[str, Any] | None) -> dict[str, str]:

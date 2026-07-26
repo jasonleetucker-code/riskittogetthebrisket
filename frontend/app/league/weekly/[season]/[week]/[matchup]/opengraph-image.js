@@ -77,7 +77,7 @@ export default async function MatchupOGImage({ params }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", color: "#99a6c8", fontSize: 22 }}>
-          <div style={{ display: "flex" }}>riskittogetthebrisket.org</div>
+          <div style={{ display: "flex" }}>Risk It To Get The Brisket</div>
           <div style={{ display: "flex", fontFamily: "monospace" }}>
             {m?.margin !== undefined ? `Margin ${m.margin}` : ""}
           </div>
