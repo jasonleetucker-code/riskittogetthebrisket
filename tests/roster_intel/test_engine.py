@@ -449,3 +449,74 @@ class TestInputDisclosure:
         )
         assert with_unpriced.values.unpriced_players == 1
         assert not any("join-coverage" in n for n in with_unpriced.notes)
+
+
+class TestSimulatorSchemaGaps:
+    """The simulator's row schema is not fixed, and the engine must not
+    paper over which build produced it.
+
+    ``simulate_playoff_odds`` on main emits exactly these keys — no
+    championship odds (it stops at qualification and never runs the
+    bracket) and no confidence intervals.  The bracket run and the
+    Wilson intervals are LI-8 work on a separate unmerged branch.  An
+    engine that reads the richer schema and silently returns None for
+    the missing half would present a partial simulation as a complete
+    one.
+    """
+
+    # Verbatim key set from src/ros/playoff_sim.py::simulate_playoff_odds.
+    MAIN_ROW = {
+        "ownerId": "me",
+        "displayName": "Me",
+        "playoffOdds": 0.61,
+        "byeOdds": 0.18,
+        "topSeedOdds": 0.09,
+        "missPlayoffsOdds": 0.39,
+        "expectedWins": 8.4,
+        "medianFinalSeed": 4,
+        "mostLikelySeed": 3,
+        "seedDistribution": [0.09, 0.09, 0.14, 0.2, 0.16, 0.1, 0.07, 0.05, 0.04, 0.03, 0.02, 0.01],
+    }
+
+    LI8_ROW = {
+        **MAIN_ROW,
+        "championshipOdds": 0.12,
+        "playoffOddsCi": [0.58, 0.64],
+        "championshipOddsCi": [0.10, 0.14],
+    }
+
+    def _run(self, row):
+        return analyze_roster(
+            "me",
+            to_roster_players([_p("qb1", "QB", 90), _p("rb1", "RB", 50)]),
+            SLOTS,
+            replacement=REPLACEMENT,
+            playoff_odds=[row],
+        )
+
+    def test_partial_schema_is_used_and_its_gaps_are_named(self):
+        intel = self._run(self.MAIN_ROW)
+        assert intel.odds_source == "playoff_sim"
+        assert intel.playoff_odds == pytest.approx(0.61)
+        assert intel.championship_odds is None
+        assert intel.playoff_odds_ci is None
+        assert any("championshipOdds" in n for n in intel.notes)
+        assert any("confidence interval" in n for n in intel.notes)
+
+    def test_missing_interval_is_none_not_zero_width(self):
+        """A zero-width interval reads as certainty. 0.61 off 2,000 sims
+        is roughly +/- 2 points."""
+        intel = self._run(self.MAIN_ROW)
+        assert intel.playoff_odds_ci is None
+        assert intel.to_dict()["playoffOddsCi"] is None
+
+    def test_full_schema_fires_no_gap_notes(self):
+        """MECHANISM TEST. Fails if the gap notes become unconditional —
+        they would then keep warning about a simulator that has since
+        grown the fields."""
+        intel = self._run(self.LI8_ROW)
+        assert intel.championship_odds == pytest.approx(0.12)
+        assert intel.playoff_odds_ci == (0.58, 0.64)
+        assert intel.championship_odds_ci == (0.10, 0.14)
+        assert not any("championshipOdds" in n for n in intel.notes)
+        assert not any("confidence interval" in n for n in intel.notes)

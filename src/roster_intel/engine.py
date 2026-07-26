@@ -280,22 +280,38 @@ def _unpriced_note(pool: Sequence[RosterPlayer]) -> str | None:
     )
 
 
+@dataclass(frozen=True)
+class _Odds:
+    playoff: float | None = None
+    championship: float | None = None
+    playoff_ci: tuple[float, float] | None = None
+    championship_ci: tuple[float, float] | None = None
+    source: str = "unavailable"
+    notes: tuple[str, ...] = ()
+
+
 def _odds_for(
     owner_id: str,
     playoff_odds: Sequence[Mapping[str, Any]] | None,
-) -> tuple[float | None, float | None, tuple[float, float] | None, tuple[float, float] | None, str]:
-    """Pull this owner's rows out of playoff_sim output.
+) -> _Odds:
+    """Pull this owner's row out of playoff_sim output.
 
-    Reads the schema ``src/ros/playoff_sim.py`` emits, including the
-    Wilson intervals LI-8 added.  Missing intervals are None rather
-    than zero-width: a point estimate with no interval must not read as
-    a certainty.
+    The simulator's row schema is NOT fixed.  ``simulate_playoff_odds``
+    on main emits ``playoffOdds`` / ``byeOdds`` / ``topSeedOdds`` /
+    ``seedDistribution`` and NOTHING else — no championship odds and no
+    confidence intervals.  The bracket run and the Wilson intervals
+    come from the LI-8 work, which is a separate unmerged branch.
+
+    So the fields are read defensively AND their absence is reported.
+    Missing intervals stay None rather than collapsing to zero width: a
+    point estimate presented without an interval reads as a certainty,
+    and 0.61 from 2,000 sims is +/- 2 points.
     """
     if not playoff_odds:
-        return None, None, None, None, "unavailable"
+        return _Odds()
     row = next((r for r in playoff_odds if str(r.get("ownerId")) == str(owner_id)), None)
     if row is None:
-        return None, None, None, None, "owner_not_in_simulation"
+        return _Odds(source="owner_not_in_simulation")
 
     def _ci(key: str) -> tuple[float, float] | None:
         raw = row.get(key)
@@ -305,12 +321,29 @@ def _odds_for(
 
     po = row.get("playoffOdds")
     ch = row.get("championshipOdds")
-    return (
-        float(po) if po is not None else None,
-        float(ch) if ch is not None else None,
-        _ci("playoffOddsCi"),
-        _ci("championshipOddsCi"),
-        "playoff_sim",
+    playoff_ci = _ci("playoffOddsCi")
+    championship_ci = _ci("championshipOddsCi")
+
+    notes: list[str] = []
+    if ch is None:
+        notes.append(
+            "simulator supplied no championshipOdds; this build of "
+            "src/ros/playoff_sim.py stops at playoff qualification and does "
+            "not run the bracket"
+        )
+    if po is not None and playoff_ci is None:
+        notes.append(
+            "playoff odds carry no confidence interval; treat the point "
+            "estimate as approximate and do not compare two teams on it alone"
+        )
+
+    return _Odds(
+        playoff=float(po) if po is not None else None,
+        championship=float(ch) if ch is not None else None,
+        playoff_ci=playoff_ci,
+        championship_ci=championship_ci,
+        source="playoff_sim",
+        notes=tuple(notes),
     )
 
 
@@ -359,16 +392,17 @@ def analyze_roster(
         override_state=override_state,
         override_reason=override_reason,
     )
-    po, ch, po_ci, ch_ci, src = _odds_for(owner_id, playoff_odds)
+    odds = _odds_for(owner_id, playoff_odds)
 
     notes: list[str] = []
-    if src == "unavailable":
+    if odds.source == "unavailable":
         notes.append(
             "no playoff_sim output supplied; playoff/championship odds omitted "
             "and the competitive window fell back to a structural proxy"
         )
-    elif src == "owner_not_in_simulation":
+    elif odds.source == "owner_not_in_simulation":
         notes.append(f"owner {owner_id!r} absent from the supplied simulation rows")
+    notes.extend(odds.notes)
     if replacement is None:
         notes.append(
             "no replacement levels supplied; tiers default to developmental "
@@ -401,10 +435,10 @@ def analyze_roster(
         profile=profile,
         needs=needs,
         window=window,
-        playoff_odds=po,
-        championship_odds=ch,
-        playoff_odds_ci=po_ci,
-        championship_odds_ci=ch_ci,
-        odds_source=src,
+        playoff_odds=odds.playoff,
+        championship_odds=odds.championship,
+        playoff_odds_ci=odds.playoff_ci,
+        championship_odds_ci=odds.championship_ci,
+        odds_source=odds.source,
         notes=tuple(notes),
     )
