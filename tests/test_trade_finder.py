@@ -24,6 +24,7 @@ from src.trade.finder import (
     _build_summary,
     EXCLUDED_POSITIONS,
     KTC_TOP_N_FILTER,
+    SINGLE_SOURCE_DISCOUNT,
 )
 
 
@@ -1732,3 +1733,38 @@ class TestPerMarketQualityGate:
         # in an IDP league is visible rather than silent.
         assert "marketCoverage" in meta
         assert set(meta["marketCoverage"]) >= {"ktcSfTep", "idpTradeCalc"}
+
+
+class TestSingleSourceDiscount:
+    """The single-source haircut must stay until finder.py moves onto
+    the Final Framework values.
+
+    WS-J F-6 (corrected): this was reported as a double-discount over
+    the pipeline's 0.30 single-source retention.  It is not.  The
+    pipeline haircut lands on ``rankDerivedValue``; this engine reads
+    ``_finalAdjusted``, which ``data_contract.py`` copies verbatim from
+    the raw scrape and which the retention never touches.  Removing the
+    discount here would leave single-source assets undiscounted.
+    """
+
+    def test_single_source_asset_is_discounted(self):
+        players = {
+            "OneSource": _make_player_data(10000, ktc=5000, pos="WR", sites=1),
+        }
+        pool = build_asset_pool(players, market_top_n=0)
+        assert pool[0].model_value == int(10000 * SINGLE_SOURCE_DISCOUNT)
+
+    def test_multi_source_asset_is_not_discounted(self):
+        players = {
+            "ManySources": _make_player_data(10000, ktc=5000, pos="WR", sites=5),
+        }
+        pool = build_asset_pool(players, market_top_n=0)
+        assert pool[0].model_value == 10000
+
+    def test_discount_applies_to_idp_on_the_same_terms(self):
+        """IDP now reaches the pool, so it must be discounted like offense."""
+        players = {
+            "OneSourceIdp": _make_idp_player_data(10000, idptc=5000, pos="LB", sites=1),
+        }
+        pool = build_asset_pool(players, market_top_n=0)
+        assert pool[0].model_value == int(10000 * SINGLE_SOURCE_DISCOUNT)

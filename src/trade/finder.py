@@ -27,7 +27,35 @@ MAX_BOARD_LOSS = -200  # Never suggest a trade where my board delta is worse tha
 MAX_PACKAGE_SIZE = 3  # Max assets on either side
 MAX_RESULTS = 40  # Cap returned results
 JUNK_THRESHOLD = 400  # Assets below this are roster clog
-SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
+# Single-source haircut.  KEEP THIS — it is the only such discount on
+# this engine's input path.
+#
+# WS-J F-6 originally reported this as a double-discount stacked on the
+# pipeline's 0.30 single-source retention (``_SINGLE_SOURCE_VALUE_RETENTION``
+# in ``data_contract.py``), giving ~0.264 effective.  That was WRONG, and
+# the correction matters because the "obvious" fix would have removed the
+# only haircut this engine has:
+#
+#   suggestions.py reads ``playersArray[...]["rankDerivedValue"]`` — the
+#     Final Framework output, which HAS had the 0.30 retention applied.
+#     It therefore correctly applies no further discount.
+#   finder.py reads ``players[name]["_finalAdjusted"]`` — which
+#     ``data_contract.py`` deep-copies verbatim from the raw scrape
+#     (``base["players"] = players_by_name``), and which
+#     ``Dynasty Scraper.py`` sets straight from ``_composite``.  The
+#     0.30 retention never touches it.
+#
+# So the two haircuts are applied to two different value pipelines, not
+# stacked on one.  Removing this constant would leave single-source
+# assets undiscounted in the arbitrage finder.
+#
+# The old comment claimed this "matched the frontend"; the frontend no
+# longer applies any single-source haircut, so that anchor is gone and
+# the 0.88 is now an unvalidated local constant.  Tracked as the real
+# F-6: finder.py should move onto the Final Framework values that
+# CLAUDE.md calls the single source of truth for live player values,
+# at which point this discount is deleted rather than retuned.
+SINGLE_SOURCE_DISCOUNT = 0.88
 MULTI_FOR_ONE_MIN_RATIO = 0.55  # 2-for-1 give side must be >= 55% of receive model value
 
 # ── Market quality gates ───────────────────────────────────────────────
