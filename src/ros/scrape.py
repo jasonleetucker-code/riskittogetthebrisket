@@ -217,6 +217,12 @@ def _hydrate_overlay_players(
                     names[i] if i < len(names) else pid_str
                 )
             position = (meta.get("position") or "").upper()
+            # Sleeper evaluates slot eligibility against fantasy_positions,
+            # which is often wider than `position` (a DL/LB hybrid is legal
+            # in either slot).  Passing it through lets the lineup optimizer
+            # reproduce the host's own best-ball choices (LI-3).
+            raw_fp = meta.get("fantasy_positions") or []
+            fantasy_positions = [str(p).strip().upper() for p in raw_fp if str(p or "").strip()]
             injury = (meta.get("injury_status") or "").upper()
             canonical = normalize_player_name(full_name) or full_name.lower()
             players.append(
@@ -226,6 +232,7 @@ def _hydrate_overlay_players(
                     "displayName": full_name,
                     "canonicalName": canonical,
                     "position": position,
+                    "fantasyPositions": fantasy_positions,
                     "injured": injury in {"OUT", "IR", "PUP", "DOUBTFUL"},
                     "bye": False,
                 }

@@ -47,8 +47,8 @@ the env var and synthesising a one-league registry. Once you drop a
                                         // pull the fields they care
                                         // about. No schema enforcement.
         "teamCount": 12,
-        "rosterSize": 30,
-        "starters": { "QB": 1, "RB": 2, "WR": 3, "TE": 1, ... }
+        "rosterSize": 58,
+        "starters": { "QB": 1, "RB": 2, "WR": 3, "TE": 2, "K": 1, ... }
       },
       "defaultTeamMap": {               // username → default team
                                         // lookup for auto-selection
