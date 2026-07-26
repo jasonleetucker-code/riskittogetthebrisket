@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank, RANKING_SOURCES, getRetailLabel, siteOverridesAreCustomized } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES, siteOverridesAreCustomized } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
@@ -39,18 +39,49 @@ import {
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
 import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
 import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
-import SourceContributionBars from "@/components/graphs/SourceContributionBars";
-import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
+import {
+  Badge,
+  Banner,
+  Button,
+  DataTable,
+  EmptyState,
+  Icon,
+  Input,
+  Movement,
+  PageHeader,
+  Panel,
+  Select,
+  SkeletonTable,
+  StatTile,
+  Tabs,
+  tabId,
+  tabPanelId,
+} from "@/components/ds";
 import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
+import { formatSourceCell, exportSourceCells } from "./board-utils";
+import {
+  MethodologySection,
+  TopMoversRail,
+  EdgeRail,
+  MobileSourceStrip,
+  SourceAuditPanel,
+} from "./board-sections";
+import styles from "./board.module.css";
 
-// ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
+// ── UNIFIED RANKINGS PAGE (Redesign R2) ──────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
-// Shows tiers, player context, confidence, value bands, fast-scan chips,
-// actionable lenses, and an edge summary rail.
+// Rebuilt on the ds primitives (PageHeader / Panel / DataTable / Tabs)
+// — ALL board behavior is unchanged from the pre-R2 page: lenses,
+// pos/confidence filters, the Phase 3 advanced-filter rail + token
+// search, sortable columns (incl. dynamic source columns), tier
+// grouping, row expansion with the source-audit panel, watchlist
+// toggles, news chips, copy/CSV export, row limit + filter bypass,
+// IDP gating, and ?pos= deep-link seeding.  buildRows stays pure;
+// backend stamps render verbatim; no ranking math client-side.
 //
 // Default experience decisions:
 //   • Lens: "consensus" (standard rank view)
@@ -60,25 +91,11 @@ import { buildPlayerMetaIndex } from "@/lib/news-filters";
 //   • Edge rail: visible by default (quick-scan signal)
 //   • Flagged rows: shown inline (not hidden)
 //   • Quarantined rows: shown but dimmed
-
-const POS_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "offense", label: "OFF" },
-  { key: "idp", label: "IDP" },
-  { key: "pick", label: "Picks" },
-  { key: "rookie", label: "Rookies" },
-  { key: "rookie:QB", label: "R · QB" },
-  { key: "rookie:RB", label: "R · RB" },
-  { key: "rookie:WR", label: "R · WR" },
-  { key: "rookie:TE", label: "R · TE" },
-  { key: "QB", label: "QB" },
-  { key: "RB", label: "RB" },
-  { key: "WR", label: "WR" },
-  { key: "TE", label: "TE" },
-  { key: "DL", label: "DL" },
-  { key: "LB", label: "LB" },
-  { key: "DB", label: "DB" },
-];
+//
+// Performance note (measured before rebuild): the row-limit pattern
+// (200 rows default, filters bypass) keeps initial render well under
+// budget on the ~1.1k-row pool — virtualization is not warranted;
+// revisit only if the default limit grows past ~500 rows.
 
 const CONFIDENCE_FILTERS = [
   { key: "all", label: "Any confidence" },
@@ -97,268 +114,16 @@ function posMatchesFilter(pos, assetClass, filter, row) {
   return pos === filter;
 }
 
-
-// ── Methodology content ──────────────────────────────────────────────
-
-// ── Source cell formatter ────────────────────────────────────────────
-//
-// Unified formatting for every per-source cell the rankings table
-// renders — both the desktop column cells and the mobile chip strip
-// beneath each player row.  Every source (rank-signal or value-based)
-// lives on one common 1-9,999 scale in the UI: the backend stamps a
-// ``valueContribution`` for every matched source (rank sources route
-// through the Hill curve, value sources rescale linearly), and this
-// helper renders that number as the primary cell label with the
-// effective rank on the shared board shown in parentheses.  Returns:
-//
-//   hasVal    — true if the source contributed a value for this player
-//   primary   — the 9,999-scale ``valueContribution`` for the source
-//   rankLabel — the effective rank on the shared board, `#`-prefixed
-//   title     — hover tooltip explaining the cell (includes the
-//               source's original pre-translation rank when it differs
-//               from the effective rank, e.g. rookie / shared-market).
-//
-// Mirror the display format between desktop and mobile by always
-// using this helper so both surfaces show `value (#rank)` consistently.
-function formatSourceCell(row, src) {
-  const rawVal = row?.canonicalSites?.[src.key];
-  // valueContribution is the backend's 9999-scale normalized value
-  // (source's top player = 9999, others scale linearly).  For sources
-  // whose native value range is already 0-9999 (KTC, IDPTC, DD-SF)
-  // this is effectively rawVal; for sources like Yahoo/Boone whose
-  // native range is 0-~141, this is the rescaled value so every
-  // value column in the UI lives on the same scale.
-  const normalizedVal = row?.sourceRankMeta?.[src.key]?.valueContribution;
-  // Rank-signal sources stamp a synthetic encoding into canonicalSites
-  // (``_RANK_TO_SYNTHETIC_VALUE_OFFSET - rank * 100`` in the backend) that
-  // the pipeline uses only for ordering — it is NOT a 1-9,999 contribution.
-  // Require a real ``valueContribution`` for those sources so a legacy
-  // payload without the stamp shows an honest "\u2014" instead of a
-  // six-digit synthetic number mislabeled as a normalized value.
-  const hasNormalized =
-    normalizedVal != null && Number.isFinite(Number(normalizedVal));
-  const hasRaw = rawVal != null && Number.isFinite(Number(rawVal));
-  const hasVal = hasNormalized || (!src.isRankSignal && hasRaw);
-  const effectiveRank = row?.sourceRanks?.[src.key];
-  const origRank = row?.sourceOriginalRanks?.[src.key];
-  // Vendor-native value for rank-signal sources (FantasyCalc crowd
-  // value, OTC 0-100, PFK 0-9999, ...) \u2014 real numbers on the vendor's
-  // own scale, stamped in sourceNativeValues.  Shown in the tooltip;
-  // never as the primary cell (mixed vendor scales in one column
-  // would be misleading).
-  const nativeVal = row?.sourceNativeValues?.[src.key];
-  const hasNative = nativeVal != null && Number.isFinite(Number(nativeVal));
-  const nativeSuffix = hasNative
-    ? `, native value ${Number(nativeVal).toLocaleString()}`
-    : "";
-
-  if (!hasVal) {
-    // The source may still have LISTED the player (rank/native known)
-    // even when no valueContribution stamp survives \u2014 say so honestly
-    // instead of claiming the player wasn't listed.
-    const listed = effectiveRank != null || origRank != null || hasNative;
-    if (listed) {
-      return {
-        hasVal: false,
-        primary: "\u2014",
-        rankLabel: effectiveRank != null ? `#${effectiveRank}` : "\u2014",
-        title: `${src.displayName}: no normalized contribution${
-          effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
-        }${origRank != null ? `, original rank #${origRank}` : ""}${nativeSuffix}`,
-      };
-    }
-    return {
-      hasVal: false,
-      primary: "\u2014",
-      rankLabel: "\u2014",
-      title: `${src.displayName} did not list this player`,
-    };
-  }
-
-  // Every source renders its 9,999-scale valueContribution as the
-  // primary cell label — the same number the blend averages into the
-  // final Hill value.  Value-based sources may fall back to the raw
-  // site value on legacy payloads that predate the valueContribution
-  // stamp (their raw value IS on a monotonic value scale, just not yet
-  // rescaled to 9,999); rank-signal sources intentionally do not fall
-  // back because their raw canonicalSites entry is a synthetic rank
-  // encoding, not a value.
-  const displayVal = hasNormalized ? normalizedVal : rawVal;
-  const primary = Math.round(Number(displayVal)).toLocaleString();
-  const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "\u2014";
-  const origRankSuffix =
-    origRank != null && origRank !== effectiveRank
-      ? `, original rank #${origRank}`
-      : "";
-  return {
-    hasVal: true,
-    primary,
-    rankLabel,
-    title: `${src.displayName}: value ${primary}${
-      effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
-    }${origRankSuffix}${nativeSuffix}`,
-  };
-}
-
-function MethodologySection() {
-  const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
+// Explicit confidence explanation — shared by the Confidence cell and
+// the expanded audit panel.
+function confidenceExplain(row) {
   return (
-    <div className="rankings-methodology-body">
-      <h3 style={{ margin: "0 0 8px", fontSize: "0.88rem" }}>How rankings work</h3>
-      <ol style={{ margin: 0, paddingLeft: 18, fontSize: "0.78rem", lineHeight: 1.7, color: "var(--subtext)" }}>
-        <li><strong>Source ingestion</strong> — Raw values from {sourceNames}.</li>
-        <li><strong>Per-source ranking</strong> — Each player ranked within each source by raw value (highest = rank 1).</li>
-        <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
-        <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
-        <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
-        <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
-        <li><strong>Confidence scoring</strong> — High = 2+ sources, spread &le; 30. Medium = 2+ sources, spread &le; 80. Low = single source or spread &gt; 80.</li>
-        <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
-      </ol>
-      <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "var(--mono)" }}>
-        value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
-      </p>
-    </div>
-  );
-}
-
-// ── Edge rail section ────────────────────────────────────────────────
-
-function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
-  return (
-    <div className="edge-rail-section">
-      <h4 className="edge-rail-section-title">{label}</h4>
-      {items.length === 0 ? (
-        <p className="muted text-xs">{emptyText}</p>
-      ) : (
-        <ul className="edge-rail-list">
-          {items.map((item) => (
-            <li key={item.name} className="edge-rail-item">
-              <span
-                className="edge-rail-name"
-                onClick={() => onPlayerClick?.(item.row)}
-              >
-                #{item.rank} {item.name}
-              </span>
-              <span className="edge-rail-pos badge">{item.pos}</span>
-              <span className="edge-rail-detail">{item.detail}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function TopMoversRail({ rows, onPlayerClick }) {
-  // "Who moved since the last scrape" — sorts ranked rows by the
-  // backend-stamped rankChange and surfaces the 5 biggest risers
-  // and 5 biggest fallers.  Only renders when we have movement
-  // data (first build of a fresh deploy has no prior snapshot, so
-  // this silently hides itself).
-  const { risers, fallers } = useMemo(() => {
-    const withChange = rows.filter(
-      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
-    );
-    const byDelta = [...withChange].sort(
-      (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
-    );
-    const ups = byDelta.filter((r) => r.rankChange > 0).slice(0, 5);
-    const downs = byDelta.filter((r) => r.rankChange < 0).slice(0, 5);
-    return { risers: ups, fallers: downs };
-  }, [rows]);
-
-  if (risers.length === 0 && fallers.length === 0) return null;
-
-  const renderSection = (label, items, color, arrow) => (
-    <div className="edge-rail-section">
-      <h4 className="edge-rail-section-title" style={{ color }}>
-        {arrow} {label}
-      </h4>
-      {items.length === 0 ? (
-        <p className="muted text-xs">No movement</p>
-      ) : (
-        <ul className="edge-rail-list">
-          {items.map((row) => (
-            <li key={row.name} className="edge-rail-item">
-              <span
-                className="edge-rail-name"
-                onClick={() => onPlayerClick?.(row)}
-              >
-                #{row.rank} {row.name}
-              </span>
-              <span className="edge-rail-pos badge">{row.pos}</span>
-              <span
-                className="edge-rail-detail"
-                style={{ color, fontFamily: "var(--mono, monospace)" }}
-              >
-                {row.rankChange > 0 ? "\u25B2" : "\u25BC"}
-                {Math.abs(row.rankChange)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="edge-rail">
-      <div className="edge-rail-header">
-        <h3 className="edge-rail-title">Top Movers</h3>
-        <span className="muted text-xs">Biggest rank changes since the previous scrape</span>
-      </div>
-      <div className="edge-rail-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        {renderSection("Risers", risers, "var(--green, #4ade80)", "\u25B2")}
-        {renderSection("Fallers", fallers, "var(--red, #f87171)", "\u25BC")}
-      </div>
-    </div>
-  );
-}
-
-
-function EdgeRail({ summary, onPlayerClick }) {
-  const hasSomething =
-    summary.retailPremium.length > 0 ||
-    summary.consensusPremium.length > 0 ||
-    summary.flaggedCautions.length > 0 ||
-    summary.consensusAssets.length > 0;
-
-  if (!hasSomething) return null;
-
-  return (
-    <div className="edge-rail">
-      <div className="edge-rail-header">
-        <h3 className="edge-rail-title">Edge Summary</h3>
-        <span className="muted text-xs">Derived from source agreement data — not predictions</span>
-      </div>
-      <div className="edge-rail-grid">
-        <EdgeRailSection
-          label="Sell Signals"
-          items={summary.retailPremium}
-          emptyText="No sell signals"
-          onPlayerClick={onPlayerClick}
-        />
-        <EdgeRailSection
-          label="Buy Signals"
-          items={summary.consensusPremium}
-          emptyText="No buy signals"
-          onPlayerClick={onPlayerClick}
-        />
-        <EdgeRailSection
-          label="Consensus Assets"
-          items={summary.consensusAssets}
-          emptyText="No high-confidence consensus assets"
-          onPlayerClick={onPlayerClick}
-        />
-        <EdgeRailSection
-          label="Flagged — Needs Caution"
-          items={summary.flaggedCautions}
-          emptyText="No flagged players in top 300"
-          onPlayerClick={onPlayerClick}
-        />
-      </div>
-    </div>
+    row.confidenceLabel || (
+      row.confidenceBucket === "high" ? "2+ sources, tight agreement (spread ≤30)" :
+      row.confidenceBucket === "medium" ? "2+ sources, moderate spread (30-80)" :
+      row.confidenceBucket === "low" ? "Single source or wide disagreement (spread >80)" :
+      "Unranked"
+    )
   );
 }
 
@@ -411,14 +176,12 @@ function CustomMixBadge({ rankingsOverride }) {
   if (!active) return null;
 
   return (
-    <span
-      className="custom-mix-badge-wrap"
-      aria-label="Custom source mix active"
-    >
+    <span className={styles.popoverWrap} aria-label="Custom source mix active">
       <button
         type="button"
-        className="badge badge-amber custom-mix-badge"
+        className="ds-badge ds-badge--warning custom-mix-badge"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         title={
           open
             ? "Hide custom mix details"
@@ -428,27 +191,19 @@ function CustomMixBadge({ rankingsOverride }) {
         Custom Mix {summary}
       </button>
       {open && (
-        <div className="custom-mix-popover" role="tooltip">
-          <p className="custom-mix-popover-title">Custom source configuration</p>
+        <div className={styles.popover} role="tooltip">
+          <p className={styles.popoverHeader}>Custom source configuration</p>
           {disabled.length > 0 && (
-            <div className="custom-mix-popover-row">
-              <span className="custom-mix-popover-label">Disabled:</span>
-              <span className="custom-mix-popover-value">
-                {disabled.join(", ")}
-              </span>
-            </div>
+            <p className={styles.popoverHint}>
+              <strong>Disabled:</strong> {disabled.join(", ")}
+            </p>
           )}
           {reweighted.length > 0 && (
-            <div className="custom-mix-popover-row">
-              <span className="custom-mix-popover-label">Reweighted:</span>
-              <span className="custom-mix-popover-value">
-                {reweighted.join(", ")}
-              </span>
-            </div>
+            <p className={styles.popoverHint}>
+              <strong>Reweighted:</strong> {reweighted.join(", ")}
+            </p>
           )}
-          <p className="custom-mix-popover-hint muted">
-            Change these on the Settings page.
-          </p>
+          <p className={styles.popoverHint}>Change these on the Settings page.</p>
         </div>
       )}
     </span>
@@ -458,7 +213,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, source, rows, rawData } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData();
   const { settings, update: updateSetting, updateSiteWeight, resetSiteWeights } = useSettings();
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [sourcesMenuOpen, setSourcesMenuOpen] = useState(false);
@@ -509,12 +264,10 @@ export default function RankingsPage() {
   }, [updateSetting]);
   const { openPlayerPopup } = useApp();
   // IDP gating — when the active league has ``idpEnabled: false``
-  // (the new non-IDP league), we strip IDP filter tabs from the
-  // pos-filter dropdown and drop IDP rows from the list.  The
-  // underlying blended board still lives on the backend; we just
-  // don't surface it here.  ``useTeam`` reads the flag off the
-  // registry's league config via ``useLeague``.
-  const { idpEnabled, selectedLeagueKey } = useTeam();
+  // we strip IDP filter tabs from the pos-filter dropdown and drop
+  // IDP rows from the list.  The underlying blended board still lives
+  // on the backend; we just don't surface it here.
+  const { idpEnabled } = useTeam();
   const {
     state: userState,
     toggleWatchlist,
@@ -524,16 +277,9 @@ export default function RankingsPage() {
     () => new Set((userState?.watchlist || []).map((n) => String(n).toLowerCase())),
     [userState?.watchlist],
   );
-  // Pull recent news so we can stamp a "📰" chip on rows whose
-  // player has fresh news / injury status.  Looks up by normalized
-  // name key in O(1) (``lookupPlayerNews``).  News data is
-  // single-flighted at module level so this hook is essentially
-  // free for the rankings page.
+  // Recent news → per-row news chip (lookupPlayerNews is O(1); the
+  // news hook is single-flighted at module level).
   const { byPlayer: newsByPlayer } = useNews();
-  // Live-pool meta index — lets lookupPlayerNews suppress AMBIGUOUS
-  // name-only items (normalized name shared by multiple distinct
-  // pool players) instead of stamping one player's chip with the
-  // other's news.
   const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(rows), [rows]);
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
@@ -562,20 +308,9 @@ export default function RankingsPage() {
   }, []);
   const clearAdv = useCallback(() => setAdv({}), []);
 
-
-  const handleSort = useCallback((col) => {
-    if (sortCol === col) {
-      setSortAsc((prev) => !prev);
-    } else {
-      setSortCol(col);
-      setSortAsc(["rank", "name", "pos"].includes(col));
-    }
-  }, [sortCol]);
-
   // If the user is viewing an IDP-only filter and then switches to
   // a league that disables IDP, snap back to "all" so the board
-  // doesn't render empty.  Runs every render but only commits a
-  // state change when the filter is actually stale.
+  // doesn't render empty.
   useEffect(() => {
     if (!idpEnabled && (posFilter === "idp" || posFilter === "DL" || posFilter === "LB" || posFilter === "DB")) {
       setPosFilter("all");
@@ -622,11 +357,7 @@ export default function RankingsPage() {
   }, []);
 
   // ── Base eligible list ──────────────────────────────────────────
-  // ``idpEnabled=false`` drops every IDP row from the board.  The
-  // rankings pipeline still blends IDP sources globally, but non-IDP
-  // leagues don't render any IDP rows, tabs, or summary counts —
-  // nothing the user of a non-IDP league can trade.
-  const eligibleRaw = useMemo(() => {
+  const eligible = useMemo(() => {
     // 2026 rookie draft has passed — hide current-year slot picks from
     // the board.  Rows stay in buildRows so value resolution still
     // works for trade history; we filter only at display time.
@@ -638,20 +369,13 @@ export default function RankingsPage() {
     return filtered;
   }, [rows, idpEnabled]);
 
-  const eligible = eligibleRaw;
-
-  // ── Trust summary stats ──────────────────────────────────────────
-  // Single-pass aggregate — six filters would each walk the full
-  // eligible array (N = 1000-ish), and the memo re-runs on every
-  // lens/filter change. One pass keeps the summary O(N) total instead
-  // of O(6N).
+  // ── Trust summary stats (single pass) ───────────────────────────
   const trustStats = useMemo(() => {
     let high = 0;
     let medium = 0;
     let low = 0;
     let quarantined = 0;
     let multiSource = 0;
-    let withAnomalies = 0;
     for (const r of eligible) {
       const bucket = r.confidenceBucket;
       if (bucket === "high") high++;
@@ -659,14 +383,15 @@ export default function RankingsPage() {
       else if (bucket === "low" || bucket === "none") low++;
       if (r.quarantined) quarantined++;
       if ((r.sourceCount || 0) >= 2) multiSource++;
-      if ((r.anomalyFlags || []).length > 0) withAnomalies++;
     }
-    return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
+    return { total: eligible.length, high, medium, low, quarantined, multiSource };
   }, [eligible]);
-
 
   // ── Edge summary ─────────────────────────────────────────────────
   const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
+
+  // (Top movers are derived AFTER the filtered list below — the rail
+  // reflects the current lens/filter view, matching pre-R2 behavior.)
 
   // ── Advanced filters (Phase 3) ──────────────────────────────────
   // Ownership is league-scoped while rows are scoring-profile-scoped
@@ -708,7 +433,7 @@ export default function RankingsPage() {
   }, [adv, watchlistLower]);
   const advActiveCount = Object.keys(advCriteria).length;
 
-  // ── Filtered + sorted list ──────────────────────────────────────
+  // ── Filtered + sorted list (unchanged pipeline) ─────────────────
   const ranked = useMemo(() => {
     const q = query.trim();
 
@@ -768,28 +493,15 @@ export default function RankingsPage() {
         }
         default: {
           // Dynamic source-column sort: col === `src:${sourceKey}`.
-          // Keeps the rankings table self-describing so any source
-          // registered in RANKING_SOURCES gets a sortable column
-          // automatically.
+          // Sort by the same 9,999-scale ``valueContribution`` the cell
+          // renders, so the column order always matches the displayed
+          // numbers.  Fall back to ``canonicalSites`` only for
+          // value-based sources on legacy payloads (their raw slot is
+          // a monotonic value scale); rank-signal sources never fall
+          // back — their raw slot is a synthetic rank encoding whose
+          // visible cells are all "—".
           if (typeof sortCol === "string" && sortCol.startsWith("src:")) {
             const key = sortCol.slice(4);
-            // Sort by the same 9,999-scale ``valueContribution`` the cell
-            // renders, so the column order always matches the displayed
-            // numbers.  Rank-signal sources with shared-market / rookie
-            // translation re-order between their original and effective
-            // rank; reading ``canonicalSites`` here would sort on the
-            // pre-translation synthetic encoding and produce a ranking
-            // that disagrees with the values in the column.
-            //
-            // Fall back to ``canonicalSites`` only for value-based
-            // sources on legacy payloads that predate the
-            // ``valueContribution`` stamp — their raw slot is on a
-            // monotonic value scale, so the sort still matches what
-            // ``formatSourceCell`` renders in that legacy branch.  For
-            // rank-signal sources the raw slot is a synthetic rank
-            // encoding the cell intentionally refuses to render, so
-            // reading it here would reorder rows whose visible cells
-            // are all "—" — sort order the user cannot interpret.
             const src = RANKING_SOURCES.find((s) => s.key === key);
             const aMeta = Number(a.sourceRankMeta?.[key]?.valueContribution);
             const bMeta = Number(b.sourceRankMeta?.[key]?.valueContribution);
@@ -813,16 +525,28 @@ export default function RankingsPage() {
     return sorted;
   }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc, advCriteria, advActiveCount, teamByPlayer]);
 
+  // ── Top movers (from the current filtered view — pre-R2 behavior) ──
+  const movers = useMemo(() => {
+    const withChange = ranked.filter(
+      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
+    );
+    const byDelta = [...withChange].sort(
+      (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
+    );
+    return {
+      risers: byDelta.filter((r) => r.rankChange > 0).slice(0, 5),
+      fallers: byDelta.filter((r) => r.rankChange < 0).slice(0, 5),
+    };
+  }, [ranked]);
+
   // Apply row limit — search/filter bypasses the limit
   const hasActiveFilter =
     query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus" || advActiveCount > 0;
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
-  // Per-position ranks (QB3, RB5, LB2…).  Computed from the
-  // ``eligible`` board sorted by ``row.rank`` ASCENDING — independent
-  // of the user's current sort/filter so badges don't renumber when
-  // the user sorts by name or filters to a single position.
+  // Per-position ranks (QB3, RB5, LB2…) — computed from the eligible
+  // board sorted by rank ASC, independent of the user's sort/filter.
   const positionRankByName = useMemo(() => {
     const counts = new Map();
     const byName = new Map();
@@ -839,66 +563,40 @@ export default function RankingsPage() {
     return byName;
   }, [eligible]);
 
-  function SortHeader({ col, children, style, className }) {
-    const active = sortCol === col;
-    const arrow = active ? (sortAsc ? " \u25B2" : " \u25BC") : "";
-    return (
-      <th
-        className={className}
-        style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
-        onClick={() => handleSort(col)}
-        title={`Sort by ${children}${active ? (sortAsc ? " (ascending)" : " (descending)") : ""}`}
-      >
-        {children}{arrow}
-      </th>
-    );
-  }
-
-  // ── Copy/Export ────────────────────────────────────────────────────
-  async function copyValues() {
-    // Header: fixed columns, then one pair (value + rank) per registered source.
+  // ── Copy/Export (unchanged columns + format) ────────────────────
+  const buildExportLines = useCallback((joiner, escape = (c) => c) => {
     const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
       src.columnLabel,
       `${src.columnLabel} Rank`,
     ]);
-    const lines = [
-      [
-        "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
-        "Confidence", "Action", "Sources",
-        ...sourceHeaders,
-      ].join("\t"),
+    const headers = [
+      "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
+      "Confidence", "Action", "Sources",
+      ...sourceHeaders,
     ];
+    const lines = [headers.map(escape).join(joiner)];
     displayRows.forEach((row) => {
       const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
       const band = valueBand(val);
       const action = actionLabel(row);
       const cautions = cautionLabels(row);
-      const actionStr = [action?.label, ...cautions.map((c) => c.label)].filter(Boolean).join("; ");
-      const sourceCells = RANKING_SOURCES.flatMap((src) => {
-        // Mirror formatSourceCell: export the 9,999-scale
-        // valueContribution the cell renders.  Rank-signal sources
-        // stamp a synthetic rank encoding into canonicalSites
-        // (999900-style bookkeeping numbers), so raw only serves as
-        // the legacy fallback for value-based sources.
-        const contrib = Number(row.sourceRankMeta?.[src.key]?.valueContribution);
-        const raw = row.canonicalSites?.[src.key];
-        const valCell = Number.isFinite(contrib)
-          ? Math.round(contrib)
-          : !src.isRankSignal && raw != null && Number.isFinite(Number(raw))
-            ? Math.round(Number(raw))
-            : "";
-        const rankCell = row.sourceRanks?.[src.key] ?? "";
-        return [valCell, rankCell];
-      });
+      const actionStr = [action?.label, ...cautions.map((c) => c.label)]
+        .filter(Boolean).join("; ");
+      const sourceCells = RANKING_SOURCES.flatMap((src) => exportSourceCells(row, src));
       lines.push(
         [
           row.rank, row.name, row.pos, row.team || "",
           tierLabel(row), val, band.label,
           row.confidenceBucket || "", actionStr, row.sourceCount || 0,
           ...sourceCells,
-        ].join("\t")
+        ].map(escape).join(joiner)
       );
     });
+    return lines;
+  }, [displayRows]);
+
+  async function copyValues() {
+    const lines = buildExportLines("\t");
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
       setCopyStatus(`Copied ${displayRows.length.toLocaleString()} rows`);
@@ -909,19 +607,7 @@ export default function RankingsPage() {
     }
   }
 
-  // Same columns as ``copyValues`` but emits a proper comma-separated
-  // CSV with RFC-4180 quoting and triggers a browser download instead
-  // of a clipboard write.  Used by the "Export CSV" button.
   function exportCsv() {
-    const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
-      src.columnLabel,
-      `${src.columnLabel} Rank`,
-    ]);
-    const headers = [
-      "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
-      "Confidence", "Action", "Sources",
-      ...sourceHeaders,
-    ];
     const escape = (cell) => {
       const s = cell == null ? "" : String(cell);
       if (/[",\n\r]/.test(s)) {
@@ -929,39 +615,7 @@ export default function RankingsPage() {
       }
       return s;
     };
-    const lines = [headers.map(escape).join(",")];
-    displayRows.forEach((row) => {
-      const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
-      const band = valueBand(val);
-      const action = actionLabel(row);
-      const cautions = cautionLabels(row);
-      const actionStr = [action?.label, ...cautions.map((c) => c.label)]
-        .filter(Boolean).join("; ");
-      const sourceCells = RANKING_SOURCES.flatMap((src) => {
-        // Mirror formatSourceCell: export the 9,999-scale
-        // valueContribution the cell renders.  Rank-signal sources
-        // stamp a synthetic rank encoding into canonicalSites
-        // (999900-style bookkeeping numbers), so raw only serves as
-        // the legacy fallback for value-based sources.
-        const contrib = Number(row.sourceRankMeta?.[src.key]?.valueContribution);
-        const raw = row.canonicalSites?.[src.key];
-        const valCell = Number.isFinite(contrib)
-          ? Math.round(contrib)
-          : !src.isRankSignal && raw != null && Number.isFinite(Number(raw))
-            ? Math.round(Number(raw))
-            : "";
-        const rankCell = row.sourceRanks?.[src.key] ?? "";
-        return [valCell, rankCell];
-      });
-      lines.push(
-        [
-          row.rank, row.name, row.pos, row.team || "",
-          tierLabel(row), val, band.label,
-          row.confidenceBucket || "", actionStr, row.sourceCount || 0,
-          ...sourceCells,
-        ].map(escape).join(",")
-      );
-    });
+    const lines = buildExportLines(",", escape);
     const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -977,13 +631,9 @@ export default function RankingsPage() {
     setTimeout(() => setCopyStatus(""), 1800);
   }
 
-  // ── Freshness timestamp ────────────────────────────────────────────
+  // ── Freshness timestamp ─────────────────────────────────────────
   const freshness = rawData?.dataFreshness;
   const timestamp = freshness?.generatedAt || rawData?.date || null;
-
-  // Relative-time formatter for the "Updated" footer.  Matches the
-  // stale-banner's formatAgo — keeps humans honest about staleness
-  // without having to parse ISO timestamps in their head.
   const relativeUpdated = useMemo(() => {
     if (!timestamp) return null;
     try {
@@ -1001,1213 +651,909 @@ export default function RankingsPage() {
     }
   }, [timestamp]);
 
-  // ── Tier separator logic ───────────────────────────────────────────
+  // ── Tier separator logic ────────────────────────────────────────
   const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && activeLens === "consensus" && !query;
-
-  // ── Active lens descriptor ─────────────────────────────────────────
   const currentLens = getLens(activeLens);
 
-  // ── Render ─────────────────────────────────────────────────────────
-  return (
-    <section className="card">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="rankings-header">
-        <div>
-          <div className="rankings-title-row">
-            <h1 className="page-title">Rankings</h1>
-            <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
-          </div>
-          <p className="page-subtitle muted" style={{ marginTop: 4 }}>
-            Unified dynasty board &mdash; offense + IDP blended by consensus rank
-          </p>
-        </div>
-        <div className="page-header-actions">
-          <button
-            className={`button ${showEdgeRail ? "button-primary" : ""}`}
-            onClick={() => setShowEdgeRail((v) => !v)}
-          >
-            {showEdgeRail ? "Hide edge" : "Show edge"}
-          </button>
-          <button
-            className={`button ${showMethodology ? "button-primary" : ""}`}
-            onClick={() => setShowMethodology((v) => !v)}
-          >
-            {showMethodology ? "Hide methodology" : "How this works"}
-          </button>
-          <button className="button" onClick={copyValues} title="Copy the current rows as TSV for pasting into a spreadsheet">
-            Copy
-          </button>
-          <button className="button" onClick={exportCsv} title="Download the current rows as a CSV file">
-            Export CSV
-          </button>
-          {/* Sources toggle — opens an inline popover with one
-              checkbox per ranking source.  Unchecking a source writes
-              ``siteWeights[key].include = false``; useDynastyData
-              re-fetches through the override pipeline so the source
-              drops out of the blended average.  Distinct from the
-              Columns popover, which only controls per-source column
-              VISIBILITY (display), not blend membership (math). */}
-          <div style={{ position: "relative", display: "inline-block" }}>
-            <button
-              className="button"
-              onClick={() => setSourcesMenuOpen((v) => !v)}
-              title="Choose which sources are factored into the blended rankings"
-            >
-              Sources
-              {excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
-            </button>
-            {sourcesMenuOpen && (
-              <div
-                className="rankings-columns-popover"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  right: 0,
-                  minWidth: 280,
-                  maxHeight: 420,
-                  overflowY: "auto",
-                  background: "var(--panel-bg, #1a1e2a)",
-                  border: "1px solid var(--border, #2e3442)",
-                  borderRadius: 6,
-                  padding: "8px 12px",
-                  fontSize: "0.85rem",
-                  zIndex: 30,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <strong>Sources in blend</strong>
-                  <button
-                    className="button button-small"
-                    onClick={resetSiteWeights}
-                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-                    title="Re-include every source and clear custom weights"
-                    disabled={!hasSourceOverrides}
-                  >
-                    Reset
-                  </button>
-                </div>
-                <p className="muted" style={{ fontSize: "0.72rem", margin: "0 0 6px" }}>
-                  Unchecking a source removes it from the blended average.
-                </p>
-                {RANKING_SOURCES.map((src) => {
-                  const included = siteWeights[src.key]?.include !== false;
-                  // Never let the user disable the last source — the
-                  // blend needs at least one. Disable the final
-                  // remaining checkbox rather than silently ignoring.
-                  const isLastIncluded =
-                    included && includedSourceKeys.length === 1;
-                  return (
-                    <label
-                      key={src.key}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 0",
-                        cursor: isLastIncluded ? "not-allowed" : "pointer",
-                        opacity: isLastIncluded ? 0.6 : 1,
-                      }}
-                      title={
-                        isLastIncluded
-                          ? "At least one source must stay in the blend"
-                          : undefined
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={included}
-                        disabled={isLastIncluded}
-                        onChange={(e) =>
-                          toggleSourceIncluded(src.key, e.target.checked)
-                        }
-                      />
-                      <span>{src.columnLabel}</span>
-                      <span className="muted" style={{ marginLeft: "auto", fontSize: "0.72rem" }}>{src.displayName}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          {/* Columns toggle — opens an inline popover with a master
-              on/off for the per-source columns plus one checkbox per
-              source so the user can hide clutter from sources they
-              don't care about.  Persisted across sessions via
-              ``settings.showSiteCols`` (master gate) and
-              ``settings.hiddenSiteCols`` (per-source). */}
-          <div style={{ position: "relative", display: "inline-block" }}>
-            <button
-              className="button"
-              onClick={() => setColsMenuOpen((v) => !v)}
-              title="Show/hide per-source columns"
-            >
-              Columns
-              {!settings.showSiteCols
-                ? " (off)"
-                : hiddenCount > 0
-                  ? ` (${hiddenCount} hidden)`
-                  : ""}
-            </button>
-            {colsMenuOpen && (
-              <div
-                className="rankings-columns-popover"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  /* Keep the popover anchored to the button's right
-                     edge on desktop; the narrow-viewport override in
-                     globals.css flips anchoring so the popover cannot
-                     overflow off-screen on mobile. */
-                  right: 0,
-                  minWidth: 260,
-                  maxHeight: 400,
-                  overflowY: "auto",
-                  background: "var(--panel-bg, #1a1e2a)",
-                  border: "1px solid var(--border, #2e3442)",
-                  borderRadius: 6,
-                  padding: "8px 12px",
-                  fontSize: "0.85rem",
-                  zIndex: 30,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <strong>Source columns</strong>
-                  <button
-                    className="button button-small"
-                    onClick={showAllSiteCols}
-                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-                    title="Restore all source columns"
-                    disabled={!settings.showSiteCols}
-                  >
-                    Show all
-                  </button>
-                </div>
-                {/* Master on/off — flips the global gate that renders
-                    the per-source value columns on desktop and the
-                    per-row chip strip on mobile.  Without this toggle
-                    the per-source checkboxes below would be silent
-                    no-ops for cold-start users, since the default for
-                    ``showSiteCols`` is off. */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 0",
-                    borderBottom: "1px solid var(--border-dim, rgba(255,255,255,0.08))",
-                    marginBottom: 4,
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(settings.showSiteCols)}
-                    onChange={(e) => updateSetting("showSiteCols", e.target.checked)}
-                  />
-                  <span>Show source columns</span>
-                </label>
-                {RANKING_SOURCES.map((src) => {
-                  const hidden = Boolean(hiddenSiteCols[src.key]);
-                  const rowDisabled = !settings.showSiteCols;
-                  return (
-                    <label
-                      key={src.key}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 0",
-                        cursor: rowDisabled ? "not-allowed" : "pointer",
-                        opacity: rowDisabled ? 0.45 : 1,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!hidden}
-                        onChange={() => toggleSiteCol(src.key)}
-                        disabled={rowDisabled}
-                      />
-                      <span>{src.columnLabel}</span>
-                      <span className="muted" style={{ marginLeft: "auto", fontSize: "0.72rem" }}>{src.displayName}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          {copyStatus && <span className="muted text-sm">{copyStatus}</span>}
-        </div>
-      </div>
+  // ── DataTable wiring ────────────────────────────────────────────
+  // Sorting stays in the page's memo above (the lens system + dynamic
+  // source columns are page semantics); DataTable renders presorted
+  // rows and owns only the header state machine + aria-sort stamps.
+  const tableSort =
+    sortCol === "lens" ? null : { key: sortCol, direction: sortAsc ? "asc" : "desc" };
+  const handleTableSort = useCallback((next) => {
+    if (!next) return;
+    setSortCol(next.key);
+    setSortAsc(next.direction === "asc");
+  }, []);
 
-      {/* ── Trust bar ───────────────────────────────────────────────── */}
-      {!loading && !error && rows.length > 0 && (
-        <div className="rankings-trust-bar">
-          <div className="rankings-trust-stat">
-            <span className="rankings-trust-value">{trustStats.total.toLocaleString()}</span>
-            <span className="rankings-trust-label">Players</span>
-          </div>
-          <div className="rankings-trust-stat">
-            <span className="rankings-trust-value text-green">{trustStats.high.toLocaleString()}</span>
-            <span className="rankings-trust-label">High conf</span>
-          </div>
-          <div className="rankings-trust-stat">
-            <span className="rankings-trust-value text-amber">{trustStats.medium.toLocaleString()}</span>
-            <span className="rankings-trust-label">Medium</span>
-          </div>
-          <div className="rankings-trust-stat">
-            <span className="rankings-trust-value">{trustStats.low.toLocaleString()}</span>
-            <span className="rankings-trust-label">Low</span>
-          </div>
-          <div className="rankings-trust-stat">
-            <span className="rankings-trust-value text-green">{trustStats.multiSource.toLocaleString()}</span>
-            <span className="rankings-trust-label">Multi-src</span>
-          </div>
-          {trustStats.quarantined > 0 && (
-            <div className="rankings-trust-stat">
-              <span className="rankings-trust-value text-red">{trustStats.quarantined}</span>
-              <span className="rankings-trust-label">Quarantined</span>
-            </div>
-          )}
-          {timestamp && (
-            <div className="rankings-trust-stat" style={{ marginLeft: "auto" }}>
-              <span
-                className="rankings-trust-label"
-                title={`Data generated at ${timestamp}`}
+  const columns = useMemo(() => {
+    const cols = [
+      {
+        key: "rank",
+        header: "#",
+        sortable: true,
+        firstDirection: "asc",
+        align: "center",
+        width: 56,
+        render: (row) => (
+          <span className={styles.rankCell}>
+            {row.rank || "—"}
+            {row.rankChange != null && row.rankChange !== 0 && (
+              <Movement
+                delta={row.rankChange}
+                srLabel={`moved ${row.rankChange > 0 ? "up" : "down"} ${Math.abs(row.rankChange)} since the previous scrape`}
+              />
+            )}
+          </span>
+        ),
+      },
+      {
+        key: "tier",
+        header: "Tier",
+        hideBelow: "md",
+        width: 90,
+        render: (row) => {
+          const tierId = effectiveTierId(row);
+          return (
+            <span className={`rankings-tier-badge ${tierId != null ? `tier-${tierId}` : "tier-unknown"}`}>
+              {tierLabel(row)}
+            </span>
+          );
+        },
+      },
+      {
+        key: "name",
+        header: "Player",
+        sortable: true,
+        render: (row) => {
+          const newsItem = lookupPlayerNews(newsByPlayer, row.name, {
+            position: row.pos,
+            team: row.raw?.team,
+            playerMeta: newsPlayerMeta,
+          })[0];
+          const chips = rowChips(row, { newsItem });
+          const onWatch = watchlistLower.has(String(row.name || "").toLowerCase());
+          return (
+            <div className={styles.playerCell}>
+              <PlayerImage
+                playerId={row.raw?.playerId}
+                team={row.team}
+                position={row.pos}
+                name={row.name}
+                size={28}
+              />
+              <button
+                type="button"
+                className="button-reset rankings-player-name"
+                onClick={() => openPlayerPopup?.(row)}
+                title={`Open ${row.name}'s profile`}
               >
-                Last scraped {relativeUpdated || timestamp}
-              </span>
+                {row.name}
+              </button>
+              <button
+                type="button"
+                className={`button-reset ${styles.watchStar}${onWatch ? ` ${styles.watchStarActive}` : ""}`}
+                aria-pressed={onWatch}
+                aria-label={
+                  onWatch
+                    ? `Remove ${row.name} from watchlist`
+                    : `Add ${row.name} to watchlist`
+                }
+                title={
+                  onWatch
+                    ? `Remove from watchlist${watchlistServerBacked ? " (synced)" : ""}`
+                    : `Add to watchlist${watchlistServerBacked ? " (synced)" : " (local)"}`
+                }
+                onClick={() => toggleWatchlist(row.name)}
+              >
+                <Icon name={onWatch ? "star-filled" : "star"} size={13} />
+              </button>
+              {(row.team || row.age) && (
+                <span className={styles.playerMeta}>
+                  {[row.team, row.age].filter(Boolean).join(" · ")}
+                </span>
+              )}
+              <RankChangeGlyph history={row.rankHistory} change={row.rankChange} />
+              {chips.length > 0 && (
+                <span className={styles.chips}>
+                  {chips.map((c) =>
+                    c.url ? (
+                      <a
+                        key={c.label}
+                        href={c.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`badge ${c.css} rankings-chip`}
+                        title={`${c.title} — click to read`}
+                      >
+                        {c.label}
+                      </a>
+                    ) : (
+                      <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>
+                        {c.label}
+                      </span>
+                    ),
+                  )}
+                </span>
+              )}
             </div>
+          );
+        },
+      },
+      {
+        key: "pos",
+        header: "Pos",
+        sortable: true,
+        width: 64,
+        render: (row) => (
+          <span className={posBadgeClass(row)}>
+            {row.pos}
+            {positionRankByName.get(row.name) != null && (
+              <span
+                className={styles.posRank}
+                title={`${row.pos}${positionRankByName.get(row.name)} — position rank within the full ranked board`}
+              >
+                {positionRankByName.get(row.name)}
+              </span>
+            )}
+          </span>
+        ),
+      },
+      {
+        key: "score",
+        header: "Consensus",
+        sortable: true,
+        numeric: true,
+        width: 88,
+        headerTitle:
+          "Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better.",
+        render: (row) => (
+          <span
+            className={styles.consensusCell}
+            title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
+          >
+            {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
+          </span>
+        ),
+      },
+      {
+        key: "value",
+        header: "Value",
+        sortable: true,
+        numeric: true,
+        render: (row) => {
+          const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
+          const band = valueBand(val);
+          return (
+            <span className={styles.valueCell}>
+              <button
+                type="button"
+                className={`button-reset ${styles.valueButton}`}
+                onClick={() => openPlayerPopup?.(row)}
+                title={`Hill-curve value ${val.toLocaleString()} (scale 1–9,999) — click for the per-source breakdown`}
+              >
+                {val.toLocaleString()}
+              </button>
+              <span className={`rankings-value-band ${band.css}`} title={band.title || "Value band"}>
+                {band.label}
+              </span>
+            </span>
+          );
+        },
+      },
+    ];
+
+    if (settings.showSiteCols) {
+      for (const src of visibleSources) {
+        cols.push({
+          key: `src:${src.key}`,
+          header: src.columnLabel,
+          sortable: true,
+          numeric: true,
+          hideBelow: "md",
+          width: 96,
+          headerTitle: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
+            src.isRankSignal ? "Hill curve from this source's ordinal rank" : "linear rescale of this source's native trade value"
+          }) with its effective rank on the shared board in parentheses.`,
+          render: (row) => {
+            const cell = formatSourceCell(row, src);
+            return (
+              <span className={styles.srcCell} title={cell.title}>
+                {cell.hasVal ? (
+                  <>
+                    {cell.primary}
+                    <span className={styles.srcRank}> ({cell.rankLabel})</span>
+                  </>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </span>
+            );
+          },
+        });
+      }
+    }
+
+    cols.push(
+      {
+        key: "sources",
+        header: "Sources",
+        hideBelow: "md",
+        align: "center",
+        width: 72,
+        headerTitle:
+          "Sources that matched this player / sources structurally eligible to cover the player's position.",
+        render: (row) => {
+          const srcCount = row.sourceCount ?? Object.keys(row.sourceRanks || {}).length;
+          const eligibleCount =
+            RANKING_SOURCES.filter((s) => {
+              const pos = (row.pos || "").toUpperCase();
+              if (s.scope === "overall_offense") return ["QB", "RB", "WR", "TE", "PICK"].includes(pos);
+              if (s.scope === "overall_idp") return ["DL", "LB", "DB"].includes(pos);
+              return false;
+            }).length || RANKING_SOURCES.length;
+          return (
+            <span className={srcCount >= 2 ? styles.srcCountMulti : styles.srcCountSingle}>
+              {srcCount}/{eligibleCount}
+            </span>
+          );
+        },
+      },
+      {
+        key: "confidence",
+        header: "Confidence",
+        sortable: true,
+        firstDirection: "desc",
+        hideBelow: "md",
+        align: "center",
+        headerTitle:
+          "High / Medium / Low confidence based on how many sources matched and how tightly they agree.",
+        render: (row) => (
+          <span
+            className={confidenceBadgeClass(row.confidenceBucket)}
+            title={confidenceExplain(row)}
+          >
+            {confidenceBadgeLabel(row.confidenceBucket)}
+          </span>
+        ),
+      },
+      {
+        key: "edge",
+        header: "Edge",
+        hideBelow: "md",
+        align: "center",
+        width: 120,
+        headerTitle:
+          "Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.",
+        render: (row) => {
+          const action_ = marketAction(row);
+          return (
+            <span className={`edge-label ${action_.css}`} title={action_.title}>
+              {action_.label}
+            </span>
+          );
+        },
+      },
+      {
+        key: "signal",
+        header: "Signal",
+        hideBelow: "md",
+        width: 170,
+        render: (row) => {
+          const action = actionLabel(row);
+          const cautions = cautionLabels(row);
+          return (
+            <>
+              {action && (
+                <span className={`action-label ${action.css}`} title={action.title}>
+                  {action.label}
+                </span>
+              )}
+              {cautions.map((c) => (
+                <span key={c.label} className={`action-label ${c.css}`} title={c.title}>
+                  {c.label}
+                </span>
+              ))}
+              {!action && cautions.length === 0 && <span className="muted">—</span>}
+            </>
+          );
+        },
+      },
+    );
+
+    return cols;
+  }, [
+    settings.showSiteCols,
+    visibleSources,
+    newsByPlayer,
+    newsPlayerMeta,
+    watchlistLower,
+    watchlistServerBacked,
+    positionRankByName,
+    openPlayerPopup,
+    toggleWatchlist,
+  ]);
+
+  const totalCols = columns.length;
+
+  // ── Render ──────────────────────────────────────────────────────
+  return (
+    <section className={styles.page}>
+      <PageHeader
+        eyebrow="Market"
+        title="Rankings"
+        description="Unified dynasty board — offense + IDP blended by consensus rank."
+        actions={
+          <>
+            <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
+            {copyStatus && <span className={styles.resultCount}>{copyStatus}</span>}
+            <Button
+              size="sm"
+              variant={showEdgeRail ? "secondary" : "ghost"}
+              aria-pressed={showEdgeRail}
+              onClick={() => setShowEdgeRail((v) => !v)}
+            >
+              {showEdgeRail ? "Hide edge" : "Show edge"}
+            </Button>
+            <Button
+              size="sm"
+              variant={showMethodology ? "secondary" : "ghost"}
+              aria-pressed={showMethodology}
+              onClick={() => setShowMethodology((v) => !v)}
+            >
+              Methodology
+            </Button>
+            <Button size="sm" variant="secondary" onClick={copyValues} title="Copy the current rows as TSV for pasting into a spreadsheet">
+              Copy
+            </Button>
+            <Button size="sm" variant="secondary" onClick={exportCsv} title="Download the current rows as a CSV file">
+              Export CSV
+            </Button>
+            {/* Sources popover — blend membership (math). Distinct from
+                Columns, which only controls column VISIBILITY. */}
+            <span className={styles.popoverWrap}>
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-expanded={sourcesMenuOpen}
+                onClick={() => setSourcesMenuOpen((v) => !v)}
+                title="Choose which sources are factored into the blended rankings"
+              >
+                Sources{excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
+              </Button>
+              {sourcesMenuOpen && (
+                <div className={styles.popover}>
+                  <div className={styles.popoverHeader}>
+                    <span>Sources in blend</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={resetSiteWeights}
+                      title="Re-include every source and clear custom weights"
+                      disabled={!hasSourceOverrides}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                  <p className={styles.popoverHint}>
+                    Unchecking a source removes it from the blended average.
+                  </p>
+                  {RANKING_SOURCES.map((src) => {
+                    const included = siteWeights[src.key]?.include !== false;
+                    // Never let the user disable the last source — the
+                    // blend needs at least one.
+                    const isLastIncluded = included && includedSourceKeys.length === 1;
+                    return (
+                      <label
+                        key={src.key}
+                        className={`${styles.popoverRow}${isLastIncluded ? ` ${styles.popoverRowDisabled}` : ""}`}
+                        title={isLastIncluded ? "At least one source must stay in the blend" : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={included}
+                          disabled={isLastIncluded}
+                          onChange={(e) => toggleSourceIncluded(src.key, e.target.checked)}
+                        />
+                        <span>{src.columnLabel}</span>
+                        <span className={styles.popoverRowMeta}>{src.displayName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </span>
+            {/* Columns popover — per-source column visibility. */}
+            <span className={styles.popoverWrap}>
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-expanded={colsMenuOpen}
+                onClick={() => setColsMenuOpen((v) => !v)}
+                title="Show/hide per-source columns"
+              >
+                Columns
+                {!settings.showSiteCols
+                  ? " (off)"
+                  : hiddenCount > 0
+                    ? ` (${hiddenCount} hidden)`
+                    : ""}
+              </Button>
+              {colsMenuOpen && (
+                <div className={styles.popover}>
+                  <div className={styles.popoverHeader}>
+                    <span>Source columns</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={showAllSiteCols}
+                      title="Restore all source columns"
+                      disabled={!settings.showSiteCols}
+                    >
+                      Show all
+                    </Button>
+                  </div>
+                  <label className={`${styles.popoverRow} ${styles.popoverRowMaster}`}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.showSiteCols)}
+                      onChange={(e) => updateSetting("showSiteCols", e.target.checked)}
+                    />
+                    <span>Show source columns</span>
+                  </label>
+                  {RANKING_SOURCES.map((src) => {
+                    const hidden = Boolean(hiddenSiteCols[src.key]);
+                    const rowDisabled = !settings.showSiteCols;
+                    return (
+                      <label
+                        key={src.key}
+                        className={`${styles.popoverRow}${rowDisabled ? ` ${styles.popoverRowDisabled}` : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!hidden}
+                          onChange={() => toggleSiteCol(src.key)}
+                          disabled={rowDisabled}
+                        />
+                        <span>{src.columnLabel}</span>
+                        <span className={styles.popoverRowMeta}>{src.displayName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </span>
+          </>
+        }
+      />
+
+      {/* ── Trust strip ── */}
+      {!loading && !error && rows.length > 0 && (
+        <div className={styles.trustStrip}>
+          <StatTile label="Players" value={trustStats.total.toLocaleString()} />
+          <StatTile
+            label="High conf"
+            value={trustStats.high.toLocaleString()}
+            meta={<Badge tone="positive">2+ src, tight</Badge>}
+          />
+          <StatTile label="Medium" value={trustStats.medium.toLocaleString()} />
+          <StatTile label="Low" value={trustStats.low.toLocaleString()} />
+          <StatTile label="Multi-source" value={trustStats.multiSource.toLocaleString()} />
+          <StatTile
+            label="Quarantined"
+            value={trustStats.quarantined.toLocaleString()}
+            meta={trustStats.quarantined > 0 ? <Badge tone="negative">check audit</Badge> : undefined}
+          />
+          {timestamp && (
+            <span className={styles.trustFootnote} title={`Data generated at ${timestamp}`}>
+              Last scraped {relativeUpdated || timestamp}
+            </span>
           )}
         </div>
       )}
 
-      {/* ── Methodology (expandable) ────────────────────────────────── */}
+      {/* ── Methodology (expandable) ── */}
       {showMethodology && (
         <>
-          <MethodologySection />
-          <div className="card" style={{ padding: "var(--space-md)" }}>
-            <h3 className="section-title">Hill curve</h3>
-            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
-              Percentile → Hill value mapping with the live board overlaid as dots.
-              The curve is the canonical rank-to-value shape; dots are where every
-              rankable player actually lands after per-source aggregation.
-            </p>
+          <Panel dense title="How rankings work">
+            <MethodologySection />
+          </Panel>
+          <Panel
+            dense
+            title="Hill curve"
+            subtitle="Percentile → Hill value mapping with the live board overlaid as dots. The curve is the canonical rank-to-value shape; dots are where every rankable player actually lands after per-source aggregation."
+          >
             <HillCurveExplorer
               rows={rows}
               curves={rawData?.hillCurves}
               onPointClick={openPlayerPopup}
             />
-          </div>
-          <div className="card" style={{ padding: "var(--space-md)" }}>
-            <h3 className="section-title">Tier gap waterfall</h3>
-            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
-              Top-120 descending value curve with inter-row gap bars overlaid.
-              Tall gap bars mark tier cliffs — those are the natural tier boundaries
-              the canonical engine detects via rolling-median gap analysis.
-            </p>
+          </Panel>
+          <Panel
+            dense
+            title="Tier gap waterfall"
+            subtitle="Top-120 descending value curve with inter-row gap bars overlaid. Tall gap bars mark tier cliffs — the natural tier boundaries the canonical engine detects via rolling-median gap analysis."
+          >
             <TierGapWaterfall rows={rows} topN={120} />
-          </div>
+          </Panel>
         </>
       )}
 
-      {/* ── Top movers rail (auto-hides when no movement data) ─────── */}
+      {/* ── Signal rails ── */}
       {!loading && !error && rows.length > 0 && (
-        <TopMoversRail rows={ranked} onPlayerClick={openPlayerPopup} />
+        <TopMoversRail
+          risers={movers.risers}
+          fallers={movers.fallers}
+          onPlayerClick={openPlayerPopup}
+        />
       )}
-
-      {/* ── Edge rail (expandable) ──────────────────────────────────── */}
       {!loading && !error && showEdgeRail && rows.length > 0 && (
         <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
       )}
 
-      {/* ── Loading / error / empty states ──────────────────────────── */}
+      {/* ── Loading / error / empty states ── */}
       {loading && (
-        <div className="loading-state">
-          <div className="loading-spinner" />
-          <span className="muted text-sm">Loading rankings&hellip;</span>
-        </div>
+        <Panel flush title="Value board">
+          <SkeletonTable rows={12} columns={7} />
+        </Panel>
       )}
-      {!!error && <p className="error-state-message" style={{ marginTop: 16 }}>{error}</p>}
+      {!!error && (
+        <Banner tone="negative" title="Rankings unavailable">
+          {error}
+        </Banner>
+      )}
       {!loading && !error && rows.length === 0 && (
-        <div className="empty-state">
-          <p className="empty-state-title">No player data available</p>
-          <p className="muted text-sm">The backend may still be initializing.</p>
-        </div>
+        <EmptyState
+          title="No player data available"
+          description="The backend may still be initializing."
+        />
       )}
 
-      {/* ── Lens selector + controls ────────────────────────────────── */}
+      {/* ── Board ── */}
       {!loading && !error && rows.length > 0 && (
-        <>
-          {/* Lens tabs */}
-          <div className="sub-nav" style={{ marginTop: "var(--space-sm)" }}>
-            {LENSES.map((lens) => (
-              <button
-                key={lens.key}
-                className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
-                onClick={() => handleLensChange(lens.key)}
-                title={lens.description}
-              >
-                {lens.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Lens description */}
-          {activeLens !== "consensus" && (
-            <p className="muted text-xs" style={{ margin: "4px 0 8px", lineHeight: 1.4 }}>
-              {currentLens.description}
-            </p>
-          )}
-
-          {/* Filters */}
-          <div className="filter-bar">
-            <input
-              className="input"
-              placeholder="Search — name, team, pos, owner: team: pos:"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={{ flex: 1, minWidth: 140 }}
+        <Panel flush>
+          <div className={styles.boardControls}>
+            {/* Lens tabs */}
+            <Tabs
+              idPrefix="lens"
+              label="Board lenses"
+              active={activeLens}
+              onChange={handleLensChange}
+              tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
             />
-            <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
-              <option value="all">All</option>
-              <option value="offense">OFF</option>
-              {idpEnabled && <option value="idp">IDP</option>}
-              <option value="pick">Picks</option>
-              <optgroup label="Rookies">
-                <option value="rookie">All Rookies</option>
-                <option value="rookie:QB">R · QB</option>
-                <option value="rookie:RB">R · RB</option>
-                <option value="rookie:WR">R · WR</option>
-                <option value="rookie:TE">R · TE</option>
-              </optgroup>
-              <optgroup label="Position">
-                <option value="QB">QB</option>
-                <option value="RB">RB</option>
-                <option value="WR">WR</option>
-                <option value="TE">TE</option>
-                {idpEnabled && <option value="DL">DL</option>}
-                {idpEnabled && <option value="LB">LB</option>}
-                {idpEnabled && <option value="DB">DB</option>}
-              </optgroup>
-            </select>
-            {/* Confidence filter and Tiers toggle — previously hidden
-                on mobile, now exposed so mobile users can access them.
-                On a 390 px viewport they wrap to a second row of the
-                filter bar (.filter-bar already has flex-wrap). */}
-            <select className="select" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>
-              {CONFIDENCE_FILTERS.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
-            </select>
-            <button
-              className={`button ${showTiers ? "button-primary" : ""}`}
-              onClick={() => setShowTiers((v) => !v)}
-              title="Toggle tier grouping"
-            >
-              Tiers
-            </button>
-            <button
-              className={`button ${advActiveCount > 0 ? "button-primary" : ""}`}
-              onClick={() => setAdvOpen((v) => !v)}
-              title="Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist"
-              aria-expanded={advOpen}
-            >
-              Filters{advActiveCount > 0 ? ` (${advActiveCount})` : ""}
-            </button>
-          </div>
+            {activeLens !== "consensus" && (
+              <p className={styles.lensDescription}>{currentLens.description}</p>
+            )}
 
-          {/* Advanced filter rail (Phase 3) — every criterion routes
-              through lib/player-filters.js rowMatches; owner filtering
-              joins league rosters at render time via buildTeamByPlayer
-              (rows are scoring-profile-scoped; owners are league-scoped). */}
-          {advOpen && (
+            {/* Filters — the "rankings-controls" literal class is the
+                E2E selector hook (tests/e2e/helpers/journey.js SEL). */}
             <div
-              className="filter-bar"
-              style={{ marginTop: 6, alignItems: "center", rowGap: 6 }}
+              className={`rankings-controls ${styles.controls}`}
+              style={{ marginTop: "var(--space-3)" }}
             >
-              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                Age
-                <input
-                  className="input"
-                  type="number"
-                  min="18"
-                  max="45"
-                  placeholder="min"
-                  value={adv.ageMin ?? ""}
-                  onChange={(e) => setAdvField("ageMin", e.target.value)}
-                  style={{ width: 62 }}
+              <span className={styles.controlsSearch}>
+                <Input
+                  placeholder="Search — name, team, pos, owner: team: pos:"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label="Search the board"
                 />
-                –
-                <input
-                  className="input"
-                  type="number"
-                  min="18"
-                  max="45"
-                  placeholder="max"
-                  value={adv.ageMax ?? ""}
-                  onChange={(e) => setAdvField("ageMax", e.target.value)}
-                  style={{ width: 62 }}
-                />
-              </label>
-              <select
-                className="select"
-                value={adv.experience ?? ""}
-                onChange={(e) => setAdvField("experience", e.target.value)}
-                title="Experience"
-              >
-                <option value="">Any experience</option>
-                {EXPERIENCE_BUCKETS.map((b) => (
-                  <option key={b.key} value={b.key}>{b.label}</option>
-                ))}
-              </select>
-              <select
-                className="select"
-                value={adv.nflTeam ?? ""}
-                onChange={(e) => setAdvField("nflTeam", e.target.value)}
-                title="NFL team"
-              >
-                <option value="">Any NFL team</option>
-                {nflTeamOptions.map((t) => (
-                  <option key={t} value={t}>{t === "FA" ? "Free agent (NFL)" : t}</option>
-                ))}
-              </select>
-              {ownerOptions.length > 0 && (
-                <select
-                  className="select"
-                  value={adv.ownerTeam ?? ""}
-                  onChange={(e) => setAdvField("ownerTeam", e.target.value)}
-                  title="Fantasy owner"
+              </span>
+              <span className={styles.controlsSelect}>
+                <Select
+                  value={posFilter}
+                  onChange={(e) => setPosFilter(e.target.value)}
+                  aria-label="Position filter"
                 >
-                  <option value="">Any owner</option>
-                  <option value={FREE_AGENT_OWNER}>Unrostered</option>
-                  {ownerOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  <option value="all">All</option>
+                  <option value="offense">OFF</option>
+                  {idpEnabled && <option value="idp">IDP</option>}
+                  <option value="pick">Picks</option>
+                  <optgroup label="Rookies">
+                    <option value="rookie">All Rookies</option>
+                    <option value="rookie:QB">R · QB</option>
+                    <option value="rookie:RB">R · RB</option>
+                    <option value="rookie:WR">R · WR</option>
+                    <option value="rookie:TE">R · TE</option>
+                  </optgroup>
+                  <optgroup label="Position">
+                    <option value="QB">QB</option>
+                    <option value="RB">RB</option>
+                    <option value="WR">WR</option>
+                    <option value="TE">TE</option>
+                    {idpEnabled && <option value="DL">DL</option>}
+                    {idpEnabled && <option value="LB">LB</option>}
+                    {idpEnabled && <option value="DB">DB</option>}
+                  </optgroup>
+                </Select>
+              </span>
+              <span className={styles.controlsSelect}>
+                <Select
+                  value={confFilter}
+                  onChange={(e) => setConfFilter(e.target.value)}
+                  aria-label="Confidence filter"
+                >
+                  {CONFIDENCE_FILTERS.map((f) => (
+                    <option key={f.key} value={f.key}>{f.label}</option>
                   ))}
-                </select>
-              )}
-              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                Rank
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  placeholder="min"
-                  value={adv.rankMin ?? ""}
-                  onChange={(e) => setAdvField("rankMin", e.target.value)}
-                  style={{ width: 62 }}
-                />
-                –
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  placeholder="max"
-                  value={adv.rankMax ?? ""}
-                  onChange={(e) => setAdvField("rankMax", e.target.value)}
-                  style={{ width: 62 }}
-                />
-              </label>
-              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                Value
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  placeholder="min"
-                  value={adv.valueMin ?? ""}
-                  onChange={(e) => setAdvField("valueMin", e.target.value)}
-                  style={{ width: 72 }}
-                />
-                –
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  placeholder="max"
-                  value={adv.valueMax ?? ""}
-                  onChange={(e) => setAdvField("valueMax", e.target.value)}
-                  style={{ width: 72 }}
-                />
-              </label>
-              <select
-                className="select"
-                value={adv.edge ?? ""}
-                onChange={(e) => setAdvField("edge", e.target.value)}
-                title="Market edge direction"
+                </Select>
+              </span>
+              <Button
+                size="sm"
+                variant={showTiers ? "secondary" : "ghost"}
+                aria-pressed={showTiers}
+                onClick={() => setShowTiers((v) => !v)}
+                title="Toggle tier grouping"
               >
-                <option value="">Any edge</option>
-                <option value="buy">Buy edge</option>
-                <option value="sell">Sell edge</option>
-              </select>
-              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={!!adv.rookieOnly}
-                  onChange={(e) => setAdvField("rookieOnly", e.target.checked)}
-                />
-                Rookies
-              </label>
-              <label className="muted text-xs" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={!!adv.watchlistOnly}
-                  onChange={(e) => setAdvField("watchlistOnly", e.target.checked)}
-                />
-                Watchlist
-              </label>
-              {advActiveCount > 0 && (
-                <button className="button" onClick={clearAdv} title="Clear advanced filters">
-                  Clear
-                </button>
-              )}
+                Tiers
+              </Button>
+              <Button
+                size="sm"
+                variant={advActiveCount > 0 ? "secondary" : "ghost"}
+                onClick={() => setAdvOpen((v) => !v)}
+                title="Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist"
+                aria-expanded={advOpen}
+              >
+                Filters{advActiveCount > 0 ? ` (${advActiveCount})` : ""}
+              </Button>
             </div>
-          )}
 
-          <p className="muted text-xs" style={{ margin: "6px 0 0" }}>
-            {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
-            {activeLens !== "consensus" && ` \u00B7 ${currentLens.label} lens`}
-            {confFilter !== "all" && ` \u00B7 ${confFilter} confidence`}
-            {tierGroupingActive && " \u00B7 grouped by tier"}
-          </p>
-
-          {/* ── Table ───────────────────────────────────────────────── */}
-          <div className="table-wrap" style={{ marginTop: 10 }}>
-            <table>
-              <thead>
-                <tr>
-                  <SortHeader col="rank" style={{ width: 36, textAlign: "center" }}>#</SortHeader>
-                  <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
-                  <SortHeader col="name">Player</SortHeader>
-                  <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
-                  {/* Consensus — decimal mean of per-source effective ranks.
-                      This is NOT the engine's final opinion (the # column is).
-                      It's an orthogonal transparency metric that shows where
-                      the sources on average place the player. Gaps between
-                      Consensus and # reveal where the blend penalized
-                      disagreement. Visible on mobile because it's the
-                      hero transparency signal. */}
-                  <SortHeader
-                    col="score"
-                    style={{ textAlign: "right", width: 72 }}
-                    title="Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better."
-                  >
-                    Consensus
-                  </SortHeader>
-                  <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
-                  {settings.showSiteCols && visibleSources.map((src) => (
-                    <SortHeader
-                      key={src.key}
-                      col={`src:${src.key}`}
-                      style={{ textAlign: "right", width: 90 }}
-                      className="hide-mobile rankings-source-col"
-                      title={`${src.displayName} — cell shows the source's 1–9,999 scale value (${
-                        src.isRankSignal ? "Hill curve from this source's ordinal rank" : "linear rescale of this source's native trade value"
-                      }) with its effective rank on the shared board in parentheses.`}
-                    >
-                      {src.columnLabel}
-                    </SortHeader>
+            {/* Advanced filter rail (Phase 3) — every criterion routes
+                through lib/player-filters.js rowMatches; owner filtering
+                joins league rosters at render time via buildTeamByPlayer
+                (rows are scoring-profile-scoped; owners are league-scoped). */}
+            {advOpen && (
+              <div className={styles.advRail} style={{ marginTop: "var(--space-2)" }}>
+                <label className={styles.advField}>
+                  Age
+                  <Input
+                    type="number"
+                    min="18"
+                    max="45"
+                    placeholder="min"
+                    value={adv.ageMin ?? ""}
+                    onChange={(e) => setAdvField("ageMin", e.target.value)}
+                    className={styles.advNum}
+                  />
+                  –
+                  <Input
+                    type="number"
+                    min="18"
+                    max="45"
+                    placeholder="max"
+                    value={adv.ageMax ?? ""}
+                    onChange={(e) => setAdvField("ageMax", e.target.value)}
+                    className={styles.advNum}
+                  />
+                </label>
+                <Select
+                  value={adv.experience ?? ""}
+                  onChange={(e) => setAdvField("experience", e.target.value)}
+                  aria-label="Experience"
+                >
+                  <option value="">Any experience</option>
+                  {EXPERIENCE_BUCKETS.map((b) => (
+                    <option key={b.key} value={b.key}>{b.label}</option>
                   ))}
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 72 }} title="Sources that matched this player / sources structurally eligible to cover the player's position.">Sources</th>
-                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile" title="High / Medium / Low confidence based on how many sources matched and how tightly they agree.">Confidence</SortHeader>
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 140 }} title="Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.">Edge</th>
-                  <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayRows.map((row, idx) => {
-                  // Row context disambiguates name-collision players
-                  // (CJ Allen LB vs C.J. Allen WR) when an item's
-                  // mention carries position/team metadata; name-only
-                  // items still show for both (documented fallback).
-                  const newsItem = lookupPlayerNews(newsByPlayer, row.name, {
-                    position: row.pos,
-                    team: row.raw?.team,
-                    playerMeta: newsPlayerMeta,
-                  })[0];
-                  const chips = rowChips(row, { newsItem });
-                  const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
-                  const band = valueBand(val);
-                  const tier = tierLabel(row);
-                  const tierId = effectiveTierId(row);
-                  // Structured market edge descriptor (never returns null).
-                  // Replaces the legacy marketGapLabel(row) string which
-                  // caused the Gap column to show an ambiguous dash.
-                  const edge = marketEdge(row);
-                  // Trader-facing collapse of edge → BUY/SELL/HOLD.  This
-                  // is what renders in the Edge column header.  The
-                  // detailed `edge.label` (e.g. "Experts higher by 12")
-                  // remains available in the row's expanded audit panel.
-                  const action_ = marketAction(row);
-                  const isQuarantined = row.quarantined;
-                  const action = actionLabel(row);
-                  const cautions = cautionLabels(row);
-                  const isExpanded = expandedRow === row.name;
-                  // Column count drives the tier-separator and audit-panel
-                  // colspans.  It tracks the render gate on
-                  // ``settings.showSiteCols`` so the separator stretches
-                  // cleanly whether or not per-source columns are visible.
-                  const totalCols = 10 + (settings.showSiteCols ? visibleSources.length : 0);
+                </Select>
+                <Select
+                  value={adv.nflTeam ?? ""}
+                  onChange={(e) => setAdvField("nflTeam", e.target.value)}
+                  aria-label="NFL team"
+                >
+                  <option value="">Any NFL team</option>
+                  {nflTeamOptions.map((t) => (
+                    <option key={t} value={t}>{t === "FA" ? "Free agent (NFL)" : t}</option>
+                  ))}
+                </Select>
+                {ownerOptions.length > 0 && (
+                  <Select
+                    value={adv.ownerTeam ?? ""}
+                    onChange={(e) => setAdvField("ownerTeam", e.target.value)}
+                    aria-label="Fantasy owner"
+                  >
+                    <option value="">Any owner</option>
+                    <option value={FREE_AGENT_OWNER}>Unrostered</option>
+                    {ownerOptions.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </Select>
+                )}
+                <label className={styles.advField}>
+                  Rank
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="min"
+                    value={adv.rankMin ?? ""}
+                    onChange={(e) => setAdvField("rankMin", e.target.value)}
+                    className={styles.advNum}
+                  />
+                  –
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="max"
+                    value={adv.rankMax ?? ""}
+                    onChange={(e) => setAdvField("rankMax", e.target.value)}
+                    className={styles.advNum}
+                  />
+                </label>
+                <label className={styles.advField}>
+                  Value
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="min"
+                    value={adv.valueMin ?? ""}
+                    onChange={(e) => setAdvField("valueMin", e.target.value)}
+                    className={styles.advNum}
+                  />
+                  –
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="max"
+                    value={adv.valueMax ?? ""}
+                    onChange={(e) => setAdvField("valueMax", e.target.value)}
+                    className={styles.advNum}
+                  />
+                </label>
+                <Select
+                  value={adv.edge ?? ""}
+                  onChange={(e) => setAdvField("edge", e.target.value)}
+                  aria-label="Market edge direction"
+                >
+                  <option value="">Any edge</option>
+                  <option value="buy">Buy edge</option>
+                  <option value="sell">Sell edge</option>
+                </Select>
+                <label className={styles.advCheck}>
+                  <input
+                    type="checkbox"
+                    checked={!!adv.rookieOnly}
+                    onChange={(e) => setAdvField("rookieOnly", e.target.checked)}
+                  />
+                  Rookies
+                </label>
+                <label className={styles.advCheck}>
+                  <input
+                    type="checkbox"
+                    checked={!!adv.watchlistOnly}
+                    onChange={(e) => setAdvField("watchlistOnly", e.target.checked)}
+                  />
+                  Watchlist
+                </label>
+                {advActiveCount > 0 && (
+                  <Button size="sm" variant="ghost" onClick={clearAdv} title="Clear advanced filters">
+                    Clear
+                  </Button>
+                )}
+              </div>
+            )}
 
-                  const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
-                  const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
-                  const tierCssClass = tierId != null ? `tier-${tierId}` : "tier-unknown";
-
-                  // Source audit data for the expanded panel
-                  const audit = row.sourceAudit || row.raw?.sourceAudit || {};
-                  const srcCount = row.sourceCount ?? Object.keys(row.sourceRanks || {}).length;
-
-                  // Explicit confidence explanation
-                  const confExplain = row.confidenceLabel || (
-                    row.confidenceBucket === "high" ? "2+ sources, tight agreement (spread \u226430)" :
-                    row.confidenceBucket === "medium" ? "2+ sources, moderate spread (30-80)" :
-                    row.confidenceBucket === "low" ? "Single source or wide disagreement (spread >80)" :
-                    "Unranked"
-                  );
-
-                  return (
-                    <Fragment key={row.name}>
-                      {showTierBreak && (
-                        <tr className="rankings-tier-separator">
-                          <td colSpan={totalCols}>
-                            <span className="rankings-tier-separator-label">{tier}</span>
-                          </td>
-                        </tr>
-                      )}
-                      <tr
-                        className={[
-                          isQuarantined ? "rankings-row-quarantined" : "",
-                          isExpanded ? "rankings-row-expanded" : "",
-                          "rankings-row-clickable",
-                        ].filter(Boolean).join(" ")}
-                        onClick={() => setExpandedRow(isExpanded ? null : row.name)}
-                      >
-                        {/* Rank + rank-change indicator.  Positive
-                            change = moved up since last scrape (green
-                            ▲N); negative = moved down (red ▼N);
-                            null = new / previously unranked. */}
-                        <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
-                          {row.rank || "\u2014"}
-                          {row.rankChange != null && row.rankChange !== 0 && (
-                            <span
-                              className="rankings-rank-change"
-                              title={`Moved ${row.rankChange > 0 ? "up" : "down"} ${Math.abs(row.rankChange)} since the previous scrape`}
-                              style={{
-                                marginLeft: 4,
-                                fontSize: "0.68rem",
-                                fontWeight: 600,
-                                color: row.rankChange > 0 ? "var(--green, #4ade80)" : "var(--red, #f87171)",
-                              }}
-                            >
-                              {row.rankChange > 0 ? "\u25B2" : "\u25BC"}
-                              {Math.abs(row.rankChange)}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Tier */}
-                        <td className="hide-mobile">
-                          <span className={`rankings-tier-badge ${tierCssClass}`}>{tier}</span>
-                        </td>
-
-                        {/* Player: headshot, name, context, chips */}
-                        <td>
-                          <div className="rankings-player-cell">
-                            <PlayerImage
-                              playerId={row.raw?.playerId}
-                              team={row.team}
-                              position={row.pos}
-                              name={row.name}
-                              size={28}
-                            />
-                            <span
-                              className="rankings-player-name"
-                              onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
-                            >
-                              {row.name}
-                            </span>
-                            {(() => {
-                              const onWatch = watchlistLower.has(
-                                String(row.name || "").toLowerCase()
-                              );
-                              return (
-                                <button
-                                  type="button"
-                                  className={`button-reset rankings-watch-star${onWatch ? " is-active" : ""}`}
-                                  aria-pressed={onWatch}
-                                  title={
-                                    onWatch
-                                      ? `Remove from watchlist${watchlistServerBacked ? " (synced)" : ""}`
-                                      : `Add to watchlist${watchlistServerBacked ? " (synced)" : " (local)"}`
-                                  }
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleWatchlist(row.name);
-                                  }}
-                                  style={{
-                                    cursor: "pointer",
-                                    color: onWatch ? "var(--cyan)" : "var(--subtext)",
-                                    fontSize: "0.95rem",
-                                    lineHeight: 1,
-                                    padding: "0 4px",
-                                  }}
-                                >
-                                  {onWatch ? "★" : "☆"}
-                                </button>
-                              );
-                            })()}
-                            {(row.team || row.age) && (
-                              <span className="rankings-player-meta">
-                                {[row.team, row.age].filter(Boolean).join(" · ")}
-                              </span>
-                            )}
-                            <RankChangeGlyph
-                              history={row.rankHistory}
-                              change={row.rankChange}
-                            />
-                            {/* ``rankHistory`` is reserved for a future per-
-                                player time series; until it's stamped, the
-                                glyph falls back to the single-delta arrow on
-                                ``rankChange``, or renders nothing. */}
-                            {chips.length > 0 && (
-                              <span className="rankings-chips">
-                                {chips.map((c) =>
-                                  c.url ? (
-                                    <a
-                                      key={c.label}
-                                      href={c.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className={`badge ${c.css} rankings-chip`}
-                                      title={`${c.title} — click to read`}
-                                      style={{ cursor: "pointer", textDecoration: "none" }}
-                                    >
-                                      {c.label}
-                                    </a>
-                                  ) : (
-                                    <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>
-                                      {c.label}
-                                    </span>
-                                  ),
-                                )}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Position + position rank (QB3, RB5, LB2…).
-                            Position rank is computed from the full
-                            ``ranked`` order at render-time so search/filter
-                            doesn't renumber badges. */}
-                        <td>
-                          <span className={posBadgeClass(row)}>
-                            {row.pos}
-                            {positionRankByName.get(row.name) != null && (
-                              <span
-                                className="rankings-pos-rank"
-                                style={{
-                                  marginLeft: 4,
-                                  opacity: 0.85,
-                                  fontFamily: "var(--mono, monospace)",
-                                  fontSize: "0.78em",
-                                }}
-                                title={`${row.pos}${positionRankByName.get(row.name)} — position rank within the full ranked board`}
-                              >
-                                {positionRankByName.get(row.name)}
-                              </span>
-                            )}
-                          </span>
-                        </td>
-
-                        {/* Consensus — decimal mean of per-source effective
-                            ranks. Orthogonal to the final # — gaps between
-                            this value and the rank column reveal source
-                            disagreement that the blend arbitrated.
-                            Visible on mobile. */}
-                        <td
-                          style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}
-                          title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "\u2014 (unranked)"}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
-                        >
-                          {row.blendedSourceRank != null
-                            ? row.blendedSourceRank.toFixed(1)
-                            : "\u2014"}
-                        </td>
-
-                        {/* Value — Hill-curve dynasty value (integer, 1-9999).
-                            Band badge (S+/S/D+/D/F) carries a tooltip so
-                            users can hover to see what the letter means.
-                            Value is clickable and opens the player popup
-                            with the full per-source breakdown so you can
-                            see exactly which sources contributed to this
-                            number.
-
-                            When ``Apply Scoring Fit`` is active OR the
-                            user is on the Scoring Fit lens, IDP rows
-                            also render two badges:
-
-                            * a confidence dot (high / medium / low /
-                              synthetic) — how robust the underlying
-                              VORP estimate is
-                            * a tier badge (elite / starter+ / starter /
-                              fringe / below) — categorical translation
-                              of the VORP-per-game
-
-                            For synthetic rows (rookies built from
-                            cohort baselines), the confidence dot reads
-                            "rookie cohort" so the user knows the value
-                            is a draft-capital estimate, not realized
-                            production. */}
-                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1–9,999) — click to see per-source breakdown`}>
-                          <span
-                            className="rankings-value rankings-value-clickable"
-                            onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
-                            style={{ cursor: "pointer", textDecoration: "underline dotted transparent", textUnderlineOffset: "3px" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.textDecorationColor = "currentColor"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.textDecorationColor = "transparent"; }}
-                          >
-                            {val.toLocaleString()}
-                          </span>
-                          <span
-                            className={`rankings-value-band ${band.css}`}
-                            title={band.title || "Value band"}
-                          >
-                            {band.label}
-                          </span>
-                        </td>
-
-                        {/* Per-source value + rank columns.  Gated on
-                            `showSiteCols` so power users can collapse the
-                            source columns to focus on the Value column.
-                            Each cell shows the source's 9,999-scale
-                            valueContribution with the effective rank on
-                            the shared board in parentheses — unified
-                            single-line format so every source sits on
-                            the same value scale. */}
-                        {settings.showSiteCols && visibleSources.map((src) => {
-                          const cell = formatSourceCell(row, src);
-                          return (
-                            <td
-                              key={src.key}
-                              className="hide-mobile rankings-source-col"
-                              style={{
-                                textAlign: "right",
-                                fontFamily: "var(--mono, monospace)",
-                                fontSize: "0.78rem",
-                                whiteSpace: "nowrap",
-                              }}
-                              title={cell.title}
-                            >
-                              {cell.hasVal ? (
-                                <>
-                                  <span className="rankings-source-value">{cell.primary}</span>
-                                  <span className="rankings-source-rank"> ({cell.rankLabel})</span>
-                                </>
-                              ) : (
-                                <span className="muted">&mdash;</span>
-                              )}
-                            </td>
-                          );
-                        })}
-
-                        {/* Source count */}
-                        <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono)", fontSize: "0.78rem" }}>
-                          <span className={srcCount >= 2 ? "rankings-src-count-multi" : "rankings-src-count-single"}>
-                            {srcCount}/{RANKING_SOURCES.filter((s) => {
-                              const pos = (row.pos || "").toUpperCase();
-                              if (s.scope === "overall_offense") return ["QB","RB","WR","TE","PICK"].includes(pos);
-                              if (s.scope === "overall_idp") return ["DL","LB","DB"].includes(pos);
-                              return false;
-                            }).length || RANKING_SOURCES.length}
-                          </span>
-                        </td>
-
-                        {/* Confidence */}
-                        <td className="hide-mobile" style={{ textAlign: "center" }}>
-                          <span className={confidenceBadgeClass(row.confidenceBucket)} title={confExplain}>
-                            {confidenceBadgeLabel(row.confidenceBucket)}
-                          </span>
-                        </td>
-
-                        {/* Market edge — collapsed to BUY/SELL/HOLD.
-                            BUY = experts > market (undervalued).
-                            SELL = market > experts (overvalued).
-                            HOLD = aligned within threshold.
-                            "—" = insufficient data to compare.
-                            Tooltip surfaces the detailed gap. */}
-                        <td className="hide-mobile" style={{ textAlign: "center" }}>
-                          <span className={`edge-label ${action_.css}`} title={action_.title}>
-                            {action_.label}
-                          </span>
-                        </td>
-
-                        {/* Signal */}
-                        <td className="hide-mobile">
-                          {action && (
-                            <span className={`action-label ${action.css}`} title={action.title}>
-                              {action.label}
-                            </span>
-                          )}
-                          {cautions.map((c) => (
-                            <span key={c.label} className={`action-label ${c.css}`} title={c.title}>
-                              {c.label}
-                            </span>
-                          ))}
-                          {!action && cautions.length === 0 && (
-                            <span className="muted">{"\u2014"}</span>
-                          )}
-                        </td>
-                      </tr>
-
-                      {/* ── Mobile source strip ───────────────────────
-                          The desktop table has one column per source,
-                          but at ≤768px those columns would overflow
-                          horizontally and get hidden via `hide-mobile`.
-                          Instead of dropping the data entirely, we
-                          render a compact flex strip of source chips
-                          below each player row — but only when the
-                          user has tapped the row to expand it.
-                          Rendering the strip under every row by
-                          default dominated the mobile viewport and
-                          pushed the headline Value column off-screen
-                          for cold-start users carrying the legacy
-                          ``showSiteCols: true`` localStorage value.
-                          Gating on ``isExpanded`` makes the source
-                          audit on-demand on mobile.  ``showSiteCols``
-                          still governs the desktop per-source column
-                          render — desktop behavior is unchanged.
-
-                          Uses a dedicated `.rankings-mobile-source-row`
-                          class (not the global `.mobile-only` helper)
-                          so we can set `display: table-row` on mobile
-                          — the global helper resolves to
-                          `display: initial !important`, which would
-                          force the <tr> to `inline` and break the
-                          table layout. */}
-                      {isExpanded && (
-                        <tr className="rankings-mobile-source-row">
-                          <td colSpan={totalCols}>
-                            <div className="rankings-mobile-sources">
-                              {RANKING_SOURCES.map((src) => {
-                                const cell = formatSourceCell(row, src);
-                                return (
-                                  <span
-                                    key={src.key}
-                                    className={`rankings-mobile-source-chip${cell.hasVal ? "" : " is-empty"}`}
-                                    title={cell.title}
-                                  >
-                                    <span className="rankings-mobile-source-label">
-                                      {src.columnLabel}
-                                    </span>
-                                    <span className="rankings-mobile-source-val">
-                                      {cell.hasVal ? (
-                                        <>
-                                          {cell.primary}
-                                          <span className="rankings-mobile-source-rank">
-                                            {" "}
-                                            ({cell.rankLabel})
-                                          </span>
-                                        </>
-                                      ) : (
-                                        "\u2014"
-                                      )}
-                                    </span>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-
-                      {/* ── Expandable source audit panel ──────────── */}
-                      {isExpanded && (
-                        <tr className="rankings-audit-row">
-                          <td colSpan={totalCols}>
-                            <div className="source-audit-panel">
-                              <div className="source-audit-header">
-                                <strong>Source Audit: {row.name}</strong>
-                                <span className="muted" style={{ marginLeft: 12 }}>
-                                  {audit.reason === "fully_matched" ? "All expected sources matched" :
-                                   audit.reason === "structurally_single_source" ? "Only one source structurally covers this player" :
-                                   audit.reason === "matching_failure_other_sources_eligible" ? "Matching failure — expected source(s) did not match" :
-                                   audit.reason === "partial_coverage" ? "Some expected sources missing" :
-                                   audit.reason === "no_source_match" ? "No source matched" :
-                                   audit.reason || ""}
-                                </span>
-                                {audit.allowlistReason && (
-                                  <span className="source-audit-allowlist" title="Allowlisted reason">
-                                    {audit.allowlistReason}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Per-source detail grid */}
-                              <div className="source-audit-grid">
-                                {RANKING_SOURCES.map((src) => {
-                                  const siteVal = row.canonicalSites?.[src.key];
-                                  const hasVal = siteVal != null && Number.isFinite(Number(siteVal)) && Number(siteVal) > 0;
-                                  const eRank = row.sourceRanks?.[src.key];
-                                  const meta = (row.sourceRankMeta || row.raw?.sourceRankMeta || {})[src.key];
-                                  const origRk = (row.sourceOriginalRanks || {})[src.key];
-                                  const matchDetail = (audit.matchedDetails || {})[src.key];
-                                  const isExpected = (audit.expectedSources || []).includes(src.key);
-                                  const isMatched = (audit.matchedSources || []).includes(src.key);
-                                  const isUnmatched = (audit.unmatchedSources || []).includes(src.key);
-
-                                  return (
-                                    <div key={src.key} className={`source-audit-card ${hasVal ? "source-audit-card-active" : "source-audit-card-missing"}`}>
-                                      <div className="source-audit-card-header">
-                                        <strong>{src.columnLabel}</strong>
-                                        <span className={`badge ${isMatched ? "badge-green" : isUnmatched ? "badge-red" : isExpected ? "badge-amber" : "badge-muted"}`} style={{ fontSize: "0.6rem" }}>
-                                          {isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a"}
-                                        </span>
-                                      </div>
-                                      {hasVal ? (
-                                        <div className="source-audit-card-body">
-                                          <div className="source-audit-field">
-                                            <span className="source-audit-label">{src.isRankSignal ? "Rank" : "Value"}</span>
-                                            <span className="source-audit-val">
-                                              {src.isRankSignal
-                                                ? `#${origRk != null ? origRk : "\u2014"}`
-                                                : Math.round(Number(siteVal)).toLocaleString()
-                                              }
-                                            </span>
-                                          </div>
-                                          {eRank != null && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Eff. Rank</span>
-                                              <span className="source-audit-val">#{eRank}</span>
-                                            </div>
-                                          )}
-                                          {meta?.valueContribution != null && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Hill Value</span>
-                                              <span className="source-audit-val">{meta.valueContribution.toLocaleString()}</span>
-                                            </div>
-                                          )}
-                                          {meta?.effectiveWeight != null && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Weight</span>
-                                              <span className="source-audit-val">{meta.effectiveWeight}</span>
-                                            </div>
-                                          )}
-                                          {meta?.method && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Method</span>
-                                              <span className="source-audit-val">{meta.method}</span>
-                                            </div>
-                                          )}
-                                          {matchDetail?.matchedName && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Matched As</span>
-                                              <span className="source-audit-val">{matchDetail.matchedName}</span>
-                                            </div>
-                                          )}
-                                          {matchDetail?.via && (
-                                            <div className="source-audit-field">
-                                              <span className="source-audit-label">Via</span>
-                                              <span className="source-audit-val">{matchDetail.via}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="source-audit-card-body source-audit-missing-body">
-                                          <span className="muted">
-                                            {isUnmatched ? "Expected but did not match" :
-                                             !isExpected ? "Not expected for this position" :
-                                             "No data"}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* ── Visual source contribution + agreement ──
-                                  Two compact graphs side-by-side so the
-                                  aggregation is legible at a glance: bars
-                                  rank per-source contributions (with any
-                                  Hampel-dropped sources struck through); the
-                                  radar shows agreement/disagreement shape. */}
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "minmax(280px, 1fr) minmax(220px, 260px)",
-                                  gap: "var(--space-md)",
-                                  alignItems: "center",
-                                  marginTop: "var(--space-sm)",
-                                }}
-                              >
-                                <div>
-                                  <div className="muted text-xs" style={{ marginBottom: 4 }}>
-                                    Per-source value contribution
-                                  </div>
-                                  <SourceContributionBars
-                                    row={row}
-                                    labelFor={(k) =>
-                                      RANKING_SOURCES.find((s) => s.key === k)?.columnLabel || k
-                                    }
-                                  />
-                                </div>
-                                <div>
-                                  <div className="muted text-xs" style={{ marginBottom: 4 }}>
-                                    Source agreement
-                                  </div>
-                                  <SourceAgreementRadar
-                                    row={row}
-                                    labelFor={(k) =>
-                                      RANKING_SOURCES.find((s) => s.key === k)?.columnLabel || k
-                                    }
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Summary row — uses consistent naming spec.
-                                  Mirrors the exact labels from the main table
-                                  header so the user can match row→column. */}
-                              <div className="source-audit-summary">
-                                <span><strong>Rank:</strong> {row.rank ? `#${row.rank}` : "\u2014 (unranked)"} (final ordinal — the engine's opinion)</span>
-                                <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (mean of per-source effective ranks — orthogonal to Rank; gaps reveal blend arbitration)</span>
-                                <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1–9,999 scale)</span>
-                                <span><strong>Confidence:</strong> {confExplain}</span>
-                                <span><strong>Edge:</strong> {edge.label} — {edge.title}</span>
-                                {row.sourceRankSpread != null && (
-                                  <span><strong>Source spread:</strong> {Math.round(row.sourceRankSpread)} ordinal ranks between the highest and lowest source</span>
-                                )}
-                                {row.sourceRankPercentileSpread != null && (
-                                  <span><strong>Depth-adjusted spread:</strong> {(row.sourceRankPercentileSpread * 100).toFixed(1)}% (accounts for source pool sizes)</span>
-                                )}
-                                {(row.anomalyFlags || []).length > 0 && (
-                                  <span><strong>Flags:</strong> {row.anomalyFlags.join(", ")}</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+            <p className={styles.resultCount} style={{ margin: "var(--space-2) 0 0" }}>
+              {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
+              {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
+              {confFilter !== "all" && ` · ${confFilter} confidence`}
+              {tierGroupingActive && " · grouped by tier"}
+            </p>
           </div>
 
-          {/* ── Show more / show all ────────────────────────────────── */}
+          {/* ── Table ── */}
+          <div
+            role="tabpanel"
+            id={tabPanelId("lens", activeLens)}
+            aria-labelledby={tabId("lens", activeLens)}
+          >
+            <DataTable
+              caption="Unified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals"
+              columns={columns}
+              rows={displayRows}
+              rowKey={(row) => row.name}
+              presorted
+              density="compact"
+              // DataTable renders emptyState INSTEAD of the table when
+              // rows are empty — without one, a filter that matches
+              // nothing renders no table at all (not even headers) and
+              // the user is left staring at a blank panel.
+              emptyState={
+                <EmptyState
+                  title="No players match these filters"
+                  description={
+                    advActiveCount > 0 || query
+                      ? "Clear the search or advanced filters to widen the board."
+                      : "Try a different lens, position, or confidence filter."
+                  }
+                  action={
+                    hasActiveFilter ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setQuery("");
+                          setPosFilter("all");
+                          setConfFilter("all");
+                          clearAdv();
+                          handleLensChange("consensus");
+                        }}
+                      >
+                        Reset filters
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              }
+              sort={tableSort}
+              onSortChange={handleTableSort}
+              onRowClick={(row) =>
+                setExpandedRow(expandedRow === row.name ? null : row.name)
+              }
+              rowClassName={(row) =>
+                [
+                  "rankings-row-clickable",
+                  row.quarantined ? styles.quarantinedRow : "",
+                  expandedRow === row.name ? styles.expandedRow : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+              }
+              renderBeforeRow={(row, i) => {
+                if (!tierGroupingActive || i === 0) return null;
+                const tierId = effectiveTierId(row);
+                const prevTierId = effectiveTierId(displayRows[i - 1]);
+                if (tierId === prevTierId || tierId == null) return null;
+                return (
+                  <tr className={styles.tierSeparator}>
+                    <td colSpan={totalCols}>
+                      <span className={styles.tierSeparatorLabel}>{tierLabel(row)}</span>
+                    </td>
+                  </tr>
+                );
+              }}
+              renderAfterRow={(row) => {
+                if (expandedRow !== row.name) return null;
+                const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
+                return (
+                  <>
+                    <tr className="rankings-mobile-source-row">
+                      <td colSpan={totalCols}>
+                        <MobileSourceStrip row={row} formatSourceCell={formatSourceCell} />
+                      </td>
+                    </tr>
+                    {/* rankings-audit-row carries the panel's
+                        padding:0 + dark inset from globals.css — the
+                        expansion reads as an inset drawer, not another
+                        table row. */}
+                    <tr className="rankings-audit-row">
+                      <td colSpan={totalCols}>
+                        <SourceAuditPanel
+                          row={row}
+                          val={val}
+                          edge={marketEdge(row)}
+                          confExplain={confidenceExplain(row)}
+                        />
+                      </td>
+                    </tr>
+                  </>
+                );
+              }}
+            />
+          </div>
+
+          {/* ── Show more / show all ── */}
           {hasMore && (
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              <button className="button" onClick={() => setRowLimit((l) => l + 200)}>
+            <div className={styles.showMore} style={{ paddingBottom: "var(--space-4)" }}>
+              <Button variant="secondary" onClick={() => setRowLimit((l) => l + 200)}>
                 Show more ({(ranked.length - rowLimit).toLocaleString()} remaining)
-              </button>
-              <button className="button" onClick={() => setRowLimit(Infinity)} style={{ marginLeft: 8 }}>
+              </Button>
+              <Button variant="ghost" onClick={() => setRowLimit(Infinity)}>
                 Show all
-              </button>
+              </Button>
             </div>
           )}
-        </>
+        </Panel>
       )}
     </section>
   );

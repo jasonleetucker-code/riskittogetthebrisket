@@ -151,6 +151,8 @@ function DialogShell({
   srOnlyTitle = false,
   variant, // "modal" | "drawer"
   initialFocus = null, // optional ref: element to receive initial focus
+  closeLabel = "Close", // accessible name for the close button
+  className = "", // extra class on the panel (width overrides etc.)
   children,
 }) {
   const panelRef = useRef(null);
@@ -165,7 +167,7 @@ function DialogShell({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className={variant === "drawer" ? "ds-drawer" : "ds-modal__panel"}
+      className={`${variant === "drawer" ? "ds-drawer" : "ds-modal__panel"} ${className}`.trim()}
       tabIndex={-1}
     >
       <header className="ds-dialog__header">
@@ -182,7 +184,7 @@ function DialogShell({
           className="ds-dialog__close ds-focusable"
           onClick={onClose}
         >
-          <Icon name="close" size={16} label="Close" />
+          <Icon name="close" size={16} label={closeLabel} />
         </button>
       </header>
       <div className="ds-dialog__body">{children}</div>

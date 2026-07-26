@@ -1,0 +1,403 @@
+/* board.module.css — rankings-page structural styles (R2, token-driven).
+   Badge/tier/audit-grid colors stay on their legacy global classes until
+   the R5 CSS purge; everything structural lives here on the R0 tokens. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Trust strip ── */
+.trustStrip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 768px) {
+  .trustStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.trustFootnote {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* ── Controls ── */
+.boardControls {
+  padding: var(--space-4) var(--space-4) 0;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.controlsSearch {
+  flex: 1;
+  min-width: 180px;
+}
+.controlsSelect {
+  width: auto;
+  min-width: 120px;
+}
+.advRail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+.advField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.advNum {
+  width: 64px;
+}
+.advCheck {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.resultCount {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Popovers (Sources / Columns) ── */
+.popoverWrap {
+  position: relative;
+  display: inline-block;
+}
+.popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--z-dropdown);
+  min-width: 280px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+@media (width < 480px) {
+  .popover {
+    right: auto;
+    left: 0;
+    min-width: 240px;
+  }
+}
+.popoverHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+.popoverHint {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+}
+.popoverRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+.popoverRowDisabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.popoverRowMaster {
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.popoverRowMeta {
+  margin-left: auto;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Signal rails ── */
+.railGrid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.railGrid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+@media (width < 768px) {
+  .railGrid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.railTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.railList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.railItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  min-width: 0;
+}
+.railName {
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* flex item: must be allowed to shrink or the row overflows the
+     rail column (and on mobile widens the layout viewport). */
+  min-width: 0;
+  flex-shrink: 1;
+}
+.railName:hover {
+  color: var(--accent);
+}
+.railDetail {
+  margin-left: auto;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  /* long detail strings ("Experts higher by 12") truncate rather than
+     widen the rail column past the viewport */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+.railEmpty {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Methodology ── */
+.methodologyList {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.methodologyFormula {
+  list-style: none;
+  margin-top: var(--space-2);
+  margin-left: calc(-1 * var(--space-5));
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Table cells ── */
+.rankCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  color: var(--accent);
+}
+.playerCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 200px;
+}
+.playerMeta {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.chips {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.watchStar {
+  cursor: pointer;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  padding: 0 2px;
+}
+.watchStar:hover {
+  color: var(--text-primary);
+}
+.watchStarActive {
+  color: var(--accent);
+}
+.posRank {
+  margin-left: 4px;
+  opacity: 0.85;
+  font-family: var(--font-data);
+  font-size: 0.85em;
+}
+.consensusCell {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.valueCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+.valueButton {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 3px;
+}
+.valueButton:hover {
+  text-decoration-color: currentColor;
+}
+.srcCell {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+.srcRank {
+  color: var(--text-tertiary);
+}
+.srcCountMulti {
+  color: var(--positive-text);
+  font-family: var(--font-data);
+}
+.srcCountSingle {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+}
+
+/* ── Tier separator + expanded rows ── */
+.tierSeparator td {
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-1) var(--space-3);
+}
+.tierSeparatorLabel {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.quarantinedRow {
+  opacity: 0.55;
+}
+.expandedRow {
+  background: var(--surface-hover);
+}
+
+/* ── Mobile source strip (expanded rows below md) ── */
+.mobileSources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+.mobileSourceChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-1);
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-2xs);
+}
+.mobileSourceChipEmpty {
+  opacity: 0.5;
+}
+.mobileSourceLabel {
+  color: var(--text-tertiary);
+}
+.mobileSourceVal {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+.mobileSourceRank {
+  color: var(--text-tertiary);
+}
+
+/* ── Audit graphs grid ── */
+.auditGraphs {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(220px, 260px);
+  gap: var(--space-4);
+  align-items: center;
+  margin-top: var(--space-3);
+}
+@media (width < 768px) {
+  .auditGraphs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.auditGraphLabel {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+/* ── Footer ── */
+.showMore {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.lensDescription {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-snug);
+}

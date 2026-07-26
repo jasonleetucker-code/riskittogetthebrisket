@@ -46,9 +46,22 @@ checkout-writable file would let a compromised deploy account escalate
 to root.  Re-run the apply script to roll out script changes; the
 repo copies are the source of truth but are inert at runtime.
 
-`dynasty.service.template` / `dynasty-frontend.service.template` are
-rendered (placeholder substitution) by `deploy/install-systemd-service.sh`
-— do not copy them into /etc/systemd/system verbatim.
+Timers rendered + enabled by `deploy/install-systemd-service.sh`
+(placeholder substitution — do **not** copy the `*.template` files into
+/etc/systemd/system verbatim):
+
+| Unit | Purpose | Cadence | Installed when |
+|---|---|---|---|
+| `dynasty.service` / `dynasty-frontend.service` | Backend + Next.js | — | always |
+| `dynasty-signal-alerts.*` | Signal-alert digest sweep | Daily 15:00 | `SIGNAL_ALERT_CRON_TOKEN` in `.env` |
+| `dynasty-custom-alerts.*` | Custom-rule alert sweep | Every 2h | `SIGNAL_ALERT_CRON_TOKEN` in `.env` |
+| `dynasty-dlf-fetch.*` | DLF CSV fetch + push (CI is Cloudflare-blocked) | Every 2h | DLF creds in `.env` |
+| `dynasty-idpshow-fetch.*` | IDP Show rankings fetch + push | Every 2h | always |
+| `dynasty-playerctx-refresh.*` | Player context (contracts / snap share / depth chart) → `data/playerctx/snapshot.json`, served by `/api/playerctx/player` | Weekly Tue 05:40 UTC | always (public data, no creds) |
+
+`dynasty-playerctx-refresh` must run **on prod**, not in CI: the
+endpoint reads a local file and `data/` is gitignored, so a CI-built
+snapshot would never reach the VPS.  See `docs/playerctx.md`.
 
 ## Manual runs
 

@@ -63,14 +63,17 @@ test.describe("mobile smoke (390x844)", () => {
     // wrong chrome.  See pageUrl() in helpers/journey.js.
     await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
 
-    const nav = page.getByRole("navigation", { name: /mobile navigation/i });
+    // R1 shell: the mobile tab bar is the .shell-tabbar navigation
+    // (labelled "Primary", same IA model as desktop).
+    const nav = page.locator(".shell-tabbar");
     await expect(nav).toBeVisible({ timeout: 30_000 });
 
-    // The auth-gated tabs (Ranks/Trade/More) only render once the
+    // The auth-gated tabs (Ranks/Trade/News) only render once the
     // client auth check resolves — wait for the last one with a
-    // generous budget, then assert the full set.
-    await expect(nav.getByText("More", { exact: true })).toBeVisible({ timeout: 30_000 });
-    for (const label of ["Home", "Ranks", "Trade", "More"]) {
+    // generous budget, then assert the full set (+ the Menu drawer
+    // button that replaces the legacy More hub).
+    await expect(nav.getByText("News", { exact: true })).toBeVisible({ timeout: 30_000 });
+    for (const label of ["Home", "Ranks", "Trade", "News", "Menu"]) {
       await expect(nav.getByText(label, { exact: true })).toBeVisible();
     }
 
