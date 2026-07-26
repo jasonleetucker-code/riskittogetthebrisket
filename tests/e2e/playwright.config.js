@@ -117,6 +117,11 @@ module.exports = defineConfig({
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "playwright-report" }],
+    // Aborts the run if the stack dies partway through, so a dead
+    // frontend reports as "the stack died" instead of manufacturing a
+    // dozen connection-refused failures that read as a mass product
+    // regression.  See stack-death-reporter.js.
+    [require.resolve("./stack-death-reporter.js")],
   ],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:8000",
