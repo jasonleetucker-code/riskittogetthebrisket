@@ -184,3 +184,60 @@ class TestAgainstRealBoards:
         base = evaluate_offense_master(0.118, 1.17).criterion
         moved = evaluate_offense_master(0.098, 1.17).criterion
         assert abs(base - moved) > 50, "real-board criterion is insensitive to the curve"
+
+
+@pytest.mark.livedata
+class TestTheBoardsDisagree:
+    """Pins the disagreement that narrowed ADR-008's headline claim.
+
+    A first pass reported "the champion is ~200 points off the holdout
+    optimum". Measuring per board rather than on the mean showed that
+    to be too strong: the improvement is three boards outvoting one,
+    and the mean-optimal point sits on the edge of the search grid
+    rather than at a bracketed minimum.
+
+    These tests exist so the narrower claim cannot quietly drift back
+    to the stronger one, and so a data refresh that changes the picture
+    surfaces here rather than in a confident sentence.
+    """
+
+    CHAMPION = (0.118, 1.17)
+    PROPOSED = (0.098, 1.17)
+
+    def test_the_mean_improves_but_not_every_board_does(self):
+        champ = evaluate_offense_master(*self.CHAMPION)
+        proposed = evaluate_offense_master(*self.PROPOSED)
+        assert proposed.criterion < champ.criterion
+
+        improved = [b for b in champ.per_source if proposed.per_source[b] < champ.per_source[b]]
+        worsened = [b for b in champ.per_source if proposed.per_source[b] > champ.per_source[b]]
+        assert improved and worsened, (
+            "every holdout board now moves the same way — the mean is no longer "
+            "hiding a disagreement, so ADR-008's narrowing may need revisiting"
+        )
+
+    def test_the_board_the_champion_fits_best_is_the_one_that_worsens(self):
+        """The specific shape of the disagreement: the curve is already
+        close to one board's optimum, and moving away costs there."""
+        champ = evaluate_offense_master(*self.CHAMPION)
+        proposed = evaluate_offense_master(*self.PROPOSED)
+        best_fit = min(champ.per_source, key=lambda b: champ.per_source[b])
+        assert proposed.per_source[best_fit] > champ.per_source[best_fit]
+
+    def test_the_mean_optimum_is_not_bracketed_by_the_search_grid(self):
+        """MECHANISM TEST. If the criterion still falls at the grid
+        floor, no interior optimum has been located and no specific
+        (c, s) may be reported as "the optimum"."""
+        floor = evaluate_offense_master(0.080, 1.30).criterion
+        inside = evaluate_offense_master(0.090, 1.30).criterion
+        assert floor < inside, (
+            "the criterion now has an interior minimum above c=0.080; an optimum "
+            "can be quoted, which ADR-008 currently says it cannot"
+        )
+
+    def test_training_and_holdout_objectives_disagree_in_direction(self):
+        """The evidence that the gate is not a rubber stamp: a change
+        that hurts the training mean helps the holdout mean."""
+        base = evaluate_offense_master(0.118, 1.17).criterion
+        moved = evaluate_offense_master(0.118, 1.37).criterion
+        assert moved < base, "holdout no longer prefers s=1.37 over s=1.17"

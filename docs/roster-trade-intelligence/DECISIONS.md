@@ -127,18 +127,62 @@ The live OFFENSE master (`c=0.118, s=1.17`) scores **849.8** on the
 held-out criterion — FantasyCalc 852.6, FantasyNavigator 1185.2,
 OTCFFB 1104.9, PFKDynasty 256.7.
 
-A curve at `c=0.098` scores **648.2** on the same boards. **The live
-champion is not at the holdout optimum, and the gap is ~200 points.**
-This is reported, not acted on: changing it is a live valuation change
-requiring its own verification of downstream effects, and this
-workstream's constraint was explicitly not to fold that in. Scoped as
-follow-up work.
+The training and holdout objectives **disagree in direction**: moving
+to `s=1.37` makes the training mean worse (774.4 → 796.8) while making
+the holdout mean better (849.8 → 758.2). A rubber stamp cannot
+disagree with what it stamps, so this is the evidence that the gate is
+real.
 
-Note also that the training and holdout objectives *disagree in
-direction* — moving to `s=1.37` makes the training mean worse
-(774 → 797) while making the holdout mean better (850 → 758). That
-disagreement is the evidence that the gate is not a rubber stamp for
-the fit.
+**The champion is off the mean-holdout optimum — but the claim must be
+stated narrowly.** A first pass recorded "~200 points off optimum at
+`c=0.098`". Re-measuring per board rather than on the mean showed that
+figure to be both too strong and too specific, so it is corrected here
+rather than quietly dropped:
+
+| board | role | RMSE @ champion | best on grid | best `c` |
+|---|---|---|---|---|
+| FantasyCalc | holdout | 852.6 | 321.2 | 0.080 |
+| FantasyNavigator | holdout | 1185.2 | 401.5 | 0.080 |
+| OTCFFB | holdout | 1104.9 | 395.8 | 0.080 |
+| PFKDynasty | holdout | 256.7 | 240.3 | 0.112 |
+| KTC | train | 816.6 | 172.6 | 0.144 |
+| Fitzmaurice | train | 1116.3 | 514.8 | 0.180 |
+| DynastyNerds | train | 1026.2 | 257.4 | 0.096 |
+| DraftSharks | train | 683.2 | 359.5 | 0.080 |
+
+Three findings follow, and the first two disqualify the original claim:
+
+1. **The holdout boards do not agree.** At `c=0.098`, three improve by
+   287–304 points and PFKDynasty gets **worse** by 80.5. PFKDynasty is
+   also the board the champion already fits best — 256.7 against a
+   best-possible 240.3, i.e. the live curve is within ~16 points of
+   *that* board's optimum. The mean improvement is three boards
+   outvoting one, not a consensus.
+2. **The mean-holdout "optimum" is a boundary solution.** Three of four
+   holdout boards bottom out at `c=0.080`, the edge of the search grid,
+   so the grid does not bracket a minimum. Reporting `c=0.098` as "the
+   optimum" was wrong: it is merely a point that scores better than the
+   champion.
+3. **The training boards disagree at least as much** (KTC wants 0.144,
+   Fitzmaurice 0.180, DraftSharks 0.080). The champion at 0.118 sits
+   near the training mean optimum (`c=0.104, s=1.15`, 750.8 vs the
+   champion's 774.4) and far from the holdout mean optimum. That is
+   consistent with the fit tracking its own sources — which is what a
+   holdout is for.
+
+**What is and is not supported.** Supported: *the mean criterion over
+these four boards improves substantially at lower `c`, driven by three
+of them.* Not supported: *the champion is wrong.* The holdout boards
+may share a curve shape the fit sources do not, in which case the
+"optimum" moves with that shared bias rather than toward accuracy.
+Distinguishing the two needs evidence outside all ten boards, and none
+exists here — the same limit already stated for the criterion itself.
+
+**Nothing is acted on.** `src/canonical/player_valuation.py` is
+byte-identical on this branch, and `model_registry.py apply --dry-run`
+reports the shipped champion already matches the live constants (exit
+1, no change). Any curve change is a live valuation change requiring
+its own downstream verification and is explicitly out of scope here.
 
 ### Not implemented, and why
 
