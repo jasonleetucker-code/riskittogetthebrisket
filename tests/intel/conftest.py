@@ -58,13 +58,15 @@ def traded_url(league_id: str) -> str:
 
 def fill_traded_picks(responses: dict[str, Any]) -> dict[str, Any]:
     """Default every league that has a rosters fixture to an EMPTY
-    ``/traded_picks`` feed, unless the test set one explicitly.  A
-    missing traded_picks response means "fetch failed" (None), which
-    is its own tested behavior — most fixtures just want the happy
-    path."""
+    ``/traded_picks`` feed AND an empty week-0 transactions bucket,
+    unless the test set them explicitly.  A missing response means
+    "fetch failed" (None), which is its own tested behavior — most
+    fixtures just want the happy path.  (Week 0 is fetched whenever
+    the crawl's current week is <= 1 — preseason trades live there.)"""
     for url in list(responses):
         if url.endswith("/rosters"):
             responses.setdefault(url.replace("/rosters", "/traded_picks"), [])
+            responses.setdefault(url.replace("/rosters", "/transactions/0"), [])
     return responses
 
 

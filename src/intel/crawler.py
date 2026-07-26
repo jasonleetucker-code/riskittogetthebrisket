@@ -24,10 +24,12 @@ boundaryTxIds}``.  We fetch only the current week (plus the previous
 week within 48h of a week rollover) and skip transactions at or below
 the boundary — ``boundaryTxIds`` disambiguates created-timestamp ties
 at exactly ``maxCreatedSeen``.  This also handles the offseason
-degeneracy where every transaction sits in week 1: refetching week 1
-re-sees old transactions, and the boundary (plus a global event-id
-dedupe) drops them.  First-run backfill walks back at most
-``BACKFILL_MAX_WEEKS`` weeks or ``BACKFILL_MAX_DAYS`` days.
+degeneracy where transactions pile into the week-0 (preseason
+trades) and week-1 buckets: whenever the current week is <= 1 BOTH
+buckets are fetched, and refetches re-see old transactions that the
+boundary (plus a global event-id dedupe) drops.  First-run backfill
+walks back at most ``BACKFILL_MAX_WEEKS`` weeks or
+``BACKFILL_MAX_DAYS`` days, reaching week 0.
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from src.intel.store import default_state
+from src.intel.store import EVENT_RETENTION_DAYS, default_state
 
 log = logging.getLogger(__name__)
 
@@ -330,10 +332,26 @@ def _weeks_to_fetch(
     """
     fetch_state = league_entry.get("fetchState") or {}
     if not fetch_state.get("backfilled"):
-        lo = max(1, current_week - BACKFILL_MAX_WEEKS + 1)
-        return list(range(current_week, lo - 1, -1))
+        # Walk down to week 0: Sleeper stores PRESEASON trades in the
+        # week-0 bucket (the overlay's trade-history path fetches
+        # weeks 0..18 for the same reason — see sleeper_overlay.py's
+        # transactions loop), so a backfill that stops at 1 silently
+        # loses them.
+        lo = max(0, current_week - BACKFILL_MAX_WEEKS + 1)
+        weeks = list(range(current_week, lo - 1, -1))
+        if current_week <= 1:
+            # Offseason/preseason: transactions split across the
+            # week-0 (preseason trades) and week-1 (offseason
+            # degeneracy) buckets — always cover both.
+            for w in (1, 0):
+                if w not in weeks:
+                    weeks.append(w)
+        return weeks
+    if current_week <= 1:
+        # Offseason/preseason steady state: both degenerate buckets.
+        return [current_week, 1 - current_week]
     weeks = [current_week]
-    if current_week > 1 and week_first_seen_ms is not None:
+    if week_first_seen_ms is not None:
         grace_ms = WEEK_ROLLOVER_GRACE_HOURS * 3600 * 1000
         if now_ms - week_first_seen_ms <= grace_ms:
             weeks.append(current_week - 1)
@@ -424,18 +442,22 @@ def crawl(
     new_event_count = 0
 
     # ── 1. NFL state → current week ────────────────────────────────
+    # Week 0 is REAL: Sleeper reports it during the offseason and
+    # stores preseason trades in the week-0 transactions bucket, so
+    # it must never be coerced to 1 (``_weeks_to_fetch`` covers both
+    # degenerate buckets whenever week <= 1).
     week: int | None = None
     if b.can_call():
         nfl_state = b.get(f"{SLEEPER_BASE}/state/nfl")
         if isinstance(nfl_state, dict):
             try:
-                week = int(nfl_state.get("week") or 0)
+                week = int(nfl_state.get("week"))
             except (TypeError, ValueError):
                 week = None
-    if not week or week < 1:
+    if week is None or week < 0:
         prev_week = state.get("week")
-        week = prev_week if isinstance(prev_week, int) and prev_week >= 1 else 1
-    week = max(1, min(18, int(week)))
+        week = prev_week if isinstance(prev_week, int) and prev_week >= 0 else 1
+    week = max(0, min(18, int(week)))
     seen_at = state.get("weekFirstSeenAt") or {}
     if str(week) not in seen_at:
         seen_at[str(week)] = _iso(now)
@@ -594,17 +616,18 @@ def crawl(
             league_entry["rosterOwners"] = rid_to_owner
             league_entry["holdings"] = holdings
         else:
-            # Roster fetch failed — reuse the previous owner map if we
-            # have one; otherwise we can't attribute events, so skip
-            # the transaction fetch entirely.  Either way the league
-            # is retried next run.
-            rid_to_owner = {
-                str(k): str(v) for k, v in (league_entry.get("rosterOwners") or {}).items()
-            }
+            # Roster fetch failed — without the CURRENT owner map we
+            # cannot attribute events safely: a roster may have
+            # changed hands since the last snapshot, and ingesting
+            # with the stale map would make the wrong attribution
+            # PERMANENT once fetchState advances past those
+            # transactions.  Skip the league entirely — no
+            # transaction fetch, no fetchState advance — and retry
+            # next run with fresh owners.
             league_entry["lastError"] = f"rosters_fetch_failed@{_iso(now)}"
-            retry_leagues.append(lid)
-            if not rid_to_owner:
-                continue
+            if lid not in retry_leagues:
+                retry_leagues.append(lid)
+            continue
 
         fetch_state = (
             league_entry.get("fetchState")
@@ -639,8 +662,12 @@ def crawl(
                 if isinstance(tx, dict):
                     fetched_txs.append((w, tx))
             # Backfill age stop: once a whole (non-empty) week is
-            # older than the backfill window, stop walking back.
-            if is_backfill and week_created and max(week_created) < backfill_cutoff:
+            # older than the backfill window, stop walking back.  The
+            # degenerate offseason buckets (weeks 0-1) are exempt —
+            # fresh offseason activity piles into week 1 even when
+            # week 0 holds only stale preseason rows, so a stale
+            # week 0 must not stop the walk.
+            if is_backfill and w > 1 and week_created and max(week_created) < backfill_cutoff:
                 break
 
         if not fetched_all_weeks:
@@ -710,15 +737,53 @@ def crawl(
     # list (preserve-on-failure above), so their leagues stay
     # referenced, and the seed itself is validated by the caller
     # before crawl runs.
+    #
+    # SEASON ROLLOVER: ``/v1/user/<id>/leagues/nfl/<season>`` only
+    # returns the NEW season's league ids, so at rollover every
+    # prior-season league becomes unreferenced at once — dropping
+    # them immediately would wipe recent (<45d) events out of the
+    # rolling trends.  Unreferenced leagues that still have pool
+    # events inside the retention window are therefore RETAINED as
+    # inactive: no further crawling (they never re-enter the fetch
+    # order), holdings cleared (the rolled-over roster no longer
+    # exists), events kept until normal retention expires them —
+    # after which the league entry disappears too.  Same intent as
+    # the overlay's ``previous_league_id`` chain walk
+    # (sleeper_overlay.py) without spending crawl budget on dead
+    # leagues.
     members_block = {oid: entry for oid, entry in members_block.items() if oid in pool}
     state["members"] = members_block
     referenced_leagues: set[str] = set()
     for entry in members_block.values():
         referenced_leagues.update(str(lg) for lg in entry.get("leagues") or [])
     referenced_leagues |= set(all_pending_leagues)
-    leagues_block = {lid: e for lid, e in leagues_block.items() if lid in referenced_leagues}
+
+    retention_cutoff = now - EVENT_RETENTION_DAYS * 24 * 3600 * 1000
+    recent_event_leagues = {
+        str(e.get("leagueId") or "")
+        for e in state.get("events") or []
+        if isinstance(e, dict)
+        and str(e.get("ownerId") or "") in pool
+        and isinstance(e.get("ts"), (int, float))
+        and e["ts"] >= retention_cutoff
+    }
+    retained_inactive = {
+        lid
+        for lid in leagues_block
+        if lid not in referenced_leagues and lid in recent_event_leagues
+    }
+    leagues_block = {
+        lid: e
+        for lid, e in leagues_block.items()
+        if lid in referenced_leagues or lid in retained_inactive
+    }
     state["leagues"] = leagues_block
     for lid, entry in leagues_block.items():
+        if lid in retained_inactive:
+            entry["inactive"] = True
+            entry["holdings"] = {}
+            continue
+        entry["inactive"] = False
         current_members = sorted(
             oid for oid, m in members_block.items() if lid in (m.get("leagues") or [])
         )
@@ -734,6 +799,8 @@ def crawl(
         if isinstance(e, dict)
         and str(e.get("ownerId") or "") in pool
         and str(e.get("leagueId") or "") in leagues_block
+        and isinstance(e.get("ts"), (int, float))
+        and e["ts"] >= retention_cutoff
     ]
 
     budget_exhausted = bool(pending_members or pending_leagues)

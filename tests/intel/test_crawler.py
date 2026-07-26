@@ -28,7 +28,7 @@ def _base_responses() -> dict:
     return {state_url(): {"week": 1, "season_type": "off", "league_season": SEASON}}
 
 
-def _crawl(members, responses, prev_state=None, budget=900, fill_traded=True):
+def _crawl(members, responses, prev_state=None, budget=900, fill_traded=True, now_ms=NOW_MS):
     if fill_traded:
         fill_traded_picks(responses)
     fake = FakeSleeper(responses)
@@ -39,7 +39,7 @@ def _crawl(members, responses, prev_state=None, budget=900, fill_traded=True):
         budget=budget,
         sleep_s=0,
         http_get=fake,
-        now_ms=NOW_MS,
+        now_ms=now_ms,
     )
     return result, fake
 
@@ -106,13 +106,13 @@ class TestBudgetResumability:
     def test_budget_exhaustion_mid_run_is_resumable(self):
         responses = self._three_member_responses()
 
-        # Budget 7: state(1) + 3 member lists + rosters/traded-picks/tx
-        # for the first league only → leagues LB/LC must land in the
-        # cursor.
-        result, _fake = _crawl(["A", "B", "C"], responses, budget=7)
+        # Budget 8: state(1) + 3 member lists + rosters/traded-picks/
+        # tx-week-1/tx-week-0 for the first league only → leagues
+        # LB/LC must land in the cursor.
+        result, _fake = _crawl(["A", "B", "C"], responses, budget=8)
         assert result.budget_exhausted is True
         assert result.completed is False
-        assert result.calls_used == 7
+        assert result.calls_used == 8
         cursor = result.state["cursor"]
         assert cursor["pendingLeagues"] == ["LB", "LC"]
         assert result.new_event_count == 1  # only LA processed
@@ -251,7 +251,7 @@ class TestReconciliation:
         assert set(result2.state["leagues"]) == {"LA"}
         assert {e["assetId"] for e in result2.state["events"]} == {"xa"}
 
-    def test_league_a_member_left_is_dropped(self):
+    def test_league_a_member_left_is_retained_inactive_until_events_expire(self):
         responses = _base_responses()
         responses[leagues_url("A", SEASON)] = [make_league("L1"), make_league("L2")]
         responses[rosters_url("L1")] = [make_roster(1, "A", players=["p1"])]
@@ -261,12 +261,29 @@ class TestReconciliation:
         result1, _ = _crawl(["A"], responses)
         assert set(result1.state["leagues"]) == {"L1", "L2"}
 
-        # A left L2: their fresh league list only has L1.
+        # A left L2: their fresh league list only has L1.  L2 still
+        # has a recent pool event → retained as INACTIVE (events keep
+        # feeding rolling trends), holdings cleared, no crawling.
         responses[leagues_url("A", SEASON)] = [make_league("L1")]
-        result2, _ = _crawl(["A"], responses, prev_state=result1.state)
-        assert set(result2.state["leagues"]) == {"L1"}
-        assert {e["assetId"] for e in result2.state["events"]} == {"x1"}
+        result2, fake2 = _crawl(["A"], responses, prev_state=result1.state)
+        assert set(result2.state["leagues"]) == {"L1", "L2"}
+        assert result2.state["leagues"]["L2"]["inactive"] is True
+        assert result2.state["leagues"]["L2"]["holdings"] == {}
+        assert result2.state["leagues"]["L1"]["inactive"] is False
+        assert {e["assetId"] for e in result2.state["events"]} == {"x1", "x2"}
         assert result2.state["leagues"]["L1"]["memberOwnerIds"] == ["A"]
+        assert fake2.count(rosters_url("L2")) == 0  # not crawled
+
+        # Once L2's events age past retention, the league entry
+        # disappears with them.
+        result3, _ = _crawl(
+            ["A"],
+            responses,
+            prev_state=result2.state,
+            now_ms=NOW_MS + 50 * DAY_MS,
+        )
+        assert set(result3.state["leagues"]) == {"L1"}
+        assert not any(e["leagueId"] == "L2" for e in result3.state["events"])
 
     def test_failed_member_fetch_never_triggers_removal(self):
         state, responses = self._two_member_state()
@@ -422,6 +439,7 @@ class TestPickHoldings:
             make_roster(2, "stranger"),
         ]
         responses[tx_url("L1", 1)] = []
+        responses[tx_url("L1", 0)] = []
 
         # Phase 1: first-ever crawl with a FAILING traded_picks fetch
         # (url missing → None).  No pick holdings may be fabricated,
@@ -456,6 +474,143 @@ class TestPickHoldings:
         assert "traded_picks" in (result3.state["leagues"]["L1"]["lastError"] or "")
         assert result3.state["cursor"] is None
         assert result3.completed is True
+
+
+class TestWeekZero:
+    def test_preseason_trades_in_week_zero_are_fetched(self):
+        # Sleeper reports week 0 in the offseason and stores
+        # PRESEASON trades in the week-0 bucket (the overlay fetches
+        # weeks 0..18 for the same reason).  The crawl must not
+        # coerce week 0 → 1 or those trades never enter the tracker.
+        responses = _base_responses()
+        responses[state_url()] = {"week": 0, "season_type": "pre", "league_season": SEASON}
+        responses[leagues_url("A", SEASON)] = [make_league("L1")]
+        responses[rosters_url("L1")] = [make_roster(1, "A"), make_roster(2, "B")]
+        responses[tx_url("L1", 0)] = [
+            make_trade_tx("pre1", NOW_MS - DAY_MS, adds={"p42": 1}, drops={"p42": 2})
+        ]
+        responses[tx_url("L1", 1)] = []
+
+        result, fake = _crawl(["A", "B"], responses)
+        assert result.state["week"] == 0
+        assert fake.count(tx_url("L1", 0)) == 1
+        assert fake.count(tx_url("L1", 1)) == 1  # offseason degeneracy bucket too
+        assert {(e["ownerId"], e["action"]) for e in result.state["events"]} == {
+            ("A", "add"),
+            ("B", "drop"),
+        }
+        assert all(e["week"] == 0 for e in result.state["events"])
+
+        # Steady state (backfilled) keeps covering both degenerate
+        # buckets, and the refetch produces no duplicates.
+        result2, fake2 = _crawl(["A", "B"], responses, prev_state=result.state)
+        assert fake2.count(tx_url("L1", 0)) == 1
+        assert fake2.count(tx_url("L1", 1)) == 1
+        assert result2.new_event_count == 0
+
+    def test_weeks_to_fetch_reaches_week_zero(self):
+        # Backfill from an early-season week walks down to 0, not 1.
+        entry = {"fetchState": {}}
+        assert crawler._weeks_to_fetch(entry, 2, None, NOW_MS) == [2, 1, 0]
+        assert crawler._weeks_to_fetch(entry, 0, None, NOW_MS) == [0, 1]
+        # Mid-season backfill still caps at BACKFILL_MAX_WEEKS.
+        assert crawler._weeks_to_fetch(entry, 10, None, NOW_MS) == [10, 9, 8, 7, 6, 5]
+        backfilled = {"fetchState": {"backfilled": True}}
+        assert sorted(crawler._weeks_to_fetch(backfilled, 0, None, NOW_MS)) == [0, 1]
+        assert sorted(crawler._weeks_to_fetch(backfilled, 1, None, NOW_MS)) == [0, 1]
+
+
+class TestSeasonRollover:
+    def test_rollover_retains_recent_prior_season_events(self):
+        # Season N: league LOLD produces a 10-day-old and a 50-day-old
+        # event.  Season N+1: the per-season leagues call only returns
+        # the NEW league — reconciliation must keep LOLD inactive with
+        # its 10-day event (rolling trends) while the 50-day one falls
+        # to normal retention.
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [make_league("LOLD", season=SEASON)]
+        responses[rosters_url("LOLD")] = [make_roster(1, "A", players=["p1"])]
+        responses[tx_url("LOLD", 1)] = [
+            make_waiver_tx("old10", NOW_MS - 10 * DAY_MS, 1, add_player="recent"),
+            make_waiver_tx("old50", NOW_MS - 50 * DAY_MS, 1, add_player="ancient"),
+        ]
+        result1, _ = _crawl(["A"], responses)
+        # (the 50d event is already outside the 30d backfill window,
+        # so only the 10d one was ingested — seed it manually to model
+        # a snapshot that legitimately accumulated it 40 days ago)
+        result1.state["events"].append(
+            {
+                "eventId": "seeded:A:add:ancient",
+                "txId": "old50",
+                "leagueId": "LOLD",
+                "ownerId": "A",
+                "assetId": "ancient",
+                "assetType": "player",
+                "action": "add",
+                "txType": "waiver",
+                "ts": NOW_MS - 50 * DAY_MS,
+                "week": 1,
+                "faabBid": 0,
+            }
+        )
+
+        # Rollover: the new season's list has only the new league.
+        responses2 = _base_responses()
+        responses2[leagues_url("A", SEASON)] = [make_league("LNEW", season=SEASON)]
+        responses2[rosters_url("LNEW")] = [make_roster(1, "A", players=["p2"])]
+        responses2[tx_url("LNEW", 1)] = []
+        result2, fake2 = _crawl(["A"], responses2, prev_state=result1.state)
+
+        assert set(result2.state["leagues"]) == {"LNEW", "LOLD"}
+        assert result2.state["leagues"]["LOLD"]["inactive"] is True
+        assert result2.state["leagues"]["LOLD"]["holdings"] == {}
+        assert result2.state["leagues"]["LNEW"]["inactive"] is False
+        events = result2.state["events"]
+        assert any(e["assetId"] == "recent" for e in events)  # 10d kept
+        assert not any(e["assetId"] == "ancient" for e in events)  # 50d pruned
+        # The dead league costs zero crawl budget.
+        assert fake2.count(rosters_url("LOLD")) == 0
+        assert not any("/league/LOLD/transactions/" in c for c in fake2.calls)
+
+
+class TestStaleOwnerAttribution:
+    def test_roster_failure_blocks_ingest_until_owners_refetch(self):
+        # Run 1: roster 1 belongs to pool member A; tx t1 ingests.
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [make_league("L1")]
+        responses[leagues_url("B", SEASON)] = [make_league("L1")]
+        responses[rosters_url("L1")] = [make_roster(1, "A")]
+        responses[tx_url("L1", 1)] = [make_waiver_tx("t1", NOW_MS - 2 * DAY_MS, 1, add_player="x1")]
+        result1, _ = _crawl(["A", "B"], responses)
+        fs1 = dict(result1.state["leagues"]["L1"]["fetchState"])
+        assert {e["ownerId"] for e in result1.state["events"]} == {"A"}
+
+        # Run 2: the roster was REASSIGNED to B, but the rosters
+        # request fails.  A new transaction t2 exists.  Ingesting it
+        # with the stale (A) owner map and advancing fetchState would
+        # make the wrong attribution permanent — so nothing may be
+        # ingested and fetchState must not move.
+        del responses[rosters_url("L1")]
+        responses[tx_url("L1", 1)] = [
+            make_waiver_tx("t1", NOW_MS - 2 * DAY_MS, 1, add_player="x1"),
+            make_waiver_tx("t2", NOW_MS - DAY_MS, 1, add_player="x2"),
+        ]
+        result2, fake2 = _crawl(["A", "B"], responses, prev_state=result1.state)
+        assert not any(e["assetId"] == "x2" for e in result2.state["events"])
+        assert result2.state["leagues"]["L1"]["fetchState"] == fs1  # not advanced
+        assert result2.state["cursor"]["pendingLeagues"] == ["L1"]
+        assert "rosters_fetch_failed" in result2.state["leagues"]["L1"]["lastError"]
+        # No transaction fetch was even attempted with stale owners.
+        assert fake2.count(tx_url("L1", 1)) == 0
+
+        # Run 3: the endpoint recovers with the CURRENT owner map —
+        # t2 ingests with the correct (new) owner B.
+        responses[rosters_url("L1")] = [make_roster(1, "B")]
+        result3, _ = _crawl(["A", "B"], responses, prev_state=result2.state)
+        t2_events = [e for e in result3.state["events"] if e["assetId"] == "x2"]
+        assert len(t2_events) == 1
+        assert t2_events[0]["ownerId"] == "B"
+        assert result3.state["cursor"] is None
 
 
 class TestSeedCollection:
