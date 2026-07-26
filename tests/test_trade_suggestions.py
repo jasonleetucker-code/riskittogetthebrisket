@@ -33,6 +33,7 @@ from src.trade.suggestions import (
     MAX_RECEIVE_TARGET_PER_CATEGORY,
     MAX_LOW_CONFIDENCE_PER_CATEGORY,
     KTC_TOP_N_FILTER,
+    BOARD_TOP_N_FILTER,
 )
 
 
@@ -1988,14 +1989,20 @@ class TestPackageDeterminism:
 
 
 class TestKtcTopNFilter:
-    """Verify the KTC top-150 quality gate in the suggestions engine."""
+    """Verify the blended-board top-150 quality gate.
+
+    WS-J F-4/F-5: this gate was named for KTC but has always ranked on
+    our own blended board.  These tests now assert that intent — and
+    the fixture includes IDP, because the previous QB/RB/WR/TE-only
+    fixture made the engine's IDP behaviour structurally unobservable.
+    """
 
     def _make_large_snapshot(self, n=200):
         """Build a snapshot with n players of descending value."""
         assets = []
         for i in range(n):
             val = 9000 - i * 40
-            pos = ["QB", "RB", "WR", "TE"][i % 4]
+            pos = ["QB", "RB", "WR", "TE", "LB", "DL", "DB"][i % 7]
             assets.append(
                 _make_asset(
                     f"Player_{i:03d}",
@@ -2008,7 +2015,9 @@ class TestKtcTopNFilter:
         return _build_snapshot(assets)
 
     def test_default_filter_is_150(self):
-        assert KTC_TOP_N_FILTER == 150
+        assert BOARD_TOP_N_FILTER == 150
+        # Deprecated alias must stay in lockstep.
+        assert KTC_TOP_N_FILTER == BOARD_TOP_N_FILTER
 
     def test_pool_size_capped_at_top_n(self):
         snap = self._make_large_snapshot(300)
@@ -2017,10 +2026,13 @@ class TestKtcTopNFilter:
 
     def test_pool_all_top_ranked(self):
         snap = self._make_large_snapshot(300)
-        pool = build_asset_pool(snap, ktc_top_n=100)
+        pool = build_asset_pool(snap, board_top_n=100)
+        # ``p.board_rank is not None`` was the old assertion here; it
+        # could never fail, because _assign_board_ranks assigns an int
+        # to every player.  Assert the gate instead (WS-J F-5).
+        assert pool, "filter removed everything"
         for p in pool:
-            assert p.ktc_rank is not None
-            assert p.ktc_rank <= 100
+            assert p.board_rank <= 100
 
     def test_filter_disabled_when_zero(self):
         snap = self._make_large_snapshot(300)
@@ -2033,11 +2045,50 @@ class TestKtcTopNFilter:
         vals = [p.display_value for p in pool]
         assert vals == sorted(vals, reverse=True)
 
-    def test_ktc_rank_assigned_sequentially(self):
-        snap = self._make_large_snapshot(50)
-        pool = build_asset_pool(snap, ktc_top_n=0)
-        ranks = [p.ktc_rank for p in pool]
-        assert ranks == list(range(1, 51))
+    def test_board_rank_follows_blended_display_value(self):
+        """Rank must track OUR board's ordering, not insertion order.
+
+        WS-J F-4: the previous test asserted ``ranks == range(1, 51)``
+        on a fixture already emitted in descending value, so it passed
+        whether the code ranked by value or merely enumerated the list.
+        It documented the implementation instead of the intent.  Feed
+        the pool in a shuffled order so only a value-ordered rank can
+        satisfy it.
+        """
+        assets = [
+            _make_asset("Low", "WR", 3000, display_value=3000, source_count=6),
+            _make_asset("High", "QB", 9000, display_value=9000, source_count=6),
+            _make_asset("Mid", "LB", 6000, display_value=6000, source_count=6),
+        ]
+        pool = build_asset_pool(_build_snapshot(assets), board_top_n=0)
+        by_name = {p.name: p for p in pool}
+        assert by_name["High"].board_rank == 1
+        assert by_name["Mid"].board_rank == 2
+        assert by_name["Low"].board_rank == 3
+
+    def test_gate_does_not_require_retail_coverage(self):
+        """IDP must survive a gate our own board can evaluate.
+
+        finder.py anchors on retail markets and needs IDPTradeCalc for
+        defenders; this engine gates on the blended board, which covers
+        every asset class.  An IDP player inside the top N must not be
+        filtered for lacking KTC coverage (the F-3 failure mode).
+        """
+        assets = [
+            _make_asset("OffStar", "WR", 9000, display_value=9000, source_count=6),
+            _make_asset("IdpStar", "LB", 8000, display_value=8000, source_count=6),
+        ]
+        pool = build_asset_pool(_build_snapshot(assets), board_top_n=150)
+        assert {p.name for p in pool} == {"OffStar", "IdpStar"}
+
+    def test_metadata_reports_the_gate_that_actually_ran(self):
+        """Metadata must name the blended board, not KTC (WS-J F-4)."""
+        snap = self._make_large_snapshot(200)
+        roster = [f"Player_{i:03d}" for i in range(20)]
+        result = generate_suggestions(roster, snap, board_top_n=100)
+        assert result["metadata"]["boardTopNFilter"] == 100
+        # Deprecated alias retained for existing consumers.
+        assert result["metadata"]["ktcTopNFilter"] == 100
 
     def test_suggestions_only_include_top_n_players(self):
         """Every player in every suggestion must be inside the KTC top N."""
