@@ -44,6 +44,18 @@ distinction is tracked per item.
 Their branches advance after this snapshot. Commit counts are as of
 2026-07-26 ~19:45 UTC.
 
+**5. §16 was added after this document merged, and partly contradicts
+§1–§15.** A second session independently wrote a competing version of this
+file (PR #557) with no shared context, and **read the large modules §4D
+lists as unread**. Its findings were re-verified against `main` and carried
+into **§16**. Two claims above are wrong and are corrected inline with
+pointers to §16 — the "no database" claim in §3/§9 and the
+`grant-ssh-access.yml` item in §10/§13. **§16.7 lists thirteen findings
+from that audit that did *not* survive verification**, including two whose
+obvious remediation would have made the product worse. Where §16 and
+§1–§15 disagree, §16 was checked against source later and wins on fact;
+§1–§15 wins on session history, which §16's author could not see.
+
 ---
 
 ## 1. Original Objective
@@ -306,7 +318,7 @@ merge when genuinely ready.
 | Frontend | `frontend/` — Next.js 15 / React 19, App Router, port 3000 | ✅ |
 | Design system | `frontend/components/ds/` | ✅ base; 🔶 `Confidence` |
 | Backend | `server.py` (~10k lines), FastAPI/Uvicorn, port 8000 | ✅ |
-| **Database** | **None.** JSON snapshots on disk (`data/`, `exports/`) | ✅ |
+| **Database** | **Three SQLite stores** (`data/user_kv.sqlite`, `data/session_store.sqlite`, `data/guest_passes.sqlite`) + JSON/CSV snapshots on disk (`data/`, `CSVs/`, `exports/`). **No relational DB server, no analytics store.** Corrected — see §16.2 | ✅ |
 | Live valuation | `src/api/data_contract.py::_compute_unified_rankings` | ✅ |
 | Source adapters | `src/adapters/`, `scripts/fetch_*.py` | ✅ |
 | Identity | `src/identity/`, `src/utils/name_clean.py` | ✅ |
@@ -325,9 +337,20 @@ merge when genuinely ready.
 
 ### Notable architectural facts
 
-- **No database.** Everything is JSON snapshots. An auditor should treat
-  "database migrations" as N/A and question whether this scales to the
-  proposed engines.
+- **No relational database server, but not "no database".** The original
+  text here read *"No database. Everything is JSON snapshots… treat
+  database migrations as N/A."* **That was wrong and is corrected** by the
+  independent audit in PR #557: three SQLite stores exist
+  (`data/user_kv.sqlite`, `data/session_store.sqlite`,
+  `data/guest_passes.sqlite`), two of which are present on disk right now,
+  with schema application in `src/api/user_kv.py::_apply_schema` and a
+  migration module at `src/api/signal_state_migration.py`. `user_kv.sqlite`
+  is the **only genuinely irreplaceable state** in the system and has a
+  dedicated backup script (`deploy/backup_user_kv.sh`). Everything else —
+  rankings, ROS, intel, public-league — is JSON/CSV snapshots that a
+  refresh cycle rebuilds. The substantive concern survives the correction:
+  there is no analytics store, no versioned snapshot table, and nothing a
+  champion-challenger workflow could query. See §16.2.
 - **`FRONTEND_RUNTIME` is hardcoded to `next`**; page routes proxy to Next.
 - **The backend page proxy is broken** — serves the anonymous shell to
   signed-in sessions; `/waivers`, `/news`, `/draft` absent from its
@@ -603,28 +626,37 @@ means premium *scoring* or 2-TE *structure*.
 
 ### 4D — Named but NOT VERIFIED THIS SESSION
 
-The auditor should treat every item here as unread by me.
+The auditor should treat every item here as unread **by the session that
+wrote this document**. A **second, independent session** (PR #557, working
+from a cold start with no shared context) subsequently read many of them
+directly from source. Its findings were re-verified against current `main`
+and are carried in **§16**; the `→ §16.x` column says where.
 
-| System | File / function |
-|---|---|
-| Exact scoring engine (141 keys) | `src/league_intel/scorer.py::score_stat_line` |
-| Best-ball optimizer | `src/ros/lineup.py::optimize_lineup`, `solve_optimal_assignment` |
-| Replacement levels, scarcity | `src/league_intel/replacement.py` |
-| Guardrails, evidence tiers | `src/league_intel/adjustment.py` |
-| Value schema, selector | `src/league_intel/values.py::get_active_value` |
-| ROS aggregation | `src/ros/aggregate.py` |
-| Team strength composite | `src/ros/team_strength.py` |
-| Playoff/championship sim | `src/ros/playoff_sim.py` |
-| Pick projection | `src/ros/pick_projection.py` |
-| FAAB recommender | `src/trade/faab_recommender.py::recommend_faab` |
-| FAAB contention | `src/trade/faab_contention.py::estimate_rival_bids` |
-| Trade suggestions | `src/trade/suggestions.py` |
-| KTC arbitrage finder | `src/trade/finder.py` |
-| Counter-package builder | `src/trade/angle.py` |
-| Monte Carlo trade sim | `src/trade/monte_carlo.py` |
-| Value adjustment (VA) | `src/trade/angle.py::_adjusted_pair_totals` |
-| Intel aggregation | `src/intel/aggregate.py` |
-| Signal engine | `frontend/lib/signal-engine.js` |
+Items still marked `—` remain unread by anyone.
+
+| System | File / function | Now read? |
+|---|---|---|
+| Exact scoring engine (141 keys) | `src/league_intel/scorer.py::score_stat_line` | → §16.6 (branch-only) |
+| Best-ball optimizer | `src/ros/lineup.py::optimize_lineup`, `solve_optimal_assignment` | → §16.6 |
+| Replacement levels, scarcity | `src/league_intel/replacement.py` | → §16.6 (branch-only) |
+| Guardrails, evidence tiers | `src/league_intel/adjustment.py` | → §16.6 (branch-only) |
+| Value schema, selector | `src/league_intel/values.py::get_active_value` | → §16.6 (branch-only) |
+| ROS aggregation | `src/ros/aggregate.py` | — |
+| Team strength composite | `src/ros/team_strength.py` | — |
+| Playoff/championship sim | `src/ros/playoff_sim.py` | — |
+| Pick projection | `src/ros/pick_projection.py` | — |
+| FAAB recommender | `src/trade/faab_recommender.py::recommend_faab` | → §16.5 |
+| FAAB contention | `src/trade/faab_contention.py::estimate_rival_bids` | → §16.5 |
+| Trade suggestions | `src/trade/suggestions.py` | → §16.4 |
+| KTC arbitrage finder | `src/trade/finder.py` | → §16.4 |
+| Counter-package builder | `src/trade/angle.py` | — |
+| Monte Carlo trade sim | `src/trade/monte_carlo.py` | — |
+| Value adjustment (VA) | `src/trade/angle.py::_adjusted_pair_totals` | — |
+| Intel aggregation | `src/intel/aggregate.py` | → §16.5 |
+| Signal engine | `frontend/lib/signal-engine.js` | — |
+| Live pipeline internals (§4B, reproduced from `CLAUDE.md` only) | `src/api/data_contract.py`, `src/canonical/player_valuation.py` | → §16.3 |
+| Power rating, team direction | `src/ros/power_v2.py`, `src/ros/direction.py` | → §16.5 |
+| Injury discount | `src/api/injury_impact.py` | → §16.3 |
 
 ---
 
@@ -909,7 +941,10 @@ today**), `DEPLOY_HOST/USER/PORT/SSH_PRIVATE_KEY/KNOWN_HOSTS`,
 `RATE_LIMIT_BYPASS_IPS`, `DRAFTSHARKS_EMAIL/PASSWORD`,
 `SLEEPER_LEAGUE_ID`, `BASELINE_LEAGUE_ID`.
 
-**Database migrations: none. There is no database.**
+**Database migrations: none were run this session.** (The earlier claim
+"there is no database" was wrong — see §3 and §16.2. Three SQLite stores
+exist; schema application is idempotent-on-open, not a versioned migration
+chain.)
 
 **Deployment results:** deploys green through the day (latest 15:48 UTC).
 Production healthy on `169.58.50.224` — `has_data: true`, scrape 1.2h old.
@@ -923,7 +958,7 @@ Production healthy on `169.58.50.224` — `has_data: true`, scrape 1.2h old.
 | Item | Evidence |
 |---|---|
 | **No TLS in production.** Login credentials cross the network in plaintext | `https://169.58.50.224` does not respond |
-| **`grant-ssh-access.yml` is a standing production-shell path** for anyone with repo access | user created via web UI; not yet deleted |
+| ~~**`grant-ssh-access.yml` is a standing production-shell path**~~ **— CORRECTED, it was already deleted.** The residual question is whether it ever ran | Added `5536f4b9` 2026-07-26 14:08 EDT, deleted `c534280d` 14:41 EDT — 33 minutes later, and before this document was written. Not present on `main`. Correction sourced from PR #557; see §16.7 |
 | **`useAuth` resolves *terminally* to unauthenticated after a 5s timeout, no retry** — strands a valid session on the anonymous shell for the page's life | #555 |
 | **F-6: `finder.py` values assets off the raw scraper composite**, not `_compute_unified_rankings`, contradicting `CLAUDE.md`'s "one and only code path" | `docs/.../F-6-finder-valuation-path.md` |
 | **Nothing is merged.** Six PRs, all unmerged | — |
@@ -1077,7 +1112,9 @@ deployment.
 1. **Merge in dependency order:** #551 → #552 → #550 → #554 → #556 → #553.
    Verify the `journey.js` invariant before each redesign merge; expect one
    known safe conflict in `journey-trade.spec.js`.
-2. **Delete `grant-ssh-access.yml`** (critical).
+2. ~~**Delete `grant-ssh-access.yml`**~~ — **already done** (`c534280d`,
+   2026-07-26). Replace with: **determine whether it ever executed**, and
+   if it did, rotate anything it could have exposed (§16.7).
 3. Close #545.
 4. **Resolve the page-proxy decision** (fix vs delete).
 
@@ -1219,6 +1256,1092 @@ config/weights/pick_year_discount.json
 
 ---
 
+## 16. Independent cross-audit (sourced from PR #557)
+
+### 16.0 Where this section came from, and what was done to it
+
+While this document was being merged (PR #553), a **second Claude session**
+independently wrote a document for the same path. It had **no shared
+context with the session that wrote §1–§15**: a cold container, a fresh
+clone, and the handoff request as its first message. It reconstructed the
+project from git history, PR bodies, ADRs and roadmap documents — and,
+critically, it **read the large modules that §4D above lists as unread.**
+It opened as PR #557 (1,651 lines, branch
+`claude/session-audit-handoff-tvxfc1`, head `f721304f`, based on
+`c534280d`). Both documents could not merge; the paths collide.
+
+**#557's value is precisely that it was written without this session's
+assumptions.** That also means it was written against `c534280d`, and
+`main` has moved several merges since — most importantly **#556** (trade
+finder per-market gate) and **#551** (Redesign R3). So every unique finding
+in #557 was **re-verified against current `main` before being carried
+here**. This section is the surviving material.
+
+**Method and its limits.** Verification was by reading current source at
+`253568bc` and by `git show` against the `pull/550/head` branch. **No tests
+were executed** and no production endpoint was probed. Where #557 quoted a
+test result from another agent's PR body, that provenance is preserved and
+the figure remains unverified. Where verification **contradicted** #557,
+the contradiction is recorded in §16.7 rather than silently dropped.
+
+**What was dropped, and why, is recorded in the PR #557 close comment** so
+the record shows what happened to that session's work.
+
+---
+
+### 16.1 Corrections #557 made to *this* document
+
+Two claims in §1–§15 were wrong. Both have been fixed inline above; they
+are listed here so the correction is auditable rather than invisible.
+
+| Where | Original claim | Correction |
+|---|---|---|
+| §3, §9 | "**No database.** Everything is JSON snapshots… treat database migrations as N/A" | **Three SQLite stores exist.** See §16.2 |
+| §10 Critical, §13 Day 1 | "`grant-ssh-access.yml` is a standing production-shell path… not yet deleted" | **Already deleted** `c534280d`, 33 minutes after creation, before this document was written. See §16.7 |
+
+The second is the more instructive failure: this document listed as a
+**Critical** open risk something the repository had already closed, and put
+"delete it" on the Day-1 plan. That is the same class of error §12
+catalogues — asserting repository state without checking it — committed
+inside the very document cataloguing it.
+
+---
+
+### 16.2 Persistence — corrected
+
+**Verified on `main`.** There is no relational database *server*, which is
+what the original claim was reaching for. There are three SQLite stores:
+
+| Store | Path | Contents | Verified |
+|---|---|---|---|
+| User KV | `data/user_kv.sqlite` | per-user `selectedTeam`, `watchlist`, `dismissedSignals`, `dismissalAliases`; one row per user, `state_json` + `updated_at` | present on disk |
+| Sessions | `data/session_store.sqlite` | auth sessions surviving restart; TTL `SESSION_TTL_DAYS` default 30; rows carry an `allowlist_version` hash so an allowlist change invalidates sessions | present on disk |
+| Guest passes | `data/guest_passes.sqlite` | invitation passes, revocation; tokens stored as SHA-256 hashes | module present (`src/api/guest_passes.py`) |
+
+Schema application lives in `src/api/user_kv.py::_apply_schema`; a
+migration module exists at `src/api/signal_state_migration.py`;
+`src/api/startup_validation.py` health-checks `user_kv.sqlite` and
+`session_store.sqlite` at boot.
+
+Everything else is JSON/CSV on disk: source CSVs (`CSVs/`, `data/`),
+contract snapshots, `data/intel/snapshot_<leagueKey>.json` (pruned to 45
+days), `data/public_league/`, `data/ros/aggregate/latest.json`, `exports/`.
+
+**Consequence the auditor should carry forward:** `data/intel/` and
+`data/public_league/` are explicitly accepted as lost-on-rebuild (the next
+run backfills). **`user_kv.sqlite` is the only genuinely irreplaceable
+state in the system**, and it has a dedicated backup script
+(`deploy/backup_user_kv.sh`). §13 Day 7 should include verifying that
+script actually produces a restorable artifact — it protects the one thing
+a VPS rebuild cannot regenerate.
+
+**The original concern survives the correction.** There is no analytics
+store, no versioned snapshot table, and nothing a champion-challenger
+workflow could query. §12's "Underengineering" bullet stands on that
+basis; only its phrasing was wrong.
+
+---
+
+### 16.3 The live valuation pipeline, read from source
+
+§4B reproduced the twelve steps **from `CLAUDE.md`, explicitly not
+re-verified**. #557 read them from `src/api/data_contract.py` and
+`src/canonical/player_valuation.py`. **Every constant below was
+re-confirmed against current `main` at the file and line given.** This is
+the single largest block of material #557 contributes: it converts §4B
+from documentation-echo into a verified reading.
+
+**Value scale.** 0–9999 integer. `_DISPLAY_SCALE_MAX = 9999`
+(`data_contract.py:4841`), `DISPLAY_SCALE_MIN = 1`
+(`player_valuation.py:126`). Dimensionless value points — not dollars, not
+projected fantasy points. The top asset on any source normalizes to 9999.
+
+**Rank → percentile** (`data_contract.py:4797`):
+
+```
+p = (rank − 1) / (N_ref − 1),  clamped to [0, 1]
+N_ref = _PERCENTILE_REFERENCE_N = 500     (:4849)
+```
+
+`N_ref` is a **fixed reference pool size, not the source's own pool size**,
+so every source's contribution lands in one combined-pool coordinate
+system; 500 aligns with KTC's native pool. **Weakness, stated in the code
+and sharpened by #557:** ranks past 500 clamp to the curve tail, so rank
+520 and rank 900 are indistinguishable in value terms — and this league's
+rostered universe is 12 × 58 = **696 spots**, so a meaningful slice of it
+sits in the flat region. Carried to §16.9 as an open question.
+
+**Percentile → value (Hill)** — `player_valuation.py::percentile_to_value`
+(`:366`):
+
+```
+V(p) = 9999 / (1 + (p / c)^s)
+```
+
+Four scope-level masters (`player_valuation.py:88–114`), all four
+re-verified:
+
+| Curve | `c` | `s` | Implied midpoint (rank) | Routed live? |
+|---|---|---|---|---|
+| GLOBAL | 0.1130 | 0.870 | 56.4 | ✅ cross-market sources |
+| OFFENSE | 0.1180 | 1.170 | 58.9 | ✅ default |
+| IDP | 0.0930 | 0.970 | 46.4 | ✅ overall IDP |
+| ROOKIE | 0.1280 | 0.865 | 63.9 | ❌ **fit-only, not routed** |
+
+Routing is at `_curve_for_source` (`data_contract.py:6009`):
+`is_cross_market → GLOBAL`; `scope == overall_idp → IDP`; **everything
+else, including picks, → OFFENSE**. Rookie-only sources ladder-translate
+into combined-pool rank space *before* this point (retired 2026-04-21), so
+the ROOKIE master has no live consumer. The contract stamps
+`routed: false` on it explicitly (`:4907`) — this is known dead compute,
+not a hidden one.
+
+> **Additional finding, not in either document.** The docstring above
+> `HILL_ROOKIE_PERCENTILE_C` in `player_valuation.py` still says the ROOKIE
+> master is *"Used for every rookie-only source's contributions (DLF Rookie
+> SF, DLF Rookie IDP)"*. That is **stale** — it describes the pre-2026-04-21
+> routing that `_curve_for_source` retired. A reader who trusts the
+> docstring over the routing gets the wrong model. Low severity, trivial fix.
+
+Legacy rank-form constants are separately maintained in the same module
+(`:55–73`): `HILL_MIDPOINT = 48.44`, `HILL_SLOPE = 1.149`,
+`IDP_HILL_MIDPOINT = 69.50`, `IDP_HILL_SLOPE = 0.945`. **Two parallel
+parameterizations live in one module and nothing enforces that they
+agree** — a real maintenance hazard #557 identified.
+
+Worked example on the OFFENSE curve (c=0.1180, s=1.170), useful for
+sanity-checking any future refit:
+
+| Rank | 1 | 12 | 25 | 59 | 120 | 250 | 500 |
+|---|---|---|---|---|---|---|---|
+| V | 9999 | 8709 | 7346 | 5050 | 3083 | 1559 | 757 |
+
+**Value-direct voting** (`_VALUE_BASED_SOURCES`, `:5026`) —
+`contribution = raw / site_max × 9999`, membership exactly `ktcSfTep` +
+`idpTradeCalc`. An import-time invariant
+(`_validate_value_based_sources_invariant`, `:5056`, called at `:5109`)
+fails module load if a `signal: value` source is neither in the set nor
+declares a `ds_combined_rank_partner`.
+
+**Provenance of the removals** — all re-verified in registry comments, and
+genuinely useful because it shows the value-direct path is *earned*, not
+assigned:
+
+| Source | Removed | Hampel drop rate that triggered it | Recorded cause |
+|---|---|---|---|
+| `dynastyDaddySf` | 2026-04-22 | 61% (worst in registry) | 10,200 cap with top 3 tied |
+| `yahooBoone` | 2026-04-22 | 47% | 141 top with seven players ≥110 |
+| `fantasyProsFitzmaurice` | 2026-04-22 | 19% | 0–101 scale, top dozen bunched 80–101 |
+| `fantasyCalc` | 2026-07-25 | 55–58% every week live | crowd curve decays faster than KTC-anchored consensus |
+| `otcffbSf` | 2026-07-25 | 56% → 86% | same |
+| `ktc` (standard) | 2026-04-28 | — | retired from blend; values retained for the arbitrage finder + per-source display |
+
+**DraftSharks carve-out:** DS publishes offense and IDP on one
+cross-market "3D Value +" scale that goes **negative** past ~rank 200. Per-CSV
+normalization would erase DS's native offense/IDP ratio and mishandle
+negatives, so the two CSVs merge into one cross-market rank list routed
+through the GLOBAL master.
+
+**Registry size:** **21 sources**, enumerated and confirmed in order —
+`ktcSfTep, idpTradeCalc, dlfSf, dlfRookieSf, dlfIdp, dlfRookieIdp, idpShow,
+dynastyNerdsSfTep, fantasyCalc, otcffbSf, fantasyNavigatorSf, pfkDynasty,
+dynastyDaddySf, fantasyProsSf, fantasyProsIdp, fantasyProsFitzmaurice,
+flockFantasySf, flockFantasySfRookies, yahooBoone, draftSharks,
+draftSharksIdp`.
+
+**Hampel outlier rejection** (`_hampel_filter_per_player`, constants at
+`:231–233`):
+
+```
+drop source i if |v_i − median(v)| > max(K × MAD(v), floor)
+K = _HAMPEL_K = 2.75,  floor = _HAMPEL_MIN_THRESHOLD = 1000.0,  min_n = _HAMPEL_MIN_N = 4
+```
+
+Guards: no filtering below 4 values; none when MAD = 0; none if it would
+leave fewer than 2 survivors; **pick rows skip Hampel entirely**. The
+floor is 1000 and not 500 because KTC + ktcSfTep + IDPTC + dynastyDaddySf
+ride a shared market and cluster within 50–150 points (MAD ≪ 200), so
+K·MAD collapses to the floor — and rank-Hill sources, which span ~2000
+points between adjacent rank decades at the steep top, then fell outside a
+500-point floor on routine disagreement at 18–25% rates.
+
+**Count-aware blend** (`count_aware_mean_median_blend`, `:5855`) —
+read and confirmed line by line:
+
+| n | Center | MAD |
+|---|---|---|
+| 1 | the value | `None` |
+| 2 | mean | half-range |
+| 3–4 | (mean + median)/2, **untrimmed** | over full set |
+| ≥5 | (trimmed_mean + trimmed_median)/2, drop one max + one min | over trimmed set |
+
+The prior implementation trimmed at n≥3, collapsing n=3 to a single
+surviving source. Corrected 2026-04-20.
+
+**Hierarchical anchor + α-shrinkage** (`_ALPHA_SHRINKAGE = 0.10`, `:4941`):
+
+```
+Final_center = Anchor + α × (SubgroupBlend − Anchor)
+```
+
+Gating: IDP rows and picks take the hierarchical path (the pick anchor set
+is widened to include `ktcSfTep` so KTC and IDPTC average as peers);
+**offense takes a flat count-aware mean-median and stamps
+`alphaShrinkage: 0.0`.**
+
+**Tuning history #557 recovered, and it is the most decision-relevant thing
+in this subsection.** α was 0.30 in the PR-3 standalone sweep. A 2D α×λ
+joint backtest (`reports/alpha_lambda_joint_backtest_full.md`) found the
+true stability optimum at **α = 0** — the degenerate "use IDPTC alone"
+solution. That was **rejected as product-bad** because it violates the
+declared consensus-fit objective in
+`docs/architecture/optimization-target.md`. α = 0.10 was chosen as the
+cheapest non-degenerate joint point, **explicitly accepting ~2× worse
+stability than the degenerate optimum.**
+
+This is a documented, deliberate accuracy-for-principle trade. The metric
+said "ignore the other 15 sources"; the product said "no". **Both positions
+are defensible and the decision is not empirically settled** — it belongs
+in front of the reviewer, and §14 did not previously ask it. Carried to
+§16.9.
+
+The offense flat-blend rationale (2026-04-20) is separately recorded: IDPTC
+as a hard anchor at α=0.10 over-weighted it against other sources and
+caused ordering glitches — the cited example is Drake Maye ranking below
+Jaxon Smith-Njigba where the offense consensus had Maye higher.
+
+**MAD penalty — retired** (`_MAD_PENALTY_LAMBDA = 0.0`, `:4975`). λ was
+0.5 in PR 2, then 0.10 after the joint backtest, then 0.0 on 2026-04-20:
+the count-aware blend already damps disagreement on offense and
+α-shrinkage already damps it on IDP/picks, so λ·MAD stacked a third
+penalty on the same signal and hid real board movement. `sourceSpread`
+remains a pure diagnostic. **`madPenaltyApplied` is still stamped as
+`None` purely because frontend builds read the key** — dead-field debt.
+
+**IDP calibration + market corridor clamp** — see §16.7, where #557's
+framing needed correction.
+
+**TEP multipliers** (`:5382–5383`): `_TE_BLANKET_NON_NATIVE_MULTIPLIER =
+1.15`, `_TE_BLANKET_NATIVE_MULTIPLIER = 1.10`, exempt keys
+`{ktc, ktcSfTep}`. Operator slider clamps the non-native multiplier to
+[1.0, 1.5]. **New detail:** league auto-derivation from Sleeper's
+`bonus_rec_te` exists at `_derive_tep_multiplier_from_league` with
+`_TEP_DERIVATION_SLOPE = 0.30` (`:5319`), derived value clamped to
+[1.0, 2.0]: `tep_multiplier = 1.0 + bonus_rec_te × 0.30`. Since this
+league set `bonus_rec_te = 0` for 2026, the derivation yields 1.0 and the
+blanket multipliers are what actually apply.
+
+**Pick tethering and future-year discount.** `_ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT
+= 12`, `_ROOKIE_ANCHOR_ROUNDS = 6` (`:5295–5296`). Discounts from
+`config/weights/pick_year_discount.json`, verified verbatim:
+
+| Offset from current rookie draft | 0 | 1 | 2 | 3 | >3 |
+|---|---|---|---|---|---|
+| Multiplier | 1.00 | 0.82 | 0.66 | 0.53 | `0.80 ^ offset` |
+
+`current_rookie_draft_year()` resolves: (1) manual `currentDraftYear`
+override if set — currently `null`; (2) **derived from the scrape** — the
+lowest year still carrying slot-specific `YYYY Pick R.SS` rows is the
+active class; (3) date fallback rolling on May 15.
+
+**The offset schema is a genuinely good design choice and #557 is right to
+credit it** — it self-rolls when the sources advance to the next class, so
+it never goes stale and needs no config edit. Two caveats it also raises:
+0.82 / 0.66 / 0.53 is very nearly `0.82^n` (0.82, 0.672, 0.551), so the
+explicit table barely differs from geometric decay at 0.82 — while
+`fallbackBase` is **0.80**, a third rate. No source or backtest is cited
+for any of them.
+
+**Confidence buckets and disagreement flags** (`:111–190`) — all verified:
+
+| Bucket | Rule |
+|---|---|
+| high | ≥2 sources AND percentileSpread ≤ 0.08 |
+| medium | ≥2 sources AND percentileSpread ≤ 0.20 |
+| low | single source, OR spread > 0.20, OR no percentile signal and absolute ordinal spread > 80 |
+| none | no unified rank |
+
+Legacy absolute fallbacks `_CONFIDENCE_SPREAD_HIGH = 30`,
+`_CONFIDENCE_SPREAD_MEDIUM = 80` are retained for callers that pass no
+percentile spread.
+
+**Trimmed percentile spread** (`_PERCENTILE_SPREAD_TRIM_MIN_N = 5`): at
+n≥5, drop the single most extreme percentile on **each** side before
+max−min. The recorded rationale is worth reproducing because it is a clean
+example of a metric that degraded as the product improved: raw max−min
+grows mechanically with source count, so after the May–July source
+additions top players carried ~12 sources and **72% of the top-200 board
+carried a "wide disagreement" flag — flags rose *with* coverage, so more
+data read as less confidence.** Post-fix, measured on the 2026-07-25 live
+board: top-200 disagreement 143 → ~40 rows, `suspicious_disagreement`
+82 → ~15.
+
+**Depth-aware allowance** (`_disagreement_depth_allowance`):
+`threshold_effective = base + min(consensus_percentile, 0.25)`, base 0.10
+for `hasSourceDisagreement` and 0.20 for `suspicious_disagreement`.
+Justified by measurement: median trimmed spread is 0.068 inside the top
+100 but 0.30 at ranks 201–400, for two structural reasons — sources
+genuinely order deep players near-randomly, and pool-size normalization
+makes identical ordinal placements read as different percentiles (rank 66
+of 280 = 0.24 vs rank 44 of 500 = 0.09). **Confidence buckets deliberately
+do NOT get the allowance**, and the code argues for that explicitly.
+
+**Injury adjustment** (`src/api/injury_impact.py:80–152`):
+
+```
+discount_pct = BASE[severity] × pos_mult × age_mult × time_decay
+discount_pct = min(discount_pct, 5.0)
+value ×= (1 − discount_pct/100)
+if offseason(now): discount → 0
+```
+
+`BASE` = alert 4.0 / watch 2.0 / info 0.5 percent. Position multiplier RB
+1.20, WR 1.00, TE 0.90, QB 0.70, IDP 0.80, other 1.00. Age multiplier
+rookie 0.80, ≤25 0.80, ≤28 1.00, ≤31 1.20, >31 1.40. Linear decay to zero
+over 30 days. Hard cap `_MAX_DISCOUNT_PCT = 5.0`. Offseason
+`_OFFSEASON_MONTHS = {2,3,4,5,6,7,8}` → discount forced to zero.
+
+Stated design intent: *"A torn ACL in Week 8 is a redraft disaster (−30%
+RoS) but a dynasty hiccup (−3 to −5% multi-year)."* **#557's criticisms are
+fair and worth carrying:** the 5% cap is unconditional, so a career-ending
+injury and a hamstring tweak land within 4.5 points of each other;
+severity is a 3-level enum derived from news classification, not from
+injury type or reported timeline; and the month boundary is a real
+discontinuity — a torn Achilles on 1 September takes a full discount while
+the same injury on 31 August takes zero. The code acknowledges the
+coarseness; the discontinuity is still there.
+
+**Tiering** — two mechanisms coexist. Rolling-median gap detection
+(`player_valuation.py:41–43`): `TIER_GAP_WINDOW = 7`,
+`TIER_GAP_THRESHOLD = 2.0`, `TIER_MIN_SIZE = 3`. Per-position Cohen's-d
+thresholds (`config/tiers/thresholds.json`): QB 0.35, RB 0.22, WR 0.22,
+TE 0.35, DL/LB/DB 0.30, PICK 2.0. **All verified.** The config's own
+comment calls these **priors** to be replaced by a fitter "once we have a
+month of canonical-contract history".
+
+> **#557 flagged "I could not verify that the fitter has ever run." This
+> reconciliation resolved it, and the answer is worse than the question.**
+> The config names `scripts/fit_tier_thresholds.py` — **that file does not
+> exist.** The actual fitter is `scripts/refit_tier_thresholds.py`, and
+> **no workflow in `.github/workflows/` invokes it.** So: the thresholds
+> are still hand-set priors, the config points at a filename that was never
+> created, and the fitter that does exist has never been scheduled. Not
+> covered anywhere in §1–§15.
+
+**Two-way player boost** (`_apply_two_way_player_boost`, `:4698`, invoked
+at `:7241`). A player appearing in both offense and IDP families gets an
+alt-family value computed, averaged across contributing sources, and
+**if it exceeds the primary-family value it replaces it** — verified at
+`:4814–4831`. An audit block `twoWayPlayerBoost` is stamped either way,
+including `applied: false`.
+
+**#557's critique is correct on the code:** this is a `max()` operator, not
+a blend. It is one-directional — the boost can only raise a value, never
+lower it — so for a genuinely two-way player it is an optimistic estimator
+by construction. Carried to §16.9.
+
+**Dead production code — resolved.** #557 flagged that
+`player_valuation.py::run_valuation` (`:541`) and its constants
+(`W_MEDIAN = 0.70`, `W_MEAN = 0.30`, `CLIFF_BASE_POINTS = 120.0`,
+`CLIFF_RANK_DECAY = 0.006`, `VOL_COMPRESSION_STRENGTH = 0.03`,
+`VOL_FLOOR = 0.92`, `compute_tier_adjustments`,
+`compute_volatility_adjustments`) *"are probably dead"* but said it had not
+traced the call graph and **should have resolved it rather than flagging
+it**. It is resolved here:
+
+> **`run_valuation` has no production caller.** Every reference outside its
+> defining module is either the `src/canonical/__init__.py` re-export or
+> `tests/canonical/test_player_valuation.py`. It is dead production code
+> kept alive by its own tests. By contrast `rank_to_value`,
+> `percentile_to_value` and `detect_tiers` **are** live — imported by
+> `data_contract.py`, `src/api/terminal.py` and `src/api/rank_history.py`.
+> So the module is *partially* live and cannot simply be deleted; the dead
+> surface is `run_valuation` plus the six constants and two adjustment
+> functions above.
+
+---
+
+### 16.4 Trade engines, read from source
+
+§6 above covers the two P1 defects fixed in #556. #557 read the engines'
+*arithmetic*, which §6 did not cover. Re-verified against post-#556 `main`;
+**note that #556 shifted line numbers in both files, so #557's `:NNN`
+references for `finder.py` and `suggestions.py` are stale and are not
+reproduced here.**
+
+**The finder's arbitrage score** (`src/trade/finder.py`, verified):
+
+```
+board_gain_norm = board_delta / max(give_model, 1)
+arbitrage = board_gain_norm × 50            # f_board_edge
+          + opp_appeal × 30                  # f_ktc_appeal
+          + (10 if board_delta > 0 else 0)   # f_positive_bonus
+
+if coverage == "partial":
+    arbitrage ×= 0.3
+    arbitrage = min(arbitrage, PARTIAL_MARKET_ARBITRAGE_CAP = 8.0)
+
+source_confidence = min(1.0, avg_source_count / CONFIDENCE_SOURCE_BASELINE = 5)
+ktc_confidence    = 1.0 if full coverage else 0.7
+arbitrage ×= 0.7 + 0.3 × (source_confidence × ktc_confidence)
+
+arbitrage += min(1.0, min(give_model, recv_model) / 5000) × 5   # f_value_scale
+arbitrage += -(len(give) + len(receive) - 2) × 3                # f_simplicity
+```
+
+**#557 omitted the final term.** `f_simplicity` is a real
+package-complexity penalty — −3 per asset beyond a 1-for-1. This matters
+because #557 built two separate criticisms on its absence; both are
+corrected in §16.7.
+
+**The `f_positive_bonus` criticism stands and is worth escalating.** It is
+a flat +10 step for any positive board delta. In #557's worked example — 
+give 6,000 board / 5,200 market, receive 7,000 board / 4,800 market, both
+full-coverage and 6-source — the terms are `f_board_edge` 8.33,
+`f_ktc_appeal` 2.50, `f_positive_bonus` **10**, confidence multiplier 1.0,
+`f_value_scale` 5, `f_simplicity` 0 → **arbitrage ≈ 25.8**. The flat step
+exceeds both graded terms combined. **A trade that gains 1 point on our
+board scores nearly the same as one gaining 1,000**, which makes the
+ranking substantially a binary "is board_delta positive" sort with
+tie-breaking. That is not what the surrounding code implies.
+
+**The suggestions rank score** (`src/trade/suggestions.py::rank_score`,
+verified line by line):
+
+```
+rank_score = min(give_total, receive_total)/1000    # base magnitude, UNBOUNDED
+           + fairness_bonus                          # even 3.0 / lean 1.0 / stretch 0.0
+           + confidence_bonus                        # high 2.0 / medium 1.0 / low 0.0
+           + need_severity                           # 2.0 if starter_count == 0, else 1.0 if < needed
+           + edge_bonus                              # market_discount 1.5 / market_premium 1.0 / high_dispersion 0.5
+           + opponent_fit                            # 1.5 if fit
+           − overflow_penalty                        # 1.0 per receive-asset at a surplus position
+```
+
+`rank_score_breakdown` returns the same components and the endpoint exposes
+it — genuinely good transparency, and worth crediting.
+
+**The criticism is sound:** `base` is unbounded while every bonus is ≤ 3. A
+9,000-value trade contributes 9.0, dwarfing the entire qualitative stack
+(max ~8.5 including fit). **The suggestion feed is primarily a
+"biggest trades" feed wearing a quality score.**
+
+**Structural smell, verified:** `edge` and `opponent_fit` are read via
+`s.__dict__.get(...)` — they are annotations set post-construction rather
+than dataclass fields. **Any refactor to `__slots__` or a frozen dataclass
+silently zeroes both bonuses, with no test failing.** This is exactly the
+"a fix that reads correctly but cannot take effect" class §12 catalogues,
+sitting latent in live code.
+
+**Two fairness vocabularies — verified, and the code already admits it.**
+`suggestions.py` uses `_fairness_label(gap)`: even < 256, lean < 769,
+stretch ≥ 769. `frontend/lib/trade-logic.js` uses `VERDICT_NEAR_EVEN = 350`,
+`VERDICT_LEAN = 900`, `VERDICT_STRONG_LEAN = 1800`. The
+`FAIRNESS_TOLERANCE = 769` constant carries an explicit comment recording
+that a 2026-07-25 audit (F-7) found the previously-documented relationship
+between the two scales *was simply wrong*, that **769's origin is
+"undocumented legacy tuning"**, and that it should change only with
+before/after suggestion-volume measurement. **Two different fairness
+vocabularies are live simultaneously on two surfaces**, and the reason is
+that nobody knows where one of them came from.
+
+**Gate list for the finder** (`_score_trade`, verified post-#556):
+
+1. No overlap between give and receive names.
+2. **Every** outgoing asset has a usable value on **its own market board**
+   ≥ `MIN_MARKET_VALUE = 500`. (Post-#556 this is per-market, not KTC —
+   see §16.7.)
+3. At least one receive asset carries a market value.
+4. `board_delta ≥ MAX_BOARD_LOSS = −200`.
+5. If giving more pieces than receiving: `give_model ≥ 0.55 × recv_model`
+   (`MULTI_FOR_ONE_MIN_RATIO`), tightened to 0.65 (`ELITE_MULTI_MIN_RATIO`)
+   when the target is ≥ `ELITE_THRESHOLD = 7500`, and
+   `max_give ≥ 0.35 × max_recv` (`PACKAGE_ANCHOR_MIN_PCT`).
+6. **`opp_appeal > 0` strictly** — the opponent must win on the market. No
+   break-even, no loss. `opp_appeal = (give_market − recv_market) / max(recv_market, 1)`.
+7. Not all assets on a side below `JUNK_THRESHOLD = 400`.
+
+**Trade realism: there is no acceptance-probability model in the live
+engines.** §4A.7 above describes `partner.py`'s `tradeAcceptanceEstimate`
+and correctly calls it structurally unidentifiable — but that module is on
+an unmerged branch. On `main`, what exists is the plausibility gate above
+plus a scalar appeal. #557 reached the same conclusion by a different route
+(grep-negative across `src/`), which is corroboration by an independent
+path. **`opp_appeal > 0` is a gate, not a probability**, and nothing on
+`main` claims otherwise — but the product's central promise is finding
+trades a counterparty will take.
+
+**Package arithmetic — partially as #557 described.** `give_model = sum(...)`
+is a plain sum: there is **no superadditivity for consolidation and no
+subadditivity for fragmentation in the value arithmetic**. The
+consolidation "premium" is expressed only as a **relaxed constraint** —
+`CONSOLIDATION_MIN_UPGRADE_RATIO = 0.70` permits the acquired star to be
+worth only 70% of the summed depth pieces and
+`CONSOLIDATION_MAX_OVERPAY_RATIO = 0.30` allows overpaying by up to 30% of
+what you send — so the engine *tolerates* a ~30% consolidation tax rather
+than pricing the star higher. **But the claim that complexity is unpriced
+is wrong; see §16.7.**
+
+**Roster legality is not enforced.** No trade generator checks roster size
+limits, position minimums, or taxi/IR eligibility. Lineup consequences are
+handled softly, via `overflow_penalty` in `rank_score` and
+`config/trade/team_impact.json` (weights `fillStarter 1.0`, `depth 0.25`,
+`overflow 0.6`, `fitNormalization 4000`, `equityNormalization 2500`,
+composite `0.55 × fit + 0.45 × equity`; verdict thresholds accept 20 /
+leanAccept 8 / leanDecline −8 / decline −20). `src/trade/team_impact.py`
+computes lineup impact for the **simulator**; the suggestion generators use
+only the coarse penalty.
+
+**No 2-for-2 generator exists.** `MAX_PACKAGE_SIZE = 3` permits it
+structurally, but the finder emits only `_generate_1for1`,
+`_generate_2for1` and `_generate_1for2`. Either a gap or an undocumented
+deliberate exclusion.
+
+---
+
+### 16.5 Roster, ROS, FAAB and intel formulas
+
+**FAAB v2 contention** (`src/trade/faab_contention.py`,
+`src/trade/faab_recommender.py`) — all constants re-verified:
+
+```
+exp_bid  = min( base_bid × agg × need_f × intel_f,  base_bid × STACK_CAP_MULT ) × SAFETY_MARGIN
+exp_bid  = min(exp_bid, their_faabRemaining)
+clearing = topRival + 1
+```
+
+`STACK_CAP_MULT = 2.5`, `SAFETY_MARGIN = 1.15`,
+`INTEL_WINDOW_MS = 14 days`. `agg = clamp(their avgBid / league median
+winning bid, 0.5, 2.0)`, forced to 1.0 and flagged `lowSample` when
+`winningCount < 3`. `need_f` = need 1.0 / neutral 0.55 / surplus 0.25.
+`intel_f` = 1.25 player-level, 1.10 position-level, else 1.0.
+
+Recommender side: `_VALUE_MOD_FLOOR/_CEILING` 0.5/1.8,
+`_LEAGUE_CALIBRATION_BLEND` 0.5, `_DROPOFF_GATE` 0.15,
+`_ENV_SCALE_TARGET_SHARE` 0.08, `_ENV_MIN_BIDS_ANALYZED` 10,
+`_POSITION_CALIBRATION_MIN_COUNT` 3, `_PACING_WARN_SHARE` 0.40. Staleness
+ceilings: rosters 24h, leagueAnalytics 7d, trending 3h, intel 48h.
+
+**#557 singles this module out as exemplary and the assessment holds up.**
+Rivals with a missing or non-integer `faabRemaining` are flagged
+`balanceUnknown` and **excluded from `topRival`/`clearing`** — an
+unverifiable rival can never raise the user's bid. The endpoint skips
+contention entirely when fewer than half of rivals carry a usable balance.
+If no `teamOwnerId` is in the body, contention is skipped with an explicit
+missing factor: **the code never guesses which team is the user's.** And
+the returned `notes` state the irreducible limitation in plain language —
+*"Sleeper never exposes losing bids, so selection bias is irreducible."*
+The model is presented as an estimate, never a prediction. **This is the
+missing-data discipline the rest of the codebase should be measured
+against.**
+
+**Sharp Tracker trend score** (`src/intel/aggregate.py:41`) — verified:
+
+```
+trend_score = 3 × net_48h + 2 × net_7d + 1 × net_30d
+```
+
+`WINDOWS_MS` = 48h / 7d / 14d / 30d, and the accumulation loop is
+`for key, window in WINDOWS_MS.items(): if age <= window`. **The windows
+are therefore nested, not disjoint** — verified. A transaction 30 hours old
+counts in all four buckets and receives an effective trend weight of
+**6** (3+2+1; the 14d bucket is computed but unused by `trend_score`),
+while one 20 days old receives 1. That may be an intended exponential-ish
+decay, but **it is nowhere stated, and the 3/2/1 weights are unsourced.**
+
+Crawl budget, for the auditor's cost model: per-member league cap 25,
+steady state ≈310 API calls/run, hard budget 900, single-threaded, 0.12s
+sleep, resumable round-robin, incremental via
+`fetchState[leagueId] = {maxCreatedSeen, boundaryTxIds}`, events pruned to
+45 days.
+
+**Power rating v2** (`src/ros/power_v2.py`) — `power = Σ WEIGHTS[i] ×
+percentile_i`, weights verified and summing to 1.00:
+
+| team_ros_strength | ppg | recent | wl_record | all_play | streak | schedule_adjusted | roster_health | luck_regression |
+|---|---|---|---|---|---|---|---|---|
+| 0.38 | 0.18 | 0.12 | 0.10 | 0.08 | 0.05 | 0.04 | 0.03 | 0.02 |
+
+Weights are labelled "(spec)" in the source — handed down, not fit.
+
+Six components (`_HISTORICAL_RESULTS_COMPONENTS` = ppg, recent, wl_record,
+all_play, streak, luck_regression = **0.55 combined**) route through
+`missing_inputs` when no scored games exist in the current season — i.e.
+right now, in late July.
+
+> **#557 asked whether the score is depressed or rescaled and said it had
+> not traced it. Resolved here: it is rescaled, correctly.**
+> `active_weights = {k: v for k, v in WEIGHTS.items() if k not in
+> missing_inputs}`, then `score_unit = Σ(active_weight × component) /
+> weight_total`. The module docstring documents the behaviour explicitly.
+> **#557's guessed figure was also wrong** — see §16.7. This finding is
+> **closed, not open**, and should be struck from any debt list.
+
+**Team direction classifier** (`src/ros/direction.py::classify_team`) —
+first match wins, verified in order: Strong Buyer (playoff ≥ 0.75 AND
+championship ≥ 0.10) → Buyer (≥ 0.60 AND ≥ 0.05) → Selective Buyer
+(0.45 ≤ p < 0.60) → Strong Seller/Rebuilder (p < 0.10 AND c < 0.01 AND
+`age_heavy`) → Seller (p < 0.25 AND c < 0.02) → Selective Seller
+(0.20 ≤ p < 0.40) → Hold/Evaluate. `age_heavy = vetCount ≥ 4`. Veteran age
+thresholds ("spec values verbatim"): QB 32, RB 26, WR 29, TE 30,
+DL/DE/DT/EDGE 30, LB 29, DB/S/CB 29.
+
+**Ordering observation — real, but narrower than #557 stated.** See §16.7.
+
+**Silently inert input — verified exactly as #557 claimed.**
+`classify_team` accepts `team_ros_strength_percentile`, assigns it to
+`strength_pct` at line 78, and uses it at **exactly one place** — line 120,
+inside the human-readable `summary` f-string. **It never affects the
+label.** A caller passing a materially different team-strength percentile
+gets an identical classification.
+
+---
+
+### 16.6 Branch-only engines — #550's findings, restated
+
+§5 and §9 above describe the WS-J roster work. #557 read **#550's**
+league-intelligence branch, which §1–§15 mostly reference rather than
+describe. The following are **not on `main`** and are recorded here so the
+auditor knows what the merge would bring:
+
+- **Exact league scorer** (`src/league_intel/scorer.py::score_stat_line`)
+  over all 141 keys. Key empirical finding (ADR-006, superseding ADR-005's
+  phrasing): **Sleeper scoring is a pure dot product over shared stat keys —
+  there are no stacking rules to encode.** Reported as 1,415/1,415 rostered
+  2025 player-weeks reconciling within 0.011, plus two full team totals.
+  *(Test figure quoted from the PR body; not independently verified.)*
+  Resolved sub-questions: pick-six **stacks** (`pass_int` + `pass_int_td`
+  both charge); `bonus_fd_*` is itself a precomputed first-downs key; IDP
+  multi-event all stack; `idp_blk_kick` vs `blk_kick` do not double-count
+  because `blk_kick` is TEAM/DEF-only; kicker is pure per-yard (`fgm`
+  rate 0).
+- **Exact best-ball optimizer.** `main` runs a **greedy** slot-ordered
+  fill claiming optimality "because per-slot decisions are independent
+  given fixed values." **#550's audit verdict is that the claim is false in
+  general** — greedy is optimal only while slot eligibility sets form a
+  **laminar family**. It happens to hold for the current slot vector, so
+  the code is *correct by an unstated, unenforced precondition*. #550
+  replaces the core with an exact maximum-weight assignment behind the same
+  interface. Health penalty: injured ×0.4, bye ×0.0. Depth scoring
+  `DEPTH_BENCH_LIMIT = 8` with per-position geometric decay QB 0.55,
+  RB 0.65, WR 0.65, TE 0.55, DL/LB/DB 0.55.
+- **`fantasy_positions` vs `position` — the larger bug underneath.**
+  *Sleeper evaluates slot eligibility against `fantasy_positions`, not
+  `position`.* `_hydrate_overlay_players` kept only `position`, so **every
+  hybrid IDP was locked out of half its legal slots in production.** Found
+  empirically, not by inspection: the reconstruction scored *below* the
+  host on 5 of 10 weeks and the diff was hybrids the host had started.
+  Fixed on the branch; **not on `main`.** This is the strongest form of
+  evidence in either document — a mechanism check that failed before it
+  passed — and it is the §2b rule working as intended.
+- **`_positional_coverage` was a constant.** It returned exactly 100.00 for
+  all 12 teams, contributing a flat 5 points to every composite. #550 makes
+  it slot-derived, demand-weighted and eligibility-aware; measured range
+  becomes 90.87–100.00. **The PR states its own limitation honestly:** at
+  5% weight the fix moves composites by ≤0.46 and **rank order is unchanged
+  across all 12 teams**. "Now correct rather than a lie, but still a weak
+  signal."
+- **Replacement level and scarcity (LI-5).** Four tiers off the real 12×58
+  pool (666 rostered players) with smoothed ±2-rank bands: starter /
+  bestBallStarter / roster / waiver. Six separate scarcity components
+  rather than one score. Headline: **QB `waiverScarcity` 0.75 vs RB 0.21**,
+  described as "the defining fact of a superflex league." Two deliberate
+  deviations (ADR-008): unpriced players excluded from level pools;
+  `waiverScarcity` measured against the best-ball starter floor rather than
+  the noisy roster tail. **Not merged, not surfaced in any UI, and — the
+  point #557 presses — with no path into trade or waiver valuation.**
+- **League-adjusted value (LI-4) is a no-op by construction.**
+  `build_player_values` raises if anyone flips `LEAGUE_ADJUSTED_IS_NOOP`
+  without supplying a validated model. Consensus is *read* from
+  `rankDerivedValue`; `data_contract.py` is untouched. LI-7's adjustment
+  engine uses **evidence tiers, not a scalar confidence**: an axis with no
+  admissible evidence contributes exactly zero and is arithmetically inert
+  regardless of the factor supplied. Three guardrails: evidence gate,
+  magnitude cap **±25%**, and monotonicity via
+  `check_position_monotonicity` over a batch — **order preservation is a
+  set property, so a per-row version could never fire**, which is why it is
+  batch-scoped. The TE axis is deliberately `ABSENT` so it cannot stack on
+  the blend's existing ×1.15 (consistent with §4A.2 above).
+
+**Registry staleness and its hardcoded mirror** — this is the highest-impact
+live defect in either document, and it needs stating precisely because the
+two states are different:
+
+| | Current `main` (`253568bc`) | PR #550 branch (unmerged) |
+|---|---|---|
+| `config/leagues/registry.json` → `dynasty_main.rosterSettings` | `rosterSize 30`, `taxiSize 5`, `TE 1`, `DL 2`, `LB 2`, `DB 2`, `IDP_FLEX 2`, **no K** | `rosterSize 58`, `taxiSize 0`, `TE 2`, `DL 3`, `LB 3`, `DB 3`, `IDP_FLEX 0`, `K 1` |
+| `src/trade/suggestions.py::DEFAULT_STARTER_NEEDS` | `{QB 2, RB 3, WR 4, TE 1, DL 3, LB 3, DB 2}` | `{QB 2, RB 3, WR 4, TE 2, DL 3, LB 3, DB 3}` |
+
+Both verified by direct read of `main` and of `pull/550/head`. The live
+league's actual lineup is **QB1 RB2 WR3 TE2 FLEX2 SFLEX1 K1 DL3 LB3 DB3**,
+roster 58, taxi 0 — as recorded in §1 of this document. **So `main` is
+wrong on 8 registry fields and on TE and DB in the hardcoded dict, and the
+fix exists only on an unmerged PR.**
+
+Consumers of the wrong lineup on production today: ROS lineup slots, FAAB
+`analyze_roster`, trade `DEFAULT_STARTER_NEEDS`, and the need/surplus
+labels every trade suggestion is built from. **Until #550 merges, every
+trade suggestion, every need/surplus label and every FAAB need factor in
+production is computed against a lineup this league does not use.**
+
+> **The duplication survives the fix, and this is the part that matters
+> most.** #550 corrects the *values* in both places but does not eliminate
+> the duplication — `DEFAULT_STARTER_NEEDS` remains a hardcoded dict
+> mirroring config. **Three independent representations of the league's
+> lineup still exist** (registry JSON, the ROS slot flattening, and this
+> dict). It went stale once; nothing prevents it going stale again.
+> #557's recommendation — derive it from the canonical config, and add a
+> parity test asserting all three agree — is the correct remediation and is
+> **not** in §13's plan. Adopted into §16.9.
+
+---
+
+### 16.7 Where verification contradicted, narrowed, or reframed #557
+
+**This subsection is the reason the port was not mechanical.** Each item
+below is a claim #557 made in good faith that does not survive reading
+current `main`. They are recorded rather than deleted because #557 is a
+real audit and the record should show what happened to each finding.
+
+**1. "Two contradictory single-source penalties (×0.30 blend vs ×0.88
+finder). Same phenomenon, 58 points apart. At least one is wrong."**
+
+*The observation is real; the framing invites a wrong and harmful
+conclusion, and the code on `main` already says so.*
+
+The two constants are **not stacked**. They sit on two different value
+pipelines:
+
+| Engine | Reads | Has the 0.30 retention been applied? |
+|---|---|---|
+| `suggestions.py` | `playersArray[...]["rankDerivedValue"]` | **Yes** — Final Framework output. It therefore correctly applies no further discount. |
+| `finder.py` | `players[name]["_finalAdjusted"]` | **No** — `data_contract.py` deep-copies this verbatim from the raw scrape, and `Dynasty Scraper.py` sets it straight from `_composite`. The 0.30 retention never touches it. |
+
+So `SINGLE_SOURCE_DISCOUNT = 0.88` is **the only single-source haircut on
+the finder's input path**. The "obvious" remediation — delete it, or unify
+the two on 0.30 — would leave single-source assets **undiscounted** in the
+arbitrage finder, introducing a live value distortion *via a fix*. This
+exact proposal was made and retracted; it is item 4 in §12's correction
+table. The constant is now pinned by
+`tests/test_trade_finder.py::TestSingleSourceDiscount`.
+
+**What survives of #557's criticism, and it is not nothing:** the 0.88 is
+**unanchored**. Its comment used to claim it "matched the frontend"; the
+frontend applies no single-source haircut today, so that anchor is gone.
+It is now an unvalidated local constant standing in for a retention that
+never arrives. **The correct fix is F-6** — migrate `finder.py` onto the
+Final Framework values, at which point 0.88 is **deleted rather than
+retuned**, because the retention comes baked in. See
+`docs/roster-trade-intelligence/F-6-finder-valuation-path.md`, which also
+records that this is not a mechanical swap: `MIN_ASSET_VALUE`,
+`MAX_BOARD_LOSS`, `JUNK_THRESHOLD`, `ELITE_THRESHOLD` and
+`MULTI_FOR_ONE_MIN_RATIO` were all tuned against composite-scale numbers
+and need re-derivation, not just re-testing.
+
+> **#557's §12.2 conclusion — "at least one is wrong, and neither cites
+> evidence" — is half right.** Neither cites evidence. But "at least one is
+> wrong" presumes they measure the same quantity on the same pipeline, and
+> they do not. **Not ported as stated. Ported as reframed above.**
+
+**2. "The IDP corridor clamp bounds IDP values to ±15% of IDPTC, therefore
+the IDP arbitrage finder is searching a space bounded by construction."**
+
+*First half verified. Second half is false, and #556 is not why.*
+
+The clamp itself is exactly as described. Verified at
+`data_contract.py:4314–4335` and `_apply_market_corridor_clamp` (`:4468`,
+invoked `:7232`):
+
+```
+band = min( P90( |final − market| / market ) within the row's confidence bucket,
+            max_band[asset_class] )
+if |final − market| / market > band:  clamp final to the band edge
+```
+
+`_MARKET_CORRIDOR_PERCENTILE = 0.90`, `_MARKET_CORRIDOR_MIN_BUCKET_N = 30`
+(below which it falls back to the overall board P90), and
+`_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS = {"idp": 0.15}`. The worked
+example in the code comments is a Vikings LB at 1,900 internal vs 3,600
+IDPTC (47% drift) clamping to 3,060. Anchor chains verified: offense →
+`ktcSfTep → idpTradeCalc → dynastyDaddySf → fantasyProsFitzmaurice →
+yahooBoone → median of scope-eligible contributions`; IDP → `idpTradeCalc
+→ dlfIdp → idpShow → fantasyProsIdp`.
+
+**Two corrections to #557's reading:**
+
+- **The 0.15 is a ceiling on the band, not the band.** `band = min(bucket
+  P90, 0.15)`, so in normal cases the effective corridor is *narrower* than
+  15%. The code calls it "a safety rail that prevents a wide bucket
+  distribution from letting truly-extreme outliers escape the clamp
+  entirely." #557's "can never disagree by more than 15%" is a correct
+  upper bound but understates how tight the binding usually is.
+- **The clamp is not IDP-only.** The gather loop skips rows where
+  `assetClass == "offense"` — so **IDP *and picks* are both clamped**;
+  only the 0.15 *cap* is IDP-specific, and pick rows clamp to an uncapped
+  bucket P90. #557's table records "IDP 0.15 / offense none" and omits
+  picks entirely.
+
+**The load-bearing correction is the arbitrage inference.** The clamp
+operates on `rankDerivedValue`. **`finder.py` does not read
+`rankDerivedValue`** — per item 1 above and F-6, it reads `_finalAdjusted`,
+the raw scraper composite, which never passes through the corridor clamp,
+the IDP calibration post-pass, hierarchical anchoring, pick tethering or
+the future-year pick discount.
+
+> **So the finder's IDP "board" is not the clamped quantity, and IDP
+> arbitrage is *not* bounded by the ±15% corridor.** #557's §6.7 and
+> §12.2 item 7 reach a conclusion that does not hold for the engine they
+> attribute it to. It also is not #556 that makes the difference — #556
+> fixed *which board each asset is priced against*, not *which of our
+> values the comparison uses*. **Dropped as stated.**
+>
+> **The concern relocates rather than disappearing, and is worth more than
+> the original claim.** The ±15% corridor genuinely does bind
+> `rankDerivedValue`, which is what `/rankings`, the player popup and
+> `suggestions.py` all serve. So the "consensus of 21 sources" *is*
+> constrained toward one source on IDP — on **the board the user actually
+> sees** — and that is not disclosed in the UI. And it means the two trade
+> engines are working from IDP values that differ systematically. Both
+> carried to §16.9.
+
+**3. "`config/leagues/registry.json` is stale and `DEFAULT_STARTER_NEEDS`
+mirrors it."** *Verified in full, on both `main` and #550.* Stated
+precisely in §16.6 above — **still broken on `main`, fixed only on an
+unmerged PR**, with the duplication surviving the fix. This is the finding
+that most deserved carrying over, and #557 is right that it is the
+highest-impact live defect either document found.
+
+**4. "No liquidity or package-complexity discount — the model prices a
+3-for-1 identically to a 1-for-1 of the same sum."**
+
+*False for the ranking.* `f_simplicity = -(len(give) + len(receive) - 2) × 3`
+is a live term in the finder's arbitrage score. A 3-for-1 takes **−6**
+relative to a 1-for-1 of identical value. **The narrower true claim** —
+which #557 also makes and which does survive — is that *package **value**
+is a plain sum*: `give_model = sum(...)` has no consolidation
+superadditivity and no fragmentation subadditivity. Complexity is priced in
+the **ranking**, not in the **valuation**. #557's §6.10 headline and
+§12.5 item 18 overstate; the value-arithmetic point is ported, the
+ranking point is dropped.
+
+**5. "`power_v2` loses 55% of its weight in the offseason with unverified
+renormalization; `team_ros_strength` at 0.38 effectively becomes 0.69."**
+
+*The mechanism is verified and correct; the arithmetic is wrong.* The
+module renormalizes explicitly. And the figure: with the six
+results-driven components (0.55) dropped, surviving weight is
+0.38 + 0.04 + 0.03 = **0.45**, so `team_ros_strength` becomes
+0.38 / 0.45 ≈ **0.844** of live weight — not 0.69 (which is 0.38/0.55,
+dividing by the *missing* weight rather than the *surviving* weight).
+**Finding closed, not open.** The substantive residue is only that a
+preseason power rating is ~84% one input, which is worth a UI caveat but
+is not a defect.
+
+**6. "The 0.20–0.25 playoff band is entirely unreachable as Selective
+Seller."** *Narrowed.* The shadowing is **conditional on championship odds
+< 0.02**. A team at playoff 0.22 / championship 0.01 matches the `Seller`
+clause first and never reaches `Selective Seller`; a team at playoff 0.22 /
+championship 0.03 fails the `Seller` clause and does reach it. So the
+category is partially, not entirely, shadowed. Low severity; still worth a
+test. Ported in narrowed form.
+
+**7. "`grant-ssh-access.yml` was added and deleted the same day with no
+recorded reason. If it ever ran, credentials may have been exposed."**
+
+*The deletion is verified and corrects this document (§16.1). The "no
+recorded reason" half is answered by §2 Stage 9 of this document, which
+#557 could not see:* it was a one-shot `workflow_dispatch` workflow using
+existing deploy credentials, created to restore SSH access after the VPS
+was rebuilt 2026-07-20 with none of the user's four local keys present and
+Contabo's key store being provisioning-only. **The user created it via the
+GitHub web UI because a safety classifier blocked Claude from committing
+it twice.** Added `5536f4b9` 14:08 EDT, deleted `c534280d` 14:41 EDT.
+
+**The residual security question is legitimate and is *not* answered by
+either document:** whether it executed, and if so whether anything it could
+have exposed needs rotating. Carried to §16.9.
+
+**8. Deployment described as "Hetzner VPS … nginx + systemd + Let's
+Encrypt SSL."** *Stale and wrong on `main`.* Production is a Contabo VPS
+reached by bare IP over **HTTP with no TLS** (§3, §10 Critical), following
+the domain loss recorded in §2 Stage 9 — an incident #557's session had no
+visibility into. Note that §12 item 9 of this document records
+"asserted the IP was the decommissioned Hetzner box" as a mistake this
+session made; #557 independently made a related error from stale
+documentation. **`docs/status/` still contains Hetzner references**
+(`master-implementation-audit.md`, `workstream-inventory.md`), which is
+probably where it came from — a small argument for the retention policy
+§16.8 recommends. **Dropped.**
+
+**9. "Both trade engines enforce a KTC top-150 quality gate."** *Superseded
+by #556 before #557 was written; §6 above is authoritative.*
+`suggestions.py` gates on `BOARD_TOP_N_FILTER` against **our blended
+board**; `finder.py` gates on `MARKET_TOP_N_FILTER` **per market**, ranked
+within each market's own population. Old names survive as deprecated
+aliases (`KTC_TOP_N_FILTER`, `PARTIAL_KTC_MAX_RANK`,
+`PARTIAL_KTC_ARBITRAGE_CAP`). **Dropped.**
+
+**10. Finder gate "every outgoing asset has a KTC value ≥ 500" and "IDP
+assets without KTC must not be ≥ half of either side."** *Both stale.* The
+first is now per-market (`MIN_MARKET_VALUE`, on the asset's own board). The
+**IDP dilution guard was deleted in #556** — its premise died when IDP
+assets gained a real market anchor, and it had been unreachable in
+production anyway because the KTC-only top-N filter had already removed
+every IDP asset before scoring ran. The code replaces it with a comment
+explaining the removal rather than leaving dead code. **Dropped.**
+
+**11. "`.env.example` is missing at least 6 variables the code reads,"
+listing `UPTIME_CHECK_ENABLED` among them.** *Five of six confirmed; the
+sixth is wrong.* `UPTIME_CHECK_ENABLED` **is** present in `.env.example`.
+Genuinely undeclared: `PRIVATE_APP_ALLOWED_USERNAMES`, `SESSION_TTL_DAYS`,
+`FRONTEND_RUNTIME`, `ALLOW_DEFAULT_LOGIN_DEV`, `E2E_TEST_MODE`. Ported in
+corrected form — and the underlying point stands: `.env.example` declares 9
+variables, and #554's root cause was an E2E harness that did not know
+`JASON_LOGIN_PASSWORD` was required at import.
+
+**12. Line-number references for `src/trade/finder.py` (735 L) and
+`src/trade/suggestions.py` (1,625 L).** *Stale.* #556 grew them to **892**
+and **1,699** lines respectively and shifted every symbol. #557's `:NNN`
+references for these two files are not reproduced anywhere in §16.
+References for `data_contract.py` (9,009 L) and `player_valuation.py` were
+re-checked and are accurate.
+
+**13. Status claims — "five PRs open, none merged", "`main` is at
+`c534280d`", the WS-A/B/C table.** *Superseded.* `main` is at `253568bc`;
+#556 and #551 have merged since. **Dropped**; §9 above is authoritative and
+is itself time-stamped.
+
+---
+
+### 16.8 Repo hygiene and process debt
+
+Small, individually trivial, collectively a real signal. All verified on
+`main`; none of it appears in §1–§15.
+
+| Item | Verified |
+|---|---|
+| `Jenkinsfile` at repo root alongside 14 GitHub Actions workflows | present — likely dead, unconfirmed |
+| `codex_loop.py` (28 KB) + `codex_loop_config.example.json` at root | present — provenance unclear |
+| `Dynasty Trade Calculator.pdf` (3.4 MB) committed at repo root | present |
+| `docs/status/` holds 22 dated one-off reports, no index, no retention policy | 22 files — and at least two carry stale Hetzner references (see §16.7 item 8) |
+| `server.py` | **10,707 lines** |
+| `src/api/data_contract.py` | **9,009 lines** |
+| `Dynasty Scraper.py` | ~304 KB, single file |
+| `.agents/skills/` | 6 skills — `performance-optimizer`, `scraper-ops`, `design-taste-director`, `blueprint-auditor`, `reality-check-review`, `value-pipeline-auditor`. **They are prompts, not running processes** — they act only when invoked |
+| `.github/workflows/` | 14 workflows |
+
+**On `server.py` at 10,707 lines with "append-only sections per workstream"
+as the concurrency strategy** — #557's characterization is worth carrying
+verbatim: *"that is not an architecture, it's a queue discipline. It works
+only while agents cooperate. Nothing enforces it."* §8 of this document
+documents four separate cooperation failures on the same day.
+
+**Race condition #557 identified that §8 does not cover.** Three
+independent writers push commits to `main`: `scheduled-refresh.yml` (every
+2h), and the two VPS shell loops `deploy/dlf_fetch_and_push.sh` and
+`deploy/idpshow_fetch_and_push.sh` (roughly hourly, visible as
+`chore(dlf)` / `chore(idpshow)` commits). `AGENTS.md` states "do not let
+multiple assistants edit the same branch at the same time" but **nothing
+enforces it across machines.** Serializing these — non-overlapping windows
+or a lock — is a concrete, cheap fix absent from §13.
+
+**Overlapping health signals.** Four workflows produce overlapping health
+coverage with four alert paths: `e2e.yml` (nightly full),
+`prod-e2e-smoke.yml` (4-hourly public), `smoke-test.yml` (daily),
+`health-check.yml` (6-hourly). Consolidation candidate.
+
+**Two live plans with no stated precedence.**
+`docs/ROADMAP-competitor-parity.md` and
+`docs/league-intelligence/MASTER_PLAN.md` both claim ownership of
+value/FAAB/trade evolution and do not cross-reference. A third document,
+`docs/ORCHESTRATION.md`, supersedes the per-task-branch rule still printed
+in `CLAUDE.md` and `AGENTS.md` — **which the next agent reads first.**
+#557 is right that this ordering conflict will mislead someone.
+
+**The `faab_contention` ↔ `intel.store` coupling.**
+`src/trade/faab_contention.py` deliberately does **not** import `src.intel`
+and instead re-derives `data/intel/snapshot_<leagueKey>.json` by string
+convention, pinned only by a parity test. #557 calls this "a known-fragile
+coupling solved with a test instead of an interface," and notes the comment
+records that a legacy single-file `data/intel/snapshot.json` "never
+shipped; reading it would pin `intel_f` at 1.0 forever" — i.e. the seam has
+already failed once in design. **The code states a legitimate counter-reason
+#557 did not credit:** the defensive read exists specifically so FAAB keeps
+working when `src/intel/` is not merged or not deployed. That is a real
+deployment-independence requirement, not laziness. The fix is a shared path
+constant, which satisfies both — not an import.
+
+**Legal / terms-of-service posture.** §7 above flags Draft Sharks and IDP
+Show and says an auditor should review them. #557 adds material §7 does not
+cover, and it is worth carrying because the repository's own position is
+explicit and narrow:
+
+- The roadmap declares the site **private personal use** and on that basis
+  treats competitor-data ingestion as acceptable, with a politeness
+  commitment of **one request per source per 2h refresh cycle**.
+- PFK's data is read via **PFK's own embedded publishable Supabase key**.
+  It is anonymously readable *by design*. Whether "readable" implies
+  "licensed for ingestion into a competing analytics product" is a question
+  the repository does not address.
+- The Sharp Tracker reads other Sleeper users' **public** data. The repo
+  commits to keeping intel "inside this private app" — **a policy, not a
+  control.** Ethically it is surveillance of named league-mates across all
+  their leagues, and that framing deserves to be in front of the user
+  rather than only in front of an auditor.
+- `Dynasty Scraper.py` is browser automation against ranking sites.
+  In-repo ToS exposure is unassessed.
+
+**Assessment carried from #557:** *this is a genuine risk area with no legal
+review recorded anywhere in the repository.* Low-probability while the site
+stays private and single-user; material the moment it is shared beyond the
+league or monetized. **`PRIVATE_APP_ALLOWED_USERNAMES` defaults to
+`jasonleetucker` when unset** — fail-open on the name, though the password
+still gates.
+
+---
+
+### 16.9 Open questions this reconciliation could not settle
+
+Recorded as unresolved, per this document's stated purpose. Each carries
+what is known and **what would settle it** — a question stated as open is a
+correct contribution; a confidently-worded guess is not.
+
+| # | Question | What is known | What would settle it |
+|---|---|---|---|
+| 1 | Is `SINGLE_SOURCE_DISCOUNT = 0.88` the right value while F-6 stands? | It is the only haircut on the finder's path and is load-bearing; its "matches the frontend" anchor is gone. Removing it is known-harmful. | Not a tuning exercise. Execute the F-6 migration onto `rankDerivedValue` with before/after numbers on every threshold, then delete the constant. Confirm first that the composite and `rankDerivedValue` scales are comparable at all — if their shapes differ materially, `MIN_ASSET_VALUE`/`MAX_BOARD_LOSS`/`JUNK_THRESHOLD`/`ELITE_THRESHOLD`/`MULTI_FOR_ONE_MIN_RATIO` need re-derivation, not re-testing. |
+| 2 | Should the ±15% IDP corridor clamp be disclosed in the UI? | It genuinely binds `rankDerivedValue` — the board users see — toward one source on IDP. It does **not** bind the finder (§16.7 item 2). | A product decision, not a measurement. But quantify it first: what fraction of IDP rows are actually clamped on a live build, and by how much? The clamp already stamps `marketCorridorClamp` on every clamped row, so the number is one query away. |
+| 3 | Do the two trade engines disagree on IDP because one is clamped and one is not? | `suggestions.py` reads clamped `rankDerivedValue`; `finder.py` reads unclamped `_finalAdjusted`. Nobody has measured the divergence. | Run both engines on one live contract and diff their IDP asset valuations. This is cheap and has never been done. It also directly bounds how much F-6 will move. |
+| 4 | Is α = 0.10 defensible when the joint backtest optimum was α = 0? | α=0 is the degenerate "use IDPTC alone" solution, rejected on declared-objective grounds at a recorded ~2× stability cost. | Genuinely open — it is a values question wearing a metric. Worth asking whether a third formulation (per-position α, or shrinking toward the subgroup rather than the anchor) preserves multi-source voice without the variance. Nobody has tried one. |
+| 5 | Is `_PERCENTILE_REFERENCE_N = 500` distorting the deep board? | Ranks past 500 clamp to the tail; the rostered universe is 696 spots. Described as deliberate top-500-board behavior. | Quantify the compression between rank 500 and rank 696 on a live build, and check how many *rostered* players sit in the flat region. If the answer is "few, and all waiver-fodder," this closes. |
+| 6 | Is `_HAMPEL_K = 2.75` right, and is the 1000-point floor now too permissive? | The floor has a documented empirical justification (§16.3). **K itself has no cited backtest**, unlike α and λ which have named report files. | A K-sweep against the same stability metric the α×λ backtest used. The harness exists. |
+| 7 | Where do the pick-year discounts 0.82 / 0.66 / 0.53 (and `fallbackBase` 0.80) come from? | Unsourced in config and code. The table is near-geometric at 0.82 while the fallback base is 0.80 — two rates for one phenomenon. | Either cite the derivation or refit against observed pick-trade prices. Failing both, collapse to a single base and say so. |
+| 8 | Is `trend_score = 3·net48h + 2·net7d + 1·net30d` over **nested** windows intended? | Verified nested. A 30-hour event gets effective weight 6; a 20-day event gets 1. Weights unsourced. | Ask the author. If intended, document it as an effective decay curve and state the implied half-life. If not, it is a bug. Either way the current state — an undocumented triple-count — is not defensible. |
+| 9 | Should `DEFAULT_STARTER_NEEDS` be derived rather than mirrored? | #550 fixes the values but keeps the dict. Three representations of the lineup remain. | Derive from `league_registry` and **add a parity test asserting registry, ROS slot flattening and the derived needs all agree.** That test would have caught this defect. Not currently in §13. |
+| 10 | Did `grant-ssh-access.yml` ever execute? | Added 14:08, deleted 14:41 on 2026-07-26. Purpose is known (§16.7 item 7). Execution status is not. | GitHub Actions run history for the deleted workflow. If it ran, rotate anything reachable from it. |
+| 11 | Has `scripts/refit_tier_thresholds.py` ever run? | It exists; **no workflow invokes it**; the config points at a different filename that does not exist. Thresholds are self-described priors. | Check whether a month of canonical-contract history now exists, then run it and diff. Also fix the config comment's filename. |
+| 12 | Is the two-way player boost's `max()` the right operator? | Verified one-directional — it can only raise a value. Optimistic by construction for genuinely two-way players. | Count how many rows it actually fires on. If it is a handful of players, this is a curiosity; if it is structural, a coverage-weighted blend is the obvious alternative. |
+| 13 | Is `run_valuation` safe to delete? | **Resolved as dead in production** (§16.3) — only the `__init__` re-export and its own tests reference it. But `rank_to_value`/`percentile_to_value`/`detect_tiers` in the same module *are* live. | Nothing further to verify. It needs a decision, not an investigation: delete `run_valuation` + `W_MEDIAN`/`W_MEAN`/`CLIFF_*`/`VOL_*`/`compute_tier_adjustments`/`compute_volatility_adjustments` and their tests, or route them. |
+| 14 | Does the ToS/licensing posture hold? | No legal review is recorded anywhere in the repository (§16.8). | Outside this document's competence and outside any agent's. It needs a human with the relevant expertise, and the trigger is any move beyond private single-user use. |
+
+**One methodological note the reviewer should carry into all of the
+above.** §4A.2 records that the ~1.12 TE premium was measured with
+symmetric endpoints, correcting figures that paired a *measured* league
+endpoint against an *assumed* 1.0-TE reference — and that the 1.316 row
+landing 0.004 from KTC must never be cited as validation. The same
+discipline applies to the ≈1.12 itself: **it was derived under the
+assumption that KTC's standard board targets a 2-FLEX superflex league,
+and no check that shares that assumption can confirm it.** A generic 1-TE
+league with one flex slot would lower the reference endpoint and *raise*
+the premium. So the gap between the measured ≈1.12 and the applied 1.15 is
+**not** a straightforward instruction to change the constant — which is why
+§4A.2 correctly calls it "a finding, not a published value," and why the
+TE axis is held `ABSENT` in `adjustment.py`. #557's H1 and its Day-2 item
+6 read the gap as a contradiction awaiting a decision; it is better read as
+a measurement awaiting an independent reference. **Adopting 1.12 on the
+current evidence would be the same error in the opposite direction.**
+
+---
+
 ## Section completion status
 
 | § | Section | Status |
@@ -1238,3 +2361,4 @@ config/weights/pick_year_discount.json
 | 13 | Next Steps | ✅ complete |
 | 14 | Reviewer Questions | ✅ complete |
 | 15 | Appendix | ✅ complete |
+| 16 | **Independent cross-audit (PR #557)** | ✅ added post-merge. Fills most of §4D from source; corrects two errors in §3/§9/§10; records 13 findings that did **not** survive verification (§16.7) and 14 open questions (§16.9) |
