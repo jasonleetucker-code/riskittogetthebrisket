@@ -15,25 +15,28 @@ const { test, expect } = require("../helpers/auth-fixture");
 // page-route list, so the backend origin 404s it — production works
 // because nginx routes page traffic straight to Next.  pageUrl()
 // (E2E_PAGE_ORIGIN) reproduces that topology for local/CI runs.
-const { pageUrl } = require("../helpers/journey");
+const { pageUrl, NAME } = require("../helpers/journey");
 
 test.describe("signed-in: /waivers page", () => {
   test("renders header + sections", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
-    // Page header content + one of the four sections must be visible.
+    // Page header content + one of the sections must be visible.
+    // R4 renamed the page to "Waivers" (eyebrow "Claim desk") to match
+    // the nav model; section headings shortened to "Droppable"/"Addable".
+    await expect(authedPage.locator("body")).toContainText(/Waivers/i, {
+      timeout: 30000,
+    });
     await expect(authedPage.locator("body")).toContainText(
-      /Waiver Add\/Drop/i,
-      { timeout: 30000 },
-    );
-    await expect(authedPage.locator("body")).toContainText(
-      /Best Add\/Drop Moves|Addable Players|Droppable Players|Pick your team/i,
+      /Best add\/drop moves|Addable|Droppable|Pick your team/i,
       { timeout: 30000 },
     );
   });
 
   test("rookie toggle is present and toggleable", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
-    const toggle = authedPage.getByLabel(/Include rookies/i, { exact: false });
+    const toggle = authedPage.getByLabel(NAME.waiverRookieToggle, {
+      exact: false,
+    });
     await expect(toggle).toBeVisible({ timeout: 30000 });
     // Operable: clicking it doesn't throw.
     await toggle.click();
@@ -42,7 +45,7 @@ test.describe("signed-in: /waivers page", () => {
 
   test("position filter dropdown is present", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
-    const select = authedPage.getByLabel(/Position filter/i);
+    const select = authedPage.getByLabel(NAME.waiverPositionFilter);
     await expect(select).toBeVisible({ timeout: 30000 });
   });
 

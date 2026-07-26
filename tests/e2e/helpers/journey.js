@@ -39,6 +39,24 @@ const SEL = {
   // resolves, so it doubles as the "authenticated UI is hydrated"
   // readiness signal.  (R1 shell.)
   navSearchButton: ".shell-search-btn",
+
+  // ── R4: draft war room + trade surfaces ──────────────────────────
+  // Stable hook classes the R4 pages set on their ds Panels/controls,
+  // so the copy inside them can keep evolving without touching specs.
+  // /waivers — the controls rail and the FAAB bid desk.
+  waiverControls: ".waivers-controls",
+  waiverBidDesk: ".waivers-bid-desk",
+  // /waivers — rival-contention table rows (FAAB v2 sealed-auction read).
+  waiverRivalRow: ".waivers-bid-desk .ds-table-wrap table tbody tr",
+};
+
+// Accessible-name patterns for R4 controls. Kept beside the selector
+// registry so a label rewording is a one-line change here rather than a
+// hunt through the specs.
+const NAME = {
+  waiverRookieToggle: /Include rookies/i,
+  waiverPositionFilter: /^Position$/i,
+  waiverStrengthFilter: /Upgrade strength/i,
 };
 
 function isMobileProject(testInfo) {
@@ -173,6 +191,7 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
 
 module.exports = {
   SEL,
+  NAME,
   isMobileProject,
   pageUrl,
   desktopOnly,
