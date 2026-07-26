@@ -103,6 +103,24 @@ jobs:
               sleep 30
               continue
             fi
+            if [[ "${code}" == "401" ]]; then
+              # Auth failure is a CONFIGURATION problem, not a retry
+              # candidate.  The endpoint accepts
+              # ``Authorization: Bearer <INTEL_REFRESH_TOKEN>`` where
+              # the server reads INTEL_REFRESH_TOKEN (falling back to
+              # SIGNAL_ALERT_CRON_TOKEN) from the .env loaded by the
+              # dynasty systemd unit.  Check, in order:
+              #   1. the INTEL_REFRESH_TOKEN repo secret matches the
+              #      VPS value byte-for-byte (no trailing newline);
+              #   2. the VPS .env line is plain KEY=value (systemd
+              #      EnvironmentFile ignores ``export KEY=...``);
+              #   3. the dynasty service restarted after the .env
+              #      edit (the token is read at process start);
+              #   4. the backend journal — the server logs WHICH
+              #      branch failed (no token configured vs mismatch).
+              echo "::error title=Intel refresh auth failed::HTTP 401 from ${URL}/api/intel/refresh — token mismatch or server-side token not configured; see step log for the checklist"
+              exit 1
+            fi
             echo "::error title=Intel refresh trigger failed::HTTP ${code} from ${URL}/api/intel/refresh"
             exit 1
           done
@@ -191,10 +209,17 @@ jobs:
         # ``stale-sources`` handler): ensure the label exists, comment
         # on the existing open ``intel-stale`` issue when there is
         # one, otherwise open a single labeled issue.
+        #
+        # GH_REPO is REQUIRED: this workflow never checks out the
+        # repository (it only curls the prod host), so without it the
+        # gh CLI tries to infer the repo from git and dies with
+        # "fatal: not a git repository" — which is exactly how the
+        # first live failure lost its tracking issue.
         if: failure()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
