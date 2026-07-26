@@ -1,6 +1,12 @@
 [Unit]
 Description=Dynasty Frontend – Next.js (__SERVICE_NAME__-frontend)
-After=network.target
+After=network-online.target
+Wants=network-online.target
+# Crash-loop brake — same rationale as the backend unit: cap runaway
+# restart loops at ~30 per 5 minutes, recoverable via
+# `systemctl reset-failed __SERVICE_NAME__-frontend`.
+StartLimitIntervalSec=300
+StartLimitBurst=30
 
 [Service]
 Type=simple
@@ -15,10 +21,19 @@ WorkingDirectory=__APP_DIR__/frontend
 ExecStart=__NPM_BIN__ start
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=PATH=__NODE_BIN_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-__APP_DIR__/.env
+
+# ── Resource sanity ─────────────────────────────────────────────────
+# `next start` serving a pre-built app is far lighter than the Python
+# backend; 2 GB hard cap assumes a >=4 GB box (docs/PROD-HARDENING.md).
+MemoryHigh=1536M
+MemoryMax=2G
+
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

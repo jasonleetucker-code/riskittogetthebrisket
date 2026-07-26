@@ -1,0 +1,43 @@
+[Unit]
+Description=Risk It uptime probe (public site + local backend)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# SECURITY: the probe only curls and writes a log line — it needs no
+# privileges, so it runs as the deploy user (least privilege; a probe
+# running as root while executing a deploy-user-writable script would
+# be a privilege-escalation path).  Running the checkout copy is fine
+# HERE precisely because the process has no more privilege than the
+# user who can already edit that copy.
+User=dynasty
+Group=dynasty
+ExecStart=/home/dynasty/trade-calculator/deploy/monitoring/uptime_check.sh
+# systemd (pid 1) opens the append target as root before dropping to
+# User=, so the unprivileged probe still lands in /var/log.  The
+# script's own LOG_FILE points at stdout; its unwritable-fallback also
+# prints to stdout, so every line reaches the file either way.
+StandardOutput=append:/var/log/riskit-uptime.log
+StandardError=append:/var/log/riskit-uptime.log
+Environment="LOG_FILE=/dev/stdout"
+# State must live somewhere the deploy user can write.
+Environment="STATE_FILE=/var/tmp/riskit-uptime.state"
+# The probe is log-only by default.  To enable notifications, add a
+# drop-in (`systemctl edit riskit-uptime.service`):
+#   [Service]
+#   Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-private-topic>"
+# or
+#   Environment="NOTIFY_CMD=mail -s riskit-alert you@example.com"
+# Runtime budget: the script runs at most 3 probes x CURL_TIMEOUT (20s
+# default) = 60s worst case, single curl per endpoint.  90s leaves
+# margin; if you raise CURL_TIMEOUT via drop-in, raise this to keep
+# 3 x CURL_TIMEOUT + 10s <= TimeoutStartSec.
+TimeoutStartSec=90
+Nice=10
+# The probe exits 1 while the site is down — that is signal, not a unit
+# failure worth systemd's failed-state bookkeeping between runs.
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target
