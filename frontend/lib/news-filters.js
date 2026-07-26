@@ -53,6 +53,38 @@ export function buildPlayerMetaIndex(rows) {
 }
 
 /**
+ * Player buttons to render for a news item: EVERY mentioned player,
+ * not just the roster/league-matched subset.
+ *
+ * ``__matchedOn`` (stamped by ``rankByRelevance``) is used only to
+ * STYLE the buttons — roster/league mentions get their scope class,
+ * everyone else renders as ``general``.  Deriving the button list
+ * from ``__matchedOn`` itself (the previous behaviour) mislabeled
+ * items as "General" with no popup link whenever the mention list
+ * didn't survive scoring, even though ``item.players`` was
+ * populated.  Deduped on the normalized name key.
+ *
+ * @returns {Array<{name: string, scope: string}>}
+ */
+export function buildMentionButtons(item) {
+  const matched = Array.isArray(item?.__matchedOn) ? item.__matchedOn : [];
+  const scopeByKey = new Map();
+  for (const m of matched) {
+    const key = normalizePlayerNameKey(m?.name);
+    if (key && !scopeByKey.has(key)) scopeByKey.set(key, m.scope || "general");
+  }
+  const out = [];
+  const seen = new Set();
+  for (const name of itemPlayerNames(item)) {
+    const key = normalizePlayerNameKey(name);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name, scope: scopeByKey.get(key) || "general" });
+  }
+  return out;
+}
+
+/**
  * Filter items by NFL team and/or position family.
  *
  * An item passes when at least ONE mentioned player satisfies ALL

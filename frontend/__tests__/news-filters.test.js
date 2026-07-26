@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildPlayerMetaIndex, filterByPlayerFacets } from "@/lib/news-filters";
+import {
+  buildMentionButtons,
+  buildPlayerMetaIndex,
+  filterByPlayerFacets,
+} from "@/lib/news-filters";
 
 const ROWS = [
   { name: "CeeDee Lamb", pos: "WR", raw: { team: "DAL" } },
@@ -134,6 +138,62 @@ describe("filterByPlayerFacets — conjunction per mention", () => {
         posFilter: "QB",
         playerMeta: null,
       }),
+    ).toEqual([]);
+  });
+});
+
+describe("buildMentionButtons — every mention gets a button", () => {
+  it("renders unmatched (All-scope, out-of-pool) players as general buttons", () => {
+    // rankByRelevance stamped nothing for this player (or the item
+    // was never scored) — the button must still render so the popup
+    // link works for any player the contract knows.
+    const item = {
+      id: "b1",
+      headline: "Out-of-pool player note",
+      players: [{ name: "Unknown Guy" }],
+      __matchedOn: [],
+    };
+    expect(buildMentionButtons(item)).toEqual([
+      { name: "Unknown Guy", scope: "general" },
+    ]);
+  });
+
+  it("keeps roster/league styling from __matchedOn where present", () => {
+    const item = {
+      id: "b2",
+      headline: "Mixed mention item",
+      players: [{ name: "Bijan Robinson" }, { name: "Unknown Guy" }],
+      __matchedOn: [{ name: "Bijan Robinson", scope: "roster" }],
+    };
+    expect(buildMentionButtons(item)).toEqual([
+      { name: "Bijan Robinson", scope: "roster" },
+      { name: "Unknown Guy", scope: "general" },
+    ]);
+  });
+
+  it("works for unscored items (no __matchedOn field at all)", () => {
+    const item = {
+      id: "b3",
+      headline: "Raw item",
+      players: [{ name: "Tee Higgins" }],
+    };
+    expect(buildMentionButtons(item)).toEqual([
+      { name: "Tee Higgins", scope: "general" },
+    ]);
+  });
+
+  it("dedupes name variants and returns [] for playerless items", () => {
+    const item = {
+      id: "b4",
+      headline: "Duplicate mentions",
+      players: [{ name: "T.J. Hockenson" }, { name: "TJ Hockenson" }],
+      __matchedOn: [{ name: "TJ Hockenson", scope: "league" }],
+    };
+    const buttons = buildMentionButtons(item);
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].scope).toBe("league");
+    expect(
+      buildMentionButtons({ id: "b5", headline: "General", players: [] }),
     ).toEqual([]);
   });
 });

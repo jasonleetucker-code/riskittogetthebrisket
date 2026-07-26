@@ -7,7 +7,11 @@ import { useNews } from "@/components/useNews";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { filterByScope, timeAgo } from "@/lib/news-service";
 import { itemPlayerNames, normalizePlayerNameKey } from "@/lib/player-name-match";
-import { buildPlayerMetaIndex, filterByPlayerFacets } from "@/lib/news-filters";
+import {
+  buildMentionButtons,
+  buildPlayerMetaIndex,
+  filterByPlayerFacets,
+} from "@/lib/news-filters";
 
 // ── Filter option sets ───────────────────────────────────────────────────
 // Scope reuses the exact roster-scoping model from the terminal
@@ -277,7 +281,12 @@ export default function NewsPage() {
 }
 
 function NewsRow({ item, onPlayerClick }) {
-  const matched = Array.isArray(item.__matchedOn) ? item.__matchedOn : [];
+  // Every mentioned player gets a button (the popup link works for
+  // any player the contract knows); __matchedOn only drives the
+  // roster/league/general styling.  Without this, All-scope articles
+  // about players outside the roster/league pool rendered a bare
+  // "General" label with no popup link despite populated mentions.
+  const mentionButtons = buildMentionButtons(item);
   const sevClass = `news-item--sev-${item.severity || "info"}`;
   const rosterClass = item.__relevance >= 100 ? " news-item--roster" : "";
 
@@ -313,9 +322,9 @@ function NewsRow({ item, onPlayerClick }) {
       </h3>
       {item.body && <p className="news-item-body">{item.body}</p>}
       <div className="news-item-foot">
-        {matched.length > 0 ? (
+        {mentionButtons.length > 0 ? (
           <div className="news-item-players">
-            {matched.map((m) => (
+            {mentionButtons.map((m) => (
               <button
                 key={m.name + m.scope}
                 type="button"
