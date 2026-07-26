@@ -10,7 +10,7 @@ import {
   computeVolatility,
   buildHistoryLookup,
 } from "@/lib/value-history";
-import Panel from "./Panel";
+import { Movement, Panel } from "@/components/ds";
 import Sparkline from "./Sparkline";
 
 const SCOPE_TABS = [
@@ -131,9 +131,9 @@ export default function PlayerMarketMovement() {
 
   return (
     <Panel
+      className="panel--movement"
       title="Player Market Movement"
       subtitle={historyError ? "History unavailable" : "Real deltas from rank history"}
-      className="panel--movement"
       actions={
         <div className="panel-tabs" role="tablist" aria-label="Window">
           {WINDOW_TABS.map((t) => (
@@ -215,8 +215,6 @@ export default function PlayerMarketMovement() {
 function MoverRow({ row, historyLoading, onOpen }) {
   const trend = row.trend;
   const direction = trend == null ? "flat" : trend > 0 ? "up" : trend < 0 ? "down" : "flat";
-  const deltaLabel =
-    trend == null ? "—" : trend === 0 ? "·" : trend > 0 ? `▲ ${trend}` : `▼ ${Math.abs(trend)}`;
 
   return (
     <li
@@ -229,7 +227,13 @@ function MoverRow({ row, historyLoading, onOpen }) {
         </span>
         <span className="pmm-col pmm-col--pos">{row.pos}</span>
         <span className="pmm-col pmm-col--value">{formatValue(row.value)}</span>
-        <span className="pmm-col pmm-col--delta">{deltaLabel}</span>
+        <span className="pmm-col pmm-col--delta">
+          {trend == null || trend === 0 ? (
+            "—"
+          ) : (
+            <Movement delta={trend} srLabel={`${trend > 0 ? "up" : "down"} ${Math.abs(trend)} ranks`} />
+          )}
+        </span>
         <span className="pmm-col pmm-col--spark">
           {historyLoading ? (
             <span className="sparkline sparkline--loading" aria-hidden="true" />

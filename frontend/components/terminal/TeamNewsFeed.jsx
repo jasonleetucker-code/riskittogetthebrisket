@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
-import Panel from "./Panel";
+import { Panel } from "@/components/ds";
 import { filterByScope, timeAgo } from "@/lib/news-service";
 
 const SCOPE_TABS = [
@@ -46,9 +46,9 @@ export default function TeamNewsFeed() {
 
   return (
     <Panel
+      className="panel--news"
       title="News"
       subtitle="Roster-relevant headlines"
-      className="panel--news"
       actions={
         <div className="panel-tabs" role="tablist" aria-label="News scope">
           {SCOPE_TABS.map((t) => (

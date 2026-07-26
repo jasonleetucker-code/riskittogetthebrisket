@@ -3,20 +3,22 @@
 import { useMemo } from "react";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
+import { Banner } from "@/components/ds";
 
 /**
- * StaleBanner — informational banner shown above the terminal grid
- * when the /api/terminal endpoint is serving a cached on-disk
- * contract because the live scrape hasn't primed ``latest_contract_data``
- * yet (e.g. cold start between process restart and first scrape).
+ * StaleBanner — the dashboard's "something is off" surface (R3).
  *
- * Payload shape (from ``server.py::get_terminal``):
- *   - ``stale: true``
- *   - ``staleAs: "YYYY-MM-DD"`` — the date stamp on the cached file
+ * Two states, one component, both on the ds Banner (which owns the
+ * role=status / role=alert live-region wiring):
  *
- * When stale is false (the common case), renders null — no layout
- * shift, no visual clutter.  When stale is true, the banner shows
- * the data date and approximate age so users know not to read a
+ *   • error — the /api/terminal endpoint failed outright.
+ *   • stale — the endpoint is serving a cached on-disk contract
+ *     because the live scrape hasn't primed ``latest_contract_data``
+ *     yet (cold start between process restart and first scrape).
+ *     Payload: ``stale: true`` + ``staleAs: "YYYY-MM-DD"``.
+ *
+ * The common case renders null: no layout shift, no clutter. When
+ * stale, the banner names the data date and its age so nobody reads
  * numerical drift against the current scrape as meaningful.
  */
 export default function StaleBanner() {
@@ -33,39 +35,30 @@ export default function StaleBanner() {
     if (!Number.isFinite(t)) return null;
     const hours = Math.max(0, (Date.now() - t) / (1000 * 60 * 60));
     if (hours < 1) return "less than an hour ago";
-    if (hours < 24) return `${Math.round(hours)} hour${Math.round(hours) === 1 ? "" : "s"} ago`;
+    if (hours < 24) {
+      const h = Math.round(hours);
+      return `${h} hour${h === 1 ? "" : "s"} ago`;
+    }
     const days = Math.floor(hours / 24);
     return `${days} day${days === 1 ? "" : "s"} ago`;
   }, [staleAs]);
 
   if (loading) return null;
-  // Show a different banner when the endpoint errored altogether —
-  // gives a single surface for "something is off" instead of
-  // splitting between stale-state and error-state UIs.
+
   if (error) {
     return (
-      <div
-        className="stale-banner stale-banner--error"
-        role="status"
-        aria-live="polite"
-      >
-        <span className="stale-banner-tag">Offline</span>
-        <span className="stale-banner-text">
-          Terminal data unavailable — retrying in the background.
-        </span>
-      </div>
+      <Banner tone="warning" title="Terminal data unavailable">
+        The dashboard endpoint isn&apos;t responding — retrying in the background.
+      </Banner>
     );
   }
+
   if (!stale) return null;
 
   return (
-    <div className="stale-banner" role="status" aria-live="polite">
-      <span className="stale-banner-tag">Cached</span>
-      <span className="stale-banner-text">
-        Data from {staleAs}
-        {ageLabel ? <> · {ageLabel}</> : null} — live scrape still
-        warming up.
-      </span>
-    </div>
+    <Banner tone="info" title="Showing cached data">
+      Data from {staleAs}
+      {ageLabel ? ` · ${ageLabel}` : ""} — the live scrape is still warming up.
+    </Banner>
   );
 }

@@ -7,6 +7,8 @@ import { useRankHistory } from "@/components/useRankHistory";
 import { useNews } from "@/components/useNews";
 import { useUserState } from "@/components/useUserState";
 import { evaluateRoster, SIGNALS } from "@/lib/signal-engine";
+import { Badge, Movement, Panel } from "@/components/ds";
+import styles from "./terminal.module.css";
 
 /**
  * TopSignalsRail — compact "your team's top moves this week" rail.
@@ -61,36 +63,33 @@ function SignalCard({ entry, tone, onOpen }) {
   const value = valueLabel(entry?.verdict);
   const delta = valueDelta(entry?.verdict);
   const evidence = entry?.verdict?.evidence?.[0] || "";
+  const isSell = tone === "down";
 
   return (
     <button
       type="button"
-      className={`top-signal-card top-signal-card--${tone}`}
+      className={`${styles.signalCard} ${isSell ? styles.signalCardSell : styles.signalCardBuy}`}
       onClick={() => onOpen?.(name)}
-      aria-label={`${tone === "down" ? "Sell" : "Buy"} signal: ${name}`}
+      aria-label={`${isSell ? "Sell" : "Buy"} signal: ${name}`}
       title={evidence || name}
     >
-      <div className="top-signal-card-head">
-        <span className={`top-signal-card-tag top-signal-card-tag--${tone}`}>
-          {tone === "down" ? "SELL" : "BUY"}
-        </span>
+      <span className={styles.signalHead}>
+        <Badge tone={isSell ? "negative" : "positive"}>{isSell ? "SELL" : "BUY"}</Badge>
         {Number.isFinite(delta) && delta !== 0 && (
-          <span className={`top-signal-card-delta top-signal-card-delta--${delta < 0 ? "down" : "up"}`}>
-            {delta > 0 ? "▲" : "▼"} {Math.abs(delta)} ranks · 30d
-          </span>
+          <Movement
+            delta={delta}
+            format={(m) => `${m} ranks · 30d`}
+            srLabel={`${delta > 0 ? "up" : "down"} ${Math.abs(delta)} ranks over 30 days`}
+          />
         )}
-      </div>
-      <div className="top-signal-card-name">{name}</div>
-      <div className="top-signal-card-meta">
-        {pos && <span className="top-signal-card-pos">{pos}</span>}
-        {team && <span className="muted">· {team}</span>}
-        {value && <span className="muted">· {value}</span>}
-      </div>
-      {evidence && (
-        <div className="top-signal-card-evidence">
-          {evidence}
-        </div>
-      )}
+      </span>
+      <span className={styles.signalName}>{name}</span>
+      <span className={styles.signalMeta}>
+        {pos && <span className={styles.signalPos}>{pos}</span>}
+        {team && <span>· {team}</span>}
+        {value && <span>· {value}</span>}
+      </span>
+      {evidence && <span className={styles.signalEvidence}>{evidence}</span>}
     </button>
   );
 }
@@ -159,31 +158,18 @@ export default function TopSignalsRail() {
   if (!hasAny) return null;
 
   return (
-    <section className="top-signals-rail" aria-label="Top trade signals for your roster">
-      <div className="top-signals-rail-header">
-        <span className="top-signals-rail-title">This week's top moves</span>
-        <span className="top-signals-rail-subtitle muted">
-          Top 3 buy / sell candidates from your roster
-        </span>
-      </div>
-      <div className="top-signals-rail-grid">
+    <Panel
+      title="This week's top moves"
+      subtitle="Top 3 buy and sell candidates on your roster"
+    >
+      <div className={styles.railGrid}>
         {sells.map((v) => (
-          <SignalCard
-            key={`sell-${v.row?.name}`}
-            entry={v}
-            tone="down"
-            onOpen={openPlayerPopup}
-          />
+          <SignalCard key={`sell-${v.row?.name}`} entry={v} tone="down" onOpen={openPlayerPopup} />
         ))}
         {buys.map((v) => (
-          <SignalCard
-            key={`buy-${v.row?.name}`}
-            entry={v}
-            tone="up"
-            onOpen={openPlayerPopup}
-          />
+          <SignalCard key={`buy-${v.row?.name}`} entry={v} tone="up" onOpen={openPlayerPopup} />
         ))}
       </div>
-    </section>
+    </Panel>
   );
 }

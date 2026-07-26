@@ -14,37 +14,42 @@ import TeamNewsFeed from "./TeamNewsFeed";
 import QuickActions from "./QuickActions";
 import WatchlistPanel from "./WatchlistPanel";
 import StaleBanner from "./StaleBanner";
+import styles from "./terminal.module.css";
 
 /**
- * TerminalLayout — structural shell for the signed-in landing page.
+ * TerminalLayout — the daily-checkin war room (Redesign R3).
  *
- * Top-level `useTerminal` fetch primes the module-level cache so
- * every descendant component that calls ``useTerminal(...)`` with a
- * matching ``(ownerId, windowDays)`` returns instantly from cache.
- * Individual components still do local derivations for anything the
- * server doesn't compute (starter/bench split, per-player
- * sparklines, signal dismissal UI), but the big-ticket aggregates
- * (team value, deltas with coverage detail, portfolio byPosition /
- * byAge / volExposure, watchlist, scouting insights) all come from
- * one network call.
+ * The page answers one question in reading order: **what changed, and
+ * what do I do about it?**
  *
- * ``StaleBanner`` renders above the grid when the terminal endpoint
- * falls back to an on-disk cached contract because the live scrape
- * hasn't landed yet; otherwise it returns null.
+ *   1. Command bar   — who you are and what your team is worth now
+ *                      (identity, value, the four deltas, tier mix,
+ *                      value trend).
+ *   2. Ticker        — the market moving underneath you, right now.
+ *   3. Signals rail  — the specific "act on this" list for YOUR
+ *                      roster. Highest-value content on the page, so
+ *                      nothing sits above it but context.
+ *   4. Working grid  — the deeper surfaces you drill into once the
+ *                      rail has pointed somewhere:
+ *                        left   diagnostics (portfolio, scouting)
+ *                        center market movement (movers, movement,
+ *                               full signal book, watchlist)
+ *                        right  intel + jumping-off points (news,
+ *                               quick actions)
  *
- * Grid strategy:
- *   - mobile (<720px):  single column; panels re-ordered via CSS
- *     ``order`` so the most actionable surfaces (signals, market
- *     movement) land above portfolio/scouting diagnostics.
- *   - tablet (720-1200): two columns; left rail stacks above the
- *     secondary rail.
- *   - desktop (≥1200px): three columns as designed (portfolio+
- *     scouting | movement+signals+watchlist | news+actions).
+ * Column assignment is by information role, not by what fits — the
+ * grid is explicit per breakpoint (see terminal.module.css).
+ *
+ * The top-level ``useTerminal`` call primes the module-level cache so
+ * every descendant calling ``useTerminal(...)`` with a matching
+ * ``(ownerId, windowDays)`` returns instantly from cache. Panels still
+ * do local derivations for anything the server doesn't compute
+ * (starter/bench split, per-player sparklines, signal dismissal UI),
+ * but the big aggregates come from that one network call.
  */
 export default function TerminalLayout() {
   const { selectedTeam } = useTeam();
-  // Prime the cache so every useTerminal(...) inside child panels
-  // is a no-op read.  We don't use the return value here — each
+  // Prime the cache — the return value is intentionally unused; each
   // panel re-calls the hook with the same key.
   useTerminal({
     ownerId: String(selectedTeam?.ownerId || ""),
@@ -53,24 +58,24 @@ export default function TerminalLayout() {
   });
 
   return (
-    <div className="terminal">
+    <div className={styles.page}>
       <StaleBanner />
       <TeamCommandHeader />
       <MarketTicker />
       <TopSignalsRail />
 
-      <div className="terminal-grid">
-        <div className="terminal-col terminal-col--left">
+      <div className={styles.grid}>
+        <div className={styles.col}>
           <PortfolioSummary />
           <ScoutingIntel />
         </div>
-        <div className="terminal-col terminal-col--center">
+        <div className={styles.col}>
           <MoversPanel />
           <PlayerMarketMovement />
           <BuySellHold />
           <WatchlistPanel />
         </div>
-        <div className="terminal-col terminal-col--right">
+        <div className={`${styles.col} ${styles.colRight}`}>
           <TeamNewsFeed />
           <QuickActions />
         </div>
