@@ -113,10 +113,13 @@ export default function TradeSourceBreakdown({
         // as a defense against any future canonical-pipeline drift.
         //
         // For every other vendor we keep the Hill-normalized
-        // ``valueContribution``: rank-only sources don't have a raw
-        // native value, and cross-market rank sources stash a
-        // synthetic 100,000+ rank-encoded number in ``canonicalSites``
-        // that would break the V13 formula's 0-9999-scaled ratios.
+        // ``valueContribution``: rank-signal sources DO carry their
+        // vendor-native number in ``sourceNativeValues`` (FC crowd
+        // value, OTC 0-100, ...), but those live on per-vendor scales
+        // that would break this component's cross-vendor 0-9999
+        // ratios — natives are display/tooltip data, not math inputs.
+        // The ``canonicalSites`` slot for these sources is a synthetic
+        // 100,000+ rank-encoded number, equally unusable here.
         const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
         const sourceValueForRow = (row, sub) => {
           if (useRawNative) {

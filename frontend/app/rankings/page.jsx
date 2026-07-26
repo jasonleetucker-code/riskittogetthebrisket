@@ -133,8 +133,32 @@ function formatSourceCell(row, src) {
   const hasVal = hasNormalized || (!src.isRankSignal && hasRaw);
   const effectiveRank = row?.sourceRanks?.[src.key];
   const origRank = row?.sourceOriginalRanks?.[src.key];
+  // Vendor-native value for rank-signal sources (FantasyCalc crowd
+  // value, OTC 0-100, PFK 0-9999, ...) \u2014 real numbers on the vendor's
+  // own scale, stamped in sourceNativeValues.  Shown in the tooltip;
+  // never as the primary cell (mixed vendor scales in one column
+  // would be misleading).
+  const nativeVal = row?.sourceNativeValues?.[src.key];
+  const hasNative = nativeVal != null && Number.isFinite(Number(nativeVal));
+  const nativeSuffix = hasNative
+    ? `, native value ${Number(nativeVal).toLocaleString()}`
+    : "";
 
   if (!hasVal) {
+    // The source may still have LISTED the player (rank/native known)
+    // even when no valueContribution stamp survives \u2014 say so honestly
+    // instead of claiming the player wasn't listed.
+    const listed = effectiveRank != null || origRank != null || hasNative;
+    if (listed) {
+      return {
+        hasVal: false,
+        primary: "\u2014",
+        rankLabel: effectiveRank != null ? `#${effectiveRank}` : "\u2014",
+        title: `${src.displayName}: no normalized contribution${
+          effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
+        }${origRank != null ? `, original rank #${origRank}` : ""}${nativeSuffix}`,
+      };
+    }
     return {
       hasVal: false,
       primary: "\u2014",
@@ -164,7 +188,7 @@ function formatSourceCell(row, src) {
     rankLabel,
     title: `${src.displayName}: value ${primary}${
       effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
-    }${origRankSuffix}`,
+    }${origRankSuffix}${nativeSuffix}`,
   };
 }
 
