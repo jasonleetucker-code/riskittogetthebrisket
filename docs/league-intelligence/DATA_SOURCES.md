@@ -595,3 +595,137 @@ the authority on it.
    this needs a coordinator call on scope before I run it.
 2. **DLF** — credentials already held; check for a TE-premium variant.
 3. **Flock / PFK / Yahoo-Boone / IDP Show** — public, cheap to probe.
+
+---
+
+## 9. Published side-by-side TEP charts (Fitzmaurice, Boone)
+
+**Methodological note first.** §7 concluded "no second publisher
+corroborates". That survey probed API params, query strings, and
+embedded JS payloads — it could not have found what this section
+reports, because these publishers put **both variants side by side in
+one published table**. Different medium, invisible to the method. The
+survey's negative was true of the axis I searched and false as a
+general claim. Recorded so the limitation travels with the finding.
+
+### 9.1 Where the data actually lives
+
+| Publisher | Location | Columns |
+|---|---|---|
+| **Fitzmaurice** (FantasyPros) | Datawrapper iframes in the monthly article; data at `datawrapper.dwcdn.net/{id}/1/dataset.csv` — the same public endpoint `fetch_idpshow.py` already uses | TE chart (`ZBVic`): `Name, Age, Team, **Trade Value**, **TEP Value**` · QB chart (`yu3Xc`): `Trade Value, SF Value` |
+| **Boone** (Yahoo) | One plain `<table>` in the article, 96 rows | `Rank, Player, **PPR**, **TE Prem.**` |
+
+Both fetched unauthenticated, one request each. Only the **TE** charts
+carry a TEP column; RB/WR carry a single value.
+
+### 9.2 Measured curves — three publishers, same bands
+
+| Band | KTC | Fitzmaurice | Boone |
+|---|---|---|---|
+| TE1-12 | **×1.287** | **×1.198** | **×1.421** |
+| TE13-24 | — | ×1.245 | ×1.600 |
+| TE25-40 | — | ×1.308 | ×1.750 |
+| TE41+ | ×1.512 | ×1.500 ⚠ | ×2.167 ⚠ |
+| median | ×1.368 | ×1.258 | ×1.750 |
+
+Cardinal gate: Fitzmaurice 17.8× range, Boone 76× — both pass.
+
+⚠ **The deep bands are quantization artifacts, not measurements.**
+Both charts use small integers at the tail (Fitzmaurice 4→6, 5→8;
+Boone 1→2, 1→1). At a value of 4, one unit of rounding is 25%. The
+apparent KTC/Fitzmaurice agreement at TE41+ (1.512 vs 1.500) is
+**coincidence on a coarse grid** and must not be reported as
+corroboration. Only TE1-24 is trustworthy on these two sources.
+
+### 9.3 What this settles, and what it doesn't
+
+**Shape: corroborated, now by three publishers.** Every one is
+monotonically increasing — the premium grows with TE depth. With our
+own replacement math producing the same monotone shape from a
+different method, that is three vendor boards plus one internal
+derivation agreeing on structure. This survives every
+level-comparability objection and should be stated plainly.
+
+**Level: genuinely dispersed, and this is the news.** At the only
+reliable band (TE1-12): **1.198 / 1.287 / 1.421**. That is an ~18%
+spread between the lowest and highest publisher. There is **no market
+consensus level.** Our ×1.368 sits inside the range but nearer the top;
+it is one defensible choice among several, not a number the market
+agrees on. Anyone treating ×1.368 as "the" premium is overreading.
+
+### 9.4 ⚠ Controls are ABSENT, not at unity
+
+The gate's controls condition **cannot be evaluated** on either source.
+Both publish a TEP column **only for TEs**; RB/WR have one value. So:
+
+* There is no non-TE TEP value to test for drift.
+* Controls appear "unchanged" **by construction**, not by measurement —
+  the vacuous-pass failure mode in a new guise.
+* These are **published uplifts**, not differentials between two
+  independently-generated boards. KTC's pair is two boards that happen
+  to differ on one axis; these are one board plus an author-stated TE
+  adjustment.
+
+That is a weaker evidentiary class than KTC's pair, and a **fourth
+distinct case** for the gate taxonomy:
+
+1. clean pair (KTC) — controls measurably at unity
+2. rank-encoded (FantasyPros ranks) — cardinal gate fails
+3. cardinal-but-confounded (Dynasty Nerds) — controls measurably drift
+4. **published uplift, controls absent** (Fitzmaurice, Boone) —
+   controls not evaluable; take the number as the author's stated
+   adjustment, not an inferred one
+
+### 9.5 The axis question: NOT resolved
+
+**Neither publisher states what their TEP means.** I searched both
+articles for any statement of scoring assumption (1.5 PPR for TEs, TE
+premium points-per-reception, 2-TE lineup requirement, superflex/TE
+interaction). Fitzmaurice's only prose is *"including TE premium
+dynasty trade values"*; Boone's column is headed *"TE Prem."* with no
+definition anywhere in the article body or its JSON-LD metadata.
+
+So the TE-PREMIUM-SCORING vs 2-TE-STRUCTURAL question **stays open**.
+Per instruction I am not inferring it from the numbers — the level
+dispersion (1.20 → 1.42) is exactly what you would expect if the three
+publishers were modelling *different axes*, but it is equally
+consistent with three analysts disagreeing on the same axis. The
+numbers cannot separate those hypotheses and I will not pretend they
+can. Resolving it needs a direct statement from the publishers.
+
+### 9.6 Registry check: `fantasyProsFitzmaurice` — NO defect
+
+The hypothesis was that ingesting `TEP Value` and then applying our
+non-native ×1.15 would double-count. **It does not.** Verified:
+
+* `scripts/fetch_fantasypros_fitzmaurice.py` ingests `TEP Value` for
+  TE and `SF Value` for QB — so the board **is** TEP-native for TEs.
+* The registry sets **`is_tep_premium: True`** for that source.
+* `is_tep_premium=True` routes to `_TE_BLANKET_NATIVE_MULTIPLIER`
+  (**×1.10**, "a smaller nudge from their already-TEP baseline up to
+  our TE++ scoring"), *not* the ×1.15 non-native boost.
+
+The flag is set correctly and consumed correctly. No change needed,
+and none made.
+
+**Better finding in its place — the ×1.10 native nudge is empirically
+about right, maybe slightly generous.** Fitzmaurice's own TEP uplift
+measures ×1.198 (TE1-12) against his baseline; KTC's TE++ measures
+×1.287 against its baseline. Aligning Fitzmaurice's TEP to KTC's TE++
+level therefore implies **≈ ×1.074**, versus the ×1.10 we apply. The
+constant is defensible — within ~2.5% of measured — and this is the
+first time it has had *any* empirical support rather than being a
+reasonable guess. Worth revisiting as a per-source value once more
+publishers are measured; flagging for the registry owner, not changing
+it here.
+
+### 9.7 Caveat on `fantasyProsFitzmaurice` as a calibration input
+
+Because we ingest `TEP Value` for TE, `SF Value` for QB, and plain
+`Trade Value` for RB/WR, the board **as ingested is a hybrid** — three
+different variant columns stitched into one source. That is the right
+choice for *valuation* (it matches our league on every axis) but it
+means the ingested board is **not** usable as either half of a
+calibration pair, and any TE-premium signal measured on it is measuring
+a premium that is already baked in. Worth keeping in view when
+interpreting null results on this source.
