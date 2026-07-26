@@ -272,34 +272,14 @@ displacement cannot be converted to a comparable premium without DN's
 own value curve (see the portability note below).  A two-way result is
 the expected strong position, not an incomplete one.
 
-**PROJECTION-PATH DEFECT CONFIRMED, AND A LARGER ASYMMETRY FOUND
-(2026-07-26).**
+**ASYMMETRIC ENDPOINTS WERE THE DOMINANT ERROR (2026-07-26).**
 
-*The reported defect is real.*  `measure_endogenous_starters` optimizes
-on `rosValue`, a season-long MEAN, and best ball pays for weekly
-spikes.  Re-solving the current 21-slot vector over **actual 2025
-weekly scores** (158 team-weeks solved, 12 skipped):
+Read this section before any TE number is quoted.  Two smaller
+corrections are recorded below it, but the endpoint asymmetry moved the
+premium further than either, and it is the one that produced a false
+corroboration.
 
-| | projection path (rosValue) | weekly actuals |
-|---|---|---|
-| FLEX TE share | **0.0%** | **10.4%** |
-| TE started/team | **2.00** | **2.215** |
-
-So "FLEX never takes a TE" was an artifact of point estimates, exactly
-as described.  (Independently measured 2.215 vs the reported 2.28 —
-agreement within slot-vector detail.)
-
-*Reconciliation of 3.79 — the mapping was wrong.*  **3.79 is not
-`starters_per_team`.**  It was "marginal-weighted effective depth"
-(`sum(mean_marginal_by_rank) / mean_marginal_TE1`) from the marginal
-best-ball probe — a measure of *how many TEs carry value*, not how many
-*start*.  The two are different quantities and 3.79→2.28 is not a valid
-substitution.  3.79 was also **already retired** (churn confound, 2.08×;
-see below).  What actually feeds `replacement.py:576` is
-`starters_per_team`, which for TE was **2.00** — so the real
-before/after is **2.00 → 2.215**, not 3.79 → 2.28.
-
-***THE BIGGEST ERROR WAS NEITHER: the endpoints were asymmetric.***
+***THE DOMINANT ERROR: the endpoints were asymmetric.***
 The premium compares a 1-TE reference against our 2-TE league.  Every
 figure so far measured the league endpoint from data while *assuming*
 the reference was 1.0 TE/team.  It is not.  Re-solving the **1-TE
@@ -318,10 +298,18 @@ The structural demand change is **1.378×** (2.215/1.608), not 2.215×.
 An assumed reference overstates it by **1.61×**.  **Operative
 structural premium: ~1.12**, down from every prior figure.
 
-*Do not read the 1.316 row as validation.*  It sits within 0.004 of
-KTC's 1.320, but it is a measured league endpoint against an assumed
-reference — the agreement is an artifact of the asymmetry, and treating
-it as corroboration would be exactly the error this ADR keeps catching.
+**⚠ NEVER CITE THE 1.316 ROW AS VALIDATION.**  It lands within 0.004 of
+KTC's measured 1.320, which looks like striking independent
+confirmation and is not.  It pairs a *measured* league endpoint with an
+*assumed* reference; the agreement is a direct artifact of the
+asymmetry.  This is the **third** false corroboration this workstream
+has produced — after the rank-encoded FantasyPros "1.0015 premium"
+(an artifact of scale compression) and the naive-cut 1.239 "agreement"
+(an artifact of the same asymmetry, in the other direction).  All three
+looked like a second independent source landing on our number.  The
+standing rule: **an external check that agrees with a number derived
+under an assumption is not evidence; it is the assumption reflected
+back.**
 
 *A decomposition this enables.*  If the pure structural change warrants
 ~1.12 and KTC's TE++ charges 1.32, the residual ~1.18× is plausibly the
@@ -329,6 +317,31 @@ it as corroboration would be exactly the error this ADR keeps catching.
 quantitative support for the axis-ambiguity hypothesis, which had lost
 its evidence when the earlier divergence turned out to be our own
 measurement error.  Suggestive, not established.
+
+**Smaller correction 1 — the projection-path defect is real.**
+`measure_endogenous_starters` optimizes on `rosValue`, a season-long
+MEAN, and best ball pays for weekly spikes.  Re-solving the current
+21-slot vector over actual 2025 weekly scores (158 team-weeks solved,
+12 skipped):
+
+| | projection path (rosValue) | weekly actuals |
+|---|---|---|
+| FLEX TE share | **0.0%** | **10.4%** |
+| TE started/team | **2.00** | **2.215** |
+
+"FLEX never takes a TE" was an artifact of point estimates.  The
+`replacement.py` module docstring asserted it as a finding and built a
+40%/46% mispricing argument on it; both are corrected there so the
+artifact is not propagated to the next reader.
+
+**Smaller correction 2 — the 3.79 → 2.28 mapping was invalid.**
+**3.79 is not `starters_per_team`.**  It was "marginal-weighted
+effective depth" (`sum(mean_marginal_by_rank) / mean_marginal_TE1`)
+from the marginal best-ball probe — *how many TEs carry value*, not how
+many *start*.  Different quantities; the substitution is not valid.
+3.79 was also already retired for a 2.08× churn confound.  What feeds
+`replacement.py`'s scarcity path is `starters_per_team`, which for TE
+was **2.00** — so the real before/after is **2.00 → 2.215**.
 
 *Roster-era bias — sign settled, magnitude minor.*  Live 2026 rosters
 carry 5.42 TE/team against 5.02 in 2025 (+0.40, ~8%).  Direction is UP:

@@ -16,12 +16,38 @@ Four thresholds per position, each answering a different question:
 **Endogenous flex allocation.**  The starter thresholds are NOT derived
 by preassigning FLEX/SUPER_FLEX to positions.  They are measured from
 what the exact optimizer (``src.ros.lineup``) actually starts across
-every real roster in the league.  This matters a lot: measured on the
-live 12-team pool, SUPER_FLEX goes to a QB 75% of the time (not the
-25% an even split would assume) and FLEX never takes a TE at all — so
-a preassigned model understates QB starter demand by ~40% and
-overstates TE's by ~46%.  Getting that wrong would misprice every
-position's replacement level, which is the whole input to scarcity.
+every real roster in the league.
+
+**KNOWN LIMITATION — this path optimizes on point estimates.**
+``measure_endogenous_starters`` runs the optimizer over ``rosValue``,
+a season-long MEAN.  Best ball pays for weekly SPIKES, and a mean
+erases them: a TE averaging 8 PPG who hits 22 twice wins a FLEX slot
+in those weeks and never wins one on a mean.  So this path
+systematically understates flex demand for high-variance positions.
+
+Measured against actual 2025 weekly scoring, re-solved under the
+current 21-slot vector (158 team-weeks; see
+``scripts/measure_te_demand_actuals.py``):
+
+===================  ======================  ==============
+quantity             projection (rosValue)   weekly actuals
+===================  ======================  ==============
+FLEX TE share        0.0%                    10.4%
+TE started / team    2.00                    2.215
+===================  ======================  ==============
+
+An earlier version of this docstring reported "FLEX never takes a TE
+at all" as a finding and built a mispricing argument on it.  That was
+an artifact of the point estimates, not a property of the league —
+corrected here so it is not propagated further.
+
+For structural constants (e.g. the TE premium), calibrate from actual
+weekly outcomes rather than from this path — see ADR-009 in
+``docs/league-intelligence/DECISIONS.md``.  A preassigned even split is
+still wrong in the same direction (it overstates TE flex demand); the
+projection path is wrong in the opposite direction.  Both endpoints of
+any before/after comparison must be measured the same way, or the
+asymmetry dominates the result.
 
 **Smoothed bands, not single ranks.**  A replacement level read off one
 rank is hostage to one player's projection.  Rank-indexed levels
@@ -221,6 +247,14 @@ def measure_endogenous_starters(
     Returns per-position starters-per-team (the endogenous flex
     allocation), each team's *marginal* (lowest-valued) starter at each
     position, and the raw slot→position fill counts for diagnostics.
+
+    **The values passed in decide what this measures.**  Given
+    season-long means (``rosValue``), it reports the flex allocation of
+    an *average* week, which understates high-variance positions —
+    measured TE flex share is 0.0% on means against 10.4% on actual
+    weekly scores.  Given per-week actuals it reports the real
+    allocation.  Do not read the mean-based output as "what this league
+    starts"; see the module docstring.
     """
     counts: dict[str, int] = {}
     marginal: dict[str, list[float]] = {}
