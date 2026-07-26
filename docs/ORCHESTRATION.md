@@ -97,38 +97,83 @@ hence the claimed `FLEX: TE 0` and `TE 2.00/team`. Best ball pays for
 weekly spikes, not averages, so the input collapses exactly the variance
 the format monetizes. The optimizer is exact; the input is wrong.
 
-Measured on **actual 2025 weekly scoring** — 170 real team-weeks, same exact
-optimizer, re-solved under the current 21-slot vector:
+Measured on **actual 2025 weekly scoring**, re-solved under the current
+21-slot vector, the artifact is confirmed by two independent passes:
 
-| slot | filled by |
-|---|---|
-| FLEX ×2 | RB 172 (50.6%) · WR 128 (37.6%) · **TE 40 (11.8%)** |
-| SUPER_FLEX ×1 | QB 140 · WR 18 · TE 7 · RB 5 |
+| | projection (`rosValue`) | weekly actuals |
+|---|---|---|
+| FLEX TE share | **0.0%** | **10.4%** (orchestrator pass: 11.8%) |
+| TE started/team | **2.00** | **2.215** (orchestrator pass: 2.28) |
 
-TE started per team-week **2.28** (median 2, max 5); 20.6% of team-weeks
-start 3+ TEs; TE rostered 5.10/team. Under the *old* 1-TE vector the same
-data gives TE 29.1% of flex — the isolated rules effect, and the reason
-2025 lineups cannot be read without re-solving.
+**The `3.79` depth figure was a red herring — do not propagate it.** It was
+never `starters_per_team`; it was "marginal-weighted effective depth" from
+the marginal best-ball probe (how many TEs carry value, not how many
+start), and it had already been retired for a 2.08× churn confound. What
+actually feeds `replacement.py:576` is `starters_per_team`, which for TE
+was **2.00**. The real correction is **2.00 → 2.215**.
 
-Roster-era bias is now empirical, not argued: live 2026 rosters carry
-**5.42 TE/team** vs 5.10 in 2025 (+6% behavioral response), so the bias
-direction is **up** — small, and within noise at n=12.
+### The dominant error was neither: asymmetric endpoints
 
-Before #550 merges: correct the PR headline and the `replacement.py`
-docstring; reconcile `starters_per_team` for TE against 2.28 and restate
-downstream numbers; ADR the durable fix (calibrate the depth constant from
-actual weekly outcomes, or sample around projections with the Gaussian
-model already in `playoff_sim.py:248-265`).
+Resolved 2026-07-26 (`b6ec0ab6`). The premium compares a 1-TE reference
+against our 2-TE league. Every figure to date measured the *league*
+endpoint from data while **assuming the reference was 1.0 TE/team**. It is
+not. Re-solving the 1-TE vector over the same weekly scores: TE won
+**27.2%** of FLEX and teams started **1.608 TE/team**.
 
-Harness + fixtures live in the WS-E worktree
-(`scripts/measure_flex_allocation_actuals.py`,
-`tests/league_intel/fixtures/matchups_2025/`). Caveats on the measurement
-itself: single season; 2026 rules applied counterfactually to 2025 rosters;
-170 of ~204 team-weeks used (short-roster entries skipped — check that
-exclusion for correlation with roster construction); missing
+| basis | ref | league | median | TE1-12 |
+|---|---|---|---|---|
+| assumed 1.0 / naive 2.0 | TE12 | TE24 | 1.239 | 1.175 |
+| assumed 1.0 / actual 2.215 | TE12 | TE27 | 1.316 | 1.214 |
+| assumed 1.0 / rostership 2.71 | TE12 | TE33 | 1.416 | 1.252 |
+| **symmetric 1.608 → 2.215** | **TE19** | **TE27** | **1.121** | **1.082** |
+| *KTC measured* | | | *1.320* | *1.227* |
+
+Structural demand change is **1.378×**, not 2.215× — an assumed reference
+overstates it by **1.61×**. **Operative premium ≈1.12**, below every prior
+figure. The 1.316 row sits 0.004 from KTC and **must not be read as
+validation**: it pairs a measured league endpoint with an assumed
+reference, so the agreement is an artifact of the asymmetry.
+
+Decomposition this enables: if structure warrants ~1.12 and KTC charges
+1.32, the residual ~1.18× is plausibly the **scoring** component of KTC's
+TEP — the first quantitative support for axis ambiguity. Suggestive, not
+established.
+
+### Bias checks
+
+- **Roster-era**: direction **up** (2026 5.42 vs 2025 5.02 TE/team), so the
+  premium is marginally overstated. Within noise at n=12. WS-E's earlier
+  "downward" claim was wrong and is retracted.
+- **Exclusion**: measured, and it runs the *safe* way — the 12 skipped
+  team-weeks carry **more** TEs (6.17 vs 5.02) and are short at K/IDP, so
+  the sample skews TE-shallow and demand is if anything understated.
+
+### Durable fix
+
+Option (a) adopted and ADR'd: calibrate the depth constant from actual
+weekly outcomes. Depth is a league-structure constant, history is the right
+input, and it avoids stacking a second fitted layer — the Gaussian model in
+`playoff_sim.py:248-265` is itself an approximation, and deriving a
+structural constant through it would embed its error. Option (b) remains
+correct for forward-looking per-player variance. The constant is
+recomputed, not frozen.
+
+### Remaining caveats
+
+Single season; 2026 rules applied counterfactually to 2025 rosters; missing
 `players_points` treated as 0; the exact optimizer + `fantasy_positions`
-fix exists only on the WS-E branch, so this is **not reproducible on main
-today**.
+fix is **branch-only, so none of this is reproducible on main today**.
+
+Largest remaining lever is now a caveat rather than a measurement: the
+reference endpoint assumes KTC's standard board targets a league like our
+2025 one (superflex, 2 FLEX). A generic 1-TE league with one flex slot
+would give TEs less flex opportunity, lower the reference, and raise the
+premium again.
+
+Fixtures are vendored into the WS-E branch (slimmed to
+`roster_id`/`players`/`players_points`, 248K, plus a 751-player metadata
+slice); the orchestrator's `measure_flex_allocation_actuals.py` is
+superseded and deliberately left uncommitted.
 
 ## 7. Risks
 
