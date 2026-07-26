@@ -267,100 +267,114 @@ here would only have created a merge conflict.
 
 ---
 
-## 4a. Phase A result — the budget went the OTHER way
+## 4a. Phase A result — and the reference-class correction
 
-Phase A landed. **`/league` 167.8 → 171.0 KB, 1.0 KB over its 170 KB
-budget.** The stop condition fired, so **phase B has not been started.**
+Phase A landed. `/league` went **167.8 → 171.0 KB**, 1.0 KB *over* its
+170 KB budget, so the stop condition fired and phase B was held. The
+overshoot was then diagnosed and removed; `/league` now sits at
+**169.0 KB against the original 170 budget, no bump.**
 
-### Why the "migrations come in under" pattern didn't hold
+### Record this: "migrations come in under" was never true of migrations
 
 R2, R3 and R4 each came in under their pre-migration size, and I carried
-that expectation into phase A. It was the wrong reference class:
+that into phase A as an expectation. It is the wrong reference class,
+and the distinction is worth stating so nobody re-derives it:
 
-> Those phases **deleted what they replaced** — the terminal Panel died,
-> hand-rolled tables died, inline styles collapsed into shared CSS.
-> **Phase A deletes nothing.** `.card` stays, its 85 raw consumers stay,
-> and no legacy CSS or markup drops out. The saving is phase B's; phase
-> A is pure addition.
+> **That pattern is a property of DELETIONS, not of migrations.** R2-R4
+> came in under because they *deleted what they replaced* — the terminal
+> Panel died, hand-rolled tables died, inline styles collapsed into
+> shared CSS. **Phase A deletes nothing.** `.card` stays, its 84
+> remaining raw consumers stay, no legacy CSS or markup drops out.
+>
+> A migration only pays for itself in the phase where the old thing is
+> removed. Expect additive phases to cost, and budget them on that basis.
 
-Compounding it, `/league` had **zero ds usage** before, so phase A
-introduced the primitive *and* its dependency into a bundle carrying
-neither.
+`/league` compounded it by having **zero ds usage** beforehand, so it
+absorbed the primitive *and* its dependency at once.
 
-### Where the 3.2 KB actually went — measured, not guessed
+### Where the 3.2 KB went — measured
 
 | | |
 |---|---|
 | ds `Panel` itself | ~1.0 KB |
-| **`Icon`, pulled in statically by Panel** | **~2.2 KB** |
+| **`Icon`, pulled in statically by `Panel`** | **~2.2 KB** |
 
-Verified by rebuilding with Panel's `Icon` import replaced by an inline
-chevron: **168.8 KB, back under the original budget with 1.2 KB
-headroom.**
+`Panel` imported the whole glyph set for one disclosure chevron, which
+`/league` never renders — its `Card` is never `collapsible`. A static
+dependency for a conditional feature.
 
-`Panel` imports the whole glyph set for one disclosure chevron — which
-`/league` never renders, because its `Card` is never `collapsible`. A
-static dependency for a conditional feature.
+### The fix: module granularity, not tree-shaking
 
-### Why I did not just fix that
+`Icon` cannot be made tree-shakeable as authored, and it is worth being
+precise about why, because "add per-glyph exports" sounds like it would
+work and does not. Three independent blockers:
 
-Decoupling `Icon` from `Panel` would work and is measured, but **five ds
-primitives import `Icon` the same way** (`Badge`, `Banner`, `DataTable`,
-`Dialog`, `Panel`). Inlining an SVG in one of them is either an
-inconsistency or the first of five — and the design system deliberately
-centralised iconography. **That is a design-system decision, not a
-phase-A one**, so it is recorded here rather than taken unilaterally.
+1. All glyphs live in **one `PATHS` object literal** — a bundler cannot
+   drop members of an object.
+2. `Icon({ name })` is a **runtime lookup**. Even per-glyph exports
+   cannot help while the API selects by string at run time.
+3. `ICON_NAMES = Object.keys(PATHS)` **hard-references the whole map**.
 
-Options, if it is worth pursuing:
+(`sideEffects` is also absent from `package.json`, which would have
+defeated shaking independently — and setting it is not free, since
+`globals.css` is imported for effect and would need `sideEffects:
+["*.css"]` rather than `false`.)
 
-1. Leave it. 2.2 KB on the pages that use a Panel and no other Icon —
-   today only `/league`.
-2. Decouple `Icon` from all five primitives (inline each one's own
-   structural glyph). Consistent, but five small DS changes.
-3. Make the chevron a slot on `Panel`. Cleanest in theory, worst API.
+What actually works is splitting the **module**, not the exports:
+`components/ds/glyph-chevron-down.jsx` holds the one glyph `Panel`
+needs, and `Panel` imports it directly instead of `Icon`.
 
-### What was done instead
+**Measured: 171.0 → 169.0 KB**, essentially the whole `Icon` cost
+recovered, and back under the original budget. No other page moved.
 
-`/league`'s budget moved **170 → 172**, deliberately tight — 1.0 KB of
-slack, not 5, so it cannot quietly absorb future growth — and annotated
-in `check-bundle-sizes.mjs` with **revert to 170 when phase B lands**.
+`Icon`'s public API is unchanged — app code still writes
+`<Icon name="chevron-down" />` — and `Icon` now sources that path from
+the same exported constant, so there is exactly one definition of the
+geometry rather than two copies to drift.
 
-A bump is the honest move here only because phase A is net-additive *by
-construction*; the bundle question can't be answered fairly until phase
-B removes the 85 raw sites and lets `.card` and its markup go. If phase
-B does not bring `/league` back under 170, that is a real finding about
-the migration rather than a budget to bump again.
+This generalises: any ds primitive that needs a *single* glyph should
+import it as a module rather than pulling `Icon`. Four others currently
+import `Icon` (`Badge`, `Banner`, `DataTable`, `Dialog`); they are not
+urgent, because their consumers are pages already rendering several
+glyphs, and they are worth doing only where a measurement says so.
 
-## 5. Budget
+### The a11y ratchet firing was correct behaviour, not a flake
 
-The caution was to verify early rather than assume migrations come in
-under. Status:
+Rebasing onto merged `main` made `a11y-tab-roles.test.js` fail its
+stale-baseline assertion: `app/news/page.jsx` was baselined as a
+violation, and R3 (#551) had moved it onto ds `Tabs`, which stamps a
+real `role="tabpanel"`.
 
-- **Step 1 costs nothing**: `/league` is 167.8 KB before and after. A
-  CSS retarget does not touch the JS chunk.
-- **Step 2 is not yet measurable**, and §4 is why: the honest probe is
-  phase A (one component, 70 sites), and phase A is blocked. It is also
-  the probe whose *direction* §4 decides — option 2 would **add** client
-  JS to seven server routes, which is the one plausible path to going
-  over. Option 1 keeps them server-rendered.
-- `/league` at 167.8 / 170 KB has **2.2 KB headroom** — the tightest in
-  the app after `/trade`. Measure phase A on its own before starting
-  phase B, and expect to need a budget conversation if option 2 is
-  chosen.
+**That failure is the assertion working.** The correct response is to
+delete the baseline entry, which is what was done. Do **not** loosen the
+assertion — a baseline that only shrinks is precisely what stops it
+quietly re-absorbing a regression, and it earned that on its first
+contact with a moved base.
+
+## 5. Budget — settled for phase A
+
+- **Step 1 (de-seam) cost nothing**: a CSS retarget does not touch the
+  JS chunk. `/league` 167.8 KB before and after.
+- **Step 2 phase A cost 3.2 KB, of which 2.2 was recovered.** Final:
+  **169.0 / 170 KB, 1.0 KB headroom, original budget held.** See §4a.
+- Phase B's target is therefore **under 170**, not under a bumped
+  number. Since phase B is the *deleting* half — 84 raw
+  `className="card"` sites plus eventually the `.card` rule itself — it
+  is the phase that should give headroom back rather than consume it.
+  If it does not, that is a finding about the migration.
 
 ---
 
 ## 6. Recommended order
 
-1. ~~Resolve §4 on R3.~~ **Done** (`0b36074c`); waiting only on #551
-   merging.
-2. Phase A: `Card` → `Panel`, one file, 70 sites. **Measure `/league`**
-   before going further — this is the budget probe.
-3. ~~Add the §3a guard.~~ **Done** — now burn down its 8-entry baseline,
-   deleting each baseline line as its control moves to
-   `SegmentedControl`.
-4. Phase B: the 85 raw `className="card"` sites, page by page, with the
-   remaining §3 view-switcher fixes folded in per page.
+1. ~~Resolve §4 on R3.~~ **Done** (`0b36074c`), merged in #551.
+2. ~~Phase A: `Card` → `Panel`, one file, 70 sites.~~ **Done** —
+   measured, overshot, diagnosed, recovered to 169.0 / 170 (§4a).
+3. ~~Add the §3a guard.~~ **Done** — burn down its baseline (now 7
+   across 5 files; `/news` already cleared by #551) as each control
+   moves to `SegmentedControl`.
+4. **Phase B — next:** the 84 raw `className="card"` sites, page by
+   page, with the remaining §3 view-switcher fixes folded in per page.
 5. Delete `.card` from `globals.css`, plus the three mobile overrides at
    ~1768 / ~2029 / ~2060 — last, once the count reaches zero.
 

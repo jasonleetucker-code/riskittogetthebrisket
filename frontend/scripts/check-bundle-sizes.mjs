@@ -62,24 +62,12 @@ const BUDGETS_KB = {
   "/finder/page": 20,
   "/angle/page": 30,
   // Public hub bundles every section together; bumped 165→170 for
-  // /league?tab=teamAssignment.
-  //
-  // 170→172 (INTERIM, R5 phase A): /league had ZERO ds usage, so
-  // migrating its `Card` onto ds `Panel` introduced Panel + its static
-  // `Icon` dependency into a bundle that carried neither — 167.8→171.0.
-  // Unlike R2-R4, phase A deletes nothing: `.card` and its 85 remaining
-  // raw consumers stay, so none of the usual legacy drop-out pays for
-  // it. Phase B is where that arrives.
-  //
-  // 2.2 KB of the 3.2 is `Icon`, which Panel imports statically for a
-  // disclosure chevron /league never renders — measured by building
-  // with that import removed (168.8 KB). Decoupling it is a
-  // design-system decision, not a phase-A one: five ds primitives
-  // import Icon the same way. Tracked in R5-LEAGUE-MIGRATION.md.
-  //
-  // Deliberately tight (1.0 KB of slack, not 5) so it cannot quietly
-  // absorb future growth, and REVERT to 170 when phase B lands.
-  "/league/page": 172,
+  // /league?tab=teamAssignment. Held at 170 through R5 phase A: the
+  // Card→Panel migration cost 3.2 KB (Panel + its static `Icon`
+  // dependency landing in a bundle that had zero ds usage), and 2.2 of
+  // that was recovered by splitting the chevron into its own module
+  // rather than by bumping this number. See glyph-chevron-down.jsx.
+  "/league/page": 170,
   "/rosters/page": 30,
   "/trades/page": 20,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4

@@ -60,7 +60,7 @@
  * Pinned by __tests__/components/ds/panel-server-safe.test.js.
  */
 import React from "react";
-import { Icon } from "./Icon";
+import { ChevronDown } from "./glyph-chevron-down";
 
 export function Panel({
   title,
@@ -103,11 +103,7 @@ export function Panel({
           aria-controls={bodyId}
           onClick={onToggleCollapsed}
         >
-          <Icon
-            name="chevron-down"
-            size={10}
-            className="ds-panel__disclosure-glyph"
-          />
+          <ChevronDown size={10} className="ds-panel__disclosure-glyph" />
           {title}
         </button>
       ) : (
