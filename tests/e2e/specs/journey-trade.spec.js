@@ -11,7 +11,7 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, attachConsoleGuards } = require("../helpers/journey");
+const { desktopOnly, attachConsoleGuards, SEL } = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
@@ -40,17 +40,16 @@ test.describe("journey: trade surfaces", () => {
     const guard = attachConsoleGuards(page);
     await page.goto("/trades", { waitUntil: "domcontentloaded" });
 
-    await page.waitForFunction(
-      () => !document.body.innerText.includes("Loading trade data..."),
-      null,
-      { timeout: 60_000 },
-    );
-
-    // Either populated history or the explicit empty state — never a
-    // blank page or a crash.
-    await expect(page.locator("body")).toContainText(/Trade History|No trades found/i, {
-      timeout: 15_000,
-    });
+    // R4 replaced the "Loading trade data..." sentinel with a skeleton,
+    // so waiting for that string to vanish is now vacuous — and the
+    // page title renders immediately, which would make the old
+    // assertion pass before any data landed.  Wait for real settled
+    // content instead: either a ledger entry or the explicit empty
+    // state.  Both are data-driven; neither exists mid-load.
+    const settled = page
+      .locator(SEL.tradeLedgerEntry)
+      .or(page.getByText(/No trades found/i));
+    await expect(settled.first()).toBeVisible({ timeout: 60_000 });
 
     guard.assertClean();
   });
