@@ -567,9 +567,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 346.69,
-    "startingLineupScore": 427.96,
-    "benchDepthScore": 158.66,
+    "teamRosStrength": 344.09,
+    "startingLineupScore": 426.82,
+    "benchDepthScore": 148.78,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -605,12 +605,12 @@
       },
       {
         "slot": "TE",
-        "playerId": "4217",
-        "canonicalName": "george kittle",
+        "playerId": "7553",
+        "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 28.56,
-        "adjustedValue": 28.56,
-        "confidence": 0.897,
+        "rosValue": 27.42,
+        "adjustedValue": 27.42,
+        "confidence": 0.9,
         "flagged": null
       },
       {
@@ -684,14 +684,6 @@
         "depthContribution": 33.38
       },
       {
-        "playerId": "7553",
-        "canonicalName": "kyle pitts",
-        "position": "TE",
-        "rosValue": 27.42,
-        "depthFactor": 1.0,
-        "depthContribution": 27.42
-      },
-      {
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
@@ -704,8 +696,8 @@
         "canonicalName": "travis kelce",
         "position": "TE",
         "rosValue": 22.97,
-        "depthFactor": 0.55,
-        "depthContribution": 12.63
+        "depthFactor": 1.0,
+        "depthContribution": 22.97
       },
       {
         "playerId": "8408",
@@ -738,6 +730,14 @@
         "rosValue": 19.48,
         "depthFactor": 0.423,
         "depthContribution": 8.23
+      },
+      {
+        "playerId": "13301",
+        "canonicalName": "antonio williams",
+        "position": "WR",
+        "rosValue": 17.05,
+        "depthFactor": 0.423,
+        "depthContribution": 7.2
       }
     ],
     "unfilledSlots": [],
