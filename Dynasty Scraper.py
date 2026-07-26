@@ -6812,33 +6812,54 @@ async def run(progress_callback=None):
 
     # Persist rookie visibility metadata for dashboard filtering/debugging.
     #
-    # NFL-team stamps get a LAST-GOOD fallback (Codex round 6 on
-    # PR #535): when the Sleeper /players/nfl fetch fails,
-    # SLEEPER_ALL_NFL is empty and every live lookup returns None —
-    # without a fallback the fresh export would publish team-less rows
-    # and empty every NFL-team filter until the next successful fetch.
-    # After a healthy pass we persist the name→team map; on an outage
-    # pass we stamp from the saved map instead.
+    # NFL-team, years-exp, and age stamps get a LAST-GOOD fallback
+    # (Codex rounds 6+8 on PR #535): when the Sleeper /players/nfl
+    # fetch fails, SLEEPER_ALL_NFL is empty and every live lookup
+    # returns None — without a fallback the fresh export would publish
+    # rows with no team/yearsExp/age, and because the frontend's
+    # team/experience/age predicates fail closed, those filters would
+    # empty the rankings board until the next successful fetch.  After
+    # a healthy pass we persist per-player {team, yearsExp, age}; on an
+    # outage pass we stamp from the saved map instead.  The legacy
+    # "teams" key is kept alongside the newer "players" map so an
+    # outage right after this change still reads pre-change files.
     _team_map_path = os.path.join("data", "player_map", "team_map_last_good.json")
     _team_map_fallback: dict = {}
+    _meta_map_fallback: dict = {}
     if not SLEEPER_ALL_NFL:
         try:
             with open(_team_map_path, "r", encoding="utf-8") as _fh:
-                _team_map_fallback = json.load(_fh).get("teams", {})
+                _last_good_meta = json.load(_fh)
+            _team_map_fallback = _last_good_meta.get("teams", {})
+            _meta_map_fallback = _last_good_meta.get("players", {})
             print(
                 f"  [Teams] Sleeper player DB unavailable — using last-good "
-                f"team map ({len(_team_map_fallback)} entries)"
+                f"metadata map ({len(_team_map_fallback)} teams, "
+                f"{len(_meta_map_fallback)} player metadata rows)"
             )
         except Exception:
             _team_map_fallback = {}
+            _meta_map_fallback = {}
     _years_exp_tagged = 0
     _rookie_tagged = 0
     _age_tagged = 0
     _team_tagged = 0
+
+    def _last_good_int(name, key):
+        row = _meta_map_fallback.get(name)
+        if not isinstance(row, dict):
+            return None
+        try:
+            return int(row.get(key))
+        except Exception:
+            return None
+
     for _name, _pdata in players_json.items():
         if not isinstance(_pdata, dict) or _looks_like_pick_name(_name):
             continue
         _yrs = _player_years_exp_local(_name, _pdata)
+        if _yrs is None:
+            _yrs = _last_good_int(_name, "yearsExp")
         if isinstance(_yrs, int) and _yrs >= 0:
             _pdata["_yearsExp"] = int(_yrs)
             _years_exp_tagged += 1
@@ -6850,6 +6871,8 @@ async def run(progress_callback=None):
             _pdata["_isRookie"] = True
             _rookie_tagged += 1
         _age = _player_age_local(_name, _pdata)
+        if _age is None:
+            _age = _last_good_int(_name, "age")
         if isinstance(_age, int):
             _pdata["age"] = _age
             _age_tagged += 1
@@ -6861,21 +6884,37 @@ async def run(progress_callback=None):
     # outage pass would just re-save the fallback it loaded).
     if SLEEPER_ALL_NFL and _team_tagged:
         try:
+            _lg_players = {}
+            for _n, _d in players_json.items():
+                if not isinstance(_d, dict):
+                    continue
+                _row = {}
+                if isinstance(_d.get("team"), str) and _d.get("team"):
+                    _row["team"] = _d["team"]
+                if isinstance(_d.get("_yearsExp"), int):
+                    _row["yearsExp"] = _d["_yearsExp"]
+                if isinstance(_d.get("age"), int):
+                    _row["age"] = _d["age"]
+                if _row:
+                    _lg_players[_n] = _row
             os.makedirs(os.path.dirname(_team_map_path), exist_ok=True)
             with open(_team_map_path, "w", encoding="utf-8") as _fh:
                 json.dump(
                     {
                         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        # Legacy key — older readers only understand
+                        # the flat name→team shape.
                         "teams": {
                             n: d["team"]
                             for n, d in players_json.items()
                             if isinstance(d, dict) and isinstance(d.get("team"), str)
                         },
+                        "players": _lg_players,
                     },
                     _fh,
                 )
         except Exception as _exc:
-            print(f"  [Teams] last-good team map save failed (non-fatal): {_exc}")
+            print(f"  [Teams] last-good metadata map save failed (non-fatal): {_exc}")
 
     # Final must-have rookie position enforcement. Do this after fallback creation and
     # rookie tagging so defensive prospects cannot drift back into generic offense entries.
