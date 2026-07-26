@@ -157,7 +157,11 @@ class TestRosLineupPath:
 
 class TestPlayoffSimPath:
     def test_load_starter_slots_reads_corrected_registry(self, real_registry):
-        from src.ros.playoff_sim import _eligible_for_slot, _load_starter_slots
+        # playoff_sim's duplicated _eligible_for_slot was deleted (LI-8);
+        # it now delegates to the real optimizer, so eligibility is
+        # asserted against the single source of truth.
+        from src.ros.lineup import _eligible_for_slot
+        from src.ros.playoff_sim import _load_starter_slots
 
         slots = _load_starter_slots()
         assert len(slots) == 21

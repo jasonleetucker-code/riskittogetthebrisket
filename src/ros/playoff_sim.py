@@ -155,12 +155,27 @@ class _TeamDist:
 
 
 def _load_team_rosters() -> dict[str, dict[str, Any]]:
-    """Per-owner roster (starting lineup + bench) from team-strength snapshot.
+    """Per-owner roster from the team-strength snapshot.
 
     Returns ``{ownerId: {"starters": [...], "bench": [...]}}``.  Each
-    player entry carries ``{playerId, position, rosValue}`` — enough
-    for the per-week best-ball draw + greedy lineup picker below.
-    Empty dict when no snapshot — caller skips best-ball presim.
+    player entry carries ``{playerId, position, rosValue,
+    fantasyPositions}``.  Empty dict when no snapshot — caller skips
+    best-ball presim.
+
+    **Prefers ``fullRoster`` when the snapshot carries it.**  Reading
+    ``startingLineup + benchDepth`` gives only 29 of a 44-58 man
+    roster, because ``benchDepth`` is capped at
+    ``lineup.DEPTH_BENCH_LIMIT`` for depth *scoring* rather than roster
+    enumeration.  Best ball is the format that pays for the tail, so
+    that truncation is simply the wrong input.
+
+    Measured on the 12 real rosters (400 weeks, seed 7): it understates
+    the weekly mean by +1.1 to +9.4 points, varying ~8x by team, with
+    deep rosters penalised most.  Said plainly rather than sold: at
+    today's roster construction it changes NO team's rank, so this is a
+    correctness fix to the input, not a repair of visibly wrong playoff
+    odds.  Older snapshots without ``fullRoster`` fall back to the
+    truncated read so the sim still runs.
     """
     path = ROS_DATA_DIR / "team_strength" / "latest.json"
     if not path.exists():
@@ -181,15 +196,25 @@ def _load_team_rosters() -> dict[str, dict[str, Any]]:
                     "playerId": str(p.get("playerId") or ""),
                     "position": str(p.get("position") or "").upper(),
                     "rosValue": float(p.get("rosValue") or 0.0),
+                    "fantasyPositions": [
+                        str(fp).upper() for fp in (p.get("fantasyPositions") or [])
+                    ],
                 }
                 for p in (player_list or [])
                 if p.get("playerId")
             ]
 
-        out[oid] = {
-            "starters": _pluck(r.get("startingLineup")),
-            "bench": _pluck(r.get("benchDepth")),
-        }
+        full = _pluck(r.get("fullRoster"))
+        if full:
+            # Whole roster available: put it all in "starters" so the
+            # presim draws from every player.  The split only ever
+            # existed because the snapshot stored two truncated lists.
+            out[oid] = {"starters": full, "bench": []}
+        else:
+            out[oid] = {
+                "starters": _pluck(r.get("startingLineup")),
+                "bench": _pluck(r.get("benchDepth")),
+            }
     return out
 
 
@@ -219,24 +244,13 @@ def _load_starter_slots() -> list[str]:
         return []
 
 
-def _eligible_for_slot(slot: str, position: str) -> bool:
-    """Same eligibility rules as ``src.ros.lineup`` — duplicated here
-    instead of imported to keep the playoff sim's hot loop free of
-    cross-module attribute lookups.
-    """
-    pos = (position or "").upper()
-    s = (slot or "").strip().upper()
-    if s in {"SUPER_FLEX", "SUPERFLEX", "OP", "SFLEX"}:
-        return pos in {"QB", "RB", "WR", "TE"}
-    if s in {"FLEX", "WRRB_FLEX", "WR_RB_FLEX", "FLEX_WRRB"}:
-        return pos in {"RB", "WR", "TE"}
-    if s in {"IDP_FLEX", "IDP_FL", "IDPFLX"}:
-        return pos in {"DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"}
-    if s == "DL":
-        return pos in {"DL", "DE", "DT", "EDGE"}
-    if s == "DB":
-        return pos in {"DB", "S", "CB"}
-    return pos == s
+# NOTE: a duplicated ``_eligible_for_slot`` used to live here, copied
+# from ``src.ros.lineup`` "to keep the hot loop free of cross-module
+# attribute lookups".  It has been deleted rather than kept in sync:
+# it matched on ``position`` alone, so it silently disagreed with the
+# real eligibility rules for every DL/LB and DB/LB hybrid, and a
+# duplicated rule that drifts is worse than an attribute lookup.
+# ``_bestball_weekly_score`` now calls ``optimize_lineup`` directly.
 
 
 def _bestball_weekly_score(
@@ -246,15 +260,24 @@ def _bestball_weekly_score(
 ) -> float:
     """One simulated best-ball week:
     1. Draw a per-player weekly score (Gaussian on player's rosValue scale).
-    2. Greedy fill: walk slots, pick highest-scoring eligible unused player.
+    2. Fill the lineup EXACTLY (``src.ros.lineup.optimize_lineup``).
     3. Sum the chosen scores.
+
+    Step 2 used a local greedy with a duplicated eligibility map.  That
+    is optimal only while slot eligibility forms a laminar family (see
+    ADR-007) and, more importantly, it matched on ``position`` alone —
+    so a DL/LB hybrid was locked out of half its legal slots every
+    simulated week.  Delegating to the exact optimizer removes both the
+    unstated precondition and the duplication.
     """
     if not roster_players or not starter_slots:
         return 0.0
 
     # Step 1: per-player weekly score.  Mean ≈ (rosValue / 17 weeks)
     # scaled to typical PPG range; sd ≈ mean × position-specific CV.
-    drawn: list[tuple[str, str, float]] = []
+    from src.ros.lineup import RosterPlayer, optimize_lineup  # noqa: PLC0415
+
+    drawn: list[RosterPlayer] = []
     for p in roster_players:
         ros = float(p.get("rosValue") or 0.0)
         if ros <= 0:
@@ -269,39 +292,20 @@ def _bestball_weekly_score(
         cv = _PLAYER_CV_BY_POSITION.get(pos, _DEFAULT_PLAYER_CV)
         sd = max(0.5, mean * cv)
         score = max(0.0, rng.gauss(mean, sd))
-        drawn.append((p.get("playerId") or "", pos, score))
+        drawn.append(
+            RosterPlayer(
+                player_id=str(p.get("playerId") or ""),
+                canonical_name=str(p.get("playerId") or ""),
+                position=pos,
+                ros_value=score,
+                fantasy_positions=tuple(
+                    str(fp).upper() for fp in (p.get("fantasyPositions") or ())
+                ),
+            )
+        )
 
-    # Step 2: greedy lineup fill, slots in restrictive→permissive order.
-    # Restrictive first prevents flex slots from grabbing positional
-    # studs the dedicated slot would have used.
-    slot_priority = {
-        "QB": 1,
-        "RB": 2,
-        "WR": 2,
-        "TE": 2,
-        "DL": 3,
-        "LB": 3,
-        "DB": 3,
-        "FLEX": 4,
-        "IDP_FLEX": 4,
-        "SUPER_FLEX": 5,
-    }
-    slots_sorted = sorted(starter_slots, key=lambda s: slot_priority.get(s.upper(), 6))
-    used: set[str] = set()
-    total = 0.0
-    # Sort drawn players by score descending once; per-slot we just
-    # walk this list to find the first eligible unused player.
-    drawn_sorted = sorted(drawn, key=lambda x: -x[2])
-    for slot in slots_sorted:
-        for pid, pos, score in drawn_sorted:
-            if pid in used:
-                continue
-            if not _eligible_for_slot(slot, pos):
-                continue
-            total += score
-            used.add(pid)
-            break
-    return total
+    # Step 2: exact maximum-weight assignment over this week's draws.
+    return optimize_lineup(drawn, starter_slots=starter_slots).starting_lineup_score
 
 
 def _bestball_presim(

@@ -133,6 +133,33 @@ def compute_team_strength(
                 "healthAvailabilityScore": solution.health_availability_score,
                 "startingLineup": solution.starting_lineup,
                 "benchDepth": solution.bench_depth,
+                # FULL roster, for consumers that must not read a
+                # truncated one.  ``benchDepth`` is capped at
+                # ``lineup.DEPTH_BENCH_LIMIT`` (8) because it exists to
+                # score depth, not to enumerate the roster — but
+                # ``playoff_sim`` was reading starters+bench as if it
+                # were the whole team, simulating 29 of 44-58 players.
+                # Best ball is exactly the format where the deep bench
+                # matters: measured on the 12 real rosters that
+                # understates the weekly mean by +1.1 to +9.4 points,
+                # varying ~8x by team (deep rosters lose most).  It does
+                # NOT reorder any team today — all 12 hold rank under
+                # both inputs — so this is "wrong input to a
+                # tail-sensitive format", not "wrong answer on screen".
+                # Carries fantasyPositions so hybrids keep their real
+                # slot eligibility downstream.
+                "fullRoster": [
+                    {
+                        "playerId": p.player_id,
+                        "canonicalName": p.canonical_name,
+                        "position": p.position,
+                        "rosValue": round(float(p.ros_value), 2),
+                        "fantasyPositions": list(p.fantasy_positions),
+                        "injured": p.injured,
+                        "bye": p.bye,
+                    }
+                    for p in roster
+                ],
                 "unfilledSlots": solution.unfilled_slots,
                 "unmappedPlayerCount": len(unmapped),
                 "unmappedPlayers": unmapped[:10],  # cap for payload size
