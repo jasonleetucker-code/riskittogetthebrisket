@@ -53,10 +53,7 @@ def _seed_data_cache(repo_root: Path) -> None:
         newest = existing[-1]
         count = _snapshot_player_count(newest)
         if count >= _MIN_PLAYERS:
-            print(
-                f"[preflight] data/{newest.name} usable "
-                f"({count} players) — seed skipped"
-            )
+            print(f"[preflight] data/{newest.name} usable ({count} players) — seed skipped")
             return
         print(
             f"[preflight] data/{newest.name} is unusable "
@@ -100,10 +97,7 @@ def _seed_data_cache(repo_root: Path) -> None:
             f"[preflight] quarantined unusable newer snapshot "
             f"{newest.name} -> {quarantine.name} so the seeded one is picked"
         )
-    print(
-        f"[preflight] seeded data/{dest.name} from committed "
-        f"exports/latest/ ({count} players)"
-    )
+    print(f"[preflight] seeded data/{dest.name} from committed exports/latest/ ({count} players)")
 
 
 def _check_node_deps(repo_root: Path) -> None:
@@ -125,9 +119,7 @@ def _check_node_deps(repo_root: Path) -> None:
     if not (repo_root / "node_modules" / "@playwright" / "test").is_dir():
         missing.append(("root", "npm ci", "the Playwright test runner"))
     if not (repo_root / "frontend" / "node_modules").is_dir():
-        missing.append(
-            ("frontend", "npm --prefix frontend ci", "the Next.js frontend build")
-        )
+        missing.append(("frontend", "npm --prefix frontend ci", "the Next.js frontend build"))
     if missing:
         print("[preflight] ERROR: node dependencies are not installed.")
         for where, cmd, what in missing:
