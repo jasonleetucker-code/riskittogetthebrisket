@@ -161,6 +161,41 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     "josh metellus": "joshua metellus",  # DLF "Josh" ↔ dynasty_data "Joshua"
     "kam curl": "kamren curl",  # dynasty_data "Kam" ↔ DLF/IDPTC "Kamren"
     "kamren curl": "kamren curl",  # anchor the canonical form
+    # ── 2026-07 identity sweep (scripts/audit_identity_matches.py) ─────
+    # Each entry below was verified same-player via position + age +
+    # team agreement between the source CSV row and the Sleeper-pool
+    # row (see docs/identity-audit-2026-07.md for the evidence table).
+    # Values are the pool's canonical spelling (normalize_player_name
+    # output of the dynasty_data player name).
+    "kenneth gainwell": "kenny gainwell",  # KTC/DLF/FP/DS/Flock/DN "Kenneth"
+    # ↔ Sleeper "Kenny" (RB, TB, age 27; previously only recovered on
+    # pfkDynasty via its sleeper_id column)
+    "gabriel davis": "gabe davis",  # KTC/IDPTC "Gabriel" ↔ Sleeper "Gabe" (WR, 27)
+    "alim mcneil": "alim mcneill",  # IDPTC single-l typo ↔ "McNeill" (DL, DET, 26)
+    "andru phillips": "dru phillips",  # IDPTC/idpShow/DS "Andru" ↔ Sleeper
+    # "Dru" (CB, NYG, 24)
+    "camryn bynum": "cam bynum",  # IDPTC/idpShow/DS "Camryn" ↔ Sleeper "Cam" (S, IND, 28)
+    "nickolas martin": "nick martin",  # IDPTC/idpShow "Nickolas" ↔ Sleeper
+    # "Nick" (LB, SF, 23 — NOT the retired IND center, age rules him out)
+    "josh palmer": "joshua palmer",  # DLF "Josh" ↔ Sleeper "Joshua" (WR, BUF, 26)
+    "cameron skattebo": "cam skattebo",  # DS "Cameron" ↔ Sleeper "Cam" (RB, NYG, 24)
+    "cameron ward": "cam ward",  # DS "Cameron" ↔ Sleeper "Cam" (QB, TEN, 24)
+    "nathan landman": "nate landman",  # DS "Nathan" ↔ Sleeper "Nate" (LB, LAR, 27)
+    "patrick surtain": "pat surtain",  # DS "Patrick Surtain II" ↔ Sleeper
+    # "Pat Surtain" (CB, DEN, 26; suffix already stripped by normalize)
+    "daxton hill": "dax hill",  # DS "Daxton" ↔ Sleeper "Dax" (S, CIN, 25)
+    "donaven mcculley": "donoven mcculley",  # DS "Donaven" ↔ pool "Donoven"
+    # (WR, MIA, 23 — vendor a/o vowel drift for the UDFA)
+    "chauncey gardner johnson": "cj gardner johnson",  # DS legal first name
+    # ↔ Sleeper "C.J. Gardner-Johnson" (S/DB, BUF, 28)
+    "michael jackson": "mike jackson",  # DS "Michael" ↔ Sleeper "Mike"
+    # (CB, CAR, 29 on both sides)
+    "ahmad gardner": "sauce gardner",  # DS legal first name ↔ Sleeper
+    # "Sauce" (CB, IND, 24)
+    "justin madubuike": "nnamdi madubuike",  # DLF IDP still uses the
+    # pre-2024 name; player renamed Justin → Nnamdi (DL, BAL, 28)
+    "robert henry": "rob henry",  # DS/FP "Robert Henry Jr." ↔ pool
+    # "Rob Henry" (RB, UTSA UDFA → WAS, age 24 on both sides)
 }
 
 

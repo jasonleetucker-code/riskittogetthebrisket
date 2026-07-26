@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from src.utils.name_clean import normalize_player_name, normalize_position_family, normalize_team
+from src.utils.name_clean import (
+    CANONICAL_NAME_ALIASES,
+    normalize_player_name,
+    normalize_position_family,
+    normalize_team,
+    resolve_canonical_name,
+)
 
 
 # ── normalize_player_name ────────────────────────────────────────────
@@ -366,3 +372,55 @@ class TestNormalizePositionFamilyStandardCases:
 
     def test_dl_lb_lowercase(self):
         assert normalize_position_family("dl/lb") == "DL"
+
+
+# ── 2026-07 identity-sweep aliases ───────────────────────────────────
+# Each pair below is a vendor spelling that used to drop the player's
+# vote at the CSV → pool join (see docs/identity-audit-2026-07.md).
+# The alias table must collapse the vendor form onto the pool form.
+
+
+class TestIdentitySweepAliases:
+    RECOVERED = [
+        # (vendor spelling as it appears in the source CSV, pool spelling)
+        ("Kenneth Gainwell", "Kenny Gainwell"),
+        ("Gabriel Davis", "Gabe Davis"),
+        ("Alim McNeil", "Alim McNeill"),
+        ("Andru Phillips", "Dru Phillips"),
+        ("Camryn Bynum", "Cam Bynum"),
+        ("Nickolas Martin", "Nick Martin"),
+        ("Josh Palmer", "Joshua Palmer"),
+        ("Cameron Skattebo", "Cam Skattebo"),
+        ("Cameron Ward", "Cam Ward"),
+        ("Nathan Landman", "Nate Landman"),
+        ("Patrick Surtain II", "Pat Surtain"),
+        ("Daxton Hill", "Dax Hill"),
+        ("Donaven McCulley", "Donoven McCulley"),
+        ("Chauncey Gardner-Johnson", "C.J. Gardner-Johnson"),
+        ("Michael Jackson", "Mike Jackson"),
+        ("Ahmad Gardner", "Sauce Gardner"),
+        ("Justin Madubuike", "Nnamdi Madubuike"),
+        ("Robert Henry Jr.", "Rob Henry"),
+    ]
+
+    @pytest.mark.parametrize("vendor,pool", RECOVERED)
+    def test_vendor_spelling_collapses_to_pool_spelling(self, vendor, pool):
+        assert resolve_canonical_name(vendor) == resolve_canonical_name(pool)
+        # ... and the shared key is the pool form's normalized name so
+        # the CSV join lands on the existing pool row.
+        assert resolve_canonical_name(vendor) == normalize_player_name(pool)
+
+    def test_alias_keys_are_normalize_stable(self):
+        # Every key must be the output of normalize_player_name for
+        # some raw spelling — i.e. renormalizing the key is a no-op.
+        # A non-stable key can never be hit by the join and is dead.
+        for key in CANONICAL_NAME_ALIASES:
+            assert normalize_player_name(key) == key, key
+
+    def test_alias_values_are_fixed_points(self):
+        # No chained aliases: resolving a value must return itself.
+        # A chain (a → b, b → c) would make the join key depend on
+        # how many times the resolver runs.
+        for key, value in CANONICAL_NAME_ALIASES.items():
+            assert normalize_player_name(value) == value, (key, value)
+            assert CANONICAL_NAME_ALIASES.get(value, value) == value, (key, value)
