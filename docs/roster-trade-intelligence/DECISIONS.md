@@ -209,21 +209,86 @@ its own downstream verification and is explicitly out of scope here.
   runs on a schedule, imports the valuation pipeline, or alters any
   endpoint. The registry records and gates; today a human drives it.
 
-### Proposed wiring (scoped, not landed here)
+### The wiring — LANDED 2026-07-26
 
-The minimal follow-up, for review as its own change:
+The five-step plan below was the original scope. It landed as a single
+driver rather than five CLI calls chained in YAML; the differences are
+recorded because the plan was written before the code existed.
 
-1. Refit emits challenger params instead of writing them:
-   `fit_hill_curve_percentile.py --json-out challenger.json`.
+Original plan:
+
+1. Refit emits challenger params instead of writing them.
 2. `model_registry.py evaluate --champion --record`
 3. `model_registry.py register --params challenger.json`
 4. `model_registry.py validate <n>` — exit 0 promotes, 1 rejects.
-5. Commit **only** `config/model_registry/*.json`. Production constants
-   move solely via `promote` + `apply`, run by a human.
+5. Commit **only** `config/model_registry/*.json`.
 
-That removes all three defects: the constants stop being rewritten
-unreviewed, the guard stops being rewritten at all, and the gate that
-does run is one the fit never saw — so `-m "not livedata"` no longer
-skips the only thing checking it.
+What actually shipped, and why it differs:
 
-**Status:** accepted 2026-07-26; implementation in `src/model_registry/`.
+* **Steps 1–4 collapsed into `scripts/auto_refit_hill_curves.py`.**
+  Chaining four CLI calls through workflow steps means passing a
+  params file and a version number between shell steps, and every hand-
+  off is a place for the gate to be skipped by an `if:` condition. One
+  driver with one exit-code contract has no such seam.
+* **Exit codes are richer than "0 promotes, 1 rejects".** The plan's
+  binary conflates two very different outcomes. Shipped contract:
+  `0` champion stands (no drift, or the challenger missed the margin —
+  the ordinary weekly result), `1` promotable, `2` error, `3`
+  regression alarm.
+* **Added: the champion must match what is deployed.** The driver
+  refuses to run if the registry's champion params differ from the
+  constants in `player_valuation.py`. Not in the plan, and necessary —
+  comparing a challenger against a champion that is not live yields a
+  correct-looking verdict about the wrong incumbent.
+* **Added: the workflow self-tests the gate before trusting it**
+  (`pytest tests/model_registry/`, ~2s).
+* **Added: an issue is opened when a human must act** (promotable, or
+  alarm).
+* **Removed: the full `pytest -m "not livedata"` step.** It existed to
+  check code the refit had just rewritten. The refit rewrites nothing
+  now, so there is nothing for a full sweep to regress — and running
+  it weekly for 15 minutes to check an unchanged tree is the kind of
+  ritual that makes a real signal easy to ignore.
+
+**Reason 3 was NOT fixed by un-marking the guard.**
+`test_ktc_reconciliation.py` keeps its `livedata` marking; that marking
+exists because a yahooBoone row-count dip once stalled every PR, and it
+is still correct. The gate moved out of pytest entirely instead. A gate
+invoked through pytest can be deselected by a filter; a gate invoked as
+a function call cannot. `TestTheLivedataMarkingIsPreserved` fails if
+anyone "fixes" it the other way.
+
+The guard itself is left in place and is no longer rewritten, so its
+pins are now a real tripwire: if the constants change and the pins are
+not re-baselined by hand, it fails — which is the behaviour its
+docstring always claimed.
+
+### What happens on rejection
+
+Stated explicitly, because "nothing reported red because nothing ran"
+is the failure class this whole change exists to remove.
+
+| Outcome | Constants | Registry | Workflow | Human notified |
+|---|---|---|---|---|
+| No drift | untouched | unchanged | green | no |
+| Rejected within margin | untouched | challenger recorded as `rejected` | green | no |
+| **Promotable** | untouched | challenger recorded | green | **issue opened** |
+| **Regression alarm** | untouched | challenger recorded as `rejected` | **red** | **issue opened** |
+| Error | untouched | unchanged | **red** | workflow failure email |
+
+Two deliberate choices in that table:
+
+* **Routine rejection does not page anyone.** It is the expected weekly
+  outcome; alerting on it trains people to ignore the alert, which is
+  how a deliberate decision became an invisible hole the first time.
+  It is still *recorded* — every run leaves a dated registry entry.
+* **A promotable challenger DOES page.** Otherwise improvements never
+  land and the system quietly becomes a no-op — the same "nothing
+  happened and nobody noticed" shape, just with the sign flipped.
+
+The registry is the audit trail, and its absence is itself the signal:
+a week with no new entry means the workflow did not run.
+
+**Status:** accepted 2026-07-26; registry in `src/model_registry/`,
+wiring landed in `scripts/auto_refit_hill_curves.py` +
+`.github/workflows/refit-hill-curves.yml`.
