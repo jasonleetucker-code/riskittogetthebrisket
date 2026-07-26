@@ -97,7 +97,17 @@ test.describe("journey: trade surfaces", () => {
     expect(body).toHaveProperty("metadata");
     expect(body).toHaveProperty("leagueKey");
 
-    // When trades exist, each has both sides populated with valued assets.
+    // Without this, the loop below never executes on an empty array and
+    // a test named "returns arbitrage trades for a real roster" passes
+    // when the engine returns none — which is exactly the regression
+    // #556 fixed (the finder silently dropping every IDP asset).  The
+    // structural check has to come before the per-trade checks.
+    expect(
+      body.trades.length,
+      "finder returned zero trades for a real roster — the engine is dropping assets",
+    ).toBeGreaterThan(0);
+
+    // Each has both sides populated with valued assets.
     for (const trade of body.trades.slice(0, 5)) {
       expect(Array.isArray(trade.give)).toBeTruthy();
       expect(Array.isArray(trade.receive)).toBeTruthy();
