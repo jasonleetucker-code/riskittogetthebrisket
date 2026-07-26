@@ -445,3 +445,153 @@ absence, and this table should not imply otherwise.
   endpoints already in use. No account-gated or robots-disallowed
   surface was touched; blocked sources are recorded as blocked with a
   manual-import path.
+
+---
+
+## 8. CORRECTION to §7 — Dynasty Nerds is not blocked, and what its pair shows
+
+**§7 classified Dynasty Nerds as "subscriber-gated / blocked". That was
+wrong**, and the error was mine: I asserted the access posture from the
+source's reputation instead of reading our own fetcher, whose docstring
+says plainly *"No JS execution, no auth, and no paywall bypass are
+needed."*
+
+DN embeds its whole dataset inline in the page HTML:
+
+```
+window.DR_DATA = { PPR: [...], SFLEX: [...], STD: [...], SFLEXTEP: [...], _meta: {...} }
+```
+
+`scripts/fetch_dynasty_nerds.py` already downloads that payload every
+refresh and extracts **only** `SFLEXTEP`. **`SFLEX` is the same board
+without the TE premium** — the paired variant, from the same publisher,
+in bytes we were already fetching and discarding.
+
+`scripts/extract_te_calibration_pairs.py` now caches all four variants
+to `data/calibration/te_pairs/` at **zero additional HTTP cost**: it
+imports the existing fetcher's `_fetch_html` / `_extract_dr_data` /
+`_build_rows` (already parameterized by key) and pulls every array out
+of one response. The fetcher is imported, never modified. Nothing is
+registered as a ranking source.
+
+### 8.1 Result: the value pair is real but **confounded**
+
+294 rows per variant, 281 joined on SleeperId. Running
+`measure_paired_te_premium`:
+
+| Gate | Result |
+|---|---|
+| **Cardinal scale** | ✅ **PASS** — 955× dynamic range (values 10 … 9,558). Not a rank encoding. |
+| **Controls at unity** | ❌ **FAIL** — control drift 6.83%, control ratio 0.952 |
+| Verdict | `usable: false`, `tePremium: None` |
+
+This is a **third case** the gate design didn't anticipate: not
+rank-compressed (FantasyPros' failure mode), but *cardinal and
+confounded*. The diagnosis is not a uniform renormalization — I checked:
+
+* Control medians cluster tightly (QB 0.954 / RB 0.932 / WR 0.952,
+  only 2.25pp apart), which *looks* like a global rescale…
+* …but only **27 of 240** control rows are identical (KTC: **388 of
+  388**, byte-identical), and top control players move in **both
+  directions** — Mahomes ×0.910, Lamar ×0.977, Gibbs ×1.024, London
+  ×1.073. Applying a value floor tightens dispersion (sd 0.13 → 0.04)
+  but the between-position spread does **not** converge to zero.
+
+A renormalization moves every control player by the *same* factor.
+These don't. **SFLEX and SFLEXTEP are separately-maintained boards, not
+one board with a TE knob.** The gate correctly rejected the pair, and
+the value-ratio method is genuinely unavailable here — the ×1.368
+cannot be corroborated in value space from this source.
+
+### 8.2 ⚠ Finding for the LI agent building `measure_rank_displacement()`
+
+**A controls-at-zero-displacement gate can never pass on a combined
+ranking list, by construction.** Rank displacement is zero-sum:
+
+```
+TE total displacement      :  -925 rank-positions   (41 TEs, mean -22.6)
+control total displacement :  +934 rank-positions   (240 controls, mean +3.9)
+net                        :    +9   (0.5% of ~1,850 positions moved)
+```
+
+When 41 TEs climb, the non-TEs they pass **must** fall by the same
+total. The +3.9 control drift is the *mechanical consequence* of the TE
+premium, not evidence of confounding. Porting the value path's
+controls-at-unity condition directly into the ordinal path would reject
+every honest measurement.
+
+The ordinal gate needs to be one of:
+
+* **within-position rank** (TE rank among TEs, which is invariant to
+  cross-position reshuffling), or
+* **expected-drift-adjusted**: compare observed control drift against
+  the drift mechanically implied by the observed TE movement, and flag
+  only the *residual*.
+
+Flagging rather than implementing — `calibration.py` is the LI agent's
+file and the ordinal path is their work in progress. Happy to supply
+this dataset as a fixture.
+
+### 8.3 What DN *does* corroborate: the **shape**
+
+Depth-graded TE rank displacement (negative = gains rank under TEP),
+in the same bands as the KTC measurement:
+
+| Band | n | DN median rank gain | KTC value premium |
+|---|---|---|---|
+| TE1-12 | 12 | −15.0 | ×1.287 |
+| TE13-24 | 12 | −16.5 | (KTC mid bands) |
+| TE25-40 | 16 | −28.0 | |
+| TE41+ | 1 | −30.0 | ×1.512 |
+
+Levels are **not** comparable — one is rank displacement, the other a
+value ratio — but the **shape is**: both publishers say the TE premium
+**grows with depth**, monotonically. Elite TEs are already priced near
+their premium value; the premium bites hardest on mid/back-end TEs.
+
+That is genuine independent corroboration of the *structure* of the
+KTC curve, from a second publisher, even though it cannot corroborate
+the *level*. Materially better than "single-publisher number we can't
+corroborate" — and materially short of "two publishers agree on
+×1.368".
+
+**Power caveat:** DN's TE sample is 41 rows (vs KTC's 74), and the
+TE41+ band has **n=1** — that band's −30 is a single player, not an
+estimate. The DN gradient should be read as three usable bands.
+
+### 8.4 PPR / STD: no TE contrast (checked, not assumed)
+
+| Contrast | Control drift | Reading |
+|---|---|---|
+| `PPR` → `STD` | 13.2% (QB 1.048 / RB 0.868 / WR 1.049, **TE 1.048**) | Varies reception scoring. TE moves *identically to QB/WR* — no TE-specific signal. |
+| `SFLEX` → `PPR` | 64.0% (QB **0.360**, RB 1.076, WR 1.183, TE 1.414) | Varies superflex. QB collapses as expected; nowhere near TE-isolating. |
+
+Neither contrast isolates TE posture. Confirmed rather than assumed, as
+instructed. They remain cached in case a future question wants the
+scoring-format axis.
+
+### 8.5 Re-examining the other "blocked" calls
+
+Applying the tell — *a fetcher whose docstring says no auth is needed*:
+
+| Source | §7 said | Actually | Note |
+|---|---|---|---|
+| **Dynasty Nerds** | blocked | ✅ **public, pair measured** | corrected above |
+| **DLF** | blocked | ⚠️ **auth-gated, but we hold credentials** | `fetch_dlf.py` authenticates with `DLF_USERNAME`/`DLF_PASSWORD`. "Blocked" was right about the gate, wrong about the consequence — **we are already through it.** If DLF publishes a TE-premium variant, it is reachable on the session we already establish. Worth a probe. |
+| **Draft Sharks** | blocked | 🔴 **strong candidate — likely mis-classified** | `fetch_draftsharks.py` already scrapes **`/dynasty-rankings/te-premium-superflex`** — a TE-premium *URL path*. A sibling non-TEP superflex path would be the same pattern as KTC's `tep=` param. We already have a working authenticated Playwright fetch against this exact board. |
+| Flock, Yahoo/Boone, IDP Show, PFK | not probed | **all publicly fetched today** | Their fetchers describe public JSON / public Datawrapper CSV / public Supabase. Whether any ships a *TE variant* is still unprobed — but none is access-blocked. |
+
+**Two of my three "blocked" calls were wrong in substance.** The
+pattern in both: I reasoned from what the publisher sells rather than
+from what our code already reaches. The corrected posture is that
+access-blocked is rarer than assumed, and the repo's own fetchers are
+the authority on it.
+
+### 8.6 Recommended next probes, in order
+
+1. **Draft Sharks** — highest expected value. Same board we already
+   fetch, TE-premium already in the URL path; needs the sibling path
+   confirmed. Uses an authenticated session we already maintain, so
+   this needs a coordinator call on scope before I run it.
+2. **DLF** — credentials already held; check for a TE-premium variant.
+3. **Flock / PFK / Yahoo-Boone / IDP Show** — public, cheap to probe.

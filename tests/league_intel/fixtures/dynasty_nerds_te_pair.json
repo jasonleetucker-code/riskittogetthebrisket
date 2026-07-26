@@ -1,0 +1,1581 @@
+{
+  "publisher": "dynastyNerds",
+  "baseVariant": "SFLEX",
+  "premiumVariant": "SFLEXTEP",
+  "source": "https://www.dynastynerds.com/dynasty-rankings/sf-tep/",
+  "note": "Trimmed from the live DR_DATA pair for offline tests: every TE plus the top 30 controls per position. Both variants come from ONE payload the existing DN fetcher already downloads.",
+  "rows": [
+    {
+      "displayName": "Josh Allen",
+      "position": "QB",
+      "team": "BUF",
+      "sleeperId": "4984",
+      "canonicalSiteValues": {
+        "base": 10256,
+        "premium": 10256
+      },
+      "baseRank": 1,
+      "premiumRank": 1
+    },
+    {
+      "displayName": "Bijan Robinson",
+      "position": "RB",
+      "team": "ATL",
+      "sleeperId": "9509",
+      "canonicalSiteValues": {
+        "base": 10018,
+        "premium": 10018
+      },
+      "baseRank": 2,
+      "premiumRank": 2
+    },
+    {
+      "displayName": "Drake Maye",
+      "position": "QB",
+      "team": "NE",
+      "sleeperId": "11564",
+      "canonicalSiteValues": {
+        "base": 9785,
+        "premium": 9785
+      },
+      "baseRank": 3,
+      "premiumRank": 3
+    },
+    {
+      "displayName": "Jahmyr Gibbs",
+      "position": "RB",
+      "team": "DET",
+      "sleeperId": "9221",
+      "canonicalSiteValues": {
+        "base": 9336,
+        "premium": 9558
+      },
+      "baseRank": 5,
+      "premiumRank": 4
+    },
+    {
+      "displayName": "Jaxon Smith-Njigba",
+      "position": "WR",
+      "team": "SEA",
+      "sleeperId": "9488",
+      "canonicalSiteValues": {
+        "base": 9558,
+        "premium": 9336
+      },
+      "baseRank": 4,
+      "premiumRank": 5
+    },
+    {
+      "displayName": "Ja'Marr Chase",
+      "position": "WR",
+      "team": "CIN",
+      "sleeperId": "7564",
+      "canonicalSiteValues": {
+        "base": 9119,
+        "premium": 9119
+      },
+      "baseRank": 6,
+      "premiumRank": 6
+    },
+    {
+      "displayName": "Brock Bowers",
+      "position": "TE",
+      "team": "LV",
+      "sleeperId": "11604",
+      "canonicalSiteValues": {
+        "base": 7920,
+        "premium": 8907
+      },
+      "baseRank": 12,
+      "premiumRank": 7
+    },
+    {
+      "displayName": "Puka Nacua",
+      "position": "WR",
+      "team": "LAR",
+      "sleeperId": "9493",
+      "canonicalSiteValues": {
+        "base": 8907,
+        "premium": 8700
+      },
+      "baseRank": 7,
+      "premiumRank": 8
+    },
+    {
+      "displayName": "Caleb Williams",
+      "position": "QB",
+      "team": "CHI",
+      "sleeperId": "11560",
+      "canonicalSiteValues": {
+        "base": 8700,
+        "premium": 8498
+      },
+      "baseRank": 8,
+      "premiumRank": 9
+    },
+    {
+      "displayName": "Jayden Daniels",
+      "position": "QB",
+      "team": "WAS",
+      "sleeperId": "11566",
+      "canonicalSiteValues": {
+        "base": 8498,
+        "premium": 8301
+      },
+      "baseRank": 9,
+      "premiumRank": 10
+    },
+    {
+      "displayName": "Ashton Jeanty",
+      "position": "RB",
+      "team": "LV",
+      "sleeperId": "12527",
+      "canonicalSiteValues": {
+        "base": 8301,
+        "premium": 8108
+      },
+      "baseRank": 10,
+      "premiumRank": 11
+    },
+    {
+      "displayName": "Trey McBride",
+      "position": "TE",
+      "team": "ARI",
+      "sleeperId": "8130",
+      "canonicalSiteValues": {
+        "base": 6563,
+        "premium": 7920
+      },
+      "baseRank": 20,
+      "premiumRank": 12
+    },
+    {
+      "displayName": "Justin Jefferson",
+      "position": "WR",
+      "team": "MIN",
+      "sleeperId": "6794",
+      "canonicalSiteValues": {
+        "base": 8108,
+        "premium": 7736
+      },
+      "baseRank": 11,
+      "premiumRank": 13
+    },
+    {
+      "displayName": "Amon-Ra St. Brown",
+      "position": "WR",
+      "team": "DET",
+      "sleeperId": "7547",
+      "canonicalSiteValues": {
+        "base": 7381,
+        "premium": 7556
+      },
+      "baseRank": 15,
+      "premiumRank": 14
+    },
+    {
+      "displayName": "CeeDee Lamb",
+      "position": "WR",
+      "team": "DAL",
+      "sleeperId": "6786",
+      "canonicalSiteValues": {
+        "base": 7556,
+        "premium": 7381
+      },
+      "baseRank": 14,
+      "premiumRank": 15
+    },
+    {
+      "displayName": "De'Von Achane",
+      "position": "RB",
+      "team": "MIA",
+      "sleeperId": "9226",
+      "canonicalSiteValues": {
+        "base": 7736,
+        "premium": 7209
+      },
+      "baseRank": 13,
+      "premiumRank": 16
+    },
+    {
+      "displayName": "Malik Nabers",
+      "position": "WR",
+      "team": "NYG",
+      "sleeperId": "11632",
+      "canonicalSiteValues": {
+        "base": 7209,
+        "premium": 7042
+      },
+      "baseRank": 16,
+      "premiumRank": 17
+    },
+    {
+      "displayName": "Jeremiyah Love",
+      "position": "RB",
+      "team": "ARI",
+      "sleeperId": "13287",
+      "canonicalSiteValues": {
+        "base": 6878,
+        "premium": 6878
+      },
+      "baseRank": 18,
+      "premiumRank": 18
+    },
+    {
+      "displayName": "Justin Herbert",
+      "position": "QB",
+      "team": "LAC",
+      "sleeperId": "6797",
+      "canonicalSiteValues": {
+        "base": 6719,
+        "premium": 6719
+      },
+      "baseRank": 19,
+      "premiumRank": 19
+    },
+    {
+      "displayName": "Joe Burrow",
+      "position": "QB",
+      "team": "CIN",
+      "sleeperId": "6770",
+      "canonicalSiteValues": {
+        "base": 7042,
+        "premium": 6563
+      },
+      "baseRank": 17,
+      "premiumRank": 20
+    },
+    {
+      "displayName": "Omarion Hampton",
+      "position": "RB",
+      "team": "LAC",
+      "sleeperId": "12507",
+      "canonicalSiteValues": {
+        "base": 6116,
+        "premium": 6410
+      },
+      "baseRank": 23,
+      "premiumRank": 21
+    },
+    {
+      "displayName": "Drake London",
+      "position": "WR",
+      "team": "ATL",
+      "sleeperId": "8112",
+      "canonicalSiteValues": {
+        "base": 5835,
+        "premium": 6261
+      },
+      "baseRank": 25,
+      "premiumRank": 22
+    },
+    {
+      "displayName": "Lamar Jackson",
+      "position": "QB",
+      "team": "BAL",
+      "sleeperId": "4881",
+      "canonicalSiteValues": {
+        "base": 6261,
+        "premium": 6116
+      },
+      "baseRank": 22,
+      "premiumRank": 23
+    },
+    {
+      "displayName": "Jaxson Dart",
+      "position": "QB",
+      "team": "NYG",
+      "sleeperId": "12508",
+      "canonicalSiteValues": {
+        "base": 5974,
+        "premium": 5974
+      },
+      "baseRank": 24,
+      "premiumRank": 24
+    },
+    {
+      "displayName": "Patrick Mahomes",
+      "position": "QB",
+      "team": "KC",
+      "sleeperId": "4046",
+      "canonicalSiteValues": {
+        "base": 6410,
+        "premium": 5835
+      },
+      "baseRank": 21,
+      "premiumRank": 25
+    },
+    {
+      "displayName": "Colston Loveland",
+      "position": "TE",
+      "team": "CHI",
+      "sleeperId": "12517",
+      "canonicalSiteValues": {
+        "base": 4299,
+        "premium": 5699
+      },
+      "baseRank": 38,
+      "premiumRank": 26
+    },
+    {
+      "displayName": "Tetairoa McMillan",
+      "position": "WR",
+      "team": "CAR",
+      "sleeperId": "12526",
+      "canonicalSiteValues": {
+        "base": 5567,
+        "premium": 5567
+      },
+      "baseRank": 27,
+      "premiumRank": 27
+    },
+    {
+      "displayName": "Jalen Hurts",
+      "position": "QB",
+      "team": "PHI",
+      "sleeperId": "6904",
+      "canonicalSiteValues": {
+        "base": 5699,
+        "premium": 5438
+      },
+      "baseRank": 26,
+      "premiumRank": 28
+    },
+    {
+      "displayName": "Tyler Warren",
+      "position": "TE",
+      "team": "IND",
+      "sleeperId": "12518",
+      "canonicalSiteValues": {
+        "base": 3647,
+        "premium": 5312
+      },
+      "baseRank": 45,
+      "premiumRank": 29
+    },
+    {
+      "displayName": "Emeka Egbuka",
+      "position": "WR",
+      "team": "TB",
+      "sleeperId": "12514",
+      "canonicalSiteValues": {
+        "base": 5312,
+        "premium": 5188
+      },
+      "baseRank": 29,
+      "premiumRank": 30
+    },
+    {
+      "displayName": "Trevor Lawrence",
+      "position": "QB",
+      "team": "JAX",
+      "sleeperId": "7523",
+      "canonicalSiteValues": {
+        "base": 5438,
+        "premium": 5068
+      },
+      "baseRank": 28,
+      "premiumRank": 31
+    },
+    {
+      "displayName": "Garrett Wilson",
+      "position": "WR",
+      "team": "NYJ",
+      "sleeperId": "8146",
+      "canonicalSiteValues": {
+        "base": 5188,
+        "premium": 4950
+      },
+      "baseRank": 30,
+      "premiumRank": 32
+    },
+    {
+      "displayName": "Jonathan Taylor",
+      "position": "RB",
+      "team": "IND",
+      "sleeperId": "6813",
+      "canonicalSiteValues": {
+        "base": 5068,
+        "premium": 4835
+      },
+      "baseRank": 31,
+      "premiumRank": 33
+    },
+    {
+      "displayName": "Brock Purdy",
+      "position": "QB",
+      "team": "SF",
+      "sleeperId": "8183",
+      "canonicalSiteValues": {
+        "base": 4835,
+        "premium": 4723
+      },
+      "baseRank": 33,
+      "premiumRank": 34
+    },
+    {
+      "displayName": "James Cook",
+      "position": "RB",
+      "team": "BUF",
+      "sleeperId": "8138",
+      "canonicalSiteValues": {
+        "base": 4950,
+        "premium": 4613
+      },
+      "baseRank": 32,
+      "premiumRank": 35
+    },
+    {
+      "displayName": "Carnell Tate",
+      "position": "WR",
+      "team": "TEN",
+      "sleeperId": "13279",
+      "canonicalSiteValues": {
+        "base": 4613,
+        "premium": 4506
+      },
+      "baseRank": 35,
+      "premiumRank": 36
+    },
+    {
+      "displayName": "George Pickens",
+      "position": "WR",
+      "team": "DAL",
+      "sleeperId": "8137",
+      "canonicalSiteValues": {
+        "base": 4723,
+        "premium": 4401
+      },
+      "baseRank": 34,
+      "premiumRank": 37
+    },
+    {
+      "displayName": "Bo Nix",
+      "position": "QB",
+      "team": "DEN",
+      "sleeperId": "11563",
+      "canonicalSiteValues": {
+        "base": 4506,
+        "premium": 4299
+      },
+      "baseRank": 36,
+      "premiumRank": 38
+    },
+    {
+      "displayName": "Breece Hall",
+      "position": "RB",
+      "team": "NYJ",
+      "sleeperId": "8155",
+      "canonicalSiteValues": {
+        "base": 4401,
+        "premium": 4199
+      },
+      "baseRank": 37,
+      "premiumRank": 39
+    },
+    {
+      "displayName": "Jordan Love",
+      "position": "QB",
+      "team": "GB",
+      "sleeperId": "6804",
+      "canonicalSiteValues": {
+        "base": 4199,
+        "premium": 4102
+      },
+      "baseRank": 39,
+      "premiumRank": 40
+    },
+    {
+      "displayName": "Ladd McConkey",
+      "position": "WR",
+      "team": "LAC",
+      "sleeperId": "11635",
+      "canonicalSiteValues": {
+        "base": 4102,
+        "premium": 4006
+      },
+      "baseRank": 40,
+      "premiumRank": 41
+    },
+    {
+      "displayName": "Quinshon Judkins",
+      "position": "RB",
+      "team": "CLE",
+      "sleeperId": "12512",
+      "canonicalSiteValues": {
+        "base": 4006,
+        "premium": 3913
+      },
+      "baseRank": 41,
+      "premiumRank": 42
+    },
+    {
+      "displayName": "Nico Collins",
+      "position": "WR",
+      "team": "HOU",
+      "sleeperId": "7569",
+      "canonicalSiteValues": {
+        "base": 3822,
+        "premium": 3822
+      },
+      "baseRank": 43,
+      "premiumRank": 43
+    },
+    {
+      "displayName": "Kenneth Walker",
+      "position": "RB",
+      "team": "KC",
+      "sleeperId": "8151",
+      "canonicalSiteValues": {
+        "base": 3734,
+        "premium": 3734
+      },
+      "baseRank": 44,
+      "premiumRank": 44
+    },
+    {
+      "displayName": "TreVeyon Henderson",
+      "position": "RB",
+      "team": "NE",
+      "sleeperId": "12513",
+      "canonicalSiteValues": {
+        "base": 3913,
+        "premium": 3647
+      },
+      "baseRank": 42,
+      "premiumRank": 45
+    },
+    {
+      "displayName": "Chris Olave",
+      "position": "WR",
+      "team": "NO",
+      "sleeperId": "8144",
+      "canonicalSiteValues": {
+        "base": 3562,
+        "premium": 3562
+      },
+      "baseRank": 46,
+      "premiumRank": 46
+    },
+    {
+      "displayName": "Fernando Mendoza",
+      "position": "QB",
+      "team": "LV",
+      "sleeperId": "13269",
+      "canonicalSiteValues": {
+        "base": 3479,
+        "premium": 3479
+      },
+      "baseRank": 47,
+      "premiumRank": 47
+    },
+    {
+      "displayName": "Rome Odunze",
+      "position": "WR",
+      "team": "CHI",
+      "sleeperId": "11620",
+      "canonicalSiteValues": {
+        "base": 3320,
+        "premium": 3399
+      },
+      "baseRank": 49,
+      "premiumRank": 48
+    },
+    {
+      "displayName": "Marvin Harrison",
+      "position": "WR",
+      "team": "ARI",
+      "sleeperId": "11628",
+      "canonicalSiteValues": {
+        "base": 3399,
+        "premium": 3320
+      },
+      "baseRank": 48,
+      "premiumRank": 49
+    },
+    {
+      "displayName": "Tucker Kraft",
+      "position": "TE",
+      "team": "GB",
+      "sleeperId": "9484",
+      "canonicalSiteValues": {
+        "base": 1889,
+        "premium": 3243
+      },
+      "baseRank": 72,
+      "premiumRank": 50
+    },
+    {
+      "displayName": "Jordyn Tyson",
+      "position": "WR",
+      "team": "NO",
+      "sleeperId": "13281",
+      "canonicalSiteValues": {
+        "base": 3022,
+        "premium": 3167
+      },
+      "baseRank": 53,
+      "premiumRank": 51
+    },
+    {
+      "displayName": "Dak Prescott",
+      "position": "QB",
+      "team": "DAL",
+      "sleeperId": "3294",
+      "canonicalSiteValues": {
+        "base": 3167,
+        "premium": 3094
+      },
+      "baseRank": 51,
+      "premiumRank": 52
+    },
+    {
+      "displayName": "Harold Fannin Jr.",
+      "position": "TE",
+      "team": "CLE",
+      "sleeperId": "12506",
+      "canonicalSiteValues": {
+        "base": 1760,
+        "premium": 3022
+      },
+      "baseRank": 75,
+      "premiumRank": 53
+    },
+    {
+      "displayName": "Brian Thomas",
+      "position": "WR",
+      "team": "JAX",
+      "sleeperId": "11631",
+      "canonicalSiteValues": {
+        "base": 3094,
+        "premium": 2952
+      },
+      "baseRank": 52,
+      "premiumRank": 54
+    },
+    {
+      "displayName": "Kyle Pitts",
+      "position": "TE",
+      "team": "ATL",
+      "sleeperId": "7553",
+      "canonicalSiteValues": {
+        "base": 1845,
+        "premium": 2883
+      },
+      "baseRank": 73,
+      "premiumRank": 55
+    },
+    {
+      "displayName": "Christian McCaffrey",
+      "position": "RB",
+      "team": "SF",
+      "sleeperId": "4034",
+      "canonicalSiteValues": {
+        "base": 3243,
+        "premium": 2816
+      },
+      "baseRank": 50,
+      "premiumRank": 56
+    },
+    {
+      "displayName": "Baker Mayfield",
+      "position": "QB",
+      "team": "TB",
+      "sleeperId": "4892",
+      "canonicalSiteValues": {
+        "base": 2883,
+        "premium": 2751
+      },
+      "baseRank": 55,
+      "premiumRank": 57
+    },
+    {
+      "displayName": "Jared Goff",
+      "position": "QB",
+      "team": "DET",
+      "sleeperId": "3163",
+      "canonicalSiteValues": {
+        "base": 2816,
+        "premium": 2687
+      },
+      "baseRank": 56,
+      "premiumRank": 58
+    },
+    {
+      "displayName": "Rashee Rice",
+      "position": "WR",
+      "team": "KC",
+      "sleeperId": "10229",
+      "canonicalSiteValues": {
+        "base": 2624,
+        "premium": 2624
+      },
+      "baseRank": 59,
+      "premiumRank": 59
+    },
+    {
+      "displayName": "Makai Lemon",
+      "position": "WR",
+      "team": "PHI",
+      "sleeperId": "13294",
+      "canonicalSiteValues": {
+        "base": 2952,
+        "premium": 2564
+      },
+      "baseRank": 54,
+      "premiumRank": 60
+    },
+    {
+      "displayName": "A.J. Brown",
+      "position": "WR",
+      "team": "NE",
+      "sleeperId": "5859",
+      "canonicalSiteValues": {
+        "base": 2751,
+        "premium": 2504
+      },
+      "baseRank": 57,
+      "premiumRank": 61
+    },
+    {
+      "displayName": "Luther Burden III",
+      "position": "WR",
+      "team": "CHI",
+      "sleeperId": "12519",
+      "canonicalSiteValues": {
+        "base": 2446,
+        "premium": 2446
+      },
+      "baseRank": 62,
+      "premiumRank": 62
+    },
+    {
+      "displayName": "Cam Ward",
+      "position": "QB",
+      "team": "TEN",
+      "sleeperId": "12522",
+      "canonicalSiteValues": {
+        "base": 2564,
+        "premium": 2389
+      },
+      "baseRank": 60,
+      "premiumRank": 63
+    },
+    {
+      "displayName": "Saquon Barkley",
+      "position": "RB",
+      "team": "PHI",
+      "sleeperId": "4866",
+      "canonicalSiteValues": {
+        "base": 2687,
+        "premium": 2334
+      },
+      "baseRank": 58,
+      "premiumRank": 64
+    },
+    {
+      "displayName": "Tee Higgins",
+      "position": "WR",
+      "team": "CIN",
+      "sleeperId": "6801",
+      "canonicalSiteValues": {
+        "base": 2504,
+        "premium": 2279
+      },
+      "baseRank": 61,
+      "premiumRank": 65
+    },
+    {
+      "displayName": "Jaylen Waddle",
+      "position": "WR",
+      "team": "DEN",
+      "sleeperId": "7526",
+      "canonicalSiteValues": {
+        "base": 2389,
+        "premium": 2226
+      },
+      "baseRank": 63,
+      "premiumRank": 66
+    },
+    {
+      "displayName": "Cam Skattebo",
+      "position": "RB",
+      "team": "NYG",
+      "sleeperId": "12481",
+      "canonicalSiteValues": {
+        "base": 2334,
+        "premium": 2175
+      },
+      "baseRank": 64,
+      "premiumRank": 67
+    },
+    {
+      "displayName": "DeVonta Smith",
+      "position": "WR",
+      "team": "PHI",
+      "sleeperId": "7525",
+      "canonicalSiteValues": {
+        "base": 2124,
+        "premium": 2124
+      },
+      "baseRank": 67,
+      "premiumRank": 68
+    },
+    {
+      "displayName": "Javonte Williams",
+      "position": "RB",
+      "team": "DAL",
+      "sleeperId": "7588",
+      "canonicalSiteValues": {
+        "base": 2175,
+        "premium": 2075
+      },
+      "baseRank": 66,
+      "premiumRank": 69
+    },
+    {
+      "displayName": "Kyren Williams",
+      "position": "RB",
+      "team": "LAR",
+      "sleeperId": "8150",
+      "canonicalSiteValues": {
+        "base": 2075,
+        "premium": 1934
+      },
+      "baseRank": 68,
+      "premiumRank": 71
+    },
+    {
+      "displayName": "Chase Brown",
+      "position": "RB",
+      "team": "CIN",
+      "sleeperId": "9224",
+      "canonicalSiteValues": {
+        "base": 2027,
+        "premium": 1889
+      },
+      "baseRank": 69,
+      "premiumRank": 72
+    },
+    {
+      "displayName": "Sam LaPorta",
+      "position": "TE",
+      "team": "DET",
+      "sleeperId": "10859",
+      "canonicalSiteValues": {
+        "base": 1529,
+        "premium": 1845
+      },
+      "baseRank": 80,
+      "premiumRank": 73
+    },
+    {
+      "displayName": "Bucky Irving",
+      "position": "RB",
+      "team": "TB",
+      "sleeperId": "11584",
+      "canonicalSiteValues": {
+        "base": 1934,
+        "premium": 1802
+      },
+      "baseRank": 71,
+      "premiumRank": 74
+    },
+    {
+      "displayName": "Jadarian Price",
+      "position": "RB",
+      "team": "SEA",
+      "sleeperId": "13286",
+      "canonicalSiteValues": {
+        "base": 1980,
+        "premium": 1760
+      },
+      "baseRank": 70,
+      "premiumRank": 75
+    },
+    {
+      "displayName": "KC Concepcion",
+      "position": "WR",
+      "team": "CLE",
+      "sleeperId": "13298",
+      "canonicalSiteValues": {
+        "base": 1602,
+        "premium": 1719
+      },
+      "baseRank": 79,
+      "premiumRank": 76
+    },
+    {
+      "displayName": "Josh Jacobs",
+      "position": "RB",
+      "team": "GB",
+      "sleeperId": "5850",
+      "canonicalSiteValues": {
+        "base": 1802,
+        "premium": 1679
+      },
+      "baseRank": 74,
+      "premiumRank": 77
+    },
+    {
+      "displayName": "Travis Etienne",
+      "position": "RB",
+      "team": "NO",
+      "sleeperId": "7543",
+      "canonicalSiteValues": {
+        "base": 1719,
+        "premium": 1640
+      },
+      "baseRank": 76,
+      "premiumRank": 78
+    },
+    {
+      "displayName": "Jameson Williams",
+      "position": "WR",
+      "team": "DET",
+      "sleeperId": "8148",
+      "canonicalSiteValues": {
+        "base": 1640,
+        "premium": 1602
+      },
+      "baseRank": 78,
+      "premiumRank": 79
+    },
+    {
+      "displayName": "Sam Darnold",
+      "position": "QB",
+      "team": "SEA",
+      "sleeperId": "4943",
+      "canonicalSiteValues": {
+        "base": 1679,
+        "premium": 1565
+      },
+      "baseRank": 77,
+      "premiumRank": 80
+    },
+    {
+      "displayName": "C.J. Stroud",
+      "position": "QB",
+      "team": "HOU",
+      "sleeperId": "9758",
+      "canonicalSiteValues": {
+        "base": 1493,
+        "premium": 1493
+      },
+      "baseRank": 81,
+      "premiumRank": 81
+    },
+    {
+      "displayName": "Kyler Murray",
+      "position": "QB",
+      "team": "MIN",
+      "sleeperId": "5849",
+      "canonicalSiteValues": {
+        "base": 1425,
+        "premium": 1458
+      },
+      "baseRank": 83,
+      "premiumRank": 82
+    },
+    {
+      "displayName": "Kenyon Sadiq",
+      "position": "TE",
+      "team": "NYJ",
+      "sleeperId": "13330",
+      "canonicalSiteValues": {
+        "base": 978,
+        "premium": 1425
+      },
+      "baseRank": 99,
+      "premiumRank": 83
+    },
+    {
+      "displayName": "Christian Watson",
+      "position": "WR",
+      "team": "GB",
+      "sleeperId": "8167",
+      "canonicalSiteValues": {
+        "base": 1458,
+        "premium": 1391
+      },
+      "baseRank": 82,
+      "premiumRank": 84
+    },
+    {
+      "displayName": "Tyler Shough",
+      "position": "QB",
+      "team": "NO",
+      "sleeperId": "12545",
+      "canonicalSiteValues": {
+        "base": 1391,
+        "premium": 1359
+      },
+      "baseRank": 84,
+      "premiumRank": 85
+    },
+    {
+      "displayName": "Bhayshul Tuten",
+      "position": "RB",
+      "team": "JAX",
+      "sleeperId": "12490",
+      "canonicalSiteValues": {
+        "base": 1359,
+        "premium": 1328
+      },
+      "baseRank": 85,
+      "premiumRank": 86
+    },
+    {
+      "displayName": "Malik Willis",
+      "position": "QB",
+      "team": "MIA",
+      "sleeperId": "8161",
+      "canonicalSiteValues": {
+        "base": 1297,
+        "premium": 1297
+      },
+      "baseRank": 87,
+      "premiumRank": 87
+    },
+    {
+      "displayName": "Oronde Gadsden II",
+      "position": "TE",
+      "team": "LAC",
+      "sleeperId": "12493",
+      "canonicalSiteValues": {
+        "base": 890,
+        "premium": 1126
+      },
+      "baseRank": 103,
+      "premiumRank": 93
+    },
+    {
+      "displayName": "Daniel Jones",
+      "position": "QB",
+      "team": "IND",
+      "sleeperId": "5870",
+      "canonicalSiteValues": {
+        "base": 1100,
+        "premium": 1075
+      },
+      "baseRank": 94,
+      "premiumRank": 95
+    },
+    {
+      "displayName": "Dalton Kincaid",
+      "position": "TE",
+      "team": "BUF",
+      "sleeperId": "10236",
+      "canonicalSiteValues": {
+        "base": 755,
+        "premium": 1050
+      },
+      "baseRank": 110,
+      "premiumRank": 96
+    },
+    {
+      "displayName": "D'Andre Swift",
+      "position": "RB",
+      "team": "CHI",
+      "sleeperId": "6790",
+      "canonicalSiteValues": {
+        "base": 1153,
+        "premium": 1025
+      },
+      "baseRank": 92,
+      "premiumRank": 97
+    },
+    {
+      "displayName": "Bryce Young",
+      "position": "QB",
+      "team": "CAR",
+      "sleeperId": "9228",
+      "canonicalSiteValues": {
+        "base": 1126,
+        "premium": 1001
+      },
+      "baseRank": 93,
+      "premiumRank": 98
+    },
+    {
+      "displayName": "Ty Simpson",
+      "position": "QB",
+      "team": "LAR",
+      "sleeperId": "13275",
+      "canonicalSiteValues": {
+        "base": 1050,
+        "premium": 955
+      },
+      "baseRank": 96,
+      "premiumRank": 100
+    },
+    {
+      "displayName": "Matthew Stafford",
+      "position": "QB",
+      "team": "LAR",
+      "sleeperId": "421",
+      "canonicalSiteValues": {
+        "base": 1025,
+        "premium": 933
+      },
+      "baseRank": 97,
+      "premiumRank": 101
+    },
+    {
+      "displayName": "Jake Ferguson",
+      "position": "TE",
+      "team": "DAL",
+      "sleeperId": "8110",
+      "canonicalSiteValues": {
+        "base": 597,
+        "premium": 912
+      },
+      "baseRank": 120,
+      "premiumRank": 102
+    },
+    {
+      "displayName": "Derrick Henry",
+      "position": "RB",
+      "team": "BAL",
+      "sleeperId": "3198",
+      "canonicalSiteValues": {
+        "base": 1001,
+        "premium": 849
+      },
+      "baseRank": 98,
+      "premiumRank": 105
+    },
+    {
+      "displayName": "David Montgomery",
+      "position": "RB",
+      "team": "HOU",
+      "sleeperId": "5892",
+      "canonicalSiteValues": {
+        "base": 830,
+        "premium": 810
+      },
+      "baseRank": 106,
+      "premiumRank": 107
+    },
+    {
+      "displayName": "Isaiah Likely",
+      "position": "TE",
+      "team": "NYG",
+      "sleeperId": "8131",
+      "canonicalSiteValues": {
+        "base": 472,
+        "premium": 704
+      },
+      "baseRank": 130,
+      "premiumRank": 113
+    },
+    {
+      "displayName": "Kyle Monangai",
+      "position": "RB",
+      "team": "CHI",
+      "sleeperId": "12534",
+      "canonicalSiteValues": {
+        "base": 704,
+        "premium": 672
+      },
+      "baseRank": 113,
+      "premiumRank": 115
+    },
+    {
+      "displayName": "RJ Harvey",
+      "position": "RB",
+      "team": "DEN",
+      "sleeperId": "12489",
+      "canonicalSiteValues": {
+        "base": 672,
+        "premium": 597
+      },
+      "baseRank": 115,
+      "premiumRank": 120
+    },
+    {
+      "displayName": "Jonah Coleman",
+      "position": "RB",
+      "team": "DEN",
+      "sleeperId": "13345",
+      "canonicalSiteValues": {
+        "base": 611,
+        "premium": 583
+      },
+      "baseRank": 119,
+      "premiumRank": 121
+    },
+    {
+      "displayName": "Jonathon Brooks",
+      "position": "RB",
+      "team": "CAR",
+      "sleeperId": "11583",
+      "canonicalSiteValues": {
+        "base": 570,
+        "premium": 570
+      },
+      "baseRank": 122,
+      "premiumRank": 122
+    },
+    {
+      "displayName": "Mark Andrews",
+      "position": "TE",
+      "team": "BAL",
+      "sleeperId": "5012",
+      "canonicalSiteValues": {
+        "base": 373,
+        "premium": 544
+      },
+      "baseRank": 140,
+      "premiumRank": 124
+    },
+    {
+      "displayName": "George Kittle",
+      "position": "TE",
+      "team": "SF",
+      "sleeperId": "4217",
+      "canonicalSiteValues": {
+        "base": 295,
+        "premium": 410
+      },
+      "baseRank": 150,
+      "premiumRank": 136
+    },
+    {
+      "displayName": "Michael Penix",
+      "position": "QB",
+      "team": "ATL",
+      "sleeperId": "11559",
+      "canonicalSiteValues": {
+        "base": 400,
+        "premium": 365
+      },
+      "baseRank": 137,
+      "premiumRank": 141
+    },
+    {
+      "displayName": "Tua Tagovailoa",
+      "position": "QB",
+      "team": "ATL",
+      "sleeperId": "6768",
+      "canonicalSiteValues": {
+        "base": 348,
+        "premium": 348
+      },
+      "baseRank": 143,
+      "premiumRank": 143
+    },
+    {
+      "displayName": "T.J. Hockenson",
+      "position": "TE",
+      "team": "MIN",
+      "sleeperId": "5844",
+      "canonicalSiteValues": {
+        "base": 244,
+        "premium": 340
+      },
+      "baseRank": 158,
+      "premiumRank": 144
+    },
+    {
+      "displayName": "Dallas Goedert",
+      "position": "TE",
+      "team": "PHI",
+      "sleeperId": "5022",
+      "canonicalSiteValues": {
+        "base": 212,
+        "premium": 302
+      },
+      "baseRank": 164,
+      "premiumRank": 149
+    },
+    {
+      "displayName": "Chigoziem Okonkwo",
+      "position": "TE",
+      "team": "TEN",
+      "sleeperId": "8210",
+      "canonicalSiteValues": {
+        "base": 121,
+        "premium": 262
+      },
+      "baseRank": 187,
+      "premiumRank": 155
+    },
+    {
+      "displayName": "Brenton Strange",
+      "position": "TE",
+      "team": "JAX",
+      "sleeperId": "9480",
+      "canonicalSiteValues": {
+        "base": 176,
+        "premium": 244
+      },
+      "baseRank": 171,
+      "premiumRank": 158
+    },
+    {
+      "displayName": "Max Klare",
+      "position": "TE",
+      "team": "LAR",
+      "sleeperId": "13278",
+      "canonicalSiteValues": {
+        "base": 130,
+        "premium": 223
+      },
+      "baseRank": 184,
+      "premiumRank": 162
+    },
+    {
+      "displayName": "Mason Taylor",
+      "position": "TE",
+      "team": "NYJ",
+      "sleeperId": "12498",
+      "canonicalSiteValues": {
+        "base": 136,
+        "premium": 217
+      },
+      "baseRank": 182,
+      "premiumRank": 163
+    },
+    {
+      "displayName": "Terrance Ferguson",
+      "position": "TE",
+      "team": "LAR",
+      "sleeperId": "12487",
+      "canonicalSiteValues": {
+        "base": 127,
+        "premium": 184
+      },
+      "baseRank": 185,
+      "premiumRank": 170
+    },
+    {
+      "displayName": "Travis Kelce",
+      "position": "TE",
+      "team": "KC",
+      "sleeperId": "1466",
+      "canonicalSiteValues": {
+        "base": 79,
+        "premium": 168
+      },
+      "baseRank": 203,
+      "premiumRank": 173
+    },
+    {
+      "displayName": "Gunnar Helm",
+      "position": "TE",
+      "team": "TEN",
+      "sleeperId": "12502",
+      "canonicalSiteValues": {
+        "base": 72,
+        "premium": 156
+      },
+      "baseRank": 207,
+      "premiumRank": 176
+    },
+    {
+      "displayName": "David Njoku",
+      "position": "TE",
+      "team": "LAC",
+      "sleeperId": "4033",
+      "canonicalSiteValues": {
+        "base": 70,
+        "premium": 146
+      },
+      "baseRank": 208,
+      "premiumRank": 179
+    },
+    {
+      "displayName": "Eli Raridon",
+      "position": "TE",
+      "team": "NE",
+      "sleeperId": "13421",
+      "canonicalSiteValues": {
+        "base": 44,
+        "premium": 142
+      },
+      "baseRank": 227,
+      "premiumRank": 180
+    },
+    {
+      "displayName": "AJ Barner",
+      "position": "TE",
+      "team": "SEA",
+      "sleeperId": "11603",
+      "canonicalSiteValues": {
+        "base": 77,
+        "premium": 130
+      },
+      "baseRank": 204,
+      "premiumRank": 184
+    },
+    {
+      "displayName": "Hunter Henry",
+      "position": "TE",
+      "team": "NE",
+      "sleeperId": "3214",
+      "canonicalSiteValues": {
+        "base": 66,
+        "premium": 127
+      },
+      "baseRank": 211,
+      "premiumRank": 185
+    },
+    {
+      "displayName": "Juwan Johnson",
+      "position": "TE",
+      "team": "NO",
+      "sleeperId": "7002",
+      "canonicalSiteValues": {
+        "base": 57,
+        "premium": 110
+      },
+      "baseRank": 217,
+      "premiumRank": 191
+    },
+    {
+      "displayName": "Justin Joly",
+      "position": "TE",
+      "team": "DEN",
+      "sleeperId": "13400",
+      "canonicalSiteValues": {
+        "base": 41,
+        "premium": 89
+      },
+      "baseRank": 230,
+      "premiumRank": 199
+    },
+    {
+      "displayName": "Dalton Schultz",
+      "position": "TE",
+      "team": "HOU",
+      "sleeperId": "5001",
+      "canonicalSiteValues": {
+        "base": 40,
+        "premium": 70
+      },
+      "baseRank": 231,
+      "premiumRank": 208
+    },
+    {
+      "displayName": "Cade Otton",
+      "position": "TE",
+      "team": "TB",
+      "sleeperId": "8111",
+      "canonicalSiteValues": {
+        "base": 27,
+        "premium": 60
+      },
+      "baseRank": 248,
+      "premiumRank": 215
+    },
+    {
+      "displayName": "Oscar Delp",
+      "position": "TE",
+      "team": "NO",
+      "sleeperId": "13319",
+      "canonicalSiteValues": {
+        "base": 15,
+        "premium": 57
+      },
+      "baseRank": 272,
+      "premiumRank": 217
+    },
+    {
+      "displayName": "Pat Freiermuth",
+      "position": "TE",
+      "team": "PIT",
+      "sleeperId": "7600",
+      "canonicalSiteValues": {
+        "base": 23,
+        "premium": 54
+      },
+      "baseRank": 255,
+      "premiumRank": 219
+    },
+    {
+      "displayName": "Elijah Arroyo",
+      "position": "TE",
+      "team": "SEA",
+      "sleeperId": "12521",
+      "canonicalSiteValues": {
+        "base": 25,
+        "premium": 47
+      },
+      "baseRank": 251,
+      "premiumRank": 224
+    },
+    {
+      "displayName": "Greg Dulcich",
+      "position": "TE",
+      "team": "MIA",
+      "sleeperId": "8172",
+      "canonicalSiteValues": {
+        "base": 12,
+        "premium": 46
+      },
+      "baseRank": 281,
+      "premiumRank": 225
+    },
+    {
+      "displayName": "Michael Mayer",
+      "position": "TE",
+      "team": "LV",
+      "sleeperId": "9482",
+      "canonicalSiteValues": {
+        "base": 15,
+        "premium": 35
+      },
+      "baseRank": 274,
+      "premiumRank": 237
+    },
+    {
+      "displayName": "Theo Johnson",
+      "position": "TE",
+      "team": "NYG",
+      "sleeperId": "11597",
+      "canonicalSiteValues": {
+        "base": 26,
+        "premium": 28
+      },
+      "baseRank": 250,
+      "premiumRank": 246
+    },
+    {
+      "displayName": "Evan Engram",
+      "position": "TE",
+      "team": "DEN",
+      "sleeperId": "4066",
+      "canonicalSiteValues": {
+        "base": 17,
+        "premium": 26
+      },
+      "baseRank": 268,
+      "premiumRank": 249
+    },
+    {
+      "displayName": "Colby Parkinson",
+      "position": "TE",
+      "team": "LAR",
+      "sleeperId": "6865",
+      "canonicalSiteValues": {
+        "base": 13,
+        "premium": 20
+      },
+      "baseRank": 280,
+      "premiumRank": 260
+    },
+    {
+      "displayName": "Ja'Tavion Sanders",
+      "position": "TE",
+      "team": "CAR",
+      "sleeperId": "11600",
+      "canonicalSiteValues": {
+        "base": 9,
+        "premium": 18
+      },
+      "baseRank": 294,
+      "premiumRank": 264
+    }
+  ]
+}
