@@ -1,0 +1,455 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHELL.CSS — App chrome (Redesign R1)
+   Header, navigation, mobile tabs, command palette. Built entirely on the
+   R0 token layer — no raw hex, no inline styles. Class namespace: .shell-
+   (the legacy .topbar / .nav- / .mobile- rules in globals.css are now dead
+   chrome and are removed with their markup in the R5 CSS purge).
+
+   Layout decision (documented): the desktop shell keeps a TOP BAR, not a
+   left rail — tables are the product and need every horizontal pixel, the
+   grouped IA fits six top-level items comfortably, and the command palette
+   (not the nav) is the power-user accelerator, which is the terminal
+   pattern. Mobile collapses the SAME model to five bottom tabs + a drawer.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Skip link (audit: none existed) ───────────────────────────────────── */
+.shell-skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: calc(-1 * var(--space-10));
+  z-index: calc(var(--z-header) + 1);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-2);
+  transition: top var(--motion-fast) var(--ease-out);
+}
+.shell-skip-link:focus-visible {
+  top: var(--space-3);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Desktop top bar ───────────────────────────────────────────────────── */
+.shell-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  background: var(--surface-veil);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-default);
+}
+.shell-topbar-inner {
+  max-width: var(--shell-max, 1320px);
+  margin: 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+.shell-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  margin-right: var(--space-3);
+}
+.shell-brand-mark {
+  color: var(--accent);
+}
+.shell-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.shell-nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.shell-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+.shell-nav-link:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+.shell-nav-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.shell-nav-link[aria-current="page"],
+.shell-nav-link--active {
+  color: var(--text-primary);
+}
+.shell-nav-link[aria-current="page"]::after,
+.shell-nav-link--active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.shell-nav-link {
+  position: relative;
+}
+.shell-nav-caret {
+  color: var(--text-tertiary);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.shell-nav-item[data-open="true"] .shell-nav-caret {
+  transform: rotate(180deg);
+}
+
+/* ── Nav dropdown menus ────────────────────────────────────────────────── */
+.shell-nav-item {
+  position: relative;
+}
+.shell-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-dropdown);
+  min-width: 240px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.shell-menu--right {
+  left: auto;
+  right: 0;
+}
+.shell-menu-section {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border-subtle);
+}
+.shell-menu-section:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+.shell-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  border: 0;
+  background: none;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+.shell-menu-item:hover {
+  background: var(--surface-hover);
+}
+.shell-menu-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.shell-menu-item[aria-current="page"] {
+  color: var(--accent);
+}
+.shell-menu-item-hint {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-tertiary);
+}
+
+/* ── Search affordance (top bar + mobile) ──────────────────────────────── */
+.shell-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+.shell-search-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-tertiary);
+}
+.shell-search-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.shell-kbd {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  padding: 1px 5px;
+  line-height: 1.4;
+  background: var(--surface-2);
+}
+
+/* ── Mobile top bar ────────────────────────────────────────────────────── */
+.shell-mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: 48px;
+  padding: 0 var(--space-3);
+  background: var(--surface-veil);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-default);
+}
+.shell-mobile-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell-mobile-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.shell-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.shell-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.shell-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Mobile bottom tab bar ─────────────────────────────────────────────── */
+.shell-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-header);
+  display: none;
+  background: var(--surface-veil-raised);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-default);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.shell-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.shell-tab[aria-current="page"],
+.shell-tab--active {
+  color: var(--accent);
+}
+.shell-tab:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+/* ── Mobile menu drawer content ────────────────────────────────────────── */
+.shell-drawer-group {
+  margin-bottom: var(--space-4);
+}
+.shell-drawer-group-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+}
+.shell-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.shell-drawer-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  margin-top: var(--space-2);
+}
+.shell-drawer-signout {
+  width: 100%;
+}
+.shell-sitemap-panel {
+  margin-bottom: var(--space-4);
+}
+
+/* ── Responsive split (canonical breakpoint: 768) ──────────────────────── */
+@media (width < 768px) {
+  .shell-topbar {
+    display: none;
+  }
+  .shell-mobile-topbar {
+    display: flex;
+  }
+  .shell-tabbar {
+    display: flex;
+  }
+  /* Keep content clear of the fixed bottom tab bar (52px min-height
+     + breathing room). main.shell-main outranks the legacy
+     .main-shell mobile padding shorthand in globals.css (which still
+     supplies the top/side paddings until the R5 CSS purge). */
+  main.shell-main {
+    padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ── Command palette ───────────────────────────────────────────────────── */
+.shell-palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+}
+.shell-palette-list {
+  margin-top: var(--space-3);
+  overflow-y: auto;
+  max-height: min(48dvh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.shell-palette-section {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+.shell-palette-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-1);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+}
+.shell-palette-option[aria-selected="true"] {
+  background: var(--accent-muted);
+  border-left-color: var(--accent);
+}
+.shell-palette-option-body {
+  flex: 1;
+  min-width: 0;
+}
+.shell-palette-option-name {
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell-palette-option-meta {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.shell-palette-option-value {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+}
+.shell-palette-empty {
+  padding: var(--space-6) 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+.shell-palette-hints {
+  padding: var(--space-4) 0 var(--space-2);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 2;
+}

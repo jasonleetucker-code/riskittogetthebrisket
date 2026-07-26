@@ -12,6 +12,8 @@
  *   title        ReactNode — dialog heading (required for a11y; pass
  *                srOnlyTitle to hide it visually)
  *   srOnlyTitle  boolean
+ *   initialFocus optional ref — element to receive initial focus
+ *                (default: first focusable, e.g. the close button)
  *   children     body content (scrolls)
  *
  * Behavior/a11y (both):
@@ -81,7 +83,7 @@ function isTopOverlay(token) {
   return top === token;
 }
 
-function useDialog({ open, onClose, panelRef }) {
+function useDialog({ open, onClose, panelRef, initialFocusRef }) {
   const restoreRef = useRef(null);
   // Hold onClose in a ref so an inline callback from a re-rendering
   // parent never restarts the open-lifecycle effect below (which would
@@ -99,9 +101,11 @@ function useDialog({ open, onClose, panelRef }) {
     registerOverlay(token);
     restoreRef.current = document.activeElement;
     const panel = panelRef.current;
-    // initial focus: first focusable, else the panel itself
+    // initial focus: caller-designated element (initialFocus prop, e.g.
+    // a palette's input), else first focusable, else the panel itself
+    const preferred = initialFocusRef?.current;
     const first = panel?.querySelector(FOCUSABLE);
-    (first || panel)?.focus();
+    (preferred || first || panel)?.focus();
 
     const onKeyDown = (e) => {
       // Only the TOPMOST overlay reacts — a stacked Modal's Escape must
@@ -146,11 +150,12 @@ function DialogShell({
   title,
   srOnlyTitle = false,
   variant, // "modal" | "drawer"
+  initialFocus = null, // optional ref: element to receive initial focus
   children,
 }) {
   const panelRef = useRef(null);
   const titleId = useId();
-  useDialog({ open, onClose, panelRef });
+  useDialog({ open, onClose, panelRef, initialFocusRef: initialFocus });
 
   if (!open) return null;
 

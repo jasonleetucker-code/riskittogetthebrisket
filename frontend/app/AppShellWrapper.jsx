@@ -1,97 +1,43 @@
 "use client";
 
-import Link from "next/link";
+/**
+ * AppShellWrapper — the app chrome (Redesign R1).
+ *
+ * Composes the R1 shell: skip link, desktop TopBar, mobile chrome
+ * (top bar + tab bar + menu drawer), StaleDataBanner, main landmark,
+ * ScreenshotFab. The navigation IA lives in lib/nav-model.js — ONE
+ * model rendered per viewport, never two products.
+ *
+ * Unchanged contracts (R1 constraints):
+ *   • PUBLIC_ROUTES — same set, same gating semantics: logged-out
+ *     visitors see only public destinations plus Login.
+ *   • AuthContext / useAuthContext — same shape, same consumers
+ *     (login, draft, waivers pages).
+ *   • AppShell mounts inside, providing data context + player popup +
+ *     command palette exactly as before.
+ *
+ * A11y (R1): skip link as first focusable, <main id="main"> landmark
+ * with focus moved onto it after client-side route changes (screen
+ * readers announce the new page), aria-current on active nav.
+ */
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
 import ScreenshotFab from "@/components/ScreenshotFab";
 import StaleDataBanner from "@/components/StaleDataBanner";
-import TeamSwitcher from "@/components/TeamSwitcher";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
-
-// ── Route definitions ────────────────────────────────────────────────────
-// Primary destinations shown in desktop top nav.
-//
-// IA structure
-// ────────────
-// The four trade-related routes (Calculator / History / Arbitrage
-// Finder / Counter-Pitch) used to live as four flat peers in the nav.
-// They now collapse into a single parent ``Trade`` entry with a
-// dropdown that lists the four sub-tools so the relationship is
-// obvious without crowding the bar.  Direct URLs (/trade, /trades,
-// /finder, /angle) all still work — the reorg is nav-only, no route
-// changes.
-//
-// Mental model after this reorg:
-//   Group 1 — daily workflow: Rankings, Trade ▾ (4 sub-tools), Draft
-//   Group 2 — decision-support / discovery: Edge
-//   Group 3 — public-facing: League
-//   Group 4 — admin: Settings, More
-//
-// ``hint`` populates the browser's native title tooltip on hover.
-// ``children`` makes an item a parent that opens a dropdown of its
-// nested sub-routes.  Clicking the parent label still navigates to
-// ``href`` (sensible default) — the dropdown surfaces the siblings.
-const PRIMARY_NAV = [
-  { href: "/rankings", label: "Rankings", hint: "Player value board" },
-  { href: "/trending", label: "Trending", hint: "Biggest rank movers, last 1d/7d/30d" },
-  { href: "/news", label: "News", hint: "Aggregated player news + articles across sources" },
-  {
-    href: "/trade",
-    label: "Trade",
-    hint: "Trade workflow tools",
-    children: [
-      { href: "/trade", label: "Calculator", hint: "Build and grade a trade" },
-      { href: "/trades", label: "History", hint: "Analyzed history of every league trade" },
-      { href: "/finder", label: "Arbitrage Finder", hint: "Find KTC market gaps you can exploit" },
-      { href: "/angle", label: "Counter-Pitch", hint: "Generate counter-package suggestions" },
-    ],
-  },
-  { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
-  { href: "/waivers", label: "Waivers", hint: "Add/drop analysis vs your roster" },
-  { href: "/edge", label: "Edge", hint: "Where sources disagree most", groupBreak: true },
-  { href: "/intel", label: "Intel", hint: "Sharp Tracker — what league-mates buy/sell across their leagues" },
-  { href: "/league-comparison", label: "League Comp", hint: "Compare your league scoring vs a standard baseline" },
-  {
-    href: "/league",
-    label: "League",
-    hint: "Public league hub",
-    groupBreak: true,
-    children: [
-      { href: "/league", label: "Hub", hint: "League overview" },
-      { href: "/league/activity", label: "Activity", hint: "Trades + news in one feed" },
-      { href: "/league/phases", label: "Win-now vs Rebuild", hint: "Per-team phase classification + trade partners" },
-    ],
-  },
-  { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile", groupBreak: true },
-  { href: "/more", label: "More", hint: "Rosters, tools, admin" },
-];
-
-// Routes that should mark the ``Trade`` parent as active in the
-// dropdown UI.  Any pathname that starts with one of these prefixes
-// counts as "we're inside the trade workflow group".
-const TRADE_GROUP_PREFIXES = ["/trade", "/trades", "/finder", "/angle"];
-
-// Mobile bottom nav — 4-tab model (Home + Ranks + Trade + More).
-// /home (the dashboard at "/") is the post-login landing and the
-// natural daily-checkin surface, so it earns its own bottom tab.
-// /league is intentionally still NOT in this bar — users reach it
-// via More + the desktop top nav; the league content (including
-// Draft Capital) lives behind a single More entry instead of a
-// redundant bottom-row tab.
-const MOBILE_NAV = [
-  { href: "/", label: "Home", icon: "H" },
-  { href: "/rankings", label: "Ranks", icon: "R" },
-  { href: "/trade", label: "Trade", icon: "T" },
-  { href: "/more", label: "More", icon: "M" },
-];
+import TopBar from "@/components/shell/TopBar";
+import { MobileTopBar, MobileTabBar } from "@/components/shell/MobileChrome";
 
 // Routes that do NOT require auth (public pages).  /league is backed
 // by the isolated public pipeline in src/public_league/ and fetches
 // only from /api/public/league — it never reads the private /api/data
-// contract.
+// contract.  (Unchanged from the pre-R1 shell.)
 const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital", "/trades", "/league"]);
+
+function isPublicRoute(href) {
+  return PUBLIC_ROUTES.has(href);
+}
 
 // ── Auth context ─────────────────────────────────────────────────────────
 const AuthContext = createContext({
@@ -104,289 +50,72 @@ export function useAuthContext() {
   return useContext(AuthContext);
 }
 
-// ── Nav dropdown (used by the "Trade" parent in PRIMARY_NAV) ─────────────
-function NavDropdown({ item, pathname, isActive }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
-  const closeTimer = useRef(null);
-
-  // Hover dropdown with a 120 ms delay before close so a small
-  // diagonal mouse drift between parent and a menu item doesn't snap
-  // the menu shut.  Standard nav-menu behaviour.
-  const handleEnter = useCallback(() => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-    setOpen(true);
-  }, []);
-  const handleLeave = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  }, []);
-
-  // Close when focus leaves the wrapper (keyboard) and on Escape.
-  const handleBlur = useCallback((e) => {
-    if (!wrapRef.current) return;
-    if (!wrapRef.current.contains(e.relatedTarget)) setOpen(false);
-  }, []);
+/**
+ * Move focus to the main landmark after CLIENT-SIDE navigation (not on
+ * initial load), so keyboard/screen-reader users land at the content
+ * instead of deep inside the nav they just used.
+ */
+function RouteFocusManager({ mainRef }) {
+  const pathname = usePathname();
+  const firstRender = useRef(true);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Close the menu when the route actually changes (link click).
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  return (
-    <span
-      ref={wrapRef}
-      className="nav-dropdown"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      onFocus={handleEnter}
-      onBlur={handleBlur}
-    >
-      <Link
-        href={item.href}
-        title={item.hint || item.label}
-        className={`nav-link nav-dropdown-trigger${isActive ? " nav-active" : ""}`}
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
-        {item.label}
-        <span className="nav-dropdown-caret" aria-hidden="true">▾</span>
-      </Link>
-      {open && (
-        <div role="menu" className="nav-dropdown-menu">
-          {item.children.map((child) => {
-            const childActive = pathname === child.href
-              || pathname?.startsWith(child.href + "/");
-            return (
-              <Link
-                key={child.href}
-                href={child.href}
-                role="menuitem"
-                className={`nav-dropdown-item${childActive ? " nav-active" : ""}`}
-              >
-                <span className="nav-dropdown-item-label">{child.label}</span>
-                {child.hint && (
-                  <span className="nav-dropdown-item-hint">{child.hint}</span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </span>
-  );
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: false });
+  }, [pathname, mainRef]);
+  return null;
 }
 
-// ── Desktop top navigation bar ───────────────────────────────────────────
-function DesktopNav() {
-  const pathname = usePathname();
-  const { openSearch } = useApp();
-  const { authenticated, logout } = useContext(AuthContext);
+function ShellChrome({ children }) {
+  const { authenticated, logout } = useAuthContext();
+  const mainRef = useRef(null);
 
+  // openSearch comes from AppShell's context — ShellChrome renders
+  // INSIDE AppShell so the search affordances can reach it.
   return (
-    <header className="topbar desktop-only" data-html2canvas-ignore>
-      <div className="topbar-inner">
-        <Link href="/" className="brand">
-          Risk It To Get The Brisket
-        </Link>
-        <nav className="nav">
-          {(() => {
-            const visible = PRIMARY_NAV.filter(
-              (item) => authenticated || PUBLIC_ROUTES.has(item.href),
-            );
-            const out = [];
-            visible.forEach((item, idx) => {
-              if (item.groupBreak && idx > 0) {
-                out.push(
-                  <span
-                    key={`sep-${item.href}`}
-                    aria-hidden="true"
-                    className="nav-group-sep"
-                  />,
-                );
-              }
-              if (item.children && item.children.length > 0) {
-                // Parent item with a sub-menu — the parent's "active"
-                // state fires for any path inside its child set so the
-                // user always sees a highlighted top-level entry, even
-                // on a deep child route.
-                const groupActive = TRADE_GROUP_PREFIXES.some(
-                  (prefix) =>
-                    pathname === prefix || pathname?.startsWith(prefix + "/"),
-                );
-                out.push(
-                  <NavDropdown
-                    key={item.href}
-                    item={item}
-                    pathname={pathname}
-                    isActive={groupActive}
-                  />,
-                );
-                return;
-              }
-              const active = pathname === item.href || pathname?.startsWith(item.href + "/");
-              out.push(
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={item.hint || item.label}
-                  className={`nav-link${active ? " nav-active" : ""}`}
-                >
-                  {item.label}
-                </Link>,
-              );
-            });
-            return out;
-          })()}
-          {authenticated && <LeagueSwitcher variant="desktop" />}
-          {authenticated && <TeamSwitcher variant="desktop" />}
-          {authenticated && (
-            <button
-              className="nav-link nav-search-btn"
-              onClick={openSearch}
-              title="Search players (press /)"
-            >
-              /
-            </button>
-          )}
-          {authenticated && (
-            <button className="nav-link nav-logout-btn" onClick={logout} title="Sign out">
-              Sign out
-            </button>
-          )}
-          {authenticated === false && (
-            <Link href="/login" className="nav-link">
-              Login
-            </Link>
-          )}
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-// ── Mobile bottom navigation bar ─────────────────────────────────────────
-function MobileNav() {
-  const pathname = usePathname();
-  const { authenticated } = useContext(AuthContext);
-
-  const visibleItems = MOBILE_NAV.filter((item) =>
-    authenticated || PUBLIC_ROUTES.has(item.href),
-  );
-
-  function isActive(href) {
-    if (href === "/more") {
-      const otherMobile = visibleItems.filter((n) => n.href !== "/more").map((n) => n.href);
-      return !otherMobile.some(
-        (h) => pathname === h || pathname?.startsWith(h + "/"),
-      );
-    }
-    return pathname === href || pathname?.startsWith(href + "/");
-  }
-
-  return (
-    <nav className="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation" data-html2canvas-ignore>
-      {visibleItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={`mobile-nav-btn${isActive(item.href) ? " active" : ""}`}
-        >
-          <span className="mobile-nav-icon">{item.icon}</span>
-          <span className="mobile-nav-label">{item.label}</span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-// ── Mobile top bar (compact header for mobile) ───────────────────────────
-function MobileTopBar() {
-  const pathname = usePathname();
-  const { openSearch } = useApp();
-  const { authenticated, logout } = useContext(AuthContext);
-
-  // Derive page title from current route.  Top-level routes map to a
-  // simple noun; deep routes under /league get a per-tab title so a
-  // user landing on /league/franchise/<owner> sees "Franchise"
-  // instead of the parent "League" — small but meaningful clarity
-  // win for mobile, where the breadcrumb pattern doesn't fit.
-  const pageTitle = (() => {
-    const segments = (pathname || "").split("/").filter(Boolean);
-    const top = segments[0] || "";
-    const sub = segments[1] || "";
-    if (top === "league" && sub) {
-      const sublabels = {
-        franchise: "Franchise",
-        player: "Player",
-        rivalry: "Rivalry",
-        week: "Week recap",
-        weekly: "Matchup",
-      };
-      if (sublabels[sub]) return sublabels[sub];
-    }
-    if (top === "tools" && sub) {
-      const toolLabels = {
-        "source-health": "Source health",
-        "trade-coverage": "Trade coverage",
-      };
-      if (toolLabels[sub]) return toolLabels[sub];
-    }
-    const titles = {
-      "": "Home",
-      rankings: "Rankings",
-      news: "News",
-      trade: "Trade",
-      draft: "Draft",
-      edge: "Edge",
-      finder: "Finder",
-      angle: "Angle",
-      league: "League",
-      "league-comparison": "League Comp",
-      rosters: "Rosters",
-      trades: "Trades",
-      settings: "Settings",
-      login: "Login",
-      more: "More",
-      "draft-capital": "Draft Capital",
-      tools: "Tools",
-      admin: "Admin",
-    };
-    return titles[top] || "Brisket";
-  })();
-
-  return (
-    <header className="mobile-topbar mobile-only" data-html2canvas-ignore>
-      <Link href="/" className="mobile-brand">Brisket</Link>
-      <span className="mobile-page-title">{pageTitle}</span>
-      <div className="mobile-topbar-actions">
-        {authenticated && <LeagueSwitcher variant="mobile" />}
-        {authenticated && <TeamSwitcher variant="mobile" />}
-        {authenticated && (
-          <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
-            /
-          </button>
-        )}
-        {authenticated && (
-          <button
-            className="mobile-signout-btn"
-            onClick={logout}
-            title="Sign out"
-            aria-label="Sign out"
+    <AppShellSearchBridge>
+      {(openSearch) => (
+        <>
+          <a href="#main" className="shell-skip-link">
+            Skip to content
+          </a>
+          <TopBar
+            authenticated={authenticated}
+            isPublic={isPublicRoute}
+            onSearch={openSearch}
+            onLogout={logout}
+          />
+          <MobileTopBar authenticated={authenticated} onSearch={openSearch} />
+          <StaleDataBanner />
+          <RouteFocusManager mainRef={mainRef} />
+          <main
+            id="main"
+            ref={mainRef}
+            tabIndex={-1}
+            className="main-shell shell-main"
           >
-            Sign out
-          </button>
-        )}
-      </div>
-    </header>
+            {children}
+          </main>
+          <MobileTabBar
+            authenticated={authenticated}
+            isPublic={isPublicRoute}
+            onLogout={logout}
+          />
+          <ScreenshotFab />
+        </>
+      )}
+    </AppShellSearchBridge>
   );
+}
+
+// Small bridge so the chrome (rendered inside AppShell) can hand the
+// context's openSearch down to both nav bars without re-importing
+// useApp in every shell component.
+function AppShellSearchBridge({ children }) {
+  const { openSearch } = useApp();
+  return children(openSearch);
 }
 
 // ── Main shell wrapper ───────────────────────────────────────────────────
@@ -396,12 +125,7 @@ export default function AppShellWrapper({ children }) {
   return (
     <AuthContext.Provider value={auth}>
       <AppShell authenticated={auth.authenticated === true}>
-        <DesktopNav />
-        <MobileTopBar />
-        <StaleDataBanner />
-        <main className="main-shell">{children}</main>
-        <MobileNav />
-        <ScreenshotFab />
+        <ShellChrome>{children}</ShellChrome>
       </AppShell>
     </AuthContext.Provider>
   );

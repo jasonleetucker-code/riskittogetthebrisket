@@ -1,49 +1,53 @@
 "use client";
 
+/**
+ * /more — site map (R1).
+ *
+ * The legacy mobile "More hub" pattern is retired: mobile navigation
+ * now runs through the tab bar + menu drawer, which render the full
+ * nav model. This route survives (bookmarks, muscle memory, System
+ * menu "All destinations") as a flat site map derived from the SAME
+ * lib/nav-model.js data — it can never drift from the real navigation.
+ */
 import Link from "next/link";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { MORE_SECTIONS } from "@/lib/more-sections";
-
-/**
- * More — mobile navigation hub.
- * Provides access to all destinations not in the mobile bottom nav.
- * On desktop this page is accessible but the top nav already covers everything.
- *
- * The section registry lives in ``frontend/lib/more-sections.js``
- * (pure data) so tests can pin that every non-bottom-nav destination
- * — e.g. /news — stays reachable from this hub.
- */
-const SECTIONS = MORE_SECTIONS;
+import { PageHeader, Panel } from "@/components/ds";
+import { NAV_MODEL, SYSTEM_MODEL, flattenNav } from "@/lib/nav-model";
 
 export default function MorePage() {
   const { authenticated, logout } = useAuthContext();
+  const groups = [...NAV_MODEL, SYSTEM_MODEL];
 
   return (
     <section>
-      <div className="card" style={{ marginBottom: "var(--space-md)" }}>
-        <h1 className="page-title">More</h1>
-        <p className="muted text-sm" style={{ marginTop: 4 }}>
-          All tools and surfaces in one place.
-        </p>
-      </div>
-
-      {SECTIONS.map((section) => (
-        <div key={section.title} style={{ marginBottom: "var(--space-lg)" }}>
-          <div className="label" style={{ marginBottom: "var(--space-sm)" }}>{section.title}</div>
-          <div className="list">
-            {section.items.map((item) => (
-              <Link key={item.href} href={item.href} className="card more-item" style={{ display: "block" }}>
-                <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{item.label}</div>
-                <div className="muted text-xs" style={{ marginTop: 2 }}>{item.desc}</div>
+      <PageHeader
+        title="All destinations"
+        description="Every surface, grouped the same way as the navigation."
+      />
+      {groups.map((group) => (
+        <Panel key={group.key} title={group.label} dense className="shell-sitemap-panel">
+          <div className="shell-drawer-list">
+            {(group.items && group.items.length
+              ? group.items
+              : flattenNav([group])
+            ).map((item) => (
+              <Link key={item.href} href={item.href} className="shell-menu-item">
+                <span>{item.label}</span>
+                {item.hint ? (
+                  <span className="shell-menu-item-hint">{item.hint}</span>
+                ) : null}
               </Link>
             ))}
           </div>
-        </div>
+        </Panel>
       ))}
-
       {authenticated && (
-        <div style={{ marginTop: "var(--space-lg)", paddingTop: "var(--space-md)", borderTop: "1px solid var(--border)" }}>
-          <button className="button button-danger" onClick={logout} style={{ width: "100%" }}>
+        <div className="shell-drawer-footer">
+          <button
+            type="button"
+            className="ds-btn ds-btn--secondary shell-drawer-signout"
+            onClick={logout}
+          >
             Sign out
           </button>
         </div>

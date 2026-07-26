@@ -59,6 +59,11 @@
   --surface-active: rgba(242, 239, 247, 0.08);
   --surface-inverse: var(--neutral-50);
   --backdrop: rgba(8, 6, 16, 0.72); /* modal / drawer scrim       */
+  /* Translucent chrome surfaces (sticky bars over blur) — the rgba of
+     surface-0 / surface-1; kept as tokens because color-mix() is not
+     minifier-safe in the build chain. */
+  --surface-veil: rgba(13, 11, 18, 0.88);
+  --surface-veil-raised: rgba(20, 17, 28, 0.94);
 
   /* ── Text ── */
   --text-primary: var(--neutral-50);
@@ -220,6 +225,8 @@
   --surface-active: rgba(13, 11, 18, 0.07);
   --surface-inverse: var(--neutral-900);
   --backdrop: rgba(13, 11, 18, 0.4);
+  --surface-veil: rgba(246, 244, 250, 0.88);
+  --surface-veil-raised: rgba(253, 252, 254, 0.94);
 
   --text-primary: #161321;
   --text-secondary: #4c4562;
