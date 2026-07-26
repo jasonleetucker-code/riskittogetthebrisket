@@ -327,15 +327,31 @@ runs rather than trusting the flag.
 | #553 orchestration docs | I | `5299ec84` | ✅ 16:27 | yes |
 | #554 E2E | G | `010e7795` | **none — conflicts** | **no** |
 
-#554 is the only one not ready: it conflicts with main (`7a224cf8`) on
-exactly two files, `tests/e2e/helpers/journey.js` and
-`tests/e2e/specs/mobile-smoke.spec.js`, and **no CI has spawned at all**
-because GitHub cannot compute a merge commit while a PR is dirty. Rebase
-dispatched to the owner. Watch `journey.js` on resolution — it carries the
-defuse, and the invariant to preserve is `NAME` above `SEL` with the file
-byte-identical to what R3 and R4 carry.
+**#554 update (16:43):** rebased onto main, both conflicts resolved,
+state `unstable` (no conflicts). First CI run failed on a one-file lint
+gate (`ruff format` on `tests/e2e/preflight.py`) with every substantive
+check passing — 277 tests, 3 skipped, 362 subtests. Formatting fixed with
+`python -m ruff` (0.6.9, the CI pin); re-run in flight.
+
+Defuse invariant **re-verified after the rebase, not assumed**: R3 and R4
+still byte-identical to each other, `NAME` line 23, `SEL` line 35; both
+merges simulated against the rebased E2E branch and clean on `journey.js`.
+`NAME` is correctly absent on the E2E branch itself — it lives on R3/R4
+and arrives with them.
+
+**Known residual for the window:** R4 will hit a one-line import conflict
+in `tests/e2e/specs/journey-trade.spec.js` — R4 adds `SEL`, E2E adds
+`pageUrl`, and the resolution is the union of both. Deliberately not
+pre-empted: importing `SEL` on the E2E side to dodge it would ship a
+knowingly-dead import to main, and no lint covers `tests/e2e/`. An obvious
+safe conflict beats hidden dead code.
 
 Merge order at the window stays R3 → R4 → LI → E2E, per §4.
+
+**Timing note for future ticks:** `Validate PR` runs ~16 min on this repo
+(four independent samples today). A run in progress for less than that is
+normal, not hung — one agent misread a 2-minute-old run as 40 minutes and
+nearly reported a stalled job.
 
 ## 7. Risks
 
