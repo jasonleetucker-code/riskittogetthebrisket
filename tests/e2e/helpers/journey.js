@@ -48,6 +48,19 @@ const SEL = {
   waiverBidDesk: ".waivers-bid-desk",
   // /waivers — rival-contention table rows (FAAB v2 sealed-auction read).
   waiverRivalRow: ".waivers-bid-desk .ds-table-wrap table tbody tr",
+  // /trade — the control bar and the per-side ledger panels.
+  tradeControls: ".trade-controls",
+  tradeSide: ".trade-page .ds-panel",
+  tradeStickyTray: ".trade-sticky-tray",
+  // /trades — ledger entries (each is a Panel linking into /trade).
+  tradeLedgerEntry: ".trades-page a.ds-panel",
+  tradesControls: ".trades-controls",
+  // /angle — the pitch form and the ranked-package table rows.
+  angleForm: ".angle-form",
+  anglePackageRow: ".angle-page .ds-table-wrap table tbody tr",
+  // /draft — the war-room board panel and its rows.
+  draftBoard: ".draft-board-panel",
+  draftBoardRow: ".draft-board-panel tbody tr",
 };
 
 // Accessible-name patterns for R4 controls. Kept beside the selector

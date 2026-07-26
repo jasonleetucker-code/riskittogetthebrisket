@@ -1,0 +1,137 @@
+/* draft.module.css — /draft structural styles (R4, token-driven).
+   The war room: command bar, progress, signal stack, and the board
+   grids. Structure only.
+
+   The dense board internals (draft-board-*, draft-money, draft-alert-*,
+   draft-need-*, draft-progress-*, draft-modal-body/footer, the panel
+   tables) keep their global class names for now — they are a large,
+   coherent block that R5 owns in the CSS purge. What moves here is the
+   page-level layout plus everything that had inline styles. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Command bar ── */
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── Stat strip ── */
+.statsStrip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 1320px) {
+  .statsStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (width < 640px) {
+  .statsStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Top grid: team panel + bid knobs ── */
+.topGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (width < 1024px) {
+  .topGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Sidebar trio: next-best / nominations / best value ── */
+.sidebarGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (width < 1024px) {
+  .sidebarGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Roster-needs strip ── */
+.needStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Draft progress ── */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.progressTrack {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+/* Width is layout math (a computed percentage), passed inline. */
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width var(--motion-base) var(--ease-out);
+}
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.progressLabels strong {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* ── Signal stack ── */
+.signalStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.signalHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.signalTitle {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+/* ── Modal internals kept local ── */
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}

@@ -57,6 +57,17 @@ import {
   updateTeam,
 } from "@/lib/draft-logic";
 import { classifyPos } from "@/lib/dynasty-data";
+import {
+  Badge,
+  Banner,
+  Button,
+  Modal,
+  PageHeader,
+  Panel,
+  SkeletonText,
+  StatTile,
+} from "@/components/ds";
+import styles from "./draft.module.css";
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
 
@@ -172,23 +183,15 @@ function LiveSyncToggle({ enabled, onToggle, status, error, lastSyncAt, latestPi
 /* ── Inflation stats strip ────────────────────────────────────────── */
 
 function StatsStrip({ stats, historySeries }) {
-  const stat = (label, value, title, extraClass = "", extra = null) => (
-    <div
-      className={`draft-stat ${extraClass}`.trim()}
+  const stat = (label, value, title, extra = null) => (
+    <StatTile
+      key={label}
+      label={label}
+      value={value}
+      meta={extra}
       title={title || undefined}
-    >
-      <div className="draft-stat-label">{label}</div>
-      <div className="draft-stat-value">{value}</div>
-      {extra}
-    </div>
+    />
   );
-
-  const inflationClass =
-    stats.inflation > 1.05
-      ? "draft-stat-green"
-      : stats.inflation < 0.95
-        ? "draft-stat-red"
-        : "";
 
   // Phase: 0 at draft start, →1 as my last pick approaches.  Shown as
   // "N of M slots left · P% pressure" so both the absolute slot count
@@ -199,20 +202,12 @@ function StatsStrip({ stats, historySeries }) {
   // Top rival ceiling — the real competitor cap driving myWinningBid.
   // Surfacing it in the strip teaches the user "this is the number to
   // beat, not some hypothetical".
-  const rivalClass =
-    stats.topCompetitorMax < 10
-      ? "draft-stat-green" // rivals broke, I can steal anything
-      : stats.topCompetitorMax > 150
-        ? "draft-stat-red"
-        : "";
-
   return (
-    <div className="draft-stats">
+    <div className={styles.statsStrip}>
       {stat(
         "Inflation",
         fmtMultiplier(stats.inflation),
         "RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft). >1.00 means the remaining market is cheaper than projected; <1.00 means the remaining market got hot.  Sparkline shows trajectory over picks.",
-        inflationClass,
         <InflationSparkline series={historySeries} width={138} height={28} />,
       )}
       {stat(
@@ -229,7 +224,6 @@ function StatsStrip({ stats, historySeries }) {
         "Top rival ceiling",
         fmt$(stats.topCompetitorMax),
         `The richest OTHER team can bid up to this much (slot-adjusted). Bid $1 above this to lock a player — anything more is overpay.`,
-        rivalClass,
       )}
       {stat(
         "Phase",
@@ -273,7 +267,7 @@ function TeamPanel({
   };
 
   return (
-    <div className="card draft-team-panel">
+    <Panel className="draft-team-panel">
       <div className="draft-panel-header">
         <div
           style={{
@@ -460,7 +454,7 @@ function TeamPanel({
           );
         })}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -474,7 +468,7 @@ function BidKnobs({ settings, onSettings }) {
     ? settings.enforcePct
     : DEFAULT_ENFORCE_PCT;
   return (
-    <div className="card draft-knobs">
+    <Panel className="draft-knobs">
       <h3>Bid knobs</h3>
       <div className="draft-knob-row">
         <label>
@@ -542,7 +536,7 @@ function BidKnobs({ settings, onSettings }) {
           </div>
         </label>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -614,11 +608,9 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
     return computeDraftStats(nextWs);
   }, [workspace, player, teamIdx, amount, existingPick]);
 
-  // Re-focus the amount input on open so the user can start typing.
-  useEffect(() => {
-    const el = document.getElementById("draft-modal-amount");
-    if (el) el.focus();
-  }, []);
+  // The amount field takes initial focus so the user can start typing
+  // straight away.  ds Modal handles the trap/restore around it.
+  const amountRef = useRef(null);
 
   if (!player) return null;
 
@@ -633,30 +625,13 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
   }
 
   return (
-    <div
-      className="draft-modal-backdrop"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      open
+      onClose={onClose}
+      initialFocus={amountRef}
+      title={`${existingPick ? "Edit pick" : "Mark drafted"}: ${player.name}`}
     >
-      <form
-        className="draft-modal card"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-      >
-        <div className="draft-modal-header">
-          <h3>
-            {existingPick ? "Edit pick" : "Mark drafted"}: {player.name}
-          </h3>
-          <button
-            type="button"
-            className="button-reset draft-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+      <form onSubmit={submit}>
         <div className="draft-modal-body">
           <div className="draft-modal-refs">
             <div>
@@ -716,6 +691,7 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
           <label className="draft-modal-field">
             <span>Final price $</span>
             <input
+              ref={amountRef}
               id="draft-modal-amount"
               type="number"
               className="input"
@@ -946,7 +922,7 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
           })()}
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 
@@ -1176,7 +1152,7 @@ function RookieBoard({
   };
 
   return (
-    <div className="card">
+    <Panel flush className="draft-board-panel">
       <div className="draft-board-head">
         <h3 style={{ margin: 0 }}>Rookie board</h3>
         <div className="draft-board-controls">
@@ -1522,7 +1498,7 @@ function RookieBoard({
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -1740,7 +1716,7 @@ function ParSheet({
         : "";
 
   return (
-    <div className="card draft-target-board draft-par-sheet">
+    <Panel className="draft-target-board draft-par-sheet">
       <div className="draft-tb-head">
         <div>
           <h3 style={{ margin: "0 0 2px" }}>
@@ -2017,7 +1993,7 @@ function ParSheet({
           </div>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -2059,7 +2035,7 @@ function TargetBoard({
           : "draft-tb-status-idle";
 
   return (
-    <div className="card draft-target-board">
+    <Panel className="draft-target-board">
       <div className="draft-tb-head">
         <div>
           <h3 style={{ margin: "0 0 2px" }}>
@@ -2287,7 +2263,7 @@ function TargetBoard({
           )}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -2307,19 +2283,19 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
 
   if (list.length === 0) {
     return (
-      <div className="card draft-nbt">
+      <Panel className="draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Good to nominate</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
           No vendor overrates — either every rookie's vendor price and
           our board agree, or KTC / IDPTradeCalc values are missing
           from the live contract.
         </div>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="card draft-nbt">
+    <Panel className="draft-nbt">
       <div
         style={{
           display: "flex",
@@ -2387,7 +2363,7 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
           </div>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -2406,19 +2382,19 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
 
   if (list.length === 0) {
     return (
-      <div className="card draft-nbt">
+      <Panel className="draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Best value on the board</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
           No vendor underrates — either every rookie's vendor price and
           our board agree, or KTC / IDPTradeCalc values are missing
           from the live contract.
         </div>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="card draft-nbt">
+    <Panel className="draft-nbt">
       <div
         style={{
           display: "flex",
@@ -2486,7 +2462,7 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
           </div>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -2498,18 +2474,18 @@ function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
 
   if (top.length === 0) {
     return (
-      <div className="card draft-nbt">
+      <Panel className="draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Next Best Targets</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
           Nothing to flag yet — tag a few players as <strong>★ target</strong>{" "}
           to seed EV ranking.
         </div>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="card draft-nbt">
+    <Panel className="draft-nbt">
       <div
         style={{
           display: "flex",
@@ -2573,7 +2549,7 @@ function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
           );
         })}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -2665,27 +2641,8 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
   };
 
   return (
-    <div
-      className="draft-modal-backdrop"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="draft-modal card draft-review-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="draft-modal-header">
-          <h3>Draft review</h3>
-          <button
-            type="button"
-            className="button-reset draft-modal-close"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-        <div className="draft-modal-body">
+    <Modal open onClose={onClose} title="Draft review">
+      <div className="draft-modal-body">
           {review.myPicks.length === 0 ? (
             <div className="muted" style={{ fontSize: "0.82rem" }}>
               No picks recorded yet.  Run the draft — this panel
@@ -2886,24 +2843,14 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
               </div>
             </>
           )}
-        </div>
-        <div className="draft-modal-footer">
-          {review.rows.length > 0 && (
-            <button
-              type="button"
-              className="button"
-              onClick={downloadCsv}
-              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-            >
-              ⬇ Export CSV
-            </button>
-          )}
-          <button type="button" className="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
       </div>
-    </div>
+      <div className="draft-modal-footer">
+        {review.rows.length > 0 && (
+          <Button onClick={downloadCsv}>Export CSV</Button>
+        )}
+        <Button onClick={onClose}>Close</Button>
+      </div>
+    </Modal>
   );
 }
 
@@ -2915,7 +2862,7 @@ function DraftGlossary() {
     </details>
   );
   return (
-    <div className="card draft-gloss">
+    <Panel className="draft-gloss">
       <details open>
         <summary className="draft-gloss-head">
           <h3 style={{ margin: 0, display: "inline" }}>
@@ -3270,7 +3217,7 @@ function DraftGlossary() {
 
         </div>
       </details>
-    </div>
+    </Panel>
   );
 }
 
@@ -4272,6 +4219,11 @@ export default function DraftDashboardPage() {
     }
   }, [workspace, selectedLeagueKey]);
 
+  const closeSyncPreview = useCallback(() => {
+    setSyncOpen(false);
+    setSyncPreview(null);
+  }, []);
+
   const applySyncPreview = useCallback(() => {
     if (!syncPreview) return;
     setWorkspace(() => syncPreview.dry.workspace);
@@ -4461,10 +4413,12 @@ export default function DraftDashboardPage() {
 
   if (checking || authenticated == null) {
     return (
-      <section className="card">
-        <h1 style={{ marginTop: 0 }}>Draft board</h1>
-        <p className="muted">Checking session…</p>
-      </section>
+      <main className={`main-shell ${styles.page}`}>
+        <PageHeader eyebrow="War room" title="Draft board" />
+        <Panel>
+          <SkeletonText lines={2} />
+        </Panel>
+      </main>
     );
   }
   if (authenticated === false) {
@@ -4479,75 +4433,66 @@ export default function DraftDashboardPage() {
     : null;
 
   return (
-    <section className="card">
-      <div className="draft-page-head">
-        <div>
-          <h1 style={{ marginTop: 0, marginBottom: 4 }}>Draft board</h1>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Live inflation-aware rookie auction dashboard.  Every pick
-            you record updates the per-player bid ceiling immediately.
-          </p>
-        </div>
-        <div className="draft-page-actions">
-          <LiveSyncToggle
-            enabled={liveSyncEnabled}
-            onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
-            status={liveSync.status}
-            error={liveSync.error}
-            lastSyncAt={liveSync.lastSyncAt}
-            latestPickNo={liveSync.latestPickNo}
-          />
-          <button
-            className="button"
-            onClick={fetchSyncPreview}
-            disabled={syncBusy}
-            title="Pull current rookie values from our live consensus rankings"
-            style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-          >
-            {syncBusy ? "Syncing…" : "↻ Sync rookies"}
-          </button>
-          <button
-            className="button"
-            onClick={() => setReviewOpen(true)}
-            disabled={(workspace.picks || []).length === 0}
-            title="Show the post-draft review (deltas, rankings, CSV)"
-          >
-            Review
-          </button>
-          <button
-            className="button"
-            onClick={() => setHelpOpen(true)}
-            title="Keyboard shortcuts (?)"
-          >
-            ?
-          </button>
-          <button
-            className="button"
-            onClick={() => setWorkspace((ws) => undoLastPick(ws))}
-            disabled={(workspace.picks || []).length === 0}
-            title="Undo the most recent pick"
-          >
-            ↶ Undo last
-          </button>
-          <button
-            className="button button-danger"
-            onClick={handleReset}
-            title="Reset the entire draft board"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
+    <main className={`main-shell ${styles.page} draft-page`}>
+      <PageHeader
+        eyebrow="War room"
+        title="Draft board"
+        description="Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately."
+        actions={
+          <div className={styles.pageActions}>
+            <LiveSyncToggle
+              enabled={liveSyncEnabled}
+              onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
+              status={liveSync.status}
+              error={liveSync.error}
+              lastSyncAt={liveSync.lastSyncAt}
+              latestPickNo={liveSync.latestPickNo}
+            />
+            <Button
+              size="sm"
+              onClick={fetchSyncPreview}
+              disabled={syncBusy}
+              loading={syncBusy}
+              title="Pull current rookie values from our live consensus rankings"
+            >
+              Sync rookies
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setReviewOpen(true)}
+              disabled={(workspace.picks || []).length === 0}
+              title="Show the post-draft review (deltas, rankings, CSV)"
+            >
+              Review
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setHelpOpen(true)}
+              title="Keyboard shortcuts (?)"
+              aria-label="Keyboard shortcuts"
+            >
+              Shortcuts
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setWorkspace((ws) => undoLastPick(ws))}
+              disabled={(workspace.picks || []).length === 0}
+              title="Undo the most recent pick"
+            >
+              Undo last
+            </Button>
+            <Button size="sm" variant="danger" onClick={handleReset}>
+              Reset
+            </Button>
+          </div>
+        }
+      />
 
-      {syncError && (
-        <div
-          className="draft-modal-warn"
-          style={{ marginBottom: 10 }}
-          onClick={() => setSyncError("")}
-        >
-          <strong>Sync error.</strong> {syncError}
-        </div>
-      )}
+      {syncError ? (
+        <Banner tone="negative" title="Sync error" onDismiss={() => setSyncError("")}>
+          {syncError}
+        </Banner>
+      ) : null}
 
       {/* Alert stack — sticky banners for threshold-crossing events.
           Render newest-first so the latest signal is always on top.
@@ -4557,18 +4502,12 @@ export default function DraftDashboardPage() {
           whole stack. */}
       {alerts.length > 0 && (
         <div className="draft-alert-stack">
-          <div className="draft-alert-head">
-            <span className="label" style={{ fontSize: "0.7rem" }}>
-              Signals
-            </span>
+          <div className={styles.signalHead}>
+            <span className={styles.signalTitle}>Signals</span>
             {alerts.length > 1 && (
-              <button
-                className="button-reset draft-alert-clear"
-                onClick={clearAllAlerts}
-                title="Dismiss all"
-              >
+              <Button variant="ghost" size="sm" onClick={clearAllAlerts}>
                 Clear all
-              </button>
+              </Button>
             )}
           </div>
           {alerts
@@ -4598,22 +4537,14 @@ export default function DraftDashboardPage() {
           current NFL roster.  Hidden until /api/data has resolved
           and we've mapped the user's team. */}
       {rosterPlayers && rosterBreakdown.needPositions.length > 0 && (
-        <div className="draft-need-strip">
-          <span className="muted" style={{ fontSize: "0.7rem" }}>
-            Roster needs:
-          </span>
+        <div className={styles.needStrip}>
+          <span>Roster needs:</span>
           {rosterBreakdown.needPositions.map((pos) => (
-            <span key={pos} className="draft-need-chip">
-              {pos}{" "}
-              <span className="draft-need-short">
-                −{rosterBreakdown.shortages[pos]}
-              </span>
-            </span>
+            <Badge key={pos} tone="warning">
+              {pos} −{rosterBreakdown.shortages[pos]}
+            </Badge>
           ))}
-          <span className="muted" style={{ fontSize: "0.68rem", marginLeft: 6 }}>
-            (positions where I'm below threshold; factored into
-            target priority)
-          </span>
+          <span>positions below threshold, factored into target priority</span>
         </div>
       )}
 
@@ -4622,14 +4553,18 @@ export default function DraftDashboardPage() {
           Sits above the stats strip so the user has constant
           peripheral awareness of "how far in are we?" — which drives
           every late-draft decision. */}
-      <div className="draft-progress" title={`${stats.totalPicksMade} of ${stats.totalInitialSlots} picks recorded`}>
-        <div className="draft-progress-bar">
+      <div
+        className={styles.progress}
+        role="group"
+        aria-label={`${stats.totalPicksMade} of ${stats.totalInitialSlots} picks recorded`}
+      >
+        <div className={styles.progressTrack}>
           <div
-            className="draft-progress-fill"
+            className={styles.progressFill}
             style={{ width: `${Math.min(100, stats.draftProgress * 100)}%` }}
           />
         </div>
-        <div className="draft-progress-labels">
+        <div className={styles.progressLabels}>
           <span>
             Pick <strong>{stats.totalPicksMade}</strong> of{" "}
             <strong>{stats.totalInitialSlots}</strong>
@@ -4640,7 +4575,7 @@ export default function DraftDashboardPage() {
 
       <StatsStrip stats={stats} historySeries={historySeries} />
 
-      <div className="draft-top-grid">
+      <div className={styles.topGrid}>
         <TeamPanel
           stats={stats}
           workspace={workspace}
@@ -4656,37 +4591,27 @@ export default function DraftDashboardPage() {
           fires.  Tells the user what just happened and offers an
           "escape hatch" back to the full view.  Dismiss persists
           within the session; reload resets to auto-behavior. */}
-      {triageApplied && !triageDismissed && (
-        <div className="draft-triage-banner">
-          <strong>LATE-DRAFT TRIAGE</strong>
-          <span>
-            Slot pressure {Math.round((stats.slotPressure || 0) * 100)}% —
-            auto-filtered to your Targets so you only see players you
-            still want.
-          </span>
-          <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-            <button
-              className="button"
-              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-              onClick={() => {
-                setTagFilter("all");
-                setTriageDismissed(true);
-              }}
-              title="Go back to the full board"
-            >
-              Show all
-            </button>
-            <button
-              className="button"
-              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-              onClick={() => setTriageDismissed(true)}
-              title="Keep the filter but dismiss this banner"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      {triageApplied && !triageDismissed ? (
+        <Banner
+          tone="warning"
+          title="Late-draft triage"
+          onDismiss={() => setTriageDismissed(true)}
+        >
+          Slot pressure {Math.round((stats.slotPressure || 0) * 100)}% —
+          auto-filtered to your Targets so you only see players you still
+          want.{" "}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setTagFilter("all");
+              setTriageDismissed(true);
+            }}
+          >
+            Show all
+          </Button>
+        </Banner>
+      ) : null}
 
       <ParSheet
         stats={stats}
@@ -4709,7 +4634,7 @@ export default function DraftDashboardPage() {
         onDraft={(p) => setModalPlayer(p)}
       />
 
-      <div className="draft-sidebar-grid">
+      <div className={styles.sidebarGrid}>
         <NextBestTargets
           stats={stats}
           onDraft={(p) => setModalPlayer(p)}
@@ -4766,33 +4691,11 @@ export default function DraftDashboardPage() {
       )}
 
       {syncOpen && syncPreview && (
-        <div
-          className="draft-modal-backdrop"
-          onClick={() => {
-            setSyncOpen(false);
-            setSyncPreview(null);
-          }}
-          role="dialog"
-          aria-modal="true"
+        <Modal
+          open
+          onClose={closeSyncPreview}
+          title="Sync rookies from consensus rankings"
         >
-          <div
-            className="draft-modal card"
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(560px, 100%)" }}
-          >
-            <div className="draft-modal-header">
-              <h3>Sync rookies from consensus rankings</h3>
-              <button
-                type="button"
-                className="button-reset draft-modal-close"
-                onClick={() => {
-                  setSyncOpen(false);
-                  setSyncPreview(null);
-                }}
-              >
-                ×
-              </button>
-            </div>
             <div className="draft-modal-body">
               <div className="muted" style={{ fontSize: "0.78rem" }}>
                 Pulled top <strong>{syncPreview.incoming.length}</strong>{" "}
@@ -4851,27 +4754,12 @@ export default function DraftDashboardPage() {
               </div>
             </div>
             <div className="draft-modal-footer">
-              <button
-                type="button"
-                className="button"
-                onClick={() => {
-                  setSyncOpen(false);
-                  setSyncPreview(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={applySyncPreview}
-                style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-              >
+              <Button onClick={closeSyncPreview}>Cancel</Button>
+              <Button variant="primary" onClick={applySyncPreview}>
                 Apply sync
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {reviewOpen && (
@@ -4883,27 +4771,7 @@ export default function DraftDashboardPage() {
       )}
 
       {helpOpen && (
-        <div
-          className="draft-modal-backdrop"
-          onClick={() => setHelpOpen(false)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="draft-modal card"
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(520px, 100%)" }}
-          >
-            <div className="draft-modal-header">
-              <h3>Keyboard shortcuts</h3>
-              <button
-                type="button"
-                className="button-reset draft-modal-close"
-                onClick={() => setHelpOpen(false)}
-              >
-                ×
-              </button>
-            </div>
+        <Modal open onClose={() => setHelpOpen(false)} title="Keyboard shortcuts">
             <div className="draft-modal-body">
               <table className="draft-help-table">
                 <tbody>
@@ -4983,17 +4851,10 @@ export default function DraftDashboardPage() {
               </div>
             </div>
             <div className="draft-modal-footer">
-              <button
-                type="button"
-                className="button"
-                onClick={() => setHelpOpen(false)}
-              >
-                Close
-              </button>
+              <Button onClick={() => setHelpOpen(false)}>Close</Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
-    </section>
+    </main>
   );
 }
