@@ -6804,6 +6804,26 @@ async def run(progress_callback=None):
         )
 
     # Persist rookie visibility metadata for dashboard filtering/debugging.
+    #
+    # NFL-team stamps get a LAST-GOOD fallback (Codex round 6 on
+    # PR #535): when the Sleeper /players/nfl fetch fails,
+    # SLEEPER_ALL_NFL is empty and every live lookup returns None —
+    # without a fallback the fresh export would publish team-less rows
+    # and empty every NFL-team filter until the next successful fetch.
+    # After a healthy pass we persist the name→team map; on an outage
+    # pass we stamp from the saved map instead.
+    _team_map_path = os.path.join("data", "player_map", "team_map_last_good.json")
+    _team_map_fallback: dict = {}
+    if not SLEEPER_ALL_NFL:
+        try:
+            with open(_team_map_path, "r", encoding="utf-8") as _fh:
+                _team_map_fallback = json.load(_fh).get("teams", {})
+            print(
+                f"  [Teams] Sleeper player DB unavailable — using last-good "
+                f"team map ({len(_team_map_fallback)} entries)"
+            )
+        except Exception:
+            _team_map_fallback = {}
     _years_exp_tagged = 0
     _rookie_tagged = 0
     _age_tagged = 0
@@ -6826,10 +6846,29 @@ async def run(progress_callback=None):
         if isinstance(_age, int):
             _pdata["age"] = _age
             _age_tagged += 1
-        _team = _player_team_local(_name, _pdata)
+        _team = _player_team_local(_name, _pdata) or _team_map_fallback.get(_name)
         if isinstance(_team, str) and _team:
             _pdata["team"] = _team
             _team_tagged += 1
+    # Save the last-good map only from a HEALTHY player-DB pass (an
+    # outage pass would just re-save the fallback it loaded).
+    if SLEEPER_ALL_NFL and _team_tagged:
+        try:
+            os.makedirs(os.path.dirname(_team_map_path), exist_ok=True)
+            with open(_team_map_path, "w", encoding="utf-8") as _fh:
+                json.dump(
+                    {
+                        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        "teams": {
+                            n: d["team"]
+                            for n, d in players_json.items()
+                            if isinstance(d, dict) and isinstance(d.get("team"), str)
+                        },
+                    },
+                    _fh,
+                )
+        except Exception as _exc:
+            print(f"  [Teams] last-good team map save failed (non-fatal): {_exc}")
 
     # Final must-have rookie position enforcement. Do this after fallback creation and
     # rookie tagging so defensive prospects cannot drift back into generic offense entries.

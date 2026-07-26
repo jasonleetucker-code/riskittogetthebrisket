@@ -113,6 +113,14 @@ describe("resolveOwnerTeam — real buildTeamByPlayer shape", () => {
     expect(resolveOwnerTeam(row({ playerId: null }), index)).toBe("Brisket Bros");
   });
 
+  it("draft picks are excluded from owner filtering entirely", () => {
+    // Pick ownership lives outside buildTeamByPlayer's index; a null
+    // owner must not classify owned picks as free agents (round 6).
+    const pick = row({ name: "2027 Pick 1.01", pos: "PICK", assetClass: "pick", playerId: null });
+    expect(rowMatches(pick, { ownerTeam: FREE_AGENT_OWNER }, { teamByPlayer: index })).toBe(false);
+    expect(rowMatches(pick, { ownerTeam: "Brisket Bros" }, { teamByPlayer: index })).toBe(false);
+  });
+
   it("returns null for unrostered players (FREE_AGENT_OWNER works)", () => {
     const fa = row({ name: "Nobody Owns Me", playerId: "9999" });
     expect(resolveOwnerTeam(fa, index)).toBe(null);

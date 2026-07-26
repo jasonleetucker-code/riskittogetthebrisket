@@ -149,6 +149,12 @@ export function rowMatches(row, criteria, extras = {}) {
   }
 
   if (c.ownerTeam) {
+    // Draft picks are excluded from owner filtering entirely: their
+    // ownership lives in the separate picks data that
+    // buildTeamByPlayer doesn't index, so a null owner would wrongly
+    // classify every owned pick as a "free agent" (Codex round 6 on
+    // PR #535).  Revisit if/when a pick-ownership join is added.
+    if (row.pos === "PICK" || row.assetClass === "pick") return false;
     const owner = resolveOwnerTeam(row, extras.teamByPlayer);
     if (c.ownerTeam === FREE_AGENT_OWNER) {
       if (owner) return false;
