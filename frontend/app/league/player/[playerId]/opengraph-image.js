@@ -97,7 +97,7 @@ export default async function PlayerOGImage({ params }) {
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", color: "#99a6c8", fontSize: 22 }}>
-          <div>riskittogetthebrisket.org</div>
+          <div>Risk It To Get The Brisket</div>
           {p?.ownershipArc?.length ? (
             <div>{p.ownershipArc.map((o) => o.displayName).join(" → ")}</div>
           ) : null}
