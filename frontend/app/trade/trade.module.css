@@ -1,0 +1,514 @@
+/* trade.module.css — /trade structural styles (R4, token-driven).
+   The trading terminal: control bar, side ledgers, simulation impact,
+   and the suggestion desk. Structure only — every color, size, radius
+   and z-index comes from the R0 token layer.
+
+   The sticky tray, per-side search dropdown, and mobile quick-add keep
+   their global class names (trade-sticky-tray, trade-side-search*,
+   mobile-quick-add*) — those live in globals.css and are R5's to purge. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Control bar ── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.controlsNote {
+  flex-basis: 100%;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Status strip (share / import confirmations) ── */
+.statusStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Simulation impact ── */
+.simGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@media (width < 640px) {
+  .simGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.simPosGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 768px) {
+  .simPosGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.simSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.simSectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.simSectionTitle {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.simVerdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.simScore {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-md);
+}
+.simStarterGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+@media (width < 768px) {
+  .simStarterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.simRationale {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+}
+
+/* ── Import row ── */
+.importRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.importInput {
+  flex: 1 1 360px;
+  min-width: 260px;
+}
+
+/* ── Pick-team selectors ── */
+.pickTeams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ── Side grid ── */
+.sidesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+  /* Room for the sticky verdict tray. */
+  padding-bottom: 78px;
+}
+.sidesGrid[data-sides="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sidesGrid[data-sides="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (width < 1024px) {
+  .sidesGrid,
+  .sidesGrid[data-sides="3"],
+  .sidesGrid[data-sides="4"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The user's own side keeps a gold rule so it stays identifiable as
+   the tray scrolls. Reinforced by the "You" badge in the header. */
+.mySide {
+  border-color: var(--accent-border);
+}
+
+.sideHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sideHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sideTotals {
+  text-align: right;
+}
+.sideTotal {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.sideTotalMeta {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.sideGroupLabel {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  margin-top: var(--space-3);
+}
+
+/* ── Sticky-tray verdict bar ──
+   A track with a marker at --marker-pos (a computed percentage passed
+   inline — layout math, not styling). The gradient is a static
+   positive→negative field so the marker's position reads instantly;
+   the verdict text below carries the actual meaning. */
+.verdictTrack {
+  position: relative;
+  height: 10px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin: var(--space-1) 0;
+  background: var(--surface-3);
+}
+.verdictField {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background: linear-gradient(
+    to right,
+    var(--positive),
+    transparent 40%,
+    transparent 60%,
+    var(--negative)
+  );
+}
+.verdictMarker {
+  position: absolute;
+  top: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--surface-0);
+  background: var(--neutral-signal);
+  left: calc(var(--marker-pos, 50%) - 6px);
+  transition: left var(--motion-base) var(--ease-out);
+}
+.verdictMarkerPositive {
+  background: var(--positive);
+}
+.verdictMarkerNegative {
+  background: var(--negative);
+}
+
+/* ── Asset rows ── */
+.assetList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.assetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  min-width: 0;
+}
+.assetRowIncoming {
+  border-left: 2px solid var(--positive);
+  padding-left: var(--space-2);
+}
+.assetMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.assetBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.assetName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.assetNameButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assetNameButton:hover {
+  color: var(--accent);
+}
+.assetNameButton:focus-visible {
+  outline: var(--focus-ring);
+  outline-color: var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.assetMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  min-width: 0;
+}
+.assetMetaText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assetActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.assetDest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.assetEmpty {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Balancer suggestions ── */
+.balancers {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.balancerLabel {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+/* ── Suggestion rail ── */
+.railGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 1024px) {
+  .railGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (width < 640px) {
+  .railGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.railCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.railCard:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+.railCard:focus-visible {
+  outline: var(--focus-ring);
+  outline-color: var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.railHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.railLine {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-primary);
+}
+.railLineLabel {
+  color: var(--text-tertiary);
+}
+.railHint {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Suggestions desk ── */
+.suggestControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.suggestRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.suggestTextarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+.suggestMeta {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.suggestAnalysis {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.suggestList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.suggestCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+.suggestCardTop {
+  border-color: var(--positive);
+}
+.suggestBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.suggestLines {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.suggestRank {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-tertiary);
+  min-width: 20px;
+}
+.suggestSides {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.suggestSide {
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+.suggestSideLabel {
+  font-weight: var(--font-weight-semibold);
+}
+.suggestSideGive {
+  color: var(--negative-text);
+}
+.suggestSideGet {
+  color: var(--positive-text);
+}
+.suggestPlayerMeta {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+.suggestBadges {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.suggestNotes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-tertiary);
+}
+.suggestWhy {
+  color: var(--text-secondary);
+}
+.suggestScore {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-normal);
+}
