@@ -106,9 +106,11 @@ def test_catch_all_still_gates_private_pages():
     the catch-all must not become an accidental way around it."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.get("/waivers", follow_redirects=False)
-    assert res.status_code in (302, 303, 307), (
-        f"/waivers should redirect an anonymous visitor, got {res.status_code}"
-    )
+    assert res.status_code in (
+        302,
+        303,
+        307,
+    ), f"/waivers should redirect an anonymous visitor, got {res.status_code}"
     assert "/login" in res.headers.get("location", "")
 
 
@@ -117,7 +119,9 @@ def test_catch_all_keeps_public_league_subroutes_public():
     and must not demand a session."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.get("/league/activity", follow_redirects=False)
-    assert res.status_code not in (302, 303, 307), (
-        "/league/activity is public and must not redirect to login"
-    )
+    assert res.status_code not in (
+        302,
+        303,
+        307,
+    ), "/league/activity is public and must not redirect to login"
     assert res.status_code != 404
