@@ -76,17 +76,25 @@ an offensive formation ("3WR 1TE"), "Base 3-4 D" / "Base 4-3 D", or
      backups).
 3. **join** — depth rows join by exact gsis/espn ID; contracts and
    snaps go through the unified-mapper name ladder
-   (name+team+pos → name+pos → unique name, prebuilt as O(1) indexes;
-   residual misses fall through to
-   `src.identity.unified_mapper.resolve_player` for its manual
-   override + fuzzy layers).  Rows that don't map to the Sleeper pool
-   are dropped and counted.
+   (name+team+pos → name+pos → unique name, prebuilt as O(1) indexes).
+   Manual overrides (`config/identity/id_overrides.json`, same file
+   and loader as the unified mapper) are reverse-indexed by normalized
+   full_name / gsis_id / espn_id → sleeper_id and consulted after the
+   deterministic rungs miss but before the fuzzy fallback — an
+   operator-pinned mapping beats a fuzzy guess, and a source row that
+   depends on an override is never dropped.  Residual misses fall
+   through to `src.identity.unified_mapper.resolve_player` for its
+   fuzzy layer.  Rows that still don't map to the Sleeper pool are
+   dropped and counted.
 4. **floors** — schema drift (missing columns) or parsed-row counts
    under the floors (`contracts` 1000, snap aggregates 700, depth rows
-   1200, joined players 400) or a >25 % player-count collapse vs the
-   last-good snapshot raise `SchemaRegressionError` → exit 2 and the
-   last-good snapshot is left untouched.  Soft failures (network,
-   empty parse) → exit 1.
+   1200, joined players 400) raise `SchemaRegressionError` → exit 2.
+   Retention vs the last-good snapshot is checked twice: the union
+   (>25 % player-count collapse) AND each source's matched count
+   individually, so one source regressing semantically (e.g. contracts
+   matching nothing after a naming change) can't hide behind a healthy
+   total.  Either breach → exit 2 with the last-good snapshot left
+   untouched.  Soft failures (network, empty parse) → exit 1.
 5. **store** (`store.py`) — atomic tmp-then-replace write of
    `data/playerctx/snapshot.json`.
 
