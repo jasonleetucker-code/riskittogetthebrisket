@@ -432,6 +432,7 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
           "Player A": {
             _canonicalConsensusRank: 1,
             _canonicalSiteValues: { ktc: 9999, idpTradeCalc: 9800 },
+            sourceNativeValues: { fantasyCalc: 10208 },
             rankDerivedValue: 9800,
             sourceRanks: { ktc: 1, idpTradeCalc: 1 },
             sourceRankMeta: {
@@ -505,6 +506,19 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
       },
     };
   }
+
+  it("carries override-invariant sourceNativeValues from the legacy dict", () => {
+    // The delta deliberately omits native values (they never change
+    // with source toggles); the synthesized row must copy them from
+    // the legacy mirror or tooltips lose vendor numbers while an
+    // override is active (PR #532 round 8).
+    const merged = mergeRankingsDelta(runtimeBaseContract(), deltaKtcOff());
+    const row = merged.data.playersArray.find((r) => r.displayName === "Player A");
+    expect(row.sourceNativeValues).toEqual({ fantasyCalc: 10208 });
+    const rows = buildRows(merged.data);
+    const a = rows.find((r) => r.name === "Player A");
+    expect(a.sourceNativeValues).toEqual({ fantasyCalc: 10208 });
+  });
 
   it("synthesizes a playersArray from delta + legacy dict", () => {
     const base = runtimeBaseContract();

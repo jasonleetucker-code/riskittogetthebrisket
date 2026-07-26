@@ -485,6 +485,51 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // Fantasy Navigator superflex dynasty board — public JSON API
+    // fetched by scripts/fetch_fantasynavigator.py (~800 offense
+    // rows).  KTC-derived values (rows carry ktc_player_id), so
+    // partially correlated with ktcSfTep — documented in the Python
+    // registry.  Standard SF scoring, no TE premium baked in: the
+    // settings.tepMultiplier boost applies to its contribution.
+    // Signal=rank from day one (KTC-adjacent decay shape).
+    key: "fantasyNavigatorSf",
+    displayName: "Fantasy Navigator SF",
+    columnLabel: "FN",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 460,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
+    // Play for Keeps Dynasty master board — PFK's hand-maintained
+    // dynasty rankings via scripts/fetch_pfk.py (~496 offense rows,
+    // picks dropped).  Independent human signal.  Standard SF
+    // scoring, no TE premium: the settings.tepMultiplier boost
+    // applies to its contribution.  Signal=rank; native values are
+    // preserved server-side for display/audit.
+    key: "pfkDynasty",
+    displayName: "Play for Keeps Dynasty",
+    columnLabel: "PFK",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 460,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // Dynasty Daddy Superflex trade values — crowd-sourced community
     // values fetched from the public JSON API at
     // dynasty-daddy.com/api/v1/player/all/today?market=14 via
@@ -1059,6 +1104,11 @@ function _materializePlayerArrayRow(player) {
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
       ? player.sourceOriginalRanks : {},
+    // Native vendor values for rank-signal sources — the real number
+    // behind the synthetic encoding in canonicalSites (parallel map
+    // to sourceOriginalRanks; keep both materializers in lockstep).
+    sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
+      ? player.sourceNativeValues : {},
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1139,6 +1189,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
       ? player.sourceOriginalRanks : {},
+    // Native vendor values for rank-signal sources — the real number
+    // behind the synthetic encoding in canonicalSites (parallel map
+    // to sourceOriginalRanks; keep both materializers in lockstep).
+    sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
+      ? player.sourceNativeValues : {},
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1457,6 +1512,15 @@ export function mergeRankingsDelta(baseContract, delta) {
         canonicalSiteValues:
           legacy._canonicalSiteValues && typeof legacy._canonicalSiteValues === "object"
             ? legacy._canonicalSiteValues
+            : {},
+        // Vendor-native values are override-INVARIANT (toggling a
+        // source never changes what the vendor published), so the
+        // delta deliberately omits them — copy from the legacy
+        // mirror or the tooltips lose natives while an override is
+        // active (Codex review on PR #532 round 8).
+        sourceNativeValues:
+          legacy.sourceNativeValues && typeof legacy.sourceNativeValues === "object"
+            ? legacy.sourceNativeValues
             : {},
       };
       for (const field of Object.keys(deltaEntry)) {
