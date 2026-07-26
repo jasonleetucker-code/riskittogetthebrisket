@@ -24,9 +24,16 @@
 //
 // Only legitimate skip path: ``SKIP_VISUAL_REGRESSION=1`` set by
 // the caller, for local runs where the dev server isn't up.
+//
+// Auth: /rankings and /edge sit behind the login gate (they've been
+// auth-gated since the rankings-contract scrape gate landed), so the
+// tests that visit them use the test-session fixture and skip
+// cleanly when E2E_TEST_SECRET isn't configured.  The public /league
+// tabs keep the plain page fixture.
 // ─────────────────────────────────────────────────────────────────────
 
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../helpers/auth-fixture");
+const { pageUrl, desktopOnly } = require("../helpers/journey");
 
 const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.002,
@@ -38,10 +45,12 @@ const SCREENSHOT_OPTIONS = {
 // failing the test with "chart didn't render in time" — that's the
 // regression signal the suite exists to catch.  Set generously so
 // benign CI slowness doesn't flap, but tight enough that a genuinely
-// broken chart surfaces within a reasonable dev-loop.  15s covers
-// the 4 MB contract fetch plus the initial React mount on a
-// CI-sized runner.
-const READINESS_TIMEOUT_MS = 15_000;
+// broken chart surfaces within a reasonable dev-loop.  30s covers
+// the ~5 MB contract fetch plus the initial React mount on a
+// CI-sized runner (15s proved marginal once these specs started
+// running authed against a locally-booted stack — the chart often
+// rendered ~1-2s after the old deadline).
+const READINESS_TIMEOUT_MS = 30_000;
 
 const CHART_SELECTORS = {
   hillCurve: 'svg[aria-label*="Hill curve"]',
@@ -101,7 +110,13 @@ test.describe("Chart visual regression", () => {
     "Set SKIP_VISUAL_REGRESSION=1 to skip this suite locally",
   );
 
-  test("Hill curve (methodology panel)", async ({ page }) => {
+  // Pixel baselines are captured at one fixed viewport (the desktop
+  // project's) — running the same screenshots at 390px would need a
+  // second baseline set for no extra signal.  Mobile chart layout is
+  // covered by mobile-smoke.spec.js at the page level.
+  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+
+  test("Hill curve (methodology panel)", async ({ authedPage: page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
     const el = await _waitForChart(
@@ -112,7 +127,7 @@ test.describe("Chart visual regression", () => {
     await expect(el).toHaveScreenshot("hill-curve.png", SCREENSHOT_OPTIONS);
   });
 
-  test("Tier-gap waterfall", async ({ page }) => {
+  test("Tier-gap waterfall", async ({ authedPage: page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
     const el = await _waitForChart(
@@ -123,7 +138,7 @@ test.describe("Chart visual regression", () => {
     await expect(el).toHaveScreenshot("tier-gap.png", SCREENSHOT_OPTIONS);
   });
 
-  test("Confidence vs value scatter", async ({ page }) => {
+  test("Confidence vs value scatter", async ({ authedPage: page }) => {
     await page.goto("/edge");
     const el = await _waitForChart(
       page,
@@ -134,7 +149,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Matchup margin histogram (league/weekly)", async ({ page }) => {
-    await page.goto("/league?tab=weekly");
+    await page.goto(pageUrl("/league?tab=weekly"));
     const el = await _waitForChart(
       page,
       CHART_SELECTORS.matchupMargin,
@@ -144,7 +159,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Trade flow Sankey (league/activity)", async ({ page }) => {
-    await page.goto("/league?tab=activity");
+    await page.goto(pageUrl("/league?tab=activity"));
     const el = await _waitForChart(
       page,
       CHART_SELECTORS.tradeFlow,
@@ -154,7 +169,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Activity heatmap (league/activity)", async ({ page }) => {
-    await page.goto("/league?tab=activity");
+    await page.goto(pageUrl("/league?tab=activity"));
     const el = await _waitForChart(
       page,
       CHART_SELECTORS.activityHeatmap,
@@ -164,7 +179,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Franchise trajectory (league/franchise)", async ({ page }) => {
-    await page.goto("/league?tab=franchise");
+    await page.goto(pageUrl("/league?tab=franchise"));
     const el = await _waitForChart(
       page,
       CHART_SELECTORS.franchiseTraj,
@@ -184,7 +199,10 @@ test.describe("Chart visual regression", () => {
 // readiness gate applies — no silent-skip on slow loads.
 
 test.describe("Chart structural smoke tests", () => {
-  test("Hill curve has axis + at least one path", async ({ page }) => {
+  // Desktop project only — same rationale as the visual block above.
+  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+
+  test("Hill curve has axis + at least one path", async ({ authedPage: page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
     const svg = await _waitForChart(
@@ -193,10 +211,15 @@ test.describe("Chart structural smoke tests", () => {
       "Hill curve",
     );
     await expect(svg.locator("path").first()).toBeVisible();
-    await expect(svg.locator("circle").first()).toBeVisible();
+    // The curve path renders immediately from the hillCurves
+    // constants; the scatter dots only land once the contract rows
+    // hydrate — give them the same readiness budget as the chart.
+    await expect(svg.locator("circle").first()).toBeVisible({
+      timeout: READINESS_TIMEOUT_MS,
+    });
   });
 
-  test("Confidence scatter has enough points", async ({ page }) => {
+  test("Confidence scatter has enough points", async ({ authedPage: page }) => {
     await page.goto("/edge");
     const svg = await _waitForChart(
       page,
@@ -204,7 +227,8 @@ test.describe("Chart structural smoke tests", () => {
       "Confidence scatter",
     );
     const circles = svg.locator("circle");
-    await expect(circles.first()).toBeVisible();
+    // Dots hydrate with the contract rows — same budget as the chart.
+    await expect(circles.first()).toBeVisible({ timeout: READINESS_TIMEOUT_MS });
     // Healthy scatter has many points.  A "zero dots because the
     // data flow broke" state trips this.
     const count = await circles.count();
