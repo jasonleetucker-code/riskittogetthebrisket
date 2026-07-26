@@ -13,8 +13,8 @@ constant main-branch stability.
 | WS | Workstream | Owner (agent) | Branch | Scope (exclusive) | Status |
 |---|---|---|---|---|---|
 | A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **MERGED** `9ccdecea` |
-| B | Redesign R3 — dashboard, news, market surfaces | news-domain agent | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | **PR #551 open, CI green**, rebased onto main (`622117cb`); in fresh-eyes review |
-| C | Redesign R4 — draft war room + trade surfaces | trade-domain agent | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | **PR #552 open, CI green**, rebased onto main (`79bde6f6`); in fresh-eyes review |
+| B | Redesign R3 — dashboard, news, market surfaces | design custodian (builder reassigned) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | PR #551 open, CI green (`622117cb`); **reviewed — 2 P2 open**, see §6 |
+| C | Redesign R4 — draft war room + trade surfaces | design custodian (builder reassigned) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | PR #552 open, CI green (`79bde6f6`); **reviewed — 2 P2 open**, see §6 |
 | D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
 | E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **PR #550 open (LI-1..LI-5), CI green — MERGE-BLOCKED**, see §6 |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
@@ -174,6 +174,44 @@ Fixtures are vendored into the WS-E branch (slimmed to
 `roster_id`/`players`/`players_points`, 248K, plus a 751-player metadata
 slice); the orchestrator's `measure_flex_allocation_actuals.py` is
 superseded and deliberately left uncommitted.
+
+### PR #551 / #552 — review findings open (reviewed 2026-07-26)
+
+Both CI-green; preservation work largely verified clean (all 8 `/edge`
+sections byte-equivalent through the regroup, `/finder` `defaultSort`
+correct for all 5 presets, terminal `Panel`'s 8 consumers migrated, the
+sticky-tray verdict bar genuinely equivalent, FAAB contention matching the
+wire format). Remediation dispatched to the design custodian.
+
+**Cross-PR merge hazard — highest priority.** Reproduced with
+`git merge-file`: exit 1, conflict at `journey.js` lines 42-102; both PRs
+insert into `SEL` at the same anchor. The trap is asymmetric — R4's side of
+the conflict block carries its selectors, the closing `};` of `SEL`, *and*
+the whole `const NAME = {...}` declaration, while R4's `module.exports`
+edit adding `NAME,` is a separate hunk that **auto-merges cleanly**. The
+natural resolution (keep R3's block, drop the apparent duplicate brace)
+yields a file exporting `NAME` without defining it → `ReferenceError` at
+`require()` → **every Playwright spec fails**, not just R4's. Vitest will
+not catch it. No key collisions, so the correct fix is mechanical: keep
+both blocks plus `NAME`. Pre-resolve on whichever branch merges second.
+
+**#551 P2:** mobile/tablet dashboard order regressed
+(`.terminal-col{display:contents}` + `order` rules gone, so <768px stacks
+in DOM order — Portfolio/Scouting jump 6-7 → 1-2, reversing a decision
+main's docstring spells out); `ScoutingIntel` silently lost its collapse
+toggle (ds `Panel` has no `collapsible` prop, so the prop was dropped on
+migration — compounds with the ordering regression). P3: ~90 lines of
+orphaned `.panel*` CSS with the **live** `.panel-tabs`/`.panel-tab` rules
+buried inside the dead block (R5 purge landmine).
+
+**#552 P2:** the `aria-sort` claim is **false for `/draft`** —
+`grep -c aria-sort` = 0, nine sortable columns are bare `<th>`s with
+`onClick`, so keyboard users cannot sort the board; byte-identical to main,
+so the code was preserved faithfully and it is the *claim* that is wrong.
+FAAB v2 contention is a **new feature, not a rebuild** — no main frontend
+file references `contention`/`perOpponent`/`topRival` and R4 changes zero
+Python, so ~130 lines of new bid-guidance UI shipped under "preserved
+verbatim" with **zero tests** (both branches sit at exactly 1165).
 
 ## 7. Risks
 
