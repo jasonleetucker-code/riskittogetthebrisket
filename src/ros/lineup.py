@@ -124,13 +124,65 @@ class LineupSolution:
 
 def _normalize_slot_name(slot: str) -> str:
     s = (slot or "").strip().upper()
-    if s in {"SUPER_FLEX", "SUPERFLEX", "OP"}:
+    if s in {"SUPER_FLEX", "SUPERFLEX", "OP", "SFLEX"}:
         return "SUPER_FLEX"
     if s in {"WRRB_FLEX", "WR_RB_FLEX", "FLEX_WRRB"}:
         return "FLEX"
     if s in {"IDP_FL", "IDP_FLEX", "IDPFLX"}:
         return "IDP_FLEX"
     return s
+
+
+def flatten_starter_slots(starters: dict[str, Any] | None) -> list[str]:
+    """Expand ``{"QB": 1, "RB": 2, ...}`` → ``["QB", "RB", "RB", ...]``.
+
+    THE canonical starter-slot flattener (LI-8).  Two byte-identical
+    copies previously existed — ``src/ros/scrape.py::_flatten_starter_slots``
+    and ``src/ros/playoff_sim.py::_load_starter_slots`` — each with its
+    own private ``{"SFLEX": "SUPER_FLEX"}`` alias map, so a slot-name
+    alias added to one silently diverged from the other.  ADR-007
+    flagged the duplication; this is the single implementation, and it
+    routes through ``_normalize_slot_name`` so slot aliasing has exactly
+    one definition in the codebase.
+
+    Slots with a non-integer or non-positive count are skipped.  Order
+    follows the mapping's iteration order; callers that need a stable
+    order should pass an ordered mapping (the registry JSON preserves
+    document order through ``json.load``).
+    """
+    if not starters:
+        return []
+    out: list[str] = []
+    for slot, count in starters.items():
+        try:
+            n = int(count)
+        except (TypeError, ValueError):
+            continue
+        if n <= 0:
+            continue
+        out.extend([_normalize_slot_name(str(slot))] * n)
+    return out
+
+
+def load_league_starter_slots(league_key: str | None = None) -> list[str]:
+    """Flat starter-slot list for a league, read from the registry.
+
+    Returns ``[]`` when no league config resolves or it carries no
+    starters — callers degrade rather than raise (the playoff sim falls
+    back to its empirical model, team-strength logs and skips).
+    """
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_default_league,
+            get_league_by_key,
+        )
+
+        cfg = get_league_by_key(league_key) if league_key else get_default_league()
+        if cfg is None or not cfg.roster_settings:
+            return []
+        return flatten_starter_slots(cfg.roster_settings.get("starters"))
+    except Exception:  # noqa: BLE001 — registry problems must not break callers
+        return []
 
 
 def _eligible_for_slot(slot: str, position: str) -> bool:

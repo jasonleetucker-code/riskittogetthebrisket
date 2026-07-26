@@ -157,7 +157,13 @@ class TestRosLineupPath:
 
 class TestPlayoffSimPath:
     def test_load_starter_slots_reads_corrected_registry(self, real_registry):
-        from src.ros.playoff_sim import _eligible_for_slot, _load_starter_slots
+        # LI-8 removed playoff_sim's private duplicates of the flattener
+        # and the eligibility rules (ADR-007 flagged both for this task).
+        # The module now re-exports the canonical lineup.py versions, so
+        # this test asserts the same behavior through the one
+        # implementation that survives.
+        from src.ros.lineup import _eligible_for_slot
+        from src.ros.playoff_sim import _load_starter_slots
 
         slots = _load_starter_slots()
         assert len(slots) == 21

@@ -38,12 +38,23 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import random
 import statistics
 from dataclasses import dataclass
 from typing import Any
 
+from src.league_intel.sim_calibration import (
+    DEFAULT_POINTS_MODEL,
+    PointsModel,
+    load_points_model,
+)
 from src.ros import ROS_DATA_DIR
+from src.ros.lineup import (
+    RosterPlayer,
+    load_league_starter_slots,
+    solve_optimal_assignment,
+)
 from src.public_league import luck, metrics, playoff_odds
 from src.public_league.snapshot import PublicLeagueSnapshot
 
@@ -67,14 +78,31 @@ BEST_BALL_VARIANCE_BUMP = 1.10
 # behavior physically plausible.
 DEPTH_VARIANCE_LIFT_MAX = 0.15
 
+# Simulation counts are now CONVERGENCE-DRIVEN (LI-8): these are the
+# bounds of an adaptive loop, not a fixed budget.  A fixed count is
+# either wasteful (a settled league keeps drawing) or wrong (a tight
+# playoff race stops before the odds resolve) — and it cannot tell you
+# which, because it reports no error bar.
 DEFAULT_SIMULATIONS = 10000
+MIN_SIMULATIONS = 2000
+MAX_SIMULATIONS = 60000
 
-# Best-ball per-week presim count.  For each team we draw K weeks of
-# per-player scores, run greedy lineup optimization on each draw, and
-# take the empirical (mean, sd) of the resulting starting-lineup
-# scores.  K=200 converges the weekly distribution to within ~3% of
-# the asymptotic value while staying cheap (<100ms per league).
-BEST_BALL_PRESIM_WEEKS = 200
+# Stop when every team's playoff-odds standard error is under this.
+# 0.005 ⇒ ±1pp at ~95% confidence, which is finer than the product ever
+# displays (odds render to whole percents).
+ODDS_SE_TOLERANCE = 0.005
+SIM_CHECK_EVERY = 1000
+
+# Best-ball per-week presim.  For each team we draw weekly per-player
+# scores, solve the EXACT lineup on each draw, and take the empirical
+# (mean, sd).  Adaptive between these bounds; the previous fixed 200
+# claimed "~3% of the asymptotic value" with no check that it got there.
+BEST_BALL_PRESIM_MIN_WEEKS = 120
+BEST_BALL_PRESIM_MAX_WEEKS = 1200
+PRESIM_CHECK_EVERY = 40
+# Relative standard error of the mean: stop once the mean is pinned to
+# 1% of itself.
+PRESIM_MEAN_TOLERANCE = 0.01
 
 # Coefficient of variation per position for per-player weekly scores.
 # Calibrated from public weekly-scoring datasets — high-variance
@@ -97,6 +125,59 @@ _PLAYER_CV_BY_POSITION: dict[str, float] = {
     "CB": 0.55,
 }
 _DEFAULT_PLAYER_CV = 0.55
+
+
+def _mean_is_converged(samples: list[float], rel_tolerance: float) -> bool:
+    """True when the sample mean's relative standard error is within
+    ``rel_tolerance``.
+
+    SE(mean) = sd / sqrt(n); "relative" divides by the mean so the
+    tolerance is scale-free (a 12-point team and a 140-point team
+    converge on the same criterion).  A zero/near-zero mean can never
+    satisfy a relative test, so it converges on the absolute SE instead
+    — otherwise an all-zero roster would spin to the cap.
+    """
+    n = len(samples)
+    if n < 4:
+        return False
+    mean = statistics.fmean(samples)
+    sd = statistics.pstdev(samples)
+    if sd <= 0.0:
+        return True
+    se = sd / math.sqrt(n)
+    if abs(mean) < 1e-9:
+        return se < rel_tolerance
+    return (se / abs(mean)) < rel_tolerance
+
+
+def _proportion_se(p: float, n: int) -> float:
+    """Standard error of a Bernoulli proportion — the error bar on an
+    odds figure.  ``p`` at exactly 0 or 1 yields 0, which is an
+    UNDERSTATEMENT of the true uncertainty from a finite sample; callers
+    that report intervals use the Wilson bound instead (see
+    ``_wilson_interval``), which stays honest at the boundaries.
+    """
+    if n <= 0:
+        return 0.0
+    p = min(1.0, max(0.0, p))
+    return math.sqrt(p * (1.0 - p) / n)
+
+
+def _wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion.
+
+    Chosen over the normal approximation because playoff odds live near
+    0 and 1 for most of a season, exactly where the normal interval
+    breaks (it produces bounds outside [0,1] and collapses to zero width
+    at p=0/1, claiming certainty a finite sample cannot support).
+    """
+    if n <= 0:
+        return (0.0, 1.0)
+    p = successes / n
+    denom = 1.0 + (z * z) / n
+    center = (p + (z * z) / (2 * n)) / denom
+    margin = (z / denom) * math.sqrt((p * (1 - p) / n) + (z * z) / (4 * n * n))
+    return (max(0.0, center - margin), min(1.0, center + margin))
 
 
 def _load_team_depth_ratios() -> dict[str, float]:
@@ -193,134 +274,104 @@ def _load_team_rosters() -> dict[str, dict[str, Any]]:
     return out
 
 
-def _load_starter_slots() -> list[str]:
-    """Read the league's starter slot list (e.g. ``["QB", "RB", "RB", ...]``)
-    from the registry.  Falls back to empty when no league config — the
-    best-ball presim then short-circuits to the empirical model."""
-    try:
-        from src.api.league_registry import get_default_league  # noqa: PLC0415
-
-        cfg = get_default_league()
-        if cfg is None or not cfg.roster_settings:
-            return []
-        starters = cfg.roster_settings.get("starters") or {}
-        out: list[str] = []
-        alias = {"SFLEX": "SUPER_FLEX"}
-        for slot, count in starters.items():
-            try:
-                n = int(count)
-            except (TypeError, ValueError):
-                continue
-            if n <= 0:
-                continue
-            out.extend([alias.get(str(slot).upper(), str(slot).upper())] * n)
-        return out
-    except Exception:  # noqa: BLE001
-        return []
-
-
-def _eligible_for_slot(slot: str, position: str) -> bool:
-    """Same eligibility rules as ``src.ros.lineup`` — duplicated here
-    instead of imported to keep the playoff sim's hot loop free of
-    cross-module attribute lookups.
-    """
-    pos = (position or "").upper()
-    s = (slot or "").strip().upper()
-    if s in {"SUPER_FLEX", "SUPERFLEX", "OP", "SFLEX"}:
-        return pos in {"QB", "RB", "WR", "TE"}
-    if s in {"FLEX", "WRRB_FLEX", "WR_RB_FLEX", "FLEX_WRRB"}:
-        return pos in {"RB", "WR", "TE"}
-    if s in {"IDP_FLEX", "IDP_FL", "IDPFLX"}:
-        return pos in {"DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"}
-    if s == "DL":
-        return pos in {"DL", "DE", "DT", "EDGE"}
-    if s == "DB":
-        return pos in {"DB", "S", "CB"}
-    return pos == s
+# ``_load_starter_slots`` and a private ``_eligible_for_slot`` used to
+# live here — the third and fourth copies of logic that belongs to
+# ``src.ros.lineup``.  Both are now imported (LI-8): one flattener, one
+# eligibility definition, and the sim inherits the ``fantasy_positions``
+# fix from LI-3 for free.
+_load_starter_slots = load_league_starter_slots
 
 
 def _bestball_weekly_score(
     roster_players: list[dict[str, Any]],
     starter_slots: list[str],
     rng: random.Random,
+    points_model: PointsModel | None = None,
 ) -> float:
-    """One simulated best-ball week:
-    1. Draw a per-player weekly score (Gaussian on player's rosValue scale).
-    2. Greedy fill: walk slots, pick highest-scoring eligible unused player.
-    3. Sum the chosen scores.
+    """One simulated best-ball week.
+
+    1. Draw a per-player weekly point total from the calibrated points
+       model (see ``src.league_intel.sim_calibration``).
+    2. Solve the EXACT maximum-weight player→slot assignment.
+    3. Sum the assigned scores.
+
+    Step 2 was a slot-ordered greedy until LI-8.  Two defects came with
+    it, both silent:
+
+    * The greedy is optimal only for a *laminar* slot-eligibility family
+      (ADR-007).  It held for this league's slots, so it was correct by
+      an unenforced precondition — one non-laminar slot would have
+      quietly produced sub-optimal lineups and therefore understated
+      every team's best-ball ceiling.
+    * It matched on ``position`` alone, so hybrid IDPs (``position="DL"``
+      with ``fantasy_positions=["DL","LB"]``) were locked out of half
+      their legal slots — the exact bug LI-3 fixed in ``lineup.py`` and
+      measured at up to +13.75 starting-lineup points on real rosters.
+
+    Routing through ``solve_optimal_assignment`` fixes both, and the sim
+    now shares ONE eligibility definition with team-strength.
     """
     if not roster_players or not starter_slots:
         return 0.0
 
-    # Step 1: per-player weekly score.  Mean ≈ (rosValue / 17 weeks)
-    # scaled to typical PPG range; sd ≈ mean × position-specific CV.
-    drawn: list[tuple[str, str, float]] = []
+    model = points_model or DEFAULT_POINTS_MODEL
+
+    # Step 1: draw this week's points for every priced player.  Build
+    # RosterPlayer rows whose ``ros_value`` IS the drawn score, so the
+    # optimizer maximizes realized weekly points rather than season
+    # value.  health penalties are already folded into the draw.
+    pool: list[RosterPlayer] = []
     for p in roster_players:
         ros = float(p.get("rosValue") or 0.0)
         if ros <= 0:
             continue
         pos = str(p.get("position") or "").upper()
-        # Scale rosValue (0-100 composite) to weekly fantasy points.
-        # Empirical: top players (rosValue ≈ 60) hit ~22 PPG; middle
-        # tier (rosValue ≈ 30) hits ~12 PPG.  Linear ratio rosValue / 2.7
-        # produces a believable weekly mean.  This constant is internal —
-        # the matchup-loop comparison only depends on relative scaling.
-        mean = max(0.0, ros / 2.7)
-        cv = _PLAYER_CV_BY_POSITION.get(pos, _DEFAULT_PLAYER_CV)
-        sd = max(0.5, mean * cv)
-        score = max(0.0, rng.gauss(mean, sd))
-        drawn.append((p.get("playerId") or "", pos, score))
+        score = model.draw(ros, pos, rng)
+        fpos = p.get("fantasyPositions") or ()
+        pool.append(
+            RosterPlayer(
+                player_id=str(p.get("playerId") or ""),
+                canonical_name=str(p.get("canonicalName") or ""),
+                position=pos,
+                ros_value=score,
+                fantasy_positions=tuple(fpos),
+            )
+        )
 
-    # Step 2: greedy lineup fill, slots in restrictive→permissive order.
-    # Restrictive first prevents flex slots from grabbing positional
-    # studs the dedicated slot would have used.
-    slot_priority = {
-        "QB": 1,
-        "RB": 2,
-        "WR": 2,
-        "TE": 2,
-        "DL": 3,
-        "LB": 3,
-        "DB": 3,
-        "FLEX": 4,
-        "IDP_FLEX": 4,
-        "SUPER_FLEX": 5,
-    }
-    slots_sorted = sorted(starter_slots, key=lambda s: slot_priority.get(s.upper(), 6))
-    used: set[str] = set()
-    total = 0.0
-    # Sort drawn players by score descending once; per-slot we just
-    # walk this list to find the first eligible unused player.
-    drawn_sorted = sorted(drawn, key=lambda x: -x[2])
-    for slot in slots_sorted:
-        for pid, pos, score in drawn_sorted:
-            if pid in used:
-                continue
-            if not _eligible_for_slot(slot, pos):
-                continue
-            total += score
-            used.add(pid)
-            break
-    return total
+    # Step 2: exact assignment.
+    assignment = solve_optimal_assignment(pool, starter_slots)
+    return float(sum(player.ros_value for player in assignment.values()))
 
 
 def _bestball_presim(
     rosters: dict[str, dict[str, Any]],
     starter_slots: list[str],
     rng: random.Random,
+    points_model: PointsModel | None = None,
 ) -> dict[str, tuple[float, float]]:
-    """Run K best-ball weeks per team, return ``{ownerId: (mean, sd)}``."""
+    """Run best-ball weeks per team, return ``{ownerId: (mean, sd)}``.
+
+    Week count is adaptive (LI-8): draws continue until the running mean
+    is resolved to ``PRESIM_MEAN_TOLERANCE`` of a standard error, capped
+    at ``BEST_BALL_PRESIM_MAX_WEEKS``.  The old fixed 200 was a guess
+    that under-sampled high-variance rosters and wasted draws on stable
+    ones.
+    """
     if not rosters or not starter_slots:
         return {}
+    model = points_model or DEFAULT_POINTS_MODEL
     out: dict[str, tuple[float, float]] = {}
     for owner, blob in rosters.items():
         roster = (blob.get("starters") or []) + (blob.get("bench") or [])
         if not roster:
             continue
-        weekly = [
-            _bestball_weekly_score(roster, starter_slots, rng)
-            for _ in range(BEST_BALL_PRESIM_WEEKS)
-        ]
+        weekly: list[float] = []
+        for i in range(BEST_BALL_PRESIM_MAX_WEEKS):
+            weekly.append(_bestball_weekly_score(roster, starter_slots, rng, model))
+            # Check convergence on a cadence, never before a usable floor.
+            if i + 1 >= BEST_BALL_PRESIM_MIN_WEEKS and (i + 1) % PRESIM_CHECK_EVERY == 0:
+                if _mean_is_converged(weekly, PRESIM_MEAN_TOLERANCE):
+                    break
         if len(weekly) >= 4:
             out[owner] = (statistics.fmean(weekly), statistics.pstdev(weekly))
     return out
@@ -355,6 +406,7 @@ def _build_team_distributions(
     ros_strength_map: dict[str, float],
     *,
     best_ball: bool = False,
+    points_model: PointsModel | None = None,
 ) -> tuple[dict[str, _TeamDist], dict[str, float]]:
     """Build per-team weekly score distributions blended with ROS.
 
@@ -399,11 +451,13 @@ def _build_team_distributions(
         starter_slots = _load_starter_slots()
         if rosters and starter_slots:
             presim_rng = random.Random(20260428)  # deterministic per league
-            bestball_dists = _bestball_presim(rosters, starter_slots, presim_rng)
+            bestball_dists = _bestball_presim(rosters, starter_slots, presim_rng, points_model)
             LOG.info(
-                "[ros] best-ball presim: %d teams × %d weeks",
+                "[ros] best-ball presim: %d teams, adaptive %d-%d weeks (points model: %s)",
                 len(bestball_dists),
-                BEST_BALL_PRESIM_WEEKS,
+                BEST_BALL_PRESIM_MIN_WEEKS,
+                BEST_BALL_PRESIM_MAX_WEEKS,
+                (points_model or DEFAULT_POINTS_MODEL).source,
             )
 
     distributions: dict[str, _TeamDist] = {}
@@ -484,14 +538,81 @@ def _league_best_ball() -> bool:
         return False
 
 
+def _simulate_bracket(
+    seeded: list[str],
+    distributions: dict[str, _TeamDist],
+    bye_seeds: int,
+    rng: random.Random,
+) -> str | None:
+    """Play a seeded single-elimination bracket; return the champion.
+
+    Standard fantasy structure: the top ``bye_seeds`` teams sit out
+    round one, the rest play highest-vs-lowest, and re-seeding applies
+    each round (the surviving top seed always faces the surviving
+    bottom seed).  Each game is one draw from each team's weekly
+    distribution — the same distribution the regular-season loop uses,
+    so a team's playoff strength and its regular-season strength cannot
+    disagree.
+
+    Ties re-draw rather than coin-flip: a fantasy playoff tie is broken
+    by the host's own tiebreakers, and a coin flip would inject variance
+    the seeding already resolved.  Capped to avoid a pathological loop
+    on degenerate (zero-variance) distributions.
+    """
+    alive = [o for o in seeded if o in distributions]
+    if not alive:
+        return None
+    if len(alive) == 1:
+        return alive[0]
+
+    def _play(a: str, b: str) -> str:
+        da, db = distributions[a], distributions[b]
+        for _ in range(8):
+            sa = max(0.0, rng.gauss(da.mean, da.sd))
+            sb = max(0.0, rng.gauss(db.mean, db.sd))
+            if sa > sb:
+                return a
+            if sb > sa:
+                return b
+        # Degenerate: identical deterministic distributions. The better
+        # seed advances, which is what every host does.
+        return a
+
+    # Round one: byes advance automatically.
+    byes = alive[:bye_seeds]
+    contenders = alive[bye_seeds:]
+    survivors = list(byes)
+    while len(contenders) >= 2:
+        survivors.append(_play(contenders[0], contenders[-1]))
+        contenders = contenders[1:-1]
+    survivors.extend(contenders)  # odd bracket: the middle team advances
+
+    # Re-seed and play down to one.
+    seed_rank = {o: i for i, o in enumerate(alive)}
+    while len(survivors) > 1:
+        survivors.sort(key=lambda o: seed_rank.get(o, len(alive)))
+        nxt: list[str] = []
+        while len(survivors) >= 2:
+            nxt.append(_play(survivors[0], survivors[-1]))
+            survivors = survivors[1:-1]
+        nxt.extend(survivors)
+        survivors = nxt
+    return survivors[0] if survivors else None
+
+
 def simulate_playoff_odds(
     snapshot: PublicLeagueSnapshot,
     *,
-    n_simulations: int = DEFAULT_SIMULATIONS,
+    n_simulations: int | None = None,
     playoff_seeds: int = 6,
     bye_seeds: int = 2,
     best_ball: bool | None = None,
     rng: random.Random | None = None,
+    min_simulations: int = MIN_SIMULATIONS,
+    max_simulations: int = MAX_SIMULATIONS,
+    odds_se_tolerance: float = ODDS_SE_TOLERANCE,
+    points_model: PointsModel | None = None,
+    distributions: dict[str, _TeamDist] | None = None,
 ) -> dict[str, Any]:
     """Run the Monte Carlo and return playoff/championship-relevant odds.
 
@@ -509,16 +630,32 @@ def simulate_playoff_odds(
     rng = rng or random.Random()
     if best_ball is None:
         best_ball = _league_best_ball()
+    model = points_model or load_points_model()
+
+    # ``n_simulations`` pins an exact count (used by the trade-delta path
+    # so both arms draw identically); otherwise the loop is adaptive.
+    if n_simulations is not None:
+        min_simulations = max_simulations = int(n_simulations)
+
     ros_map = _load_ros_strength_map()
-    distributions, pf_by_owner = _build_team_distributions(snapshot, ros_map, best_ball=best_ball)
+    pf_by_owner: dict[str, float]
+    if distributions is None:
+        distributions, pf_by_owner = _build_team_distributions(
+            snapshot, ros_map, best_ball=best_ball, points_model=model
+        )
+    else:
+        _, pf_by_owner = _build_team_distributions(
+            snapshot, ros_map, best_ball=best_ball, points_model=model
+        )
     if not distributions:
         return {
             "playoffOdds": [],
-            "n_simulations": n_simulations,
+            "n_simulations": 0,
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "rosStrengthAvailable": bool(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
         }
 
     record = _current_record(snapshot)
@@ -532,7 +669,11 @@ def simulate_playoff_odds(
     miss_count: dict[str, int] = {o: 0 for o in owners}
     wins_total: dict[str, float] = {o: 0.0 for o in owners}
 
-    for _ in range(n_simulations):
+    champ_count: dict[str, int] = {o: 0 for o in owners}
+    completed = 0
+
+    for sim_i in range(max_simulations):
+        completed = sim_i + 1
         sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
         sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
         for week, owner_a, owner_b in schedule:
@@ -569,10 +710,27 @@ def simulate_playoff_odds(
             if i == 0:
                 top_seed_count[owner] += 1
 
+        # Championship: play the seeded bracket out on THIS sim's team
+        # distributions.  Previously the module reported seeding odds
+        # only and no championship probability existed anywhere — the
+        # trade-delta contract (§17.3) requires one.
+        champion = _simulate_bracket(ranked[:playoff_seeds], distributions, bye_seeds, rng)
+        if champion:
+            champ_count[champion] += 1
+
+        # Convergence: stop once every team's playoff-odds standard
+        # error is inside tolerance.  Checked on a cadence and never
+        # before the floor, so a lopsided league cannot exit early on a
+        # handful of draws.
+        if completed >= min_simulations and completed % SIM_CHECK_EVERY == 0:
+            worst_se = max(_proportion_se(playoff_count[o] / completed, completed) for o in owners)
+            if worst_se <= odds_se_tolerance:
+                break
+
     out: list[dict[str, Any]] = []
     for owner in owners:
         seed_dist = seed_counts[owner]
-        n_safe = max(1, n_simulations)
+        n_safe = max(1, completed)
         # Median final seed: cumulative threshold at half the sims.
         cumulative = 0
         median_seed = len(owners)
@@ -582,11 +740,16 @@ def simulate_playoff_odds(
                 median_seed = i + 1
                 break
         most_likely_seed = seed_dist.index(max(seed_dist)) + 1
+        po_lo, po_hi = _wilson_interval(playoff_count[owner], n_safe)
+        ch_lo, ch_hi = _wilson_interval(champ_count[owner], n_safe)
         out.append(
             {
                 "ownerId": owner,
                 "displayName": metrics.display_name_for(snapshot, owner),
                 "playoffOdds": round(playoff_count[owner] / n_safe, 4),
+                "playoffOddsCi": [round(po_lo, 4), round(po_hi, 4)],
+                "championshipOdds": round(champ_count[owner] / n_safe, 4),
+                "championshipOddsCi": [round(ch_lo, 4), round(ch_hi, 4)],
                 "byeOdds": round(bye_count[owner] / n_safe, 4),
                 "topSeedOdds": round(top_seed_count[owner] / n_safe, 4),
                 "missPlayoffsOdds": round(miss_count[owner] / n_safe, 4),
@@ -597,15 +760,25 @@ def simulate_playoff_odds(
             }
         )
     out.sort(key=lambda r: -r["playoffOdds"])
+    worst_se = (
+        max(_proportion_se(playoff_count[o] / max(1, completed), max(1, completed)) for o in owners)
+        if owners
+        else 0.0
+    )
     return {
         "playoffOdds": out,
-        "n_simulations": n_simulations,
+        "n_simulations": completed,
+        "converged": worst_se <= odds_se_tolerance,
+        "worstPlayoffOddsSe": round(worst_se, 5),
+        "oddsSeTolerance": odds_se_tolerance,
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
         "rosStrengthAvailable": bool(ros_map),
         "rosBlend": ROS_BLEND,
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
         "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+        "pointsModelSource": model.source,
+        "pointsModelGeneratedAt": model.generated_at,
     }
 
 
@@ -638,6 +811,212 @@ def _load_cached_payload() -> dict[str, Any] | None:
     except (json.JSONDecodeError, OSError) as exc:
         LOG.warning("[ros] playoff cache unreadable (%s); rerunning sim", exc)
         return None
+
+
+# ── Trade impact on shared seeds (spec §17.3) ──────────────────────
+
+
+@dataclass(frozen=True)
+class OddsDelta:
+    """One team's before/after odds movement, with an honest error bar."""
+
+    owner_id: str
+    display_name: str
+    before: float
+    after: float
+    delta: float
+    delta_ci: tuple[float, float]
+    significant: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ownerId": self.owner_id,
+            "displayName": self.display_name,
+            "before": round(self.before, 4),
+            "after": round(self.after, 4),
+            "delta": round(self.delta, 4),
+            "deltaCi": [round(self.delta_ci[0], 4), round(self.delta_ci[1], 4)],
+            "significant": self.significant,
+        }
+
+
+def _paired_delta_ci(
+    before_hits: int,
+    after_hits: int,
+    n: int,
+    z: float = 1.96,
+) -> tuple[float, float]:
+    """Interval for a paired proportion difference on SHARED seeds.
+
+    Both arms are driven by the same RNG stream, so their sampling
+    errors are strongly positively correlated and an unpaired interval
+    (which adds the variances) would be far too wide — it would call a
+    real trade effect "not significant" simply because each arm's
+    absolute odds are noisy.
+
+    We do not observe the per-simulation discordance counts here, so we
+    take the CONSERVATIVE paired bound: treat the number of discordant
+    pairs as at most ``before_hits + after_hits − 2·min(...)``, i.e. the
+    largest discordance consistent with the observed marginals.  That
+    over-states the interval slightly, which is the correct direction to
+    err — this function exists to stop us calling noise a result.
+    """
+    if n <= 0:
+        return (0.0, 0.0)
+    # Max possible discordant pairs given the marginals.
+    b_plus_c = min(n, abs(after_hits - before_hits) + 2 * min(before_hits, n - after_hits))
+    b_plus_c = max(abs(after_hits - before_hits), min(b_plus_c, n))
+    if b_plus_c <= 0:
+        return (0.0, 0.0)
+    d = (after_hits - before_hits) / n
+    # McNemar-style SE on the discordant pairs.
+    se = math.sqrt(b_plus_c) / n
+    return (d - z * se, d + z * se)
+
+
+def simulate_trade_impact(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    strength_delta: dict[str, float],
+    n_simulations: int = DEFAULT_SIMULATIONS,
+    playoff_seeds: int = 6,
+    bye_seeds: int = 2,
+    best_ball: bool | None = None,
+    seed: int = 20260726,
+    points_model: PointsModel | None = None,
+) -> dict[str, Any]:
+    """Playoff/championship odds movement from a proposed trade.
+
+    ``strength_delta`` maps ownerId → change in that team's weekly
+    scoring MEAN (in the same units the distributions use).  A trade is
+    zero-sum across its participants; this function does not enforce
+    that, because a three-way trade or a waiver add legitimately is not.
+
+    **Shared seeds (§17.3).**  Both arms run on the SAME RNG seed and
+    the SAME number of simulations, so every simulated week draws the
+    same underlying randomness before and after.  The difference is
+    therefore the trade's effect, not the difference between two
+    independent Monte Carlo runs.  Running the arms independently at
+    10k sims each would put roughly ±1pp of pure noise on every delta —
+    the same order as the effect being measured, which is how you end up
+    confidently reporting a sign that flips on re-run.
+
+    **Refusing to over-claim.**  Every delta carries a paired confidence
+    interval, and ``significant`` is False whenever that interval spans
+    zero.  Callers that render a delta MUST respect the flag: the spec
+    is explicit that a delta smaller than simulation error is not a
+    result.  ``meaningfulDeltas`` pre-filters for exactly that.
+
+    Returns::
+
+        {
+          "playoff":      [OddsDelta...],   # sorted by |delta| desc
+          "championship": [OddsDelta...],
+          "meaningfulDeltas": int,          # count across both metrics
+          "nSimulations": int,
+          "sharedSeed": int,
+          "pointsModelSource": str,
+        }
+    """
+    if best_ball is None:
+        best_ball = _league_best_ball()
+    model = points_model or load_points_model()
+    ros_map = _load_ros_strength_map()
+
+    base_dists, _ = _build_team_distributions(
+        snapshot, ros_map, best_ball=best_ball, points_model=model
+    )
+    if not base_dists:
+        return {
+            "playoff": [],
+            "championship": [],
+            "meaningfulDeltas": 0,
+            "nSimulations": 0,
+            "sharedSeed": seed,
+            "pointsModelSource": model.source,
+            "note": "no team distributions available",
+        }
+
+    after_dists = {
+        owner: _TeamDist(
+            owner_id=d.owner_id,
+            mean=max(0.0, d.mean + float(strength_delta.get(owner, 0.0))),
+            sd=d.sd,
+            pf_to_date=d.pf_to_date,
+        )
+        for owner, d in base_dists.items()
+    }
+
+    # Identical seeds, identical counts — this is the whole point.
+    before = simulate_playoff_odds(
+        snapshot,
+        n_simulations=n_simulations,
+        playoff_seeds=playoff_seeds,
+        bye_seeds=bye_seeds,
+        best_ball=best_ball,
+        rng=random.Random(seed),
+        points_model=model,
+        distributions=base_dists,
+    )
+    after = simulate_playoff_odds(
+        snapshot,
+        n_simulations=n_simulations,
+        playoff_seeds=playoff_seeds,
+        bye_seeds=bye_seeds,
+        best_ball=best_ball,
+        rng=random.Random(seed),
+        points_model=model,
+        distributions=after_dists,
+    )
+
+    before_by_owner = {r["ownerId"]: r for r in before.get("playoffOdds") or []}
+    after_by_owner = {r["ownerId"]: r for r in after.get("playoffOdds") or []}
+    n = int(after.get("n_simulations") or n_simulations)
+
+    def _deltas(metric: str) -> list[OddsDelta]:
+        rows: list[OddsDelta] = []
+        for owner, b_row in before_by_owner.items():
+            a_row = after_by_owner.get(owner)
+            if a_row is None:
+                continue
+            b = float(b_row.get(metric) or 0.0)
+            a = float(a_row.get(metric) or 0.0)
+            lo, hi = _paired_delta_ci(round(b * n), round(a * n), n)
+            rows.append(
+                OddsDelta(
+                    owner_id=owner,
+                    display_name=b_row.get("displayName") or owner,
+                    before=b,
+                    after=a,
+                    delta=a - b,
+                    delta_ci=(lo, hi),
+                    # Significant only when the interval excludes zero.
+                    significant=(lo > 0.0) or (hi < 0.0),
+                )
+            )
+        rows.sort(key=lambda r: -abs(r.delta))
+        return rows
+
+    playoff_rows = _deltas("playoffOdds")
+    champ_rows = _deltas("championshipOdds")
+    meaningful = sum(1 for r in playoff_rows + champ_rows if r.significant)
+
+    return {
+        "playoff": [r.to_dict() for r in playoff_rows],
+        "championship": [r.to_dict() for r in champ_rows],
+        "meaningfulDeltas": meaningful,
+        "nSimulations": n,
+        "sharedSeed": seed,
+        "pointsModelSource": model.source,
+        "methodology": (
+            "Both arms run on one shared RNG seed and an identical simulation "
+            "count, so the reported delta is the trade's effect rather than the "
+            "difference between two independent Monte Carlo runs. Intervals are "
+            "paired (McNemar-style, conservative on the discordant-pair count). "
+            "A delta whose interval spans zero is flagged significant=false and "
+            "must not be presented as a result."
+        ),
+    }
 
 
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:

@@ -36,6 +36,7 @@ from typing import Any
 
 from src.ros import ROS_DATA_DIR
 from src.ros.aggregate import RankedRow, SourceSnapshot, aggregate
+from src.ros.lineup import flatten_starter_slots
 from src.ros.mapping import resolve_player
 from src.ros.sources import enabled_ros_sources
 
@@ -168,25 +169,11 @@ def _rebuild_index(latest_runs: dict[str, dict[str, Any]]) -> Path:
     return index_path
 
 
-def _flatten_starter_slots(starters: dict[str, Any] | None) -> list[str]:
-    """Expand ``{"QB": 1, "RB": 2, ...}`` → ``["QB", "RB", "RB", ...]``.
-
-    Mirrors how `compute_team_strength`'s ``starter_slots`` argument
-    expects a flat list (one entry per slot) rather than a count map.
-    """
-    if not starters:
-        return []
-    out: list[str] = []
-    alias = {"SFLEX": "SUPER_FLEX"}
-    for slot, count in starters.items():
-        try:
-            n = int(count)
-        except (TypeError, ValueError):
-            continue
-        if n <= 0:
-            continue
-        out.extend([alias.get(str(slot).upper(), str(slot).upper())] * n)
-    return out
+# Canonical flattener lives in ``src.ros.lineup`` (LI-8) — this module
+# used to carry a byte-identical copy alongside a third in
+# ``playoff_sim``.  Re-exported under the old private name so existing
+# callers and tests keep working.
+_flatten_starter_slots = flatten_starter_slots
 
 
 def _hydrate_overlay_players(
