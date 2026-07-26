@@ -179,7 +179,10 @@ Root-only, idempotent, `--dry-run` supported.  Order of operations:
    restart/reboot cannot pick them up.  The sites-enabled symlink is
    validated by resolved target (`readlink -f`), not mere existence —
    a stale or broken link is recreated to point at the intended
-   config.
+   config, and because that changes what nginx will serve, the repair
+   runs the same `nginx -t` + `systemctl reload nginx` sequence as a
+   config install (restoring the previous link state verbatim if
+   validation fails there).
 2. Re-renders `dynasty`/`dynasty-frontend` units from the hardened
    templates via the existing `install-systemd-service.sh`
    (`FORCE_SERVICE_INSTALL=true`; no restart performed).  `VENV_DIR`

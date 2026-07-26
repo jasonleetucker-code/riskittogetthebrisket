@@ -177,12 +177,36 @@ apply_nginx() {
     # Sanity even when unchanged: the enabled symlink must exist AND
     # resolve to our destination — a stale/renamed/broken link would
     # keep nginx serving the wrong config while this script reports
-    # up-to-date.
-    local link_target
+    # up-to-date.  Fixing the link changes what nginx WILL serve, so it
+    # gets the same validate-then-reload as the main install path;
+    # without the reload the running nginx would keep serving its
+    # previously loaded config while the installer reports completion.
+    local link_target prev_raw
     link_target="$(readlink -f "${link}" 2>/dev/null || true)"
     if [[ "${link_target}" != "${dest}" ]]; then
         warn "sites-enabled symlink wrong (resolves to '${link_target:-<missing>}', want '${dest}') — fixing"
-        [[ "${DRY_RUN}" == "true" ]] || ln -sf "${dest}" "${link}"
+        if [[ "${DRY_RUN}" == "true" ]]; then
+            log "(dry-run) would recreate ${link}, then nginx -t + reload nginx"
+        else
+            # Remember the exact previous link state (raw target, not
+            # resolved) so a failed validation restores it verbatim.
+            prev_raw="$(readlink "${link}" 2>/dev/null || true)"
+            ln -sf "${dest}" "${link}"
+            if ! nginx -t; then
+                err "nginx -t FAILED after repairing the sites-enabled symlink"
+                if [[ -n "${prev_raw}" ]]; then
+                    err "restoring previous link state: ${link} -> ${prev_raw}"
+                    ln -sf "${prev_raw}" "${link}"
+                else
+                    err "removing ${link} (no link existed before the repair)"
+                    rm -f "${link}"
+                fi
+                exit 1
+            fi
+            systemctl reload nginx
+            CHANGED_NGINX=true
+            log "nginx reloaded after sites-enabled symlink repair"
+        fi
     fi
     nginx -t >/dev/null 2>&1 || warn "current nginx config fails nginx -t — investigate before next reload"
 }
