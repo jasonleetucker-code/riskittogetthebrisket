@@ -109,43 +109,92 @@ Two findings in that table beyond the migration itself:
 Not tabs, and not to be migrated as tabs: `rivalries.jsx:30`
 (list selection) and `awards.jsx:362` (disclosure).
 
-## 3a. R5 task — lint the fake-tablist pattern
+## 3a. The fake-tablist guard — **BUILT** (`__tests__/a11y-tab-roles.test.js`)
 
-Three independent instances found in two unrelated workstreams is a
-habit, and spot-fixing the third one leaves the fourth to be written
-next week. **Add a lint rule as part of R5**, before or alongside the
-migrations, so the pattern can't reappear.
+The invariant it protects:
 
-The rule, stated as the invariant it protects:
-
-> An element with `role="tablist"` must contain elements with
-> `role="tab"`, and **every `role="tab"` must carry `aria-controls`
-> pointing at an element with `role="tabpanel"`.**
+> Every `role="tab"` must carry `aria-controls`, and the id it names
+> must belong to an element with `role="tabpanel"`.
 
 A tab that controls nothing is not a tab — it is a filter or a toggle,
-and it should be a `SegmentedControl` or a `Button` with `aria-pressed`.
+and belongs in a ds `SegmentedControl` or a `Button` with
+`aria-pressed`. The error message says **use the primitive**, never
+"add `aria-controls`": hand-adding the attribute produces a control
+that *claims* to own a tabpanel which does not exist, which is worse
+than today's honest-but-wrong markup.
 
-Implementation notes:
+### It is a test, not an ESLint rule
 
-- `eslint-plugin-jsx-a11y` ships `jsx-a11y/role-has-required-aria-props`
-  and `jsx-a11y/aria-role`, but **neither catches this**: `aria-controls`
-  is not a *required* prop of `role="tab"` in the ARIA spec, and the
-  role name itself is valid. Verify against the installed plugin version
-  before assuming a built-in rule covers it; expect to need a small
-  custom rule.
-- Cross-file `aria-controls` → `role="tabpanel"` resolution is beyond a
-  per-file linter. Scope the rule to the achievable check — `role="tab"`
-  without an `aria-controls` attribute at all — which is what all three
-  known instances violate, and leave cross-file verification to review.
-- Known instances to fix as the rule lands:
-  `PlayerMarketMovement.jsx:138`, `PlayerMarketMovement.jsx:155`
-  (`.pmm-scope`), `TeamNewsFeed.jsx:53`, `app/league/activity/page.jsx:46`.
-  All become `SegmentedControl`; none become `Tabs`.
+The plan said lint rule. **This project has no ESLint at all** —
+verified: no config file anywhere, `eslint` and `eslint-plugin-jsx-a11y`
+both absent from `node_modules`, no lint script in either
+`package.json`, and no JS lint step in any workflow (`pr-validation.yml`
+runs `ruff` on Python only). JS/JSX has never been linted here.
 
-Related, same family: the ds `Tabs` primitive already does this
-correctly (`aria-controls`, roving tabindex, Arrow/Home/End), so the
-rule's fix is always "use the primitive", never "add the attribute by
-hand".
+Standing up that toolchain would mean new devDependencies, churn in the
+coordination-controlled lockfile, a new CI job, and a first run that
+floods a never-linted codebase with unrelated findings — disproportionate
+mid-integration-window. So the guard went where this repo already keeps
+its structural invariants (`token-contract`, `panel-order-pairing`,
+`card-surface-tokens`, `panel-server-safe`): a vitest test in the
+existing CI gate. Same blocking effect, zero new dependencies.
+
+It is also **stronger** than the rule would have been. §3a previously
+recorded that cross-file `aria-controls` → `role="tabpanel"` resolution
+is beyond a per-file linter; a test reads the whole tree, so it does
+that resolution instead of settling for "the attribute exists".
+
+The earlier finding stands and is why a custom check was needed at all:
+`jsx-a11y/role-has-required-aria-props` and `jsx-a11y/aria-role` do
+**not** catch this — `aria-controls` is not a *required* prop of
+`role="tab"`, and the role name itself is valid.
+
+### The violation set is larger than the three we knew about
+
+Running the scanner found **8 violations across 6 files**, not 4. The
+four extra were invisible to the class-name greps that found the first
+three:
+
+| File | count |
+|---|---|
+| `components/terminal/PlayerMarketMovement.jsx` | 2 |
+| `components/terminal/MarketTicker.jsx` | **2 — previously unknown** |
+| `components/terminal/TeamNewsFeed.jsx` | 1 |
+| `app/league/activity/page.jsx` | 1 |
+| `app/trending/page.jsx` | **1 — previously unknown** |
+| `app/news/page.jsx` | **1 — previously unknown** |
+
+All become `SegmentedControl`; none become `Tabs`. Note `/news` is an
+R3 surface, so the habit survived a redesign pass — more evidence it
+needs a mechanical guard rather than review attention.
+
+### Ratchet, not a bulk fix
+
+Those 8 are baselined in the test, mirroring the repo's existing ruff
+enforcement (changed-files-only). The baseline blocks **new** instances
+today — the actual goal, since this is a spreading pattern — and R5
+burns it down as each control moves to a primitive. A second assertion
+fails on *stale* entries, so once a file is fixed its baseline line must
+be deleted; the ratchet cannot quietly re-absorb a regression.
+
+Fixing all 8 now was rejected deliberately: four of the files are on
+R3/R4 branches awaiting merge, so it would mean editing surfaces that
+are mid-review.
+
+### Verified non-vacuous, both directions
+
+A guard that passes a codebase known to violate it is the vacuous-check
+family in a new costume, so both directions were checked by mutation:
+
+- **Detection** — emptying the baseline makes it fail listing exactly
+  the 8 real violations across 6 files.
+- **New violations** — adding a synthetic `role="tab"` to a clean file
+  (`app/more/page.jsx`) fails immediately with the "use the primitive"
+  message.
+
+Plus a scanner-sanity assertion: if the tree walk ever silently matches
+nothing, the count check fails rather than every other assertion passing
+vacuously.
 
 ---
 
@@ -243,7 +292,9 @@ under. Status:
    merging.
 2. Phase A: `Card` → `Panel`, one file, 70 sites. **Measure `/league`**
    before going further — this is the budget probe.
-3. Add the §3a lint rule and fix the four known fake tablists.
+3. ~~Add the §3a guard.~~ **Done** — now burn down its 8-entry baseline,
+   deleting each baseline line as its control moves to
+   `SegmentedControl`.
 4. Phase B: the 85 raw `className="card"` sites, page by page, with the
    remaining §3 view-switcher fixes folded in per page.
 5. Delete `.card` from `globals.css`, plus the three mobile overrides at
