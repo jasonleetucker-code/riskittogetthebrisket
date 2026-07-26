@@ -18,7 +18,7 @@ constant main-branch stability.
 | D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
 | E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | PR #550 open, blockers **cleared** (`4e3e0d95`); LI-7 non-TE axes done (`2617e09e`) — 385 tests green, end-to-end no-op proven with `==` on 500+ real rows. **TE axis still blocked on paired-board evidence** (correctly — it is the one number not yet defensible) |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
-| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | In progress — **suite has never had a verified end-to-end pass**; top board risk |
+| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | **RISK CLEARED — PR #554**: verified pass on the full stacked redesign (main + #549 + #551 + #552), **149 passed / 0 failed / 29 gated skips**, one command, verified cold. Conflicts with main; rebase in flight |
 | H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | #547 merged; residual aggregate-join defect handed to WS-H by PR #550 (6 duplicate rows, 40/666 join failures) |
 | I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | Steady; intel 401 user-blocked (issue #545) |
 | R | Fresh-eyes review | reviewer agent | read-only | PR comments | Running on #551 + #552 |
@@ -274,6 +274,37 @@ FAAB v2 contention is a **new feature, not a rebuild** — no main frontend
 file references `contention`/`perOpponent`/`topRival` and R4 changes zero
 Python, so ~130 lines of new bid-guidance UI shipped under "preserved
 verbatim" with **zero tests** (both branches sit at exactly 1165).
+
+### Product defects surfaced by the E2E run (NOT E2E's to fix)
+
+Found by PR #554's first real run; being written up as their own issue and
+deliberately kept out of that PR — they are `server.py` page-proxy and
+frontend-auth territory and need their own review.
+
+- **The page proxy serves the ANONYMOUS shell to a signed-in session.**
+  `/api/auth/status` returns `authenticated: true` while the page renders
+  "Sign In". Any spec asserting signed-in chrome through the proxy was
+  testing a logged-out page. #554 works around it by routing page
+  navigations via `pageUrl()` (production's nginx topology); the proxy
+  itself is still wrong.
+- **`/waivers` and `/news` are absent from the proxy's route list entirely.**
+- **`/league` SSR exceeds its 5 s timeout.**
+- **`useAuth` caps `/api/auth/status` at 5 s and resolves to
+  *unauthenticated* with no retry** — a slow backend can strand a valid
+  session on the anonymous shell for the page's whole life. Real product
+  fragility, reported rather than papered over with a retry.
+- **`critical-smoke`'s anonymous `/` check has been red on `main`** since
+  R1 renamed the wordmark and moved anonymous `/` to the sign-in surface.
+  Nightly-only E2E scheduling hid it.
+
+### Sixth vacuous-check instance (§2b family)
+
+Without `E2E_TEST_MODE` + its shared secret, **every signed-in spec skips
+and the run reports green while testing nothing**. The strongest form yet:
+not a check that passes when it shouldn't, but an entire suite that
+reports success while asserting nothing. Config now supplies it, and
+`global-setup.js` verifies sessions are genuinely unlocked before any spec
+runs rather than trusting the flag.
 
 ## 7. Risks
 
