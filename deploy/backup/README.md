@@ -93,7 +93,7 @@ sudo ls -la /var/backups/riskit-state/daily/$(date -u +%F)/
 
 ## Optional off-box mirror (operator opt-in)
 
-Local-only by default.  To mirror to another host (Hetzner Storage Box,
+Local-only by default.  To mirror to another host (an object-storage or Storage Box target,
 another VPS, …):
 
 ```bash

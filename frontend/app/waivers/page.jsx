@@ -1,11 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import PageHeader from "@/components/ui/PageHeader";
-import FilterBar from "@/components/ui/FilterBar";
-import LoadingState from "@/components/ui/LoadingState";
-import ErrorState from "@/components/ui/ErrorState";
-import EmptyState from "@/components/ui/EmptyState";
+import {
+  Badge,
+  Banner,
+  DataTable,
+  EmptyState,
+  Field,
+  PageHeader,
+  Panel,
+  Select,
+  SkeletonTable,
+  StatTile,
+} from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
 import { useApp } from "@/components/AppShell";
@@ -15,41 +22,39 @@ import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { computeFaabHint } from "@/lib/waiver-logic";
-import { posBadgeClass } from "@/lib/display-helpers";
+import styles from "./waivers.module.css";
 
-// ── /waivers — Add/Drop analysis page ─────────────────────────────────
+// ── /waivers — the claim desk ─────────────────────────────────────────
 //
-// Compares every unrostered (and optionally every rookie-flagged)
-// player against the user's selected team.  Surfaces:
+// Compares every unrostered (and optionally every rookie-flagged) player
+// against the user's selected team.  Surfaces:
 //
+//   • Manual add/drop calculator + the FAAB v2 bid desk (the headline —
+//     see components/waivers/FaabRecommendation.jsx)
 //   • Best Add/Drop Moves       — top single-transaction upgrades
 //   • Best Unique Upgrade Set   — multi-transaction greedy slate
-//   • Droppable Players         — bottom of my roster, sorted by
-//                                 obvious-drop confidence
-//   • Addable Players           — full pool of beats-someone players
+//   • Droppable / Addable       — the two sides of the pool
 //
-// Filters: position, rookie toggle, min net gain, upgrade strength.
-//
-// All comparison logic lives in ``frontend/lib/waiver-logic.js``;
-// the hook in ``frontend/components/useWaiverAnalysis.js`` wires the
-// pure logic to the app context.  This file is layout only.
+// All comparison logic lives in ``frontend/lib/waiver-logic.js``; the hook
+// in ``frontend/components/useWaiverAnalysis.js`` wires the pure logic to
+// the app context.  This file is layout only — it does no value math.
 
 const POSITION_OPTIONS = [
   { value: "ALL", label: "All positions" },
-  { value: "QB",  label: "QB" },
-  { value: "RB",  label: "RB" },
-  { value: "WR",  label: "WR" },
-  { value: "TE",  label: "TE" },
-  { value: "DL",  label: "DL" },
-  { value: "LB",  label: "LB" },
-  { value: "DB",  label: "DB" },
+  { value: "QB", label: "QB" },
+  { value: "RB", label: "RB" },
+  { value: "WR", label: "WR" },
+  { value: "TE", label: "TE" },
+  { value: "DL", label: "DL" },
+  { value: "LB", label: "LB" },
+  { value: "DB", label: "DB" },
 ];
 
 const STRENGTH_OPTIONS = [
-  { value: "all",         label: "All strengths" },
+  { value: "all", label: "All strengths" },
   { value: "considering", label: "Considering & up" },
-  { value: "strong",      label: "Strong & up" },
-  { value: "smash",       label: "Smash only" },
+  { value: "strong", label: "Strong & up" },
+  { value: "smash", label: "Smash only" },
 ];
 
 const TIER_LABELS = {
@@ -59,6 +64,16 @@ const TIER_LABELS = {
   marginal: "Marginal add",
 };
 
+// Upgrade tiers are ranked judgments, so they map onto the semantic
+// tones rather than decorative colors: smash/strong are actionable
+// positives, the rest are neutral information.
+const TIER_TONE = {
+  smash: "positive",
+  strong: "accent",
+  considering: "neutral",
+  marginal: "neutral",
+};
+
 const DROP_LABELS = {
   obvious: "Obvious drop",
   reasonable: "Reasonable drop",
@@ -66,417 +81,407 @@ const DROP_LABELS = {
   hold: "Hold unless needed",
 };
 
-const TIER_ACCENT = {
-  smash: "var(--green, #34d399)",
-  strong: "var(--cyan, #FFC704)",
-  considering: "var(--muted, #c7b8dc)",
-  marginal: "var(--muted, #c7b8dc)",
+const DROP_TONE = {
+  obvious: "positive",
+  reasonable: "neutral",
+  risky: "warning",
+  hold: "neutral",
 };
 
 function fmtVal(v) {
-  const n = Number(v) || 0;
-  return n.toLocaleString();
+  return (Number(v) || 0).toLocaleString();
 }
 
 function fmtGain(v) {
   const n = Math.round(Number(v) || 0);
-  if (n <= 0) return `${n}`;
-  return `+${n.toLocaleString()}`;
-}
-
-function PositionChip({ row }) {
-  return <span className={posBadgeClass(row)}>{row?.pos || "?"}</span>;
-}
-
-function RookieBadge() {
-  return (
-    <span
-      className="badge"
-      style={{
-        background: "rgba(251, 191, 36, 0.18)",
-        color: "var(--amber, #fbbf24)",
-        fontWeight: 700,
-        fontSize: "0.62rem",
-        padding: "1px 6px",
-        marginLeft: 6,
-      }}
-    >
-      ROOKIE
-    </span>
-  );
+  return n > 0 ? `+${n.toLocaleString()}` : `${n}`;
 }
 
 function PlayerCell({ row, isRookie, rosteredBy }) {
+  if (!row) return <span className={styles.playerMeta}>—</span>;
+  const meta = [row?.team, row?.age].filter(Boolean).join(" · ");
   return (
-    <span>
-      <span style={{ fontWeight: 600 }}>{row?.name || "—"}</span>
-      {row?.team || row?.age ? (
-        <span className="muted text-xs" style={{ marginLeft: 6 }}>
-          {[row?.team, row?.age].filter(Boolean).join(" · ")}
-        </span>
-      ) : null}
-      {isRookie ? <RookieBadge /> : null}
+    <span className={styles.playerCell}>
+      <Badge tone="outline">{row?.pos || "?"}</Badge>
+      <span className={styles.playerName}>{row?.name || "—"}</span>
+      {meta ? <span className={styles.playerMeta}>{meta}</span> : null}
+      {isRookie ? <Badge tone="accent">Rookie</Badge> : null}
       {rosteredBy ? (
-        <span className="muted text-xs" style={{ marginLeft: 6 }}>
-          rostered by {rosteredBy}
-        </span>
+        <span className={styles.playerMeta}>rostered by {rosteredBy}</span>
       ) : null}
     </span>
   );
 }
 
-// ── Summary cards ─────────────────────────────────────────────────────
+// ── Sections ──────────────────────────────────────────────────────────
 
-function SummaryCards({ summary, includeRookies }) {
-  const cards = [
+function SummaryTiles({ summary, includeRookies }) {
+  const tiles = [
     {
       label: "Best available",
       value: summary.bestAddable?.name || "—",
-      sub: summary.bestAddable
-        ? `value ${fmtVal(summary.bestAddable.rankDerivedValue || summary.bestAddable.values?.full)}`
+      meta: summary.bestAddable
+        ? `value ${fmtVal(
+            summary.bestAddable.rankDerivedValue || summary.bestAddable.values?.full,
+          )}`
         : "no upgrades vs roster",
     },
     {
       label: "Top net gain",
       value: summary.bestGain > 0 ? `+${fmtVal(summary.bestGain)}` : "—",
-      sub: "single-transaction value swing",
+      meta: "single-transaction swing",
     },
     {
       label: "Addable players",
       value: summary.addableCount.toLocaleString(),
-      sub: "beat at least one roster player",
+      meta: "beat at least one of yours",
     },
     {
       label: "Droppable players",
       value: summary.droppableCount.toLocaleString(),
-      sub: "beaten by at least one FA",
+      meta: "beaten by at least one FA",
     },
   ];
   if (includeRookies) {
-    cards.push({
+    tiles.push({
       label: "Rookies in mix",
       value: summary.rookieAddCount.toLocaleString(),
-      sub: "rookie-flagged among addables",
+      meta: "rookie-flagged addables",
     });
   }
   return (
-    <div className="waiver-summary-grid">
-      {cards.map((c) => (
-        <div key={c.label} className="card waiver-summary-card">
-          <div className="muted text-xs" style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            {c.label}
-          </div>
-          <div style={{ fontSize: "1.4rem", fontWeight: 700, marginTop: 4 }}>
-            {c.value}
-          </div>
-          <div className="muted text-xs" style={{ marginTop: 2 }}>
-            {c.sub}
-          </div>
-        </div>
+    <div className={styles.summaryGrid} data-cols={String(tiles.length)}>
+      {tiles.map((t) => (
+        <StatTile key={t.label} label={t.label} value={t.value} meta={t.meta} />
       ))}
     </div>
   );
 }
 
-// ── Best moves table ───────────────────────────────────────────────────
+function BestMovesPanel({ moves }) {
+  // FAAB hint baseline, calibrated against the strongest add in this
+  // batch so a row reads as "what share of budget does this command?".
+  // The full recommender (league analytics + contention + team cap) runs
+  // only for the user's selected pair on the bid desk above.
+  const topAddValue = useMemo(
+    () =>
+      moves.reduce((acc, m) => {
+        const v = Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0);
+        return v > acc ? v : acc;
+      }, 0),
+    [moves],
+  );
 
-function BestMovesSection({ moves }) {
-  if (moves.length === 0) {
-    return (
-      <section className="card waiver-section">
-        <h2 className="waiver-section-title">Best Add/Drop Moves</h2>
-        <EmptyState
-          title="No upgrades match your filters"
-          message="Try widening the position filter, dropping the min-gain slider, or toggling rookies on."
-        />
-      </section>
-    );
-  }
-  // FAAB hint baseline: derived client-side from each add's value.
-  // Calibrated against the strongest add in this batch so a row's
-  // pct-of-budget reads as "what share of FAAB does this player
-  // command?".  The full recommender (with league analytics +
-  // trending + team cap) only runs for the user's manually-selected
-  // pair on the calculator above.
-  const topAddValue = moves.reduce((acc, m) => {
-    const v = Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0);
-    return v > acc ? v : acc;
-  }, 0);
+  const columns = useMemo(
+    () => [
+      {
+        key: "rank",
+        header: "#",
+        numeric: true,
+        align: "center",
+        render: (_row, i) => i + 1,
+      },
+      {
+        key: "add",
+        header: "Add",
+        accessor: (m) => m.add?.name,
+        render: (m) => <PlayerCell row={m.add} isRookie={m.isRookie} />,
+      },
+      {
+        key: "drop",
+        header: "Drop",
+        accessor: (m) => m.drop?.name,
+        render: (m) => <PlayerCell row={m.drop} />,
+      },
+      {
+        key: "netGain",
+        header: "Net gain",
+        numeric: true,
+        sortable: true,
+        accessor: (m) => m.netGain,
+        render: (m) => fmtGain(m.netGain),
+      },
+      {
+        key: "faab",
+        header: "FAAB hint",
+        numeric: true,
+        hideBelow: "md",
+        accessor: (m) =>
+          computeFaabHint(
+            Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0),
+            { leagueBudget: 100, topValueInPool: topAddValue },
+          ).reasonable,
+        render: (m) => {
+          const hint = computeFaabHint(
+            Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0),
+            { leagueBudget: 100, topValueInPool: topAddValue },
+          );
+          return `$${hint.reasonable}`;
+        },
+        headerTitle: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
+      },
+      {
+        key: "tier",
+        header: "Tier",
+        accessor: (m) => m.upgradeTier,
+        render: (m) => (
+          <Badge tone={TIER_TONE[m.upgradeTier] || "neutral"}>
+            {TIER_LABELS[m.upgradeTier]}
+          </Badge>
+        ),
+      },
+    ],
+    [topAddValue],
+  );
+
   return (
-    <section className="card waiver-section">
-      <h2 className="waiver-section-title">Best Add/Drop Moves</h2>
-      <p className="muted text-xs" style={{ margin: "0 0 10px" }}>
-        Each add appears once with its lowest-value beaten roster player as the realistic drop.
-        FAAB hint is a quick baseline — use the calculator above for league-aware bid recommendations.
-      </p>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: 36, textAlign: "center" }}>#</th>
-              <th>Add</th>
-              <th>Drop</th>
-              <th style={{ textAlign: "right", width: 90 }}>Net gain</th>
-              <th style={{ textAlign: "right", width: 80 }}>FAAB hint</th>
-              <th style={{ width: 130 }}>Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {moves.map((m, i) => {
-              const v = Number(
-                m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0,
-              );
-              const hint = computeFaabHint(v, {
-                leagueBudget: 100,
-                topValueInPool: topAddValue,
-              });
-              return (
-                <tr key={`${m.add.name}::${m.drop.name}`}>
-                  <td style={{ textAlign: "center", color: "var(--cyan)", fontWeight: 700 }}>{i + 1}</td>
-                  <td>
-                    <PlayerCell row={m.add} isRookie={m.isRookie} />
-                    <span style={{ marginLeft: 8 }}>
-                      <PositionChip row={m.add} />
-                    </span>
-                  </td>
-                  <td>
-                    <PlayerCell row={m.drop} />
-                    <span style={{ marginLeft: 8 }}>
-                      <PositionChip row={m.drop} />
-                    </span>
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "right",
-                      color: TIER_ACCENT[m.upgradeTier],
-                      fontWeight: 700,
-                      fontFamily: "var(--mono)",
-                    }}
-                  >
-                    {fmtGain(m.netGain)}
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "right",
-                      fontFamily: "var(--mono)",
-                      color: "var(--muted, #c7b8dc)",
-                    }}
-                    title={`Aggressive $${hint.aggressive} / reasonable $${hint.reasonable} / lowball $${hint.lowball}`}
-                  >
-                    ${hint.reasonable}
-                  </td>
-                  <td>{TIER_LABELS[m.upgradeTier]}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <Panel
+      flush
+      title="Best add/drop moves"
+      subtitle="Each add appears once, paired with its lowest-value beaten roster player."
+    >
+      <DataTable
+        caption="Top single-transaction add/drop upgrades, best net gain first"
+        columns={columns}
+        rows={moves}
+        rowKey={(m) => `${m.add?.name}::${m.drop?.name}`}
+        density="compact"
+        presorted
+        emptyState={
+          <EmptyState
+            title="No upgrades match your filters"
+            description="Widen the position filter, lower the min-gain threshold, or include rookies."
+          />
+        }
+      />
+    </Panel>
   );
 }
 
-// ── Best unique upgrade set ────────────────────────────────────────────
+function UniqueUpgradePanel({ set }) {
+  const columns = useMemo(
+    () => [
+      {
+        key: "rank",
+        header: "#",
+        numeric: true,
+        align: "center",
+        render: (_row, i) => i + 1,
+      },
+      {
+        key: "add",
+        header: "Add",
+        accessor: (m) => m.add?.name,
+        render: (m) => <PlayerCell row={m.add} isRookie={m.isRookie} />,
+      },
+      {
+        key: "drop",
+        header: "Drop",
+        accessor: (m) => m.drop?.name,
+        render: (m) => <PlayerCell row={m.drop} />,
+      },
+      {
+        key: "netGain",
+        header: "Net gain",
+        numeric: true,
+        sortable: true,
+        accessor: (m) => m.netGain,
+        render: (m) => fmtGain(m.netGain),
+      },
+    ],
+    [],
+  );
 
-function BestUniqueUpgradeSection({ set }) {
-  if (set.length === 0) return null;
+  if (!set.length) return null;
+
   return (
-    <section className="card waiver-section">
-      <h2 className="waiver-section-title">Best Unique Upgrade Set</h2>
-      <p className="muted text-xs" style={{ margin: "0 0 10px" }}>
-        If you could claim every worthwhile add, these are the {set.length} pairings you'd run — best add into worst drop, no reuse on either side.
-      </p>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: 36, textAlign: "center" }}>#</th>
-              <th>Add</th>
-              <th>Drop</th>
-              <th style={{ textAlign: "right", width: 90 }}>Net gain</th>
-            </tr>
-          </thead>
-          <tbody>
-            {set.map((m, i) => (
-              <tr key={`${m.add.name}::${m.drop.name}`}>
-                <td style={{ textAlign: "center", color: "var(--cyan)", fontWeight: 700 }}>{i + 1}</td>
-                <td>
-                  <PlayerCell row={m.add} isRookie={m.isRookie} />
-                  <span style={{ marginLeft: 8 }}>
-                    <PositionChip row={m.add} />
-                  </span>
-                </td>
-                <td>
-                  <PlayerCell row={m.drop} />
-                  <span style={{ marginLeft: 8 }}>
-                    <PositionChip row={m.drop} />
-                  </span>
-                </td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    color: "var(--green, #34d399)",
-                    fontWeight: 700,
-                    fontFamily: "var(--mono)",
-                  }}
-                >
-                  {fmtGain(m.netGain)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <Panel
+      flush
+      title="Best unique upgrade set"
+      subtitle={`If every claim landed, these are the ${set.length} pairings you'd run — no player reused on either side.`}
+    >
+      <DataTable
+        caption="Non-overlapping add/drop slate, best net gain first"
+        columns={columns}
+        rows={set}
+        rowKey={(m) => `${m.add?.name}::${m.drop?.name}`}
+        density="compact"
+        presorted
+      />
+    </Panel>
   );
 }
 
-// ── Droppable players section ──────────────────────────────────────────
+function DroppablePanel({ rows }) {
+  const columns = useMemo(
+    () => [
+      {
+        key: "player",
+        header: "Player",
+        accessor: (d) => d.row?.name,
+        render: (d) => <PlayerCell row={d.row} />,
+      },
+      {
+        key: "value",
+        header: "Value",
+        numeric: true,
+        sortable: true,
+        accessor: (d) => d.value,
+        render: (d) => fmtVal(d.value),
+      },
+      {
+        key: "betterAvailableCount",
+        header: "Better avail.",
+        numeric: true,
+        sortable: true,
+        align: "center",
+        hideBelow: "md",
+        accessor: (d) => d.betterAvailableCount,
+      },
+      {
+        key: "replacement",
+        header: "Best replacement",
+        hideBelow: "lg",
+        accessor: (d) => d.bestReplacement?.name,
+        render: (d) => <PlayerCell row={d.bestReplacement} />,
+      },
+      {
+        key: "netGain",
+        header: "+gain",
+        numeric: true,
+        sortable: true,
+        accessor: (d) => d.netGain,
+        render: (d) => fmtGain(d.netGain),
+      },
+      {
+        key: "confidence",
+        header: "Confidence",
+        accessor: (d) => d.dropConfidence,
+        render: (d) => (
+          <Badge tone={DROP_TONE[d.dropConfidence] || "neutral"}>
+            {DROP_LABELS[d.dropConfidence]}
+          </Badge>
+        ),
+      },
+    ],
+    [],
+  );
 
-function DroppableSection({ rows }) {
   return (
-    <section className="card waiver-section">
-      <h2 className="waiver-section-title" style={{ color: "var(--red, #f87171)" }}>
-        Droppable Players
-      </h2>
-      <p className="muted text-xs" style={{ margin: "0 0 10px" }}>
-        Bottom of your roster, sorted by replacement gain.
-      </p>
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No drop candidates"
-          message="Every player on your roster outranks the available pool."
-        />
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th style={{ textAlign: "right", width: 80 }}>Value</th>
-                <th style={{ textAlign: "center", width: 60 }}>Better avail.</th>
-                <th>Best replacement</th>
-                <th style={{ textAlign: "right", width: 90 }}>+gain</th>
-                <th style={{ width: 130 }}>Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((d) => (
-                <tr key={d.row.name}>
-                  <td>
-                    <PlayerCell row={d.row} />
-                    <span style={{ marginLeft: 8 }}>
-                      <PositionChip row={d.row} />
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{fmtVal(d.value)}</td>
-                  <td style={{ textAlign: "center" }}>{d.betterAvailableCount}</td>
-                  <td>
-                    <PlayerCell row={d.bestReplacement} />
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "right",
-                      color: "var(--green, #34d399)",
-                      fontWeight: 700,
-                      fontFamily: "var(--mono)",
-                    }}
-                  >
-                    {fmtGain(d.netGain)}
-                  </td>
-                  <td>{DROP_LABELS[d.dropConfidence]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+    <Panel
+      flush
+      title="Droppable"
+      subtitle="Bottom of your roster, sorted by replacement gain."
+    >
+      <DataTable
+        caption="Roster players beaten by the available pool"
+        columns={columns}
+        rows={rows}
+        rowKey={(d) => d.row?.name}
+        density="compact"
+        presorted
+        emptyState={
+          <EmptyState
+            title="No drop candidates"
+            description="Every player on your roster outranks the available pool."
+          />
+        }
+      />
+    </Panel>
   );
 }
 
-// ── Addable players section ────────────────────────────────────────────
+function AddablePanel({ rows }) {
+  const columns = useMemo(
+    () => [
+      {
+        key: "player",
+        header: "Player",
+        accessor: (a) => a.row?.name,
+        render: (a) => (
+          <PlayerCell row={a.row} isRookie={a.isRookie} rosteredBy={a.rosteredBy} />
+        ),
+      },
+      {
+        key: "value",
+        header: "Value",
+        numeric: true,
+        sortable: true,
+        accessor: (a) => a.value,
+        render: (a) => fmtVal(a.value),
+      },
+      {
+        key: "betterCount",
+        header: "Beats",
+        numeric: true,
+        sortable: true,
+        align: "center",
+        hideBelow: "md",
+        accessor: (a) => a.betterCount,
+      },
+      {
+        key: "bestDrop",
+        header: "Best drop",
+        hideBelow: "lg",
+        accessor: (a) => a.bestDrop?.name,
+        render: (a) =>
+          a.rosteredBy ? (
+            <span className={styles.playerMeta}>read-only</span>
+          ) : (
+            <PlayerCell row={a.bestDrop} />
+          ),
+      },
+      {
+        key: "netGain",
+        header: "+gain",
+        numeric: true,
+        sortable: true,
+        accessor: (a) => (a.rosteredBy ? null : a.netGain),
+        render: (a) => (a.rosteredBy ? "—" : fmtGain(a.netGain)),
+      },
+      {
+        key: "tier",
+        header: "Tier",
+        accessor: (a) => a.upgradeTier,
+        render: (a) =>
+          a.rosteredBy ? (
+            <Badge tone="neutral">Rostered</Badge>
+          ) : (
+            <Badge tone={TIER_TONE[a.upgradeTier] || "neutral"}>
+              {TIER_LABELS[a.upgradeTier]}
+            </Badge>
+          ),
+      },
+    ],
+    [],
+  );
 
-function AddableSection({ rows }) {
   return (
-    <section className="card waiver-section">
-      <h2 className="waiver-section-title" style={{ color: "var(--green, #34d399)" }}>
-        Addable Players
-      </h2>
-      <p className="muted text-xs" style={{ margin: "0 0 10px" }}>
-        Every available player ranked higher than at least one of yours.
-      </p>
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No addable players"
-          message="Toggle rookies on, widen the position filter, or lower the min-gain to surface options."
-        />
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th style={{ textAlign: "right", width: 80 }}>Value</th>
-                <th style={{ textAlign: "center", width: 50 }}>Beats</th>
-                <th>Best drop</th>
-                <th style={{ textAlign: "right", width: 90 }}>+gain</th>
-                <th style={{ width: 130 }}>Tier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => (
-                <tr
-                  key={a.row.name}
-                  style={a.rosteredBy ? { opacity: 0.7 } : undefined}
-                >
-                  <td>
-                    <PlayerCell
-                      row={a.row}
-                      isRookie={a.isRookie}
-                      rosteredBy={a.rosteredBy}
-                    />
-                    <span style={{ marginLeft: 8 }}>
-                      <PositionChip row={a.row} />
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{fmtVal(a.value)}</td>
-                  <td style={{ textAlign: "center" }}>{a.betterCount}</td>
-                  <td>
-                    {a.rosteredBy ? (
-                      <span className="muted text-xs">— (read-only)</span>
-                    ) : (
-                      <PlayerCell row={a.bestDrop} />
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "right",
-                      color: TIER_ACCENT[a.upgradeTier],
-                      fontWeight: 700,
-                      fontFamily: "var(--mono)",
-                    }}
-                  >
-                    {a.rosteredBy ? "—" : fmtGain(a.netGain)}
-                  </td>
-                  <td>
-                    {a.rosteredBy ? (
-                      <span className="muted text-xs">— (rostered)</span>
-                    ) : (
-                      TIER_LABELS[a.upgradeTier]
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+    <Panel
+      flush
+      title="Addable"
+      subtitle="Every available player ranked above at least one of yours."
+    >
+      <DataTable
+        caption="Available players that beat someone on your roster"
+        columns={columns}
+        rows={rows}
+        rowKey={(a) => a.row?.name}
+        density="compact"
+        presorted
+        rowClassName={(a) => (a.rosteredBy ? styles.rosteredRow : "")}
+        emptyState={
+          <EmptyState
+            title="No addable players"
+            description="Include rookies, widen the position filter, or lower the min-gain threshold."
+          />
+        }
+      />
+    </Panel>
   );
 }
 
-// ── Page entry ─────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────
 
 export default function WaiversPage() {
   const { privateDataEnabled, rows, rawData } = useApp();
@@ -504,19 +509,71 @@ export default function WaiversPage() {
     selectedLeagueName,
   } = useWaiverAnalysis({ includeRookies, filters });
 
+  const signedOut = authenticated === false || privateDataEnabled === false;
+
+  function renderBody() {
+    if (signedOut) {
+      return (
+        <EmptyState
+          title="Sign in to view waivers"
+          description="Waiver analysis is a private league feature — sign in to see your team's claim desk."
+        />
+      );
+    }
+    if (error) return <Banner tone="negative" title="Waiver analysis failed">{error}</Banner>;
+    if (leagueMismatch) {
+      return (
+        <EmptyState
+          title="League data not ready"
+          description="The selected league's rosters haven't loaded yet. Switch leagues or try again in a moment."
+        />
+      );
+    }
+    if (loading || !analysis) {
+      return (
+        <Panel flush title="Best add/drop moves">
+          <SkeletonTable rows={8} columns={6} />
+        </Panel>
+      );
+    }
+    if (!hasTeam) {
+      return (
+        <EmptyState
+          title={teamCount === 0 ? "No teams available" : "Pick your team"}
+          description={
+            teamCount === 0
+              ? "This league hasn't been ingested yet."
+              : "Select a team above to start comparing the pool against your roster."
+          }
+        />
+      );
+    }
+    return (
+      <>
+        <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
+        <BestMovesPanel moves={analysis.bestMoves} />
+        <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />
+        <div className={styles.split}>
+          <DroppablePanel rows={analysis.droppable} />
+          <AddablePanel rows={analysis.addable} />
+        </div>
+      </>
+    );
+  }
+
   return (
-    <main className="main-shell waivers-page">
+    <main className={`main-shell ${styles.page} waivers-page`}>
       <PageHeader
-        title="Waiver Add/Drop"
-        subtitle={
+        eyebrow="Claim desk"
+        title="Waivers"
+        description={
           selectedLeagueName
-            ? `Compare every unrostered player against your roster — ${selectedLeagueName}`
-            : "Compare every unrostered player against your roster"
+            ? `Every unrostered player measured against your roster — ${selectedLeagueName}`
+            : "Every unrostered player measured against your roster"
         }
       />
 
-      {/* ── Manual add/drop calculator (trade-style fairness bar) ── */}
-      {authenticated !== false && privateDataEnabled !== false && !leagueMismatch && (
+      {!signedOut && !leagueMismatch ? (
         <ManualAddDrop
           rows={rows}
           selectedTeam={selectedTeam}
@@ -526,149 +583,68 @@ export default function WaiversPage() {
           settings={settings}
           leagueKey={selectedLeague?.key}
         />
-      )}
+      ) : null}
 
-      {/* ── Filter rail ─────────────────────────────────────────── */}
-      <FilterBar style={{ marginBottom: 12 }}>
-        <TeamSwitcher variant="desktop" />
+      <Panel dense className="waivers-controls">
+        <div className={styles.controls}>
+          <TeamSwitcher variant="desktop" />
 
-        <label
-          className="waiver-filter-toggle"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 10px",
-          }}
-          title="Include rookie-flagged players (incl. those on other rosters as read-only comparisons)"
-        >
-          <input
-            type="checkbox"
-            checked={includeRookies}
-            onChange={(e) => setIncludeRookies(e.target.checked)}
-          />
-          <span className="text-sm">Include rookies</span>
-        </label>
+          <Field label="Position" id="waiver-pos">
+            <Select
+              id="waiver-pos"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+            >
+              {POSITION_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <select
-          className="select"
-          value={position}
-          onChange={(e) => setPosition(e.target.value)}
-          aria-label="Position filter"
-        >
-          {POSITION_OPTIONS.map((p) => (
-            <option key={p.value} value={p.value}>{p.label}</option>
-          ))}
-        </select>
+          <Field label="Upgrade strength" id="waiver-strength">
+            <Select
+              id="waiver-strength"
+              value={upgradeStrength}
+              onChange={(e) => setUpgradeStrength(e.target.value)}
+            >
+              {STRENGTH_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <select
-          className="select"
-          value={upgradeStrength}
-          onChange={(e) => setUpgradeStrength(e.target.value)}
-          aria-label="Upgrade strength"
-        >
-          {STRENGTH_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 10px",
-            minWidth: 200,
-          }}
-          title="Hide pairings whose net value gain is below this threshold."
-        >
-          <span className="text-xs muted" style={{ whiteSpace: "nowrap" }}>
-            Min gain {fmtVal(minGain)}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={5000}
-            step={100}
-            value={minGain}
-            onChange={(e) => setMinGain(Number(e.target.value) || 0)}
-            style={{ flex: 1 }}
-          />
-        </label>
-      </FilterBar>
-
-      {/* ── Empty / loading / error states ──────────────────────── */}
-      {authenticated === false || privateDataEnabled === false ? (
-        <EmptyState
-          title="Sign in to view waivers"
-          message="Waiver analysis is a private league feature — sign in to see your team's add/drop board."
-        />
-      ) : loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} />
-      ) : leagueMismatch ? (
-        <EmptyState
-          title="League data not ready"
-          message="The selected league's roster data hasn't been loaded yet. Switch leagues or try again in a moment."
-        />
-      ) : !hasTeam ? (
-        <EmptyState
-          title={teamCount === 0 ? "No teams available" : "Pick your team"}
-          message={
-            teamCount === 0
-              ? "This league hasn't been ingested yet."
-              : "Select a team in the topbar (or from the filter rail above) to start comparing."
-          }
-        />
-      ) : !analysis ? (
-        <LoadingState />
-      ) : (
-        <>
-          <SummaryCards summary={analysis.summary} includeRookies={includeRookies} />
-          <BestMovesSection moves={analysis.bestMoves} />
-          <BestUniqueUpgradeSection set={analysis.bestUniqueUpgradeSet} />
-          <div className="waivers-split">
-            <DroppableSection rows={analysis.droppable} />
-            <AddableSection rows={analysis.addable} />
+          <div className={styles.controlsGain}>
+            <label className={styles.controlsGainLabel} htmlFor="waiver-min-gain">
+              <span>Min net gain</span>
+              <span className="ds-mono">{fmtVal(minGain)}</span>
+            </label>
+            <input
+              id="waiver-min-gain"
+              type="range"
+              min={0}
+              max={5000}
+              step={100}
+              value={minGain}
+              onChange={(e) => setMinGain(Number(e.target.value) || 0)}
+            />
           </div>
-        </>
-      )}
 
-      {/* ── Page-scoped CSS (responsive layout) ─────────────────── */}
-      <style jsx>{`
-        .waivers-page {
-          padding-bottom: var(--space-xl, 32px);
-        }
-        .waiver-summary-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 12px;
-          margin: 0 0 16px;
-        }
-        .waiver-summary-card {
-          padding: 12px 14px;
-        }
-        .waiver-section {
-          margin-bottom: 14px;
-          padding: 14px;
-        }
-        .waiver-section-title {
-          font-size: 1.05rem;
-          margin: 0 0 6px;
-          font-weight: 700;
-        }
-        .waivers-split {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-        }
-        @media (max-width: 900px) {
-          .waivers-split {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
+          <label className={styles.controlsToggle}>
+            <input
+              type="checkbox"
+              checked={includeRookies}
+              onChange={(e) => setIncludeRookies(e.target.checked)}
+            />
+            <span>Include rookies</span>
+          </label>
+        </div>
+      </Panel>
+
+      {renderBody()}
     </main>
   );
 }

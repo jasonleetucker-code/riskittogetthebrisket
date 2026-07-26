@@ -44,7 +44,7 @@ jobs:
           # Validate job installs the dev manifest (which chains in
           # requirements.txt) so the test step below has pytest + httpx
           # available.  Production itself only installs requirements.txt
-          # on the Hetzner box via deploy/deploy.sh::prepare_python_runtime.
+          # on the production host via deploy/deploy.sh::prepare_python_runtime.
           pip install -r requirements-dev.txt
 
       - name: Validate dependency graph (pip check)
@@ -192,7 +192,7 @@ jobs:
           npm run check:bundles
 
   deploy:
-    name: Deploy To Hetzner
+    name: Deploy To Production
     runs-on: ubuntu-latest
     needs: validate
     timeout-minutes: 25

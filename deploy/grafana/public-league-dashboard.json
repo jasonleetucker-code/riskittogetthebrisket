@@ -2,7 +2,7 @@
   "_comment": [
     "Grafana dashboard for the public /league snapshot-cache metrics.",
     "Data source: Infinity plugin (or any plugin that can poll JSON) against",
-    "https://riskittogetthebrisket.org/api/public/league/metrics every 30s.",
+    "http://169.58.50.224/api/public/league/metrics every 30s.",
     "Import via: Grafana → Dashboards → Import → upload this JSON.",
     "",
     "Panels:",
@@ -36,10 +36,10 @@
         "type": "constant",
         "current": {
           "selected": true,
-          "text": "https://riskittogetthebrisket.org/api/public/league/metrics",
-          "value": "https://riskittogetthebrisket.org/api/public/league/metrics"
+          "text": "http://169.58.50.224/api/public/league/metrics",
+          "value": "http://169.58.50.224/api/public/league/metrics"
         },
-        "query": "https://riskittogetthebrisket.org/api/public/league/metrics",
+        "query": "http://169.58.50.224/api/public/league/metrics",
         "label": "Metrics endpoint URL"
       }
     ]

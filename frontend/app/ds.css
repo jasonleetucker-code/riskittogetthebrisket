@@ -278,6 +278,39 @@
   color: var(--text-tertiary);
   line-height: var(--line-height-snug);
 }
+/* Collapsible panels: the whole heading is the disclosure target, so
+   the hit area matches the label rather than a lone chevron. */
+.ds-panel__disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-1);
+}
+.ds-panel__disclosure:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.ds-panel__disclosure-glyph {
+  color: var(--text-tertiary);
+  transition: transform var(--motion-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+/* Collapsed: chevron points right, and the header hairline goes away
+   so a folded panel reads as one quiet bar rather than an empty box. */
+.ds-panel--collapsed .ds-panel__disclosure-glyph {
+  transform: rotate(-90deg);
+}
+.ds-panel--collapsed .ds-panel__header {
+  border-bottom: 0;
+}
 .ds-panel__actions {
   display: flex;
   align-items: center;

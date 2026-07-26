@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
+import { Movement } from "@/components/ds";
 import {
   computeTeamValueSeries,
   valueFromRank,
@@ -111,7 +112,7 @@ export default function TeamValueChart({
           <span
             className={`team-value-chart-delta team-value-chart-delta--${summary.delta >= 0 ? "up" : "down"}`}
           >
-            {summary.delta >= 0 ? "▲" : "▼"} {Math.abs(summary.delta).toLocaleString()}
+            <Movement delta={summary.delta} />
           </span>
           <span className="team-value-chart-window">30d</span>
         </div>

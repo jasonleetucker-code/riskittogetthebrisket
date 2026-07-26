@@ -20,7 +20,7 @@ The production stack has **strong automation for deploy and runtime** but relies
 
 | Component | Mechanism | Trigger | Status |
 |-----------|-----------|---------|--------|
-| **GitHub Actions** (`.github/workflows/deploy.yml`) | SSH to Hetzner, run `deploy/deploy.sh` | Push to `main` or manual `workflow_dispatch` | **Automated** |
+| **GitHub Actions** (`.github/workflows/deploy.yml`) | SSH to the production host, run `deploy/deploy.sh` | Push to `main` or manual `workflow_dispatch` | **Automated** |
 | `deploy/deploy.sh` | `git fetch` → `git checkout --force` → venv rebuild → systemd restart → verify → record state | Called by GitHub Actions | **Automated** |
 | `deploy/verify-deploy.sh` | Probe `/api/status` (20 retries, 2s apart) + `/api/health` + optional public URL | Called by deploy.sh | **Automated** |
 | `deploy/rollback.sh` | Checkout pre_deploy_rev → pip install → systemd restart → verify | Called by deploy.sh on failure (if AUTO_ROLLBACK=true) | **Automated** |
@@ -280,5 +280,5 @@ scheduler wakes up (every 2h)
 4. **What does the systemd unit look like on production?** — Only the template is in the repo. Actual deployed unit may differ.
 5. **Is the production .env file complete?** — `.env.example` shows the structure but cannot verify production values.
 6. **Is HTTPS/TLS configured?** — `JASON_AUTH_COOKIE_SECURE=True` suggests HTTPS intent, but no nginx/caddy config in repo.
-7. **Disk space on Hetzner** — No monitoring for this.
+7. **Disk space on the production VPS** — No monitoring for this.
 8. **Dynasty Scraper.py reliability** — 501KB monolith, cannot assess failure rate from repo.

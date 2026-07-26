@@ -7081,3 +7081,38 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.66rem;
   color: var(--red);
 }
+
+/* ── R4 mobile-overflow fix: /draft dense list rows ──────────────────
+   Measured 2026-07-26 at 390px: /draft overflowed the document by
+   168px.  The rookie-board TABLE was already fine (.draft-table-wrap
+   scrolls it), so the cause was the two dense fixed-column grids that
+   have no scroll container of their own:
+
+     .draft-team-row  30px 1fr 62px 52px 64px 52px 56px 56px 46px
+                      → 458px minimum, 167px past a 324px panel body
+     .draft-nbt-row   32px 28px 36px 1fr 80px 90px 64px 60px
+                      → 446px minimum, ~200px past
+
+   Their panels shrink correctly (R2 gave .ds-panel min-width: 0), but
+   a non-scrolling child with a min-content width that large pushes the
+   whole document sideways — and the original design audit called
+   horizontal scroll "the entire mobile story" for this page.
+
+   Fix follows the pattern this page already uses for its table: scroll
+   the wide content inside its own container rather than reflowing it.
+   These rows are a war-room budget ledger and an EV-ranked target
+   board — dropping columns on mobile would remove the comparison the
+   surfaces exist to support, so they scroll and keep every column.
+   Additive rules only; the existing declarations are untouched. */
+.draft-team-list,
+.draft-nbt-list {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Without this the grid rows would compress to the scroller's width
+   instead of establishing the scrollable extent. */
+.draft-team-list > .draft-team-row,
+.draft-nbt-list > .draft-nbt-row {
+  min-width: max-content;
+}

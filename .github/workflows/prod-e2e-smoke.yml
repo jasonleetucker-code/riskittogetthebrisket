@@ -37,9 +37,14 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # No hardcoded fallback: the baked-in default outlived the
+          # project's ownership of that domain and kept these runs
+          # pointed at a third party's host.  An unset PROD_PUBLIC_URL
+          # is an outage to surface, not a value to guess.
           URL="${{ vars.PROD_PUBLIC_URL }}"
           if [[ -z "${URL}" ]]; then
-            URL="https://riskittogetthebrisket.org"
+            echo "::error title=PROD_PUBLIC_URL not set::Set the PROD_PUBLIC_URL repository variable to the production origin."
+            exit 1
           fi
           URL="${URL%/}"
           echo "url=${URL}" >> "$GITHUB_OUTPUT"

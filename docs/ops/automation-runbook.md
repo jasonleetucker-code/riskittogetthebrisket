@@ -21,7 +21,7 @@ This document describes every automated process in the Risk It to Get the Briske
 
 **Schedule**: Every 2 hours, starting 3 seconds after the server boots.
 
-**Where it runs**: Inside the server process on Hetzner.
+**Where it runs**: Inside the server process on the production VPS.
 
 **What happens on success**: New player values appear on the site immediately. The data is also saved to disk so it survives a server restart.
 
@@ -41,7 +41,7 @@ This document describes every automated process in the Risk It to Get the Briske
 
 **Steps**:
 1. GitHub Actions validates the code (syntax, imports, contract checks)
-2. Connects to the Hetzner server via SSH
+2. Connects to the production server via SSH
 3. Pulls the new code
 4. Reinstalls Python dependencies
 5. Restarts the server
@@ -54,7 +54,7 @@ This document describes every automated process in the Risk It to Get the Briske
 
 **What it does**: If the server process crashes for any reason, systemd automatically restarts it within 5 seconds.
 
-**Where**: Managed by the `dynasty` systemd service on Hetzner.
+**Where**: Managed by the `dynasty` systemd service on the production VPS.
 
 ### 4. Uptime Watchdog (Every 5 Minutes)
 
@@ -134,9 +134,9 @@ This gives you alerts if the site goes completely down — something the interna
 | Force a deploy | Go to GitHub Actions > "Deploy Production" > "Run workflow" |
 | Force a health check | Go to GitHub Actions > "Scheduled Health Check" > "Run workflow" |
 | Force a smoke test | Go to GitHub Actions > "Scheduled Smoke Test" > "Run workflow" |
-| View server logs | SSH to Hetzner, run `sudo journalctl -u dynasty -f` |
-| Restart the server | SSH to Hetzner, run `sudo systemctl restart dynasty` |
-| Check service status | SSH to Hetzner, run `sudo systemctl status dynasty` |
+| View server logs | SSH to the production host, run `sudo journalctl -u dynasty -f` |
+| Restart the server | SSH to the production host, run `sudo systemctl restart dynasty` |
+| Check service status | SSH to the production host, run `sudo systemctl status dynasty` |
 
 ---
 

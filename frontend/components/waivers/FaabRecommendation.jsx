@@ -1,125 +1,392 @@
 "use client";
 
 /**
- * FaabRecommendation — bid panel for the manual add/drop calculator.
+ * FaabRecommendation — the bid desk for the manual add/drop calculator.
  *
- * Calls ``POST /api/waiver/faab-recommend`` when both add + drop are
- * selected (or when only an add is selected, with drop value 0) and
- * renders the four bid pills + confidence badge + factor breakdown
- * + warnings + plain-English explanation.
+ * Calls ``POST /api/waiver/faab-recommend`` when an add is selected (with
+ * an optional drop side) and renders the backend's recommendation
+ * verbatim.  **No bid math happens here** — every number on screen is a
+ * field the recommender stamped; this component only decides what is
+ * prominent and what is disclosed.
  *
- * The recommender's output shape is documented in
- * ``src/trade/faab_recommender.py::recommend_faab``.  This component
- * is purely presentational + a single fetch — all the math lives on
- * the backend so the bid pills always match what the contract
- * computes.
+ * Reading order, most-actionable first:
+ *   1. The four bid pills — Recommended is the one accented number.
+ *   2. Warnings ("likely outbid", pacing, marginal upgrade) as Banners.
+ *   3. Contention — the FAAB v2 sealed-auction read: the clearing price,
+ *      the projected top rival, and the per-opponent estimate table.
+ *   4. Everything else behind disclosures: the factor breakdown (the
+ *      user does not need eleven rows of arithmetic by default) and the
+ *      league's historical FAAB context.
+ *   5. A freshness footer, because a bid recommendation resting on
+ *      day-old rosters should say so.
+ *
+ * Response shape: ``src/trade/faab_recommender.py::recommend_faab`` plus
+ * the FAAB v2 additions stamped by
+ * ``server.py::post_waiver_faab_recommend`` (``contention``,
+ * ``inputsAsOf``, ``staleInputs``).  Every v2 block is optional — an
+ * older backend simply renders the v1 panel.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Badge,
+  Banner,
+  Button,
+  DataTable,
+  Panel,
+  Skeleton,
+  StatTile,
+} from "@/components/ds";
+import styles from "@/app/waivers/waivers.module.css";
 
-function _fmtBid(n) {
+function fmtBid(n) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   return `$${Math.round(Number(n)).toLocaleString()}`;
 }
 
-function ConfidenceBadge({ level }) {
-  const map = {
-    high:   { label: "High confidence",   color: "var(--green, #34d399)" },
-    medium: { label: "Medium confidence", color: "var(--cyan, #FFC704)" },
-    low:    { label: "Low confidence",    color: "var(--muted, #c7b8dc)" },
-  };
-  const meta = map[level] || map.low;
-  return (
-    <span
-      className="badge"
-      style={{
-        background: "rgba(0,0,0,0.25)",
-        color: meta.color,
-        border: `1px solid ${meta.color}`,
-        fontWeight: 600,
-        fontSize: "0.66rem",
-        padding: "2px 8px",
-        letterSpacing: "0.04em",
-      }}
-    >
-      {meta.label}
-    </span>
-  );
+const CONFIDENCE_TONE = {
+  high: "positive",
+  medium: "warning",
+  low: "neutral",
+};
+
+const CONFIDENCE_LABEL = {
+  high: "High confidence",
+  medium: "Medium confidence",
+  low: "Low confidence",
+};
+
+/** Warnings the recommender phrases as hard stops get the negative tone;
+ *  everything else (pacing, contention ceiling) is a warning. */
+function warningTone(text) {
+  const t = String(text || "").toLowerCase();
+  if (t.includes("don't bid") || t.includes("worth more")) return "negative";
+  return "warning";
 }
 
-function BidPill({ label, amount, accent, emphasized }) {
+const NEED_TONE = {
+  need: "negative",
+  neutral: "neutral",
+  surplus: "positive",
+};
+
+const NEED_LABEL = {
+  need: "Needs the position",
+  neutral: "Neutral",
+  surplus: "Has surplus",
+};
+
+const INPUT_LABELS = {
+  rosters: "Rosters",
+  leagueAnalytics: "League history",
+  trending: "Trending",
+  intel: "Intel",
+};
+
+function relativeAge(iso) {
+  if (!iso) return null;
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return null;
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+// ── Contention (FAAB v2) ─────────────────────────────────────────
+
+const RIVAL_COLUMNS = [
+  {
+    key: "teamName",
+    header: "Rival",
+    accessor: (r) => r.teamName || r.ownerId,
+    // Flags are self-describing labels, not tooltip triggers: a tooltip
+    // needs a focusable child, and three per row across a full league
+    // would add ~30 tab stops to a read-only table.  The prose
+    // explanation lives in the notes list below, which the recommender
+    // generates for exactly these conditions.
+    render: (r) => (
+      <span className={styles.rivalName}>
+        <span className={styles.playerName}>{r.teamName || r.ownerId}</span>
+        <span className={styles.rivalFlags}>
+          {r.balanceUnknown ? <Badge tone="outline">no balance</Badge> : null}
+          {r.lowSample ? <Badge tone="outline">thin history</Badge> : null}
+          {r.intelLevel && r.intelLevel !== "none" ? (
+            <Badge tone="accent">intel</Badge>
+          ) : null}
+        </span>
+      </span>
+    ),
+  },
+  {
+    key: "expBid",
+    header: "Est. bid",
+    numeric: true,
+    sortable: true,
+    accessor: (r) => r.expBid,
+    render: (r) => fmtBid(r.expBid),
+    headerTitle: "Estimated bid: their value read × aggression × need × intel, capped by their remaining FAAB.",
+  },
+  {
+    key: "faabRemaining",
+    header: "Their FAAB",
+    numeric: true,
+    sortable: true,
+    accessor: (r) => r.faabRemaining,
+    render: (r) => (r.faabRemaining == null ? "—" : fmtBid(r.faabRemaining)),
+  },
+  {
+    key: "needLevel",
+    header: "Positional need",
+    hideBelow: "md",
+    accessor: (r) => r.needLevel,
+    render: (r) => (
+      <Badge tone={NEED_TONE[r.needLevel] || "neutral"}>
+        {NEED_LABEL[r.needLevel] || r.needLevel}
+      </Badge>
+    ),
+  },
+  {
+    key: "aggression",
+    header: "Aggression",
+    numeric: true,
+    sortable: true,
+    hideBelow: "lg",
+    accessor: (r) => r.aggression,
+    render: (r) => `${Number(r.aggression ?? 1).toFixed(2)}×`,
+    headerTitle: "Their average winning bid ÷ the league median, clamped to 0.5-2.0×.",
+  },
+];
+
+function ContentionSection({ contention }) {
+  const rivals = Array.isArray(contention?.perOpponent) ? contention.perOpponent : [];
+  const notes = Array.isArray(contention?.notes) ? contention.notes : [];
+
+  if (contention?.skipped) {
+    return (
+      <div className={styles.contention}>
+        <Banner tone="info" title="Rival contention not modeled">
+          {notes[0] ||
+            "Contention needs your team selected and visible rival FAAB balances."}
+        </Banner>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        // flex-basis 80px keeps the four pills in a single row on
-        // typical phone widths (390px ≥ 4*80 + 3*8 gap = 344px),
-        // and wraps to 2x2 on truly narrow viewports without
-        // needing a media query.
-        flex: "1 1 80px",
-        minWidth: 0,
-        padding: emphasized ? "10px 14px" : "8px 12px",
-        background: emphasized
-          ? `linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))`
-          : "rgba(255,255,255,0.02)",
-        border: `1px solid ${emphasized ? accent : "var(--border, rgba(255,255,255,0.1))"}`,
-        borderRadius: 8,
-        textAlign: "center",
-      }}
-    >
-      <div
-        className="muted"
-        style={{
-          fontSize: "0.62rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          color: emphasized ? accent : undefined,
-        }}
-      >
-        {label}
+    <div className={styles.contention}>
+      <div className={styles.clearingRow}>
+        <StatTile
+          label="Clearing price"
+          value={fmtBid(contention?.clearing)}
+          meta="what should win it"
+          size="lg"
+        />
+        <StatTile
+          label="Projected top rival"
+          value={fmtBid(contention?.topRival)}
+          meta={rivals.length ? `of ${rivals.length} rivals` : "no rivals modeled"}
+        />
+        <StatTile
+          label="Rival read"
+          value="Estimate"
+          meta="winning bids only"
+        />
       </div>
-      <div
-        style={{
-          fontSize: emphasized ? "1.4rem" : "1.1rem",
-          fontWeight: 700,
-          color: emphasized ? accent : "var(--fg, #f1ecff)",
-        }}
-      >
-        {_fmtBid(amount)}
-      </div>
+
+      {rivals.length > 0 ? (
+        <DataTable
+          caption="Estimated rival bids for this player, highest first"
+          columns={RIVAL_COLUMNS}
+          rows={rivals}
+          rowKey={(r) => r.ownerId}
+          density="compact"
+          defaultSort={{ key: "expBid", direction: "desc" }}
+          rowClassName={(r) => (r.balanceUnknown ? styles.rosteredRow : "")}
+        />
+      ) : null}
+
+      {notes.length > 0 ? (
+        <ul className={styles.notes}>
+          {notes.map((n, i) => (
+            <li key={`note-${i}`} className={styles.note}>
+              {n}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
 
-function FactorRow({ factor }) {
+// ── Disclosures ──────────────────────────────────────────────────
+
+function FactorDisclosure({ factors }) {
+  const [open, setOpen] = useState(false);
+  if (!factors.length) return null;
+  const missingCount = factors.filter((f) => f.missing).length;
   return (
-    <li
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 8,
-        padding: "4px 0",
-        borderBottom: "1px solid var(--border, rgba(255,255,255,0.06))",
-        fontSize: "0.78rem",
-      }}
-    >
-      <span
-        style={{
-          color: factor.missing ? "var(--muted, #c7b8dc)" : "var(--fg, #f1ecff)",
-        }}
+    <div className={styles.disclosure}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((s) => !s)}
+        aria-expanded={open}
       >
-        {factor.label}
-      </span>
-      <span
-        className="muted"
-        style={{
-          fontStyle: factor.missing ? "italic" : "normal",
-        }}
-      >
-        {factor.contribution}
-      </span>
-    </li>
+        {open ? "Hide" : "Show"} the {factors.length} factors behind this bid
+        {missingCount > 0 ? ` (${missingCount} missing)` : ""}
+      </Button>
+      {open ? (
+        <ul className={styles.disclosureList}>
+          {factors.map((f, i) => (
+            <li key={`f-${i}`} className={styles.factorRow}>
+              <span
+                className={f.missing ? styles.factorLabelMissing : styles.factorLabel}
+              >
+                {f.label}
+              </span>
+              <span className={styles.factorValue}>{f.contribution}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
+
+function LeagueFaabContext({ analytics, addPlayer, selectedTeam, recommendation }) {
+  const [open, setOpen] = useState(true);
+  const budget = analytics?.leagueBudget;
+  const remaining = selectedTeam?.faabRemaining;
+  const avg = analytics?.leagueAvgWinningBid;
+  const median = analytics?.leagueMedianWinningBid;
+  const totalBids = analytics?.totalBidsAnalyzed || 0;
+
+  // Position bucket, with the IDP roll-ups the analytics block uses.
+  const position = recommendation?.resolvedAddPosition || addPlayer?.pos;
+  const posStats = useMemo(() => {
+    if (!position || !analytics?.positionBids) return null;
+    const p = String(position).toUpperCase();
+    const bids = analytics.positionBids;
+    if (bids[p]) return bids[p];
+    if (["DT", "DE", "EDGE", "NT"].includes(p)) return bids.DL || null;
+    if (["ILB", "OLB", "MLB"].includes(p)) return bids.LB || null;
+    if (["CB", "S", "FS", "SS"].includes(p)) return bids.DB || null;
+    return null;
+  }, [analytics, position]);
+
+  const playerHistory = useMemo(() => {
+    const pid = addPlayer?.raw?.playerId || addPlayer?.playerId;
+    if (!pid || !analytics?.playerHistory) return [];
+    const entries = analytics.playerHistory[String(pid)] || [];
+    return Array.isArray(entries) ? entries.slice(0, 5) : [];
+  }, [analytics, addPlayer]);
+
+  const pct = (b) =>
+    budget > 0 && Number.isFinite(b) ? `${Math.round((b / budget) * 100)}% of budget` : null;
+
+  return (
+    <div className={styles.disclosure}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((s) => !s)}
+        aria-expanded={open}
+      >
+        {open ? "Hide" : "Show"} league FAAB history
+      </Button>
+      {open ? (
+        <div className={styles.contextGrid} style={{ marginTop: "var(--space-2)" }}>
+          <StatTile
+            label="Your remaining FAAB"
+            value={remaining != null ? fmtBid(remaining) : fmtBid(budget)}
+            meta={
+              budget > 0 && remaining != null
+                ? `${Math.round((remaining / budget) * 100)}% of ${fmtBid(budget)}`
+                : remaining == null
+                  ? "league budget"
+                  : null
+            }
+          />
+          <StatTile
+            label="League average bid"
+            value={avg ? fmtBid(avg) : "—"}
+            meta={pct(avg)}
+          />
+          <StatTile
+            label="League median bid"
+            value={median ? fmtBid(median) : "—"}
+            meta={totalBids > 0 ? `${totalBids} bids analyzed` : "no history yet"}
+          />
+          {posStats && posStats.count > 0 ? (
+            <div className={styles.contextBlock}>
+              <span className={styles.contextLabel}>
+                Comparable {String(position).toUpperCase()} bids ({posStats.count})
+              </span>
+              <span className={styles.contextValue}>
+                {fmtBid(posStats.min)}–{fmtBid(posStats.max)}, average{" "}
+                {fmtBid(posStats.avg)}
+                {pct(posStats.avg) ? ` (${pct(posStats.avg)})` : ""}
+              </span>
+            </div>
+          ) : null}
+          {playerHistory.length > 0 ? (
+            <div className={styles.contextBlock}>
+              <span className={styles.contextLabel}>
+                {addPlayer?.name || "This player"} — past league waivers
+              </span>
+              <ul className={styles.historyList}>
+                {playerHistory.map((h, i) => (
+                  <li key={`ph-${i}`} className={styles.historyRow}>
+                    <span className={styles.playerMeta}>
+                      {h?.season || "—"}
+                      {h?.type === "free_agent" ? " · FA pickup" : ""}
+                    </span>
+                    <span className={styles.historyBid}>{fmtBid(h?.bid || 0)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {!posStats && playerHistory.length === 0 ? (
+            <div className={styles.contextBlock}>
+              <span className={styles.contextValue}>
+                No historical bids for{" "}
+                {String(position || "this player").toUpperCase()} yet.
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FreshnessFooter({ inputsAsOf, staleInputs }) {
+  const entries = Object.entries(inputsAsOf || {});
+  if (!entries.length) return null;
+  const stale = new Set(staleInputs || []);
+  return (
+    <div className={styles.freshness}>
+      {entries.map(([key, iso]) => {
+        const age = relativeAge(iso);
+        return (
+          <span key={key} className={styles.freshnessItem}>
+            <span>{INPUT_LABELS[key] || key}:</span>
+            <span className={styles.freshnessValue}>
+              {age || "unavailable"}
+            </span>
+            {stale.has(key) ? <Badge tone="warning">stale</Badge> : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Panel ────────────────────────────────────────────────────────
 
 export default function FaabRecommendation({
   addPlayer,
@@ -131,14 +398,6 @@ export default function FaabRecommendation({
 }) {
   const [state, setState] = useState("idle"); // idle | loading | done | error
   const [data, setData] = useState(null);
-  const [showFactors, setShowFactors] = useState(false);
-  // League FAAB context starts expanded — the stats it surfaces
-  // (your remaining FAAB, league avg/median, comparable bids,
-  // player history) are exactly the "what do I have to spend and
-  // what do others usually pay" question the recommendation panel
-  // is here to answer.  Burying it behind a toggle made the
-  // panel feel half-finished.
-  const [showContext, setShowContext] = useState(true);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -188,403 +447,90 @@ export default function FaabRecommendation({
 
   if (state === "loading") {
     return (
-      <div
-        className="card"
-        style={{ padding: 12, marginTop: 10 }}
-        aria-live="polite"
-      >
-        <div className="muted" style={{ fontSize: "0.8rem" }}>
-          Computing FAAB recommendation…
+      <Panel title="Recommended FAAB bid" headingLevel={3}>
+        <div className={styles.faabPanel} aria-busy="true">
+          <div className={styles.bidRow}>
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} height={64} />
+            ))}
+          </div>
+          <Skeleton height={16} />
         </div>
-      </div>
+      </Panel>
     );
   }
 
   if (state === "error") {
     return (
-      <div
-        className="card"
-        style={{ padding: 12, marginTop: 10, borderColor: "var(--red, #ef4444)" }}
-      >
-        <div style={{ fontSize: "0.85rem" }}>
-          FAAB recommender unavailable
-        </div>
-        <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+      <Panel title="Recommended FAAB bid" headingLevel={3}>
+        <Banner tone="negative" title="FAAB recommender unavailable">
           {err}
-        </div>
-      </div>
+        </Banner>
+      </Panel>
     );
   }
 
   const factors = Array.isArray(data?.factors) ? data.factors : [];
   const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
+  const confidence = data?.confidence || "low";
+  const contention = data?.contention;
 
   return (
-    <section
-      className="card"
-      style={{ padding: 14, marginTop: 12 }}
-      aria-label="FAAB bid recommendation"
+    <Panel
+      className="waivers-bid-desk"
+      title="Recommended FAAB bid"
+      headingLevel={3}
+      actions={
+        <Badge tone={CONFIDENCE_TONE[confidence] || "neutral"}>
+          {CONFIDENCE_LABEL[confidence] || confidence}
+        </Badge>
+      }
     >
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "0.95rem",
-            fontWeight: 700,
-          }}
-        >
-          Recommended FAAB bid
-        </h3>
-        <ConfidenceBadge level={data?.confidence || "low"} />
-      </header>
+      <div className={styles.faabPanel}>
+        <div className={styles.bidRow}>
+          <StatTile label="Conservative" value={fmtBid(data?.conservative)} />
+          <StatTile
+            className={styles.bidPrimary}
+            label="Recommended"
+            value={fmtBid(data?.standard)}
+            size="lg"
+          />
+          <StatTile label="Aggressive" value={fmtBid(data?.aggressive)} />
+          <StatTile
+            label="Max"
+            value={fmtBid(data?.max)}
+            meta="your remaining"
+          />
+        </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        <BidPill
-          label="Conservative"
-          amount={data?.conservative}
-          accent="var(--cyan, #FFC704)"
-        />
-        <BidPill
-          label="Standard"
-          amount={data?.standard}
-          accent="var(--green, #34d399)"
-          emphasized
-        />
-        <BidPill
-          label="Aggressive"
-          amount={data?.aggressive}
-          accent="var(--orange, #fb923c)"
-        />
-        <BidPill
-          label="Max"
-          amount={data?.max}
-          accent="var(--muted, #c7b8dc)"
+        {data?.explanation ? (
+          <p className={styles.explanation}>{data.explanation}</p>
+        ) : null}
+
+        {warnings.map((w, i) => (
+          <Banner key={`warn-${i}`} tone={warningTone(w)}>
+            {w}
+          </Banner>
+        ))}
+
+        {contention ? <ContentionSection contention={contention} /> : null}
+
+        <FactorDisclosure factors={factors} />
+
+        {leagueFaab ? (
+          <LeagueFaabContext
+            analytics={leagueFaab}
+            addPlayer={addPlayer}
+            selectedTeam={selectedTeam}
+            recommendation={data}
+          />
+        ) : null}
+
+        <FreshnessFooter
+          inputsAsOf={data?.inputsAsOf}
+          staleInputs={data?.staleInputs}
         />
       </div>
-
-      {data?.explanation && (
-        <p
-          className="muted"
-          style={{
-            margin: "8px 0 6px",
-            fontSize: "0.82rem",
-            lineHeight: 1.4,
-          }}
-        >
-          {data.explanation}
-        </p>
-      )}
-
-      {warnings.length > 0 && (
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            margin: "6px 0 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}
-        >
-          {warnings.map((w, i) => (
-            <li
-              key={`warn-${i}`}
-              style={{
-                fontSize: "0.78rem",
-                padding: "4px 8px",
-                background: "rgba(239,68,68,0.1)",
-                color: "var(--red, #ef4444)",
-                borderRadius: 6,
-              }}
-            >
-              ⚠ {w}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {factors.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <button
-            type="button"
-            className="button-reset"
-            onClick={() => setShowFactors((s) => !s)}
-            style={{
-              fontSize: "0.72rem",
-              color: "var(--muted, #c7b8dc)",
-              cursor: "pointer",
-              border: "none",
-              background: "transparent",
-              padding: 0,
-            }}
-          >
-            {showFactors ? "▾" : "▸"} Why this bid ({factors.length} factors)
-          </button>
-          {showFactors && (
-            <ul
-              style={{
-                listStyle: "none",
-                padding: 0,
-                margin: "6px 0 0",
-              }}
-            >
-              {factors.map((f, i) => (
-                <FactorRow key={`f-${i}`} factor={f} />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {leagueFaab && (
-        <LeagueFaabContext
-          analytics={leagueFaab}
-          addPlayer={addPlayer}
-          selectedTeam={selectedTeam}
-          recommendation={data}
-          show={showContext}
-          onToggle={() => setShowContext((s) => !s)}
-        />
-      )}
-    </section>
-  );
-}
-
-// ── League FAAB context panel ─────────────────────────────────
-
-function LeagueFaabContext({
-  analytics,
-  addPlayer,
-  selectedTeam,
-  recommendation,
-  show,
-  onToggle,
-}) {
-  const remaining = selectedTeam?.faabRemaining;
-  const budget = analytics?.leagueBudget;
-  const avg = analytics?.leagueAvgWinningBid;
-  const median = analytics?.leagueMedianWinningBid;
-  const totalBids = analytics?.totalBidsAnalyzed || 0;
-
-  // Resolve this player's position-bucket stats from the
-  // analytics block.  Falls back gracefully when the position
-  // hasn't been ranked enough times to surface a bucket.
-  const position = recommendation?.resolvedAddPosition || addPlayer?.pos;
-  const posStats = position
-    ? (analytics?.positionBids?.[String(position).toUpperCase()] ||
-       (position === "DT" || position === "DE" || position === "EDGE"
-         ? analytics?.positionBids?.DL
-         : null) ||
-       (position === "ILB" || position === "OLB" || position === "MLB"
-         ? analytics?.positionBids?.LB
-         : null) ||
-       (position === "CB" || position === "S" || position === "FS" || position === "SS"
-         ? analytics?.positionBids?.DB
-         : null))
-    : null;
-
-  // Per-player history is keyed by Sleeper player_id.
-  const playerHistory = (() => {
-    const pid = addPlayer?.raw?.playerId || addPlayer?.playerId;
-    if (!pid || !analytics?.playerHistory) return [];
-    const entries = analytics.playerHistory[String(pid)] || [];
-    return Array.isArray(entries) ? entries.slice(0, 5) : [];
-  })();
-
-  const fmtPct = (b) =>
-    budget && budget > 0 && Number.isFinite(b)
-      ? `${Math.round((b / budget) * 100)}%`
-      : null;
-
-  return (
-    <div
-      style={{
-        marginTop: 10,
-        paddingTop: 10,
-        borderTop: "1px solid var(--border, rgba(255,255,255,0.06))",
-      }}
-    >
-      <button
-        type="button"
-        className="button-reset"
-        onClick={onToggle}
-        style={{
-          fontSize: "0.72rem",
-          color: "var(--muted, #c7b8dc)",
-          cursor: "pointer",
-          border: "none",
-          background: "transparent",
-          padding: 0,
-        }}
-        aria-expanded={show}
-      >
-        {show ? "▾" : "▸"} League FAAB context
-      </button>
-      {show && (
-        <div style={{ marginTop: 8, fontSize: "0.78rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <ContextStat
-              label="Your remaining FAAB"
-              value={
-                remaining != null
-                  ? _fmtBid(remaining)
-                  : budget != null
-                    ? `${_fmtBid(budget)} budget`
-                    : "—"
-              }
-              hint={
-                budget && remaining != null
-                  ? `${Math.round((remaining / budget) * 100)}% of $${budget}`
-                  : null
-              }
-            />
-            <ContextStat
-              label="League avg winning bid"
-              value={avg ? _fmtBid(avg) : "—"}
-              hint={fmtPct(avg)}
-            />
-            <ContextStat
-              label="League median winning bid"
-              value={median ? _fmtBid(median) : "—"}
-              hint={
-                totalBids > 0 ? `${totalBids} bids analyzed` : null
-              }
-            />
-          </div>
-
-          {posStats && posStats.count > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              <div
-                className="muted"
-                style={{
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: 4,
-                }}
-              >
-                Comparable {String(position).toUpperCase()} bids ({posStats.count} historical)
-              </div>
-              <div
-                style={{
-                  fontSize: "0.85rem",
-                }}
-              >
-                Range <strong>{_fmtBid(posStats.min)}</strong>–
-                <strong> {_fmtBid(posStats.max)}</strong>
-                {", avg "}
-                <strong>{_fmtBid(posStats.avg)}</strong>
-                {fmtPct(posStats.avg) ? ` (${fmtPct(posStats.avg)} of budget)` : ""}
-              </div>
-            </div>
-          )}
-
-          {playerHistory.length > 0 && (
-            <div>
-              <div
-                className="muted"
-                style={{
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: 4,
-                }}
-              >
-                {addPlayer?.name || "Player"} — past league waivers
-              </div>
-              <ul
-                style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                  fontSize: "0.78rem",
-                }}
-              >
-                {playerHistory.map((h, i) => (
-                  <li
-                    key={`ph-${i}`}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "2px 0",
-                    }}
-                  >
-                    <span className="muted">
-                      {h?.season || "—"}
-                      {h?.type === "free_agent" ? " · FA pickup" : ""}
-                    </span>
-                    <span style={{ fontWeight: 600 }}>
-                      {_fmtBid(h?.bid || 0)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {!posStats && playerHistory.length === 0 && (
-            <div className="muted" style={{ fontSize: "0.78rem" }}>
-              Not enough historical data for {String(position || "this player").toUpperCase()} or this player yet.
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ContextStat({ label, value, hint }) {
-  return (
-    <div
-      style={{
-        padding: "8px 10px",
-        background: "rgba(255,255,255,0.02)",
-        border: "1px solid var(--border, rgba(255,255,255,0.06))",
-        borderRadius: 6,
-      }}
-    >
-      <div
-        className="muted"
-        style={{
-          fontSize: "0.62rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: "1rem", fontWeight: 700, marginTop: 2 }}>
-        {value}
-      </div>
-      {hint ? (
-        <div
-          className="muted"
-          style={{ fontSize: "0.66rem", marginTop: 1 }}
-        >
-          {hint}
-        </div>
-      ) : null}
-    </div>
+    </Panel>
   );
 }

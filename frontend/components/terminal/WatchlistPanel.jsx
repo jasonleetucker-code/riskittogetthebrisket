@@ -5,7 +5,8 @@ import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
-import Panel from "./Panel";
+import { EmptyState, Movement, Panel } from "@/components/ds";
+import styles from "./terminal.module.css";
 
 /**
  * WatchlistPanel — user-curated list of players to keep an eye on.
@@ -70,25 +71,19 @@ export default function WatchlistPanel() {
           ? "Synced across your devices"
           : "Saved locally — sign in to sync"
       }
-      className="panel--watchlist"
       actions={
         count > 0 ? (
-          <span className="muted" style={{ fontSize: "0.68rem" }}>
+          <span className={styles.panelCount}>
             {count} player{count === 1 ? "" : "s"}
           </span>
         ) : null
       }
     >
       {count === 0 ? (
-        <div className="watchlist-empty">
-          <p style={{ margin: "0 0 6px", fontSize: "0.82rem", fontWeight: 600 }}>
-            No players on your watchlist yet.
-          </p>
-          <p className="muted" style={{ margin: 0, fontSize: "0.72rem", lineHeight: 1.5 }}>
-            Click the ★ on any player card to add them. Watchlist entries
-            show value + 7/30/90/180-day trends at a glance.
-          </p>
-        </div>
+        <EmptyState
+          title="No players on your watchlist yet"
+          description="Use the star on any player profile to add them. Watchlist entries show value plus 7/30/90/180-day trends at a glance."
+        />
       ) : (
         <ul className="watchlist-list">
           {entries.map((e) => (
@@ -142,8 +137,6 @@ function TrendDelta({ label, value }) {
     );
   }
   const tone = n > 0 ? "up" : n < 0 ? "down" : "flat";
-  const arrow = n > 0 ? "▲" : n < 0 ? "▼" : "·";
-  const display = n === 0 ? "·" : Math.abs(n);
   return (
     <span
       className={`watchlist-delta watchlist-delta--${tone}`}
@@ -151,7 +144,11 @@ function TrendDelta({ label, value }) {
     >
       <span className="watchlist-delta-label">{label}</span>
       <span className="watchlist-delta-value">
-        {arrow} {display}
+        {n === 0 ? (
+          "—"
+        ) : (
+          <Movement delta={n} srLabel={`${label}: ${n > 0 ? "up" : "down"} ${Math.abs(n)} ranks`} />
+        )}
       </span>
     </span>
   );

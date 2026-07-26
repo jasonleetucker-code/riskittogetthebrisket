@@ -12,7 +12,7 @@ import {
   SIGNAL_META,
   SIGNALS,
 } from "@/lib/signal-engine";
-import Panel from "./Panel";
+import { Panel } from "@/components/ds";
 
 const DISMISSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -206,10 +206,13 @@ export default function BuySellHold() {
   })();
 
   return (
+    // panel--signals is the mobile priority hook read by
+    // terminal.module.css: signals lead the single-column stack right
+    // after "what changed" (Movers/Watchlist).
     <Panel
+      className="panel--signals"
       title="Signals"
       subtitle="Rule-driven Buy / Sell / Hold per roster player"
-      className="panel--signals"
       actions={
         dismissedCount > 0 ? (
           <button

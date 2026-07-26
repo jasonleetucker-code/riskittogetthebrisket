@@ -12,7 +12,7 @@ import {
   computeRosterChips,
   computePlayerBlurb,
 } from "@/lib/portfolio-insights";
-import Panel from "./Panel";
+import { CollapsiblePanel, Panel } from "@/components/ds";
 
 const INSIGHT_CARDS = [
   { key: "bestAsset",   label: "Best Asset",   tone: "up" },
@@ -140,7 +140,11 @@ export default function ScoutingIntel() {
 
   if (!selectedTeam) {
     return (
-      <Panel title="Scouting" subtitle="Data confidence + anomalies" className="panel--scouting">
+      <Panel
+        className="panel--scouting"
+        title="Scouting"
+        subtitle="Data confidence + anomalies"
+      >
         <div className="scouting-empty">Pick a team to see intel.</div>
       </Panel>
     );
@@ -149,11 +153,15 @@ export default function ScoutingIntel() {
   const loading = historyLoading && !portfolio;
 
   return (
-    <Panel
+    // Restored from main: this is the longest diagnostics panel on the
+    // dashboard, so being able to fold it away matters — doubly so on
+    // mobile, where it sits high in the single-column stack.
+    // CollapsiblePanel, not Panel: the folded state is what keeps Panel
+    // itself hook-free and therefore server-renderable.
+    <CollapsiblePanel
+      className="panel--scouting"
       title="Scouting"
       subtitle="Roster-level intel + four named reads"
-      className="panel--scouting"
-      collapsible
       defaultCollapsed={false}
     >
       {/* ── Roster chip row ── */}
@@ -245,6 +253,6 @@ export default function ScoutingIntel() {
       {!news.loading && news.items.length === 0 && (
         <div className="scouting-note">News feed currently empty — intel uses portfolio metrics only.</div>
       )}
-    </Panel>
+    </CollapsiblePanel>
   );
 }
