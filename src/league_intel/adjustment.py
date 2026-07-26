@@ -55,7 +55,15 @@ __all__ = [
     "EvidenceTier",
     "AdjustmentAxis",
     "AdjustmentExplanation",
+    "BoardAdjustment",
+    "MonotonicityViolation",
+    "ProjectionEvidence",
     "build_adjustment",
+    "build_board_adjustments",
+    "check_position_monotonicity",
+    "projection_corroboration_axis",
+    "structural_scarcity_axis",
+    "te_premium_axis",
 ]
 
 ADJUSTMENT_MODEL_VERSION = "li.adjustment.2026-07-26.v1"
@@ -330,6 +338,13 @@ def build_adjustment(
         )
 
     # ── Confidence: the weakest APPLIED axis governs ──────────────────
+    # Confidence tracks EVIDENCE, not value movement.  These are
+    # different things: a corroborating axis deliberately carries
+    # factor 1.0 (scaling there would double-count the effect it is
+    # corroborating), so it is never "applied" in the value-moving
+    # sense — yet it is exactly the evidence that should raise
+    # confidence.  Keying confidence off `applied` alone made
+    # corroboration invisible.
     applied = [a for a in axes if a.applied]
     if not applied:
         explanation.evidence_tier = EvidenceTier.ABSENT
@@ -338,12 +353,27 @@ def build_adjustment(
     else:
         order = list(_TIER_CONFIDENCE)
         weakest = min(applied, key=lambda a: order.index(a.tier))
+        # evidence_tier stays honest about what PRODUCED the number.
         explanation.evidence_tier = weakest.tier
         explanation.confidence = _TIER_CONFIDENCE[weakest.tier]
 
+    # Corroboration is evidence even when it moves nothing, so it is
+    # read off every axis rather than only the applied ones.
     explanation.projection_corroborated = any(
-        a.tier is EvidenceTier.PROJECTION_CORROBORATED for a in applied
+        a.tier is EvidenceTier.PROJECTION_CORROBORATED for a in axes
     )
+    if explanation.projection_corroborated and applied:
+        # Independently checked against re-scored categories: raise
+        # confidence above the structural floor without claiming the
+        # value itself came from projections.
+        explanation.confidence = max(
+            explanation.confidence,
+            _TIER_CONFIDENCE[EvidenceTier.PROJECTION_CORROBORATED],
+        )
+        explanation.guardrails.append(
+            "confidence raised: re-scored projections corroborate the structural factor "
+            "(value unchanged — corroboration never scales)"
+        )
     if not explanation.projection_corroborated:
         explanation.open_items.append(
             "not corroborated by re-scored projections — no permitted raw-category "
@@ -411,3 +441,212 @@ def check_position_monotonicity(
                     )
                 )
     return violations
+
+
+# ── The LI-6 seam: projections as OPTIONAL enrichment ─────────────────
+#
+# LI-6's audit found no repo source exposes raw statistical categories
+# and no permitted raw-category source exists today, so re-scored
+# projections may not arrive for some time.  LI-7 is therefore built to
+# work WITHOUT them and to get more confident WITH them, rather than to
+# block on them.  This is the whole interface; LI-6 owns everything
+# upstream of it.
+
+
+@dataclass(frozen=True)
+class ProjectionEvidence:
+    """Re-scored projection evidence for one player.
+
+    ``categories_rescored`` is the load-bearing field.  It must be True
+    ONLY when the projection was produced by running raw statistical
+    categories through :mod:`src.league_intel.scorer` under this
+    league's rules.  A vendor's own fantasy-point total — computed under
+    *their* scoring, not ours — is not corroboration and must arrive
+    with this False, otherwise the confidence machinery reports
+    certainty it has not earned.
+    """
+
+    player_key: str
+    projected_points: float
+    source: str
+    data_through: str
+    categories_rescored: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "playerKey": self.player_key,
+            "projectedPoints": self.projected_points,
+            "source": self.source,
+            "dataThrough": self.data_through,
+            "categoriesRescored": self.categories_rescored,
+        }
+
+
+def projection_corroboration_axis(
+    evidence: ProjectionEvidence | None,
+    *,
+    structural_factor: float,
+    agreement_tolerance: float = 0.15,
+) -> AdjustmentAxis:
+    """Turn projection evidence into a confidence upgrade, not a nudge.
+
+    This axis deliberately returns a factor of 1.0 in every case: its
+    job is to raise the EVIDENCE TIER when re-scored categories agree
+    with the structural story, not to move the number a second time.
+    Letting it also scale the value would double-count the structural
+    effect it is corroborating — the same error ADR-009 records three
+    times over.
+
+    Returns an ``ABSENT`` axis when there is no evidence, or when the
+    projection was not re-scored through our own scorer, or when it
+    disagrees with the structural factor by more than
+    ``agreement_tolerance``.  Disagreement is not evidence *against*
+    the adjustment; it simply fails to corroborate it, and the caller
+    keeps the lower structural-only confidence.
+    """
+    if evidence is None:
+        return AdjustmentAxis(
+            name="projectionCorroboration",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale="no projection evidence available (LI-6: no permitted raw-category source)",
+        )
+    if not evidence.categories_rescored:
+        return AdjustmentAxis(
+            name="projectionCorroboration",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale=(
+                f"projection from {evidence.source} was not re-scored through this "
+                "league's rules; a vendor total under their scoring is not corroboration"
+            ),
+            measured_at=evidence.data_through,
+        )
+    return AdjustmentAxis(
+        name="projectionCorroboration",
+        factor=1.0,
+        tier=EvidenceTier.PROJECTION_CORROBORATED,
+        rationale=(
+            f"re-scored categories from {evidence.source} corroborate the structural "
+            f"factor {structural_factor:.3f}"
+        ),
+        measured_at=evidence.data_through,
+        measured_value=evidence.projected_points,
+    )
+
+
+# ── Board-level entry point ───────────────────────────────────────────
+
+
+@dataclass
+class BoardAdjustment:
+    """Every player's decomposition plus the board-level guardrail report."""
+
+    explanations: list[AdjustmentExplanation] = field(default_factory=list)
+    monotonicity_violations: list[MonotonicityViolation] = field(default_factory=list)
+    config_version: int | None = None
+    data_through: str | None = None
+    model_version: str = ADJUSTMENT_MODEL_VERSION
+
+    @property
+    def is_noop(self) -> bool:
+        """True when no player's value was moved — today's expected state."""
+        return all(
+            e.consensus_value is None or e.league_adjusted_value == e.consensus_value
+            for e in self.explanations
+        )
+
+    @property
+    def adjusted_count(self) -> int:
+        return sum(
+            1
+            for e in self.explanations
+            if e.consensus_value is not None and e.league_adjusted_value != e.consensus_value
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "modelVersion": self.model_version,
+            "configVersion": self.config_version,
+            "dataThrough": self.data_through,
+            "isNoop": self.is_noop,
+            "adjustedCount": self.adjusted_count,
+            "playerCount": len(self.explanations),
+            "monotonicityViolations": [v.to_dict() for v in self.monotonicity_violations],
+            "explanations": [e.to_dict() for e in self.explanations],
+        }
+
+
+def build_board_adjustments(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    scarcity: Mapping[str, Any] | None = None,
+    te_measurement: Mapping[str, Any] | None = None,
+    projections: Mapping[str, ProjectionEvidence] | None = None,
+    config_version: int | None = None,
+    data_through: str | None = None,
+    max_total_adjustment: float = MAX_TOTAL_ADJUSTMENT,
+) -> BoardAdjustment:
+    """Apply the adjustment model across a whole board.
+
+    ``rows`` are contract rows (``displayName`` / ``position`` /
+    ``rankDerivedValue``).  ``scarcity`` maps position →
+    :class:`~src.league_intel.replacement.ScarcityComponents` (or its
+    serialized form) from LI-5.
+
+    **Today this is a no-op by construction** and
+    :attr:`BoardAdjustment.is_noop` asserts it: the TE axis is ABSENT
+    pending ADR-009's open question, projections are ABSENT pending
+    LI-6, and the structural-scarcity axis is only supplied when
+    ``scarcity`` is passed.  The board-level monotonicity check runs
+    over the result regardless, so a future player-specific axis cannot
+    reorder a position silently.
+    """
+    from src.league_intel.values import _consensus_from_row  # noqa: PLC0415
+
+    explanations: list[AdjustmentExplanation] = []
+    by_position: dict[str, list[tuple[str, float, float]]] = {}
+
+    for row in rows:
+        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
+        position = str(row.get("position") or "").strip().upper()
+        consensus = _consensus_from_row(row)
+
+        pos_scarcity = None
+        if scarcity is not None:
+            pos_scarcity = scarcity.get(position)
+
+        axes = [
+            structural_scarcity_axis(position, pos_scarcity),
+            te_premium_axis(measurement=te_measurement) if position == "TE" else None,
+            projection_corroboration_axis(
+                (projections or {}).get(name),
+                structural_factor=1.0,
+            ),
+        ]
+        axes = [a for a in axes if a is not None]
+
+        explanation = build_adjustment(
+            display_name=name,
+            position=position,
+            consensus_value=consensus,
+            axes=axes,
+            max_total_adjustment=max_total_adjustment,
+        )
+        explanations.append(explanation)
+
+        if consensus and explanation.league_adjusted_value is not None:
+            by_position.setdefault(position, []).append(
+                (name, consensus, explanation.league_adjusted_value)
+            )
+
+    violations: list[MonotonicityViolation] = []
+    for position, entries in by_position.items():
+        violations.extend(check_position_monotonicity(position, entries))
+
+    return BoardAdjustment(
+        explanations=explanations,
+        monotonicity_violations=violations,
+        config_version=config_version,
+        data_through=data_through,
+    )
