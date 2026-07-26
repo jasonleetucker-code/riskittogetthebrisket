@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
+import { buildTeamByPlayer } from "@/lib/waiver-logic";
 import PlayerPopup from "@/components/PlayerPopup";
 import GlobalSearch from "@/components/GlobalSearch";
 
@@ -155,6 +156,14 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     setSearchOpen(true);
   }, [searchEnabled]);
 
+  // League-scoped ownership index for GlobalSearch's owner: tokens.
+  // Rows are scoring-profile-scoped and never carry the owner; the
+  // join happens here at render time (CLAUDE.md split).
+  const teamByPlayer = useMemo(
+    () => buildTeamByPlayer(rawData?.sleeper?.teams || []),
+    [rawData?.sleeper?.teams],
+  );
+
   // Global "/" keyboard shortcut for search
   useEffect(() => {
     if (!searchEnabled) return undefined;
@@ -198,6 +207,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
       {searchEnabled && (
         <GlobalSearch
           rows={rows}
+          teamByPlayer={teamByPlayer}
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(row) => openPlayerPopup(row)}

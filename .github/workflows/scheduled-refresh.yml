@@ -438,7 +438,11 @@ jobs:
           # otherwise the prune never lands in a commit and the next
           # checkout resurrects the files forever (Codex review on
           # PR #532).
-          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
+          # data/player_map/ persists team_map_last_good.json — the
+          # scraper's Sleeper-outage fallback for NFL-team tags.  Fresh
+          # runners start from the repo, so an unstaged map would never
+          # survive to the run that needs it (Codex round 7 on PR #535).
+          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/player_map/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
             if [ -e "$p" ]; then
               git add -f -- "$p"
             elif [ -n "$(git ls-files -- "$p")" ]; then

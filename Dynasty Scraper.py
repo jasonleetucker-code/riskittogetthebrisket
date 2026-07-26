@@ -216,7 +216,7 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
                     if attempt < max_attempts - 1:
                         wait = delay * (backoff**attempt)
                         print(
-                            f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
+                            f"  [Retry] {func.__name__} attempt {attempt + 1} failed: {e}. "
                             f"Retrying in {wait}s..."
                         )
                         await asyncio.sleep(wait)
@@ -233,7 +233,7 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
                     if attempt < max_attempts - 1:
                         wait = delay * (backoff**attempt)
                         print(
-                            f"  [Retry] {func.__name__} attempt {attempt+1} failed: {e}. "
+                            f"  [Retry] {func.__name__} attempt {attempt + 1} failed: {e}. "
                             f"Retrying in {wait}s..."
                         )
                         time.sleep(wait)
@@ -1155,10 +1155,20 @@ def fetch_sleeper_rosters(league_id):
         team_player_ids = []
 
         for pid in player_ids:
+            # Every raw roster id lands in team_player_ids
+            # UNCONDITIONALLY: the frontend's definitive-ID-miss rule
+            # (player-filters.js::resolveOwnerTeam) treats a populated
+            # byId index as complete, so gating ids on VALID_POSITIONS
+            # (raw IDP labels like ILB/EDGE/FS/NT aren't in it) made
+            # rostered IDPs classify as unrostered (Codex round 7 on
+            # PR #535).  Name/position handling below stays filtered.
+            team_player_ids.append(str(pid))
             p = all_nfl.get(pid)
             if not p:
                 continue
-            full = p.get("full_name") or f"{p.get('first_name','')} {p.get('last_name','')}".strip()
+            full = (
+                p.get("full_name") or f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+            )
             raw_pos = p.get("position", "") or ""
             # Sleeper exposes ``fantasy_positions`` as the list of
             # eligible slots; ``position`` is just the primary. For
@@ -1183,7 +1193,6 @@ def fetch_sleeper_rosters(league_id):
                 team_players.append(cn)
                 all_names.append(cn)
                 sid = str(pid)
-                team_player_ids.append(sid)
                 if cn and sid:
                     player_id_map[cn] = sid
                     id_to_player[sid] = cn
@@ -1583,8 +1592,7 @@ if SLEEPER_LEAGUE_ID:
             )
         else:
             print(
-                "  [Sleeper] No players found and no cached snapshot — "
-                "falling back to players.txt"
+                "  [Sleeper] No players found and no cached snapshot — falling back to players.txt"
             )
 
 
@@ -2323,8 +2331,6 @@ async def scrape_ktc(page, players):
 
         if not name_map and DEBUG:
             await page_dump(page, "KTC")
-            # Also dump a snippet of page source to help diagnose
-            content_snippet = content[:2000] if "content" in dir() else ""
             # Check what script tags exist
             script_ids = re.findall(
                 r'<script[^>]*id="([^"]*)"', content if "content" in dir() else ""
@@ -3798,9 +3804,6 @@ async def run(progress_callback=None):
         ("KTC", scrape_ktc),
         ("IDPTradeCalc", scrape_idptradecalc),
     ]
-
-    # Parallel scraping — these sites can be scraped concurrently
-    PARALLEL_SITES = {"KTC"}
 
     browser_needed = any(SITES.get(s) for s, _ in browser_order)
 
@@ -5356,7 +5359,6 @@ async def run(progress_callback=None):
     _idp_rank_sites = set()  # currently none use idpRank mode in scraper (handled in dashboard)
     # Z-score parameters
     Z_FLOOR, Z_CEILING = -2.0, 4.0
-    RANK_OFFSET, RANK_DIVISOR, RANK_EXPONENT = 27, 28, -0.66
     # IDP Anchor System: tether the #1 IDP player to IDPTradeCalc's top non-Hunter value
     # This makes the anchor self-adjusting as the IDP market shifts
     _IDP_ANCHOR_EXCLUDE = {"travis hunter"}  # Excluded from anchor — he's a WR in dynasty
@@ -5484,10 +5486,6 @@ async def run(progress_callback=None):
         )
         return _interp_anchor_points(rank_value, curve)
 
-    IDP_RANK_OFFSET = 15  # Controls curve flatness near the top
-    IDP_RANK_DIVISOR = 16  # Paired with offset so rank 1 → exactly IDP_ANCHOR_TOP
-    IDP_RANK_EXPONENT = -0.72  # Steeper than offense (-0.66) since IDP value drops faster
-    SINGLE_SOURCE_DISCOUNT = 0.85  # 15% discount for players on only 1 site
     COMPOSITE_SCALE = 9999
     OUTLIER_TRIM_GAP = 0.18  # Trim only true outliers, not legitimate elite values
     # Elite ceiling expansion: allows top-consensus players to approach 9999.
@@ -6181,6 +6179,24 @@ async def run(progress_callback=None):
             return None
         return _age_from_birthdate(row.get("birth_date"))
 
+    def _player_team_local(pname, pdata):
+        """NFL team abbreviation from the Sleeper players blob.  Free
+        agents carry ``team: None`` in Sleeper — return "FA" for a
+        matched player without a team so the contract can distinguish
+        "free agent" from "identity never matched" (None)."""
+        sid = str((pdata or {}).get("_sleeperId") or _player_id_map.get(pname) or "").strip()
+        if not sid:
+            ident = _resolve_identity_cached(pname, preferred_pos=_get_pos(pname))
+            if ident and ident.get("id"):
+                sid = str(ident.get("id"))
+        if not sid:
+            return None
+        row = SLEEPER_ALL_NFL.get(sid)
+        if not isinstance(row, dict):
+            return None
+        team = str(row.get("team") or "").strip().upper()
+        return team or "FA"
+
     def _median(vals, default_val):
         arr = sorted(v for v in vals if isinstance(v, (int, float)) and v > 0)
         if not arr:
@@ -6795,13 +6811,55 @@ async def run(progress_callback=None):
         )
 
     # Persist rookie visibility metadata for dashboard filtering/debugging.
+    #
+    # NFL-team, years-exp, and age stamps get a LAST-GOOD fallback
+    # (Codex rounds 6+8 on PR #535): when the Sleeper /players/nfl
+    # fetch fails, SLEEPER_ALL_NFL is empty and every live lookup
+    # returns None — without a fallback the fresh export would publish
+    # rows with no team/yearsExp/age, and because the frontend's
+    # team/experience/age predicates fail closed, those filters would
+    # empty the rankings board until the next successful fetch.  After
+    # a healthy pass we persist per-player {team, yearsExp, age}; on an
+    # outage pass we stamp from the saved map instead.  The legacy
+    # "teams" key is kept alongside the newer "players" map so an
+    # outage right after this change still reads pre-change files.
+    _team_map_path = os.path.join("data", "player_map", "team_map_last_good.json")
+    _team_map_fallback: dict = {}
+    _meta_map_fallback: dict = {}
+    if not SLEEPER_ALL_NFL:
+        try:
+            with open(_team_map_path, "r", encoding="utf-8") as _fh:
+                _last_good_meta = json.load(_fh)
+            _team_map_fallback = _last_good_meta.get("teams", {})
+            _meta_map_fallback = _last_good_meta.get("players", {})
+            print(
+                f"  [Teams] Sleeper player DB unavailable — using last-good "
+                f"metadata map ({len(_team_map_fallback)} teams, "
+                f"{len(_meta_map_fallback)} player metadata rows)"
+            )
+        except Exception:
+            _team_map_fallback = {}
+            _meta_map_fallback = {}
     _years_exp_tagged = 0
     _rookie_tagged = 0
     _age_tagged = 0
+    _team_tagged = 0
+
+    def _last_good_int(name, key):
+        row = _meta_map_fallback.get(name)
+        if not isinstance(row, dict):
+            return None
+        try:
+            return int(row.get(key))
+        except Exception:
+            return None
+
     for _name, _pdata in players_json.items():
         if not isinstance(_pdata, dict) or _looks_like_pick_name(_name):
             continue
         _yrs = _player_years_exp_local(_name, _pdata)
+        if _yrs is None:
+            _yrs = _last_good_int(_name, "yearsExp")
         if isinstance(_yrs, int) and _yrs >= 0:
             _pdata["_yearsExp"] = int(_yrs)
             _years_exp_tagged += 1
@@ -6813,9 +6871,50 @@ async def run(progress_callback=None):
             _pdata["_isRookie"] = True
             _rookie_tagged += 1
         _age = _player_age_local(_name, _pdata)
+        if _age is None:
+            _age = _last_good_int(_name, "age")
         if isinstance(_age, int):
             _pdata["age"] = _age
             _age_tagged += 1
+        _team = _player_team_local(_name, _pdata) or _team_map_fallback.get(_name)
+        if isinstance(_team, str) and _team:
+            _pdata["team"] = _team
+            _team_tagged += 1
+    # Save the last-good map only from a HEALTHY player-DB pass (an
+    # outage pass would just re-save the fallback it loaded).
+    if SLEEPER_ALL_NFL and _team_tagged:
+        try:
+            _lg_players = {}
+            for _n, _d in players_json.items():
+                if not isinstance(_d, dict):
+                    continue
+                _row = {}
+                if isinstance(_d.get("team"), str) and _d.get("team"):
+                    _row["team"] = _d["team"]
+                if isinstance(_d.get("_yearsExp"), int):
+                    _row["yearsExp"] = _d["_yearsExp"]
+                if isinstance(_d.get("age"), int):
+                    _row["age"] = _d["age"]
+                if _row:
+                    _lg_players[_n] = _row
+            os.makedirs(os.path.dirname(_team_map_path), exist_ok=True)
+            with open(_team_map_path, "w", encoding="utf-8") as _fh:
+                json.dump(
+                    {
+                        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        # Legacy key — older readers only understand
+                        # the flat name→team shape.
+                        "teams": {
+                            n: d["team"]
+                            for n, d in players_json.items()
+                            if isinstance(d, dict) and isinstance(d.get("team"), str)
+                        },
+                        "players": _lg_players,
+                    },
+                    _fh,
+                )
+        except Exception as _exc:
+            print(f"  [Teams] last-good metadata map save failed (non-fatal): {_exc}")
 
     # Final must-have rookie position enforcement. Do this after fallback creation and
     # rookie tagging so defensive prospects cannot drift back into generic offense entries.
@@ -6834,7 +6933,7 @@ async def run(progress_callback=None):
 
     if DEBUG:
         print(
-            f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}; age tagged {_age_tagged}"
+            f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}; age tagged {_age_tagged}; team tagged {_team_tagged}"
         )
 
     # Set _rawComposite and _finalAdjusted directly from _composite.
@@ -7135,7 +7234,7 @@ async def run(progress_callback=None):
 
     js_fname = os.path.join(SCRIPT_DIR, "dynasty_data.js")
     with open(js_fname, "w", encoding="utf-8") as f:
-        f.write("// Auto-generated by Dynasty Scraper — " f"{datetime.date.today()}\n")
+        f.write(f"// Auto-generated by Dynasty Scraper — {datetime.date.today()}\n")
         f.write("window.DYNASTY_DATA = ")
         json.dump(dashboard_json, f, indent=2, ensure_ascii=False)
         f.write(";\n")
@@ -7358,7 +7457,6 @@ def check_value_alerts(current_json):
         return
 
     # Get my roster players
-    my_team_name = ""  # Will be set from settings if available
     my_players = set()
     if SLEEPER_ROSTER_DATA and SLEEPER_ROSTER_DATA.get("teams"):
         # Use all rostered players for now (user picks team in dashboard)
