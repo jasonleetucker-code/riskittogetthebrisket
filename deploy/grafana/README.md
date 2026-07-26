@@ -3,7 +3,7 @@
 ## `public-league-dashboard.json`
 
 One-panel-per-row dashboard that polls
-`https://riskittogetthebrisket.org/api/public/league/metrics` every 30s
+`https://chaseupside.com/api/public/league/metrics` every 30s
 and surfaces the key snapshot-cache signals:
 
 | Panel                          | Target                                   |

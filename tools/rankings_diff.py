@@ -11,7 +11,7 @@ Usage
 
     # Also accepts URL arguments if auth is available:
     python3 tools/rankings_diff.py \\
-        https://riskittogetthebrisket.org/api/data?view=delta \\
+        https://chaseupside.com/api/data?view=delta \\
         https://staging.riskit/api/data?view=delta \\
         --cookie jason_session=...
 

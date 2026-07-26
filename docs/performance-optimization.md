@@ -24,7 +24,7 @@ are elsewhere:
 
 **Deployment note (important):** in production, nginx routes every
 `/api/*` request — including `/api/dynasty-data` — **straight to the
-Python backend** (`deploy/nginx/riskittogetthebrisket.org.conf`), where
+Python backend** (`deploy/nginx/chaseupside.com.conf`), where
 `server.py::get_dynasty_data_alias` → `get_data` already honors the
 caller's `view`/`leagueKey`. The Next.js route at
 `frontend/app/api/dynasty-data/route.js` is therefore **only on the dev

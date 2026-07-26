@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 //
 // DEPLOYMENT SCOPE: in production, nginx routes every ``/api/*``
 // request straight to FastAPI (see
-// ``deploy/nginx/riskittogetthebrisket.org.conf``), so this route is
+// ``deploy/nginx/chaseupside.com.conf``), so this route is
 // never hit there.  It exists for the dev flow (Next dev server on
 // port 3000, no nginx in front) and any Next-fronted deployment —
 // without it, the relative ``/api/news`` fetch in
