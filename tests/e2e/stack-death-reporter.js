@@ -39,6 +39,20 @@
  *   written to test-results/ as each test finishes, and stopping in
  *   seconds beats twelve more minutes of noise.  Set
  *   E2E_NO_STACK_GUARD=1 to disable if you ever need the full run.
+ *
+ * ⚠ DO NOT PASS `--reporter` ON THE COMMAND LINE.
+ * The CLI flag REPLACES the whole `reporter` array from
+ * playwright.config.js, so `--reporter=line` silently unloads this
+ * file and every guard in it.  Nothing warns you: the run looks
+ * normal and the guards simply never execute.
+ *
+ * This is not hypothetical — it is how the guard was first "verified".
+ * Local runs used `--reporter=line`, the module was never loaded, and
+ * "the guard stayed silent on a healthy run" was indistinguishable
+ * from "the guard never ran at all".  Proven by a module-level probe
+ * that printed nothing with the flag and printed immediately without
+ * it.  The suite's own entry points (`npm run e2e`, e2e.yml) do not
+ * pass it, so CI is guarded; keep it that way.
  */
 
 // Connection-level signatures — the stack is unreachable, as distinct
@@ -97,15 +111,37 @@ async function findDeadOrigin() {
   return null;
 }
 
+// ── Coverage floor ─────────────────────────────────────────────────────
+// A suite that skips everything reports green.  That is the same
+// never-fires class as a workflow that cannot start: absence of
+// failure read as evidence of success.
+//
+// Measured baseline on the chromium desktop + mobile projects:
+// ~149 passed / 29 skipped.  The 29 are deliberate project gating
+// (desktop journeys skipped on the mobile project and vice versa,
+// plus fixed-viewport visual suites).  The floor sits well under the
+// baseline so ordinary drift doesn't trip it, but a run where a whole
+// layer silently stopped executing — an env var lost, a fixture
+// skipping, a project filter typo — lands far below it.
+//
+// Deliberately a FAILURE, not a warning: a warning in a green run is
+// something nobody reads.
+const MIN_EXPECTED_PASSED = Number(process.env.E2E_MIN_PASSED || 100);
+const MAX_EXPECTED_SKIPPED = Number(process.env.E2E_MAX_SKIPPED || 60);
+
 class StackDeathReporter {
   constructor() {
     this.enabled = !process.env.E2E_NO_STACK_GUARD;
     this.tripped = false;
     this.completed = 0;
+    this.counts = { passed: 0, skipped: 0, failed: 0 };
   }
 
   onTestEnd(test, result) {
     this.completed += 1;
+    if (result.status === "passed") this.counts.passed += 1;
+    else if (result.status === "skipped") this.counts.skipped += 1;
+    else this.counts.failed += 1;
     if (!this.enabled || this.tripped) return;
     if (result.status !== "failed" && result.status !== "timedOut") return;
 
@@ -150,6 +186,49 @@ class StackDeathReporter {
       .catch(() => {
         /* probe itself failed — stay silent rather than guess */
       });
+  }
+
+  /**
+   * Enforce the coverage floor.  Returning a status from onEnd is
+   * Playwright's supported way for a reporter to change the run's
+   * outcome, so a suite that executed almost nothing exits non-zero
+   * instead of reporting a green it did not earn.
+   *
+   * Skipped when the guard is disabled, when the run already failed
+   * (the real failures are the story), or when the stack-death guard
+   * tripped (that run was already declared invalid).
+   */
+  onEnd(result) {
+    if (!this.enabled || this.tripped) return undefined;
+    if (result && result.status === "failed") return undefined;
+
+    const { passed, skipped } = this.counts;
+    const tooFewRan = passed < MIN_EXPECTED_PASSED;
+    const tooManySkipped = skipped > MAX_EXPECTED_SKIPPED;
+    if (!tooFewRan && !tooManySkipped) return undefined;
+
+    const line = "═".repeat(72);
+    process.stderr.write(
+      `\n${line}\n` +
+        `E2E COVERAGE FLOOR NOT MET — THIS GREEN IS NOT TRUSTWORTHY\n` +
+        `${line}\n` +
+        `passed=${passed} (floor ${MIN_EXPECTED_PASSED})  ` +
+        `skipped=${skipped} (ceiling ${MAX_EXPECTED_SKIPPED})\n\n` +
+        (tooFewRan
+          ? `Too few tests actually executed.  A suite that skips its way\n` +
+            `to zero failures reports the same green as one that passed.\n`
+          : "") +
+        (tooManySkipped
+          ? `Too many tests skipped.  Expected ~29 from deliberate project\n` +
+            `gating; well above that means a whole layer stopped running.\n`
+          : "") +
+        `\nUsual causes: E2E_TEST_SECRET missing or not matching the\n` +
+        `server (every signed-in spec skips), a project filter that\n` +
+        `matches nothing, or a fixture skipping on absent data.\n` +
+        `Adjust the floor via E2E_MIN_PASSED / E2E_MAX_SKIPPED only when\n` +
+        `the suite's real size has changed.\n${line}\n\n`,
+    );
+    return { status: "failed" };
   }
 }
 

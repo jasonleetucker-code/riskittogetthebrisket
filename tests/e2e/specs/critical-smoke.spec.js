@@ -94,14 +94,23 @@ test.describe("critical smoke — auth-gated routes redirect to /login", () => {
     test(`GET ${path} (unauthenticated) redirects without crashing`, async ({ page }) => {
       const res = await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
       expect(res?.status(), `${path} should not 500`).toBeLessThan(500);
-      // Redirect → /login?next=... OR a 401 page.  Either is fine,
-      // we just need the route to not crash.
+      // This assertion used to read:
+      //
+      //   expect(url.includes("/login") || body.length > 0)
+      //
+      // The right-hand side is true of ANY rendered HTML page, so the
+      // disjunction was unfalsifiable: a test named "auth-gated routes
+      // redirect to /login" could not detect the auth gate opening and
+      // serving private pages to anonymous visitors.  It was the only
+      // test claiming that coverage, which made it worse than no test —
+      // it occupied the slot where real coverage would go.
+      //
+      // Assert the redirect itself.  Landing anywhere other than the
+      // sign-in surface means the gate did not fire.
       const url = page.url();
-      const body = await page.locator("body").innerText();
-      expect(
-        url.includes("/login") || body.length > 0,
-        `${path} should redirect or render something`,
-      ).toBeTruthy();
+      expect(url, `${path} must redirect an anonymous visitor to /login`).toContain(
+        "/login",
+      );
     });
   }
 });

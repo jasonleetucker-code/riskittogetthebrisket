@@ -1,15 +1,13 @@
 /**
  * Critical journey: /news tab.
  *
- * The dedicated /news page may not have shipped yet (tracked in
- * PR #533).  This spec is written to be green BOTH before and after
- * that lands:
+ * This spec used to skip itself when /news returned 404, because the
+ * page had not shipped yet.  It shipped in #533 — and at that moment
+ * the guard inverted from useful to harmful: a route regression back
+ * to 404 would have been reported as a SKIP, not a failure, and a
+ * skipped test is invisible in a green run.
  *
- *   - route 404s  → skip with a clear message (page not shipped yet)
- *   - route 200s  → assert it renders real content with no JS errors
- *
- * Once the page exists the spec self-activates — no test change
- * needed when #533 merges.
+ * The route existing is now part of what this spec asserts.
  *
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
@@ -19,17 +17,14 @@ const { desktopOnly, attachConsoleGuards, pageUrl } = require("../helpers/journe
 test.describe("journey: /news tab", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
-  test("/news renders when the route exists (skips cleanly while it 404s)", async ({ authedPage: page }) => {
-    // Probe first with a plain request so a 404 becomes a skip, not
-    // a navigation failure.
+  test("/news renders", async ({ authedPage: page }) => {
+    // The route must exist.  Checked before navigating so a 404 is
+    // reported as "the route is gone" rather than as a render failure.
     const probe = await page.request.get(pageUrl("/news"), { maxRedirects: 0 });
-    if (probe.status() === 404) {
-      test.skip(
-        true,
-        "/news route not shipped yet (lands with PR #533) — spec self-activates once it exists",
-      );
-      return;
-    }
+    expect(
+      probe.status(),
+      "/news must exist — it shipped in #533; a 404 here is a route regression",
+    ).toBeLessThan(400);
 
     const guard = attachConsoleGuards(page);
     const res = await page.goto(pageUrl("/news"), { waitUntil: "domcontentloaded", timeout: 30_000 });
