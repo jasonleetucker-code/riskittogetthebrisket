@@ -1012,6 +1012,12 @@ function _materializePlayerArrayRow(player) {
 
   return {
     name,
+    // Stable Sleeper id, materialized so ID-first ownership
+    // resolution works on the DEFAULT view=app path too — the legacy
+    // dict carries it as _sleeperId only (Codex round 5 on PR #535;
+    // keep in lockstep with the playersArray materializer + override
+    // synthesis).
+    playerId: String(player._sleeperId || "").trim() || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
@@ -1155,6 +1161,12 @@ function _materializeLegacyDictRow(name, player, posMap) {
 
   return {
     name,
+    // Stable Sleeper id, materialized so ID-first ownership
+    // resolution works on the DEFAULT view=app path too — the legacy
+    // dict carries it as _sleeperId only (Codex round 5 on PR #535;
+    // keep in lockstep with the playersArray materializer + override
+    // synthesis).
+    playerId: String(player._sleeperId || "").trim() || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,

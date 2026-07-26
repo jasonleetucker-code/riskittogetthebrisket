@@ -59,7 +59,7 @@ export function resolveOwnerTeam(row, teamByPlayer) {
   const byId = teamByPlayer.byId instanceof Map ? teamByPlayer.byId : null;
   const byName = teamByPlayer.byName instanceof Map ? teamByPlayer.byName : null;
   if (byId || byName) {
-    const pid = String(row?.playerId || row?.raw?.playerId || "").trim();
+    const pid = String(row?.playerId || row?.raw?.playerId || row?.raw?._sleeperId || "").trim();
     if (byId && byId.size > 0 && pid) {
       // A populated ID index missing this row's stable id is a
       // DEFINITIVE answer: this exact player is unrostered.  Falling
