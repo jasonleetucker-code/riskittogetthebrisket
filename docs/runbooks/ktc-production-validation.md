@@ -2,7 +2,7 @@
 
 _Prepared: 2026-03-22 | Commit: c1559d4 | Phase: KTC validation_
 
-**Host:** `178.156.148.92` (Hetzner VPS)
+**Host:** `riskittogetthebrisket.org` — resolve the current box from the `DEPLOY_HOST` repo secret. (A previous revision hardcoded a Hetzner IP that is no longer the production host.)
 **App path:** `/home/dynasty/trade-calculator`
 **SSH:** `ssh -i C:\Users\jason\.ssh\brisket_prod_clean root@178.156.148.92`
 

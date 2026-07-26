@@ -95,7 +95,7 @@ resolve_npm_bin_for_systemd() {
   fi
 
   # 3. nvm-installed node under the service user's home dir.  This is
-  # the production case — the Hetzner VPS manages node via nvm and
+  # the production case — the production VPS manages node via nvm and
   # /usr/bin/npm does not exist.
   local home_candidates=(
     "/home/${APP_USER}"

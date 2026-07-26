@@ -317,7 +317,7 @@ Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). 
 Single source of truth: `POSITION_ALIASES` in `src/utils/name_clean.py`. All modules import from there.
 
 ### Deployment
-Production runs on a Hetzner VPS with nginx reverse proxy, systemd service, and Let's Encrypt SSL. See `deploy/` directory.
+Production runs on a VPS (currently Contabo; the deploy target is the `DEPLOY_HOST` secret, not hardcoded anywhere) with nginx reverse proxy, systemd service, and Let's Encrypt SSL. See `deploy/` directory.
 
 ## Non-Negotiable Rules
 

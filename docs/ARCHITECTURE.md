@@ -160,7 +160,7 @@ GitHub Actions workflow `.github/workflows/deploy.yml` on push to
 main:
 
 1. Validate build inputs (frontend build must pass).
-2. Deploy to Hetzner via SSH + systemd.
+2. Deploy to the production VPS via SSH + systemd.
 3. Post-deploy smoke test hits `/api/health` + `/api/public/league`.
 
 Rollback: `git revert` the breaking commit and push; the deploy
