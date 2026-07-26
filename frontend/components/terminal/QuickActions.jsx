@@ -16,7 +16,7 @@ const ACTIONS = [
  */
 export default function QuickActions() {
   return (
-    <Panel title="Quick actions">
+    <Panel className="panel--actions" title="Quick actions">
       <ul className="quick-actions">
         {ACTIONS.map((a) => (
           <li key={a.href}>

@@ -46,6 +46,7 @@ export default function TeamNewsFeed() {
 
   return (
     <Panel
+      className="panel--news"
       title="News"
       subtitle="Roster-relevant headlines"
       actions={

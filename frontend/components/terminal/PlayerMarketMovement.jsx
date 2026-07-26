@@ -131,6 +131,7 @@ export default function PlayerMarketMovement() {
 
   return (
     <Panel
+      className="panel--movement"
       title="Player Market Movement"
       subtitle={historyError ? "History unavailable" : "Real deltas from rank history"}
       actions={

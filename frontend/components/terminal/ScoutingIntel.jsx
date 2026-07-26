@@ -140,7 +140,11 @@ export default function ScoutingIntel() {
 
   if (!selectedTeam) {
     return (
-      <Panel title="Scouting" subtitle="Data confidence + anomalies">
+      <Panel
+        className="panel--scouting"
+        title="Scouting"
+        subtitle="Data confidence + anomalies"
+      >
         <div className="scouting-empty">Pick a team to see intel.</div>
       </Panel>
     );
@@ -150,8 +154,14 @@ export default function ScoutingIntel() {
 
   return (
     <Panel
+      className="panel--scouting"
       title="Scouting"
       subtitle="Roster-level intel + four named reads"
+      // Restored from main: this is the longest diagnostics panel on
+      // the dashboard, so being able to fold it away matters — doubly
+      // so on mobile, where it sits high in the single-column stack.
+      collapsible
+      defaultCollapsed={false}
     >
       {/* ── Roster chip row ── */}
       {rosterChips.length > 0 && (

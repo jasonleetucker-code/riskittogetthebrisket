@@ -206,7 +206,11 @@ export default function BuySellHold() {
   })();
 
   return (
+    // panel--signals is the mobile priority hook read by
+    // terminal.module.css: signals lead the single-column stack right
+    // after "what changed" (Movers/Watchlist).
     <Panel
+      className="panel--signals"
       title="Signals"
       subtitle="Rule-driven Buy / Sell / Hold per roster player"
       actions={

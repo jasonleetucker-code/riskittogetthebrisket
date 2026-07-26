@@ -122,6 +122,39 @@
   .grid {
     grid-template-columns: 1fr;
   }
+  /* Single column: the three column wrappers must STOP being boxes so
+     every panel becomes a direct grid item and the priority order
+     below can reorder them across columns.  Without this the panels
+     stack in DOM order — Portfolio + Scouting (the two least urgent
+     surfaces) land first and push Movers/Signals two panel-heights
+     down, which is the exact opposite of the reading order this page
+     is built around ("what changed, and what should I do about it").
+     Restores main's `.terminal-col { display: contents }` behaviour,
+     lost when the columns moved to CSS modules. */
+  .col {
+    display: contents;
+  }
+  /* Mobile priority.  Panels with no rule here keep order 0 and lead:
+     Movers ("what changed") and Watchlist.  Values mirror main's
+     scale so the intent stays greppable across the migration. */
+  .col :global(.panel--signals) {
+    order: 10;
+  }
+  .col :global(.panel--movement) {
+    order: 20;
+  }
+  .col :global(.panel--news) {
+    order: 30;
+  }
+  .col :global(.panel--portfolio) {
+    order: 40;
+  }
+  .col :global(.panel--scouting) {
+    order: 50;
+  }
+  .col :global(.panel--actions) {
+    order: 60;
+  }
 }
 .col {
   display: flex;

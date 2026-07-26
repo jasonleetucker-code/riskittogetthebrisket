@@ -100,7 +100,7 @@ export default function PortfolioSummary() {
 
   if (!selectedTeam) {
     return (
-      <Panel title="Portfolio" subtitle="Positional allocation">
+      <Panel className="panel--portfolio" title="Portfolio" subtitle="Positional allocation">
         <div className="portfolio-empty">Pick a team to see allocation.</div>
       </Panel>
     );
@@ -108,7 +108,7 @@ export default function PortfolioSummary() {
 
   if (!portfolio) {
     return (
-      <Panel title="Portfolio" subtitle="Positional allocation">
+      <Panel className="panel--portfolio" title="Portfolio" subtitle="Positional allocation">
         <div className="portfolio-empty">
           {historyLoading ? "Loading portfolio…" : "No roster data resolved."}
         </div>
@@ -141,6 +141,7 @@ export default function PortfolioSummary() {
 
   return (
     <Panel
+      className="panel--portfolio"
       title="Portfolio"
       subtitle="Value, allocation, age + volatility"
     >
