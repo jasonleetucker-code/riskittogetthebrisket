@@ -35,8 +35,11 @@ from typing import Any, Iterable, Mapping
 __all__ = [
     "CARDINAL_MIN_DYNAMIC_RANGE",
     "CONTROL_POSITIONS",
+    "MIN_POSITIVE_CONTROL_POWER",
     "PairedCalibration",
+    "RankDisplacement",
     "measure_paired_te_premium",
+    "measure_rank_displacement",
 ]
 
 CARDINAL_MIN_DYNAMIC_RANGE = 3.0
@@ -210,4 +213,135 @@ def measure_paired_te_premium(
         control_rows=control_rows,
         te_rows=len(te_pairs),
         depth_bands=bands,
+    )
+
+
+# ── Ordinal fallback: rank displacement ───────────────────────────────
+#
+# Scale compression destroys CARDINAL comparison but leaves ORDINAL
+# information intact.  If a board applies a TE premium, its TEs should
+# sit systematically higher in rank space than on a board without one,
+# relative to how the control positions move.
+#
+# Only trustworthy WITH A POSITIVE CONTROL.  A null from an
+# underpowered test is worthless, so run the method first on a pair
+# whose answer is known and confirm it fires.  On the live board the
+# KTC pair (known premium 1.368) gives signal/sd 14.4 — the method has
+# power; FantasyPros then gives 0.21, a genuine null rather than an
+# absence of sensitivity.
+
+MIN_POSITIVE_CONTROL_POWER = 2.0
+"""Minimum signal/sd a known-premium pair must produce before a null
+from the same method may be believed."""
+
+
+@dataclass(frozen=True)
+class RankDisplacement:
+    """Ordinal TE-posture comparison between two boards."""
+
+    base_key: str
+    compare_key: str
+    intersection: int
+    te_rows: int
+    control_rows: int
+    te_median_shift: float | None
+    control_median_shift: float | None
+    signal_ranks: float | None
+    control_dispersion: float | None
+    signal_over_sd: float | None
+
+    @property
+    def detected(self) -> bool:
+        """True when the TE shift stands clear of control dispersion."""
+        return self.signal_over_sd is not None and abs(self.signal_over_sd) >= 1.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "baseKey": self.base_key,
+            "compareKey": self.compare_key,
+            "intersection": self.intersection,
+            "teRows": self.te_rows,
+            "controlRows": self.control_rows,
+            "teMedianShift": self.te_median_shift,
+            "controlMedianShift": self.control_median_shift,
+            "signalRanks": self.signal_ranks,
+            "controlDispersion": self.control_dispersion,
+            "signalOverSd": self.signal_over_sd,
+            "detected": self.detected,
+        }
+
+
+def measure_rank_displacement(
+    rows: list[Mapping[str, Any]],
+    base_key: str,
+    compare_key: str,
+) -> RankDisplacement:
+    """Compare TE placement between two boards in RANK space.
+
+    Both boards are ranked over their intersection so the ranks are
+    commensurable.  Positive ``signal_ranks`` means the comparison
+    board places TEs higher than the base board, beyond whatever shift
+    the control positions show.
+
+    Works on rank-encoded sources that
+    :func:`measure_paired_te_premium` must reject — but validate on a
+    known pair (see ``MIN_POSITIVE_CONTROL_POWER``) before believing a
+    null.
+    """
+    pairs: list[tuple[str, float, float]] = []
+    for r in rows:
+        sv = r.get("canonicalSiteValues") or {}
+        a, b = _positive(sv.get(base_key)), _positive(sv.get(compare_key))
+        if a is not None and b is not None:
+            pairs.append((str(r.get("position") or "?").upper(), a, b))
+
+    empty = RankDisplacement(base_key, compare_key, len(pairs), 0, 0, None, None, None, None, None)
+    if len(pairs) < MIN_ROWS_PER_POSITION * 2:
+        return empty
+
+    base_rank = {
+        i: n for n, i in enumerate(sorted(range(len(pairs)), key=lambda i: -pairs[i][1]), 1)
+    }
+    cmp_rank = {
+        i: n for n, i in enumerate(sorted(range(len(pairs)), key=lambda i: -pairs[i][2]), 1)
+    }
+
+    te_shifts: list[float] = []
+    control_shifts: list[float] = []
+    for i, (pos, _, _) in enumerate(pairs):
+        shift = base_rank[i] - cmp_rank[i]  # positive = compare ranks better
+        if pos == "TE":
+            te_shifts.append(shift)
+        elif pos in CONTROL_POSITIONS:
+            control_shifts.append(shift)
+
+    if len(te_shifts) < MIN_ROWS_PER_POSITION or len(control_shifts) < MIN_ROWS_PER_POSITION:
+        return RankDisplacement(
+            base_key,
+            compare_key,
+            len(pairs),
+            len(te_shifts),
+            len(control_shifts),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    te_med = statistics.median(te_shifts)
+    ctrl_med = statistics.median(control_shifts)
+    dispersion = statistics.pstdev(control_shifts)
+    signal = te_med - ctrl_med
+    return RankDisplacement(
+        base_key=base_key,
+        compare_key=compare_key,
+        intersection=len(pairs),
+        te_rows=len(te_shifts),
+        control_rows=len(control_shifts),
+        te_median_shift=te_med,
+        control_median_shift=ctrl_med,
+        signal_ranks=signal,
+        control_dispersion=dispersion,
+        signal_over_sd=(signal / dispersion) if dispersion > 0 else None,
     )

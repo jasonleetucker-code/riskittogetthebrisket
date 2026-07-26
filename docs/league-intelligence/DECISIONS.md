@@ -176,6 +176,50 @@ sources shrink toward the measured value with an interval that widens
 with ignorance, and the confidence machinery must show that widening
 rather than presenting a borrowed number as measured.
 
+**The premium DRIFTS — do not hardcode 1.368.**  Re-measured on the
+2026-07-26 scrape (three months after the April baseline): the
+structure replicates perfectly — controls **byte-identical on all 389
+non-TE rows**, depth profile monotone 1.227 → 1.268 → 1.308 → 1.492 —
+but the level is **1.3196, not 1.3682**, a real ~3.6% drift.  KTC's TE++
+premium is a live market quantity, not a constant.  Any consumer must
+re-measure rather than bake in a number; the committed-fixture test
+pins April's value only so this ADR stays checkable.
+
+**Rejected: the blend-vs-anchor "TE gap" as a basis for correction.**
+Proposal was to measure `blend / ktcSfTep` per player and treat the TE
+distribution's excess over the QB/RB/WR distributions as a
+self-calibrating correction.  Measured on a contract built from
+today's scrape.  Three property checks were run first:
+
+1. *Self-reference* — **not the problem.**  The anchor is a median 7.7%
+   of a TE's blend (12-13 live sources per row).  A leave-one-out
+   re-aggregation excluding the anchor moves the gap from 0.8785 to
+   0.8582 — an attenuation of only 0.020.
+2. *Control flatness* — **FAILS.**  Blend/anchor medians are QB 1.0032,
+   RB 0.9019, WR 0.9216: a spread of **0.082 across the controls**,
+   against a TE signal of ~0.12.  The TE-vs-RB gap is the same order
+   as the RB-vs-QB gap, and nobody claims RB is mispriced against QB.
+   There is a position-level scale effect between blend and anchor, so
+   a TE-specific term is **not isolable** — the same objection that
+   killed the rank-encoded calibration.
+3. *Depth grading* — **non-monotone**: 1.048, 0.927, 0.803, 0.840.  The
+   genuine KTC structural premium rises monotonically; this falls then
+   rises, the signature of composition noise rather than structure.
+
+There is also a conceptual objection independent of the numbers: the
+blend already multiplies every non-exempt source's TE contribution by
+1.15 *specifically to align them to KTC's TE++ baseline*.  So
+blend-vs-anchor measures residual misalignment **after** that
+correction — a diagnostic of whether 1.15 is the right number, not an
+independent league signal.  Closing the gap by construction would
+simply replace blended TE values with the anchor's, discarding the
+blend's diversification while calling it a league adjustment.
+
+**Verdict: no correction is licensed by this measurement.**  Recorded
+because a negative result is a result — and because the failure mode
+(controls not flat) is the same one the cardinal-scale guard catches
+elsewhere.
+
 **Consequence for the existing multipliers — right size, wrong reason.**
 The blend gives non-TE++ sources ×1.15 and TEP-native ×1.10, justified
 as a *scoring* premium that does not exist.  The market says the real,

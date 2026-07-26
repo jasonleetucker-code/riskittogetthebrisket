@@ -113,7 +113,18 @@ class TestDepthGrading:
 
 class TestLiveBoard:
     """The real measurement behind ADR-009, run on the committed
-    baseline contract so the claim stays reproducible."""
+    baseline contract so the claim stays reproducible.
+
+    NOTE FOR WHOEVER SEES THIS FAIL: these numbers are read off
+    ``audit/baseline/api_data.json``, a committed snapshot (generated
+    2026-04-28).  A legitimate baseline refresh CAN change them and
+    that is not necessarily a regression — the KTC TE premium measured
+    1.3682 on this April snapshot and 1.3196 on the 2026-07-26 scrape,
+    a real ~3.6% drift over three months.  What must NOT change is the
+    STRUCTURE: controls byte-identical, TE premium well above 1, and a
+    depth profile that rises.  Those are asserted separately below and
+    a failure there is a genuine problem.
+    """
 
     @staticmethod
     def _rows():
@@ -131,7 +142,15 @@ class TestLiveBoard:
         # Controls are not merely near unity — they are byte-identical.
         assert result.identical_control_rows == result.control_rows
         assert result.control_drift == 0.0
-        assert result.te_premium == pytest.approx(1.368, abs=0.005)
+        # Structural claim, tolerant of board drift (see class docstring).
+        assert 1.25 < result.te_premium < 1.45
+
+    def test_baseline_snapshot_value_is_pinned_for_reproducibility(self):
+        """Exact pin on the committed fixture, so the ADR's quoted
+        number stays checkable.  Update it WITH the ADR when the
+        baseline is refreshed — never silently."""
+        result = measure_paired_te_premium(self._rows(), "ktc", "ktcSfTep")
+        assert result.te_premium == pytest.approx(1.3682, abs=0.001)
 
     def test_ktc_premium_rises_with_te_depth(self):
         bands = measure_paired_te_premium(self._rows(), "ktc", "ktcSfTep").depth_bands
