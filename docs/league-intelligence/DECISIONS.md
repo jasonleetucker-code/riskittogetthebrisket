@@ -142,6 +142,40 @@ favour of the market-measured calibration above.  Recorded because the
 failure is instructive: a multiplicative residual against a replacement
 level is ill-conditioned for players near that level.
 
+**Per-source calibration survey: exactly ONE source is measurable.**
+Every publisher shipping both a standard and a TE-premium variant is
+another candidate natural experiment.  Surveyed all 20 site keys on the
+live board; only two pairs exist, and only one survives:
+
+| pair | verdict |
+|---|---|
+| `ktc` / `ktcSfTep` | **USABLE** — cardinal scale (526× dynamic range); controls **byte-identical on all 388 non-TE rows** (69 QB + 134 RB + 185 WR), 0 of 74 TE rows identical |
+| `fantasyProsSf` / `fantasyProsFitzmaurice` | **REJECTED** — rank-encoded scale (values 953800-999900, 1.05× dynamic range) |
+| all 16 other sources | **no paired variant exists** — not calibratable |
+
+**A methodological trap, caught only on the second pass.**  My first
+survey reported the FantasyPros pair as *usable* with a TE premium of
+1.0015 — i.e. "Fitzmaurice charges no TE premium despite being flagged
+`is_tep_premium: True`".  That was an artifact.  On a rank encoding
+every ratio compresses to ~1.0 **including the controls**, so the
+"controls at unity" test passes vacuously and then certifies a
+meaningless number.  A paired calibration therefore needs two
+conditions, not one: controls at unity AND a genuinely cardinal scale.
+`src/league_intel/calibration.py` enforces both and returns
+`te_premium=None` — never a fallback — when either fails.
+
+Note the KTC control is far stronger than "at unity": the two boards
+carry *identical bytes* for every non-TE player, so they are provably
+the same file differing only on TE.
+
+**Rule for the 16 uncalibratable sources: do not guess.**  A source of
+unknown TE posture must not inherit KTC's 1.368 by analogy.  "TEP-
+native" in the registry means TE-premium *scoring*, which is a
+different axis from 2-TE *structure* — no evidence links the two.  Such
+sources shrink toward the measured value with an interval that widens
+with ignorance, and the confidence machinery must show that widening
+rather than presenting a borrowed number as measured.
+
 **Consequence for the existing multipliers — right size, wrong reason.**
 The blend gives non-TE++ sources ×1.15 and TEP-native ×1.10, justified
 as a *scoring* premium that does not exist.  The market says the real,
