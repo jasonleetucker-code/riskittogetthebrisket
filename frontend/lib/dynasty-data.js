@@ -1513,6 +1513,15 @@ export function mergeRankingsDelta(baseContract, delta) {
           legacy._canonicalSiteValues && typeof legacy._canonicalSiteValues === "object"
             ? legacy._canonicalSiteValues
             : {},
+        // Vendor-native values are override-INVARIANT (toggling a
+        // source never changes what the vendor published), so the
+        // delta deliberately omits them — copy from the legacy
+        // mirror or the tooltips lose natives while an override is
+        // active (Codex review on PR #532 round 8).
+        sourceNativeValues:
+          legacy.sourceNativeValues && typeof legacy.sourceNativeValues === "object"
+            ? legacy.sourceNativeValues
+            : {},
       };
       for (const field of Object.keys(deltaEntry)) {
         if (field === "id") continue;

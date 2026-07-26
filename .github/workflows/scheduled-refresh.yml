@@ -189,10 +189,17 @@ jobs:
           }
           echo "::endgroup::"
 
-          # Mirror scraper site_raw output to the tracked CSVs/ directory
+          # Mirror scraper site_raw output to the tracked CSVs/ directory.
+          # ``-p`` preserves the export's mtime: a plain ``cp`` would
+          # give the destination a post-marker mtime even for stale
+          # checkout-resident exports the failed scraper never touched,
+          # letting old boards mint fresh success stamps below (Codex
+          # review on PR #532 round 8).  With the source mtime
+          # preserved, only exports the scraper actually rewrote this
+          # run pass the ``-nt $SCRAPE_START_MARKER`` gate.
           if [[ -d "exports/latest/site_raw" ]]; then
             mkdir -p CSVs/site_raw
-            cp -v exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
+            cp -vp exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
           fi
 
           # Stamp the sources produced by the main scraper.  These
