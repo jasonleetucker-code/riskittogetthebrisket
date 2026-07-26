@@ -272,6 +272,186 @@ displacement cannot be converted to a comparable premium without DN's
 own value curve (see the portability note below).  A two-way result is
 the expected strong position, not an incomplete one.
 
+**PROJECTION-PATH DEFECT CONFIRMED, AND A LARGER ASYMMETRY FOUND
+(2026-07-26).**
+
+*The reported defect is real.*  `measure_endogenous_starters` optimizes
+on `rosValue`, a season-long MEAN, and best ball pays for weekly
+spikes.  Re-solving the current 21-slot vector over **actual 2025
+weekly scores** (158 team-weeks solved, 12 skipped):
+
+| | projection path (rosValue) | weekly actuals |
+|---|---|---|
+| FLEX TE share | **0.0%** | **10.4%** |
+| TE started/team | **2.00** | **2.215** |
+
+So "FLEX never takes a TE" was an artifact of point estimates, exactly
+as described.  (Independently measured 2.215 vs the reported 2.28 —
+agreement within slot-vector detail.)
+
+*Reconciliation of 3.79 — the mapping was wrong.*  **3.79 is not
+`starters_per_team`.**  It was "marginal-weighted effective depth"
+(`sum(mean_marginal_by_rank) / mean_marginal_TE1`) from the marginal
+best-ball probe — a measure of *how many TEs carry value*, not how many
+*start*.  The two are different quantities and 3.79→2.28 is not a valid
+substitution.  3.79 was also **already retired** (churn confound, 2.08×;
+see below).  What actually feeds `replacement.py:576` is
+`starters_per_team`, which for TE was **2.00** — so the real
+before/after is **2.00 → 2.215**, not 3.79 → 2.28.
+
+***THE BIGGEST ERROR WAS NEITHER: the endpoints were asymmetric.***
+The premium compares a 1-TE reference against our 2-TE league.  Every
+figure so far measured the league endpoint from data while *assuming*
+the reference was 1.0 TE/team.  It is not.  Re-solving the **1-TE
+vector over the same weekly scores**: TE won **27.2% of FLEX** slots
+and teams started **1.608 TE/team**.
+
+| basis | ref | league | median premium | TE1-12 |
+|---|---|---|---|---|
+| assumed 1.0 / naive 2.0 | TE12 | TE24 | 1.239 | 1.175 |
+| assumed 1.0 / actual 2.215 | TE12 | TE27 | 1.316 | 1.214 |
+| assumed 1.0 / rostership 2.71 | TE12 | TE33 | 1.416 | 1.252 |
+| **SYMMETRIC actuals 1.608 → 2.215** | **TE19** | **TE27** | **1.121** | **1.082** |
+| *KTC measured* | | | *1.320* | *1.227* |
+
+The structural demand change is **1.378×** (2.215/1.608), not 2.215×.
+An assumed reference overstates it by **1.61×**.  **Operative
+structural premium: ~1.12**, down from every prior figure.
+
+*Do not read the 1.316 row as validation.*  It sits within 0.004 of
+KTC's 1.320, but it is a measured league endpoint against an assumed
+reference — the agreement is an artifact of the asymmetry, and treating
+it as corroboration would be exactly the error this ADR keeps catching.
+
+*A decomposition this enables.*  If the pure structural change warrants
+~1.12 and KTC's TE++ charges 1.32, the residual ~1.18× is plausibly the
+**scoring** component of KTC's TEP setting.  That is the first
+quantitative support for the axis-ambiguity hypothesis, which had lost
+its evidence when the earlier divergence turned out to be our own
+measurement error.  Suggestive, not established.
+
+*Roster-era bias — sign settled, magnitude minor.*  Live 2026 rosters
+carry 5.42 TE/team against 5.02 in 2025 (+0.40, ~8%).  Direction is UP:
+the 2025 pool was slightly thinner, so TEs look scarcer than they now
+are and the premium is marginally **overstated**.  My earlier claim of
+a downward bias was wrong.  At n=12 the size is within noise.
+
+*Exclusion bias — measured, and it runs the safe way.*  12 of 170
+team-weeks failed a 21-slot solve.  Those rosters carry **more** TEs
+(6.17) than retained ones (5.02) and are short elsewhere (mean roster
+53.6, gaps at K/IDP).  So the retained sample skews TE-*shallow* and TE
+demand is if anything **understated** — the opposite of the feared
+direction.
+
+*Durable fix — decision:* **calibrate the depth constant from actual
+weekly outcomes (option a).**  Depth is a league-structure constant, so
+history is the right input, and it avoids stacking a second fitted
+layer.  The Gaussian weekly model in `playoff_sim.py` is itself an
+approximation; using it to derive a structural constant would embed its
+error in the premium.  Option (b) remains the right tool for
+forward-looking *per-player* variance work, where no history exists for
+the specific player-season.  The constant must still be **recomputed**
+rather than frozen, per the drift constraint above.
+
+*Caveats, all structural:* a single season; 2026 rules applied
+counterfactually to 2025 rosters; 158/170 team-weeks solved; missing
+`players_points` treated as 0; and the reference endpoint assumes KTC's
+standard board targets a league like our 2025 one (superflex, 2 FLEX) —
+a generic 1-TE league with fewer flex slots would give TEs less flex
+opportunity and a lower reference, raising the premium again.  That
+assumption is now the largest single lever on the number.
+
+**REPRODUCIBILITY WARNING.**  This measurement depends on the exact
+optimizer and the `fantasy_positions` eligibility fix, both of which
+exist **only on `claude/league-intel-foundation`** and are not merged
+to `main`.  Re-running on `main` today reproduces neither the flex
+allocation nor the demand figures.
+
+**REVEALED 2026 ROSTERSHIP SETTLES THE DEPTH QUESTION — and the
+axis-ambiguity hypothesis loses its support (2026-07-26).**
+
+The 2025-derived depth figures were measured on rosters built under a
+**1-TE** lineup.  The *current* 12 rosters are built under the **2-TE**
+format, so counting live rostership measures 2-TE-era behaviour
+directly instead of inferring it.
+
+Position table, all 12 current rosters (666 players):
+
+| pos | req | per team | sd | min-max | ×req | % of priced supply |
+|---|---|---|---|---|---|---|
+| QB | 1 | 5.08 | 1.38 | 2-7 | **5.08** | 91% |
+| RB | 2 | 8.50 | 2.25 | 5-12 | 4.25 | 91% |
+| WR | 3 | 12.33 | 3.79 | 8-20 | 4.11 | 88% |
+| **TE** | **2** | **5.42** | 2.02 | 2-9 | **2.71** | 80% |
+| K | 1 | 1.58 | 0.86 | 0-3 | 1.58 | n/a |
+| DL | 3 | 6.25 | 1.83 | 4-10 | 2.08 | 66% |
+| LB | 3 | 7.92 | 2.56 | 4-13 | 2.64 | 116% |
+| DB | 3 | 8.42 | 1.19 | 6-10 | 2.81 | 120% |
+
+**TE is the LEAST-hoarded offensive position relative to requirement**
+(2.71× vs QB 5.08×, RB 4.25×, WR 4.11×) — and it is **not supply
+constrained**: only 80% of priced TEs are rostered, so 16 remain
+available.  Managers *could* roster more TEs and choose not to.  That
+makes 2.71 a statement of demand, not of scarcity of bodies.
+
+Premium at each candidate depth:
+
+| definition | TE/team | cut | median | TE1-12 |
+|---|---|---|---|---|
+| naive (slots only) | 2.00 | TE24 | 1.239 | 1.175 |
+| **revealed startable-only** | **2.58** | TE31 | **1.355** | **1.235** |
+| **revealed rostership** | **2.71** | TE33 | **1.416** | 1.252 |
+| 2025 marginal (churn-confounded) | 3.79 | TE45 | 1.592 | 1.336 |
+| max-of-rank (retired) | 4.29 | TE51 | 1.815 | 1.414 |
+| *KTC measured* | | | *1.320* | *1.227* |
+
+**This converges with KTC.**  Revealed depth of 2.58-2.71 lands inside
+the 2.5-3.0 band predicted from KTC's 1.320, the premium (1.355) sits
+within 0.035 of KTC's, and the TE1-12 bands match at 1.235 vs 1.227.
+
+**Consequence — a hypothesis retracted.**  The earlier divergence was
+*our measurement error*, not evidence that KTC encodes a different
+axis.  Both inflated figures came from confounded statistics, and
+removing the confounds moved us onto KTC rather than away.  The
+axis-ambiguity reading remains *possible* but has lost its supporting
+evidence; the self-serving explanation was wrong and the external
+check was right.  **Operative premium: ~1.36-1.42.**
+
+**A SIXTH broken measurement — mine, and it invalidated 1.592.**  The
+marginal-value depth ranked each team's TEs over the SEASON-LONG set of
+everyone who ever appeared on the roster.  Measured churn is **2.08×**
+(median 5 TEs on a roster in any week; 10.3 distinct across a season),
+so "TE8" was routinely a two-week waiver add rather than a depth slot.
+The statistic therefore partly measured **roster churn and roster
+size** rather than depth need.  Diagnosed when a deep-vs-shallow split
+came out backwards — TE-deep teams implied 5.81 effective depth against
+TE-shallow teams' 2.42, which is mechanical: more rostered TEs create
+more depth ranks to sum over.  **1.592 and 3.79 are retired.**
+
+*On the bias direction, both prior claims were wrong.*  I said the
+1-TE era biased marginal contribution *down*; the substitution argument
+says *up* (a shallow roster has worse next-best alternatives, so each
+TE's marginal value is larger).  The substitution reasoning is sound,
+but the churn confound dominated it, so neither prediction survived
+contact with the split test.  Revealed rostership sidesteps the whole
+question by measuring 2-TE-era behaviour directly.
+
+**No historical roster snapshots exist.**  `data/sleeper_last_good.json`
+is committed but its git history reaches back only to 2026-07-24 (2
+days); `data/public_league/snapshot.json`'s "2025"/"2024" seasons are
+synthetic fixtures (`L2025`, 4 rosters, 6 players).  So the
+2025-vs-2026 TE-count delta — the cleanest possible measurement of how
+managers responded to the format change — **cannot be computed today**.
+Accumulation starts now from the committed snapshots.
+
+*Caveats, structural:* rostership encodes manager habit and inattention
+as well as valuation, so it is evidence about demand rather than
+ground truth about value; supply and demand are jointly determined and
+are reported separately rather than resolved; n=12, so the spread
+matters as much as the mean (TE ranges 2-9 per team); and IDP supply
+shares above 100% (LB 116%, DB 120%) reflect gaps in priced coverage,
+not real over-rostering.
+
 **DEPTH DEFINITION MATTERS AS MUCH AS THE PARAMETER (2026-07-26).**
 "Deepest TE rank that ever entered an optimal lineup" is a **max over
 weeks**, so its mean is outlier-driven — one TE5 spike in week 9 sets a

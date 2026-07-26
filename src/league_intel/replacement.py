@@ -42,6 +42,8 @@ from src.ros.lineup import RosterPlayer, optimize_lineup
 __all__ = [
     "REPLACEMENT_SCHEMA_VERSION",
     "DEFAULT_BAND",
+    "RevealedDemand",
+    "measure_revealed_demand",
     "ReplacementLevel",
     "PositionReplacement",
     "ScarcityComponents",
@@ -401,6 +403,135 @@ def compute_replacement_levels(
 
 
 # ── Scarcity components ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class RevealedDemand:
+    """What the league's managers ACTUALLY roster at a position.
+
+    Evidence about **demand**, not about value.  Managers are not
+    optimal; counts encode habit and inattention alongside genuine
+    valuation.  And rostership is **jointly determined with supply** —
+    you cannot roster six startable TEs if only thirty exist — so
+    ``priced_supply`` and ``share_of_supply`` are reported beside the
+    counts rather than the two being silently conflated.
+
+    ``startable_per_team`` applies a value floor to separate a real
+    depth piece from a speculative stash on a 58-man roster.  **The
+    floor is scale-dependent** — pass ``value_by_key`` on the consensus
+    0-9999 scale with a matching ``startable_floor``, or pass rosValue
+    (0-100) with a floor on that scale.  Mixing them silently returns
+    zero startable players, which is why
+    :attr:`startable_per_team` should always be sanity-checked against
+    :attr:`per_team`.
+    """
+
+    position: str
+    required_starters: float
+    team_count: int
+    total_rostered: int
+    per_team: float
+    per_team_sd: float
+    per_team_min: int
+    per_team_max: int
+    startable_per_team: float
+    priced_supply: int
+    share_of_supply: float | None
+
+    @property
+    def demand_ratio(self) -> float:
+        """Rostered per team divided by required starters."""
+        return self.per_team / self.required_starters if self.required_starters else 0.0
+
+    @property
+    def supply_constrained(self) -> bool:
+        """True when the league has taken nearly the whole priced pool,
+        so the count reflects scarcity of bodies rather than choice."""
+        return self.share_of_supply is not None and self.share_of_supply >= 0.95
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "position": self.position,
+            "requiredStarters": self.required_starters,
+            "teamCount": self.team_count,
+            "totalRostered": self.total_rostered,
+            "perTeam": self.per_team,
+            "perTeamSd": self.per_team_sd,
+            "perTeamMin": self.per_team_min,
+            "perTeamMax": self.per_team_max,
+            "startablePerTeam": self.startable_per_team,
+            "pricedSupply": self.priced_supply,
+            "shareOfSupply": self.share_of_supply,
+            "demandRatio": self.demand_ratio,
+            "supplyConstrained": self.supply_constrained,
+        }
+
+
+def measure_revealed_demand(
+    teams: Sequence[Mapping[str, Any]],
+    required_starters: Mapping[str, float],
+    *,
+    priced_supply: Mapping[str, int] | None = None,
+    value_by_key: Mapping[str, float] | None = None,
+    startable_floor: float = 1000.0,
+) -> dict[str, RevealedDemand]:
+    """Per-position rostership across the league's real rosters.
+
+    This is the measurement the ``rosterScarcity`` concept was waiting
+    for: how deep managers *actually* go, in this format, right now —
+    as opposed to how deep a lineup requirement says they must.
+
+    Caveats are structural, not bolted on: see :class:`RevealedDemand`.
+    With a 12-team league, report and read the spread, not just the
+    mean.
+    """
+    counts: dict[str, list[int]] = {pos: [] for pos in required_starters}
+    startable: dict[str, list[int]] = {pos: [] for pos in required_starters}
+    n_teams = 0
+    for team in teams:
+        players = team.get("players") or []
+        if not players:
+            continue
+        n_teams += 1
+        seen: dict[str, int] = {}
+        seen_startable: dict[str, int] = {}
+        for p in players:
+            base = normalize_base_position(str(p.get("position") or ""))
+            if base not in counts:
+                continue
+            seen[base] = seen.get(base, 0) + 1
+            value = 0.0
+            if value_by_key is not None:
+                key = str(p.get("canonicalName") or p.get("name") or "").strip().lower()
+                value = float(value_by_key.get(key) or 0.0)
+            else:
+                value = float(p.get("rosValue") or 0.0)
+            if value >= startable_floor:
+                seen_startable[base] = seen_startable.get(base, 0) + 1
+        for pos in counts:
+            counts[pos].append(seen.get(pos, 0))
+            startable[pos].append(seen_startable.get(pos, 0))
+
+    out: dict[str, RevealedDemand] = {}
+    for pos, series in counts.items():
+        if not series or not n_teams:
+            continue
+        total = sum(series)
+        supply = int((priced_supply or {}).get(pos, 0))
+        out[pos] = RevealedDemand(
+            position=pos,
+            required_starters=float(required_starters[pos]),
+            team_count=n_teams,
+            total_rostered=total,
+            per_team=total / n_teams,
+            per_team_sd=statistics.pstdev(series) if len(series) > 1 else 0.0,
+            per_team_min=min(series),
+            per_team_max=max(series),
+            startable_per_team=sum(startable[pos]) / n_teams,
+            priced_supply=supply,
+            share_of_supply=(total / supply) if supply > 0 else None,
+        )
+    return out
 
 
 def _safe_drop(top: float | None, bottom: float | None) -> float | None:

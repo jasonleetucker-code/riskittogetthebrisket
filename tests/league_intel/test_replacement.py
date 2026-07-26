@@ -261,6 +261,104 @@ class TestScarcityComponents:
         assert scar.elite_separation != scar.waiver_scarcity
 
 
+class TestRevealedDemand:
+    """Rostership measured from real rosters — the input rosterScarcity
+    was waiting for.  Evidence about DEMAND, not about value."""
+
+    REQ = {"QB": 1, "RB": 2, "TE": 2, "LB": 3}
+
+    @staticmethod
+    def _teams(te_each=5, n=6):
+        out = []
+        for t in range(n):
+            players = []
+            for pos, k in (("QB", 4), ("RB", 7), ("TE", te_each), ("LB", 6)):
+                for i in range(k):
+                    players.append(player(f"t{t}-{pos}{i}", pos, 5000 - i * 400))
+            out.append({"players": players})
+        return out
+
+    def test_counts_and_spread_reported(self):
+        from src.league_intel.replacement import measure_revealed_demand
+
+        d = measure_revealed_demand(self._teams(), self.REQ)
+        te = d["TE"]
+        assert te.per_team == pytest.approx(5.0)
+        assert te.team_count == 6
+        assert te.total_rostered == 30
+        assert te.per_team_min == te.per_team_max == 5
+        assert te.per_team_sd == pytest.approx(0.0)
+
+    def test_demand_ratio_is_rostered_over_required(self):
+        from src.league_intel.replacement import measure_revealed_demand
+
+        d = measure_revealed_demand(self._teams(), self.REQ)
+        assert d["TE"].demand_ratio == pytest.approx(2.5)  # 5 rostered / 2 required
+
+    def test_spread_is_visible_when_managers_differ(self):
+        """n=12-ish leagues: the spread matters as much as the mean."""
+        from src.league_intel.replacement import measure_revealed_demand
+
+        teams = self._teams(te_each=2, n=3) + self._teams(te_each=8, n=3)
+        d = measure_revealed_demand(teams, self.REQ)
+        assert d["TE"].per_team == pytest.approx(5.0)
+        assert d["TE"].per_team_sd > 2.5  # mean alone would hide this
+        assert (d["TE"].per_team_min, d["TE"].per_team_max) == (2, 8)
+
+    def test_supply_constraint_is_separated_from_demand(self):
+        """You cannot roster what does not exist — rostership is
+        jointly determined, and the flag says so."""
+        from src.league_intel.replacement import measure_revealed_demand
+
+        teams = self._teams()
+        tight = measure_revealed_demand(teams, self.REQ, priced_supply={"TE": 30})
+        loose = measure_revealed_demand(teams, self.REQ, priced_supply={"TE": 200})
+        assert tight["TE"].share_of_supply == pytest.approx(1.0)
+        assert tight["TE"].supply_constrained is True
+        assert loose["TE"].supply_constrained is False
+
+    def test_unknown_supply_is_none_not_zero(self):
+        from src.league_intel.replacement import measure_revealed_demand
+
+        d = measure_revealed_demand(self._teams(), self.REQ)
+        assert d["TE"].share_of_supply is None
+        assert d["TE"].supply_constrained is False
+
+    def test_startable_floor_separates_stashes_from_depth(self):
+        from src.league_intel.replacement import measure_revealed_demand
+
+        teams = [
+            {
+                "players": [
+                    player("a", "TE", 5000),
+                    player("b", "TE", 4000),
+                    player("c", "TE", 10),  # deep-bench dart throw
+                ]
+            }
+        ]
+        d = measure_revealed_demand(teams, {"TE": 2}, startable_floor=1000)
+        assert d["TE"].per_team == 3.0
+        assert d["TE"].startable_per_team == 2.0
+
+    def test_scale_mismatch_yields_zero_startable_not_a_crash(self):
+        """Documents the trap: a consensus-scale floor against
+        rosValue-scale inputs silently returns zero."""
+        from src.league_intel.replacement import measure_revealed_demand
+
+        teams = [{"players": [player("a", "TE", 80.0), player("b", "TE", 60.0)]}]
+        d = measure_revealed_demand(teams, {"TE": 2}, startable_floor=1000)
+        assert d["TE"].per_team == 2.0
+        assert d["TE"].startable_per_team == 0.0  # scale mismatch, not absence
+
+    def test_serializes(self):
+        from src.league_intel.replacement import measure_revealed_demand
+
+        d = measure_revealed_demand(self._teams(), self.REQ, priced_supply={"TE": 90})
+        out = d["TE"].to_dict()
+        assert out["position"] == "TE"
+        assert "demandRatio" in out and "supplyConstrained" in out
+
+
 class TestUnpricedStarterEdgeCase:
     """A started player with no ROS read must not define the floor."""
 
