@@ -1,4 +1,5 @@
-"""HTTP surface for the intel endpoints: auth gates, 202/409 refresh
+"""HTTP surface for the intel endpoints: auth gates, league scoping
+(partitioned snapshots + 503 data_not_ready), 202/409 refresh
 semantics, staleness stamping, and payload hygiene (no raw Sleeper
 league IDs)."""
 
@@ -16,6 +17,8 @@ import server
 from src.intel import service, store
 from tests.intel.conftest import DAY_MS, HOUR_MS
 
+LEAGUE_KEY = "dynasty_main"
+
 
 @pytest.fixture
 def authed(monkeypatch):
@@ -25,15 +28,20 @@ def authed(monkeypatch):
 
 @pytest.fixture
 def league_stub(monkeypatch):
-    cfg = SimpleNamespace(key="dynasty_main", sleeper_league_id="999", active=True)
+    cfg = SimpleNamespace(key=LEAGUE_KEY, sleeper_league_id="999", active=True)
     monkeypatch.setattr(server, "_resolve_league_for_request", lambda *a, **k: cfg)
     return cfg
 
 
-def _seed_snapshot(now_ms: int | None = None) -> None:
-    """Write a small snapshot through the store (respects the
-    monkeypatched path from ``intel_snapshot_path``)."""
+def _seed_snapshot(
+    now_ms: int | None = None,
+    league_key: str = LEAGUE_KEY,
+    asset_ids: tuple[str, str] = ("1234", "5678"),
+) -> None:
+    """Write a small snapshot into one league's partition (the store's
+    DATA_DIR is monkeypatched by ``intel_data_dir``)."""
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    add_asset, drop_asset = asset_ids
     state = store.default_state("2026")
     state["members"] = {
         "A": {
@@ -48,18 +56,18 @@ def _seed_snapshot(now_ms: int | None = None) -> None:
         "L1": {
             "name": "Alpha League",
             "memberOwnerIds": ["A"],
-            "holdings": {"A": ["1234"]},
+            "holdings": {"A": [add_asset]},
             "fetchState": {},
         },
         "L2": {"name": "Beta League", "memberOwnerIds": ["A"], "holdings": {}, "fetchState": {}},
     }
     state["events"] = [
         {
-            "eventId": "t1:A:add:1234",
+            "eventId": f"t1:A:add:{add_asset}",
             "txId": "t1",
             "leagueId": "L1",
             "ownerId": "A",
-            "assetId": "1234",
+            "assetId": add_asset,
             "assetType": "player",
             "action": "add",
             "txType": "waiver",
@@ -68,11 +76,11 @@ def _seed_snapshot(now_ms: int | None = None) -> None:
             "faabBid": 5,
         },
         {
-            "eventId": "t2:A:drop:5678",
+            "eventId": f"t2:A:drop:{drop_asset}",
             "txId": "t2",
             "leagueId": "L1",
             "ownerId": "A",
-            "assetId": "5678",
+            "assetId": drop_asset,
             "assetType": "player",
             "action": "drop",
             "txType": "free_agent",
@@ -81,17 +89,17 @@ def _seed_snapshot(now_ms: int | None = None) -> None:
             "faabBid": None,
         },
     ]
-    store.save_state(state, now_ms=now_ms)
+    store.save_state(state, league_key, now_ms=now_ms)
     service.invalidate_cache()
 
 
 class TestAuthGates:
-    def test_summary_requires_auth(self, intel_snapshot_path):
+    def test_summary_requires_auth(self, intel_data_dir):
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/summary")
         assert res.status_code == 401
 
-    def test_refresh_requires_auth_or_bearer(self, intel_snapshot_path, monkeypatch):
+    def test_refresh_requires_auth_or_bearer(self, intel_data_dir, monkeypatch):
         monkeypatch.setattr(server, "INTEL_REFRESH_TOKEN", "sekrit")
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.post("/api/intel/refresh")
@@ -102,7 +110,7 @@ class TestAuthGates:
             )
             assert res.status_code == 401
 
-    def test_status_accepts_bearer_token(self, intel_snapshot_path, monkeypatch):
+    def test_status_accepts_bearer_token(self, intel_data_dir, monkeypatch):
         monkeypatch.setattr(server, "INTEL_REFRESH_TOKEN", "sekrit")
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get(
@@ -113,8 +121,57 @@ class TestAuthGates:
         assert res.headers["cache-control"] == "no-store"
 
 
+class TestLeagueScoping:
+    def test_reads_go_through_the_league_resolver(self, intel_data_dir, authed):
+        # No league_stub here → the REAL resolver runs against the
+        # test env's empty registry → the standard 404.  Proves the
+        # endpoints actually resolve the request's league.
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/summary")
+        assert res.status_code == 404
+        assert res.json()["error"] == "no_leagues_configured"
+
+    def test_no_snapshot_for_league_returns_503_data_not_ready(
+        self, intel_data_dir, authed, league_stub
+    ):
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            for url in (
+                "/api/intel/summary",
+                "/api/intel/player?playerId=1234",
+                "/api/intel/member/A",
+            ):
+                res = c.get(url)
+                assert res.status_code == 503, url
+                body = res.json()
+                assert body["error"] == "data_not_ready"
+                assert body["leagueKey"] == LEAGUE_KEY
+
+    def test_summary_serves_the_requested_leagues_partition(
+        self, intel_data_dir, authed, league_stub
+    ):
+        # Two leagues, two disjoint snapshots.  The resolved league's
+        # partition is served — switching leagues switches data, and
+        # neither refresh clobbered the other (distinct files).
+        _seed_snapshot(league_key="dynasty_main", asset_ids=("1111", "2222"))
+        _seed_snapshot(league_key="dynasty_new", asset_ids=("3333", "4444"))
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            league_stub.key = "dynasty_main"
+            res_main = c.get("/api/intel/summary")
+            league_stub.key = "dynasty_new"
+            res_new = c.get("/api/intel/summary")
+        assert res_main.status_code == res_new.status_code == 200
+        main_assets = {a["assetId"] for a in res_main.json()["assets"]}
+        new_assets = {a["assetId"] for a in res_new.json()["assets"]}
+        assert main_assets == {"1111", "2222"}
+        assert new_assets == {"3333", "4444"}
+        assert res_main.json()["leagueKey"] == "dynasty_main"
+        assert res_new.json()["leagueKey"] == "dynasty_new"
+
+
 class TestSummary:
-    def test_summary_stamps_staleness_and_sorts(self, intel_snapshot_path, authed, monkeypatch):
+    def test_summary_stamps_staleness_and_sorts(
+        self, intel_data_dir, authed, league_stub, monkeypatch
+    ):
         two_hours_ago = int(time.time() * 1000) - 2 * HOUR_MS
         _seed_snapshot(now_ms=two_hours_ago)
         with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -129,6 +186,7 @@ class TestSummary:
             res = c.get("/api/intel/summary")
         assert res.status_code == 200
         body = res.json()
+        assert body["leagueKey"] == LEAGUE_KEY
         assert body["staleHours"] == pytest.approx(2.0, abs=0.2)
         assert body["memberCount"] == 1
         assert body["leagueCount"] == 2
@@ -141,23 +199,16 @@ class TestSummary:
         # No raw Sleeper league IDs anywhere in the payload.
         assert "L1" not in json.dumps(body)
 
-    def test_summary_with_no_snapshot_is_empty_not_error(self, intel_snapshot_path, authed):
-        with TestClient(server.app, raise_server_exceptions=True) as c:
-            res = c.get("/api/intel/summary")
-        assert res.status_code == 200
-        body = res.json()
-        assert body["assets"] == []
-        assert body["staleHours"] is None
-
 
 class TestPlayerAndMember:
-    def test_player_intel_by_id(self, intel_snapshot_path, authed):
+    def test_player_intel_by_id(self, intel_data_dir, authed, league_stub):
         _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/player", params={"playerId": "1234"})
         assert res.status_code == 200
         body = res.json()
         assert body["assetId"] == "1234"
+        assert body["leagueKey"] == LEAGUE_KEY
         assert body["staleHours"] is not None
         exposure = body["memberExposure"]
         assert exposure[0]["ownerId"] == "A"
@@ -165,31 +216,33 @@ class TestPlayerAndMember:
         assert exposure[0]["heldLeagueCount"] == 1
         assert "L1" not in json.dumps(body)
 
-    def test_player_intel_unknown_asset_404(self, intel_snapshot_path, authed):
+    def test_player_intel_unknown_asset_404(self, intel_data_dir, authed, league_stub):
         _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/player", params={"playerId": "does-not-exist"})
         assert res.status_code == 404
 
-    def test_player_intel_missing_params_400(self, intel_snapshot_path, authed):
+    def test_player_intel_missing_params_400(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/player")
         assert res.status_code == 400
 
-    def test_member_payload(self, intel_snapshot_path, authed):
+    def test_member_payload(self, intel_data_dir, authed, league_stub):
         _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/member/A")
         assert res.status_code == 200
         body = res.json()
         assert body["displayName"] == "Alice"
+        assert body["leagueKey"] == LEAGUE_KEY
         assert body["leagueCount"] == 2
         assert body["leagueNames"] == ["Alpha League", "Beta League"]
         assert body["truncated"] is False
         assert body["eventCount30d"] == 2
         assert "L1" not in json.dumps(body)
 
-    def test_member_unknown_404(self, intel_snapshot_path, authed):
+    def test_member_unknown_404(self, intel_data_dir, authed, league_stub):
         _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/member/nobody")
@@ -198,12 +251,14 @@ class TestPlayerAndMember:
 
 class TestRefreshLifecycle:
     def test_refresh_202_then_409_while_running(
-        self, intel_snapshot_path, authed, league_stub, monkeypatch
+        self, intel_data_dir, authed, league_stub, monkeypatch
     ):
         gate = threading.Event()
         started = threading.Event()
+        seen_kwargs = {}
 
         def slow_refresh(**kwargs):
+            seen_kwargs.update(kwargs)
             started.set()
             gate.wait(timeout=10)
             return {"ok": True, "callsUsed": 0}
@@ -234,9 +289,11 @@ class TestRefreshLifecycle:
         assert final["isRunning"] is False
         assert final["lastResult"] == {"ok": True, "callsUsed": 0}
         assert final["lastError"] is None
+        # The resolved league was threaded into the refresh worker.
+        assert seen_kwargs["league_key"] == LEAGUE_KEY
 
     def test_refresh_error_surfaces_in_status(
-        self, intel_snapshot_path, authed, league_stub, monkeypatch
+        self, intel_data_dir, authed, league_stub, monkeypatch
     ):
         def broken_refresh(**kwargs):
             raise RuntimeError("sleeper exploded")
@@ -253,17 +310,19 @@ class TestRefreshLifecycle:
         assert status["isRunning"] is False
         assert "sleeper exploded" in status["lastError"]
 
-    def test_refresh_status_stamps_snapshot_staleness(self, intel_snapshot_path, authed):
+    def test_refresh_status_stamps_snapshot_staleness(self, intel_data_dir, authed, league_stub):
         two_hours_ago = int(time.time() * 1000) - 2 * HOUR_MS
         _seed_snapshot(now_ms=two_hours_ago)
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/refresh/status")
         assert res.status_code == 200
-        assert res.json()["snapshotStaleHours"] == pytest.approx(2.0, abs=0.2)
+        body = res.json()
+        assert body["snapshotStaleHours"] == pytest.approx(2.0, abs=0.2)
+        assert body["snapshotLeagueKey"] == LEAGUE_KEY
 
 
 class TestSyncRefreshLock:
-    def test_concurrent_sync_refresh_rejected(self, intel_snapshot_path, monkeypatch):
+    def test_concurrent_sync_refresh_rejected(self, intel_data_dir, monkeypatch):
         gate = threading.Event()
         entered = threading.Event()
 

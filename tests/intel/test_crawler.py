@@ -221,6 +221,74 @@ class TestFailedMemberIsolation:
         assert result.state["events"] == []
 
 
+class TestReconciliation:
+    def _two_member_state(self):
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [make_league("LA")]
+        responses[leagues_url("B", SEASON)] = [make_league("LB")]
+        responses[rosters_url("LA")] = [make_roster(1, "A", players=["pa"])]
+        responses[rosters_url("LB")] = [make_roster(1, "B", players=["pb"])]
+        responses[tx_url("LA", 1)] = [make_waiver_tx("ta", NOW_MS - DAY_MS, 1, add_player="xa")]
+        responses[tx_url("LB", 1)] = [make_waiver_tx("tb", NOW_MS - DAY_MS, 1, add_player="xb")]
+        result, _ = _crawl(["A", "B"], responses)
+        return result.state, responses
+
+    def test_departed_member_is_dropped_with_their_leagues_and_events(self):
+        state, responses = self._two_member_state()
+        assert set(state["members"]) == {"A", "B"}
+
+        # B left the seed league → pool is now just A.
+        result2, _ = _crawl(["A"], responses, prev_state=state)
+        assert set(result2.state["members"]) == {"A"}
+        assert set(result2.state["leagues"]) == {"LA"}
+        assert {e["assetId"] for e in result2.state["events"]} == {"xa"}
+
+    def test_league_a_member_left_is_dropped(self):
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [make_league("L1"), make_league("L2")]
+        responses[rosters_url("L1")] = [make_roster(1, "A", players=["p1"])]
+        responses[rosters_url("L2")] = [make_roster(1, "A", players=["p2"])]
+        responses[tx_url("L1", 1)] = [make_waiver_tx("t1", NOW_MS - DAY_MS, 1, add_player="x1")]
+        responses[tx_url("L2", 1)] = [make_waiver_tx("t2", NOW_MS - DAY_MS, 1, add_player="x2")]
+        result1, _ = _crawl(["A"], responses)
+        assert set(result1.state["leagues"]) == {"L1", "L2"}
+
+        # A left L2: their fresh league list only has L1.
+        responses[leagues_url("A", SEASON)] = [make_league("L1")]
+        result2, _ = _crawl(["A"], responses, prev_state=result1.state)
+        assert set(result2.state["leagues"]) == {"L1"}
+        assert {e["assetId"] for e in result2.state["events"]} == {"x1"}
+        assert result2.state["leagues"]["L1"]["memberOwnerIds"] == ["A"]
+
+    def test_failed_member_fetch_never_triggers_removal(self):
+        state, responses = self._two_member_state()
+
+        # B's league-list call fails this run — preserve-on-failure:
+        # B, LB, and B's events all survive.
+        del responses[leagues_url("B", SEASON)]
+        result2, _ = _crawl(["A", "B"], responses, prev_state=state)
+        assert result2.failed_member_ids == ["B"]
+        assert set(result2.state["members"]) == {"A", "B"}
+        assert set(result2.state["leagues"]) == {"LA", "LB"}
+        assert {e["assetId"] for e in result2.state["events"]} == {"xa", "xb"}
+        assert result2.state["leagues"]["LB"]["holdings"] == {"B": ["pb"]}
+
+    def test_member_owner_ids_track_current_membership(self):
+        shared = make_league("L1")
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [shared]
+        responses[leagues_url("B", SEASON)] = [shared]
+        responses[rosters_url("L1")] = [make_roster(1, "A"), make_roster(2, "B")]
+        responses[tx_url("L1", 1)] = []
+        result1, _ = _crawl(["A", "B"], responses)
+        assert result1.state["leagues"]["L1"]["memberOwnerIds"] == ["A", "B"]
+
+        # B leaves the shared league (still in the pool).
+        responses[leagues_url("B", SEASON)] = []
+        result2, _ = _crawl(["A", "B"], responses, prev_state=result1.state)
+        assert result2.state["leagues"]["L1"]["memberOwnerIds"] == ["A"]
+
+
 class TestSeedCollection:
     def test_collect_seed_members_includes_co_owners_and_skips_orphans(self):
         responses = {

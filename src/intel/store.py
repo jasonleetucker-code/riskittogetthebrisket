@@ -1,10 +1,16 @@
 """Persistence layer for the Sleeper intel snapshot.
 
 Writes the crawl state (members, leagues, events, cursor) to
-``data/intel/snapshot.json``.  Mirrors the atomic-write pattern from
-``src/public_league/snapshot_store.py::_atomic_write_json`` — write to
-a uniquely-named temp file in the same directory, then ``Path.replace``
-onto the target so a reader never observes a half-written file.
+``data/intel/snapshot_<leagueKey>.json``.  Mirrors the atomic-write
+pattern from ``src/public_league/snapshot_store.py::_atomic_write_json``
+— write to a uniquely-named temp file in the same directory, then
+``Path.replace`` onto the target so a reader never observes a
+half-written file.
+
+Snapshots are PARTITIONED BY LEAGUE KEY: intel is roster-scoped, and
+per CLAUDE.md roster-scoped data is league-scoped — each active
+league's member pool gets its own snapshot file so refreshing one
+league can never clobber (or leak into) another's.
 
 Guarantees:
     * ``load_state`` NEVER raises on a missing or corrupt snapshot —
@@ -20,6 +26,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,10 +36,17 @@ log = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = REPO_ROOT / "data" / "intel"
-SNAPSHOT_PATH = DATA_DIR / "snapshot.json"
 
+DEFAULT_LEAGUE_KEY = "default"
 STATE_VERSION = 1
 EVENT_RETENTION_DAYS = 45
+
+
+def snapshot_path(league_key: str = DEFAULT_LEAGUE_KEY) -> Path:
+    """Per-league snapshot file.  The key is sanitised so a registry
+    key can never traverse outside ``DATA_DIR``."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(league_key or DEFAULT_LEAGUE_KEY))
+    return DATA_DIR / f"snapshot_{safe}.json"
 
 
 def _utc_now_ms() -> int:
@@ -64,10 +78,14 @@ def _atomic_write_json(path: Path, payload: Any) -> None:
     tmp.replace(path)
 
 
-def load_state(path: Path | None = None) -> dict[str, Any]:
-    """Load the persisted snapshot.  Returns a fresh empty state when
-    the file is missing, unreadable, or corrupt — never raises."""
-    target = path or SNAPSHOT_PATH
+def load_state(
+    league_key: str = DEFAULT_LEAGUE_KEY,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Load the persisted snapshot for one league.  Returns a fresh
+    empty state when the file is missing, unreadable, or corrupt —
+    never raises."""
+    target = path or snapshot_path(league_key)
     try:
         if not target.exists():
             return default_state()
@@ -116,14 +134,16 @@ def prune_events(state: dict[str, Any], now_ms: int | None = None) -> int:
 
 def save_state(
     state: dict[str, Any],
+    league_key: str = DEFAULT_LEAGUE_KEY,
     path: Path | None = None,
     now_ms: int | None = None,
 ) -> None:
-    """Prune old events, stamp ``generatedAt``, atomically persist."""
+    """Prune old events, stamp ``generatedAt``, atomically persist to
+    the league's partition."""
     prune_events(state, now_ms=now_ms)
     now = now_ms if now_ms is not None else _utc_now_ms()
     state["generatedAt"] = datetime.fromtimestamp(now / 1000, tz=timezone.utc).isoformat()
-    _atomic_write_json(path or SNAPSHOT_PATH, state)
+    _atomic_write_json(path or snapshot_path(league_key), state)
 
 
 def merge_member_results(

@@ -50,6 +50,34 @@ class TestAtomicWrite:
         assert loaded["season"] == "2026"
 
 
+class TestLeaguePartitioning:
+    def test_snapshot_path_partitions_by_league_key(self, intel_data_dir):
+        pa = store.snapshot_path("dynasty_main")
+        pb = store.snapshot_path("dynasty_new")
+        assert pa != pb
+        assert pa.name == "snapshot_dynasty_main.json"
+        assert pb.name == "snapshot_dynasty_new.json"
+        # Hostile keys are sanitised — never traverse out of DATA_DIR.
+        assert store.snapshot_path("../evil/key").parent == intel_data_dir
+
+    def test_states_isolated_between_leagues(self, intel_data_dir):
+        state_a = store.default_state("2026")
+        state_a["members"] = {"A": {"leagues": ["LA"]}}
+        state_b = store.default_state("2026")
+        state_b["members"] = {"Z": {"leagues": ["LZ"]}}
+        store.save_state(state_a, "dynasty_main", now_ms=NOW_MS)
+        store.save_state(state_b, "dynasty_new", now_ms=NOW_MS)
+
+        assert set(store.load_state("dynasty_main")["members"]) == {"A"}
+        assert set(store.load_state("dynasty_new")["members"]) == {"Z"}
+
+        # Re-saving one league never clobbers the other's partition.
+        state_a["members"] = {"A2": {"leagues": ["LA2"]}}
+        store.save_state(state_a, "dynasty_main", now_ms=NOW_MS)
+        assert set(store.load_state("dynasty_main")["members"]) == {"A2"}
+        assert set(store.load_state("dynasty_new")["members"]) == {"Z"}
+
+
 class TestCorruptLoadRecovery:
     def test_missing_snapshot_returns_empty_state(self, intel_snapshot_path):
         assert not intel_snapshot_path.exists()

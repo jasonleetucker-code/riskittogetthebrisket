@@ -1848,8 +1848,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "dynasty_nerds_schema_regression",
                         level="error",
                         message=(
-                            "Dynasty Nerds fetch exit=2 "
-                            "(DR_DATA shape changed or rows below floor)"
+                            "Dynasty Nerds fetch exit=2 (DR_DATA shape changed or rows below floor)"
                         ),
                         exit_code=rc,
                     )
@@ -4888,7 +4887,7 @@ async def post_angle_packages(request: Request):
             status_code=400,
             content={
                 "error": (
-                    f"Request body must include 'ownerId' and a non-empty " f"{names_key!r} list."
+                    f"Request body must include 'ownerId' and a non-empty {names_key!r} list."
                 )
             },
         )
@@ -6593,7 +6592,7 @@ async def get_sleeper_draft_picks(
             content={
                 "error": "no_active_draft",
                 "message": (
-                    "No active draft for this league, or Sleeper is " "unreachable right now."
+                    "No active draft for this league, or Sleeper is unreachable right now."
                 ),
                 "leagueKey": league_cfg.key,
             },
@@ -9446,9 +9445,7 @@ async def get_league_article(season: str, week: int, matchup_id: int, mode: str)
             status_code=404,
             content={
                 "error": "not_found",
-                "message": (
-                    f"No {mode} article on disk for {season} W{week} " f"matchup {matchup_id}"
-                ),
+                "message": (f"No {mode} article on disk for {season} W{week} matchup {matchup_id}"),
             },
         )
     return JSONResponse(
@@ -9824,6 +9821,12 @@ if STATIC_DIR.exists():
 # pipeline logic lives in ``src/intel/``; this section is only the
 # HTTP surface.
 #
+# Intel is roster-scoped, therefore LEAGUE-scoped (CLAUDE.md): every
+# read resolves the requested league via _resolve_league_for_request
+# and serves that league's snapshot partition
+# (data/intel/snapshot_<leagueKey>.json).  A league with no snapshot
+# yet gets the standard 503 data_not_ready.
+#
 # Endpoints (all PRIVATE — no public cache headers; raw Sleeper
 # league IDs are never exposed in responses):
 #   GET  /api/intel/summary          — asset board sorted by trendScore
@@ -9847,13 +9850,9 @@ _SELF_AUTHED_API_EXACT = _SELF_AUTHED_API_EXACT | {
     "/api/intel/refresh/status",
 }
 
-INTEL_REFRESH_TOKEN = (
-    os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALERT_CRON_TOKEN
-)
+INTEL_REFRESH_TOKEN = os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALERT_CRON_TOKEN
 
-_INTEL_PRIVATE_CACHE_HEADERS = {
-    "Cache-Control": "private, max-age=60, stale-while-revalidate=300"
-}
+_INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-while-revalidate=300"}
 
 
 def _intel_bearer_auth_ok(request: Request) -> bool:
@@ -9891,10 +9890,36 @@ def _intel_name_to_player_id(name: str) -> str | None:
     return None
 
 
+def _intel_not_ready_response(league_key: str) -> JSONResponse:
+    """503 ``data_not_ready`` — the requested league has no intel
+    snapshot yet (no refresh has completed for it).  Same convention
+    as the other league-scoped endpoints."""
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "data_not_ready",
+            "message": (
+                f"No intel snapshot for league {league_key!r} yet — "
+                "trigger POST /api/intel/refresh or wait for the daily cron."
+            ),
+            "leagueKey": league_key,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/intel/summary")
 async def get_intel_summary(request: Request):
     """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
-    windows, sorted by trendScore.  Stamps snapshot staleness."""
+    windows, sorted by trendScore.  League-scoped (intel is
+    roster-scoped → league-scoped): resolves the requested league and
+    reads that league's snapshot partition.  Stamps staleness."""
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
     try:
         limit = int(request.query_params.get("limit") or 100)
     except (TypeError, ValueError):
@@ -9902,6 +9927,7 @@ async def get_intel_summary(request: Request):
     limit = max(1, min(500, limit))
     payload = await run_in_threadpool(
         _intel_service.build_summary_payload,
+        league_cfg.key,
         limit=limit,
         id_to_player=_intel_id_to_player(),
     )
@@ -9912,7 +9938,13 @@ async def get_intel_summary(request: Request):
 async def get_intel_player(request: Request):
     """Per-asset intel drill-down.  ``?playerId=`` (Sleeper id or
     ``pick:<season>:<round>``) preferred; ``?name=`` resolves through
-    the loaded contract's id map."""
+    the loaded contract's id map.  League-scoped like the summary."""
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
     asset_id = str(request.query_params.get("playerId") or "").strip()
     if not asset_id:
         name = str(request.query_params.get("name") or "").strip()
@@ -9931,31 +9963,48 @@ async def get_intel_player(request: Request):
             )
     payload = await run_in_threadpool(
         _intel_service.build_player_payload,
+        league_cfg.key,
         asset_id,
         id_to_player=_intel_id_to_player(),
     )
     if payload is None:
         return JSONResponse(
             status_code=404,
-            content={"error": "no_intel", "message": "No intel recorded for this asset"},
+            content={
+                "error": "no_intel",
+                "message": "No intel recorded for this asset",
+                "leagueKey": league_cfg.key,
+            },
             headers={"Cache-Control": "no-store"},
         )
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
 @app.get("/api/intel/member/{owner_id}")
-async def get_intel_member(owner_id: str):
+async def get_intel_member(owner_id: str, request: Request):
     """One league-mate's cross-league profile: league count/names,
-    truncation flag, and their recent per-asset activity."""
+    truncation flag, and their recent per-asset activity.
+    League-scoped like the summary."""
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
     payload = await run_in_threadpool(
         _intel_service.build_member_payload,
+        league_cfg.key,
         owner_id,
         id_to_player=_intel_id_to_player(),
     )
     if payload is None:
         return JSONResponse(
             status_code=404,
-            content={"error": "unknown_member", "message": f"No intel for owner {owner_id!r}"},
+            content={
+                "error": "unknown_member",
+                "message": f"No intel for owner {owner_id!r}",
+                "leagueKey": league_cfg.key,
+            },
             headers={"Cache-Control": "no-store"},
         )
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
@@ -9979,6 +10028,7 @@ async def post_intel_refresh(request: Request):
         return err.json_response()
     try:
         status = _intel_service.start_refresh_async(
+            league_key=league_cfg.key,
             sleeper_league_id=league_cfg.sleeper_league_id,
         )
     except _intel_service.RefreshAlreadyRunning:
@@ -10004,7 +10054,8 @@ async def post_intel_refresh(request: Request):
 
 @app.get("/api/intel/refresh/status")
 async def get_intel_refresh_status(request: Request):
-    """Crawl status + snapshot staleness.  Session OR bearer auth so
+    """Crawl status (process-global — one run at a time) + the
+    resolved league's snapshot staleness.  Session OR bearer auth so
     the cron workflow can poll it."""
     if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
         return JSONResponse(
@@ -10012,8 +10063,16 @@ async def get_intel_refresh_status(request: Request):
             content={"error": "auth_required", "message": "Sign-in or bearer token required."},
             headers={"Cache-Control": "no-store"},
         )
+    # League resolution here only scopes the staleness stamp — the
+    # run status itself is global, so a resolution failure (e.g. a
+    # bare-bones dev box with no registry) degrades to status-only.
+    league_key = None
+    try:
+        league_key = _resolve_league_for_request(request).key
+    except LeagueResolutionError:
+        league_key = None
     return JSONResponse(
-        content=_intel_service.refresh_status(),
+        content=_intel_service.refresh_status(league_key),
         headers={"Cache-Control": "no-store"},
     )
 

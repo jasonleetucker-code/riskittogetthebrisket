@@ -37,10 +37,11 @@ _STATUS: dict[str, Any] = {
     "finishedAt": None,
     "lastError": None,
     "lastResult": None,
+    "leagueKey": None,
 }
 
-# In-process snapshot cache keyed on file mtime.
-_SNAPSHOT_CACHE: dict[str, Any] = {"state": None, "mtime": None}
+# In-process snapshot cache, PER LEAGUE KEY, keyed on file mtime.
+_SNAPSHOT_CACHE: dict[str, dict[str, Any]] = {}
 _SNAPSHOT_CACHE_LOCK = threading.Lock()
 
 
@@ -53,43 +54,52 @@ def _set_status(**fields: Any) -> None:
         _STATUS.update(fields)
 
 
-def refresh_status() -> dict[str, Any]:
+def refresh_status(league_key: str | None = None) -> dict[str, Any]:
+    """Run status (process-global — one crawl at a time) plus, when a
+    ``league_key`` is given, that league's snapshot staleness."""
     with _STATUS_LOCK:
         status = dict(_STATUS)
-    state = load_state_cached()
-    status["snapshotGeneratedAt"] = state.get("generatedAt")
-    status["snapshotStaleHours"] = snapshot_stale_hours(state)
+    if league_key:
+        state = load_state_cached(league_key)
+        status["snapshotLeagueKey"] = league_key
+        status["snapshotGeneratedAt"] = state.get("generatedAt")
+        status["snapshotStaleHours"] = snapshot_stale_hours(state)
     return status
 
 
 def invalidate_cache() -> None:
     with _SNAPSHOT_CACHE_LOCK:
-        _SNAPSHOT_CACHE["state"] = None
-        _SNAPSHOT_CACHE["mtime"] = None
+        _SNAPSHOT_CACHE.clear()
 
 
-def load_state_cached() -> dict[str, Any]:
-    """Load the snapshot, reusing the in-process copy until the file
-    changes on disk.  Missing/corrupt snapshots yield an empty state
-    (never raise) — see ``store.load_state``."""
-    path = store.SNAPSHOT_PATH
+def load_state_cached(league_key: str = store.DEFAULT_LEAGUE_KEY) -> dict[str, Any]:
+    """Load one league's snapshot, reusing the in-process copy until
+    its file changes on disk.  Missing/corrupt snapshots yield an
+    empty state (never raise) — see ``store.load_state``."""
+    league_key = str(league_key or store.DEFAULT_LEAGUE_KEY)
+    path = store.snapshot_path(league_key)
     try:
         mtime = path.stat().st_mtime
     except OSError:
         mtime = None
     with _SNAPSHOT_CACHE_LOCK:
-        if _SNAPSHOT_CACHE["state"] is not None and _SNAPSHOT_CACHE["mtime"] == mtime:
-            return _SNAPSHOT_CACHE["state"]
-    state = store.load_state()
+        cached = _SNAPSHOT_CACHE.get(league_key)
+        if cached is not None and cached["mtime"] == mtime:
+            return cached["state"]
+    state = store.load_state(league_key)
     with _SNAPSHOT_CACHE_LOCK:
-        _SNAPSHOT_CACHE["state"] = state
-        _SNAPSHOT_CACHE["mtime"] = mtime
+        _SNAPSHOT_CACHE[league_key] = {"state": state, "mtime": mtime}
     return state
 
 
-def snapshot_stale_hours(state: dict[str, Any] | None = None) -> float | None:
+def snapshot_ready(league_key: str) -> bool:
+    """True when a persisted snapshot exists for this league (i.e. at
+    least one refresh has completed for it)."""
+    return bool(load_state_cached(league_key).get("generatedAt"))
+
+
+def snapshot_stale_hours(state: dict[str, Any]) -> float | None:
     """Snapshot age in hours, or None when no snapshot exists yet."""
-    state = state if state is not None else load_state_cached()
     generated = state.get("generatedAt")
     if not generated:
         return None
@@ -119,24 +129,30 @@ def refresh_intel(
     member_ids: list[str] | None = None,
     season: str | None = None,
     *,
+    league_key: str = store.DEFAULT_LEAGUE_KEY,
     sleeper_league_id: str | None = None,
     budget: int = crawler.DEFAULT_BUDGET,
     sleep_s: float = crawler.DEFAULT_SLEEP_S,
     http_get: crawler.HttpGet | None = None,
 ) -> dict[str, Any]:
-    """Run one refresh: seed → crawl → merge → persist.
+    """Run one refresh for ONE league's member pool: seed → crawl →
+    merge → persist into that league's snapshot partition.
 
-    Rejects concurrent runs via a non-blocking process lock
-    (``RefreshAlreadyRunning``).  Synchronous — callers that must not
-    block (the API endpoint) use ``start_refresh_async``.
+    Rejects concurrent runs via a non-blocking process lock — one
+    crawl at a time regardless of league, so two leagues can never
+    double Sleeper load (``RefreshAlreadyRunning``).  Synchronous —
+    callers that must not block (the API endpoint) use
+    ``start_refresh_async``.
     """
+    league_key = str(league_key or store.DEFAULT_LEAGUE_KEY)
     if not _REFRESH_LOCK.acquire(blocking=False):
         raise RefreshAlreadyRunning("intel refresh already in progress")
     try:
-        _set_status(isRunning=True, startedAt=_utc_now_iso(), lastError=None)
+        _set_status(isRunning=True, startedAt=_utc_now_iso(), lastError=None, leagueKey=league_key)
         result = _refresh_locked(
             member_ids=member_ids,
             season=season,
+            league_key=league_key,
             sleeper_league_id=sleeper_league_id,
             budget=budget,
             sleep_s=sleep_s,
@@ -181,13 +197,14 @@ def start_refresh_async(**kwargs: Any) -> dict[str, Any]:
 def _refresh_locked(
     member_ids: list[str] | None,
     season: str | None,
+    league_key: str,
     sleeper_league_id: str | None,
     budget: int,
     sleep_s: float,
     http_get: crawler.HttpGet | None,
 ) -> dict[str, Any]:
     started = time.time()
-    prev_state = store.load_state()
+    prev_state = store.load_state(league_key)
 
     member_names: dict[str, str] = dict(prev_state.get("memberNames") or {})
     seeded = [str(m) for m in (member_ids or []) if str(m or "").strip()]
@@ -210,13 +227,17 @@ def _refresh_locked(
         http_get=http_get,
     )
     merged = store.merge_member_results(prev_state, result.state, result.failed_member_ids)
-    merged["memberNames"] = member_names
-    store.save_state(merged)
+    # Names follow the pool: drop departed members' names alongside
+    # the crawler's member reconciliation.
+    pool = set(seeded)
+    merged["memberNames"] = {oid: n for oid, n in member_names.items() if oid in pool}
+    store.save_state(merged, league_key)
     invalidate_cache()
 
     summary = {
         "finishedAt": _utc_now_iso(),
         "durationSeconds": round(time.time() - started, 1),
+        "leagueKey": league_key,
         "callsUsed": result.calls_used,
         "budgetExhausted": result.budget_exhausted,
         "completed": result.completed,
@@ -266,10 +287,11 @@ def _serialize_asset(entry: dict[str, Any], id_to_player: dict[str, str] | None)
 
 
 def build_summary_payload(
+    league_key: str,
     limit: int = 100,
     id_to_player: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    state = load_state_cached()
+    state = load_state_cached(league_key)
     now = datetime.now(timezone.utc)
     holdings = aggregate.holdings_from_state(state)
     summaries = aggregate.build_asset_summary(state.get("events"), now, holdings=holdings)
@@ -281,6 +303,7 @@ def build_summary_payload(
     active.sort(key=lambda s: (-s["trendScore"], -(s["lastEventTs"] or 0)))
     members = state.get("members") or {}
     return {
+        "leagueKey": league_key,
         "generatedAt": state.get("generatedAt"),
         "staleHours": snapshot_stale_hours(state),
         "season": state.get("season") or None,
@@ -295,12 +318,13 @@ def build_summary_payload(
 
 
 def build_player_payload(
+    league_key: str,
     asset_id: str,
     id_to_player: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Per-asset intel: window aggregates + member exposure.  Returns
     None when the snapshot has no trace of the asset at all."""
-    state = load_state_cached()
+    state = load_state_cached(league_key)
     now = datetime.now(timezone.utc)
     asset_id = str(asset_id)
     holdings = aggregate.holdings_from_state(state)
@@ -335,6 +359,7 @@ def build_player_payload(
             "lastEventTs": None,
         }
     payload = _serialize_asset(entry, id_to_player)
+    payload["leagueKey"] = league_key
     payload["memberExposure"] = exposure_out
     payload["holderCount"] = sum(1 for m in exposure_out if m["heldLeagueCount"] > 0)
     payload["heldLeagueTotal"] = sum(m["heldLeagueCount"] for m in exposure_out)
@@ -344,12 +369,13 @@ def build_player_payload(
 
 
 def build_member_payload(
+    league_key: str,
     owner_id: str,
     id_to_player: dict[str, str] | None = None,
     limit: int = 50,
 ) -> dict[str, Any] | None:
     """One pool member's cross-league profile + recent activity."""
-    state = load_state_cached()
+    state = load_state_cached(league_key)
     owner_id = str(owner_id)
     members = state.get("members") or {}
     entry = members.get(owner_id)
@@ -364,6 +390,7 @@ def build_member_payload(
             league_names.append(str(league["name"]))
     member_names = state.get("memberNames") or {}
     return {
+        "leagueKey": league_key,
         "ownerId": owner_id,
         "displayName": str(member_names.get(owner_id) or "") or None,
         "leagueCount": len(entry.get("leagues") or []),

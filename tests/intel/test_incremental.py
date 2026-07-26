@@ -137,6 +137,60 @@ class TestBackfillWindow:
         assert tx_calls == [tx_url("L1", 10)]  # stopped after the stale week
         assert result.state["events"] == []  # >30d events filtered
 
+    def test_backfill_week_failure_is_not_stamped_and_retries(self):
+        # Week 2: the current week fetches fine, but the week-1
+        # backfill call fails transiently (None).  Stamping
+        # ``backfilled: True`` here would PERMANENTLY lose week 1's
+        # activity — so the league must stay un-backfilled and land
+        # in the retry cursor.
+        wk2_tx = make_waiver_tx("w2tx", NOW_MS - DAY_MS, 1, add_player="p2")
+        responses = {
+            state_url(): {"week": 2, "season_type": "regular", "league_season": SEASON},
+            leagues_url("A", SEASON): [make_league("L1")],
+            rosters_url("L1"): [make_roster(1, "A")],
+            tx_url("L1", 2): [wk2_tx],
+            # tx_url("L1", 1) intentionally missing → None (failure)
+        }
+        result1 = _crawl(responses)
+
+        # Clean weeks were still ingested; fetchState did NOT advance.
+        assert {e["assetId"] for e in result1.state["events"]} == {"p2"}
+        assert result1.state["leagues"]["L1"]["fetchState"] == {}
+        assert result1.state["leagues"]["L1"]["lastError"]
+        assert result1.completed is False
+        assert result1.state["cursor"]["pendingLeagues"] == ["L1"]
+        # A dirty fetch is NOT budget exhaustion.
+        assert result1.budget_exhausted is False
+
+        # Next run: week 1 responds — backfill completes, its event
+        # is ingested, and the week-2 refetch doesn't duplicate.
+        wk1_tx = make_waiver_tx("w1tx", NOW_MS - 2 * DAY_MS, 1, add_player="p1")
+        responses[tx_url("L1", 1)] = [wk1_tx]
+        result2 = _crawl(responses, prev_state=result1.state)
+        assert {e["assetId"] for e in result2.state["events"]} == {"p1", "p2"}
+        assert result2.state["leagues"]["L1"]["fetchState"]["backfilled"] is True
+        assert result2.state["cursor"] is None
+        assert result2.completed is True
+
+    def test_rosters_fetch_failure_retries_league(self):
+        responses = {
+            state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
+            leagues_url("A", SEASON): [make_league("L1")],
+            # rosters_url("L1") missing → None; no prior owner map →
+            # transactions are skipped entirely.
+            tx_url("L1", 1): [make_waiver_tx("t1", NOW_MS - DAY_MS, 1, add_player="p1")],
+        }
+        result = _crawl(responses)
+        assert result.state["events"] == []
+        assert result.state["cursor"]["pendingLeagues"] == ["L1"]
+        assert result.completed is False
+
+        # Retry with rosters available → league completes.
+        responses[rosters_url("L1")] = [make_roster(1, "A")]
+        result2 = _crawl(responses, prev_state=result.state)
+        assert {e["assetId"] for e in result2.state["events"]} == {"p1"}
+        assert result2.state["cursor"] is None
+
     def test_steady_state_fetches_previous_week_within_rollover_grace(self):
         # A backfilled league whose week just rolled 9 → 10 fetches
         # week 9 too while inside the 48h grace window.

@@ -144,12 +144,20 @@ def _reset_service_state():
 
 
 @pytest.fixture
-def intel_snapshot_path(tmp_path, monkeypatch):
-    """Point the store at a per-test snapshot file."""
+def intel_data_dir(tmp_path, monkeypatch):
+    """Point the store's league-partitioned data dir at a per-test
+    tmp dir."""
     from src.intel import store
 
-    path = tmp_path / "intel" / "snapshot.json"
-    monkeypatch.setattr(store, "SNAPSHOT_PATH", path)
-    monkeypatch.setattr(store, "DATA_DIR", path.parent)
+    data_dir = tmp_path / "intel"
+    monkeypatch.setattr(store, "DATA_DIR", data_dir)
     service.invalidate_cache()
-    return path
+    return data_dir
+
+
+@pytest.fixture
+def intel_snapshot_path(intel_data_dir):
+    """The DEFAULT league's snapshot path inside the per-test dir."""
+    from src.intel import store
+
+    return store.snapshot_path()

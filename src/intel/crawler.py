@@ -449,6 +449,11 @@ def crawl(
         lid for lid in discovered_this_run if lid not in set(prev_pending_leagues)
     ]
     pending_leagues: list[str] = []
+    # Leagues whose fetch was INCOMPLETE this run (roster or week
+    # fetch returned garbage, or a backfill week failed).  They go
+    # back into the cursor so the next run retries them —
+    # budget-aware, since cursor leagues are processed first.
+    retry_leagues: list[str] = []
 
     backfill_cutoff = now - BACKFILL_MAX_DAYS * 24 * 3600 * 1000
 
@@ -460,18 +465,22 @@ def crawl(
             break
         league_entry = leagues_block[lid]
         rosters = b.get(f"{SLEEPER_BASE}/league/{lid}/rosters")
-        if isinstance(rosters, list):
+        rosters_ok = isinstance(rosters, list)
+        if rosters_ok:
             rid_to_owner, holdings = _roster_owner_map(rosters, pool)
             league_entry["rosterOwners"] = rid_to_owner
             league_entry["holdings"] = holdings
             league_entry["lastError"] = None
         else:
             # Roster fetch failed — reuse the previous owner map if we
-            # have one; otherwise we can't attribute events, so skip.
+            # have one; otherwise we can't attribute events, so skip
+            # the transaction fetch entirely.  Either way the league
+            # is retried next run.
             rid_to_owner = {
                 str(k): str(v) for k, v in (league_entry.get("rosterOwners") or {}).items()
             }
             league_entry["lastError"] = f"rosters_fetch_failed@{_iso(now)}"
+            retry_leagues.append(lid)
             if not rid_to_owner:
                 continue
 
@@ -486,6 +495,7 @@ def crawl(
 
         weeks = _weeks_to_fetch(league_entry, week, week_first_seen_ms, now)
         fetched_all_weeks = True
+        weeks_clean = True
         fetched_txs: list[tuple[int, dict[str, Any]]] = []
         for w in weeks:
             if not b.can_call():
@@ -493,6 +503,12 @@ def crawl(
                 break
             txs = b.get(f"{SLEEPER_BASE}/league/{lid}/transactions/{w}")
             if not isinstance(txs, list):
+                # Transient failure for this week.  During backfill
+                # this would otherwise silently and PERMANENTLY lose
+                # the week's activity once ``backfilled`` is stamped —
+                # so mark the fetch dirty and retry the league next
+                # run instead of advancing fetchState.
+                weeks_clean = False
                 continue
             week_created = [
                 _tx_created_ms(t) for t in txs if isinstance(t, dict) and _tx_created_ms(t) > 0
@@ -512,6 +528,8 @@ def crawl(
             pending_leagues = [lid] + league_order[idx + 1 :]
             break
 
+        # Ingest whatever we DID fetch cleanly — the eventId dedupe
+        # makes re-ingesting on the retry pass a no-op.
         new_max = max_seen
         for w, tx in fetched_txs:
             created = _tx_created_ms(tx)
@@ -532,6 +550,16 @@ def crawl(
                 state.setdefault("events", []).extend(events)
                 new_event_count += len(events)
 
+        if not weeks_clean:
+            # Incomplete fetch: do NOT advance fetchState (advancing
+            # ``maxCreatedSeen`` past a failed week's transactions
+            # would filter them out forever) and do NOT stamp
+            # ``backfilled``.  Retry next run.
+            league_entry["lastError"] = f"transactions_fetch_failed@{_iso(now)}"
+            if lid not in retry_leagues:
+                retry_leagues.append(lid)
+            continue
+
         new_boundary = {
             str(tx.get("transaction_id") or "")
             for _w, tx in fetched_txs
@@ -546,16 +574,58 @@ def crawl(
             "lastFetchedAt": _iso(now),
         }
 
+    all_pending_leagues = pending_leagues + [
+        lid for lid in retry_leagues if lid not in set(pending_leagues)
+    ]
+
+    # ── 4. Reconciliation — successful fetches only ────────────────
+    # The pool (seed league rosters) is authoritative for WHO we
+    # track; each member's fresh league list is authoritative for
+    # WHERE.  Members who left the seed league are dropped, and
+    # leagues no longer referenced by any tracked member are dropped
+    # (along with both groups' events/holdings).  Failed fetches never
+    # trigger removal: a failed member keeps their previous league
+    # list (preserve-on-failure above), so their leagues stay
+    # referenced, and the seed itself is validated by the caller
+    # before crawl runs.
+    members_block = {oid: entry for oid, entry in members_block.items() if oid in pool}
+    state["members"] = members_block
+    referenced_leagues: set[str] = set()
+    for entry in members_block.values():
+        referenced_leagues.update(str(lg) for lg in entry.get("leagues") or [])
+    referenced_leagues |= set(all_pending_leagues)
+    leagues_block = {lid: e for lid, e in leagues_block.items() if lid in referenced_leagues}
+    state["leagues"] = leagues_block
+    for lid, entry in leagues_block.items():
+        current_members = sorted(
+            oid for oid, m in members_block.items() if lid in (m.get("leagues") or [])
+        )
+        entry["memberOwnerIds"] = current_members
+        entry["holdings"] = {
+            oid: h
+            for oid, h in (entry.get("holdings") or {}).items()
+            if oid in set(current_members)
+        }
+    state["events"] = [
+        e
+        for e in state.get("events") or []
+        if isinstance(e, dict)
+        and str(e.get("ownerId") or "") in pool
+        and str(e.get("leagueId") or "") in leagues_block
+    ]
+
     budget_exhausted = bool(pending_members or pending_leagues)
+    has_pending = bool(pending_members or all_pending_leagues)
     state["cursor"] = (
-        {"pendingMembers": pending_members, "pendingLeagues": pending_leagues}
-        if budget_exhausted
+        {"pendingMembers": pending_members, "pendingLeagues": all_pending_leagues}
+        if has_pending
         else None
     )
     state["lastRun"] = {
         "startedAt": _iso(now),
         "callsUsed": b.used,
         "budgetExhausted": budget_exhausted,
+        "retryLeagueIds": retry_leagues,
         "failedMemberIds": failed_members,
         "newEventCount": new_event_count,
         "week": week,
@@ -565,7 +635,7 @@ def crawl(
         state=state,
         calls_used=b.used,
         budget_exhausted=budget_exhausted,
-        completed=not budget_exhausted,
+        completed=not has_pending,
         failed_member_ids=failed_members,
         new_event_count=new_event_count,
     )

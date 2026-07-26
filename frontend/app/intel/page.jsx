@@ -159,9 +159,24 @@ export default function IntelPage() {
     setLoading(true);
     setError(null);
     fetch("/api/intel/summary?limit=200")
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        // 503 data_not_ready = this league has no snapshot yet —
+        // render the "no snapshot" banner state, not an error.
+        if (r.status === 503) {
+          const body = await r.json().catch(() => null);
+          if (body?.error === "data_not_ready") {
+            return {
+              assets: [],
+              staleHours: null,
+              generatedAt: null,
+              memberCount: 0,
+              leagueCount: 0,
+              truncatedMemberCount: 0,
+            };
+          }
+        }
+        throw new Error(`HTTP ${r.status}`);
       })
       .then((payload) => {
         setData(payload);
