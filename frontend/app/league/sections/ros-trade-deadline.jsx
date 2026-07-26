@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
+import { Card } from "../shared-server.jsx";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
@@ -73,28 +74,25 @@ export default function RosTradeDeadlineSection() {
   }
   if (error && !data) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState title="Trade deadline unavailable" message={error} />
-      </div>
+      </Card>
     );
   }
   const teams = data?.teams || [];
   if (!teams.length) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState
           title="No trade-deadline data yet"
           message="Need ROS team-strength + a sim run to classify teams. Once ros-team-strength + rosChampionship cache populates, this view will fill in."
         />
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>
-        Trade Deadline Dashboard
-      </div>
+    <Card title="Trade Deadline Dashboard">
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         Read-only Buyer/Seller direction per team based on ROS playoff +
         championship odds + team strength + roster age. Informational only —
@@ -153,6 +151,6 @@ export default function RosTradeDeadlineSection() {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

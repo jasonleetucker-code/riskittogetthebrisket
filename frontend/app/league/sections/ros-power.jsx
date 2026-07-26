@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
+import { Card } from "../shared-server.jsx";
 
 // Module-level cache so tab-switching doesn't re-fetch on every mount.
 // Same pattern + 30-min TTL that power.jsx uses for playoff odds.
@@ -120,20 +121,20 @@ export default function RosPowerSection() {
   }
   if (error && !data) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState title="ROS Power unavailable" message={error} />
-      </div>
+      </Card>
     );
   }
   const rankings = data?.currentRanking || [];
   if (!rankings.length) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState
           title="ROS Power not ready"
           message="The league snapshot or ROS roster-strength data is missing. Once the next scheduled scrape lands, this view will populate."
         />
-      </div>
+      </Card>
     );
   }
 
@@ -157,10 +158,7 @@ export default function RosPowerSection() {
     );
 
   return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>
-        ROS Power Rankings
-      </div>
+    <Card title="ROS Power Rankings">
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         {preseason && (
           <span style={{ color: "var(--cyan)" }}>
@@ -209,7 +207,7 @@ export default function RosPowerSection() {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }
 
