@@ -433,6 +433,50 @@ def _live_player_names() -> list[str]:
     return names
 
 
+def _live_player_meta() -> dict[str, dict[str, str | None]]:
+    """Map exact contract display names → {position, team}.
+
+    The news service stamps these identity discriminators onto
+    tagged mentions (``NewsService._enrich_player_mentions``) so
+    name-collision players (CJ Allen the LB vs C.J. Allen the WR)
+    can be told apart on per-player surfaces.  ``team`` is sparsely
+    populated until the next scrape cycle — null when absent;
+    position is always available on contract rows.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    meta: dict[str, dict[str, str | None]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = ""
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                name = v.strip()
+                break
+        if not name:
+            continue
+        position = row.get("position")
+        team = row.get("team")
+        entry = {
+            "position": position.strip()
+            if isinstance(position, str) and position.strip()
+            else None,
+            "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+        }
+        prior = meta.get(name)
+        if prior is None:
+            meta[name] = entry
+        elif prior != entry:
+            # Two contract rows share the EXACT display string with
+            # different identities — an exact-name lookup can't
+            # attribute a mention safely, so stamp nothing rather
+            # than the wrong player's identity.
+            meta[name] = {"position": None, "team": None}
+    return meta
+
+
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -2376,6 +2420,13 @@ _PUBLIC_API_EXACT = frozenset(
         # pick dollar values, owners) already viewable on Sleeper; no
         # private rankings / user state is leaked here.
         "/api/draft-capital",
+        # Aggregated public sports news (Sleeper trending + public
+        # RSS/sitemap providers).  Zero league-private data — no
+        # rosters, no rankings, no user state.  The public
+        # /league/player/<id> journey page server-renders a "Recent
+        # news" card from this endpoint, so it must be reachable
+        # without a session.
+        "/api/news",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -4022,11 +4073,13 @@ async def get_news(request: Request):
             svc.aggregate,
             player_names=_live_player_names(),
             team_names=team_names or None,
+            player_meta=_live_player_meta(),
         )
     except Exception as exc:
         log.warning("/api/news aggregation failed: %s", exc)
-        # Signal "temporarily unavailable" — the frontend falls back
-        # to the mock fixture on 503 so the page stays functional.
+        # Signal "temporarily unavailable" — the frontend surfaces an
+        # explicit "news unavailable" state on 503 (there is no
+        # client-side fixture fallback).
         return JSONResponse(
             status_code=503,
             content={
@@ -4036,6 +4089,7 @@ async def get_news(request: Request):
                 "error": f"{type(exc).__name__}",
                 "generatedAt": datetime.now(timezone.utc).isoformat(),
             },
+            headers={"Cache-Control": "no-store"},
         )
 
     payload = aggregated.to_dict()
@@ -4046,9 +4100,8 @@ async def get_news(request: Request):
         payload["count"] = len(payload["items"])
 
     # Distinguish "providers worked, nothing trending" (legit 200
-    # with empty items — DEMO badge stays OFF) from "every provider
-    # errored out" (503 — frontend falls back to its mock fixture
-    # and re-shows the DEMO badge).
+    # with empty items) from "every provider errored out" (503 —
+    # the frontend renders its explicit "news unavailable" state).
     provider_runs = aggregated.provider_runs or []
     all_failed = bool(provider_runs) and not any(r.ok for r in provider_runs)
     if all_failed:
@@ -4059,8 +4112,16 @@ async def get_news(request: Request):
                 "source": "backend",
                 "error": "all_providers_failed",
             },
+            headers={"Cache-Control": "no-store"},
         )
-    return JSONResponse(content=payload)
+    # Public endpoint (see _PUBLIC_API_EXACT): a short shared-cache
+    # TTL keeps repeat public hits off the aggregator, consistent
+    # with the service's own 180s cache and the other public
+    # endpoints' Cache-Control conventions.
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=180"},
+    )
 
 
 @app.get("/api/scaffold/status")
@@ -8625,6 +8686,7 @@ async def get_terminal(request: Request):
                 lambda: _get_news_service(),
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
+                player_meta=_live_player_meta(),
             ),
             user_state=user_state,
             public_mode=not authed,
