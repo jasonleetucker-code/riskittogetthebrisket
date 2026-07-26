@@ -1,10 +1,19 @@
 {
-  "computedAt": "2026-07-26T19:57:10.777308+00:00",
+  "computedAt": "2026-07-26T21:43:15.226788+00:00",
   "playoffOdds": [
     {
       "ownerId": "1014623872768917504",
       "displayName": "jbartholomew810",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.049,
+      "championshipOddsCi": [
+        0.0404,
+        0.0594
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
@@ -26,6 +35,15 @@
       "ownerId": "208057474387804160",
       "displayName": "DiggityyDave",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.0435,
+      "championshipOddsCi": [
+        0.0354,
+        0.0533
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
@@ -47,6 +65,15 @@
       "ownerId": "360184624380633088",
       "displayName": "DeCline",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.3495,
+      "championshipOddsCi": [
+        0.3289,
+        0.3707
+      ],
       "byeOdds": 1.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
@@ -68,6 +95,15 @@
       "ownerId": "741102304882782208",
       "displayName": "zachdavis10",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.102,
+      "championshipOddsCi": [
+        0.0895,
+        0.116
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
@@ -89,6 +125,15 @@
       "ownerId": "975129818700328960",
       "displayName": "jmartin2421",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.3205,
+      "championshipOddsCi": [
+        0.3004,
+        0.3413
+      ],
       "byeOdds": 1.0,
       "topSeedOdds": 1.0,
       "missPlayoffsOdds": 0.0,
@@ -110,6 +155,15 @@
       "ownerId": "984270279268446208",
       "displayName": "Comacho",
       "playoffOdds": 1.0,
+      "playoffOddsCi": [
+        0.9981,
+        1.0
+      ],
+      "championshipOdds": 0.1355,
+      "championshipOddsCi": [
+        0.1212,
+        0.1512
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
@@ -131,6 +185,15 @@
       "ownerId": "1033502330853302272",
       "displayName": "cbonex21",
       "playoffOdds": 0.0,
+      "playoffOddsCi": [
+        0.0,
+        0.0019
+      ],
+      "championshipOdds": 0.0,
+      "championshipOddsCi": [
+        0.0,
+        0.0019
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
@@ -152,6 +215,15 @@
       "ownerId": "975989676051939328",
       "displayName": "slizzle25",
       "playoffOdds": 0.0,
+      "playoffOddsCi": [
+        0.0,
+        0.0019
+      ],
+      "championshipOdds": 0.0,
+      "championshipOddsCi": [
+        0.0,
+        0.0019
+      ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
@@ -170,11 +242,16 @@
       ]
     }
   ],
-  "n_simulations": 10000,
+  "n_simulations": 2000,
+  "converged": true,
+  "worstPlayoffOddsSe": 0.0,
+  "oddsSeTolerance": 0.005,
   "playoffSeeds": 6,
   "byeSeeds": 2,
   "rosStrengthAvailable": true,
   "rosBlend": 0.2,
   "bestBallVarianceBump": 1.1,
-  "bestBallVarianceMode": "off"
+  "bestBallVarianceMode": "off",
+  "pointsModelSource": "fallback-constants",
+  "pointsModelGeneratedAt": null
 }

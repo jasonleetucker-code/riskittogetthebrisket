@@ -176,6 +176,327 @@
         "depthContribution": 4.56
       }
     ],
+    "fullRoster": [
+      {
+        "playerId": "11559",
+        "canonicalName": "michael penix",
+        "position": "QB",
+        "rosValue": 19.59,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11581",
+        "canonicalName": "marshawn lloyd",
+        "position": "RB",
+        "rosValue": 15.03,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11597",
+        "canonicalName": "theo johnson",
+        "position": "TE",
+        "rosValue": 10.65,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11632",
+        "canonicalName": "malik nabers",
+        "position": "WR",
+        "rosValue": 42.25,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11643",
+        "canonicalName": "jaylen wright",
+        "position": "RB",
+        "rosValue": 12.29,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11650",
+        "canonicalName": "luke mccaffrey",
+        "position": "WR",
+        "rosValue": 7.4,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12517",
+        "canonicalName": "colston loveland",
+        "position": "TE",
+        "rosValue": 36.77,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12543",
+        "canonicalName": "tahj brooks",
+        "position": "RB",
+        "rosValue": 7.79,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13342",
+        "canonicalName": "john michael gyllenborg",
+        "position": "TE",
+        "rosValue": 2.43,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": true,
+        "bye": false
+      },
+      {
+        "playerId": "2078",
+        "canonicalName": "odell beckham",
+        "position": "WR",
+        "rosValue": 6.4,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "2449",
+        "canonicalName": "stefon diggs",
+        "position": "WR",
+        "rosValue": 25.98,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3214",
+        "canonicalName": "hunter henry",
+        "position": "TE",
+        "rosValue": 20.04,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4033",
+        "canonicalName": "david njoku",
+        "position": "TE",
+        "rosValue": 14.37,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4034",
+        "canonicalName": "christian mccaffrey",
+        "position": "RB",
+        "rosValue": 67.47,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4881",
+        "canonicalName": "lamar jackson",
+        "position": "QB",
+        "rosValue": 59.51,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5850",
+        "canonicalName": "josh jacobs",
+        "position": "RB",
+        "rosValue": 45.88,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5859",
+        "canonicalName": "aj brown",
+        "position": "WR",
+        "rosValue": 48.78,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6768",
+        "canonicalName": "tua tagovailoa",
+        "position": "QB",
+        "rosValue": 15.06,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6865",
+        "canonicalName": "colby parkinson",
+        "position": "TE",
+        "rosValue": 13.12,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6904",
+        "canonicalName": "jalen hurts",
+        "position": "QB",
+        "rosValue": 49.87,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7002",
+        "canonicalName": "juwan johnson",
+        "position": "TE",
+        "rosValue": 20.41,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7564",
+        "canonicalName": "jamarr chase",
+        "position": "WR",
+        "rosValue": 69.65,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7569",
+        "canonicalName": "nico collins",
+        "position": "WR",
+        "rosValue": 50.86,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8138",
+        "canonicalName": "james cook",
+        "position": "RB",
+        "rosValue": 61.01,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8172",
+        "canonicalName": "greg dulcich",
+        "position": "TE",
+        "rosValue": 12.08,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8183",
+        "canonicalName": "brock purdy",
+        "position": "QB",
+        "rosValue": 42.83,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9221",
+        "canonicalName": "jahmyr gibbs",
+        "position": "RB",
+        "rosValue": 87.01,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9482",
+        "canonicalName": "michael mayer",
+        "position": "TE",
+        "rosValue": 9.49,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9488",
+        "canonicalName": "jaxon smith njigba",
+        "position": "WR",
+        "rosValue": 65.61,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      }
+    ],
     "unfilledSlots": [],
     "unmappedPlayerCount": 0,
     "unmappedPlayers": [],
@@ -362,6 +683,360 @@
         "rosValue": 19.13,
         "depthFactor": 0.423,
         "depthContribution": 8.08
+      }
+    ],
+    "fullRoster": [
+      {
+        "playerId": "10859",
+        "canonicalName": "sam laporta",
+        "position": "TE",
+        "rosValue": 28.53,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11199",
+        "canonicalName": "emari demercado",
+        "position": "RB",
+        "rosValue": 7.72,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11566",
+        "canonicalName": "jayden daniels",
+        "position": "QB",
+        "rosValue": 58.57,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11584",
+        "canonicalName": "bucky irving",
+        "position": "RB",
+        "rosValue": 36.38,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11625",
+        "canonicalName": "adonai mitchell",
+        "position": "WR",
+        "rosValue": 19.13,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11626",
+        "canonicalName": "xavier legette",
+        "position": "WR",
+        "rosValue": 11.58,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11631",
+        "canonicalName": "brian thomas",
+        "position": "WR",
+        "rosValue": 31.63,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11638",
+        "canonicalName": "ricky pearsall",
+        "position": "WR",
+        "rosValue": 27.66,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11783",
+        "canonicalName": "ryan flournoy",
+        "position": "WR",
+        "rosValue": 14.61,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12495",
+        "canonicalName": "ollie gordon",
+        "position": "RB",
+        "rosValue": 13.09,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12508",
+        "canonicalName": "jaxson dart",
+        "position": "QB",
+        "rosValue": 39.53,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12509",
+        "canonicalName": "tre harris",
+        "position": "WR",
+        "rosValue": 18.02,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12529",
+        "canonicalName": "treveyon henderson",
+        "position": "RB",
+        "rosValue": 34.59,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12544",
+        "canonicalName": "lequint allen",
+        "position": "RB",
+        "rosValue": 9.27,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13287",
+        "canonicalName": "jeremiyah love",
+        "position": "RB",
+        "rosValue": 45.53,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13348",
+        "canonicalName": "jmari taylor",
+        "position": "RB",
+        "rosValue": 6.95,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13420",
+        "canonicalName": "bryce lance",
+        "position": "WR",
+        "rosValue": 11.1,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5001",
+        "canonicalName": "dalton schultz",
+        "position": "TE",
+        "rosValue": 16.03,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5844",
+        "canonicalName": "tj hockenson",
+        "position": "TE",
+        "rosValue": 17.95,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5848",
+        "canonicalName": "marquise brown",
+        "position": "WR",
+        "rosValue": 12.05,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5870",
+        "canonicalName": "daniel jones",
+        "position": "QB",
+        "rosValue": 27.79,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6786",
+        "canonicalName": "ceedee lamb",
+        "position": "WR",
+        "rosValue": 55.46,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7547",
+        "canonicalName": "amon ra st brown",
+        "position": "WR",
+        "rosValue": 56.93,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7594",
+        "canonicalName": "chuba hubbard",
+        "position": "RB",
+        "rosValue": 25.48,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7611",
+        "canonicalName": "rhamondre stevenson",
+        "position": "RB",
+        "rosValue": 26.27,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8132",
+        "canonicalName": "tyler allgeier",
+        "position": "RB",
+        "rosValue": 16.83,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8146",
+        "canonicalName": "garrett wilson",
+        "position": "WR",
+        "rosValue": 39.33,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8148",
+        "canonicalName": "jameson williams",
+        "position": "WR",
+        "rosValue": 38.79,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9226",
+        "canonicalName": "devon achane",
+        "position": "RB",
+        "rosValue": 52.52,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9229",
+        "canonicalName": "anthony richardson",
+        "position": "QB",
+        "rosValue": 6.11,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9509",
+        "canonicalName": "bijan robinson",
+        "position": "RB",
+        "rosValue": 80.97,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9753",
+        "canonicalName": "zach charbonnet",
+        "position": "RB",
+        "rosValue": 20.49,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": true,
+        "bye": false
       }
     ],
     "unfilledSlots": [],
@@ -552,6 +1227,338 @@
         "depthContribution": 5.97
       }
     ],
+    "fullRoster": [
+      {
+        "playerId": "11589",
+        "canonicalName": "trey benson",
+        "position": "RB",
+        "rosValue": 13.12,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12474",
+        "canonicalName": "woody marks",
+        "position": "RB",
+        "rosValue": 19.35,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12489",
+        "canonicalName": "rj harvey",
+        "position": "RB",
+        "rosValue": 26.07,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12501",
+        "canonicalName": "matthew golden",
+        "position": "WR",
+        "rosValue": 23.11,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12519",
+        "canonicalName": "luther burden",
+        "position": "WR",
+        "rosValue": 33.84,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13278",
+        "canonicalName": "max klare",
+        "position": "TE",
+        "rosValue": 9.71,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13279",
+        "canonicalName": "carnell tate",
+        "position": "WR",
+        "rosValue": 33.06,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13281",
+        "canonicalName": "jordyn tyson",
+        "position": "WR",
+        "rosValue": 31.43,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13319",
+        "canonicalName": "oscar delp",
+        "position": "TE",
+        "rosValue": 9.03,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13324",
+        "canonicalName": "matt hibner",
+        "position": "TE",
+        "rosValue": 7.71,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13330",
+        "canonicalName": "kenyon sadiq",
+        "position": "TE",
+        "rosValue": 20.75,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13349",
+        "canonicalName": "eli stowers",
+        "position": "TE",
+        "rosValue": 14.57,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13380",
+        "canonicalName": "brenen thompson",
+        "position": "WR",
+        "rosValue": 10.64,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13423",
+        "canonicalName": "eli heidenreich",
+        "position": "RB",
+        "rosValue": 8.49,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13434",
+        "canonicalName": "will kacmarek",
+        "position": "TE",
+        "rosValue": 4.19,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3257",
+        "canonicalName": "jacoby brissett",
+        "position": "QB",
+        "rosValue": 20.55,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3294",
+        "canonicalName": "dak prescott",
+        "position": "QB",
+        "rosValue": 45.05,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4892",
+        "canonicalName": "baker mayfield",
+        "position": "QB",
+        "rosValue": 31.67,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4984",
+        "canonicalName": "josh allen",
+        "position": "QB",
+        "rosValue": 79.45,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5846",
+        "canonicalName": "dk metcalf",
+        "position": "WR",
+        "rosValue": 30.85,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5892",
+        "canonicalName": "david montgomery",
+        "position": "RB",
+        "rosValue": 31.91,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6790",
+        "canonicalName": "dandre swift",
+        "position": "RB",
+        "rosValue": 36.16,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6806",
+        "canonicalName": "jk dobbins",
+        "position": "RB",
+        "rosValue": 23.41,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7526",
+        "canonicalName": "jaylen waddle",
+        "position": "WR",
+        "rosValue": 37.13,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8130",
+        "canonicalName": "trey mcbride",
+        "position": "TE",
+        "rosValue": 40.38,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8134",
+        "canonicalName": "khalil shakir",
+        "position": "WR",
+        "rosValue": 21.73,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8151",
+        "canonicalName": "kenneth walker",
+        "position": "RB",
+        "rosValue": 45.9,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8698",
+        "canonicalName": "jake tonges",
+        "position": "TE",
+        "rosValue": 4.71,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9224",
+        "canonicalName": "chase brown",
+        "position": "RB",
+        "rosValue": 45.61,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9493",
+        "canonicalName": "puka nacua",
+        "position": "WR",
+        "rosValue": 72.13,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      }
+    ],
     "unfilledSlots": [],
     "unmappedPlayerCount": 0,
     "unmappedPlayers": [],
@@ -738,6 +1745,338 @@
         "rosValue": 17.09,
         "depthFactor": 0.423,
         "depthContribution": 7.22
+      }
+    ],
+    "fullRoster": [
+      {
+        "playerId": "11565",
+        "canonicalName": "jj mccarthy",
+        "position": "QB",
+        "rosValue": 7.18,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11570",
+        "canonicalName": "rasheen ali",
+        "position": "RB",
+        "rosValue": 4.58,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11646",
+        "canonicalName": "jalen coker",
+        "position": "WR",
+        "rosValue": 19.52,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12471",
+        "canonicalName": "dj giddens",
+        "position": "RB",
+        "rosValue": 9.72,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12476",
+        "canonicalName": "devin neal",
+        "position": "RB",
+        "rosValue": 9.01,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12498",
+        "canonicalName": "mason taylor",
+        "position": "TE",
+        "rosValue": 10.52,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12502",
+        "canonicalName": "gunnar helm",
+        "position": "TE",
+        "rosValue": 14.43,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12514",
+        "canonicalName": "emeka egbuka",
+        "position": "WR",
+        "rosValue": 37.76,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13275",
+        "canonicalName": "ty simpson",
+        "position": "QB",
+        "rosValue": 7.2,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13301",
+        "canonicalName": "antonio williams",
+        "position": "WR",
+        "rosValue": 17.09,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13337",
+        "canonicalName": "emmett johnson",
+        "position": "RB",
+        "rosValue": 14.54,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13347",
+        "canonicalName": "demond claiborne",
+        "position": "RB",
+        "rosValue": 12.05,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13414",
+        "canonicalName": "kaelon black",
+        "position": "RB",
+        "rosValue": 11.94,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "1466",
+        "canonicalName": "travis kelce",
+        "position": "TE",
+        "rosValue": 23.03,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "2133",
+        "canonicalName": "davante adams",
+        "position": "WR",
+        "rosValue": 34.4,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3198",
+        "canonicalName": "derrick henry",
+        "position": "RB",
+        "rosValue": 57.19,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4035",
+        "canonicalName": "alvin kamara",
+        "position": "RB",
+        "rosValue": 14.13,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4199",
+        "canonicalName": "aaron jones",
+        "position": "RB",
+        "rosValue": 21.82,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "421",
+        "canonicalName": "matthew stafford",
+        "position": "QB",
+        "rosValue": 34.83,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4217",
+        "canonicalName": "george kittle",
+        "position": "TE",
+        "rosValue": 28.53,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": true,
+        "bye": false
+      },
+      {
+        "playerId": "5849",
+        "canonicalName": "kyler murray",
+        "position": "QB",
+        "rosValue": 38.22,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5947",
+        "canonicalName": "jakobi meyers",
+        "position": "WR",
+        "rosValue": 27.08,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6794",
+        "canonicalName": "justin jefferson",
+        "position": "WR",
+        "rosValue": 53.06,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6804",
+        "canonicalName": "jordan love",
+        "position": "QB",
+        "rosValue": 33.39,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6813",
+        "canonicalName": "jonathan taylor",
+        "position": "RB",
+        "rosValue": 65.37,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7553",
+        "canonicalName": "kyle pitts",
+        "position": "TE",
+        "rosValue": 27.44,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8136",
+        "canonicalName": "rachaad white",
+        "position": "RB",
+        "rosValue": 19.48,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8167",
+        "canonicalName": "christian watson",
+        "position": "WR",
+        "rosValue": 36.88,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8408",
+        "canonicalName": "jordan mason",
+        "position": "RB",
+        "rosValue": 22.93,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9997",
+        "canonicalName": "zay flowers",
+        "position": "WR",
+        "rosValue": 41.53,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
       }
     ],
     "unfilledSlots": [],
@@ -928,6 +2267,338 @@
         "depthContribution": 4.6
       }
     ],
+    "fullRoster": [
+      {
+        "playerId": "10213",
+        "canonicalName": "tre tucker",
+        "position": "WR",
+        "rosValue": 19.16,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "10236",
+        "canonicalName": "dalton kincaid",
+        "position": "TE",
+        "rosValue": 22.12,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11560",
+        "canonicalName": "caleb williams",
+        "position": "QB",
+        "rosValue": 44.57,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11583",
+        "canonicalName": "jonathon brooks",
+        "position": "RB",
+        "rosValue": 22.15,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11604",
+        "canonicalName": "brock bowers",
+        "position": "TE",
+        "rosValue": 44.53,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11620",
+        "canonicalName": "rome odunze",
+        "position": "WR",
+        "rosValue": 34.13,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11628",
+        "canonicalName": "marvin harrison",
+        "position": "WR",
+        "rosValue": 32.24,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "1166",
+        "canonicalName": "kirk cousins",
+        "position": "QB",
+        "rosValue": 13.29,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12457",
+        "canonicalName": "jaydon blue",
+        "position": "RB",
+        "rosValue": 12.59,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12481",
+        "canonicalName": "cam skattebo",
+        "position": "RB",
+        "rosValue": 28.46,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12497",
+        "canonicalName": "tory horton",
+        "position": "WR",
+        "rosValue": 11.42,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12524",
+        "canonicalName": "shedeur sanders",
+        "position": "QB",
+        "rosValue": 14.34,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12526",
+        "canonicalName": "tetairoa mcmillan",
+        "position": "WR",
+        "rosValue": 40.61,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12527",
+        "canonicalName": "ashton jeanty",
+        "position": "RB",
+        "rosValue": 54.15,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13268",
+        "canonicalName": "elijah sarratt",
+        "position": "WR",
+        "rosValue": 15.04,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13269",
+        "canonicalName": "fernando mendoza",
+        "position": "QB",
+        "rosValue": 24.21,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13296",
+        "canonicalName": "caleb douglas",
+        "position": "WR",
+        "rosValue": 11.4,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13303",
+        "canonicalName": "cade klubnik",
+        "position": "QB",
+        "rosValue": 2.7,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13305",
+        "canonicalName": "mike washington",
+        "position": "RB",
+        "rosValue": 15.1,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13338",
+        "canonicalName": "kevin coleman",
+        "position": "WR",
+        "rosValue": 7.54,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13417",
+        "canonicalName": "dezhaun stribling",
+        "position": "WR",
+        "rosValue": 16.75,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5045",
+        "canonicalName": "courtland sutton",
+        "position": "WR",
+        "rosValue": 30.9,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5872",
+        "canonicalName": "deebo samuel",
+        "position": "WR",
+        "rosValue": 25.08,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6783",
+        "canonicalName": "jerry jeudy",
+        "position": "WR",
+        "rosValue": 17.55,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6801",
+        "canonicalName": "tee higgins",
+        "position": "WR",
+        "rosValue": 42.98,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7588",
+        "canonicalName": "javonte williams",
+        "position": "RB",
+        "rosValue": 41.66,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8111",
+        "canonicalName": "cade otton",
+        "position": "TE",
+        "rosValue": 15.91,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8135",
+        "canonicalName": "treylon burks",
+        "position": "WR",
+        "rosValue": 7.23,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8161",
+        "canonicalName": "malik willis",
+        "position": "QB",
+        "rosValue": 24.16,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9502",
+        "canonicalName": "tank dell",
+        "position": "WR",
+        "rosValue": 15.65,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      }
+    ],
     "unfilledSlots": [],
     "unmappedPlayerCount": 0,
     "unmappedPlayers": [],
@@ -1114,6 +2785,339 @@
         "rosValue": 17.82,
         "depthFactor": 0.423,
         "depthContribution": 7.53
+      }
+    ],
+    "fullRoster": [
+      {
+        "playerId": "10229",
+        "canonicalName": "rashee rice",
+        "position": "WR",
+        "rosValue": 44.67,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11575",
+        "canonicalName": "ray davis",
+        "position": "RB",
+        "rosValue": 11.05,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11655",
+        "canonicalName": "tyrone tracy",
+        "position": "RB",
+        "rosValue": 20.02,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12469",
+        "canonicalName": "dylan sampson",
+        "position": "RB",
+        "rosValue": 16.37,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12512",
+        "canonicalName": "quinshon judkins",
+        "position": "RB",
+        "rosValue": 33.83,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12530",
+        "canonicalName": "travis hunter",
+        "position": "WR",
+        "rosValue": 15.66,
+        "fantasyPositions": [
+          "DB",
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12547",
+        "canonicalName": "kyle williams",
+        "position": "WR",
+        "rosValue": 11.76,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13276",
+        "canonicalName": "omar cooper",
+        "position": "WR",
+        "rosValue": 22.34,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13400",
+        "canonicalName": "justin joly",
+        "position": "TE",
+        "rosValue": 7.57,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13402",
+        "canonicalName": "skyler bell",
+        "position": "WR",
+        "rosValue": 10.27,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13411",
+        "canonicalName": "zavion thomas",
+        "position": "WR",
+        "rosValue": 8.54,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4017",
+        "canonicalName": "deshaun watson",
+        "position": "QB",
+        "rosValue": 19.48,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4037",
+        "canonicalName": "chris godwin",
+        "position": "WR",
+        "rosValue": 24.53,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4046",
+        "canonicalName": "patrick mahomes",
+        "position": "QB",
+        "rosValue": 45.73,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4866",
+        "canonicalName": "saquon barkley",
+        "position": "RB",
+        "rosValue": 53.55,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4981",
+        "canonicalName": "calvin ridley",
+        "position": "WR",
+        "rosValue": 18.64,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4983",
+        "canonicalName": "dj moore",
+        "position": "WR",
+        "rosValue": 31.71,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6770",
+        "canonicalName": "joe burrow",
+        "position": "QB",
+        "rosValue": 56.6,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6803",
+        "canonicalName": "brandon aiyuk",
+        "position": "WR",
+        "rosValue": 16.09,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7600",
+        "canonicalName": "pat freiermuth",
+        "position": "TE",
+        "rosValue": 15.89,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8131",
+        "canonicalName": "isaiah likely",
+        "position": "TE",
+        "rosValue": 19.73,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8142",
+        "canonicalName": "alec pierce",
+        "position": "WR",
+        "rosValue": 30.88,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8144",
+        "canonicalName": "chris olave",
+        "position": "WR",
+        "rosValue": 41.66,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8154",
+        "canonicalName": "brian robinson",
+        "position": "RB",
+        "rosValue": 17.82,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8180",
+        "canonicalName": "jalen nailor",
+        "position": "WR",
+        "rosValue": 14.91,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8205",
+        "canonicalName": "isiah pacheco",
+        "position": "RB",
+        "rosValue": 18.7,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8210",
+        "canonicalName": "chig okonkwo",
+        "position": "TE",
+        "rosValue": 0.0,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8676",
+        "canonicalName": "rashid shaheed",
+        "position": "WR",
+        "rosValue": 22.39,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9225",
+        "canonicalName": "tank bigsby",
+        "position": "RB",
+        "rosValue": 12.49,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9228",
+        "canonicalName": "bryce young",
+        "position": "QB",
+        "rosValue": 22.91,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
       }
     ],
     "unfilledSlots": [],
@@ -1306,6 +3310,327 @@
         "depthContribution": 20.13
       }
     ],
+    "fullRoster": [
+      {
+        "playerId": "10222",
+        "canonicalName": "jayden reed",
+        "position": "WR",
+        "rosValue": 27.38,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11563",
+        "canonicalName": "bo nix",
+        "position": "QB",
+        "rosValue": 38.18,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11569",
+        "canonicalName": "jarquez hunter",
+        "position": "RB",
+        "rosValue": 8.23,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11576",
+        "canonicalName": "braelon allen",
+        "position": "RB",
+        "rosValue": 8.24,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11586",
+        "canonicalName": "blake corum",
+        "position": "RB",
+        "rosValue": 23.73,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11624",
+        "canonicalName": "xavier worthy",
+        "position": "WR",
+        "rosValue": 27.54,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11627",
+        "canonicalName": "troy franklin",
+        "position": "WR",
+        "rosValue": 18.67,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11637",
+        "canonicalName": "keon coleman",
+        "position": "WR",
+        "rosValue": 15.45,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12484",
+        "canonicalName": "jayden higgins",
+        "position": "WR",
+        "rosValue": 23.98,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12504",
+        "canonicalName": "kaleb johnson",
+        "position": "RB",
+        "rosValue": 11.25,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12506",
+        "canonicalName": "harold fannin",
+        "position": "TE",
+        "rosValue": 29.31,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12533",
+        "canonicalName": "jacory croskey merritt",
+        "position": "RB",
+        "rosValue": 23.22,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12545",
+        "canonicalName": "tyler shough",
+        "position": "QB",
+        "rosValue": 29.61,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13288",
+        "canonicalName": "nicholas singleton",
+        "position": "RB",
+        "rosValue": 15.64,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13289",
+        "canonicalName": "drew allar",
+        "position": "QB",
+        "rosValue": 2.61,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13293",
+        "canonicalName": "jakobi lane",
+        "position": "WR",
+        "rosValue": 14.89,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13405",
+        "canonicalName": "kaytron allen",
+        "position": "RB",
+        "rosValue": 17.23,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4066",
+        "canonicalName": "evan engram",
+        "position": "TE",
+        "rosValue": 11.61,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5927",
+        "canonicalName": "terry mclaurin",
+        "position": "WR",
+        "rosValue": 36.65,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5967",
+        "canonicalName": "tony pollard",
+        "position": "RB",
+        "rosValue": 27.96,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6819",
+        "canonicalName": "michael pittman",
+        "position": "WR",
+        "rosValue": 27.04,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7591",
+        "canonicalName": "justin fields",
+        "position": "QB",
+        "rosValue": 9.85,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8110",
+        "canonicalName": "jake ferguson",
+        "position": "TE",
+        "rosValue": 20.13,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8112",
+        "canonicalName": "drake london",
+        "position": "WR",
+        "rosValue": 48.99,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8150",
+        "canonicalName": "kyren williams",
+        "position": "RB",
+        "rosValue": 44.94,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8155",
+        "canonicalName": "breece hall",
+        "position": "RB",
+        "rosValue": 40.85,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9487",
+        "canonicalName": "parker washington",
+        "position": "WR",
+        "rosValue": 28.12,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9756",
+        "canonicalName": "jordan addison",
+        "position": "WR",
+        "rosValue": 28.92,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9758",
+        "canonicalName": "cj stroud",
+        "position": "QB",
+        "rosValue": 27.74,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      }
+    ],
     "unfilledSlots": [],
     "unmappedPlayerCount": 0,
     "unmappedPlayers": [],
@@ -1492,6 +3817,349 @@
         "rosValue": 14.61,
         "depthFactor": 0.275,
         "depthContribution": 4.01
+      }
+    ],
+    "fullRoster": [
+      {
+        "playerId": "11557",
+        "canonicalName": "joe milton",
+        "position": "QB",
+        "rosValue": 6.12,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12493",
+        "canonicalName": "oronde gadsden",
+        "position": "TE",
+        "rosValue": 21.07,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12499",
+        "canonicalName": "elic ayomanor",
+        "position": "WR",
+        "rosValue": 12.44,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12507",
+        "canonicalName": "omarion hampton",
+        "position": "RB",
+        "rosValue": 47.87,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12523",
+        "canonicalName": "jimmy horn",
+        "position": "WR",
+        "rosValue": 7.84,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13320",
+        "canonicalName": "zachariah branch",
+        "position": "WR",
+        "rosValue": 15.27,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13345",
+        "canonicalName": "jonah coleman",
+        "position": "RB",
+        "rosValue": 17.09,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13346",
+        "canonicalName": "denzel boston",
+        "position": "WR",
+        "rosValue": 23.9,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "1373",
+        "canonicalName": "geno smith",
+        "position": "QB",
+        "rosValue": 18.57,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "1479",
+        "canonicalName": "keenan allen",
+        "position": "WR",
+        "rosValue": 19.24,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "2216",
+        "canonicalName": "mike evans",
+        "position": "WR",
+        "rosValue": 0.0,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3321",
+        "canonicalName": "tyreek hill",
+        "position": "WR",
+        "rosValue": 16.51,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4039",
+        "canonicalName": "cooper kupp",
+        "position": "WR",
+        "rosValue": 14.61,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4137",
+        "canonicalName": "james conner",
+        "position": "RB",
+        "rosValue": 13.62,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4144",
+        "canonicalName": "jonnu smith",
+        "position": "TE",
+        "rosValue": 10.14,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4943",
+        "canonicalName": "sam darnold",
+        "position": "QB",
+        "rosValue": 26.06,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4950",
+        "canonicalName": "christian kirk",
+        "position": "WR",
+        "rosValue": 13.17,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5022",
+        "canonicalName": "dallas goedert",
+        "position": "TE",
+        "rosValue": 21.52,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6130",
+        "canonicalName": "devin singletary",
+        "position": "RB",
+        "rosValue": 12.33,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6797",
+        "canonicalName": "justin herbert",
+        "position": "QB",
+        "rosValue": 44.96,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7525",
+        "canonicalName": "devonta smith",
+        "position": "WR",
+        "rosValue": 40.07,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7527",
+        "canonicalName": "mac jones",
+        "position": "QB",
+        "rosValue": 7.76,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7528",
+        "canonicalName": "najee harris",
+        "position": "RB",
+        "rosValue": 12.04,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7543",
+        "canonicalName": "travis etienne",
+        "position": "RB",
+        "rosValue": 39.69,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7567",
+        "canonicalName": "kenny gainwell",
+        "position": "RB",
+        "rosValue": 20.5,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7670",
+        "canonicalName": "joshua palmer",
+        "position": "WR",
+        "rosValue": 11.87,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8121",
+        "canonicalName": "romeo doubs",
+        "position": "WR",
+        "rosValue": 25.27,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8143",
+        "canonicalName": "jerome ford",
+        "position": "RB",
+        "rosValue": 9.06,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9500",
+        "canonicalName": "josh downs",
+        "position": "WR",
+        "rosValue": 23.55,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9511",
+        "canonicalName": "keaton mitchell",
+        "position": "RB",
+        "rosValue": 13.89,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9754",
+        "canonicalName": "quentin johnston",
+        "position": "WR",
+        "rosValue": 28.38,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
       }
     ],
     "unfilledSlots": [],
@@ -1684,6 +4352,338 @@
         "depthContribution": 2.22
       }
     ],
+    "fullRoster": [
+      {
+        "playerId": "10219",
+        "canonicalName": "chris rodriguez",
+        "position": "RB",
+        "rosValue": 20.11,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11571",
+        "canonicalName": "isaiah davis",
+        "position": "RB",
+        "rosValue": 12.3,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11603",
+        "canonicalName": "aj barner",
+        "position": "TE",
+        "rosValue": 17.26,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11610",
+        "canonicalName": "malik washington",
+        "position": "WR",
+        "rosValue": 12.41,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11635",
+        "canonicalName": "ladd mcconkey",
+        "position": "WR",
+        "rosValue": 37.24,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12467",
+        "canonicalName": "jordan james",
+        "position": "RB",
+        "rosValue": 9.28,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12483",
+        "canonicalName": "jack bech",
+        "position": "WR",
+        "rosValue": 14.44,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12485",
+        "canonicalName": "tez johnson",
+        "position": "WR",
+        "rosValue": 10.59,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12487",
+        "canonicalName": "terrance ferguson",
+        "position": "TE",
+        "rosValue": 14.33,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12490",
+        "canonicalName": "bhayshul tuten",
+        "position": "RB",
+        "rosValue": 26.3,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12492",
+        "canonicalName": "pat bryant",
+        "position": "WR",
+        "rosValue": 15.56,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12521",
+        "canonicalName": "elijah arroyo",
+        "position": "TE",
+        "rosValue": 10.59,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12522",
+        "canonicalName": "cam ward",
+        "position": "QB",
+        "rosValue": 21.36,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12534",
+        "canonicalName": "kyle monangai",
+        "position": "RB",
+        "rosValue": 24.8,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12535",
+        "canonicalName": "isaac teslaa",
+        "position": "WR",
+        "rosValue": 13.2,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12540",
+        "canonicalName": "chimere dike",
+        "position": "WR",
+        "rosValue": 11.77,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12541",
+        "canonicalName": "donte thornton",
+        "position": "WR",
+        "rosValue": 8.07,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12670",
+        "canonicalName": "keandre lambert smith",
+        "position": "WR",
+        "rosValue": 6.72,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13282",
+        "canonicalName": "jack endries",
+        "position": "TE",
+        "rosValue": 4.21,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13286",
+        "canonicalName": "jadarian price",
+        "position": "RB",
+        "rosValue": 30.36,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13294",
+        "canonicalName": "makai lemon",
+        "position": "WR",
+        "rosValue": 28.59,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13311",
+        "canonicalName": "chris bell",
+        "position": "WR",
+        "rosValue": 14.78,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": true,
+        "bye": false
+      },
+      {
+        "playerId": "13413",
+        "canonicalName": "cyrus allen",
+        "position": "WR",
+        "rosValue": 7.31,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13421",
+        "canonicalName": "eli raridon",
+        "position": "TE",
+        "rosValue": 8.23,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7049",
+        "canonicalName": "jauan jennings",
+        "position": "WR",
+        "rosValue": 21.39,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7523",
+        "canonicalName": "trevor lawrence",
+        "position": "QB",
+        "rosValue": 44.01,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8137",
+        "canonicalName": "george pickens",
+        "position": "WR",
+        "rosValue": 48.48,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9230",
+        "canonicalName": "tanner mckee",
+        "position": "QB",
+        "rosValue": 1.93,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9484",
+        "canonicalName": "tucker kraft",
+        "position": "TE",
+        "rosValue": 35.63,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9486",
+        "canonicalName": "dontayvion wicks",
+        "position": "WR",
+        "rosValue": 15.24,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      }
+    ],
     "unfilledSlots": [],
     "unmappedPlayerCount": 0,
     "unmappedPlayers": [],
@@ -1870,6 +4870,382 @@
         "rosValue": 14.97,
         "depthFactor": 0.179,
         "depthContribution": 2.67
+      }
+    ],
+    "fullRoster": [
+      {
+        "playerId": "12505",
+        "canonicalName": "jalen royals",
+        "position": "WR",
+        "rosValue": 9.36,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11564",
+        "canonicalName": "drake maye",
+        "position": "QB",
+        "rosValue": 60.69,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13298",
+        "canonicalName": "kc concepcion",
+        "position": "WR",
+        "rosValue": 25.5,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13317",
+        "canonicalName": "ted hurst",
+        "position": "WR",
+        "rosValue": 13.72,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12510",
+        "canonicalName": "jalen milroe",
+        "position": "QB",
+        "rosValue": 6.78,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6149",
+        "canonicalName": "darius slayton",
+        "position": "WR",
+        "rosValue": 17.72,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11435",
+        "canonicalName": "emanuel wilson",
+        "position": "RB",
+        "rosValue": 14.39,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8126",
+        "canonicalName": "wandale robinson",
+        "position": "WR",
+        "rosValue": 23.62,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13274",
+        "canonicalName": "germie bernard",
+        "position": "WR",
+        "rosValue": 11.57,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5012",
+        "canonicalName": "mark andrews",
+        "position": "TE",
+        "rosValue": 23.29,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8228",
+        "canonicalName": "jaylen warren",
+        "position": "RB",
+        "rosValue": 27.95,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4018",
+        "canonicalName": "joe mixon",
+        "position": "RB",
+        "rosValue": 5.94,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12472",
+        "canonicalName": "raheim sanders",
+        "position": "RB",
+        "rosValue": 6.83,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9508",
+        "canonicalName": "tyjae spears",
+        "position": "RB",
+        "rosValue": 18.45,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12536",
+        "canonicalName": "jaylin noel",
+        "position": "WR",
+        "rosValue": 16.47,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "3163",
+        "canonicalName": "jared goff",
+        "position": "QB",
+        "rosValue": 35.12,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9494",
+        "canonicalName": "marvin mims",
+        "position": "WR",
+        "rosValue": 12.73,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13285",
+        "canonicalName": "malachi fields",
+        "position": "WR",
+        "rosValue": 12.41,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13353",
+        "canonicalName": "chris brazzell",
+        "position": "WR",
+        "rosValue": 14.97,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9479",
+        "canonicalName": "darnell washington",
+        "position": "TE",
+        "rosValue": 10.72,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11630",
+        "canonicalName": "roman wilson",
+        "position": "WR",
+        "rosValue": 7.36,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7021",
+        "canonicalName": "rico dowdle",
+        "position": "RB",
+        "rosValue": 27.73,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13272",
+        "canonicalName": "carson beck",
+        "position": "QB",
+        "rosValue": 13.13,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9506",
+        "canonicalName": "sean tucker",
+        "position": "RB",
+        "rosValue": 15.21,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12518",
+        "canonicalName": "tyler warren",
+        "position": "TE",
+        "rosValue": 35.36,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9480",
+        "canonicalName": "brenton strange",
+        "position": "TE",
+        "rosValue": 22.28,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "96",
+        "canonicalName": "aaron rodgers",
+        "position": "QB",
+        "rosValue": 15.07,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11618",
+        "canonicalName": "jalen mcmillan",
+        "position": "WR",
+        "rosValue": 18.97,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "10232",
+        "canonicalName": "michael wilson",
+        "position": "WR",
+        "rosValue": 26.18,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11647",
+        "canonicalName": "kimani vidal",
+        "position": "RB",
+        "rosValue": 12.29,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7828",
+        "canonicalName": "noah gray",
+        "position": "TE",
+        "rosValue": 5.93,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13302",
+        "canonicalName": "adam randall",
+        "position": "RB",
+        "rosValue": 10.39,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11439",
+        "canonicalName": "jaleel mclaughlin",
+        "position": "RB",
+        "rosValue": 6.63,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9504",
+        "canonicalName": "kayshon boutte",
+        "position": "WR",
+        "rosValue": 18.52,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
       }
     ],
     "unfilledSlots": [],
