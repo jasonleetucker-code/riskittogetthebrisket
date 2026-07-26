@@ -135,6 +135,23 @@ finally:
 PY
 }
 
+# PRAGMA integrity_check on the COPIED database.  gzip -t only proves
+# the compressed stream is intact — structural corruption that
+# Connection.backup() copies page-for-page passes it cleanly.  Exits
+# nonzero unless the check returns exactly "ok" (an unreadable /
+# not-a-database file raises and exits nonzero too).
+sqlite_integrity_ok() {
+    "${PYTHON_BIN}" - "$1" <<'PY'
+import sqlite3, sys
+con = sqlite3.connect(sys.argv[1])
+try:
+    rows = [str(r[0]) for r in con.execute("PRAGMA integrity_check")]
+finally:
+    con.close()
+sys.exit(0 if rows == ["ok"] else 1)
+PY
+}
+
 backup_sqlite() {
     local src="$1"
     local name
@@ -147,6 +164,12 @@ backup_sqlite() {
     local out="${tmp}.gz"
     if ! sqlite_backup "${src}" "${tmp}"; then
         warn "sqlite online backup FAILED: ${src}"
+        ERRORS=$((ERRORS + 1))
+        rm -f "${tmp}"
+        return 0
+    fi
+    if ! sqlite_integrity_ok "${tmp}" 2>/dev/null; then
+        warn "sqlite PRAGMA integrity_check FAILED on copied db: ${src} — source database is likely corrupt; artifact rejected"
         ERRORS=$((ERRORS + 1))
         rm -f "${tmp}"
         return 0

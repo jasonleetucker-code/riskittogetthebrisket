@@ -114,8 +114,12 @@ faults.  So:
   — gitignored secrets, backed up **on-box only**, mode 0600.  The IDP
   Show session is manually provisioned (captcha-gated login), which is
   exactly why losing it hurts.
-- Every artifact integrity-checked (`gzip -t` / `tar -tzf`); the run
-  fails loudly if zero artifacts were written.
+- Every artifact integrity-checked: SQLite copies get
+  `PRAGMA integrity_check` against the *copied* database (structural
+  corruption copies page-for-page through `Connection.backup()` and
+  passes `gzip -t`, which only validates the compressed stream) plus
+  `gzip -t`; tarballs get `tar -tzf`.  The run fails loudly if zero
+  artifacts were written.
 - Destructive steps run strictly last: artifacts stage into a hidden
   dir and only a fully validated snapshot is promoted into `daily/`,
   mirrored off-box, or allowed to trigger pruning.  A failed run
@@ -168,8 +172,14 @@ to `/var/log/riskit-uptime.log`.
 Root-only, idempotent, `--dry-run` supported.  Order of operations:
 
 1. nginx: diff repo config vs `/etc/nginx/sites-available/…`; if
-   different → timestamped backup → install → `nginx -t` (restores the
-   backup automatically on failure) → `systemctl reload nginx`.
+   different → timestamped backup → install → `nginx -t` →
+   `systemctl reload nginx`.  On `nginx -t` failure it restores the
+   backup automatically; on a **first install** (no backup exists) it
+   removes the invalid file *and* the enabled symlink so a later nginx
+   restart/reboot cannot pick them up.  The sites-enabled symlink is
+   validated by resolved target (`readlink -f`), not mere existence —
+   a stale or broken link is recreated to point at the intended
+   config.
 2. Re-renders `dynasty`/`dynasty-frontend` units from the hardened
    templates via the existing `install-systemd-service.sh`
    (`FORCE_SERVICE_INSTALL=true`; no restart performed).  `VENV_DIR`

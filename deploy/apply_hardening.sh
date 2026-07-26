@@ -159,6 +159,13 @@ apply_nginx() {
                 err "restoring ${backup}"
                 cp -p "${backup}" "${dest}"
                 nginx -t || err "restored config ALSO fails nginx -t — manual intervention required"
+            else
+                # First install: there is no known-good config to fall
+                # back to.  Leaving the invalid file + enabled symlink
+                # armed would fail the NEXT nginx restart/reboot, so
+                # remove both — nginx keeps running on whatever it had.
+                err "first install (no backup) — removing invalid ${dest} and ${link} so a later nginx restart cannot pick them up"
+                rm -f "${dest}" "${link}"
             fi
             exit 1
         fi
@@ -167,8 +174,16 @@ apply_nginx() {
         log "nginx reloaded with hardened config"
     fi
 
-    # Sanity even when unchanged: symlink + config still valid.
-    [[ -L "${link}" ]] || { [[ "${DRY_RUN}" == "true" ]] || ln -sf "${dest}" "${link}"; }
+    # Sanity even when unchanged: the enabled symlink must exist AND
+    # resolve to our destination — a stale/renamed/broken link would
+    # keep nginx serving the wrong config while this script reports
+    # up-to-date.
+    local link_target
+    link_target="$(readlink -f "${link}" 2>/dev/null || true)"
+    if [[ "${link_target}" != "${dest}" ]]; then
+        warn "sites-enabled symlink wrong (resolves to '${link_target:-<missing>}', want '${dest}') — fixing"
+        [[ "${DRY_RUN}" == "true" ]] || ln -sf "${dest}" "${link}"
+    fi
     nginx -t >/dev/null 2>&1 || warn "current nginx config fails nginx -t — investigate before next reload"
 }
 

@@ -26,8 +26,13 @@ primitive via the venv python (same approach as the existing
 `deploy/backup_user_kv.sh` — the sqlite3 CLI is not installed on the
 box), so they are consistent under concurrent writes (WAL).
 
-Every artifact is integrity-checked (`gzip -t` / `tar -tzf`) before the
-run reports success.
+Every artifact is integrity-checked before the run reports success:
+SQLite copies get `PRAGMA integrity_check` (run against the *copied*
+database — `gzip -t` alone only proves the compressed stream is
+intact, while structural corruption copies page-for-page through
+`Connection.backup()`), then `gzip -t`; tarballs get `tar -tzf`.  A
+failed check rejects the artifact like any other error — and when the
+artifact is required, it blocks promotion entirely.
 
 ## Layout & retention
 
