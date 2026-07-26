@@ -61,6 +61,7 @@ import {
   Badge,
   Banner,
   Button,
+  Icon,
   Modal,
   PageHeader,
   Panel,
@@ -1022,7 +1023,11 @@ function QuickRecordRow({ player, workspace, onSubmit, onCancel }) {
   );
 }
 
-function RookieBoard({
+// Exported for tests only (same pattern as ``describeCustomMix`` on
+// the rankings page): the draft board's sortable-header semantics are
+// a11y-critical and need coverage without mounting the whole 5k-line
+// page and its localStorage/Sleeper-sync hook graph.
+export function RookieBoard({
   stats,
   workspace,
   marketDollars,
@@ -1116,19 +1121,31 @@ function RookieBoard({
   const teamName = (idx) =>
     workspace.teams[idx]?.name || `Team ${idx + 1}`;
 
+  // Sortable header.  The draft board keeps its own hand-rolled
+  // ``.draft-table`` (migrating it to the ds DataTable is a separate
+  // job), so it borrows the ds table's SORT SEMANTICS directly: a real
+  // <button> inside the <th>, aria-sort on the <th>, and the shared
+  // .ds-table__sort glyph that rotates off aria-sort.  Before this the
+  // header was a bare <th onClick> with an ASCII ▲/▼ — not focusable,
+  // not activatable, announcing nothing, so the nine sortable columns
+  // of the draft board were mouse-only.
   function th(label, col, width) {
     const active = sort.col === col;
+    const ariaSort = active ? (sort.asc ? "ascending" : "descending") : undefined;
     return (
-      <th
-        style={{ width, cursor: "pointer", userSelect: "none" }}
-        onClick={() =>
-          setSort((s) =>
-            s.col === col ? { col, asc: !s.asc } : { col, asc: false },
-          )
-        }
-      >
-        {label}
-        {active ? (sort.asc ? " ▲" : " ▼") : ""}
+      <th style={{ width }} aria-sort={ariaSort}>
+        <button
+          type="button"
+          className="ds-table__sort"
+          onClick={() =>
+            setSort((s) =>
+              s.col === col ? { col, asc: !s.asc } : { col, asc: false },
+            )
+          }
+        >
+          <span>{label}</span>
+          <Icon name="chevron-down" size={8} className="ds-table__sort-glyph" />
+        </button>
       </th>
     );
   }

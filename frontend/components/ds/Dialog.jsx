@@ -139,7 +139,20 @@ function useDialog({ open, onClose, panelRef, initialFocusRef }) {
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       unregisterOverlay(token); // releases the scroll lock only when registry empties
-      restoreRef.current?.focus?.();
+      // Restore focus to the opener — but only if it still EXISTS.
+      // Calling .focus() on a detached node is a silent no-op that
+      // drops focus to <body>, stranding keyboard users at the top of
+      // the document.  This is reachable in practice: on /draft the
+      // row control that opened the dialog unmounts when the player is
+      // marked drafted.  Fall back to the main landmark (made
+      // programmatically focusable by the R1 shell) so focus lands at
+      // the content, matching the route-change behaviour.
+      const opener = restoreRef.current;
+      if (opener && opener.isConnected) {
+        opener.focus?.();
+      } else {
+        document.getElementById("main")?.focus?.();
+      }
     };
   }, [open, panelRef]);
 }

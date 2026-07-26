@@ -20,12 +20,13 @@ const { pageUrl, NAME } = require("../helpers/journey");
 test.describe("signed-in: /waivers page", () => {
   test("renders header + sections", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
-    // Page header content + one of the sections must be visible.
-    // R4 renamed the page to "Waivers" (eyebrow "Claim desk") to match
-    // the nav model; section headings shortened to "Droppable"/"Addable".
-    await expect(authedPage.locator("body")).toContainText(/Waivers/i, {
-      timeout: 30000,
-    });
+    // Assert the page's OWN <h1>, not body text: the R1 shell puts a
+    // "Waivers" nav link in the sidebar on every page, so a body-level
+    // /Waivers/i match passed even when the page itself failed to
+    // render — a vacuous assertion.
+    await expect(
+      authedPage.getByRole("heading", { level: 1, name: /Waivers/i }),
+    ).toBeVisible({ timeout: 30000 });
     await expect(authedPage.locator("body")).toContainText(
       /Best add\/drop moves|Addable|Droppable|Pick your team/i,
       { timeout: 30000 },
