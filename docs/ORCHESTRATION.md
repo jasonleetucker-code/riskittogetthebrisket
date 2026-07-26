@@ -297,6 +297,17 @@ frontend-auth territory and need their own review.
   R1 renamed the wordmark and moved anonymous `/` to the sign-in surface.
   Nightly-only E2E scheduling hid it.
 
+  **Still live, and deliberately not hot-fixed.** The fix (`84b28a51`)
+  exists only on `claude/e2e-r1-reconcile`; `main`, R3 and R4 all still
+  carry the original blob asserting `/Risk It/i` against a shell that
+  renders `▪ Brisket`. Not pulled forward for the same reason as the
+  `lineup.py` fix — #554 is the natural vehicle and a separate PR buys
+  three days. **Consequence to hold in mind at the window: main's nightly
+  E2E is EXPECTED-RED until #554 lands, so a red nightly before then is
+  not evidence of a new regression.** Verify against that baseline rather
+  than treating red as signal. Two independent agents found this defect
+  the same day — the second convergence of the day.
+
 ### Sixth vacuous-check instance (§2b family)
 
 Without `E2E_TEST_MODE` + its shared secret, **every signed-in spec skips
