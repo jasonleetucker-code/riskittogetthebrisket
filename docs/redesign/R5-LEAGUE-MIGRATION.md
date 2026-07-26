@@ -1,8 +1,9 @@
 # R5 — `/league` + `/league-comparison` migration scope
 
-**Status:** scoped. **Step 1 (de-seam) is DONE and landed.** Step 2
-(structural migration) is scoped below and **blocked on one defect that
-must be fixed first** — see §4.
+**Status:** scoped. **Step 1 (de-seam) is DONE and landed.** The §4
+blocker is **RESOLVED** on `claude/redesign-r3-surfaces` (`0b36074c`) —
+Panel is hook-free again and pinned by a test — so phase A is unblocked
+once #551 merges.
 
 Companion to `docs/redesign/R5-PANEL-CSS-PURGE.md`, which established
 that `.card` cannot be deleted, only migrated.
@@ -100,7 +101,7 @@ Two findings in that table beyond the migration itself:
 - `activity/page.jsx` is the **third** instance of the fake-tablist
   pattern (after `PlayerMarketMovement` and `.pmm-scope`): `role="tab"`
   on controls that own nothing. It is a codebase-wide habit, not three
-  coincidences — worth a lint rule rather than three more spot fixes.
+  coincidences — see §3a.
 - The improved/legacy method toggle is **implemented twice**, in
   `PositionalTable` and `SummaryCards`. Migrating them independently
   preserves the duplication; they should end up sharing one control.
@@ -108,11 +109,63 @@ Two findings in that table beyond the migration itself:
 Not tabs, and not to be migrated as tabs: `rivalries.jsx:30`
 (list selection) and `awards.jsx:362` (disclosure).
 
+## 3a. R5 task — lint the fake-tablist pattern
+
+Three independent instances found in two unrelated workstreams is a
+habit, and spot-fixing the third one leaves the fourth to be written
+next week. **Add a lint rule as part of R5**, before or alongside the
+migrations, so the pattern can't reappear.
+
+The rule, stated as the invariant it protects:
+
+> An element with `role="tablist"` must contain elements with
+> `role="tab"`, and **every `role="tab"` must carry `aria-controls`
+> pointing at an element with `role="tabpanel"`.**
+
+A tab that controls nothing is not a tab — it is a filter or a toggle,
+and it should be a `SegmentedControl` or a `Button` with `aria-pressed`.
+
+Implementation notes:
+
+- `eslint-plugin-jsx-a11y` ships `jsx-a11y/role-has-required-aria-props`
+  and `jsx-a11y/aria-role`, but **neither catches this**: `aria-controls`
+  is not a *required* prop of `role="tab"` in the ARIA spec, and the
+  role name itself is valid. Verify against the installed plugin version
+  before assuming a built-in rule covers it; expect to need a small
+  custom rule.
+- Cross-file `aria-controls` → `role="tabpanel"` resolution is beyond a
+  per-file linter. Scope the rule to the achievable check — `role="tab"`
+  without an `aria-controls` attribute at all — which is what all three
+  known instances violate, and leave cross-file verification to review.
+- Known instances to fix as the rule lands:
+  `PlayerMarketMovement.jsx:138`, `PlayerMarketMovement.jsx:155`
+  (`.pmm-scope`), `TeamNewsFeed.jsx:53`, `app/league/activity/page.jsx:46`.
+  All become `SegmentedControl`; none become `Tabs`.
+
+Related, same family: the ds `Tabs` primitive already does this
+correctly (`aria-controls`, roving tabindex, Arrow/Home/End), so the
+rule's fix is always "use the primitive", never "add the attribute by
+hand".
+
 ---
 
-## 4. BLOCKER — ds `Panel` is no longer server-safe, and I caused it
+## 4. ~~BLOCKER~~ RESOLVED — ds `Panel` server-safety
 
-**This must be fixed before phase A, and it is my regression.**
+**Fixed on `claude/redesign-r3-surfaces` in `0b36074c`**, where the
+regression was introduced. `Panel` is hook-free again: the disclosure is
+now *controlled* (`collapsible` / `collapsed` / `onToggleCollapsed` /
+`bodyId`) and the state lives in a new `CollapsiblePanel` behind its own
+client boundary. `frontend/__tests__/components/ds/panel-server-safe.test.js`
+pins it — verified to fail both ways out (re-adding the hooks, or
+papering over it with a client directive on `Panel`).
+
+**Phase A is unblocked once #551 merges.** The original analysis is kept
+below because it is the reason phase A must never route the seven server
+routes through a stateful primitive.
+
+---
+
+**The regression, as found:**
 
 `app/league/shared-server.jsx` is explicitly server-safe by contract:
 *"no hooks, no onClick state closures — so they can be rendered either
@@ -142,7 +195,7 @@ routes are dynamic and data-backed, the backend has no data
 build` — the build compiles because bundling succeeds and the error
 would be a render-time one. **Treat this as unresolved, not as safe.**
 
-Three ways out, in preference order:
+Three ways out — **option 1 was taken**:
 
 1. **Split the primitive.** Keep `Panel` pure; move collapsible state
    into a thin client wrapper (`CollapsiblePanel`) that composes it.
@@ -159,10 +212,9 @@ Three ways out, in preference order:
    Splits the container story permanently; only acceptable as a
    temporary state.
 
-**The fix belongs on R3, not here** — `Panel.jsx` on this branch is
-main's pure version, so the defect does not exist here and cannot be
-fixed here without creating a merge conflict with R3. Flagged to the
-coordinator for R3 to resolve before or immediately after merge.
+The fix went on R3 rather than here: `Panel.jsx` on this branch is
+main's pure version, so the defect does not exist here and fixing it
+here would only have created a merge conflict.
 
 ---
 
@@ -187,11 +239,14 @@ under. Status:
 
 ## 6. Recommended order
 
-1. Resolve §4 on R3 (prefer splitting the primitive).
-2. Phase A: `Card` → `Panel`, one file, 70 sites. **Measure `/league`.**
-3. Phase B: the 85 raw `className="card"` sites, page by page, with the
-   view-switcher fixes from §3 folded in per page.
-4. Delete `.card` from `globals.css`, plus the three mobile overrides at
+1. ~~Resolve §4 on R3.~~ **Done** (`0b36074c`); waiting only on #551
+   merging.
+2. Phase A: `Card` → `Panel`, one file, 70 sites. **Measure `/league`**
+   before going further — this is the budget probe.
+3. Add the §3a lint rule and fix the four known fake tablists.
+4. Phase B: the 85 raw `className="card"` sites, page by page, with the
+   remaining §3 view-switcher fixes folded in per page.
+5. Delete `.card` from `globals.css`, plus the three mobile overrides at
    ~1768 / ~2029 / ~2060 — last, once the count reaches zero.
 
 Out of scope here, noted while surveying: four other hardcoded navy /
