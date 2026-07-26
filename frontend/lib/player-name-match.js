@@ -90,6 +90,37 @@ export function itemPlayerNames(item) {
   return [];
 }
 
+/**
+ * Coarse position family for facet/disambiguation comparisons —
+ * first token of the position string, uppercased ("DL/EDGE" → "DL").
+ */
+export function positionFamily(pos) {
+  return String(pos || "")
+    .toUpperCase()
+    .split("/")[0]
+    .trim();
+}
+
+/**
+ * Disambiguating metadata a news item carries for the mention whose
+ * name normalizes to ``key``: ``{ family, team }`` when the mention
+ * object has ``position``/``pos`` and/or ``team``/``nflTeam`` fields,
+ * or ``null`` for name-only tags (the backend's PlayerMention emits
+ * name-only today — this reads richer tags whenever a provider or a
+ * future contract bump supplies them).
+ */
+function mentionMetaFor(item, key) {
+  const players = Array.isArray(item?.players) ? item.players : [];
+  for (const p of players) {
+    if (!p || typeof p === "string") continue;
+    if (normalizePlayerNameKey(p.name) !== key) continue;
+    const family = positionFamily(p.position || p.pos);
+    const team = String(p.team || p.nflTeam || "").toUpperCase().trim();
+    return family || team ? { family, team } : null;
+  }
+  return null;
+}
+
 function itemTime(item) {
   const t = Date.parse(item?.ts || item?.publishedAt || "");
   return Number.isFinite(t) ? t : 0;
@@ -129,18 +160,40 @@ export function buildNewsIndexByPlayer(items) {
 /**
  * Look up every news item for a player by display name.
  * Always returns an array (empty when the player has no news).
+ *
+ * Name collisions (the repo documents CJ Allen the LB vs C.J. Allen
+ * the WR in ``src/utils/name_clean.py``) share one index key, so an
+ * optional ``context`` — ``{ position/family, team }`` from the
+ * requesting row — disambiguates: items whose mention carries
+ * metadata that CONTRADICTS the context (position-family mismatch,
+ * or team mismatch when both sides know the team) are dropped.
+ * Name-only mentions (the backend's current tagging) can't be
+ * attributed to either identity, so they are KEPT for both — the
+ * documented fallback; over-filtering would lose real news.
  */
-export function lookupPlayerNews(index, name) {
+export function lookupPlayerNews(index, name, context) {
   if (!(index instanceof Map)) return [];
   const key = normalizePlayerNameKey(name);
   if (!key) return [];
-  return index.get(key) || [];
+  const items = index.get(key) || [];
+  const family = positionFamily(context?.family || context?.position);
+  const team = String(context?.team || "").toUpperCase().trim();
+  if (!family && !team) return items;
+  return items.filter((item) => {
+    const meta = mentionMetaFor(item, key);
+    if (!meta) return true; // name-only tag — documented fallback
+    if (meta.family && family && meta.family !== family) return false;
+    if (meta.team && team && meta.team !== team) return false;
+    return true;
+  });
 }
 
 /**
  * One-shot convenience for server components: filter a raw item list
- * down to the items mentioning ``name``, newest first.
+ * down to the items mentioning ``name`` (optionally disambiguated by
+ * the same ``context`` contract as ``lookupPlayerNews``), newest
+ * first.
  */
-export function newsItemsForPlayer(items, name) {
-  return lookupPlayerNews(buildNewsIndexByPlayer(items), name);
+export function newsItemsForPlayer(items, name, context) {
+  return lookupPlayerNews(buildNewsIndexByPlayer(items), name, context);
 }

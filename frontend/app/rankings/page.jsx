@@ -1368,7 +1368,14 @@ export default function RankingsPage() {
               </thead>
               <tbody>
                 {displayRows.map((row, idx) => {
-                  const newsItem = lookupPlayerNews(newsByPlayer, row.name)[0];
+                  // Row context disambiguates name-collision players
+                  // (CJ Allen LB vs C.J. Allen WR) when an item's
+                  // mention carries position/team metadata; name-only
+                  // items still show for both (documented fallback).
+                  const newsItem = lookupPlayerNews(newsByPlayer, row.name, {
+                    position: row.pos,
+                    team: row.raw?.team,
+                  })[0];
                   const chips = rowChips(row, { newsItem });
                   const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
                   const band = valueBand(val);

@@ -15,7 +15,11 @@
  * node vitest project.
  */
 
-import { itemPlayerNames, normalizePlayerNameKey } from "./player-name-match";
+import {
+  itemPlayerNames,
+  normalizePlayerNameKey,
+  positionFamily,
+} from "./player-name-match";
 
 /**
  * Map normalized player-name key → ARRAY of { team, family } metas
@@ -36,7 +40,7 @@ export function buildPlayerMetaIndex(rows) {
   for (const r of rows) {
     const key = normalizePlayerNameKey(r?.name);
     if (!key) continue;
-    const family = String(r?.pos || "").toUpperCase().split("/")[0];
+    const family = positionFamily(r?.pos);
     const team = String(r?.raw?.team || "").toUpperCase().trim();
     const list = meta.get(key);
     if (!list) {

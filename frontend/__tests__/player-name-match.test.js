@@ -109,3 +109,96 @@ describe("newsItemsForPlayer", () => {
     expect(newsItemsForPlayer([], "TJ Hockenson")).toEqual([]);
   });
 });
+
+// ── Name-collision disambiguation ─────────────────────────────────
+// The repo documents CJ Allen the LB vs C.J. Allen the WR
+// (src/utils/name_clean.py): both normalize to "cj allen" and share
+// one index key.  When an item's mention carries position/team
+// metadata, the caller's row context must route it to the right
+// identity; name-only mentions (the backend's current tagging) stay
+// visible for both — the documented fallback, since over-filtering
+// loses real news.
+const COLLISION_ITEMS = [
+  {
+    id: "wr1",
+    ts: "2026-07-24T10:00:00+00:00",
+    headline: "Falcons WR camp riser",
+    players: [{ name: "C.J. Allen", position: "WR", team: "ATL" }],
+  },
+  {
+    id: "lb1",
+    ts: "2026-07-23T10:00:00+00:00",
+    headline: "Titans LB defensive rep count",
+    players: [{ name: "CJ Allen", position: "LB", team: "TEN" }],
+  },
+  {
+    id: "plain1",
+    ts: "2026-07-22T10:00:00+00:00",
+    headline: "Allen name-only note",
+    players: [{ name: "CJ Allen" }],
+  },
+];
+
+describe("lookupPlayerNews — collision disambiguation via row context", () => {
+  const index = buildNewsIndexByPlayer(COLLISION_ITEMS);
+
+  it("without context, both identities see all shared-key items", () => {
+    expect(lookupPlayerNews(index, "CJ Allen").map((i) => i.id)).toEqual([
+      "wr1",
+      "lb1",
+      "plain1",
+    ]);
+  });
+
+  it("WR context keeps the WR-tagged item + the name-only fallback, drops the LB item", () => {
+    const items = lookupPlayerNews(index, "C.J. Allen", {
+      position: "WR",
+      team: "ATL",
+    });
+    expect(items.map((i) => i.id)).toEqual(["wr1", "plain1"]);
+  });
+
+  it("LB context keeps the LB-tagged item + the name-only fallback, drops the WR item", () => {
+    const items = lookupPlayerNews(index, "CJ Allen", {
+      position: "LB",
+      team: "TEN",
+    });
+    expect(items.map((i) => i.id)).toEqual(["lb1", "plain1"]);
+  });
+
+  it("family-only context works when the mention has no team stamp", () => {
+    const idx = buildNewsIndexByPlayer([
+      {
+        id: "fam1",
+        ts: "2026-07-24T10:00:00+00:00",
+        headline: "Position-only tag",
+        players: [{ name: "CJ Allen", position: "DL/EDGE" }],
+      },
+    ]);
+    // Compound position collapses to its leading family.
+    expect(
+      lookupPlayerNews(idx, "CJ Allen", { position: "DL" }),
+    ).toHaveLength(1);
+    expect(
+      lookupPlayerNews(idx, "CJ Allen", { position: "WR" }),
+    ).toHaveLength(0);
+  });
+
+  it("context on a non-colliding player never drops name-only items", () => {
+    const idx = buildNewsIndexByPlayer(ITEMS);
+    const items = lookupPlayerNews(idx, "TJ Hockenson", {
+      position: "TE",
+      team: "MIN",
+    });
+    expect(items.map((i) => i.id)).toEqual(["a4", "a3"]);
+  });
+
+  it("newsItemsForPlayer forwards the context (server-side path)", () => {
+    expect(
+      newsItemsForPlayer(COLLISION_ITEMS, "C.J. Allen", {
+        position: "WR",
+        team: "ATL",
+      }).map((i) => i.id),
+    ).toEqual(["wr1", "plain1"]);
+  });
+});

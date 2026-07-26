@@ -47,7 +47,7 @@ async function fetchPlayer(playerId) {
 // render (revalidate: 60) gets a fast hit.
 const NEWS_FETCH_DEADLINE_MS = 1500;
 
-async function fetchPlayerNews(playerName) {
+async function fetchPlayerNews(playerName, { position, team } = {}) {
   if (!playerName) return [];
   try {
     // limit=100 (the route's ceiling): the per-player filter runs
@@ -60,7 +60,10 @@ async function fetchPlayerNews(playerName) {
     if (!res.ok) return [];
     const payload = await res.json();
     const items = Array.isArray(payload?.items) ? payload.items : [];
-    return newsItemsForPlayer(items, playerName);
+    // Position/team context disambiguates name-collision players
+    // when an item's mention carries metadata; name-only items are
+    // kept (documented fallback in lookupPlayerNews).
+    return newsItemsForPlayer(items, playerName, { position, team });
   } catch {
     return [];
   }
@@ -119,7 +122,10 @@ export default async function PlayerJourneyPage({ params }) {
   const managers = buildManagerLookup(payload.league);
   const p = payload.player;
   const ident = p.identity;
-  const newsItems = await fetchPlayerNews(ident?.playerName);
+  const newsItems = await fetchPlayerNews(ident?.playerName, {
+    position: ident?.position,
+    team: ident?.nflTeam,
+  });
 
   return (
     <section>

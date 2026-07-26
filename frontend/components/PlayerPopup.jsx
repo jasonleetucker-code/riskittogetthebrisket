@@ -209,11 +209,15 @@ function RosContextSection({ row }) {
 // backend, or loading all render nothing.
 const _POPUP_NEWS_LIMIT = 5;
 
-function PlayerNewsSection({ playerName }) {
+function PlayerNewsSection({ playerName, position, team }) {
   const { byPlayer } = useNews();
+  // Row context disambiguates name-collision players (CJ Allen LB vs
+  // C.J. Allen WR) when an item's mention carries position/team
+  // metadata; name-only items still show for both (documented
+  // fallback in lookupPlayerNews).
   const items = useMemo(
-    () => lookupPlayerNews(byPlayer, playerName),
-    [byPlayer, playerName],
+    () => lookupPlayerNews(byPlayer, playerName, { position, team }),
+    [byPlayer, playerName, position, team],
   );
   if (!items.length) return null;
   return (
@@ -950,7 +954,11 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
 
         {/* Recent news for this player — renders nothing when the
             player has no items or the feed is unavailable. */}
-        <PlayerNewsSection playerName={row.name} />
+        <PlayerNewsSection
+          playerName={row.name}
+          position={row.pos}
+          team={row.raw?.team}
+        />
 
         {/* Source breakdown bars */}
         {siteDetails.length > 0 && (
