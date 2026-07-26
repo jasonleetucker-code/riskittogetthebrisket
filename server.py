@@ -10685,6 +10685,54 @@ async def get_playerctx_player(request: Request):
     )
 
 
+# ── PAGE CATCH-ALL (MUST BE THE LAST ROUTE IN THIS FILE) ────────────────
+# Every page above this point is registered by hand.  That list has
+# drifted from the Next.js app three separate times — at the time this
+# was written /waivers, /news, /draft, /angle, /trending, /intel's
+# siblings, /players/compare, /league-comparison, /idptc-rookies,
+# /tools/ros-data-health, /rankings/[position] and every /league/*
+# subroute were all 404 through this backend while serving fine from
+# Next.  A hand-maintained mirror of another router's route table is a
+# permanent drift trap, so this forwards anything unclaimed instead.
+#
+# Next owns page routing; an unknown path gets Next's own 404, which is
+# the correct answer rather than a FastAPI one.
+#
+# Ordering is load-bearing: FastAPI matches in registration order, so
+# this only ever sees paths no explicit route above claimed.  The
+# ``/api/`` and ``/_next/`` guards are belt-and-braces for the day
+# someone appends a route below this one.
+#
+# NOT fixed here, deliberately: ``_proxy_next`` forwards neither the
+# request's cookies nor its query string, so a page served through this
+# backend renders logged-out and ignores ``?tab=``.  That is the same
+# behaviour every hand-registered page above already has — this change
+# makes the route list complete, not the proxy faithful.  Whether the
+# proxy should be repaired or declared non-production-representative
+# (nginx bypasses it in prod) is tracked separately; see issue #555.
+_PUBLIC_PAGE_PREFIXES = ("/league",)
+
+
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def serve_next_page(request: Request, full_path: str):
+    path = "/" + full_path.lstrip("/")
+
+    # Never intercept API or asset traffic.  Unreachable while this
+    # stays the last route; cheap insurance if that ever changes.
+    if path.startswith("/api/") or path.startswith("/_next/"):
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+
+    is_public = any(
+        path == prefix or path.startswith(prefix + "/") for prefix in _PUBLIC_PAGE_PREFIXES
+    )
+    if not is_public:
+        redirect = _require_auth_or_redirect(request, path)
+        if redirect is not None:
+            return redirect
+
+    return await _serve_app_shell(path)
+
+
 # ── MAIN ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
