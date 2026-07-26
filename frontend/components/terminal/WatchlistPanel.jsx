@@ -5,7 +5,7 @@ import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
-import Panel from "./Panel";
+import { Movement, Panel } from "@/components/ds";
 
 /**
  * WatchlistPanel — user-curated list of players to keep an eye on.
@@ -70,7 +70,6 @@ export default function WatchlistPanel() {
           ? "Synced across your devices"
           : "Saved locally — sign in to sync"
       }
-      className="panel--watchlist"
       actions={
         count > 0 ? (
           <span className="muted" style={{ fontSize: "0.68rem" }}>
@@ -142,8 +141,6 @@ function TrendDelta({ label, value }) {
     );
   }
   const tone = n > 0 ? "up" : n < 0 ? "down" : "flat";
-  const arrow = n > 0 ? "▲" : n < 0 ? "▼" : "·";
-  const display = n === 0 ? "·" : Math.abs(n);
   return (
     <span
       className={`watchlist-delta watchlist-delta--${tone}`}
@@ -151,7 +148,11 @@ function TrendDelta({ label, value }) {
     >
       <span className="watchlist-delta-label">{label}</span>
       <span className="watchlist-delta-value">
-        {arrow} {display}
+        {n === 0 ? (
+          "—"
+        ) : (
+          <Movement delta={n} srLabel={`${label}: ${n > 0 ? "up" : "down"} ${Math.abs(n)} ranks`} />
+        )}
       </span>
     </span>
   );

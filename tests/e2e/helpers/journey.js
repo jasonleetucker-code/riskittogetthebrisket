@@ -58,6 +58,14 @@ const SEL = {
     '[role="tablist"][aria-label="Discovery workflow"] [role="tab"]',
   finderFilters: ".finder-filters",
   finderRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // / dashboard (R3) — the war-room terminal. The legacy terminal
+  // Panel container is retired; every section is a ds Panel now, so
+  // panels are addressed by their accessible heading rather than a
+  // .panel--* hook class.
+  dashboardCommandBar: '[aria-label="Team command bar"]',
+  dashboardStats: '[aria-label="Team aggregates"]',
+  dashboardPanel: ".ds-panel",
+  dashboardSignalCard: '[aria-label^="Sell signal"], [aria-label^="Buy signal"]',
 };
 
 function isMobileProject(testInfo) {

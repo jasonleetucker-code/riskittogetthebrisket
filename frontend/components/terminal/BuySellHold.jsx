@@ -12,7 +12,7 @@ import {
   SIGNAL_META,
   SIGNALS,
 } from "@/lib/signal-engine";
-import Panel from "./Panel";
+import { Panel } from "@/components/ds";
 
 const DISMISSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -209,7 +209,6 @@ export default function BuySellHold() {
     <Panel
       title="Signals"
       subtitle="Rule-driven Buy / Sell / Hold per roster player"
-      className="panel--signals"
       actions={
         dismissedCount > 0 ? (
           <button

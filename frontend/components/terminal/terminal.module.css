@@ -1,0 +1,159 @@
+/* terminal.module.css — dashboard structure (R3, token-driven).
+   The legacy .terminal-* / .panel-* global rules are retired for the
+   container layer; per-panel content classes stay global until the R5
+   purge (same call R2 made for the board's badge/tier classes). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Command bar ──────────────────────────────────────────────────── */
+.commandStats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 1024px) {
+  .commandStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (width < 480px) {
+  .commandStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.commandChart {
+  margin-top: var(--space-3);
+  overflow-x: auto;
+}
+
+/* ── Signals rail ─────────────────────────────────────────────────── */
+/* Explicit 3-up at desktop; the rail is the "act on this" lane, so it
+   sits directly under the command bar and above everything else. */
+.railGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@media (width < 1024px) {
+  .railGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (width < 480px) {
+  .railGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.signalCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.signalCard:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+/* Direction is carried by the SELL/BUY word and the Movement arrow;
+   the edge is reinforcement, never the sole channel. */
+.signalCardSell {
+  box-shadow: inset 2px 0 0 var(--negative);
+}
+.signalCardBuy {
+  box-shadow: inset 2px 0 0 var(--positive);
+}
+.signalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.signalName {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+}
+.signalMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.signalPos {
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.signalEvidence {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-secondary);
+}
+
+/* ── Working grid ─────────────────────────────────────────────────── */
+/* Three explicit columns at desktop, two at tablet, one on mobile —
+   no auto-fit. Column assignment is by information role, not by
+   whatever happens to fit. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (width < 1320px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+@media (width < 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* At tablet the right column's contents fold under the left pair
+   rather than creating a third orphan column. */
+@media (width < 1320px) {
+  .colRight {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (width < 768px) {
+  .colRight {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Movers rows ──────────────────────────────────────────────────── */
+.moverDelta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 64px;
+  text-align: right;
+}
+.moverFrom {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}

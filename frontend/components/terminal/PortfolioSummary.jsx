@@ -6,7 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useTerminal } from "@/components/useTerminal";
 import { computePortfolio } from "@/lib/portfolio-insights";
-import Panel from "./Panel";
+import { Panel } from "@/components/ds";
 
 const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
 const AGE_ORDER = [
@@ -100,7 +100,7 @@ export default function PortfolioSummary() {
 
   if (!selectedTeam) {
     return (
-      <Panel title="Portfolio" subtitle="Positional allocation" className="panel--portfolio">
+      <Panel title="Portfolio" subtitle="Positional allocation">
         <div className="portfolio-empty">Pick a team to see allocation.</div>
       </Panel>
     );
@@ -108,7 +108,7 @@ export default function PortfolioSummary() {
 
   if (!portfolio) {
     return (
-      <Panel title="Portfolio" subtitle="Positional allocation" className="panel--portfolio">
+      <Panel title="Portfolio" subtitle="Positional allocation">
         <div className="portfolio-empty">
           {historyLoading ? "Loading portfolio…" : "No roster data resolved."}
         </div>
@@ -143,7 +143,6 @@ export default function PortfolioSummary() {
     <Panel
       title="Portfolio"
       subtitle="Value, allocation, age + volatility"
-      className="panel--portfolio"
     >
       {/* ── Aggregate header ── */}
       <div className="portfolio-agg">

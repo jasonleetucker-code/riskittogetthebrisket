@@ -12,7 +12,7 @@ import {
   computeRosterChips,
   computePlayerBlurb,
 } from "@/lib/portfolio-insights";
-import Panel from "./Panel";
+import { Panel } from "@/components/ds";
 
 const INSIGHT_CARDS = [
   { key: "bestAsset",   label: "Best Asset",   tone: "up" },
@@ -140,7 +140,7 @@ export default function ScoutingIntel() {
 
   if (!selectedTeam) {
     return (
-      <Panel title="Scouting" subtitle="Data confidence + anomalies" className="panel--scouting">
+      <Panel title="Scouting" subtitle="Data confidence + anomalies">
         <div className="scouting-empty">Pick a team to see intel.</div>
       </Panel>
     );
@@ -152,9 +152,6 @@ export default function ScoutingIntel() {
     <Panel
       title="Scouting"
       subtitle="Roster-level intel + four named reads"
-      className="panel--scouting"
-      collapsible
-      defaultCollapsed={false}
     >
       {/* ── Roster chip row ── */}
       {rosterChips.length > 0 && (

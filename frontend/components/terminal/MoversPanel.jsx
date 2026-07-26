@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import Panel from "./Panel";
+import { Movement, Panel } from "@/components/ds";
+import styles from "./terminal.module.css";
 import { PlayerImage } from "@/components/ui";
 import { useApp } from "@/components/AppShell";
 
@@ -42,8 +43,6 @@ function describePosition(row) {
 
 function MoverRow({ row, openPlayerPopup }) {
   const [expanded, setExpanded] = useState(false);
-  const tone = row.delta > 0 ? "var(--green)" : "var(--red)";
-  const arrow = row.delta > 0 ? "▲" : "▼";
   const posLabel = describePosition(row);
 
   return (
@@ -74,20 +73,14 @@ function MoverRow({ row, openPlayerPopup }) {
           </div>
         </div>
         <div
-          style={{
-            fontFamily: "var(--mono)",
-            color: tone,
-            fontWeight: 700,
-            fontSize: "0.78rem",
-            textAlign: "right",
-            minWidth: 60,
-          }}
+          className={styles.moverDelta}
           title={`Was #${row.rankThen}, now #${row.rankNow}`}
         >
-          {arrow}{Math.abs(row.delta)}
-          <div style={{ fontSize: "0.56rem", color: "var(--subtext)", fontWeight: 400 }}>
-            from #{row.rankThen}
-          </div>
+          <Movement
+            delta={row.delta}
+            srLabel={`${row.delta > 0 ? "up" : "down"} ${Math.abs(row.delta)} ranks, was #${row.rankThen}`}
+          />
+          <span className={styles.moverFrom}>from #{row.rankThen}</span>
         </div>
       </div>
       {expanded && row.currentSourceRanks && (
