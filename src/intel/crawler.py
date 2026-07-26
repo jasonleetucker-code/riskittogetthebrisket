@@ -12,11 +12,12 @@ matched too; orphaned rosters (no ``owner_id``) are skipped.
 
 Budget: hard cap of ``budget`` HTTP calls per run (default 900),
 single-threaded, ``sleep_s`` between calls.  Steady state is roughly
-1 (nfl state) + N members (league lists) + 2 per league (rosters +
-current-week transactions) ≈ 310 calls for a 12-member pool tracking
-~150 leagues.  When the budget exhausts mid-run the cursor
-(``state["cursor"]``) records the unfinished members/leagues so the
-next run resumes round-robin where this one stopped.
+1 (nfl state) + N members (league lists) + 3 per league (rosters +
+traded picks + current-week transactions) ≈ 460 calls for a
+12-member pool tracking ~150 leagues.  When the budget exhausts
+mid-run the cursor (``state["cursor"]``) records the unfinished
+members/leagues so the next run resumes round-robin where this one
+stopped.
 
 Incremental transactions: ``fetchState[leagueId] = {maxCreatedSeen,
 boundaryTxIds}``.  We fetch only the current week (plus the previous
@@ -49,6 +50,12 @@ DEFAULT_SLEEP_S = 0.12
 BACKFILL_MAX_WEEKS = 6
 BACKFILL_MAX_DAYS = 30
 WEEK_ROLLOVER_GRACE_HOURS = 48
+# Default pick-ownership horizon — mirrors
+# ``sleeper_overlay._build_pick_ownership`` (3 upcoming seasons) and
+# the scraper's draft_rounds clamp (1..6, default 4).
+PICK_HOLDINGS_YEARS = 3
+DEFAULT_DRAFT_ROUNDS = 4
+MAX_DRAFT_ROUNDS = 6
 
 HttpGet = Callable[[str], Any]
 
@@ -156,6 +163,57 @@ def _roster_owner_map(
             players = [str(p) for p in (roster.get("players") or []) if str(p or "").strip()]
             holdings[attributed] = players
     return rid_to_owner, holdings
+
+
+def _pick_holdings(
+    roster_ids: list[str],
+    traded_picks: Any,
+    draft_rounds: int,
+    now_year: int,
+    num_years: int = PICK_HOLDINGS_YEARS,
+) -> dict[str, list[str]]:
+    """``{rosterId: ["pick:<season>:<round>", ...]}`` — current pick
+    ownership per roster.
+
+    Default ownership: every roster owns its own pick in each round
+    of the next ``num_years`` seasons; ``/traded_picks`` entries are
+    the diffs, keyed ``(season, round, original roster_id)`` → new
+    ``owner_id``.  Mirrors the convention in
+    ``src/api/sleeper_overlay.py::_build_pick_ownership`` and the
+    scraper's ``team_pick_details`` (Dynasty Scraper.py).  Asset ids
+    use the SAME ``pick:<season>:<round>`` naming as
+    ``_events_from_tx`` so holdings and trade events join in
+    drill-downs.
+    """
+    if not roster_ids:
+        return {}
+    rounds = max(1, min(MAX_DRAFT_ROUNDS, int(draft_rounds or DEFAULT_DRAFT_ROUNDS)))
+    seasons = [str(now_year + y) for y in range(num_years)]
+    ownership: dict[tuple[str, int, str], str] = {}
+    for season in seasons:
+        for rnd in range(1, rounds + 1):
+            for rid in roster_ids:
+                ownership[(season, rnd, rid)] = rid
+    if isinstance(traded_picks, list):
+        for tp in traded_picks:
+            if not isinstance(tp, dict):
+                continue
+            season = str(tp.get("season") or "")
+            try:
+                rnd = int(tp.get("round") or 0)
+            except (TypeError, ValueError):
+                continue
+            original = str(tp.get("roster_id") or "")
+            owner = str(tp.get("owner_id") or "")
+            if not season or rnd < 1 or not original or not owner:
+                continue
+            key = (season, rnd, original)
+            if key in ownership:
+                ownership[key] = owner
+    out: dict[str, list[str]] = {}
+    for (season, rnd, _original), owner in sorted(ownership.items()):
+        out.setdefault(owner, []).append(f"pick:{season}:{rnd}")
+    return out
 
 
 def _events_from_tx(
@@ -434,6 +492,16 @@ def crawl(
             league_entry["totalRosters"] = lg.get("total_rosters") or league_entry.get(
                 "totalRosters"
             )
+            lg_settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
+            try:
+                draft_rounds = int(lg_settings.get("draft_rounds") or 0)
+            except (TypeError, ValueError):
+                draft_rounds = 0
+            league_entry["draftRounds"] = (
+                max(1, min(MAX_DRAFT_ROUNDS, draft_rounds))
+                if draft_rounds
+                else league_entry.get("draftRounds") or DEFAULT_DRAFT_ROUNDS
+            )
             league_entry["memberOwnerIds"] = sorted(
                 set(str(m) for m in league_entry.get("memberOwnerIds") or []) | {oid}
             )
@@ -457,10 +525,12 @@ def crawl(
 
     backfill_cutoff = now - BACKFILL_MAX_DAYS * 24 * 3600 * 1000
 
+    now_year = datetime.fromtimestamp(now / 1000, tz=timezone.utc).year
+
     for idx, lid in enumerate(league_order):
-        # A league costs at least 2 calls (rosters + 1 tx week); stop
-        # cleanly rather than half-fetching.
-        if not b.can_call(2):
+        # A league costs at least 3 calls (rosters + traded picks +
+        # 1 tx week); stop cleanly rather than half-fetching.
+        if not b.can_call(3):
             pending_leagues = league_order[idx:]
             break
         league_entry = leagues_block[lid]
@@ -468,9 +538,30 @@ def crawl(
         rosters_ok = isinstance(rosters, list)
         if rosters_ok:
             rid_to_owner, holdings = _roster_owner_map(rosters, pool)
+            # Fold pick holdings (default ownership + /traded_picks
+            # diffs) into the same per-member holdings structure so
+            # pick assets get real holder/held-league counts.  A
+            # failed traded_picks fetch degrades to default-only
+            # ownership WITHOUT a retry: unlike transaction events
+            # (whose boundary advance makes a miss permanent),
+            # holdings are recomputed from scratch every run, so the
+            # next scheduled crawl self-heals.
+            traded_picks = b.get(f"{SLEEPER_BASE}/league/{lid}/traded_picks")
+            pick_map = _pick_holdings(
+                sorted(rid_to_owner.keys()),
+                traded_picks,
+                int(league_entry.get("draftRounds") or DEFAULT_DRAFT_ROUNDS),
+                now_year,
+            )
+            for rid, picks in pick_map.items():
+                owner = rid_to_owner.get(str(rid))
+                if owner in pool:
+                    holdings.setdefault(owner, []).extend(picks)
             league_entry["rosterOwners"] = rid_to_owner
             league_entry["holdings"] = holdings
-            league_entry["lastError"] = None
+            league_entry["lastError"] = (
+                None if isinstance(traded_picks, list) else f"traded_picks_fetch_failed@{_iso(now)}"
+            )
         else:
             # Roster fetch failed — reuse the previous owner map if we
             # have one; otherwise we can't attribute events, so skip

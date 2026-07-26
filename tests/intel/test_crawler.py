@@ -15,6 +15,7 @@ from tests.intel.conftest import (
     make_waiver_tx,
     rosters_url,
     state_url,
+    traded_url,
     tx_url,
     users_url,
 )
@@ -93,6 +94,7 @@ class TestBudgetResumability:
         for oid, lid in (("A", "LA"), ("B", "LB"), ("C", "LC")):
             responses[leagues_url(oid, SEASON)] = [make_league(lid)]
             responses[rosters_url(lid)] = [make_roster(1, oid, players=["p1"])]
+            responses[traded_url(lid)] = []
             responses[tx_url(lid, 1)] = [
                 make_waiver_tx(f"t-{lid}", NOW_MS - DAY_MS, 1, add_player=f"p-{lid}")
             ]
@@ -101,12 +103,13 @@ class TestBudgetResumability:
     def test_budget_exhaustion_mid_run_is_resumable(self):
         responses = self._three_member_responses()
 
-        # Budget 6: state(1) + 3 member lists + rosters/tx for the
-        # first league only → leagues LB/LC must land in the cursor.
-        result, _fake = _crawl(["A", "B", "C"], responses, budget=6)
+        # Budget 7: state(1) + 3 member lists + rosters/traded-picks/tx
+        # for the first league only → leagues LB/LC must land in the
+        # cursor.
+        result, _fake = _crawl(["A", "B", "C"], responses, budget=7)
         assert result.budget_exhausted is True
         assert result.completed is False
-        assert result.calls_used == 6
+        assert result.calls_used == 7
         cursor = result.state["cursor"]
         assert cursor["pendingLeagues"] == ["LB", "LC"]
         assert result.new_event_count == 1  # only LA processed
@@ -166,7 +169,9 @@ class TestOwnerMatching:
         assert events[0]["ownerId"] == "A"
         assert events[0]["action"] == "add"
         # Holdings credit the co-owner too.
-        assert result.state["leagues"]["L1"]["holdings"] == {"A": ["p9"]}
+        holdings = result.state["leagues"]["L1"]["holdings"]
+        assert set(holdings) == {"A"}
+        assert "p9" in holdings["A"]
 
     def test_orphaned_rosters_skipped(self):
         responses = _base_responses()
@@ -271,7 +276,7 @@ class TestReconciliation:
         assert set(result2.state["members"]) == {"A", "B"}
         assert set(result2.state["leagues"]) == {"LA", "LB"}
         assert {e["assetId"] for e in result2.state["events"]} == {"xa", "xb"}
-        assert result2.state["leagues"]["LB"]["holdings"] == {"B": ["pb"]}
+        assert "pb" in result2.state["leagues"]["LB"]["holdings"]["B"]
 
     def test_member_owner_ids_track_current_membership(self):
         shared = make_league("L1")
@@ -287,6 +292,100 @@ class TestReconciliation:
         responses[leagues_url("B", SEASON)] = []
         result2, _ = _crawl(["A", "B"], responses, prev_state=result1.state)
         assert result2.state["leagues"]["L1"]["memberOwnerIds"] == ["A"]
+
+
+class TestPickHoldings:
+    def test_pick_holdings_defaults_and_traded_diffs(self):
+        # Rosters 1 + 2, 2 rounds, seasons now..now+2.  One traded
+        # pick moves roster 2's first-season R1 to roster 1.
+        traded = [{"season": "2026", "round": 1, "roster_id": 2, "owner_id": 1}]
+        out = crawler._pick_holdings(["1", "2"], traded, draft_rounds=2, now_year=2026)
+        # Roster 1: own 6 defaults + acquired 2026 R1.
+        assert out["1"].count("pick:2026:1") == 2
+        assert "pick:2026:1" not in out["2"]
+        assert "pick:2026:2" in out["2"]
+        assert len(out["1"]) == 7
+        assert len(out["2"]) == 5
+        # Asset naming matches _events_from_tx's pick ids exactly.
+        tx = make_trade_tx(
+            "t1",
+            NOW_MS,
+            draft_picks=[
+                {
+                    "season": "2026",
+                    "round": 1,
+                    "roster_id": 2,
+                    "owner_id": 1,
+                    "previous_owner_id": 2,
+                }
+            ],
+        )
+        events = crawler._events_from_tx(tx, "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, set())
+        assert {e["assetId"] for e in events} == {"pick:2026:1"}
+        assert all(e["assetId"] in out["1"] for e in events)
+
+    def test_draft_rounds_clamped_and_defaulted(self):
+        out = crawler._pick_holdings(["1"], [], draft_rounds=0, now_year=2026)
+        # Default 4 rounds × 3 years.
+        assert len(out["1"]) == 12
+        out6 = crawler._pick_holdings(["1"], [], draft_rounds=99, now_year=2026)
+        assert len(out6["1"]) == 18  # clamped to 6 rounds
+
+    def test_crawl_folds_pick_holdings_into_member_holdings(self):
+        from datetime import datetime, timezone
+
+        from src.intel import aggregate
+
+        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        league = make_league("L1")
+        league["settings"] = {"draft_rounds": 2}
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [league]
+        responses[rosters_url("L1")] = [
+            make_roster(1, "A", players=["p9"]),
+            make_roster(2, "stranger"),
+        ]
+        # The stranger traded their first-year R1 to pool member A.
+        responses[traded_url("L1")] = [
+            {"season": str(now_year), "round": 1, "roster_id": 2, "owner_id": 1}
+        ]
+        responses[tx_url("L1", 1)] = []
+
+        result, fake = _crawl(["A"], responses)
+        assert fake.count(traded_url("L1")) == 1
+        holdings = result.state["leagues"]["L1"]["holdings"]
+        # Only the pool member carries holdings; players + picks fold
+        # into the SAME structure.
+        assert set(holdings) == {"A"}
+        assert "p9" in holdings["A"]
+        assert holdings["A"].count(f"pick:{now_year}:1") == 2  # own + acquired
+        assert f"pick:{now_year}:2" in holdings["A"]
+
+        # Drill-down join: the pick asset now has a real held count.
+        exposure = aggregate.build_member_exposure(
+            result.state["events"],
+            aggregate.holdings_from_state(result.state),
+            f"pick:{now_year}:1",
+            NOW_MS,
+        )
+        assert exposure[0]["ownerId"] == "A"
+        assert exposure[0]["heldLeagueCount"] == 1
+
+    def test_traded_picks_fetch_failure_degrades_to_defaults_without_retry(self):
+        responses = _base_responses()
+        responses[leagues_url("A", SEASON)] = [make_league("L1")]
+        responses[rosters_url("L1")] = [make_roster(1, "A", players=["p9"])]
+        # traded_url("L1") intentionally missing → None.
+        responses[tx_url("L1", 1)] = []
+        result, _fake = _crawl(["A"], responses)
+        holdings = result.state["leagues"]["L1"]["holdings"]
+        # Default ownership still derived; error noted; NO retry —
+        # holdings are recomputed from scratch every run, so the next
+        # crawl self-heals (unlike missed transaction events).
+        assert any(a.startswith("pick:") for a in holdings["A"])
+        assert "traded_picks" in (result.state["leagues"]["L1"]["lastError"] or "")
+        assert result.state["cursor"] is None
+        assert result.completed is True
 
 
 class TestSeedCollection:

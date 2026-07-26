@@ -7,6 +7,7 @@ import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
 import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useApp } from "@/components/AppShell";
+import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
@@ -204,18 +205,24 @@ function RosContextSection({ row }) {
 // add activity.  Fetches GET /api/intel/player and degrades SILENTLY
 // when intel is unavailable (no snapshot yet, asset untracked, or the
 // endpoint errors) — the popup simply omits the section.
-const _intelCache = new Map(); // key → {payload|null, fetchedAt}
+//
+// Intel is league-scoped, so the cache is keyed on (leagueKey, asset)
+// and the active leagueKey rides on every request — switching leagues
+// re-fetches instead of serving the previous league's counts.
+const _intelCache = new Map(); // `${leagueKey}::asset` → {payload|null, fetchedAt}
 const _INTEL_TTL_MS = 5 * 60 * 1000;
 
-async function _loadPlayerIntel(playerId, name) {
-  const key = playerId ? `id:${playerId}` : `name:${name}`;
+export async function _loadPlayerIntel(playerId, name, leagueKey = "") {
+  const assetKey = playerId ? `id:${playerId}` : `name:${name}`;
+  const key = `${leagueKey || ""}::${assetKey}`;
   const cached = _intelCache.get(key);
   if (cached && Date.now() - cached.fetchedAt < _INTEL_TTL_MS) return cached.payload;
   try {
-    const params = playerId
-      ? `playerId=${encodeURIComponent(playerId)}`
-      : `name=${encodeURIComponent(name)}`;
-    const res = await fetch(`/api/intel/player?${params}`);
+    const params = new URLSearchParams(
+      playerId ? { playerId } : { name },
+    );
+    if (leagueKey) params.set("leagueKey", leagueKey);
+    const res = await fetch(`/api/intel/player?${params.toString()}`);
     const payload = res.ok ? await res.json() : null;
     _intelCache.set(key, { payload, fetchedAt: Date.now() });
     return payload;
@@ -227,6 +234,7 @@ async function _loadPlayerIntel(playerId, name) {
 
 function IntelContextSection({ row }) {
   const [intel, setIntel] = useState(null);
+  const { selectedLeagueKey } = useLeague();
   const playerId = String(row?.raw?.playerId || row?.playerId || "").trim();
   const name = String(row?.name || "").trim();
 
@@ -234,13 +242,13 @@ function IntelContextSection({ row }) {
     if (!playerId && !name) return;
     let active = true;
     setIntel(null);
-    _loadPlayerIntel(playerId, name).then((payload) => {
+    _loadPlayerIntel(playerId, name, selectedLeagueKey).then((payload) => {
       if (active) setIntel(payload);
     });
     return () => {
       active = false;
     };
-  }, [playerId, name]);
+  }, [playerId, name, selectedLeagueKey]);
 
   if (!intel) return null;
   const holders = Number(intel.holderCount) || 0;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import { useLeague } from "@/components/useLeague";
 
 // ── Sharp Tracker (Phase 5) ──────────────────────────────────────────
 // Cross-league market intelligence over the league-mate pool: which
@@ -58,7 +59,7 @@ function StalenessBanner({ staleHours, generatedAt }) {
   );
 }
 
-function MemberExposure({ assetId }) {
+function MemberExposure({ assetId, leagueKey }) {
   const [detail, setDetail] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -66,7 +67,9 @@ function MemberExposure({ assetId }) {
     let active = true;
     setDetail(null);
     setFailed(false);
-    fetch(`/api/intel/player?playerId=${encodeURIComponent(assetId)}`)
+    const params = new URLSearchParams({ playerId: assetId });
+    if (leagueKey) params.set("leagueKey", leagueKey);
+    fetch(`/api/intel/player?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
         if (!active) return;
@@ -79,7 +82,7 @@ function MemberExposure({ assetId }) {
     return () => {
       active = false;
     };
-  }, [assetId]);
+  }, [assetId, leagueKey]);
 
   if (failed) {
     return (
@@ -155,10 +158,24 @@ export default function IntelPage() {
   const [expandedAsset, setExpandedAsset] = useState(null);
   const [typeFilter, setTypeFilter] = useState("all");
 
-  const load = useCallback(() => {
+  // League binding: follow the league switcher's selection (same
+  // useLeague subscription other league-aware pages use — it re-reads
+  // on the ``league:changed`` event, so switching leagues while this
+  // page is mounted re-fetches).  The key is passed EXPLICITLY on
+  // every request so a navigation race can never fetch the previous
+  // server-side preference.
+  const { selectedLeagueKey, loading: leagueLoading } = useLeague();
+  // Monotonic request id — a stale response from a previous league
+  // can never overwrite a newer league's board.
+  const requestSeq = useRef(0);
+
+  const load = useCallback((leagueKey) => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
-    fetch("/api/intel/summary?limit=200")
+    const params = new URLSearchParams({ limit: "200" });
+    if (leagueKey) params.set("leagueKey", leagueKey);
+    fetch(`/api/intel/summary?${params.toString()}`)
       .then(async (r) => {
         if (r.ok) return r.json();
         // 503 data_not_ready = this league has no snapshot yet —
@@ -179,18 +196,22 @@ export default function IntelPage() {
         throw new Error(`HTTP ${r.status}`);
       })
       .then((payload) => {
+        if (seq !== requestSeq.current) return; // stale response
         setData(payload);
         setLoading(false);
       })
       .catch((err) => {
+        if (seq !== requestSeq.current) return;
         setError(String(err?.message || err));
         setLoading(false);
       });
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (leagueLoading) return; // wait for the resolved league key
+    setExpandedAsset(null); // drill-down belongs to the old league
+    load(selectedLeagueKey);
+  }, [leagueLoading, selectedLeagueKey, load]);
 
   const assets = useMemo(() => {
     const all = data?.assets || [];
@@ -330,7 +351,7 @@ export default function IntelPage() {
                     expanded ? (
                       <tr key={`${asset.assetId}::detail`}>
                         <td colSpan={3 + WINDOW_COLUMNS.length} style={{ background: "rgba(255,255,255,0.02)" }}>
-                          <MemberExposure assetId={asset.assetId} />
+                          <MemberExposure assetId={asset.assetId} leagueKey={selectedLeagueKey} />
                         </td>
                       </tr>
                     ) : null,

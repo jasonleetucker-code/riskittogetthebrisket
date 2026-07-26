@@ -168,8 +168,81 @@ def refresh_intel(
         _REFRESH_LOCK.release()
 
 
+def refresh_intel_many(
+    leagues: list[dict[str, Any]],
+    *,
+    season: str | None = None,
+    budget: int = crawler.DEFAULT_BUDGET,
+    sleep_s: float = crawler.DEFAULT_SLEEP_S,
+    http_get: crawler.HttpGet | None = None,
+) -> dict[str, Any]:
+    """Refresh EVERY given league sequentially under the single
+    process lock — one Sleeper crawl at a time, each league with its
+    own budget and snapshot partition.  This is the ``leagueKey=all``
+    mode the daily cron uses so non-default leagues don't sit at
+    ``data_not_ready`` forever.
+
+    ``leagues`` entries: ``{"leagueKey": str, "sleeperLeagueId": str}``.
+    One league's failure is isolated — the loop continues, the error
+    is recorded per-league, and ``lastError`` is set so the cron's
+    failure handler surfaces it.
+    """
+    cleaned = [
+        {
+            "leagueKey": str(lg.get("leagueKey") or "").strip(),
+            "sleeperLeagueId": str(lg.get("sleeperLeagueId") or "").strip(),
+        }
+        for lg in leagues or []
+        if str(lg.get("leagueKey") or "").strip()
+    ]
+    if not cleaned:
+        raise ValueError("refresh_intel_many needs at least one league")
+    if not _REFRESH_LOCK.acquire(blocking=False):
+        raise RefreshAlreadyRunning("intel refresh already in progress")
+    try:
+        _set_status(isRunning=True, startedAt=_utc_now_iso(), lastError=None, leagueKey="all")
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+        for lg in cleaned:
+            _set_status(leagueKey=lg["leagueKey"])
+            try:
+                results.append(
+                    _refresh_locked(
+                        member_ids=None,
+                        season=season,
+                        league_key=lg["leagueKey"],
+                        sleeper_league_id=lg["sleeperLeagueId"] or None,
+                        budget=budget,
+                        sleep_s=sleep_s,
+                        http_get=http_get,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 — isolate per league
+                log.warning("intel refresh failed for %s: %s", lg["leagueKey"], exc)
+                errors.append({"leagueKey": lg["leagueKey"], "error": str(exc)})
+        summary = {
+            "mode": "all",
+            "finishedAt": _utc_now_iso(),
+            "leagueKeys": [lg["leagueKey"] for lg in cleaned],
+            "leagues": results,
+            "errors": errors,
+        }
+        _set_status(
+            lastResult=summary,
+            lastError=(
+                "; ".join(f"{e['leagueKey']}: {e['error']}" for e in errors) if errors else None
+            ),
+            leagueKey="all",
+        )
+        return summary
+    finally:
+        _set_status(isRunning=False, finishedAt=_utc_now_iso())
+        _REFRESH_LOCK.release()
+
+
 def start_refresh_async(**kwargs: Any) -> dict[str, Any]:
-    """Kick off ``refresh_intel`` on a daemon thread.  Returns the
+    """Kick off ``refresh_intel`` (or ``refresh_intel_many`` when a
+    ``leagues`` list is passed) on a daemon thread.  Returns the
     current status immediately; raises ``RefreshAlreadyRunning`` when
     a run is active (caller maps that to HTTP 409)."""
     with _STATUS_LOCK:
@@ -177,11 +250,15 @@ def start_refresh_async(**kwargs: Any) -> dict[str, Any]:
             raise RefreshAlreadyRunning("intel refresh already in progress")
     if _REFRESH_LOCK.locked():
         raise RefreshAlreadyRunning("intel refresh already in progress")
+    many = kwargs.pop("leagues", None)
     _set_status(isRunning=True, startedAt=_utc_now_iso(), lastError=None)
 
     def _worker() -> None:
         try:
-            refresh_intel(**kwargs)
+            if many is not None:
+                refresh_intel_many(many, **kwargs)
+            else:
+                refresh_intel(**kwargs)
         except RefreshAlreadyRunning:
             # Lost the race to a concurrent trigger — that run owns
             # the status now.

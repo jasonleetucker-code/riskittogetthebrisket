@@ -292,6 +292,56 @@ class TestRefreshLifecycle:
         # The resolved league was threaded into the refresh worker.
         assert seen_kwargs["league_key"] == LEAGUE_KEY
 
+    def test_refresh_all_mode_refreshes_every_active_league(
+        self, intel_data_dir, authed, monkeypatch
+    ):
+        # ``leagueKey=all`` bypasses the per-request resolver and
+        # iterates the registry's ACTIVE leagues — this is the cron's
+        # path (bearer requests have no session, so without it the
+        # resolver would silently fall back to the default league).
+        actives = [
+            SimpleNamespace(key="dynasty_main", sleeper_league_id="111"),
+            SimpleNamespace(key="dynasty_new", sleeper_league_id="222"),
+        ]
+        monkeypatch.setattr(server._league_registry, "active_leagues", lambda: actives)
+
+        seen = []
+        done = threading.Event()
+
+        def fake_refresh(**kwargs):
+            seen.append((kwargs.get("league_key"), kwargs.get("sleeper_league_id")))
+            if len(seen) == 2:
+                done.set()
+            return {"leagueKey": kwargs.get("league_key")}
+
+        monkeypatch.setattr(service, "_refresh_locked", fake_refresh)
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.post("/api/intel/refresh?leagueKey=all")
+        assert res.status_code == 202
+        body = res.json()
+        assert body["leagueKey"] == "all"
+        assert body["leagueKeys"] == ["dynasty_main", "dynasty_new"]
+        assert done.wait(timeout=5)
+        assert seen == [("dynasty_main", "111"), ("dynasty_new", "222")]
+        for _ in range(100):
+            if not service.refresh_status()["isRunning"]:
+                break
+            time.sleep(0.02)
+        final = service.refresh_status()
+        assert final["lastResult"]["mode"] == "all"
+        assert [lg["leagueKey"] for lg in final["lastResult"]["leagues"]] == [
+            "dynasty_main",
+            "dynasty_new",
+        ]
+        assert final["lastError"] is None
+
+    def test_refresh_all_mode_with_no_active_leagues_404(self, intel_data_dir, authed, monkeypatch):
+        monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [])
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.post("/api/intel/refresh?leagueKey=all")
+        assert res.status_code == 404
+        assert res.json()["error"] == "no_leagues_configured"
+
     def test_refresh_error_surfaces_in_status(
         self, intel_data_dir, authed, league_stub, monkeypatch
     ):

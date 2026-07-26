@@ -10015,13 +10015,63 @@ async def post_intel_refresh(request: Request):
     """Kick off a crawl on a daemon thread and return 202 immediately
     — the crawl takes minutes (budgeted Sleeper calls with an
     inter-call sleep) and must never run inline.  409 when a run is
-    already active.  Session OR bearer auth (see section header)."""
+    already active.  Session OR bearer auth (see section header).
+
+    ``?leagueKey=all`` refreshes every ACTIVE registry league
+    sequentially (the cron's mode); any other key resolves through
+    the standard league resolver."""
     if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
         return JSONResponse(
             status_code=401,
             content={"error": "auth_required", "message": "Sign-in or bearer token required."},
             headers={"Cache-Control": "no-store"},
         )
+
+    # ``leagueKey=all`` — refresh EVERY active league sequentially
+    # under the single crawl lock.  This is what the daily cron
+    # sends: a bearer request has no user session, so the normal
+    # resolver would silently fall back to the default league and
+    # non-default leagues would stay data_not_ready forever.
+    requested_key = str(request.query_params.get("leagueKey") or "").strip().lower()
+    if requested_key == "all":
+        active = _league_registry.active_leagues()
+        if not active:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "no_leagues_configured",
+                    "message": "No active leagues configured on this server",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
+        try:
+            status = _intel_service.start_refresh_async(
+                leagues=[
+                    {"leagueKey": cfg.key, "sleeperLeagueId": cfg.sleeper_league_id}
+                    for cfg in active
+                ],
+            )
+        except _intel_service.RefreshAlreadyRunning:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "already_running",
+                    "alreadyRunning": True,
+                    "status": _intel_service.refresh_status(),
+                },
+                headers={"Cache-Control": "no-store"},
+            )
+        return JSONResponse(
+            status_code=202,
+            content={
+                "message": "Intel refresh started for all active leagues",
+                "leagueKey": "all",
+                "leagueKeys": [cfg.key for cfg in active],
+                "status": status,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:

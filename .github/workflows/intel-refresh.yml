@@ -1,10 +1,14 @@
 name: Intel Refresh
 
 # Daily crawl of the league-mate pool's Sleeper activity ("Sharp
-# Tracker", Phase 5).  Triggers POST /api/intel/refresh on the
-# production host (which runs the budgeted crawl on a backend daemon
-# thread) and polls GET /api/intel/refresh/status until the run
-# finishes or ~6 minutes elapse.
+# Tracker", Phase 5).  Triggers POST /api/intel/refresh?leagueKey=all
+# on the production host — the server iterates EVERY active registry
+# league sequentially under its single crawl lock (a bearer request
+# has no user session, so without the explicit all-mode the resolver
+# would fall back to the default league and non-default leagues would
+# never get a snapshot).  Then polls GET /api/intel/refresh/status
+# until the run finishes or ~12 minutes elapse (each league's crawl
+# is budgeted separately, so multi-league runs take longer).
 #
 # Auth: the intel refresh + status endpoints accept a bearer token —
 # ``INTEL_REFRESH_TOKEN`` (falling back server-side to
@@ -33,7 +37,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 16
     steps:
       - name: Resolve target URL
         id: url
@@ -63,7 +67,7 @@ jobs:
             --request POST \
             --header "Authorization: Bearer ${TOKEN}" \
             --output "${body_file}" --write-out '%{http_code}' \
-            "${URL}/api/intel/refresh" || echo 000)"
+            "${URL}/api/intel/refresh?leagueKey=all" || echo 000)"
           echo "trigger status=${code}"
           cat "${body_file}" || true
           # 202 = started; 409 = a run is already active (also fine —
@@ -80,8 +84,9 @@ jobs:
           TOKEN: ${{ secrets.INTEL_REFRESH_TOKEN }}
         run: |
           set -Eeuo pipefail
-          # ~6 minutes of polling: 24 attempts x 15s.
-          for attempt in $(seq 1 24); do
+          # ~12 minutes of polling: 48 attempts x 15s (all-leagues
+          # mode crawls each active league with its own budget).
+          for attempt in $(seq 1 48); do
             sleep 15
             body_file="$(mktemp)"
             code="$(curl --silent --show-error --globoff --max-time 20 \
@@ -108,15 +113,33 @@ jobs:
           if not result:
               print("no run recorded yet")
               raise SystemExit(2)   # keep polling
-          print(
-              "refresh OK: calls={} events+={} members={} leagues={} exhausted={}".format(
-                  result.get("callsUsed"),
-                  result.get("newEventCount"),
-                  result.get("memberCount"),
-                  result.get("leagueCount"),
-                  result.get("budgetExhausted"),
+          if result.get("mode") == "all":
+              # Multi-league run: one summary per refreshed league.
+              for lg in result.get("leagues") or []:
+                  print(
+                      "refresh OK [{}]: calls={} events+={} members={} leagues={} exhausted={}".format(
+                          lg.get("leagueKey"),
+                          lg.get("callsUsed"),
+                          lg.get("newEventCount"),
+                          lg.get("memberCount"),
+                          lg.get("leagueCount"),
+                          lg.get("budgetExhausted"),
+                      )
+                  )
+              bad = result.get("errors") or []
+              if bad:
+                  print(f"per-league failures: {bad}")
+                  raise SystemExit(1)
+          else:
+              print(
+                  "refresh OK: calls={} events+={} members={} leagues={} exhausted={}".format(
+                      result.get("callsUsed"),
+                      result.get("newEventCount"),
+                      result.get("memberCount"),
+                      result.get("leagueCount"),
+                      result.get("budgetExhausted"),
+                  )
               )
-          )
           raise SystemExit(0)
           PY
               echo "Intel refresh completed successfully."
@@ -130,7 +153,7 @@ jobs:
               # rc 2 → still running / not started; keep polling.
             fi
           done
-          echo "::error title=Intel refresh timed out::Still running after ~6 minutes of polling"
+          echo "::error title=Intel refresh timed out::Still running after ~12 minutes of polling"
           exit 1
 
       - name: Alert on workflow failure
@@ -157,7 +180,7 @@ jobs:
              secret missing/rotated — check the **Trigger intel refresh** step).
           2. The crawl errored server-side (see \`lastError\` in the
              **Poll refresh status** step output).
-          3. The crawl ran past the ~6 minute polling window (budget
+          3. The crawl ran past the ~12 minute polling window (budget
              exhaustion resumes next run — repeated timeouts mean the
              pool outgrew the call budget).
 

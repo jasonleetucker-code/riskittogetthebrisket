@@ -52,6 +52,10 @@ def users_url(league_id: str) -> str:
     return f"{SLEEPER_BASE}/league/{league_id}/users"
 
 
+def traded_url(league_id: str) -> str:
+    return f"{SLEEPER_BASE}/league/{league_id}/traded_picks"
+
+
 def tx_url(league_id: str, week: int) -> str:
     return f"{SLEEPER_BASE}/league/{league_id}/transactions/{week}"
 

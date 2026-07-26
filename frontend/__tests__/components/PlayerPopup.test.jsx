@@ -27,6 +27,11 @@ vi.mock("@/components/useUserState", () => ({
 vi.mock("@/components/useSettings", () => ({
   useSettings: () => ({ settings: {} }),
 }));
+// League context for the Sharp Tracker intel section — a stable key
+// keeps the intel fetch deterministic in these tests.
+vi.mock("@/components/useLeague", () => ({
+  useLeague: () => ({ selectedLeagueKey: "dynasty_main", loading: false }),
+}));
 // Child chart fetches /api/data/player-source-history — stub it out.
 vi.mock("@/components/PlayerRankHistoryChart", () => ({
   default: () => <div data-testid="rank-history-stub" />,
