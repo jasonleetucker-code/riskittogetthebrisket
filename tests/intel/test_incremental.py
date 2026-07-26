@@ -8,6 +8,7 @@ from tests.intel.conftest import (
     DAY_MS,
     NOW_MS,
     FakeSleeper,
+    fill_traded_picks,
     leagues_url,
     make_league,
     make_roster,
@@ -21,15 +22,18 @@ SEASON = "2026"
 
 
 def _responses_with_txs(txs):
-    return {
-        state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
-        leagues_url("A", SEASON): [make_league("L1")],
-        rosters_url("L1"): [make_roster(1, "A", players=["held1"])],
-        tx_url("L1", 1): txs,
-    }
+    return fill_traded_picks(
+        {
+            state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
+            leagues_url("A", SEASON): [make_league("L1")],
+            rosters_url("L1"): [make_roster(1, "A", players=["held1"])],
+            tx_url("L1", 1): txs,
+        }
+    )
 
 
 def _crawl(responses, prev_state=None):
+    fill_traded_picks(responses)
     fake = FakeSleeper(responses)
     return crawler.crawl(
         ["A"], SEASON, prev_state, budget=900, sleep_s=0, http_get=fake, now_ms=NOW_MS
@@ -111,6 +115,7 @@ class TestBackfillWindow:
         }
         for w in range(1, 19):
             responses[tx_url("L1", w)] = []
+        fill_traded_picks(responses)
         fake = FakeSleeper(responses)
         crawler.crawl(["A"], SEASON, None, budget=900, sleep_s=0, http_get=fake, now_ms=NOW_MS)
         fetched_weeks = sorted(
@@ -129,6 +134,7 @@ class TestBackfillWindow:
             tx_url("L1", 10): [ancient],
             tx_url("L1", 9): [make_waiver_tx("w9", NOW_MS - 41 * DAY_MS, 1, add_player="p9")],
         }
+        fill_traded_picks(responses)
         fake = FakeSleeper(responses)
         result = crawler.crawl(
             ["A"], SEASON, None, budget=900, sleep_s=0, http_get=fake, now_ms=NOW_MS
@@ -204,6 +210,7 @@ class TestBackfillWindow:
         result1 = _crawl_with(responses, None, now_ms=NOW_MS - 3 * DAY_MS)
 
         responses[state_url()] = {"week": 10, "season_type": "regular", "league_season": SEASON}
+        fill_traded_picks(responses)
         fake = FakeSleeper(responses)
         crawler.crawl(
             ["A"], SEASON, result1.state, budget=900, sleep_s=0, http_get=fake, now_ms=NOW_MS
@@ -215,6 +222,7 @@ class TestBackfillWindow:
 
 
 def _crawl_with(responses, prev_state, now_ms):
+    fill_traded_picks(responses)
     fake = FakeSleeper(responses)
     return crawler.crawl(
         ["A"], SEASON, prev_state, budget=900, sleep_s=0, http_get=fake, now_ms=now_ms

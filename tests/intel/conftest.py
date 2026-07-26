@@ -56,6 +56,18 @@ def traded_url(league_id: str) -> str:
     return f"{SLEEPER_BASE}/league/{league_id}/traded_picks"
 
 
+def fill_traded_picks(responses: dict[str, Any]) -> dict[str, Any]:
+    """Default every league that has a rosters fixture to an EMPTY
+    ``/traded_picks`` feed, unless the test set one explicitly.  A
+    missing traded_picks response means "fetch failed" (None), which
+    is its own tested behavior — most fixtures just want the happy
+    path."""
+    for url in list(responses):
+        if url.endswith("/rosters"):
+            responses.setdefault(url.replace("/rosters", "/traded_picks"), [])
+    return responses
+
+
 def tx_url(league_id: str, week: int) -> str:
     return f"{SLEEPER_BASE}/league/{league_id}/transactions/{week}"
 

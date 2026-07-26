@@ -8,6 +8,7 @@ from tests.intel.conftest import (
     DAY_MS,
     NOW_MS,
     FakeSleeper,
+    fill_traded_picks,
     leagues_url,
     make_league,
     make_roster,
@@ -27,7 +28,9 @@ def _base_responses() -> dict:
     return {state_url(): {"week": 1, "season_type": "off", "league_season": SEASON}}
 
 
-def _crawl(members, responses, prev_state=None, budget=900):
+def _crawl(members, responses, prev_state=None, budget=900, fill_traded=True):
+    if fill_traded:
+        fill_traded_picks(responses)
     fake = FakeSleeper(responses)
     result = crawler.crawl(
         members,
@@ -371,21 +374,88 @@ class TestPickHoldings:
         assert exposure[0]["ownerId"] == "A"
         assert exposure[0]["heldLeagueCount"] == 1
 
-    def test_traded_picks_fetch_failure_degrades_to_defaults_without_retry(self):
+    def test_multiple_same_round_picks_produce_distinct_events(self):
+        # One trade sends manager A TWO 2027 2nds (different original
+        # roster slots).  The grouped assetId is identical, so the
+        # event ids must carry the original-roster identity or the
+        # dedupe collapses them and buys/sells undercount.
+        tx = make_trade_tx(
+            "t1",
+            NOW_MS,
+            draft_picks=[
+                {
+                    "season": "2027",
+                    "round": 2,
+                    "roster_id": 2,
+                    "owner_id": 1,
+                    "previous_owner_id": 2,
+                },
+                {
+                    "season": "2027",
+                    "round": 2,
+                    "roster_id": 3,
+                    "owner_id": 1,
+                    "previous_owner_id": 2,
+                },
+            ],
+        )
+        events = crawler._events_from_tx(tx, "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, set())
+        adds = [e for e in events if e["action"] == "add"]
+        drops = [e for e in events if e["action"] == "drop"]
+        assert len(adds) == 2  # both picks counted, not collapsed
+        assert len(drops) == 2
+        # Grouped asset id preserved for aggregation…
+        assert {e["assetId"] for e in events} == {"pick:2027:2"}
+        # …while the event ids stay distinct (original-roster suffix).
+        assert len({e["eventId"] for e in events}) == 4
+
+    def test_traded_picks_failure_never_fabricates_defaults(self):
+        from datetime import datetime, timezone
+
+        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        league = make_league("L1")
+        league["settings"] = {"draft_rounds": 1}
         responses = _base_responses()
-        responses[leagues_url("A", SEASON)] = [make_league("L1")]
-        responses[rosters_url("L1")] = [make_roster(1, "A", players=["p9"])]
-        # traded_url("L1") intentionally missing → None.
+        responses[leagues_url("A", SEASON)] = [league]
+        responses[rosters_url("L1")] = [
+            make_roster(1, "A", players=["p9"]),
+            make_roster(2, "stranger"),
+        ]
         responses[tx_url("L1", 1)] = []
-        result, _fake = _crawl(["A"], responses)
-        holdings = result.state["leagues"]["L1"]["holdings"]
-        # Default ownership still derived; error noted; NO retry —
-        # holdings are recomputed from scratch every run, so the next
-        # crawl self-heals (unlike missed transaction events).
-        assert any(a.startswith("pick:") for a in holdings["A"])
-        assert "traded_picks" in (result.state["leagues"]["L1"]["lastError"] or "")
-        assert result.state["cursor"] is None
-        assert result.completed is True
+
+        # Phase 1: first-ever crawl with a FAILING traded_picks fetch
+        # (url missing → None).  No pick holdings may be fabricated,
+        # and the league stays in the retry cursor so pick data
+        # arrives promptly.
+        result1, _ = _crawl(["A"], responses, fill_traded=False)
+        h1 = result1.state["leagues"]["L1"]["holdings"]
+        assert not any(a.startswith("pick:") for a in h1.get("A", []))
+        assert "traded_picks" in (result1.state["leagues"]["L1"]["lastError"] or "")
+        assert result1.state["cursor"]["pendingLeagues"] == ["L1"]
+        assert result1.completed is False
+
+        # Phase 2: traded_picks succeeds WITH a diff (stranger's R1 →
+        # A) — real ownership recorded, retry cleared.
+        responses[traded_url("L1")] = [
+            {"season": str(now_year), "round": 1, "roster_id": 2, "owner_id": 1}
+        ]
+        result2, _ = _crawl(["A"], responses, prev_state=result1.state, fill_traded=False)
+        h2 = result2.state["leagues"]["L1"]["holdings"]
+        assert h2["A"].count(f"pick:{now_year}:1") == 2  # own + acquired
+        assert result2.state["leagues"]["L1"]["pickHoldingsAt"]
+        assert result2.state["cursor"] is None
+
+        # Phase 3: traded_picks fails again — the PRIOR (correct)
+        # traded ownership is preserved, NOT reset to defaults (which
+        # would show only 1 first-rounder), and no retry is needed
+        # because a good pick snapshot exists.
+        del responses[traded_url("L1")]
+        result3, _ = _crawl(["A"], responses, prev_state=result2.state, fill_traded=False)
+        h3 = result3.state["leagues"]["L1"]["holdings"]
+        assert h3["A"].count(f"pick:{now_year}:1") == 2  # preserved, not defaults
+        assert "traded_picks" in (result3.state["leagues"]["L1"]["lastError"] or "")
+        assert result3.state["cursor"] is None
+        assert result3.completed is True
 
 
 class TestSeedCollection:

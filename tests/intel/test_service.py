@@ -9,6 +9,7 @@ from src.intel import service, store
 from tests.intel.conftest import (
     DAY_MS,
     FakeSleeper,
+    fill_traded_picks,
     leagues_url,
     make_league,
     make_roster,
@@ -23,12 +24,14 @@ SEASON = "2026"
 
 def _responses_for(member: str, lid: str, asset: str) -> dict:
     now_ms = int(time.time() * 1000)
-    return {
-        state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
-        leagues_url(member, SEASON): [make_league(lid)],
-        rosters_url(lid): [make_roster(1, member, players=[asset])],
-        tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
-    }
+    return fill_traded_picks(
+        {
+            state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
+            leagues_url(member, SEASON): [make_league(lid)],
+            rosters_url(lid): [make_roster(1, member, players=[asset])],
+            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+        }
+    )
 
 
 def test_refresh_writes_only_the_target_leagues_partition(intel_data_dir):
@@ -74,16 +77,18 @@ def _seed_league_responses(member: str, seed_league_id: str, lid: str, asset: st
     """Responses for a seedless (sleeper_league_id-driven) refresh:
     seed-league rosters/users + the member's own league crawl."""
     now_ms = int(time.time() * 1000)
-    return {
-        state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
-        f"https://api.sleeper.app/v1/league/{seed_league_id}/rosters": [make_roster(1, member)],
-        f"https://api.sleeper.app/v1/league/{seed_league_id}/users": [
-            {"user_id": member, "display_name": f"user-{member}"}
-        ],
-        leagues_url(member, SEASON): [make_league(lid)],
-        rosters_url(lid): [make_roster(1, member, players=[asset])],
-        tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
-    }
+    return fill_traded_picks(
+        {
+            state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
+            f"https://api.sleeper.app/v1/league/{seed_league_id}/rosters": [make_roster(1, member)],
+            f"https://api.sleeper.app/v1/league/{seed_league_id}/users": [
+                {"user_id": member, "display_name": f"user-{member}"}
+            ],
+            leagues_url(member, SEASON): [make_league(lid)],
+            rosters_url(lid): [make_roster(1, member, players=[asset])],
+            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+        }
+    )
 
 
 def test_refresh_many_crawls_every_league_into_its_partition(intel_data_dir):

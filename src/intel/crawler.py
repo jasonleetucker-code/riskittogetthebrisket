@@ -254,11 +254,15 @@ def _events_from_tx(
 
     events: list[dict[str, Any]] = []
 
-    def emit(rid: Any, action: str, asset_id: str, asset_type: str) -> None:
+    def emit(
+        rid: Any, action: str, asset_id: str, asset_type: str, discriminator: str = ""
+    ) -> None:
         owner = rid_to_owner.get(str(rid))
         if not owner or owner not in pool:
             return
         event_id = f"{tx_id}:{owner}:{action}:{asset_id}"
+        if discriminator:
+            event_id = f"{event_id}:{discriminator}"
         if event_id in known_event_ids:
             return
         known_event_ids.add(event_id)
@@ -287,8 +291,13 @@ def _events_from_tx(
 
     # Traded draft picks — Sleeper's ``draft_picks`` entries carry
     # ROSTER ids: ``owner_id`` receives the pick, ``previous_owner_id``
-    # gives it up.
-    for pick in tx.get("draft_picks") or []:
+    # gives it up.  The EVENT id carries the pick's original-roster
+    # identity (``roster_id`` — the slot the pick belongs to) so a
+    # trade that sends one manager MULTIPLE picks of the same
+    # season+round produces distinct events instead of collapsing in
+    # the eventId dedupe; the ASSET id stays grouped
+    # (``pick:<season>:<round>``) for aggregation.
+    for pick_idx, pick in enumerate(tx.get("draft_picks") or []):
         if not isinstance(pick, dict):
             continue
         season = str(pick.get("season") or "").strip()
@@ -296,8 +305,12 @@ def _events_from_tx(
         if not season or rnd is None:
             continue
         asset_id = f"pick:{season}:{rnd}"
-        emit(pick.get("owner_id"), "add", asset_id, "pick")
-        emit(pick.get("previous_owner_id"), "drop", asset_id, "pick")
+        original = pick.get("roster_id")
+        # roster_id is stable across refetches; the enumerate index is
+        # a last-resort fallback for malformed entries.
+        discriminator = f"o{original}" if original is not None else f"i{pick_idx}"
+        emit(pick.get("owner_id"), "add", asset_id, "pick", discriminator)
+        emit(pick.get("previous_owner_id"), "drop", asset_id, "pick", discriminator)
     return events
 
 
@@ -538,30 +551,48 @@ def crawl(
         rosters_ok = isinstance(rosters, list)
         if rosters_ok:
             rid_to_owner, holdings = _roster_owner_map(rosters, pool)
+            prev_holdings = (
+                league_entry.get("holdings")
+                if isinstance(league_entry.get("holdings"), dict)
+                else {}
+            )
             # Fold pick holdings (default ownership + /traded_picks
             # diffs) into the same per-member holdings structure so
-            # pick assets get real holder/held-league counts.  A
-            # failed traded_picks fetch degrades to default-only
-            # ownership WITHOUT a retry: unlike transaction events
-            # (whose boundary advance makes a miss permanent),
-            # holdings are recomputed from scratch every run, so the
-            # next scheduled crawl self-heals.
+            # pick assets get real holder/held-league counts.
             traded_picks = b.get(f"{SLEEPER_BASE}/league/{lid}/traded_picks")
-            pick_map = _pick_holdings(
-                sorted(rid_to_owner.keys()),
-                traded_picks,
-                int(league_entry.get("draftRounds") or DEFAULT_DRAFT_ROUNDS),
-                now_year,
-            )
-            for rid, picks in pick_map.items():
-                owner = rid_to_owner.get(str(rid))
-                if owner in pool:
-                    holdings.setdefault(owner, []).extend(picks)
+            if isinstance(traded_picks, list):
+                pick_map = _pick_holdings(
+                    sorted(rid_to_owner.keys()),
+                    traded_picks,
+                    int(league_entry.get("draftRounds") or DEFAULT_DRAFT_ROUNDS),
+                    now_year,
+                )
+                for rid, picks in pick_map.items():
+                    owner = rid_to_owner.get(str(rid))
+                    if owner in pool:
+                        holdings.setdefault(owner, []).extend(picks)
+                league_entry["pickHoldingsAt"] = _iso(now)
+                league_entry["lastError"] = None
+            else:
+                # Failed /traded_picks fetch: NEVER publish derived
+                # defaults — fabricating default ownership would
+                # overwrite previously-correct traded-pick holdings
+                # until a later crawl happened to succeed.  Carry the
+                # last known pick holdings forward instead; if this
+                # league has never had a successful pick fetch
+                # (no ``pickHoldingsAt`` stamp), keep it in the retry
+                # cursor so pick data arrives on the next run.
+                for owner, assets in prev_holdings.items():
+                    if owner not in pool:
+                        continue
+                    prior_picks = [a for a in assets or [] if str(a).startswith("pick:")]
+                    if prior_picks:
+                        holdings.setdefault(owner, []).extend(prior_picks)
+                league_entry["lastError"] = f"traded_picks_fetch_failed@{_iso(now)}"
+                if not league_entry.get("pickHoldingsAt") and lid not in retry_leagues:
+                    retry_leagues.append(lid)
             league_entry["rosterOwners"] = rid_to_owner
             league_entry["holdings"] = holdings
-            league_entry["lastError"] = (
-                None if isinstance(traded_picks, list) else f"traded_picks_fetch_failed@{_iso(now)}"
-            )
         else:
             # Roster fetch failed — reuse the previous owner map if we
             # have one; otherwise we can't attribute events, so skip

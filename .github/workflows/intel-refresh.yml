@@ -62,18 +62,52 @@ jobs:
             echo "::error title=Missing secret::INTEL_REFRESH_TOKEN is not set"
             exit 1
           fi
-          body_file="$(mktemp)"
-          code="$(curl --silent --show-error --globoff --max-time 30 \
-            --request POST \
-            --header "Authorization: Bearer ${TOKEN}" \
-            --output "${body_file}" --write-out '%{http_code}' \
-            "${URL}/api/intel/refresh?leagueKey=all" || echo 000)"
-          echo "trigger status=${code}"
-          cat "${body_file}" || true
-          # 202 = started; 409 = a run is already active (also fine —
-          # we just poll that run to completion below).
-          if [[ "${code}" != "202" && "${code}" != "409" ]]; then
+          # 202 = our all-league run started.  409 = some run is
+          # already active — but ONLY adopt it if that run is itself
+          # the all-league mode.  A session-triggered SINGLE-league
+          # refresh holding the lock must not count as success: its
+          # completion would leave every other partition stale for a
+          # day.  In that case wait and retry the all-league POST
+          # (bounded — ~5 minutes of retries before giving up).
+          started=""
+          for attempt in $(seq 1 10); do
+            body_file="$(mktemp)"
+            code="$(curl --silent --show-error --globoff --max-time 30 \
+              --request POST \
+              --header "Authorization: Bearer ${TOKEN}" \
+              --output "${body_file}" --write-out '%{http_code}' \
+              "${URL}/api/intel/refresh?leagueKey=all" || echo 000)"
+            echo "trigger attempt ${attempt}: status=${code}"
+            cat "${body_file}" || true
+            if [[ "${code}" == "202" ]]; then
+              started=1
+              break
+            fi
+            if [[ "${code}" == "409" ]]; then
+              active="$(python3 - "${body_file}" <<'PY'
+          import json, sys
+          try:
+              with open(sys.argv[1], "r", encoding="utf-8") as f:
+                  d = json.load(f)
+          except Exception:
+              d = {}
+          print(((d.get("status") or {}).get("leagueKey")) or "")
+          PY
+              )"
+              if [[ "${active}" == "all" ]]; then
+                echo "An all-league refresh is already running — adopting it."
+                started=1
+                break
+              fi
+              echo "Single-league refresh (${active:-unknown}) holds the lock — waiting 30s to retry the all-league trigger."
+              sleep 30
+              continue
+            fi
             echo "::error title=Intel refresh trigger failed::HTTP ${code} from ${URL}/api/intel/refresh"
+            exit 1
+          done
+          if [[ -z "${started}" ]]; then
+            echo "::error title=Intel refresh trigger failed::Another (non-all) run kept the lock through every retry"
             exit 1
           fi
 
@@ -113,33 +147,29 @@ jobs:
           if not result:
               print("no run recorded yet")
               raise SystemExit(2)   # keep polling
-          if result.get("mode") == "all":
-              # Multi-league run: one summary per refreshed league.
-              for lg in result.get("leagues") or []:
-                  print(
-                      "refresh OK [{}]: calls={} events+={} members={} leagues={} exhausted={}".format(
-                          lg.get("leagueKey"),
-                          lg.get("callsUsed"),
-                          lg.get("newEventCount"),
-                          lg.get("memberCount"),
-                          lg.get("leagueCount"),
-                          lg.get("budgetExhausted"),
-                      )
-                  )
-              bad = result.get("errors") or []
-              if bad:
-                  print(f"per-league failures: {bad}")
-                  raise SystemExit(1)
-          else:
+          if result.get("mode") != "all":
+              # The latest completed run is a SINGLE-league refresh
+              # (e.g. session-triggered) — NOT the all-league run this
+              # cron is responsible for.  Accepting it would leave the
+              # other partitions stale, so keep waiting for ours.
+              print("latest completed run is not the all-league run — waiting for ours")
+              raise SystemExit(2)   # keep polling
+          # Multi-league run: one summary per refreshed league.
+          for lg in result.get("leagues") or []:
               print(
-                  "refresh OK: calls={} events+={} members={} leagues={} exhausted={}".format(
-                      result.get("callsUsed"),
-                      result.get("newEventCount"),
-                      result.get("memberCount"),
-                      result.get("leagueCount"),
-                      result.get("budgetExhausted"),
+                  "refresh OK [{}]: calls={} events+={} members={} leagues={} exhausted={}".format(
+                      lg.get("leagueKey"),
+                      lg.get("callsUsed"),
+                      lg.get("newEventCount"),
+                      lg.get("memberCount"),
+                      lg.get("leagueCount"),
+                      lg.get("budgetExhausted"),
                   )
               )
+          bad = result.get("errors") or []
+          if bad:
+              print(f"per-league failures: {bad}")
+              raise SystemExit(1)
           raise SystemExit(0)
           PY
               echo "Intel refresh completed successfully."
