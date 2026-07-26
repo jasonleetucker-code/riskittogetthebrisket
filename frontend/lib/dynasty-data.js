@@ -1109,6 +1109,10 @@ function _materializePlayerArrayRow(player) {
     // to sourceOriginalRanks; keep both materializers in lockstep).
     sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
       ? player.sourceNativeValues : {},
+    // NFL years of experience (0 = rookie) — drives the experience
+    // filter; null when the Sleeper blob never matched this player.
+    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1194,6 +1198,10 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // to sourceOriginalRanks; keep both materializers in lockstep).
     sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
       ? player.sourceNativeValues : {},
+    // NFL years of experience (0 = rookie) — drives the experience
+    // filter; null when the Sleeper blob never matched this player.
+    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
