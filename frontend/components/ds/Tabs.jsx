@@ -3,29 +3,49 @@
  * Replaces SubNav and every hand-rolled tab-chip row. For ≤5 exclusive
  * VALUE choices (not panels) use <SegmentedControl> instead.
  *
- * Usage:
- *   <Tabs
- *     label="League sections"
- *     tabs={[{ id: "overview", label: "Overview" }, …]}
- *     active={tab}
- *     onChange={setTab}
- *   />
- *   <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>…
+ * Ids are instance-scoped: every generated id is prefixed so two Tabs
+ * with the same logical tab ids (e.g. two "overview" tablists on one
+ * page) never emit duplicate DOM ids or cross-wired aria-controls.
+ * Wire your panels with the exported helpers:
+ *
+ *   <Tabs idPrefix="league" label="League sections"
+ *         tabs={[{ id: "overview", label: "Overview" }, …]}
+ *         active={tab} onChange={setTab} />
+ *   <div role="tabpanel"
+ *        id={tabPanelId("league", tab)}
+ *        aria-labelledby={tabId("league", tab)}>…
+ *
+ * Pass `idPrefix` whenever you render the panel yourself (you need the
+ * prefix to build the panel id). When omitted, a unique useId() prefix
+ * is generated — ids stay collision-free, but external code can't
+ * reconstruct them, so omit it only for self-contained usages.
  *
  * Props: tabs [{id, label, badge?}], active (id), onChange(id), label
- * (accessible name for the tablist).
+ * (accessible name for the tablist), idPrefix (see above).
  *
  * A11y: roving tabindex — one tab stop; Left/Right/Home/End move focus
- * and select; each button is aria-selected + aria-controls its panel id
- * (`panel-<id>` by convention). Overflow scrolls horizontally with no
- * visible scrollbar; tabs never wrap or truncate to a 21-item pile.
+ * and select; each button is aria-selected + aria-controls its panel id.
+ * Overflow scrolls horizontally with no visible scrollbar; tabs never
+ * wrap or truncate to a 21-item pile.
  */
 "use client";
 
-import React, { useRef } from "react";
+import React, { useId, useRef } from "react";
 
-export function Tabs({ tabs, active, onChange, label, className = "" }) {
+/** DOM id of the tab button for `tabId` under `idPrefix`. */
+export function tabId(idPrefix, id) {
+  return `${idPrefix}-tab-${id}`;
+}
+
+/** DOM id the matching tabpanel must use. */
+export function tabPanelId(idPrefix, id) {
+  return `${idPrefix}-panel-${id}`;
+}
+
+export function Tabs({ tabs, active, onChange, label, idPrefix, className = "" }) {
   const refs = useRef([]);
+  const autoPrefix = useId();
+  const prefix = idPrefix || `ds-tabs${autoPrefix}`;
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === active));
 
   const focusSelect = (index) => {
@@ -67,9 +87,9 @@ export function Tabs({ tabs, active, onChange, label, className = "" }) {
             }}
             type="button"
             role="tab"
-            id={`tab-${tab.id}`}
+            id={tabId(prefix, tab.id)}
             aria-selected={selected}
-            aria-controls={`panel-${tab.id}`}
+            aria-controls={tabPanelId(prefix, tab.id)}
             tabIndex={i === activeIndex ? 0 : -1}
             className="ds-tab"
             onClick={() => onChange?.(tab.id)}

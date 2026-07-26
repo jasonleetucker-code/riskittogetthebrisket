@@ -47,11 +47,16 @@ export function Field({ label, hint, error, id, children }) {
         </label>
       ) : null}
       {wired}
+      {/* Error and hint BOTH render when both exist (error first, hint as
+          quiet guidance) — the hint matters most while the user is fixing
+          invalid input, and aria-describedby references both ids so
+          neither is ever dangling. */}
       {error ? (
         <span className="ds-error-text" id={errorId}>
           {error}
         </span>
-      ) : hint ? (
+      ) : null}
+      {hint ? (
         <span className="ds-hint" id={hintId}>
           {hint}
         </span>

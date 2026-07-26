@@ -18,7 +18,7 @@ export { Panel } from "./Panel";
 export { PageHeader } from "./PageHeader";
 export { StatTile } from "./StatTile";
 export { DataTable, sortRows } from "./DataTable";
-export { Tabs } from "./Tabs";
+export { Tabs, tabId, tabPanelId } from "./Tabs";
 export { Badge, StatusIndicator, Movement, confidenceBucket } from "./Badge";
 export { Tooltip } from "./Tooltip";
 export { Modal, Drawer } from "./Dialog";

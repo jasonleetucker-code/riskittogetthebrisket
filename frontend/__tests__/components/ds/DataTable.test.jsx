@@ -288,6 +288,36 @@ describe("DataTable structure & interaction", () => {
     expect(screen.getByText("No players")).toBeInTheDocument();
   });
 
+  it("fallback row keys survive sorting: stateful cells stay with their row", async () => {
+    const user = userEvent.setup();
+    // No `id` field → the default rowKey falls back to the PRE-SORT index.
+    const rows = [
+      { name: "Chase", value: 9430 },
+      { name: "Bijan", value: 9155 },
+      { name: "Jefferson", value: 9541 },
+    ];
+    const columns = [
+      { key: "name", header: "Player", sortable: true },
+      { key: "value", header: "Value", numeric: true, sortable: true },
+      {
+        key: "note",
+        header: "Note",
+        render: (r) => <input aria-label={`note-${r.name}`} />,
+      },
+    ];
+    render(<DataTable caption="t" columns={columns} rows={rows} />);
+    await user.type(screen.getByLabelText("note-Chase"), "sell high");
+    // sort round-trip: name asc (Bijan, Chase, Jefferson) then value desc
+    await user.click(screen.getByRole("button", { name: "Player" }));
+    expect(bodyCellText(0)).toEqual(["Bijan", "Chase", "Jefferson"]);
+    expect(screen.getByLabelText("note-Chase")).toHaveValue("sell high");
+    expect(screen.getByLabelText("note-Bijan")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Value" }));
+    expect(bodyCellText(0)).toEqual(["Jefferson", "Chase", "Bijan"]);
+    expect(screen.getByLabelText("note-Chase")).toHaveValue("sell high");
+    expect(screen.getByLabelText("note-Jefferson")).toHaveValue("");
+  });
+
   it("supports controlled sort", async () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();

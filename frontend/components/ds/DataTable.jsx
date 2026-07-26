@@ -17,7 +17,12 @@
  *
  * Props:
  *   columns, rows                     (required)
- *   rowKey     string | (row,i)=>key  (default: row.id ?? index)
+ *   rowKey     string | (row,i)=>key  (default: row.id ?? original index)
+ *              Provide a real id whenever cells render stateful content
+ *              (inputs, expanded state): explicit identity is the only
+ *              fully-safe key. The fallback uses each row's PRE-SORT
+ *              index (stable identity map), so sorting never reattaches
+ *              a key — and therefore React state — to a different row.
  *   caption    string — REQUIRED for a11y; visually hidden table summary
  *   density    "regular" | "compact"
  *   defaultSort {key, direction:"asc"|"desc"} — uncontrolled initial sort
@@ -140,7 +145,20 @@ export function DataTable({
 
   const sorted = useMemo(() => sortRows(rows, columns, sort), [rows, columns, sort]);
 
-  const getKey = typeof rowKey === "string" ? (row, i) => row?.[rowKey] ?? i : rowKey;
+  // Pre-sort identity: each row's ORIGINAL index, computed once per rows
+  // array. Fallback keys must never use the post-sort position, or a sort
+  // would reattach keys (and any React state inside cells) to whichever
+  // row happens to land at that position.
+  const originalIndex = useMemo(() => {
+    const map = new Map();
+    rows?.forEach((row, i) => {
+      if (!map.has(row)) map.set(row, i);
+    });
+    return map;
+  }, [rows]);
+
+  const getKey =
+    typeof rowKey === "string" ? (row, i) => row?.[rowKey] ?? i : rowKey;
 
   if (!rows || rows.length === 0) return emptyState;
 
@@ -204,9 +222,10 @@ export function DataTable({
         <tbody>
           {sorted.map((row, i) => {
             const interactive = typeof onRowClick === "function";
+            const stableIndex = originalIndex.get(row) ?? i;
             return (
               <tr
-                key={getKey(row, i)}
+                key={getKey(row, stableIndex)}
                 className={interactive ? "ds-table__row--interactive" : undefined}
                 tabIndex={interactive ? 0 : undefined}
                 onClick={

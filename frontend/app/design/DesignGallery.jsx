@@ -30,6 +30,8 @@ import {
   StatTile,
   StatusIndicator,
   Tabs,
+  tabId,
+  tabPanelId,
   Tooltip,
 } from "@/components/ds";
 import styles from "./design.module.css";
@@ -387,6 +389,7 @@ export default function DesignGallery() {
       {/* ── Tabs ──────────────────────────────────────────────────── */}
       <Panel title="Tabs" subtitle="Tablist semantics, roving focus, overflow scrolls.">
         <Tabs
+          idPrefix="gallery"
           label="Gallery sections"
           active={tab}
           onChange={setTab}
@@ -399,8 +402,8 @@ export default function DesignGallery() {
         />
         <div
           role="tabpanel"
-          id={`panel-${tab}`}
-          aria-labelledby={`tab-${tab}`}
+          id={tabPanelId("gallery", tab)}
+          aria-labelledby={tabId("gallery", tab)}
           style={{ paddingTop: "var(--space-4)", color: "var(--text-secondary)", fontSize: "var(--font-size-sm)" }}
         >
           Active panel: {tab}

@@ -31,6 +31,15 @@ const FOCUSABLE =
 
 function useDialog({ open, onClose, panelRef }) {
   const restoreRef = useRef(null);
+  // Hold onClose in a ref so an inline callback from a re-rendering
+  // parent never restarts the open-lifecycle effect below (which would
+  // steal focus from a controlled input inside the dialog on every
+  // keystroke: cleanup restores focus to the opener, setup refocuses
+  // the first control). The effect depends on [open] + stable refs only.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -43,7 +52,7 @@ function useDialog({ open, onClose, panelRef }) {
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== "Tab" || !panel) return;
@@ -73,7 +82,7 @@ function useDialog({ open, onClose, panelRef }) {
       document.body.style.overflow = prevOverflow;
       restoreRef.current?.focus?.();
     };
-  }, [open, onClose, panelRef]);
+  }, [open, panelRef]);
 }
 
 function DialogShell({
