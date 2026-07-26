@@ -188,6 +188,28 @@ describe("filterRows + teamOptions", () => {
     expect(teamOptions(rows)).toEqual(["ARI", "GB", "FA"]);
   });
 
+  it("legacy materializer combines both rookie signals", async () => {
+    // _isRookie (scraper zero-exp flag) alone must mark the row
+    // rookie on the view=app legacy path (Codex round 4 on #535).
+    const { buildRows } = await import("../lib/dynasty-data.js");
+    const data = {
+      players: {
+        "Rookie Only IsRookie": {
+          _canonicalConsensusRank: 5,
+          _canonicalSiteValues: { ktc: 5000 },
+          rankDerivedValue: 5000,
+          sourceRanks: { ktc: 5 },
+          _isRookie: true,
+        },
+      },
+      sleeper: { positions: { "Rookie Only IsRookie": "WR" } },
+    };
+    const rows = buildRows(data);
+    const r = rows.find((x) => x.name === "Rookie Only IsRookie");
+    expect(r.rookie).toBe(true);
+    expect(rowMatches(r, { rookieOnly: true })).toBe(true);
+  });
+
   it("EXPERIENCE_BUCKETS covers 0/1/2+ exhaustively", () => {
     for (const y of [0, 1, 2, 5, 15]) {
       const matches = EXPERIENCE_BUCKETS.filter((b) => b.match(y));

@@ -1158,7 +1158,13 @@ function _materializeLegacyDictRow(name, player, posMap) {
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
-    rookie: Boolean(player._formatFitRookie),
+    // Combine BOTH upstream rookie signals like the contract row
+    // builder does (_formatFitRookie = format-fit pass, _isRookie =
+    // scraper's zero-experience flag) — the live export has rookies
+    // carrying only _isRookie, so reading one signal alone made
+    // rookie filters exclude every actual rookie on the view=app
+    // path (Codex round 4 on PR #535).
+    rookie: Boolean(player._formatFitRookie || player._isRookie || player.rookie),
     assetClass: classifyPos(pos || "?"),
     values,
     siteCount: Number(player.sourceCount || player._sites || 0),
@@ -1520,7 +1526,7 @@ export function mergeRankingsDelta(baseContract, delta) {
         // experience filters return an empty board whenever a source
         // override is active (fail-closed predicate over null).
         yearsExp: legacy._yearsExp != null ? legacy._yearsExp : null,
-        rookie: Boolean(legacy._formatFitRookie || legacy.rookie),
+        rookie: Boolean(legacy._formatFitRookie || legacy._isRookie || legacy.rookie),
         assetClass: String(legacy.assetClass || ""),
         identityConfidence: Number(legacy.identityConfidence ?? 0.7),
         identityMethod: String(legacy.identityMethod || "name_only"),
