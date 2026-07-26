@@ -10278,14 +10278,38 @@ _INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-whi
 
 
 def _intel_bearer_auth_ok(request: Request) -> bool:
-    """True when the request carries the intel cron bearer token."""
-    if not INTEL_REFRESH_TOKEN:
-        return False
+    """True when the request carries the intel cron bearer token.
+
+    Logs WHICH branch rejected a presented bearer (never the token
+    itself) so a cron 401 is diagnosable from the journal: "no token
+    configured" means the .env var never reached this process (check
+    the dynasty unit's EnvironmentFile + that the line is plain
+    ``KEY=value`` — systemd ignores ``export`` lines — and that the
+    service restarted after the edit); "mismatch" means the workflow
+    secret and the server value differ.
+    """
     header = (request.headers.get("authorization") or "").strip()
-    if not header.lower().startswith("bearer "):
+    has_bearer = header.lower().startswith("bearer ")
+    if not INTEL_REFRESH_TOKEN:
+        if has_bearer:
+            log.warning(
+                "intel bearer auth rejected: token presented but neither "
+                "INTEL_REFRESH_TOKEN nor SIGNAL_ALERT_CRON_TOKEN is configured "
+                "server-side (env not loaded?)"
+            )
+        return False
+    if not has_bearer:
         return False
     presented = header.split(None, 1)[1].strip()
-    return hmac.compare_digest(presented, INTEL_REFRESH_TOKEN)
+    if hmac.compare_digest(presented, INTEL_REFRESH_TOKEN):
+        return True
+    log.warning(
+        "intel bearer auth rejected: presented token does not match the "
+        "configured INTEL_REFRESH_TOKEN (len presented=%d, len configured=%d)",
+        len(presented),
+        len(INTEL_REFRESH_TOKEN),
+    )
+    return False
 
 
 def _intel_id_to_player() -> dict:
