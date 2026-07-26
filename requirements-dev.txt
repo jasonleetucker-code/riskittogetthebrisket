@@ -30,3 +30,8 @@ httpx~=0.28.0
 # installs requirements-dev.txt, so these stay out of the runtime image.
 ruff~=0.6.0
 mypy~=1.13.0
+
+# tests/intel/test_workflow_scripts.py parses
+# .github/workflows/intel-refresh.yml to exercise the workflow's
+# embedded decision heredocs — test-only, the runtime never reads YAML.
+pyyaml~=6.0

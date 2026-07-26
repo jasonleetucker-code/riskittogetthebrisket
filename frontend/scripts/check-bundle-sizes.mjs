@@ -64,7 +64,7 @@ const BUDGETS_KB = {
   "/league/page": 170, // public hub bundles every section together; bumped 165→170 for /league?tab=teamAssignment
   "/rosters/page": 30,
   "/trades/page": 20,
-  "/settings/page": 55,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke)
+  "/settings/page": 60,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke); 55→60 for the Sharp Tracker intel section in the shared PlayerPopup chunk (useLeague + intel fetch, PR #534)
   "/login/page": 15,
   "/more/page": 10,
 };

@@ -184,6 +184,84 @@ def test_load_intel_snapshot_roundtrip(tmp_path):
     assert snap["generatedAt"] == "2026-07-25T00:00:00+00:00"
 
 
+# ── League-partitioned snapshot seam (#534 × #538) ─────────────
+# The intel pipeline writes data/intel/snapshot_<leagueKey>.json;
+# this module derives the same path WITHOUT importing src.intel.
+# These tests pin both sides of that seam.
+
+
+def test_intel_snapshot_path_matches_intel_store_convention():
+    from src.intel import store as intel_store
+
+    from src.trade import faab_contention
+
+    for key in ("dynasty_main", "dynasty_new", None, "../evil/key"):
+        ours = faab_contention.intel_snapshot_path(key)
+        theirs = intel_store.snapshot_path(key or intel_store.DEFAULT_LEAGUE_KEY)
+        assert ours.name == theirs.name, key
+    # Same directory (data/intel) at their default roots.
+    assert (
+        faab_contention.intel_snapshot_path("x").parent.name
+        == intel_store.snapshot_path("x").parent.name
+        == "intel"
+    )
+
+
+def test_load_intel_snapshot_resolves_league_partition(tmp_path, monkeypatch):
+    from src.trade import faab_contention
+
+    monkeypatch.setattr(faab_contention, "INTEL_DATA_DIR", tmp_path)
+    (tmp_path / "snapshot_dynasty_main.json").write_text(
+        json.dumps(_intel_snapshot([])), encoding="utf-8"
+    )
+    snap = load_intel_snapshot(league_key="dynasty_main")
+    assert isinstance(snap, dict)
+    # A league without a partition degrades to None (→ intel_f 1.0).
+    assert load_intel_snapshot(league_key="dynasty_new") is None
+
+
+def test_partitioned_snapshot_written_by_intel_store_feeds_intel_factor(tmp_path, monkeypatch):
+    """END-TO-END seam pin: a snapshot persisted by the REAL intel
+    store (league-partitioned) must produce intel_f != 1.0 here —
+    the regression was this module reading a legacy single-file path
+    and silently degrading every rival estimate to 1.0 forever."""
+    import time as _time
+
+    from src.intel import store as intel_store
+
+    from src.trade import faab_contention
+
+    monkeypatch.setattr(intel_store, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(faab_contention, "INTEL_DATA_DIR", tmp_path)
+
+    now_ms = int(_time.time() * 1000)
+    state = intel_store.default_state("2026")
+    state["events"] = [
+        {
+            "eventId": "t1:rival1:add:p9",
+            "txId": "t1",
+            "leagueId": "L1",
+            "ownerId": "rival1",
+            "assetId": "p9",
+            "assetType": "player",
+            "action": "add",
+            "txType": "waiver",
+            "ts": now_ms - 24 * 3600 * 1000,
+            "week": 1,
+            "faabBid": 7,
+        }
+    ]
+    intel_store.save_state(state, "dynasty_main", now_ms=now_ms)
+
+    snap = load_intel_snapshot(league_key="dynasty_main")
+    assert isinstance(snap, dict)
+    idx = build_intel_index(snap, id_to_position={"p9": "WR"}, now_ms=now_ms)
+    # Player-level signal: rival1 added THIS player elsewhere.
+    assert intel_factor(idx, "rival1", "p9", "WR") == (1.25, "player")
+    # Position-level signal for a different WR.
+    assert intel_factor(idx, "rival1", "p42", "WR") == (1.1, "position")
+
+
 # ── estimate_rival_bids ────────────────────────────────────────
 
 
