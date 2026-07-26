@@ -38,6 +38,65 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-013: the League Twin bridge scales for the ROS blend, and reports the variance the odds path drops (LI-8)
+**Status:** accepted 2026-07-26 on `claude/li8-league-twin`.  Library +
+tests; no endpoint, nothing user-visible.
+
+**The missing join.**  `playoff_sim::simulate_trade_impact` takes
+`strength_delta` — `ownerId → change in weekly scoring MEAN`.  Nothing
+produced it; a caller had to invent the one number that actually
+requires simulating a roster.  `league_intel/sim.py` produces exactly
+that from real rosters.  `twin.py` is the join and deliberately adds no
+simulator, no second points model, and no reimplementation of either
+side.
+
+**Units were the trap, and they are handled exactly rather than
+approximated.**  `_TeamDist.mean` is NOT the presim mean; it is
+`presim_mean * (1 + ROS_BLEND * ros_z)` with `ROS_BLEND = 0.20`.  A raw
+presim delta is therefore in the wrong units for the field it lands in,
+off by the blend factor — roughly ±40% at `|ros_z| = 2`, not a rounding
+error.  Because the blend is multiplicative it scales exactly, so the
+bridge applies the same factor and returns `raw_mean_delta` and
+`blend_factor` alongside so the scaling is auditable rather than
+trusted.
+
+*Checked, not assumed:* the two sides really are the same KIND of
+quantity.  Both are starting-lineup weekly points.  Real team-weeks in
+the golden fixture are 283.8 and 361.1; the presim gives 163-377 across
+the 12 real rosters.  Same scale.  Note this alignment used to be
+partly luck — the `/2.7` divisor was tuned by eye — and
+`sim_calibration.py` is what makes it principled.
+
+**ASSUMED, and stamped on every result:** that `ros_z` is unchanged by
+the trade.  It is not — `ros_z` derives from `teamRosStrength`, which a
+roster change moves.  Capturing it needs a team-strength recompute per
+arm, which this deliberately does not do.  The residual is second-order
+(a change in the *blend* of a change in the *mean*).
+
+**Variance is reported, not propagated.**  `simulate_trade_impact`
+builds its after-distributions with `sd=d.sd` copied unchanged, so a
+trade's effect on variance vanishes there.  That is not a defect — a
+scalar mean shift is coherent, and their paired-seed design depends on
+the draw count being identical across arms — but the information
+exists.  `sd_delta` is computed and returned; it is explicitly NOT fed
+into the odds path, and the limitation is in `assumptions` rather than
+implied.
+
+**Unavailable is absent, not zero.**  An owner whose roster cannot be
+simulated gets no entry in `strength_delta`.  `simulate_trade_impact`
+reads a missing owner as unmoved, which is the correct reading of "no
+information"; an explicit `0.0` would assert the trade is neutral for
+them.
+
+**A test bug worth recording, because a weaker test would have hidden
+it.**  The real-roster test first keyed on `ownerId`, which this
+fixture does not carry — so `str(None)` collapsed both teams onto one
+dict key, B overwrote A, and the pure-giveaway case reported **+12.03
+for the team giving a player away**.  That is indistinguishable from
+the ADR-011 monotonicity defect and was in fact B's gain read under A's
+name; the true delta is −11.97.  A single-sided assertion would have
+passed.  Keyed on `rosterId` with an explicit `a_id != b_id` guard.
+
 ## ADR-011: the trade primitive is a weekly scoring DISTRIBUTION, and it runs on the full roster (LI-8)
 **Status:** accepted 2026-07-26.  Library + tests land; no endpoint and
 no UI, so nothing user-visible ships.
