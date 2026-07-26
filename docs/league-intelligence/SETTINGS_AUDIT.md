@@ -57,13 +57,33 @@ Key confirmations and §3 question resolutions:
 | Bonuses (10+ tkl, 2+ sack, 3+ PD, 40/50yd TDs, yardage milestones) | all **0** | resolved: none active |
 | Team DEF keys | `pts_allow*`, `yds_allow*`, `def_*` populated | **irrelevant — no DEF roster slot**; note only |
 
-## Remaining unknowns (LI-2 scope)
+## Open questions — RESOLVED 2026-07-26 (LI-2 golden validation)
 
-- Empirical stacking confirmation for: pick-six (−6?), first-down bonuses,
-  reception base+band, IDP multi-event plays, `idp_blk_kick` vs `blk_kick`.
-  Method: golden player-weeks — reconstruct from official stats through the
-  scorer and compare to Sleeper-awarded `players_points` in historical
-  matchups (available via `/v1/league/{id}/matchups/{week}`).
-- Scoring precision/rounding on Sleeper display vs stored floats.
-- Tie handling among equivalent legal best-ball lineups (affects optimizer
-  validation only, not totals).
+All empirical stacking questions are answered in
+`SCORING_VALIDATION.md` (1,415/1,415 player-weeks reconcile as a pure
+dot product over shared stat keys; verdicts frozen as golden tests in
+`tests/league_intel/`):
+
+- Pick-six: **stacks** — `pass_int` + `pass_int_td` both charge (−6
+  total under 2026 rates).
+- First-down bonuses: **`bonus_fd_<pos>` is itself a precomputed stat
+  key** (= first downs gained; QB variant includes passing FDs).
+- Reception base+band: **stacks mechanically** (zero-exception dot
+  product); direct nonzero-rate confirmation pends first scored 2026
+  week because the 2025 `rec` base rate was 0.
+- IDP multi-event: **all events on a play stack** (sack + sack yds +
+  QB hit + TFL + solo).
+- `idp_blk_kick` vs `blk_kick`: **no double-count** — individual
+  defenders only ever carry `idp_blk_kick`; `blk_kick` is a TEAM/DEF
+  stat this league can't roster.
+- Rounding: host per-player scores are 2-decimal; scorer comparisons
+  use 0.01 tolerance.
+
+Still open (not scoring): tie handling among equivalent legal
+best-ball lineups (affects LI-3 optimizer validation only, not
+totals).
+
+**Registry fix landed** (LI-1, same PR as this update): dynasty_main
+rosterSettings now match the live truth (TE 2, K 1, DL/LB/DB 3,
+IDP_FLEX 0, rosterSize 58, taxiSize 0, 21 starters); every consumer
+verified in `tests/league_intel/test_registry_consumers.py`.
