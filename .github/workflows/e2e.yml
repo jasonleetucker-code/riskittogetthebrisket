@@ -1,0 +1,262 @@
+name: E2E Safety Net
+
+# Full-stack Playwright critical-journey suite against a locally
+# booted backend (FastAPI :8000) + frontend (Next.js :3000), fed
+# entirely from the committed data snapshot (exports/latest/ +
+# CSVs/site_raw/) — no external network, no scraper credentials.
+#
+# This is the functional-parity safety net for the UI redesign: the
+# journey specs (tests/e2e/specs/journey-*.spec.js, mobile-smoke)
+# assert BEHAVIOR — board renders/sorts/filters, popup + search work,
+# trade surfaces respond, settings overrides round-trip — so each
+# redesign phase can rewrite markup and prove nothing functional broke.
+#
+# Triggers: manual dispatch + nightly cron ONLY — deliberately NOT on
+# every PR.  The suite boots the whole stack, builds the frontend,
+# and drives a real browser through dozens of journeys; it runs for
+# many minutes, which is too slow for the PR feedback loop.
+# pr-validation.yml keeps the fast checks on PRs; this workflow
+# catches cross-page functional regressions within a day.
+#
+# Failure handling mirrors scheduled-refresh.yml: an idempotent
+# tracking issue labelled ``e2e-failures`` is opened (or commented
+# on) so a broken journey can't sit unnoticed between manual runs.
+
+on:
+  schedule:
+    # Nightly at 06:23 UTC — offset from the on-the-hour crowd and
+    # from scheduled-refresh's :42 cadence.
+    - cron: "23 6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: e2e-safety-net
+  cancel-in-progress: true
+
+# ``issues: write`` for the idempotent failure-tracking issue below.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  e2e:
+    name: Boot stack + run journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Browsers for the TEST runner live in a dedicated path.  The
+      # backend process is intentionally pointed elsewhere (see the
+      # "Start backend" step) so its startup scrape — which would
+      # otherwise launch the python-side Playwright and hit external
+      # ranking sites — fails fast at browser launch and the committed
+      # snapshot stays the single, deterministic data source.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Use Node 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Install root + frontend deps
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm install --no-audit --no-fund
+          npm --prefix frontend install --no-audit --no-fund
+
+      - name: Install Playwright chromium (test runner only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npx playwright install --with-deps chromium
+
+      - name: Preflight (compile checks, contract validation, data seed)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Seeds data/ from the committed exports/latest snapshot so
+          # the backend serves a full contract without any scrape.
+          npm run regression:preflight
+
+      - name: Build frontend (production)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # server.py proxies page routes to :3000 with a 5s timeout;
+          # a dev-mode first compile blows through that, so we always
+          # run the production build here.
+          npm --prefix frontend run build:nocheck
+
+      - name: Generate test session secret
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Random per-run secret for the test-only session endpoint
+          # (/api/test/create-session).  Both the server and the
+          # Playwright runner read it; it never leaves this run.
+          echo "E2E_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+
+      - name: Start backend (FastAPI :8000)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # PLAYWRIGHT_BROWSERS_PATH is overridden to an empty dir for
+          # the SERVER process only: the startup scrape's browser
+          # launch fails immediately, load_from_disk keeps the seeded
+          # snapshot, and no external ranking site is ever contacted.
+          mkdir -p /tmp/no-pw-browsers
+          UPTIME_CHECK_ENABLED=false \
+          ALLOW_DEFAULT_LOGIN_DEV=1 \
+          E2E_TEST_MODE=1 \
+          PLAYWRIGHT_BROWSERS_PATH=/tmp/no-pw-browsers \
+          nohup python server.py > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/backend.pid"
+
+      - name: Start frontend (Next.js :3000)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd frontend
+          nohup npm run start > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/frontend.pid"
+
+      - name: Wait for stack readiness
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Backend ready = /api/status answers AND the seeded contract
+          # is loaded (has_data).  /api/health intentionally returns
+          # 503 while "degraded" (the startup scrape fails by design
+          # here), so poll /api/status instead.
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/status | grep -q '"has_data": *true'; then
+              echo "backend ready (attempt $i)"; break
+            fi
+            if [[ $i == 60 ]]; then
+              echo "::error title=Backend never became ready::see backend.log artifact"
+              tail -n 100 "$RUNNER_TEMP/backend.log" || true
+              exit 1
+            fi
+            sleep 2
+          done
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login || echo 000)
+            if [[ "$code" == "200" ]]; then
+              echo "frontend ready (attempt $i)"; break
+            fi
+            if [[ $i == 60 ]]; then
+              echo "::error title=Frontend never became ready::see frontend.log artifact"
+              tail -n 100 "$RUNNER_TEMP/frontend.log" || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run Playwright suite
+        shell: bash
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8000
+          # Page navigations go straight to Next.js — mirrors the
+          # production topology (nginx routes pages to Next directly;
+          # server.py's page proxy has a 5s timeout that slow SSR
+          # passes like /league exceed, and its explicit page-route
+          # list doesn't cover every Next page, e.g. /waivers).
+          E2E_PAGE_ORIGIN: http://127.0.0.1:3000
+          # Visual-regression baselines are not committed to the repo,
+          # so pixel comparisons are skipped; the visual specs still
+          # run their structural chart/render assertions.
+          SKIP_VISUAL_REGRESSION: "1"
+        run: |
+          set -Eeuo pipefail
+          # Chromium desktop + chromium mobile viewport.  The webkit
+          # device projects (mobile-390/430) are local-only extras —
+          # same rationale as prod-e2e-smoke.yml.
+          npx playwright test \
+            -c tests/e2e/playwright.config.js \
+            --project=desktop-1366 \
+            --project=mobile-chromium \
+            --ignore-snapshots
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-playwright-report
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          retention-days: 14
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-server-logs
+          path: |
+            ${{ runner.temp }}/backend.log
+            ${{ runner.temp }}/frontend.log
+          retention-days: 7
+
+      - name: Alert on workflow failure
+        # Idempotent tracking issue, mirroring the pattern in
+        # scheduled-refresh.yml: ensure the label exists, then comment
+        # on the open ``e2e-failures`` issue if there is one, else
+        # open a single labelled issue and keep reusing it.
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(cat <<EOF
+          Nightly E2E safety-net run failed.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Likely causes:
+          1. A critical journey genuinely regressed (check the
+             uploaded Playwright report artifact for the failing spec
+             + screenshot/trace).
+          2. The committed data snapshot went stale or lost fields the
+             contract needs (check the preflight + backend.log).
+          3. Stack boot trouble on the runner (backend/frontend logs
+             are attached as artifacts on failure).
+
+          During the UI redesign: a failure here means the current
+          phase broke a user journey — fix the page (or update the
+          selector registry in tests/e2e/helpers/journey.js if only
+          markup moved) before shipping the phase.
+          EOF
+          )
+          gh label create e2e-failures \
+            --color B60205 \
+            --description "Auto-opened when the nightly E2E safety net fails" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --label e2e-failures \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create \
+              --title "E2E safety net failing" \
+              --body "$BODY" \
+              --label e2e-failures
+          fi
