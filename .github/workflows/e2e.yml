@@ -183,15 +183,19 @@ jobs:
         env:
           E2E_BASE_URL: http://127.0.0.1:8000
           # Page navigations go straight to Next.js — production's nginx
-          # topology.  Through the backend's page proxy, "/" renders the
-          # anonymous shell even for a signed-in session (and /league SSR
-          # exceeds the proxy's 5s timeout).  See helpers/journey.js.
-          E2E_PAGE_ORIGIN: http://127.0.0.1:3000
-          # Page navigations go straight to Next.js — mirrors the
-          # production topology (nginx routes pages to Next directly;
-          # server.py's page proxy has a 5s timeout that slow SSR
-          # passes like /league exceed, and its explicit page-route
-          # list doesn't cover every Next page, e.g. /waivers).
+          # topology, where nginx routes pages to Next directly.  Through
+          # the backend's page proxy, "/" renders the anonymous shell even
+          # for a signed-in session, and slow SSR passes like /league
+          # exceed the proxy's 5s timeout.  See helpers/journey.js.
+          #
+          # This key was previously declared TWICE here, with the same
+          # value and two complementary comments — a merge artifact.  YAML
+          # parsers silently keep the last one; GitHub Actions REJECTS the
+          # workflow outright, so every run of this file was a startup
+          # failure with zero jobs.  A workflow that cannot start looks
+          # exactly like one that starts and finds nothing wrong, which is
+          # why the scheduled E2E run appeared healthy while never
+          # executing.  Keep this key declared once.
           E2E_PAGE_ORIGIN: http://127.0.0.1:3000
           # Visual-regression baselines are not committed to the repo,
           # so pixel comparisons are skipped; the visual specs still
