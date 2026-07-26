@@ -13,8 +13,8 @@ constant main-branch stability.
 | WS | Workstream | Owner (agent) | Branch | Scope (exclusive) | Status |
 |---|---|---|---|---|---|
 | A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **MERGED** `9ccdecea` |
-| B | Redesign R3 — dashboard, news, market surfaces | design custodian (builder reassigned) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | PR #551 open, CI green (`622117cb`); **reviewed — 2 P2 open**, see §6 |
-| C | Redesign R4 — draft war room + trade surfaces | design custodian (builder reassigned) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | PR #552 open, CI green (`79bde6f6`); **reviewed — 2 P2 open**, see §6 |
+| B | Redesign R3 — dashboard, news, market surfaces | design custodian (builder reassigned) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | PR #551 — **both P2 fixed** (`a7f2f0d1`, `4cccfd84`); 56 files / 1178 tests green, 13 budgets pass |
+| C | Redesign R4 — draft war room + trade surfaces | design custodian (builder reassigned) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | PR #552 — code fixed (`203849d9`), **PR body corrected**: aria-sort claim scoped and now true, FAAB v2 contention stated as a NEW feature, counts re-measured at `1563e527` |
 | D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
 | E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | PR #550 open, blockers **cleared** (`4e3e0d95`); LI-7 non-TE axes done (`2617e09e`) — 385 tests green, end-to-end no-op proven with `==` on 500+ real rows. **TE axis still blocked on paired-board evidence** (correctly — it is the one number not yet defensible) |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
@@ -76,6 +76,19 @@ silently discarded LI-6's entire contribution the day it arrived. It
 surfaced only because a test asserted confidence should rise and it
 didn't. **Write the test that fails if the mechanism is disconnected**,
 not just the test that passes when it works.
+
+A third form: the fix that reads correctly but cannot take effect. R3's
+mobile-order restoration was **inert on first write** — a media query adds
+no specificity, so `.col{display:contents}` inside `@media` and a bare
+`.col{display:flex}` are both (0,1,0) and source order decides; the base
+rule sat after the media block, so flex won at every width. The diff would
+have reviewed as a correct restoration while rendering exactly like the
+regression it fixed. Caught by running the new assertions against the
+**pre-fix** stylesheet and requiring them to fail there. Adopt that as the
+standard for any regression test: **a test that has never been observed
+failing is not yet evidence.** The same pass also found the matcher
+succeeding on the CSS *comments* documenting the rules rather than the
+rules themselves — strip prose before asserting on source.
 
 ## 3. Shared contracts (frozen unless custodian approves)
 
