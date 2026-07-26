@@ -4,25 +4,46 @@ Maintained by the main orchestrator session. This file IS the unified plan,
 ownership model, git/integration policy, and dashboard. Update on every
 material change. Supersedes ad-hoc per-track instructions.
 
+**Last dashboard rebuild: 2026-07-26 ~22:10 UTC, against `origin/main` =
+`ec60cdb0e`.** Statuses in §1 and §6 were rebuilt from artifacts — merged
+SHAs, open PR numbers, pushed branches — rather than carried forward from
+prior text. Anything that could not be tied to an artifact was downgraded
+to *not started*. If you are reading this well after that timestamp,
+re-verify before relying on §1, §5 or §6; the rules sections (§2, §2a,
+§2b, §2c, §3) are durable and do not expire.
+
 Target: **comprehensively functional, integrated, polished product in ~1
 week** (by ~2026-08-02). Optimize for the final integrated system, not
 constant main-branch stability.
 
 ## 1. Workstreams & ownership (one owner each)
 
+**Dashboard rebuilt from artifacts 2026-07-26 ~22:10 UTC**, against
+`origin/main` = `ec60cdb0e`. Status vocabulary is now strict and every
+cell must cite the artifact that earns it:
+
+- **Done** → a merged commit SHA on `main`.
+- **In review** → an open PR number.
+- **In progress** → a pushed branch name.
+- **Not started** → everything else, regardless of prior claims.
+
+Statuses that could not be tied to one of those were downgraded, not
+carried forward. Fifteen PRs merged today and the previous dashboard
+predated nearly all of them.
+
 | WS | Workstream | Owner (agent) | Branch | Scope (exclusive) | Status |
 |---|---|---|---|---|---|
-| A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **MERGED** `9ccdecea` |
-| B | Redesign R3 — dashboard, news, market surfaces | design custodian (builder reassigned) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | PR #551 — **both P2 fixed** (`a7f2f0d1`, `4cccfd84`); 56 files / 1178 tests green, 13 budgets pass |
-| C | Redesign R4 — draft war room + trade surfaces | design custodian (builder reassigned) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | PR #552 — code fixed (`203849d9`), **PR body corrected**: aria-sort claim scoped and now true, FAAB v2 contention stated as a NEW feature, counts re-measured at `1563e527` |
-| D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
-| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | PR #550 open, blockers **cleared** (`4e3e0d95`); LI-7 non-TE axes done (`2617e09e`) — 385 tests green, end-to-end no-op proven with `==` on 500+ real rows. **TE axis still blocked on paired-board evidence** (correctly — it is the one number not yet defensible) |
-| F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
-| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | **RISK CLEARED — PR #554**: verified pass on the full stacked redesign (main + #549 + #551 + #552), **149 passed / 0 failed / 29 gated skips**, one command, verified cold. Conflicts with main; rebase in flight |
-| H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | #547 merged; residual aggregate-join defect handed to WS-H by PR #550 (6 duplicate rows, 40/666 join failures) |
-| I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | **#545 RESOLVED** — intel crawl green (2m10s). Domain lost, site rehomed to bare IP; operator SSH access restored |
-| J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Audit done (`817009a8`); **blocked on cross-market normalization**, see §6 |
-| R | Fresh-eyes review | reviewer agent | read-only | PR comments | Running on #551 + #552 |
+| A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **Done** — `9ccdecea6` (#549) |
+| B | Redesign R3 — dashboard, news, market surfaces | design custodian | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | **Done** — `253568bc4` (#551), 19:38 UTC |
+| C | Redesign R4 — draft war room + trade surfaces | design custodian | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | **Done** — `49e005b2a` (#552), 20:04 UTC |
+| D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | **In progress** — branch pushed, 17 commits / 33 files ahead of main, last push 21:37 UTC. No PR yet. Phase A (`/league` Card→Panel) and phase B (ROS sections, league-comparison) are on the branch only |
+| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **Done** — `608610c9d` (#550) lands LI-1..LI-8, 20:37 UTC; League Twin bridge + sim calibration `7cdc4070f` (#565), 21:15 UTC. The registry/`DEFAULT_STARTER_NEEDS` staleness is fixed in production (verified by direct read on main) |
+| F | LI-9 UI (valuation-mode toggle) | design custodian | — | R1 shell TopBar + getActiveValue adoption | **Not started** — no branch, no PR. Its blockers (E, A) have both cleared, so it is now unblocked rather than blocked |
+| G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile → claude/e2e-abort-guard | tests/e2e/ | **Done** — `e55f791b8` (#559), 20:38 UTC, which contains #554 in full (verified: `12cf9dceb` is an ancestor of the #559 head, so #554 was closed rather than merged). Assertion audit `ca41c981c` (#566), 21:40 UTC |
+| H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | **Done** for #547 (`2aa7e56d4`). Residual aggregate-join defect handed over by #550 (6 duplicate rows, 40/666 join failures) is **not started** — no branch, no PR |
+| I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | **Done** — deploy skip/reverse guard `998572713` (#560); auth status-timeout fix `1ec3311be` (#558); domain remediation + `grant-ssh-access.yml` deleted (`c534280db`). **Outstanding for the operator: still no TLS on the bare IP** |
+| J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Engine **Done** — `4f9cb05b6` (#562), `783721534` (#563). **But it has no callers — see §6.3. "Merged" here does not mean "shipped."** F-1 rewiring of `angle.py` still open (§6.2); refit gate in progress (§6.1) |
+| R | Fresh-eyes review | reviewer agent | read-only | PR comments | **Done** — #567 merged `ec60cdb0e` at 22:06 UTC. No PRs currently open |
 
 Idle agents with retained domain context (resume, never cold-spawn):
 intel, FAAB, playerctx, news, prod-hardening — reassigned as B/C owners or
@@ -46,6 +67,52 @@ Old mode (per-task PR, merge-on-green, ~13 merges/day) is retired. New:
 5. Data-refresh/deploy automation on main is unaffected.
 6. Safety: no destructive resets, no force-push on shared branches, no
    cross-agent file edits without registry entry, secrets untouched.
+
+## 2a. Git mechanics that cost real time (2026-07-26)
+
+Two process findings from today. Both are cheap to avoid and expensive
+to hit.
+
+**Squash-merge breaks ancestry — a rebase onto a squash-merged branch is
+not a rebase.** When a PR is squash-merged, its branch head is *never*
+an ancestor of `main`. Basing new work on that branch head and then
+"catching up" to `main` produces a working tree that silently reverts
+everything merged in between. This happened twice today and on the
+second occasion nearly reverted three merged PRs (#552, #558, #560 —
+thirty-plus files) inside what `git status` displayed as a four-file
+docs change. The diff was a three-PR revert wearing a docs PR's
+clothing.
+
+Rebase onto `origin/main` directly, never onto another PR's branch, and
+then run the check that catches it:
+
+```
+git diff --stat origin/main HEAD    # must show ONLY your own files
+```
+
+That check is the whole defence. It is one command, it is unambiguous,
+and it is the reason #567 shipped as four files. Run it after every
+rebase — #567 went through five while merges landed underneath it.
+
+**ADR numbers collide because they are chosen at authoring time against
+a base that moves before merge.** Two agents authoring concurrently both
+pick "the next number" from the same starting state, and whoever merges
+second is already wrong. This happened twice today (ADR-012 and
+ADR-013); both were caught and hand-renumbered before merge, which is
+why `main` reads clean and the collisions leave no artifact.
+
+One collision *did* survive, across files: `docs/league-intelligence/DECISIONS.md`
+carries **ADR-008** (replacement levels, from #550) and
+`docs/roster-trade-intelligence/DECISIONS.md` carries a *different*
+**ADR-008** (Continuous Improvement, from #564). Cross-file numbering
+was never namespaced, so the per-file sequences collide by
+construction.
+
+**This wants a convention change, not a third manual renumber.** Options
+worth ten minutes at the next window: namespace the prefix per document
+(`LI-ADR-nnn`, `RTI-ADR-nnn`), or allocate at merge time rather than
+authoring time. Renumbering by hand a third time is the one option that
+guarantees a fourth.
 
 ## 2b. Standing evidentiary rule (all workstreams)
 
@@ -126,6 +193,105 @@ failing is not yet evidence.** The same pass also found the matcher
 succeeding on the CSS *comments* documenting the rules rather than the
 rules themselves — strip prose before asserting on source.
 
+## 2c. Named failure mode: the guard that cannot take effect
+
+**A fix or guard that reads correctly, reviews clean, and cannot
+possibly run.** Four instances of this one shape landed on 2026-07-26.
+It is now the most frequently recurring defect class in this repo, and
+it is invisible to code review by construction: the diff is correct.
+What is wrong is that the code is never reached, never parsed, never
+selected, or never handed the data it reads.
+
+The four, with what each actually cost:
+
+**1. A workflow that could never parse.** `e2e.yml` carried
+`E2E_PAGE_ORIGIN` twice in one mapping — same value, two complementary
+comments, a merge artifact. GitHub Actions rejects a workflow with a
+duplicate mapping key outright; ordinary YAML parsers silently keep the
+last one, so every local sanity check passed. **All nine runs of this
+workflow to date were startup failures with zero jobs** (verified:
+`created_at == updated_at` on every run, and `list_workflow_jobs` on run
+1 returns `total_count: 0`). A workflow that cannot start looks exactly
+like one that starts and finds nothing wrong. Fixed in #559
+(`e55f791b8`).
+
+  *Two corrections to how this has been described.* The duplicate never
+  existed on `main` — main's copy, from #543 (`63501a168`), has always
+  had exactly one `E2E_PAGE_ORIGIN`, and #559's committed diff removes
+  only a comment block, leaving the key line as unchanged context. The
+  duplicate lived on the E2E branches; all seven run-head SHAs
+  (`2a264e2f`, `deecf623`, `84b28a51`, `010e7795`, `12cf9dce`,
+  `9f549b6a`, `1fcd0db9`) carry two occurrences. And the scheduled suite
+  has indeed never run, but **not because of the duplicate**: `e2e.yml`
+  triggers on `schedule` (cron `23 6 * * *`) and `workflow_dispatch`
+  only, it landed on main at 07:06 UTC on 2026-07-26 — after that day's
+  06:23 UTC slot — and scheduled runs execute from the default branch,
+  whose file was always valid. **First scheduled run is due 2026-07-27
+  06:23 UTC and will be the first real test of the nightly path.** Treat
+  that run as unproven, not as a regression signal.
+
+**2. A regression guard deselected by the step meant to run it.** Still
+open; see §6.1. This is the live one.
+
+**3. A fix reading a key nothing writes.** LI-8's hybrid-eligibility
+correction built `RosterPlayer.fantasy_positions` from
+`p["fantasyPositions"]`, but the producer never emitted that key. With
+it empty, `eligible_positions()` falls back to `(position,)` and every
+DL/LB hybrid is matched position-only — **the algorithm was fixed while
+the data still expressed the bug.** An exact solve is only as good as
+the eligibility it is handed. Worth 0.00–4.72 weekly points, mean 1.56,
+on 10 of 12 rosters; the one roster with no multi-position players costs
+exactly 0.00, and that control is what makes it a measurement rather
+than noise.
+
+  *Correction:* on `main` this never shipped. Producer and reader landed
+  together in **#550** (`608610c9d`) — `src/ros/playoff_sim.py` has zero
+  occurrences of `fantasyPositions` before that commit and four after.
+  #565 (`7cdc4070f`) only refactored the read and carries the
+  measurement; its diff shows the `_pluck` emission as a context line.
+  The inert-fix episode was a pre-#550 branch state, caught before it
+  reached production.
+
+**4. A guard unloaded by the flag used to verify it.** Playwright's
+`--reporter` CLI flag **replaces** the config's reporter array rather
+than appending to it. Every local verification of #559's mid-run
+stack-death guard had therefore silently unloaded the very guard being
+verified — and *never invoked* and *invoked but quiet* produce
+byte-identical output. Proven with a module-level probe. CI is
+unaffected (neither `npm run e2e` nor `e2e.yml` passes the flag), and
+the constraint is now documented as load-bearing. Documented in #566
+(`ca41c981c`).
+
+### The rule
+
+**Verifying a guard requires proving it ran, not observing that it was
+quiet.**
+
+Silence is not evidence. A guard that never executed and a guard that
+executed and found nothing emit the same thing: nothing. Every one of
+the four above was "verified" by someone looking at a quiet output and
+concluding the quiet meant health.
+
+So the check must produce a *positive* trace:
+
+- Assert the guard fired at least once — a module-level probe, a
+  counter, a log line the test asserts on.
+- Run the new assertion against the **pre-fix** state and require it to
+  fail there. A test that has never been observed failing is not yet
+  evidence.
+- For CI gates, confirm the job actually executed: non-zero job count,
+  non-zero collected-test count. `pytest` reporting `13 deselected, 0
+  run` is a passing exit code and an empty check.
+- When a flag or config controls whether the guard loads, verify under
+  the exact invocation CI uses, not a convenient local one.
+
+This sits directly alongside §2b's evidentiary rule and the
+underfed-fixture finding above, and it is the same underlying question
+in a third costume: **ask what the check would look like if the
+hypothesis were false.** For a vacuous check the answer is "identical".
+For a guard that never ran, the answer is also "identical". Both are
+answered by demanding a positive trace rather than an absence.
+
 ## 3. Shared contracts (frozen unless custodian approves)
 
 - **ds/ component APIs + tokens** (design custodian) — R3/R4 consume, may
@@ -152,20 +318,172 @@ LI-6 (projection re-scoring) after LI-2; feeds LI-7.
 LI-8 (sim/League Twin ext) after LI-3; enhances trade UI (R4 seam: display-only).
 G tracks A-D (SEL registry). H independent. I independent (user unblocks intel).
 
+**Discharged as of 2026-07-26:** R2, R3, R4 and LI-1..LI-8 have all
+merged, so the only live edge on the critical path is **R5 → final
+integration** (WS-D, branch pushed, no PR). LI-4 has landed, which means
+**F is unblocked and unstarted** — it is now the longest-dated piece of
+unbegun work in the plan.
+
 ## 5. One-week backward plan
 
-- **Now–Sun**: R2 lands; R3+R4 launch in parallel; LI-1/2 PR + review;
-  LI agent continues LI-3+4+5 on the same branch (one batched PR).
-- **Mon–Tue**: mid-week integration window #1 (R3, R4, LI batch, E2E).
-  LI-6/7 build; F (toggle) starts once LI-4 + R-pages merged.
-- **Wed–Thu**: LI-7 guardrailed values live behind toggle (default
-  consensus); R5 sweep; LI-8 sim extension; golden backtests.
+**Revised 2026-07-26 22:00 UTC.** Integration window #1 was scheduled for
+Mon–Tue and effectively ran tonight instead — R2, R3, R4, the full LI
+batch and E2E all merged on Sunday, roughly two days early. The plan
+below is rewritten from that actual position rather than the original
+projection.
+
+- **~~Now–Sun~~ DONE**: R2 (`9ccdecea6`), R3 (`253568bc4`), R4
+  (`49e005b2a`), LI-1..LI-8 (`608610c9d` + `7cdc4070f`), E2E
+  (`e55f791b8` + `ca41c981c`), ops hardening (`998572713`,
+  `1ec3311be`), WS-J engines (`4f9cb05b6`, `783721534`), model registry
+  (`a5a8b8676`), engine-divergence measurement (`ec60cdb0e`). Fifteen
+  PRs; see the merge ledger in §6.
+- **Mon (next up)**: the three §6 open items, in this order —
+  (1) land the refit gate from `claude/ws-j-refit-gate` so the weekly
+  refit stops shipping unchecked constants (§6.1, has a branch, needs a
+  PR); (2) rewire `angle.py` onto the single-market path (§6.2);
+  (3) decide the surface for `src/roster_intel/` and wire it, or
+  explicitly park it — right now it is merged code with no consumer
+  (§6.3). Also: resolve the #555 page-proxy decision.
+- **Tue–Wed**: WS-D R5 sweep lands (branch is 17 commits deep, needs a
+  PR); F (LI-9 valuation-mode toggle) is now **unblocked** and unstarted
+  — its dependencies E(LI-4) and A both merged; WS-H residual
+  aggregate-join defect.
+- **Thu–Fri**: golden backtests; the first real nightly E2E signal
+  (first scheduled run 2026-07-27 06:23 UTC — treat it as unproven, not
+  as a baseline).
 - **Fri–Sat**: final integration window — full-suite + E2E + visual pass,
   perf, docs, release checklist, deploy, VPS apply notes for user.
+  **Blocking for the operator: still no TLS on the bare IP.**
 
 ## 6. Open merge blockers
 
-**PR #550 (WS-E) — RESOLVED 2026-07-26 (`4e3e0d95`).** All three blockers
+The three items below are the load-bearing open facts as of
+`origin/main` = `ec60cdb0e`. Each was verified against the tree, not
+carried forward from a claim. Everything after §6.4 is the historical
+record of already-resolved blockers, retained deliberately.
+
+### 6.1 The weekly Hill-curve refit still ships unvalidated constants — OPEN
+
+**Status: open.** `.github/workflows/refit-hill-curves.yml` rewrites the
+eight `HILL_*_C/S` constants in `src/canonical/player_valuation.py`,
+commits them to `main`, and triggers a deploy. Its regression guard
+cannot fail, for three independent reasons — and the third is the one
+that matters:
+
+1. **The pins are recomputed from the challenger.**
+   `rebaseline_ktc_reconciliation` writes `pinned_ours = _hill(p, c_new,
+   s_new)` and then measures against it, so the residual is zero by
+   construction.
+2. **KTC is itself a training source**, so the check shares the very
+   assumption it is meant to test — §2b's exact shape.
+3. **The guard never executes.** Verified on current `main`:
+   `tests/conftest.py::_LIVEDATA_MODULES` contains
+   `test_ktc_reconciliation.py` (line 87), and the workflow's test step
+   runs `python -m pytest tests/ -q -m "not livedata"` (line 127). The
+   guard is deselected by the very step meant to run it — 13 deselected,
+   0 run. Constants reach production with no check of any kind.
+
+This is instance 2 of §2c, and the only one still live. The repo
+half-knew: the workflow's own comment says gating on the pins "is
+circular", and that reasoning was used to justify *excluding* the check
+rather than building a non-circular one.
+
+**#564 (`a5a8b8676`) deliberately did NOT rewire the workflow.** It built
+the infrastructure — `src/model_registry/` with provenance-stamped
+versioning (sha256 per training input), a single champion pointer,
+promote/reject/rollback as recorded operations, a CLI, and a held-out
+criterion scoring four value-publishing dynasty boards the fit never
+reads (`ktcSfTep` deliberately excluded as the same market maker as
+KTC). Evaluation *raises* rather than returning a passing score when it
+would be vacuous. Training and holdout disagree in direction on the same
+move, which is the evidence it is not a rubber stamp. #564 changed no
+live values: `player_valuation.py` is byte-identical and `apply
+--dry-run` is a no-op against the shipped champion. The rewiring was
+left out so it gets its own review.
+
+**Rewiring is approved and in progress** on `claude/ws-j-refit-gate`
+(`e1b97edfc`, pushed 21:42 UTC, one commit ahead of main, 8 files). It
+removes the `-m "not livedata"` sweep, runs
+`python -m pytest tests/model_registry/ -q`, records the held-out gate
+result into `config/model_registry/`, and demotes promotion to a
+recorded manual action (`scripts/model_registry.py promote` + `apply`).
+**No PR open yet** — per §1's vocabulary this is *in progress*, not *in
+review*.
+
+Until that lands, treat every constant the weekly refit has shipped as
+unvalidated. This is a statement about the 2026-07-26 build, not a
+permanent property.
+
+### 6.2 `src/trade/angle.py` is the last unrewired cross-market call site — OPEN
+
+**Status: open.** ADR-010 ("cross-market packages are valued on ONE
+market, or not at all") is **accepted**, the interface and suppression
+path are built, and the rest of the codebase has moved to the
+single-market path — `src/trade/finder.py` now gates per market
+(`MARKET_TOP_N_FILTER`, `marketCoverage`, `KTC_TOP_N_FILTER` retained
+only as a deprecated alias) and `src/api/data_contract.py` resolves
+market per row. `angle.py` did not move.
+
+Verified on current `main`. `angle.py::_market_source_for` routes each
+*player* correctly (lines 100-101: `idpTradeCalc` for IDP, `ktcSfTep`
+otherwise) — so the per-row market is already known. But
+`_make_candidate` then sums `market_value` across a combo that is never
+constrained to one market, and `market_gain_pct` gates candidate
+visibility on that sum. **A mixed offense/IDP package has its fairness
+gate computed by adding KTC points to IDPTC points.**
+
+**This is true on both sides of the trade**, which the earlier writeup
+did not say: the acquire side at lines 509 and 532-533, and the offer
+side at lines 471-475 and again at 919-920 in the second generator. Both
+sides are unconstrained, so a mixed package is mispriced coming and
+going.
+
+Until `angle.py` is rewired, mixed packages must be suppressed or
+labelled — never silently ranked. "No defensible normalization is
+possible yet" remains an accepted outcome.
+
+Cross-market context that bounds the damage: KTC and IDPTradeCalc are
+directly comparable, not incommensurable — pooled median `IDPTC/KTC`
+**0.9997**, Spearman **0.990** on n=476 paired players. So the defect is
+a correctness and auditability failure rather than a wild
+mis-scaling. That is a reason to fix it cleanly, not a reason to defer.
+
+### 6.3 `src/roster_intel/` has no callers — the engine is merged, the feature does not exist
+
+**State this plainly, because "merged" is reading as "shipped" and it is
+not.** WS-J's Roster Intelligence Engine landed in #562 (`4f9cb05b6`)
+and the trade layer in #563 (`783721534`). Both are real, tested code.
+**Nothing calls them.**
+
+Verified: `git grep -l roster_intel`, excluding `src/roster_intel/` and
+`tests/roster_intel/`, returns **only three documentation files** —
+`docs/CLAUDE_SESSION_AUDIT_HANDOFF.md`, `docs/ORCHESTRATION.md` (this
+file), and `docs/league-intelligence/DECISIONS.md`. There is:
+
+- **no API endpoint** — nothing in `server.py`, no route in the
+  contract,
+- **no UI** — no frontend import, no page,
+- **no `/gameplan`** — the surface this engine was built for does not
+  exist,
+- **no pipeline call** — nothing in `scripts/` or the data contract
+  invokes it.
+
+The engine is a library with exactly one consumer: its own test suite. A
+green test suite over an uncalled package proves the code works and
+proves nothing about the product. **Wiring it to a surface is
+unstarted work, and no branch exists for it** — per §1's vocabulary,
+*not started*.
+
+This is a close cousin of §2c: code that reads correctly and cannot take
+effect, differing only in that nothing is even attempting to reach it.
+
+### 6.4 Historical record — resolved blockers
+
+Everything below documents blockers already cleared. Retained because
+the reasoning is load-bearing for future work, not because it is open.
+
+**PR #550 (WS-E) — RESOLVED 2026-07-26 (`4e3e0d95`), MERGED as `608610c9d` at 20:37 UTC.** All three blockers
 cleared: PR body headline corrected (old `TE 0` / "overstated 46%" lines
 explicitly retracted rather than quietly deleted), `replacement.py`
 docstring corrected with a KNOWN LIMITATION section plus a warning at
@@ -173,16 +491,15 @@ docstring corrected with a KNOWN LIMITATION section plus a warning at
 endpoint asymmetry leads. Retained below as the record of what was wrong
 and why.
 
-**Orchestrator decision — the `src/ros/lineup.py` fix is NOT being pulled
-forward** ahead of the Jul 29 window, despite the load-bearing numbers
-being unverifiable on main until #550 merges. Rationale: the production
-impact is bounded — composite team-strength values move but **rank order
-is unchanged across all 12 teams**, so Pick Projector output is stable
-today — and splitting a coordinated-territory file out of a batched branch
-risks more than three days of earlier verifiability buys. Anyone needing to
-cross-check the flex/TE figures before the window should check out
-`claude/league-intel-foundation` rather than expect main to reproduce them.
-Revisit if a second workstream is actually blocked on verification.
+**Orchestrator decision — SUPERSEDED by the merge.** The decision not to
+pull the `src/ros/lineup.py` fix forward ahead of the Jul 29 window is
+now moot: #550 merged at 20:37 UTC on 2026-07-26, three days early. The
+figures below **are** reproducible on `main` today, and
+`claude/league-intel-foundation` is no longer the place to check them.
+The rationale is retained only as the record of how the call was made
+(bounded production impact — composite team-strength values move but
+rank order was unchanged across all 12 teams, so Pick Projector output
+was stable throughout).
 
 **The original defect.** CI was green and LI-1..LI-5 otherwise sound, but
 the number the PR led with was wrong and load-bearing: every replacement
@@ -259,8 +576,10 @@ recomputed, not frozen.
 ### Remaining caveats
 
 Single season; 2026 rules applied counterfactually to 2025 rosters; missing
-`players_points` treated as 0; the exact optimizer + `fantasy_positions`
-fix is **branch-only, so none of this is reproducible on main today**.
+`players_points` treated as 0. ~~The exact optimizer + `fantasy_positions`
+fix is branch-only, so none of this is reproducible on main today.~~
+**Corrected 2026-07-26:** both landed on `main` in #550 (`608610c9d`) and
+this is now reproducible there.
 
 Largest remaining lever is now a caveat rather than a measurement: the
 reference endpoint assumes KTC's standard board targets a league like our
@@ -313,36 +632,47 @@ verbatim" with **zero tests** (both branches sit at exactly 1165).
 
 ### Product defects surfaced by the E2E run (NOT E2E's to fix)
 
-Found by PR #554's first real run; being written up as their own issue and
-deliberately kept out of that PR — they are `server.py` page-proxy and
-frontend-auth territory and need their own review.
+Found by PR #554's first real run. Status re-verified against `main`
+2026-07-26 after #558 and #559 merged — **three of five are fixed**, and
+the two that remain are deliberate.
 
-- **The page proxy serves the ANONYMOUS shell to a signed-in session.**
-  `/api/auth/status` returns `authenticated: true` while the page renders
-  "Sign In". Any spec asserting signed-in chrome through the proxy was
-  testing a logged-out page. #554 works around it by routing page
-  navigations via `pageUrl()` (production's nginx topology); the proxy
-  itself is still wrong.
-- **`/waivers` and `/news` are absent from the proxy's route list entirely.**
-- **`/league` SSR exceeds its 5 s timeout.**
-- **`useAuth` caps `/api/auth/status` at 5 s and resolves to
-  *unauthenticated* with no retry** — a slow backend can strand a valid
-  session on the anonymous shell for the page's whole life. Real product
-  fragility, reported rather than papered over with a retry.
-- **`critical-smoke`'s anonymous `/` check has been red on `main`** since
-  R1 renamed the wordmark and moved anonymous `/` to the sign-in surface.
-  Nightly-only E2E scheduling hid it.
-
-  **Still live, and deliberately not hot-fixed.** The fix (`84b28a51`)
-  exists only on `claude/e2e-r1-reconcile`; `main`, R3 and R4 all still
-  carry the original blob asserting `/Risk It/i` against a shell that
-  renders `▪ Brisket`. Not pulled forward for the same reason as the
-  `lineup.py` fix — #554 is the natural vehicle and a separate PR buys
-  three days. **Consequence to hold in mind at the window: main's nightly
-  E2E is EXPECTED-RED until #554 lands, so a red nightly before then is
-  not evidence of a new regression.** Verify against that baseline rather
-  than treating red as signal. Two independent agents found this defect
-  the same day — the second convergence of the day.
+- **FIXED (#558, `1ec3311be`) — `/waivers` and `/news` absent from the
+  proxy's route list.** The hand-maintained mirror had drifted three
+  separate times; at the time of the fix `/waivers`, `/news`, `/draft`,
+  `/angle`, `/trending`, `/players/compare`, `/league-comparison`,
+  `/idptc-rookies`, `/tools/ros-data-health`, `/rankings/[position]` and
+  every `/league/*` subroute were 404ing through the backend while
+  serving fine from Next. Replaced with a catch-all so Next owns page
+  routing, plus `tests/api/test_page_route_coverage.py` to stop the
+  drift recurring. **A hand-maintained mirror of another router's route
+  table is a permanent drift trap** — that is the generalizable lesson.
+- **FIXED (#558) — `useAuth` resolved to *unauthenticated* with no
+  retry.** Now retries on a `[1000, 2000, 4000, 8000, 30000]` ms backoff
+  and only commits an unauthenticated verdict on an authoritative
+  response, in both directions. Covered by
+  `frontend/__tests__/components/useAuth.retry.test.jsx`.
+- **FIXED (#559, `e55f791b8`) — `critical-smoke`'s anonymous `/`
+  check red on `main`.** Now asserts `/Brisket/i`, which is present in
+  the shell on every route and auth state, rather than pinning marketing
+  copy. **The "main's nightly E2E is EXPECTED-RED" caveat is withdrawn** —
+  it no longer applies, and treating a future red nightly as expected
+  would now hide a real regression. Note separately that the nightly has
+  in fact never executed at all (§2c instance 1); the first scheduled run
+  is due 2026-07-27 06:23 UTC.
+- **STILL OPEN — the page proxy serves the ANONYMOUS shell to a signed-in
+  session.** `/api/auth/status` returns `authenticated: true` while the
+  page renders "Sign In". Root cause is now pinned rather than
+  suspected: `_proxy_next` forwards **neither the request's cookies nor
+  its query string**, so a page served through the backend renders
+  logged-out and ignores `?tab=`. #558 deliberately did **not** fix this
+  — its comment at `server.py:10706` says so explicitly: the change
+  "makes the route list complete, not the proxy faithful." Whether to
+  repair the proxy or declare it non-production-representative (nginx
+  bypasses it in production) is tracked as **issue #555**. E2E works
+  around it by routing page navigations via `pageUrl()`.
+- **STILL OPEN — `/league` SSR exceeds the proxy's 5 s timeout**
+  (`urllib.request.urlopen(req, timeout=5.0)`). Same territory as the
+  above and folded into the same #555 decision.
 
 ### Sixth vacuous-check instance (§2b family)
 
@@ -353,36 +683,100 @@ reports success while asserting nothing. Config now supplies it, and
 `global-setup.js` verifies sessions are genuinely unlocked before any spec
 runs rather than trusting the flag.
 
-### Merge-queue state (2026-07-26 16:35 UTC)
+**#566 (`ca41c981c`) then audited the whole family systematically** —
+findings measured rather than reasoned. A vacuity probe re-tests each
+assertion against the page with `<main>` deleted (simulating content
+that never rendered); a wait probe measures how long each sentinel
+actually blocks. **Two specs came back NOT vacuous, which is what makes
+the positives mean anything.**
 
-| PR | WS | head | CI | ready? |
+Three fixed:
+
+- `critical-smoke` asserted `url.includes("/login") || body.length > 0`.
+  The right side is true of any HTML page, so the disjunction is
+  unfalsifiable — and it was **the only test claiming auth-gate
+  coverage.** A test named "auth-gated routes redirect to /login" could
+  not detect the auth gate opening. The gate is healthy today (302 to
+  `/login`), so this was a latent hole rather than a live breach.
+- `journey-news` skipped on 404 after `/news` shipped, so a route
+  regression would report as a skip rather than a failure.
+- `journey-trade` iterated `trades.slice(0, 5)` on a possibly-empty
+  array, so "returns arbitrage trades" was green when the engine
+  returned none — **exactly the regression #556 fixed.** The test could
+  not have caught the bug it was named for.
+
+A coverage floor now lands in the reporter: fails below 100 passed or
+above 60 skipped, against the measured ~149/29 baseline. Verified in
+both directions — it fires on a 1-test run and stays silent on a full
+one, **because a guard that only ever fires is as useless as one that
+never does.**
+
+Not fixed, inventoried: five chrome-matching assertions, two specs still
+waiting on the retired `/trades` sentinel, a snapshot locator that
+renders regardless of content, and six skip gates. Written up in
+`docs/e2e-assertion-audit.md`.
+
+### Merge ledger — 2026-07-26 (verified against `git log origin/main`)
+
+The mid-week integration window ran early and ran long: **fifteen PRs
+merged today**, all confirmed present on `main` by merge SHA. Times are
+UTC. The first fourteen:
+
+| # | Merge SHA | WS | Title | Merged |
 |---|---|---|---|---|
-| #551 R3 | B | `4cccfd84` | ✅ 16:11 | yes |
-| #552 R4 | C | `1563e527` | ✅ 15:56 | yes |
-| #550 LI-1..LI-7 | E | `2617e09e` | ✅ 16:03 | yes |
-| #553 orchestration docs | I | `5299ec84` | ✅ 16:27 | yes |
-| #554 E2E | G | `010e7795` | **none — conflicts** | **no** |
+| #553 | `a8a9595eb` | I | session audit handoff, orchestration record, lost-domain remediation | 19:29 |
+| #556 | `a2099f1b6` | J | Trade Finder: stop silently dropping every IDP player | 19:36 |
+| #551 | `253568bc4` | B | Redesign R3 — dashboard, news, market surfaces | 19:38 |
+| #552 | `49e005b2a` | C | Redesign R4 — draft war room + trade surfaces | 20:04 |
+| #560 | `998572713` | I | CI: fail loudly when a deploy would skip or reverse shipped code | 20:05 |
+| #558 | `1ec3311be` | I | fix(auth): transient status timeouts no longer sign users out | 20:06 |
+| #561 | `6f97763b6` | I | docs: reconcile the independent audit from #557 | 20:29 |
+| #550 | `608610c9d` | E | League Intelligence LI-1..LI-8 | 20:37 |
+| #559 | `e55f791b8` | G | E2E: runnable suite, abort guard, an `e2e.yml` that can start | 20:38 |
+| #564 | `a5a8b8676` | J | Continuous Improvement: model registry, held-out validation | 21:15 |
+| #565 | `7cdc4070f` | E | LI-8 League Twin: trade-impact bridge | 21:15 |
+| #562 | `4f9cb05b6` | J | WS-J Roster Intelligence Engine | 21:16 |
+| #566 | `ca41c981c` | G | test(e2e): audit the "looks correct, checks nothing" family | 21:40 |
+| #563 | `783721534` | J | WS-J Trade layer: target engines, partner fit, package generator | 21:48 |
 
-**#554 update (16:43):** rebased onto main, both conflicts resolved,
-state `unstable` (no conflicts). First CI run failed on a one-file lint
-gate (`ruff format` on `tests/e2e/preflight.py`) with every substantive
-check passing — 277 tests, 3 skipped, 362 subtests. Formatting fixed with
-`python -m ruff` (0.6.9, the CI pin); re-run in flight.
+**Closed without merging** (verified via the PR API, `merged: false`):
 
-Defuse invariant **re-verified after the rebase, not assumed**: R3 and R4
-still byte-identical to each other, `NAME` line 23, `SEL` line 35; both
-merges simulated against the rebased E2E branch and clean on `journey.js`.
-`NAME` is correctly absent on the E2E branch itself — it lives on R3/R4
-and arrives with them.
+| # | Disposition |
+|---|---|
+| #554 | Closed 20:38:50 UTC — **contained in #559 in full.** Verified: `12cf9dceb` (#554's head) is an ancestor of the #559 branch head, so this is genuine containment, not an abandonment |
+| #557 | Closed 20:09:34 UTC — **superseded by #561** (`6f97763b6`), which reconciles its audit findings into the session handoff |
 
-**Known residual for the window:** R4 will hit a one-line import conflict
-in `tests/e2e/specs/journey-trade.spec.js` — R4 adds `SEL`, E2E adds
-`pageUrl`, and the resolution is the union of both. Deliberately not
-pre-empted: importing `SEL` on the E2E side to dodge it would ship a
-knowingly-dead import to main, and no lint covers `tests/e2e/`. An obvious
-safe conflict beats hidden dead code.
+**#567 merged at 22:06 UTC as `ec60cdb0e`** — fifteen for the day. It
+measures the trade-engine value divergence (F-6 input, no fix) and
+refutes its own prior §16.7 hypothesis about the corridor clamp. It
+merged *while this dashboard rebuild was in flight*, which is itself the
+§2a lesson landing for a third time today: this branch was rebased onto
+`origin/main` and `git diff --stat origin/main HEAD` re-run to confirm
+it still carried only its own file.
 
-Merge order at the window stays R3 → R4 → LI → E2E, per §4.
+Its measured result is worth carrying into §6.2's eventual fix: the
+board runs ~12% below the composite (k = 0.880 across 803 assets), so
+migrating F-6 onto `rankDerivedValue` is **a recalibration, not a
+swap** — `MIN_ASSET_VALUE`, `JUNK_THRESHOLD`, `ELITE_THRESHOLD` and
+`MAX_BOARD_LOSS` all sit on a scale ~14% hot relative to the values they
+would receive. And **194 assets clear `MIN_ASSET_VALUE` but have no
+`canonicalConsensusRank` at all** — migrating naively deletes 162
+players from the finder's universe. That must be a decision, not a
+discovery.
+
+**No PRs currently open.**
+
+**In progress, no PR:**
+
+| Branch | Head | Scope |
+|---|---|---|
+| `claude/ws-j-refit-gate` | `e1b97edfc` (21:42) | Refit rewiring — see §6.1 |
+| `claude/redesign-r5-polish` | `bd0e3c9a0` (21:37) | WS-D R5 phases A+B — see §1 |
+
+The `SEL`/`NAME` cross-PR merge hazard that dominated the earlier
+queue is **discharged** — R3, R4 and the E2E branch all merged without
+recurrence, and the `journey-trade.spec.js` import conflict resolved as
+the predicted union of `SEL` + `pageUrl`.
 
 **Timing note for future ticks:** `Validate PR` runs ~16 min on this repo
 (four independent samples today). A run in progress for less than that is
@@ -400,18 +794,30 @@ nearly reported a stalled job.
 | E2E | `useAuth` fix + proxy route list (#555) | claude/auth-proxy-fixes |
 | design custodian | R5 purge plan + WS-J dashboard spec | claude/redesign-r5-polish |
 
-**F-1 gates the package generator.** `angle.py::_make_candidate` sums
-market values across a combo never constrained to one market, so mixed
-offense/IDP packages have their fairness gate computed by adding KTC
-points to IDPTC points. No normalization exists repo-wide. Live today.
-Until normalization is built *and validated*, mixed packages must be
-suppressed or labelled — never silently ranked. "No defensible
-normalization is possible yet" is an accepted outcome; with 12 managers
-and thin trade history it may be the true one.
+**F-1 gates the package generator — still open, now tracked as §6.2.**
+ADR-010 is accepted and the interface is built, but
+`angle.py::_make_candidate` remains unrewired on both the offer and
+acquire sides. See §6.2 for the verified line references and the
+measured KTC↔IDPTC scale relation.
 
-Unverified suspicion handed to the reviewer rather than asserted: the
-KTC top-150 quality filter both trade engines enforce may exclude IDP
-entirely, which would make them offense-only in practice.
+**The "unverified suspicion" is now confirmed and fixed.** It was handed
+to the reviewer rather than asserted: that the top-150 quality filter
+both trade engines enforce might exclude IDP entirely, making them
+offense-only in practice. It did, for `finder.py` — KTC publishes no IDP
+players, so every defender scored `ktc_value = None` and was dropped
+before scoring, and in an IDP league the engine silently returned
+offense-only results. Fixed in **#556** (`a2099f1b6`) with a per-market
+gate: `MARKET_TOP_N_FILTER` ranks each asset within its own market
+population, `marketCoverage` is emitted per market, and the engine warns
+explicitly when an IDP league has no priced IDP assets. `suggestions.py`
+was never actually consulting KTC despite the naming — its gate is the
+blended board, renamed `BOARD_TOP_N_FILTER` / `_assign_board_ranks`,
+with the `ktc*` names retained as deprecated aliases.
+
+Recording the shape, because it is worth more than the fix: the
+suspicion was filed as a suspicion, not an assertion, and it turned out
+to be true. That is the correct handling of an unverified hypothesis and
+it cost nothing to be wrong about.
 
 ### Ops incident closed (2026-07-26)
 
@@ -430,15 +836,37 @@ Both fixed; crawl green in 2m10s.
 Operator SSH access was also lost (VPS rebuilt 2026-07-20, no keys
 carried over, provider key store is provisioning-only). Restored via a
 one-shot dispatch-only workflow using the existing deploy credentials.
-**That workflow must be deleted** — it is a standing path to production
-shell for anyone who can dispatch it.
+~~That workflow must be deleted~~ — **done, verified**:
+`.github/workflows/grant-ssh-access.yml` was removed in `c534280db` and
+is absent from `main`. It was a standing path to production shell for
+anyone who could dispatch it.
 
 Still outstanding for the operator: no TLS on the bare IP (login
 credentials cross the network in plaintext until a new domain + certbot).
 
 ## 7. Risks
 
-Risks: credit outages (mitigated: liveness tick auto-resumes agents);
-LI golden validation may hit Sleeper stats-API gaps (fallback documented
-in LI-2 instructions); intel cron stays red until user runs the
-journalctl step (issue #545) — not on the critical path.
+**Refreshed 2026-07-26 22:00 UTC.**
+
+- **The weekly Hill-curve refit ships production constants nothing
+  checks** (§6.1). Highest-severity open risk: it writes to `main` and
+  triggers a deploy autonomously. Mitigation exists on a branch, unmerged.
+- **`src/roster_intel/` is merged but unreachable** (§6.3). The risk is
+  not technical but reporting: "the engine is merged" has already been
+  read as "the feature exists."
+- **`angle.py` prices mixed-market packages by adding KTC to IDPTC**
+  (§6.2). Bounded by the measured ~1.000 scale relation, but wrong and
+  unaudited.
+- **The nightly E2E has never executed** (§2c instance 1). First
+  scheduled run 2026-07-27 06:23 UTC. Until it produces one result, the
+  suite's CI behaviour is unproven regardless of local green runs.
+- **The page proxy renders signed-in sessions logged out** — issue #555,
+  unresolved decision (repair vs. declare non-representative).
+- **No TLS on the bare IP** — login credentials cross the network in
+  plaintext until a new domain + certbot. Operator action.
+- Credit outages (mitigated: liveness tick auto-resumes agents); LI
+  golden validation may hit Sleeper stats-API gaps (fallback documented
+  in LI-2 instructions).
+- ~~Intel cron stays red until user runs the journalctl step (issue
+  #545).~~ **Resolved** — crawl green in 2m10s; see the ops incident
+  record in §6.4.
