@@ -26,24 +26,47 @@ beside Draft Board / Waivers / Team Strength. The content is a plan
 report, and the name sits in the war-room register the design direction
 already uses.
 
-**The collision, which needs a decision before build:** `/rosters`
-("Team Strength — roster dashboard with position breakdowns") already
-answers "how good is my roster, by position". WS-J's roster snapshot,
-strengths, weaknesses, and positional surplus/needs are the same
-question with a better engine behind them. Shipping both gives the user
-two answers to one question, from two code paths — exactly the
-duplication the repo's rules forbid.
+### The `/rosters` boundary — **decided: split by scope, not by page**
 
-Two honest options:
+- **`/gameplan`** owns **one roster in depth** — snapshot, window,
+  positional marginal strength, surplus/needs, targets, trades, picks.
+- **`/rosters`** keeps **the league in comparison** — edge map, tiers,
+  age curves, waiver wire.
 
-- **(A, preferred)** `/gameplan` absorbs `/rosters`; `/rosters` either
-  redirects or is reduced to a plain roster listing with no analysis.
-- **(B)** WS-J ships only the blocks `/rosters` does not have (window,
-  targets, partners, trades, pick strategy) and *links* to `/rosters`
-  for composition.
+Verified against the code, because the obvious framing (absorb it) is
+wrong: `/rosters` is built on `buildAllTeamSummaries(sleeperTeams, …)`
+over **all** teams, sorted and ranked against each other. It is a
+league-comparison surface. Absorbing it into a roster-depth page would
+drag league-scoped features into a roster-scoped one.
 
-Do not defer this to build time. Option A is more work and the right
-answer; option B is defensible only if `/rosters` is retired soon after.
+**Refinement worth carrying into the build — "per-position strength" is
+not one duplicated thing, it is two different questions wearing one
+name:**
+
+| | `/rosters` | `/gameplan` |
+|---|---|---|
+| computes | `byGroup[pos] / groupAvg[pos]` | marginal value over replacement |
+| denominator | **league average** (needs all 12 teams) | **your own roster's alternatives** |
+| answers | "am I above or below the league at RB?" | "does my RB3 actually earn a start?" |
+
+So the position bars **cannot simply move** — `/rosters` sorts and
+compares on that ratio and would lose the input it is built from. The
+duplication is nominal, not computational. Give them distinct names in
+the UI and let neither recompute the other.
+
+**The genuine overlap is `TradeTargetsCard`** (`app/rosters/page.jsx`
+299–433), not the position bars. It computes weakest/strongest
+positions, a surplus list, trade targets, and infers each opponent's
+need — all roster-scoped, all squarely WS-J Zone 2 + Zone 3, and all on
+crude proxies (ratio-to-league-average, hardcoded value cutoffs of
+1200/8000/1500). That card is what should retire into `/gameplan`.
+
+**Unrelated finding, flagged for the toggle rollout:**
+`app/rosters/page.jsx:31` holds `const [valueMode, setValueMode] =
+useState("full")` — local valuation state, feeding
+`buildAllTeamSummaries`. It predates ADR-003 and will conflict with the
+global valuation toggle. It needs folding into the global selector when
+that lands, not preserving.
 
 ---
 
@@ -249,10 +272,14 @@ The two intermediate steps do not exist yet — see §6.
 ### The one assumption to confirm
 
 This form is correct **iff** the five outcomes are (a) mutually
-exclusive, (b) sum to 1, and (c) genuinely ordered. If they turn out to
-be unordered scenarios, the diverging form is wrong and it becomes a
-plain categorical stacked bar. **Confirm with the engine team before
-building.**
+exclusive, (b) sum to 1, and (c) genuinely ordered.
+
+**Intended as all three** per the coordinator — to be confirmed against
+the engine when the window actually lands, since intent and output can
+diverge. If it comes back as unordered scenarios, the diverging form is
+wrong and this becomes a plain categorical stacked bar; §4's palette
+work still holds, but the centring and the two intermediate ramp steps
+do not.
 
 ---
 
@@ -316,12 +343,14 @@ becomes wrong.
 **Genuine gaps — flagged, not built** (per the frozen-contract rule, and
 because a primitive with one speculative consumer is a liability):
 
-1. **A standalone confidence affordance.** `confidenceBucket()` is
-   exported, but the tick rendering is locked inside `Movement`. §3
-   needs those ticks beside values that are not deltas. Smallest correct
-   fix is a `<Confidence bucket>` component reusing the existing markup
-   and CSS — an addition, not a mutation. **This is the one gap I'd
-   expect to close first**, since §3 is unbuildable without it.
+1. ~~**A standalone confidence affordance.**~~ **CLOSED** — `Confidence`
+   shipped in `components/ds/Badge.jsx`, exported from the barrel,
+   demoed on `/design`, 20 tests. Pure addition; `Movement` untouched.
+   §3's tiers 1 and 2 are now buildable as written: `showWhen`
+   ("degraded" by default) enforces the quiet-by-default invariant in
+   the primitive rather than in each caller, and `limitedBy` carries the
+   single binding dimension. Tier 0 (precision as the encoding) is a
+   formatting decision for the page, not a component.
 2. **A diverging distribution bar.** `Meter` is single-value,
    single-series; `Sparkline` is a series over time. A 100%-stacked
    diverging bar exists nowhere. Build it **page-local first** and
