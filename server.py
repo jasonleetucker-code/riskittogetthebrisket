@@ -4248,11 +4248,14 @@ async def post_waiver_faab_recommend(request: Request):
       ``addPlayerName``   required — display name of the add side
       ``dropPlayerName``  optional — display name of the drop side
       ``teamOwnerId``     optional — the requesting user's Sleeper
-                          owner id.  Unlocks the team FAAB cap AND
-                          the FAAB v2 rival-contention model
-                          (without it contention is skipped with an
-                          explicit missing-factor note — we never
-                          guess which team is the user's).
+                          owner id.  When it matches a CURRENT
+                          roster in the resolved league it unlocks
+                          the team FAAB cap AND the FAAB v2
+                          rival-contention model; missing OR
+                          unmatched (stale/foreign) ids skip
+                          contention with an explicit missing-factor
+                          note — we never guess which team is the
+                          user's.
 
     Returns the ``recommend_faab`` payload (see
     ``src/trade/faab_recommender.py``) with ``conservative``,
@@ -4417,17 +4420,33 @@ async def post_waiver_faab_recommend(request: Request):
     # the league budget as a soft cap.
     team_faab_remaining: int | None = None
     requested_team = body.get("teamOwnerId") or body.get("ownerId")
+    requested_team_matched = False
     if requested_team:
         for t in sleeper_teams:
             if str(t.get("ownerId") or "") == str(requested_team):
+                requested_team_matched = True
                 rem = t.get("faabRemaining")
                 if isinstance(rem, int):
                     team_faab_remaining = rem
                 break
 
+    # League budget resolution: analytics summary first, then the
+    # overlay's per-team ``faabBudget`` (the resolved league's real
+    # setting — critical when the league-scoping guard just discarded
+    # the analytics: hard-coding 100 would halve every bid in a $200
+    # league), then Sleeper's default 100.
+    overlay_faab_budget: int | None = None
+    for t in sleeper_teams:
+        if isinstance(t, dict):
+            fb = t.get("faabBudget")
+            if isinstance(fb, int) and fb > 0:
+                overlay_faab_budget = fb
+                break
     league_budget = (
-        league_summary.get("leagueBudget") if isinstance(league_summary, dict) else 100
-    ) or 100
+        (league_summary.get("leagueBudget") if isinstance(league_summary, dict) else None)
+        or overlay_faab_budget
+        or 100
+    )
 
     # Sleeper trending adds — PRIMARY: the live TTL-cached adapter
     # (``src/adapters/sleeper_trending.py``, warmed post-scrape).
@@ -4444,12 +4463,20 @@ async def post_waiver_faab_recommend(request: Request):
     except Exception as exc:  # noqa: BLE001
         log.warning("faab-recommend trending fetch failed: %s", exc)
         trending_snapshot = None
-    if isinstance(trending_snapshot, dict) and isinstance(trending_snapshot.get("counts"), dict):
+    if (
+        add_player_id
+        and isinstance(trending_snapshot, dict)
+        and isinstance(trending_snapshot.get("counts"), dict)
+    ):
         trending_as_of = trending_snapshot.get("fetchedAt")
-        count = trending_snapshot["counts"].get(add_player_id) if add_player_id else None
-        # Data present: a player absent from the board legitimately
-        # counts 0 (not-trending is signal, not a missing input).
-        trending_for_player = {"count": int(count or 0)}
+        # Data present AND the row has a resolvable Sleeper id: a
+        # player absent from the board legitimately counts 0
+        # (not-trending is signal, not a missing input).  Rows WITHOUT
+        # a playerId can't be looked up here at all — treating that
+        # impossible lookup as "0 trending" would mark the input as
+        # present, inflate confidence, and bypass the name-based
+        # fallback below, so they take the fallback path instead.
+        trending_for_player = {"count": int(trending_snapshot["counts"].get(add_player_id) or 0)}
     else:
         trending_block = latest_contract_data.get("sleeperTrending") or {}
         if isinstance(trending_block, dict):
@@ -4498,11 +4525,14 @@ async def post_waiver_faab_recommend(request: Request):
     intel_snapshot = _faab_contention.load_intel_snapshot()
     intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
 
-    # Rival contention (FAAB v2).  Requires ``teamOwnerId`` — we
-    # never guess which team is the user's, because modeling the
-    # user's own team as a rival poisons the clearing price.
+    # Rival contention (FAAB v2).  Requires a ``teamOwnerId`` that
+    # matches a CURRENT roster in the resolved league — we never
+    # guess which team is the user's, and a stale/foreign owner id
+    # would exclude nobody from the opponent list, silently modeling
+    # the user's own team as a rival and poisoning the clearing
+    # price.
     contention: dict | None = None
-    if requested_team:
+    if requested_team and requested_team_matched:
         opponents = [
             t
             for t in sleeper_teams
@@ -4568,12 +4598,18 @@ async def post_waiver_faab_recommend(request: Request):
             "skipped": False,
         }
     else:
-        skip_reason = (
-            "teamOwnerId not provided — rival contention skipped "
-            "(we never guess which team is yours)."
-            if not requested_team
-            else "rival contention unavailable for this request."
-        )
+        if not requested_team:
+            skip_reason = (
+                "teamOwnerId not provided — rival contention skipped "
+                "(we never guess which team is yours)."
+            )
+        elif not requested_team_matched:
+            skip_reason = (
+                "teamOwnerId does not match any current roster in this "
+                "league — rival contention skipped."
+            )
+        else:
+            skip_reason = "rival contention unavailable for this request."
         rec["factors"].append(
             {
                 "label": "Rival contention",

@@ -41,6 +41,15 @@ TRENDING_ADD_URL = "https://api.sleeper.app/v1/players/nfl/trending/add"
 # Sleeper signals converge on the same freshness ceiling.
 TRENDING_TTL_S = 15 * 60
 
+# Negative-cache window after a failed fetch.  Trending is an
+# optional, confidence-only signal — without this, a cold cache
+# during a Sleeper outage would block EVERY recommendation request
+# for up to the 5s HTTP timeout.  Within this window the cache
+# serves whatever it has (stale snapshot or None) without touching
+# the network; an explicit force_refresh (the post-scrape warm)
+# still bypasses it.
+TRENDING_FAILURE_TTL_S = 90.0
+
 DEFAULT_LOOKBACK_HOURS = 24
 DEFAULT_LIMIT = 100
 _HTTP_TIMEOUT_S = 5.0
@@ -60,6 +69,7 @@ class _TrendingCache:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._expires_at: float = 0.0
+        self._failure_until: float = 0.0
         self._snapshot: dict[str, Any] | None = None
 
     def get(
@@ -67,12 +77,19 @@ class _TrendingCache:
         *,
         fetcher,
         ttl_s: float = TRENDING_TTL_S,
+        failure_ttl_s: float = TRENDING_FAILURE_TTL_S,
         force_refresh: bool = False,
     ) -> dict[str, Any] | None:
         now = time.time()
         with self._lock:
-            if not force_refresh and self._snapshot is not None and now < self._expires_at:
-                return self._snapshot
+            if not force_refresh:
+                if self._snapshot is not None and now < self._expires_at:
+                    return self._snapshot
+                # Negative cache: a recent fetch failure means we
+                # serve what we have (stale snapshot or None) without
+                # re-blocking on the network for every caller.
+                if now < self._failure_until:
+                    return self._snapshot
             stale = self._snapshot
         # Fetch outside the lock so concurrent callers don't pile up
         # behind a single slow request.  Worst case two fetches race
@@ -81,18 +98,24 @@ class _TrendingCache:
             fresh = fetcher()
         except Exception as exc:  # noqa: BLE001 — optional signal, never break callers
             log.warning("sleeper trending fetch failed: %s", exc)
+            with self._lock:
+                self._failure_until = time.time() + failure_ttl_s
             return stale
         if not isinstance(fresh, dict):
+            with self._lock:
+                self._failure_until = time.time() + failure_ttl_s
             return stale
         with self._lock:
             self._snapshot = fresh
             self._expires_at = time.time() + ttl_s
+            self._failure_until = 0.0
         return fresh
 
     def invalidate(self) -> None:
         with self._lock:
             self._snapshot = None
             self._expires_at = 0.0
+            self._failure_until = 0.0
 
 
 # Module-level singleton — the trending board is global (not

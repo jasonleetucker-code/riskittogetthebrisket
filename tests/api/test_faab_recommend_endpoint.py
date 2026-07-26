@@ -372,6 +372,73 @@ def test_wrong_league_snapshot_treated_as_unavailable(faab_env, monkeypatch):
     assert any("sample floor" in n for n in contention["notes"])
 
 
+def test_no_player_id_preserves_missing_trending(faab_env, monkeypatch):
+    """Codex round-2 #1: a row without a playerId cannot be looked up
+    on the trending board — the impossible lookup must NOT read as
+    '0 trending / input present'.  With no name-based fallback either,
+    trending stays an honestly-missing input."""
+
+    def strip_pids(contract):
+        for row in contract["playersArray"]:
+            row["playerId"] = None
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}, mutate=strip_pids)
+    payload = res.json()
+    trending_factors = [f for f in payload["factors"] if f["label"].lower().startswith("trending")]
+    assert trending_factors and all(f["missing"] for f in trending_factors)
+    assert payload["inputsAsOf"]["trending"] is None
+    assert "trending" in payload["staleInputs"]
+
+
+def test_overlay_faab_budget_beats_hardcoded_fallback(faab_env, monkeypatch):
+    """Codex round-2 #2: with league analytics unavailable, the
+    budget must come from the roster block's faabBudget (the resolved
+    league's real setting), not the hard-coded $100 — otherwise every
+    bid in a $200 league is halved."""
+
+    def budget_200(contract):
+        for t in contract["sleeper"]["teams"]:
+            t["faabBudget"] = 200
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res_200 = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}, mutate=budget_200)
+        res_100 = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    p200, p100 = res_200.json(), res_100.json()
+    assert p200["max"] == 200  # cap follows the league's real budget
+    assert p100["max"] == 100
+    assert p200["standard"] == 2 * p100["standard"]  # bids scale with budget
+
+
+def test_unmatched_team_owner_skips_contention(faab_env, monkeypatch):
+    """Codex round-2 #4: a stale/foreign teamOwnerId matches no
+    current roster — the opponent filter would exclude nobody and
+    model the user's own team as a rival.  Contention must skip with
+    the explicit note + missing factor (honest confidence included)."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(
+            c,
+            monkeypatch,
+            {"addPlayerName": "Hot Pickup", "teamOwnerId": "ghost-owner"},
+        )
+    payload = res.json()
+    contention = payload["contention"]
+    assert contention["skipped"] is True
+    assert contention["perOpponent"] == []
+    assert contention["clearing"] is None
+    assert any("does not match any current roster" in n for n in contention["notes"])
+    missing_factor = next(
+        (f for f in payload["factors"] if f["label"] == "Rival contention"),
+        None,
+    )
+    assert missing_factor is not None and missing_factor["missing"] is True
+    # Honest confidence: the reported bucket accounts for the
+    # appended missing factor (round-1 pattern).
+    from src.trade.faab_recommender import compute_confidence
+
+    assert payload["confidence"] == compute_confidence(payload["factors"])
+
+
 def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
     """Counterpart to the wrong-league test: a snapshot for the
     RESOLVED league flows through — o1's real aggression history is
