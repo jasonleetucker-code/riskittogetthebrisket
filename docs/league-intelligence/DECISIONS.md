@@ -38,6 +38,95 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-014: the competitive window enters per POSITION as a horizon weight, not as a global win-now scalar (WS-J)
+**Status:** accepted 2026-07-26. Implemented in
+`src/roster_intel/targets.py::horizon_weight`; `win_now_weight` is
+retained for magnitude reporting only.
+
+**The defect.** `rank_target_positions` multiplied every position's
+priority by a single scalar, `win_now_weight(window)` — the
+probability-weighted mean of per-state weights (championship_contender
+1.00 → rebuild 0.15). That scalar is *uniform across positions* by
+construction, and a uniform positive multiplier cannot reorder a list.
+
+The consequence was not a rounding artifact, it was the whole feature:
+a rebuilding roster and a championship contender, given the same
+candidate pool, received the **identical ranked order** of target
+positions and differed only in the absolute magnitude of `priority`.
+The docstring and the `notes` stamp both claimed the competitive window
+affected the recommendation. It provably could not. This is exactly the
+class of defect §2b exists to catch — a term that is *reported* as
+applied while being incapable of changing any decision.
+
+**Why a global scalar cannot be repaired in place.** For the window to
+reorder positions it must interact with something that varies *by*
+position. `win_now_weight` reads only `window.probabilities`, which has
+no position axis. No re-tuning of the five state weights fixes this;
+the term is structurally inert. It had to be replaced, not calibrated.
+
+**The mechanism chosen: horizon, keyed to the age of what is obtainable.**
+`horizon_weight(window, mean_candidate_age)` keeps the same five-state
+distribution but modulates it per position by the mean age of that
+position's top-`REALISTIC_CANDIDATE_DEPTH` candidates:
+
+```
+youth     = clamp((AGE_OLD - mean_age) / (AGE_OLD - AGE_YOUNG), 0, 1)
+age_mult  = (1 - future) + future * (FUTURE_AGE_FLOOR + FUTURE_AGE_SPAN * youth)
+weight    = Σ_state p(state) · base(state) · age_mult(state)   /   Σ_state p(state)
+```
+
+`_STATE_FUTURE_ORIENTATION` (championship_contender 0.00 → rebuild 1.00)
+decides how much a state cares about age at all. Win-now states ignore it
+— a contender should take the best available upgrade regardless of age.
+Future-oriented states reward youth, so a rebuilding roster prefers
+positions where the *obtainable* upgrades are young. Same window,
+different positions, genuinely different order.
+
+This was picked over the two alternatives because it is the only one
+that needs no new data and no fitted parameter. Positional value curves
+by window would require a measured contender/rebuilder value split that
+does not exist for this league; a per-position win-now prior would be
+invented weights wearing a measurement's clothes.
+
+**What is measured and what is assumed.**
+
+*ASSUMED, not measured* — all of it. `_WIN_NOW_WEIGHTS`,
+`_STATE_FUTURE_ORIENTATION`, `_AGE_YOUNG`/`_AGE_OLD`, `FUTURE_AGE_FLOOR`
+and `FUTURE_AGE_SPAN` are judgement calls. There is no dataset of
+"positions a rebuilding manager should have attacked" to fit them
+against. `describe_limitations()` stamps `winNowWeightsAreMeasured:
+False` and the constants are emitted verbatim so a reader can see the
+numbers rather than trust the label.
+
+*The directional claim is the defensible part.* That a rebuilder should
+prefer young acquisitions and a contender should not care is a
+first-principles consequence of dynasty roster construction, not a
+fitted result. The **ordering** the term produces is therefore more
+trustworthy than the magnitudes it multiplies by.
+
+**The honest failure mode, and why it is `None` and not `1.0`.**
+`horizon_weight` returns `None` when the window is absent OR when no
+candidate at that position has a known age. `None` means *the term did
+not apply*. The caller then sets `window_mult = 1.0` and, when a window
+was supplied but ages were not, appends an explicit note:
+
+> competitive window supplied but no candidate ages — the window weight
+> is per-position by age and could not be computed, so it did NOT affect
+> this ranking
+
+`PositionTarget.win_now_weight` is serialized as `winNowWeight: null` in
+that case. Stamping the global scalar there instead would have
+reproduced the original defect one layer down: a number that looks
+applied, is reported as applied, and changes nothing. A caller must be
+able to distinguish "the window said 1.0" from "the window was not
+consulted", and only `null` does that.
+
+**Consequence for callers.** `winNowWeight` is not a reliable field to
+sort or filter on — it is `null` on exactly the rows where age data is
+missing, which is not a random subset (rookies and recently-added
+players are likelier to be missing). Read `priority` for ordering and
+`notes` for whether the window participated.
+
 ## ADR-013: the League Twin bridge scales for the ROS blend, and reports the variance the odds path drops (LI-8)
 **Status:** accepted 2026-07-26 on `claude/li8-league-twin`.  Library +
 tests; no endpoint, nothing user-visible.
