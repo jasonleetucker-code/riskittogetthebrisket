@@ -1321,9 +1321,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 261.06,
+    "teamRosStrength": 261.38,
     "startingLineupScore": 321.19,
-    "benchDepthScore": 110.03,
+    "benchDepthScore": 111.8,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1438,20 +1438,20 @@
         "depthContribution": 21.13
       },
       {
+        "playerId": "7567",
+        "canonicalName": "kenny gainwell",
+        "position": "RB",
+        "rosValue": 20.5,
+        "depthFactor": 1.0,
+        "depthContribution": 20.5
+      },
+      {
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
         "rosValue": 19.31,
         "depthFactor": 1.0,
         "depthContribution": 19.31
-      },
-      {
-        "playerId": "7567",
-        "canonicalName": "kenny gainwell",
-        "position": "RB",
-        "rosValue": 18.73,
-        "depthFactor": 1.0,
-        "depthContribution": 18.73
       },
       {
         "playerId": "1373",

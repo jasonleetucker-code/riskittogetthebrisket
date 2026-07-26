@@ -1624,8 +1624,8 @@
     "ownerId": "473973924808355840",
     "rosterId": 3,
     "teamName": "Ty",
-    "teamRosStrength": 402.41,
-    "startingLineupScore": 519.31,
+    "teamRosStrength": 403.69,
+    "startingLineupScore": 521.08,
     "benchDepthScore": 102.82,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -1762,22 +1762,22 @@
       },
       {
         "slot": "FLEX",
+        "playerId": "7567",
+        "canonicalName": "kenny gainwell",
+        "position": "RB",
+        "rosValue": 20.5,
+        "adjustedValue": 20.5,
+        "confidence": 0.92,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
         "playerId": "12474",
         "canonicalName": "woody marks",
         "position": "RB",
         "rosValue": 19.36,
         "adjustedValue": 19.36,
         "confidence": 0.896,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
-        "playerId": "7567",
-        "canonicalName": "kenny gainwell",
-        "position": "RB",
-        "rosValue": 18.73,
-        "adjustedValue": 18.73,
-        "confidence": 0.799,
         "flagged": null
       },
       {
@@ -2425,11 +2425,10 @@
       }
     ],
     "unfilledSlots": [],
-    "unmappedPlayerCount": 4,
+    "unmappedPlayerCount": 3,
     "unmappedPlayers": [
       "christian rozeboom",
       "shemar james",
-      "mike jackson",
       "cj gardner johnson"
     ],
     "weights": {
