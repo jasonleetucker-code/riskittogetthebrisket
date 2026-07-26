@@ -8,8 +8,8 @@ while a task is in_progress.
 | LI-0 | Coordination docs + settings audit vs live API + screenshots | main orchestrator | docs/league-intelligence/, config/league_intel/sleeper_league_snapshot_* | — | done | 2026-07-26 |
 | LI-1 | Canonical config module + registry rosterSettings fix + consumer tests | league-intel agent | src/league_intel/config.py, config/league_intel/, config/leagues/registry.json (coordinated), tests/league_intel/ | LI-0 | done | 2026-07-26 |
 | LI-2 | Deterministic scorer + golden validation vs Sleeper-awarded scores | league-intel agent | src/league_intel/scorer.py, tests/league_intel/ | LI-1 | done (see SCORING_VALIDATION.md) | 2026-07-26 |
-| LI-3 | Best-ball optimizer audit/exactness (src/ros/lineup.py) + historical starter reconstruction | league-intel agent (next) | src/ros/lineup.py (coordinated), tests/league_intel/ | LI-1, LI-2 | pending | — |
-| LI-4 | Value schema + getActiveValue selector + no-op league value | TBD | src/league_intel/values.py, server.py (additive endpoint) | LI-1 | pending | — |
+| LI-3 | Best-ball optimizer audit/exactness (src/ros/lineup.py) + historical starter reconstruction | league-intel agent | src/ros/lineup.py, src/ros/team_strength.py, src/ros/scrape.py (coordinated), tests/league_intel/ | LI-1, LI-2 | done (see ADR-007) | 2026-07-26 |
+| LI-4 | Value schema + getActiveValue selector + no-op league value | league-intel agent | src/league_intel/values.py, tests/league_intel/ | LI-1 | done (backend only; no endpoint until a consumer exists) | 2026-07-26 |
 | LI-5 | Replacement/scarcity engine | TBD | src/league_intel/replacement.py | LI-2, LI-3 | pending | — |
 | LI-6 | Projection re-scoring through exact scorer + source audit (§7) | TBD | src/league_intel/projections.py, docs DATA_SOURCES.md | LI-2 | pending | — |
 | LI-7 | League-adjusted correction + guardrails + TE residual + explanations | TBD | src/league_intel/adjustment.py | LI-4..LI-6 | pending | — |

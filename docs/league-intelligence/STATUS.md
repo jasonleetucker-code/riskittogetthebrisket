@@ -1,5 +1,35 @@
 # League Intelligence — Status
 
+**2026-07-26 (LI-3 + LI-4)** — best-ball exactness + value schema.
+
+- **LI-3** (`src/ros/lineup.py`, ADR-007): audit found the optimizer
+  was a slot-ordered greedy that is optimal *only* for laminar slot
+  structures — correct today by an unstated precondition, silently
+  wrong the moment a non-laminar slot appears.  Replaced with an exact
+  maximum-weight assignment (matroid greedy + augmenting paths,
+  dependency-free) behind the same interface, plus a canonicalization
+  pass that keeps slot LABELS intuitive without changing scores.
+- **Bigger find:** eligibility was checked against a single `position`
+  string, but **Sleeper uses `fantasy_positions`** — DL/LB hybrids were
+  locked out of half their legal slots and the live ROS path discarded
+  the field entirely.  Now wired end-to-end (scrape → team_strength →
+  RosterPlayer, back-compatible default).
+- Validation: brute-force equivalence, a non-laminar counterexample,
+  and historical reconstruction vs real Sleeper best-ball weeks —
+  **10/10 team-weeks reproduce the host's awarded total**; the 2 of 10
+  with a different starter set score identically, which **resolves the
+  tie-handling open question**.
+- **LI-4** (`src/league_intel/values.py`): parallel value schema
+  (`marketValue` / `consensusValue` / `leagueAdjustedDynastyValue` with
+  schema+model+config+dataThrough stamps) and the single
+  `get_active_value(player, mode, context)` selector.  Backend only.
+  The no-op guarantee is enforced in construction — no adjusted number
+  is ever computed until LI-7, so no page can show an unvalidated
+  value.  Consensus is read from the live contract, never recomputed.
+- Known gap logged, not changed: `_positional_coverage` still scores
+  only QB/RB/WR/TE depth (ignores K + 9 IDP starters); fixing it moves
+  live team-strength numbers, so it is deferred to LI-5/LI-8.
+
 **2026-07-26 (later)** — LI-1 + LI-2 complete.
 
 - `src/league_intel/config.py` — versioned canonical config

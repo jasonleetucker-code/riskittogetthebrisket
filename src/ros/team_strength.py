@@ -73,6 +73,14 @@ def compute_team_strength(
         for p in roster_players:
             name = p.get("canonicalName") or p.get("displayName") or p.get("name") or ""
             position = (p.get("position") or "").upper()
+            # Sleeper's own slot-eligibility field; wider than `position`
+            # for hybrids (DL/LB, DB/LB).  Absent for callers that predate
+            # LI-3 — RosterPlayer falls back to `position` then.
+            fantasy_positions = tuple(
+                str(fp).strip().upper()
+                for fp in (p.get("fantasyPositions") or ())
+                if str(fp or "").strip()
+            )
             agg = by_name.get(name)
             if not agg or agg.get("rosValue", 0) <= 0:
                 # Player isn't ranked by any ROS source — represented
@@ -89,6 +97,7 @@ def compute_team_strength(
                         confidence=0.0,
                         injured=bool(p.get("injured")),
                         bye=bool(p.get("bye")),
+                        fantasy_positions=fantasy_positions,
                     )
                 )
                 continue
@@ -101,6 +110,7 @@ def compute_team_strength(
                     confidence=float(agg.get("confidence") or 0.0),
                     injured=bool(p.get("injured")),
                     bye=bool(p.get("bye")),
+                    fantasy_positions=fantasy_positions,
                 )
             )
 
