@@ -520,9 +520,9 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # KTC scoring
     give_market_assets = [a for a in give if a.has_market]
     recv_market_assets = [a for a in receive if a.has_market]
-    all_have_market = len(give_market_assets) == len(give) and len(
-        recv_market_assets
-    ) == len(receive)
+    all_have_market = len(give_market_assets) == len(give) and len(recv_market_assets) == len(
+        receive
+    )
     any_have_market = bool(give_market_assets) or bool(recv_market_assets)
 
     # Partial coverage is reachable only when the per-market top-N gate

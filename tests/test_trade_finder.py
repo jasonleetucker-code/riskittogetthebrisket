@@ -1383,17 +1383,17 @@ class TestKtcQualityGuardrails:
         pool = build_asset_pool(players)
         assert len(pool) == 0
 
-    def test_idp_dilution_guard_rejects_majority_no_ktc(self):
-        """IDP assets without KTC cannot be majority of a trade side."""
-        give = [_make_asset("A", model=4000, ktc=5000, pos="WR")]
-        # Receive: 2 IDP without KTC, only 1 with KTC = majority IDP no-KTC
-        recv = [
-            _make_asset("B", model=2000, ktc=2000, pos="WR"),
-            _make_asset("C", model=1500, ktc=None, pos="LB"),
-            _make_asset("D", model=1500, ktc=None, pos="DB"),
-        ]
-        # Note: this is a 1-for-3 which exceeds MAX_PACKAGE_SIZE anyway,
-        # but the IDP guard fires first in the pipeline
+    # ``test_idp_dilution_guard_rejects_majority_no_ktc`` was deleted with
+    # the guard it named.  That guard existed because IDP assets used to
+    # reach the pool with no market value at all; now that each asset is
+    # anchored on the board its counterparty actually consults, the
+    # category "IDP without a market value" no longer exists and the guard
+    # had a dead premise, not merely dead code.
+    #
+    # The test was already inert before deletion — it declared ``give`` and
+    # ``recv`` and then asserted nothing, so it passed whether or not the
+    # guard worked.  Removed rather than silenced: a test that cannot fail
+    # is worse than no test, because it reports coverage it does not have.
 
     def test_idp_with_ktc_allowed(self):
         """IDP assets WITH KTC are fine — they have real market backing."""
@@ -1692,9 +1692,7 @@ class TestPerMarketQualityGate:
             "OffOverpriced": _make_player_data(5000, ktc=8000, pos="WR"),
             "IdpUnderpriced": _make_idp_player_data(8000, idptc=5000, pos="LB"),
         }
-        sleeper_teams = _make_sleeper_teams(
-            {"Me": ["OffOverpriced"], "Them": ["IdpUnderpriced"]}
-        )
+        sleeper_teams = _make_sleeper_teams({"Me": ["OffOverpriced"], "Them": ["IdpUnderpriced"]})
         result = find_trades(players, "Me", ["Them"], sleeper_teams)
         assert not any("offense-only" in w for w in result.get("warnings", []))
 
@@ -1714,9 +1712,9 @@ class TestPerMarketQualityGate:
             {"Me": ["OffOverpriced"], "Them": ["OffFiller", "IdpUnpriced"]}
         )
         result = find_trades(players, "Me", ["Them"], sleeper_teams)
-        assert any("offense-only" in w for w in result.get("warnings", [])), (
-            f"expected an offense-only warning, got {result.get('warnings')}"
-        )
+        assert any(
+            "offense-only" in w for w in result.get("warnings", [])
+        ), f"expected an offense-only warning, got {result.get('warnings')}"
 
     def test_metadata_reports_per_market_filter(self):
         """The engine must say what it filtered, per market."""
