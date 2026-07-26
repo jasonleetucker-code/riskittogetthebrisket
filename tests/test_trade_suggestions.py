@@ -9,6 +9,8 @@ Validates:
 - Serialization
 """
 
+import pytest
+
 from src.trade.suggestions import (
     PlayerAsset,
     RosterAnalysis,
@@ -2750,3 +2752,43 @@ class TestEffectiveSourceRanks:
         assert matching, "expected a positional_upgrade suggestion targeting WR Upgrade Target"
         for s in matching:
             assert s["confidence"] == "low"
+
+
+class TestBoardTopNFilterPrecondition:
+    """WS-J F-5: the top-N filter states its precondition instead of
+    carrying a null guard that could never fire."""
+
+    def test_unranked_pool_raises_rather_than_silently_emptying(self):
+        from src.trade.suggestions import _apply_board_top_n_filter, PlayerAsset
+
+        unranked = [
+            PlayerAsset(
+                name="NoRank",
+                position="WR",
+                display_value=5000,
+                calibrated_value=5000,
+            )
+        ]
+        assert unranked[0].board_rank is None
+        with pytest.raises(TypeError):
+            _apply_board_top_n_filter(unranked, 150)
+
+    def test_ranked_pool_filters_normally(self):
+        from src.trade.suggestions import (
+            _apply_board_top_n_filter,
+            _assign_board_ranks,
+            PlayerAsset,
+        )
+
+        pool = [
+            PlayerAsset(
+                name=f"P{i}",
+                position="WR",
+                display_value=9000 - i * 100,
+                calibrated_value=9000 - i * 100,
+            )
+            for i in range(5)
+        ]
+        _assign_board_ranks(pool)
+        kept = _apply_board_top_n_filter(pool, 3)
+        assert [p.name for p in kept] == ["P0", "P1", "P2"]

@@ -579,13 +579,19 @@ def _apply_board_top_n_filter(
     outside the threshold are excluded from suggestions as primary
     targets, secondary targets, value fillers, and throw-ins.
 
+    Precondition: ``pool`` has been through :func:`_assign_board_ranks`,
+    so every player carries an int rank.  Passing an unranked pool is a
+    caller bug and raises ``TypeError`` rather than silently filtering
+    everything out.
+
     WS-J F-5: the predicate used to be
     ``p.ktc_rank is not None and p.ktc_rank <= top_n``.  The null check
     could never be False — ``_assign_board_ranks`` assigns an int to
     every player — so it was a vacuous guard implying a null case that
-    does not exist.  Dropped.
+    does not exist, and it would have turned a caller bug into an
+    empty result set.  Dropped in favour of the stated precondition.
     """
-    return [p for p in pool if p.board_rank is not None and p.board_rank <= top_n]
+    return [p for p in pool if p.board_rank <= top_n]  # type: ignore[operator]
 
 
 # Deprecated alias.
