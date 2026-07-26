@@ -12,7 +12,9 @@
  *     accessor: (row) => any — value for render AND sort (default row[key])
  *     sortAccessor: (row) => any — override sort value only
  *     render:   (row, i) => ReactNode — custom cell (default accessor value)
- *     hideBelow: "sm"|"md"|"lg" — responsive priority (R1 wiring; class only)
+ *     hideBelow: "sm"|"md"|"lg" — hides the column (header + body cells)
+ *       below the canonical breakpoint: sm < 480px, md < 768px,
+ *       lg < 1024px (media rules live in ds.css)
  *   }
  *
  * Props:
@@ -60,6 +62,18 @@ function defaultRowKey(row, index) {
  */
 const INTERACTIVE_SELECTOR =
   'a,button,input,select,textarea,[role="button"],[role="link"],[contenteditable]';
+
+/** Shared th/td class for a column: numeric alignment + responsive hide. */
+function cellClass(col) {
+  return (
+    [
+      col.numeric ? "ds-table__cell--num" : "",
+      col.hideBelow ? `ds-col-hide-${col.hideBelow}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined
+  );
+}
 
 function fromInteractiveDescendant(event) {
   const target = event.target;
@@ -195,7 +209,7 @@ export function DataTable({
                   key={col.key}
                   scope="col"
                   aria-sort={ariaSort}
-                  className={col.numeric ? "ds-table__cell--num" : undefined}
+                  className={cellClass(col)}
                   style={col.width ? { width: col.width } : undefined}
                 >
                   {col.sortable ? (
@@ -251,10 +265,7 @@ export function DataTable({
                 {columns.map((col) => {
                   const acc = col.accessor || ((r) => r?.[col.key]);
                   return (
-                    <td
-                      key={col.key}
-                      className={col.numeric ? "ds-table__cell--num" : undefined}
-                    >
+                    <td key={col.key} className={cellClass(col)}>
                       {col.render ? col.render(row, i) : acc(row)}
                     </td>
                   );

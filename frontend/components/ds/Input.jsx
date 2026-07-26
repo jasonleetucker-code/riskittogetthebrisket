@@ -30,11 +30,13 @@ import React, { useId } from "react";
 
 export function Field({ label, hint, error, id, children }) {
   const autoId = useId();
-  const controlId = id || `ds-field-${autoId}`;
+  const control = React.Children.only(children);
+  // Id precedence: explicit Field id > the child's own id > generated.
+  // A child that brings its own id (external labels, aria-controls,
+  // test selectors) keeps it — Field only generates when neither is set.
+  const controlId = id || control.props.id || `ds-field-${autoId}`;
   const hintId = hint ? `${controlId}-hint` : undefined;
   const errorId = error ? `${controlId}-error` : undefined;
-
-  const control = React.Children.only(children);
 
   // MERGE with the child's own accessibility props, never clobber
   // (mirrors Tooltip): a control that brings its own aria-describedby

@@ -29,6 +29,38 @@ import { Icon } from "./Icon";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Module-level overlay stack. Stacked dialogs (Modal over Drawer) each
+// register a document-capture keydown listener, and stopPropagation does
+// NOT stop sibling listeners on the same target — so without coordination
+// one Escape closes every open overlay, and competing scroll-lock
+// cleanups can strand body overflow. The stack makes Escape (and the
+// focus trap) topmost-only, and the scroll lock is reference-counted:
+// body overflow is saved at the first push and restored only when the
+// stack empties.
+const overlayStack = [];
+let savedBodyOverflow = null;
+
+function pushOverlay(token) {
+  if (overlayStack.length === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  overlayStack.push(token);
+}
+
+function popOverlay(token) {
+  const i = overlayStack.indexOf(token);
+  if (i !== -1) overlayStack.splice(i, 1);
+  if (overlayStack.length === 0) {
+    document.body.style.overflow = savedBodyOverflow ?? "";
+    savedBodyOverflow = null;
+  }
+}
+
+function isTopOverlay(token) {
+  return overlayStack[overlayStack.length - 1] === token;
+}
+
 function useDialog({ open, onClose, panelRef }) {
   const restoreRef = useRef(null);
   // Hold onClose in a ref so an inline callback from a re-rendering
@@ -43,6 +75,8 @@ function useDialog({ open, onClose, panelRef }) {
 
   useEffect(() => {
     if (!open) return undefined;
+    const token = {};
+    pushOverlay(token);
     restoreRef.current = document.activeElement;
     const panel = panelRef.current;
     // initial focus: first focusable, else the panel itself
@@ -50,6 +84,9 @@ function useDialog({ open, onClose, panelRef }) {
     (first || panel)?.focus();
 
     const onKeyDown = (e) => {
+      // Only the TOPMOST overlay reacts — a stacked Modal's Escape must
+      // not also close the Drawer beneath it.
+      if (!isTopOverlay(token)) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onCloseRef.current?.();
@@ -75,11 +112,9 @@ function useDialog({ open, onClose, panelRef }) {
     };
 
     document.addEventListener("keydown", onKeyDown, true);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      document.body.style.overflow = prevOverflow;
+      popOverlay(token); // releases the scroll lock only when stack empties
       restoreRef.current?.focus?.();
     };
   }, [open, panelRef]);

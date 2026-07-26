@@ -59,7 +59,11 @@
     color var(--motion-fast) var(--ease-out);
   -webkit-tap-highlight-color: transparent;
 }
-.ds-btn:disabled {
+/* Native disabled AND aria-disabled — link-rendered Buttons (as="a" /
+   as={Link}) have no :disabled state, only aria-disabled="true", so both
+   must style (and be excluded from hover/active) identically. */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -67,10 +71,10 @@
   background: var(--accent);
   color: var(--text-on-accent);
 }
-.ds-btn--primary:hover:not(:disabled) {
+.ds-btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--accent-hover);
 }
-.ds-btn--primary:active:not(:disabled) {
+.ds-btn--primary:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--accent-pressed);
 }
 .ds-btn--secondary {
@@ -78,22 +82,22 @@
   border-color: var(--border-strong);
   color: var(--text-primary);
 }
-.ds-btn--secondary:hover:not(:disabled) {
+.ds-btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-hover);
   border-color: var(--text-tertiary);
 }
-.ds-btn--secondary:active:not(:disabled) {
+.ds-btn--secondary:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-active);
 }
 .ds-btn--ghost {
   background: transparent;
   color: var(--text-secondary);
 }
-.ds-btn--ghost:hover:not(:disabled) {
+.ds-btn--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-hover);
   color: var(--text-primary);
 }
-.ds-btn--ghost:active:not(:disabled) {
+.ds-btn--ghost:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-active);
 }
 .ds-btn--danger {
@@ -101,7 +105,7 @@
   border-color: var(--negative);
   color: var(--negative-text);
 }
-.ds-btn--danger:hover:not(:disabled) {
+.ds-btn--danger:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--negative-muted);
 }
 .ds-btn--sm {
@@ -152,8 +156,8 @@
 .ds-input::placeholder {
   color: var(--text-tertiary);
 }
-.ds-input:hover:not(:disabled),
-.ds-select:hover:not(:disabled) {
+.ds-input:hover:not(:disabled):not([aria-disabled="true"]),
+.ds-select:hover:not(:disabled):not([aria-disabled="true"]) {
   border-color: var(--text-tertiary);
 }
 .ds-input:disabled,
@@ -466,6 +470,24 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
 }
 .ds-table__row--interactive {
   cursor: pointer;
+}
+/* Responsive column priority (DataTable `hideBelow`): the column's header
+   AND body cells disappear below the named canonical breakpoint
+   (tokens.css --breakpoint-sm/md/lg — the only allowed values). */
+@media (width < 480px) {
+  .ds-table .ds-col-hide-sm {
+    display: none;
+  }
+}
+@media (width < 768px) {
+  .ds-table .ds-col-hide-md {
+    display: none;
+  }
+}
+@media (width < 1024px) {
+  .ds-table .ds-col-hide-lg {
+    display: none;
+  }
 }
 .ds-table__row--interactive:focus-visible {
   outline: none;

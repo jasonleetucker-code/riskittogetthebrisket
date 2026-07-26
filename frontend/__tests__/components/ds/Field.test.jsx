@@ -134,6 +134,27 @@ describe("Field", () => {
     );
   });
 
+  it("keeps the child's own id when Field has no explicit id", () => {
+    render(
+      <Field label="Bio" hint="Short">
+        <Input id="bio-input" />
+      </Field>
+    );
+    const input = screen.getByLabelText("Bio");
+    expect(input).toHaveAttribute("id", "bio-input");
+    // hint id derives from the preserved id, so external refs stay valid
+    expect(input.getAttribute("aria-describedby")).toBe("bio-input-hint");
+  });
+
+  it("an explicit Field id wins over the child's own id", () => {
+    render(
+      <Field label="Bio" id="field-id">
+        <Input id="child-id" />
+      </Field>
+    );
+    expect(screen.getByLabelText("Bio")).toHaveAttribute("id", "field-id");
+  });
+
   it("error-only: no dangling hint reference", () => {
     render(
       <Field label="Bid" error="Required">

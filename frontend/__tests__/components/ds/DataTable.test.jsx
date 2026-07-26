@@ -275,6 +275,24 @@ describe("DataTable structure & interaction", () => {
     expect(onRowClick).not.toHaveBeenCalled();
   });
 
+  it("hideBelow emits the breakpoint class on BOTH header and body cells", () => {
+    const columns = [
+      { key: "name", header: "Player" },
+      { key: "team", header: "Team", hideBelow: "md" },
+      { key: "value", header: "Value", numeric: true, hideBelow: "sm" },
+    ];
+    render(<DataTable caption="t" columns={columns} rows={ROWS} />);
+    const teamTh = screen.getByRole("columnheader", { name: "Team" });
+    expect(teamTh).toHaveClass("ds-col-hide-md");
+    const valueTh = screen.getByRole("columnheader", { name: "Value" });
+    expect(valueTh).toHaveClass("ds-col-hide-sm", "ds-table__cell--num");
+    const firstRow = screen.getAllByRole("row")[1];
+    const cells = within(firstRow).getAllByRole("cell");
+    expect(cells[0]).not.toHaveClass("ds-col-hide-md");
+    expect(cells[1]).toHaveClass("ds-col-hide-md");
+    expect(cells[2]).toHaveClass("ds-col-hide-sm", "ds-table__cell--num");
+  });
+
   it("renders emptyState instead of a table when rows are empty", () => {
     render(
       <DataTable

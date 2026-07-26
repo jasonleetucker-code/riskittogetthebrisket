@@ -185,6 +185,22 @@ describe("ds.css discipline", () => {
     expect(hexes).toEqual([]);
   });
 
+  it("styles aria-disabled buttons like natively disabled ones and excludes them from hover/active", () => {
+    // link-rendered Buttons (as="a"/as={Link}) never match :disabled
+    expect(dsCss).toContain('.ds-btn[aria-disabled="true"]');
+    const hoverActive = dsCss.match(/\.ds-btn[^,{]*:(hover|active)[^,{]*/g) || [];
+    expect(hoverActive.length).toBeGreaterThan(0);
+    for (const sel of hoverActive) {
+      expect(sel).toContain(':not([aria-disabled="true"])');
+    }
+  });
+
+  it("defines the responsive column-hide rules DataTable's hideBelow emits", () => {
+    for (const bp of ["sm", "md", "lg"]) {
+      expect(dsCss).toContain(`.ds-col-hide-${bp}`);
+    }
+  });
+
   it("namespaces every class as .ds-*", () => {
     const classes = [...dsCss.matchAll(/\.([a-zA-Z][a-zA-Z0-9_-]*)/g)]
       .map((m) => m[1])

@@ -37,6 +37,44 @@ describe("Dialog re-render stability", () => {
   });
 });
 
+describe("Stacked overlays", () => {
+  function StackHarness() {
+    const [drawerOpen, setDrawerOpen] = useState(true);
+    const [modalOpen, setModalOpen] = useState(true);
+    return (
+      <>
+        <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Bottom">
+          bottom
+        </Drawer>
+        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Top">
+          top
+        </Modal>
+      </>
+    );
+  }
+
+  it("one Escape closes only the topmost overlay; scroll lock releases only when all close", async () => {
+    const user = userEvent.setup();
+    document.body.style.overflow = "";
+    render(<StackHarness />);
+    expect(screen.getByRole("dialog", { name: "Bottom" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Top" })).toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    // only the top (Modal) closed; the Drawer beneath survives
+    expect(screen.queryByRole("dialog", { name: "Top" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Bottom" })).toBeInTheDocument();
+    // stack not empty → body stays locked
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // stack emptied → original overflow restored
+    expect(document.body.style.overflow).toBe("");
+  });
+});
+
 describe("Dialog semantics", () => {
   it("renders role=dialog with aria-modal and a labelling title", () => {
     render(

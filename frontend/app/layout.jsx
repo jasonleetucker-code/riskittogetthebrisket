@@ -1,23 +1,33 @@
 import "./globals.css";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import AppShellWrapper from "./AppShellWrapper";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PullToRefresh from "@/components/PullToRefresh";
 
 // Redesign R0: actually load the fonts the token layer names. The audit
 // found Inter + JetBrains Mono referenced in CSS but never loaded — every
-// platform silently fell back to Segoe UI / Courier-class stacks. next/font
-// self-hosts both at build time (zero runtime requests), exposes them as
-// CSS variables consumed by tokens.css (--font-ui / --font-data) and by the
-// legacy --font / --mono stacks in globals.css, and uses display:swap so
+// platform silently fell back to Segoe UI / Courier-class stacks.
+//
+// next/font/local with CHECKED-IN woff2 assets (app/fonts/): the build
+// must never contact fonts.googleapis.com — production builders are
+// network-restricted, so next/font/google would fail the build. The
+// vendored files are the official variable fonts, latin subset only
+// (~48 KB + ~40 KB); accented latin-1 glyphs are included via U+00xx,
+// anything beyond falls back through the stacks below. Both are exposed
+// as CSS variables consumed by tokens.css (--font-ui / --font-data) and
+// by the legacy --font / --mono stacks in globals.css; display:swap so
 // text renders immediately on first visit.
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "./fonts/inter-latin-var.woff2",
+  weight: "100 900",
+  style: "normal",
   display: "swap",
   variable: "--font-sans",
 });
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin-var.woff2",
+  weight: "100 800",
+  style: "normal",
   display: "swap",
   variable: "--font-mono",
 });
