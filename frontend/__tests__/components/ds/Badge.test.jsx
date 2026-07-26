@@ -115,7 +115,15 @@ describe("Movement", () => {
   });
 
   it("accepts a custom magnitude formatter", () => {
-    render(<Movement delta={-1234.5} format={(n) => `${Math.abs(n) / 1000}k`} />);
+    render(<Movement delta={-1234.5} format={(n) => `${n / 1000}k`} />);
     expect(screen.getByRole("img", { name: "down 1.2345k" })).toBeInTheDocument();
+  });
+
+  it("custom formatters receive the MAGNITUDE, never the sign (no double negation)", () => {
+    // a sign-naive percent formatter must yield "down 5%", not "down -5%"
+    render(<Movement delta={-5} format={(n) => `${n}%`} />);
+    const el = screen.getByRole("img", { name: "down 5%" });
+    expect(el).toHaveTextContent("5%");
+    expect(el).not.toHaveTextContent("-5%");
   });
 });

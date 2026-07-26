@@ -29,36 +29,56 @@ import { Icon } from "./Icon";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// Module-level overlay stack. Stacked dialogs (Modal over Drawer) each
+// Module-level overlay registry. Stacked dialogs (Modal over Drawer) each
 // register a document-capture keydown listener, and stopPropagation does
 // NOT stop sibling listeners on the same target — so without coordination
 // one Escape closes every open overlay, and competing scroll-lock
-// cleanups can strand body overflow. The stack makes Escape (and the
-// focus trap) topmost-only, and the scroll lock is reference-counted:
-// body overflow is saved at the first push and restored only when the
-// stack empties.
-const overlayStack = [];
+// cleanups can strand body overflow.
+//
+// Topmost-ness is derived from DOCUMENT ORDER, not registration order:
+// React runs a child's effect before its parent's, so a Modal nested in
+// a Drawer's children would register FIRST and a push-order stack would
+// wrongly crown the Drawer. Document order is the paint order for the
+// same-z overlay roots (later sibling paints above; a nested overlay is
+// a descendant and always follows its host), so "last connected overlay
+// element in document order" is the visually topmost dialog in every
+// composition. The scroll lock is reference-counted: body overflow is
+// saved at the first registration and restored only when the registry
+// empties.
+const overlayRegistry = new Set();
 let savedBodyOverflow = null;
 
-function pushOverlay(token) {
-  if (overlayStack.length === 0) {
+function registerOverlay(token) {
+  if (overlayRegistry.size === 0) {
     savedBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
   }
-  overlayStack.push(token);
+  overlayRegistry.add(token);
 }
 
-function popOverlay(token) {
-  const i = overlayStack.indexOf(token);
-  if (i !== -1) overlayStack.splice(i, 1);
-  if (overlayStack.length === 0) {
+function unregisterOverlay(token) {
+  overlayRegistry.delete(token);
+  if (overlayRegistry.size === 0) {
     document.body.style.overflow = savedBodyOverflow ?? "";
     savedBodyOverflow = null;
   }
 }
 
 function isTopOverlay(token) {
-  return overlayStack[overlayStack.length - 1] === token;
+  let top = null;
+  let topEl = null;
+  for (const t of overlayRegistry) {
+    const el = t.getEl();
+    if (!el || !el.isConnected) continue;
+    if (
+      !topEl ||
+      topEl.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING
+    ) {
+      top = t;
+      topEl = el;
+    }
+  }
+  return top === token;
 }
 
 function useDialog({ open, onClose, panelRef }) {
@@ -75,8 +95,8 @@ function useDialog({ open, onClose, panelRef }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    const token = {};
-    pushOverlay(token);
+    const token = { getEl: () => panelRef.current };
+    registerOverlay(token);
     restoreRef.current = document.activeElement;
     const panel = panelRef.current;
     // initial focus: first focusable, else the panel itself
@@ -114,7 +134,7 @@ function useDialog({ open, onClose, panelRef }) {
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      popOverlay(token); // releases the scroll lock only when stack empties
+      unregisterOverlay(token); // releases the scroll lock only when registry empties
       restoreRef.current?.focus?.();
     };
   }, [open, panelRef]);
@@ -164,15 +184,24 @@ function DialogShell({
     </div>
   );
 
+  // ONE root per overlay = one stacking context holding BOTH the backdrop
+  // and the panel. With the old flat structure every panel shared
+  // --z-modal and every backdrop --z-overlay, so a sibling Modal's
+  // backdrop painted BELOW an earlier Drawer's panel, leaving the covered
+  // Drawer clickable. Same-z sibling roots paint in document order (later
+  // root — backdrop included — above the entire earlier overlay), and a
+  // nested overlay is a descendant of its host's root, so it always
+  // paints above the host. This matches the document-order authority
+  // isTopOverlay() uses for Escape.
   return (
-    <>
+    <div className="ds-overlay-root">
       <div className="ds-backdrop" onClick={onClose} aria-hidden="true" />
       {variant === "drawer" ? (
         panel
       ) : (
         <div className="ds-modal">{panel}</div>
       )}
-    </>
+    </div>
   );
 }
 

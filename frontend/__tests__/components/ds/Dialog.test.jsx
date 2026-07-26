@@ -53,6 +53,63 @@ describe("Stacked overlays", () => {
     );
   }
 
+  function NestedHarness() {
+    // Modal rendered INSIDE the Drawer's children — React runs the
+    // child's (Modal's) effect first, so registration order is inverted
+    // vs visual stacking. Topmost-ness must come from document order.
+    const [drawerOpen, setDrawerOpen] = useState(true);
+    const [modalOpen, setModalOpen] = useState(true);
+    return (
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Host drawer">
+        drawer body
+        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nested modal">
+          modal body
+        </Modal>
+      </Drawer>
+    );
+  }
+
+  it("NESTED composition: Escape closes the inner Modal first, not the host Drawer", async () => {
+    const user = userEvent.setup();
+    document.body.style.overflow = "";
+    render(<NestedHarness />);
+    expect(screen.getByRole("dialog", { name: "Host drawer" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Nested modal" })).toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    // the nested (visually topmost) Modal closes; the host Drawer survives
+    expect(screen.queryByRole("dialog", { name: "Nested modal" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Host drawer" })).toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("each overlay owns one root stacking context so a later overlay's backdrop covers earlier panels", () => {
+    render(<StackHarness />);
+    const roots = document.querySelectorAll(".ds-overlay-root");
+    expect(roots).toHaveLength(2);
+    const drawerPanel = screen.getByRole("dialog", { name: "Bottom" });
+    const modalPanel = screen.getByRole("dialog", { name: "Top" });
+    const [drawerRoot, modalRoot] = roots;
+    // each root contains its own backdrop AND panel (one stacking context)
+    expect(drawerRoot.querySelector(".ds-backdrop")).not.toBeNull();
+    expect(modalRoot.querySelector(".ds-backdrop")).not.toBeNull();
+    expect(drawerRoot.contains(drawerPanel)).toBe(true);
+    expect(modalRoot.contains(modalPanel)).toBe(true);
+    // the top overlay's backdrop FOLLOWS the lower panel in document
+    // order — with equal-z sibling roots, that is the paint order, so
+    // the covered Drawer sits under the Modal's backdrop
+    const modalBackdrop = modalRoot.querySelector(".ds-backdrop");
+    expect(
+      drawerPanel.compareDocumentPosition(modalBackdrop) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it("one Escape closes only the topmost overlay; scroll lock releases only when all close", async () => {
     const user = userEvent.setup();
     document.body.style.overflow = "";

@@ -16,7 +16,8 @@
  *   (3-tick meter). This replaces raw red/green deltas everywhere.
  *   Props:
  *     delta       number — signed change; 0/undefined renders flat dash
- *     format      (n) => string — magnitude formatter (default abs + locale)
+ *     format      (n) => string — MAGNITUDE formatter: always receives
+ *                 Math.abs(delta), never the sign (default: locale string)
  *     confidence  0..1 optional — fills 0-3 ticks
  *     srLabel     string — override the generated screen-reader sentence
  *
@@ -71,12 +72,17 @@ export function Movement({
 }) {
   const value = Number(delta) || 0;
   const dir = value > 0 ? "up" : value < 0 ? "down" : "flat";
-  const fmt =
-    format || ((n) => Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 1 }));
+  // `format` is a MAGNITUDE formatter: it always receives Math.abs(delta)
+  // (direction is carried by the arrow + label word, so a custom
+  // formatter can never produce "down -5%" double-negation).
+  const magnitude = Math.abs(value);
+  const display = format
+    ? format(magnitude)
+    : magnitude.toLocaleString("en-US", { maximumFractionDigits: 1 });
   const bucket = confidenceBucket(confidence);
   const label =
     srLabel ||
-    `${dir === "flat" ? "unchanged" : `${dir} ${fmt(value)}`}${
+    `${dir === "flat" ? "unchanged" : `${dir} ${display}`}${
       bucket != null ? `, ${CONFIDENCE_WORDS[bucket]} confidence` : ""
     }`;
 
@@ -92,7 +98,7 @@ export function Movement({
         size={10}
         className="ds-movement__arrow"
       />
-      <span aria-hidden="true">{dir === "flat" ? "0" : fmt(value)}</span>
+      <span aria-hidden="true">{dir === "flat" ? "0" : display}</span>
       {bucket != null ? (
         <span className="ds-movement__ticks" aria-hidden="true">
           {TICK_HEIGHTS.map((h, i) => (

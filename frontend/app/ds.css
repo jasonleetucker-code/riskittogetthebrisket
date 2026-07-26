@@ -674,18 +674,27 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   top: calc(100% + var(--space-2));
 }
 
-/* ══ Modal / Drawer ═════════════════════════════════════════════════════ */
-.ds-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--backdrop);
-  z-index: var(--z-overlay);
-  animation: ds-fade-in var(--motion-base) var(--ease-out);
-}
-.ds-modal {
+/* ══ Modal / Drawer ═════════════════════════════════════════════════════
+   Each overlay renders ONE .ds-overlay-root: a fixed, viewport-covering
+   stacking context (z: --z-modal) holding both its backdrop and panel.
+   Stacked overlays therefore layer as whole units in document order —
+   a later sibling's backdrop paints above an earlier overlay's panel,
+   and a nested overlay (descendant root) paints above its host — so a
+   covered dialog can never be clicked under a topmost backdrop. */
+.ds-overlay-root {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
+}
+.ds-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--backdrop);
+  animation: ds-fade-in var(--motion-base) var(--ease-out);
+}
+.ds-modal {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -706,11 +715,10 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   animation: ds-pop-in var(--motion-base) var(--ease-out);
 }
 .ds-drawer {
-  position: fixed;
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--z-modal);
   width: min(440px, 94vw);
   background: var(--surface-1);
   border-left: 1px solid var(--border-default);
