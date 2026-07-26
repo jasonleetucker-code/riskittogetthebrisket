@@ -390,19 +390,8 @@ export default function RankingsPage() {
   // ── Edge summary ─────────────────────────────────────────────────
   const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
 
-  // ── Top movers ───────────────────────────────────────────────────
-  const movers = useMemo(() => {
-    const withChange = eligible.filter(
-      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
-    );
-    const byDelta = [...withChange].sort(
-      (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
-    );
-    return {
-      risers: byDelta.filter((r) => r.rankChange > 0).slice(0, 5),
-      fallers: byDelta.filter((r) => r.rankChange < 0).slice(0, 5),
-    };
-  }, [eligible]);
+  // (Top movers are derived AFTER the filtered list below — the rail
+  // reflects the current lens/filter view, matching pre-R2 behavior.)
 
   // ── Advanced filters (Phase 3) ──────────────────────────────────
   // Ownership is league-scoped while rows are scoring-profile-scoped
@@ -535,6 +524,20 @@ export default function RankingsPage() {
     });
     return sorted;
   }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc, advCriteria, advActiveCount, teamByPlayer]);
+
+  // ── Top movers (from the current filtered view — pre-R2 behavior) ──
+  const movers = useMemo(() => {
+    const withChange = ranked.filter(
+      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
+    );
+    const byDelta = [...withChange].sort(
+      (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
+    );
+    return {
+      risers: byDelta.filter((r) => r.rankChange > 0).slice(0, 5),
+      fallers: byDelta.filter((r) => r.rankChange < 0).slice(0, 5),
+    };
+  }, [ranked]);
 
   // Apply row limit — search/filter bypasses the limit
   const hasActiveFilter =
