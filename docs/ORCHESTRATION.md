@@ -317,6 +317,26 @@ reports success while asserting nothing. Config now supplies it, and
 `global-setup.js` verifies sessions are genuinely unlocked before any spec
 runs rather than trusting the flag.
 
+### Merge-queue state (2026-07-26 16:35 UTC)
+
+| PR | WS | head | CI | ready? |
+|---|---|---|---|---|
+| #551 R3 | B | `4cccfd84` | ✅ 16:11 | yes |
+| #552 R4 | C | `1563e527` | ✅ 15:56 | yes |
+| #550 LI-1..LI-7 | E | `2617e09e` | ✅ 16:03 | yes |
+| #553 orchestration docs | I | `5299ec84` | ✅ 16:27 | yes |
+| #554 E2E | G | `010e7795` | **none — conflicts** | **no** |
+
+#554 is the only one not ready: it conflicts with main (`7a224cf8`) on
+exactly two files, `tests/e2e/helpers/journey.js` and
+`tests/e2e/specs/mobile-smoke.spec.js`, and **no CI has spawned at all**
+because GitHub cannot compute a merge commit while a PR is dirty. Rebase
+dispatched to the owner. Watch `journey.js` on resolution — it carries the
+defuse, and the invariant to preserve is `NAME` above `SEL` with the file
+byte-identical to what R3 and R4 carry.
+
+Merge order at the window stays R3 → R4 → LI → E2E, per §4.
+
 ## 7. Risks
 
 Risks: credit outages (mitigated: liveness tick auto-resumes agents);
