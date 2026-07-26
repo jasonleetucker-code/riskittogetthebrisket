@@ -7,7 +7,7 @@
 #   DLF sits behind a Cloudflare ruleset that 403s any GET to
 #   wp-login.php from GitHub Actions IP ranges, before our credentials
 #   are even sent.  The same ``scripts/fetch_dlf.py`` succeeds from
-#   prod's residential-ish Hetzner IP (curl_cffi chrome131
+#   prod's residential-ish VPS IP (curl_cffi chrome131
 #   impersonation passes CF, then WP login succeeds).  This is the
 #   same pattern ``fetch_idpshow.py`` already uses - the
 #   scheduled-refresh CI step explicitly skips it with the comment

@@ -101,7 +101,7 @@ export default async function RivalryOGImage({ params }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", color: "#99a6c8", fontSize: 22 }}>
-          <div>riskittogetthebrisket.org</div>
+          <div>Risk It To Get The Brisket</div>
           <div style={{ fontFamily: "monospace" }}>
             {detail?.closestGame ? `Closest: ${detail.closestGame.margin} pts` : ""}
           </div>

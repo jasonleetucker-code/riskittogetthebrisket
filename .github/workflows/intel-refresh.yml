@@ -44,9 +44,16 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # NO hardcoded fallback.  This step sends a bearer token, and
+          # a baked-in default silently kept pointing at a domain the
+          # project no longer owns — every daily run shipped
+          # INTEL_REFRESH_TOKEN to a third party until it was caught.
+          # Fail loudly instead: an unset PROD_PUBLIC_URL is an outage,
+          # not something to paper over with a guess.
           URL="${{ vars.PROD_PUBLIC_URL }}"
           if [[ -z "${URL}" ]]; then
-            URL="https://riskittogetthebrisket.org"
+            echo "::error title=PROD_PUBLIC_URL not set::Refusing to send a bearer token to a guessed host. Set the PROD_PUBLIC_URL repository variable to the production origin."
+            exit 1
           fi
           URL="${URL%/}"
           echo "url=${URL}" >> "$GITHUB_OUTPUT"

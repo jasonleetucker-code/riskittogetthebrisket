@@ -15,6 +15,7 @@ export { Field, Input } from "./Input";
 export { Select } from "./Select";
 export { SegmentedControl } from "./SegmentedControl";
 export { Panel } from "./Panel";
+export { CollapsiblePanel } from "./CollapsiblePanel";
 export { PageHeader } from "./PageHeader";
 export { StatTile } from "./StatTile";
 export { DataTable, sortRows } from "./DataTable";

@@ -23,7 +23,9 @@
 #   APP_DIR       default /home/dynasty/trade-calculator
 #   APP_USER      default dynasty
 #   SERVICE_NAME  default dynasty
-#   NGINX_SITE    default riskittogetthebrisket.org
+#   NGINX_SITE    default dynasty  (nginx sites-available filename;
+#                 was a domain until that domain was lost — the site is
+#                 served on a bare IP until a new domain is registered)
 
 set -Eeuo pipefail
 
@@ -34,7 +36,7 @@ APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 [[ -d "${APP_DIR}" ]] || APP_DIR="${DEFAULT_APP_DIR}"
 APP_USER="${APP_USER:-dynasty}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
-NGINX_SITE="${NGINX_SITE:-riskittogetthebrisket.org}"
+NGINX_SITE="${NGINX_SITE:-dynasty}"
 # Root-owned install location for scripts that systemd runs AS ROOT.
 # They must NOT execute from the deploy-user-writable checkout — that
 # would let a compromised deploy account swap a script and get root on

@@ -175,7 +175,7 @@ The platform has three monitoring layers, each catching different failure modes:
 
 ### "Site is down" (External monitor alert)
 
-1. SSH to server: `ssh dynasty@<hetzner-ip>`
+1. SSH to server: `ssh dynasty@<prod-host>`
 2. Check service: `sudo systemctl status dynasty`
 3. Check logs: `sudo journalctl -u dynasty -n 200 --no-pager`
 4. If service is stopped: `sudo systemctl start dynasty`
