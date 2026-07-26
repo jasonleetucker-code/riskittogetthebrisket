@@ -43,11 +43,13 @@ from src.roster_intel.marginal import (
 from src.ros.lineup import RosterPlayer
 
 __all__ = [
+    "ELITE_PERCENTILE",
     "PositionProfile",
     "RosterProfile",
     "TIER_ORDER",
     "build_position_profiles",
     "classify_tier",
+    "elite_threshold",
 ]
 
 # Ordered best → worst.  A player sits in the highest tier whose
@@ -61,25 +63,83 @@ _URGENT_FRAGILITY = 0.75
 # replacement level before it is called tradeable — otherwise every
 # bench dart throw reads as an asset.
 _SURPLUS_FLOOR_RATIO = 0.60
+# "elite" = top this share of a position's rostered priced pool. Matches
+# the elite definition already in src/league_intel/replacement.py
+# (compute_scarcity_components) so the word means one thing repo-wide.
+ELITE_PERCENTILE = 0.05
+
+
+def elite_threshold(position_values: Sequence[float]) -> float | None:
+    """The top-``ELITE_PERCENTILE`` value at one position.
+
+    Deliberately the SAME definition ``src/league_intel/replacement.py``
+    already uses for ``eliteSeparation`` (``pool[round(n * 0.05) - 1]``
+    over the descending position pool), so the two do not drift into
+    two different meanings of the word "elite".
+
+    Reachable by construction: the result is an actual member of the
+    pool, so at least one player always clears it. That property is the
+    whole point — see :func:`classify_tier`.
+
+    ``None`` when nothing at the position is priced.
+    """
+    vals = sorted((float(v) for v in position_values if v and v > 0), reverse=True)
+    if not vals:
+        return None
+    return vals[max(0, round(len(vals) * ELITE_PERCENTILE) - 1)]
 
 
 def classify_tier(
     value: float,
     replacement: PositionReplacement | None,
+    *,
+    elite: float | None = None,
 ) -> str:
     """Bucket one player against the league's replacement levels.
 
-    Falls back to ``developmental`` when the position has no measured
-    levels — an unknown threshold must not promote a player.
+    Tiers, best → worst:
+
+    ``elite``          top-5% of the position's rostered priced pool
+    ``starter``        at or above the typical last starter
+    ``depth``          at or above the last player worth rostering
+    ``developmental``  everything else, and everything unmeasurable
+
+    **``elite`` is a distribution percentile, not a replacement level,
+    because no replacement level can express it.** The four levels in
+    ``replacement.py`` are all *floors* — ``starter`` is the median
+    team's weakest starter and ``bestBallStarter`` is the deepest
+    anyone dips, which is BELOW it by construction (mean of the lowest
+    marginals vs. their median). An earlier version of this function
+    read ``bestBallStarter`` as the elite bar. That is inverted: it set
+    the top tier at the startable floor, so anything reaching
+    ``starter`` had already returned ``elite``, the ``starter`` tier was
+    unreachable, and ~65-78% of every rostered player classified elite.
+
+    ``elite`` is therefore only honoured when it is strictly above
+    ``starter``. If a caller supplies nothing, or supplies a threshold
+    that does not separate, no player is promoted — an unmeasurable
+    boundary must not promote, which is the same rule that sends a
+    position with no levels at all to ``developmental``.
+
+    Args:
+        value: the player's ROS value.
+        replacement: the position's measured levels.
+        elite: the position's elite threshold, from
+            :func:`elite_threshold`. Omitted ⇒ the ``elite`` tier is
+            not assigned.
     """
     if replacement is None or value <= 0:
         return "developmental"
-    elite = replacement.value("bestBallStarter")
     starter = replacement.value("starter")
     roster = replacement.value("roster")
-    # "elite" is meaningfully above the best-ball starter floor; the
-    # levels module already smooths these with a +/-2 rank band.
-    if elite is not None and value >= elite:
+    # Strict ladder. `elite` is ignored unless it genuinely separates
+    # from `starter`, otherwise the top tier swallows the one below it.
+    if (
+        elite is not None
+        and starter is not None
+        and elite > starter
+        and value >= elite
+    ):
         return "elite"
     if starter is not None and value >= starter:
         return "starter"
@@ -209,6 +269,7 @@ def build_position_profiles(
     player_meta: Mapping[str, Mapping[str, Any]] | None = None,
     as_of_season: int | None = None,
     marginals: RosterMarginals | None = None,
+    league_position_values: Mapping[str, Sequence[float]] | None = None,
 ) -> RosterProfile:
     """Profile every position on one roster.
 
@@ -224,6 +285,11 @@ def build_position_profiles(
         as_of_season: reserved for age-at-season maths; ages are taken
             from ``player_meta`` as supplied so this stays clock-free.
         marginals: reuse a prior solve (the expensive part).
+        league_position_values: ``{base_position: [ros_value, ...]}``
+            across every rostered priced player in the LEAGUE, used for
+            the top-5% ``elite`` cut. This roster alone is far too small
+            a sample — 2-5 players at a position — so omitting it means
+            no player tiers ``elite`` rather than tiering against noise.
     """
     pool_list = list(pool)
     slots_list = list(slots)
@@ -249,9 +315,11 @@ def build_position_profiles(
         ai: AbsenceImpact | None = absence.get(pos)
         rep = (replacement or {}).get(pos)
 
+        elite_cut = elite_threshold((league_position_values or {}).get(pos, ()))
+
         tier_counts = {t: 0 for t in TIER_ORDER}
         for p in players:
-            tier_counts[classify_tier(p.ros_value, rep)] += 1
+            tier_counts[classify_tier(p.ros_value, rep, elite=elite_cut)] += 1
 
         ages = [
             float(meta.get(p.player_id, {}).get("age"))

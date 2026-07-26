@@ -12,7 +12,12 @@ import pytest
 
 from src.league_intel.replacement import PositionReplacement, ReplacementLevel
 from src.roster_intel.marginal import to_roster_players
-from src.roster_intel.profiles import TIER_ORDER, build_position_profiles, classify_tier
+from src.roster_intel.profiles import (
+    TIER_ORDER,
+    build_position_profiles,
+    classify_tier,
+    elite_threshold,
+)
 
 
 def _p(pid, pos, value, **kw):
@@ -62,11 +67,18 @@ class TestClassifyTier:
         """A weak room must report ZERO elites. Roster-relative tiering
         would crown every team's best player and is how 'everyone looks
         the same' metrics are born."""
-        rep = _rep("RB", elite=70.0, starter=45.0, roster=20.0)
-        assert classify_tier(80.0, rep) == "elite"
-        assert classify_tier(50.0, rep) == "starter"
-        assert classify_tier(25.0, rep) == "depth"
-        assert classify_tier(5.0, rep) == "developmental"
+        # NOTE: `_rep`'s first argument populates `bestBallStarter`,
+        # which is the startable FLOOR and sits BELOW `starter` in real
+        # measured data.  This fixture originally passed 70.0 there and
+        # called it "elite", asserting an ordering replacement.py cannot
+        # produce — that inverted fixture is precisely why the unreachable
+        # `starter` tier survived review.  The floor is now given a
+        # realistic value and the elite cut is passed explicitly.
+        rep = _rep("RB", elite=30.0, starter=45.0, roster=20.0)
+        assert classify_tier(80.0, rep, elite=70.0) == "elite"
+        assert classify_tier(50.0, rep, elite=70.0) == "starter"
+        assert classify_tier(25.0, rep, elite=70.0) == "depth"
+        assert classify_tier(5.0, rep, elite=70.0) == "developmental"
 
     def test_unknown_levels_never_promote(self):
         assert classify_tier(999.0, None) == "developmental"
@@ -287,3 +299,174 @@ class TestShape:
         assert "positions" in blob and "lineupScore" in blob
         qb = blob["positions"]["QB"]
         assert set(qb) >= {"marginalPoints", "entryRate", "tierCounts", "urgentNeed"}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Tier ladder regression (peer-review defect, 2026-07-26)
+#
+# classify_tier read `bestBallStarter` as the ELITE bar.  replacement.py
+# builds that level as the mean of the LOWEST marginals and `starter` as
+# their MEDIAN, so bestBallStarter <= starter always — the top tier was
+# pinned to the startable FLOOR.  Anything reaching `starter` had
+# already returned "elite", so the `starter` tier was unreachable and
+# 65-78% of every rostered player classified elite.
+#
+# Every test below fails against that code.  `_rep(elite=70, starter=45)`
+# in the older fixtures above encodes bestBallStarter ABOVE starter,
+# which real data can never produce — that inverted fixture is why the
+# defect survived review, so these build levels from MEASURED data.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _measured_levels():
+    """Replacement levels from the synthetic 12-team league."""
+    import sys
+
+    sys.path.insert(0, "tests")
+    from league_intel.test_replacement import make_team
+
+    from src.league_intel.replacement import compute_replacement_levels
+
+    teams = [make_team(i, scale=1.0 + 0.06 * i) for i in range(12)]
+    slots = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX", "LB", "LB"]
+    return teams, compute_replacement_levels(teams, slots)
+
+
+def _league_values(teams):
+    from src.league_intel.replacement import normalize_base_position
+
+    out: dict[str, list[float]] = {}
+    for t in teams:
+        for p in t["players"]:
+            base = normalize_base_position(p["position"])
+            v = float(p.get("rosValue") or 0)
+            if base and v > 0:
+                out.setdefault(base, []).append(v)
+    return out
+
+
+class TestTierLadder:
+    def test_bestball_floor_is_below_starter_in_measured_data(self):
+        """The premise. If this ever flips, the old code was defensible."""
+        _, levels = _measured_levels()
+        checked = 0
+        for pos, rep in levels.items():
+            bb, st = rep.value("bestBallStarter"), rep.value("starter")
+            if bb is None or st is None:
+                continue
+            checked += 1
+            assert bb <= st, f"{pos}: bestBallStarter {bb} > starter {st}"
+        assert checked >= 4
+
+    def test_thresholds_are_strictly_ordered(self):
+        """Property 1 — elite > starter > depth, on measured levels."""
+        teams, levels = _measured_levels()
+        vals = _league_values(teams)
+        checked = 0
+        for pos, rep in levels.items():
+            st, ro = rep.value("starter"), rep.value("roster")
+            el = elite_threshold(vals.get(pos, ()))
+            if None in (st, ro, el):
+                continue
+            checked += 1
+            assert el > st > ro, f"{pos}: elite {el} starter {st} roster {ro}"
+        assert checked >= 4
+
+    def test_every_tier_is_reachable(self):
+        """Property 2 — the one that actually catches the defect."""
+        from collections import Counter
+
+        from src.league_intel.replacement import normalize_base_position
+
+        teams, levels = _measured_levels()
+        vals = _league_values(teams)
+        counts: Counter = Counter()
+        for t in teams:
+            for p in t["players"]:
+                base = normalize_base_position(p["position"])
+                counts[
+                    classify_tier(
+                        float(p.get("rosValue") or 0),
+                        levels.get(base),
+                        elite=elite_threshold(vals.get(base, ())),
+                    )
+                ] += 1
+        assert counts["starter"] > 0, f"starter tier unreachable: {dict(counts)}"
+        assert counts["elite"] > 0, f"elite tier unreachable: {dict(counts)}"
+        total = sum(counts.values())
+        assert counts["elite"] / total < 0.25, (
+            f"elite is {100 * counts['elite'] / total:.0f}% of the league: {dict(counts)}"
+        )
+
+    def test_an_ordinary_starter_is_not_elite(self):
+        """Property 3."""
+        teams, levels = _measured_levels()
+        vals = _league_values(teams)
+        for pos, rep in levels.items():
+            st = rep.value("starter")
+            el = elite_threshold(vals.get(pos, ()))
+            if st is None or el is None:
+                continue
+            assert classify_tier(st, rep, elite=el) == "starter"
+
+    def test_the_best_player_at_a_position_is_elite(self):
+        """Property 4."""
+        teams, levels = _measured_levels()
+        vals = _league_values(teams)
+        checked = 0
+        for pos, rep in levels.items():
+            pool = vals.get(pos, [])
+            if not pool or rep.value("starter") is None:
+                continue
+            checked += 1
+            assert (
+                classify_tier(max(pool), rep, elite=elite_threshold(pool)) == "elite"
+            ), f"{pos}: best player not elite"
+        assert checked >= 4
+
+    def test_missing_replacement_data_degrades_never_promotes(self):
+        """Property 5."""
+        assert classify_tier(9999.0, None, elite=1.0) == "developmental"
+        rep = _rep("RB", elite=0.0, starter=45.0, roster=20.0)
+        assert classify_tier(9999.0, rep, elite=None) == "starter"
+
+    def test_a_degenerate_threshold_cannot_make_everyone_elite(self):
+        """Property 6 — a non-separating elite cut is ignored, not obeyed.
+
+        When every team is identical the pool has no spread, so the
+        top-5% value collapses onto `starter`. The old code's failure
+        mode was exactly this shape.
+        """
+        from collections import Counter
+
+        from src.league_intel.replacement import (
+            compute_replacement_levels,
+            normalize_base_position,
+        )
+
+        import sys
+
+        sys.path.insert(0, "tests")
+        from league_intel.test_replacement import make_team
+
+        teams = [make_team(i, scale=1.0) for i in range(12)]  # identical
+        slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "SUPER_FLEX", "LB", "LB"]
+        levels = compute_replacement_levels(teams, slots)
+        vals = _league_values(teams)
+        counts: Counter = Counter()
+        for t in teams:
+            for p in t["players"]:
+                base = normalize_base_position(p["position"])
+                counts[
+                    classify_tier(
+                        float(p.get("rosValue") or 0),
+                        levels.get(base),
+                        elite=elite_threshold(vals.get(base, ())),
+                    )
+                ] += 1
+        total = sum(counts.values())
+        assert counts["elite"] / total < 0.25, (
+            f"degenerate pool promoted {100 * counts['elite'] / total:.0f}% to elite: "
+            f"{dict(counts)}"
+        )
+        assert counts["starter"] > 0, f"starter unreachable: {dict(counts)}"
