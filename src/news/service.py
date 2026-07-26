@@ -40,6 +40,19 @@ from .providers import available_provider_names, build_provider
 log = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TTL_S = 180  # 3 minutes — rate-limit-safe for all providers
+# All-failed aggregates get a much shorter cache life: caching an
+# outage for the full TTL would keep the client's 15/30/60s retries
+# hitting the stale failure for minutes after upstreams recover.
+# Mirrors the client's FAILURE_TTL_MS rationale
+# (frontend/components/useNews.js).  Partial successes keep the
+# normal TTL.
+FAILURE_CACHE_TTL_S = 15.0
+# How long a follower thread waits on an in-flight refresh before
+# re-checking the world.  Generous enough to cover a full cold
+# sequential provider run (~11 registered providers × 5s soft cap);
+# the wait sits in a loop, so a timeout just re-evaluates rather
+# than stampeding.
+_REFRESH_WAIT_TIMEOUT_S = 60.0
 DEFAULT_LIMIT_PER_PROVIDER = 25
 # Matches the route's ``?limit=`` hard ceiling so the route's limit
 # contract isn't silently capped by the service before reaching the
@@ -160,7 +173,13 @@ class NewsService:
         # contract).  Request-level filters (``team_names``) are
         # deliberately NOT part of the key — each entry stores the
         # unfiltered aggregate and filters are projected per request.
+        # Values are ``(expires_at, aggregate)`` so all-failed
+        # entries can carry a shorter life than successes.
         self._cache: dict[tuple, tuple[float, AggregatedNews]] = {}
+        # Per-key single-flight: while one thread refreshes a cold
+        # key, concurrent callers wait on its Event instead of each
+        # launching their own sequential provider run.
+        self._refreshing: dict[tuple, threading.Event] = {}
 
     @property
     def provider_names(self) -> List[str]:
@@ -189,37 +208,70 @@ class NewsService:
         # copy on the way out.
         cache_key = tuple(known_names)
 
-        now = self._clock()
-        with self._lock:
-            cached = self._cache.get(cache_key)
-            if cached and (now - cached[0]) < self._ttl:
-                return self._project(cached[1], team_filter, cache_hit=True)
+        # Cold-cache single-flight: exactly one thread (the "leader")
+        # refreshes a given key; concurrent callers wait on the
+        # leader's Event and then re-check the cache instead of each
+        # stampeding the sequential upstream providers.
+        while True:
+            now = self._clock()
+            with self._lock:
+                cached = self._cache.get(cache_key)
+                if cached and now < cached[0]:
+                    return self._project(cached[1], team_filter, cache_hit=True)
+                refresh = self._refreshing.get(cache_key)
+                if refresh is None:
+                    refresh = threading.Event()
+                    self._refreshing[cache_key] = refresh
+                    break  # this thread is the leader
+            # Follower: wait for the in-flight refresh, then loop to
+            # re-check.  The timeout only guards against a wedged
+            # leader — on timeout the loop re-evaluates and this
+            # thread can take over leadership if the entry is gone.
+            refresh.wait(timeout=_REFRESH_WAIT_TIMEOUT_S)
 
-        items, runs = self._fetch_all(known_names)
-        items = _dedupe(items)
-        items = _sort_items(items)
+        try:
+            items, runs = self._fetch_all(known_names)
+            items = _dedupe(items)
+            items = _sort_items(items)
 
-        providers_used = [r.name for r in runs if r.ok and r.count > 0]
-        base = AggregatedNews(
-            items=items,
-            providers_used=providers_used,
-            provider_runs=runs,
-            generated_at=datetime.now(timezone.utc).isoformat(),
-            cache_hit=False,
-        )
+            providers_used = [r.name for r in runs if r.ok and r.count > 0]
+            base = AggregatedNews(
+                items=items,
+                providers_used=providers_used,
+                provider_runs=runs,
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                cache_hit=False,
+            )
 
-        with self._lock:
-            self._cache[cache_key] = (now, base)
-            # Evict expired entries on every miss (Codex P2).  With
-            # filters out of the key the entry count is bounded by
-            # the number of distinct known-names universes (one in
-            # production), but the sweep stays as cheap insurance.
-            # Doing it at write time (not on every read) keeps the
-            # hot path lock-free-ish and bounds the work by miss
-            # rate, which is itself rate-limited by the TTL.
-            expired = [k for k, (ts, _v) in self._cache.items() if (now - ts) >= self._ttl]
-            for k in expired:
-                self._cache.pop(k, None)
+            # All-failed aggregates get the short failure TTL so
+            # client retries reach recovered upstreams promptly;
+            # anything with at least one healthy provider (including
+            # a legit empty feed from zero configured providers)
+            # keeps the normal TTL.
+            all_failed = bool(runs) and not any(r.ok for r in runs)
+            ttl = min(self._ttl, FAILURE_CACHE_TTL_S) if all_failed else self._ttl
+
+            now = self._clock()
+            with self._lock:
+                self._cache[cache_key] = (now + ttl, base)
+                # Evict expired entries on every miss (Codex P2).
+                # With filters out of the key the entry count is
+                # bounded by the number of distinct known-names
+                # universes (one in production), but the sweep stays
+                # as cheap insurance.  Doing it at write time (not on
+                # every read) keeps the hot path lock-free-ish and
+                # bounds the work by miss rate, which is itself
+                # rate-limited by the TTL.
+                expired = [k for k, (exp, _v) in self._cache.items() if now >= exp]
+                for k in expired:
+                    self._cache.pop(k, None)
+        finally:
+            # Release followers even if the refresh itself raised —
+            # they loop back, see no in-flight entry, and can take
+            # over leadership.
+            with self._lock:
+                self._refreshing.pop(cache_key, None)
+            refresh.set()
 
         return self._project(base, team_filter, cache_hit=False)
 

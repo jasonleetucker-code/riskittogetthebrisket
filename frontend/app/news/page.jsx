@@ -110,10 +110,14 @@ export default function NewsPage() {
   }, [news.items]);
 
   // NFL team options from the live board (stable regardless of feed).
+  // Each index entry is a LIST of candidate metas (name-collision
+  // players carry several).
   const teamOptions = useMemo(() => {
     const teams = new Set();
-    for (const meta of playerMeta.values()) {
-      if (meta.team) teams.add(meta.team);
+    for (const metas of playerMeta.values()) {
+      for (const m of metas) {
+        if (m.team) teams.add(m.team);
+      }
     }
     return [...teams].sort();
   }, [playerMeta]);

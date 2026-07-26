@@ -18,19 +18,32 @@
 import { itemPlayerNames, normalizePlayerNameKey } from "./player-name-match";
 
 /**
- * Map normalized player-name key → { team, family } from the live
- * contract rows.  ``family`` is the first token of the position
- * (``DL/EDGE`` → ``DL``); ``team`` is the uppercase NFL team code.
+ * Map normalized player-name key → ARRAY of { team, family } metas
+ * from the live contract rows.  ``family`` is the first token of the
+ * position (``DL/EDGE`` → ``DL``); ``team`` is the uppercase NFL
+ * team code.
+ *
+ * The value is a list, not a single meta: two distinct live players
+ * can normalize to the same name key (the repo documents CJ Allen
+ * the LB vs C.J. Allen the WR in ``src/utils/name_clean.py``).
+ * Keeping only the first row would silently hand one player's news
+ * the other's facets — every colliding row's meta is kept as a
+ * candidate instead (deduped on team+family).
  */
 export function buildPlayerMetaIndex(rows) {
   const meta = new Map();
   if (!Array.isArray(rows)) return meta;
   for (const r of rows) {
     const key = normalizePlayerNameKey(r?.name);
-    if (!key || meta.has(key)) continue;
+    if (!key) continue;
     const family = String(r?.pos || "").toUpperCase().split("/")[0];
     const team = String(r?.raw?.team || "").toUpperCase().trim();
-    meta.set(key, { team, family });
+    const list = meta.get(key);
+    if (!list) {
+      meta.set(key, [{ team, family }]);
+    } else if (!list.some((m) => m.team === team && m.family === family)) {
+      list.push({ team, family });
+    }
   }
   return meta;
 }
@@ -39,9 +52,12 @@ export function buildPlayerMetaIndex(rows) {
  * Filter items by NFL team and/or position family.
  *
  * An item passes when at least ONE mentioned player satisfies ALL
- * active facets at once.  With both facets at "ALL" the input is
- * returned untouched.  Items whose mentions can't be resolved
- * against the live board are dropped whenever any facet is active.
+ * active facets at once — conjunction within a candidate meta,
+ * disjunction across a mention's candidate metas (name-collision
+ * players carry several) and across mentions.  With both facets at
+ * "ALL" the input is returned untouched.  Items whose mentions can't
+ * be resolved against the live board are dropped whenever any facet
+ * is active.
  */
 export function filterByPlayerFacets(
   items,
@@ -50,15 +66,13 @@ export function filterByPlayerFacets(
   if (!Array.isArray(items)) return [];
   if (teamFilter === "ALL" && posFilter === "ALL") return items;
   const index = playerMeta instanceof Map ? playerMeta : new Map();
-  return items.filter((item) => {
-    const metas = itemPlayerNames(item)
-      .map((n) => index.get(normalizePlayerNameKey(n)))
-      .filter(Boolean);
-    if (metas.length === 0) return false;
-    return metas.some(
-      (m) =>
-        (teamFilter === "ALL" || m.team === teamFilter) &&
-        (posFilter === "ALL" || m.family === posFilter),
-    );
-  });
+  const metaSatisfies = (m) =>
+    (teamFilter === "ALL" || m.team === teamFilter) &&
+    (posFilter === "ALL" || m.family === posFilter);
+  return items.filter((item) =>
+    itemPlayerNames(item).some((n) => {
+      const candidates = index.get(normalizePlayerNameKey(n));
+      return Array.isArray(candidates) && candidates.some(metaSatisfies);
+    }),
+  );
 }

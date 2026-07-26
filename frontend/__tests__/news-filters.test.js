@@ -7,6 +7,10 @@ const ROWS = [
   { name: "Russell Wilson", pos: "QB", raw: { team: "NYG" } },
   { name: "Micah Parsons", pos: "DL/EDGE", raw: { team: "DAL" } },
   { name: "T.J. Hockenson", pos: "TE", raw: { team: "MIN" } },
+  // Documented name collision (src/utils/name_clean.py): two REAL
+  // distinct players whose names normalize to the same key.
+  { name: "CJ Allen", pos: "LB", raw: { team: "TEN" } },
+  { name: "C.J. Allen", pos: "WR", raw: { team: "ATL" } },
 ];
 
 const META = buildPlayerMetaIndex(ROWS);
@@ -24,12 +28,27 @@ const DAL_QB_ITEM = {
 const GENERAL_ITEM = { id: "x3", headline: "League notes", players: [] };
 
 describe("buildPlayerMetaIndex", () => {
-  it("maps normalized keys to team + position family", () => {
-    expect(META.get("ceedee lamb")).toEqual({ team: "DAL", family: "WR" });
+  it("maps normalized keys to candidate meta lists", () => {
+    expect(META.get("ceedee lamb")).toEqual([{ team: "DAL", family: "WR" }]);
     // Compound position keeps the leading family only.
-    expect(META.get("micah parsons").family).toBe("DL");
+    expect(META.get("micah parsons")[0].family).toBe("DL");
     // Dotted-initial names index under the collapsed key.
-    expect(META.get("tj hockenson")).toEqual({ team: "MIN", family: "TE" });
+    expect(META.get("tj hockenson")).toEqual([{ team: "MIN", family: "TE" }]);
+  });
+
+  it("keeps EVERY colliding player's meta, not just the first row", () => {
+    const candidates = META.get("cj allen");
+    expect(candidates).toHaveLength(2);
+    expect(candidates).toContainEqual({ team: "TEN", family: "LB" });
+    expect(candidates).toContainEqual({ team: "ATL", family: "WR" });
+  });
+
+  it("dedupes identical metas from duplicate rows", () => {
+    const index = buildPlayerMetaIndex([
+      { name: "CeeDee Lamb", pos: "WR", raw: { team: "DAL" } },
+      { name: "Ceedee Lamb", pos: "WR", raw: { team: "DAL" } },
+    ]);
+    expect(index.get("ceedee lamb")).toHaveLength(1);
   });
 
   it("returns an empty map for invalid input", () => {
@@ -114,6 +133,56 @@ describe("filterByPlayerFacets — conjunction per mention", () => {
         teamFilter: "DAL",
         posFilter: "QB",
         playerMeta: null,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("filterByPlayerFacets — name-collision candidates", () => {
+  // One mention, TWO real candidate players behind the key.
+  const COLLISION_ITEM = {
+    id: "c1",
+    headline: "Allen camp report",
+    players: [{ name: "CJ Allen" }],
+  };
+
+  it("each colliding player is reachable under its own facets", () => {
+    // The LB's facets.
+    expect(
+      filterByPlayerFacets([COLLISION_ITEM], {
+        teamFilter: "TEN",
+        posFilter: "LB",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+    // The WR's facets — dotted-initial mention resolves to the same
+    // candidate list.
+    const dotted = { ...COLLISION_ITEM, players: [{ name: "C.J. Allen" }] };
+    expect(
+      filterByPlayerFacets([dotted], {
+        teamFilter: "ATL",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("rejects cross-matched facets no single candidate satisfies", () => {
+    // TEN (the LB's team) + WR (the other player's position): no ONE
+    // candidate meta has both, so the item must not pass — the
+    // conjunction stays within a candidate meta.
+    expect(
+      filterByPlayerFacets([COLLISION_ITEM], {
+        teamFilter: "TEN",
+        posFilter: "WR",
+        playerMeta: META,
+      }),
+    ).toEqual([]);
+    expect(
+      filterByPlayerFacets([COLLISION_ITEM], {
+        teamFilter: "ATL",
+        posFilter: "LB",
+        playerMeta: META,
       }),
     ).toEqual([]);
   });

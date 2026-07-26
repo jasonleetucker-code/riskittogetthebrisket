@@ -12,8 +12,11 @@ Verifies:
 
 from __future__ import annotations
 
+import threading
+import time
+
 from src.news.base import NewsItem, NewsProvider, PlayerMention
-from src.news.service import NewsService
+from src.news.service import FAILURE_CACHE_TTL_S, NewsService
 
 
 class _StaticProvider(NewsProvider):
@@ -182,6 +185,90 @@ def test_team_filters_share_one_cached_fetch():
     # Filtering projects a copy — the cached unfiltered aggregate is
     # not mutated by narrower requests.
     assert len(svc.aggregate().items) == 2
+
+
+def test_all_failed_aggregate_not_cached_for_full_ttl():
+    """Server-side mirror of the client failure-TTL fix: an outage
+    aggregate (every provider raised) must not squat in the cache for
+    the full success TTL — the client's 15/30/60s retries need to
+    reach recovered upstreams promptly."""
+    clock = {"t": 1000.0}
+    provider = _StaticProvider(items=[_item("a-1")], error=RuntimeError("down"))
+    svc = NewsService([provider], cache_ttl_s=180, clock=lambda: clock["t"])
+
+    first = svc.aggregate()
+    assert first.items == []
+    assert provider.fetch_calls == 1
+
+    # Providers recover.  Just past the short failure TTL — but well
+    # inside the 180s success TTL — the next call must refetch.
+    provider._error = None
+    clock["t"] += FAILURE_CACHE_TTL_S + 1
+    second = svc.aggregate()
+    assert provider.fetch_calls == 2, "all-failed aggregate enjoyed the success TTL"
+    assert second.cache_hit is False
+    assert [i.id for i in second.items] == ["a-1"]
+
+
+def test_partial_success_keeps_normal_ttl():
+    """One healthy provider is enough for the aggregate to cache for
+    the full TTL — only total outages get the short failure life."""
+    clock = {"t": 1000.0}
+    good = _StaticProvider(items=[_item("a-1")], provider_name="good")
+    bad = _StaticProvider(error=RuntimeError("down"), provider_name="bad")
+    svc = NewsService([good, bad], cache_ttl_s=180, clock=lambda: clock["t"])
+
+    svc.aggregate()
+    assert good.fetch_calls == 1
+
+    # Far beyond the failure TTL but inside the success TTL: still a
+    # cache hit, no refetch.
+    clock["t"] += 60
+    again = svc.aggregate()
+    assert again.cache_hit is True
+    assert good.fetch_calls == 1
+    assert bad.fetch_calls == 1
+
+
+def test_cold_cache_single_flight():
+    """Concurrent public requests on a cold cache must not stampede
+    the sequential providers: one leader refreshes, followers wait on
+    it and read the fresh entry (Codex P2)."""
+
+    class _SlowProvider(NewsProvider):
+        name = "slow"
+        label = "Slow"
+
+        def __init__(self):
+            super().__init__()
+            self.fetch_calls = 0
+
+        def fetch(self, *, player_names=None, limit=50):
+            self.fetch_calls += 1
+            time.sleep(0.25)
+            return [_item("s-1")]
+
+    provider = _SlowProvider()
+    svc = NewsService([provider], cache_ttl_s=60)
+
+    results = []
+    barrier = threading.Barrier(2)
+
+    def call():
+        barrier.wait()
+        results.append(svc.aggregate())
+
+    threads = [threading.Thread(target=call) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    assert provider.fetch_calls == 1, "cold-cache stampede: both threads fetched"
+    assert len(results) == 2
+    assert all([i.id for i in r.items] == ["s-1"] for r in results)
+    # One leader (fresh fetch), one follower (served the new entry).
+    assert sorted(r.cache_hit for r in results) == [False, True]
 
 
 def test_expired_entries_evicted_on_miss():
