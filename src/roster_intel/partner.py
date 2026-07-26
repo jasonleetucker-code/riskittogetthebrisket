@@ -115,6 +115,14 @@ MAX_HISTORY_LOGIT = 0.35
 manager trade at all), which is a propensity proxy and emphatically not
 an acceptance rate."""
 
+PAIR_FAMILIARITY_SHARE = 0.5
+"""Fraction of the history budget available to pair familiarity — prior
+completed trades between US and this manager specifically.
+
+It SHARES the history budget rather than extending it, so wiring a
+second history signal cannot quietly double that term's influence over
+the ranking."""
+
 MAX_MANAGER_LOGIT = 0.50
 """Budget the manager term *would* get if its evidence gate cleared.
 Today it never does, so this constant is latent."""
@@ -294,11 +302,14 @@ class PartnerInputs:
     #: League-wide mean completed trades per manager, for shrinkage.
     league_mean_trades: float | None = None
     #: Completed trades between US and this manager specifically.
+    #: Feeds the pair-familiarity half of the history term.
     pair_trades_completed: int = 0
-    #: ``faab_analytics.teamAggression`` entry, if available. Used only
-    #: as a weak engagement proxy — a manager who never spends FAAB is
-    #: plausibly less transaction-active. Never as an acceptance rate.
-    team_aggression: Mapping[str, Any] | None = None
+    # NOT INCLUDED, deliberately: faab_analytics.teamAggression. FAAB
+    # spend is waiver-market behaviour, and treating it as a trade
+    # engagement proxy would be an inference the data does not support —
+    # an aggressive bidder may be aggressive precisely because they do
+    # not trade. Left out rather than wired in as a plausible-sounding
+    # noise source.
     #: Observed accept/reject decisions. Populated only if a source of
     #: DECLINED offers ever exists; the public snapshot has none.
     decisions_accepted: int | None = None
@@ -389,47 +400,70 @@ def _fairness_term(shape: TradeShape | None) -> tuple[float, str | None]:
 
 
 # ── term: roster need alignment ──────────────────────────────────────
-def _need_alignment(
-    ours: RosterSignal | None, theirs: RosterSignal | None, shape: TradeShape | None
-) -> tuple[float, str | None]:
-    """Fraction of what we send that lands on a position they lack.
+def _match_score(
+    weights: Mapping[str, float] | None, target: Mapping[str, float] | None
+) -> float | None:
+    """How well a positional weighting lands on a target positional map.
 
-    Complementarity, not charity: we only get credit where OUR surplus
-    meets THEIR deficit. Returns a 0..1 alignment score.
+    Returns 0..1, or ``None`` when there is nothing to measure. Rescaled
+    by the target's peak share so a perfectly-targeted package reads as
+    ~1.0 rather than being capped by how concentrated the target is.
     """
-    if theirs is None:
-        return 0.5, "roster engine output unavailable — need alignment defaults to neutral"
-    if not theirs.deficit:
-        return 0.5, "partner shows no positional deficit — need alignment neutral"
-
-    sending = dict(shape.send_positions) if shape and shape.send_positions else {}
-    if not sending and ours is not None and ours.surplus:
-        # No concrete package: score the STANDING complementarity of the
-        # two rosters instead, which is what a partner-ranking view wants
-        # before any specific offer exists.
-        sending = dict(ours.surplus)
-    if not sending:
-        return 0.5, "nothing to match against partner deficit — neutral"
-
-    total = sum(max(0.0, v) for v in sending.values())
+    if not weights or not target:
+        return None
+    total = sum(max(0.0, float(v)) for v in weights.values())
     if total <= 0:
-        return 0.5, "no positive send-side weight — neutral"
-
-    deficit_total = sum(max(0.0, v) for v in theirs.deficit.values()) or 1.0
+        return None
+    target_total = sum(max(0.0, float(v)) for v in target.values())
+    if target_total <= 0:
+        return None
+    peak = max(max(0.0, float(v)) for v in target.values()) / target_total
+    if peak <= 0:
+        return None
     matched = 0.0
-    for pos, weight in sending.items():
+    for pos, weight in weights.items():
         w = max(0.0, float(weight))
         if w <= 0:
             continue
-        need = max(0.0, float(theirs.deficit.get(pos, 0.0)))
-        matched += w * (need / deficit_total)
-    # matched/total is in [0,1] but concentrated low; rescale so a
-    # perfectly-targeted package reads as ~1.0.
-    raw = matched / total
-    peak = max(max(0.0, float(v)) for v in theirs.deficit.values()) / deficit_total
-    if peak <= 0:
-        return 0.5, "partner deficit has no positive mass — neutral"
-    return _clamp(raw / peak, 0.0, 1.0), None
+        matched += w * (max(0.0, float(target.get(pos, 0.0))) / target_total)
+    return _clamp((matched / total) / peak, 0.0, 1.0)
+
+
+def _need_alignment(
+    ours: RosterSignal | None, theirs: RosterSignal | None, shape: TradeShape | None
+) -> tuple[float, str | None]:
+    """Two-sided positional complementarity with the partner.
+
+    Both halves of a trade matter, and they are not the same question:
+
+    * **Send side** — does what we give land on a position they LACK?
+    * **Ask side** — does what we want come from a position they have
+      to SPARE? Asking a partner for their only starting tight end is
+      a materially harder sell than asking for their third one, even
+      when the market values are identical, and a model that scores
+      only the send side cannot tell those two offers apart.
+
+    Whichever halves are measurable are averaged. Returns 0..1.
+    """
+    if theirs is None:
+        return 0.5, "roster engine output unavailable — need alignment defaults to neutral"
+
+    sending = dict(shape.send_positions) if shape and shape.send_positions else {}
+    asking = dict(shape.receive_positions) if shape and shape.receive_positions else {}
+    if not sending and not asking and ours is not None:
+        # No concrete package: score the STANDING complementarity of the
+        # two rosters instead, which is what a partner-ranking view wants
+        # before any specific offer exists.
+        sending = dict(ours.surplus or {})
+        asking = dict(ours.deficit or {})
+
+    send_score = _match_score(sending, theirs.deficit)
+    ask_score = _match_score(asking, theirs.surplus)
+
+    parts = [s for s in (send_score, ask_score) if s is not None]
+    if not parts:
+        return 0.5, "no measurable positional overlap with partner — need alignment neutral"
+    return sum(parts) / len(parts), None
 
 
 # ── term: competitive-window alignment ───────────────────────────────
@@ -460,20 +494,36 @@ def _history_term(inp: PartnerInputs) -> tuple[float, str | None]:
     league mean with a small prior sample size, so a manager with two
     trades barely moves off the mean.
     """
-    if inp.league_mean_trades is None:
-        return 0.0, "no league trade baseline — history term inert"
-    mean = max(0.0, float(inp.league_mean_trades))
-    observed = max(0, int(inp.trades_completed))
-    # Shrink toward the mean: with PRIOR_N pseudo-observations at the
-    # league mean, a manager needs real volume to move.
-    prior_n = 5.0
-    shrunk = (observed + prior_n * mean) / (1.0 + prior_n)
-    if mean <= 0:
-        return 0.0, "league mean trade count is zero — history term inert"
-    ratio = shrunk / mean
-    # log ratio, saturating, scaled into the small history budget.
-    delta = MAX_HISTORY_LOGIT * math.tanh(math.log(max(ratio, _TINY)))
-    return delta, None
+    activity: float | None = None
+    if inp.league_mean_trades is not None:
+        mean = max(0.0, float(inp.league_mean_trades))
+        if mean > 0:
+            observed = max(0, int(inp.trades_completed))
+            # Shrink toward the mean: with PRIOR_N pseudo-observations at
+            # the league mean, a manager needs real volume to move.
+            prior_n = 5.0
+            shrunk = (observed + prior_n * mean) / (1.0 + prior_n)
+            ratio = shrunk / mean
+            # log ratio, saturating, scaled into the small history budget.
+            activity = MAX_HISTORY_LOGIT * math.tanh(math.log(max(ratio, _TINY)))
+
+    # Pair familiarity: managers who have completed trades with US
+    # before are demonstrably willing to transact with us specifically.
+    # This is the one history signal that is about the dyad rather than
+    # the individual, and it is still ACTIVITY — a pair that has never
+    # traded may simply never have talked. One-sided (no penalty for
+    # zero), and it shares the history budget rather than extending it.
+    pair = max(0, int(inp.pair_trades_completed))
+    familiarity = PAIR_FAMILIARITY_SHARE * MAX_HISTORY_LOGIT * math.tanh(pair / 2.0)
+
+    if activity is None and pair <= 0:
+        return (
+            0.0,
+            "no league trade baseline and no prior trades with this manager — history term inert",
+        )
+
+    delta = (activity or 0.0) + familiarity
+    return _clamp(delta, -MAX_HISTORY_LOGIT, MAX_HISTORY_LOGIT), None
 
 
 # ── the manager gate ─────────────────────────────────────────────────

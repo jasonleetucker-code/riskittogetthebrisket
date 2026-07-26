@@ -28,6 +28,7 @@ from src.roster_intel.partner import (
     MANAGER_EVIDENCE_MIN_DECISIONS,
     MANAGER_EVIDENCE_MIN_Z,
     MAX_CONFIDENCE_WITHOUT_DECISION_DATA,
+    MAX_HISTORY_LOGIT,
     PARTNER_MODEL_VERSION,
     STRUCTURAL_COVERAGE_FLOOR,
     AcceptanceEvidence,
@@ -402,23 +403,61 @@ class TestMixedMarketSuppression:
 
 
 class TestNeedAlignment:
-    def test_sending_their_biggest_deficit_scores_maximally(self):
-        a = assess_partner(_inputs(shape=_shape(send_positions={"RB": 1.0})))
+    """Partner deficit is RB 3.0 / WR 1.0; partner surplus is TE 2.0."""
+
+    def test_perfect_two_sided_fit_scores_maximally(self):
+        """Give them their biggest hole, ask for their surplus."""
+        a = assess_partner(
+            _inputs(shape=_shape(send_positions={"RB": 1.0}, receive_positions={"TE": 1.0}))
+        )
         assert a.partner_need_alignment == pytest.approx(1.0)
 
-    def test_sending_a_position_they_do_not_need_scores_zero(self):
-        a = assess_partner(_inputs(shape=_shape(send_positions={"QB": 1.0})))
+    def test_worst_two_sided_fit_scores_zero(self):
+        """Give them what they already have, ask for what they lack —
+        the offer a manager would find least worth reading."""
+        a = assess_partner(
+            _inputs(shape=_shape(send_positions={"QB": 1.0}, receive_positions={"RB": 1.0}))
+        )
         assert a.partner_need_alignment == pytest.approx(0.0)
 
+    def test_send_side_alone_scores_the_send_side(self):
+        good = assess_partner(
+            _inputs(shape=_shape(send_positions={"RB": 1.0}, receive_positions={}))
+        )
+        bad = assess_partner(
+            _inputs(shape=_shape(send_positions={"QB": 1.0}, receive_positions={}))
+        )
+        assert good.partner_need_alignment == pytest.approx(1.0)
+        assert bad.partner_need_alignment == pytest.approx(0.0)
+
+    def test_asking_for_a_surplus_asset_beats_asking_for_a_scarce_one(self):
+        """The ask side is the half a send-only model cannot see.
+
+        Both offers give the partner the same thing. One asks for the
+        tight end they have to spare; the other asks for a running back
+        they are already short of. Those are not equally sellable, and
+        the model has to say so.
+        """
+        spare = assess_partner(
+            _inputs(shape=_shape(send_positions={"RB": 1.0}, receive_positions={"TE": 1.0}))
+        )
+        scarce = assess_partner(
+            _inputs(shape=_shape(send_positions={"RB": 1.0}, receive_positions={"RB": 1.0}))
+        )
+        assert spare.partner_need_alignment > scarce.partner_need_alignment
+        assert spare.trade_acceptance_estimate > scarce.trade_acceptance_estimate
+
     def test_secondary_need_scores_between(self):
-        a = assess_partner(_inputs(shape=_shape(send_positions={"WR": 1.0})))
+        a = assess_partner(_inputs(shape=_shape(send_positions={"WR": 1.0}, receive_positions={})))
         assert 0.0 < a.partner_need_alignment < 1.0
 
     def test_poor_fit_pushes_the_estimate_down_not_merely_to_neutral(self):
         """The need term is signed: a genuinely bad positional fit has to
         cost the estimate, otherwise 'no fit' and 'perfect fit' would
         differ only in the upside."""
-        bad = assess_partner(_inputs(shape=_shape(send_positions={"QB": 1.0})))
+        bad = assess_partner(
+            _inputs(shape=_shape(send_positions={"QB": 1.0}, receive_positions={"RB": 1.0}))
+        )
         assert bad.contributions["rosterFit"] < 0
 
     def test_missing_roster_engine_output_degrades_to_neutral(self):
@@ -490,6 +529,33 @@ class TestHistoryTerm:
         active = assess_partner(_inputs(trades_completed=8, league_mean_trades=4.0))
         delta = active.contributions["leagueHistory"] - avg.contributions["leagueHistory"]
         assert 0 < delta < 0.20
+
+    def test_prior_trades_with_us_raise_the_history_term(self):
+        """Pair familiarity is the one history signal about the dyad
+        rather than the individual: this manager has demonstrably
+        transacted with US before."""
+        cold = assess_partner(_inputs(pair_trades_completed=0, league_mean_trades=4.0))
+        warm = assess_partner(_inputs(pair_trades_completed=3, league_mean_trades=4.0))
+        assert warm.contributions["leagueHistory"] > cold.contributions["leagueHistory"]
+
+    def test_pair_familiarity_is_one_sided(self):
+        """Never having traded with someone is not evidence against them
+        — you may simply never have talked. No penalty for zero."""
+        no_baseline = assess_partner(_inputs(pair_trades_completed=0))
+        assert no_baseline.contributions["leagueHistory"] == 0.0
+
+    def test_pair_familiarity_alone_activates_the_history_term(self):
+        a = assess_partner(_inputs(pair_trades_completed=4, league_mean_trades=None))
+        assert a.contributions["leagueHistory"] > 0
+        assert a.evidence is AcceptanceEvidence.HISTORY_INFORMED
+
+    def test_history_stays_within_its_budget_when_both_signals_fire(self):
+        """Wiring a second history signal must not let the term exceed
+        the budget the hierarchy allocated it."""
+        maxed = assess_partner(
+            _inputs(trades_completed=500, league_mean_trades=1.0, pair_trades_completed=50)
+        )
+        assert maxed.contributions["leagueHistory"] <= MAX_HISTORY_LOGIT + 1e-9
 
     def test_history_never_exceeds_the_fairness_budget(self):
         extreme = assess_partner(_inputs(trades_completed=500, league_mean_trades=1.0))
