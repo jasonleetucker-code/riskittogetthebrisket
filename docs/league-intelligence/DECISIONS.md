@@ -250,6 +250,77 @@ because a negative result is a result — and because the failure mode
 (controls not flat) is the same one the cardinal-scale guard catches
 elsewhere.
 
+**AXIS AMBIGUITY — vendor "TEP" is probably SCORING, not structure.**
+Most sites' TEP settings encode a receiving bonus; KTC's slider reads
+0 / 0.5 / 1 / 1.5, which is scoring-shaped.  "KTC recommends TE++ for
+2-TE leagues" is advice about *when to use* the setting, not evidence
+it is *computed from* 2-TE structure.  Our league moved the opposite
+way on both axes — removed premium scoring, added a TE slot.
+
+Therefore **KTC and Dynasty Nerds are downgraded from "corroboration"
+to "sanity check on magnitude."**  Their measurements may be a
+different quantity of similar size, and an earlier claim of
+independent corroboration over-reached.  Only our own derivation is
+unambiguously structural: it computes replacement at N vs M required
+TE starters on our pool, which is the structural effect whatever any
+vendor encodes.  It stands alone, and that is now the point.
+
+**Front-loaded so a future reader does not misread a two-way result:**
+if Dynasty Nerds' standard array turns out rank-encoded, it registers
+as **absent**, not as a disappointing third point — an ordinal
+displacement cannot be converted to a comparable premium without DN's
+own value curve (see the portability note below).  A two-way result is
+the expected strong position, not an incomplete one.
+
+**BEST BALL CORRECTION — supersedes the 1.239 figure.**  The naive
+"2 slots x 12 teams = TE24" replacement cut is wrong for this league
+and **biases the premium down**.  In best ball you never set a lineup,
+so the slot goes to whoever spiked that week.
+
+*Measured, not assumed* (170 real 2025 team-weeks): a TE ranked deeper
+than TE2 took a best-ball TE slot in **74.7%** of team-weeks; the mean
+deepest season-rank used was **4.29**, median 4.0, p90 7.
+
+Recomputed derived curve:
+
+| replacement cut | median | TE1-12 | TE13-24 | TE25-40 | TE41+ |
+|---|---|---|---|---|---|
+| naive 2.0/team (TE24) | 1.239 | 1.175 | 1.292 | 1.364 | 1.680 |
+| 3.0/team (TE36) | 1.450 | 1.269 | 1.450 | 1.561 | 2.048 |
+| measured median 4.0/team | 1.670 | 1.370 | 1.618 | 1.771 | 2.439 |
+| measured mean 4.29/team | 1.815 | 1.414 | 1.691 | 1.862 | 2.610 |
+| *(KTC measured, reference)* | *1.320* | *1.227* | *1.268* | *1.308* | *1.492* |
+
+**1.239 is superseded.**  The operative range is **~1.45-1.82**,
+directionally certain (every plausible depth raises it) but
+magnitude-uncertain, because the premium is highly sensitive to the
+depth parameter and deep cuts land in the flat tail of a 74-TE pool
+where the derivation is least reliable.  Per the standing discipline,
+report the range rather than picking a point.
+
+*Caveats on the 4.29 figure, which is why it is not taken as exact:*
+teams rostering more TEs get more chances for a deep one to spike
+(selection effect); the 2025 source weeks ran a 1-TE lineup and 2-slot
+logic was applied to them; and TE51-of-74 sits in the tail.
+
+**This BREAKS the KTC agreement — and that supports the axis
+ambiguity.**  At the naive cut the derivation sat within 0.08 of KTC.
+Correcting for best ball moves it to 1.45-1.82 against KTC's 1.32.  If
+KTC's TE++ is a scoring premium, it was never measuring the structural
+quantity and the earlier agreement was coincidence — exactly the
+failure the axis warning predicted.  The two corrections interact, and
+the corrected divergence is weak independent evidence that KTC encodes
+a different axis.
+
+**A fourth vacuous check, caught and recorded.**  The first attempt at
+this measured "TE availability" as "the host produced a score", which
+is true for *every* rostered player — byes and inactives are scored
+0.0.  It returned an availability rate of exactly 1.000 across 170
+team-weeks.  Standing rule, now four times validated in one day: **a
+test or metric that cannot fail is worse than none, because it
+consumes the attention that would otherwise notice the gap.**  A
+suspiciously perfect number is a bug report.
+
 **CORROBORATED BY INDEPENDENT DERIVATION (2026-07-26).**  The
 paired-board survey came back a clean negative — KTC is the only
 automatable publisher with a real paired variant (OTCFFB and

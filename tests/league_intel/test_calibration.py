@@ -140,6 +140,30 @@ class TestDerivedStructuralPremium:
         assert d.premium_for(9000) < d.premium_for(2000)
         assert d.premium_for(0) is None
 
+    def test_best_ball_override_deepens_replacement_and_raises_premium(self):
+        """The naive slots-x-teams cut biases the premium DOWN in best
+        ball, where the slot goes to whoever spiked rather than to a
+        lineup you set.  Passing the deeper best-ball replacement must
+        raise the premium."""
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        pool = self.te_pool()
+        naive = derive_structural_te_premium(pool)
+        deeper = derive_structural_te_premium(
+            pool, replacement_league_override=naive.replacement_league * 0.6
+        )
+        assert deeper.replacement_league < naive.replacement_league
+        assert deeper.additive_shift > naive.additive_shift
+        assert deeper.premium_at_median > naive.premium_at_median
+
+    def test_override_takes_precedence_over_the_rank_cut(self):
+        from src.league_intel.calibration import derive_structural_te_premium
+
+        d = derive_structural_te_premium(
+            self.te_pool(), required_starters_league=24, replacement_league_override=1000.0
+        )
+        assert d.replacement_league == 1000.0
+
     def test_identical_demand_yields_no_premium(self):
         """If the reference already requires 24 starters there is no
         structural difference to price."""

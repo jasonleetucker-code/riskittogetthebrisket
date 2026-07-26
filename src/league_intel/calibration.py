@@ -399,6 +399,7 @@ def derive_structural_te_premium(
     required_starters_league: int = 24,
     band: int = 2,
     depth_bands: tuple[tuple[str, int, int], ...] = DEFAULT_DEPTH_BANDS,
+    replacement_league_override: float | None = None,
 ) -> DerivedStructuralPremium | None:
     """Derive the 2-TE structural premium from OUR pool's replacement levels.
 
@@ -443,7 +444,20 @@ def derive_structural_te_premium(
         return statistics.fmean(values[lo:hi])
 
     r_ref = banded(required_starters_reference)
-    r_league = banded(required_starters_league)
+    # BEST BALL: the naive "slots x teams" cut is WRONG here and biases
+    # the premium DOWN.  You cannot set lineups, so the slot goes to
+    # whoever spiked — measured on real 2025 team-weeks, a TE ranked
+    # deeper than TE2 took a best-ball TE slot in 74.7% of weeks, with a
+    # mean deepest-rank-used of 4.29.  Callers should pass the
+    # best-ball-aware replacement from
+    # ``replacement.compute_replacement_levels`` (tier
+    # ``bestBallStarter``) via ``replacement_league_override`` rather
+    # than relying on the rank cut.
+    r_league = (
+        float(replacement_league_override)
+        if replacement_league_override is not None
+        else banded(required_starters_league)
+    )
     shift = r_ref - r_league
 
     bands: dict[str, float] = {}
