@@ -25,6 +25,12 @@
 # Layout: $BACKUP_ROOT/daily/YYYY-MM-DD/...
 # Rotation: keep the newest $KEEP_DAILY dated directories (default 14).
 #
+# Operation order (destructive steps strictly last):
+#   write artifacts into a hidden staging dir → integrity checks →
+#   FAILURE: discard staging, exit 1 (daily/ namespace untouched) |
+#   SUCCESS: promote staging → dated dir → off-box mirror (validated
+#   snapshots only) → prune oldest generations beyond $KEEP_DAILY.
+#
 # Off-box mirroring (OPTIONAL, operator-configured): set
 # OFFBOX_RSYNC_DEST to an rsync destination (e.g.
 # "backup@storagebox.example:riskit-state/") in a drop-in on
@@ -78,8 +84,19 @@ ensure_root() {
 ensure_root
 chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
 
-DEST="${BACKUP_ROOT}/daily/${DATE_STAMP}"
+# Stage the snapshot in a hidden dir and promote it to the dated slot
+# only after validation.  A failed run therefore never appears in the
+# daily/ namespace at all: it cannot displace an old generation from
+# the prune keep-window, and a failed same-day RERUN cannot clobber
+# that day's earlier good snapshot.  (Dot-prefixed names are invisible
+# to prune's `ls -1` and sort out of the retention math entirely.)
+FINAL_DEST="${BACKUP_ROOT}/daily/${DATE_STAMP}"
+DEST="${BACKUP_ROOT}/daily/.staging-${DATE_STAMP}-$$"
 mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions"
+
+# Clear stale staging dirs from previous crashed runs (>1 day old).
+find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
+    -exec rm -rf {} + 2>/dev/null || true
 
 ARTIFACTS=0
 ERRORS=0
@@ -191,7 +208,53 @@ backup_session_file "${APP_DIR}/idpshow_session.json"     "repo.idpshow_session.
 backup_session_file "/var/lib/dlf-fetch/dlf_session.json"         "workdir.dlf_session.json"
 backup_session_file "/var/lib/idpshow-fetch/idpshow_session.json" "workdir.idpshow_session.json"
 
+# ── Validate this run BEFORE any destructive step ────────────────────
+# Ordering is deliberate: write artifacts into staging → integrity
+# checks (above) → on failure discard the staging dir and stop → only
+# a fully validated snapshot is promoted, mirrored, or allowed to
+# trigger pruning.  The original ordering pruned first, so a failing
+# nightly (missing data dir, broken tool) still created its dated dir,
+# displaced the oldest GOOD generation from the keep-window, and
+# eroded one good backup per day of consecutive failures.
+if (( ARTIFACTS == 0 )) || (( ERRORS > 0 )); then
+    warn "run FAILED (${ERRORS} error(s), ${ARTIFACTS} artifact(s)) — discarding staging snapshot; prior generations left untouched"
+    rm -rf "${DEST}"
+    exit 1
+fi
+
+# Promote: replace any earlier same-day snapshot only now that this
+# one is fully validated.
+rm -rf "${FINAL_DEST}"
+mv "${DEST}" "${FINAL_DEST}"
+DEST="${FINAL_DEST}"
+log "snapshot promoted: ${FINAL_DEST}"
+
+# ── Optional off-box mirror (operator opt-in) ────────────────────────
+# Reached only with every artifact written and integrity-checked, so a
+# partial/corrupt snapshot can never replace the off-box copy (rsync
+# --delete makes a bad publish doubly destructive remotely).
+MIRROR_FAILED=0
+if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
+    if command -v rsync >/dev/null 2>&1; then
+        if rsync -a --delete "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
+            log "off-box mirror ok: ${OFFBOX_RSYNC_DEST}"
+        else
+            warn "off-box mirror FAILED (local backup unaffected)"
+            MIRROR_FAILED=1
+        fi
+    else
+        # The operator explicitly requested an off-box copy; a missing
+        # rsync must surface as a failed run, not a silent skip.
+        warn "OFFBOX_RSYNC_DEST set but rsync not installed — off-box mirror NOT performed"
+        MIRROR_FAILED=1
+    fi
+fi
+
 # ── Rotation: keep newest $KEEP_DAILY dated dirs ─────────────────────
+# Runs last, and only after this run added a verified generation, so
+# the keep-window always counts today's GOOD snapshot — never a failed
+# stub.  (Safe even when the mirror failed above: the local snapshot
+# is validated either way.)
 prune() {
     local dir
     # Dated names sort lexicographically == chronologically.
@@ -203,28 +266,8 @@ prune() {
 }
 prune
 
-# ── Optional off-box mirror (operator opt-in) ────────────────────────
-if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
-    if command -v rsync >/dev/null 2>&1; then
-        if rsync -a --delete "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
-            log "off-box mirror ok: ${OFFBOX_RSYNC_DEST}"
-        else
-            warn "off-box mirror FAILED (local backup unaffected)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        # The operator explicitly requested an off-box copy; a missing
-        # rsync must surface as a failed run, not a silent skip.
-        warn "OFFBOX_RSYNC_DEST set but rsync not installed — off-box mirror NOT performed"
-        ERRORS=$((ERRORS + 1))
-    fi
-fi
-
-if (( ARTIFACTS == 0 )); then
-    fail "no artifacts written — nothing was backed up"
-fi
-if (( ERRORS > 0 )); then
-    warn "completed with ${ERRORS} error(s), ${ARTIFACTS} artifact(s) written to ${DEST}"
+if (( MIRROR_FAILED )); then
+    warn "completed locally (${ARTIFACTS} artifact(s) in ${DEST}) but off-box mirror failed"
     exit 1
 fi
 log "state backup complete: ${ARTIFACTS} artifact(s) in ${DEST} ($(date -u +%FT%TZ))"

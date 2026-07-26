@@ -42,6 +42,14 @@ Rotation keeps the newest **14** dated directories (`KEEP_DAILY`).
 Falls back to `/home/dynasty/backups/riskit-state` if `/var/backups`
 is not writable.
 
+Destructive steps run strictly last: artifacts are written into a
+hidden staging dir, integrity-checked, and only a fully validated
+snapshot is promoted into `daily/`, mirrored off-box, or allowed to
+trigger pruning.  A failing run discards its own staging dir and
+leaves every prior generation (including an earlier same-day
+snapshot) untouched — consecutive failures can never erode the
+retained history.
+
 ## Install
 
 ```bash

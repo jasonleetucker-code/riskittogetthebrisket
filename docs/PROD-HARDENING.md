@@ -89,6 +89,12 @@ New: `dynasty-healthcheck.sh` + `.service` + `.timer`.
   exactly why losing it hurts.
 - Every artifact integrity-checked (`gzip -t` / `tar -tzf`); the run
   fails loudly if zero artifacts were written.
+- Destructive steps run strictly last: artifacts stage into a hidden
+  dir and only a fully validated snapshot is promoted into `daily/`,
+  mirrored off-box, or allowed to trigger pruning.  A failed run
+  discards its own staging dir — it can never displace a good
+  generation from the keep-window or publish a partial snapshot to the
+  rsync mirror.
 - Optional off-box mirror: set `OFFBOX_RSYNC_DEST` via a service
   drop-in (operator fills in destination + SSH key).  Unset = local
   only, nothing leaves the box.
