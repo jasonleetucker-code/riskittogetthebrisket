@@ -24,9 +24,10 @@ from src.news.service import NewsService
 def client(monkeypatch):
     # Bypass lifespan — the startup hook spins up scrape threads
     # that are unrelated to /api/news and would slow the test down.
-    # Also bypass the ``_private_api_gate`` middleware since the
-    # news endpoint is private by default; the gate itself is
-    # tested separately in tests/api/test_private_auth.py.
+    # ``/api/news`` is on the public allowlist (the gate never
+    # 401s it — pinned in tests/api/test_private_auth.py), but the
+    # auth stub stays so this file keeps working even if the
+    # allowlist entry ever changes.
     monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         yield c

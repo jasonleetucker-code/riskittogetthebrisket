@@ -11,10 +11,14 @@ route.  Responsibilities:
    cheap).
 4. Cache the aggregated response for a short TTL so repeated
    ``/api/news`` hits from the landing-page cache-warm cycle
-   don't hammer upstream feeds.
+   don't hammer upstream feeds.  The cache stores the UNFILTERED
+   aggregate — request-level filters never participate in the
+   cache key (see ``aggregate``), so a public caller can't bust
+   the warm cache by varying query params.
 5. Optionally filter by a team-roster name list (query param on
    the route) so the response only contains items that mention
-   at least one of those names.
+   at least one of those names.  Applied per request on the way
+   out of the cache, never baked into the cached payload.
 
 No network I/O happens in this module directly — everything runs
 through the injected providers.  That keeps the cache + dedupe
@@ -26,9 +30,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Optional, Sequence
+from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from .base import NewsItem, NewsProvider
 from .providers import available_provider_names, build_provider
@@ -36,6 +40,19 @@ from .providers import available_provider_names, build_provider
 log = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TTL_S = 180  # 3 minutes — rate-limit-safe for all providers
+# All-failed aggregates get a much shorter cache life: caching an
+# outage for the full TTL would keep the client's 15/30/60s retries
+# hitting the stale failure for minutes after upstreams recover.
+# Mirrors the client's FAILURE_TTL_MS rationale
+# (frontend/components/useNews.js).  Partial successes keep the
+# normal TTL.
+FAILURE_CACHE_TTL_S = 15.0
+# How long a follower thread waits on an in-flight refresh before
+# re-checking the world.  Generous enough to cover a full cold
+# sequential provider run (~11 registered providers × 5s soft cap);
+# the wait sits in a loop, so a timeout just re-evaluates rather
+# than stampeding.
+_REFRESH_WAIT_TIMEOUT_S = 60.0
 DEFAULT_LIMIT_PER_PROVIDER = 25
 # Matches the route's ``?limit=`` hard ceiling so the route's limit
 # contract isn't silently capped by the service before reaching the
@@ -118,6 +135,59 @@ def _sort_items(items: List[NewsItem]) -> List[NewsItem]:
     return sorted(items, key=key, reverse=True)
 
 
+def _enrich_player_mentions(
+    items: Sequence[NewsItem],
+    player_meta: Optional[Mapping[str, Mapping[str, Any]]],
+) -> List[NewsItem]:
+    """Stamp position/team from the live contract onto mentions.
+
+    ``player_meta`` maps EXACT contract display names to
+    ``{"position": ..., "team": ...}``.  Mentions are tagged from
+    those same display names (every provider matches against the
+    known-names list the route derives from the contract), so an
+    exact-name lookup attributes each mention to the specific row
+    that produced it — including name-collision pairs whose display
+    strings differ ("CJ Allen" the LB vs "C.J. Allen" the WR).
+
+    One central pass covers every provider (RSS, Sleeper, PFK)
+    without touching their taggers.  Mentions that already carry
+    position/team (a provider whose upstream knows) are left alone;
+    unknown names and null metadata stay name-only.  ``team`` is
+    sparsely populated in the contract until the next scrape cycle —
+    stamp what's available, null otherwise.
+    """
+    if not player_meta:
+        return list(items)
+    out: List[NewsItem] = []
+    for item in items:
+        if not item.players:
+            out.append(item)
+            continue
+        changed = False
+        mentions: List[Any] = []
+        for m in item.players:
+            # Never stamp an ambiguous mention — the tagger couldn't
+            # tell which player the text meant, and stamping either
+            # candidate's identity would make the guess look
+            # authoritative to every downstream disambiguation guard.
+            if m.ambiguous or m.position or m.team:
+                mentions.append(m)
+                continue
+            meta = player_meta.get(m.name)
+            if not isinstance(meta, Mapping):
+                mentions.append(m)
+                continue
+            position = meta.get("position") or None
+            team = meta.get("team") or None
+            if position or team:
+                mentions.append(replace(m, position=position, team=team))
+                changed = True
+            else:
+                mentions.append(m)
+        out.append(replace(item, players=mentions) if changed else item)
+    return out
+
+
 def _filter_by_team_names(
     items: Sequence[NewsItem],
     team_names: Iterable[str],
@@ -151,10 +221,18 @@ class NewsService:
         self._total_limit = max(1, int(total_limit))
         self._clock = clock
         self._lock = threading.Lock()
-        # Single-entry cache keyed by the (frozenset of) player
-        # names the caller passed in — the aggregated payload is
-        # different per roster when a team filter is in play.
+        # Cache keyed by the known-names universe ONLY (the sorted
+        # ``player_names`` tuple the route derives from the live
+        # contract).  Request-level filters (``team_names``) are
+        # deliberately NOT part of the key — each entry stores the
+        # unfiltered aggregate and filters are projected per request.
+        # Values are ``(expires_at, aggregate)`` so all-failed
+        # entries can carry a shorter life than successes.
         self._cache: dict[tuple, tuple[float, AggregatedNews]] = {}
+        # Per-key single-flight: while one thread refreshes a cold
+        # key, concurrent callers wait on its Event instead of each
+        # launching their own sequential provider run.
+        self._refreshing: dict[tuple, threading.Event] = {}
 
     @property
     def provider_names(self) -> List[str]:
@@ -170,56 +248,121 @@ class NewsService:
         *,
         player_names: Optional[Iterable[str]] = None,
         team_names: Optional[Iterable[str]] = None,
+        player_meta: Optional[Mapping[str, Mapping[str, Any]]] = None,
     ) -> AggregatedNews:
+        """Aggregate all providers.
+
+        ``player_meta`` (optional) maps exact contract display names
+        to ``{"position", "team"}`` for mention enrichment — it is
+        derived from the same live contract as ``player_names``, so
+        it deliberately does NOT participate in the cache key.
+        """
         known_names = sorted({n for n in (player_names or []) if n})
         team_filter = tuple(sorted({n for n in (team_names or []) if n}))
-        cache_key = (tuple(known_names), team_filter)
+        # The cache key deliberately EXCLUDES request-level filters.
+        # ``/api/news`` is public and the repeatable ``?team=`` param
+        # is caller-controlled: keying the cache on it (the previous
+        # behaviour) let any stranger bypass the warm cache — and
+        # re-run every sequential upstream provider — just by varying
+        # the param.  Instead the unfiltered aggregate is cached once
+        # per known-names universe and filters are projected onto a
+        # copy on the way out.
+        cache_key = tuple(known_names)
 
-        now = self._clock()
-        with self._lock:
-            cached = self._cache.get(cache_key)
-            if cached and (now - cached[0]) < self._ttl:
-                # Return a shallow copy with the cache flag flipped
-                # so the caller can tell live vs cached apart.
-                payload = cached[1]
-                return AggregatedNews(
-                    items=payload.items,
-                    providers_used=payload.providers_used,
-                    provider_runs=payload.provider_runs,
-                    generated_at=payload.generated_at,
-                    cache_hit=True,
-                )
+        # Cold-cache single-flight: exactly one thread (the "leader")
+        # refreshes a given key; concurrent callers wait on the
+        # leader's Event and then re-check the cache instead of each
+        # stampeding the sequential upstream providers.
+        while True:
+            now = self._clock()
+            with self._lock:
+                cached = self._cache.get(cache_key)
+                if cached and now < cached[0]:
+                    return self._project(cached[1], team_filter, cache_hit=True)
+                refresh = self._refreshing.get(cache_key)
+                if refresh is None:
+                    refresh = threading.Event()
+                    self._refreshing[cache_key] = refresh
+                    break  # this thread is the leader
+            # Follower: wait for the in-flight refresh, then loop to
+            # re-check.  The timeout only guards against a wedged
+            # leader — on timeout the loop re-evaluates and this
+            # thread can take over leadership if the entry is gone.
+            refresh.wait(timeout=_REFRESH_WAIT_TIMEOUT_S)
 
-        items, runs = self._fetch_all(known_names)
-        items = _dedupe(items)
-        items = _sort_items(items)
+        try:
+            items, runs = self._fetch_all(known_names)
+            items = _dedupe(items)
+            items = _sort_items(items)
+            # Stamp position/team identity discriminators onto
+            # mentions before caching, so every consumer of the
+            # cached aggregate (route + terminal) sees enriched
+            # payloads regardless of which caller warmed the cache.
+            items = _enrich_player_mentions(items, player_meta)
+
+            providers_used = [r.name for r in runs if r.ok and r.count > 0]
+            base = AggregatedNews(
+                items=items,
+                providers_used=providers_used,
+                provider_runs=runs,
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                cache_hit=False,
+            )
+
+            # All-failed aggregates get the short failure TTL so
+            # client retries reach recovered upstreams promptly;
+            # anything with at least one healthy provider (including
+            # a legit empty feed from zero configured providers)
+            # keeps the normal TTL.
+            all_failed = bool(runs) and not any(r.ok for r in runs)
+            ttl = min(self._ttl, FAILURE_CACHE_TTL_S) if all_failed else self._ttl
+
+            now = self._clock()
+            with self._lock:
+                self._cache[cache_key] = (now + ttl, base)
+                # Evict expired entries on every miss (Codex P2).
+                # With filters out of the key the entry count is
+                # bounded by the number of distinct known-names
+                # universes (one in production), but the sweep stays
+                # as cheap insurance.  Doing it at write time (not on
+                # every read) keeps the hot path lock-free-ish and
+                # bounds the work by miss rate, which is itself
+                # rate-limited by the TTL.
+                expired = [k for k, (exp, _v) in self._cache.items() if now >= exp]
+                for k in expired:
+                    self._cache.pop(k, None)
+        finally:
+            # Release followers even if the refresh itself raised —
+            # they loop back, see no in-flight entry, and can take
+            # over leadership.
+            with self._lock:
+                self._refreshing.pop(cache_key, None)
+            refresh.set()
+
+        return self._project(base, team_filter, cache_hit=False)
+
+    def _project(
+        self,
+        base: AggregatedNews,
+        team_filter: tuple[str, ...],
+        *,
+        cache_hit: bool,
+    ) -> AggregatedNews:
+        """Apply request-level filters + the total cap to a cached
+        aggregate, returning a shallow copy so the cached entry is
+        never mutated.  The cap runs AFTER the filter (matching the
+        pre-cache-restructure order) so a narrow team filter can
+        still surface items beyond the unfiltered top slice."""
+        items = list(base.items)
         if team_filter:
             items = _filter_by_team_names(items, team_filter)
-        items = items[: self._total_limit]
-
-        providers_used = [r.name for r in runs if r.ok and r.count > 0]
-        result = AggregatedNews(
-            items=items,
-            providers_used=providers_used,
-            provider_runs=runs,
-            generated_at=datetime.now(timezone.utc).isoformat(),
-            cache_hit=False,
+        return AggregatedNews(
+            items=items[: self._total_limit],
+            providers_used=base.providers_used,
+            provider_runs=base.provider_runs,
+            generated_at=base.generated_at,
+            cache_hit=cache_hit,
         )
-
-        with self._lock:
-            self._cache[cache_key] = (now, result)
-            # Evict expired entries on every miss (Codex P2).  The
-            # cache key is ``(player_names, team_filter)`` — many
-            # distinct team combinations would otherwise accumulate
-            # full aggregated payloads forever.  Doing the sweep at
-            # write time (not on every read) keeps the hot path
-            # lock-free-ish and bounds the work by miss rate, which
-            # is itself rate-limited by the TTL.
-            expired = [k for k, (ts, _v) in self._cache.items() if (now - ts) >= self._ttl]
-            for k in expired:
-                self._cache.pop(k, None)
-
-        return result
 
     # ── provider dispatch ───────────────────────────────────────
     def _fetch_all(self, known_names: list[str]) -> tuple[List[NewsItem], List[ProviderRunResult]]:
@@ -265,7 +408,10 @@ class NewsService:
 # ── factory helpers ─────────────────────────────────────────────
 # Enabled-by-default providers.  All public, no licence required.
 # Rotowire stays registered but OFF until its paid API is wired.
-_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs")
+# ``pfk`` is the Play For Keeps articles provider — one polite
+# sitemap request per cache refresh, isolated like every other
+# provider.
+_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs", "pfk")
 
 
 def build_default_service(

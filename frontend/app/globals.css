@@ -6167,18 +6167,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--muted);
   line-height: 1.45;
 }
-.news-demo-badge {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--amber);
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 4px;
-  padding: 4px 8px;
-  align-self: flex-start;
-}
 .news-feed {
   list-style: none;
   margin: 0;

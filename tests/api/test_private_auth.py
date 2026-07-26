@@ -105,6 +105,32 @@ def test_public_api_paths_pass_without_auth(path):
     ), f"{path} requires auth unexpectedly: {res.status_code} {res.text[:200]}"
 
 
+def test_api_news_is_public_without_auth():
+    """``/api/news`` serves aggregated public sports news (Sleeper
+    trending + public RSS/sitemap providers) with zero league-private
+    data, and the public /league/player/<id> journey page
+    server-renders a news card from it — so it must be reachable
+    without a session.  The provider set is stubbed empty so the
+    test stays offline; the route still returns a full 200 payload
+    because "no providers" is a legit empty feed, not an outage."""
+    from src.news.service import NewsService
+
+    server._reset_news_service_for_tests(NewsService([]))
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/news")
+        assert res.status_code == 200, f"/api/news gated unexpectedly: {res.status_code}"
+        body = res.json()
+        assert body.get("items") == []
+        assert body.get("source") == "backend"
+        # Public endpoint — must advertise a shared-cache TTL, not a
+        # private/no-store stamp (see test_cache_control_privacy.py
+        # for the inverse invariant on gated routes).
+        assert "public" in (res.headers.get("Cache-Control") or "")
+    finally:
+        server._reset_news_service_for_tests(None)
+
+
 def test_public_league_prefix_passes_without_auth():
     """The /api/public/league/* prefix serves the isolated public
     pipeline and must never 401."""
