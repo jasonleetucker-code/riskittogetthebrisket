@@ -15,6 +15,11 @@ on:
         description: "Optional git ref (commit/tag/branch) to deploy. Default is current commit."
         required: false
         type: string
+      allow_non_fast_forward:
+        description: "Deploy even if it moves production BACKWARDS or sideways (intentional rollback). Normally leave false."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: production-deploy
@@ -198,6 +203,15 @@ jobs:
     timeout-minutes: 25
     environment: production
     steps:
+      # This job did not previously check out the repo — it only needed
+      # SSH.  The deploy-skip guard below does merge-base ancestry
+      # between the sha being deployed and the sha already in
+      # production, so it needs real history here.
+      - name: Checkout (full history for the deploy-skip guard)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Preflight validate deploy inputs (no SSH)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -343,6 +357,113 @@ jobs:
              ( [[ -x /bin/journalctl ]] && sudo -n /bin/journalctl --version >/dev/null 2>&1 ) || ( [[ -x /usr/bin/journalctl ]] && sudo -n /usr/bin/journalctl --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for journalctl (/bin/journalctl or /usr/bin/journalctl)\" >&2; exit 20; }; \
              ( [[ -x /usr/bin/install ]] && sudo -n /usr/bin/install --version >/dev/null 2>&1 ) || ( [[ -x /bin/install ]] && sudo -n /bin/install --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for install (/usr/bin/install or /bin/install)\" >&2; exit 21; }; \
              echo '[remote] preflight checks passed'"
+
+      # ── Deploy-skip guard ────────────────────────────────────────────
+      # Concurrency group ``production-deploy`` sets
+      # ``cancel-in-progress: false``, which protects the RUNNING deploy
+      # but not queued ones: GitHub holds only ONE pending run per group,
+      # so when N merges land inside a few minutes each new run evicts the
+      # previously-queued one.  Only the first and last deploys survive;
+      # every middle merge's deploy is silently cancelled.
+      #
+      # That is harmless while the train is linear, because the surviving
+      # run's sha is a descendant and carries the evicted commits anyway.
+      # It is NOT harmless when it isn't: a revert, a force-push, or a
+      # ``workflow_dispatch`` pinned to an older ``deploy_ref`` (which
+      # this workflow accepts) can leave a commit that reached ``main``
+      # silently unshipped, with a grey "cancelled" tick as the only
+      # trace — and that tick reads as "my change failed to deploy" when
+      # it actually shipped.
+      #
+      # So assert the property rather than relying on it: whatever we are
+      # about to deploy must be a descendant of what is already in
+      # production.  Observed 2026-07-26, when three merges in nine
+      # minutes cancelled the middle deploy (run 30217214959).
+      - name: Guard against skipping or reversing a deploy
+        env:
+          DEPLOY_REF_INPUT: ${{ inputs.deploy_ref }}
+          ALLOW_NON_FF: ${{ inputs.allow_non_fast_forward }}
+          LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          DEPLOY_REF="${DEPLOY_REF_INPUT:-${GITHUB_SHA}}"
+          SSH_PORT="${DEPLOY_PORT_RESOLVED}"
+          TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
+
+          # Read the last sha that actually reached production.  A missing
+          # or unreadable file is not an error — first deploy, or a fresh
+          # host — it just means there is no baseline to compare against.
+          LAST_DEPLOYED="$(
+            ssh \
+              -i "${DEPLOY_KEY_FILE}" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
+              -o ConnectTimeout=15 \
+              -p "${SSH_PORT}" \
+              "${TARGET}" \
+              "cat '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}' 2>/dev/null | tr -d '[:space:]'" \
+            || true
+          )"
+
+          TARGET_SHA="$(git rev-parse --verify "${DEPLOY_REF}^{commit}" 2>/dev/null || true)"
+          if [[ -z "${TARGET_SHA}" ]]; then
+            echo "::error title=Unknown deploy ref::'${DEPLOY_REF}' does not resolve to a commit in this checkout."
+            exit 1
+          fi
+          echo "Deploying:      ${TARGET_SHA}"
+          echo "In production:  ${LAST_DEPLOYED:-<none recorded>}"
+
+          if [[ -z "${LAST_DEPLOYED}" ]]; then
+            echo "::notice title=No deploy baseline::No last-successful-deploy commit recorded; skipping the ancestry check. This is expected on a first deploy."
+            exit 0
+          fi
+
+          if ! git cat-file -e "${LAST_DEPLOYED}^{commit}" 2>/dev/null; then
+            echo "::warning title=Baseline commit not found::The recorded production commit ${LAST_DEPLOYED} is not in this repository — history may have been rewritten. Cannot verify the deploy moves forward."
+            if [[ "${ALLOW_NON_FF}" == "true" ]]; then
+              echo "allow_non_fast_forward=true — proceeding anyway."
+              exit 0
+            fi
+            echo "::error title=Cannot verify deploy safety::Re-run with allow_non_fast_forward=true if this is intentional."
+            exit 1
+          fi
+
+          if [[ "${LAST_DEPLOYED}" == "${TARGET_SHA}" ]]; then
+            echo "::notice title=Redeploy::Already at this commit; redeploying the same tree."
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "${LAST_DEPLOYED}" "${TARGET_SHA}"; then
+            AHEAD="$(git rev-list --count "${LAST_DEPLOYED}..${TARGET_SHA}")"
+            echo "::notice title=Fast-forward deploy::Moving production forward by ${AHEAD} commit(s)."
+            # Name them, so a cancelled middle deploy is visibly carried
+            # rather than merely assumed to be.
+            git log --oneline --no-decorate "${LAST_DEPLOYED}..${TARGET_SHA}" | sed 's/^/  shipping: /'
+            exit 0
+          fi
+
+          # Not a fast-forward.  Either we are going backwards (deploying
+          # an ancestor of what is live) or the histories diverged.
+          if git merge-base --is-ancestor "${TARGET_SHA}" "${LAST_DEPLOYED}"; then
+            BEHIND="$(git rev-list --count "${TARGET_SHA}..${LAST_DEPLOYED}")"
+            REASON="this would move production BACKWARDS by ${BEHIND} commit(s), un-shipping code that is already live"
+          else
+            REASON="the deploy ref and the live commit have DIVERGED (neither is an ancestor of the other) — likely a force-push or an unrelated ref"
+          fi
+
+          echo "Commits that would be lost from production:"
+          git log --oneline --no-decorate "${TARGET_SHA}..${LAST_DEPLOYED}" | sed 's/^/  dropping: /'
+
+          if [[ "${ALLOW_NON_FF}" == "true" ]]; then
+            echo "::warning title=Non-fast-forward deploy::${REASON}. Proceeding because allow_non_fast_forward=true."
+            exit 0
+          fi
+
+          echo "::error title=Deploy would skip or reverse shipped code::${REASON}. If this is an intentional rollback, re-run via workflow_dispatch with allow_non_fast_forward=true."
+          exit 1
 
       - name: Run remote deploy script
         env:
