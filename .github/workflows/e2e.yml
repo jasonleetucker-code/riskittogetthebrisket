@@ -119,10 +119,21 @@ jobs:
           # the SERVER process only: the startup scrape's browser
           # launch fails immediately, load_from_disk keeps the seeded
           # snapshot, and no external ranking site is ever contacted.
+          #
+          # RATE_LIMIT_BYPASS_IPS exempts the runner from the public-API
+          # rate limiter (60/min + 1000/hour per IP, src/api/rate_limit.py).
+          # A full suite run fires thousands of public calls
+          # (/api/auth/status on every page load, /api/public/league/*);
+          # the hour bucket drains mid-run and the resulting 429s don't
+          # look like rate limiting downstream — create-session 429 makes
+          # signed-in specs skip, and an /api/auth/status 429 makes pages
+          # render the logged-out shell, so they surface as bogus auth or
+          # render failures.
           mkdir -p /tmp/no-pw-browsers
           UPTIME_CHECK_ENABLED=false \
           ALLOW_DEFAULT_LOGIN_DEV=1 \
           E2E_TEST_MODE=1 \
+          RATE_LIMIT_BYPASS_IPS=127.0.0.1 \
           PLAYWRIGHT_BROWSERS_PATH=/tmp/no-pw-browsers \
           nohup python server.py > "$RUNNER_TEMP/backend.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/backend.pid"
@@ -171,6 +182,11 @@ jobs:
         shell: bash
         env:
           E2E_BASE_URL: http://127.0.0.1:8000
+          # Page navigations go straight to Next.js — production's nginx
+          # topology.  Through the backend's page proxy, "/" renders the
+          # anonymous shell even for a signed-in session (and /league SSR
+          # exceeds the proxy's 5s timeout).  See helpers/journey.js.
+          E2E_PAGE_ORIGIN: http://127.0.0.1:3000
           # Page navigations go straight to Next.js — mirrors the
           # production topology (nginx routes pages to Next directly;
           # server.py's page proxy has a 5s timeout that slow SSR

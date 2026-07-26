@@ -11,14 +11,14 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, attachConsoleGuards } = require("../helpers/journey");
+const { desktopOnly, attachConsoleGuards, pageUrl } = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("/trade renders the builder with working controls", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/trade", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/trade"), { waitUntil: "domcontentloaded" });
 
     // Header renders, then the player pool finishes loading (the
     // "Loading player pool..." sentinel clears once /api/data lands).
@@ -38,7 +38,7 @@ test.describe("journey: trade surfaces", () => {
 
   test("/trades renders history (real trades or explicit empty state)", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/trades", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/trades"), { waitUntil: "domcontentloaded" });
 
     await page.waitForFunction(
       () => !document.body.innerText.includes("Loading trade data..."),
@@ -57,7 +57,7 @@ test.describe("journey: trade surfaces", () => {
 
   test("/finder renders the arbitrage board with result rows", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto("/finder", { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl("/finder"), { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("body")).toContainText(/Finder/i, { timeout: 30_000 });
 

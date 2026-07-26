@@ -83,3 +83,7 @@ Thumbs.db
 # in the pack for months; see #527). Keep local copies out of commits.
 *.har
 CSVs/*.pdf
+
+# E2E: empty browsers dir the Playwright config points the backend at so
+# its startup scrape fails fast instead of hitting live ranking sites.
+tests/e2e/.no-browsers/
