@@ -121,6 +121,63 @@ class TestAuthGates:
         assert res.headers["cache-control"] == "no-store"
 
 
+class TestBearerAuthHygiene:
+    def test_non_ascii_bearer_is_401_not_500(self, intel_data_dir, monkeypatch):
+        # Starlette decodes header values as latin-1, and
+        # hmac.compare_digest(str, str) raises TypeError on non-ASCII
+        # input — which used to surface as an unhandled 500.  Raw
+        # bytes header so the client can't "helpfully" re-encode.
+        monkeypatch.setattr(server, "INTEL_REFRESH_TOKEN", "sekrit")
+        monkeypatch.setattr(server, "_intel_auth_log_last_monotonic", 0.0)
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get(
+                "/api/intel/refresh/status",
+                headers={b"Authorization": "Bearer sekrït".encode("utf-8")},
+            )
+        assert res.status_code == 401
+
+    def test_mismatch_log_never_leaks_configured_token_metadata(
+        self, intel_data_dir, monkeypatch, caplog
+    ):
+        import logging
+
+        monkeypatch.setattr(server, "INTEL_REFRESH_TOKEN", "sekrit")
+        monkeypatch.setattr(server, "_intel_auth_log_last_monotonic", 0.0)
+        with caplog.at_level(logging.WARNING):
+            with TestClient(server.app, raise_server_exceptions=True) as c:
+                res = c.get(
+                    "/api/intel/refresh/status",
+                    headers={"Authorization": "Bearer totally-wrong"},
+                )
+        assert res.status_code == 401
+        rejects = [r.getMessage() for r in caplog.records if "intel bearer auth" in r.getMessage()]
+        assert rejects, "mismatch should log a (rate-limited) warning"
+        joined = " ".join(rejects)
+        # The journal gets quoted in ops issues — no secret material,
+        # not even the configured token's length.
+        assert "sekrit" not in joined
+        assert "len configured" not in joined
+        assert "lengths match: False" in joined
+
+    def test_reject_warnings_are_rate_limited(self, intel_data_dir, monkeypatch, caplog):
+        import logging
+
+        monkeypatch.setattr(server, "INTEL_REFRESH_TOKEN", "sekrit")
+        monkeypatch.setattr(server, "_intel_auth_log_last_monotonic", 0.0)
+        with caplog.at_level(logging.WARNING):
+            with TestClient(server.app, raise_server_exceptions=True) as c:
+                for _ in range(5):
+                    res = c.get(
+                        "/api/intel/refresh/status",
+                        headers={"Authorization": "Bearer totally-wrong"},
+                    )
+                    assert res.status_code == 401
+        rejects = [r for r in caplog.records if "intel bearer auth" in r.getMessage()]
+        # Journal-spam guard: unauthenticated rejects log at most once
+        # per interval, no matter how many requests arrive.
+        assert len(rejects) == 1
+
+
 class TestLeagueScoping:
     def test_reads_go_through_the_league_resolver(self, intel_data_dir, authed):
         # No league_stub here → the REAL resolver runs against the
