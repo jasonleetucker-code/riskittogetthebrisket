@@ -221,6 +221,34 @@ describe("filterRows + teamOptions", () => {
     expect(resolveOwnerTeam(legacyRow, buildTeamByPlayer(teams))).toBe("Brisket Bros");
   });
 
+  it("contract playersArray rows resolve ownership by playerId", async () => {
+    // Backend playersArray rows (and mergeRankingsDelta-synthesized
+    // rows) carry the Sleeper id as ``playerId``, not ``_sleeperId`` —
+    // the array materializer must read it or every contract-path row
+    // loses ID-first ownership resolution (Codex round 7 on #535).
+    const { buildRows } = await import("../lib/dynasty-data.js");
+    const data = {
+      playersArray: [
+        {
+          displayName: "Test Player",
+          position: "WR",
+          canonicalConsensusRank: 5,
+          rankDerivedValue: 5000,
+          sourceRanks: { ktc: 5 },
+          sourceCount: 1,
+          canonicalSiteValues: { ktc: 5000 },
+          playerId: "1234",
+        },
+      ],
+    };
+    const arrayRow = buildRows(data).find((x) => x.name === "Test Player");
+    expect(arrayRow.playerId).toBe("1234");
+    const teams = [
+      { name: "Brisket Bros", ownerId: "u1", players: [], playerIds: ["1234"] },
+    ];
+    expect(resolveOwnerTeam(arrayRow, buildTeamByPlayer(teams))).toBe("Brisket Bros");
+  });
+
   it("legacy materializer combines both rookie signals", async () => {
     // _isRookie (scraper zero-exp flag) alone must mark the row
     // rookie on the view=app legacy path (Codex round 4 on #535).

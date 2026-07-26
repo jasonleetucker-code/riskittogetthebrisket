@@ -1155,6 +1155,14 @@ def fetch_sleeper_rosters(league_id):
         team_player_ids = []
 
         for pid in player_ids:
+            # Every raw roster id lands in team_player_ids
+            # UNCONDITIONALLY: the frontend's definitive-ID-miss rule
+            # (player-filters.js::resolveOwnerTeam) treats a populated
+            # byId index as complete, so gating ids on VALID_POSITIONS
+            # (raw IDP labels like ILB/EDGE/FS/NT aren't in it) made
+            # rostered IDPs classify as unrostered (Codex round 7 on
+            # PR #535).  Name/position handling below stays filtered.
+            team_player_ids.append(str(pid))
             p = all_nfl.get(pid)
             if not p:
                 continue
@@ -1185,7 +1193,6 @@ def fetch_sleeper_rosters(league_id):
                 team_players.append(cn)
                 all_names.append(cn)
                 sid = str(pid)
-                team_player_ids.append(sid)
                 if cn and sid:
                     player_id_map[cn] = sid
                     id_to_player[sid] = cn

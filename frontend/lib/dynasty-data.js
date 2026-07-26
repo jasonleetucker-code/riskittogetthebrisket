@@ -1012,12 +1012,13 @@ function _materializePlayerArrayRow(player) {
 
   return {
     name,
-    // Stable Sleeper id, materialized so ID-first ownership
-    // resolution works on the DEFAULT view=app path too — the legacy
-    // dict carries it as _sleeperId only (Codex round 5 on PR #535;
-    // keep in lockstep with the playersArray materializer + override
+    // Stable Sleeper id for ID-first ownership resolution.  Backend
+    // playersArray rows and mergeRankingsDelta-synthesized rows carry
+    // it as ``playerId``; ``_sleeperId`` covers any legacy-shaped row
+    // routed through this materializer (Codex rounds 5+7 on PR #535;
+    // keep in lockstep with the legacy materializer + override
     // synthesis).
-    playerId: String(player._sleeperId || "").trim() || null,
+    playerId: String(player.playerId || player._sleeperId || "").trim() || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
