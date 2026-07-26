@@ -1461,6 +1461,18 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
                     warmed,
                     warm_failed,
                 )
+            # Sleeper trending-adds warm (FAAB v2) — global (not
+            # per-league), tiny payload, 15-min TTL.  Failure is
+            # non-fatal: the recommend endpoint fetches on demand
+            # and degrades to the contract's sleeperTrending
+            # fallback when the adapter has nothing.
+            try:
+                from src.adapters import sleeper_trending as _sleeper_trending  # noqa: PLC0415
+
+                if not _sleeper_trending.warm():
+                    log.warning("post-scrape trending warm: no snapshot available")
+            except Exception as trend_exc:  # noqa: BLE001
+                log.warning("post-scrape trending warm failed: %s", trend_exc)
         except Exception as exc:  # noqa: BLE001
             log.warning("post-scrape overlay warm pass failed: %s", exc)
 
@@ -4235,11 +4247,21 @@ async def post_waiver_faab_recommend(request: Request):
       ``leagueKey``       optional — pin to a specific league
       ``addPlayerName``   required — display name of the add side
       ``dropPlayerName``  optional — display name of the drop side
+      ``teamOwnerId``     optional — the requesting user's Sleeper
+                          owner id.  Unlocks the team FAAB cap AND
+                          the FAAB v2 rival-contention model
+                          (without it contention is skipped with an
+                          explicit missing-factor note — we never
+                          guess which team is the user's).
 
     Returns the ``recommend_faab`` payload (see
     ``src/trade/faab_recommender.py``) with ``conservative``,
     ``standard``, ``aggressive``, ``max`` bids plus confidence
-    breakdown + warnings + plain-English explanation.
+    breakdown + warnings + plain-English explanation.  FAAB v2
+    adds ONLY new keys (backward compatible): ``contention``
+    (clearing / topRival / perOpponent), ``inputsAsOf`` (rosters,
+    leagueAnalytics, trending, intel timestamps) and
+    ``staleInputs``.
     """
     if not latest_contract_data or not latest_contract_data.get("playersArray"):
         return JSONResponse(
@@ -4298,16 +4320,36 @@ async def post_waiver_faab_recommend(request: Request):
     drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
     add_position = add_row.get("position") or add_row.get("pos") or None
 
-    # Top of the league's free-agent pool — used as the baseline
-    # ``top_value_in_pool`` so a player worth 70% of the top adds
-    # the right share of budget.
+    # Rosters: prefer the live Sleeper overlay (15-min cache) — its
+    # ``teams`` carry ``faabRemaining`` (the baked scrape block does
+    # not), which both the team cap and the rival-contention model
+    # need.  Fall back to the baked block when the overlay is down.
     sleeper = latest_contract_data.get("sleeper") or {}
+    rosters_as_of: str | None = None
     sleeper_teams = sleeper.get("teams") or []
+    try:
+        _overlay_id_map = sleeper.get("idToPlayer") if isinstance(sleeper, dict) else {}
+        overlay = await run_in_threadpool(
+            _sleeper_overlay.fetch_sleeper_overlay,
+            sleeper_league_id=league_cfg.sleeper_league_id,
+            id_to_player=_overlay_id_map if isinstance(_overlay_id_map, dict) else {},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("faab-recommend overlay fetch failed for %s: %s", league_cfg.key, exc)
+        overlay = None
+    if overlay and overlay.get("teams"):
+        sleeper_teams = overlay["teams"]
+        rosters_as_of = overlay.get("overlayFetchedAt")
+
+    # One pass over the pool: top FA value (baseline share) AND the
+    # next-best same-position FA (replaceability gate for FAAB v2).
     rostered_norms: set[str] = set()
     for t in sleeper_teams:
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
+    add_position_norm = str(add_position or "").upper()
     top_pool_value = 0.0
+    next_best_fa_value = 0.0
     for row in arr:
         if not isinstance(row, dict):
             continue
@@ -4317,6 +4359,13 @@ async def post_waiver_faab_recommend(request: Request):
         v = float(row.get("rankDerivedValue") or 0)
         if v > top_pool_value:
             top_pool_value = v
+        if (
+            add_position_norm
+            and rname != add_target
+            and str(row.get("position") or "").upper() == add_position_norm
+            and v > next_best_fa_value
+        ):
+            next_best_fa_value = v
 
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
@@ -4327,10 +4376,12 @@ async def post_waiver_faab_recommend(request: Request):
     from src.api import faab_analytics  # noqa: PLC0415
 
     league_summary: dict | None = None
+    league_analytics_as_of: str | None = None
     try:
         snap_obj = public_snapshot_store.load_snapshot()
         if snap_obj is not None:
             league_summary = faab_analytics.summarize_league_faab(snap_obj)
+            league_analytics_as_of = getattr(snap_obj, "generated_at", None)
     except Exception as exc:  # noqa: BLE001
         log.warning(
             "faab analytics build failed for %s: %s",
@@ -4358,20 +4409,37 @@ async def post_waiver_faab_recommend(request: Request):
         league_summary.get("leagueBudget") if isinstance(league_summary, dict) else 100
     ) or 100
 
-    # Sleeper trending data is collected by an upstream cron and
-    # exposed on the contract under a ``sleeperTrending`` key when
-    # available.  Defensive lookup — missing key just lowers the
-    # recommendation's confidence.
+    # Sleeper trending adds — PRIMARY: the live TTL-cached adapter
+    # (``src/adapters/sleeper_trending.py``, warmed post-scrape).
+    # FALLBACK: the contract's ``sleeperTrending`` key, kept for
+    # deployments that backfill it out-of-band (no producer writes
+    # it in this repo today).  Missing both just lowers confidence.
+    from src.adapters import sleeper_trending as _sleeper_trending  # noqa: PLC0415
+
     trending_for_player: dict | None = None
-    trending_block = latest_contract_data.get("sleeperTrending") or {}
-    if isinstance(trending_block, dict):
-        for pid, rec in trending_block.items():
-            if not isinstance(rec, dict):
-                continue
-            rname = _norm(rec.get("displayName") or rec.get("name"))
-            if rname == add_target:
-                trending_for_player = rec
-                break
+    trending_as_of: str | None = None
+    add_player_id = str(add_row.get("playerId") or "").strip()
+    try:
+        trending_snapshot = await run_in_threadpool(_sleeper_trending.get_trending_adds)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("faab-recommend trending fetch failed: %s", exc)
+        trending_snapshot = None
+    if isinstance(trending_snapshot, dict) and isinstance(trending_snapshot.get("counts"), dict):
+        trending_as_of = trending_snapshot.get("fetchedAt")
+        count = trending_snapshot["counts"].get(add_player_id) if add_player_id else None
+        # Data present: a player absent from the board legitimately
+        # counts 0 (not-trending is signal, not a missing input).
+        trending_for_player = {"count": int(count or 0)}
+    else:
+        trending_block = latest_contract_data.get("sleeperTrending") or {}
+        if isinstance(trending_block, dict):
+            for pid, rec in trending_block.items():
+                if not isinstance(rec, dict):
+                    continue
+                rname = _norm(rec.get("displayName") or rec.get("name"))
+                if rname == add_target:
+                    trending_for_player = rec
+                    break
 
     # KTC crowd-sourced bid map — Phase B7 bridge.  Bridge degrades
     # gracefully (returns empty dict) when the contract has no
@@ -4382,9 +4450,10 @@ async def post_waiver_faab_recommend(request: Request):
 
     ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
 
+    from src.trade import faab_contention as _faab_contention  # noqa: PLC0415
     from src.trade.faab_recommender import recommend_faab  # noqa: PLC0415
 
-    rec = recommend_faab(
+    base_kwargs = dict(
         add_player_value=add_value,
         drop_player_value=drop_value,
         add_player_position=add_position,
@@ -4396,6 +4465,107 @@ async def post_waiver_faab_recommend(request: Request):
         league_budget=int(league_budget),
         top_value_in_pool=top_pool_value if top_pool_value > 0 else None,
     )
+
+    # First pass — pure value recommendation.  Its ``standard`` is
+    # also the rival model's base bid: rivals price the same player
+    # off the same public value signals.
+    rec = recommend_faab(**base_kwargs)
+
+    # Phase-5 intel snapshot — defensive plain-JSON read, no
+    # ``src.intel`` import (may not be merged/deployed).  Loaded
+    # regardless of contention so ``inputsAsOf.intel`` is honest.
+    intel_snapshot = _faab_contention.load_intel_snapshot()
+    intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
+
+    # Rival contention (FAAB v2).  Requires ``teamOwnerId`` — we
+    # never guess which team is the user's, because modeling the
+    # user's own team as a rival poisons the clearing price.
+    contention: dict | None = None
+    if requested_team:
+        opponents = [
+            t
+            for t in sleeper_teams
+            if isinstance(t, dict) and str(t.get("ownerId") or "") != str(requested_team)
+        ]
+        # teamAggression keyed by historical ownerIds — filter to
+        # CURRENT owners so departed managers' histories don't
+        # drift into the estimates.
+        current_owner_ids = {str(t.get("ownerId") or "") for t in opponents}
+        raw_aggression = (league_summary or {}).get("teamAggression") or {}
+        team_aggression = {
+            oid: entry for oid, entry in raw_aggression.items() if oid in current_owner_ids
+        }
+        intel_index = None
+        if intel_snapshot is not None:
+            intel_index = _faab_contention.build_intel_index(
+                intel_snapshot,
+                id_to_position=_faab_contention.player_position_map(latest_contract_data),
+            )
+        try:
+            contention = await run_in_threadpool(
+                lambda: _faab_contention.estimate_rival_bids(
+                    base_bid=int(rec.get("standard") or 0),
+                    add_position=add_position,
+                    add_player_id=add_player_id or None,
+                    opponents=opponents,
+                    contract=latest_contract_data,
+                    team_aggression=team_aggression,
+                    league_median_winning_bid=(league_summary or {}).get("leagueMedianWinningBid"),
+                    intel_index=intel_index,
+                    intel_available=intel_snapshot is not None,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("faab-recommend contention estimate failed: %s", exc)
+            contention = None
+
+    if contention is not None:
+        # Second pass — same inputs plus the rival estimates and the
+        # replaceability gate's next-best-FA value.
+        rec = recommend_faab(
+            **base_kwargs,
+            contention=contention,
+            next_best_fa_value=next_best_fa_value,
+        )
+        rec["contention"] = {
+            "clearing": contention["clearing"],
+            "topRival": contention["topRival"],
+            "perOpponent": contention["perOpponent"],
+            "estimateOnly": True,
+            "notes": contention["notes"],
+            "skipped": False,
+        }
+    else:
+        skip_reason = (
+            "teamOwnerId not provided — rival contention skipped "
+            "(we never guess which team is yours)."
+            if not requested_team
+            else "rival contention unavailable for this request."
+        )
+        rec["factors"].append(
+            {
+                "label": "Rival contention",
+                "contribution": "missing",
+                "weight": 0.15,
+                "missing": True,
+            }
+        )
+        rec["contention"] = {
+            "clearing": None,
+            "topRival": None,
+            "perOpponent": [],
+            "estimateOnly": True,
+            "notes": [skip_reason],
+            "skipped": True,
+        }
+
+    rec["inputsAsOf"] = {
+        "rosters": rosters_as_of,
+        "leagueAnalytics": league_analytics_as_of,
+        "trending": trending_as_of,
+        "intel": intel_as_of,
+    }
+    rec["staleInputs"] = _faab_contention.stale_inputs(rec["inputsAsOf"])
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value
