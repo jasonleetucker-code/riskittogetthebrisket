@@ -47,6 +47,17 @@ const SEL = {
   newsStoryRow: ".news-story-row",
   // /news — the player button inside a digest row (opens the profile).
   newsDigestPlayer: ".news-digest-row button",
+  // /edge (R3) — market-intelligence screen. Signals are grouped into
+  // three families behind a tablist; each family renders ds Panels
+  // whose bodies are DataTables.
+  edgeSignalTab: '[role="tablist"][aria-label="Signal family"] [role="tab"]',
+  edgeSignalTable: '[role="tabpanel"] .ds-table-wrap table',
+  edgeSignalRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // /finder (R3) — workflow presets as a tablist over one result table.
+  finderWorkflowTab:
+    '[role="tablist"][aria-label="Discovery workflow"] [role="tab"]',
+  finderFilters: ".finder-filters",
+  finderRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
 };
 
 function isMobileProject(testInfo) {

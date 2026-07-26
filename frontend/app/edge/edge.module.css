@@ -1,0 +1,99 @@
+/* edge.module.css — /edge structural styles (R3, token-driven).
+   Position/confidence badges and action labels stay on their legacy
+   global classes until the R5 purge (same call R2 made for the board);
+   everything structural here rides the R0 tokens. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Summary strip ────────────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 1024px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (width < 480px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Signal grid ──────────────────────────────────────────────────── */
+/* Explicit two-up at desktop, one-up below — never auto-fit. */
+.signalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+@media (width < 1024px) {
+  .signalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The tab strip sits directly above the grid it controls. */
+.tabStrip {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-1);
+}
+
+/* ── Cells ────────────────────────────────────────────────────────── */
+.playerCell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: inherit;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.playerCell:hover {
+  color: var(--accent);
+}
+.playerTeam {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.muted {
+  color: var(--text-tertiary);
+}
+.flags {
+  font-size: var(--font-size-2xs);
+  color: var(--warning-text);
+}
+.signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Chart caption sits above the plot, not floating in a card. */
+.chartNote {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+  max-width: 78ch;
+}
+.methodNote {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-tertiary);
+  max-width: 78ch;
+}
