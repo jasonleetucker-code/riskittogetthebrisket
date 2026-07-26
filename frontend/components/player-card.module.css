@@ -219,6 +219,19 @@
   background: var(--chart-1);
   transition: width var(--motion-slow) var(--ease-out);
 }
+/* Magnitude encoding relative to the player's strongest source.
+   Semantic (not categorical) — a source at 95% of the top vote is
+   corroborating, one under 50% is pulling the blend down — so these
+   ride the state tokens rather than the --chart-* series slots. */
+.sourceFillHigh {
+  background: var(--positive);
+}
+.sourceFillMid {
+  background: var(--accent);
+}
+.sourceFillLow {
+  background: var(--negative);
+}
 .sourceValue {
   min-width: 64px;
   text-align: right;

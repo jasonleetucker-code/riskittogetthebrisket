@@ -1006,9 +1006,22 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                   <div className={styles.sourceLabel} title={s.key}>
                     {s.label}
                   </div>
+                  {/* Bar tone encodes MAGNITUDE relative to the
+                      player's top source (>=90% / >=50% / below) —
+                      information, not decoration: it shows at a glance
+                      which sources are carrying the blend and which
+                      are dragging it. Ported from the pre-R2 popup
+                      onto semantic tokens. */}
                   <div className={styles.sourceTrack}>
                     <div
-                      className={styles.sourceFill}
+                      className={[
+                        styles.sourceFill,
+                        s.pct >= 90
+                          ? styles.sourceFillHigh
+                          : s.pct >= 50
+                            ? styles.sourceFillMid
+                            : styles.sourceFillLow,
+                      ].join(" ")}
                       style={{ width: `${Math.min(100, s.pct)}%` }}
                     />
                   </div>

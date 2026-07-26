@@ -10,12 +10,15 @@ degrades on silently, never a 5xx.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 import server
 from src.playerctx import store as playerctx_store
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture()
@@ -134,6 +137,31 @@ class TestPlayerctxEndpoint:
         res = client.get("/api/playerctx/player")
         assert res.status_code == 400
         assert res.json()["error"] == "missing_param"
+
+    def test_producer_is_scheduled(self):
+        """A read endpoint without a scheduled producer ships a 404.
+
+        ``data/`` is gitignored, so the snapshot only exists on prod if
+        something builds it there.  Pin the systemd units + their
+        installer wiring: this is the check that would have caught the
+        R2 endpoint shipping against a snapshot nothing produced.
+        """
+        service = REPO_ROOT / "deploy" / "systemd" / "dynasty-playerctx-refresh.service.template"
+        timer = REPO_ROOT / "deploy" / "systemd" / "dynasty-playerctx-refresh.timer.template"
+        assert service.exists(), "player-context refresh service template missing"
+        assert timer.exists(), "player-context refresh timer template missing"
+
+        # The unit must actually invoke the refresh script.
+        assert "scripts/refresh_playerctx.py" in service.read_text()
+        # …and the timer must be on a real schedule.
+        assert "OnCalendar=" in timer.read_text()
+
+        # The installer must render AND enable it, or the templates are
+        # inert files that never reach /etc/systemd/system.
+        installer = (REPO_ROOT / "deploy" / "install-systemd-service.sh").read_text()
+        assert "dynasty-playerctx-refresh.service.template" in installer
+        assert "dynasty-playerctx-refresh.timer.template" in installer
+        assert "playerctx_needs_install" in installer
 
     def test_snapshot_cache_reloads_on_mtime_change(self, client, tmp_path, monkeypatch):
         snapshot = _write_snapshot(tmp_path, monkeypatch)

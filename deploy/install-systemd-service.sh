@@ -340,6 +340,53 @@ main() {
     fi
   fi
 
+  # ── Player-context refresh timer (prod-side producer) ──────────────────
+  # Builds data/playerctx/snapshot.json, which GET /api/playerctx/player
+  # serves to the player profile card.  MUST run on prod: the endpoint
+  # reads a local file and data/ is gitignored, so a CI-built snapshot
+  # would never reach the VPS.  Unlike the alert/DLF timers this needs
+  # NO credentials (public nflverse assets), so it installs
+  # unconditionally whenever both templates are present.
+  local playerctx_service_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-refresh.service.template"
+  local playerctx_timer_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-refresh.timer.template"
+  local playerctx_service_name="${SERVICE_NAME}-playerctx-refresh"
+  local playerctx_service_path="/etc/systemd/system/${playerctx_service_name}.service"
+  local playerctx_timer_path="/etc/systemd/system/${playerctx_service_name}.timer"
+  local playerctx_needs_install=false
+
+  if [[ -f "${playerctx_service_template}" && -f "${playerctx_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${playerctx_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${playerctx_service_path} + timer."
+        playerctx_needs_install=true
+      else
+        log "Player-context timer already installed; skipping."
+      fi
+    else
+      log "Installing player-context refresh service + timer."
+      playerctx_needs_install=true
+    fi
+
+    if [[ "${playerctx_needs_install}" == "true" ]]; then
+      local tmp_playerctx_service tmp_playerctx_timer
+      tmp_playerctx_service="$(mktemp)"
+      tmp_playerctx_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${playerctx_service_template}" > "${tmp_playerctx_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${playerctx_timer_template}" > "${tmp_playerctx_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_service}" "${playerctx_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_timer}" "${playerctx_timer_path}"
+      rm -f "${tmp_playerctx_service}" "${tmp_playerctx_timer}"
+      log "Installed ${playerctx_service_name}.service + .timer"
+    fi
+  fi
+
   # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
   # CI cannot run scripts/fetch_dlf.py — Cloudflare 403s the GitHub
   # Actions runner IPs.  The same script succeeds from prod, so this
@@ -486,6 +533,19 @@ main() {
   if [[ "${custom_alerts_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${custom_alerts_service_name}.timer"
     log "Enabled ${custom_alerts_service_name}.timer"
+  fi
+  if [[ "${playerctx_needs_install}" == "true" ]]; then
+    # --now arms the timer immediately; the FIRST snapshot is built by
+    # the explicit kick below rather than waiting for Tuesday, so the
+    # profile card's context section isn't dark until then.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${playerctx_service_name}.timer"
+    log "Enabled ${playerctx_service_name}.timer"
+    if [[ ! -s "${APP_DIR}/data/playerctx/snapshot.json" ]]; then
+      log "No player-context snapshot yet — kicking an initial build in the background."
+      # --no-block: a ~3 min download must never stall the deploy.
+      sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
+        log "Note: initial player-context build could not be started; the timer will cover it."
+    fi
   fi
   if [[ "${dlf_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${dlf_fetch_service_name}.timer"

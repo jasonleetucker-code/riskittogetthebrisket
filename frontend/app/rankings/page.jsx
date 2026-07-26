@@ -1454,6 +1454,37 @@ export default function RankingsPage() {
               rowKey={(row) => row.name}
               presorted
               density="compact"
+              // DataTable renders emptyState INSTEAD of the table when
+              // rows are empty — without one, a filter that matches
+              // nothing renders no table at all (not even headers) and
+              // the user is left staring at a blank panel.
+              emptyState={
+                <EmptyState
+                  title="No players match these filters"
+                  description={
+                    advActiveCount > 0 || query
+                      ? "Clear the search or advanced filters to widen the board."
+                      : "Try a different lens, position, or confidence filter."
+                  }
+                  action={
+                    hasActiveFilter ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setQuery("");
+                          setPosFilter("all");
+                          setConfFilter("all");
+                          clearAdv();
+                          handleLensChange("consensus");
+                        }}
+                      >
+                        Reset filters
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              }
               sort={tableSort}
               onSortChange={handleTableSort}
               onRowClick={(row) =>
@@ -1491,7 +1522,11 @@ export default function RankingsPage() {
                         <MobileSourceStrip row={row} formatSourceCell={formatSourceCell} />
                       </td>
                     </tr>
-                    <tr>
+                    {/* rankings-audit-row carries the panel's
+                        padding:0 + dark inset from globals.css — the
+                        expansion reads as an inset drawer, not another
+                        table row. */}
+                    <tr className="rankings-audit-row">
                       <td colSpan={totalCols}>
                         <SourceAuditPanel
                           row={row}
