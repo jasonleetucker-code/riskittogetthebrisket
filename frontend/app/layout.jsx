@@ -1,7 +1,26 @@
 import "./globals.css";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import AppShellWrapper from "./AppShellWrapper";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PullToRefresh from "@/components/PullToRefresh";
+
+// Redesign R0: actually load the fonts the token layer names. The audit
+// found Inter + JetBrains Mono referenced in CSS but never loaded — every
+// platform silently fell back to Segoe UI / Courier-class stacks. next/font
+// self-hosts both at build time (zero runtime requests), exposes them as
+// CSS variables consumed by tokens.css (--font-ui / --font-data) and by the
+// legacy --font / --mono stacks in globals.css, and uses display:swap so
+// text renders immediately on first visit.
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
 export const metadata = {
   title: "Dynasty Trade Calculator",
@@ -32,7 +51,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body>
         <ServiceWorkerRegistrar />
         <PullToRefresh />

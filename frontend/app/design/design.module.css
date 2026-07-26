@@ -1,0 +1,121 @@
+/* Gallery layout for /design — page-local, token-driven. */
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.cols2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.cols3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cols4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 768px) {
+  .cols2,
+  .cols3,
+  .cols4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.swatch {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+.swatchChip {
+  height: 56px;
+}
+.swatchMeta {
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.swatchName {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.swatchNote {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+.typeRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+}
+.typeTag {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.spaceChip {
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-border);
+  border-radius: 2px;
+  height: 16px;
+}
+
+.radiusChip {
+  width: 56px;
+  height: 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+}
+
+.shadowChip {
+  width: 120px;
+  height: 56px;
+  background: var(--surface-2);
+  border-radius: var(--radius-2);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+.demoLabel {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+}

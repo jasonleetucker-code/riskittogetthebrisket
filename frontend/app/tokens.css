@@ -1,0 +1,266 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   TOKENS.CSS — Design-token foundation (Redesign R0)
+   "War-room terminal": near-black violet-tinted neutrals, one gold accent,
+   financial-terminal semantic colors, a disciplined 8-step type scale.
+
+   RULES
+   ─────
+   1. Components consume the SEMANTIC aliases (--surface-*, --text-*,
+      --accent*, --positive…), never the primitive ramp directly.
+   2. This layer is ADDITIVE. It defines only NEW custom-property names —
+      it never redefines the legacy tokens in globals.css (--bg, --card,
+      --cyan, --space-md, --radius-sm …). R1+ migrates pages off those.
+   3. Dark is the default theme. [data-theme="light"] re-maps the semantic
+      aliases only; primitives are theme-invariant. New code must therefore
+      never hardcode a hex — theme support is free if you stay semantic.
+   4. Every color here was checked: text tokens ≥ 4.5:1 on every surface
+      they may sit on; semantic/chart marks ≥ 3:1 on panel surfaces; the
+      categorical chart ordering passed the CVD validator (see
+      docs/DESIGN-SYSTEM.md → Color).
+
+   Full reference + rationale: docs/DESIGN-SYSTEM.md
+   Machine-readable contract:  frontend/components/ds/token-contract.js
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── PRIMITIVES · neutral ramp (violet undertone, hue ≈ 265) ─────────────
+     0 = lightest, 1000 = darkest. Theme-invariant raw material. */
+  --neutral-0: #ffffff;
+  --neutral-50: #f2eff7;
+  --neutral-100: #e4e0ee;
+  --neutral-200: #c9c2da;
+  --neutral-300: #a9a1bc;
+  --neutral-400: #8b82a3;
+  --neutral-500: #6d6486;
+  --neutral-600: #55506a;
+  --neutral-700: #4a3f63;
+  --neutral-750: #332b45;
+  --neutral-800: #221d30;
+  --neutral-850: #1b1726;
+  --neutral-900: #14111c;
+  --neutral-950: #0d0b12;
+  --neutral-1000: #080610;
+
+  /* ── PRIMITIVES · brand ──────────────────────────────────────────────────
+     The franchise gold survives the redesign as the ONE accent. The legacy
+     saturated-purple card surfaces do not — purple lives on only as the
+     neutral undertone and these raw brand hexes. */
+  --brand-gold: #ffc704;
+  --brand-purple: #4f2185;
+
+  /* ═══ SEMANTIC ALIASES — what components actually use ═══════════════════ */
+
+  /* ── Surfaces (elevation by lightness, not shadow) ── */
+  --surface-0: var(--neutral-950); /* page background            */
+  --surface-1: var(--neutral-900); /* panel / card               */
+  --surface-2: var(--neutral-850); /* nested/raised: rows, inputs */
+  --surface-3: var(--neutral-800); /* overlay: popover, menu     */
+  --surface-hover: rgba(242, 239, 247, 0.05); /* wash over any surface */
+  --surface-active: rgba(242, 239, 247, 0.08);
+  --surface-inverse: var(--neutral-50);
+  --backdrop: rgba(8, 6, 16, 0.72); /* modal / drawer scrim       */
+
+  /* ── Text ── */
+  --text-primary: var(--neutral-50);
+  --text-secondary: var(--neutral-300);
+  --text-tertiary: var(--neutral-400); /* still AA on every surface */
+  --text-disabled: var(--neutral-600); /* decorative only — sub-AA  */
+  --text-inverse: var(--neutral-950);
+
+  /* ── Borders ── */
+  --border-subtle: rgba(242, 239, 247, 0.07); /* hairlines inside panels  */
+  --border-default: var(--neutral-750); /* panel outlines            */
+  --border-strong: var(--neutral-700); /* interactive rest borders  */
+
+  /* ── Accent (ONE accent: gold) ── */
+  --accent: var(--brand-gold);
+  --accent-hover: #ffd43b;
+  --accent-pressed: #e0ae00;
+  --accent-muted: rgba(255, 199, 4, 0.13); /* selected wash / chip bg   */
+  --accent-border: rgba(255, 199, 4, 0.35);
+  --text-on-accent: #191203;
+
+  /* ── Semantic: market direction & system state ──
+     Restrained terminal palette — desaturated green/coral, never neon.
+     Base = marks/icons (≥3:1); *-text = copy (≥4.5:1); *-muted = washes. */
+  --positive: #4cc38a;
+  --positive-text: #63d69f;
+  --positive-muted: rgba(76, 195, 138, 0.12);
+  --negative: #e5646e;
+  --negative-text: #f2828b;
+  --negative-muted: rgba(229, 100, 110, 0.12);
+  --warning: #e09f3e;
+  --warning-text: #edb25e;
+  --warning-muted: rgba(224, 159, 62, 0.12);
+  --info: #6ca5e8;
+  --info-text: #8fbcf0;
+  --info-muted: rgba(108, 165, 232, 0.12);
+  --neutral-signal: var(--neutral-400); /* "hold" / no movement      */
+  --neutral-signal-muted: rgba(139, 130, 163, 0.12);
+
+  /* ── Focus ── */
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
+  --focus-ring-color: var(--accent);
+
+  /* ── Charts (validated categorical order — see DESIGN-SYSTEM.md) ──
+     Assign in fixed slot order, never cycle. >6 series → fold to "Other". */
+  --chart-1: #c98500; /* gold   (brand family leads)  */
+  --chart-2: #3987e5; /* blue                         */
+  --chart-3: #d55181; /* magenta                      */
+  --chart-4: #9085e9; /* violet                       */
+  --chart-5: #199e70; /* aqua                         */
+  --chart-6: #d95926; /* orange                       */
+  --chart-grid: rgba(242, 239, 247, 0.06);
+  --chart-axis: var(--neutral-700);
+
+  /* ── Typography ──
+     Families resolve to next/font variables set on <html> (layout.jsx);
+     the raw names are fallbacks for non-Next contexts. */
+  --font-ui: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-data: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
+    ui-monospace, monospace;
+
+  /* Type scale — EIGHT sizes, period. (was: 47 distinct sizes)
+     2xs is the floor: 11px. Nothing renders smaller than this. */
+  --font-size-2xs: 0.6875rem; /* 11px  micro labels, table meta   */
+  --font-size-xs: 0.75rem; /*   12px  captions, badges           */
+  --font-size-sm: 0.8125rem; /* 13px  dense table body, secondary */
+  --font-size-md: 0.875rem; /*  14px  body (matches legacy body)  */
+  --font-size-lg: 1rem; /*       16px  emphasized body, tile value */
+  --font-size-xl: 1.25rem; /*    20px  section / panel headline    */
+  --font-size-2xl: 1.5rem; /*    24px  page title                  */
+  --font-size-3xl: 2rem; /*      32px  hero stat                   */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2; /* headings, tiles      */
+  --line-height-snug: 1.35; /* dense table rows     */
+  --line-height-normal: 1.5; /* body copy            */
+
+  --tracking-wide: 0.06em; /* uppercase eyebrows / column headers */
+
+  /* ── Spacing (4px base grid) ── */
+  --space-0: 0;
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*   8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /*    16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /*  24px */
+  --space-7: 2rem; /*    32px */
+  --space-8: 2.5rem; /*  40px */
+  --space-9: 3rem; /*    48px */
+  --space-10: 4rem; /*   64px */
+
+  /* ── Radii — FOUR values (was: 24) ── */
+  --radius-1: 4px; /* inputs, badges, cells      */
+  --radius-2: 8px; /* buttons, tiles, popovers   */
+  --radius-3: 12px; /* panels, modals             */
+  --radius-full: 999px; /* pills, status dots     */
+
+  /* ── Shadows — THREE elevations (was: 14). Dark UI leans on surface
+     lightness + borders; shadows only reinforce true overlays. ── */
+  --shadow-1: 0 1px 2px rgba(8, 6, 16, 0.4);
+  --shadow-2: 0 4px 12px rgba(8, 6, 16, 0.45);
+  --shadow-3: 0 12px 32px rgba(8, 6, 16, 0.6);
+
+  /* ── Z-index scale (was: 14+ ad-hoc values; legacy peaks at 2000) ── */
+  --z-raised: 1;
+  --z-sticky: 10; /* sticky table headers        */
+  --z-header: 100; /* app top bar                 */
+  --z-dropdown: 2100; /* menus, popovers, tooltips…  */
+  --z-overlay: 2200; /* modal/drawer scrim          */
+  --z-modal: 2300;
+  --z-toast: 2400;
+  --z-tooltip: 2500;
+
+  /* ── Motion ── */
+  --motion-fast: 120ms; /* hover washes, toggles       */
+  --motion-base: 180ms; /* fades, popovers             */
+  --motion-slow: 280ms; /* drawers, modals             */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Breakpoints — FOUR (was: 14). CSS vars cannot drive @media;
+     these document the canonical values. Media queries must use the
+     literal px values below and no others. ── */
+  --breakpoint-sm: 480px; /* phone                       */
+  --breakpoint-md: 768px; /* tablet / nav collapse       */
+  --breakpoint-lg: 1024px; /* desktop                    */
+  --breakpoint-xl: 1320px; /* max shell width             */
+}
+
+/* ── Reduced motion: collapse all token-driven motion ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FUTURE LIGHT MODE — structural scaffold.
+   The app is dark-only today; this block exists so the semantic layer is
+   provably theme-invertible. Flipping <html data-theme="light"> re-maps
+   surfaces/text/borders; components that stay semantic need zero changes.
+   (Chart slots + accent get their own light steps at enablement time —
+   see DESIGN-SYSTEM.md → Theming.)
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="light"] {
+  --surface-0: #f6f4fa;
+  --surface-1: #fdfcfe;
+  --surface-2: #efecf5;
+  --surface-3: #ffffff;
+  --surface-hover: rgba(13, 11, 18, 0.04);
+  --surface-active: rgba(13, 11, 18, 0.07);
+  --surface-inverse: var(--neutral-900);
+  --backdrop: rgba(13, 11, 18, 0.4);
+
+  --text-primary: #161321;
+  --text-secondary: #4c4562;
+  --text-tertiary: #665e80;
+  --text-disabled: #a9a1bc;
+  --text-inverse: var(--neutral-50);
+
+  --border-subtle: rgba(13, 11, 18, 0.07);
+  --border-default: #d8d3e4;
+  --border-strong: #b9b1cc;
+
+  /* Gold flips to its text-safe step on light surfaces. */
+  --accent: #9c7a00;
+  --accent-hover: #7d6200;
+  --accent-pressed: #5f4b00;
+  --accent-muted: rgba(156, 122, 0, 0.1);
+  --accent-border: rgba(156, 122, 0, 0.35);
+  --text-on-accent: #ffffff;
+
+  --positive: #157f4c;
+  --positive-text: #10683e;
+  --positive-muted: rgba(21, 127, 76, 0.1);
+  --negative: #c33d47;
+  --negative-text: #a82e38;
+  --negative-muted: rgba(195, 61, 71, 0.1);
+  --warning: #99621d;
+  --warning-text: #7d4f16;
+  --warning-muted: rgba(153, 98, 29, 0.12);
+  --info: #2a63ad;
+  --info-text: #1f528f;
+  --info-muted: rgba(42, 99, 173, 0.1);
+  --neutral-signal: #665e80;
+  --neutral-signal-muted: rgba(102, 94, 128, 0.1);
+
+  --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #9c7a00;
+  --focus-ring-color: #9c7a00;
+
+  --chart-grid: rgba(13, 11, 18, 0.07);
+  --chart-axis: #b9b1cc;
+
+  --shadow-1: 0 1px 2px rgba(22, 19, 33, 0.08);
+  --shadow-2: 0 4px 12px rgba(22, 19, 33, 0.1);
+  --shadow-3: 0 12px 32px rgba(22, 19, 33, 0.16);
+}
