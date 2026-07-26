@@ -122,6 +122,47 @@ class TestParse:
         assert _provider(fetcher, targets=[]).fetch() == []
         assert fetcher.calls == []
 
+    def test_undated_entries_are_skipped(self):
+        """No published/lastModified (or an unparseable one) → the
+        entry is dropped at the provider.  Stamping now() instead
+        would fabricate freshness on every refetch and smuggle old
+        articles past the service's 7-day cutoff."""
+        undated = {"id": "u1", "headline": "Undated note", "links": {}}
+        unparseable = {
+            "id": "u2",
+            "headline": "Bad-date note",
+            "published": "not a timestamp",
+            "links": {},
+        }
+        dated = _entry("d1", "Dated note")
+        fetcher = _RecordingFetcher({"4430807": _feed_payload(undated, unparseable, dated)})
+        items = _provider(fetcher, targets=[TARGETS[0]]).fetch()
+        assert [it.headline for it in items] == ["Dated note"]
+
+    def test_undated_entry_never_reaches_the_aggregate(self):
+        from src.news.service import NewsService
+
+        undated = {"id": "u1", "headline": "Undated note", "links": {}}
+        fetcher = _RecordingFetcher({"4430807": _feed_payload(undated)})
+        provider = _provider(fetcher, targets=[TARGETS[0]])
+        svc = NewsService([provider], cache_ttl_s=0)
+        assert svc.aggregate().items == []
+
+    def test_default_max_targets_covers_the_server_target_list(self):
+        """Codex P2: the server supplied 150 targets but the provider's
+        default cap silently discarded 101-150.  The cap now lives in
+        ONE place (DEFAULT_MAX_TARGETS) that the server imports, and
+        the default config must accept the full list."""
+        from src.news.providers.espn_player import DEFAULT_MAX_TARGETS
+
+        targets = [
+            {"name": f"Player {i}", "espnId": str(i), "position": "WR", "team": "ATL"}
+            for i in range(1, 151)
+        ]
+        assert DEFAULT_MAX_TARGETS >= 150
+        provider = EspnPlayerNewsProvider(targets_supplier=lambda: targets)
+        assert len(provider._valid_targets()) == 150
+
 
 class TestCacheAndPoliteness:
     def test_player_ttl_prevents_refetch(self):
@@ -181,6 +222,56 @@ class TestCacheAndPoliteness:
         provider = _provider(fetcher)
         with pytest.raises(OSError):
             provider.fetch()
+
+    def test_persistent_failures_dont_starve_the_round_robin(self):
+        """Repeat offenders must not eat the whole budget every cycle:
+        a failed attempt sends the target to the back of the line, so
+        later targets get their fetch slot before any retry."""
+        targets = [
+            {"name": "Failer One", "espnId": "1", "position": "WR", "team": "ATL"},
+            {"name": "Failer Two", "espnId": "2", "position": "WR", "team": "ATL"},
+            {"name": "Good Three", "espnId": "3", "position": "RB", "team": "DAL"},
+            {"name": "Good Four", "espnId": "4", "position": "TE", "team": "MIN"},
+        ]
+        fetcher = _RecordingFetcher(
+            {
+                "3": _feed_payload(_entry("g3", "Three note")),
+                "4": _feed_payload(_entry("g4", "Four note")),
+            },
+            errors_by_id={"1": OSError("down"), "2": OSError("down")},
+        )
+        clock = {"t": 0.0}
+        provider = _provider(
+            fetcher,
+            targets=targets,
+            clock=lambda: clock["t"],
+            max_requests_per_fetch=2,
+            player_ttl_s=10_000,
+        )
+
+        def _ids(calls):
+            return [url.split("playerId=")[1].split("&")[0] for url in calls]
+
+        # Cycle 1: the two (failing) heads of the list consume the
+        # budget.  With every attempted request failed and an empty
+        # cache this is indistinguishable from a full outage, so the
+        # provider raises (the service isolates it) — but the attempt
+        # timestamps are already recorded, which is what un-starves
+        # the next cycle.
+        with pytest.raises(OSError):
+            provider.fetch()
+        assert _ids(fetcher.calls) == ["1", "2"]
+        # Cycle 2: the round-robin must ADVANCE to the never-attempted
+        # targets instead of re-burning the budget on the failers.
+        clock["t"] += 1
+        items = provider.fetch()
+        assert _ids(fetcher.calls) == ["1", "2", "3", "4"]
+        assert len(items) == 2  # both good players now cached
+        # Cycle 3: everyone has had a slot; the failers (oldest
+        # attempt) are retried now — good targets stay fresh-cached.
+        clock["t"] += 1
+        provider.fetch()
+        assert _ids(fetcher.calls) == ["1", "2", "3", "4", "1", "2"]
 
     def test_supplier_failure_degrades_to_empty(self):
         provider = EspnPlayerNewsProvider(

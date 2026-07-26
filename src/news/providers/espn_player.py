@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import Any, Callable, List, Optional
 
 from ..base import NewsItem, NewsProvider, PlayerMention, stable_id, to_iso_utc
-from ._rss import classify, clean_text, default_http_fetcher, parse_pub_date
+from ._rss import classify, clean_text, default_http_fetcher
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,11 @@ _FEED_URL_TEMPLATE = (
 
 DEFAULT_PLAYER_TTL_S = 1800.0  # 30 min per player between refetches
 DEFAULT_MAX_REQUESTS_PER_FETCH = 8
-DEFAULT_MAX_TARGETS = 100
+# Single source of truth for target coverage: server.py's
+# ``_live_espn_news_targets`` supplier imports this as its own cap,
+# so the supplier's emission limit and this provider's
+# ``_valid_targets`` truncation cannot drift apart.
+DEFAULT_MAX_TARGETS = 150
 DEFAULT_PER_PLAYER_LIMIT = 3
 
 
@@ -86,6 +90,10 @@ class EspnPlayerNewsProvider(NewsProvider):
         # up — stale player news beats a hole in the feed, and the
         # service-level age cutoff drops anything genuinely old.
         self._player_cache: dict[str, tuple[float, List[NewsItem]]] = {}
+        # espn_id → last attempt time (success OR failure).  Drives
+        # the round-robin ordering so persistent failers can't starve
+        # the budget — see ``_staleness`` in ``fetch``.
+        self._last_attempt: dict[str, float] = {}
 
     def _default_fetcher(self, url: str) -> bytes:
         return default_http_fetcher(url, timeout=self.timeout_s, user_agent=self.user_agent)
@@ -98,11 +106,16 @@ class EspnPlayerNewsProvider(NewsProvider):
 
         now = self._clock()
 
-        # Refresh order: never-fetched first, then oldest — a simple
-        # staleness sort gives round-robin coverage across cycles.
+        # Refresh order: never-ATTEMPTED first, then oldest attempt.
+        # Ranking by attempt time (not cache time) is what keeps the
+        # round-robin advancing past repeat offenders: a persistently
+        # failing target never enters the cache, so a cache-time sort
+        # would rank it -inf forever and let a handful of failers
+        # consume the whole budget every cycle, starving every later
+        # target (Codex P2).  A failed attempt sends the target to
+        # the back of the line until the others have had their slot.
         def _staleness(t: dict[str, Any]) -> float:
-            cached = self._player_cache.get(str(t["espnId"]))
-            return cached[0] if cached else float("-inf")
+            return self._last_attempt.get(str(t["espnId"]), float("-inf"))
 
         budget = self._max_requests
         attempted = 0
@@ -116,6 +129,7 @@ class EspnPlayerNewsProvider(NewsProvider):
                 continue
             budget -= 1
             attempted += 1
+            self._last_attempt[espn_id] = now
             try:
                 raw = self._fetcher(
                     _FEED_URL_TEMPLATE.format(espn_id=espn_id, limit=self._per_player_limit)
@@ -187,13 +201,14 @@ class EspnPlayerNewsProvider(NewsProvider):
             if not headline:
                 continue
             body = clean_text(str(entry.get("story") or entry.get("description") or ""))
-            published = parse_pub_date(None)
-            raw_published = entry.get("published") or entry.get("lastModified")
-            if isinstance(raw_published, str) and raw_published.strip():
-                try:
-                    published = datetime.fromisoformat(raw_published.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+            # Undated entries are SKIPPED, not stamped with now():
+            # defaulting to the fetch time would fabricate freshness
+            # on every refetch and smuggle possibly-old articles past
+            # the service's 7-day cutoff (which drops anything that
+            # can't prove its age).
+            published = _parse_entry_timestamp(entry)
+            if published is None:
+                continue
             url = _entry_url(entry)
             entry_id = str(entry.get("id") or entry.get("contentKey") or headline)
             severity, kind, impact = classify(f"{headline}\n{body}")
@@ -222,6 +237,21 @@ class EspnPlayerNewsProvider(NewsProvider):
                 )
             )
         return out
+
+
+def _parse_entry_timestamp(entry: dict[str, Any]) -> Optional[datetime]:
+    """Parse ``published`` (falling back to ``lastModified``) or None.
+
+    None means the entry carries no provable timestamp — callers skip
+    it rather than inventing one.
+    """
+    raw = entry.get("published") or entry.get("lastModified")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _entry_url(entry: dict[str, Any]) -> Optional[str]:

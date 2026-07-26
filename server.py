@@ -79,6 +79,7 @@ from src.api import league_registry as _league_registry
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
+from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -446,7 +447,13 @@ def _live_player_names() -> list[str]:
 # Rostered players cluster at the top of the board, and the provider
 # trickle-refreshes ~8 ids per 3-minute aggregate cycle, so 150
 # targets fully refresh roughly hourly at a polite request rate.
-_ESPN_NEWS_TARGET_LIMIT = 150
+#
+# Single source of truth: ``_ESPN_NEWS_TARGET_LIMIT`` is imported at
+# the top of this file as an alias of the provider's own
+# ``DEFAULT_MAX_TARGETS`` — the supplier below and the provider's
+# ``_valid_targets`` truncation can never drift apart (Codex P2:
+# a local 150 here vs the provider's default 100 silently discarded
+# targets 101-150).
 
 
 def _live_espn_news_targets() -> list[dict[str, str | None]]:
