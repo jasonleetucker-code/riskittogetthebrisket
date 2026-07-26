@@ -8,7 +8,12 @@ consumed as-is from `src/league_intel/`.
 Status: audit in progress. Findings below are verified against code, not
 assumed.
 
-## F-1 (P1, LIVE DEFECT) — multi-asset packages sum incompatible markets
+> **F-1 was DOWNGRADED to P3 after review, and its location was wrong.**
+> Severity, remediation and reachability all corrected below — see
+> "Review corrections". The new P1 is **F-3**: the trade finder is
+> silently offense-only in an IDP league.
+
+## F-1 (~~P1~~ → **P3**, undocumented assumption) — packages sum across markets
 
 **Per-player routing is correct.** `src/trade/angle.py::_market_source_for`
 sends IDP positions to `idpTradeCalc` and everything else (offense, picks,
@@ -44,6 +49,107 @@ dependency for the Trade Package Generator and the Market-Fair/Model-Positive
 feature. Until it exists, mixed-market packages must be either suppressed
 or labelled as un-normalized — **not** silently ranked.
 
+## Review corrections to F-1 (fresh-eyes pass, 2026-07-26)
+
+Three things I got wrong. Recorded rather than silently edited, because
+the workstream was scoped around them.
+
+**1. Severity overstated.** I called the aggregation "an addition with no
+defined meaning." It has one, and it is measurable: both boards cap at
+9999, IDPTC prices the same 475 offensive players at effectively identical
+values, and the implicit conversion factor is **~1.00** (median 1.000,
+p10 0.888, p90 1.054). The pipeline's `raw / site_max × 9999` step is
+therefore a **no-op between these two sources** — there is no units
+mismatch. This is an undocumented, unpinned, unalarmed assumption (P3),
+not a P1 live defect.
+
+**2. Remediation was an over-correction.** Suppressing or labelling mixed
+packages removes working functionality to fix a ~1% median error. WS-E's
+suppression path should be reserved for genuine outliers, not applied at
+15% of mixed packages. **Open disagreement between WS-E and review** —
+WS-E measured 15% suppression as correct; review argues that is too
+aggressive given the measured error. Resolve before wiring `angle.py`.
+
+**3. Location wrong.** I put the defect in the counter-side `combo`, which
+requires `include_idp=True`. The frontend never sends `includeIdp`
+(`frontend/app/angle/page.jsx:226-245`), so that path is unreachable from
+the UI. The genuinely reachable shape is the **offer side**, which has no
+IDP gate at all (`angle.py:378-388`, `:471-478`) — one IDPTC value in the
+denominator against KTC values in the numerator at `:526`. Any fix must
+also land in both near-duplicate `_make_candidate` implementations
+(`:500` offer mode, `:913` acquire mode).
+
+## F-3 (P1, LIVE) — `/api/trade/finder` is offense-only in an IDP league
+
+`finder.py:274-283` builds `with_ktc = [a for a in pool if a.has_ktc]` and
+drops everything outside the KTC top-150. `ktc_value` reads only
+`ktcSfTep`/`ktc` (`:229-240`), and **KTC's board contains zero IDP
+defenders** — Hutchinson, Parsons, Garrett, Carter, Verse, Campbell all
+absent. `EXCLUDED_POSITIONS` (`:33`) is only `{K,PK,DST,DEF}`, so IDP
+players enter the pool at `:259` and are then silently removed at `:283`.
+
+No warning is emitted. In a league with 9 IDP starters, the arbitrage
+finder returns offense and picks only.
+
+**Downstream: an entire dead guard.** Because every survivor has KTC, the
+IDP-dilution guard (`:353-355`), the partial-coverage branch (`:416-420`),
+`PARTIAL_KTC_ARBITRAGE_CAP` (`:447`) and the partial-KTC demotion
+(`:710-716`) are all unreachable, and `trade_has_idp` (`:421`) is always
+False. That code was written for a world the filter silently removed.
+
+## F-4 (P1) — `suggestions.py`'s "KTC filter" never reads KTC
+
+`_assign_ktc_ranks` (`:508-524`) enumerates a pool already sorted by
+`display_value` (`:293`), so `ktc_rank` is the **blended-board rank**. No
+KTC value is consulted. The docstring claiming "players without KTC data
+get `ktc_rank=None`" is false, the constant name is wrong, and
+`metadata["ktcTopNFilter"]` (`:1519`) misreports what ran.
+
+**CLAUDE.md is wrong about both engines**: it states both enforce "a KTC
+top-150 quality filter". `finder.py` does and thereby excludes IDP;
+`suggestions.py` does not and includes IDP. Same constant name, same field
+name, opposite behaviour. A manager asking both engines about one
+IDP-heavy roster gets IDP trades from one and none from the other.
+
+## F-5 (P2) — single-source assets are discounted twice
+
+`finder.py:29` applies `SINGLE_SOURCE_DISCOUNT = 0.88` to `_finalAdjusted`
+at `:223-226`. But `_finalAdjusted` is **already** post-haircut —
+`data_contract.py:6916` applies `_SINGLE_SOURCE_VALUE_RETENTION = 0.30`.
+Effective retention ≈ **0.264**. The two also fire on different
+populations: the pipeline counts post-Hampel survivors, finder counts raw
+pre-Hampel `_sites` (`:222`). Two independently-chosen constants on two
+non-identical populations.
+
+## F-6 (P2) — six new vacuous-check instances
+
+Including two test suites asserting **contradictory definitions of the
+same field**: `test_trade_suggestions.py:2036` pins `ktc_rank` as
+enumeration order, while `test_trade_finder.py:1489` asserts it is "based
+on KTC value, not model value." Also a condition that can never be False
+(`suggestions.py:537`), an assertion that cannot fail
+(`test_trade_suggestions.py:2022`), and a fixture emitting only
+`["QB","RB","WR","TE"]` (`:1996-2000`) that makes the entire
+`TestKtcTopNFilter` class structurally incapable of observing IDP.
+
+## F-7 (P2) — three IDP position sets, contradicting CLAUDE.md
+
+`angle.py:34` (14 entries), `finder.py:50` (3), `monte_carlo.py:343` (5,
+adds `CB`/`S`). Behaviourally equivalent only if `_norm_pos` ran first;
+`finder.py` applies it (`:244`), the others carry defensive supersets.
+CLAUDE.md claims `src/utils/name_clean.py` is the single source of truth
+for position normalization — for IDP classification it is not.
+
+## Verified clean
+
+`monte_carlo.py`, `team_impact.py`, `correlation_matrix.py` read no
+`canonicalSiteValues` and consume blended contract values already on the
+common internal scale — no cross-market contamination. `_value_pair`'s
+legacy `ktc` fallback is not a defect (both boards cap at 9999).
+
+Not reached: frontend trade surfaces, and `suggestions.py`'s non-KTC
+threshold surface.
+
 ## F-2 — value-adjustment curve is applied to both scales identically
 
 `_adjusted_pair_totals` applies a KTC-style value adjustment to package
@@ -76,12 +182,40 @@ one-live-path rule.
 
 ## Open questions before implementation
 
-1. **Normalization evidence.** What anchors a common scale? Candidates:
-   players with values on both boards, actual league trades (12 managers,
-   thin), pick equivalents, replacement-level anchoring. Sample size is the
-   binding constraint and the answer may be "no defensible normalization
-   yet" — in which case mixed packages stay suppressed and that is the
-   honest outcome.
+1. ~~**Normalization evidence.**~~ **RESOLVED — and this question was
+   posed wrongly.** I proposed league trades (12 managers) as the likely
+   anchor and concluded sample size was binding. That was wrong, and the
+   pessimism it produced was unfounded.
+
+   **`idpTradeCalc` is a cross-market board: it prices offense too.** The
+   two boards therefore price the same players, and the scale relation is
+   directly observable rather than needing to be inferred from trades.
+   Independently verified on live data (orchestrator, 2026-07-26):
+
+   | | |
+   |---|---|
+   | players priced on **both** boards | **475** |
+   | pooled median `IDPTC / ktcSfTep` | **1.0004** |
+   | board maxima | 9999 / 9999 |
+
+   WS-E measured the same thing at 476 and 0.9997 (Spearman 0.990), with
+   per-position medians QB 1.020 / RB 0.994 / WR 1.012 / PICK 1.000 and
+   **TE 0.895** — the sole material divergence, and it is the TE-premium
+   question (`ktcSfTep` is a TE++ board), not a scale artifact.
+
+   The boards are already on a common scale. See WS-E's ADR for the design
+   consequence: because IDPTC spans both universes, the primary strategy is
+   to value each package *entirely within one market* rather than convert
+   between them — exact, with no fitted parameter. 85% of mixed packages
+   resolve on that exact path; 15% suppress. A scalar fallback exists but
+   is opt-in, half-confidence, and carries its measured error.
+
+   **The load-bearing assumption that remains** (stamped
+   `SHARED_SCALE_ASSUMPTION`, not buried): that IDPTC's internal
+   offense↔IDP exchange rate is *correct*, not merely self-consistent.
+   Nothing validates it — there is no ground truth for what an edge rusher
+   is worth in WR points. The interleaving evidence establishes coherence,
+   not accuracy.
 2. **Acceptance model.** 12 managers with limited trade history. Strong
    shrinkage is mandatory; a manager-specific term likely never earns its
    keep. Plan for a plausibility prior + market fairness + need alignment,
