@@ -211,7 +211,12 @@ test.describe("Chart structural smoke tests", () => {
       "Hill curve",
     );
     await expect(svg.locator("path").first()).toBeVisible();
-    await expect(svg.locator("circle").first()).toBeVisible();
+    // The curve path renders immediately from the hillCurves
+    // constants; the scatter dots only land once the contract rows
+    // hydrate — give them the same readiness budget as the chart.
+    await expect(svg.locator("circle").first()).toBeVisible({
+      timeout: READINESS_TIMEOUT_MS,
+    });
   });
 
   test("Confidence scatter has enough points", async ({ authedPage: page }) => {
@@ -222,7 +227,8 @@ test.describe("Chart structural smoke tests", () => {
       "Confidence scatter",
     );
     const circles = svg.locator("circle");
-    await expect(circles.first()).toBeVisible();
+    // Dots hydrate with the contract rows — same budget as the chart.
+    await expect(circles.first()).toBeVisible({ timeout: READINESS_TIMEOUT_MS });
     // Healthy scatter has many points.  A "zero dots because the
     // data flow broke" state trips this.
     const count = await circles.count();

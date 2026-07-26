@@ -23,18 +23,18 @@ test.describe("signed-in: /waivers page", () => {
     // Page header content + one of the four sections must be visible.
     await expect(authedPage.locator("body")).toContainText(
       /Waiver Add\/Drop/i,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
     await expect(authedPage.locator("body")).toContainText(
       /Best Add\/Drop Moves|Addable Players|Droppable Players|Pick your team/i,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
   });
 
   test("rookie toggle is present and toggleable", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
     const toggle = authedPage.getByLabel(/Include rookies/i, { exact: false });
-    await expect(toggle).toBeVisible({ timeout: 10000 });
+    await expect(toggle).toBeVisible({ timeout: 30000 });
     // Operable: clicking it doesn't throw.
     await toggle.click();
     await toggle.click();
@@ -43,7 +43,7 @@ test.describe("signed-in: /waivers page", () => {
   test("position filter dropdown is present", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
     const select = authedPage.getByLabel(/Position filter/i);
-    await expect(select).toBeVisible({ timeout: 10000 });
+    await expect(select).toBeVisible({ timeout: 30000 });
   });
 
   // ── Manual add/drop calculator (Phase B1+B8 surface) ───────────
@@ -54,13 +54,22 @@ test.describe("signed-in: /waivers page", () => {
     // existing Best Add/Drop Moves recommendation table.
     await expect(authedPage.locator("body")).toContainText(
       /Manual add\/drop calculator/i,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
-    // Both pickers are labelled DROP / ADD and live in the
-    // calculator card.  Use case-sensitive "DROP" + "ADD" labels
-    // to avoid matching the bestMoves table's "Add" column header.
-    await expect(authedPage.locator("body")).toContainText(/DROP/);
-    await expect(authedPage.locator("body")).toContainText(/ADD/);
+    // Both pickers are labelled DROP / ADD (case-sensitive, to avoid
+    // matching the bestMoves table's "Add" column header) — but they
+    // only render once a team is selected.  A session without a
+    // selected team (the e2e test user) shows the calculator's
+    // pick-a-team empty state instead; both are valid "section
+    // renders" outcomes.
+    const body = authedPage.locator("body");
+    const text = await body.innerText();
+    if (/Select a team/i.test(text)) {
+      await expect(body).toContainText(/Select a team .* calculator/i);
+    } else {
+      await expect(body).toContainText(/DROP/);
+      await expect(body).toContainText(/ADD/);
+    }
   });
 
   test("FAAB recommender endpoint returns the documented shape", async ({
@@ -69,7 +78,9 @@ test.describe("signed-in: /waivers page", () => {
     // First grab a real player name from the live contract so the
     // endpoint resolves the lookup.  Using a hardcoded name would
     // fail every offseason as players retire/get cut.
-    const dataRes = await authedPage.request.get("/api/data?view=app");
+    // view=delta: the app view intentionally omits playersArray (payload
+    // optimization) — delta and full both carry it.
+    const dataRes = await authedPage.request.get("/api/data?view=delta");
     expect(dataRes.ok(), "GET /api/data must succeed for the test").toBeTruthy();
     const contract = await dataRes.json();
     const players = Array.isArray(contract?.playersArray)

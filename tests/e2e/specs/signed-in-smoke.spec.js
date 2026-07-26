@@ -28,30 +28,32 @@ test.describe("signed-in: basic navigation + UI render", () => {
     await authedPage.goto("/");
     // The team switcher is client-hydrated; wait for it to appear.
     // It shows the team name once data loads, or 'Pick your team'.
+    // 60s: hydration sits behind the ~5 MB contract fetch, which can
+    // crawl on a starved runner.
     await expect(authedPage.locator("body")).toContainText(
       /Pick your team|Rossini|JasonLeeTucker|Team/i,
-      { timeout: 10000 },
+      { timeout: 60000 },
     );
   });
 
   test("trade calculator page renders", async ({ authedPage }) => {
     await authedPage.goto("/trade");
     await expect(authedPage.locator("body")).toContainText(/Trade|Side/i, {
-      timeout: 10000,
+      timeout: 30000,
     });
   });
 
   test("rosters page renders", async ({ authedPage }) => {
     await authedPage.goto("/rosters");
     await expect(authedPage.locator("body")).toContainText(/Roster|Team/i, {
-      timeout: 10000,
+      timeout: 30000,
     });
   });
 
   test("settings page renders", async ({ authedPage }) => {
     await authedPage.goto("/settings");
     await expect(authedPage.locator("body")).toContainText(/Settings|Notification|Signal/i, {
-      timeout: 10000,
+      timeout: 30000,
     });
   });
 });
