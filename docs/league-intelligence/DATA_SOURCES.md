@@ -363,3 +363,85 @@ Re-scored under this league's rules, that row yields league points with
 a full explainable breakdown, `bonus_fd_rb` derived from Robinson's own
 carry/target first-down rates (tier B) and his reception bands
 distributed from his realized catch-depth mix.
+
+---
+
+## 7. TE-premium paired-variant survey (calibration)
+
+**Question.** The League Intelligence agent measured a depth-graded TE
+premium (×1.287 TE1-12 → ×1.512 TE41+, median ×1.368) from KTC's
+standard vs TE++ boards — 388 non-TE rows byte-identical, all 74 TE rows
+differing. Best-evidenced number in the engine, but from **one
+publisher**. If other publishers also ship paired variants, each is
+another natural experiment, and we learn whether ×1.368 is a market
+consensus or KTC's house view.
+
+**Method.** Survey *upstream*, not the repo: for each ingested source,
+does the publisher expose a variant differing **only** on TE posture,
+reachable by an automatable route we're permitted to use? Probes were
+one request per candidate with a 1.5-2s gap, against endpoints the repo
+already consumes. An accepted-but-ignored parameter is detectable as a
+**byte-identical payload** — that is the FantasyCalc failure mode below
+and it is why payload size is recorded rather than HTTP status alone.
+
+### 7.1 Results
+
+| Source | Paired TE variant? | Mechanism / evidence |
+|---|---|---|
+| **KTC** (`ktcSfTep`) | ✅ **YES** | `?sf=true&tep=0..3` query param. **[verified]** This is the existing measured pair — the only positive in the survey. |
+| **OTCFFB** (`otcffbSf`) | ❌ **No** | `format` accepts exactly `sf` (50,627 B) and `1qb` (49,238 B); `te`, `tep`, `sf_te`, `sf_tep`, `sfte`, `superflex_te`, `te_premium`, `sf_te_premium` all → **HTTP 400 "Invalid format"**. **[verified]** |
+| **FantasyNavigator** (`fantasyNavigatorSf`) | ❌ **No** | `platform` accepts only `sf` (603,876 B); every other value incl. `1qb` → **HTTP 500**. **[verified]** |
+| **Dynasty Daddy** (`dynastyDaddySf`) | ❌ **No** | `tep=1`, `isTEPremium=true`, `teMultiplier=1.5`, `tePremium=true` each returned a **byte-identical 913,997 B** payload — accepted and ignored. **[verified]** |
+| **FantasyCalc** (`fantasyCalc`) | ❌ **No** (public API) | `teMultiplier=1` vs `1.5` and `tePremium=1.5` all returned **byte-identical 369,801 B**; 0 of 475 shared rows differed. Scale *is* cardinal (1,738× dynamic range), so it would have passed the cardinal gate had a real variant existed. **[verified]** |
+| **FantasyPros** (`fantasyProsSf`, `fantasyProsIdp`) | ⚠️ **Unmeasurable** | Rank-encoded (~1.05× dynamic range) — fails `CARDINAL_MIN_DYNAMIC_RANGE` **by construction**, so even a real pair could not be measured from it. Their raw-category/API routes are `robots.txt`-disallowed (§2.4). |
+| **DLF** (`dlfSf`, `dlfIdp`, rookie variants) | 🔒 **Blocked** | Subscriber-gated. Manual-import path only. |
+| **Dynasty Nerds** (`dynastyNerdsSfTep`) | 🔒 **Blocked** | Subscriber-gated. Note the key already says `Tep` — we ingest *only* their TE-premium variant, so the standard board is the missing half. Manual-import path only. |
+| **Draft Sharks** (`draftSharks`, `draftSharksIdp`) | 🔒 **Blocked** | Login-gated. Credentials exist for the ROS product, which is a different board — using them to harvest a second dynasty variant is out of scope for a calibration probe. |
+| **IDP Trade Calc** (`idpTradeCalc`) | ➖ **N/A** | IDP board — no TE rows to compare. |
+| **PFK** (`pfkDynasty`), **Flock** (`flockFantasySf`), **Yahoo/Boone** (`yahooBoone`), **Fitzmaurice** | ⬜ **Not yet probed** | Deferred — see §7.3. |
+
+### 7.2 What this means
+
+**No second publisher corroborates the premium yet.** Of the four
+sources probed with an automatable, permitted route, **all four
+returned a definitive negative** — and two of those negatives
+(FantasyCalc, Dynasty Daddy) are the "accepted but ignored parameter"
+kind that would have looked like success if only HTTP status had been
+checked.
+
+So as of this survey, **×1.368 remains a single-publisher measurement.**
+That is the decision-relevant answer: it is not yet demonstrable that
+the structural premium is a market consensus rather than KTC's view.
+The honest posture is the one ADR-009 already takes — measure where
+measurable, refuse to extrapolate, and do not assign a premium by
+analogy to sources that cannot be calibrated.
+
+Notably, the publishers most likely to ship a genuine paired variant
+(DLF, Dynasty Nerds — the latter already TE-premium on our side) are
+exactly the subscriber-gated ones. **A single subscription would
+convert the most promising remaining candidates into manual-import
+pairs**, which is the same unlock §5.1 asks about for projections.
+
+### 7.3 Not-yet-probed, and why
+
+PFK, Flock, Yahoo/Boone, and Fitzmaurice were deferred rather than
+guessed at: PFK is Supabase-backed (its table surface needs its own
+careful read), and the remaining three need their live fetch shape
+confirmed before a probe is meaningful. They are recorded as unknown
+rather than assumed negative — an unprobed source is not evidence of
+absence, and this table should not imply otherwise.
+
+### 7.4 Constraints honoured
+
+* **Calibration only.** Nothing here is registered as a ranking source.
+  `_RANKING_SOURCES`, `_SOURCE_CSV_PATHS`, and `data_contract.py` are
+  untouched; no blend behaviour changed.
+* **Gates consumed, not reinvented.** Any measured pair goes through
+  `src/league_intel/calibration.py::measure_paired_te_premium`, which
+  enforces both the controls-at-unity and cardinal-scale conditions.
+  A source failing either reports **unmeasurable**, never a fallback
+  number.
+* **Polite.** One request per candidate per run, 1.5-2s spacing, against
+  endpoints already in use. No account-gated or robots-disallowed
+  surface was touched; blocked sources are recorded as blocked with a
+  manual-import path.
