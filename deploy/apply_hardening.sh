@@ -35,6 +35,11 @@ APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 APP_USER="${APP_USER:-dynasty}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 NGINX_SITE="${NGINX_SITE:-riskittogetthebrisket.org}"
+# Root-owned install location for scripts that systemd runs AS ROOT.
+# They must NOT execute from the deploy-user-writable checkout — that
+# would let a compromised deploy account swap a script and get root on
+# the next timer fire.  Overridable for testing (RISKIT_LIB_DIR=...).
+RISKIT_LIB_DIR="${RISKIT_LIB_DIR:-/usr/local/lib/riskit}"
 
 # VENV_DIR must be derived from the APP_USER's home, NOT from $HOME:
 # under the documented `sudo bash` invocation HOME=/root, and
@@ -74,18 +79,21 @@ show_diff() {
 }
 
 # install_unit <src> <dest> [render]
-# render=yes rewrites the canonical repo path inside the unit to APP_DIR
-# so a non-default checkout location still points at real scripts, and
-# rewrites the watchdog's HEALTH_SERVICE to SERVICE_NAME so a renamed
-# service is restarted — not the default "dynasty" (the second pattern
-# only exists in dynasty-healthcheck.service; it is a no-op elsewhere).
+# render=yes rewrites the canonical paths/names inside the unit for
+# non-default installs: checkout path → APP_DIR, root-script dir →
+# RISKIT_LIB_DIR, the watchdog's HEALTH_SERVICE → SERVICE_NAME, and
+# User/Group=dynasty → APP_USER (each pattern is a no-op in units that
+# don't contain it).
 install_unit() {
     local src="$1" dest="$2" render="${3:-no}"
     local staged
     staged="$(mktemp)"
     if [[ "${render}" == "yes" ]]; then
         sed -e "s|/home/dynasty/trade-calculator|${APP_DIR}|g" \
+            -e "s|/usr/local/lib/riskit|${RISKIT_LIB_DIR}|g" \
             -e "s|HEALTH_SERVICE=dynasty|HEALTH_SERVICE=${SERVICE_NAME}|g" \
+            -e "s|^User=dynasty$|User=${APP_USER}|" \
+            -e "s|^Group=dynasty$|Group=${APP_USER}|" \
             "${src}" > "${staged}"
     else
         cp "${src}" "${staged}"
@@ -194,6 +202,36 @@ apply_app_services() {
     CHANGED_UNITS=true
 }
 
+# ── 3a. root-owned copies of root-run scripts ────────────────────────
+# dynasty-healthcheck.sh and riskit-state-backup.sh execute as root
+# (systemctl restart / /var/backups + /var/lib reads), so their units
+# point at ${RISKIT_LIB_DIR} — root:root 0755, outside the checkout.
+# Updates flow through re-running this installer; editing the checkout
+# copy alone changes nothing at runtime.  The uptime probe is NOT
+# installed here: it runs unprivileged (User=dynasty) from the
+# checkout, which is fine because it has no more privilege than the
+# user who can already edit it.
+install_priv_script() {
+    local src="$1"
+    local dest="${RISKIT_LIB_DIR}/$(basename "$1")"
+    if [[ -f "${dest}" ]] && cmp -s "${src}" "${dest}"; then
+        log "up-to-date: ${dest}"
+        return 0
+    fi
+    log "installing root-owned script: ${dest}"
+    show_diff "${dest}" "${src}"
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        log "(dry-run) would install ${dest} (root:root 0755)"
+    else
+        install -o root -g root -m 0755 -D "${src}" "${dest}"
+    fi
+}
+
+apply_privileged_scripts() {
+    install_priv_script "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh"
+    install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
+}
+
 # ── 3-5. hardening units ─────────────────────────────────────────────
 apply_hardening_units() {
     install_unit "${APP_DIR}/deploy/systemd/dynasty-healthcheck.service" \
@@ -210,14 +248,15 @@ apply_hardening_units() {
                  "/etc/systemd/system/riskit-uptime.timer"
 
     if [[ "${DRY_RUN}" != "true" ]]; then
-        chmod +x "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh" \
-                 "${APP_DIR}/deploy/backup/riskit-state-backup.sh" \
-                 "${APP_DIR}/deploy/monitoring/uptime_check.sh" 2>/dev/null || true
+        # Only the unprivileged probe runs from the checkout; the two
+        # root-run scripts execute from ${RISKIT_LIB_DIR} (see above).
+        chmod +x "${APP_DIR}/deploy/monitoring/uptime_check.sh" 2>/dev/null || true
     fi
 }
 
 apply_nginx
 apply_app_services
+apply_privileged_scripts
 apply_hardening_units
 
 if [[ "${DRY_RUN}" != "true" && "${CHANGED_UNITS}" == "true" ]]; then
@@ -253,6 +292,9 @@ cat <<CHECKLIST
    [ ] bash ${APP_DIR}/deploy/verify-deploy.sh
 
  watchdog / timers
+   [ ] ls -la ${RISKIT_LIB_DIR}/   # root:root 0755 healthcheck + backup scripts
+   [ ] systemctl cat dynasty-healthcheck riskit-state-backup | grep ExecStart
+       → both point at ${RISKIT_LIB_DIR}, NOT the checkout
    [ ] systemctl list-timers 'dynasty-*' 'riskit-*'   # all three scheduled
    [ ] sudo systemctl start dynasty-healthcheck.service && journalctl -u dynasty-healthcheck -n 5
    [ ] sudo systemctl start riskit-state-backup.service \\

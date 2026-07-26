@@ -53,6 +53,15 @@ Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-private-topic>"
 #Environment="NOTIFY_CMD=mail -s riskit-alert you@example.com"
 ```
 
+## Privileges
+
+The probe runs as `User=dynasty` — it only curls and logs, so it gets
+no root.  It executes from the checkout, which is safe precisely
+because the process has no more privilege than the user who can edit
+that file.  The log still lands in `/var/log/riskit-uptime.log`
+because systemd opens the `StandardOutput=append:` target as root
+before dropping to `User=`; run-to-run state lives in `/var/tmp`.
+
 ## Known limitation
 
 The probe runs **on the VPS itself**.  It catches nginx, TLS, backend,

@@ -50,9 +50,26 @@ leaves every prior generation (including an earlier same-day
 snapshot) untouched — consecutive failures can never erode the
 retained history.
 
+A snapshot must also contain the CORE state to count: `BACKUP_REQUIRED`
+(default `user_kv.sqlite session_store.sqlite`) lists the items that
+must be written and verified before promotion.  This closes the
+partial-snapshot hole where an unmounted/mistyped `DATA_DIR` with a
+stray session JSON still produced a nonzero artifact count.  Add dir
+names to require them too, via a service drop-in:
+`Environment="BACKUP_REQUIRED=user_kv.sqlite session_store.sqlite public_league"`.
+
+**Security note**: the systemd unit runs the ROOT-OWNED copy of the
+script installed at `/usr/local/lib/riskit/riskit-state-backup.sh` by
+`deploy/apply_hardening.sh` — never the checkout copy (a root unit
+executing a deploy-user-writable file would be a privilege-escalation
+path).  After changing the script in the repo, re-run
+`sudo bash deploy/apply_hardening.sh` to roll it out.
+
 ## Install
 
 ```bash
+# Root-owned script copy OUTSIDE the checkout (the unit executes this):
+sudo install -o root -g root -m 0755 -D deploy/backup/riskit-state-backup.sh /usr/local/lib/riskit/riskit-state-backup.sh
 sudo cp deploy/backup/riskit-state-backup.service deploy/backup/riskit-state-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now riskit-state-backup.timer

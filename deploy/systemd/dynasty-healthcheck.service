@@ -7,7 +7,16 @@ After=network.target
 [Service]
 Type=oneshot
 # Root: the script must be able to `systemctl reset-failed` + `restart`.
-ExecStart=/home/dynasty/trade-calculator/deploy/systemd/dynasty-healthcheck.sh
+#
+# SECURITY: because this runs as root, ExecStart points at a ROOT-OWNED
+# copy installed OUTSIDE the deploy-user-writable checkout
+# (deploy/apply_hardening.sh installs it to /usr/local/lib/riskit/,
+# root:root 0755).  Executing the checkout copy directly would let a
+# compromised deploy account swap the script and get root within a
+# minute.  Script updates therefore flow through re-running
+# deploy/apply_hardening.sh — editing the checkout copy alone changes
+# nothing at runtime.
+ExecStart=/usr/local/lib/riskit/dynasty-healthcheck.sh
 # Which service the watchdog restarts.  deploy/apply_hardening.sh
 # rewrites this to match a SERVICE_NAME override at install time, so
 # the watchdog always targets the unit that was actually rendered.

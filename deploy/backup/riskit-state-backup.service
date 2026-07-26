@@ -7,7 +7,14 @@ Type=oneshot
 # Root so the job can (a) write the primary /var/backups location and
 # (b) read root-owned session files under /var/lib/*-fetch.  The
 # script itself umasks 077 and chmods session copies to 0600.
-ExecStart=/home/dynasty/trade-calculator/deploy/backup/riskit-state-backup.sh
+#
+# SECURITY: because this runs as root, ExecStart points at a ROOT-OWNED
+# copy installed OUTSIDE the deploy-user-writable checkout
+# (deploy/apply_hardening.sh installs it to /usr/local/lib/riskit/,
+# root:root 0755) — running the checkout copy as root would hand a
+# compromised deploy account a nightly root-execution path.  Script
+# updates flow through re-running deploy/apply_hardening.sh.
+ExecStart=/usr/local/lib/riskit/riskit-state-backup.sh
 StandardOutput=append:/var/log/riskit-state-backup.log
 StandardError=append:/var/log/riskit-state-backup.log
 Environment="APP_DIR=/home/dynasty/trade-calculator"

@@ -91,6 +91,13 @@ faults.  So:
 - Runs as root because it must drive systemctl; the frontend is left to
   its own `Restart=always` (a wedged-but-listening Next process is far
   rarer, and the uptime probe surfaces it).
+- **Root/checkout separation**: because the unit runs as root, its
+  `ExecStart` points at a root-owned copy in `/usr/local/lib/riskit/`
+  (root:root 0755) installed by `apply_hardening.sh` — executing the
+  deploy-user-writable checkout copy as root would let a compromised
+  `dynasty` account swap the script and get root within a minute.
+  Script updates flow through re-running the apply script; editing the
+  checkout copy alone changes nothing at runtime.
 
 ## 4. Backups — `deploy/backup/` (new)
 
@@ -115,6 +122,17 @@ faults.  So:
   discards its own staging dir — it can never displace a good
   generation from the keep-window or publish a partial snapshot to the
   rsync mirror.
+- **Required-artifact manifest**: an artifact *count* alone is not
+  enough — with `DATA_DIR` unmounted or mistyped, a stray session JSON
+  still produces one artifact, and that partial snapshot must never be
+  promoted over a complete generation.  `BACKUP_REQUIRED` (default
+  `user_kv.sqlite session_store.sqlite`) names the core items that
+  must be written **and** integrity-verified before promotion; a
+  missing required item discards staging and exits 1 with `daily/`
+  untouched.
+- **Root/checkout separation**: the unit runs as root, so `ExecStart`
+  points at the root-owned copy in `/usr/local/lib/riskit/` installed
+  by `apply_hardening.sh` — same rationale as the watchdog above.
 - Optional off-box mirror: set `OFFBOX_RSYNC_DEST` via a service
   drop-in (operator fills in destination + SSH key).  Unset = local
   only, nothing leaves the box.
@@ -137,6 +155,13 @@ to `/var/log/riskit-uptime.log`.
 - Honest limitation, documented: it runs on the VPS, so it cannot see a
   full network partition/dead box.  The script is dependency-free
   (bash + curl) and can be run unchanged from any second machine.
+- **Least privilege**: the probe only curls and logs, so the unit runs
+  as `User=dynasty`, not root.  It may safely execute from the
+  checkout because the process has no more privilege than the user who
+  can already edit that file.  The log still lands in
+  `/var/log/riskit-uptime.log` because systemd (pid 1) opens the
+  `StandardOutput=append:` target before dropping privileges; state
+  moves to `/var/tmp` (deploy-user writable).
 
 ## 6. Apply script — `deploy/apply_hardening.sh` (new)
 
@@ -153,13 +178,18 @@ Root-only, idempotent, `--dry-run` supported.  Order of operations:
    backend unit against a nonexistent `/root/.venvs/...` interpreter —
    and a pre-flight assertion refuses to rewrite the units unless
    `$VENV_DIR/bin/python` actually exists.
-3. Installs the healthcheck / state-backup / uptime units (diff-aware;
+3. Installs root-owned copies (root:root 0755) of the two root-run
+   scripts — `dynasty-healthcheck.sh`, `riskit-state-backup.sh` — into
+   `/usr/local/lib/riskit/` (override: `RISKIT_LIB_DIR`), diff-aware.
+   The units execute those copies, never the checkout; re-run the
+   apply script to roll out script changes.
+4. Installs the healthcheck / state-backup / uptime units (diff-aware;
    rewrites the canonical `/home/dynasty/trade-calculator` path to
-   `APP_DIR`, and the watchdog's `HEALTH_SERVICE` to `SERVICE_NAME`,
-   when overridden — so the watchdog always restarts the unit that was
-   actually rendered).
-4. `daemon-reload`, `enable --now` on the three timers.
-5. Prints the full verification checklist.
+   `APP_DIR`, `/usr/local/lib/riskit` to `RISKIT_LIB_DIR`, the
+   watchdog's `HEALTH_SERVICE` to `SERVICE_NAME`, and the uptime
+   probe's `User=/Group=` to `APP_USER`, when overridden).
+5. `daemon-reload`, `enable --now` on the three timers.
+6. Prints the full verification checklist.
 
 ## Operator runbook
 

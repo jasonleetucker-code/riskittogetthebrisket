@@ -27,9 +27,20 @@
 #
 # Operation order (destructive steps strictly last):
 #   write artifacts into a hidden staging dir → integrity checks →
-#   FAILURE: discard staging, exit 1 (daily/ namespace untouched) |
-#   SUCCESS: promote staging → dated dir → off-box mirror (validated
-#   snapshots only) → prune oldest generations beyond $KEEP_DAILY.
+#   required-artifact manifest check → FAILURE: discard staging,
+#   exit 1 (daily/ namespace untouched) | SUCCESS: promote staging →
+#   dated dir → off-box mirror (validated snapshots only) → prune
+#   oldest generations beyond $KEEP_DAILY.
+#
+# Required-artifact manifest: a snapshot only counts as a generation
+# when it contains the CORE state.  BACKUP_REQUIRED (space-separated
+# basenames, default "user_kv.sqlite session_store.sqlite") lists the
+# items that must have been successfully written and verified; a
+# partial snapshot (e.g. DATA_DIR unmounted/mistyped while a stray
+# session JSON still bumps the artifact count) is discarded instead of
+# promoted, so it can never displace a COMPLETE older generation or
+# reach the off-box mirror.  Dir names (public_league, intel) may be
+# listed too, e.g. BACKUP_REQUIRED="user_kv.sqlite session_store.sqlite public_league".
 #
 # Off-box mirroring (OPTIONAL, operator-configured): set
 # OFFBOX_RSYNC_DEST to an rsync destination (e.g.
@@ -56,6 +67,7 @@ BACKUP_FALLBACK_ROOT="${BACKUP_FALLBACK_ROOT:-/home/dynasty/backups/riskit-state
 KEEP_DAILY="${KEEP_DAILY:-14}"
 DATE_STAMP="$(date -u +%Y-%m-%d)"
 OFFBOX_RSYNC_DEST="${OFFBOX_RSYNC_DEST:-}"
+BACKUP_REQUIRED="${BACKUP_REQUIRED:-user_kv.sqlite session_store.sqlite}"
 
 PYTHON_BIN="${PYTHON_BIN:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 [[ -x "${PYTHON_BIN}" ]] || PYTHON_BIN="$(command -v python3 || true)"
@@ -100,6 +112,10 @@ find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
 
 ARTIFACTS=0
 ERRORS=0
+# Space-padded list of item names (sqlite basenames / dir names) that
+# were successfully written AND integrity-checked — the required-
+# artifact manifest is validated against this before promotion.
+OK_LIST=" "
 
 # ── SQLite (online, WAL-safe) ────────────────────────────────────────
 sqlite_backup() {
@@ -142,6 +158,7 @@ backup_sqlite() {
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
+    OK_LIST+="${name} "
     log "sqlite ok: ${src} -> ${out}"
 }
 
@@ -167,6 +184,7 @@ backup_dir() {
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
+    OK_LIST+="${name} "
     log "dir ok: ${src} -> ${out}"
 }
 
@@ -216,8 +234,23 @@ backup_session_file "/var/lib/idpshow-fetch/idpshow_session.json" "workdir.idpsh
 # nightly (missing data dir, broken tool) still created its dated dir,
 # displaced the oldest GOOD generation from the keep-window, and
 # eroded one good backup per day of consecutive failures.
-if (( ARTIFACTS == 0 )) || (( ERRORS > 0 )); then
-    warn "run FAILED (${ERRORS} error(s), ${ARTIFACTS} artifact(s)) — discarding staging snapshot; prior generations left untouched"
+# Required-artifact manifest: the artifact COUNT alone is not enough —
+# a misconfigured/unmounted DATA_DIR with a stray session JSON present
+# still yields ARTIFACTS>0, and promoting that partial snapshot would
+# let prune drop an older COMPLETE generation.  Every item named in
+# BACKUP_REQUIRED must have been written and verified.
+MISSING_REQUIRED=""
+for req in ${BACKUP_REQUIRED}; do
+    if [[ "${OK_LIST}" != *" ${req} "* ]]; then
+        MISSING_REQUIRED+="${req} "
+    fi
+done
+
+if (( ARTIFACTS == 0 )) || (( ERRORS > 0 )) || [[ -n "${MISSING_REQUIRED}" ]]; then
+    if [[ -n "${MISSING_REQUIRED}" ]]; then
+        warn "required artifact(s) missing from snapshot: ${MISSING_REQUIRED}(check DATA_DIR=${DATA_DIR})"
+    fi
+    warn "run FAILED (${ERRORS} error(s), ${ARTIFACTS} artifact(s), required-missing: ${MISSING_REQUIRED:-none}) — discarding staging snapshot; prior generations left untouched"
     rm -rf "${DEST}"
     exit 1
 fi

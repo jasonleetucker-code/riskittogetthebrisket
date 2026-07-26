@@ -37,6 +37,15 @@ Related units living elsewhere in deploy/:
 `deploy/apply_hardening.sh` installs/refreshes all of the above
 idempotently (see docs/PROD-HARDENING.md).
 
+**Root-run scripts execute from `/usr/local/lib/riskit/`, not the
+checkout.**  `dynasty-healthcheck.sh` and
+`deploy/backup/riskit-state-backup.sh` run as root, so the apply
+script installs root:root 0755 copies outside the deploy-user-writable
+repo and the units point there — a root unit executing a
+checkout-writable file would let a compromised deploy account escalate
+to root.  Re-run the apply script to roll out script changes; the
+repo copies are the source of truth but are inert at runtime.
+
 `dynasty.service.template` / `dynasty-frontend.service.template` are
 rendered (placeholder substitution) by `deploy/install-systemd-service.sh`
 — do not copy them into /etc/systemd/system verbatim.

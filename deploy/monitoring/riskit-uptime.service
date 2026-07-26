@@ -5,7 +5,24 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# SECURITY: the probe only curls and writes a log line — it needs no
+# privileges, so it runs as the deploy user (least privilege; a probe
+# running as root while executing a deploy-user-writable script would
+# be a privilege-escalation path).  Running the checkout copy is fine
+# HERE precisely because the process has no more privilege than the
+# user who can already edit that copy.
+User=dynasty
+Group=dynasty
 ExecStart=/home/dynasty/trade-calculator/deploy/monitoring/uptime_check.sh
+# systemd (pid 1) opens the append target as root before dropping to
+# User=, so the unprivileged probe still lands in /var/log.  The
+# script's own LOG_FILE points at stdout; its unwritable-fallback also
+# prints to stdout, so every line reaches the file either way.
+StandardOutput=append:/var/log/riskit-uptime.log
+StandardError=append:/var/log/riskit-uptime.log
+Environment="LOG_FILE=/dev/stdout"
+# State must live somewhere the deploy user can write.
+Environment="STATE_FILE=/var/tmp/riskit-uptime.state"
 # The probe is log-only by default.  To enable notifications, add a
 # drop-in (`systemctl edit riskit-uptime.service`):
 #   [Service]
