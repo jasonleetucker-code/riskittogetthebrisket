@@ -32,6 +32,7 @@ from src.roster_intel.targets import (
     TargetViability,
     ValueSignal,
     describe_limitations,
+    horizon_weight,
     rank_target_players,
     rank_target_positions,
     win_now_weight,
@@ -249,18 +250,110 @@ class TestWinNowWeight:
     def test_absent_window_is_neutral(self):
         assert win_now_weight(None) == pytest.approx(1.0)
 
-    def test_window_scales_priority(self):
-        pool = _roster()
-        cands = {"TE": [_p("te_a", "TE", 80.0), _p("te_b", "TE", 78.0), _p("te_c", "TE", 76.0)]}
-        contender = rank_target_positions(
-            pool, SLOTS, candidates=cands, window=_window(championship_contender=1.0)
-        )[0]
-        rebuilder = rank_target_positions(
-            pool, SLOTS, candidates=cands, window=_window(rebuild=1.0)
-        )[0]
-        assert contender.priority > rebuilder.priority
-        # The measured gain is identical; only its worth to us changed.
-        assert contender.realistic_gain == pytest.approx(rebuilder.realistic_gain)
+    def test_global_scalar_is_documented_as_inert_for_ranking(self):
+        """``win_now_weight`` is exposed for magnitude reporting only.
+        Multiplying every candidate by the same positive number leaves
+        the order untouched, so it must never BE the ranking multiplier
+        — that is the defect ``horizon_weight`` exists to fix."""
+        import inspect
+
+        from src.roster_intel import targets
+
+        doc = inspect.getdoc(targets.win_now_weight) or ""
+        assert "cannot" in doc and "global scalar" in doc.lower()
+
+
+class TestHorizonWeight:
+    """The per-position window term.
+
+    Regression suite for a real defect: the window used to be applied as
+    a single global scalar multiplied uniformly into every position's
+    priority. Since priority is only ever sorted and displayed, a
+    uniform positive multiplier cannot reorder anything — a rebuilding
+    roster and a contending roster got the identical ranked order, while
+    the docs claimed the window shaped the recommendation.
+    """
+
+    #: TE upgrades are old, WR upgrades are young. TE has the bigger
+    #: raw gain, so a contender should want TE and a rebuilder WR.
+    CANDS = {
+        "TE": [_p("t1", "TE", 82.0), _p("t2", "TE", 81.0), _p("t3", "TE", 80.0)],
+        "WR": [_p("w1", "WR", 99.0), _p("w2", "WR", 98.5), _p("w3", "WR", 98.0)],
+    }
+    AGES = {"t1": 30.0, "t2": 31.0, "t3": 30.0, "w1": 23.0, "w2": 22.5, "w3": 23.0}
+
+    def _order(self, window):
+        return [
+            t.position
+            for t in rank_target_positions(
+                _roster(),
+                SLOTS,
+                candidates=self.CANDS,
+                window=window,
+                candidate_ages=self.AGES,
+            )
+            if t.viability is TargetViability.VIABLE
+        ]
+
+    def test_window_actually_reorders_positions(self):
+        """The property the old implementation could not deliver."""
+        contender = self._order(_window(championship_contender=1.0))
+        rebuild = self._order(_window(rebuild=1.0))
+        assert contender != rebuild
+        assert contender[0] == "TE"  # bigger upgrade
+        assert rebuild[0] == "WR"  # younger upgrade
+
+    def test_a_global_scalar_could_not_have_done_this(self):
+        """Guards the fix at the level of the mechanism, not the output:
+        if someone reverts to multiplying by a single scalar, the two
+        orders collapse back together and this fails."""
+        orders = {
+            tuple(self._order(_window(**w)))
+            for w in (
+                {"championship_contender": 1.0},
+                {"rebuild": 1.0},
+                {"retool": 0.5, "rebuild": 0.5},
+            )
+        }
+        assert len(orders) > 1
+
+    def test_contender_ignores_age(self):
+        young = horizon_weight(_window(championship_contender=1.0), 22.0)
+        old = horizon_weight(_window(championship_contender=1.0), 32.0)
+        assert young == pytest.approx(old)
+
+    def test_rebuilder_strongly_prefers_youth(self):
+        young = horizon_weight(_window(rebuild=1.0), 22.0)
+        old = horizon_weight(_window(rebuild=1.0), 32.0)
+        assert young > old * 3
+
+    def test_not_applied_without_ages_and_reported_as_none(self):
+        """A field that looks applied and is not is the same false claim
+        in quieter clothing."""
+        res = [
+            t
+            for t in rank_target_positions(
+                _roster(), SLOTS, candidates=self.CANDS, window=_window(rebuild=1.0)
+            )
+            if t.viability is TargetViability.VIABLE
+        ]
+        assert all(t.win_now_weight is None for t in res)
+        assert all(t.to_dict()["winNowWeight"] is None for t in res)
+        assert any("did NOT affect this ranking" in n for n in res[0].notes)
+
+    def test_not_applied_without_a_window(self):
+        assert horizon_weight(None, 25.0) is None
+
+    def test_uses_the_full_distribution(self):
+        decisive = horizon_weight(_window(rebuild=1.0), 30.0)
+        split = horizon_weight(_window(rebuild=0.5, championship_contender=0.5), 30.0)
+        assert decisive != pytest.approx(split)
+
+    def test_limitations_describe_the_per_position_application(self):
+        lim = describe_limitations()
+        assert lim["keyAssumptions"]["windowAppliedPerPosition"] is True
+        note = lim["keyAssumptions"]["windowAppliedPerPositionNote"]
+        assert "global scalar cannot reorder" in note
 
 
 # ══ Gate 2: corroboration ═══════════════════════════════════════════

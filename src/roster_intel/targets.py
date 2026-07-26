@@ -53,11 +53,27 @@ added to *this* season's optimal lineup.
 
 That is the right unit for a contender and an incomplete one for a
 rebuild, where the value of an acquisition is mostly its price in two
-years. The window distribution is applied as a multiplier
-(:func:`win_now_weight`) so rebuild-leaning rosters discount win-now
-gains, but a multiplier on a current-season number **cannot** represent
+years. A multiplier on a current-season number **cannot** represent
 future value, and this module does not pretend otherwise. See
 :func:`describe_limitations`.
+
+**How the competitive window enters, and a defect worth remembering.**
+The window is applied through :func:`horizon_weight`, which is computed
+**per position** from the age of that position's obtainable upgrades.
+It has to be per-position to do anything at all: an earlier version
+multiplied every position by the single global :func:`win_now_weight`
+scalar, and since ``priority`` is used only for sorting and display, a
+uniform positive multiplier **cannot reorder a list**. A rebuilding
+roster and a contending roster received the identical ranked order and
+differed only in the absolute numbers — an input that provably could
+not move the output, while being documented as if it did.
+
+Keyed to horizon instead, the window changes WHICH positions to
+attack: given equally-sized upgrades, a contender takes the bigger
+one and a rebuilder takes the younger one. When candidate ages are
+unavailable the term is **not applied and is reported as ``None``**,
+because a field that looks applied and is not is the same false claim
+in quieter clothing.
 """
 
 from __future__ import annotations
@@ -89,6 +105,7 @@ __all__ = [
     "describe_limitations",
     "rank_target_players",
     "rank_target_positions",
+    "horizon_weight",
     "win_now_weight",
 ]
 
@@ -154,7 +171,37 @@ prefers more points to fewer at equal cost — what changes is the price
 it should pay, not the sign of the value. It is emphatically not a
 claim that this engine prices a rebuild's real objective; see the
 module docstring.
+
+**On its own this is a global scalar and therefore inert for ranking**
+— see :func:`horizon_weight`.
 """
+
+_STATE_FUTURE_ORIENTATION: Mapping[str, float] = {
+    "championship_contender": 0.00,
+    "playoff_contender": 0.15,
+    "retool": 0.65,
+    "productive_struggle": 0.85,
+    "rebuild": 1.00,
+}
+"""How much each state cares about an acquisition's remaining horizon.
+
+A contender will happily take a 30-year-old who starts this week; a
+rebuilding roster mostly should not. This is the axis that lets the
+competitive window change WHICH positions to target rather than merely
+rescaling all of them.
+"""
+
+_AGE_YOUNG = 22.0
+_AGE_OLD = 32.0
+"""Bounds of the youth scale, matching ``window.trajectory_score`` so
+the two modules do not disagree about what 'young' means."""
+
+_FUTURE_AGE_FLOOR = 0.40
+_FUTURE_AGE_SPAN = 1.20
+"""A future-oriented roster values the youngest obtainable upgrade
+``(FLOOR + SPAN)`` and the oldest ``FLOOR`` — a 4x spread, which is what
+makes the term capable of reordering positions rather than scaling
+them."""
 
 _SCARCITY_SIGNAL_PERCENTILE = 0.60
 """Waiver scarcity above this marks a position where replacement is
@@ -231,7 +278,7 @@ class PositionTarget:
     urgent_need: bool = False
     need_reasons: tuple[str, ...] = ()
 
-    win_now_weight: float = 1.0
+    win_now_weight: float | None = None
     scarcity_multiplier: float = 1.0
     market_efficiency: float | None = None
     confidence: float = 0.0
@@ -251,7 +298,9 @@ class PositionTarget:
             "severity": round(self.severity, 3),
             "urgentNeed": self.urgent_need,
             "needReasons": list(self.need_reasons),
-            "winNowWeight": round(self.win_now_weight, 4),
+            "winNowWeight": (
+                round(self.win_now_weight, 4) if self.win_now_weight is not None else None
+            ),
             "scarcityMultiplier": round(self.scarcity_multiplier, 4),
             "marketEfficiency": (
                 round(self.market_efficiency, 4) if self.market_efficiency is not None else None
@@ -329,6 +378,12 @@ def win_now_weight(window: CompetitiveWindow | None) -> float:
     a different decision from one sitting at 85% retool, and collapsing
     to the argmax throws away exactly that difference — which is the
     reason the roster engine reports probabilities in the first place.
+
+    **This is a global scalar. It cannot, by itself, change which
+    position ranks first** — multiplying every candidate by the same
+    positive number leaves the order untouched. It is exposed for
+    magnitude reporting and consumed by :func:`horizon_weight`, which is
+    the per-position form that actually differentiates.
     """
     if window is None:
         return 1.0
@@ -343,6 +398,61 @@ def win_now_weight(window: CompetitiveWindow | None) -> float:
     if mass <= _TINY:
         return 1.0
     return total / mass
+
+
+def horizon_weight(window: CompetitiveWindow | None, mean_age: float | None) -> float | None:
+    """Per-position window weight, sensitive to the AGE of what is
+    obtainable there.
+
+    This is the fix for a real defect: the previous implementation
+    applied :func:`win_now_weight` — a single global scalar — uniformly
+    to every position. A uniform positive multiplier cannot reorder a
+    list, so a rebuilding roster and a contending roster received the
+    *identical ranked order* of target positions and differed only in
+    the absolute numbers. The term was documented as affecting the
+    recommendation and provably could not.
+
+    A window weight that genuinely differentiates has to enter
+    per-position, and the mechanism that does so honestly is horizon:
+    a contender should take the best available upgrade regardless of
+    age, while a rebuilding roster should prefer positions where the
+    obtainable upgrades are young. Same window, different positions.
+
+    Returns ``None`` when it cannot be computed — no window, or no age
+    data for the position's candidates. **None means the term did not
+    apply**, and callers must not stamp a number that looks applied.
+    """
+    if window is None or mean_age is None:
+        return None
+    total = 0.0
+    mass = 0.0
+    youth = _clamp((_AGE_OLD - float(mean_age)) / (_AGE_OLD - _AGE_YOUNG), 0.0, 1.0)
+    for state in COMPETITIVE_STATES:
+        p = float(window.probabilities.get(state, 0.0))
+        if p <= 0:
+            continue
+        base = _WIN_NOW_WEIGHTS.get(state, 0.5)
+        future = _STATE_FUTURE_ORIENTATION.get(state, 0.5)
+        # Win-now states ignore age; future-oriented states reward youth.
+        age_mult = (1.0 - future) * 1.0 + future * (_FUTURE_AGE_FLOOR + _FUTURE_AGE_SPAN * youth)
+        total += p * base * age_mult
+        mass += p
+    if mass <= _TINY:
+        return None
+    return total / mass
+
+
+def _mean_candidate_age(
+    candidates: Sequence[RosterPlayer], ages: Mapping[str, float] | None
+) -> float | None:
+    """Mean age of the candidates that define a position's realistic
+    gain. ``None`` when no candidate has a known age."""
+    if not ages:
+        return None
+    known = [float(ages[c.player_id]) for c in candidates if c is not None and c.player_id in ages]
+    if not known:
+        return None
+    return sum(known) / len(known)
 
 
 def _scarcity_multiplier(sc: ScarcityComponents | None) -> tuple[float, str | None]:
@@ -387,6 +497,7 @@ def rank_target_positions(
     scarcity: Mapping[str, ScarcityComponents] | None = None,
     replacement: Mapping[str, PositionReplacement] | None = None,
     market_prices: Mapping[str, float] | None = None,
+    candidate_ages: Mapping[str, float] | None = None,
     candidate_depth: int = REALISTIC_CANDIDATE_DEPTH,
 ) -> list[PositionTarget]:
     """Rank positions worth attacking. Non-viable positions are returned
@@ -419,7 +530,10 @@ def rank_target_positions(
     slots_list = list(slots)
     base_score = optimal_score(pool_list, slots_list)
     cands = candidates or {}
-    ww = win_now_weight(window)
+    # Reported for magnitude context only. It is a GLOBAL scalar and is
+    # deliberately not used as the ranking multiplier — see
+    # horizon_weight for why.
+    global_ww = win_now_weight(window)
 
     positions = set(cands)
     if profile is not None:
@@ -451,7 +565,7 @@ def rank_target_positions(
                     severity=severity,
                     urgent_need=bool(pprof.urgent_need) if pprof else False,
                     need_reasons=tuple(pprof.need_reasons) if pprof else (),
-                    win_now_weight=ww,
+                    win_now_weight=global_ww,
                     scarcity_multiplier=scar_mult,
                     notes=tuple(notes),
                 )
@@ -486,7 +600,7 @@ def rank_target_positions(
                     severity=severity,
                     urgent_need=bool(pprof.urgent_need) if pprof else False,
                     need_reasons=tuple(pprof.need_reasons) if pprof else (),
-                    win_now_weight=ww,
+                    win_now_weight=global_ww,
                     scarcity_multiplier=scar_mult,
                     notes=tuple(notes),
                 )
@@ -511,7 +625,7 @@ def rank_target_positions(
                     severity=severity,
                     urgent_need=bool(pprof.urgent_need) if pprof else False,
                     need_reasons=tuple(pprof.need_reasons) if pprof else (),
-                    win_now_weight=ww,
+                    win_now_weight=global_ww,
                     scarcity_multiplier=scar_mult,
                     notes=tuple(notes),
                 )
@@ -558,7 +672,28 @@ def rank_target_positions(
                 "realistic gain rests on a thin sample"
             )
 
-        priority = realistic * ww * scar_mult * eff_mult * confidence
+        # ── competitive-window weight, PER POSITION ──────────────────
+        # Keyed to the age of what is obtainable here, so a rebuilding
+        # roster prefers positions with young upgrades rather than
+        # receiving the contender's list at a smaller scale. When ages
+        # are unavailable the term cannot differentiate, so it is not
+        # applied at all and is reported as None rather than as a
+        # number that looks applied.
+        top_candidates = [c for _, c in gains[: max(1, int(candidate_depth))]]
+        mean_age = _mean_candidate_age(top_candidates, candidate_ages)
+        hw = horizon_weight(window, mean_age)
+        if hw is None:
+            window_mult = 1.0
+            if window is not None:
+                notes.append(
+                    "competitive window supplied but no candidate ages — the "
+                    "window weight is per-position by age and could not be "
+                    "computed, so it did NOT affect this ranking"
+                )
+        else:
+            window_mult = hw
+
+        priority = realistic * window_mult * scar_mult * eff_mult * confidence
 
         out.append(
             PositionTarget(
@@ -574,7 +709,7 @@ def rank_target_positions(
                 severity=severity,
                 urgent_need=bool(pprof.urgent_need) if pprof else False,
                 need_reasons=tuple(pprof.need_reasons) if pprof else (),
-                win_now_weight=ww,
+                win_now_weight=hw,
                 scarcity_multiplier=scar_mult,
                 market_efficiency=efficiency,
                 confidence=confidence,
@@ -782,9 +917,9 @@ def describe_limitations() -> dict[str, Any]:
         "cannotSupport": [
             "Multi-year or rebuild value. Everything is denominated in "
             "rest-of-season points, so a rebuild's real objective — what an "
-            "asset is worth in two years — is not represented. The win-now "
-            "weight discounts current-season gains; it does not price the "
-            "future.",
+            "asset is worth in two years — is not represented. The horizon "
+            "weight changes WHICH positions a rebuilding roster prefers; it "
+            "does not price the future.",
             "Any claim about what a trade will COST. The engines rank what is "
             "worth wanting, not what it takes to get it.",
             "Availability in any measured sense unless the caller supplies "
@@ -807,6 +942,14 @@ def describe_limitations() -> dict[str, Any]:
             "minCorroboratingSignals": MIN_CORROBORATING_SIGNALS,
             "winNowWeights": dict(_WIN_NOW_WEIGHTS),
             "winNowWeightsAreMeasured": False,
+            "windowAppliedPerPosition": True,
+            "windowAppliedPerPositionNote": (
+                "The competitive window enters via horizon_weight, computed per "
+                "position from the age of that position's obtainable upgrades. A "
+                "global scalar cannot reorder a ranking, so a uniform win-now "
+                "multiplier would be inert. Requires candidate_ages; without them "
+                "the term is not applied and winNowWeight is reported as null."
+            ),
         },
         "whatWouldUnlockMore": [
             "A dynasty/multi-year value scale alongside ros_value, which "
