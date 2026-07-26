@@ -252,7 +252,7 @@ def format_alert_email(
         if t.get("reason"):
             lines.append(f"    {t['reason']}")
     lines.append("")
-    lines.append("See the terminal:  https://riskittogetthebrisket.org/")
+    lines.append("See the terminal:  http://169.58.50.224/")
     lines.append("")
     lines.append("To stop receiving these, sign in and dismiss the signal — it'll be")
     lines.append("suppressed for 7 days.  You can change the alert cadence on /settings.")

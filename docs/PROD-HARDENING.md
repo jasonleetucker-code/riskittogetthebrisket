@@ -7,7 +7,7 @@ operator applies it with `deploy/apply_hardening.sh` (which is
 idempotent and prints a verification checklist), or by following the
 per-file install notes.
 
-Production context (from `deploy/PRODUCTION_BOOTSTRAP.md`): Hetzner
+Production context (from `deploy/PRODUCTION_BOOTSTRAP.md`): a
 VPS, app at `/home/dynasty/trade-calculator`, user `dynasty`, nginx +
 Let's Encrypt in front of `dynasty.service` (FastAPI :8000) and
 `dynasty-frontend.service` (Next.js :3000).

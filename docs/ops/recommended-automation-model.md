@@ -171,7 +171,7 @@ triggers {
 ┌─────────────────────────────────────────────────┐
 │                  PRODUCTION                      │
 │                                                  │
-│  server.py (Hetzner)                            │
+│  server.py (production VPS)                            │
 │  ├─ Serves /api/data (last-known-good)          │
 │  ├─ Scrapes every 2h (in-process)               │
 │  ├─ /api/health (error + stall + data freshness)│

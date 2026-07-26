@@ -3,7 +3,7 @@
 This runbook is for first-time production setup and recovery on a fresh server.
 
 Current production target:
-- host: `178.156.148.92`
+- host: `<DEPLOY_HOST>`
 - user: `dynasty`
 - app path: `/home/dynasty/trade-calculator`
 - venv path: `/home/dynasty/.venvs/trade-calculator`
