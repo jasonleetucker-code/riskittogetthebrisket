@@ -580,8 +580,8 @@ def build_player_context(
 
     by_gsis: dict[str, dict[str, Any]] = {}
     by_espn: dict[str, dict[str, Any]] = {}
-    by_name_team_pos: dict[tuple[str, str, str], dict[str, Any]] = {}
-    by_name_pos: dict[tuple[str, str], dict[str, Any]] = {}
+    by_name_team_pos: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    by_name_pos: dict[tuple[str, str], list[dict[str, Any]]] = {}
     by_name: dict[str, list[dict[str, Any]]] = {}
     for p in players_dir.values():
         if p.get("gsis_id"):
@@ -593,11 +593,20 @@ def build_player_context(
             continue
         pos = str(p.get("position") or "").upper()
         team = str(p.get("team") or "").upper()
-        by_name_team_pos.setdefault((norm_name, team, pos), p)
-        by_name_pos.setdefault((norm_name, pos), p)
+        by_name_team_pos.setdefault((norm_name, team, pos), []).append(p)
+        by_name_pos.setdefault((norm_name, pos), []).append(p)
         by_name.setdefault(norm_name, []).append(p)
 
     resolve_cache: dict[tuple[str, str, str], dict[str, Any] | None] = {}
+
+    def _sole(cands: list[dict[str, Any]] | None) -> tuple[dict[str, Any] | None, bool]:
+        """(candidate, ambiguous): the candidate only when it is
+        UNIQUE; ambiguous=True when the key covers several players."""
+        if not cands:
+            return None, False
+        if len(cands) == 1:
+            return cands[0], False
+        return None, True
 
     def _resolve_by_name(name: str, team: str, position: str) -> dict[str, Any] | None:
         fam = normalize_position(position)
@@ -606,23 +615,34 @@ def build_player_context(
         if key in resolve_cache:
             return resolve_cache[key]
         norm_name = normalize_player_name(name)
-        hit = (
-            by_name_team_pos.get((norm_name, team_u, fam))
-            or by_name_pos.get((norm_name, fam))
-            or (by_name[norm_name][0] if len(by_name.get(norm_name, [])) == 1 else None)
-        )
+        # Deterministic rungs accept only a UNIQUE candidate.  Two
+        # active players sharing a normalized name + position family
+        # are a real case (and a contract row can carry the SIGNING
+        # team post-trade, so a team mismatch must not fall back to
+        # "first one indexed" — that attaches data to the wrong
+        # player).  Team match that narrows to exactly one wins;
+        # otherwise ambiguity is only resolvable by a manual override,
+        # never by guessing.
+        hit, ambiguous = _sole(by_name_team_pos.get((norm_name, team_u, fam)))
+        if hit is None and not ambiguous:
+            hit, ambiguous = _sole(by_name_pos.get((norm_name, fam)))
+        if hit is None and not ambiguous:
+            hit, ambiguous = _sole(by_name.get(norm_name))
         if hit is None and norm_name in alias_by_name:
             # Manual override (id_overrides.json) — an operator-pinned
-            # source-name → sleeper_id mapping beats the fuzzy guess
-            # below.  ``resolve_player`` can't reach its own override
-            # rung for source rows (it requires a sleeper_id input),
-            # so the alias index is what makes overrides effective
-            # here.
+            # source-name → sleeper_id mapping settles ambiguity and
+            # beats the fuzzy guess below.  ``resolve_player`` can't
+            # reach its own override rung for source rows (it requires
+            # a sleeper_id input), so the alias index is what makes
+            # overrides effective here.
             hit = players_dir.get(alias_by_name[norm_name])
-        if hit is None:
+        if hit is None and not ambiguous:
             # Tail cases only: the mapper's fuzzy layer.  Too slow for
             # the hot path (it re-indexes the pool per call) but right
-            # for the residue.
+            # for the residue.  Never consulted for AMBIGUOUS names —
+            # its candidate walk is first-match-wins, i.e. exactly the
+            # arbitrary pick this rung refuses; without an override an
+            # ambiguous row is dropped (drop-don't-guess).
             got = resolve_player(
                 players_dir,
                 name=name,

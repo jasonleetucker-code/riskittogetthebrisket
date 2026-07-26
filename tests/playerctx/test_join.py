@@ -262,3 +262,112 @@ class TestManualOverrides:
         )
         assert len(records) == 1
         assert next(iter(records.values()))["sleeperId"] == "7777"
+
+
+class TestAmbiguousNames:
+    """Regression (Codex round 3 on PR #539): two ACTIVE pool records
+    sharing a normalized name + position family must never be matched
+    arbitrarily.  The old ``setdefault`` index silently kept whichever
+    record was indexed first, so a teamless (or signing-team-stale)
+    contract row attached to the wrong player.  Deterministic rungs
+    now accept only a UNIQUE candidate; ambiguity is settled by a
+    manual override or the row is dropped — never by the fuzzy layer's
+    first-match walk."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_override_cache(self):
+        unified_mapper.reload_overrides()
+        yield
+        unified_mapper.reload_overrides()
+
+    @pytest.fixture
+    def dup_pool(self, players_dir):
+        pool = dict(players_dir)
+        pool["9001"] = {
+            "player_id": "9001",
+            "full_name": "Lamar Woods",
+            "position": "WR",
+            "team": "KC",
+            "gsis_id": "00-0900001",
+            "espn_id": "911",
+        }
+        pool["9002"] = {
+            "player_id": "9002",
+            "full_name": "Lamar Woods",
+            "position": "WR",
+            "team": "NYJ",
+            "gsis_id": "00-0900002",
+            "espn_id": "912",
+        }
+        return pool
+
+    @pytest.fixture
+    def no_overrides(self, tmp_path):
+        p = tmp_path / "no_overrides.json"
+        p.write_text("{}", encoding="utf-8")
+        return p
+
+    def test_teamless_ambiguous_row_is_dropped(self, dup_pool, no_overrides):
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=dup_pool,
+            overrides_path=no_overrides,
+        )
+        assert records == {}
+        assert stats["contracts"]["matched"] == 0
+
+    def test_stale_signing_team_ambiguous_row_is_dropped(self, dup_pool, no_overrides):
+        # A contract still carrying the signing team post-trade: the
+        # team matches NEITHER candidate, and name+family covers two
+        # players — must drop, not keep whichever was indexed first.
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "MIA", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=dup_pool,
+            overrides_path=no_overrides,
+        )
+        assert records == {}
+
+    def test_override_settles_ambiguity(self, dup_pool, tmp_path):
+        ov = tmp_path / "id_overrides.json"
+        ov.write_text(
+            json.dumps(
+                {"9002": {"gsis_id": "00-0900002", "espn_id": "912", "full_name": "Lamar Woods"}}
+            ),
+            encoding="utf-8",
+        )
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=dup_pool,
+            overrides_path=ov,
+        )
+        assert set(records) == {"00-0900002"}
+        assert records["00-0900002"]["sleeperId"] == "9002"
+        assert stats["contracts"]["matched"] == 1
+
+    def test_matching_team_disambiguates_to_exactly_one(self, dup_pool, no_overrides):
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Lamar Woods", "KC", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=dup_pool,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0900001"}
+        assert records["00-0900001"]["sleeperId"] == "9001"
+
+    def test_unique_name_pos_candidate_still_matches_teamless(self, dup_pool, no_overrides):
+        # Uniqueness, not team presence, is the acceptance criterion.
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Justin Jefferson", "", "WR")],
+            snaps=[],
+            depth=[],
+            players_dir=dup_pool,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0036322"}

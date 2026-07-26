@@ -244,10 +244,16 @@ def _fetch_seasonal(
 ) -> tuple[Path | None, int | None, list[str]]:
     """Try each season newest-first; first hit wins.
 
-    A 404 on the newest season is normal in the offseason (e.g. snap
-    counts for a season that hasn't kicked off) — we fall through to
-    the previous season silently.  Anything else is surfaced as a
-    warning.
+    Only a 404 walks on to the prior season — that is the one signal
+    that the season file genuinely doesn't exist upstream yet (normal
+    in the offseason for snap counts).  A TRANSIENT failure (timeout /
+    5xx / connection error) with no usable local copy STOPS the walk
+    and reports no path: mid-season, silently publishing last year's
+    snaps or depth charts would look plausible enough to sail past the
+    retention guards, so the refresh must fail instead and leave the
+    existing last-good snapshot untouched.  A transient failure WITH a
+    local copy of that season still degrades to the stale copy
+    (``fetch_url`` returns it with ``status="error"``).
     """
     warnings: list[str] = []
     for season in seasons:
@@ -265,7 +271,13 @@ def _fetch_seasonal(
                 warnings.append(f"{key} {season}: {res.detail} (using stale local copy)")
             return res.path, season, warnings
         if res.status != "missing":
-            warnings.append(f"{key} {season}: {res.status} {res.detail}")
+            # Transient / unexpected failure with no local fallback —
+            # do NOT mask it with a prior-season download.
+            warnings.append(
+                f"{key} {season}: {res.status} {res.detail} "
+                "(transient failure — refusing prior-season fallback)"
+            )
+            return None, None, warnings
     warnings.append(f"{key}: no season file available for {seasons}")
     return None, None, warnings
 

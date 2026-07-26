@@ -19,9 +19,14 @@ API keys).  URLs verified live 2026-07-25.
 | Sleeper players directory | `https://api.sleeper.app/v1/players/nfl` | ~5 MB JSON | join anchor |
 
 Seasonal files are tried newest-calendar-year-first with a fallback to
-the prior season — snap counts for year N don't exist until the N
-season kicks off, while the depth-chart file for the upcoming season
-is refreshed daily through the offseason.
+the prior season **only on a genuine upstream 404** — snap counts for
+year N don't exist until the N season kicks off, while the depth-chart
+file for the upcoming season is refreshed daily through the offseason.
+A transient failure (timeout / 5xx / connection error) on the current
+season stops the walk instead of quietly publishing last year's file:
+with no local copy the refresh fails (exit 1) and the last-good
+snapshot stays untouched; with a local copy of that season the stale
+copy is used.
 
 ### Verified schemas
 
@@ -83,15 +88,20 @@ an offensive formation ("3WR 1TE"), "Base 3-4 D" / "Base 4-3 D", or
 3. **join** — depth rows join by exact gsis/espn ID; contracts and
    snaps go through the unified-mapper name ladder
    (name+team+pos → name+pos → unique name, prebuilt as O(1) indexes).
+   Each deterministic rung accepts only a **unique** candidate: when
+   two active pool players share a normalized name + position family
+   and the source team is absent or stale (contracts carry the signing
+   team), the row is never attached to "whichever was indexed first".
    Manual overrides (`config/identity/id_overrides.json`, same file
    and loader as the unified mapper) are reverse-indexed by normalized
    full_name / gsis_id / espn_id → sleeper_id and consulted after the
    deterministic rungs miss but before the fuzzy fallback — an
-   operator-pinned mapping beats a fuzzy guess, and a source row that
-   depends on an override is never dropped.  Residual misses fall
-   through to `src.identity.unified_mapper.resolve_player` for its
-   fuzzy layer.  Rows that still don't map to the Sleeper pool are
-   dropped and counted.
+   operator-pinned mapping settles ambiguity and beats a fuzzy guess.
+   Unknown names (zero candidates) fall through to
+   `src.identity.unified_mapper.resolve_player` for its fuzzy layer;
+   ambiguous names never do (its candidate walk is first-match-wins) —
+   without an override they are dropped (drop-don't-guess).  Rows that
+   still don't map to the Sleeper pool are dropped and counted.
 4. **floors** — schema drift (missing columns) or parsed-row counts
    under the floors (`contracts` 1000, snap aggregates 700, depth rows
    1200, joined players 400) raise `SchemaRegressionError` → exit 2.

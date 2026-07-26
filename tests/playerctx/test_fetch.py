@@ -37,13 +37,22 @@ class _FakeResponse:
 
 
 class _FakeSession:
-    def __init__(self, response=None, request_exc: Exception | None = None):
+    """Single-response session, or per-URL via ``by_url`` — a mapping
+    of url → response object or Exception to raise."""
+
+    def __init__(self, response=None, request_exc: Exception | None = None, by_url=None):
         self._response = response
         self._request_exc = request_exc
+        self._by_url = by_url
         self.calls: list[dict] = []
 
     def get(self, url, headers=None, timeout=None, stream=None):
         self.calls.append({"url": url, "headers": headers})
+        if self._by_url is not None:
+            entry = self._by_url[url]
+            if isinstance(entry, Exception):
+                raise entry
+            return entry
         if self._request_exc is not None:
             raise self._request_exc
         return self._response
@@ -125,6 +134,81 @@ class TestStaleCacheDegradation:
             fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
         assert dest.read_bytes() == b"stale"
         assert list(tmp_path.glob("*.tmp-*")) == []
+
+
+class TestSeasonalTransientFailures:
+    """Regression (Codex round 3 on PR #539): the prior-season walk
+    must engage ONLY on a genuine upstream 404.  A transient failure
+    (timeout / 5xx / connection error) on the current season with no
+    local cache must stop the walk — silently publishing last year's
+    file mid-season looks plausible enough to pass the retention
+    guards."""
+
+    URL_TMPL = "https://x.invalid/snap_counts_{season}.csv"
+    FILE_TMPL = "snap_counts_{season}.csv"
+
+    def _seasonal(self, tmp_path, session, seasons=(2026, 2025)):
+        return fetch_mod._fetch_seasonal(
+            self.URL_TMPL,
+            self.FILE_TMPL,
+            list(seasons),
+            tmp_path,
+            key="snap_counts",
+            max_age_hours=0.0,
+            force=False,
+            session=session,
+        )
+
+    def test_500_without_cache_stops_walk(self, tmp_path):
+        session = _FakeSession(
+            by_url={
+                self.URL_TMPL.format(season=2026): _FakeResponse(status_code=500),
+                self.URL_TMPL.format(season=2025): _FakeResponse(chunks=[b"last-year"]),
+            }
+        )
+        path, season, warns = self._seasonal(tmp_path, session)
+        assert path is None and season is None
+        # The prior season must not even be requested.
+        assert [c["url"] for c in session.calls] == [self.URL_TMPL.format(season=2026)]
+        assert any("refusing prior-season fallback" in w for w in warns)
+        assert not (tmp_path / self.FILE_TMPL.format(season=2025)).exists()
+
+    def test_connection_error_without_cache_stops_walk(self, tmp_path):
+        session = _FakeSession(
+            by_url={
+                self.URL_TMPL.format(season=2026): requests.ConnectTimeout("slow"),
+                self.URL_TMPL.format(season=2025): _FakeResponse(chunks=[b"last-year"]),
+            }
+        )
+        path, season, warns = self._seasonal(tmp_path, session)
+        assert path is None and season is None
+        assert len(session.calls) == 1
+        assert any("refusing prior-season fallback" in w for w in warns)
+
+    def test_404_still_falls_back_to_prior_season(self, tmp_path):
+        session = _FakeSession(
+            by_url={
+                self.URL_TMPL.format(season=2026): _FakeResponse(status_code=404),
+                self.URL_TMPL.format(season=2025): _FakeResponse(chunks=[b"real-2025"]),
+            }
+        )
+        path, season, warns = self._seasonal(tmp_path, session)
+        assert season == 2025
+        assert path is not None and path.read_bytes() == b"real-2025"
+
+    def test_500_with_local_current_season_copy_uses_stale(self, tmp_path):
+        dest = tmp_path / self.FILE_TMPL.format(season=2026)
+        dest.write_bytes(b"stale-current-season")
+        session = _FakeSession(
+            by_url={
+                self.URL_TMPL.format(season=2026): _FakeResponse(status_code=500),
+            }
+        )
+        path, season, warns = self._seasonal(tmp_path, session)
+        assert path == dest
+        assert season == 2026
+        assert dest.read_bytes() == b"stale-current-season"
+        assert any("stale" in w for w in warns)
 
 
 class TestSeasonalFallbackUsesStaleCopy:
