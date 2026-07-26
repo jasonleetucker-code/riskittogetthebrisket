@@ -12,34 +12,27 @@
  */
 const { expect } = require("@playwright/test");
 
+// Accessible-name patterns for controls whose stable hook is their
+// label rather than a class.  Declared ABOVE `SEL` deliberately:
+// when two workstreams both append selectors, a declaration sitting
+// against SEL's closing brace gets swallowed into the conflict
+// block, and the natural resolution then exports a name that was
+// never defined — a require()-time ReferenceError that takes out
+// every spec while unit tests stay green.  Up here that is
+// structurally impossible.
+const NAME = {
+  waiverRookieToggle: /Include rookies/i,
+  waiverPositionFilter: /^Position$/i,
+  waiverStrengthFilter: /Upgrade strength/i,
+};
+
+
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
 // paired with the user-visible behavior it anchors; when a page is
 // rewritten, point these at the new DOM and the journey assertions
 // (which encode BEHAVIOR, not markup) should pass unchanged.
 const SEL = {
-  // /rankings — the board table and its rows (one row per player).
-  // R2: the board renders through the ds DataTable primitive; the
-  // rankings-row-clickable class is kept as the stable E2E hook.
-  boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
-  // /rankings — clickable player name inside a row (opens the profile).
-  playerName: ".rankings-player-name",
-  // /rankings — the controls strip's search input + position <select>
-  // (rankings-controls is the stable hook class; controls are ds
-  // primitives).
-  searchInput: ".rankings-controls input.ds-input",
-  posSelect: ".rankings-controls select.ds-select",
-  // Any modal overlay: the player profile drawer (ds Drawer) and the
-  // command palette (ds Modal) both render role=dialog panels.
-  overlaySheet: '[role="dialog"]',
-  // Command-palette result rows (R1 CommandPalette).
-  searchResult: ".shell-palette-option",
-  searchResultName: ".shell-palette-option-name",
-  // Top-nav search affordance — renders once the client auth check
-  // resolves, so it doubles as the "authenticated UI is hydrated"
-  // readiness signal.  (R1 shell.)
-  navSearchButton: ".shell-search-btn",
-
   // ── R4: draft war room + trade surfaces ──────────────────────────
   // Stable hook classes the R4 pages set on their ds Panels/controls,
   // so the copy inside them can keep evolving without touching specs.
@@ -61,15 +54,54 @@ const SEL = {
   // /draft — the war-room board panel and its rows.
   draftBoard: ".draft-board-panel",
   draftBoardRow: ".draft-board-panel tbody tr",
-};
-
-// Accessible-name patterns for R4 controls. Kept beside the selector
-// registry so a label rewording is a one-line change here rather than a
-// hunt through the specs.
-const NAME = {
-  waiverRookieToggle: /Include rookies/i,
-  waiverPositionFilter: /^Position$/i,
-  waiverStrengthFilter: /Upgrade strength/i,
+  // /rankings — the board table and its rows (one row per player).
+  // R2: the board renders through the ds DataTable primitive; the
+  // rankings-row-clickable class is kept as the stable E2E hook.
+  boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
+  // /rankings — clickable player name inside a row (opens the profile).
+  playerName: ".rankings-player-name",
+  // /rankings — the controls strip's search input + position <select>
+  // (rankings-controls is the stable hook class; controls are ds
+  // primitives).
+  searchInput: ".rankings-controls input.ds-input",
+  posSelect: ".rankings-controls select.ds-select",
+  // Any modal overlay: the player profile drawer (ds Drawer) and the
+  // command palette (ds Modal) both render role=dialog panels.
+  overlaySheet: '[role="dialog"]',
+  // Command-palette result rows (R1 CommandPalette).
+  searchResult: ".shell-palette-option",
+  searchResultName: ".shell-palette-option-name",
+  // Top-nav search affordance — renders once the client auth check
+  // resolves, so it doubles as the "authenticated UI is hydrated"
+  // readiness signal.  (R1 shell.)
+  navSearchButton: ".shell-search-btn",
+  // /news (R3) — digest-first wire. The page renders one of two feeds
+  // depending on the view tab; both row kinds carry a stable hook
+  // class alongside their CSS-module class.
+  newsControls: ".news-controls",
+  newsDigestRow: ".news-digest-row",
+  newsStoryRow: ".news-story-row",
+  // /news — the player button inside a digest row (opens the profile).
+  newsDigestPlayer: ".news-digest-row button",
+  // /edge (R3) — market-intelligence screen. Signals are grouped into
+  // three families behind a tablist; each family renders ds Panels
+  // whose bodies are DataTables.
+  edgeSignalTab: '[role="tablist"][aria-label="Signal family"] [role="tab"]',
+  edgeSignalTable: '[role="tabpanel"] .ds-table-wrap table',
+  edgeSignalRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // /finder (R3) — workflow presets as a tablist over one result table.
+  finderWorkflowTab:
+    '[role="tablist"][aria-label="Discovery workflow"] [role="tab"]',
+  finderFilters: ".finder-filters",
+  finderRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // / dashboard (R3) — the war-room terminal. The legacy terminal
+  // Panel container is retired; every section is a ds Panel now, so
+  // panels are addressed by their accessible heading rather than a
+  // .panel--* hook class.
+  dashboardCommandBar: '[aria-label="Team command bar"]',
+  dashboardStats: '[aria-label="Team aggregates"]',
+  dashboardPanel: ".ds-panel",
+  dashboardSignalCard: '[aria-label^="Sell signal"], [aria-label^="Buy signal"]',
 };
 
 function isMobileProject(testInfo) {
