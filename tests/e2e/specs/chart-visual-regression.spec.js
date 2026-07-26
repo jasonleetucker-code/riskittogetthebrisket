@@ -94,10 +94,17 @@ async function _waitForChart(
  * mount.
  */
 async function _openMethodology(page) {
-  const btn = page.getByRole("button", { name: /how this works/i });
+  // The toggle is labelled "How this works" pre-redesign and
+  // "Methodology" after the board moves onto the design system.
+  // Matching both keeps this spec working across the rebuild — and the
+  // silent-no-op catch below is exactly why a label rename here is
+  // dangerous: the opener quietly does nothing, the panel never
+  // expands, and the charts fail as "chart didn't render" rather than
+  // "the button moved".
+  const btn = page.getByRole("button", { name: /how this works|methodology/i });
   try {
-    await btn.waitFor({ state: "visible", timeout: 5_000 });
-    await btn.click();
+    await btn.first().waitFor({ state: "visible", timeout: 5_000 });
+    await btn.first().click();
   } catch {
     // Button not present — methodology is either always-open on this
     // variant or the page doesn't have one.  Silent no-op.
