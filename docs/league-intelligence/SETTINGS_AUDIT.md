@@ -47,7 +47,7 @@ Key confirmations and §3 question resolutions:
 | Pass yds | `pass_yd: 0.0333…` (=1/30) | matches 1pt/30yd |
 | Completions / incompletions | `pass_cmp 0.15` / `pass_inc -0.22` | match |
 | INT / pick-six | `pass_int -4` AND `pass_int_td -2` | **separate keys → a pick-six = −6 total (stacks). Verify empirically in golden tests (LI-2)** |
-| First downs | generic `pass_fd`/`rush_fd`/`rec_fd` all **0**; `bonus_fd_qb 0.67`, `bonus_fd_rb/wr/te 1.0` | position-based bonuses are the ONLY first-down scoring. Sleeper semantics: `bonus_fd_<pos>` awards per first down GAINED by that player (rush or reception; QB also passing) — verify stacking empirically in LI-2 |
+| First downs | generic `pass_fd`/`rush_fd`/`rec_fd` all **0**; `bonus_fd_qb 0.67`, `bonus_fd_rb/wr/te 1.0` | position-based bonuses are the ONLY first-down scoring. **CORRECTED 2026-07-26 (ADR-006):** `bonus_fd_<pos>` is not a derived bonus computed off `rush_fd`/`rec_fd` — Sleeper ships it as its own precomputed **stat key** in the weekly payload, already equal to first downs gained. The scorer multiplies it directly like any other key. Empirically confirmed in LI-2. |
 | Reception distance | `rec 0.08` + `rec_0_4 0.17`, `rec_5_9 0.42`, `rec_10_19 0.67`, `rec_20_29 0.92`, `rec_30_39 1.17`, `rec_40p 1.92` | Sleeper bands key on RECEPTION YARDAGE GAINED on the play. Hypothesis: base `rec` stacks with band (0.25/0.50/0.75/1.00/1.25/2.00 effective) — golden tests must confirm |
 | Rushing | `rush_att 0.08`, `rush_yd 0.1`, `rush_td 6` | match |
 | Fumbles | `fum 0`, `fum_lost -4`, `fum_rec_td 6` | match |
