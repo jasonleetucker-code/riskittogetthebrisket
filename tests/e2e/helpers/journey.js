@@ -12,48 +12,12 @@
  */
 const { expect } = require("@playwright/test");
 
-// Accessible-name patterns for R4 controls.  Declared ABOVE the
-// selector registry on purpose: when it sat between SEL's closing
-// brace and the helpers, any other workstream appending to SEL
-// produced a conflict block whose 'theirs' side swallowed this
-// declaration along with the brace — resolving it the obvious way
-// exported an undefined NAME and every spec died at require() time.
-// Keeping it up here makes that class of resolution impossible.
-const NAME = {
-  waiverRookieToggle: /Include rookies/i,
-  waiverPositionFilter: /^Position$/i,
-  waiverStrengthFilter: /Upgrade strength/i,
-};
-
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
 // paired with the user-visible behavior it anchors; when a page is
 // rewritten, point these at the new DOM and the journey assertions
 // (which encode BEHAVIOR, not markup) should pass unchanged.
 const SEL = {
-  // ── R4: draft war room + trade surfaces ──────────────────────────
-  // Placed FIRST inside SEL (not appended) so concurrent workstreams
-  // that append their own block at the bottom merge cleanly against
-  // this one in either direction.  Ordering here is merge ergonomics,
-  // not precedence.
-  // /waivers — the controls rail and the FAAB bid desk.
-  waiverControls: ".waivers-controls",
-  waiverBidDesk: ".waivers-bid-desk",
-  // /waivers — rival-contention table rows (FAAB v2 sealed-auction read).
-  waiverRivalRow: ".waivers-bid-desk .ds-table-wrap table tbody tr",
-  // /trade — the control bar and the per-side ledger panels.
-  tradeControls: ".trade-controls",
-  tradeSide: ".trade-page .ds-panel",
-  tradeStickyTray: ".trade-sticky-tray",
-  // /trades — ledger entries (each is a Panel linking into /trade).
-  tradeLedgerEntry: ".trades-page a.ds-panel",
-  tradesControls: ".trades-controls",
-  // /angle — the pitch form and the ranked-package table rows.
-  angleForm: ".angle-form",
-  anglePackageRow: ".angle-page .ds-table-wrap table tbody tr",
-  // /draft — the war-room board panel and its rows.
-  draftBoard: ".draft-board-panel",
-  draftBoardRow: ".draft-board-panel tbody tr",
   // /rankings — the board table and its rows (one row per player).
   // R2: the board renders through the ds DataTable primitive; the
   // rankings-row-clickable class is kept as the stable E2E hook.
@@ -76,8 +40,37 @@ const SEL = {
   // readiness signal.  (R1 shell.)
   navSearchButton: ".shell-search-btn",
 
+  // ── R4: draft war room + trade surfaces ──────────────────────────
+  // Stable hook classes the R4 pages set on their ds Panels/controls,
+  // so the copy inside them can keep evolving without touching specs.
+  // /waivers — the controls rail and the FAAB bid desk.
+  waiverControls: ".waivers-controls",
+  waiverBidDesk: ".waivers-bid-desk",
+  // /waivers — rival-contention table rows (FAAB v2 sealed-auction read).
+  waiverRivalRow: ".waivers-bid-desk .ds-table-wrap table tbody tr",
+  // /trade — the control bar and the per-side ledger panels.
+  tradeControls: ".trade-controls",
+  tradeSide: ".trade-page .ds-panel",
+  tradeStickyTray: ".trade-sticky-tray",
+  // /trades — ledger entries (each is a Panel linking into /trade).
+  tradeLedgerEntry: ".trades-page a.ds-panel",
+  tradesControls: ".trades-controls",
+  // /angle — the pitch form and the ranked-package table rows.
+  angleForm: ".angle-form",
+  anglePackageRow: ".angle-page .ds-table-wrap table tbody tr",
+  // /draft — the war-room board panel and its rows.
+  draftBoard: ".draft-board-panel",
+  draftBoardRow: ".draft-board-panel tbody tr",
 };
 
+// Accessible-name patterns for R4 controls. Kept beside the selector
+// registry so a label rewording is a one-line change here rather than a
+// hunt through the specs.
+const NAME = {
+  waiverRookieToggle: /Include rookies/i,
+  waiverPositionFilter: /^Position$/i,
+  waiverStrengthFilter: /Upgrade strength/i,
+};
 
 function isMobileProject(testInfo) {
   return testInfo.project.name.startsWith("mobile-");
