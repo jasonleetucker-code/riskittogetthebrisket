@@ -1,5 +1,20 @@
 """Cross-market package valuation (WS-J F-1).
 
+Auditing call sites?  ``grep cross_market`` LIES
+────────────────────────────────────────────────
+``src/api/data_contract.py`` contains roughly twenty hits for
+``is_cross_market`` — an unrelated *source-registry flag* in the
+consensus pipeline marking which ranking sources price both offense
+and IDP.  It has nothing to do with this module.
+
+The honest count of production importers of THIS file is **zero**.
+``value_package`` / ``compare_packages`` are consumed only by
+``tests/league_intel/test_cross_market.py``.  ``src/trade/angle.py``
+is the intended call site and is **not rewired yet** — see "Which call
+site actually matters" below.  So a behaviour change here cannot reach
+a user today, and anyone auditing by grep will conclude the opposite
+unless they read the hits.
+
 The live defect
 ───────────────
 ``src/trade/angle.py::_market_source_for`` routes each PLAYER to the
@@ -200,11 +215,29 @@ isolation — see :func:`compare_packages`."""
 # (DE/DT/EDGE/NT -> DL, ILB/OLB/MLB -> LB, CB/S/SS/FS -> DB).
 #
 # That duplicate list is what ``angle.py`` still carries, and this file
-# had copied it.  Two hazards with the copy: it silently disagrees with
-# ``finder.py`` (which normalizes and tests ``{DL, LB, DB}``), and it
-# breaks on any raw spelling nobody remembered to add.  Normalizing
-# handles BOTH already-normalized and raw contract rows, so it is
-# strictly safer at either call site.
+# had copied it.  The reasoning matters more than the fix:
+#
+#   A COPIED position set is one forgotten spelling away from routing
+#   an "EDGE" row to a board that prices no defenders.
+#
+# That is precisely the defect #556 just fixed in ``finder.py``, where
+# every IDP asset scored ``ktc_value = None`` and was dropped before
+# scoring, so an IDP league silently got offense-only results.  A
+# 14-element literal reintroduces it the first time a source emits a
+# spelling nobody enumerated.
+#
+# The merged tree currently holds THREE IDP sets — ``finder.py``
+# ``{DL, LB, DB}`` (safe: it normalizes first, and ``Asset.position``
+# is built from the normalized value), ``angle.py`` 14 raw spellings,
+# and this one.  They agree today only by luck of normalization order.
+# ``angle.py`` is still the unrewired live path and still holds the
+# raw list; fixing it is WS-J's call when it rewires.
+#
+# Normalizing handles BOTH already-normalized and raw contract rows, so
+# it is strictly safer at either call site.  Parametrized tests cover
+# all 14 spellings, including that each still receives the
+# offense<->IDP assumption band — a missed spelling would zero that
+# band and walk the P1-b defect back in through a side door.
 _IDP_POSITIONS = frozenset({"DL", "LB", "DB"})
 
 
