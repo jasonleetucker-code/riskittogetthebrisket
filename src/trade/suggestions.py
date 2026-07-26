@@ -102,12 +102,39 @@ MAX_GAP_FOR_1FOR1 = 400
 HIGH_DISPERSION_CV = 0.12  # CV above this = sources disagree meaningfully
 LOW_DISPERSION_CV = 0.04  # CV below this = strong consensus
 
-# ── KTC quality gate ────────────────────────────────────────────────
-# Hard filter: only players ranked inside the KTC top-N are eligible for
-# trade suggestions.  Players outside this threshold are excluded as
-# targets, give-side pieces, throw-ins, and balancers.
-# Set to 0 to disable.
-KTC_TOP_N_FILTER = 150
+# ── Board quality gate ──────────────────────────────────────────────
+# Hard filter: only players ranked inside the top-N of OUR OWN blended
+# board are eligible for trade suggestions.  Players outside this
+# threshold are excluded as targets, give-side pieces, throw-ins, and
+# balancers.  Set to 0 to disable.
+#
+# WS-J F-4: this was called ``KTC_TOP_N_FILTER`` and its helper was
+# called ``_assign_ktc_ranks``, but no KTC value was ever read here.
+# ``_assign_board_ranks`` enumerates the pool after it has been sorted
+# by ``display_value``, so the rank has always been our blended-board
+# rank.  The docstring additionally claimed "players without KTC data
+# get ktc_rank=None", which never happened — every player got an int.
+#
+# The gate itself is sound and is deliberately NOT unified with
+# ``finder.py``'s.  The two engines ask different questions:
+#
+#   finder.py      finds arbitrage between our board and the retail
+#                  market, so it MUST anchor on a real market value
+#                  (KTC for offense, IDPTradeCalc for IDP) — the
+#                  market number is load-bearing in its arithmetic.
+#   suggestions.py filters for asset QUALITY ("don't propose trading
+#                  roster clog"), which our own blended board answers
+#                  directly and for every asset class, including IDP
+#                  and picks that no single retail board covers.
+#
+# Sharing one definition would force this engine to depend on retail
+# coverage it does not need, and would reintroduce the offense-only
+# blind spot F-3 just removed.  So: renamed to say what it does, not
+# merged.
+BOARD_TOP_N_FILTER = 150
+
+# Deprecated alias — this gate never consulted KTC.
+KTC_TOP_N_FILTER = BOARD_TOP_N_FILTER
 
 
 # ── Data structures ─────────────────────────────────────────────────
@@ -129,8 +156,13 @@ class PlayerAsset:
     years_exp: int | None = None
     universe: str = ""
     dispersion_cv: float | None = None
-    ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
+    board_rank: int | None = None  # 1-based rank on OUR blended board
     offense_only_value: int | None = None  # display_value excluding IDP sources
+
+    @property
+    def ktc_rank(self) -> int | None:
+        """Deprecated alias — this was never a KTC rank (WS-J F-4)."""
+        return self.board_rank
 
 
 @dataclass
@@ -234,7 +266,8 @@ def _edge_for_suggestion(s: TradeSuggestion) -> tuple[str | None, str | None]:
 def build_asset_pool(
     asset_dict_payload: dict[str, Any],
     *,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    board_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> list[PlayerAsset]:
     """Convert an asset-dict payload into ``PlayerAsset`` objects.
 
@@ -249,9 +282,13 @@ def build_asset_pool(
             entry has ``display_name``, ``calibrated_value``,
             ``display_value`` (optional), ``metadata`` (position/team/
             rookie/years_exp), ``source_values``, and ``universe``.
-        ktc_top_n: Only include players ranked inside the KTC top N.
-            Set to 0 to disable the filter.
+        board_top_n: Only include players ranked inside the top N of
+            our blended board. Set to 0 to disable the filter.
+        ktc_top_n: Deprecated alias for ``board_top_n`` — this gate
+            never consulted KTC (WS-J F-4).
     """
+    if board_top_n is None:
+        board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
     assets = asset_dict_payload.get("assets", [])
     pool: list[PlayerAsset] = []
     for a in assets:
@@ -292,10 +329,10 @@ def build_asset_pool(
         )
     pool.sort(key=lambda x: -x.display_value)
 
-    # ── Compute KTC rank and apply top-N filter ────────────────────
-    pool = _assign_ktc_ranks(pool)
-    if ktc_top_n > 0:
-        pool = _apply_ktc_top_n_filter(pool, ktc_top_n)
+    # ── Compute blended-board rank and apply the top-N filter ──────
+    pool = _assign_board_ranks(pool)
+    if board_top_n > 0:
+        pool = _apply_board_top_n_filter(pool, board_top_n)
 
     return pool
 
@@ -350,7 +387,8 @@ def _effective_source_keys(
 def build_asset_pool_from_contract(
     contract: dict[str, Any],
     *,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    board_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> list[PlayerAsset]:
     """Primary pool builder — maps the live contract ``playersArray``
     to ``PlayerAsset`` objects for the trade-suggestion engine.
@@ -394,7 +432,12 @@ def build_asset_pool_from_contract(
     readings ``marketGapDirection`` and ``confidenceBucket`` do.
     Legacy contracts without Hampel stamps fall back to the raw
     ``canonicalSiteValues`` set.
+
+    ``board_top_n`` gates on our blended board; ``ktc_top_n`` is a
+    deprecated alias, since this gate never consulted KTC (WS-J F-4).
     """
+    if board_top_n is None:
+        board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
     players_array = contract.get("playersArray") or []
     legacy_players = contract.get("players") or {}
 
@@ -497,44 +540,62 @@ def build_asset_pool_from_contract(
         )
     pool.sort(key=lambda x: -x.display_value)
 
-    # ── Compute KTC rank and apply top-N filter ────────────────────
-    pool = _assign_ktc_ranks(pool)
-    if ktc_top_n > 0:
-        pool = _apply_ktc_top_n_filter(pool, ktc_top_n)
+    # ── Compute blended-board rank and apply the top-N filter ──────
+    pool = _assign_board_ranks(pool)
+    if board_top_n > 0:
+        pool = _apply_board_top_n_filter(pool, board_top_n)
 
     return pool
 
 
-def _assign_ktc_ranks(pool: list[PlayerAsset]) -> list[PlayerAsset]:
-    """Assign 1-based KTC rank to each player based on KTC source value.
+def _assign_board_ranks(pool: list[PlayerAsset]) -> list[PlayerAsset]:
+    """Assign each player its 1-based rank on OUR blended board.
 
-    Players without KTC data get ktc_rank=None.
-    Ties are broken by display_value (higher display value = better rank).
+    The caller sorts ``pool`` by ``display_value`` descending before
+    calling this, so rank ``i + 1`` IS the blended-board rank.  Every
+    player receives a rank; there is no null case.
+
+    WS-J F-4: this used to be ``_assign_ktc_ranks`` and claimed to rank
+    by KTC value, with players lacking KTC coverage getting ``None``.
+    Neither was true — no KTC value was read and no player ever got
+    ``None``.  Renamed to describe what it actually computes.
     """
-    # Extract KTC values from source dispersion data — the KTC source value
-    # is already baked into calibrated_value.  For KTC rank, we use the
-    # canonical display_value as a proxy for KTC ordering since the pipeline
-    # blends sources (KTC is typically the heaviest-weighted source).
-    # When a dedicated ktc_value is available on the asset, prefer that.
-    #
-    # The pool is already sorted by display_value descending, so we can
-    # assign ranks directly.
     for i, p in enumerate(pool):
-        p.ktc_rank = i + 1
+        p.board_rank = i + 1
     return pool
 
 
-def _apply_ktc_top_n_filter(
+# Deprecated alias.
+_assign_ktc_ranks = _assign_board_ranks
+
+
+def _apply_board_top_n_filter(
     pool: list[PlayerAsset],
     top_n: int,
 ) -> list[PlayerAsset]:
-    """Remove players ranked outside the KTC top N.
+    """Remove players ranked outside the top N of our blended board.
 
-    This is a hard quality filter — not a soft preference.
-    Players outside the threshold are excluded from suggestions as
-    primary targets, secondary targets, value fillers, and throw-ins.
+    This is a hard quality filter — not a soft preference.  Players
+    outside the threshold are excluded from suggestions as primary
+    targets, secondary targets, value fillers, and throw-ins.
+
+    Precondition: ``pool`` has been through :func:`_assign_board_ranks`,
+    so every player carries an int rank.  Passing an unranked pool is a
+    caller bug and raises ``TypeError`` rather than silently filtering
+    everything out.
+
+    WS-J F-5: the predicate used to be
+    ``p.ktc_rank is not None and p.ktc_rank <= top_n``.  The null check
+    could never be False — ``_assign_board_ranks`` assigns an int to
+    every player — so it was a vacuous guard implying a null case that
+    does not exist, and it would have turned a caller bug into an
+    empty result set.  Dropped in favour of the stated precondition.
     """
-    return [p for p in pool if p.ktc_rank is not None and p.ktc_rank <= top_n]
+    return [p for p in pool if p.board_rank <= top_n]  # type: ignore[operator]
+
+
+# Deprecated alias.
+_apply_ktc_top_n_filter = _apply_board_top_n_filter
 
 
 def analyze_roster(
@@ -1416,7 +1477,8 @@ def generate_suggestions_from_pool(
     starter_needs: dict[str, int] | None = None,
     max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
     league_rosters: list[dict[str, Any]] | None = None,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    board_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1426,11 +1488,13 @@ def generate_suggestions_from_pool(
     pool directly from the live contract via
     :func:`build_asset_pool_from_contract`.
 
-    ``ktc_top_n`` is informational-only here (reported in metadata) —
+    ``board_top_n`` is informational-only here (reported in metadata) —
     the pool is expected to have already had the top-N filter applied
-    by the caller.  Leaving the kwarg in the signature avoids
-    breaking existing consumers that pass it.
+    by the caller.  ``ktc_top_n`` is a deprecated alias; this gate
+    never consulted KTC (WS-J F-4).
     """
+    if board_top_n is None:
+        board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
     # Pre-draft rookie suppression (Feb 1 - May 11): rookies in the
     # consensus board are placeholders during this window — the
     # class hasn't been drafted, fantasy values are speculative.
@@ -1516,7 +1580,9 @@ def generate_suggestions_from_pool(
         "totalSuggestions": len(all_suggestions),
         "metadata": {
             "assetPoolSize": len(pool),
-            "ktcTopNFilter": ktc_top_n,
+            "boardTopNFilter": board_top_n,
+            # Deprecated alias — this gate never consulted KTC.
+            "ktcTopNFilter": board_top_n,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
             "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
@@ -1533,7 +1599,8 @@ def generate_suggestions(
     starter_needs: dict[str, int] | None = None,
     max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
     league_rosters: list[dict[str, Any]] | None = None,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    board_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> dict[str, Any]:
     """Asset-dict entry point (legacy back-compat).
 
@@ -1542,15 +1609,20 @@ def generate_suggestions(
     uses :func:`generate_suggestions_from_pool` with a pool built
     directly from the live contract via
     :func:`build_asset_pool_from_contract`.
+
+    ``ktc_top_n`` is a deprecated alias for ``board_top_n``; this gate
+    never consulted KTC (WS-J F-4).
     """
-    pool = build_asset_pool(asset_dict_payload, ktc_top_n=ktc_top_n)
+    if board_top_n is None:
+        board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
+    pool = build_asset_pool(asset_dict_payload, board_top_n=board_top_n)
     return generate_suggestions_from_pool(
         roster_names=roster_names,
         pool=pool,
         starter_needs=starter_needs,
         max_per_type=max_per_type,
         league_rosters=league_rosters,
-        ktc_top_n=ktc_top_n,
+        board_top_n=board_top_n,
     )
 
 
@@ -1572,8 +1644,10 @@ def _serialize_player(p: PlayerAsset, *, offense_only: bool = False) -> dict[str
     }
     if p.dispersion_cv is not None:
         result["dispersionCV"] = p.dispersion_cv
-    if p.ktc_rank is not None:
-        result["ktcRank"] = p.ktc_rank
+    if p.board_rank is not None:
+        result["boardRank"] = p.board_rank
+        # Deprecated alias — never a KTC rank (WS-J F-4).
+        result["ktcRank"] = p.board_rank
     return result
 
 

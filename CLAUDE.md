@@ -271,7 +271,43 @@ Two independent trade suggestion systems in `src/trade/`:
 - **suggestions.py** — roster-aware trade suggestions (sell-high, buy-low, consolidation, upgrades)
 - **finder.py** — KTC arbitrage finder (board value vs market value mismatches)
 
-Both enforce a **KTC top-150 quality filter**: only players ranked inside the top 150 appear in any trade suggestion.
+Both enforce a **top-150 quality filter**, but they gate on
+**different boards**, and the difference is deliberate. Do not unify
+them without reading why (WS-J F-3/F-4):
+
+| Engine | Gate | Ranked against |
+|---|---|---|
+| `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
+| `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — `ktcSfTep` for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
+
+`finder.py` must anchor on a real retail value because its whole
+premise is arbitrage between our board and the market — the market
+number is load-bearing in its arithmetic. `suggestions.py` only needs
+an asset-quality gate ("don't propose trading roster clog"), which our
+own board answers for IDP and picks that no single retail board
+covers.
+
+Two traps this documentation previously set:
+
+* **`finder.py` was offense-only.** It ranked every asset against KTC,
+  and KTC publishes no IDP players — so every defender scored
+  `ktc_value = None` and was dropped before scoring. In an IDP league
+  the engine silently returned offense-only results. Fixed by the
+  per-market gate above; it now emits `marketCoverage` per market and
+  warns explicitly when an IDP league has no priced IDP assets.
+* **`suggestions.py`'s gate never consulted KTC.** It was named
+  `KTC_TOP_N_FILTER` and its helper `_assign_ktc_ranks`, but the rank
+  was always the blended-board position. Renamed to
+  `BOARD_TOP_N_FILTER` / `_assign_board_ranks`; `boardTopNFilter` is
+  the honest metadata field. The `ktc*` names survive as deprecated
+  aliases only.
+
+Cross-market note: KTC and IDPTradeCalc are **directly comparable**,
+not incommensurable. IDPTC is a full-roster calculator publishing
+offense, IDP and picks on one native 0-9999 scale; of KTC's 500 rows,
+475 also appear on the IDPTC board at a median value ratio of 1.000
+(p10 0.888, p90 1.054, measured 2026-07-26). Both top out at 9999, so
+there is no rescaling to apply between them.
 
 ### Canonical Data Mode
 The offline canonical-build path (``scripts/canonical_build.py`` +

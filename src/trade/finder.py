@@ -21,23 +21,89 @@ from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 �
 
 # ── Thresholds ──────────────────────────────────────────────────────────
 MIN_ASSET_VALUE = 800  # Minimum model value to consider an asset tradeable
-MIN_KTC_VALUE = 500  # Minimum KTC value to include in trade
+MIN_MARKET_VALUE = 500  # Minimum retail market value to include in trade
+MIN_KTC_VALUE = MIN_MARKET_VALUE  # Deprecated alias
 MAX_BOARD_LOSS = -200  # Never suggest a trade where my board delta is worse than this
 MAX_PACKAGE_SIZE = 3  # Max assets on either side
 MAX_RESULTS = 40  # Cap returned results
 JUNK_THRESHOLD = 400  # Assets below this are roster clog
-SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
+# Single-source haircut.  KEEP THIS — it is the only such discount on
+# this engine's input path.
+#
+# WS-J F-6 originally reported this as a double-discount stacked on the
+# pipeline's 0.30 single-source retention (``_SINGLE_SOURCE_VALUE_RETENTION``
+# in ``data_contract.py``), giving ~0.264 effective.  That was WRONG, and
+# the correction matters because the "obvious" fix would have removed the
+# only haircut this engine has:
+#
+#   suggestions.py reads ``playersArray[...]["rankDerivedValue"]`` — the
+#     Final Framework output, which HAS had the 0.30 retention applied.
+#     It therefore correctly applies no further discount.
+#   finder.py reads ``players[name]["_finalAdjusted"]`` — which
+#     ``data_contract.py`` deep-copies verbatim from the raw scrape
+#     (``base["players"] = players_by_name``), and which
+#     ``Dynasty Scraper.py`` sets straight from ``_composite``.  The
+#     0.30 retention never touches it.
+#
+# So the two haircuts are applied to two different value pipelines, not
+# stacked on one.  Removing this constant would leave single-source
+# assets undiscounted in the arbitrage finder.
+#
+# The old comment claimed this "matched the frontend"; the frontend no
+# longer applies any single-source haircut, so that anchor is gone and
+# the 0.88 is now an unvalidated local constant.  Tracked as the real
+# F-6: finder.py should move onto the Final Framework values that
+# CLAUDE.md calls the single source of truth for live player values,
+# at which point this discount is deleted rather than retuned.
+SINGLE_SOURCE_DISCOUNT = 0.88
 MULTI_FOR_ONE_MIN_RATIO = 0.55  # 2-for-1 give side must be >= 55% of receive model value
 
-# ── KTC quality gates ──────────────────────────────────────────────────
-EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}  # No real KTC support
-PARTIAL_KTC_MAX_RANK = 15  # Partial-KTC trades cannot appear above this rank
-PARTIAL_KTC_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-KTC arbitrage score
+# ── Market quality gates ───────────────────────────────────────────────
+EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}  # No real market support
+PARTIAL_MARKET_MAX_RANK = 15  # Partial-coverage trades cannot appear above this rank
+PARTIAL_MARKET_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-coverage arbitrage score
 
-# ── KTC quality gate ──────────────────────────────────────────────────
-# Hard filter: only players ranked inside the KTC top-N are eligible.
-# Set to 0 to disable.
-KTC_TOP_N_FILTER = 150
+# Deprecated aliases — kept so external callers/tests importing the old
+# names keep working.  Remove once no caller references them.
+PARTIAL_KTC_MAX_RANK = PARTIAL_MARKET_MAX_RANK
+PARTIAL_KTC_ARBITRAGE_CAP = PARTIAL_MARKET_ARBITRAGE_CAP
+
+# ── Per-market quality gate ────────────────────────────────────────────
+# Hard filter: only assets ranked inside the top-N **of their own
+# market** are eligible.  Set to 0 to disable.
+#
+# WS-J F-3: this used to rank every asset against KTC and keep the top
+# N.  KTC publishes no IDP players at all — I verified that none of
+# Hutchinson / Parsons / Garrett / Carter / Verse / Campbell appear on
+# its 500-row board — so every defender scored ``ktc_value = None`` and
+# was silently dropped.  In a league with nine IDP starters the engine
+# returned offense-only results and reported ``ktcTopNFilter: 150`` as
+# though a uniform gate had run.
+#
+# The fix anchors each asset on the market its counterparty would
+# actually consult and ranks it against that market's own population:
+#
+#   offense + picks → ``ktcSfTep`` (fallback legacy ``ktc``)
+#   IDP             → ``idpTradeCalc``
+#
+# This mirrors ``angle.py::_market_source_for``, which has routed
+# per-player market values correctly since it was written.
+#
+# Summing the two markets in the opponent-appeal arithmetic is sound:
+# IDPTradeCalc is a full-roster calculator publishing offense, IDP and
+# picks on ONE native 0-9999 scale, and its offensive half is
+# empirically interchangeable with KTC's — of KTC's 500 rows, 475 also
+# appear on the IDPTC board with a median value ratio of 1.000
+# (p10 0.888, p90 1.054, measured 2026-07-26).  Both boards top out at
+# 9999, so there is no rescaling to apply between them.
+MARKET_TOP_N_FILTER = 150
+
+# Deprecated alias — the gate is per-market now, not KTC-only.
+KTC_TOP_N_FILTER = MARKET_TOP_N_FILTER
+
+# Canonical site keys per market, in preference order.
+OFFENSE_MARKET_KEYS = ("ktcSfTep", "ktc")
+IDP_MARKET_KEYS = ("idpTradeCalc",)
 
 # ── Hardening-pass thresholds ────────────────────────────────────────────
 ELITE_THRESHOLD = 7500  # Model value above which a player is "elite"
@@ -52,21 +118,43 @@ IDP_POSITIONS = {"DL", "LB", "DB"}
 
 @dataclass
 class Asset:
-    """A tradeable asset with both model and KTC values."""
+    """A tradeable asset with our model value and its retail market value.
+
+    ``market_value`` is the value the counterparty would see on the
+    board they actually consult: KTC for offense and picks, IDPTradeCalc
+    for IDP.  ``market_source`` records which board was read so the UI
+    and the metadata can be honest about it.
+    """
 
     name: str
     position: str
     team: str
-    model_value: int  # Our board's value (with single-source discount)
-    ktc_value: int | None  # KTC value (None = no KTC coverage)
+    model_value: int  # Our board's value
+    market_value: int | None  # Retail market value (None = no coverage)
     is_pick: bool = False
     source_count: int = 0  # Number of valuation sources
-    ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
+    market_rank: int | None = None  # 1-based rank WITHIN this asset's market
     offense_only_model_value: int | None = None  # model_value excluding IDP sources
+    market_source: str | None = None  # "ktcSfTep" | "ktc" | "idpTradeCalc"
+
+    @property
+    def has_market(self) -> bool:
+        return self.market_value is not None and self.market_value > 0
+
+    # ── Deprecated aliases ───────────────────────────────────────────
+    # Pre-WS-J these were named ``ktc_*`` even for IDP assets, which was
+    # only ever accurate because IDP assets never survived the gate.
+    @property
+    def ktc_value(self) -> int | None:
+        return self.market_value
+
+    @property
+    def ktc_rank(self) -> int | None:
+        return self.market_rank
 
     @property
     def has_ktc(self) -> bool:
-        return self.ktc_value is not None and self.ktc_value > 0
+        return self.has_market
 
 
 # Local ``_norm_pos`` was a thin wrapper around ``POSITION_ALIASES``;
@@ -189,15 +277,24 @@ def _build_summary(
 def build_asset_pool(
     players: dict[str, Any],
     *,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    market_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> list[Asset]:
-    """Convert raw players dict into Asset objects with model + KTC values.
+    """Convert raw players dict into Asset objects with model + market values.
+
+    Each asset is anchored on the retail board its counterparty would
+    actually consult — KTC for offense and picks, IDPTradeCalc for IDP —
+    and ranked against that market's own population.  See
+    :data:`MARKET_TOP_N_FILTER` for why the gate is per-market.
 
     Args:
         players: Raw players dict from the live data payload.
-        ktc_top_n: Only include players ranked inside the KTC top N.
-            Ranking is based on KTC value (descending). Set to 0 to disable.
+        market_top_n: Only include assets ranked inside the top N **of
+            their own market**. Set to 0 to disable.
+        ktc_top_n: Deprecated alias for ``market_top_n``.
     """
+    if market_top_n is None:
+        market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
     pool: list[Asset] = []
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
@@ -225,23 +322,28 @@ def build_asset_pool(
             if oo_raw is not None and oo_raw >= 1:
                 oo_raw = int(oo_raw * SINGLE_SOURCE_DISCOUNT)
 
-        # KTC value from canonical site values.  Prefer the TE+ board
-        # (``ktcSfTep``) — that's the canonical KTC retail signal as of
-        # 2026-04-28 when standard ``ktc`` was retired from the blend.
-        # Fall back to standard ``ktc`` for compatibility with tests
-        # whose fixtures predate the supersession.
-        csv = pdata.get("_canonicalSiteValues")
-        ktc: int | None = None
-        if isinstance(csv, dict):
-            ktc = _int_or_none(csv.get("ktcSfTep"))
-            if ktc is None:
-                ktc = _int_or_none(csv.get("ktc"))
-        if ktc is None:
-            ktc = _int_or_none(pdata.get("ktcSfTep"))
-            if ktc is None:
-                ktc = _int_or_none(pdata.get("ktc"))
-
         pos = _norm_pos(pdata.get("position", ""))
+
+        # Retail market value, read from the board the counterparty
+        # would actually consult for this position (WS-J F-3).  IDP
+        # rows read IDPTradeCalc; everything else reads KTC's TE+ board
+        # (``ktcSfTep``), the canonical KTC retail signal as of
+        # 2026-04-28 when standard ``ktc`` was retired from the blend,
+        # falling back to standard ``ktc`` for fixtures that predate
+        # the supersession.
+        market_keys = IDP_MARKET_KEYS if pos in IDP_POSITIONS else OFFENSE_MARKET_KEYS
+        csv = pdata.get("_canonicalSiteValues")
+        market_value: int | None = None
+        market_source: str | None = None
+        for key in market_keys:
+            if isinstance(csv, dict):
+                market_value = _int_or_none(csv.get(key))
+            if market_value is None:
+                market_value = _int_or_none(pdata.get(key))
+            if market_value is not None:
+                market_source = key
+                break
+
         team = pdata.get("team", "") or ""
         is_pick = bool(
             pos == "PICK"
@@ -262,24 +364,41 @@ def build_asset_pool(
                 position=pos,
                 team=team if isinstance(team, str) else "",
                 model_value=model,
-                ktc_value=ktc,
+                market_value=market_value,
                 is_pick=is_pick,
                 source_count=source_count,
                 offense_only_model_value=oo_raw if oo_raw is not None and oo_raw >= 1 else None,
+                market_source=market_source,
             )
         )
 
-    # ── Assign KTC rank and apply top-N filter ────────────────────
-    # Rank by KTC value descending.  Players without KTC get no rank.
-    with_ktc = [a for a in pool if a.has_ktc]
-    with_ktc.sort(key=lambda a: -(a.ktc_value or 0))
-    for i, a in enumerate(with_ktc):
-        a.ktc_rank = i + 1
+    # ── Rank within each market, then apply the top-N cut per market ──
+    # Ranking every asset in one list would bury IDP entirely: offense
+    # runs to 9999 while the best defender sits near 6400, so a single
+    # global top-150 removes every IDP player (WS-J F-3).  Each market
+    # ranks its own population from 1.
+    by_market: dict[str, list[Asset]] = {}
+    for a in pool:
+        if not a.has_market or a.market_source is None:
+            continue
+        by_market.setdefault(a.market_source, []).append(a)
 
-    if ktc_top_n > 0:
-        eligible_names = {
-            a.name for a in with_ktc if a.ktc_rank is not None and a.ktc_rank <= ktc_top_n
-        }
+    # ``ktcSfTep`` and legacy ``ktc`` are the same board — rank them as
+    # one population so a fixture mixing both doesn't split the cut.
+    offense_assets = [a for key in OFFENSE_MARKET_KEYS for a in by_market.get(key, [])]
+    market_groups: dict[str, list[Asset]] = {"offense": offense_assets}
+    for key in IDP_MARKET_KEYS:
+        market_groups.setdefault("idp", []).extend(by_market.get(key, []))
+
+    eligible_names: set[str] = set()
+    for group in market_groups.values():
+        group.sort(key=lambda a: -(a.market_value or 0))
+        for i, a in enumerate(group):
+            a.market_rank = i + 1
+        if market_top_n > 0:
+            eligible_names.update(a.name for a in group if a.market_rank <= market_top_n)
+
+    if market_top_n > 0:
         pool = [a for a in pool if a.name in eligible_names]
 
     return pool
@@ -331,28 +450,31 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if give_names & receive_names:
         return None
 
-    # ── Outgoing KTC gate ────────────────────────────────────────────
-    # Every outgoing asset MUST have a usable KTC value.  Without it we
-    # cannot prove the deal looks plausible to the opponent, so offering
-    # a no-KTC player for an elite return is nonsense.
+    # ── Outgoing market gate ─────────────────────────────────────────
+    # Every outgoing asset MUST have a usable market value on its own
+    # board.  Without it we cannot prove the deal looks plausible to the
+    # opponent, so offering an unpriced player for an elite return is
+    # nonsense.
     for a in give:
-        if not a.has_ktc or a.ktc_value < MIN_KTC_VALUE:  # type: ignore[operator]
+        if not a.has_market or a.market_value < MIN_MARKET_VALUE:  # type: ignore[operator]
             return None
 
-    # ── Receive-side KTC gate ─────────────────────────────────────────
-    # At least one receive asset must have KTC so the opponent-appeal
-    # calculation is grounded in real market data.
-    recv_ktc_count = sum(1 for a in receive if a.has_ktc)
-    if recv_ktc_count == 0:
+    # ── Receive-side market gate ──────────────────────────────────────
+    # At least one receive asset must carry a market value so the
+    # opponent-appeal calculation is grounded in real market data.
+    if not any(a.has_market for a in receive):
         return None
 
-    # ── IDP dilution guard ────────────────────────────────────────────
-    # IDP assets without KTC must not constitute the majority of either
-    # side — they distort the KTC-based opponent appeal calculation.
-    for side, label in [(give, "give"), (receive, "receive")]:
-        idp_no_ktc = [a for a in side if a.position in IDP_POSITIONS and not a.has_ktc]
-        if len(idp_no_ktc) > 0 and len(idp_no_ktc) >= len(side) / 2:
-            return None
+    # NOTE (WS-J F-3): an "IDP dilution guard" used to sit here,
+    # rejecting any side where IDP assets *without KTC* were half or
+    # more of the package, on the grounds that they distorted the
+    # KTC-based appeal calculation.  Its premise no longer exists: IDP
+    # assets are now anchored on IDPTradeCalc, so they carry a real
+    # market value like any other asset and distort nothing.  The guard
+    # was also unreachable in production — the KTC-only top-N filter had
+    # already removed every IDP asset before scoring ran — so it was
+    # documenting a world the filter had deleted.  Removed rather than
+    # left as dead code.
 
     # Use offense-only model values when neither side has IDP players.
     # This excludes IDP source calibration from trade scoring so that
@@ -396,28 +518,33 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         flags.append("anchor_verified")
 
     # KTC scoring
-    give_ktc_assets = [a for a in give if a.has_ktc]
-    recv_ktc_assets = [a for a in receive if a.has_ktc]
-    all_have_ktc = len(give_ktc_assets) == len(give) and len(recv_ktc_assets) == len(receive)
-    any_have_ktc = bool(give_ktc_assets) or bool(recv_ktc_assets)
+    give_market_assets = [a for a in give if a.has_market]
+    recv_market_assets = [a for a in receive if a.has_market]
+    all_have_market = len(give_market_assets) == len(give) and len(recv_market_assets) == len(
+        receive
+    )
+    any_have_market = bool(give_market_assets) or bool(recv_market_assets)
 
-    if not any_have_ktc:
-        # No KTC on either side — cannot evaluate opponent plausibility at all
+    # Partial coverage is reachable only when the per-market top-N gate
+    # is disabled (``market_top_n=0``); with the gate on, every pooled
+    # asset carries a market value by construction.
+    if not any_have_market:
+        # No market data on either side — cannot evaluate plausibility
         return None
-    elif all_have_ktc:
+    elif all_have_market:
         coverage = "full"
-        give_ktc = sum(a.ktc_value for a in give)  # type: ignore[arg-type]
-        recv_ktc = sum(a.ktc_value for a in receive)  # type: ignore[arg-type]
+        give_ktc = sum(a.market_value for a in give)  # type: ignore[arg-type]
+        recv_ktc = sum(a.market_value for a in receive)  # type: ignore[arg-type]
         # Opponent gives recv_ktc to get give_ktc back
         # Opponent appeal = (what they get - what they give) / what they give
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1)
-        flags.append("full_ktc")
+        flags.append("full_market")
     else:
         coverage = "partial"
-        give_ktc = sum(a.ktc_value or 0 for a in give)
-        recv_ktc = sum(a.ktc_value or 0 for a in receive)
+        give_ktc = sum(a.market_value or 0 for a in give)
+        recv_ktc = sum(a.market_value or 0 for a in receive)
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1) if recv_ktc > 0 else 0.0
-        flags.append("partial_ktc")
+        flags.append("partial_market")
 
     # The opponent must STRICTLY WIN on KTC — no break-even, no loss.
     if opp_appeal <= 0:
@@ -444,7 +571,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # Partial coverage: severe demotion — these cannot compete with full-KTC trades
     if coverage == "partial":
         arbitrage *= 0.3
-        arbitrage = min(arbitrage, PARTIAL_KTC_ARBITRAGE_CAP)
+        arbitrage = min(arbitrage, PARTIAL_MARKET_ARBITRAGE_CAP)
 
     # ── Confidence factor (source coverage × KTC coverage) ───────────
     all_assets = give + receive
@@ -600,7 +727,8 @@ def find_trades(
     sleeper_teams: list[dict[str, Any]],
     *,
     max_results: int = MAX_RESULTS,
-    ktc_top_n: int = KTC_TOP_N_FILTER,
+    market_top_n: int | None = None,
+    ktc_top_n: int | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -624,7 +752,9 @@ def find_trades(
     -------
     dict with trades, metadata, and any warnings.
     """
-    pool = build_asset_pool(players, ktc_top_n=ktc_top_n)
+    if market_top_n is None:
+        market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
+    pool = build_asset_pool(players, market_top_n=market_top_n)
     pool_by_name: dict[str, Asset] = {}
     for a in pool:
         pool_by_name[a.name] = a
@@ -642,13 +772,35 @@ def find_trades(
     opponents_analyzed = 0
     warnings: list[str] = []
 
-    # Track KTC coverage
-    ktc_coverage_count = sum(1 for a in pool if a.has_ktc)
-    ktc_coverage_pct = ktc_coverage_count / max(len(pool), 1)
-    if ktc_coverage_pct < 0.5:
+    # Track market coverage, per market.  Reporting one blended number
+    # hid the offense-only regression (WS-J F-3): a pool with zero IDP
+    # assets still showed 100% coverage because the missing rows had
+    # already been filtered out upstream.
+    market_coverage: dict[str, int] = {key: 0 for key in (*OFFENSE_MARKET_KEYS, *IDP_MARKET_KEYS)}
+    for a in pool:
+        if a.has_market and a.market_source:
+            market_coverage[a.market_source] = market_coverage.get(a.market_source, 0) + 1
+
+    market_coverage_count = sum(1 for a in pool if a.has_market)
+    market_coverage_pct = market_coverage_count / max(len(pool), 1)
+    if market_coverage_pct < 0.5:
         warnings.append(
-            f"KTC coverage is low ({ktc_coverage_pct:.0%} of assets). "
-            "Some trades may have partial or no KTC scoring."
+            f"Market coverage is low ({market_coverage_pct:.0%} of assets). "
+            "Some trades may have partial or no market scoring."
+        )
+
+    # An IDP league whose pool contains no priced IDP assets is the
+    # exact failure this engine used to hit silently.  Say so.
+    league_has_idp = any(
+        _norm_pos(str((p or {}).get("position", ""))) in IDP_POSITIONS
+        for p in players.values()
+        if isinstance(p, dict)
+    )
+    idp_priced = sum(market_coverage.get(key, 0) for key in IDP_MARKET_KEYS)
+    if league_has_idp and idp_priced == 0:
+        warnings.append(
+            "No IDP asset carries an IDPTradeCalc value, so this result is "
+            "offense-only. IDP trades cannot be evaluated without IDP market data."
         )
 
     for opp_name in opponent_teams:
@@ -703,17 +855,18 @@ def find_trades(
     # Keep only positive-arbitrage trades with positive board delta
     ranked = [t for t in all_trades if t.arbitrage_score > 0 and t.board_delta > 0]
 
-    # ── Enforce full-KTC priority in top results ─────────────────────
-    # Partial-KTC trades are pushed below PARTIAL_KTC_MAX_RANK so
-    # premium recommendation slots are reserved for trustworthy trades.
-    full_ktc = [t for t in ranked if t.ktc_coverage == "full"]
-    partial_ktc = [t for t in ranked if t.ktc_coverage != "full"]
-    if len(full_ktc) >= PARTIAL_KTC_MAX_RANK:
-        # Enough full-KTC trades to fill top slots — append partials after
-        ranked = full_ktc + partial_ktc
-    else:
-        # Not enough full-KTC — partials fill remaining slots after the full ones
-        ranked = full_ktc + partial_ktc
+    # ── Enforce full-coverage priority in top results ────────────────
+    # Partial-coverage trades sort after every full-coverage trade so
+    # premium recommendation slots stay with trustworthy ones.
+    #
+    # WS-J F-7: this was an if/else whose two branches were byte
+    # identical (both ``full + partial``), gated on
+    # ``len(full) >= PARTIAL_MARKET_MAX_RANK`` — a condition that could
+    # not change the outcome.  Collapsed to the single expression both
+    # arms already computed.
+    full_cov = [t for t in ranked if t.ktc_coverage == "full"]
+    partial_cov = [t for t in ranked if t.ktc_coverage != "full"]
+    ranked = full_cov + partial_cov
 
     capped = ranked[:max_results]
 
@@ -728,8 +881,12 @@ def find_trades(
             "totalQualified": len(ranked),
             "returned": len(capped),
             "assetPoolSize": len(pool),
-            "ktcTopNFilter": ktc_top_n,
-            "ktcCoveragePercent": round(ktc_coverage_pct * 100, 1),
+            "marketTopNFilter": market_top_n,
+            "marketCoverage": market_coverage,
+            "marketCoveragePercent": round(market_coverage_pct * 100, 1),
+            # Deprecated aliases — the gate is per-market now.
+            "ktcTopNFilter": market_top_n,
+            "ktcCoveragePercent": round(market_coverage_pct * 100, 1),
         },
         "warnings": warnings,
     }
