@@ -23,6 +23,7 @@ const {
   mobileOnly,
   gotoRankingsBoard,
   attachConsoleGuards,
+  pageUrl,
 } = require("../helpers/journey");
 
 test.describe("mobile smoke (390x844)", () => {
@@ -56,7 +57,11 @@ test.describe("mobile smoke (390x844)", () => {
   });
 
   test("bottom navigation is visible and navigates between tabs", async ({ authedPage: page }) => {
-    await page.goto("/rankings", { waitUntil: "domcontentloaded" });
+    // Through the Next origin, like every other page navigation — the
+    // backend's page proxy serves a different (logged-out) shell for
+    // some routes, which makes tab-navigation assertions test the
+    // wrong chrome.  See pageUrl() in helpers/journey.js.
+    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
 
     const nav = page.getByRole("navigation", { name: /mobile navigation/i });
     await expect(nav).toBeVisible({ timeout: 30_000 });

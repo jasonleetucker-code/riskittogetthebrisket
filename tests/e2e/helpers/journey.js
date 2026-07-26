@@ -19,7 +19,13 @@ const { expect } = require("@playwright/test");
 // (which encode BEHAVIOR, not markup) should pass unchanged.
 const SEL = {
   // /rankings — the board table and its rows (one row per player).
-  boardRow: ".table-wrap table tbody tr.rankings-row-clickable",
+  // Accepts the legacy `.table-wrap` and the ds `DataTable` wrapper the
+  // redesign moves the board onto; `rankings-row-clickable` is the
+  // stable row hook across both.  Spanning both spellings means this
+  // registry doesn't need a flag-day edit the day the rebuild lands.
+  boardRow:
+    ".table-wrap table tbody tr.rankings-row-clickable, " +
+    ".ds-table-wrap table tbody tr.rankings-row-clickable",
   // /rankings — clickable player name inside a row (opens the popup).
   playerName: ".rankings-player-name",
   // /rankings — the filter bar's search input + position <select>.

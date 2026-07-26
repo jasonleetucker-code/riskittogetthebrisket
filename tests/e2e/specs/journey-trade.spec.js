@@ -62,7 +62,12 @@ test.describe("journey: trade surfaces", () => {
     await expect(page.locator("body")).toContainText(/Finder/i, { timeout: 30_000 });
 
     // Data-driven: the results table materializes once /api/data lands.
-    const rows = page.locator(".table-wrap table tbody tr");
+    // Accepts the legacy `.table-wrap` and the ds `DataTable` wrapper the
+    // redesign moves these pages onto, so this spec spans the rebuild
+    // instead of needing a flag-day edit the day R3 lands.
+    const rows = page.locator(
+      ".table-wrap table tbody tr, .ds-table-wrap table tbody tr",
+    );
     await expect(rows.first(), "finder should render result rows").toBeVisible({
       timeout: 60_000,
     });

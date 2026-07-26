@@ -102,8 +102,32 @@ async function waitForFrontend(origin, budgetMs = 900_000) {
 
 module.exports = async function globalSetup() {
   if (process.env.E2E_BASE_URL) {
-    // External target (e.g. the prod smoke run through nginx) — the
-    // stack is not ours to verify or provision.
+    // External target (e.g. the prod smoke run through nginx, or a
+    // stack you booted yourself).  We must not try to provision it —
+    // but we DO check it answers, because the alternative is every
+    // spec failing with ECONNREFUSED and burning the full suite
+    // runtime to tell you nothing was listening.  (Setting
+    // E2E_BASE_URL also disables the config's own webServer boot,
+    // which is exactly how you end up pointed at a dead port.)
+    const target = process.env.E2E_BASE_URL.replace(/\/+$/, "");
+    let reachable = false;
+    try {
+      const res = await fetch(`${target}/api/status`);
+      reachable = res.status > 0;
+    } catch {
+      reachable = false;
+    }
+    if (!reachable) {
+      fail([
+        `E2E_BASE_URL is set to ${target} but nothing is answering there.`,
+        "",
+        "Setting E2E_BASE_URL tells this config NOT to boot the stack,",
+        "so you are responsible for it.  Either start it yourself, or",
+        "unset the variable and let the suite provision everything:",
+        "",
+        "  unset E2E_BASE_URL E2E_PAGE_ORIGIN && npm run e2e",
+      ]);
+    }
     return;
   }
   const base = "http://127.0.0.1:8000";
