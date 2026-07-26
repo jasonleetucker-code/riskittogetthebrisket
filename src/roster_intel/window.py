@@ -125,6 +125,32 @@ class WindowInputs:
         }
 
 
+def _round_preserving_sum(probs: Mapping[str, float], places: int = 4) -> dict[str, float]:
+    """Round to ``places`` while keeping the sum at exactly 1.
+
+    Naive per-key rounding drifts: five values rounded to 4dp summed to
+    1.0001 in the serialized payload, so a consumer reading the JSON saw
+    a distribution that did not sum to 1 even though the underlying one
+    did.  The invariant has to survive serialization, because the
+    payload is what consumers actually read.
+
+    Largest-remainder method: floor everything at the target precision,
+    then hand the leftover quanta to the keys with the biggest discarded
+    remainder.  Deterministic — ties break on key name.
+    """
+    if not probs:
+        return {}
+    scale = 10**places
+    scaled = {k: v * scale for k, v in probs.items()}
+    floored = {k: math.floor(v) for k, v in scaled.items()}
+    remainder = int(round(scale - sum(floored.values())))
+    if remainder > 0:
+        order = sorted(probs, key=lambda k: (-(scaled[k] - floored[k]), k))
+        for k in order[:remainder]:
+            floored[k] += 1
+    return {k: floored[k] / scale for k in probs}
+
+
 @dataclass(frozen=True)
 class CompetitiveWindow:
     """Five mutually exclusive probabilities summing to 1."""
@@ -145,7 +171,7 @@ class CompetitiveWindow:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "probabilities": {k: round(v, 4) for k, v in self.probabilities.items()},
+            "probabilities": _round_preserving_sum(self.probabilities),
             "mostLikely": self.most_likely,
             "confidence": round(self.confidence, 4),
             "overridden": self.overridden,

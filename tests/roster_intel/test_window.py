@@ -74,6 +74,23 @@ class TestDistributionInvariants:
         assert w.most_likely == max(w.probabilities, key=lambda k: w.probabilities[k])
         assert w.confidence == w.probabilities[w.most_likely]
 
+    @pytest.mark.parametrize("comp", [0.0, 0.13, 0.37, 0.5, 0.61, 0.88, 1.0])
+    def test_serialized_probabilities_also_sum_to_one(self, comp):
+        """The invariant must survive SERIALIZATION, not just hold on
+        the raw floats. Naive per-key rounding to 4dp drifted to 1.0001,
+        so a consumer reading the JSON saw a distribution that did not
+        sum to 1 - and the payload is what consumers actually read.
+        """
+        w = compute_window("me", ROSTER, SLOTS, lineup_scores={"me": comp, "lo": 0.0, "hi": 1.0})
+        serialized = w.to_dict()["probabilities"]
+        assert sum(serialized.values()) == pytest.approx(1.0, abs=1e-12)
+        assert set(serialized) == set(COMPETITIVE_STATES)
+
+    def test_serialized_rounding_is_deterministic(self):
+        a = compute_window("me", ROSTER, SLOTS, lineup_scores={"me": 5.0, "x": 1.0})
+        b = compute_window("me", ROSTER, SLOTS, lineup_scores={"me": 5.0, "x": 1.0})
+        assert a.to_dict()["probabilities"] == b.to_dict()["probabilities"]
+
     def test_sum_to_one_holds_under_an_override(self):
         w = compute_window("me", ROSTER, SLOTS, override_state="rebuild")
         assert sum(w.probabilities.values()) == pytest.approx(1.0)
