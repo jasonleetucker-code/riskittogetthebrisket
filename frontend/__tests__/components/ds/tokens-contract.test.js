@@ -143,6 +143,42 @@ describe("tokens.css contract", () => {
   });
 });
 
+describe("light-theme accent contrast", () => {
+  const srgb = (c) => {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (hex) => {
+    const h = hex.replace("#", "");
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const lightHex = (name) => {
+    const m = light.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`));
+    return m ? m[1] : null;
+  };
+
+  it("accent-as-small-text clears 4.5:1 on surface-1 and surface-2", () => {
+    const accent = lightHex("--accent");
+    const s1 = lightHex("--surface-1");
+    const s2 = lightHex("--surface-2");
+    expect(accent).toBeTruthy();
+    expect(contrast(accent, s1)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(accent, s2)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("text-on-accent clears 4.5:1 against the accent (primary buttons)", () => {
+    const accent = lightHex("--accent");
+    const onAccent = lightHex("--text-on-accent");
+    expect(onAccent).toBeTruthy();
+    expect(contrast(onAccent, accent)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("ds.css discipline", () => {
   it("contains no raw hex colors — tokens only", () => {
     const hexes = dsCss.match(/#[0-9a-fA-F]{3,8}\b/g) || [];

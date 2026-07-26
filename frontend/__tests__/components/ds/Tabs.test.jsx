@@ -3,7 +3,7 @@
  * tab ids must emit zero duplicate DOM ids and keep aria-controls wired
  * to their own instance's panels.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,6 +13,37 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "history", label: "History" },
 ];
+
+// The no-idPrefix renders below intentionally exercise the fallback,
+// which warns in dev — keep test output clean and assert it separately.
+let warnSpy;
+beforeEach(() => {
+  warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+afterEach(() => {
+  warnSpy.mockRestore();
+});
+
+describe("Tabs idPrefix requirement", () => {
+  it("warns in dev when idPrefix is omitted", () => {
+    render(<Tabs label="A" tabs={TABS} active="overview" onChange={() => {}} />);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/idPrefix/);
+  });
+
+  it("does not warn when idPrefix is provided", () => {
+    render(
+      <Tabs
+        idPrefix="league"
+        label="A"
+        tabs={TABS}
+        active="overview"
+        onChange={() => {}}
+      />
+    );
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
 
 describe("Tabs id scoping", () => {
   it("two instances with the same logical ids emit zero duplicate DOM ids", () => {

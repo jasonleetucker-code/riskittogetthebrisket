@@ -15,13 +15,15 @@
  *        id={tabPanelId("league", tab)}
  *        aria-labelledby={tabId("league", tab)}>…
  *
- * Pass `idPrefix` whenever you render the panel yourself (you need the
- * prefix to build the panel id). When omitted, a unique useId() prefix
- * is generated — ids stay collision-free, but external code can't
- * reconstruct them, so omit it only for self-contained usages.
+ * `idPrefix` is REQUIRED in practice: Tabs does not render tabpanels,
+ * so the consumer always needs the prefix to build panel ids that match
+ * each tab's aria-controls. Omitting it logs a dev-time warning and
+ * falls back to a unique useId() prefix (collision-free, but the
+ * aria-controls then point at panels you cannot construct — fix the
+ * warning, don't ship it).
  *
  * Props: tabs [{id, label, badge?}], active (id), onChange(id), label
- * (accessible name for the tablist), idPrefix (see above).
+ * (accessible name for the tablist), idPrefix (required — see above).
  *
  * A11y: roving tabindex — one tab stop; Left/Right/Home/End move focus
  * and select; each button is aria-selected + aria-controls its panel id.
@@ -30,7 +32,7 @@
  */
 "use client";
 
-import React, { useId, useRef } from "react";
+import React, { useEffect, useId, useRef } from "react";
 
 /** DOM id of the tab button for `tabId` under `idPrefix`. */
 export function tabId(idPrefix, id) {
@@ -47,6 +49,20 @@ export function Tabs({ tabs, active, onChange, label, idPrefix, className = "" }
   const autoPrefix = useId();
   const prefix = idPrefix || `ds-tabs${autoPrefix}`;
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === active));
+
+  // idPrefix is required in practice: without it the consumer cannot
+  // build panel ids matching aria-controls (Tabs renders no panels).
+  // Warn loudly in dev; the useId fallback keeps ids collision-free so
+  // nothing crashes while the warning is being fixed.
+  useEffect(() => {
+    if (!idPrefix && process.env.NODE_ENV !== "production") {
+      console.warn(
+        "ds/Tabs: `idPrefix` is missing. Pass idPrefix and build your " +
+          "tabpanel ids with tabPanelId(idPrefix, tab.id) so aria-controls " +
+          "points at a real element."
+      );
+    }
+  }, [idPrefix]);
 
   const focusSelect = (index) => {
     const next = (index + tabs.length) % tabs.length;

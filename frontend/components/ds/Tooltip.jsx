@@ -13,6 +13,10 @@
  *
  * A11y: links via aria-describedby (role=tooltip), shows on focus,
  * hides on Escape/blur; pointer-events none so it never traps the mouse.
+ * If the wrapped control already carries aria-describedby (e.g. a Field
+ * hint/error), the tooltip id is MERGED onto it while open — existing
+ * guidance is never disconnected — and the original value is restored
+ * on close.
  */
 "use client";
 
@@ -23,8 +27,11 @@ export function Tooltip({ content, side = "top", children }) {
   const [open, setOpen] = useState(false);
 
   const child = React.Children.only(children);
+  const existingDescribedBy = child.props["aria-describedby"];
   const trigger = React.cloneElement(child, {
-    "aria-describedby": open ? id : undefined,
+    "aria-describedby": open
+      ? [existingDescribedBy, id].filter(Boolean).join(" ")
+      : existingDescribedBy,
     onMouseEnter: (e) => {
       child.props.onMouseEnter?.(e);
       setOpen(true);

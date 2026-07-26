@@ -231,12 +231,17 @@
   --border-default: #d8d3e4;
   --border-strong: #b9b1cc;
 
-  /* Gold flips to its text-safe step on light surfaces. */
-  --accent: #9c7a00;
-  --accent-hover: #7d6200;
+  /* Gold flips to its text-safe step on light surfaces. Ratios
+     (WCAG, computed): #7d6200 on --surface-1 #fdfcfe = 5.67:1, on
+     --surface-2 #efecf5 = 4.97:1, on --surface-0 #f6f4fa = 5.32:1,
+     on --surface-3 #ffffff = 5.80:1; white --text-on-accent on the
+     accent = 5.80:1 — all ≥ 4.5:1 small-text target. Hover/pressed
+     darken further (#6d5600 = 6.03:1+, #5f4b00 = 7.21:1+). */
+  --accent: #7d6200;
+  --accent-hover: #6d5600;
   --accent-pressed: #5f4b00;
-  --accent-muted: rgba(156, 122, 0, 0.1);
-  --accent-border: rgba(156, 122, 0, 0.35);
+  --accent-muted: rgba(125, 98, 0, 0.1);
+  --accent-border: rgba(125, 98, 0, 0.35);
   --text-on-accent: #ffffff;
 
   --positive: #157f4c;
@@ -254,8 +259,8 @@
   --neutral-signal: #665e80;
   --neutral-signal-muted: rgba(102, 94, 128, 0.1);
 
-  --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #9c7a00;
-  --focus-ring-color: #9c7a00;
+  --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #7d6200;
+  --focus-ring-color: #7d6200;
 
   --chart-grid: rgba(13, 11, 18, 0.07);
   --chart-axis: #b9b1cc;
