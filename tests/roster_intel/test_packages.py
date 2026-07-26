@@ -656,3 +656,87 @@ class TestPurity:
         before = [(p.player_id, p.ros_value) for p in pool]
         generate_packages(pool, SLOTS, our_assets=_ours(), their_assets=_theirs())
         assert [(p.player_id, p.ros_value) for p in pool] == before
+
+
+# ─────────────────────────────────────────────────────────────────────
+# allow_scalar_fallback, at the GENERATOR level
+#
+# 928a1fa8 made the flag real in cross_market.py — it had been declared
+# and never read, so a caller that opted OUT of scalar conversion
+# silently got converted totals anyway.  generate_packages defaults it
+# to False, so that fix changes what this module returns.
+#
+# tests/league_intel/test_cross_market.py covers value_package directly.
+# Nothing covered the generator, and test_packages.py was 47/47 green
+# both before and after the fix — a behaviour change no test observed.
+# These close that gap.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _ktc_only_asset(pid: str, pos: str, ktc: float) -> TradeAsset:
+    """Priced ONLY on ktcSfTep — the offense-side mirror of
+    ``_idp_asset``.  A package holding one of each cannot be valued on
+    a single market, which is the only way to reach the scalar path."""
+    return TradeAsset.from_player(_player(pid, pos, ktc / 100.0), {MARKET_KTC: ktc})
+
+
+class TestScalarFallbackReachesTheGenerator:
+    """A package whose SIDE mixes a KTC-only and an IDPTC-only asset."""
+
+    @staticmethod
+    def _run(*, allow_scalar_fallback: bool):
+        their = [
+            _ktc_only_asset("wr9", "WR", 2900.0),
+            TradeAsset.from_player(_player("lb9", "LB", 15.0), {MARKET_IDPTC: 1500.0}),
+        ]
+        # A deep partner roster so `wr9` is not read as a cornerstone —
+        # otherwise the structural rule fires first and the 1-for-2 is
+        # never generated.
+        deep = [
+            _asset("stud", "WR", 9500.0),
+            _asset("stud2", "RB", 9000.0),
+            _asset("stud3", "QB", 8800.0),
+        ]
+        return generate_packages(
+            _our_pool(),
+            SLOTS,
+            our_assets=[_ktc_only_asset("te1", "TE", 3000.0)],
+            their_assets=their,
+            their_full_roster=deep + their,
+            allow_scalar_fallback=allow_scalar_fallback,
+        )
+
+    def test_default_is_opt_out(self):
+        """The default must be the strict one. If this flips, every
+        caller silently starts trusting a converted total again."""
+        import inspect
+
+        sig = inspect.signature(generate_packages)
+        assert sig.parameters["allow_scalar_fallback"].default is False
+
+    def test_mixed_market_package_is_unvaluable_by_default(self):
+        res = self._run(allow_scalar_fallback=False)
+        unvaluable = [r for r in res["rejected"] if r["rejection"] == "unvaluable"]
+        assert unvaluable, (
+            "a package mixing a KTC-only and an IDPTC-only asset resolved "
+            "without conversion — the scalar path is being taken despite "
+            f"the opt-out: {res['rejected']}"
+        )
+        assert not res["members"]
+
+    def test_the_same_package_resolves_when_conversion_is_opted_in(self):
+        """The other half of the proof: the package is otherwise fine,
+        so the rejection above is the FLAG and not some unrelated rule."""
+        res = self._run(allow_scalar_fallback=True)
+        assert not [r for r in res["rejected"] if r["rejection"] == "unvaluable"]
+        assert res["members"], "opting in should price the package"
+
+    def test_the_flag_changes_the_frontier(self):
+        """Stated as the difference, so a future refactor that stops
+        threading the flag through fails here rather than silently."""
+        strict = self._run(allow_scalar_fallback=False)
+        lenient = self._run(allow_scalar_fallback=True)
+        assert len(strict["members"]) != len(lenient["members"]), (
+            "allow_scalar_fallback made no difference to the frontier — "
+            "it is no longer reaching value_package"
+        )
