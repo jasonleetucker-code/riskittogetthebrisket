@@ -233,10 +233,15 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
         self.assertIn("WORKFLOWS", text)
 
     def test_nav_includes_edge_and_finder(self):
-        wrapper = REPO_ROOT / "frontend" / "app" / "AppShellWrapper.jsx"
-        text = wrapper.read_text()
-        self.assertIn("/edge", text)
-        self.assertIn("/finder", text)
+        # R1 moved the navigation IA out of AppShellWrapper.jsx into the
+        # pure-data model in frontend/lib/nav-model.js — every nav
+        # surface (top bar, mobile drawer, /more site map, command
+        # palette) renders from it, so it is the source of truth for
+        # "is a route in the nav".
+        nav_model = REPO_ROOT / "frontend" / "lib" / "nav-model.js"
+        text = nav_model.read_text()
+        self.assertIn('"/edge"', text)
+        self.assertIn('"/finder"', text)
 
 
 class TestDeployFrontendRestart(unittest.TestCase):
