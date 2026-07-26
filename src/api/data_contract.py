@@ -3628,15 +3628,20 @@ def _enrich_from_source_csvs(
             if not isinstance(csv_vals, dict):
                 continue
             existing = _safe_num(csv_vals.get(source_key))
-            # Skip rows that already carry a real value.  For DS
+            # Rows that already carry a real value skip VALUE
+            # enrichment, but the CSV entry is still resolved so the
+            # display metadata (originalRank / nativeValue) stamps
+            # either way — an already-populated slot (scraper payload,
+            # or a rebuild over a previously-enriched payload) must
+            # not leave the tooltips without the vendor's native
+            # number (Codex review on PR #532 round 7).  For DS
             # combined-rank sources any non-None number counts (their
             # scale goes negative, so "already stamped" is any
             # finite value); for everyone else we require > 0 so a
             # stale zero doesn't block the enrichment from re-running.
-            if existing is not None and (
+            value_present = existing is not None and (
                 existing > 0 or (source_key in ds_combined_rank_keys and existing <= 0)
-            ):
-                continue
+            )
             entry = None
             if sid_index:
                 # Rows stamp the Sleeper id as ``playerId`` (mapped
@@ -3682,6 +3687,21 @@ def _enrich_from_source_csvs(
                         fallback = per_source.get(f"{cname}::{only_grp}")
                     entry = fallback
             if not entry:
+                continue
+            if value_present:
+                # Metadata-only stamping: never overwrite the existing
+                # contribution, just make sure the display fields are
+                # populated.
+                orig_rank = entry.get("originalRank")
+                if orig_rank is not None:
+                    row.setdefault("sourceOriginalRanks", {}).setdefault(
+                        source_key, round(float(orig_rank), 2)
+                    )
+                native_val = entry.get("nativeValue")
+                if native_val is not None:
+                    row.setdefault("sourceNativeValues", {}).setdefault(
+                        source_key, round(float(native_val), 2)
+                    )
                 continue
             val = entry.get("value")
             # DS combined-rank sources accept negative values (their
