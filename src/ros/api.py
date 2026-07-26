@@ -147,6 +147,65 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
     return JSONResponse({"teams": snapshot, "leagueKey": resolved_key})
 
 
+@router.get("/pick-projections")
+async def get_pick_projections(request: Request, leagueKey: str | None = None) -> JSONResponse:
+    """Projected rookie-draft slots for every owned FUTURE pick.
+
+    Pick Projector (Phase 7.1): reverse-standings draft order
+    projected from the ROS team-strength composite, joined against
+    the sleeper overlay's live pick ownership (``pickDetails``).
+    Projection/context only — blended pick values are untouched.
+
+    League resolution mirrors ``/team-strength``.  Degraded states
+    follow this router's convention (200 + ``error`` field):
+    ``no_snapshot`` when team strength hasn't been built for the
+    league, ``no_teams`` when the Sleeper overlay is unreachable.
+    """
+    resolved_key = leagueKey
+    sleeper_league_id: str | None = None
+    try:
+        from src.api.league_registry import get_league_by_key, default_league_key  # noqa: PLC0415
+
+        if leagueKey:
+            cfg = get_league_by_key(leagueKey)
+        else:
+            cfg = get_league_by_key(default_league_key())
+        if cfg and cfg.key:
+            resolved_key = cfg.key
+            sleeper_league_id = cfg.sleeper_league_id
+    except Exception:  # noqa: BLE001
+        pass
+
+    snapshot = load_team_strength_snapshot(resolved_key)
+    if not snapshot:
+        return JSONResponse(
+            {"picks": [], "projectedOrder": [], "leagueKey": resolved_key, "error": "no_snapshot"},
+        )
+
+    teams: list[dict] = []
+    if sleeper_league_id:
+        try:
+            from src.api.sleeper_overlay import fetch_sleeper_teams_overlay  # noqa: PLC0415
+
+            block = fetch_sleeper_teams_overlay(sleeper_league_id=sleeper_league_id)
+            if isinstance(block, dict):
+                teams = block.get("teams") or []
+            elif isinstance(block, list):
+                teams = block
+        except Exception:  # noqa: BLE001
+            teams = []
+    if not teams:
+        return JSONResponse(
+            {"picks": [], "projectedOrder": [], "leagueKey": resolved_key, "error": "no_teams"},
+        )
+
+    from src.ros.pick_projection import build_pick_projections  # noqa: PLC0415
+
+    payload = build_pick_projections(teams, snapshot)
+    payload["leagueKey"] = resolved_key
+    return JSONResponse(payload)
+
+
 @router.get("/health")
 async def get_health() -> JSONResponse:
     """Combined ROS pipeline health snapshot.
