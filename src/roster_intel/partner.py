@@ -275,6 +275,7 @@ class RosterSignal:
         owner_id: str,
         profile: Any | None = None,
         window: Any | None = None,
+        starter_levels: Mapping[str, float] | None = None,
     ) -> RosterSignal:
         """Build from the roster engine's ``RosterProfile`` /
         ``CompetitiveWindow``.
@@ -283,12 +284,39 @@ class RosterSignal:
         dependency on the roster engine — the partner model must remain
         usable with hand-built signals in tests and callers.
 
-        Surplus comes from ``tradeable_surplus`` (lineup-derived: value
-        that does not enter the optimal lineup and is not needed as
-        absence insurance) rather than headcount. Deficit combines the
-        engine's ``urgent_need`` flag with fragility, so a position that
-        collapses on one absence registers as a need even when it is
-        nominally staffed.
+        **Surplus** comes from ``tradeable_surplus``: value that does not
+        enter the optimal lineup and is not needed as absence insurance.
+        Lineup-derived, not headcount.
+
+        **Deficit** is a shortfall below a startable baseline, which is
+        why ``starter_levels`` matters. Two tempting shortcuts are both
+        wrong and are deliberately not used:
+
+        * ``fragility × marginal_points`` measures CONCENTRATION, not
+          deficiency. A lone elite quarterback has fragility 1.0 —
+          losing him erases the whole group — so this makes a roster's
+          strongest position read as its biggest hole, and would tell
+          the partner model to send a quarterback to a team that
+          already has a good one.
+        * ``urgent_need`` alone conflates a structural hole ("slots
+          unfilled") with an insurance risk ("one absence hurts"). Both
+          are real, but only the first is a shortfall.
+
+        So deficit is measured as, per position, the larger of the
+        structural shortfall (unfilled dedicated slots × starter level)
+        and the below-replacement shortfall (starter level × required
+        slots, minus what the position actually contributes).
+
+        ``starter_levels`` maps position → the league's starter
+        replacement level, e.g.
+        ``{p: r.value("starter") for p, r in replacement.items()}``.
+        **Without it a deficit magnitude is not computable** — nothing
+        in a single roster's profile says whether 20 points at tight end
+        is bad or 100 at quarterback is good. Absent, only unambiguous
+        structural holes are reported, and a position that is merely
+        weak contributes nothing rather than a fabricated magnitude.
+        Downstream that degrades ``_need_alignment`` to neutral, which
+        is the honest outcome.
 
         Positions the engine could not attribute — FLEX / SUPER_FLEX /
         IDP_FLEX — are absent from its per-position output by design,
@@ -297,19 +325,37 @@ class RosterSignal:
         """
         surplus: dict[str, float] = {}
         deficit: dict[str, float] = {}
+        levels = starter_levels or {}
         if profile is not None:
             for pos, pp in (getattr(profile, "positions", None) or {}).items():
                 ts = float(getattr(pp, "tradeable_surplus", 0.0) or 0.0)
                 if ts > 0:
                     surplus[pos] = ts
-                frag = float(getattr(pp, "fragility", 0.0) or 0.0)
+
+                req = int(getattr(pp, "required_slots", 0) or 0)
+                entered = int(getattr(pp, "entered_lineup", 0) or 0)
                 marg = float(getattr(pp, "marginal_points", 0.0) or 0.0)
-                need = frag * marg
-                if getattr(pp, "urgent_need", False) or need > 0:
-                    # Urgent positions floor at the group's contribution so a
-                    # structurally unfilled slot is never scored as a smaller
-                    # need than a merely fragile one.
-                    deficit[pos] = max(need, marg if getattr(pp, "urgent_need", False) else 0.0)
+                level = levels.get(pos)
+                if level is None:
+                    level = getattr(pp, "replacement_gap", None)
+                level = float(level) if level else 0.0
+
+                unfilled = max(0, req - entered)
+                # Structural: slots the optimizer could not fill at all.
+                structural = unfilled * level if level > 0 else 0.0
+                # Below-replacement: staffed, but not to a startable
+                # standard. Only computable with a starter level.
+                shortfall = max(0.0, level * req - marg) if level > 0 and req else 0.0
+
+                need = max(structural, shortfall)
+                if need <= 0 and unfilled > 0 and level <= 0:
+                    # No calibration available, but an unfilled required
+                    # slot is unambiguous regardless of scale. Use the
+                    # position's own per-slot contribution as the unit so
+                    # the magnitude stays in the engine's units.
+                    need = (marg / max(entered, 1)) if entered else marg
+                if need > 0:
+                    deficit[pos] = need
 
         contend: float | None = None
         if window is not None:

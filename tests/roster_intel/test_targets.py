@@ -521,6 +521,54 @@ class TestRosterEngineIntegration:
         assert sig.contend_probability is None
         assert sig.has_window is False
 
+    def test_deficit_identifies_the_weak_position_not_the_concentrated_one(self):
+        """Regression, and the important one.
+
+        This roster is strong at QB (100 vs a 90 starter level) and
+        genuinely thin at TE (20 vs 50). A lone elite QB has fragility
+        1.0 because losing him erases the whole group, so any deficit
+        built from ``fragility x marginal_points`` reports QB as the
+        biggest hole — which would tell the partner model to send a
+        quarterback to a team that already has a good one.
+
+        Deficit must track shortfall below a startable baseline.
+        """
+        from src.roster_intel.partner import RosterSignal
+
+        pool = _roster()
+        profile = build_position_profiles(pool, SLOTS)
+        sig = RosterSignal.from_engine(
+            "owner1",
+            profile=profile,
+            starter_levels={"QB": 90.0, "RB": 55.0, "WR": 55.0, "TE": 50.0},
+        )
+        assert "TE" in sig.deficit
+        assert "QB" not in sig.deficit
+        assert sig.deficit["TE"] == pytest.approx(30.0)
+
+    def test_deficit_is_empty_without_a_startable_baseline(self):
+        """Nothing in a single roster's profile says whether 20 points at
+        TE is bad. Reporting a magnitude anyway would be fabricating
+        calibration, so the honest output is nothing."""
+        from src.roster_intel.partner import RosterSignal
+
+        pool = _roster()
+        profile = build_position_profiles(pool, SLOTS)
+        sig = RosterSignal.from_engine("owner1", profile=profile)
+        assert sig.deficit == {}
+        # Surplus needs no league baseline and is still reported.
+        assert sig.surplus
+
+    def test_uncalibrated_deficit_degrades_need_alignment_to_neutral(self):
+        """The downstream consequence of the honest degradation."""
+        from src.roster_intel.partner import PartnerInputs, RosterSignal, assess_partner
+
+        pool = _roster()
+        profile = build_position_profiles(pool, SLOTS)
+        theirs = RosterSignal.from_engine("them", profile=profile)
+        a = assess_partner(PartnerInputs(owner_id="them", their_roster=theirs))
+        assert a.partner_need_alignment == pytest.approx(0.5)
+
 
 # ══ Serialization + limitations ═════════════════════════════════════
 
