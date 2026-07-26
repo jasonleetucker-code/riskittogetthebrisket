@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { pageUrl } = require("../helpers/journey");
 
 // End-to-end coverage for the PUBLIC /league page.  Exercises the
 // real Sleeper-backed data flow through the FastAPI backend at
@@ -38,7 +39,7 @@ async function visitLeague(page, path = "/league", { waitForText = null } = {}) 
       privateHits.push(url);
     }
   });
-  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.goto(pageUrl(path), { waitUntil: "domcontentloaded" });
   // Wait for something that only renders AFTER the contract fetch
   // resolves.  "Loading league data..." is replaced with section
   // content once /api/public/league comes back.
@@ -106,7 +107,7 @@ test.describe("public /league page", () => {
     const ownerId = body?.league?.managers?.[0]?.ownerId;
     expect(ownerId).toBeTruthy();
 
-    await page.goto(`/league/franchise/${encodeURIComponent(ownerId)}`, {
+    await page.goto(pageUrl(`/league/franchise/${encodeURIComponent(ownerId)}`), {
       waitUntil: "domcontentloaded",
     });
     await page.waitForFunction(
@@ -125,7 +126,7 @@ test.describe("public /league page", () => {
     if (!rivalries.length) test.skip(true, "no rivalries available in this league yet");
     const [a, b] = rivalries[0].ownerIds;
     const slug = `${encodeURIComponent(a)}-vs-${encodeURIComponent(b)}`;
-    await page.goto(`/league/rivalry/${slug}`, { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl(`/league/rivalry/${slug}`), { waitUntil: "domcontentloaded" });
     await page.waitForFunction(
       () => document.body.innerText.includes("Head-to-head")
         && document.body.innerText.includes("Memorable meetings"),
@@ -163,7 +164,7 @@ test.describe("public /league page", () => {
   });
 
   test("/league page has an OG title (server-rendered metadata)", async ({ request }) => {
-    const res = await request.get("/league");
+    const res = await request.get(pageUrl("/league"));
     expect(res.status()).toBe(200);
     const html = await res.text();
     expect(html).toMatch(/<meta property="og:title"/i);
@@ -174,13 +175,13 @@ test.describe("public /league page", () => {
     // Server-rendered /league?tab=overview hits the overview content
     // directly — HTML should contain the overview headlines, not the
     // fallback "Loading" text.
-    const res = await request.get("/league?tab=overview");
+    const res = await request.get(pageUrl("/league?tab=overview"));
     const html = await res.text();
     expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
   });
 
   test("/draft-capital redirects into the folded /league tab", async ({ request }) => {
-    const res = await request.get("/draft-capital", { maxRedirects: 0 });
+    const res = await request.get(pageUrl("/draft-capital"), { maxRedirects: 0 });
     expect(res.status()).toBeGreaterThanOrEqual(300);
     expect(res.status()).toBeLessThan(400);
     const location = res.headers().location || "";
@@ -194,7 +195,7 @@ test.describe("public /league page", () => {
     const first = (body.matchups || [])[0];
     if (!first) test.skip(true, "no matchups available yet");
     await page.goto(
-      `/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`,
+      pageUrl(`/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`),
       { waitUntil: "domcontentloaded" },
     );
     await expect(page.getByText("Game summary").first()).toBeVisible({ timeout: 15_000 });
@@ -206,7 +207,7 @@ test.describe("public /league page", () => {
     const players = (await playersRes.json()).players || [];
     const pid = players.find((p) => p.playerName && p.position)?.playerId;
     if (!pid) test.skip(true, "no named players available yet");
-    await page.goto(`/league/player/${encodeURIComponent(pid)}`, {
+    await page.goto(pageUrl(`/league/player/${encodeURIComponent(pid)}`), {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByText("Impact by manager").first()).toBeVisible({ timeout: 15_000 });

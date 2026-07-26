@@ -21,6 +21,7 @@
 // dev server running, mirroring the chart suite.
 // ─────────────────────────────────────────────────────────────────────
 const { test, expect } = require("@playwright/test");
+const { pageUrl } = require("../helpers/journey");
 
 const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.005,
@@ -50,7 +51,7 @@ async function _waitForLeagueLoaded(page) {
 
 async function _openLeagueTab(page, tabLabel) {
   // Tabs are sub-nav buttons; click by accessible name.
-  await page.goto("/league");
+  await page.goto(pageUrl("/league"));
   await _waitForLeagueLoaded(page);
   const btn = page.getByRole("button", { name: tabLabel, exact: true });
   if (await btn.count()) {
@@ -70,6 +71,17 @@ test.describe("public /league visual regression", () => {
   // that exact size.  Matches the chart suite's convention.
   test.use({
     viewport: { width: 1366, height: 900 },
+  });
+
+  // The viewport override above makes every project render the same
+  // 1366x900 frame, so running under the mobile projects would just
+  // duplicate the desktop capture (against a separate, never-created
+  // per-project baseline).  Desktop project only.
+  test.beforeEach(async ({}, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop-1366",
+      "fixed-viewport visual suite runs on the desktop project only",
+    );
   });
 
   test("Records section", async ({ page }) => {

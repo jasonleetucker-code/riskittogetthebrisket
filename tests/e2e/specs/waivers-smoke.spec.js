@@ -11,10 +11,15 @@
  *   - The position filter is present and operable.
  */
 const { test, expect } = require("../helpers/auth-fixture");
+// /waivers is served by Next.js but is NOT in server.py's explicit
+// page-route list, so the backend origin 404s it — production works
+// because nginx routes page traffic straight to Next.  pageUrl()
+// (E2E_PAGE_ORIGIN) reproduces that topology for local/CI runs.
+const { pageUrl } = require("../helpers/journey");
 
 test.describe("signed-in: /waivers page", () => {
   test("renders header + sections", async ({ authedPage }) => {
-    await authedPage.goto("/waivers");
+    await authedPage.goto(pageUrl("/waivers"));
     // Page header content + one of the four sections must be visible.
     await expect(authedPage.locator("body")).toContainText(
       /Waiver Add\/Drop/i,
@@ -27,7 +32,7 @@ test.describe("signed-in: /waivers page", () => {
   });
 
   test("rookie toggle is present and toggleable", async ({ authedPage }) => {
-    await authedPage.goto("/waivers");
+    await authedPage.goto(pageUrl("/waivers"));
     const toggle = authedPage.getByLabel(/Include rookies/i, { exact: false });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     // Operable: clicking it doesn't throw.
@@ -36,7 +41,7 @@ test.describe("signed-in: /waivers page", () => {
   });
 
   test("position filter dropdown is present", async ({ authedPage }) => {
-    await authedPage.goto("/waivers");
+    await authedPage.goto(pageUrl("/waivers"));
     const select = authedPage.getByLabel(/Position filter/i);
     await expect(select).toBeVisible({ timeout: 10000 });
   });
@@ -44,7 +49,7 @@ test.describe("signed-in: /waivers page", () => {
   // ── Manual add/drop calculator (Phase B1+B8 surface) ───────────
 
   test("manual add/drop calculator section renders", async ({ authedPage }) => {
-    await authedPage.goto("/waivers");
+    await authedPage.goto(pageUrl("/waivers"));
     // The calculator's heading is unique — distinguishes from the
     // existing Best Add/Drop Moves recommendation table.
     await expect(authedPage.locator("body")).toContainText(
