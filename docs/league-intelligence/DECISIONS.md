@@ -38,6 +38,62 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-008: replacement levels use endogenous flex allocation, and scarcity stays six numbers
+**Context:** LI-5 (spec §19) needs replacement levels per position.
+The conventional shortcut is to preassign flex slots by an even split
+across eligible positions (a FLEX contributes 1/3 to each of RB/WR/TE).
+
+**Finding — the shortcut is badly wrong for this league.**  Now that
+the optimizer is exact (ADR-007), the actual fill rates are directly
+measurable.  On the live 12-team pool:
+
+| slot | who actually fills it (12 teams) |
+|---|---|
+| FLEX ×2 | WR 12, RB 12, **TE 0** |
+| SUPER_FLEX | **QB 9**, RB 2, WR 1 |
+
+Endogenous vs even-split starters per team: **QB 1.75 vs 1.25
+(understated 40%)**, **TE 2.00 vs 2.92 (overstated 46%)**, RB 3.17 vs
+2.92, WR 4.08 vs 3.92.  A preassigned model would misprice the two
+positions the format most distorts — precisely the ones a superflex
+TE-premium league exists to distort.  Hybrid IDPs also move real
+volume: 5 LBs start in DL slots and 4 CBs in DB slots.
+
+**Decision:** starter thresholds are measured by running the exact
+optimizer over every real roster and recording what it started —
+never by preassigning flex.  ``measure_endogenous_starters`` returns
+starters-per-team, each team's *marginal* (weakest) starter per
+position, and the raw slot→position fill counts for audit.
+
+Four tiers, each answering a different question: ``starter`` (median
+of team marginals — the typical last starter), ``bestBallStarter``
+(the deepest anyone dips — the honest "startable" floor when there is
+no set lineup), ``roster``, ``waiver``.  Rank-indexed tiers read a
+smoothed band (±2 ranks) rather than a single rank, so no threshold is
+hostage to one player's projection; the starter tiers are smoothed by
+averaging across teams instead.
+
+**Scarcity stays six separate numbers** (lineupScarcity,
+rosterScarcity, waiverScarcity, eliteSeparation, starterSeparation,
+replacementGap).  Collapsing them destroys the distinction between
+"this position is top-heavy" and "there is nothing on waivers" — those
+call for opposite roster moves.  On live data QB shows
+waiverScarcity 0.75 against RB's 0.21, which is the single most
+important scarcity fact about a superflex league; a blended score
+would bury it.
+
+**Two deviations from a naive reading of the spec, both deliberate:**
+1. *Unpriced players are excluded from the level pools.*  Teams carry
+   unranked dart throws; reading the roster tier off the literal last
+   body returns 0.0 for most positions and collapses every downstream
+   ratio.  They still appear in ``rosteredCount`` (vs ``pricedCount``).
+2. *``waiverScarcity`` is measured against the best-ball starter floor,
+   not the last rostered player.*  The roster tail is the noisiest
+   number in the league and absorbs every identity-join miss, while
+   the decision it informs — "if I lose a starter, how far do I fall?"
+   — is about the startable floor.
+**Status:** accepted 2026-07-26.
+
 ## ADR-007: lineup.py was greedy-correct-by-accident; Sleeper eligibility is `fantasy_positions`
 **Context:** ADR-004 required auditing `src/ros/lineup.py` before
 replacing it.  Verdict below; implemented in LI-3.
@@ -103,13 +159,15 @@ and the 2 that differ score identically (equal-value ties).  That also
 and are real, and both Sleeper and the optimizer are free to break them
 differently without affecting totals.
 
-**Known gap (deliberately NOT changed):** `_positional_coverage` is a
-0-100 heuristic feeding 5% of the team-strength composite and still
-scores only QB/RB/WR/TE depth — in a league that starts nine IDP and a
-kicker, a team with no linebackers can still score full coverage.
-Fixing it changes live team-strength numbers for every team, which
-needs its own before/after measurement, so it is deferred to LI-5/LI-8
-rather than smuggled into an exactness PR.
+**Known gap (deferred at LI-3, FIXED in LI-5):** `_positional_coverage`
+scored only QB/RB/WR/TE depth against a hardcoded table.  Measured on
+the live pool it returned **exactly 100.00 for all 12 teams** — not
+merely IDP-blind but a *constant*, contributing a flat 5 points to
+every composite and discriminating nothing.  LI-5 replaced it with a
+slot-derived, demand-weighted, eligibility-aware score (see the
+before/after in the LI-5 PR body).  Callers that don't pass
+`starter_slots` keep the historical offense-only behavior, so nothing
+outside ROS shifts silently.
 **Status:** accepted 2026-07-26; ADR-004 discharged.
 
 ## ADR-004: Audit/extend src/ros/lineup.py rather than writing a second optimizer

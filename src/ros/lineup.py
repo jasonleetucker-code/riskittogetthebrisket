@@ -349,10 +349,10 @@ def optimize_lineup(
         )
         by_pos_seen[player.position.upper()] = seen + 1
 
-    # Positional coverage — penalize teams missing depth at scarce
-    # positions (QB in superflex, TE).  PR1 uses a simple presence
-    # check; PR2 will weight by replacement-level scarcity.
-    coverage_score = _positional_coverage(roster)
+    # Positional coverage — penalize teams missing bodies where the
+    # league actually starts them.  Slot-derived (LI-5): covers K and
+    # IDP, and weights each position by its starter demand.
+    coverage_score = _positional_coverage(roster, slot_order)
 
     # Health availability — share of starters not flagged injured/bye.
     healthy_starters = sum(1 for r in starting_rows if not r.get("flagged"))
@@ -379,14 +379,86 @@ def _slot_priority(slot: str) -> tuple[int, str]:
     return (0, slot)
 
 
-def _positional_coverage(roster: Iterable[RosterPlayer]) -> float:
-    """0-100 score for "does the roster have depth at scarce positions"."""
-    counts: dict[str, int] = {}
-    for p in roster:
-        counts[p.position.upper()] = counts.get(p.position.upper(), 0) + 1
-    targets = {"QB": 2, "RB": 4, "WR": 5, "TE": 2}
-    pts = 0.0
-    for pos, target in targets.items():
-        have = counts.get(pos, 0)
-        pts += min(1.0, have / target) * (100.0 / len(targets))
-    return pts
+# How much depth a league wants beyond its raw starter demand, as a
+# multiplier on demand.  1.5 == "your starters plus a half-line of
+# cover".  Chosen to reproduce the long-standing offense targets it
+# replaces (QB 2, RB 4, TE ~3) while extending to K and IDP.
+_COVERAGE_DEPTH_MULTIPLIER = 1.5
+
+
+def _slot_demand(slots: Iterable[str]) -> dict[str, float]:
+    """Per-base-position starter demand implied by a slot list.
+
+    Dedicated slots count 1.0 to their position.  A flex slot splits
+    evenly across the positions eligible for it — so in this league's
+    2 FLEX + 1 SUPER_FLEX, RB carries 2/3 + 1/4 of a slot on top of its
+    two dedicated ones.  Approximate by construction (the exact split
+    depends on who is actually rostered), but it is only used to size
+    the coverage targets, never to price a player.
+    """
+    demand: dict[str, float] = {}
+    for raw in slots:
+        slot = _normalize_slot_name(raw)
+        if slot in {"BN", "IR", "TAXI", "DEF"}:
+            continue
+        if slot == "SUPER_FLEX":
+            eligible = sorted(_SUPER_FLEX_ELIGIBLE)
+        elif slot == "FLEX":
+            eligible = sorted(_FLEX_ELIGIBLE)
+        elif slot == "IDP_FLEX":
+            eligible = sorted(_IDP_FAMILIES)
+        else:
+            eligible = [slot]
+        share = 1.0 / len(eligible)
+        for pos in eligible:
+            demand[pos] = demand.get(pos, 0.0) + share
+    return demand
+
+
+def _positional_coverage(
+    roster: Iterable[RosterPlayer],
+    starter_slots: Iterable[str] | None = None,
+) -> float:
+    """0-100 score for "does this roster have bodies where the league
+    starts them".
+
+    Derived from the league's ACTUAL slots rather than a hardcoded
+    offense-only table.  The previous implementation scored depth at
+    QB/RB/WR/TE only, with fixed targets — in a league that starts a
+    kicker and nine IDP, a roster with zero linebackers still scored a
+    perfect 100.  In practice it returned exactly 100.00 for all 12
+    teams, contributing a constant 5 points to every composite and
+    discriminating nothing.
+
+    Counting is eligibility-aware: a DL/LB hybrid counts toward both
+    DL and LB cover, matching how the lineup optimizer may deploy them.
+    Positions are weighted by demand, so a 3-DB league weights DB three
+    times as heavily as a 1-QB slot.
+
+    ``starter_slots`` is optional for backwards compatibility; without
+    it the league's demand is unknown and the score falls back to the
+    historical offense-only table.
+    """
+    if starter_slots is None:
+        counts: dict[str, int] = {}
+        for p in roster:
+            counts[p.position.upper()] = counts.get(p.position.upper(), 0) + 1
+        legacy_targets = {"QB": 2, "RB": 4, "WR": 5, "TE": 2}
+        pts = 0.0
+        for pos, target in legacy_targets.items():
+            pts += min(1.0, counts.get(pos, 0) / target) * (100.0 / len(legacy_targets))
+        return pts
+
+    demand = _slot_demand(starter_slots)
+    if not demand:
+        return 0.0
+
+    roster_list = list(roster)
+    total_weight = 0.0
+    earned = 0.0
+    for pos, need in demand.items():
+        target = max(1.0, need * _COVERAGE_DEPTH_MULTIPLIER)
+        have = sum(1 for p in roster_list if _player_eligible_for_slot(pos, p))
+        earned += min(1.0, have / target) * need
+        total_weight += need
+    return (earned / total_weight) * 100.0 if total_weight else 0.0

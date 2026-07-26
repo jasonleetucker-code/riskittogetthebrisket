@@ -1,5 +1,33 @@
 # League Intelligence — Status
 
+**2026-07-26 (LI-5)** — coverage fix + replacement levels (ADR-008).
+
+- **ADR-007 coverage defect fixed.** `_positional_coverage` returned
+  **exactly 100.00 for all 12 teams** — a constant, not just an
+  IDP-blind heuristic.  Now slot-derived, demand-weighted and
+  eligibility-aware; live range 90.87–100.00.  Because it carries only
+  5% weight it moves composites by ≤0.46 — honest conclusion: it is
+  now *correct* but still a weak signal, and the real upgrade is
+  quality-adjusted depth off the new replacement levels.
+- **Replacement levels** (`src/league_intel/replacement.py`): four
+  tiers (starter / bestBallStarter / roster / waiver) with smoothed
+  ±2-rank bands, computed off the real 12×58 pool (666 rostered).
+- **Endogenous flex allocation** — measured, not assumed.  FLEX takes
+  WR/RB 50/50 and **never a TE**; SUPER_FLEX is **75% QB**.  An even
+  split understates QB demand 40% and overstates TE 46%.
+- **Six separate scarcity components**, not one score.  QB
+  waiverScarcity 0.75 vs RB 0.21 — the defining fact of a superflex
+  league, which a blended number would bury.
+- **Data-quality findings to hand off (not mine to fix):**
+  `data/ros/aggregate/latest.json` carries **6 duplicate player rows**
+  (same player as both lowercase and Title Case: `nate landman`,
+  `cam skattebo`, `cam ward`, `tank dell`, `cam bynum`,
+  `mitch tinsley`) and 16 rows with non-lowercase `canonicalName` — the
+  aggregate mixes two naming conventions, so any join against it is
+  lossy.  40 of 666 rostered players fail to match it.  This inflates
+  the waiver tier; the waiver numbers above are provisional until the
+  identity join is fixed.
+
 **2026-07-26 (LI-3 + LI-4)** — best-ball exactness + value schema.
 
 - **LI-3** (`src/ros/lineup.py`, ADR-007): audit found the optimizer

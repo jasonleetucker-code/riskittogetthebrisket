@@ -286,6 +286,95 @@ class TestLiveLeagueSlotStructure:
         assert sol.starting_lineup_score == pytest.approx(214.0, abs=TOL)
 
 
+class TestPositionalCoverage:
+    """LI-5 / ADR-007: coverage is slot-derived, not an offense-only
+    hardcoded table.  The old version returned exactly 100.00 for all
+    12 real teams — a constant contributing 5 flat points to every
+    composite while ignoring the kicker and all nine IDP starters."""
+
+    SLOTS = TestLiveLeagueSlotStructure.SLOTS
+
+    def _cov(self, roster):
+        return optimize_lineup(roster, starter_slots=self.SLOTS).positional_coverage_score
+
+    def test_missing_idp_entirely_is_penalized(self):
+        """Old behavior: a roster with zero IDP still scored 100."""
+        offense_only = []
+        for pos, n in [("QB", 3), ("RB", 5), ("WR", 7), ("TE", 4), ("K", 2)]:
+            for i in range(n):
+                offense_only.append(RosterPlayer(f"{pos}{i}", f"{pos}{i}", pos, 50.0 - i))
+        assert self._cov(offense_only) < 60.0
+
+    def test_missing_kicker_is_penalized(self):
+        full, no_k = [], []
+        for pos, n in [
+            ("QB", 3),
+            ("RB", 5),
+            ("WR", 7),
+            ("TE", 4),
+            ("DL", 6),
+            ("LB", 6),
+            ("DB", 6),
+        ]:
+            for i in range(n):
+                p = RosterPlayer(f"{pos}{i}", f"{pos}{i}", pos, 50.0 - i)
+                full.append(p)
+                no_k.append(p)
+        full.append(RosterPlayer("k1", "K1", "K", 20.0))
+        full.append(RosterPlayer("k2", "K2", "K", 18.0))
+        assert self._cov(full) > self._cov(no_k)
+
+    def test_hybrids_count_toward_both_families(self):
+        base = [RosterPlayer(f"dl{i}", f"DL{i}", "DL", 30.0) for i in range(5)]
+        with_hybrid = base + [RosterPlayer("h", "Hy", "DL", 30.0, fantasy_positions=("DL", "LB"))]
+        only_dl = base + [RosterPlayer("d5", "DL5", "DL", 30.0)]
+        assert self._cov(with_hybrid) > self._cov(only_dl)
+
+    def test_full_roster_scores_high_but_score_is_not_constant(self):
+        """The defect was a CONSTANT 100 — different rosters must now
+        produce different coverage."""
+        deep, thin = [], []
+        for pos, n in [
+            ("QB", 4),
+            ("RB", 7),
+            ("WR", 9),
+            ("TE", 6),
+            ("K", 2),
+            ("DL", 7),
+            ("LB", 7),
+            ("DB", 7),
+        ]:
+            for i in range(n):
+                deep.append(RosterPlayer(f"{pos}{i}", f"{pos}{i}", pos, 50.0 - i))
+        for pos, n in [
+            ("QB", 1),
+            ("RB", 2),
+            ("WR", 3),
+            ("TE", 2),
+            ("K", 1),
+            ("DL", 3),
+            ("LB", 3),
+            ("DB", 3),
+        ]:
+            for i in range(n):
+                thin.append(RosterPlayer(f"{pos}{i}", f"{pos}{i}", pos, 50.0 - i))
+        assert self._cov(deep) == pytest.approx(100.0)
+        assert self._cov(thin) < self._cov(deep)
+
+    def test_legacy_call_without_slots_keeps_old_behavior(self):
+        """Back-compat: callers that don't pass slots get the historical
+        offense-only score, so nothing outside ROS shifts silently."""
+        from src.ros.lineup import _positional_coverage
+
+        roster = [
+            RosterPlayer("q", "Q", "QB", 10.0),
+            RosterPlayer("q2", "Q2", "QB", 9.0),
+            RosterPlayer("r", "R", "RB", 8.0),
+        ]
+        legacy = _positional_coverage(roster)
+        assert legacy == pytest.approx(25.0 + min(1.0, 1 / 4) * 25.0)
+
+
 class TestHistoricalReconstruction:
     """Replay real Sleeper best-ball weeks: with the host's own
     per-player scores as values, the optimizer must reach the host's

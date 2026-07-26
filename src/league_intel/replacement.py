@@ -1,0 +1,469 @@
+"""Replacement levels + separated scarcity components (LI-5, spec §19).
+
+What "replacement level" means here
+───────────────────────────────────
+Four thresholds per position, each answering a different question:
+
+    starter           the typical last starter — what the median team's
+                      weakest starter at this position is worth
+    bestBallStarter   the deepest anyone dips — the weakest player who
+                      still cracks SOME team's optimal lineup.  In a
+                      best-ball league there is no set lineup, so this
+                      is the honest floor for "startable"
+    roster            the last player worth rostering at all
+    waiver            the best player nobody has rostered
+
+**Endogenous flex allocation.**  The starter thresholds are NOT derived
+by preassigning FLEX/SUPER_FLEX to positions.  They are measured from
+what the exact optimizer (``src.ros.lineup``) actually starts across
+every real roster in the league.  This matters a lot: measured on the
+live 12-team pool, SUPER_FLEX goes to a QB 75% of the time (not the
+25% an even split would assume) and FLEX never takes a TE at all — so
+a preassigned model understates QB starter demand by ~40% and
+overstates TE's by ~46%.  Getting that wrong would misprice every
+position's replacement level, which is the whole input to scarcity.
+
+**Smoothed bands, not single ranks.**  A replacement level read off one
+rank is hostage to one player's projection.  Rank-indexed levels
+average a window around the threshold; the starter levels are
+naturally smoothed by averaging across the league's teams.
+
+Pure computation over a supplied pool — no I/O, no network.
+"""
+
+from __future__ import annotations
+
+import statistics
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Mapping, Sequence
+
+from src.ros.lineup import RosterPlayer, optimize_lineup
+
+__all__ = [
+    "REPLACEMENT_SCHEMA_VERSION",
+    "DEFAULT_BAND",
+    "ReplacementLevel",
+    "PositionReplacement",
+    "ScarcityComponents",
+    "normalize_base_position",
+    "measure_endogenous_starters",
+    "compute_replacement_levels",
+    "compute_scarcity",
+]
+
+REPLACEMENT_SCHEMA_VERSION = 1
+
+DEFAULT_BAND = 2
+"""Half-width of the smoothing window for rank-indexed levels: the
+level is the mean of ranks [r-BAND, r+BAND]."""
+
+# Sleeper position → the base position a roster slot is named for.
+# Mirrors the family map in src/ros/lineup.py; kept here so scarcity
+# can bucket a pool without importing the optimizer's private maps.
+_BASE_POSITION_ALIASES: dict[str, str] = {
+    "DE": "DL",
+    "DT": "DL",
+    "EDGE": "DL",
+    "NT": "DL",
+    "OLB": "LB",
+    "ILB": "LB",
+    "MLB": "LB",
+    "CB": "DB",
+    "S": "DB",
+    "SS": "DB",
+    "FS": "DB",
+}
+
+
+def normalize_base_position(position: str) -> str:
+    """Collapse a Sleeper position onto its roster-slot family."""
+    pos = (position or "").strip().upper()
+    return _BASE_POSITION_ALIASES.get(pos, pos)
+
+
+@dataclass(frozen=True)
+class ReplacementLevel:
+    """One threshold for one position."""
+
+    position: str
+    tier: str
+    value: float | None
+    threshold_rank: int | None
+    band_low: float | None
+    band_high: float | None
+    sample_size: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "position": self.position,
+            "tier": self.tier,
+            "value": self.value,
+            "thresholdRank": self.threshold_rank,
+            "bandLow": self.band_low,
+            "bandHigh": self.band_high,
+            "sampleSize": self.sample_size,
+        }
+
+
+@dataclass(frozen=True)
+class PositionReplacement:
+    """All four thresholds for one position, plus what produced them."""
+
+    position: str
+    starters_per_team: float
+    rostered_count: int
+    priced_count: int = 0
+    levels: dict[str, ReplacementLevel] = field(default_factory=dict)
+
+    def value(self, tier: str) -> float | None:
+        lvl = self.levels.get(tier)
+        return lvl.value if lvl else None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "position": self.position,
+            "startersPerTeam": self.starters_per_team,
+            "rosteredCount": self.rostered_count,
+            "pricedCount": self.priced_count,
+            "levels": {k: v.to_dict() for k, v in self.levels.items()},
+        }
+
+
+@dataclass(frozen=True)
+class ScarcityComponents:
+    """The spec's scarcity signals, kept SEPARATE on purpose.
+
+    Collapsing these to one number destroys the distinction between
+    "this position is top-heavy" (eliteSeparation) and "there is
+    nothing on waivers" (waiverScarcity) — they call for opposite
+    roster moves.  Consumers combine them explicitly or not at all.
+
+    The three ``*Scarcity`` fields are 0-1 normalized drops; the three
+    separation/gap fields are in raw value units so they stay additive
+    with player values.
+
+    ``waiver_scarcity`` is measured against the best-ball starter floor
+    rather than the last rostered player.  The literal roster tail is
+    the noisiest number in the league (deep dart throws, and any
+    identity-join miss lands there), and the decision it informs —
+    "if I lose a starter, how far do I fall?" — is about the startable
+    floor, not the worst body on a bench.
+    """
+
+    position: str
+    lineup_scarcity: float | None
+    roster_scarcity: float | None
+    waiver_scarcity: float | None
+    elite_separation: float | None
+    starter_separation: float | None
+    replacement_gap: float | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "position": self.position,
+            "lineupScarcity": self.lineup_scarcity,
+            "rosterScarcity": self.roster_scarcity,
+            "waiverScarcity": self.waiver_scarcity,
+            "eliteSeparation": self.elite_separation,
+            "starterSeparation": self.starter_separation,
+            "replacementGap": self.replacement_gap,
+        }
+
+
+# ── Endogenous starter measurement ────────────────────────────────────
+
+
+def _to_roster_players(players: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
+    out: list[RosterPlayer] = []
+    for p in players:
+        out.append(
+            RosterPlayer(
+                player_id=str(p.get("playerId") or p.get("canonicalName") or ""),
+                canonical_name=str(p.get("canonicalName") or p.get("name") or ""),
+                position=str(p.get("position") or "").upper(),
+                ros_value=float(p.get("rosValue") or 0.0),
+                confidence=float(p.get("confidence") or 0.0),
+                injured=bool(p.get("injured")),
+                bye=bool(p.get("bye")),
+                fantasy_positions=tuple(
+                    str(fp).upper() for fp in (p.get("fantasyPositions") or ())
+                ),
+            )
+        )
+    return out
+
+
+@dataclass(frozen=True)
+class EndogenousStarters:
+    """What the optimizer actually started, league-wide."""
+
+    team_count: int
+    starters_per_team: dict[str, float]
+    marginal_starter_values: dict[str, list[float]]
+    slot_fill: dict[str, dict[str, int]]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "teamCount": self.team_count,
+            "startersPerTeam": dict(self.starters_per_team),
+            "slotFill": {k: dict(v) for k, v in self.slot_fill.items()},
+        }
+
+
+def measure_endogenous_starters(
+    teams: Sequence[Mapping[str, Any]],
+    starter_slots: Sequence[str],
+) -> EndogenousStarters:
+    """Run the exact optimizer on every roster and record what started.
+
+    Returns per-position starters-per-team (the endogenous flex
+    allocation), each team's *marginal* (lowest-valued) starter at each
+    position, and the raw slot→position fill counts for diagnostics.
+    """
+    counts: dict[str, int] = {}
+    marginal: dict[str, list[float]] = {}
+    slot_fill: dict[str, dict[str, int]] = {}
+    n_teams = 0
+
+    for team in teams:
+        players = team.get("players") or []
+        if not players:
+            continue
+        n_teams += 1
+        solution = optimize_lineup(_to_roster_players(players), starter_slots=starter_slots)
+        per_pos: dict[str, list[float]] = {}
+        for row in solution.starting_lineup:
+            base = normalize_base_position(str(row.get("position") or ""))
+            counts[base] = counts.get(base, 0) + 1
+            per_pos.setdefault(base, []).append(float(row.get("rosValue") or 0.0))
+            slot = str(row.get("slot") or "")
+            slot_fill.setdefault(slot, {})
+            slot_fill[slot][base] = slot_fill[slot].get(base, 0) + 1
+        for base, values in per_pos.items():
+            marginal.setdefault(base, []).append(min(values))
+
+    per_team = {pos: n / n_teams for pos, n in counts.items()} if n_teams else {}
+    return EndogenousStarters(
+        team_count=n_teams,
+        starters_per_team=per_team,
+        marginal_starter_values=marginal,
+        slot_fill=slot_fill,
+    )
+
+
+# ── Replacement levels ────────────────────────────────────────────────
+
+
+def _banded_value(
+    sorted_values: Sequence[float],
+    rank: int,
+    band: int,
+) -> tuple[float | None, int | None, float | None, float | None]:
+    """Mean of the values within ``band`` ranks of ``rank`` (1-indexed).
+
+    Returns ``(value, clamped_rank, band_low, band_high)``.  A rank past
+    the end of the pool clamps to the tail — the honest reading of
+    "there is nobody left at this position".
+    """
+    if not sorted_values:
+        return None, None, None, None
+    n = len(sorted_values)
+    r = max(1, min(rank, n))
+    lo = max(1, r - band)
+    hi = min(n, r + band)
+    window = sorted_values[lo - 1 : hi]
+    if not window:
+        return None, None, None, None
+    return statistics.fmean(window), r, min(window), max(window)
+
+
+def compute_replacement_levels(
+    teams: Sequence[Mapping[str, Any]],
+    starter_slots: Sequence[str],
+    *,
+    free_agents: Sequence[Mapping[str, Any]] = (),
+    band: int = DEFAULT_BAND,
+    endogenous: EndogenousStarters | None = None,
+) -> dict[str, PositionReplacement]:
+    """Compute the four replacement tiers per position.
+
+    Args:
+        teams: every roster in the league, each ``{"players": [...]}``
+            with ``position`` / ``rosValue`` / ``fantasyPositions``.
+        starter_slots: the league's flattened starter slots.
+        free_agents: unrostered players, for the ``waiver`` tier.
+        band: smoothing half-width for rank-indexed tiers.
+        endogenous: reuse a prior measurement instead of re-running the
+            optimizer (the measurement is the expensive part).
+    """
+    measured = endogenous or measure_endogenous_starters(teams, starter_slots)
+
+    # Unpriced players (no ROS read — deep dart throws, or an identity
+    # miss) carry no information about where a threshold sits.  A
+    # roster tier read off them would always be 0.0 and collapse every
+    # downstream ratio, so they are excluded from the level pools.
+    # They still count in ``rostered_count`` for transparency.
+    rostered: dict[str, list[float]] = {}
+    rostered_all: dict[str, int] = {}
+    for team in teams:
+        for p in team.get("players") or []:
+            base = normalize_base_position(str(p.get("position") or ""))
+            if not base:
+                continue
+            rostered_all[base] = rostered_all.get(base, 0) + 1
+            value = float(p.get("rosValue") or 0.0)
+            if value > 0:
+                rostered.setdefault(base, []).append(value)
+    for values in rostered.values():
+        values.sort(reverse=True)
+
+    fa: dict[str, list[float]] = {}
+    for p in free_agents:
+        base = normalize_base_position(str(p.get("position") or ""))
+        if not base:
+            continue
+        value = float(p.get("rosValue") or 0.0)
+        if value > 0:
+            fa.setdefault(base, []).append(value)
+    for values in fa.values():
+        values.sort(reverse=True)
+
+    out: dict[str, PositionReplacement] = {}
+    for pos, pool in rostered.items():
+        levels: dict[str, ReplacementLevel] = {}
+        # Same unpriced-player exclusion as the pools above: a started
+        # player with no ROS read means "we can't price this slot", not
+        # "the floor is zero".  Left in, one such starter would drag
+        # bestBallStarter (which reads the LOWEST marginals) to 0.0.
+        marginals = sorted(v for v in measured.marginal_starter_values.get(pos, []) if v > 0)
+
+        # starter — the TYPICAL last starter: median of every team's
+        # marginal starter.  Averaging across teams is itself the
+        # smoothing here, so no rank band is needed.
+        if marginals:
+            levels["starter"] = ReplacementLevel(
+                position=pos,
+                tier="starter",
+                value=statistics.median(marginals),
+                threshold_rank=None,
+                band_low=marginals[0],
+                band_high=marginals[-1],
+                sample_size=len(marginals),
+            )
+            # bestBallStarter — the deepest ANY team dips.  Smoothed by
+            # averaging the lowest few marginals rather than taking a
+            # single team's outlier.
+            k = min(len(marginals), max(1, band))
+            levels["bestBallStarter"] = ReplacementLevel(
+                position=pos,
+                tier="bestBallStarter",
+                value=statistics.fmean(marginals[:k]),
+                threshold_rank=None,
+                band_low=marginals[0],
+                band_high=marginals[k - 1],
+                sample_size=k,
+            )
+
+        # roster — the last player rostered at this position.
+        value, rank, lo, hi = _banded_value(pool, len(pool), band)
+        levels["roster"] = ReplacementLevel(
+            position=pos,
+            tier="roster",
+            value=value,
+            threshold_rank=rank,
+            band_low=lo,
+            band_high=hi,
+            sample_size=len(pool),
+        )
+
+        # waiver — the best unrostered player at this position.
+        fa_pool = fa.get(pos, [])
+        if fa_pool:
+            value, rank, lo, hi = _banded_value(fa_pool, 1, band)
+            levels["waiver"] = ReplacementLevel(
+                position=pos,
+                tier="waiver",
+                value=value,
+                threshold_rank=rank,
+                band_low=lo,
+                band_high=hi,
+                sample_size=len(fa_pool),
+            )
+
+        out[pos] = PositionReplacement(
+            position=pos,
+            starters_per_team=measured.starters_per_team.get(pos, 0.0),
+            rostered_count=rostered_all.get(pos, len(pool)),
+            priced_count=len(pool),
+            levels=levels,
+        )
+    return out
+
+
+# ── Scarcity components ───────────────────────────────────────────────
+
+
+def _safe_drop(top: float | None, bottom: float | None) -> float | None:
+    """``1 - bottom/top`` — the normalized drop from top to bottom."""
+    if top is None or bottom is None or top <= 0:
+        return None
+    return max(0.0, min(1.0, 1.0 - (bottom / top)))
+
+
+def compute_scarcity(
+    replacement: Mapping[str, PositionReplacement],
+    teams: Sequence[Mapping[str, Any]],
+) -> dict[str, ScarcityComponents]:
+    """Derive the six separated scarcity signals per position.
+
+    Deliberately six numbers, not one.  ``eliteSeparation`` high with
+    ``waiverScarcity`` low means "pay up for the top guy, stream the
+    rest"; the reverse means "any starter is precious".  A single
+    blended score cannot express that difference.
+    """
+    by_pos: dict[str, list[float]] = {}
+    for team in teams:
+        for p in team.get("players") or []:
+            base = normalize_base_position(str(p.get("position") or ""))
+            value = float(p.get("rosValue") or 0.0)
+            if base and value > 0:  # unpriced players carry no signal
+                by_pos.setdefault(base, []).append(value)
+    for values in by_pos.values():
+        values.sort(reverse=True)
+
+    out: dict[str, ScarcityComponents] = {}
+    for pos, rep in replacement.items():
+        pool = by_pos.get(pos, [])
+        top = pool[0] if pool else None
+        starter = rep.value("starter")
+        best_ball = rep.value("bestBallStarter")
+        roster_lvl = rep.value("roster")
+        waiver = rep.value("waiver")
+
+        # Typical starter = median of the players above the starter
+        # threshold; falls back to the pool median when unmeasurable.
+        starters_n = max(1, round(rep.starters_per_team * max(1, len(teams))))
+        starter_pool = pool[:starters_n] if pool else []
+        median_starter = statistics.median(starter_pool) if starter_pool else None
+        elite = pool[max(0, round(len(pool) * 0.05) - 1)] if pool else None
+
+        out[pos] = ScarcityComponents(
+            position=pos,
+            lineup_scarcity=_safe_drop(top, starter),
+            roster_scarcity=_safe_drop(starter, roster_lvl),
+            waiver_scarcity=_safe_drop(best_ball, waiver),
+            elite_separation=(
+                (elite - median_starter)
+                if elite is not None and median_starter is not None
+                else None
+            ),
+            starter_separation=(
+                (median_starter - starter)
+                if median_starter is not None and starter is not None
+                else None
+            ),
+            replacement_gap=(
+                (best_ball - waiver) if best_ball is not None and waiver is not None else None
+            ),
+        )
+    return out
