@@ -16,7 +16,7 @@ constant main-branch stability.
 | B | Redesign R3 — dashboard, news, market surfaces | design custodian (builder reassigned) | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | PR #551 open, CI green (`622117cb`); **reviewed — 2 P2 open**, see §6 |
 | C | Redesign R4 — draft war room + trade surfaces | design custodian (builder reassigned) | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | PR #552 open, CI green (`79bde6f6`); **reviewed — 2 P2 open**, see §6 |
 | D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | Blocked by B+C |
-| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **PR #550 open (LI-1..LI-5), CI green — MERGE-BLOCKED**, see §6 |
+| E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation (continuous) | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | PR #550 open, blockers **cleared** (`4e3e0d95`); LI-7 non-TE axes done (`2617e09e`) — 385 tests green, end-to-end no-op proven with `==` on 500+ real rows. **TE axis still blocked on paired-board evidence** (correctly — it is the one number not yet defensible) |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | (into R5 or own) | R1 shell TopBar + getActiveValue adoption | Blocked by E(LI-4)+A |
 | G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile | tests/e2e/ | In progress — **suite has never had a verified end-to-end pass**; top board risk |
 | H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | #547 merged; residual aggregate-join defect handed to WS-H by PR #550 (6 duplicate rows, 40/666 join failures) |
@@ -65,8 +65,17 @@ which side of the comparison is measured and which is assumed. If either
 end rests on an assumption the external source does not share, the
 agreement carries no information. This is the same failure mode as the
 vacuous-pass gates ("controls at unity" when controls cannot move by
-construction) and the five self-caught vacuous checks — always ask what
-the check would look like if the hypothesis were false.
+construction) and the self-caught vacuous checks — always ask what the
+check would look like if the hypothesis were false.
+
+The inverse form bites too: a condition that can never *fire*. LI-7
+computed `projection_corroborated` from `applied` axes, where `applied`
+requires `factor != 1.0` — while the corroboration axis carries factor 1.0
+by design, so corroboration was structurally invisible and would have
+silently discarded LI-6's entire contribution the day it arrived. It
+surfaced only because a test asserted confidence should rise and it
+didn't. **Write the test that fails if the mechanism is disconnected**,
+not just the test that passes when it works.
 
 ## 3. Shared contracts (frozen unless custodian approves)
 
