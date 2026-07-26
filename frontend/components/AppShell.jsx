@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
 import PlayerPopup from "@/components/PlayerPopup";
-import GlobalSearch from "@/components/GlobalSearch";
+import CommandPalette from "@/components/shell/CommandPalette";
 
 // ── App-wide context for popup and search ────────────────────────────────
 const AppContext = createContext({
@@ -156,7 +156,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     setSearchOpen(true);
   }, [searchEnabled]);
 
-  // League-scoped ownership index for GlobalSearch's owner: tokens.
+  // League-scoped ownership index for the command palette's owner: tokens.
   // Rows are scoring-profile-scoped and never carry the owner; the
   // join happens here at render time (CLAUDE.md split).
   const teamByPlayer = useMemo(
@@ -164,10 +164,16 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     [rawData?.sleeper?.teams],
   );
 
-  // Global "/" keyboard shortcut for search
+  // Global keyboard shortcuts for search: "/" (legacy, preserved) and
+  // Cmd/Ctrl+K (the standard command-palette chord — R1 additive).
   useEffect(() => {
     if (!searchEnabled) return undefined;
     function onKeyDown(e) {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
@@ -205,7 +211,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
       )}
 
       {searchEnabled && (
-        <GlobalSearch
+        <CommandPalette
           rows={rows}
           teamByPlayer={teamByPlayer}
           isOpen={searchOpen}

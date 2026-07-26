@@ -38,6 +38,8 @@ export const REQUIRED_TOKENS = [
   "--surface-active",
   "--surface-inverse",
   "--backdrop",
+  "--surface-veil",
+  "--surface-veil-raised",
   // Text
   "--text-primary",
   "--text-secondary",

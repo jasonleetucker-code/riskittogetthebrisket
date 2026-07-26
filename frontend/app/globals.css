@@ -9,6 +9,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 @import "./tokens.css";
 @import "./ds.css";
+@import "./shell.css";
 
 /* Skeleton shimmer animation — used by components/ui/Skeleton.jsx */
 @keyframes skeleton-shimmer {

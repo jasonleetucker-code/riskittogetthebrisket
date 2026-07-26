@@ -45,6 +45,33 @@ const PATHS = {
       <path d="M8 6.8v3M8 12v.1" />
     </>
   ),
+  // Shell / navigation glyphs (R1)
+  home: <path d="M2.8 7.2 8 2.8l5.2 4.4V13a.8.8 0 0 1-.8.8H9.8V9.6H6.2v4.2H3.6a.8.8 0 0 1-.8-.8V7.2Z" />,
+  board: (
+    <>
+      <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
+    </>
+  ),
+  swap: (
+    <>
+      <path d="M2.8 5.5h9.4M9.8 3l2.8 2.5-2.8 2.5" />
+      <path d="M13.2 10.5H3.8M6.2 8 3.4 10.5 6.2 13" />
+    </>
+  ),
+  news: (
+    <>
+      <path d="M3 3h8.5v10H3.8A.8.8 0 0 1 3 12.2V3Z" />
+      <path d="M11.5 6H13v6.2a.8.8 0 0 1-.8.8h-.7" />
+      <path d="M5 6h4.5M5 8.5h4.5M5 11h3" />
+    </>
+  ),
+  menu: <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
+  gear: (
+    <>
+      <circle cx="8" cy="8" r="2.2" />
+      <path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4" />
+    </>
+  ),
 };
 
 export const ICON_NAMES = Object.keys(PATHS);

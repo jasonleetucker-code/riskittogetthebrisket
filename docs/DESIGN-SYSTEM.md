@@ -136,6 +136,14 @@ Ordering follows the audit's leverage ranking: tokens → the three
 workhorse primitives → the mega-pages → IA. Each phase ends with the full
 vitest suite + `next build` + budgets green.
 
+> **Status:** the shell/nav/search portion of the IA work originally
+> slotted for R5 shipped early as **R1** (app shell on ds primitives,
+> grouped nav model in `lib/nav-model.js`, command palette, skip link +
+> landmarks + route-change focus). Desktop keeps a **top bar** (not a
+> left rail): tables are the product and keep the horizontal space; the
+> palette is the power-user accelerator. The page-family migrations
+> below are unchanged.
+
 | Phase | Scope | How it maps onto the primitives |
 |---|---|---|
 | **R1 — workhorses + data spine** | `/rankings`, `/trending`, `/edge`, `/finder`, `/trades`, `/rosters`, `/waivers` | Every hand-rolled `<table>` → `DataTable` (the rankings `SortHeader` dies; `aria-sort` arrives everywhere). Page shells → `PageHeader` + `Panel`. Deltas → `Movement`. Spinners → `Skeleton*`. Also in R1: re-derive `CHART_COLORS` from `--chart-*`, re-point `display-helpers` class names at tokens, rewrite off-brand `app/error.jsx` on tokens, and fix the duplicate-contract fetch (in-flight promise dedupe in `lib/dynasty-data.js`) so the new skeletons aren't papering over a double download. |
