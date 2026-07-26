@@ -72,20 +72,44 @@ class TestSingleMarketIsExact:
         assert pkg.warnings == []
 
 
-class TestSuppression:
-    """Never silently rank what cannot be defensibly valued."""
+class TestSuppressionIsMaterialityGated:
+    """Suppression must fire on whether the conversion uncertainty can
+    change the answer — NOT on whether a conversion happened.
 
-    def test_mixed_package_with_ktc_only_offense_is_suppressed(self):
+    An earlier revision suppressed any package containing an asset the
+    target board did not price.  Measured, that bucket was entirely
+    fringe (max value 1,004; KTC ranks ~445-477), so it withheld
+    working trades to avoid an error that could not flip a verdict.
+    """
+
+    def test_fringe_asset_inside_a_real_package_is_converted_not_suppressed(self):
         pkg = value_package(
-            [asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)]  # no IDPTC for WR1
+            [
+                asset("Fringe", "WR", ktc=493),  # unpriced on IDPTC
+                asset("WR1", "WR", ktc=6000, idptc=6050),
+                asset("LB1", "LB", idptc=3000),
+            ]
         )
+        assert pkg.strategy is NormalizationStrategy.SCALAR_FALLBACK
+        assert pkg.is_rankable is True
+        assert pkg.uncertainty_band > 0
+
+    def test_fringe_asset_dominating_a_small_package_still_suppresses(self):
+        """When the band IS a big share of the total, the uncertainty
+        genuinely could flip the verdict."""
+        pkg = value_package([asset("Fringe", "WR", ktc=493), asset("LB1", "LB", idptc=300)])
         assert pkg.strategy is NormalizationStrategy.SUPPRESSED
         assert pkg.is_rankable is False
-        assert pkg.total is None
-        assert "WR1" in pkg.suppressed_reason
+        assert "materiality threshold" in pkg.suppressed_reason
+
+    def test_threshold_matches_the_gate_it_protects(self):
+        from src.league_intel.cross_market import MATERIALITY_THRESHOLD
+
+        # angle.py gates market_gain_pct at 5.0% by default.
+        assert MATERIALITY_THRESHOLD == 0.05
 
     def test_suppressed_package_has_zero_confidence(self):
-        pkg = value_package([asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)])
+        pkg = value_package([asset("Fringe", "WR", ktc=493), asset("LB1", "LB", idptc=300)])
         assert pkg.normalization_confidence == 0.0
 
     def test_empty_package_is_suppressed(self):
@@ -93,45 +117,48 @@ class TestSuppression:
         assert pkg.strategy is NormalizationStrategy.SUPPRESSED
         assert pkg.is_rankable is False
 
-    def test_unpriced_asset_suppresses_even_with_fallback_allowed(self):
-        pkg = value_package(
-            [asset("Ghost", "WR"), asset("LB1", "LB", idptc=3000)], allow_scalar_fallback=True
-        )
+    def test_asset_priced_on_neither_market_always_suppresses(self):
+        pkg = value_package([asset("Ghost", "WR"), asset("LB1", "LB", idptc=3000)])
         assert pkg.strategy is NormalizationStrategy.SUPPRESSED
 
 
-class TestScalarFallbackIsOptInAndLabelled:
-    def test_fallback_is_off_by_default(self):
-        pkg = value_package([asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)])
-        assert pkg.strategy is NormalizationStrategy.SUPPRESSED
-
-    def test_fallback_converts_and_marks_the_converted_asset(self):
+class TestScalarConversionIsLabelled:
+    def test_conversion_marks_the_converted_asset(self):
         pkg = value_package(
-            [asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)],
-            allow_scalar_fallback=True,
+            [
+                asset("Fringe", "WR", ktc=1000),
+                asset("WR1", "WR", ktc=6000, idptc=6050),
+                asset("LB1", "LB", idptc=3000),
+            ]
         )
-        assert pkg.strategy is NormalizationStrategy.SCALAR_FALLBACK
-        wr = next(a for a in pkg.assets if a.name == "WR1")
+        wr = next(a for a in pkg.assets if a.name == "Fringe")
         assert wr.converted is True
         assert wr.raw_market_source == MARKET_KTC
-        assert wr.normalized_market_value == pytest.approx(6000 * 1.012)
+        assert wr.normalized_market_value == pytest.approx(1000 * 1.012)
 
-    def test_fallback_confidence_is_materially_lower(self):
+    def test_conversion_confidence_is_materially_lower_than_exact(self):
         exact = value_package(
             [asset("WR1", "WR", ktc=6000, idptc=6050), asset("LB1", "LB", idptc=3000)]
         )
         approx = value_package(
-            [asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)],
-            allow_scalar_fallback=True,
+            [
+                asset("Fringe", "WR", ktc=1000),
+                asset("WR1", "WR", ktc=6000, idptc=6050),
+                asset("LB1", "LB", idptc=3000),
+            ]
         )
         assert approx.normalization_confidence < exact.normalization_confidence
 
-    def test_fallback_states_its_measured_error(self):
+    def test_conversion_reports_its_uncertainty_band(self):
         pkg = value_package(
-            [asset("WR1", "WR", ktc=6000), asset("LB1", "LB", idptc=3000)],
-            allow_scalar_fallback=True,
+            [
+                asset("Fringe", "WR", ktc=1000),
+                asset("WR1", "WR", ktc=6000, idptc=6050),
+                asset("LB1", "LB", idptc=3000),
+            ]
         )
-        assert any("3.0%" in w and "11.7%" in w for w in pkg.warnings)
+        assert any("uncertainty band" in w for w in pkg.warnings)
+        assert pkg.to_dict()["uncertaintyBand"] > 0
 
 
 class TestStamps:
@@ -178,32 +205,50 @@ class TestRealBoardCoverage:
             pytest.skip("baseline contract snapshot not present")
         return json.loads(path.read_text())["playersArray"]
 
-    def test_mixed_packages_mostly_resolve_on_the_exact_path(self):
+    @staticmethod
+    def _value(row):
+        sites = row.get("canonicalSiteValues") or {}
+        for key in (MARKET_KTC, MARKET_IDPTC):
+            try:
+                v = float(sites.get(key) or 0)
+            except (TypeError, ValueError):
+                v = 0
+            if v > 0:
+                return v
+        return 0.0
+
+    def test_realistic_trade_candidates_all_resolve_on_the_exact_path(self):
+        """The measurement that settled the suppression debate: among
+        assets anyone would actually trade (value >= 1500), EVERY mixed
+        package resolves exactly.  The suppression bucket was entirely
+        fringe players."""
         rows = self._rows()
         offense = [
             r
             for r in rows
-            if (r.get("position") or "") in {"QB", "RB", "WR", "TE"}
-            and (r.get("canonicalSiteValues") or {}).get(MARKET_KTC)
-        ][:60]
+            if (r.get("position") or "") in {"QB", "RB", "WR", "TE"} and self._value(r) >= 1500
+        ][:80]
         idp = [
             r
             for r in rows
-            if (r.get("position") or "") in {"DL", "LB", "DB"}
-            and (r.get("canonicalSiteValues") or {}).get(MARKET_IDPTC)
+            if (r.get("position") or "") in {"DL", "LB", "DB"} and self._value(r) >= 1500
         ][:20]
         assert offense and idp
-        exact = suppressed = 0
-        for o in offense:
-            pkg = value_package([o, idp[0]])
-            if pkg.strategy is NormalizationStrategy.SINGLE_MARKET:
-                exact += 1
-            else:
-                suppressed += 1
-        # Most offense players carry an IDPTC value, so the exact path
-        # dominates; the rest suppress rather than mis-sum.
-        assert exact > suppressed
-        assert exact + suppressed == len(offense)
+        strategies = {value_package([o, idp[0]]).strategy for o in offense}
+        assert strategies == {NormalizationStrategy.SINGLE_MARKET}
+
+    def test_unpriced_on_idptc_assets_are_all_fringe(self):
+        """Why the exact path suffices: IDPTC only declines to price
+        the tail."""
+        rows = self._rows()
+        ktc_only = [
+            r
+            for r in rows
+            if (r.get("canonicalSiteValues") or {}).get(MARKET_KTC)
+            and not (r.get("canonicalSiteValues") or {}).get(MARKET_IDPTC)
+        ]
+        assert ktc_only, "expected some KTC-only assets"
+        assert max(self._value(r) for r in ktc_only) < 1500
 
     def test_no_package_is_ever_valued_across_two_markets(self):
         """The invariant that closes F-1."""

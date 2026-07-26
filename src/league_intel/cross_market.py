@@ -51,10 +51,34 @@ asset in it:
 * any IDP present → ``idpTradeCalc`` (the only board spanning both)
 
 That is *exact* — no conversion, no fitted parameter, no error term.
-A scalar mapping is offered only as an explicitly lower-confidence
-fallback when single-market evaluation is impossible (5% of KTC-priced
-assets carry no IDPTC value), and packages that cannot be evaluated
-either way are **suppressed, never silently ranked**.
+
+Suppression is MATERIALITY-gated, not presence-gated
+────────────────────────────────────────────────────
+An earlier revision suppressed any package containing an asset the
+target board does not price.  That was an over-correction, and the
+bucket proves it: **all 25 such assets are fringe** — maximum value
+1,004, overall KTC ranks ~445-477 (Josh Oliver, Carson Wentz, Ray-Ray
+McCloud).  IDPTC simply does not price the tail.  Withholding a trade
+because it includes a 493-point WR is removing working functionality
+to avoid an error that cannot change the answer.
+
+So conversion is now the default for those assets, and suppression
+fires only when the conversion's *uncertainty band* is large enough to
+flip the caller's decision.  The band comes from the measured p10/p90
+of the paired ratio (0.886 / 1.054), applied per asset; if it exceeds
+:data:`MATERIALITY_THRESHOLD` of the package total — the same 5% that
+``angle.py`` gates ``market_gain_pct`` on — the package is withheld.
+A single fringe asset alone is dominated by its own band and still
+suppresses; the same asset inside a real package does not.
+
+Which call site actually matters
+────────────────────────────────
+The counter-side pool in ``angle.py`` is IDP-gated (``include_idp``
+defaults False and the frontend never sends it), so counter combos are
+offense-only in practice.  **The reachable mixed-market path is the
+OFFER side**: ``offer_rows`` is built from user-selected names with no
+IDP filter, so ``offer_market_values`` can mix boards today.  Any
+rewire must cover that side first.
 """
 
 from __future__ import annotations
@@ -100,6 +124,19 @@ POSITION_SCALE_RATIOS: Mapping[str, float] = {
     "PICK": 1.000,
 }
 _POOLED_SCALE_RATIO = 0.9997
+
+# Measured p10/p90 of the paired ratio (n=476).  Used to size the
+# uncertainty a conversion introduces, so suppression can be decided on
+# whether that uncertainty MATTERS rather than on whether a conversion
+# happened at all.
+_RATIO_P10 = 0.886
+_RATIO_P90 = 1.054
+
+MATERIALITY_THRESHOLD = 0.05
+"""Conversion uncertainty, as a fraction of the package total, above
+which the package is withheld.  Set to the same 5% that ``angle.py``
+gates ``market_gain_pct`` on: below it the band cannot flip the
+caller's decision, above it it can."""
 
 _IDP_POSITIONS = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "SS", "FS"}
@@ -162,6 +199,7 @@ class PackageValuation:
     assets: list[AssetValuation] = field(default_factory=list)
     normalization_version: str = NORMALIZATION_VERSION
     normalization_confidence: float = 0.0
+    uncertainty_band: float = 0.0
     suppressed_reason: str | None = None
     warnings: list[str] = field(default_factory=list)
 
@@ -185,6 +223,7 @@ class PackageValuation:
             "isMixedMarket": self.is_mixed_market,
             "normalizationVersion": self.normalization_version,
             "normalizationConfidence": self.normalization_confidence,
+            "uncertaintyBand": self.uncertainty_band,
             "suppressedReason": self.suppressed_reason,
             "warnings": list(self.warnings),
             "assets": [a.to_dict() for a in self.assets],
@@ -286,24 +325,14 @@ def value_package(
                 warnings=warnings,
             )
 
-    if not allow_scalar_fallback:
-        missing = [
-            str(r.get("displayName") or "?") for r in rows if _site_value(r, preferred) is None
-        ]
-        return PackageValuation(
-            strategy=NormalizationStrategy.SUPPRESSED,
-            market=None,
-            total=None,
-            suppressed_reason=(
-                f"no single market prices every asset; {len(missing)} unpriced on "
-                f"{preferred} (e.g. {', '.join(missing[:3])})"
-            ),
-        )
-
-    # Scalar fallback — explicitly approximate.
+    # Scalar conversion — the default for assets the target board does
+    # not price.  Suppression is decided AFTER, on whether the
+    # conversion's uncertainty could flip the caller's decision.
     confidence = _STRATEGY_CONFIDENCE[NormalizationStrategy.SCALAR_FALLBACK]
     valuations = []
     total = 0.0
+    uncertainty = 0.0
+    converted_names: list[str] = []
     for r in rows:
         native = _site_value(r, preferred)
         if native is not None:
@@ -330,6 +359,9 @@ def value_package(
             )
         ratio = _position_ratio(r.get("position"))
         converted_value = other * ratio if preferred == MARKET_IDPTC else other / ratio
+        # 80% band this conversion introduces, in package points.
+        uncertainty += abs(other) * (_RATIO_P90 - _RATIO_P10)
+        converted_names.append(str(r.get("displayName") or "?"))
         valuations.append(
             AssetValuation(
                 name=str(r.get("displayName") or ""),
@@ -343,15 +375,31 @@ def value_package(
         )
         total += converted_value
 
+    band_share = (uncertainty / total) if total > 0 else float("inf")
+    if band_share > MATERIALITY_THRESHOLD:
+        return PackageValuation(
+            strategy=NormalizationStrategy.SUPPRESSED,
+            market=None,
+            total=None,
+            assets=valuations,
+            suppressed_reason=(
+                f"conversion uncertainty {band_share:.1%} of package total exceeds the "
+                f"{MATERIALITY_THRESHOLD:.0%} materiality threshold "
+                f"(converted: {', '.join(converted_names[:3])})"
+            ),
+        )
+
     return PackageValuation(
         strategy=NormalizationStrategy.SCALAR_FALLBACK,
         market=preferred,
         total=total,
         assets=valuations,
         normalization_confidence=confidence,
+        uncertainty_band=uncertainty,
         warnings=[
             SHARED_SCALE_ASSUMPTION,
-            "scalar conversion applied: median |relative error| 3.0%, p90 11.7% "
-            "(measured on 476 paired players)",
+            f"{len(converted_names)} asset(s) converted with the measured per-position "
+            f"ratio; 80% uncertainty band {uncertainty:.0f} pts = {band_share:.1%} of the "
+            f"total, under the {MATERIALITY_THRESHOLD:.0%} materiality threshold",
         ],
     )

@@ -97,6 +97,39 @@ Stamps required by the directive are on every asset: `rawMarketValue`,
 `rawMarketSource`, `normalizedMarketValue`, `normalizationVersion`,
 `normalizationConfidence`.
 
+**REVISED after reviewer challenge — suppression is materiality-gated.**
+The fresh-eyes pass argued suppression was an over-correction:
+withholding 15% of mixed packages to fix a ~1% scale discrepancy
+removes working functionality.  Examined rather than arbitrated, and
+**the reviewer is right.**
+
+The 15% bucket was packages containing an asset IDPTC does not price.
+Measured, **all 25 such assets are fringe**: maximum value 1,004,
+overall KTC ranks ~445-477 (Josh Oliver, Carson Wentz, Ray-Ray
+McCloud).  IDPTC simply declines to price the tail.  Restricted to
+assets anyone would actually trade (value ≥ 1,500), **100% of mixed
+packages resolve on the exact single-market path** — 2, 3 and 4-asset
+combinations alike, zero suppression, zero conversion.  The original
+15% was an artifact of sampling players nobody trades.
+
+So suppression now fires on **materiality, not presence**: fringe
+assets are converted with the measured per-position ratio, and the
+package is withheld only when the conversion's 80% uncertainty band
+(from the measured p10 0.886 / p90 1.054) exceeds
+`MATERIALITY_THRESHOLD` — set to 5%, the same gate `angle.py` applies
+to `market_gain_pct`, so the test is precisely "could this flip the
+caller's decision".  A fringe asset inside a real package converts
+(band ≈1% of total); the same asset dominating a two-asset package
+still suppresses (band ≈10%).
+
+**The reachable call site is the OFFER side, not the counter combo.**
+Also from the reviewer, and verified: `angle.py`'s counter-side pool
+filters IDP behind `include_idp`, which defaults False and which the
+frontend never sends — so counter combos are offense-only in practice.
+But `offer_rows` (built from user-selected names) has **no IDP
+filter**, so `offer_market_values` can mix boards today.  That is the
+live path and any rewire must cover it first.
+
 **F-2 assessment — the VA curve on IDPTC totals.**  Confirmed real and
 NOT fixed here.  `src/trade/ktc_va.py::adjusted_pair_totals` calls
 `ktc_adjust_package`, a reimplementation of **KTC's** published
