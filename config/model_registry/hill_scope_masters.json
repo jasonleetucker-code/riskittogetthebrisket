@@ -1,0 +1,80 @@
+{
+  "modelId": "hill_scope_masters",
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-26T20:14:13.272875+00:00",
+  "championVersion": 1,
+  "versions": [
+    {
+      "modelId": "hill_scope_masters",
+      "version": 1,
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.113,
+        "HILL_GLOBAL_PERCENTILE_S": 0.87,
+        "HILL_PERCENTILE_C": 0.118,
+        "HILL_PERCENTILE_S": 1.17,
+        "IDP_HILL_PERCENTILE_C": 0.093,
+        "IDP_HILL_PERCENTILE_S": 0.97,
+        "HILL_ROOKIE_PERCENTILE_C": 0.128,
+        "HILL_ROOKIE_PERCENTILE_S": 0.865
+      },
+      "fittedAt": "unknown",
+      "producer": "seeded from committed constants in player_valuation.py",
+      "status": "champion",
+      "trainingInputs": {
+        "DraftSharks": "sha256:c37dc3fb4b127a2d",
+        "DynastyDaddy": "sha256:5b9d328ae8f51887",
+        "DynastyNerds": "sha256:f155042eb4257334",
+        "Fitzmaurice": "sha256:caf3ef4823ffcaf8",
+        "KTC": "sha256:4c4cabe5385d0822",
+        "YahooBoone": "sha256:8687353a0fcbb9ee"
+      },
+      "holdout": {
+        "criterion": 849.8254,
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 852.6106,
+          "FantasyNavigator": 1185.153,
+          "OTCFFB": 1104.867,
+          "PFKDynasty": 256.6712
+        },
+        "perSourceRows": {
+          "FantasyCalc": 399,
+          "FantasyNavigator": 400,
+          "OTCFFB": 400,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.118,
+          "s": 1.17
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "FantasyNavigator",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [
+        "seeded, not validated: these constants were live before the registry existed and carry no out-of-sample score"
+      ],
+      "promotedAt": "2026-07-26T20:14:13.267338+00:00",
+      "retiredAt": null
+    }
+  ]
+}
