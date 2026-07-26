@@ -279,9 +279,53 @@ rather than a screenshot.
 
 ---
 
-## 7. Scope note
+## 7. Scope note — and a measurement that should change R5's plan
 
-This plan covers only the `.panel*` / `.terminal-*` block. The wider R5
-global-class purge (per-panel content classes, `pos`/`conf` badge
-classes, the legacy `.card` system) is separate and larger. Nothing here
-should be read as clearing those.
+This plan covers only the `.panel*` / `.terminal-*` block. Nothing here
+clears the per-panel content classes, the `pos`/`conf` badge classes, or
+the legacy `.card` system.
+
+**The `.card` half is not a CSS purge at all, and it is much bigger than
+the `.panel` one.** Measured against the branches rather than estimated:
+
+| | files using `.card` |
+|---|---|
+| `origin/main` | 58 |
+| cleared by R3 | 3 |
+| cleared by R4 | 7 |
+| **still using it after both merge** | **48** |
+
+192 occurrences today, of which **86 sit in `/league` + `/league-comparison`
+alone** — 31 of the 48 remaining files. Those two surfaces were never in
+the R1-R4 scope (R2 rankings, R3 dashboard/news/edge/finder, R4
+draft/trade/trades/angle/waivers), so nothing so far has touched them.
+
+Two consequences worth deciding before R5 is planned as "polish":
+
+1. **`.card` cannot be deleted; it has to be migrated.** Unlike `.panel`
+   — whose sole consumer R3 removes, leaving genuinely dead rules — every
+   one of these 48 files renders through `.card` today. Deleting the rule
+   unstyles a third of the app. R5's `.card` work is a page migration
+   (`/league` and `/league-comparison` onto ds `Panel`), with the CSS
+   deletion as its last step, not its first.
+
+2. **These surfaces are visibly off-palette right now.** The base rule is
+
+   ```css
+   .card { background: linear-gradient(180deg,
+             rgba(20, 39, 79, 0.9) 0%, rgba(13, 29, 63, 0.92) 100%); … }
+   ```
+
+   A hardcoded pre-redesign **navy gradient** — not a token, and a
+   gradient at all, which the design direction rules out. So once R2-R4
+   land, `/league` and `/league-comparison` won't merely be
+   "unmigrated": they will be the only surfaces still rendering in the
+   old blue, sitting one nav click from redesigned pages. That is a
+   visible product seam, not deferred cleanup.
+
+Budget note for whoever scopes it: `/league` is the largest page in the
+app (167.8 KB against a 170 KB budget — 2.2 KB headroom). R2, R3 and R4
+each came in *under* their pre-migration size as legacy CSS and
+components dropped out, so a migration is more likely to free headroom
+than consume it — but it is the one page where that assumption should be
+checked early rather than at the end.
