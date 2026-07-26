@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from src.api.data_contract import (
+    _RANKING_SOURCES,
     assert_ranking_source_registry_parity,
     get_ranking_source_registry,
 )
@@ -289,6 +290,33 @@ class TestBackendFrontendRegistryParity(unittest.TestCase):
                 f"Frontend registry weight for {entry.get('key')} is "
                 f"{entry.get('weight')}; expected {expected} per "
                 "registry policy (must mirror src/api/data_contract.py)",
+            )
+
+    def test_every_source_declares_tep_premium_explicitly(self) -> None:
+        """TEP correctness rests on every source declaring whether its
+        values already bake in TE-premium pricing.  A missing flag
+        would silently default falsy and the settings.tepMultiplier
+        boost would apply without anyone having decided that — so the
+        declaration must be EXPLICIT on both registries (roadmap items
+        13-17)."""
+        for entry in _RANKING_SOURCES:
+            self.assertIn(
+                "is_tep_premium",
+                entry,
+                f"Python registry entry {entry.get('key')!r} does not "
+                "declare is_tep_premium explicitly",
+            )
+            self.assertIsInstance(
+                entry["is_tep_premium"],
+                bool,
+                f"is_tep_premium for {entry.get('key')!r} must be a bool",
+            )
+        for entry in self.js_registry:
+            self.assertIn(
+                "isTepPremium",
+                entry,
+                f"Frontend registry entry {entry.get('key')!r} does not "
+                "declare isTepPremium explicitly",
             )
 
 

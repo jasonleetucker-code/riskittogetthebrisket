@@ -173,16 +173,33 @@ jobs:
             fi
           }
 
+          # Marker for stamp_if_present below: a stamp may only be
+          # written for a CSV the scraper ACTUALLY REWROTE during this
+          # run.  Files that merely exist from checkout must not mint
+          # fresh stamps — with _build_source_timestamps preferring
+          # stamps over mtime, presence-only stamping would report a
+          # dead scraper's sources as freshly fetched forever (Codex
+          # review on PR #532 round 7).
+          SCRAPE_START_MARKER="$RUNNER_TEMP/scrape_start.marker"
+          touch "$SCRAPE_START_MARKER"
+
           echo "::group::Scraper output"
           python "Dynasty Scraper.py" 2>&1 || {
             echo "::warning title=Scraper partial failure::Scraper exited non-zero but may have partial data"
           }
           echo "::endgroup::"
 
-          # Mirror scraper site_raw output to the tracked CSVs/ directory
+          # Mirror scraper site_raw output to the tracked CSVs/ directory.
+          # ``-p`` preserves the export's mtime: a plain ``cp`` would
+          # give the destination a post-marker mtime even for stale
+          # checkout-resident exports the failed scraper never touched,
+          # letting old boards mint fresh success stamps below (Codex
+          # review on PR #532 round 8).  With the source mtime
+          # preserved, only exports the scraper actually rewrote this
+          # run pass the ``-nt $SCRAPE_START_MARKER`` gate.
           if [[ -d "exports/latest/site_raw" ]]; then
             mkdir -p CSVs/site_raw
-            cp -v exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
+            cp -vp exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
           fi
 
           # Stamp the sources produced by the main scraper.  These
@@ -193,14 +210,19 @@ jobs:
           # files after ``git pull``.  Writing the stamp here makes
           # ktcSfTep / idpTradeCalc / dynastyNerds / fantasyPros
           # boards visible to the staleness watchdog regardless of
-          # mtime behaviour.  Stamp only when the CSV has reasonable
-          # content (>= 10 lines) so a corrupted scrape doesn't fake
-          # freshness.
+          # mtime behaviour.  Two conditions guard the stamp: the CSV
+          # must have been REWRITTEN during this run (newer than the
+          # pre-scraper marker — mere presence from checkout does not
+          # prove a fetch happened; the scraper's non-zero exit is
+          # swallowed above, and per-source granularity means partial
+          # successes still stamp only what was actually written), and
+          # it must have reasonable content (>= min lines) so a
+          # corrupted scrape doesn't fake freshness.
           stamp_if_present() {
             local key="$1"
             local csv="$2"
             local min_lines="${3:-10}"
-            if [[ -f "$csv" ]]; then
+            if [[ -f "$csv" && "$csv" -nt "$SCRAPE_START_MARKER" ]]; then
               local lines
               lines=$(wc -l < "$csv" 2>/dev/null || echo 0)
               if (( lines >= min_lines )); then
@@ -225,6 +247,16 @@ jobs:
           # (public JSON API at otcffb.com/api/trade-values?format=sf).
           # No auth, no Playwright — see fetch_otcffb.py for details.
           run_fetcher otcffbSf "OTCFFB SF" python scripts/fetch_otcffb.py --mirror-data-dir
+
+          # Fetch Fantasy Navigator superflex dynasty board (public
+          # JSON API on Render; no auth, no Playwright).  Values are
+          # KTC-derived — see the registry entry in data_contract.py.
+          run_fetcher fantasyNavigatorSf "Fantasy Navigator" python scripts/fetch_fantasynavigator.py --mirror-data-dir
+
+          # Fetch Play for Keeps Dynasty master board (public Supabase
+          # PostgREST read with PFK's publishable anon key — the same
+          # anonymous access their site gives any visitor).
+          run_fetcher pfkDynasty "PFK Dynasty" python scripts/fetch_pfk.py --mirror-data-dir
 
           # Fetch Flock Fantasy SF rankings
           run_fetcher flockFantasy:flockFantasySf "Flock Fantasy" python scripts/fetch_flock_fantasy.py --mirror-data-dir
@@ -395,7 +427,24 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json
+          # Guard each path: ``git add`` hard-fails (exit 128) on a
+          # pathspec that matches nothing, and these directories can
+          # legitimately vanish — retention (src/maintenance/retention)
+          # pruned the last data/canonical/ snapshots on 2026-07-25 and
+          # every subsequent refresh run died right here while the
+          # scrape itself had succeeded.  A path that is absent from
+          # the worktree but still TRACKED must stage its deletions
+          # (``git add -A`` — verified to exit 0 with only a warning),
+          # otherwise the prune never lands in a commit and the next
+          # checkout resurrects the files forever (Codex review on
+          # PR #532).
+          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
+            if [ -e "$p" ]; then
+              git add -f -- "$p"
+            elif [ -n "$(git ls-files -- "$p")" ]; then
+              git add -A -- "$p"
+            fi
+          done
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else

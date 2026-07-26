@@ -376,8 +376,9 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # consensus decay shape while preserving FantasyCalc's ordering —
     # the same conversion that fixed dynastyDaddySf (61% → 0%),
     # yahooBoone (47% → ~2%), and fantasyProsFitzmaurice (19% → ~0%).
-    # The ``value`` column is still loaded into canonicalSiteValues
-    # for audit / display / trade-finder use.
+    # The ``value`` column is preserved via ``sourceNativeValues`` for
+    # audit / display / trade-finder use (``canonicalSiteValues``
+    # carries the synthetic rank encoding, not the crowd value).
     "fantasyCalc": {
         "path": "CSVs/site_raw/fantasyCalc.csv",
         "signal": "rank",
@@ -400,7 +401,8 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # of top value by rank 7 vs KTC's ~90% at rank 8), so the value-
     # direct path made it a systematic low outlier on most of the
     # board and four of every five of its votes were discarded.  The
-    # ``value`` column is still loaded for audit / display.
+    # ``value`` column is preserved via ``sourceNativeValues`` for
+    # audit / display.
     "otcffbSf": {
         "path": "CSVs/site_raw/otcffbSf.csv",
         "signal": "rank",
@@ -421,8 +423,8 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # ``scripts/audit_dropped_sources.py`` output 2026-04-22).
     # Routing through the rank-signal path instead uses DynastyDaddy's
     # value-ordered rank as the signal, restoring the relative
-    # ordering the value cap destroys.  The ``value`` column is still
-    # emitted for audit / display.
+    # ordering the value cap destroys.  The ``value`` column is
+    # preserved via ``sourceNativeValues`` for audit / display.
     "dynastyDaddySf": {
         "path": "CSVs/site_raw/dynastyDaddySf.csv",
         "signal": "rank",
@@ -468,9 +470,9 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # the rank-signal path instead feeds his ordinal rank into the
     # shared Hill curve, which gives each rank position a
     # differentiated value just like DLF's rank-signal sources.  The
-    # published ``boone_value`` column is still emitted into
-    # ``sourceOriginalRanks`` / audit panels so the raw number remains
-    # visible, it just no longer participates in the blend directly.
+    # published ``boone_value`` column is preserved via
+    # ``sourceNativeValues`` so the raw number remains visible, it
+    # just no longer participates in the blend directly.
     "yahooBoone": {
         "path": "CSVs/site_raw/yahooBoone.csv",
         "signal": "rank",
@@ -539,6 +541,35 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/draftSharksIdp.csv",
         "signal": "value",
     },
+    # Fantasy Navigator superflex dynasty values — public unauthenticated
+    # JSON API (https://fantasy-navigator-latest.onrender.com/ranks
+    # ?platform=sf) fetched by ``scripts/fetch_fantasynavigator.py``
+    # (filters to roster_type=sf_value + rank_type=dynasty, offense
+    # positions, ~800 rows).  Signal=rank from day one: FN's values are
+    # KTC-derived (rows carry ``ktc_player_id``), i.e. a KTC-adjacent
+    # decay shape — exactly the profile that put fantasyCalc/otcffbSf
+    # outside the Hampel window on the value-direct path.  The vendor
+    # value column is preserved via ``sourceNativeValues`` for
+    # display / audit.
+    "fantasyNavigatorSf": {
+        "path": "CSVs/site_raw/fantasyNavigatorSf.csv",
+        "signal": "rank",
+    },
+    # Play for Keeps Dynasty master board — PFK's own hand-maintained
+    # dynasty rankings read from their public Supabase PostgREST table
+    # (``pfk_dynasty_rankings``, anonymous publishable-key read — the
+    # same access their site gives any visitor) via
+    # ``scripts/fetch_pfk.py`` (~500 offense rows; pick rows dropped,
+    # they tether to rookie values downstream).  A genuinely
+    # independent human signal (their ``pfk_ktc_values`` table is just
+    # a KTC mirror we already ingest).  Signal=rank — the 0-9999 value
+    # scale is hand-shaped and unvalidated against our consensus decay,
+    # so the ordinal rank is the safe vote; the native value is
+    # preserved via ``sourceNativeValues``.
+    "pfkDynasty": {
+        "path": "CSVs/site_raw/pfkDynasty.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -594,6 +625,16 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
     "draftSharks": 6,
     "draftSharksIdp": 6,
+    # Fantasy Navigator + PFK are fetched by scheduled 2-hour API
+    # fetchers that rewrite the CSV on every SUCCESSFUL run — so mtime
+    # measures fetch success, not the vendors' editorial cadence, and
+    # the budget must match the other API-fetched sources (fantasyCalc
+    # / otcffbSf / dynastyDaddySf): 6 hours ≈ three missed cycles.
+    # (An earlier 720h/168h pair conflated this with how often the
+    # vendors PUBLISH — which mtime cannot observe; Codex review on
+    # PR #532.)
+    "fantasyNavigatorSf": 6,
+    "pfkDynasty": 6,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -656,6 +697,14 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # counts so scraper regressions trip a warning.
     "draftSharks": 190,
     "draftSharksIdp": 85,
+    # ``fantasyNavigatorSf`` / ``pfkDynasty``: floors intentionally NOT
+    # set yet — same policy as the ``fantasyCalc`` note above.  Floors
+    # pin at ~75-80% of the live canonical-match baseline, which does
+    # not exist until a few scheduled-refresh cycles have run.  Raw-row
+    # baselines at integration (2026-07-25): FN ~799 sf-dynasty rows,
+    # PFK ~496 offense rows (fetcher-level floors 200 / 120 guard the
+    # raw side in the meantime).  Add entries here once live canonical
+    # match counts are observed.
 }
 
 
@@ -835,8 +884,20 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     flag based on :data:`_SOURCE_MAX_AGE_HOURS`.  Missing files return
     ``None`` for mtime rather than the empty string the legacy code used,
     so downstream can tell "no data yet" from "found it, here's when".
+
+    Freshness prefers the ``data/scrape_state/{key}_last_success``
+    stamp over CSV mtime, mirroring ``server._per_source_freshness()``:
+    the stamp is written on every SUCCESSFUL fetcher run regardless of
+    whether the CSV content changed, while ``git checkout``/``git
+    pull`` never rewrite byte-identical files — so a vendor whose
+    board is static between publishes (Fitzmaurice, Yahoo Boone, FN's
+    monthly snapshots) has a frozen CSV mtime that would false-flag
+    ``stale`` under fetch-success budgets despite green 2h fetches
+    (Codex review on PR #532).  The CSV must still exist — a stamp
+    without data is reported ``missing``.
     """
     repo_root = Path(__file__).resolve().parents[2]
+    state_dir = repo_root / "data" / "scrape_state"
     now = datetime.now(timezone.utc)
     out: dict[str, dict[str, Any]] = {}
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
@@ -861,7 +922,14 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
             except (FileNotFoundError, OSError):
                 entry["staleness"] = "missing"
             else:
-                mtime_dt = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                last_epoch = st.st_mtime
+                try:
+                    stamp_text = (state_dir / f"{source_key}_last_success").read_text().strip()
+                    if stamp_text:
+                        last_epoch = float(stamp_text)
+                except (OSError, ValueError):
+                    pass
+                mtime_dt = datetime.fromtimestamp(last_epoch, tz=timezone.utc)
                 age_hours = (now - mtime_dt).total_seconds() / 3600.0
                 entry["mtime"] = mtime_dt.isoformat()
                 entry["ageHours"] = round(age_hours, 3)
@@ -1115,6 +1183,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "needs_shared_market_translation": True,
         "excludes_rookies": True,
+        # IDP values have no TE-premium dimension — declared
+        # explicitly False so the registry-completeness test can
+        # enforce that every source states its TEP posture.
+        "is_tep_premium": False,
     },
     {
         # DLF Dynasty Rookie IDP — rookie-only defensive board
@@ -1132,6 +1204,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": False,
         "needs_rookie_translation": True,
         "excludes_rookies": False,
+        # IDP values have no TE-premium dimension — declared
+        # explicitly False so the registry-completeness test can
+        # enforce that every source states its TEP posture.
+        "is_tep_premium": False,
     },
     {
         # The IDP Show (Adamidp) — Substack-hosted full IDP rankings
@@ -1157,6 +1233,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "needs_shared_market_translation": True,
         "excludes_rookies": False,
+        # IDP values have no TE-premium dimension — declared
+        # explicitly False so the registry-completeness test can
+        # enforce that every source states its TEP posture.
+        "is_tep_premium": False,
     },
     {
         # Dynasty Nerds Superflex + TE Premium board — scraped inline
@@ -1246,6 +1326,67 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # blended contribution.
         "key": "otcffbSf",
         "display_name": "OTC Fantasy Football SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 460,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # Fantasy Navigator superflex dynasty board — public JSON API
+        # (fantasy-navigator-latest.onrender.com/ranks?platform=sf)
+        # fetched by ``scripts/fetch_fantasynavigator.py``.  ~800
+        # offensive rows after filtering to sf_value + dynasty.
+        #
+        # CORRELATION CAVEAT: FN's values are KTC-derived (every row
+        # carries a ``ktc_player_id`` and the site credits KeepTradeCut
+        # as a data source), so this vote is partially correlated with
+        # ``ktcSfTep``.  The count-aware blend and per-player Hampel
+        # filter tolerate correlated sources; documented here so nobody
+        # reads FN agreement with KTC as independent confirmation.
+        #
+        # Standard SF scoring — FN does NOT bake in TE-premium pricing
+        # (user-confirmed 2026-07-25), so ``is_tep_premium=False`` and
+        # the frontend ``settings.tepMultiplier`` boost applies to its
+        # blended contribution.  depth=460 ≈ the live CANONICAL-MATCH
+        # count (468 of 799 raw rows at integration — FN's deep rows
+        # are prospects/camp bodies outside the Sleeper pool);
+        # ``_expected_sources_for_position`` multiplies by 1.25.
+        # Pinning depth to raw rows (780) would stamp "expected but
+        # did not match" on ~500 rows — the item-10 noise class.
+        "key": "fantasyNavigatorSf",
+        "display_name": "Fantasy Navigator SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 460,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # Play for Keeps Dynasty master board — PFK's hand-maintained
+        # dynasty rankings from their public Supabase table
+        # (``pfk_dynasty_rankings``) via ``scripts/fetch_pfk.py``.
+        # ~496 offensive players (picks dropped by the fetcher).  Rows
+        # carry ``sleeper_player_id``, giving ID-grade identity in the
+        # CSV for future ID-based matching.
+        #
+        # A genuinely independent human signal — PFK's own analysts'
+        # board, distinct from their KTC mirror table.  Standard SF
+        # scoring — PFK does NOT account for TE premium (user-confirmed
+        # 2026-07-25), so ``is_tep_premium=False`` and the frontend
+        # ``settings.tepMultiplier`` boost applies.  depth=460 ≈ the
+        # live canonical-match count (472 of 496 offensive rows at
+        # integration).
+        "key": "pfkDynasty",
+        "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 460,
@@ -1349,6 +1490,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # expected source for rookies and the structural-1-src
         # detection still fires for DLF+FP-excluded rookies.
         "excludes_rookies": True,
+        # IDP values have no TE-premium dimension — declared
+        # explicitly False so the registry-completeness test can
+        # enforce that every source states its TEP posture.
+        "is_tep_premium": False,
     },
     {
         # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
@@ -2368,9 +2513,7 @@ def assert_ranking_source_registry_parity(
     py_keys = [s["key"] for s in py_registry]
     js_keys = [str(s.get("key") or "") for s in (frontend_registry or [])]
     if py_keys != js_keys:
-        errors.append(
-            "Registry key order/mismatch:\n" f"  python: {py_keys}\n" f"  frontend: {js_keys}"
-        )
+        errors.append(f"Registry key order/mismatch:\n  python: {py_keys}\n  frontend: {js_keys}")
         return errors
 
     for py, js in zip(py_registry, frontend_registry):
@@ -2872,6 +3015,10 @@ _TRUST_MIRROR_FIELDS = (
     "quarantined",
     "sourceAudit",
     "sourceOriginalRanks",
+    # Native vendor values for rank-signal sources (parallel map to
+    # sourceOriginalRanks).  Without mirroring, the default view=app
+    # payload (which strips playersArray) would never carry them.
+    "sourceNativeValues",
     "canonicalTierId",
     # ``rankChange`` is stamped by ``_stamp_rank_changes`` at the end
     # of ``_compute_unified_rankings`` but only onto the playersArray.
@@ -3074,6 +3221,12 @@ def _parse_source_csv_cached(
         "3D Value +",
         "boone_value",
     )
+    # Optional Sleeper player-id column (today only pfkDynasty emits
+    # one).  When present it gives ID-grade identity that survives
+    # vendor/Sleeper name-spelling drift ("Kenneth Gainwell" vs
+    # "Kenny Gainwell") — the enrichment tries the ID join before the
+    # canonical-name cascade (Codex review on PR #532).
+    _SLEEPER_ID_ALIASES = ("sleeper_id", "sleeperId", "sleeper_player_id")
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
         for k in aliases:
@@ -3152,7 +3305,26 @@ def _parse_source_csv_cached(
                     )
                     if synthetic <= 0:
                         continue
-                    csv_lookup.setdefault(key, []).append((name, synthetic, rank_val))
+                    # Rank-signal CSVs usually still carry the vendor's
+                    # native value column (FantasyCalc crowd value, OTC
+                    # 0-100, PFK 0-9999, ...).  Preserve it so the UI /
+                    # exports can show the real number instead of the
+                    # synthetic rank encoding — ``canonicalSiteValues``
+                    # keeps the synthetic (the ordering machinery), the
+                    # native lands in ``sourceNativeValues``.
+                    native_raw = _pick(csvrow, _VALUE_ALIASES)
+                    native_val: float | None = None
+                    if native_raw != "":
+                        try:
+                            nv = float(str(native_raw).strip())
+                            if nv > 0:
+                                native_val = nv
+                        except (TypeError, ValueError):
+                            native_val = None
+                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
+                    csv_lookup.setdefault(key, []).append(
+                        (name, synthetic, rank_val, native_val, sid or None)
+                    )
                 else:
                     val = _pick(csvrow, _VALUE_ALIASES)
                     if not val:
@@ -3162,6 +3334,9 @@ def _parse_source_csv_cached(
                     # Preserve it so ``sourceOriginalRanks[source_key]``
                     # stamps for the UI just like the rank-signal
                     # branch does.  Missing/invalid → None (harmless).
+                    # nativeValue is None for value-signal sources —
+                    # their ``canonicalSiteValues`` slot already IS the
+                    # native number.
                     rank_raw = _pick(csvrow, _RANK_ALIASES)
                     orig_rank: float | None = None
                     if rank_raw != "":
@@ -3171,8 +3346,11 @@ def _parse_source_csv_cached(
                                 orig_rank = rv
                         except (TypeError, ValueError):
                             orig_rank = None
+                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
                     try:
-                        csv_lookup.setdefault(key, []).append((name, int(float(val)), orig_rank))
+                        csv_lookup.setdefault(key, []).append(
+                            (name, int(float(val)), orig_rank, None, sid or None)
+                        )
                     except (ValueError, TypeError):
                         continue
     except Exception as exc:  # noqa: BLE001
@@ -3365,9 +3543,7 @@ def _enrich_from_source_csvs(
         # predictive of what a 1st-round pick lands on.
         if source_key == "dlfRookieSf":
             csv_lookup = {k: list(v) for k, v in csv_lookup.items()}
-            _flat = [
-                (disp, syn, rnk) for entries in csv_lookup.values() for (disp, syn, rnk) in entries
-            ]
+            _flat = [(t[0], t[1], t[2]) for entries in csv_lookup.values() for t in entries]
             _flat.sort(key=lambda t: (-t[1], str(t[0]).lower()))
             _dlf_league_size = _resolve_league_roster_count()
             _dlf_pick_year = current_rookie_draft_year()
@@ -3381,7 +3557,9 @@ def _enrich_from_source_csvs(
                 _pick_key = _canonical_match_key(_pick_name)
                 if not _pick_key:
                     continue
-                csv_lookup.setdefault(_pick_key, []).append((_pick_name, _syn, float(rookie_rank)))
+                csv_lookup.setdefault(_pick_key, []).append(
+                    (_pick_name, _syn, float(rookie_rank), None, None)
+                )
 
         # Persist a structured per-source entry index keyed by the
         # *position-aware* canonical key so downstream code can audit
@@ -3399,13 +3577,15 @@ def _enrich_from_source_csvs(
                 grp = next(iter(row_groups), "*")
                 # Pick the highest-valued entry for this canonical key.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank = entries_sorted[0]
+                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
                 per_source[f"{cname}::{grp}"] = {
                     "value": best_val,
                     "originalRank": best_orig_rank,
+                    "nativeValue": best_native,
+                    "sleeperId": best_sid,
                     "displayName": best_name,
                     "ambiguous": len(entries) > 1,
-                    "candidates": [n for n, _, _ in entries],
+                    "candidates": [t[0] for t in entries],
                 }
             else:
                 # Multiple position groups share this canonical key.
@@ -3414,17 +3594,32 @@ def _enrich_from_source_csvs(
                 # best entry across both groups but flag it as ambiguous
                 # so the row audit can downgrade trust.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank = entries_sorted[0]
+                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
                 for grp in row_groups:
                     per_source[f"{cname}::{grp}"] = {
                         "value": best_val,
                         "originalRank": best_orig_rank,
+                        "nativeValue": best_native,
+                        "sleeperId": best_sid,
                         "displayName": best_name,
                         "ambiguous": True,
-                        "candidates": [n for n, _, _ in entries],
+                        "candidates": [t[0] for t in entries],
                         "groupCollision": sorted(row_groups),
                     }
         csv_index[source_key] = per_source
+
+        # Sleeper-ID join index (sources whose CSV carries a
+        # sleeper_id column — today only pfkDynasty).  ID-grade
+        # identity survives vendor/Sleeper name-spelling drift that
+        # breaks the canonical-name cascade ("Kenneth Gainwell" in the
+        # PFK CSV vs Sleeper's "Kenny Gainwell" produce different
+        # canonical keys and silently dropped the vote — Codex review
+        # on PR #532).  Tried FIRST in the row loop below.
+        sid_index: dict[str, dict[str, Any]] = {}
+        for _entry in per_source.values():
+            _sid = _entry.get("sleeperId")
+            if _sid:
+                sid_index[str(_sid)] = _entry
 
         # Enrich missing values onto each row using the position-aware
         # key cascade.
@@ -3433,34 +3628,80 @@ def _enrich_from_source_csvs(
             if not isinstance(csv_vals, dict):
                 continue
             existing = _safe_num(csv_vals.get(source_key))
-            # Skip rows that already carry a real value.  For DS
+            # Rows that already carry a real value skip VALUE
+            # enrichment, but the CSV entry is still resolved so the
+            # display metadata (originalRank / nativeValue) stamps
+            # either way — an already-populated slot (scraper payload,
+            # or a rebuild over a previously-enriched payload) must
+            # not leave the tooltips without the vendor's native
+            # number (Codex review on PR #532 round 7).  For DS
             # combined-rank sources any non-None number counts (their
             # scale goes negative, so "already stamped" is any
             # finite value); for everyone else we require > 0 so a
             # stale zero doesn't block the enrichment from re-running.
-            if existing is not None and (
+            value_present = existing is not None and (
                 existing > 0 or (source_key in ds_combined_rank_keys and existing <= 0)
-            ):
-                continue
-            nm = str(row.get("canonicalName") or row.get("displayName") or "")
-            if not nm:
-                continue
-            cname = _canonical_match_key(nm)
-            if not cname:
-                continue
-            grp = canonical_position_group(row.get("position"))
-            entry = per_source.get(f"{cname}::{grp}")
+            )
+            entry = None
+            if sid_index:
+                # Rows stamp the Sleeper id as ``playerId`` (mapped
+                # from the legacy ``_sleeperId``).
+                row_sid = str(row.get("playerId") or "").strip()
+                if row_sid:
+                    entry = sid_index.get(row_sid)
+                if entry is not None:
+                    # Mirror the ID match into the name-keyed audit
+                    # index under the ROW's canonical key — the
+                    # source-audit lookup is name-keyed, so without
+                    # this alias an ID-only match (Kenneth vs Kenny
+                    # Gainwell) enriches the vote but the audit panel
+                    # misreports it as ``via: scraper_payload`` (Codex
+                    # review on PR #532 round 5).  ``per_source`` is
+                    # the same dict csv_index already references, so
+                    # the alias is visible to the audit pass.
+                    audit_nm = str(row.get("canonicalName") or row.get("displayName") or "")
+                    audit_cname = _canonical_match_key(audit_nm)
+                    if audit_cname:
+                        audit_grp = canonical_position_group(row.get("position"))
+                        per_source.setdefault(
+                            f"{audit_cname}::{audit_grp}",
+                            {**entry, "matchedVia": "sleeper_id"},
+                        )
             if entry is None:
-                # Fall back to a name-only / unknown-group lookup so
-                # rows whose position is missing still receive an
-                # enrichment when a single non-ambiguous CSV entry
-                # exists.
-                fallback = per_source.get(f"{cname}::*")
-                if fallback is None and len(row_groups_by_key.get(cname, set())) == 1:
-                    only_grp = next(iter(row_groups_by_key[cname]))
-                    fallback = per_source.get(f"{cname}::{only_grp}")
-                entry = fallback
+                nm = str(row.get("canonicalName") or row.get("displayName") or "")
+                if not nm:
+                    continue
+                cname = _canonical_match_key(nm)
+                if not cname:
+                    continue
+                grp = canonical_position_group(row.get("position"))
+                entry = per_source.get(f"{cname}::{grp}")
+                if entry is None:
+                    # Fall back to a name-only / unknown-group lookup so
+                    # rows whose position is missing still receive an
+                    # enrichment when a single non-ambiguous CSV entry
+                    # exists.
+                    fallback = per_source.get(f"{cname}::*")
+                    if fallback is None and len(row_groups_by_key.get(cname, set())) == 1:
+                        only_grp = next(iter(row_groups_by_key[cname]))
+                        fallback = per_source.get(f"{cname}::{only_grp}")
+                    entry = fallback
             if not entry:
+                continue
+            if value_present:
+                # Metadata-only stamping: never overwrite the existing
+                # contribution, just make sure the display fields are
+                # populated.
+                orig_rank = entry.get("originalRank")
+                if orig_rank is not None:
+                    row.setdefault("sourceOriginalRanks", {}).setdefault(
+                        source_key, round(float(orig_rank), 2)
+                    )
+                native_val = entry.get("nativeValue")
+                if native_val is not None:
+                    row.setdefault("sourceNativeValues", {}).setdefault(
+                        source_key, round(float(native_val), 2)
+                    )
                 continue
             val = entry.get("value")
             # DS combined-rank sources accept negative values (their
@@ -3480,6 +3721,14 @@ def _enrich_from_source_csvs(
                 if orig_rank is not None:
                     orig_ranks = row.setdefault("sourceOriginalRanks", {})
                     orig_ranks[source_key] = round(float(orig_rank), 2)
+                # ... and the vendor's native value (rank-signal sources
+                # only; value-signal sources' canonicalSiteValues slot is
+                # already the native number).  Roadmap item 7: rank and
+                # value stay separate data points.
+                native_val = entry.get("nativeValue")
+                if native_val is not None:
+                    natives = row.setdefault("sourceNativeValues", {})
+                    natives[source_key] = round(float(native_val), 2)
 
     # ── FantasyPros IDP metadata stamp ──────────────────────────────
     # The generic rank-signal enrichment only stamps the effective
@@ -6761,8 +7010,15 @@ def _compute_unified_rankings(
                     "rawValue": entry.get("value"),
                     "ambiguous": bool(entry.get("ambiguous")),
                     "candidates": list(entry.get("candidates") or [])[:6],
-                    "via": "csv_enrich",
+                    # ``sleeper_id`` when the enrichment matched via the
+                    # CSV's Sleeper-ID column instead of the canonical
+                    # name (see the sid_index alias in
+                    # ``_enrich_from_source_csvs``).
+                    "via": entry.get("matchedVia") or "csv_enrich",
                 }
+                native = entry.get("nativeValue")
+                if native is not None:
+                    matched_details[sk]["nativeValue"] = native
 
         if not actual_keys:
             reason = "no_source_match"
@@ -7530,6 +7786,10 @@ def _derive_player_row(
         },
         # Original CSV ranks for rank-signal sources (e.g. DLF).
         "sourceOriginalRanks": {},
+        # Native vendor values for rank-signal sources (FantasyCalc
+        # crowd value, OTC 0-100, PFK 0-9999, ...) — the real number
+        # behind the synthetic encoding in canonicalSiteValues.
+        "sourceNativeValues": {},
         # Identity quality — overwritten by _validate_and_quarantine_rows
         "identityConfidence": 0.70,
         "identityMethod": "name_only",
@@ -8675,7 +8935,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(perr, dict):
                 continue
             warnings.append(
-                "source_parse_error:" f"{perr.get('source', '?')}:{perr.get('error', '?')}"
+                f"source_parse_error:{perr.get('source', '?')}:{perr.get('error', '?')}"
             )
         degraded = True
 
