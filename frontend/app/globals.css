@@ -1220,9 +1220,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      results/controls underneath.  Desktop browsers treat dvh the same
      as vh, so this is a pure mobile win with no desktop regression. */
   max-height: 80dvh;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(20, 39, 79, 0.97) 0%, rgba(13, 29, 63, 0.98) 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
+  /* R5 de-seam: was a hardcoded navy gradient.  ds Modal/Drawer sit on
+     --surface-1; this is the same kind of surface, so it uses the same
+     token.  Contrast improves (white 16.6->18.6, --muted 8.9->10.1). */
+  background: var(--surface-1);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -1543,9 +1546,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      disappearing behind it. */
   max-height: 85dvh;
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  /* R5 de-seam: was a hardcoded purple gradient.  Same surface class
+     as ds Drawer, so the same token.  (white 18.2->18.6). */
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
   padding: var(--space-md);
   -webkit-overflow-scrolling: touch;
 }
@@ -1673,9 +1678,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 .login-panel {
   width: min(460px, 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(10, 22, 50, 0.85) 0%, rgba(10, 22, 46, 0.95) 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
+  /* R5 de-seam: was a hardcoded navy gradient — and /login is the first
+     surface a signed-out visitor sees, so it was the seam with the
+     widest audience.  (white 18.0->18.6). */
+  background: var(--surface-1);
   padding: 18px;
 }
 
@@ -3082,8 +3090,13 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 8px;
   padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid var(--border-bright);
-  background: linear-gradient(135deg, #4F2185 0%, #2a1550 100%);
+  border: 1px solid var(--border-default);
+  /* R5 de-seam: was a hardcoded purple gradient.  Deliberately NOT
+     --accent: this is a screenshot utility, and painting it gold would
+     promote it to the visual weight of a primary action.  Raised chrome
+     (--surface-3, the overlay token) de-seams it without re-ranking it.
+     (white 13.7->16.3). */
+  background: var(--surface-3);
   color: var(--text);
   font-family: var(--font);
   font-size: 0.82rem;

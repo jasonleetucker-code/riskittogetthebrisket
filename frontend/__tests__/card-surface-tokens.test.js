@@ -70,3 +70,49 @@ describe(".card surface", () => {
     expect(token(card)).toBe(token(panel));
   });
 });
+
+/**
+ * The wider invariant `.card` was one instance of: no surface in
+ * globals.css is painted with a hardcoded coloured gradient.
+ *
+ * The pre-redesign palette left five of these — `.card`, `.picker-sheet`,
+ * `.sheet`, `.login-panel`, `.screenshot-fab` — all navy or purple, all
+ * off-token. They were the last of the old look.
+ *
+ * The rule is deliberately not "no gradients": several legitimate ones
+ * remain and should. A gradient is fine when it is either
+ *   - built from design tokens (meter and progress fills), or
+ *   - achromatic (skeleton shimmer, the diagonal texture fill),
+ * because neither can drift away from the palette. What is banned is a
+ * gradient carrying a hardcoded *colour* — a hex, or an rgb() whose
+ * channels are not equal — since that is by definition outside the
+ * token system.
+ */
+describe("globals.css gradients carry no hardcoded colour", () => {
+  const gradients = [...GLOBALS.matchAll(/(?:repeating-)?linear-gradient\(([^;]*?)\)\s*(?:;|,\s*\n)/gs)]
+    .map((m) => m[1]);
+
+  it("finds the gradients (guards against a broken matcher)", () => {
+    expect(gradients.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it.each([
+    ["hex literal", /#[0-9a-f]{3,8}\b/i],
+  ])("uses no %s", (_label, pattern) => {
+    const bad = gradients.filter((g) => pattern.test(g));
+    expect(bad).toEqual([]);
+  });
+
+  it("uses no chromatic rgb()/rgba() literal", () => {
+    // Achromatic (r === g === b) is allowed: shimmer and texture fills
+    // are neutral by construction and cannot go off-palette.
+    const bad = [];
+    for (const g of gradients) {
+      for (const m of g.matchAll(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
+        const [r, gr, b] = [m[1], m[2], m[3]].map(Number);
+        if (!(r === gr && gr === b)) bad.push(m[0]);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
