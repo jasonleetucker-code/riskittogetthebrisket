@@ -174,8 +174,13 @@ export function rowMatches(row, criteria, extras = {}) {
   if (c.tier != null && num(row.canonicalTierId) !== num(c.tier)) return false;
 
   if (c.edge) {
+    // Contract enum from _compute_market_gap: "consensus_premium"
+    // (consensus ranks the player better than the retail market →
+    // BUY-low) / "retail_premium" (market ranks better → SELL-high).
+    // Same mapping as trade-logic.js buildEdgeSignal (Codex round 9
+    // on PR #535 — the first cut invented a nonexistent enum).
     const dir = String(row.marketGapDirection || "none");
-    const want = c.edge === "buy" ? "consensus_higher" : "market_higher";
+    const want = c.edge === "buy" ? "consensus_premium" : "retail_premium";
     if (dir !== want) return false;
   }
 

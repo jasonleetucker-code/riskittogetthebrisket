@@ -81,9 +81,13 @@ describe("rowMatches — individual criteria", () => {
     expect(rowMatches(row(), { tier: 2 })).toBe(false);
   });
 
-  it("edge direction maps buy/sell to marketGapDirection", () => {
-    expect(rowMatches(row({ marketGapDirection: "consensus_higher" }), { edge: "buy" })).toBe(true);
-    expect(rowMatches(row({ marketGapDirection: "market_higher" }), { edge: "sell" })).toBe(true);
+  it("edge direction maps buy/sell to the contract's marketGapDirection enum", () => {
+    // Values must be the REAL _compute_market_gap enum — the round-9
+    // regression hid behind fixtures using an invented enum.
+    expect(rowMatches(row({ marketGapDirection: "consensus_premium" }), { edge: "buy" })).toBe(true);
+    expect(rowMatches(row({ marketGapDirection: "retail_premium" }), { edge: "sell" })).toBe(true);
+    expect(rowMatches(row({ marketGapDirection: "consensus_premium" }), { edge: "sell" })).toBe(false);
+    expect(rowMatches(row({ marketGapDirection: "retail_premium" }), { edge: "buy" })).toBe(false);
     expect(rowMatches(row(), { edge: "buy" })).toBe(false);
   });
 
