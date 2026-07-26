@@ -98,6 +98,70 @@ parses `"tep15"` to derive behavior.  The staleness is documentary, not
 functional, and renaming would orphan profile-keyed history for
 cosmetic gain.  Leave it.
 
+**The structural reference is MEASURED, not assumed (2026-07-26 update).**
+The user confirms they removed the TE scoring premium deliberately and
+separately moved to starting 2 TEs, intending to account for scarcity
+structurally.  KTC publishes its **TE++ board specifically for 2-TE
+leagues** — so `ktcSfTep`, already our market anchor, is a
+2-TE-calibrated board.  That turns an unmeasurable assumption into an
+observable: `ktc` (standard) and `ktcSfTep` (TE++) are the same board
+differing on exactly this axis.
+
+Measured across the live board:
+
+| position | n | median `ktcSfTep / ktc` |
+|---|---|---|
+| QB | 69 | **1.0000** |
+| RB | 134 | **1.0000** |
+| WR | 185 | **1.0000** |
+| TE | 74 | **1.3682** |
+
+The two boards are byte-identical for every non-TE position, so there
+is no board-scale term to control for and **the measured 2-TE
+structural premium is ×1.368**.  The sensitivity bracket collapses:
+controlling on WR, RB, QB, their median, or nothing at all all give
+1.3682 — the estimate is invariant to the control choice, unlike the
+earlier assumption-based attempt.
+
+The premium is **depth-graded, not flat** — exactly the VOR shape one
+would predict when required starters double from 12 to 24:
+
+| TE band | measured premium |
+|---|---|
+| TE1-12 | 1.287 |
+| TE13-24 | 1.319 |
+| TE25-40 | 1.349 |
+| TE41+ | 1.512 |
+
+**Superseded: the earlier assumption-based estimate was unidentifiable
+AND badly conditioned.**  Bracketing an unmeasurable "typical league"
+gave a mid-TE residual spanning [−20.1, 3.08].  Root cause was a pole
+in the multiplicative form `(V − R_ours)/(V − R_ref)` at `V = R_ref`,
+not merely wide uncertainty — an estimator defect.  It is discarded in
+favour of the market-measured calibration above.  Recorded because the
+failure is instructive: a multiplicative residual against a replacement
+level is ill-conditioned for players near that level.
+
+**Consequence for the existing multipliers — right size, wrong reason.**
+The blend gives non-TE++ sources ×1.15 and TEP-native ×1.10, justified
+as a *scoring* premium that does not exist.  The market says the real,
+structural need is ~1.29–1.51 depending on depth.  So the constants are
+in the right neighbourhood by luck, are **flat where the market is
+depth-graded**, and rest on a retracted rationale.  Changing them moves
+live consensus for every league on this profile — a product decision,
+deliberately not taken here.
+
+**Market anchor is CLEAN — verified in code, not from the comment.**
+`ktcSfTep` embeds the 2-TE premium already, so if it also received the
++10% native multiplier that would be a live double-count on the anchor
+itself.  It does not: `data_contract.py` line ~6701 reads
+`if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:` and
+that single guard wraps **both** multiplier branches, with both `ktc`
+and `ktcSfTep` in the exempt set.  Pinned by
+`tests/league_intel/test_te_premium_invariants.py`, which also fails if
+a refactor moves either branch outside the guard.  No action needed —
+recorded plainly so this is not re-raised.
+
 **Partially offset by structure, which must NOT be double-counted.**
 The league starts **2 dedicated TE slots**, and LI-5's endogenous
 measurement shows TE demand is exactly 2.00/team — TE never wins a
