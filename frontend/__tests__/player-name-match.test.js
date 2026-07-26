@@ -266,4 +266,56 @@ describe("lookupPlayerNews — ambiguity suppression via the pool meta index", (
       "plain1",
     );
   });
+
+  it("tagger-flagged ambiguous mentions are treated as name-only", () => {
+    // A colliding-slug article (e.g. from the PFK provider) carries
+    // ONE mention flagged ambiguous — the flag wins even though the
+    // mention names a specific display string, so the item is
+    // suppressed from BOTH twins' player pages...
+    const flagged = {
+      id: "amb1",
+      ts: "2026-07-25T10:00:00+00:00",
+      headline: "Signal Or Noise Cj Allen",
+      players: [{ name: "C.J. Allen", ambiguous: true }],
+    };
+    const idx = buildNewsIndexByPlayer([flagged]);
+    expect(
+      lookupPlayerNews(idx, "C.J. Allen", {
+        position: "WR",
+        team: "ATL",
+        playerMeta: POOL_META,
+      }),
+    ).toEqual([]);
+    expect(
+      lookupPlayerNews(idx, "CJ Allen", {
+        position: "LB",
+        team: "TEN",
+        playerMeta: POOL_META,
+      }),
+    ).toEqual([]);
+    // ...but remains visible in general (uncontexted) feeds.
+    expect(lookupPlayerNews(idx, "CJ Allen").map((i) => i.id)).toEqual([
+      "amb1",
+    ]);
+  });
+
+  it("an ambiguous flag overrides stray position/team fields", () => {
+    // Defensive: even if a flagged mention somehow carries identity
+    // fields, the flag says the identity is a guess — treat as
+    // name-only.
+    const flagged = {
+      id: "amb2",
+      ts: "2026-07-25T10:00:00+00:00",
+      headline: "Flag wins",
+      players: [{ name: "CJ Allen", position: "LB", team: "TEN", ambiguous: true }],
+    };
+    const idx = buildNewsIndexByPlayer([flagged]);
+    expect(
+      lookupPlayerNews(idx, "CJ Allen", {
+        position: "LB",
+        team: "TEN",
+        playerMeta: POOL_META,
+      }),
+    ).toEqual([]);
+  });
 });

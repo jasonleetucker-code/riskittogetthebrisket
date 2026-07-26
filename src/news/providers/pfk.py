@@ -71,6 +71,17 @@ def _match_players_normalized(
     display name removes it without a space (``jamarr chase``).
     False-positive risk is bounded by the curated known-names
     vocabulary, same as ``match_players``.
+
+    Collision handling: a slug carries NO punctuation, so a
+    normalized key that resolves to MULTIPLE distinct known display
+    names ("cj allen" -> "C.J. Allen" the WR + "CJ Allen" the LB) is
+    inherently ambiguous -- the slug cannot tell the twins apart.
+    Picking one display name would let the service's enrichment
+    stamp that arbitrary survivor's identity and make the guess look
+    authoritative, so the single emitted mention is flagged
+    ``ambiguous=True`` instead: enrichment skips it and downstream
+    per-player surfaces treat it exactly like a name-only mention.
+    Single-match keys keep the plain (enrichable) mention.
     """
     if not known_names or not text:
         return []
@@ -78,15 +89,27 @@ def _match_players_normalized(
     hay_compact = hay.replace(" ", "")
     if not hay:
         return []
-    seen: set[str] = set()
-    out: List[PlayerMention] = []
+    # Group known display names by normalized key, preserving the
+    # caller's order (contract order) for deterministic output.
+    names_by_key: dict[str, List[str]] = {}
     for name in known_names:
         key = normalize_player_name(name)
-        if not key or key in seen:
+        if not key:
             continue
-        if key in hay or key.replace(" ", "") in hay_compact:
-            out.append(PlayerMention(name=name, impact=impact))
-            seen.add(key)
+        bucket = names_by_key.setdefault(key, [])
+        if name not in bucket:
+            bucket.append(name)
+    out: List[PlayerMention] = []
+    for key, names in names_by_key.items():
+        if key not in hay and key.replace(" ", "") not in hay_compact:
+            continue
+        out.append(
+            PlayerMention(
+                name=names[0],
+                impact=impact,
+                ambiguous=len(names) > 1,
+            )
+        )
     return out
 
 

@@ -137,6 +137,84 @@ class TestParse:
         items = _provider().fetch(player_names=["Tate Ratledge"])
         assert all(not it.players for it in items)
 
+
+def _single_slug_sitemap(slug: str) -> bytes:
+    return (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        b"  <url>\n"
+        b"    <loc>https://playforkeepsdynasty.com/article/" + slug.encode("utf-8") + b"</loc>\n"
+        b"    <lastmod>2026-07-25</lastmod>\n"
+        b"  </url>\n"
+        b"</urlset>\n"
+    )
+
+
+class TestCollidingSlugAmbiguity:
+    """A punctuation-stripped slug matching MULTIPLE distinct known
+    display names (the CJ Allen twins) can't be attributed to either
+    player — the mention must be flagged ambiguous so the service's
+    enrichment never stamps an arbitrary survivor's identity."""
+
+    KNOWN = ["C.J. Allen", "CJ Allen", "Bijan Robinson"]
+
+    def _fetch(self, slug):
+        sitemap = _single_slug_sitemap(slug)
+        provider = PfkArticlesProvider(fetcher=lambda _url: sitemap)
+        return provider.fetch(player_names=self.KNOWN)
+
+    def test_colliding_slug_emits_single_ambiguous_mention(self):
+        items = self._fetch("signal-or-noise-cj-allen")
+        assert len(items) == 1
+        mentions = items[0].players
+        assert len(mentions) == 1
+        m = mentions[0]
+        assert m.ambiguous is True
+        # Deterministic: the first known display name in contract order.
+        assert m.name == "C.J. Allen"
+        assert (m.position, m.team) == (None, None)
+
+    def test_single_match_slug_stays_unflagged(self):
+        items = self._fetch("bijan-robinson-buy-window")
+        assert len(items) == 1
+        m = items[0].players[0]
+        assert m.ambiguous is False
+        assert m.name == "Bijan Robinson"
+
+    def test_ambiguous_mention_stays_unstamped_through_service(self):
+        from src.news.service import NewsService
+
+        sitemap = _single_slug_sitemap("signal-or-noise-cj-allen")
+        provider = PfkArticlesProvider(fetcher=lambda _url: sitemap)
+        svc = NewsService([provider], cache_ttl_s=0)
+        out = svc.aggregate(
+            player_names=self.KNOWN,
+            player_meta={
+                "C.J. Allen": {"position": "WR", "team": "ATL"},
+                "CJ Allen": {"position": "LB", "team": "TEN"},
+            },
+        )
+        m = out.items[0].players[0]
+        assert m.ambiguous is True
+        assert (m.position, m.team) == (None, None)
+        serialized = out.to_dict()["items"][0]["players"][0]
+        assert serialized["ambiguous"] is True
+        assert serialized["position"] is None
+
+    def test_single_match_slug_still_enriches_through_service(self):
+        from src.news.service import NewsService
+
+        sitemap = _single_slug_sitemap("bijan-robinson-buy-window")
+        provider = PfkArticlesProvider(fetcher=lambda _url: sitemap)
+        svc = NewsService([provider], cache_ttl_s=0)
+        out = svc.aggregate(
+            player_names=self.KNOWN,
+            player_meta={"Bijan Robinson": {"position": "RB", "team": "ATL"}},
+        )
+        m = out.items[0].players[0]
+        assert m.ambiguous is False
+        assert (m.position, m.team) == ("RB", "ATL")
+
     def test_stable_ids_across_refetch(self):
         first = _provider().fetch()
         second = _provider().fetch()

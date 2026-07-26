@@ -166,7 +166,11 @@ def _enrich_player_mentions(
         changed = False
         mentions: List[Any] = []
         for m in item.players:
-            if m.position or m.team:
+            # Never stamp an ambiguous mention — the tagger couldn't
+            # tell which player the text meant, and stamping either
+            # candidate's identity would make the guess look
+            # authoritative to every downstream disambiguation guard.
+            if m.ambiguous or m.position or m.team:
                 mentions.append(m)
                 continue
             meta = player_meta.get(m.name)

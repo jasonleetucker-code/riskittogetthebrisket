@@ -53,7 +53,13 @@ def test_to_dict_preserves_legacy_fields():
     # contract knows the player) — null here because this mention
     # was built name-only.
     assert item["players"] == [
-        {"name": "Bijan Robinson", "impact": "negative", "position": None, "team": None}
+        {
+            "name": "Bijan Robinson",
+            "impact": "negative",
+            "position": None,
+            "team": None,
+            "ambiguous": False,
+        }
     ]
 
 

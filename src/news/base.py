@@ -45,12 +45,21 @@ class PlayerMention:
     downstream.  ``team`` stays ``None`` when the contract row has no
     team stamp; providers may also pre-fill these when their upstream
     already knows (the enricher never overwrites non-null values).
+
+    ``ambiguous`` marks a mention whose matched text could refer to
+    MORE THAN ONE distinct known player (e.g. a punctuation-stripped
+    article slug matching both CJ Allens).  Flagged mentions are
+    never enriched — stamping either twin's identity would make an
+    inherently ambiguous match look authoritative — and downstream
+    per-player surfaces treat them exactly like name-only mentions
+    (suppressed when the pool is ambiguous, shown in general feeds).
     """
 
     name: str
     impact: Impact = "neutral"
     position: Optional[str] = None
     team: Optional[str] = None
+    ambiguous: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -58,6 +67,7 @@ class PlayerMention:
             "impact": self.impact,
             "position": self.position,
             "team": self.team,
+            "ambiguous": self.ambiguous,
         }
 
 

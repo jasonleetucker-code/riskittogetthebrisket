@@ -115,6 +115,12 @@ export function mentionMetaFor(item, key) {
   for (const p of players) {
     if (!p || typeof p === "string") continue;
     if (normalizePlayerNameKey(p.name) !== key) continue;
+    // A mention the tagger flagged as ambiguous (its matched text
+    // could refer to more than one known player — e.g. a
+    // punctuation-stripped article slug) is treated as name-only
+    // regardless of any other fields: its identity is a guess, not
+    // a stamp.
+    if (p.ambiguous) return null;
     const family = positionFamily(p.position || p.pos);
     const team = String(p.team || p.nflTeam || "").toUpperCase().trim();
     return family || team ? { family, team } : null;

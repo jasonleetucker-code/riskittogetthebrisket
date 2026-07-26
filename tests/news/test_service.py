@@ -184,6 +184,19 @@ def test_mention_enrichment_stamps_position_and_team():
     assert serialized["plain-1"]["players"][0]["position"] is None
 
 
+def test_mention_enrichment_skips_ambiguous_mentions():
+    """A tagger that couldn't tell which player the text meant flags
+    the mention ambiguous — enrichment must never stamp a guess."""
+    provider = _StaticProvider(
+        items=[_item("amb-1", players=[PlayerMention(name="CJ Allen", ambiguous=True)])]
+    )
+    svc = NewsService([provider], cache_ttl_s=0)
+    out = svc.aggregate(player_meta={"CJ Allen": {"position": "LB", "team": "TEN"}})
+    m = out.items[0].players[0]
+    assert m.ambiguous is True
+    assert (m.position, m.team) == (None, None)
+
+
 def test_mention_enrichment_never_overwrites_provider_stamps():
     """A provider whose upstream already knows the identity keeps
     its own stamp — enrichment only fills name-only mentions."""
