@@ -58,7 +58,10 @@ export const NEWS_FETCH_LIMIT = 100;
 /**
  * Fetch news items.  Backend only — failures surface as an explicit
  * unavailable state instead of silently serving stale fixture data.
- * @returns {Promise<{items, source, providersUsed, unavailable, reason}>}
+ * ``digests`` carries the backend's per-player combined entries
+ * (``playerDigests`` — one entry per player with multiple recent
+ * stories; see src/news/digest.py).
+ * @returns {Promise<{items, digests, source, providersUsed, unavailable, reason}>}
  */
 export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
   try {
@@ -71,6 +74,9 @@ export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
       const items = resolveItems(payload);
       return {
         items,
+        digests: Array.isArray(payload?.playerDigests)
+          ? payload.playerDigests
+          : [],
         source: "backend",
         providersUsed: Array.isArray(payload?.providersUsed)
           ? payload.providersUsed
@@ -81,6 +87,7 @@ export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
     }
     return {
       items: [],
+      digests: [],
       source: "backend",
       providersUsed: [],
       unavailable: true,
@@ -93,6 +100,7 @@ export async function fetchNews({ signal, limit = NEWS_FETCH_LIMIT } = {}) {
     if (err?.name === "AbortError") throw err;
     return {
       items: [],
+      digests: [],
       source: null,
       providersUsed: [],
       unavailable: true,

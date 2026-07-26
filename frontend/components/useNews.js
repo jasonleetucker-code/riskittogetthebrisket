@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchNews as fetchNewsRaw, rankByRelevance } from "@/lib/news-service";
-import { buildNewsIndexByPlayer } from "@/lib/player-name-match";
+import {
+  buildDigestIndex,
+  buildNewsIndexByPlayer,
+} from "@/lib/player-name-match";
 
 /**
  * useNews — shared fetch + scoring hook for the landing page.
@@ -83,6 +86,7 @@ export function useNews({ rosterNames, leagueNames } = {}) {
     loading: true,
     error: null,
     items: [],
+    digests: [],
     source: null,
     unavailable: false,
     reason: null,
@@ -112,6 +116,7 @@ export function useNews({ rosterNames, leagueNames } = {}) {
             loading: false,
             error: null,
             items: Array.isArray(res.items) ? res.items : [],
+            digests: Array.isArray(res.digests) ? res.digests : [],
             source: res.source || null,
             unavailable: !!res.unavailable,
             reason: res.reason || null,
@@ -128,6 +133,7 @@ export function useNews({ rosterNames, leagueNames } = {}) {
             loading: false,
             error: err?.message || "Failed to load news",
             items: [],
+            digests: [],
             source: null,
             unavailable: true,
             reason: "fetch_failed",
@@ -167,5 +173,13 @@ export function useNews({ rosterNames, leagueNames } = {}) {
     [state.items],
   );
 
-  return { ...state, scored, byPlayer };
+  // Per-player digest index (backend ``playerDigests``): resolve a
+  // specific row's digest with ``lookupPlayerDigest(digestByPlayer,
+  // name, { position })`` — collision twins keep separate entries.
+  const digestByPlayer = useMemo(
+    () => buildDigestIndex(state.digests),
+    [state.digests],
+  );
+
+  return { ...state, scored, byPlayer, digestByPlayer };
 }

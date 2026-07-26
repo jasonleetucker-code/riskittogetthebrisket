@@ -223,3 +223,37 @@ export function lookupPlayerNews(index, name, context) {
 export function newsItemsForPlayer(items, name, context) {
   return lookupPlayerNews(buildNewsIndexByPlayer(items), name, context);
 }
+
+/**
+ * Index the backend's per-player digests (``playerDigests``) by
+ * normalized name key.  Each value is a LIST — name-collision twins
+ * produce separate digest entries distinguished by position.
+ */
+export function buildDigestIndex(digests) {
+  const out = new Map();
+  if (!Array.isArray(digests)) return out;
+  for (const d of digests) {
+    const key = normalizePlayerNameKey(d?.player);
+    if (!key) continue;
+    const list = out.get(key);
+    if (list) list.push(d);
+    else out.set(key, [d]);
+  }
+  return out;
+}
+
+/**
+ * Resolve THE digest for a specific player row.  With one candidate
+ * behind the key it wins outright; with several (collision twins),
+ * the caller's position picks the matching identity — and without a
+ * usable position the lookup returns null rather than guessing.
+ */
+export function lookupPlayerDigest(index, name, { position } = {}) {
+  if (!(index instanceof Map)) return null;
+  const list = index.get(normalizePlayerNameKey(name)) || [];
+  if (list.length === 0) return null;
+  if (list.length === 1) return list[0];
+  const family = positionFamily(position);
+  if (!family) return null;
+  return list.find((d) => positionFamily(d?.position) === family) || null;
+}

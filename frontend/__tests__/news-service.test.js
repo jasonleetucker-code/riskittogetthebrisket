@@ -33,6 +33,33 @@ describe("fetchNews fail-fast (no mock fallback)", () => {
     expect(res.source).toBe("backend");
     expect(res.items).toHaveLength(1);
     expect(res.providersUsed).toEqual(["espn"]);
+    // No playerDigests block → clean empty array, not undefined.
+    expect(res.digests).toEqual([]);
+  });
+
+  it("parses the per-player digest block when present", async () => {
+    const digest = {
+      player: "Bijan Robinson",
+      position: "RB",
+      team: "ATL",
+      storyCount: 2,
+      sources: ["ESPN Player News", "Play For Keeps"],
+      headline: "Bijan Robinson: 2 stories this week",
+      summary: "- a\n- b",
+      latestTs: "2026-07-26T10:00:00+00:00",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ items: [], playerDigests: [digest] })),
+    );
+    const res = await fetchNews();
+    expect(res.digests).toEqual([digest]);
+  });
+
+  it("failure paths carry an empty digests array", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({}, 503)));
+    const res = await fetchNews();
+    expect(res.digests).toEqual([]);
   });
 
   it("requests the route's full limit so client-side filters see the whole feed", async () => {
