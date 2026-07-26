@@ -75,15 +75,25 @@ class TestSimulateBracket(unittest.TestCase):
             )
             for i in range(6)
         }
-        rng = random.Random(42)
-        finishes = championship._simulate_bracket(
-            list(distributions.keys()),
-            distributions,
-            bye_seeds=2,
-            rng=rng,
-        )
+        # NOTE: a single unasserted `_simulate_bracket` call used to sit
+        # here, its result bound to `finishes` and then never read —
+        # immediately superseded by the seeded loop below, which
+        # reassigns `rng` before every call.  It was dead code, not a
+        # weak assertion, so it is DELETED rather than given an assert:
+        # the comment below is right that one run proves nothing at
+        # sd=5, so any assertion on a single draw would have been either
+        # flaky or vacuous.  The loop is the real check.
+        #
         # Owner with the highest mean should usually win.  Run many
         # times to check; a single run could go either way due to sd.
+        #
+        # Verified the surviving assertion DISCRIMINATES rather than
+        # passing by construction (measured 2026-07-26): these dominant
+        # distributions give o0 50/50, while a flat control where all
+        # six teams share mean=100 sd=5 gives 12/50 — below the
+        # threshold, so the assertion fails when the bracket stops
+        # respecting seeding.  That is the property a "cannot fail"
+        # check would lack.
         wins = 0
         for seed in range(50):
             rng = random.Random(seed)

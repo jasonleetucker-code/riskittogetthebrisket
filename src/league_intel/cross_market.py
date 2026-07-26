@@ -129,6 +129,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Mapping
 
+from src.utils.name_clean import normalize_position as _norm_pos
+
 __all__ = [
     "NORMALIZATION_VERSION",
     "MARKET_KTC",
@@ -191,9 +193,19 @@ Mirrors ``angle.py``'s ``max_market_gain_pct`` default.  Materiality is
 judged against DISTANCE FROM THIS BOUNDARY, not against the band in
 isolation — see :func:`compare_packages`."""
 
-_IDP_POSITIONS = frozenset(
-    {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "SS", "FS"}
-)
+# The three canonical IDP buckets ``POSITION_ALIASES`` collapses to.
+# CLAUDE.md makes ``src/utils/name_clean.py`` the single source of
+# truth for position normalization, so this normalizes first and tests
+# against the collapsed set rather than re-listing the 14 raw spellings
+# (DE/DT/EDGE/NT -> DL, ILB/OLB/MLB -> LB, CB/S/SS/FS -> DB).
+#
+# That duplicate list is what ``angle.py`` still carries, and this file
+# had copied it.  Two hazards with the copy: it silently disagrees with
+# ``finder.py`` (which normalizes and tests ``{DL, LB, DB}``), and it
+# breaks on any raw spelling nobody remembered to add.  Normalizing
+# handles BOTH already-normalized and raw contract rows, so it is
+# strictly safer at either call site.
+_IDP_POSITIONS = frozenset({"DL", "LB", "DB"})
 
 
 class NormalizationStrategy(str, Enum):
@@ -286,7 +298,7 @@ class PackageValuation:
 
 
 def _is_idp(position: str | None) -> bool:
-    return str(position or "").strip().upper() in _IDP_POSITIONS
+    return _norm_pos(str(position or "")) in _IDP_POSITIONS
 
 
 def _site_value(row: Mapping[str, Any], key: str) -> float | None:
@@ -304,7 +316,9 @@ def _site_value(row: Mapping[str, Any], key: str) -> float | None:
 
 
 def _position_ratio(position: str | None) -> float:
-    pos = str(position or "").strip().upper()
+    # Normalized so a raw "EDGE"/"CB" row takes the IDP branch instead
+    # of silently falling through to the pooled offense ratio.
+    pos = _norm_pos(str(position or ""))
     if pos in _IDP_POSITIONS:
         return 1.0
     return POSITION_SCALE_RATIOS.get(pos, _POOLED_SCALE_RATIO)

@@ -325,6 +325,42 @@ class TestExactArithmeticIsNotACertainAnswer:
         assert pkg.uncertainty_band == pytest.approx(1000 * spread + 4200 * spread)
 
 
+class TestPositionNormalizationIsShared:
+    """CLAUDE.md makes POSITION_ALIASES the single source of truth for
+    positions.  This module had copied angle.py's 14-spelling IDP list
+    instead of importing, which (a) silently disagrees with finder.py's
+    normalized ``{DL, LB, DB}`` and (b) breaks on any raw spelling
+    nobody remembered to add.  These pin that raw spellings route to
+    IDPTC, which is what decides the market.
+    """
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"],
+    )
+    def test_every_raw_idp_spelling_forces_the_idptc_board(self, raw):
+        pkg = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6050), asset("D1", raw, idptc=3000)]
+        )
+        assert pkg.market == MARKET_IDPTC
+        assert pkg.strategy is NormalizationStrategy.SINGLE_MARKET
+
+    @pytest.mark.parametrize("raw", ["EDGE", "CB", "MLB"])
+    def test_raw_spellings_also_carry_the_assumption_band(self, raw):
+        """The band keys on the IDP subtotal, so a missed spelling would
+        silently zero it — the P1-b defect through a side door."""
+        pkg = value_package(
+            [asset("WR1", "WR", ktc=6000, idptc=6050), asset("D1", raw, idptc=3000)]
+        )
+        assert pkg.uncertainty_band > 0
+
+    @pytest.mark.parametrize("raw", ["QB", "RB", "WR", "TE", "PICK"])
+    def test_offense_spellings_are_not_swept_into_idp(self, raw):
+        pkg = value_package([asset("X", raw, ktc=6000)])
+        assert pkg.market == MARKET_KTC
+        assert pkg.uncertainty_band == 0.0
+
+
 class TestStamps:
     def test_required_stamps_present_on_every_asset(self):
         pkg = value_package([asset("WR1", "WR", ktc=6000)])
