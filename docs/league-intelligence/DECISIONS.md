@@ -38,6 +38,81 @@ adoption land immediately after R2 merges, through the stable R1 shell
 unvalidated number.
 **Status:** accepted.
 
+## ADR-010: cross-market packages are valued on ONE market, or not at all (WS-J F-1)
+**Status:** accepted 2026-07-26.  Interface + suppression path built;
+`src/trade/angle.py` not yet rewired (that is WS-J's call site).
+
+**The live defect is confirmed.**  `angle.py::_market_source_for`
+routes each *player* correctly (IDP → `idpTradeCalc`, else
+`ktcSfTep`), but `_make_candidate` then sums
+`[p["market_value"] for p in combo]` over a combo never constrained to
+one market, and `market_gain_pct` gates candidate visibility on that
+sum.  A mixed offense/IDP package adds KTC points to IDPTC points.
+
+**§2b applied — which side is measured, which assumed:**
+
+*MEASURED* (n=476 paired players, today's board).  Both boards price
+the same offense players, so the scale relation is directly
+observable: pooled median `IDPTC/KTC` **0.9997**, Spearman **0.990**.
+Per position QB 1.020, RB 0.994, WR 1.012, PICK 1.000 — and **TE
+0.895**, the sole material divergence, which is the TE-premium
+question (`ktcSfTep` is a TE++ board), not a scale artifact.
+
+*MEASURED, not assumed.*  IDPTC's IDP values share its offense scale
+rather than being normalized separately: IDP max **6,444** against
+offense max **9,999**.  A separately-normalized board would top out at
+its own ceiling.  Top IDP interleaves near offense rank #29 —
+plausible for a 9-IDP-starter league.
+
+*ASSUMED — load-bearing.*  That IDPTC's internal offense↔IDP exchange
+rate is **correct**, not merely self-consistent.  Nothing available
+validates it; there is no ground truth for what an edge rusher is
+worth in WR points.  The interleaving check establishes coherence, not
+accuracy.  Stamped as `SHARED_SCALE_ASSUMPTION` on every mixed-market
+result rather than buried.
+
+**The audit's framing was too pessimistic.**  It treated the anchor
+sample as thin (12 managers' trades).  The real anchor is 476 paired
+players, because IDPTC is a cross-market board.  This is the
+KTC/`ktcSfTep` situation that worked, not the FantasyPros situation
+that failed.
+
+**Decision — prefer exactness over mapping.**  Because IDPTC spans
+both universes, the right primary strategy is *not* a KTC→IDPTC
+mapping.  It is to value each package entirely within a single market
+covering every asset:
+
+* offense-only → `ktcSfTep` (canonical retail anchor)
+* any IDP present → `idpTradeCalc` (only board spanning both)
+
+That is **exact** — no conversion, no fitted parameter, no error term.
+Measured coverage on live data: **85% of mixed offense+IDP packages
+resolve on the exact path; 15% suppress.**  A scalar per-position
+fallback exists but is **opt-in only** (`allow_scalar_fallback`),
+stamped at roughly half confidence, and carries its measured error
+(median 3.0%, p90 11.7%).  Anything unvaluable is **suppressed**:
+`is_rankable` is False and the caller must withhold or label it.
+
+Stamps required by the directive are on every asset: `rawMarketValue`,
+`rawMarketSource`, `normalizedMarketValue`, `normalizationVersion`,
+`normalizationConfidence`.
+
+**F-2 assessment — the VA curve on IDPTC totals.**  Confirmed real and
+NOT fixed here.  `src/trade/ktc_va.py::adjusted_pair_totals` calls
+`ktc_adjust_package`, a reimplementation of **KTC's** published
+consolidation algorithm, and `angle.py` applies it unchanged to
+IDPTC-sourced totals.  Whether IDPTC's value distribution warrants the
+same consolidation shape is unverified, and — importantly — this is
+**not** the same evidence problem as F-1.  F-1 was solvable because
+both boards price the same players.  F-2 asks whether two boards
+*penalize multi-asset packages* the same way, and IDPTC publishes no
+VA badge to compare against.  There is no paired observation available,
+so no measurement can settle it with current data.  Recommendation:
+leave the curve applied (changing it without evidence would be
+substituting one unverified shape for another), stamp VA-adjusted
+IDPTC totals as carrying an unverified adjustment, and treat any
+future IDPTC consolidation disclosure as the trigger to revisit.
+
 ## ADR-009 (AUDIT, pre-LI-7): the league deleted its TE premium; consensus still charges for it
 **Status:** finding recorded 2026-07-26 — **no code change yet.**  This
 is the §22 "audit the existing TEP pipeline first" step.  The residual
