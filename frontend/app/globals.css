@@ -428,10 +428,33 @@ a { color: inherit; text-decoration: none; }
 /* ══════════════════════════════════════════════════════════════════════════
    CARDS
    ══════════════════════════════════════════════════════════════════════════ */
+/* R5 step 1 of 2 — de-seam, then migrate.
+ *
+ * `.card` still has 48 consumers after R2-R4 (86 of them in /league and
+ * /league-comparison, which no redesign phase has scoped). It cannot be
+ * deleted; it has to be migrated page by page, and that is a large job.
+ *
+ * But its OLD rule was a hardcoded pre-redesign navy gradient — off the
+ * token palette entirely, and a gradient at all, which the design
+ * direction rules out. Left alone, the moment R2-R4 land those pages
+ * become the only ones still rendering in the old blue, one nav click
+ * from redesigned surfaces: a visible product seam.
+ *
+ * So this retargets the SURFACE onto the same tokens `.ds-panel` uses,
+ * which removes the seam everywhere at once with no structural change
+ * and no behaviour risk. Every legacy text token gains contrast on the
+ * new background (white 16.6->18.6, --muted 8.9->10.1, --green
+ * 8.6->9.7, --red 6.0->6.7, gold 10.6->11.9), so nothing regresses.
+ *
+ * Padding stays `--space-md` deliberately: the seam is the colour, and
+ * changing spacing here would silently reflow 48 files. Structural
+ * migration to ds `Panel` is tracked in
+ * docs/redesign/R5-PANEL-CSS-PURGE.md §7 and removes this rule for good.
+ */
 .card {
-  background: linear-gradient(180deg, rgba(20, 39, 79, 0.9) 0%, rgba(13, 29, 63, 0.92) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
   padding: var(--space-md);
 }
 
