@@ -67,6 +67,27 @@ from typing import Any
 # Split into simple_keys (direct column read) and bonus_keys
 # (threshold-based boolean).
 
+# Sleeper publishes some rules under more than one key name; league
+# dumps use either.  ``src/scoring/sleeper_ingest.KEY_ALIASES`` already
+# normalizes these for the translation layer, but realized points
+# used to read only the canonical spelling — a league whose dump says
+# ``idp_pass_def`` (the live dynasty_main league does) silently scored
+# passes-defended as 0.  Applied only when the canonical key is absent
+# so a dump carrying both can never double-count.
+_SCORING_KEY_ALIASES: dict[str, str] = {
+    "idp_pass_def": "idp_pd",
+}
+
+# Stat-column fallbacks: nfl_data_py and the nflverse-direct CSVs name
+# a few defensive columns differently (the direct weekly file has no
+# ``def_``-prefixed fumble-recovery columns — recoveries live in
+# ``fumble_recovery_own``/``..._yards_own``).  Without the fallback,
+# FR points were silently 0 on the direct path.
+_STAT_KEY_FALLBACKS: dict[str, str] = {
+    "def_fumble_recovery_own": "fumble_recovery_own",
+    "def_fumble_recovery_yards_own": "fumble_recovery_yards_own",
+}
+
 _SIMPLE_KEYS: dict[str, tuple[str, str]] = {
     # (stat_row_key, human_label)
     "pass_yd": ("passing_yards", "Pass Yds"),
@@ -187,6 +208,9 @@ def compute_weekly_points(
             breakdown=[("no_scoring_settings", 0.0, 0.0)],
         )
     scoring = {str(k): _num(v) for k, v in scoring_settings.items()}
+    for alias, canonical in _SCORING_KEY_ALIASES.items():
+        if alias in scoring and canonical not in scoring:
+            scoring[canonical] = scoring[alias]
     breakdown: list[tuple[str, float, float]] = []
     total = 0.0
 
@@ -225,6 +249,8 @@ def compute_weekly_points(
             if pts_per == 0.0:
                 continue
             stat = _num(stat_row.get(stat_key))
+            if stat == 0 and stat_key in _STAT_KEY_FALLBACKS:
+                stat = _num(stat_row.get(_STAT_KEY_FALLBACKS[stat_key]))
             if stat == 0:
                 continue
             contribution = stat * pts_per

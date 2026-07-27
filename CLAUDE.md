@@ -366,11 +366,15 @@ test-pinned (``tests/bdvm/``):
   ``GET /api/bdvm/trades`` (double-positive scan: each side must gain
   in its OWN strategy currency, gated by single-market fairness).
 - Projections come from immutable snapshots under
-  ``data/bdvm/projections/``: real sources via the manual-CSV adapter
-  when they exist, else the §8.3 reconstructed baseline built by
+  ``data/bdvm/projections/``: real sources first — The IDP Show
+  projections via ``scripts/fetch_idpshow_projections.py``
+  (authenticated Datawrapper/Sheet pattern shared with the idpShow
+  rankings fetcher; ``--csv`` for a manually downloaded sheet) and the
+  manual-CSV adapter — else the §8.3 reconstructed baseline built by
   ``scripts/bdvm_build_baseline.py`` (realized nflverse PPG under the
   league's exact scoring + rookie draft-slot priors, all flagged
-  ``is_proxy``).  Structured events (closed ontology,
+  ``is_proxy``).  Real records supersede proxies per player at merge.
+  Structured events (closed ontology,
   ``config/bdvm/event_types_v1.json``) adjust module inputs — never a
   final score — from ``data/bdvm/events/<season>.json``.
 - Fundamentals compute with ZERO market inputs; the market layer

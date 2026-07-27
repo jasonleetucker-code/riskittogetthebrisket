@@ -61,6 +61,38 @@ Branch: `claude/fully-implemented-riu0zp`.
 > form, backtest measurements, and pick distributions fit from own
 > history.
 
+> **Third-pass addendum — first REAL projection source + a live-league
+> scoring bug fix.**
+>
+> 1. **The IDP Show 2026 projections** (Jon Macri, ~900 IDPs) are wired
+>    as BDVM's first non-proxy source: `src/bdvm/idpshow_projections.py`
+>    (schema-tolerant alias-driven parser with an explicit parse
+>    report; combined-tackle solo/assist split is a flagged 0.62/0.38
+>    approximation, never silent) +
+>    `scripts/fetch_idpshow_projections.py` (same authenticated
+>    Datawrapper/Sheet pattern as the existing idpShow rankings
+>    fetcher, plus `--csv` for a manually downloaded sheet).  The
+>    article is paywalled and `idpshow_session.json` lives only on the
+>    VPS, so the first authenticated pull happens there; the parser,
+>    record building, league-scoring resolution, and snapshot merge are
+>    fully tested offline.  Merge policy: real records supersede
+>    reconstructed-baseline proxies for covered players only; re-runs
+>    replace the source's own prior records wholesale.
+> 2. **Production scoring fix (found by the adapter's tests):**
+>    `realized_points.compute_weekly_points` only read the canonical
+>    `idp_pd` scoring key, but the live league's dump publishes
+>    passes-defended as `idp_pass_def` (5.32/event) — PD scored as ZERO
+>    on the realized path for this league; likewise fumble recoveries
+>    read a `def_`-prefixed column the nflverse-direct weekly file
+>    doesn't carry.  Fixed additively (alias applied only when the
+>    canonical key is absent — never double-counts; stat-column
+>    fallback), pinned in `tests/nfl_data/test_realized_points.py`.
+>    Impact is material: regenerated baseline positional means moved
+>    CB 5.21→7.93, S 5.56→7.44, LB 6.68→7.54 PPG, and the live board's
+>    DB/LB replacement levels rose accordingly.
+>
+> `tests/bdvm/` is now **194** tests (plus 4 new realized-points pins).
+
 Status vocabulary used throughout: **implemented** (code + tests merged on this
 branch), **reference-only** (frozen fixture, imported by nothing),
 **scaffolded** (shape + tests exist, production inputs not wired),
