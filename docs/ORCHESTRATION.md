@@ -1005,6 +1005,53 @@ any KV read, so it says nothing about whether `user_kv` works for a
 signed-in user. Verifying that needs a session cookie the orchestrator
 does not hold. Unverified, not fine.
 
+### 6.12 The startup staleness check fires on a file nothing consumes
+
+The SessionStart hook reported `idpTradeCalc.csv: 901 lines, 34h old —
+WARNING: Stale (>12h). Check scheduled-refresh workflow.` Chased it;
+**the data is fine and the alarm is looking at the wrong artifact.**
+
+Measured 2026-07-27 ~03:05 UTC:
+
+| Artifact | IDPTC freshness |
+|---|---|
+| Production live scrape | **fresh** — `complete_sources: ['IDPTradeCalc','KTC']`, run finished 01:13 UTC, 900 rows, 768 served |
+| `exports/latest/dynasty_data_2026-07-26.json` | **fresh** — `scrapeTimestamp 2026-07-26T23:43:51`, **898 of 1077 players** carry `idpTradeCalc`, `siteStats` count 1054 |
+| `exports/latest/site_raw/idpTradeCalc.csv` | **stale — last changed `43cfd29d8`, 07-22 07:24, ~5 days** |
+
+Only the third is stale, and it is a raw-source *mirror*.
+`preflight.py::_seed_data_cache` copies `exports/latest/dynasty_data_*.json`
+— it does **not** copy `site_raw/`. So the E2E suite, the pipeline and
+production all read fresh IDP values.
+
+Why the mirror freezes: `scheduled-refresh.yml:235` handles
+`idpTradeCalc` with `stamp_if_present`, not `run_fetcher` — it is
+expected from the scraper rather than fetched. Every recent
+`automated data refresh` commit touches only `ktc.csv` + `ktcSfTep.csv`.
+`dlf` and `idpShow` avoid this because they have dedicated
+`deploy/*_fetch_and_push.sh` jobs pushing from the production box
+(5 commits each in the last 40); `idpTradeCalc` has no such job.
+
+**Two defects here, both in the monitoring rather than the data:**
+
+1. The hook's threshold (**12h**) contradicts the repo's own policy —
+   `config/source_staleness.json` sets `idpTradeCalc: 24`. It would
+   have warned at 12h even under a healthy 2h cron cadence.
+2. It measures a mirror no consumer reads, so it cannot distinguish
+   "IDP values are stale" (serious) from "a raw CSV copy drifted"
+   (cosmetic). It reported the second in the language of the first.
+
+This is the warmup lesson again in a different place: **a monitor that
+cries wolf trains the operator to ignore it.** The fix is to point the
+check at `exports/latest/dynasty_data_*.json`'s `scrapeTimestamp`, or
+at production's `source_health`, and to read its threshold from
+`config/source_staleness.json` instead of hardcoding one.
+
+Deliberately not fixed in this tick: the hook is operator tooling
+outside the seven open PRs, and changing a monitoring threshold at
+03:00 while holding a merge queue is how a real alarm gets silenced by
+accident. Worth ten minutes at the window.
+
 ### 6.4 Historical record — resolved blockers
 
 Everything below documents blockers already cleared. Retained because
