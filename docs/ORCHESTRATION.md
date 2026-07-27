@@ -73,9 +73,9 @@ checkpoint-push instruction; until a branch appears on `origin`, treat a
 | J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Engine **Done** — `4f9cb05b6` (#562), `783721534` (#563). **Still no callers on `ae3042935` — see §6.3. "Merged" does not mean "shipped."** Refit gate (§6.1) **closed** by `ab988717a` (#569). `angle.py` rewire (§6.2) **dispatched** |
 | K | `/api/gameplan` — first caller for `src/roster_intel/` | gameplan agent | claude/api-gameplan-endpoint | `server.py` endpoint, reads `src/roster_intel/` | **In review — #574**, CI **green**. `GET /api/gameplan`, `contractVersion 2026-07-27.v1`, session-gated. Full suite as CI runs it: `3958 passed`, zero failures. Honesty stamps held and pinned by tests. Measured, not estimated: cold 2,410 ms / warm 10 ms, 14 KB gzipped; `analyze_roster` is the whole cost at 91 ms/roster. **Merging this closes §6.3** |
 | L | `angle.py` → single-market (§6.2) | angle agent | claude/angle-single-market | `src/trade/angle.py` only | **In progress** — `27728278b` pushed 00:39 UTC, 3 files, no PR yet; agent still running. Must cover all four unconstrained sites (`:471-475`, `:509`, `:526`, ~`:919`), not just the acquire side |
-| M | Route usability sweep — all 36 routes | route agent | claude/route-usability-sweep | `frontend/app/`, `components/`, `lib/` — **not** CSS/tokens, **not** `tests/e2e/` | **Dispatched** 00:45 UTC. Walks every route signed-in for console errors, ≥400 responses, empty-state lies, dead controls. Fixes only unambiguous defects, with a failing-first test; the rest to `docs/route-usability-audit.md` |
-| N | E2E assertion honesty | e2e agent | claude/e2e-assertion-honesty | `tests/e2e/` only | **Dispatched** 00:47 UTC. The suite is green and that green is unearned until proven. Every replacement assertion must be validated by deliberately breaking what it should catch; all ~14 skip gates categorised (env gate / data gate masking a bug / dead). Deliverable `docs/e2e-assertion-audit.md` |
-| O | Python coverage sweep | coverage agent | claude/python-coverage-sweep | `tests/` except `tests/e2e/` | **Dispatched** 00:49 UTC. 205 modules / ~72k lines never measured. Ranks by uncovered × logic density, then tests `_compute_unified_rankings` stages and degraded inputs. Deliverable `docs/python-coverage-audit.md` |
+| M | Route usability sweep — all 38 routes | route agent | claude/route-usability-sweep | `frontend/app/`, `components/`, `lib/` | **In review — #578.** 3 fixes + `docs/route-usability-audit.md`. **Headline: `/league/phases` had never rendered** — see §6.8. Also `/trades` claimed "0 trades" while loading against a 109-trade snapshot, and `/tools/source-health` returned `null` on a failed `/api/status`, showing a legend for dots that weren't there. Zero uncaught exceptions across all 38 routes; every console error accounted for |
+| N | E2E assertion honesty | e2e agent | claude/e2e-assertion-honesty | `tests/e2e/` only | **In review — #579.** Fixes the preflight ordering bug (§6.9), replaces the vacuous assertions and proves each replacement against a **decoy page**, converts 4 permanently-off skip gates into assertions, adds 2 spec files. **Corrects the brief**: the suite was never green — see §6.10 |
+| O | Python coverage sweep | coverage agent | claude/python-coverage-sweep | `tests/` except `tests/e2e/` | **In review — #577.** Coverage 80.1% → 80.5%, `waiver.py` 27.0% → 99.2%, +85 CI-blocking tests each watched fail against 20 source mutations. Found §2c-4 — the live valuation constants had no CI-blocking test at all |
 | P | Competitor gap analysis + ranked backlog | gap agent | claude/competitor-gap-analysis | `docs/competitor-gap-analysis.md` | **In review — #573**, CI **green**. Used a *fourth* axis (built / reachable / used / **correct**) and reported `used` as **unverifiable** throughout — no per-route telemetry exists, and inferring usage from reachability is the error the document exists to prevent. Headline: an AST import-graph pass finds **43 of 208 `src/` modules unreachable, ~12,571 lines**. See §6.7 |
 | R | Fresh-eyes review | reviewer agent | read-only | PR comments | **Done** — #567 merged `ec60cdb0e` at 22:06 UTC. **Zero PRs open** as of 00:52 UTC; the entire 19-PR queue landed. Next reviewer pass is due before the mid-week window |
 
@@ -430,9 +430,17 @@ what is already there.
 
 ## 5a. Integration window checklist (mid-week, ~2026-07-29)
 
-Five PRs are open and **all five are green**: #572, #573, #574, #576,
-#577. Prepared 2026-07-27 ~01:35 UTC so the window is execution, not
-rediscovery.
+**Seven PRs open** as of 02:25 UTC: #572, #573, #574, #576, #577, #578,
+#579. All seven overnight workstreams have reported; nothing is still
+running. Prepared so the window is execution, not rediscovery.
+
+**Merge #579 before #578.** #578's `/league/phases` fix is the subject
+of a §3.5 decision inside #579 (the public-league no-private-endpoints
+assertion is declared *deliberately* scoped, so `/league/phases`
+fetching auth-gated `/api/data` is correct and must not trip it).
+Landing them in the other order leaves a window where the reasoning
+exists in neither file. Neither PR blocks the other technically —
+this is about the record being coherent.
 
 **No file collides across the five.** Verified with
 `git diff --name-only origin/main...<branch>` per PR — every path is
@@ -447,6 +455,8 @@ the file-level check cannot see.
 | 574 | api-gameplan-endpoint | 4 | **closes §6.3** |
 | 576 | angle-single-market | 3 | **closes §6.2** |
 | 577 | python-coverage-sweep | 6 | closes §2c-4 (partially) |
+| 578 | route-usability-sweep | 7 | **§6.8** — `/league/phases` renders at all |
+| 579 | e2e-assertion-honesty | 10 | **§6.9** — the suite can start; **§6.10** — green means something |
 
 ### Actions the window must take, that no single PR can
 
@@ -826,6 +836,102 @@ Two of the roadmap's three self-audit seeds were **already fixed** and
 would have been re-worked on the strength of a stale document. That
 2-of-3 false-positive rate on assumed-still-true findings is the
 argument for dating every audit to a SHA.
+
+### 6.8 `/league/phases` had never rendered, for anyone, since it shipped
+
+Found by #578, verified independently by the orchestrator on
+`ae3042935` before acceptance. Not slow, not data-dependent —
+structurally incapable of rendering.
+
+1. `frontend/components/AppShell.jsx:33` — `PUBLIC_ONLY_ROUTE_PREFIXES
+   = ["/league"]`, and `isPublicOnlyRoute` matches any path starting
+   `/league/`. AppShell then deliberately refuses to hydrate the
+   private contract, which is correct: it is the isolation rule that
+   keeps private rankings off the public hub.
+2. `frontend/components/TeamPhasePanel.jsx:26` reads `useApp()`, so on
+   this route it always receives `{rows: [], rawData: null}`.
+3. Line 39: `if (!analysis.teams.length) return null`.
+4. The route's entire body is `<TeamPhasePanel />` plus a header.
+
+Result: HTTP 200, 282 characters, empty body, every time. Fixed by
+adopting the pattern the sibling route already used —
+`RosterComparePanel` on `/league/franchise/[owner]` has the same
+constraint and solves it with `useDynastyData()`. Now 759 chars and all
+12 franchises classified; anonymous visitors get an explicit message
+behind the auth gate rather than data.
+
+**The generalisable part:** a correct security rule and a correct
+component can compose into a dead page, and neither file is wrong on
+its own inspection. Nothing in CI could see it — the route returned
+200. This is CLAUDE.md rule 1 ("do not assume features work — trace the
+live execution path end-to-end") paying for itself.
+
+### 6.9 The documented one-command E2E recipe could not run — FIXED in #579
+
+`tests/e2e/preflight.py::main()` called `_run_contract_validation()`
+before `_seed_data_cache()`. `data/` is gitignored, so on a clean
+checkout there is never a snapshot and validation aborts with a raw
+`FileNotFoundError` — before a single spec runs.
+
+It only ever worked on machines carrying a snapshot from an earlier
+local scrape, which is why it survived this long.
+
+**The compounding failure:** that traceback reads exactly like the "no
+data" symptom the README's *"Don't trust these signals — they're
+misleading here"* table tells the reader to ignore. The one document
+written to prevent this misdiagnosis was pointing readers away from a
+real bug. At least two prior agents concluded "the stack is broken"
+from it. #579 fixes the ordering, verified by watching it fail first
+(`EXIT=1` with the traceback on `origin/main`'s ordering, `EXIT=0` and
+"seeded ... 1077 players" after), and names the traceback in that table
+as **not** expected.
+
+### 6.10 The E2E suite was never green — the brief was wrong
+
+**Recorded because the orchestrator asserted it.** WS-N's dispatch brief
+said "the suite is green and that green is unearned." The first half
+was false. Measured baseline on `origin/main` (with only the preflight
+fix applied so it could run at all):
+
+```
+12 specs — 145 passed, 30 skipped, 3 FAILED
+```
+
+#566 measured the same 145/30/3 earlier. The orchestrator restated
+"green" from the dashboard without re-deriving it — the identical
+failure as the §2c tally, in a different costume, and the second time
+in one night that a confident summary went out ahead of a measurement.
+
+Two findings from the same PR that a green-looking run was hiding:
+
+- **`critical-smoke.spec.js:169/176` are worse than skips.** They push
+  a "skip" *annotation* and then `return`, so Playwright reports them
+  **passed**. `/api/terminal` is permanently 401 anonymous, so both
+  bodies are unreachable. Two green ticks that verify nothing —
+  §2c's shape inside the test suite itself.
+- **Four data-availability skip gates could never fire.** Measured
+  against the seeded snapshot: rivalries 45, matchups 158, players 968,
+  sleeper teams 12. They stood ready only to convert a real pipeline
+  regression into an invisible green skip. Now assertions.
+
+The decoy-page technique is worth reusing: run each old assertion
+against a *different* page carrying the same shell chrome. Six old
+assertions passed on the decoy (proving them vacuous); four
+replacements failed on it (proving them real).
+
+### 6.11 `user_kv` returned 500 in the shared container — production NOT cleared
+
+#579 reproduced `/api/user/state` → `500 OperationalError` outside
+Playwright, persistently, on the container's shared backend. That
+branch changes no backend code and the same test passed 20 minutes
+earlier, so it is most likely container-local state.
+
+**Production is not proven healthy on this path.** An anonymous probe
+of `https://chaseupside.com/api/user/state` returns a clean
+`401 auth_required` — but 401 short-circuits at the auth layer *before*
+any KV read, so it says nothing about whether `user_kv` works for a
+signed-in user. Verifying that needs a session cookie the orchestrator
+does not hold. Recorded as unverified rather than "fine".
 
 ### 6.4 Historical record — resolved blockers
 
