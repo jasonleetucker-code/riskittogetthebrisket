@@ -1,101 +1,184 @@
 name,originalRank,effectiveRank,derivationMethod,family,normalizedValue,matchedSourceName,position,team
-Will Anderson Jr.,1,1,direct_combined,DL,9999,Will Anderson Jr.,DE,HOU
-Aidan Hutchinson,2,2,direct_combined,DL,9849,Aidan Hutchinson,DE,DET
-Brian Burns,3,3,direct_combined,DL,9684,Brian Burns,DE,NYG
-Micah Parsons,4,4,direct_combined,LB,9515,Micah Parsons,LB,GB
-Maxx Crosby,5,5,direct_combined,DL,9347,Maxx Crosby,DE,LV
-Myles Garrett,6,6,direct_combined,DL,9180,Myles Garrett,DE,CLE
-Nik Bonitto,7,7,direct_combined,DL,9016,Nik Bonitto,DE,DEN
-Roquan Smith,8,8,direct_combined,LB,8855,Roquan Smith,LB,BAL
-Jordyn Brooks,9,9,direct_combined,LB,8698,Jordyn Brooks,LB,MIA
-Ernest Jones IV,10,10,direct_combined,LB,8544,Ernest Jones IV,LB,SEA
-Cedric Gray,11,11,direct_combined,LB,8394,Cedric Gray,LB,TEN
-Nate Landman,12,12,direct_combined,LB,8248,Nate Landman,LB,LAR
-T.J. Edwards,13,13,direct_combined,LB,8105,T.J. Edwards,LB,CHI
-Jack Campbell,14,14,direct_combined,LB,7967,Jack Campbell,LB,DET
-Fred Warner,15,15,direct_combined,LB,7831,Fred Warner,LB,SF
-Foyesade Oluokun,16,16,direct_combined,LB,7700,Foyesade Oluokun,LB,JAC
-Carson Schwesinger,17,17,direct_combined,LB,7572,Carson Schwesinger,LB,CLE
-Zaire Franklin,18,18,direct_combined,LB,7447,Zaire Franklin,LB,GB
-Nick Bolton,19,19,direct_combined,LB,7326,Nick Bolton,LB,KC
-Alex Singleton,20,20,direct_combined,LB,7208,Alex Singleton,LB,DEN
-Kaden Elliss,21,21,direct_combined,LB,7093,Kaden Elliss,LB,NO
-Quay Walker,22,22,direct_combined,LB,6981,Quay Walker,LB,LV
-Quincy Williams,23,23,direct_combined,LB,6872,Quincy Williams,LB,CLE
-Azeez Al-Shaair,24,24,direct_combined,LB,6766,Azeez Al-Shaair,LB,HOU
-Robert Spillane,25,25,direct_combined,LB,6663,Robert Spillane,LB,NE
-Edgerrin Cooper,26,26,direct_combined,LB,6562,Edgerrin Cooper,LB,GB
+Aidan Hutchinson,1,1,direct_combined,DL,9999,Aidan Hutchinson,DE,DET
+Will Anderson Jr.,2,2,direct_combined,DL,9849,Will Anderson Jr.,DE,HOU
+Jack Campbell,3,3,direct_combined,LB,9684,Jack Campbell,LB,DET
+Roquan Smith,4,4,direct_combined,LB,9515,Roquan Smith,LB,BAL
+Fred Warner,5,5,direct_combined,LB,9347,Fred Warner,LB,SF
+Jordyn Brooks,6,6,direct_combined,LB,9180,Jordyn Brooks,LB,MIA
+Carson Schwesinger,7,7,direct_combined,LB,9016,Carson Schwesinger,LB,CLE
+Foyesade Oluokun,8,8,direct_combined,LB,8855,Foyesade Oluokun,LB,JAC
+Nick Bolton,9,9,direct_combined,LB,8698,Nick Bolton,LB,KC
+Nick Bosa,10,10,direct_combined,DL,8544,Nick Bosa,DE,SF
+Edgerrin Cooper,11,11,direct_combined,LB,8394,Edgerrin Cooper,LB,GB
+T.J. Edwards,12,12,direct_combined,LB,8248,T.J. Edwards,LB,CHI
+Zaire Franklin,13,13,direct_combined,LB,8105,Zaire Franklin,LB,GB
+Zack Baun,14,14,direct_combined,LB,7967,Zack Baun,LB,PHI
+Cedric Gray,15,15,direct_combined,LB,7831,Cedric Gray,LB,TEN
+Jamien Sherwood,16,16,direct_combined,LB,7700,Jamien Sherwood,LB,NYJ
+Ernest Jones IV,17,17,direct_combined,LB,7572,Ernest Jones IV,LB,SEA
+Blake Cashman,18,18,direct_combined,LB,7447,Blake Cashman,LB,MIN
+Nate Landman,19,19,direct_combined,LB,7326,Nate Landman,LB,LAR
+Quay Walker,20,20,direct_combined,LB,7208,Quay Walker,LB,LV
+Tremaine Edmunds,21,21,direct_combined,LB,7093,Tremaine Edmunds,LB,NYG
+Nakobe Dean,22,22,direct_combined,LB,6981,Nakobe Dean,LB,LV
+Daiyan Henley,23,23,direct_combined,LB,6872,Daiyan Henley,LB,LAC
+Quincy Williams,24,24,direct_combined,LB,6766,Quincy Williams,LB,CLE
+Dre Greenlaw,25,25,direct_combined,LB,6663,Dre Greenlaw,LB,SF
+Kyle Hamilton,26,26,direct_combined,DB,6562,Kyle Hamilton,S,BAL
 Payton Wilson,27,27,direct_combined,LB,6464,Payton Wilson,LB,PIT
-Daiyan Henley,28,28,direct_combined,LB,6369,Daiyan Henley,LB,LAC
-Tyrel Dodson,29,29,direct_combined,LB,6276,Tyrel Dodson,LB,MIA
-Blake Cashman,30,30,direct_combined,LB,6185,Blake Cashman,LB,MIN
-Bobby Okereke,31,31,direct_combined,LB,6097,Bobby Okereke,LB,FA
-Jihaad Campbell,32,32,direct_combined,LB,6011,Jihaad Campbell,LB,PHI
-Dre Greenlaw,33,33,direct_combined,LB,5927,Dre Greenlaw,LB,SF
-Zack Baun,34,34,direct_combined,LB,5845,Zack Baun,LB,PHI
-Eric Wilson,35,35,direct_combined,LB,5765,Eric Wilson,LB,MIN
-Jamien Sherwood,36,36,direct_combined,LB,5687,Jamien Sherwood,LB,NYJ
-DeMarvion Overshown,37,37,direct_combined,LB,5610,DeMarvion Overshown,LB,DAL
-Jack Gibbens,38,38,direct_combined,LB,5536,Jack Gibbens,LB,ARI
-SirVocea Dennis,39,39,direct_combined,LB,5464,SirVocea Dennis,LB,TB
-Divine Deablo,40,40,direct_combined,LB,5393,Divine Deablo,LB,ATL
-Devin Bush Jr.,41,41,direct_combined,LB,5323,Devin Bush Jr.,LB,CHI
-Drake Thomas,42,42,direct_combined,LB,5256,Drake Thomas,LB,SEA
-Nakobe Dean,43,43,direct_combined,LB,5190,Nakobe Dean,LB,LV
-Germaine Pratt,44,44,direct_combined,LB,5125,Germaine Pratt,LB,FA
-Byron Young,45,45,direct_combined,DL,5062,Byron Young,DE,LAR
-Danny Stutsman,42,46,anchored_from_individual,LB,5000,Danny Stutsman,LB,NO
-Nick Cross,46,46,direct_combined,DB,5000,Nick Cross,S,WAS
-Nick Emmanwori,47,47,direct_combined,DB,4940,Nick Emmanwori,S,SEA
-Pete Werner,43,47,anchored_from_individual,LB,4940,Pete Werner,LB,NO
-Derwin James Jr.,48,48,direct_combined,DB,4880,Derwin James Jr.,S,LAC
-Brian Branch,49,49,direct_combined,DB,4823,Brian Branch,S,DET
-Kyle Hamilton,50,50,direct_combined,DB,4766,Kyle Hamilton,S,BAL
-Kam Curl,51,51,direct_combined,DB,4711,Kam Curl,S,LAR
-Jessie Bates III,52,52,direct_combined,DB,4656,Jessie Bates III,S,ATL
-Antoine Winfield Jr.,53,53,direct_combined,DB,4603,Antoine Winfield Jr.,S,TB
-Jaquan Brisker,54,54,direct_combined,DB,4551,Jaquan Brisker,S,PIT
+Azeez Al-Shaair,28,28,direct_combined,LB,6369,Azeez Al-Shaair,LB,HOU
+Brian Branch,29,29,direct_combined,DB,6276,Brian Branch,S,DET
+DeMarvion Overshown,30,30,direct_combined,LB,6185,DeMarvion Overshown,LB,DAL
+Sonny Styles,31,31,direct_combined,LB,6097,Sonny Styles,LB,WAS
+Nick Emmanwori,32,32,direct_combined,DB,6011,Nick Emmanwori,S,SEA
+Alex Singleton,33,33,direct_combined,LB,5927,Alex Singleton,LB,DEN
+CJ Allen,34,34,direct_combined,LB,5845,CJ Allen,LB,IND
+Robert Spillane,35,35,direct_combined,LB,5765,Robert Spillane,LB,NE
+Arvell Reese,36,36,direct_combined,LB,5687,Arvell Reese,LB,NYG
+Derwin James Jr.,37,37,direct_combined,DB,5610,Derwin James Jr.,S,LAC
+Barrett Carter,38,38,direct_combined,LB,5536,Barrett Carter,LB,CIN
+Myles Garrett,39,39,direct_combined,DL,5464,Myles Garrett,DE,LAR
+Maxx Crosby,40,40,direct_combined,DL,5393,Maxx Crosby,DE,LV
+Jacob Rodriguez,41,41,direct_combined,LB,5323,Jacob Rodriguez,LB,MIA
+Budda Baker,42,42,direct_combined,DB,5256,Budda Baker,S,ARI
+Laiatu Latu,43,43,direct_combined,DL,5190,Laiatu Latu,DE,IND
+Devin Bush Jr.,44,44,direct_combined,LB,5125,Devin Bush Jr.,LB,CHI
+Demetrius Knight Jr.,45,45,direct_combined,LB,5062,Demetrius Knight Jr.,LB,CIN
+Divine Deablo,46,46,direct_combined,LB,5000,Divine Deablo,LB,ATL
+Josiah Trotter,47,47,direct_combined,LB,4940,Josiah Trotter,LB,TB
+Kaleb Elarms-Orr,48,48,direct_combined,LB,4880,Kaleb Elarms-Orr,LB,BUF
+Jalen Carter,49,49,direct_combined,DL,4823,Jalen Carter,DT,PHI
+Xavier McKinney,50,50,direct_combined,DB,4766,Xavier McKinney,S,GB
+Anthony Hill Jr.,51,51,direct_combined,LB,4711,Anthony Hill Jr.,LB,TEN
+Jeffery Simmons,52,52,direct_combined,DL,4656,Jeffery Simmons,DT,TEN
+Greg Rousseau,53,53,direct_combined,DL,4603,Greg Rousseau,DE,BUF
+Tykee Smith,54,54,direct_combined,DB,4551,Tykee Smith,S,TB
 Tyler Nubin,55,55,direct_combined,DB,4500,Tyler Nubin,S,NYG
-Joshua Metellus,56,56,direct_combined,DB,4450,Joshua Metellus,S,MIN
-Malachi Moore,57,57,direct_combined,DB,4402,Malachi Moore,CB,NYJ
-Tre'von Moehrig,58,58,direct_combined,DB,4354,Tre'von Moehrig,S,CAR
-Tykee Smith,59,59,direct_combined,DB,4307,Tykee Smith,S,TB
-DeShon Elliott,60,60,direct_combined,DB,4261,DeShon Elliott,S,PIT
-Chamarri Conner,61,61,direct_combined,DB,4216,Chamarri Conner,S,KC
-Xavier Watts,62,62,direct_combined,DB,4171,Xavier Watts,S,ATL
-Laiatu Latu,63,63,direct_combined,DL,4128,Laiatu Latu,DE,IND
-Jared Verse,10,64,anchored_from_individual,DL,4085,Jared Verse,DE,LAR
-Kyle Dugger,64,64,direct_combined,DB,4085,Kyle Dugger,S,CIN
-Alex Highsmith,11,65,anchored_from_individual,DL,4044,Alex Highsmith,LB,PIT
-Cam Bynum,65,65,direct_combined,DB,4044,Cam Bynum,S,IND
-Abdul Carter,12,66,anchored_from_individual,DL,4003,Abdul Carter,DT,NYG
-Jeremy Chinn,66,66,direct_combined,DB,4003,Jeremy Chinn,S,LV
-Nick Bosa,13,67,anchored_from_individual,DL,3962,Nick Bosa,DE,SF
-Talanoa Hufanga,67,67,direct_combined,DB,3962,Talanoa Hufanga,S,DEN
-Chase Young,14,68,anchored_from_individual,DL,3923,Chase Young,DE,NO
-Julian Love,68,68,direct_combined,DB,3923,Julian Love,S,SEA
-George Karlaftis III,15,69,anchored_from_individual,DL,3884,George Karlaftis III,DE,KC
-Jordan Battle,69,69,direct_combined,DB,3884,Jordan Battle,S,CIN
-Devon Witherspoon,70,70,direct_combined,DB,3846,Devon Witherspoon,CB,SEA
-Tuli Tuipulotu,16,70,anchored_from_individual,DL,3846,Tuli Tuipulotu,DE,LAC
-Cole Bishop,25,71,anchored_from_individual,DB,3809,Cole Bishop,S,BUF
-T.J. Watt,17,71,anchored_from_individual,DL,3809,T.J. Watt,LB,PIT
-Montez Sweat,18,72,anchored_from_individual,DL,3772,Montez Sweat,DE,CHI
-Quentin Lake,26,72,anchored_from_individual,DB,3772,Quentin Lake,S,LAR
-Jeffery Simmons,19,73,anchored_from_individual,DL,3736,Jeffery Simmons,DT,TEN
-Marcus Jones,27,73,anchored_from_individual,DB,3736,Marcus Jones,CB,NE
-Jaelan Phillips,20,74,anchored_from_individual,DL,3700,Jaelan Phillips,DE,CAR
-Kerby Joseph,28,74,anchored_from_individual,DB,3700,Kerby Joseph,S,DET
-Dadrion Taylor-Demerson,29,75,anchored_from_individual,DB,3666,Dadrion Taylor-Demerson,S,ARI
-Greg Rousseau,21,75,anchored_from_individual,DL,3666,Greg Rousseau,DE,BUF
-Dallas Turner,22,76,anchored_from_individual,DL,3631,Dallas Turner,DE,MIN
-Jaylinn Hawkins,30,76,anchored_from_individual,DB,3631,Jaylinn Hawkins,S,BAL
-DeForest Buckner,23,77,anchored_from_individual,DL,3598,DeForest Buckner,DT,IND
-Jalon Walker,24,78,anchored_from_individual,DL,3565,Jalon Walker,LB,ATL
-Trey Hendrickson,25,79,anchored_from_individual,DL,3532,Trey Hendrickson,DE,BAL
-Andrew Van Ginkel,26,80,anchored_from_individual,DL,3500,Andrew Van Ginkel,LB,MIN
-Leonard Williams,27,81,anchored_from_individual,DL,3469,Leonard Williams,DT,SEA
-Nick Herbig,28,82,anchored_from_individual,DL,3438,Nick Herbig,LB,PIT
-Myles Murphy,29,83,anchored_from_individual,DL,3408,Myles Murphy,DE,CIN
-Mykel Williams,30,84,anchored_from_individual,DL,3378,Mykel Williams,DT,SF
-Yaya Diaby,31,85,anchored_from_individual,DL,3348,Yaya Diaby,DE,TB
+Dexter Lawrence II,56,56,direct_combined,DL,4450,Dexter Lawrence II,DT,CIN
+Jessie Bates III,57,57,direct_combined,DB,4402,Jessie Bates III,S,ATL
+Jake Golday,58,58,direct_combined,LB,4354,Jake Golday,LB,MIN
+Quinnen Williams,59,59,direct_combined,DL,4307,Quinnen Williams,DT,DAL
+George Karlaftis III,60,60,direct_combined,DL,4261,George Karlaftis III,DE,KC
+Nick Cross,61,61,direct_combined,DB,4216,Nick Cross,S,WAS
+Byron Murphy II,62,62,direct_combined,DL,4171,Byron Murphy II,DT,SEA
+Kam Curl,63,63,direct_combined,DB,4128,Kam Curl,S,LAR
+Antoine Winfield Jr.,64,64,direct_combined,DB,4085,Antoine Winfield Jr.,S,TB
+Devin Lloyd,65,65,direct_combined,LB,4044,Devin Lloyd,LB,CAR
+Zach Allen,66,66,direct_combined,DL,4003,Zach Allen,DE,DEN
+Caleb Downs,67,67,direct_combined,DB,3962,Caleb Downs,S,DAL
+Terrel Bernard,68,68,direct_combined,LB,3923,Terrel Bernard,LB,BUF
+Dillon Thieneman,69,69,direct_combined,DB,3884,Dillon Thieneman,S,CHI
+Jihaad Campbell,70,70,direct_combined,LB,3846,Jihaad Campbell,LB,PHI
+Micah Parsons,71,71,direct_combined,LB,3809,Micah Parsons,LB,GB
+AJ Haulcy,72,72,direct_combined,DB,3772,AJ Haulcy,S,IND
+DeForest Buckner,73,73,direct_combined,DL,3736,DeForest Buckner,DT,IND
+Joshua Metellus,74,74,direct_combined,DB,3700,Joshua Metellus,S,MIN
+Malachi Moore,75,75,direct_combined,DB,3666,Malachi Moore,CB,NYJ
+Tre'von Moehrig,76,76,direct_combined,DB,3631,Tre'von Moehrig,S,CAR
+Brian Burns,77,77,direct_combined,DL,3598,Brian Burns,DE,NYG
+Nik Bonitto,78,78,direct_combined,DL,3565,Nik Bonitto,DE,DEN
+Jordan Battle,79,79,direct_combined,DB,3532,Jordan Battle,S,CIN
+Calijah Kancey,80,80,direct_combined,DL,3500,Calijah Kancey,DT,TB
+Talanoa Hufanga,81,81,direct_combined,DB,3469,Talanoa Hufanga,S,DEN
+Brandon Jones,82,82,direct_combined,DB,3438,Brandon Jones,S,DEN
+Emmanuel McNeil-Warren,83,83,direct_combined,DB,3408,Emmanuel McNeil-Warren,S,CLE
+DeShon Elliott,84,84,direct_combined,DB,3378,DeShon Elliott,S,PIT
+Kobie Turner,85,85,direct_combined,DL,3348,Kobie Turner,DT,LAR
+Chamarri Conner,86,86,direct_combined,DB,3319,Chamarri Conner,S,KC
+Xavier Watts,87,87,direct_combined,DB,3291,Xavier Watts,S,ATL
+Trey Hendrickson,88,88,direct_combined,DL,3263,Trey Hendrickson,DE,BAL
+Kevin Winston Jr.,89,89,direct_combined,DB,3235,Kevin Winston Jr.,S,TEN
+Cam Bynum,90,90,direct_combined,DB,3208,Cam Bynum,S,IND
+Jared Verse,91,91,direct_combined,DL,3181,Jared Verse,DE,CLE
+Jeremy Chinn,92,92,direct_combined,DB,3155,Jeremy Chinn,S,LV
+Abdul Carter,93,93,direct_combined,DL,3129,Abdul Carter,DE,NYG
+Malaki Starks,94,94,direct_combined,DB,3104,Malaki Starks,S,BAL
+Byron Young,95,95,direct_combined,DL,3079,Byron Young,DE,LAR
+T.J. Watt,96,96,direct_combined,LB,3054,T.J. Watt,LB,PIT
+Patrick Queen,97,97,direct_combined,LB,3030,Patrick Queen,LB,PIT
+Frankie Luvu,98,98,direct_combined,LB,3006,Frankie Luvu,LB,WAS
+Jalon Walker,99,99,direct_combined,LB,2982,Jalon Walker,LB,ATL
+Alex Highsmith,100,100,direct_combined,LB,2959,Alex Highsmith,LB,PIT
+Montez Sweat,101,101,direct_combined,DL,2936,Montez Sweat,DE,CHI
+Josh Hines-Allen,102,102,direct_combined,DL,2913,Josh Hines-Allen,DE,JAC
+Tuli Tuipulotu,20,103,anchored_from_individual,DL,2891,Tuli Tuipulotu,DE,LAC
+Tyrel Dodson,103,103,direct_combined,LB,2891,Tyrel Dodson,LB,MIA
+Will McDonald IV,104,104,direct_combined,DL,2869,Will McDonald IV,DE,NYJ
+Jaquan Brisker,105,105,direct_combined,DB,2847,Jaquan Brisker,S,PIT
+Jermaine Johnson II,106,106,direct_combined,DL,2826,Jermaine Johnson II,DE,TEN
+Andrew Van Ginkel,25,107,anchored_from_individual,DL,2804,Andrew Van Ginkel,LB,MIN
+Chase Young,27,107,anchored_from_individual,DL,2804,Chase Young,DE,NO
+Danielle Hunter,107,107,direct_combined,DL,2804,Danielle Hunter,DE,HOU
+Jonathan Greenard,28,107,anchored_from_individual,DL,2804,Jonathan Greenard,DE,PHI
+Austin Booker,40,108,anchored_from_individual,DL,2784,Austin Booker,LB,CHI
+Chop Robinson,39,108,anchored_from_individual,DL,2784,Chop Robinson,DE,MIA
+Dallas Turner,30,108,anchored_from_individual,DL,2784,Dallas Turner,DE,MIN
+Jaelan Phillips,32,108,anchored_from_individual,DL,2784,Jaelan Phillips,DE,CAR
+James Pearce Jr.,31,108,anchored_from_individual,DL,2784,James Pearce Jr.,DE,ATL
+Kaden Elliss,108,108,direct_combined,LB,2784,Kaden Elliss,LB,NO
+Chris Jones,109,109,direct_combined,DL,2763,Chris Jones,DT,KC
+Jonathon Cooper,45,109,anchored_from_individual,DL,2763,Jonathon Cooper,DE,DEN
+Kayvon Thibodeaux,46,109,anchored_from_individual,DL,2763,Kayvon Thibodeaux,DE,NYG
+Leonard Williams,44,109,anchored_from_individual,DL,2763,Leonard Williams,DT,SEA
+Nick Herbig,43,109,anchored_from_individual,DL,2763,Nick Herbig,LB,PIT
+Travon Walker,47,109,anchored_from_individual,DL,2763,Travon Walker,DE,JAC
+Derrick Brown,110,110,direct_combined,DL,2743,Derrick Brown,DT,CAR
+Uchenna Nwosu,49,110,anchored_from_individual,DL,2743,Uchenna Nwosu,LB,SEA
+Mykel Williams,51,111,anchored_from_individual,DL,2723,Mykel Williams,DT,SF
+Mike Green,52,112,anchored_from_individual,DL,2703,Mike Green,LB,BAL
+Myles Murphy,53,113,anchored_from_individual,DL,2684,Myles Murphy,DE,CIN
+Harold Landry III,54,114,anchored_from_individual,DL,2665,Harold Landry III,LB,NE
+Josh Sweat,55,115,anchored_from_individual,DL,2646,Josh Sweat,DE,ARI
+Malcolm Koonce,56,116,anchored_from_individual,DL,2627,Malcolm Koonce,DE,LV
+Lukas Van Ness,57,117,anchored_from_individual,DL,2609,Lukas Van Ness,DE,GB
+Quentin Lake,26,117,anchored_from_individual,DB,2609,Quentin Lake,S,LAR
+Mason Graham,58,118,anchored_from_individual,DL,2591,Mason Graham,DT,CLE
+Nolan Smith Jr.,59,119,anchored_from_individual,DL,2573,Nolan Smith Jr.,DE,PHI
+Baron Browning,60,120,anchored_from_individual,DL,2555,Baron Browning,LB,ARI
+Dee Winters,55,120,anchored_from_individual,LB,2555,Dee Winters,LB,DAL
+Boye Mafe,61,121,anchored_from_individual,DL,2538,Boye Mafe,DE,CIN
+Carl Granderson,62,122,anchored_from_individual,DL,2520,Carl Granderson,DE,NO
+DeMarcus Lawrence,63,123,anchored_from_individual,DL,2503,DeMarcus Lawrence,DE,SEA
+Ventrell Miller,56,123,anchored_from_individual,LB,2503,Ventrell Miller,LB,JAC
+Donovan Ezeiruaku,64,124,anchored_from_individual,DL,2487,Donovan Ezeiruaku,DE,DAL
+Dre'Mont Jones,65,125,anchored_from_individual,DL,2470,Dre'Mont Jones,DT,NE
+Leo Chenal,57,126,anchored_from_individual,LB,2454,Leo Chenal,LB,WAS
+Rashan Gary,66,126,anchored_from_individual,DL,2454,Rashan Gary,LB,DAL
+Christian Harris,59,130,anchored_from_individual,LB,2390,Christian Harris,LB,ATL
+Trenton Simpson,60,133,anchored_from_individual,LB,2344,Trenton Simpson,LB,BAL
+Devon Witherspoon,29,135,anchored_from_individual,DB,2315,Devon Witherspoon,CB,SEA
+Eric Wilson,62,138,anchored_from_individual,LB,2272,Eric Wilson,LB,MIN
+Jack Gibbens,64,143,anchored_from_individual,LB,2203,Jack Gibbens,LB,ARI
+Danny Stutsman,66,148,anchored_from_individual,LB,2139,Danny Stutsman,LB,NO
+Kyle Louis,67,150,anchored_from_individual,LB,2114,Kyle Louis,LB,MIA
+Drake Thomas,68,153,anchored_from_individual,LB,2077,Drake Thomas,LB,SEA
+Julian Love,32,153,anchored_from_individual,DB,2077,Julian Love,S,SEA
+SirVocea Dennis,70,158,anchored_from_individual,LB,2019,SirVocea Dennis,LB,TB
+Tyrice Knight,71,160,anchored_from_individual,LB,1997,Tyrice Knight,LB,SEA
+Pete Werner,72,163,anchored_from_individual,LB,1964,Pete Werner,LB,NO
+Cooper DeJean,34,165,anchored_from_individual,DB,1943,Cooper DeJean,CB,PHI
+Alex Anzalone,73,166,anchored_from_individual,LB,1933,Alex Anzalone,LB,TB
+Drue Tranquill,74,168,anchored_from_individual,LB,1912,Drue Tranquill,LB,KC
+Teddye Buchanan,75,170,anchored_from_individual,LB,1892,Teddye Buchanan,LB,BAL
+Jalen Thompson,35,171,anchored_from_individual,DB,1882,Jalen Thompson,S,DAL
+Trevin Wallace,76,173,anchored_from_individual,LB,1863,Trevin Wallace,LB,CAR
+Dadrion Taylor-Demerson,36,177,anchored_from_individual,DB,1825,Dadrion Taylor-Demerson,S,ARI
+Kerby Joseph,37,183,anchored_from_individual,DB,1770,Kerby Joseph,S,DET
+Kamren Kinchens,38,189,anchored_from_individual,DB,1719,Kamren Kinchens,S,LAR
+Marcus Jones,39,195,anchored_from_individual,DB,1670,Marcus Jones,CB,NE
+Kyle Dugger,40,201,anchored_from_individual,DB,1624,Kyle Dugger,S,CIN
+Cole Bishop,41,207,anchored_from_individual,DB,1580,Cole Bishop,S,BUF
+Zakee Wheatley,42,213,anchored_from_individual,DB,1539,Zakee Wheatley,S,CAR
+Jalen Pitre,43,219,anchored_from_individual,DB,1499,Jalen Pitre,S,HOU
+C.J. Gardner-Johnson,44,225,anchored_from_individual,DB,1462,C.J. Gardner-Johnson,S,BUF
+Andrew Mukuba,45,231,anchored_from_individual,DB,1426,Andrew Mukuba,S,PHI
+Bud Clark,46,237,anchored_from_individual,DB,1392,Bud Clark,S,SEA
+Jaylinn Hawkins,47,243,anchored_from_individual,DB,1359,Jaylinn Hawkins,S,BAL
+Kamari Ramsey,48,249,anchored_from_individual,DB,1328,Kamari Ramsey,S,HOU
+Genesis Smith,49,255,anchored_from_individual,DB,1298,Genesis Smith,S,LAC
+Craig Woodson,50,261,anchored_from_individual,DB,1269,Craig Woodson,S,NE
+Dante Trader Jr.,51,267,anchored_from_individual,DB,1241,Dante Trader Jr.,S,MIA
+Reed Blankenship,52,273,anchored_from_individual,DB,1215,Reed Blankenship,S,HOU
+Minkah Fitzpatrick,53,279,anchored_from_individual,DB,1190,Minkah Fitzpatrick,S,NYJ
+Grant Delpit,54,285,anchored_from_individual,DB,1165,Grant Delpit,S,CLE
+Kevin Byard III,55,291,anchored_from_individual,DB,1142,Kevin Byard III,S,NE
