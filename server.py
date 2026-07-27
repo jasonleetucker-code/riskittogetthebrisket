@@ -9645,11 +9645,15 @@ async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
     authed user's active league scoring settings.
 
-    Gated on ``realized_points_api`` feature flag (default OFF).
-    When the flag is off, returns 503 feature_disabled.  When ON
-    but ``nfl_data_ingest`` is also needed to fetch stats — which
-    is why this endpoint returns an empty weeks list with a clear
-    `reason` when no stats are available, rather than 500-ing.
+    Gated on ``realized_points_api``, which defaults **ON**
+    (``src/api/feature_flags.py``).  This docstring previously said
+    "default OFF"; it was wrong, and the difference mattered — it made a
+    live defect read as dormant.  ``nfl_data_ingest`` is also needed to
+    fetch stats, which is why this returns an empty weeks list with a
+    clear ``reason`` rather than 500-ing when none are available.
+
+    What kept the row-filter bug below invisible was not the flag but
+    the absence of a caller: nothing in the frontend requests this.
     """
     from src.api import feature_flags as _ff
 
@@ -9710,7 +9714,29 @@ async def get_player_realized(sleeper_id: str, request: Request):
                 "weeks": [],
             }
         )
-    player_rows = [r for r in weekly if str(r.get("player_id_gsis") or "") == resolved.gsis_id]
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because ``realized_points_api`` defaults OFF, so
+    # the code had never run. A flag-off path is not a tested path.
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
     cumulative = _rp.compute_cumulative_points(
         player_rows,
         scoring_settings,
