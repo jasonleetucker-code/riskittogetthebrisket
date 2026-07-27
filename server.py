@@ -5138,9 +5138,13 @@ def _bdvm_gate_and_league(request: Request):
     from src.api import feature_flags as _ff  # noqa: PLC0415
 
     if not _ff.is_enabled("bdvm_engine"):
-        return None, None, JSONResponse(
-            status_code=503,
-            content={"error": "feature_disabled", "flag": "bdvm_engine"},
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=503,
+                content={"error": "feature_disabled", "flag": "bdvm_engine"},
+            ),
         )
     try:
         league_cfg = _resolve_league_for_request(request)
@@ -5148,27 +5152,35 @@ def _bdvm_gate_and_league(request: Request):
         return None, None, err.json_response()
     contract = latest_contract_data
     if not contract:
-        return None, None, JSONResponse(
-            status_code=503,
-            content={
-                "error": "data_not_ready",
-                "message": "No data available yet. First scrape may still be running.",
-                "leagueKey": league_cfg.key,
-            },
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": "No data available yet. First scrape may still be running.",
+                    "leagueKey": league_cfg.key,
+                },
+            ),
         )
     loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
     loaded_league = loaded_meta.get("leagueKey")
     if loaded_league and loaded_league != league_cfg.key:
-        return None, None, JSONResponse(
-            status_code=503,
-            content={
-                "error": "data_not_ready",
-                "message": (
-                    f"No data loaded for league {league_cfg.key!r} yet "
-                    f"(server holds {loaded_league!r})."
-                ),
-                "leagueKey": league_cfg.key,
-            },
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"No data loaded for league {league_cfg.key!r} yet "
+                        f"(server holds {loaded_league!r})."
+                    ),
+                    "leagueKey": league_cfg.key,
+                },
+            ),
         )
     return league_cfg, contract, None
 
@@ -5188,14 +5200,11 @@ async def get_bdvm_roster(request: Request):
     from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
 
     try:
-        payload = await run_in_threadpool(
-            _bdvm_api.get_bdvm_roster, contract, league_cfg.key
-        )
+        payload = await run_in_threadpool(_bdvm_api.get_bdvm_roster, contract, league_cfg.key)
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             status_code=503,
-            content={"error": "bdvm_unavailable", "message": str(exc),
-                     "leagueKey": league_cfg.key},
+            content={"error": "bdvm_unavailable", "message": str(exc), "leagueKey": league_cfg.key},
         )
     payload = dict(payload)
     payload["leagueKey"] = league_cfg.key
@@ -5228,8 +5237,7 @@ async def get_bdvm_trades(request: Request):
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             status_code=503,
-            content={"error": "bdvm_unavailable", "message": str(exc),
-                     "leagueKey": league_cfg.key},
+            content={"error": "bdvm_unavailable", "message": str(exc), "leagueKey": league_cfg.key},
         )
     payload = dict(payload)
     payload["leagueKey"] = league_cfg.key

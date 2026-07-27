@@ -11,7 +11,18 @@
 [tool.ruff]
 line-length = 100  # matches the observed ~89% ≤100 baseline
 target-version = "py312"
-extend-exclude = ["data", "exports", ".next", "node_modules", "frontend"]
+# docs/research/bdvm-v1/reference is a byte-frozen acceptance fixture
+# (SHA-256-pinned in its README; tests/bdvm/test_reference_parity.py
+# re-executes it and token-compares the output) — it must never be
+# reformatted.
+extend-exclude = [
+    "data",
+    "exports",
+    ".next",
+    "node_modules",
+    "frontend",
+    "docs/research/bdvm-v1/reference",
+]
 # Honour the excludes even when a path is passed explicitly (the A3
 # changed-files gate calls `ruff check <file>...`); without this a
 # changed .py under an excluded dir would still get linted.
