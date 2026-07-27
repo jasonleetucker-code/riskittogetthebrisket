@@ -57,11 +57,28 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # rankings rows.  Frontend TierDivider renders when tierId set;
     # absent = no divider lines (safe).  Flipping on now.
     "positional_tiers": True,
-    # Phase 6 — Usage-based signals — fires via unified_signal_engine
-    # when nfl_data_ingest supplies stats.  Freshness-guarded: blocks
-    # mid-week data pre-Thursday.  Active-starter-only SELL guard
-    # prevents backup-role false alerts.
-    "usage_signals": True,
+    # Phase 6 — Usage-based signals — BUILT BUT NOT WIRED, and OFF.
+    #
+    # This comment used to read "fires via unified_signal_engine when
+    # nfl_data_ingest supplies stats".  It did not fire, because nothing
+    # in the tree calls ``detect_usage_transitions`` or
+    # ``unified_signal_engine`` at all — the flag reported True for a
+    # capability with no live path (gap analysis §4.2).
+    #
+    # It stays OFF now for a second, independent reason, measured
+    # 2026-07-27 against the persisted 2025 season by
+    # ``scripts/audit/measure_usage_signal_rate.py``: the detector fires
+    # on a mean **17.8% of active players every week**, stable across
+    # weeks 6-18.  Threshold tuning does not fix it — flooring the
+    # standard deviation makes it worse (19% -> 32%), and a plain
+    # 30-percentage-point absolute-move rule still hits 21%.  A
+    # four-observation z-score on a bounded 0-1 share does not
+    # discriminate, because real NFL snap share genuinely moves that
+    # much week to week.
+    #
+    # Turning this on today would only enable a flag with no consumer.
+    # Whoever wires the consumer must re-run the audit first.
+    "usage_signals": False,
     # Phase 7 — ESPN injury feed — external endpoint, now protected
     # by the ``espn_injuries`` circuit breaker (3 failures / 2min →
     # 3min OPEN).  Safe to activate.

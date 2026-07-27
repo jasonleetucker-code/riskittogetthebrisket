@@ -158,6 +158,19 @@ def _legacy_idp_row() -> dict:
     }
 
 
+#: Snap seams for tests that are not about snaps.
+#:
+#: ``persist_weekly_actuals`` joins the snap-counts release by default,
+#: which is what production wants and what a unit test must never do —
+#: without these two seams every persist test below would reach the
+#: network.  An empty snap feed also exercises the honest path: the
+#: ``snaps`` block stays ``None`` rather than being written as zeros.
+_NO_SNAPS = {
+    "_snap_provider": lambda _years: [],
+    "_id_map_provider": lambda: [],
+}
+
+
 def _provider(rows):
     def _fn(_years):
         return list(rows)
@@ -279,6 +292,7 @@ def test_persist_writes_one_line_per_week_with_both_blocks(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider(rows),
         _defensive_provider=_provider(rows),
+        **_NO_SNAPS,
     )
 
     assert result.weeks_written == 1
@@ -323,7 +337,11 @@ def test_reruns_replace_a_week_rather_than_appending(tmp_path):
 
     first = _unified_qb_row()
     actuals_store.persist_weekly_actuals(
-        [2025], _offensive_provider=_provider([first]), _defensive_provider=_provider([]), **kwargs
+        [2025],
+        _offensive_provider=_provider([first]),
+        _defensive_provider=_provider([]),
+        **_NO_SNAPS,
+        **kwargs,
     )
 
     revised = _unified_qb_row()
@@ -332,6 +350,7 @@ def test_reruns_replace_a_week_rather_than_appending(tmp_path):
         [2025],
         _offensive_provider=_provider([revised]),
         _defensive_provider=_provider([]),
+        **_NO_SNAPS,
         **kwargs,
     )
 
@@ -357,6 +376,7 @@ def test_a_partial_fetch_leaves_other_weeks_untouched(tmp_path):
         [2025],
         _offensive_provider=_provider([w1, w2]),
         _defensive_provider=_provider([]),
+        **_NO_SNAPS,
         **kwargs,
     )
 
@@ -365,7 +385,11 @@ def test_a_partial_fetch_leaves_other_weeks_untouched(tmp_path):
     w2b["week"] = 2
     w2b["passing_yards"] = 400
     actuals_store.persist_weekly_actuals(
-        [2025], _offensive_provider=_provider([w2b]), _defensive_provider=_provider([]), **kwargs
+        [2025],
+        _offensive_provider=_provider([w2b]),
+        _defensive_provider=_provider([]),
+        **_NO_SNAPS,
+        **kwargs,
     )
 
     entries = actuals_store.load_season(2025, actuals_dir=out)
@@ -385,6 +409,7 @@ def test_regular_season_and_playoffs_are_separate_lines(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider([reg, post]),
         _defensive_provider=_provider([]),
+        **_NO_SNAPS,
     )
     entries = actuals_store.load_season(2025, actuals_dir=out)
     assert [(e["week"], e["seasonType"]) for e in entries] == [(1, "REG"), (19, "POST")]
@@ -404,6 +429,7 @@ def test_duplicate_rows_from_the_two_fetchers_collapse(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider(rows),
         _defensive_provider=_provider(rows),
+        **_NO_SNAPS,
     )
     assert result.offensive_rows_fetched == 2
     assert result.defensive_rows_fetched == 2
@@ -434,6 +460,7 @@ def test_without_refresh_a_rerun_is_served_the_ttl_cache(tmp_path):
         [2025],
         _offensive_provider=counting([_unified_qb_row()]),
         _defensive_provider=counting([]),
+        **_NO_SNAPS,
         **kwargs,
     )
     assert len(calls) == 2, "cold: both fetchers hit their provider"
@@ -444,6 +471,7 @@ def test_without_refresh_a_rerun_is_served_the_ttl_cache(tmp_path):
         [2025],
         _offensive_provider=counting([revised]),
         _defensive_provider=counting([]),
+        **_NO_SNAPS,
         **kwargs,
     )
     assert len(calls) == 2, "warm: the TTL cache short-circuits the provider"
@@ -462,6 +490,7 @@ def test_persist_with_no_rows_writes_no_file(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider([]),
         _defensive_provider=_provider([]),
+        **_NO_SNAPS,
     )
     assert result.weeks_written == 0
     assert not actuals_store.season_path(2025, actuals_dir=out).exists()
@@ -483,6 +512,7 @@ def test_feature_flag_off_persists_nothing(monkeypatch, tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=provider,
         _defensive_provider=provider,
+        **_NO_SNAPS,
     )
     assert calls == []
     assert result.weeks_written == 0
@@ -505,6 +535,7 @@ def test_load_player_weeks_returns_a_flat_time_series(tmp_path):
             cache_dir=tmp_path / "cache",
             _offensive_provider=_provider(rows),
             _defensive_provider=_provider([]),
+            **_NO_SNAPS,
         )
 
     series = actuals_store.load_player_weeks("00-0026158", actuals_dir=out)
@@ -530,6 +561,7 @@ def test_coverage_reports_what_is_on_disk(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider([_unified_qb_row()]),
         _defensive_provider=_provider([_unified_idp_row()]),
+        **_NO_SNAPS,
     )
     cov = actuals_store.coverage(actuals_dir=out)
     assert cov["dirExists"] is True
@@ -547,6 +579,7 @@ def test_a_truncated_tail_line_does_not_wedge_the_season(tmp_path):
         cache_dir=tmp_path / "cache",
         _offensive_provider=_provider([_unified_qb_row()]),
         _defensive_provider=_provider([]),
+        **_NO_SNAPS,
     )
     path = actuals_store.season_path(2025, actuals_dir=out)
     with path.open("a", encoding="utf-8") as f:

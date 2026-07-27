@@ -146,6 +146,8 @@ from src.nfl_data import cache as _cache
 from src.nfl_data.ingest import (
     WeeklyDefensiveStatRow,
     WeeklyStatRow,
+    fetch_id_map,
+    fetch_snap_counts,
     fetch_weekly_defensive_stats,
     fetch_weekly_stats,
 )
@@ -156,6 +158,7 @@ __all__ = [
     "ACTUALS_SCHEMA_VERSION",
     "TACKLES_COMBINED_IS_DERIVED",
     "PersistResult",
+    "build_snap_index",
     "coverage",
     "default_actuals_dir",
     "load_player_weeks",
@@ -164,9 +167,16 @@ __all__ = [
     "normalize_offensive_row",
     "persist_weekly_actuals",
     "season_path",
+    "usage_stat_rows",
 ]
 
-ACTUALS_SCHEMA_VERSION = "2026-07-27.v1"
+ACTUALS_SCHEMA_VERSION = "2026-07-27.v2"
+"""v2 adds the per-player-week ``snaps`` block (see :func:`build_snap_index`).
+
+Purely additive: a v1 line has no ``snaps`` key at all, which readers
+must treat identically to ``snaps: null`` — both mean "not fetched".
+Only a populated block carries measured snap counts.
+"""
 
 TACKLES_COMBINED_IS_DERIVED = True
 """The three ``defense.tackles_*`` fields are gamebook-derived.
@@ -406,7 +416,134 @@ def _stat_payload(dc: Any) -> dict[str, Any]:
 
 def _season_type(row: Mapping[str, Any]) -> str:
     raw = _str(_first(row, ("season_type", "seasonType"))).upper()
-    return raw or "REG"
+    return _normalize_season_type(raw)
+
+
+# ── Snap counts ───────────────────────────────────────────────────────
+#
+# Snap counts ship in their own nflverse release, keyed on
+# ``pfr_player_id``, while everything in this repo keys on GSIS.  The
+# cross-walk is ``players.csv`` (``fetch_id_map``), which carries both.
+#
+# Measured live 2026-07-27 for 2025: 26,612 snap rows, 22,554 usable
+# cross-walk pairs, and **56 snap rows across 8 players** that carry a
+# PFR id absent from the cross-walk — a 99.79% join.  Those 56 are
+# counted, not dropped silently.
+
+_SNAP_PFR_COLUMNS = ("pfr_player_id", "pfr_id")
+_ID_MAP_PFR_COLUMNS = ("pfr_id", "pfr_player_id")
+_ID_MAP_GSIS_COLUMNS = ("gsis_id", "player_id_gsis", "player_id")
+
+_SNAP_UNITS: dict[str, tuple[str, str]] = {
+    # unit -> (count column, percentage column)
+    "offense": ("offense_snaps", "offense_pct"),
+    "defense": ("defense_snaps", "defense_pct"),
+    "specialTeams": ("st_snaps", "st_pct"),
+}
+
+
+def _normalize_season_type(raw: Any) -> str:
+    """``REG`` or ``POST`` — everything non-regular collapses to POST.
+
+    THIS IS LOAD-BEARING FOR THE SNAP JOIN, and it is the trap that a
+    naive equality join walks into.  The two releases do not agree on
+    the vocabulary: the weekly-stats file spells playoffs ``POST``,
+    while the snap-counts file spells them ``WC`` / ``DIV`` / ``CON`` /
+    ``SB`` (measured 2026-07-27).  Joining on the raw strings therefore
+    matches every regular-season week and **no** playoff week, dropping
+    882 of 19,421 stat rows' snaps with no error and no log line.
+
+    Week numbering is continuous across both files (REG 1-18, playoffs
+    19-22 in each), so the collapse cannot collide two different rounds
+    onto one key.
+    """
+    text = _str(raw).upper()
+    if not text:
+        return "REG"
+    return "REG" if text == "REG" else "POST"
+
+
+def _snap_payload(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """One snap row → the stored ``snaps`` block, or ``None``.
+
+    Percentages arrive as 0..1 fractions (measured: ``offense_pct``
+    spans exactly 0.0-1.0), which is the scale
+    ``usage_signals._ACTIVE_STARTER_SNAP_PCT`` already assumes.  They are
+    stored unscaled so nothing downstream has to guess.
+    """
+    if not isinstance(row, Mapping):
+        return None
+    out: dict[str, Any] = {}
+    for unit, (count_col, pct_col) in _SNAP_UNITS.items():
+        out[unit] = _num(row.get(count_col))
+        out[f"{unit}Pct"] = _num(row.get(pct_col))
+    return out
+
+
+def build_snap_index(
+    season: int,
+    *,
+    cache_dir: Path | None = None,
+    _snap_provider: Any | None = None,
+    _id_map_provider: Any | None = None,
+) -> tuple[dict[tuple[str, int, str], dict[str, Any]], dict[str, Any]]:
+    """``{(gsis, week, seasonType): snaps}`` plus a join report.
+
+    Returns an EMPTY index when either fetch comes back empty, and the
+    report says which one.  That distinction matters downstream: an
+    empty index means callers must leave ``snaps`` as ``None`` ("not
+    fetched") rather than writing zeros, because a stored ``0.0`` is a
+    measured fact — the player dressed and took no snaps — and the two
+    must never be confused.
+    """
+    snap_rows = fetch_snap_counts([season], _provider=_snap_provider, cache_dir=cache_dir)
+    id_rows = fetch_id_map(_provider=_id_map_provider, cache_dir=cache_dir)
+
+    cross_walk: dict[str, str] = {}
+    for row in id_rows or []:
+        if not isinstance(row, Mapping):
+            continue
+        pfr = _str(_first(row, _ID_MAP_PFR_COLUMNS))
+        gsis = _str(_first(row, _ID_MAP_GSIS_COLUMNS))
+        if pfr and gsis:
+            cross_walk[pfr] = gsis
+
+    index: dict[tuple[str, int, str], dict[str, Any]] = {}
+    unjoinable = 0
+    unjoinable_players: set[str] = set()
+    for row in snap_rows or []:
+        if not isinstance(row, Mapping):
+            continue
+        pfr = _str(_first(row, _SNAP_PFR_COLUMNS))
+        gsis = cross_walk.get(pfr, "")
+        if not gsis:
+            unjoinable += 1
+            if pfr:
+                unjoinable_players.add(pfr)
+            continue
+        payload = _snap_payload(row)
+        if payload is None:
+            continue
+        key = (gsis, _int(row.get("week")), _normalize_season_type(row.get("game_type")))
+        index[key] = payload
+
+    report = {
+        "season": int(season),
+        "snapRowsFetched": len(snap_rows or []),
+        "crossWalkPairs": len(cross_walk),
+        "indexed": len(index),
+        "unjoinableSnapRows": unjoinable,
+        "unjoinablePlayers": len(unjoinable_players),
+    }
+    if not snap_rows:
+        _LOGGER.warning("actuals_store: snap counts empty for season %d", season)
+    elif not cross_walk:
+        _LOGGER.warning(
+            "actuals_store: PFR->GSIS cross-walk empty; %d snap rows unusable for season %d",
+            len(snap_rows),
+            season,
+        )
+    return index, report
 
 
 class PersistResult:
@@ -426,6 +563,8 @@ class PersistResult:
         "offense_records",
         "defense_records",
         "skipped_no_id",
+        "snap_records",
+        "snap_reports",
         "paths",
     )
 
@@ -438,6 +577,8 @@ class PersistResult:
         self.offense_records = 0
         self.defense_records = 0
         self.skipped_no_id = 0
+        self.snap_records = 0
+        self.snap_reports: list[dict[str, Any]] = []
         self.paths: list[str] = []
 
     def to_dict(self) -> dict[str, Any]:
@@ -451,6 +592,8 @@ class PersistResult:
             "offenseRecords": self.offense_records,
             "defenseRecords": self.defense_records,
             "skippedNoPlayerId": self.skipped_no_id,
+            "snapRecords": self.snap_records,
+            "snapJoin": list(self.snap_reports),
             "paths": list(self.paths),
         }
 
@@ -508,8 +651,11 @@ def persist_weekly_actuals(
     cache_dir: Path | None = None,
     captured_at: str | None = None,
     refresh: bool = False,
+    with_snaps: bool = True,
     _offensive_provider: Any | None = None,
     _defensive_provider: Any | None = None,
+    _snap_provider: Any | None = None,
+    _id_map_provider: Any | None = None,
 ) -> PersistResult:
     """Fetch and durably persist player-week actuals for ``seasons``.
 
@@ -531,8 +677,17 @@ def persist_weekly_actuals(
     the cache exists for a reason; pass it when you are chasing a
     correction rather than filling in a new week.
 
+    ``with_snaps=True`` (default) additionally fetches the snap-counts
+    release and the PFR->GSIS cross-walk and attaches a ``snaps`` block
+    per player-week.  PR #591 deliberately left these unjoined on the
+    grounds that a half-join writes "no snaps played" where it means
+    "not fetched" — that objection is answered here by keeping ``None``
+    (absent) structurally distinct from ``0.0`` (measured), and by
+    reporting the unjoinable rows instead of dropping them.  Pass
+    ``with_snaps=False`` for a stats-only pull.
+
     Returns a :class:`PersistResult`.  The ``_*_provider`` hooks are test
-    seams — production passes neither.
+    seams — production passes none of them.
     """
     result = PersistResult()
     result.seasons = [int(s) for s in seasons]
@@ -543,7 +698,15 @@ def persist_weekly_actuals(
 
     for season in result.seasons:
         if refresh:
-            for key in (f"weekly_stats:{season}", f"weekly_def_stats:{season}"):
+            keys = [f"weekly_stats:{season}", f"weekly_def_stats:{season}"]
+            if with_snaps:
+                # The snap release and the cross-walk have their own
+                # cache keys.  Evicting only the stats keys leaves a
+                # refresh serving yesterday's snaps against today's box
+                # scores — and, in a dev container, whatever a unit test
+                # last wrote under the default cache dir.
+                keys += [f"snap_counts:{season}", "id_map:v1"]
+            for key in keys:
                 _cache.evict(key, cache_dir=cache_dir)
         offensive = fetch_weekly_stats([season], _provider=_offensive_provider, cache_dir=cache_dir)
         defensive = fetch_weekly_defensive_stats(
@@ -551,6 +714,16 @@ def persist_weekly_actuals(
         )
         result.offensive_rows_fetched += len(offensive)
         result.defensive_rows_fetched += len(defensive)
+
+        snap_index: dict[tuple[str, int, str], dict[str, Any]] = {}
+        if with_snaps:
+            snap_index, snap_report = build_snap_index(
+                season,
+                cache_dir=cache_dir,
+                _snap_provider=_snap_provider,
+                _id_map_provider=_id_map_provider,
+            )
+            result.snap_reports.append(snap_report)
 
         # (week, seasonType) -> gsis -> record
         weeks: dict[tuple[int, str], dict[str, dict[str, Any]]] = {}
@@ -566,6 +739,12 @@ def persist_weekly_actuals(
                     "team": getattr(dc, "recent_team", None) or getattr(dc, "team", ""),
                     "offense": None,
                     "defense": None,
+                    # ``None`` = no snap row joined for this player-week.
+                    # A populated block with 0.0 in it means the player
+                    # WAS on the snap report and took no snaps in that
+                    # unit — a measured fact, not a gap.  Never collapse
+                    # the two.
+                    "snaps": snap_index.get((gsis, _int(row.get("week")), _season_type(row))),
                 }
                 bucket[gsis] = rec
             return rec
@@ -617,6 +796,7 @@ def persist_weekly_actuals(
                 continue
             result.offense_records += sum(1 for r in players.values() if r["offense"])
             result.defense_records += sum(1 for r in players.values() if r["defense"])
+            result.snap_records += sum(1 for r in players.values() if r.get("snaps") is not None)
             result.player_weeks += len(players)
             fresh[(week, season_type)] = {
                 "schemaVersion": ACTUALS_SCHEMA_VERSION,
@@ -718,6 +898,78 @@ def load_player_weeks(
                     **rec,
                 }
             )
+    return out
+
+
+def usage_stat_rows(
+    season: int,
+    *,
+    actuals_dir: Path | None = None,
+    season_types: Sequence[str] | None = ("REG",),
+) -> list[dict[str, Any]]:
+    """Flat per-player-week rows in the shape ``usage_windows`` reads.
+
+    :func:`src.nfl_data.usage_windows.build_rolling_windows` looks up
+    ``player_id_gsis``, ``season``, ``week``, ``team``, ``targets``,
+    ``carries`` and ``snap_pct`` by name off plain dicts.  This is the
+    adapter from the stored nested layout to that shape; without it a
+    caller would have to know the file format, which is exactly what
+    :func:`load_player_weeks` exists to avoid.
+
+    ``snap_pct`` resolves to the player's DOMINANT unit — whichever of
+    offense/defense they took more snaps in that week.  Picking by
+    position instead would misfile every two-way and package player, and
+    reporting both side by side would leave the choice to a caller that
+    has less information than this function does.  ``snapUnit`` records
+    which one won so the choice stays auditable.
+
+    ``snap_pct`` is ``None``, never ``0.0``, when no snap row joined —
+    ``build_rolling_windows`` coerces ``None`` to 0.0 for the arithmetic,
+    but a consumer that needs to distinguish "did not play" from "we do
+    not know" can read this field before it gets there.
+
+    Regular season only by default: playoff weeks are a different usage
+    regime and blending them into a rolling window silently changes what
+    the mean means.
+    """
+    out: list[dict[str, Any]] = []
+    for entry in load_season(season, actuals_dir=actuals_dir, season_types=season_types):
+        players = entry.get("players")
+        if not isinstance(players, dict):
+            continue
+        week = _int(entry.get("week"))
+        season_type = _str(entry.get("seasonType")).upper() or "REG"
+        for gsis, rec in players.items():
+            if not isinstance(rec, dict):
+                continue
+            offense = rec.get("offense") if isinstance(rec.get("offense"), dict) else {}
+            snaps = rec.get("snaps") if isinstance(rec.get("snaps"), dict) else None
+            snap_pct: float | None = None
+            snap_unit = ""
+            if snaps is not None:
+                offense_snaps = _num(snaps.get("offense"))
+                defense_snaps = _num(snaps.get("defense"))
+                if defense_snaps > offense_snaps:
+                    snap_pct, snap_unit = _num(snaps.get("defensePct")), "defense"
+                else:
+                    snap_pct, snap_unit = _num(snaps.get("offensePct")), "offense"
+            out.append(
+                {
+                    "player_id_gsis": _str(gsis),
+                    "player_name": _str(rec.get("name")),
+                    "position": _str(rec.get("position")).upper(),
+                    "team": _str(rec.get("team")).upper(),
+                    "season": _int(entry.get("season")) or int(season),
+                    "week": week,
+                    "seasonType": season_type,
+                    "targets": _num(offense.get("targets")),
+                    "carries": _num(offense.get("carries")),
+                    "receptions": _num(offense.get("receptions")),
+                    "snap_pct": snap_pct,
+                    "snapUnit": snap_unit,
+                }
+            )
+    out.sort(key=lambda r: (r["player_id_gsis"], r["season"], r["week"]))
     return out
 
 

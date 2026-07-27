@@ -111,6 +111,32 @@ Agent-verified: the registry comments claiming rank-signal sources keep their ve
 ## Phase 7 — Implementation wave from ranked gap list  [item 37]
 Execute the Phase-1 ranked backlog top-down. Already-identified strong candidates beyond Phases 2-6 (from the PFK feature list vs our inventory): Pick Projector equivalent (we have draft-capital + pick values; gap is future-pick → projected-slot mapping from team strength — `src/ros/` playoff sim gives us better inputs than PFK has), best-ball ADP ingestion (Underdog), player contracts/snap-share data (PFK's `pfk_player_contracts`, `pfk_player_season_snap_share` — nflverse has equivalents), stats tab on player popup. De-prioritized: dispersal draft tool, creators/polls (not league-edge).
 
+### Phase 7 candidate dispositions — recorded 2026-07-27
+
+The candidate list above is the ORIGINAL 2026-07-25 wording and is kept
+verbatim so the history reads straight.  Three of its four items have
+since been decided elsewhere, and re-reading the paragraph without this
+table is how they got picked up again as open work:
+
+| Candidate | Disposition | Where it was decided |
+|---|---|---|
+| Pick Projector equivalent | **Still open.** The one genuine net-new item here | `competitor-gap-analysis.md` §3.1 ranks it the highest-value net-new item |
+| best-ball ADP ingestion (Underdog) | **Dropped** — a redraft/draft-season signal that informs no trade, waiver or FAAB decision in a dynasty superflex IDP league with an auction rookie draft, plus a new commercial-platform dependency on unverified terms | `competitor-gap-analysis.md` §6 |
+| player contracts | **Demoted, not dropped** — obtainable from nflverse, but a weak dynasty signal next to snap/target share | `competitor-gap-analysis.md` §6 |
+| snap-share data | **Already shipped** — `src/playerctx/` ingests the same nflverse `snap_counts` release, picks the dominant unit, joins to Sleeper ids, serves `GET /api/playerctx/player` and renders in the popup | PR #539 |
+| stats tab on player popup | **Shipped** — `RealizedPointsSection` calls `GET /api/player/{id}/realized`, which existed with no caller and returned zero weeks for every player until the id-key fix | commits `22f9426d`, `4c552a8d` |
+
+**Promoted in their place: the other half of B-5.**
+`src/nfl_data/opportunity_stats.py` (313 lines), `src/nfl_data/usage_windows.py`
+(198), `src/news/usage_signals.py` and `src/news/unified_signal_engine.py` are
+built and tested with **zero production callers**, while
+`src/api/feature_flags.py` reports `usage_signals: True` with a comment
+asserting it "fires via unified_signal_engine".  Rolling snap / target /
+carry share is the leading indicator of dynasty value moves — strictly
+more league edge than any of the three dropped items, and it is a wiring
+job over code that is already written.  See
+`competitor-gap-analysis.md` §4.2 and B-5.
+
 ## Explicitly out of scope / non-goals
 - Replicating PFK's thousands-league sharp pool in v1 (our pool = league members' leagues).
 - Editing weights via `default_weights.json` (dead config — registry is authority).
