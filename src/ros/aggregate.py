@@ -55,8 +55,18 @@ class RankedRow:
     position: str | None
     rank: int
     total_ranked: int
-    # Optional projection signal from the source.  When present and
-    # >0, it overrides the rank-derived score for this contribution.
+    # Optional projection signal from the source.  CARRIED BUT NOT
+    # CONSUMED — ``aggregate()`` rank-scores every row, this one
+    # included.  The field is populated (``scrape.py``) from a real
+    # parsed projection (``sources/draftsharks_ros.py``), and DraftSharks
+    # is the highest-weighted ROS source, so this is a live signal being
+    # dropped rather than an unused hook.
+    #
+    # Consuming it is a change to every ROS value and to the meaning of
+    # the 0-100 scale — projections are points, rank scores are not, and
+    # blending the two needs a validated conversion that does not exist.
+    # Pinned by ``tests/ros/test_projection_value_is_not_consumed.py``;
+    # that suite fails if this comment starts claiming an override again.
     projection_value: float | None = None
     confidence: float = 1.0
 
@@ -143,18 +153,18 @@ def aggregate(
         for row in snap.rows:
             if not row.canonical_name:
                 continue
-            if row.projection_value is not None and row.projection_value > 0:
-                # Projection sources land on a 0-100 scale by ratio
-                # against the source's own max projection.  We derive
-                # that max from the row list — projections are the
-                # exception, not the rule, so a single-pass scan is
-                # cheap.
-                # NOTE: PR1 stub — PR3 wires real projection-aware
-                # scaling; for now we rank-score even projection rows
-                # to keep the pipeline simple.
-                score = rank_to_score(row.rank, row.total_ranked)
-            else:
-                score = rank_to_score(row.rank, row.total_ranked)
+            # EVERY row is rank-scored, including rows that carry a real
+            # projection.  ``rosValue`` is therefore a normalized log-rank
+            # index on 0-100 — not points, and not projection-aware.
+            #
+            # This used to be an ``if row.projection_value ... else`` whose
+            # two branches were byte-identical, described as a "PR1 stub"
+            # awaiting projection-aware scaling.  The branch made the
+            # discard look like a decision the code was already making;
+            # collapsing it makes the discard visible.  See
+            # ``RankedRow.projection_value`` for what is being dropped and
+            # what wiring it up would cost.
+            score = rank_to_score(row.rank, row.total_ranked)
             if score <= 0:
                 continue
             acc = accs.get(row.canonical_name)

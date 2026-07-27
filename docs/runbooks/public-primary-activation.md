@@ -82,7 +82,7 @@ print(f'Josh Allen _valueAuthority: {allen.get(\"_valueAuthority\")}')
 #           Josh Allen _valueAuthority = "canonical"
 
 # 4. External health check
-curl -s https://riskittogetthebrisket.org/api/health
+curl -s https://chaseupside.com/api/health
 # Expected: 200 OK
 
 # 5. Check logs

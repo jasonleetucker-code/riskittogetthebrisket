@@ -1,0 +1,1848 @@
+{
+  "payload": "dynasty_data_2026-07-27.json",
+  "playersInDict": 1095,
+  "teams": {
+    "Blaine": {
+      "arbitrageScores": [
+        21.74,
+        18.72,
+        17.79,
+        17.66,
+        17.52,
+        17.41,
+        17.31,
+        17.18,
+        16.96,
+        16.75,
+        16.5,
+        16.37,
+        16.18,
+        16.08,
+        15.96,
+        15.88,
+        15.79,
+        15.75,
+        15.75,
+        15.64,
+        15.63,
+        15.35,
+        15.13,
+        14.81,
+        14.73,
+        14.72,
+        14.37,
+        14.28
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        720,
+        243,
+        865,
+        842,
+        259,
+        795,
+        735,
+        19,
+        445,
+        169,
+        136,
+        545,
+        336,
+        63,
+        35,
+        106,
+        87,
+        164,
+        355,
+        30,
+        104,
+        2,
+        56,
+        129,
+        162,
+        131,
+        79,
+        95
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 8,
+        "1for2": 20
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 76
+      },
+      "top5": [
+        {
+          "arbitrageScore": 21.74,
+          "boardDelta": 720,
+          "give": [
+            "Saquon Barkley"
+          ],
+          "receive": [
+            "Dak Prescott"
+          ]
+        },
+        {
+          "arbitrageScore": 18.72,
+          "boardDelta": 243,
+          "give": [
+            "Tee Higgins"
+          ],
+          "receive": [
+            "Jared Goff"
+          ]
+        },
+        {
+          "arbitrageScore": 17.79,
+          "boardDelta": 865,
+          "give": [
+            "Josh Allen"
+          ],
+          "receive": [
+            "Jaxson Dart",
+            "Michael Wilson"
+          ]
+        },
+        {
+          "arbitrageScore": 17.66,
+          "boardDelta": 842,
+          "give": [
+            "Josh Allen"
+          ],
+          "receive": [
+            "Mark Andrews",
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 17.52,
+          "boardDelta": 259,
+          "give": [
+            "Tee Higgins"
+          ],
+          "receive": [
+            "Makai Lemon"
+          ]
+        }
+      ],
+      "tradeCount": 28,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Brent": {
+      "arbitrageScores": [
+        26.05,
+        25.4,
+        24.34,
+        23.57,
+        23.4,
+        23.34,
+        22.91,
+        22.65,
+        22.6,
+        22.55,
+        22.04,
+        21.94,
+        21.92,
+        21.91,
+        21.86,
+        21.75,
+        21.4,
+        21.32,
+        21.1,
+        21.03,
+        20.99,
+        20.98,
+        20.67,
+        20.65,
+        20.57,
+        20.56,
+        20.49,
+        20.48,
+        20.38,
+        20.35,
+        20.33,
+        20.28,
+        19.89,
+        19.86,
+        19.86,
+        19.8,
+        19.79,
+        19.77,
+        19.69,
+        19.69
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1213,
+        2126,
+        1845,
+        1738,
+        1596,
+        1156,
+        861,
+        1489,
+        1049,
+        908,
+        668,
+        1569,
+        603,
+        797,
+        629,
+        623,
+        1137,
+        556,
+        668,
+        1320,
+        494,
+        880,
+        1030,
+        308,
+        460,
+        437,
+        611,
+        960,
+        271,
+        93,
+        799,
+        27,
+        711,
+        330,
+        1211,
+        998,
+        504,
+        853,
+        164,
+        841
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 14,
+        "2for1": 26
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 106
+      },
+      "top5": [
+        {
+          "arbitrageScore": 26.05,
+          "boardDelta": 1213,
+          "give": [
+            "Kyle Pitts"
+          ],
+          "receive": [
+            "Jordan Love"
+          ]
+        },
+        {
+          "arbitrageScore": 25.4,
+          "boardDelta": 2126,
+          "give": [
+            "Josh Jacobs",
+            "Mark Andrews"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.34,
+          "boardDelta": 1845,
+          "give": [
+            "Mark Andrews",
+            "Travis Etienne"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.57,
+          "boardDelta": 1738,
+          "give": [
+            "Mark Andrews",
+            "Travis Etienne"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 23.4,
+          "boardDelta": 1596,
+          "give": [
+            "Bucky Irving",
+            "Mark Andrews"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Collin": {
+      "arbitrageScores": [
+        23.85,
+        23.09,
+        22.7,
+        22.11,
+        22.07,
+        21.46,
+        21.37,
+        21.37,
+        21.37,
+        21.37,
+        21.02,
+        20.8,
+        20.6,
+        20.36,
+        20.32,
+        20.3,
+        20.28,
+        20.09,
+        20.08,
+        19.96,
+        19.9,
+        19.78,
+        19.74,
+        19.66,
+        19.63,
+        19.41,
+        19.39,
+        19.32,
+        19.31,
+        19.26,
+        19.22,
+        19.18,
+        19.06,
+        18.99,
+        18.93,
+        18.92,
+        18.9,
+        18.86,
+        18.83,
+        18.81
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1614,
+        1507,
+        963,
+        1272,
+        765,
+        1338,
+        1165,
+        634,
+        1416,
+        480,
+        931,
+        1141,
+        868,
+        672,
+        40,
+        824,
+        588,
+        344,
+        1034,
+        798,
+        211,
+        996,
+        41,
+        554,
+        589,
+        512,
+        1034,
+        799,
+        1174,
+        877,
+        104,
+        1151,
+        526,
+        292,
+        482,
+        1104,
+        319,
+        329,
+        486,
+        1044
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 7,
+        "1for2": 4,
+        "2for1": 29
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 113
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.85,
+          "boardDelta": 1614,
+          "give": [
+            "Jadarian Price",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.09,
+          "boardDelta": 1507,
+          "give": [
+            "Jadarian Price",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.7,
+          "boardDelta": 963,
+          "give": [
+            "Tucker Kraft"
+          ],
+          "receive": [
+            "Bo Nix"
+          ]
+        },
+        {
+          "arbitrageScore": 22.11,
+          "boardDelta": 1272,
+          "give": [
+            "Kyren Williams",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.07,
+          "boardDelta": 765,
+          "give": [
+            "Tucker Kraft"
+          ],
+          "receive": [
+            "Brock Purdy"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Ed": {
+      "arbitrageScores": [
+        30.58,
+        29.93,
+        28.76,
+        27.62,
+        27.38,
+        26.58,
+        25.95,
+        25.95,
+        25.87,
+        25.65,
+        25.62,
+        25.53,
+        25.5,
+        25.4,
+        25.35,
+        25.22,
+        25.21,
+        25.16,
+        25.09,
+        25.09,
+        25.05,
+        24.93,
+        24.89,
+        24.87,
+        24.76,
+        24.63,
+        24.57,
+        24.56,
+        24.54,
+        24.46,
+        24.42,
+        24.39,
+        24.36,
+        24.35,
+        24.31,
+        24.29,
+        24.26,
+        24.23,
+        24.16,
+        24.15
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        2042,
+        1798,
+        1773,
+        2188,
+        2203,
+        2096,
+        1974,
+        1959,
+        1360,
+        1832,
+        1152,
+        1864,
+        1116,
+        1362,
+        1806,
+        1582,
+        791,
+        1867,
+        1649,
+        954,
+        1378,
+        2041,
+        1927,
+        1725,
+        1757,
+        1134,
+        1632,
+        744,
+        669,
+        1131,
+        1812,
+        1603,
+        1667,
+        1213,
+        1025,
+        1091,
+        1635,
+        1876,
+        887,
+        1934
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 2,
+        "2for1": 38
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 118
+      },
+      "top5": [
+        {
+          "arbitrageScore": 30.58,
+          "boardDelta": 2042,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 29.93,
+          "boardDelta": 1798,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 28.76,
+          "boardDelta": 1773,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        },
+        {
+          "arbitrageScore": 27.62,
+          "boardDelta": 2188,
+          "give": [
+            "Gunnar Helm",
+            "Jake Ferguson"
+          ],
+          "receive": [
+            "Joe Burrow"
+          ]
+        },
+        {
+          "arbitrageScore": 27.38,
+          "boardDelta": 2203,
+          "give": [
+            "Gunnar Helm",
+            "Javonte Williams"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Eric": {
+      "arbitrageScores": [
+        26.77,
+        26.42,
+        26.26,
+        26.2,
+        26.12,
+        25.77,
+        25.63,
+        25.52,
+        25.27,
+        25.09,
+        24.46,
+        24.46,
+        24.11,
+        24.09,
+        23.81,
+        23.8,
+        23.75,
+        23.75,
+        23.74,
+        23.59,
+        23.54,
+        23.53,
+        23.46,
+        23.39,
+        23.38,
+        23.29,
+        23.24,
+        23.17,
+        23.16,
+        23.12,
+        23.08,
+        23.07,
+        23.03,
+        22.98,
+        22.98,
+        22.87,
+        22.82,
+        22.81,
+        22.8,
+        22.8
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1623,
+        1248,
+        1379,
+        1912,
+        1560,
+        1552,
+        1316,
+        1119,
+        1308,
+        1354,
+        1291,
+        700,
+        1283,
+        1197,
+        1159,
+        1293,
+        700,
+        1189,
+        953,
+        1287,
+        1643,
+        1151,
+        1285,
+        945,
+        1049,
+        1486,
+        1279,
+        1126,
+        1043,
+        653,
+        1088,
+        1052,
+        1041,
+        1359,
+        1478,
+        1222,
+        882,
+        1035,
+        1048,
+        1044
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 6,
+        "2for1": 34
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 114
+      },
+      "top5": [
+        {
+          "arbitrageScore": 26.77,
+          "boardDelta": 1623,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 26.42,
+          "boardDelta": 1248,
+          "give": [
+            "Sam LaPorta"
+          ],
+          "receive": [
+            "Nico Collins"
+          ]
+        },
+        {
+          "arbitrageScore": 26.26,
+          "boardDelta": 1379,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 26.2,
+          "boardDelta": 1912,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Justin Herbert"
+          ]
+        },
+        {
+          "arbitrageScore": 26.12,
+          "boardDelta": 1560,
+          "give": [
+            "Chig Okonkwo",
+            "Kyle Monangai"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Jason": {
+      "arbitrageScores": [
+        30.87,
+        30.18,
+        29.02,
+        28.96,
+        26.54,
+        25.94,
+        25.8,
+        25.63,
+        25.5,
+        25.23,
+        25.05,
+        24.63,
+        24.53,
+        24.48,
+        24.26,
+        24.08,
+        23.89,
+        23.79,
+        23.77,
+        23.75,
+        23.72,
+        23.6,
+        23.59,
+        23.55,
+        23.53,
+        23.34,
+        23.3,
+        23.28,
+        23.17,
+        23.15,
+        23.07,
+        23.03,
+        23.0,
+        22.98,
+        22.96,
+        22.94,
+        22.93,
+        22.79,
+        22.77,
+        22.67
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        2110,
+        1866,
+        1841,
+        2542,
+        1535,
+        1923,
+        1220,
+        1430,
+        1650,
+        1022,
+        1796,
+        737,
+        1095,
+        1093,
+        851,
+        1209,
+        608,
+        1541,
+        968,
+        189,
+        965,
+        1252,
+        1384,
+        1655,
+        724,
+        929,
+        1498,
+        1082,
+        1641,
+        970,
+        1367,
+        826,
+        909,
+        1125,
+        838,
+        1414,
+        1234,
+        1481,
+        1257,
+        1528
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 1,
+        "2for1": 39
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 119
+      },
+      "top5": [
+        {
+          "arbitrageScore": 30.87,
+          "boardDelta": 2110,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 30.18,
+          "boardDelta": 1866,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 29.02,
+          "boardDelta": 1841,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        },
+        {
+          "arbitrageScore": 28.96,
+          "boardDelta": 2542,
+          "give": [
+            "Bhayshul Tuten",
+            "T.J. Hockenson"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 26.54,
+          "boardDelta": 1535,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Trevor Lawrence"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Joey": {
+      "arbitrageScores": [
+        26.0,
+        24.47,
+        24.39,
+        24.16,
+        23.98,
+        23.82,
+        23.8,
+        23.63,
+        23.6,
+        23.45,
+        23.43,
+        23.32,
+        23.23,
+        23.08,
+        23.01,
+        22.95,
+        22.9,
+        22.67,
+        22.64,
+        22.5,
+        22.26,
+        21.99,
+        21.79,
+        21.75,
+        21.6,
+        21.4,
+        21.31,
+        21.27,
+        21.22,
+        21.19,
+        21.18,
+        21.06,
+        20.89,
+        20.85,
+        20.81,
+        20.79,
+        20.79,
+        20.75,
+        20.6,
+        20.6
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1982,
+        1154,
+        1484,
+        910,
+        1559,
+        1600,
+        1180,
+        1377,
+        1443,
+        936,
+        1585,
+        1255,
+        1452,
+        1426,
+        1469,
+        885,
+        1011,
+        1478,
+        1593,
+        1452,
+        911,
+        1208,
+        424,
+        986,
+        1283,
+        765,
+        1170,
+        738,
+        377,
+        1113,
+        521,
+        1309,
+        499,
+        840,
+        579,
+        1005,
+        813,
+        526,
+        1211,
+        1139
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 5,
+        "2for1": 35
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 115
+      },
+      "top5": [
+        {
+          "arbitrageScore": 26.0,
+          "boardDelta": 1982,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Joe Burrow"
+          ]
+        },
+        {
+          "arbitrageScore": 24.47,
+          "boardDelta": 1154,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 24.39,
+          "boardDelta": 1484,
+          "give": [
+            "Brenton Strange",
+            "Tyler Shough"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.16,
+          "boardDelta": 910,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 23.98,
+          "boardDelta": 1559,
+          "give": [
+            "Quentin Johnston",
+            "Tyler Shough"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Kich": {
+      "arbitrageScores": [
+        23.0,
+        22.54,
+        22.0,
+        21.93,
+        21.84,
+        21.49,
+        21.28,
+        21.23,
+        21.01,
+        20.97,
+        20.97,
+        20.52,
+        20.44,
+        20.4,
+        20.37,
+        20.36,
+        20.28,
+        20.22,
+        20.11,
+        20.08,
+        20.02,
+        20.0,
+        19.9,
+        19.89,
+        19.73,
+        19.69,
+        19.66,
+        19.63,
+        19.62,
+        19.55,
+        19.54,
+        19.51,
+        19.5,
+        19.46,
+        19.45,
+        19.42,
+        19.4,
+        19.39,
+        19.32,
+        19.29
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1785,
+        1672,
+        1456,
+        1592,
+        1564,
+        1283,
+        1425,
+        1093,
+        590,
+        1254,
+        1235,
+        1062,
+        925,
+        1287,
+        1174,
+        897,
+        1146,
+        1223,
+        426,
+        681,
+        653,
+        182,
+        1033,
+        1114,
+        817,
+        1256,
+        568,
+        924,
+        1143,
+        346,
+        1115,
+        817,
+        318,
+        324,
+        102,
+        74,
+        573,
+        1066,
+        953,
+        395
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 1,
+        "2for1": 39
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 119
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.0,
+          "boardDelta": 1785,
+          "give": [
+            "George Kittle",
+            "Ty Simpson"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.54,
+          "boardDelta": 1672,
+          "give": [
+            "Davante Adams",
+            "KC Concepcion"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.0,
+          "boardDelta": 1456,
+          "give": [
+            "George Kittle",
+            "Matthew Stafford"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 21.93,
+          "boardDelta": 1592,
+          "give": [
+            "DK Metcalf",
+            "KC Concepcion"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 21.84,
+          "boardDelta": 1564,
+          "give": [
+            "KC Concepcion",
+            "Ty Simpson"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "MaKayla": {
+      "arbitrageScores": [
+        23.34,
+        22.95,
+        22.58,
+        22.53,
+        22.2,
+        22.2,
+        21.99,
+        21.78,
+        21.74,
+        21.74,
+        21.69,
+        21.46,
+        21.46,
+        21.41,
+        21.34,
+        21.24,
+        21.04,
+        21.02,
+        21.01,
+        21.01,
+        20.94,
+        20.87,
+        20.77,
+        20.69,
+        20.64,
+        20.59,
+        20.55,
+        20.52,
+        20.32,
+        20.3,
+        20.28,
+        20.27,
+        20.2,
+        20.16,
+        20.14,
+        19.99,
+        19.97,
+        19.93,
+        19.92,
+        19.91
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1785,
+        1510,
+        1678,
+        1655,
+        1403,
+        1380,
+        1583,
+        1548,
+        983,
+        1241,
+        536,
+        1273,
+        292,
+        739,
+        1380,
+        1476,
+        1111,
+        1398,
+        1224,
+        1134,
+        1272,
+        949,
+        825,
+        1242,
+        1008,
+        1234,
+        967,
+        1250,
+        1004,
+        552,
+        1117,
+        808,
+        1268,
+        842,
+        308,
+        878,
+        1135,
+        1039,
+        901,
+        570
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 4,
+        "2for1": 36
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 116
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.34,
+          "boardDelta": 1785,
+          "give": [
+            "Eli Stowers",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.95,
+          "boardDelta": 1510,
+          "give": [
+            "Jameson Williams",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.58,
+          "boardDelta": 1678,
+          "give": [
+            "Eli Stowers",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.53,
+          "boardDelta": 1655,
+          "give": [
+            "Eli Stowers",
+            "Michael Wilson"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.2,
+          "boardDelta": 1403,
+          "give": [
+            "Jameson Williams",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Roy": {
+      "arbitrageScores": [
+        23.53,
+        23.37,
+        22.96,
+        22.77,
+        22.62,
+        22.23,
+        21.68,
+        21.29,
+        21.28,
+        21.16,
+        21.0,
+        20.95,
+        20.67,
+        20.61,
+        20.57,
+        20.56,
+        20.31,
+        20.3,
+        20.04,
+        19.97,
+        19.72,
+        19.65,
+        19.46,
+        19.36,
+        18.99,
+        18.98,
+        18.96,
+        18.96,
+        18.63,
+        18.63,
+        18.54,
+        18.45,
+        18.4,
+        18.38,
+        18.33,
+        18.32,
+        18.31,
+        18.31,
+        18.16,
+        18.06
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1575,
+        1359,
+        1244,
+        1468,
+        1252,
+        1137,
+        1261,
+        1146,
+        930,
+        1299,
+        1083,
+        1154,
+        375,
+        968,
+        1039,
+        823,
+        613,
+        829,
+        1,
+        498,
+        561,
+        290,
+        46,
+        985,
+        870,
+        654,
+        432,
+        395,
+        515,
+        231,
+        447,
+        184,
+        660,
+        444,
+        116,
+        21,
+        400,
+        13,
+        57,
+        329
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 8,
+        "2for1": 32
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 112
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.53,
+          "boardDelta": 1575,
+          "give": [
+            "Bryce Young",
+            "Isaiah Likely"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.37,
+          "boardDelta": 1359,
+          "give": [
+            "Isaiah Likely",
+            "Oronde Gadsden"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.96,
+          "boardDelta": 1244,
+          "give": [
+            "Isaiah Likely",
+            "Sam Darnold"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.77,
+          "boardDelta": 1468,
+          "give": [
+            "Bryce Young",
+            "Isaiah Likely"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.62,
+          "boardDelta": 1252,
+          "give": [
+            "Isaiah Likely",
+            "Oronde Gadsden"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "Ty": {
+      "arbitrageScores": [
+        20.5,
+        18.05,
+        17.78,
+        17.63,
+        17.58,
+        16.46,
+        16.44
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        374,
+        293,
+        248,
+        209,
+        250,
+        40,
+        123
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 7
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 14
+      },
+      "top5": [
+        {
+          "arbitrageScore": 20.5,
+          "boardDelta": 374,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Dak Prescott"
+          ]
+        },
+        {
+          "arbitrageScore": 18.05,
+          "boardDelta": 293,
+          "give": [
+            "C.J. Stroud"
+          ],
+          "receive": [
+            "Jared Goff"
+          ]
+        },
+        {
+          "arbitrageScore": 17.78,
+          "boardDelta": 248,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Breece Hall"
+          ]
+        },
+        {
+          "arbitrageScore": 17.63,
+          "boardDelta": 209,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Jordyn Tyson"
+          ]
+        },
+        {
+          "arbitrageScore": 17.58,
+          "boardDelta": 250,
+          "give": [
+            "James Cook"
+          ],
+          "receive": [
+            "Bo Nix"
+          ]
+        }
+      ],
+      "tradeCount": 7,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    },
+    "jstuedle": {
+      "arbitrageScores": [
+        24.92,
+        24.69,
+        24.2,
+        24.15,
+        23.06,
+        22.99,
+        22.51,
+        22.39,
+        22.24,
+        21.79,
+        21.65,
+        21.55,
+        21.09,
+        21.06,
+        20.82,
+        20.64,
+        20.61,
+        20.35,
+        20.34,
+        20.05,
+        19.99,
+        19.93,
+        19.89,
+        19.72,
+        19.72,
+        19.71,
+        19.69,
+        19.63,
+        19.62,
+        19.56,
+        19.47,
+        19.31,
+        19.29,
+        19.26,
+        19.16,
+        19.12,
+        18.92,
+        18.84,
+        18.74,
+        18.46
+      ],
+      "assetsUnpricedByBoard": 202,
+      "boardDeltas": [
+        1813,
+        1471,
+        1227,
+        1706,
+        1202,
+        1612,
+        1537,
+        1409,
+        1505,
+        1266,
+        1302,
+        1067,
+        239,
+        1159,
+        896,
+        1336,
+        1208,
+        531,
+        581,
+        1133,
+        791,
+        383,
+        1101,
+        866,
+        685,
+        528,
+        1011,
+        862,
+        898,
+        98,
+        990,
+        38,
+        1014,
+        663,
+        511,
+        454,
+        755,
+        808,
+        520,
+        663
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 18,
+        "ktcSfTep": 132
+      },
+      "packageShapes": {
+        "1for1": 1,
+        "2for1": 39
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 119
+      },
+      "top5": [
+        {
+          "arbitrageScore": 24.92,
+          "boardDelta": 1813,
+          "give": [
+            "Cam Skattebo",
+            "Dallas Goedert"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.69,
+          "boardDelta": 1471,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 24.2,
+          "boardDelta": 1227,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 24.15,
+          "boardDelta": 1706,
+          "give": [
+            "Cam Skattebo",
+            "Dallas Goedert"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 23.06,
+          "boardDelta": 1202,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "valueSource": "rankDerivedValue",
+      "warnings": [
+        "202 assets carry a scraper value above 700 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+      ]
+    }
+  }
+}

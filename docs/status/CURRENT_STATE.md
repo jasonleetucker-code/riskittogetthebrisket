@@ -2,6 +2,11 @@
 
 _Updated: 2026-03-22 (post Phase B-F execution)_
 
+> **Stale on one point:** this document names `riskittogetthebrisket.org` as the live
+> site. That domain lapsed and now resolves to a third party; production moved to
+> `https://chaseupside.com`. The rest of the document is left as the dated snapshot it
+> is.
+
 This is the honest status of the platform, written for anyone who needs to understand what works, what doesn't, and what's next — without reading 10 technical docs.
 
 ---

@@ -7,7 +7,10 @@
 
 A **dynasty fantasy football trade calculator and league management tool** built for a private 12-team Superflex TEP league. It scrapes trade values from 11 external sites, blends them into a composite score, applies league-specific scoring adjustments, and serves a web dashboard with trade evaluation, rankings, roster analysis, and draft capital tracking.
 
-**Live at:** `https://riskittogetthebrisket.org` (HTTPS via Caddy reverse proxy)
+**Live at:** `https://chaseupside.com` (HTTPS via nginx + Let's Encrypt)
+
+> The original `riskittogetthebrisket.org` domain lapsed and was re-registered by a
+> third party. Do not probe, link, or deploy to it.
 
 ---
 

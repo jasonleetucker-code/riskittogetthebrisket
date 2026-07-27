@@ -170,7 +170,10 @@ class PositionProfile:
     bye_concentration: float | None = None
 
     # ── market position ──
-    replacement_gap: float | None = None
+    # The position's starter REPLACEMENT LEVEL, not a gap. Consumers
+    # multiply it by unfilled slots (see partner.py::_need_alignment), so
+    # the value has always been a level; only the name was wrong.
+    replacement_level: float | None = None
     tradeable_surplus: float = 0.0
     surplus_players: tuple[str, ...] = ()
     urgent_need: bool = False
@@ -179,7 +182,10 @@ class PositionProfile:
     def to_dict(self) -> dict[str, Any]:
         return {
             "position": self.position,
-            "marginalPoints": round(self.marginal_points, 3),
+            # NOT points — see ``marginal.py::PositionMarginal.to_dict``.
+            # ``marginalPoints`` is a deprecated alias kept for one release.
+            "marginalStrengthIndex": round(self.marginal_points, 3),
+            "marginalPoints": round(self.marginal_points, 3),  # deprecated alias
             "marginalShare": round(self.marginal_share, 4),
             "entryRate": round(self.entry_rate, 4),
             "enteredLineup": self.entered_lineup,
@@ -195,8 +201,13 @@ class PositionProfile:
             "byeConcentration": (
                 round(self.bye_concentration, 4) if self.bye_concentration is not None else None
             ),
+            # ``replacementGap`` is a deprecated alias: the value is and
+            # always was the starter replacement LEVEL, not a gap.
+            "replacementLevel": (
+                round(self.replacement_level, 3) if self.replacement_level is not None else None
+            ),
             "replacementGap": (
-                round(self.replacement_gap, 3) if self.replacement_gap is not None else None
+                round(self.replacement_level, 3) if self.replacement_level is not None else None
             ),
             "tradeableSurplus": round(self.tradeable_surplus, 3),
             "surplusPlayers": list(self.surplus_players),
@@ -367,7 +378,7 @@ def build_position_profiles(
             injured_count=len(injured),
             injured_starters=len(injured_starters),
             bye_concentration=_bye_concentration(byes),
-            replacement_gap=(rep.value("starter") if rep else None),
+            replacement_level=(rep.value("starter") if rep else None),
             tradeable_surplus=float(sum(p.ros_value for p in surplus)),
             surplus_players=tuple(sorted(p.canonical_name or p.player_id for p in surplus)),
             urgent_need=bool(need_reasons),

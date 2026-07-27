@@ -164,7 +164,13 @@ class PositionMarginal:
             "position": self.position,
             "rostered": self.rostered,
             "priced": self.priced,
-            "marginalPoints": round(self.marginal_points, 3),
+            # NOT points.  The underlying quantity is a difference of two
+            # lineup solves whose weights are ``rosValue`` — a 0-100
+            # normalized log-rank index (``src/ros/parse.py``).
+            # ``marginalPoints`` is retained as a deprecated alias for one
+            # release; new consumers read ``marginalStrengthIndex``.
+            "marginalStrengthIndex": round(self.marginal_points, 3),
+            "marginalPoints": round(self.marginal_points, 3),  # deprecated alias
             "marginalShare": round(self.marginal_share, 4),
             "enteredLineup": self.entered_lineup,
             "entryRate": round(self.entry_rate, 4),

@@ -15,10 +15,24 @@ os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
 # ``src/api/data_contract.py::_resolve_league_context`` reads the
 # operator's Sleeper league to derive the roster count (rookie-pick
 # anchor) and the TE-premium multiplier (``bonus_rec_te``).  During
-# tests we must not hit the live Sleeper API — both because it's slow /
-# flaky and because the operator's league has bonus_rec_te=0.5, which
-# would silently flip the derived TEP from the 1.0 baseline the test
-# fixtures assume.
+# tests we must not hit the live Sleeper API — it is slow and flaky, and
+# a live fetch would make every fixture's expected TE value depend on
+# whatever the commissioner set this season.
+#
+# CORRECTED 2026-07-27 (collaborative audit).  This comment used to
+# justify the isolation by saying "the operator's league has
+# bonus_rec_te=0.5".  That is no longer true and contradicts
+# ``data_contract.py``'s own retraction: the 2026 league reports
+# ``bonus_rec_te = 0.0`` — a real, exposed zero, not missing data — and
+# no other TE-touching key advantages the position either
+# (``bonus_fd_te`` is 1.0, but so are ``bonus_fd_wr`` and
+# ``bonus_fd_rb``).  Measured 2026 TE premium: ×1.000.
+#
+# Worth stating plainly: the fallback below lands on the same numbers the
+# live league would produce today, so the suite agrees with reality by
+# coincidence rather than by construction.  That means the live
+# derivation branch is NOT exercised by this suite — a test that wants it
+# must monkeypatch explicitly, as noted below.
 #
 # Clearing the env var makes ``_resolve_league_context`` return its
 # fallback dict (roster_count=12, bonus_rec_te=0.0, derived TEP=1.0),

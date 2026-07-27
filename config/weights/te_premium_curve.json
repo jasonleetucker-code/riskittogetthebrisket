@@ -1,0 +1,21 @@
+{
+  "_comment": "KTC's own TE-premium (TE++, level 2) uplift curve, measured from CSVs/site_raw/ktc.csv vs ktcSfTep.csv. ratio(v) = 1 + a * v^-k, monotone and >= 1 by construction. Regenerate with scripts/audit/fit_ktc_tep_curve.py --write-config.",
+  "_limitation": "Measured within KTC's board. Applying it to another publisher's TE values assumes that board's TEs sit at a comparable base. Nothing here validates that, and nothing here says KTC's TE premium is correct - only that this is what KTC does.",
+  "form": "1 + a * value^(-k)",
+  "a": 43.555794,
+  "k": 0.632839,
+  "floor": 1.209206,
+  "fit": {
+    "n_observations": 73,
+    "r2_log_space": 0.9411,
+    "median_abs_err_ratio": 0.0226,
+    "p90_abs_err_ratio": 0.0529,
+    "max_abs_err_ratio": 0.1889,
+    "_err_note": "Residuals are within +/-0.023 for TE1-60 and degrade only across the deepest ~13 TEs, where single noisy observations dominate (one TE at ratio 2.05). The curve UNDER-states the premium there; it does not over-state it."
+  },
+  "observed_ratio_range": [
+    1.2092,
+    2.0531
+  ],
+  "measured_at": "2026-07-27T07:10:10.395521+00:00"
+}

@@ -93,7 +93,7 @@ print(f'internal_primary: passed={ip.get(\"passed\")} failed={ip.get(\"failed\")
 # Expected: passed=9 or 10, failed=0
 
 # 6. External health check
-curl -s https://riskittogetthebrisket.org/api/health
+curl -s https://chaseupside.com/api/health
 # Expected: 200 OK
 
 # 7. Check server logs for canonical load confirmation

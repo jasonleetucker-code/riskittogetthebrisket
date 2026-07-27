@@ -20,52 +20,75 @@ from typing import Any
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
 # ── Thresholds ──────────────────────────────────────────────────────────
-MIN_ASSET_VALUE = 800  # Minimum model value to consider an asset tradeable
-MIN_MARKET_VALUE = 500  # Minimum retail market value to include in trade
+#
+# WS-J F-6 / audit finding K — RE-DERIVED 2026-07-27 when this engine
+# moved off the raw scraper composite onto ``rankDerivedValue``.
+#
+# These were tuned against composite-scale numbers.  Porting them
+# unchanged would have silently tightened every absolute gate, because
+# the board sits BELOW the composite: measured over the 803 assets
+# carrying both values on one held-constant payload, the median
+# board/composite ratio is k = 0.875 (p10 0.775, p90 1.056).  A gate
+# left at 800 would therefore admit ~14% fewer assets than it used to,
+# which is a silent behaviour change wearing a "no code change" costume.
+#
+# Method: scale by the measured k, then round.  Percentile-matching was
+# tried first and REJECTED — it is degenerate at the low end here.
+# MIN_ASSET_VALUE=800 sits at the 99.25th percentile of the paired pool
+# and JUNK_THRESHOLD=400 at the 100th, so matching percentiles maps both
+# onto ~900 and collapses two gates that exist to do different jobs.
+# It also conflates the scale change with a population change: the
+# composite prices 1077 assets and the board 812.
+#
+# ``MIN_MARKET_VALUE`` is deliberately NOT rescaled.  It gates retail
+# market values (KTC / IDPTradeCalc), which this migration does not
+# touch.  Scaling it would have been the easy mistake.
+MIN_ASSET_VALUE = 700  # was 800 on the composite scale
+MIN_MARKET_VALUE = 500  # UNCHANGED — gates market values, not board values
 MIN_KTC_VALUE = MIN_MARKET_VALUE  # Deprecated alias
-MAX_BOARD_LOSS = -200  # Never suggest a trade where my board delta is worse than this
-MAX_PACKAGE_SIZE = 3  # Max assets on either side
+MAX_BOARD_LOSS = -175  # was -200
 MAX_RESULTS = 40  # Cap returned results
-JUNK_THRESHOLD = 400  # Assets below this are roster clog
-# Single-source haircut.  KEEP THIS — it is the only such discount on
-# this engine's input path.
-#
-# WS-J F-6 originally reported this as a double-discount stacked on the
-# pipeline's 0.30 single-source retention (``_SINGLE_SOURCE_VALUE_RETENTION``
-# in ``data_contract.py``), giving ~0.264 effective.  That was WRONG, and
-# the correction matters because the "obvious" fix would have removed the
-# only haircut this engine has:
-#
-#   suggestions.py reads ``playersArray[...]["rankDerivedValue"]`` — the
-#     Final Framework output, which HAS had the 0.30 retention applied.
-#     It therefore correctly applies no further discount.
-#   finder.py reads ``players[name]["_finalAdjusted"]`` — which
-#     ``data_contract.py`` deep-copies verbatim from the raw scrape
-#     (``base["players"] = players_by_name``), and which
-#     ``Dynasty Scraper.py`` sets straight from ``_composite``.  The
-#     0.30 retention never touches it.
-#
-# So the two haircuts are applied to two different value pipelines, not
-# stacked on one.  Removing this constant would leave single-source
-# assets undiscounted in the arbitrage finder.
-#
-# The old comment claimed this "matched the frontend"; the frontend no
-# longer applies any single-source haircut, so that anchor is gone and
-# the 0.88 is now an unvalidated local constant.  Tracked as the real
-# F-6: finder.py should move onto the Final Framework values that
-# CLAUDE.md calls the single source of truth for live player values,
-# at which point this discount is deleted rather than retuned.
-SINGLE_SOURCE_DISCOUNT = 0.88
+JUNK_THRESHOLD = 350  # was 400
 MULTI_FOR_ONE_MIN_RATIO = 0.55  # 2-for-1 give side must be >= 55% of receive model value
+
+# The measured level offset between the two value scales, kept as a
+# named constant so the threshold derivation above is reproducible
+# rather than a set of magic numbers.  Regenerate with
+# ``scripts/measure_engine_value_divergence.py``.
+BOARD_TO_COMPOSITE_K = 0.875
+
+# Single-source haircut for the LEGACY composite path only.
+#
+# It existed because ``_SINGLE_SOURCE_VALUE_RETENTION`` (0.30) is applied
+# to ``rankDerivedValue`` and never reached the composite this engine
+# used to read — so without it, single-source assets were undiscounted
+# here.  An earlier reading of F-6 called the two a stacked double
+# haircut and proposed deleting this constant; that was wrong, and
+# deleting it then would have introduced a live distortion via a "fix".
+#
+# On the migrated path it is genuinely redundant: the retention arrives
+# baked into the board value.  So it is retained ONLY for the fallback
+# branch and named to say so.  ``SINGLE_SOURCE_DISCOUNT`` remains as a
+# deprecated alias for the pinning test.
+_LEGACY_SINGLE_SOURCE_DISCOUNT = 0.88
+SINGLE_SOURCE_DISCOUNT = _LEGACY_SINGLE_SOURCE_DISCOUNT  # deprecated alias
 
 # ── Market quality gates ───────────────────────────────────────────────
 EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}  # No real market support
-PARTIAL_MARKET_MAX_RANK = 15  # Partial-coverage trades cannot appear above this rank
 PARTIAL_MARKET_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-coverage arbitrage score
 
-# Deprecated aliases — kept so external callers/tests importing the old
-# names keep working.  Remove once no caller references them.
-PARTIAL_KTC_MAX_RANK = PARTIAL_MARKET_MAX_RANK
+# ``PARTIAL_MARKET_MAX_RANK`` used to live here.  It was already dead:
+# WS-J F-7 collapsed the if/else that consulted it (both branches
+# computed ``full + partial``), leaving the constant exported but never
+# read.  An exported constant nothing reads is a promise the code does
+# not keep, so it is removed rather than left as scenery.
+# ``MAX_PACKAGE_SIZE`` is removed for the same reason: package shapes
+# are fixed by ``_generate_1for1`` / ``_generate_2for1`` /
+# ``_generate_1for2`` and bounded by a literal ``[:30]`` slice, never by
+# that constant.
+
+# Deprecated alias — kept so external callers/tests importing the old
+# name keep working.  Remove once no caller references it.
 PARTIAL_KTC_ARBITRAGE_CAP = PARTIAL_MARKET_ARBITRAGE_CAP
 
 # ── Per-market quality gate ────────────────────────────────────────────
@@ -106,7 +129,7 @@ OFFENSE_MARKET_KEYS = ("ktcSfTep", "ktc")
 IDP_MARKET_KEYS = ("idpTradeCalc",)
 
 # ── Hardening-pass thresholds ────────────────────────────────────────────
-ELITE_THRESHOLD = 7500  # Model value above which a player is "elite"
+ELITE_THRESHOLD = 6600  # was 7500 on the composite scale; see the F-6 note above
 ELITE_MULTI_MIN_RATIO = 0.65  # Tighter ratio for elite targets in multi-for-one
 PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
 CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
@@ -260,8 +283,12 @@ def _build_summary(
     edge_label: str,
     pkg_size_str: str,
 ) -> str:
+    # The verb and the sign both follow the number.  This used to read
+    # "you gain {delta} (+{pct})" unconditionally, so a -100 delta
+    # rendered as "you gain -100 board value (+-2%)".
+    verb = "you gain" if board_delta >= 0 else "you give up"
     parts = [
-        f"{edge_label}: you gain {board_delta:,} board value (+{board_gain_pct:.0%})",
+        f"{edge_label}: {verb} {abs(board_delta):,} board value " f"({board_gain_pct:+.0%})",
     ]
     # Only claim KTC opponent appeal when coverage is full
     if coverage == "full":
@@ -274,11 +301,37 @@ def _build_summary(
     return ". ".join(parts) + f". ({pkg_size_str})"
 
 
+def board_values_from_contract(contract: dict[str, Any]) -> dict[str, int]:
+    """Map ``legacyRef``/``canonicalName`` → ``rankDerivedValue``.
+
+    The canonical board — the same values ``/rankings`` shows and every
+    other trade engine reads (``suggestions.py``, ``angle.py``,
+    ``waiver.py``, ``monte_carlo.py``).
+
+    Keyed on both ``legacyRef`` and ``canonicalName`` because the
+    ``players`` dict this pool is built from is keyed by the legacy
+    scraper name, which is not always the canonical one.
+    """
+    out: dict[str, int] = {}
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, dict):
+            continue
+        value = _int_or_none(row.get("rankDerivedValue"))
+        if value is None or value < 1:
+            continue
+        for key in ("legacyRef", "canonicalName", "displayName"):
+            name = row.get(key)
+            if isinstance(name, str) and name:
+                out.setdefault(name, value)
+    return out
+
+
 def build_asset_pool(
     players: dict[str, Any],
     *,
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
+    board_values: dict[str, int] | None = None,
 ) -> list[Asset]:
     """Convert raw players dict into Asset objects with model + market values.
 
@@ -292,6 +345,25 @@ def build_asset_pool(
         market_top_n: Only include assets ranked inside the top N **of
             their own market**. Set to 0 to disable.
         ktc_top_n: Deprecated alias for ``market_top_n``.
+        board_values: ``name -> rankDerivedValue`` from the canonical
+            contract.  When supplied, the model value comes from the
+            board and assets absent from it are DROPPED — see below.
+
+    The ``board_values`` path is the F-6 migration (audit finding K).
+    Without it this function falls back to the raw scraper composite,
+    which is what the engine used to read: a parallel board the user
+    never sees, so the "arbitrage" was measured against the wrong
+    baseline.  The fallback is retained for fixtures and for callers
+    that hold only a raw payload; ``find_trades`` always passes the
+    board when a contract is available.
+
+    **Dropping is the point, not a side effect.** 274 assets on a
+    real payload carry a composite value but no ``rankDerivedValue``
+    (189 of them clearing ``MIN_ASSET_VALUE``). They are assets the
+    canonical board declines to price. Trading them was never
+    defensible — the finder was pricing them off a board nothing else
+    consults — so they leave the universe, and ``find_trades`` reports
+    how many left rather than letting the pool quietly shrink.
     """
     if market_top_n is None:
         market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -299,28 +371,45 @@ def build_asset_pool(
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        # Model value: prefer _finalAdjusted, then _rawComposite, then _composite.
-        model = _int_or_none(pdata.get("_finalAdjusted"))
-        if model is None:
-            model = _int_or_none(pdata.get("_rawComposite"))
-        if model is None:
-            model = _int_or_none(pdata.get("_rawMarketValue"))
-        if model is None:
-            model = _int_or_none(pdata.get("_composite"))
-        if model is None or model < 1:
-            continue
 
-        # Offense-only model value: uses the value computed with IDP
-        # sources excluded.  Applied to trades where no side has an IDP
-        # player, so IDP source calibration doesn't influence the score.
-        oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
-
-        # Apply single-source discount to match frontend behavior
         source_count = _int_or_none(pdata.get("_sites")) or 0
-        if source_count == 1:
-            model = int(model * SINGLE_SOURCE_DISCOUNT)
-            if oo_raw is not None and oo_raw >= 1:
-                oo_raw = int(oo_raw * SINGLE_SOURCE_DISCOUNT)
+
+        if board_values is not None:
+            # F-6: the canonical board.  No single-source haircut here —
+            # ``_SINGLE_SOURCE_VALUE_RETENTION`` (0.30) is already baked
+            # into ``rankDerivedValue`` by the pipeline.  The local 0.88
+            # ``SINGLE_SOURCE_DISCOUNT`` existed only to substitute for a
+            # retention that never reached this engine, and is deleted
+            # with the migration rather than retuned.
+            model = board_values.get(name)
+            if model is None or model < 1:
+                continue
+            # The board has no offense-only variant; the offense-only
+            # path stays on the composite so it degrades to "unavailable"
+            # rather than silently comparing two different scales.
+            oo_raw = None
+        else:
+            # Legacy path: raw scraper composite.
+            model = _int_or_none(pdata.get("_finalAdjusted"))
+            if model is None:
+                model = _int_or_none(pdata.get("_rawComposite"))
+            if model is None:
+                model = _int_or_none(pdata.get("_rawMarketValue"))
+            if model is None:
+                model = _int_or_none(pdata.get("_composite"))
+            if model is None or model < 1:
+                continue
+
+            # Offense-only model value: uses the value computed with IDP
+            # sources excluded.  Applied to trades where no side has an
+            # IDP player, so IDP source calibration doesn't influence
+            # the score.
+            oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
+
+            if source_count == 1:
+                model = int(model * _LEGACY_SINGLE_SOURCE_DISCOUNT)
+                if oo_raw is not None and oo_raw >= 1:
+                    oo_raw = int(oo_raw * _LEGACY_SINGLE_SOURCE_DISCOUNT)
 
         pos = _norm_pos(pdata.get("position", ""))
 
@@ -490,7 +579,17 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     recv_model = sum(_mv(a) for a in receive)
     board_delta = recv_model - give_model
 
-    # Must be positive on our board (we receive more model value than we give)
+    # NOT "must be positive" — this admits a band of small BOARD LOSSES
+    # down to ``MAX_BOARD_LOSS`` so a near-even trade with strong
+    # opponent appeal can still be scored and compared.  The comment
+    # here used to claim positivity, contradicting the line it annotated.
+    #
+    # Nothing in that band reaches a caller: ``find_trades`` filters on
+    # ``board_delta > 0`` before returning.  Two gates, deliberately —
+    # scoring a candidate and recommending it are different questions.
+    # If the output filter is ever relaxed, ``_build_summary`` must stop
+    # hard-coding a ``+`` sign first (see below), or a loss ships
+    # described as a gain.
     if board_delta < MAX_BOARD_LOSS:
         return None
 
@@ -729,6 +828,7 @@ def find_trades(
     max_results: int = MAX_RESULTS,
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
+    contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -754,7 +854,28 @@ def find_trades(
     """
     if market_top_n is None:
         market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
-    pool = build_asset_pool(players, market_top_n=market_top_n)
+
+    # F-6 (audit finding K): value assets off the canonical board when a
+    # contract is available.  ``contract`` may be the same object the
+    # ``players`` dict came from — ``/api/data`` carries both — so a
+    # caller holding the live contract can pass it for both arguments.
+    board_values = board_values_from_contract(contract) if contract else None
+    pool = build_asset_pool(players, market_top_n=market_top_n, board_values=board_values)
+
+    # How many assets the board declined to price.  Surfaced rather than
+    # left to be inferred from a smaller pool: migrating to the canonical
+    # board removes assets from this engine's universe, and a silently
+    # shorter list reads as "nothing available" instead of "not priced".
+    unpriced_by_board = 0
+    if board_values is not None:
+        unpriced_by_board = sum(
+            1
+            for name, pdata in players.items()
+            if isinstance(pdata, dict)
+            and name not in board_values
+            and (_int_or_none(pdata.get("_finalAdjusted")) or 0) >= MIN_ASSET_VALUE
+        )
+
     pool_by_name: dict[str, Asset] = {}
     for a in pool:
         pool_by_name[a.name] = a
@@ -771,6 +892,13 @@ def find_trades(
     all_trades: list[TradeCandidate] = []
     opponents_analyzed = 0
     warnings: list[str] = []
+
+    if unpriced_by_board:
+        warnings.append(
+            f"{unpriced_by_board} assets carry a scraper value above "
+            f"{MIN_ASSET_VALUE} but no canonical board value, so they are not "
+            "tradeable here. They are unpriced, not worthless."
+        )
 
     # Track market coverage, per market.  Reporting one blended number
     # hid the offense-only regression (WS-J F-3): a pool with zero IDP
@@ -881,6 +1009,9 @@ def find_trades(
             "totalQualified": len(ranked),
             "returned": len(capped),
             "assetPoolSize": len(pool),
+            # F-6: which value scale this run used, and what it cost.
+            "valueSource": "rankDerivedValue" if board_values is not None else "rawComposite",
+            "assetsUnpricedByBoard": unpriced_by_board,
             "marketTopNFilter": market_top_n,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),

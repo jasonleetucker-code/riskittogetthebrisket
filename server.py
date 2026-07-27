@@ -5231,6 +5231,11 @@ async def post_trade_finder(request: Request):
             opponent_teams=opponent_teams,
             sleeper_teams=sleeper_teams,
             ktc_top_n=finder_ktc_top_n,
+            # F-6 (audit finding K): the contract carries `playersArray`
+            # with `rankDerivedValue` — the board the user actually sees.
+            # Without this the finder arbitrages the raw scraper
+            # composite, which no other engine and no UI surface reads.
+            contract=latest_contract_data,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")

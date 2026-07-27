@@ -117,7 +117,9 @@ This document describes every automated process in the Risk It to Get the Briske
 Sign up for a free account at [UptimeRobot](https://uptimerobot.com) (or similar).
 
 **Configure a monitor**:
-- URL: `https://riskittogetthebrisket.org/api/health`
+- URL: `https://chaseupside.com/api/health`
+  (**not** `riskittogetthebrisket.org` — that domain lapsed, was re-registered by a
+  third party, and pointing a monitor at it would probe someone else's server.)
 - Check interval: 5 minutes
 - Alert contacts: Your email + phone (SMS)
 - Expected response: HTTP 200

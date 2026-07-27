@@ -2,7 +2,7 @@
 
 _Prepared: 2026-03-22 | Commit: c1559d4 | Phase: KTC validation_
 
-**Host:** `riskittogetthebrisket.org` — resolve the current box from the `DEPLOY_HOST` repo secret. (A previous revision hardcoded a Hetzner IP that is no longer the production host.)
+**Host:** `chaseupside.com` — resolve the current box from the `DEPLOY_HOST` repo secret. (A previous revision hardcoded a Hetzner IP that is no longer the production host, and named `riskittogetthebrisket.org`, which has since lapsed to a third party.)
 **App path:** `/home/dynasty/trade-calculator`
 **SSH:** `ssh -i C:\Users\jason\.ssh\brisket_prod_clean root@<DEPLOY_HOST>`
 
