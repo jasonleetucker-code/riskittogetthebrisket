@@ -691,3 +691,47 @@ jobs:
               --body "$BODY" \
               --label stale-sources
           fi
+
+      - name: Close the tracking issue on a green run
+        # The counterpart the alert step never had.  Failures opened or
+        # commented on a rolling ``stale-sources`` issue, but nothing
+        # ever closed it — so once the underlying problem was fixed the
+        # issue stayed open forever, collecting comments from unrelated
+        # future outages.  An alert that cannot clear is indistinguishable
+        # from an alert nobody acted on, and after a few days it stops
+        # being read at all.
+        #
+        # ``success()`` is the whole condition deliberately: every gate
+        # in this workflow (scrape sanity, DLF freshness, the staleness
+        # watchdog, contract coverage) has already run by here, so a
+        # green run IS the all-clear.  Re-deriving "is it really fixed?"
+        # from individual step outcomes would duplicate that logic and
+        # let the two drift.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Close every open one, not just the first.  The pre-#584 alert
+          # step could fall back to creating UNLABELLED duplicates, and a
+          # label was added to the query later, so more than one may be
+          # open; ``--json number --jq '.[0]'`` (the read the alert step
+          # uses) would leave the rest orphaned.
+          OPEN=$(gh issue list --state open --label stale-sources \
+                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open stale-sources issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Scheduled data refresh is green again — all gates passed (scrape sanity, DLF freshness, staleness watchdog, contract coverage).
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if the refresh fails again." || true
+          done

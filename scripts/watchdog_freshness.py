@@ -37,7 +37,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.api.source_health_alerts import (  # noqa: E402
+    DEFAULT_SOFT_ESCALATION_HOURS,
     is_soft_source,
+    load_soft_escalation_hours,
     load_soft_sources,
     load_thresholds,
     resolve_threshold,
@@ -94,6 +96,7 @@ def classify_freshness(
     freshness: dict[str, dict],
     thresholds: dict[str, float],
     soft_sources: set[str],
+    soft_escalate_hours: float = DEFAULT_SOFT_ESCALATION_HOURS,
 ) -> tuple[
     list[tuple[str, float, float, str]],
     list[tuple[str, float, float, str]],
@@ -101,10 +104,17 @@ def classify_freshness(
 ]:
     """Pure split into ``(hard_stale, soft_stale, fresh)``.
 
-    A stale source goes to ``soft_stale`` (reported, non-fatal) when
-    it is operator-flagged soft in ``config/source_staleness.json``;
-    otherwise to ``hard_stale`` (fails the workflow).  Kept IO-free so
-    the policy is unit-testable.
+    A stale source goes to ``soft_stale`` (reported, non-fatal) when it
+    is operator-flagged soft in ``config/source_staleness.json``;
+    otherwise to ``hard_stale`` (fails the workflow).
+
+    **Soft is a delay, not an exemption.**  Past
+    ``soft_escalate_hours`` a soft source hard-fails like any other.
+    Without that cap the flag silently converts to "this source is
+    unmonitored" — a lapsed cookie and a dead vendor look identical
+    forever.  Pass a non-positive value to opt out deliberately.
+
+    Kept IO-free so the policy is unit-testable.
     """
     hard_stale: list[tuple[str, float, float, str]] = []
     soft_stale: list[tuple[str, float, float, str]] = []
@@ -114,7 +124,8 @@ def classify_freshness(
         threshold = resolve_threshold(src, thresholds)
         if age > threshold:
             row = (src, age, threshold, str(info.get("lastFetched", "")))
-            if is_soft_source(src, soft_sources):
+            escalated = soft_escalate_hours > 0 and age > soft_escalate_hours
+            if is_soft_source(src, soft_sources) and not escalated:
                 soft_stale.append(row)
             else:
                 hard_stale.append(row)
@@ -126,6 +137,7 @@ def classify_freshness(
 def main() -> int:
     thresholds = load_thresholds()
     soft_sources = load_soft_sources()
+    soft_escalate_hours = load_soft_escalation_hours()
     freshness = _read_freshness()
 
     if not freshness:
@@ -137,7 +149,9 @@ def main() -> int:
         )
         return 1
 
-    hard_stale, soft_stale, fresh = classify_freshness(freshness, thresholds, soft_sources)
+    hard_stale, soft_stale, fresh = classify_freshness(
+        freshness, thresholds, soft_sources, soft_escalate_hours
+    )
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     summary_lines: list[str] = ["## Source freshness watchdog", ""]

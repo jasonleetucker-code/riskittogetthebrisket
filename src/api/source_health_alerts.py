@@ -196,6 +196,46 @@ def is_soft_source(src: str, soft_sources: "set[str]") -> bool:
     return _matches_source(src, soft_sources)
 
 
+DEFAULT_SOFT_ESCALATION_HOURS = 72.0
+"""How long a soft source may stay stale before it hard-fails anyway.
+
+Soft-flagging exists so one lapsed cookie does not turn every 2h run
+red while the operator gets to it.  Left uncapped, though, it means a
+source can die permanently and CI will never say so — the exemption
+stops being "don't nag about a known chore" and becomes "this source
+is unmonitored".  ``idpShow`` sat soft-flagged with no upper bound
+until 2026-07-27; the flag was doing exactly that.
+
+Three days is the deliberate shape: quiet for the first day past
+threshold (a re-mint is a chore, not an incident), loud after three
+(nobody is coming; treat it as an outage).
+"""
+
+
+def load_soft_escalation_hours(path: Path | None = None) -> float:
+    """``softEscalateHours`` from the staleness config.
+
+    Falls back to :data:`DEFAULT_SOFT_ESCALATION_HOURS` when absent or
+    unparseable.  A non-positive value disables escalation, which is a
+    legitimate operator choice for a source that genuinely may lapse
+    indefinitely — but it has to be written down to take effect, rather
+    than being the accidental default it used to be.
+    """
+    if path is None:
+        repo = Path(__file__).resolve().parents[2]
+        path = repo / "config" / "source_staleness.json"
+    if not path.exists():
+        return DEFAULT_SOFT_ESCALATION_HOURS
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return DEFAULT_SOFT_ESCALATION_HOURS
+    value = raw.get("softEscalateHours") if isinstance(raw, dict) else None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return DEFAULT_SOFT_ESCALATION_HOURS
+
+
 def detect_stale_sources(
     source_health: dict[str, Any],
     *,
