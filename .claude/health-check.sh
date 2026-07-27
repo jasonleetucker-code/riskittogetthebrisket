@@ -50,9 +50,79 @@ fi
 # and means the same thing everywhere. Per-source health is reported as
 # coverage — how many players actually carry a value — which is what a dead
 # source would change, and a line count would not.
+#
+# The probe is INLINE, not a sibling file, and that is deliberate. It first
+# shipped as `.claude/freshness.py` — which `.gitignore:28` ignores, so
+# `git add -A` silently skipped it and `main` got a hook invoking a file that
+# did not exist. `health-check.sh` is a force-added exception to that ignore
+# rule; anything new beside it is dropped without a word. A heredoc cannot be
+# left behind by the next commit.
 echo ""
 echo "--- Data Freshness ---"
-python .claude/freshness.py 2>/dev/null || echo "  UNKNOWN: freshness probe failed to run."
+python - <<'PY' 2>&1 || echo "  UNKNOWN: freshness probe errored (see above)."
+"""Read the artifact CONSUMERS read, not the raw-source mirror.
+
+`scrapeTimestamp` is an internal content stamp, so unlike file mtime or
+commit dates it survives cloning and means the same thing everywhere.
+
+Every degraded input must land on UNKNOWN rather than a confident "0h" —
+a probe that reports fresh when it cannot tell is the bug this replaced.
+"""
+
+import datetime as dt
+import glob
+import json
+
+
+def threshold():
+    try:
+        with open("config/source_staleness.json", encoding="utf-8") as fh:
+            return int(json.load(fh)["thresholds"].get("ktc", 24))
+    except Exception:
+        return 24
+
+
+paths = sorted(glob.glob("exports/latest/dynasty_data_*.json"))
+if not paths:
+    print("  UNKNOWN: no exports/latest/dynasty_data_*.json — cannot measure.")
+    raise SystemExit(0)
+
+try:
+    with open(paths[-1], encoding="utf-8") as fh:
+        data = json.load(fh)
+except Exception as exc:
+    print(f"  UNKNOWN: could not read {paths[-1]}: {exc}")
+    raise SystemExit(0)
+
+stamp = data.get("scrapeTimestamp")
+if not stamp:
+    print("  UNKNOWN: contract carries no scrapeTimestamp — cannot measure.")
+    raise SystemExit(0)
+
+try:
+    scraped = dt.datetime.fromisoformat(stamp)
+except ValueError:
+    print(f"  UNKNOWN: unparseable scrapeTimestamp {stamp!r}.")
+    raise SystemExit(0)
+
+now = dt.datetime.now(scraped.tzinfo) if scraped.tzinfo else dt.datetime.now()
+age_h = (now - scraped).total_seconds() / 3600.0
+limit = threshold()
+
+print(f"  Contract: scraped {age_h:.0f}h ago (threshold {limit}h)")
+if age_h > limit:
+    print(f"  WARNING: no successful scrape in {age_h:.0f}h. Check scheduled-refresh workflow.")
+
+players = data.get("players") or {}
+stats = data.get("siteStats") or {}
+for key in ("ktc", "idpTradeCalc"):
+    entry = stats.get(key)
+    if not entry:
+        print(f"  {key}: ABSENT from siteStats — source produced nothing this run.")
+        continue
+    carried = sum(1 for p in players.values() if isinstance(p, dict) and p.get(key) is not None)
+    print(f"  {key}: {entry.get('count')} values, carried by {carried} of {len(players)} players")
+PY
 
 # 3. Git status
 echo ""
