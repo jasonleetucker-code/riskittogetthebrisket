@@ -88,7 +88,11 @@ _LIVEDATA_MODULES = frozenset(
     {
         "test_launch_readiness.py",
         "test_source_monitoring.py",
-        "test_footballguys_source.py",
+        # ``test_footballguys_source.py`` was listed here and does not
+        # exist — a dead exemption.  Removed 2026-07-27;
+        # ``test_livedata_policy.py`` now fails on a stale entry, since
+        # an exemption list nobody can check is how the pick-anchor
+        # split below went unnoticed.
         "test_picks_end_to_end.py",
         "test_pick_refinement.py",
         "test_pick_rookie_anchor.py",

@@ -85,7 +85,27 @@ from src.trade.suggestions import FAIRNESS_TOLERANCE  # noqa: E402
 # suggestions.py::_fairness_label — the "even" band edge.
 FAIRNESS_EVEN_EDGE = 256
 
-DEFAULT_PAYLOAD = REPO / "exports" / "latest" / "dynasty_data_2026-07-26.json"
+_EXPORTS_LATEST = REPO / "exports" / "latest"
+
+
+def _newest_payload() -> Path:
+    """The most recent ``dynasty_data_*.json`` in ``exports/latest``.
+
+    This used to be a hardcoded ``dynasty_data_2026-07-26.json``, which
+    was correct for exactly one day: the exporter writes a new
+    date-stamped file each run and does not keep the old one, so every
+    invocation after 07-26 failed on a missing path — a default that
+    could only ever be right on the day it was typed.
+
+    Falls back to the old-style name so ``--payload`` stays the way to
+    pin a specific export, and so the error a caller sees names a real
+    path rather than an empty glob result.
+    """
+    candidates = sorted(_EXPORTS_LATEST.glob("dynasty_data_*.json"))
+    return candidates[-1] if candidates else _EXPORTS_LATEST / "dynasty_data.json"
+
+
+DEFAULT_PAYLOAD = _newest_payload()
 
 
 def _num(v: Any) -> float | None:
