@@ -18,6 +18,15 @@ still open but now have owners in flight, which is a different status
 from the *not started* they carried at the last rebuild — an
 orchestrator reading the stale table could have double-dispatched them.
 
+**Amended 2026-07-27 ~01:05 UTC, same `main`.** Four agents pushed in
+the fifteen minutes after the rebuild, so half the *dispatched* rows
+had already earned a real status before this file could merge. Rows
+D, K, L and P are updated below, and §6.6 records a production finding
+from the same window. The lesson is not "the rebuild was wrong" — it
+is that during an active fleet a dashboard is stale on arrival, and
+the fix is a strict status vocabulary you can re-derive in one command,
+not more frequent prose.
+
 Target: **comprehensively functional, integrated, polished product in ~1
 week** (by ~2026-08-02). Optimize for the final integrated system, not
 constant main-branch stability.
@@ -55,19 +64,19 @@ checkpoint-push instruction; until a branch appears on `origin`, treat a
 | A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **Done** — `9ccdecea6` (#549) |
 | B | Redesign R3 — dashboard, news, market surfaces | design custodian | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | **Done** — `253568bc4` (#551), 19:38 UTC |
 | C | Redesign R4 — draft war room + trade surfaces | design custodian | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | **Done** — `49e005b2a` (#552), 20:04 UTC |
-| D | Redesign R5 — perf/a11y/mobile + **Terminal token layer** | design custodian | claude/redesign-r5-polish | `globals.css`, design-system CSS, token layer | **In progress** — branch pushed, 17 commits / 33 files ahead of main, last push 2026-07-26 21:37 UTC. No PR. Phase A (`/league` Card→Panel) and phase B (ROS sections, league-comparison) are on the branch only. Agent re-tasked overnight with the **Terminal** visual direction (operator chose it from three specimens): dark, 12px mono, CVD-validated data hues, Vikings palette removed. That work is **not yet on `origin`**. Standing constraint: the ~105 raw `.card` sites are NOT to be converted in this pass |
+| D | Redesign R5 — perf/a11y/mobile + **Terminal token layer** | design custodian | claude/redesign-r5-polish | `globals.css`, design-system CSS, token layer | **In progress** — branch pushed, 17 commits / 33 files ahead of main, last push 2026-07-26 21:37 UTC. No PR. Phase A (`/league` Card→Panel) and phase B (ROS sections, league-comparison) are on the branch only. Agent re-tasked overnight with the **Terminal** visual direction (operator chose it from three specimens): dark, 12px mono, CVD-validated data hues, Vikings palette removed. **Pushed `484409826` at 00:36 UTC** — 18 commits / 45 files, rebased onto `ae3042935`, no deletions (so nothing merged in between was reverted). Standing constraint held: the ~105 raw `.card` sites were NOT converted. **Contrast floor caught a real regression** — the first candidate ramp failed AA for `--text-tertiary` at 4.30/4.01/3.70 where the shipped ramp passes at 4.52; step 400 was lifted to `#8b93a5` rather than the floor being lowered. One conflict was reported instead of worked around: re-ordering the chart palette to lead with the new accent fails the CVD validator (magenta↔aqua collapse to ΔE 1.6 for deuteranopes), so the shipped order stands |
 | E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **Done** — `608610c9d` (#550) lands LI-1..LI-8, 20:37 UTC; League Twin bridge + sim calibration `7cdc4070f` (#565), 21:15 UTC. The registry/`DEFAULT_STARTER_NEEDS` staleness is fixed in production (verified by direct read on main) |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | — | R1 shell TopBar + getActiveValue adoption | **Not started** — no branch, no PR. Its blockers (E, A) have both cleared, so it is now unblocked rather than blocked |
 | G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile → claude/e2e-abort-guard | tests/e2e/ | **Done** — `e55f791b8` (#559), 20:38 UTC, which contains #554 in full (verified: `12cf9dceb` is an ancestor of the #559 head, so #554 was closed rather than merged). Assertion audit `ca41c981c` (#566), 21:40 UTC |
 | H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | **Done** for #547 (`2aa7e56d4`). Residual aggregate-join defect handed over by #550 (6 duplicate rows, 40/666 join failures) is **not started** — no branch, no PR |
-| I | Ops: refresh/deploy/intel cron, VPS, domain | orchestrator | main (dispatch only) | workflows, monitoring, nginx | **Done** — deploy skip/reverse guard `998572713` (#560); auth status-timeout fix `1ec3311be` (#558); `grant-ssh-access.yml` deleted (`c534280db`). **Domain cutover to `chaseupside.com` complete** — nginx + runbook `1d14c0d7b` (#570), runtime origins `57b030b01` (#571). TLS live, HTTP→HTTPS 301, `JASON_AUTH_COOKIE_SECURE` flipped true, key-based SSH, kernel upgraded. Verified 00:35 UTC: `/`, `/login`, `/api/health` all 200; `contract_ok: true`, scrape completed 00:22 UTC in 776 s. **Two operator tasks remain — see §6.5** |
+| I | Ops: refresh/deploy/intel cron, VPS, domain | orchestrator | main (dispatch only) | workflows, monitoring, nginx | **Done** — deploy skip/reverse guard `998572713` (#560); auth status-timeout fix `1ec3311be` (#558); `grant-ssh-access.yml` deleted (`c534280db`). **Domain cutover to `chaseupside.com` complete** — nginx + runbook `1d14c0d7b` (#570), runtime origins `57b030b01` (#571). TLS live, HTTP→HTTPS 301, `JASON_AUTH_COOKIE_SECURE` flipped true, key-based SSH, kernel upgraded. Verified 00:35 UTC: `/`, `/login`, `/api/health` all 200; `contract_ok: true`, scrape completed 00:22 UTC in 776 s. **Two operator tasks remain — see §6.5.** Warmup timeout fix **in review — #575** (§6.6) |
 | J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Engine **Done** — `4f9cb05b6` (#562), `783721534` (#563). **Still no callers on `ae3042935` — see §6.3. "Merged" does not mean "shipped."** Refit gate (§6.1) **closed** by `ab988717a` (#569). `angle.py` rewire (§6.2) **dispatched** |
-| K | `/api/gameplan` — first caller for `src/roster_intel/` | gameplan agent | claude/api-gameplan-endpoint | `server.py` endpoint, reads `src/roster_intel/` | **Dispatched** — nothing on `origin` at 00:50 UTC. Backend only, no frontend. Honesty stamps are the deliverable, not decoration: `acceptancePlausibility` never renamed "Probability", `winNowWeight` null and unsortable, intervals null rather than zero-width, `thresholdsAreMeasured: false` |
-| L | `angle.py` → single-market (§6.2) | angle agent | claude/angle-single-market | `src/trade/angle.py` only | **Dispatched** — nothing on `origin` at 00:50 UTC. Must cover all four unconstrained sites (`:471-475`, `:509`, `:526`, ~`:919`), not just the acquire side |
+| K | `/api/gameplan` — first caller for `src/roster_intel/` | gameplan agent | claude/api-gameplan-endpoint | `server.py` endpoint, reads `src/roster_intel/` | **In review — #574**, CI **green**. `GET /api/gameplan`, `contractVersion 2026-07-27.v1`, session-gated. Full suite as CI runs it: `3958 passed`, zero failures. Honesty stamps held and pinned by tests. Measured, not estimated: cold 2,410 ms / warm 10 ms, 14 KB gzipped; `analyze_roster` is the whole cost at 91 ms/roster. **Merging this closes §6.3** |
+| L | `angle.py` → single-market (§6.2) | angle agent | claude/angle-single-market | `src/trade/angle.py` only | **In progress** — `27728278b` pushed 00:39 UTC, 3 files, no PR yet; agent still running. Must cover all four unconstrained sites (`:471-475`, `:509`, `:526`, ~`:919`), not just the acquire side |
 | M | Route usability sweep — all 36 routes | route agent | claude/route-usability-sweep | `frontend/app/`, `components/`, `lib/` — **not** CSS/tokens, **not** `tests/e2e/` | **Dispatched** 00:45 UTC. Walks every route signed-in for console errors, ≥400 responses, empty-state lies, dead controls. Fixes only unambiguous defects, with a failing-first test; the rest to `docs/route-usability-audit.md` |
 | N | E2E assertion honesty | e2e agent | claude/e2e-assertion-honesty | `tests/e2e/` only | **Dispatched** 00:47 UTC. The suite is green and that green is unearned until proven. Every replacement assertion must be validated by deliberately breaking what it should catch; all ~14 skip gates categorised (env gate / data gate masking a bug / dead). Deliverable `docs/e2e-assertion-audit.md` |
 | O | Python coverage sweep | coverage agent | claude/python-coverage-sweep | `tests/` except `tests/e2e/` | **Dispatched** 00:49 UTC. 205 modules / ~72k lines never measured. Ranks by uncovered × logic density, then tests `_compute_unified_rankings` stages and degraded inputs. Deliverable `docs/python-coverage-audit.md` |
-| P | Competitor gap analysis + ranked backlog | gap agent | claude/competitor-gap-analysis | `docs/competitor-gap-analysis.md` | **Dispatched** — nothing on `origin` at 00:50 UTC. Must preserve the built / reachable / used distinction; §6.2 and §6.3 are the two live cases where merged code is not shipped capability |
+| P | Competitor gap analysis + ranked backlog | gap agent | claude/competitor-gap-analysis | `docs/competitor-gap-analysis.md` | **In review — #573**, CI **green**. Used a *fourth* axis (built / reachable / used / **correct**) and reported `used` as **unverifiable** throughout — no per-route telemetry exists, and inferring usage from reachability is the error the document exists to prevent. Headline: an AST import-graph pass finds **43 of 208 `src/` modules unreachable, ~12,571 lines**. See §6.7 |
 | R | Fresh-eyes review | reviewer agent | read-only | PR comments | **Done** — #567 merged `ec60cdb0e` at 22:06 UTC. **Zero PRs open** as of 00:52 UTC; the entire 19-PR queue landed. Next reviewer pass is due before the mid-week window |
 
 Idle agents with retained domain context (resume, never cold-spawn):
@@ -608,6 +617,71 @@ host-matched redirects with a `return 404` default, so the bare IP
 stops serving entirely rather than serving without TLS. That is the
 desired end state, and it is why #571's monitor repoint was
 load-bearing rather than cosmetic.
+
+### 6.6 A forced public-league rebuild makes the WHOLE API unresponsive — OPEN, UNPROVEN
+
+**Observed 2026-07-27 00:42–00:48:34 UTC.** During a
+`/api/public/league?refresh=1` rebuild, `/api/health` and `/api/status`
+both returned nothing for ~6.5 minutes while `/` kept serving in
+0.61 s. It self-recovered with no intervention.
+
+**This contradicts a documented invariant.** `deploy.yml:629-632`
+states: *"The event loop stays responsive during the rebuild
+(threadpool offload, #519) — which is why `/api/status` passes while
+`/league` and `/api/public/league` still wait on the snapshot."* The
+whole API was down, not just the snapshot endpoints.
+
+Plausible mechanism, **not proven**: `?refresh=1` →
+`_get_public_snapshot(force_refresh=True)` → `_rebuild_public_snapshot`,
+which holds `_public_league_refresh_lock` — a `threading.Lock` with no
+timeout — across `build_public_snapshot`'s multi-season network I/O.
+Callers queue on that lock *inside* `run_in_threadpool` workers, and
+Starlette's default limiter is 40 threads. Exhaust it and every
+threadpool-offloaded endpoint blocks, `/api/health` included.
+
+**Deliberately not chased further.** Confirming it means inducing
+another outage on the live host; it needs a local repro instead. Stated
+as an observation with a hypothesis, not as a diagnosis — the §2b
+discipline applies to incident analysis too.
+
+Honest disclosure: the orchestrator caused this window by calling
+`?refresh=1` against production while diagnosing the warmup failure.
+The measurement is real; the outage was self-inflicted and avoidable by
+reading what the query parameter does first.
+
+#575 reduces exposure — the cron stops forcing a blocking rebuild every
+20 minutes — but does not fix the underlying behaviour.
+
+### 6.7 43 of 208 `src/` modules are unreachable — ~12,571 lines
+
+From #573's AST import-graph pass (BFS from `server.py`, `scripts/*`
+and root modules; relative imports resolved; dynamic `importlib`
+targets hand-checked, with `src/ros/sources/*` correctly excluded as
+registry-loaded rather than dead).
+
+§6.3 turns out to be the *visible* instance of a much larger pattern:
+
+- **`src/roster_intel/` — all 4,673 lines.** Closes with #574.
+- **`src/league_intel/` — 7 of 10 modules, 3,244 lines.** `twin.py`
+  (LI-8) has zero importers at all; four more are reachable only
+  through `roster_intel`, so they are transitively dead.
+- **`/api/chat` is three-quarters built** — Next proxy, `src/api/chat.py`
+  and the dependency all exist; `server.py` registers no route.
+- **Five feature flags read `True` and gate unreachable code.**
+  `ValueBandBadge` is mounted on no page. This is §2c in another
+  costume: a flag whose "on" state cannot have an effect.
+- **`src/api/auction_power.py` calls itself the source of truth and
+  never runs.** The live implementation is its JS mirror, with no
+  parity test between them.
+- **`src/trade/finder.py` has no UI caller** — `/finder` is a
+  client-side filter. So **F-6 is a correctness bug on a path no
+  surface reaches**, and re-deriving five thresholds for it should wait
+  on a product decision about whether the arbitrage finder gets a UI.
+
+Two of the roadmap's three self-audit seeds were **already fixed** and
+would have been re-worked on the strength of a stale document. That
+2-of-3 false-positive rate on assumed-still-true findings is the
+argument for dating every audit to a SHA.
 
 ### 6.4 Historical record — resolved blockers
 
