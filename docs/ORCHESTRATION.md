@@ -452,94 +452,48 @@ what is already there.
   pass, perf, docs, release checklist, deploy. **Operator tasks that no
   agent can close: see §6.5.**
 
-## 5a. Integration window checklist (mid-week, ~2026-07-29)
+## 5a. SHIPPED — the mid-week window ran early, 2026-07-27 ~05:00 UTC
 
-**Seven PRs open** as of 02:25 UTC: #572, #573, #574, #576, #577, #578,
-#579. All seven overnight workstreams have reported; nothing is still
-running. Prepared so the window is execution, not rediscovery.
+**The operator lifted the Jul 29 hold** ("we don't have to wait until
+July 29 ... I just want everything fully functional and reliable"), so
+the whole queue landed at once rather than waiting.
 
-**Merge #579 before #578.** #578's `/league/phases` fix is the subject
-of a §3.5 decision inside #579 (the public-league no-private-endpoints
-assertion is declared *deliberately* scoped, so `/league/phases`
-fetching auth-gated `/api/data` is correct and must not trip it).
-Landing them in the other order leaves a window where the reasoning
-exists in neither file. Neither PR blocks the other technically —
-this is about the record being coherent.
+| PR | Landed as | What it closes |
+|---|---|---|
+| #572 | `8b3704f26` | dashboard + CLAUDE.md truth, two retractions |
+| #573 | `dec1a6929` | Phase-1 competitor gap analysis |
+| #577 | `1e25e451c` | §2c-4 — valuation constants now CI-gated |
+| #579 | `7288caa63` | §6.9 preflight, §6.10 vacuous assertions |
+| #578 | `81727811c` | §6.8 — `/league/phases` renders at all |
+| #576 | `30bf80836` | **§6.2** — mixed-market package pricing |
+| #574 | `8d60936ab` | **§6.3** — `roster_intel` finally has a caller |
+| #580 | `504767ded` | **D-1** range guard + three frozen sources |
 
-**CI verified green 02:32 UTC** on all six settled PRs — #573
-(`49a7127e2`), #574 (`5ec9d42a6`), #576 (`fc8f4a437`), #577
-(`e67dd1e85`), #578 (`7b725f23b`), #579 (`fd42d2a2b`). #572 was
-mid-run on its own latest push. Checked by matching `head_sha` against
-each branch tip and filtering on `name == "PR Validation"` — see the
-tool caveat in §2a-1.
+**Both long-standing §6 blockers are closed.** §6.1 closed earlier via
+#569.
 
-**No file collides across the seven.** Verified with
-`git diff --name-only origin/main...<branch>` per PR — every path is
-unique, so they merge in any order without a textual conflict. That is
-not the same as semantically independent, and the items below are what
-the file-level check cannot see.
+### The integrated-tree run was not a formality
 
-| # | Branch | Files | Merging it |
-|---|---|---|---|
-| 572 | orchestration-tick-0727 | 2 | dashboard + CLAUDE.md truth |
-| 573 | competitor-gap-analysis | 1 | Phase-1 deliverable |
-| 574 | api-gameplan-endpoint | 4 | **closes §6.3** |
-| 576 | angle-single-market | 3 | **closes §6.2** |
-| 577 | python-coverage-sweep | 6 | closes §2c-4 (partially) |
-| 578 | route-usability-sweep | 7 | **§6.8** — `/league/phases` renders at all |
-| 579 | e2e-assertion-honesty | 10 | **§6.9** — the suite can start; **§6.10** — green means something |
+Every PR was validated against `main` separately and none against each
+other. The union was measured before merging, then again after:
 
-### Actions the window must take, that no single PR can
+```
+integrated main (7 PRs)        4060 passed, 0 failed
+integrated + D-1 (#580)        4075 passed, 0 failed
+```
 
-1. **Add `/api/gameplan` to `LEAGUE_SCOPED_GETS`.** #577's
-   `tests/api/test_league_isolation_invariants.py` enumerates
-   league-scoped routes from a **hardcoded** list
-   (`LEAGUE_SCOPED_GETS = ["/api/terminal"]`, plus three POSTs). #574
-   adds `/api/gameplan`, a league-scoped GET that 503s on mismatch.
-   Nothing breaks when both land — the sweep simply will not cover the
-   newest endpoint, which is the exact class of gap the sweep exists to
-   catch. #574 does test its own routing contract, so this is a missing
-   belt, not a missing brace.
+**One semantic conflict was found this way, and a file-level collision
+check could never have seen it.** #577 and #580 touch disjoint files but
+overlap on *behaviour*: #577 landed a deliberate characterisation test
+pinning the D-1 defect as current behaviour, whose own failure message
+read "if this now passes at ~1.0 a range guard has been added — update
+docs/python-coverage-audit.md D-1 and turn this into a no-contamination
+assertion". #580 added the guard, so CI failed exactly as designed. The
+test was converted, the doc marked RESOLVED, and two stale docstrings
+that still described the defect in the present tense were fixed.
 
-   The general form is worth fixing once rather than per endpoint: a
-   hardcoded route list cannot notice a route added after it was
-   written. Consider deriving it from `app.routes` filtered by a
-   marker, so a new league-scoped endpoint is covered by construction.
-
-2. **Re-check #576's "first production consumer" claim.** #576 states
-   it is the first production importer of
-   `src/league_intel/cross_market.py`. #574 also consumes
-   `value_package`. Both are true of `main` today and both stop being
-   true the moment the other merges — neither PR is wrong, but the
-   sentence in `cross_market.py`'s docstring ("the honest count of
-   production importers of THIS file is zero") needs updating to two.
-
-3. **Run the integrated tree, not five separate suites.** Every PR was
-   validated against `main`, none against each other. #577 adds tests
-   asserting current pipeline behaviour; #576 changes trade-engine
-   behaviour. They touch disjoint files, so nothing will conflict — but
-   a suite that is green on two branches separately can still be red on
-   the union, and that has to be measured rather than assumed.
-
-4. **Reviewer pass before merges**, per §2.4. Priority order for
-   attention: #576 (live valuation path, 890 additions), #574 (new
-   public surface), #577 (test-only but large), then the two docs PRs.
-
-### Not blockers, but decide at the window
-
-- **D-1 is a live production risk with no owner.** One out-of-range
-  value in a value-based source rescales the whole board — measured,
-  one row at `ktcSfTep=99990` deflates every player by 45.3%, silently.
-  #577 documented it rather than fixing it because the guard's *shape*
-  (clamp `site_max`? drop the row? mark the source unhealthy?) moves
-  real numbers and is a product call. **It needs a decision, not an
-  agent.**
-- **D-2** — `/api/draft-capital` returns 200 where CLAUDE.md says 503,
-  and prices one league's picks from another's contract with no
-  scoring-profile check. No roster leak (mutation-verified).
-- **D-5** — `tests/intel/test_endpoints.py::TestLeagueScoping::test_reads_go_through_the_league_resolver`
-  fails under parallel runs only, identically before and after #577,
-  passes serially. Pre-existing cross-file registry-state leak.
+That is the argument for running the union rather than trusting seven
+separate greens.
 
 ## 6. Open merge blockers
 
@@ -1051,6 +1005,49 @@ Deliberately not fixed in this tick: the hook is operator tooling
 outside the seven open PRs, and changing a monitoring threshold at
 03:00 while holding a merge queue is how a real alarm gets silenced by
 accident. Worth ten minutes at the window.
+
+### 6.13 Three sources had no producer at all — FIXED in #580
+
+Not staleness. `dynastyNerdsSfTep`, `fantasyProsSf` and
+`fantasyProsIdp` had **nothing capable of refreshing them**:
+
+* `Dynasty Scraper.py` sets DynastyNerds / FantasyPros /
+  FantasyPros_IDP to `False` in `SITES` ("disabled in scope
+  reduction"); only KTC and IDPTradeCalc remain `True`.
+* The replacement fetchers were **written but never wired** —
+  `fetch_dynasty_nerds.py`, `fetch_fantasypros_offense.py` and
+  `fetch_fantasypros_idp.py` had **zero references** anywhere in
+  `.github/workflows/`.
+* The only thing touching them was `stamp_if_present`, which correctly
+  declined to stamp a CSV nothing rewrote. **The stamping logic was
+  right the whole time** — there was simply no producer. That is why
+  this read as "28.7h stale" rather than as a dead pipeline.
+
+This is §6.7's built-but-unreachable pattern in its most expensive
+form: not dead code sitting idle, but three *live, voting* sources
+frozen in time.
+
+Measured against a live fetch, 2026-07-27:
+
+| | |
+|---|---|
+| frozen `dynastyNerdsSfTep.csv` dated | 2026-07-20 |
+| shared players moved ≥10 ranks | **131 of 269** |
+| players missing from the frozen file | 25 |
+| #2 overall asset | frozen: Drake Maye · live: **Bijan Robinson** |
+
+All three kept voting in every player's blend throughout — 420 + 169 +
+293 served rows of week-old data.
+
+All three fetchers were validated live **before** wiring, not assumed
+to work: FantasyPros offense 540 rows, FantasyPros IDP 183, Dynasty
+Nerds 294.
+
+**Lesson worth keeping:** "the freshness stamp is old" and "nothing
+produces this any more" look identical from the dashboard. The
+distinguishing question is not *how* stale but *what would refresh it*
+— and answering that meant grepping the workflow for the fetcher's
+filename, not reading the stamp.
 
 ### 6.4 Historical record — resolved blockers
 
