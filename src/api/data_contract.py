@@ -5053,6 +5053,142 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
 )
 
 
+# ── D-1: out-of-range guard for the value-direct path ──────────────────
+#
+# The value-direct branch computes ``raw / site_max * 9999`` where
+# ``site_max`` was an UNBOUNDED ``max()`` across every player.  One
+# corrupt row therefore rescaled the entire board: a single
+# ``ktcSfTep=99990`` (an extra digit — the most plausible scrape glitch
+# on a 4-digit board) deflates EVERY other player by 45.3%, measured
+# through ``build_api_data_contract`` on a 120-player board.  ``950000``
+# gives 49.5%.  Ordering is preserved, so the damage is invisible:
+# the board still looks correctly sorted, at roughly half value.
+#
+# ``_safe_num`` already blocks inf/nan/strings.  Nothing validated the
+# declared numeric RANGE, which is the gap this closes.
+#
+# Policy (operator decision, 2026-07-27) — "B with a C escalation":
+#
+#   B. A single out-of-range row is dropped from the value-direct path
+#      for that source only.  It falls through to the existing Hill
+#      fallback, exactly as a missing value already does, so the player
+#      keeps a vote and every other player is untouched.
+#
+#   C. If more than ``_VALUE_RANGE_ESCALATION_FRACTION`` of a source's
+#      rows are out of range, that is not a glitch — it means the
+#      vendor changed their scale.  Silently dropping most of a source
+#      would be worse than either failing or passing, so the whole
+#      source is suppressed from the value-direct path (it still votes
+#      via rank→Hill) and the run is stamped for the operator.
+#
+# The ceiling is PER SOURCE, deliberately, not a global 9999.  Sources
+# publish on their own native scales — ``dynastyNerdsSfTep`` tops out at
+# 10256 today — so a hardcoded 9999 would be wrong the moment a
+# differently-scaled board joins ``_VALUE_BASED_SOURCES``.  Only sources
+# listed here are range-checked; anything else keeps prior behaviour.
+_VALUE_SOURCE_DECLARED_MAX: dict[str, float] = {
+    # KTC's TE+ sub-board and IDPTradeCalc both publish a native 0-9999
+    # scale whose top asset is exactly 9999.  Verified against the live
+    # board 2026-07-27: ktcSfTep max 9999 (Josh Allen), idpTradeCalc max
+    # 9999 (Bijan Robinson), zero out-of-range rows on either.
+    "ktcSfTep": 9999.0,
+    "idpTradeCalc": 9999.0,
+}
+
+# Above this fraction of out-of-range rows, treat it as a scale change
+# rather than a glitch and suppress the source (escalation C).
+_VALUE_RANGE_ESCALATION_FRACTION: float = 0.02
+
+# ...but never escalate on an underpowered sample.  Escalation C is a
+# claim about the SOURCE ("its scale changed"), and a fraction computed
+# over a handful of rows cannot support that claim: on a 4-row fixture a
+# single glitch is 25% and would suppress a healthy source outright.
+# Real boards carry 400-900 rows, where one bad row is ~0.2%.  Below
+# this count we always take policy B (drop the row) regardless of the
+# fraction.  Same discipline as ORCHESTRATION.md §2b — do not conclude
+# from a sample that cannot distinguish the hypotheses.
+_VALUE_RANGE_ESCALATION_MIN_ROWS: int = 50
+
+
+def _partition_value_source_ranges(
+    players_array: list[dict[str, Any]],
+) -> tuple[dict[str, float], set[str], dict[str, dict[str, int]]]:
+    """Compute per-source max over IN-RANGE values only, plus the D-1 verdicts.
+
+    Returns ``(value_source_max, suppressed_sources, diagnostics)``:
+
+    * ``value_source_max`` — max observed value per source, computed
+      **excluding** out-of-range rows so one bad row cannot inflate the
+      divisor and deflate the board.
+    * ``suppressed_sources`` — sources whose out-of-range fraction
+      exceeded ``_VALUE_RANGE_ESCALATION_FRACTION`` (escalation C).
+    * ``diagnostics`` — per-source ``{"total", "outOfRange"}`` counts so
+      the condition is observable rather than silent.
+    """
+    totals: dict[str, int] = {}
+    out_of_range: dict[str, int] = {}
+    value_source_max: dict[str, float] = {}
+
+    for row in players_array:
+        canonical_site_values = row.get("canonicalSiteValues") or {}
+        if not isinstance(canonical_site_values, dict):
+            continue
+        for key in _VALUE_BASED_SOURCES:
+            raw = canonical_site_values.get(key)
+            if raw is None:
+                continue
+            try:
+                raw_f = float(raw)
+            except (TypeError, ValueError):
+                continue
+            totals[key] = totals.get(key, 0) + 1
+            ceiling = _VALUE_SOURCE_DECLARED_MAX.get(key)
+            if ceiling is not None and (raw_f < 0.0 or raw_f > ceiling):
+                out_of_range[key] = out_of_range.get(key, 0) + 1
+                continue
+            if raw_f > value_source_max.get(key, 0.0):
+                value_source_max[key] = raw_f
+
+    suppressed: set[str] = set()
+    diagnostics: dict[str, dict[str, int]] = {}
+    for key, total in totals.items():
+        bad = out_of_range.get(key, 0)
+        diagnostics[key] = {"total": total, "outOfRange": bad}
+        if (
+            bad
+            and total >= _VALUE_RANGE_ESCALATION_MIN_ROWS
+            and (bad / total) > _VALUE_RANGE_ESCALATION_FRACTION
+        ):
+            suppressed.add(key)
+            logging.error(
+                "D-1 escalation: %s has %d/%d values outside its declared "
+                "0-%s range (>%.0f%%) — suppressing its value-direct vote "
+                "for this build; the source's scale has likely changed.",
+                key,
+                bad,
+                total,
+                _VALUE_SOURCE_DECLARED_MAX.get(key),
+                _VALUE_RANGE_ESCALATION_FRACTION * 100.0,
+            )
+        elif bad:
+            logging.warning(
+                "D-1: dropped %d/%d out-of-range %s value(s) from the "
+                "value-direct path; those rows fall back to rank->Hill.",
+                bad,
+                total,
+                key,
+            )
+    return value_source_max, suppressed, diagnostics
+
+
+def _value_is_in_declared_range(source_key: str, raw_f: float) -> bool:
+    """True when ``raw_f`` sits inside ``source_key``'s declared range."""
+    ceiling = _VALUE_SOURCE_DECLARED_MAX.get(source_key)
+    if ceiling is None:
+        return True
+    return 0.0 <= raw_f <= ceiling
+
+
 def _validate_value_based_sources_invariant() -> None:
     """Module-import safety rail: every source registered for VOTING
     in ``_RANKING_SOURCES`` whose CSV signal is ``value`` must either
@@ -6594,19 +6730,23 @@ def _compute_unified_rankings(
     # ``maxValues`` dict only tracks ktc + idpTradeCalc today; the other
     # value-based sources (dynastyDaddySf, draftSharks, draftSharksIdp)
     # carry their real values only inside the per-player dict.
-    value_source_max: dict[str, float] = {}
-    for row in players_array:
-        canonical_site_values = row.get("canonicalSiteValues") or {}
-        if not isinstance(canonical_site_values, dict):
-            continue
-        for key in _VALUE_BASED_SOURCES:
-            raw = canonical_site_values.get(key)
-            try:
-                raw_f = float(raw) if raw is not None else 0.0
-            except (TypeError, ValueError):
-                continue
-            if raw_f > value_source_max.get(key, 0.0):
-                value_source_max[key] = raw_f
+    #
+    # D-1: the max is computed over IN-RANGE values only, and a source
+    # whose out-of-range fraction exceeds the escalation threshold is
+    # suppressed from the value-direct path entirely.  See
+    # ``_partition_value_source_ranges`` for the policy and the measured
+    # failure it prevents.
+    # ``_value_range_diagnostics`` is intentionally unused here: the
+    # per-source counts reach operators through the WARNING/ERROR logs
+    # emitted inside the helper, and reach CI through direct unit tests
+    # on ``_partition_value_source_ranges``.  Threading them into the
+    # return would change this function's published contract
+    # (``dict[str, str]``) for a diagnostic, which is not worth it.
+    (
+        value_source_max,
+        value_range_suppressed,
+        _value_range_diagnostics,
+    ) = _partition_value_source_ranges(players_array)
 
     _trimmed_mean_median = count_aware_mean_median_blend
 
@@ -6671,7 +6811,15 @@ def _compute_unified_rankings(
                 except (TypeError, ValueError):
                     raw_f = 0.0
                 site_max = value_source_max.get(source_key, 0.0)
-                if raw_f > 0.0 and site_max > 0.0:
+                # D-1 (policy B): an out-of-range value is not trustworthy
+                # for THIS row, so it takes the same fallback a missing
+                # value already takes.  D-1 (policy C): if the whole
+                # source was suppressed, no row uses the value-direct
+                # path for it.
+                in_range = _value_is_in_declared_range(source_key, raw_f)
+                if source_key in value_range_suppressed or not in_range:
+                    value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
+                elif raw_f > 0.0 and site_max > 0.0:
                     value = raw_f / site_max * 9999.0
                 else:
                     # Fall back to the Hill path if the raw value is
