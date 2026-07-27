@@ -7096,11 +7096,20 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     The pick-value Excel workbook (``CSVs/Draft Data.xlsx``) is
     wired to the default league's draft — per-team budgets,
     carry-over balances, and standings all reflect that league's
-    actual data.  Non-default leagues 501 with
-    ``not_configured_for_league`` rather than serving league-A
-    numbers under league-B's team names.  Angle-finder + roster
-    picks still work across leagues via the Sleeper overlay; only
-    the workbook-sourced budget column is league-specific.
+    actual data.  Angle-finder + roster picks still work across
+    leagues via the Sleeper overlay; only the workbook-sourced budget
+    column is league-specific.
+
+    Non-default leagues take the Sleeper-derived fallback, which needs
+    the canonical contract for pick values and so 503s
+    ``data_not_ready`` when NO contract is loaded.  A contract belonging
+    to a *different* league is still served — that is Defect D-2, an
+    open decision, not settled here.
+
+    (This paragraph previously claimed non-default leagues "501 with
+    ``not_configured_for_league``".  No such branch has existed since
+    the fallback landed; the docstring described a design that was
+    replaced and not updated.)
 
     Pass ``?refresh=1`` to force a fresh KTC fetch."""
     try:
@@ -7109,6 +7118,45 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         return err.json_response()
     default_cfg = _league_registry.get_default_league()
     is_default_league = default_cfg and league_cfg.key == default_cfg.key
+
+    # CLAUDE.md lists /api/draft-capital among the endpoints that must
+    # 503 ``data_not_ready`` when the loaded contract is not this
+    # league's.  It never did, and the failure was not a blank board:
+    # the Sleeper-derived path reads pick values via
+    # ``_pick_value_from_contract``, which falls through to a HARDCODED
+    # table — 7000 / 4000 / 2000 / 1200 by round — when the contract
+    # cannot answer.  With no contract loaded the endpoint therefore
+    # returned 200 and a full board of invented numbers that a caller
+    # cannot distinguish from the Hill-curve-calibrated real ones.
+    #
+    # Guard only the non-default path: the workbook path reads
+    # ``CSVs/Draft Data.xlsx`` and does not consult the contract at all,
+    # so 503-ing it on a cold contract would break the one league that
+    # never needed it.
+    #
+    # SCOPE, DELIBERATELY NARROW.  This fires only when there is NO
+    # contract, not when the contract belongs to a different league.
+    # The mismatch case is Defect D-2 in docs/python-coverage-audit.md —
+    # an OPEN product decision between "503 per CLAUDE.md's table" and
+    # "keep the cross-league fallback and fix the doc" — and
+    # ``tests/api/test_league_isolation_invariants.py`` pins today's
+    # behaviour explicitly rather than pre-empting it.  Serving a
+    # foreign league its OWN Sleeper rosters is real functionality;
+    # taking it away is the operator's call, not a bug fix.
+    #
+    # No-contract-at-all has no such tension: nobody wants the
+    # fabricated values described above, and refusing them removes no
+    # capability.
+    if not is_default_league and not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:

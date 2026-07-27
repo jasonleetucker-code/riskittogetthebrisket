@@ -88,31 +88,60 @@ def test_sell_requires_active_starter(monkeypatch):
     assert out2[0].signal == "SELL"
 
 
-def test_freshness_guard_blocks_current_week(monkeypatch):
-    """Stat week == current week + it's Monday (pre-Thursday) → blocked."""
+def _pin_weekday(monkeypatch, weekday: int):
+    """Freeze ``freshness``'s clock to a known weekday.
+
+    ``detect_usage_transitions`` does not thread a ``now`` through to
+    ``is_fresh_for_alerts``, so the only way to make the week-in-flight
+    branch deterministic without stubbing the guard itself is to pin the
+    clock it reads.  The real predicate still runs.
+    """
+    import datetime as _dt
+
+    from src.nfl_data import freshness as _freshness
+
+    # 2025-11-03 is a Monday, so +weekday lands on the day we want.
+    pinned = _dt.datetime(2025, 11, 3, 12, 0, tzinfo=_dt.timezone.utc) + _dt.timedelta(days=weekday)
+    assert pinned.weekday() == weekday, "fixture date arithmetic is wrong"
+    monkeypatch.setattr(_freshness, "_nfl_now", lambda now=None: pinned)
+
+
+def test_freshness_guard_blocks_current_week_before_thursday(monkeypatch):
+    """Stat week == current week, and it is Monday → blocked.
+
+    This assertion used to read ``out == [] or out[0].signal == "BUY"``,
+    which accepts both outcomes — so a test named "blocks" passed
+    whether or not it blocked.  The comment above it said as much: the
+    guard reads TODAY's weekday, so the result changed depending on the
+    day the suite ran, and the author disabled the assertion rather than
+    pin the clock.
+
+    Pinning it is the fix.  Both branches are now asserted, here and
+    below, and either direction of regression fails.
+    """
     monkeypatch.setenv("RISKIT_FEATURE_USAGE_SIGNALS", "1")
     feature_flags.reload()
+    _pin_weekday(monkeypatch, 0)  # Monday
+
     w = _mk_window(season=2025, week=6, snap_pct_z=3.0, snap_pct_mean=0.60)
-    # No freshness-context args would pass the guard trivially.
-    # Pass season_current_week=6 and the test should skip.
-    out = usage_signals.detect_usage_transitions(
-        [w],
-        season_year=2025,
-        season_current_week=6,
-    )
-    # Default now is today in NFL TZ; at our test time (2026-04-24)
-    # is_fresh_for_alerts treats stat_year 2025 ≠ season_year 2026
-    # as historical → fresh.  So we need season_year=2025 in the
-    # test path.
-    # But: when season_year=2025 and season_current_week=6, and
-    # we're past that season, is_fresh_for_alerts needs the _mk_now
-    # to be consistent.  Safest: we already established that
-    # "prior completed week" is fresh (stat_week 6 < current_week 6
-    # isn't true, it's equal).
-    # So the guard returns False-for-now if weekday<Thu — which is
-    # dependent on TODAY's weekday.  Skip this specific assertion
-    # and verify the OTHER branch: season_year mismatch → fresh.
-    assert out == [] or out[0].signal == "BUY"
+    out = usage_signals.detect_usage_transitions([w], season_year=2025, season_current_week=6)
+    assert out == [], "a week still in flight on a Monday must not fire"
+
+
+def test_freshness_guard_allows_current_week_from_thursday(monkeypatch):
+    """The other half, and what makes the test above non-vacuous.
+
+    Without this, a detector that fired on nothing at all would satisfy
+    the Monday case perfectly.  Same window, same season context, one
+    day later than the safe weekday.
+    """
+    monkeypatch.setenv("RISKIT_FEATURE_USAGE_SIGNALS", "1")
+    feature_flags.reload()
+    _pin_weekday(monkeypatch, 3)  # Thursday — _SAFE_WEEKDAY
+
+    w = _mk_window(season=2025, week=6, snap_pct_z=3.0, snap_pct_mean=0.60)
+    out = usage_signals.detect_usage_transitions([w], season_year=2025, season_current_week=6)
+    assert [s.signal for s in out] == ["BUY"]
 
 
 def test_signal_dict_format_matches_expected_shape():
