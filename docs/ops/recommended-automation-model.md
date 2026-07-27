@@ -50,7 +50,7 @@ data_stale = data_age_hours > SCRAPE_INTERVAL_HOURS * 3
 
 **Current**: Self-monitoring via uptime watchdog (if configured). No external check.
 
-**Recommended**: Register `https://riskittogetthebrisket.org/api/health` with a free external monitor (UptimeRobot, BetterUptime, Cronitor, or similar). Configure to check every 5 minutes. Alert via email + SMS/push.
+**Recommended**: Register `https://chaseupside.com/api/health` with a free external monitor (UptimeRobot, BetterUptime, Cronitor, or similar). Configure to check every 5 minutes. Alert via email + SMS/push.
 
 **Why**: If the server is completely down, nothing internal can alert. External monitoring is the only way to detect total outages.
 

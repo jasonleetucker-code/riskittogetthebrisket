@@ -36,9 +36,18 @@ Expected:
 ## 2) Production server access
 
 Current production target:
-- host: `178.156.148.92`
+- host: `<DEPLOY_HOST>` — resolve from the `DEPLOY_HOST` repo secret, never from a
+  literal in this file. See `deploy/PRODUCTION_BOOTSTRAP.md`, which uses the same
+  indirection.
 - user: `dynasty`
 - app path: `/home/dynasty/trade-calculator`
+
+> **Do not restore a hardcoded IP here.** This section previously named
+> `178.156.148.92` as the production target. That address belongs to a third party —
+> the `riskittogetthebrisket.org` domain lapsed and was re-registered, and the old box
+> is not ours. An operator following the previous revision would have opened an SSH
+> session, as user `dynasty`, against a host we do not control. The secret is the only
+> correct source for this value.
 
 Operator baseline:
 
