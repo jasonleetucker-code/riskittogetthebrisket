@@ -366,5 +366,5 @@ def _format_body(alerts: list[StaleSourceAlert]) -> str:
         for a in recovered:
             lines.append(f"  • {a.source}: back")
         lines.append("")
-    lines.append("See http://169.58.50.224/tools/source-health")
+    lines.append("See https://chaseupside.com/tools/source-health")
     return "\n".join(lines)

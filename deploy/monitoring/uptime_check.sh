@@ -17,7 +17,7 @@
 # deploy/monitoring/README.md; no third-party service is wired in).
 #
 # Env overrides (drop-in on riskit-uptime.service, or cron env):
-#   SITE_URL            default http://169.58.50.224
+#   SITE_URL            default https://chaseupside.com
 #   CHECK_LOCAL         default true   (also probe 127.0.0.1:8000 directly)
 #   LOG_FILE            default /var/log/riskit-uptime.log
 #                        (falls back to stdout if unwritable)
@@ -35,7 +35,7 @@
 
 set -Eeuo pipefail
 
-SITE_URL="${SITE_URL:-http://169.58.50.224}"
+SITE_URL="${SITE_URL:-https://chaseupside.com}"
 CHECK_LOCAL="${CHECK_LOCAL:-true}"
 LOG_FILE="${LOG_FILE:-/var/log/riskit-uptime.log}"
 STATE_FILE="${STATE_FILE:-/var/tmp/riskit-uptime.state}"

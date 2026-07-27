@@ -141,7 +141,7 @@ SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
 UPTIME_CHECK_URL = os.getenv(
     "UPTIME_CHECK_URL",
-    "https://riskittogetthebrisket.org/api/health",
+    "https://chaseupside.com/api/health",
 ).strip()
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
