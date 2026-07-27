@@ -10,16 +10,47 @@ name: Public League Warmup
 #   * cron — every 20 minutes
 #   * workflow_dispatch — for manual warmup after a restart
 #
-# This workflow is trivial: it hits the public endpoint with
-# ?refresh=1 and asserts the response shape.  It does NOT need SSH
-# access and runs on any GitHub runner.
+# This workflow does NOT need SSH access and runs on any GitHub runner.
+#
+# ---------------------------------------------------------------------
+# Why the cron does NOT send ?refresh=1  (2026-07-27)
+# ---------------------------------------------------------------------
+# ``?refresh=1`` maps to ``_get_public_snapshot(force_refresh=True)``,
+# which calls ``_rebuild_public_snapshot`` — a SYNCHRONOUS multi-season
+# Sleeper rebuild held under ``_public_league_refresh_lock``, a plain
+# ``threading.Lock`` with no timeout.  deploy.yml budgets ~6 minutes for
+# exactly this operation (24 polls x 15s).  This workflow was budgeting
+# 45 seconds for it, with ``timeout-minutes: 3`` on top.
+#
+# That mismatch is what failed run 30226982093: a deploy restarted the
+# service at 00:13:20 UTC, the cron fired at 00:14:22 against a
+# guaranteed-cold snapshot, and curl gave up at 45s with 0 bytes.  Not
+# flaky — deterministic, whenever the cron lands inside a restart or
+# scrape window.
+#
+# Measured on a WARM backend, 2026-07-27 00:49 UTC:
+#   * plain GET (stale-while-revalidate path)  -> 200 in 23.99s, 2.0 MB
+#   * GET ?refresh=1 during scrape contention  -> still running at 6min
+# The cached path alone eats more than half the old 45s budget.
+#
+# The plain GET is strictly better for a warmup cron.  It returns the
+# cached payload immediately and kicks a BACKGROUND refresh
+# (``_kick_background_refresh``), so the cache is kept warm without any
+# caller blocking on the rebuild.  ``?refresh=1`` remains available on
+# manual dispatch, where a human is watching and a slow run is fine.
 
 on:
   schedule:
     # Every 20 minutes.  Leaves 10 minutes of slack before the default
     # 5-minute TTL window elapses three times in a row.
     - cron: "*/20 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: "Send ?refresh=1 (blocking rebuild, can take minutes). Cron never does this."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: public-league-warmup
@@ -28,7 +59,10 @@ concurrency:
 jobs:
   warm:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    # Was 3 minutes, which could not accommodate the operation this job
+    # performs.  10 leaves room for the health gate plus a slow rebuild
+    # without letting a truly wedged backend hold a runner forever.
+    timeout-minutes: 10
     steps:
       - name: Resolve target URL
         id: url
@@ -47,22 +81,67 @@ jobs:
           URL="${URL%/}"
           echo "url=${URL}" >> "$GITHUB_OUTPUT"
 
-      - name: Force snapshot refresh
+      - name: Wait for backend health
         shell: bash
         env:
           URL: ${{ steps.url.outputs.url }}
         run: |
           set -Eeuo pipefail
-          echo "Warming ${URL}/api/public/league?refresh=1"
+          # A deploy restart triggers a full startup scrape (~776s
+          # observed 2026-07-27) before the API serves.  Probing the
+          # snapshot during that window measures the restart, not the
+          # cache.  Gate on health first so a mid-deploy cron reports
+          # "backend not ready" instead of a misleading warmup failure.
+          echo "Waiting for ${URL}/api/health …"
+          for _i in $(seq 1 40); do
+            _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
+              --write-out '%{http_code}' "${URL}/api/health" || echo "000")
+            if [[ "${_hc}" == "200" ]]; then
+              echo "  health ready after ~$(( _i * 5 ))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error title=Backend not healthy::${URL}/api/health never returned 200 in ~200s. The backend is down or mid-restart — this is a real outage, not a warmup problem."
+          exit 1
+
+      - name: Warm the snapshot
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+          FORCE: ${{ inputs.force_refresh && '1' || '' }}
+        run: |
+          set -Eeuo pipefail
+
+          # Cron path: plain GET. Stale-while-revalidate serves the
+          # cached payload and kicks a background refresh — warm cache,
+          # no blocking rebuild. See the header note.
+          if [[ -n "${FORCE}" ]]; then
+            TARGET="${URL}/api/public/league?refresh=1"
+            BUDGET=330
+            echo "Manual dispatch: forcing a blocking rebuild (budget ${BUDGET}s)"
+          else
+            TARGET="${URL}/api/public/league"
+            BUDGET=120
+          fi
+
+          echo "Warming ${TARGET}"
           body_file="$(mktemp)"
-          code="$(curl --silent --show-error --globoff --max-time 45 \
-            --output "${body_file}" --write-out '%{http_code}' \
-            "${URL}/api/public/league?refresh=1" || echo 000)"
-          size=$(wc -c < "${body_file}" 2>/dev/null || echo 0)
-          echo "status=${code} size=${size}"
+          code="000"
+          # Three attempts. The rebuild contends with the scrape loop,
+          # so a single slow response is expected rather than broken.
+          for attempt in 1 2 3; do
+            code="$(curl --silent --show-error --globoff --max-time "${BUDGET}" \
+              --output "${body_file}" --write-out '%{http_code}' \
+              "${TARGET}" || echo 000)"
+            size=$(wc -c < "${body_file}" 2>/dev/null || echo 0)
+            echo "attempt ${attempt}: status=${code} size=${size}"
+            [[ "${code}" == "200" ]] && break
+            [[ "${attempt}" -lt 3 ]] && sleep 15
+          done
 
           if [[ "${code}" != "200" ]]; then
-            echo "::error title=Warmup failed::HTTP ${code} from ${URL}/api/public/league?refresh=1"
+            echo "::error title=Warmup failed::HTTP ${code} from ${TARGET} after 3 attempts (${BUDGET}s each). Health passed, so the backend is up but the snapshot path is not serving."
             exit 1
           fi
 
@@ -97,5 +176,5 @@ jobs:
           URL: ${{ steps.url.outputs.url }}
         run: |
           set -Eeuo pipefail
-          curl --silent --show-error --globoff --max-time 10 \
+          curl --silent --show-error --globoff --max-time 30 \
             "${URL}/api/public/league/metrics" | python3 -m json.tool | head -30 || true
