@@ -176,32 +176,25 @@ class TestFallbackAnchor(unittest.TestCase):
         self.assertIsNone(val)
         self.assertIsNone(src)
 
-    def test_fallback_chain_covers_all_scope_sources(self):
-        """Safety rail: every IDP-scope and offense-scope value+rank
-        source in the registry should be somewhere in the fallback
-        chain for its asset class.  Catches a new source being added
-        to _RANKING_SOURCES without being added to the anchor chain
-        — which would silently reintroduce the gap we're fixing."""
-        from src.api.data_contract import _RANKING_SOURCES
-        from src.canonical.idp_backbone import (
-            SOURCE_SCOPE_OVERALL_IDP,
-            SOURCE_SCOPE_OVERALL_OFFENSE,
-        )
+    def test_fallback_chain_starts_with_the_declared_primary_anchor(self):
+        """Each asset class's fallback chain leads with its primary anchor.
 
-        offense_sources = {
-            s["key"]
-            for s in _RANKING_SOURCES
-            if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
-            and not s.get("excludes_rookies")  # rookie-only boards aren't anchors
-        }
-        idp_sources = {
-            s["key"] for s in _RANKING_SOURCES if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
-        }
-        chain_offense = set(_MARKET_ANCHOR_FALLBACKS.get("offense") or [])
-        chain_idp = set(_MARKET_ANCHOR_FALLBACKS.get("idp") or [])
-        # The chain is a curated shortlist — we don't require every
-        # offense source, just confirm the chain is non-empty and
-        # starts with the declared primary anchors.
+        NOTE ON SCOPE — this test used to be named
+        ``test_fallback_chain_covers_all_scope_sources`` and its
+        docstring claimed it was a "safety rail" catching "a new source
+        being added to _RANKING_SOURCES without being added to the
+        anchor chain".  It never did that: it built
+        ``offense_sources`` / ``idp_sources`` / ``chain_offense`` /
+        ``chain_idp`` and then compared none of them (ruff F841 flagged
+        all four as unused).  The only assertions were — and still are
+        — the two below.
+
+        The registry-coverage check was deliberately dropped, because
+        the chain is a curated shortlist rather than every scope
+        source, so a subset assertion would be wrong.  Renamed and the
+        dead locals removed so the name and docstring describe what is
+        actually verified.  See docs/python-coverage-audit.md (W-1).
+        """
         self.assertEqual(
             _MARKET_ANCHOR_FALLBACKS["offense"][0],
             _MARKET_ANCHOR_BY_ASSET_CLASS["offense"],
@@ -210,6 +203,11 @@ class TestFallbackAnchor(unittest.TestCase):
             _MARKET_ANCHOR_FALLBACKS["idp"][0],
             _MARKET_ANCHOR_BY_ASSET_CLASS["idp"],
         )
+        # The chains must at least be non-empty — an empty chain would
+        # make the assertions above IndexError rather than pass, but be
+        # explicit so intent is unambiguous.
+        self.assertTrue(_MARKET_ANCHOR_FALLBACKS["offense"])
+        self.assertTrue(_MARKET_ANCHOR_FALLBACKS["idp"])
 
 
 class TestPercentileHelper(unittest.TestCase):
