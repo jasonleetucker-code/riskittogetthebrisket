@@ -18,6 +18,12 @@ const TradeSimulator = dynamic(() => import("./_trade-simulator.jsx"), {
   ssr: false,
 });
 
+// Same treatment as the simulator: its own chunk, loaded when this tab
+// renders rather than inflating the /league bundle.
+const PickProjectorPanel = dynamic(() => import("./_pick-projector.jsx"), {
+  ssr: false,
+});
+
 function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
@@ -74,14 +80,27 @@ export default function DraftCapitalSection() {
     <>
       <div className="card" style={{ marginTop: "var(--space-md)" }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>Draft Capital</div>
-        <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {data.season} draft · {data.numTeams} teams · {data.draftRounds} rounds · ${data.totalBudget} total budget
+        <div
+          style={{
+            fontSize: "0.72rem",
+            color: "var(--subtext)",
+            marginBottom: 10,
+          }}
+        >
+          {data.season} draft · {data.numTeams} teams · {data.draftRounds}{" "}
+          rounds · ${data.totalBudget} total budget
         </div>
-        <div style={{ fontSize: "0.66rem", color: "var(--muted)", marginBottom: 10 }}>
-          <span style={{ color: "var(--green)", fontWeight: 700 }}>green</span> = raw
-          auction $ ·{" "}
-          <span style={{ color: "var(--cyan)", fontWeight: 700 }}>▲ cyan</span> =
-          effective auction power (stacking-adjusted, zero-sum)
+        <div
+          style={{
+            fontSize: "0.66rem",
+            color: "var(--muted)",
+            marginBottom: 10,
+          }}
+        >
+          <span style={{ color: "var(--green)", fontWeight: 700 }}>green</span>{" "}
+          = raw auction $ ·{" "}
+          <span style={{ color: "var(--cyan)", fontWeight: 700 }}>▲ cyan</span>{" "}
+          = effective auction power (stacking-adjusted, zero-sum)
         </div>
         <TeamTotalsChart
           teamTotals={data.teamTotals}
@@ -93,7 +112,16 @@ export default function DraftCapitalSection() {
         />
       </div>
 
-      <PickValueGrid picks={data.picks} draftRounds={data.draftRounds} numTeams={data.numTeams} />
+      <PickValueGrid
+        picks={data.picks}
+        draftRounds={data.draftRounds}
+        numTeams={data.numTeams}
+      />
+
+      {/* Future picks — where they land, not what they are worth. The
+          grid above is the current season's actual draft; this is the
+          projection for the ones after it. */}
+      <PickProjectorPanel />
 
       <TradeSimulator picks={data.picks} teamTotals={data.teamTotals} />
 
@@ -102,25 +130,44 @@ export default function DraftCapitalSection() {
   );
 }
 
-
 /* ── Team totals bar chart ─────────────────────────────────────────────── */
-function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds, season }) {
-  const maxDollars = Math.max(...(teamTotals || []).map((t) => t.auctionDollars), 1);
+function TeamTotalsChart({
+  teamTotals,
+  picks,
+  totalBudget,
+  numTeams,
+  draftRounds,
+  season,
+}) {
+  const maxDollars = Math.max(
+    ...(teamTotals || []).map((t) => t.auctionDollars),
+    1,
+  );
 
   // Effective auction power is a presentation lens computed client-side
   // from the raw per-team dollars (zero-sum; src/api/auction_power.py
   // is the source of truth).  No extra backend payload.
   const effectiveByTeam = effectiveAuctionPower(
-    Object.fromEntries((teamTotals || []).map((t) => [t.team, t.auctionDollars || 0])),
+    Object.fromEntries(
+      (teamTotals || []).map((t) => [t.team, t.auctionDollars || 0]),
+    ),
   );
 
   return (
     <div style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-sm)",
+        }}
+      >
         {(teamTotals || []).map((team, i) => {
           const pct = (team.auctionDollars / maxDollars) * 100;
           const effectiveDollars = effectiveByTeam[team.team];
-          const teamPicks = (picks || []).filter((p) => p.currentOwner === team.team);
+          const teamPicks = (picks || []).filter(
+            (p) => p.currentOwner === team.team,
+          );
           const tradedCount = teamPicks.filter((p) => p.isTraded).length;
 
           return (
@@ -129,10 +176,17 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
               style={{
                 padding: "var(--space-sm) var(--space-md)",
                 borderRadius: "var(--radius-sm)",
-                background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
+                background:
+                  i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--space-sm)",
+                }}
+              >
                 <span
                   className="font-mono"
                   style={{
@@ -148,7 +202,12 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
 
                 <span
                   className="truncate"
-                  style={{ minWidth: 100, maxWidth: 140, fontSize: "0.82rem", fontWeight: 600 }}
+                  style={{
+                    minWidth: 100,
+                    maxWidth: 140,
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                  }}
                 >
                   {team.team}
                 </span>
@@ -167,10 +226,12 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                     style={{
                       width: `${pct}%`,
                       height: "100%",
-                      background: "linear-gradient(90deg, var(--cyan), rgba(79, 155, 236, 0.6))",
+                      background:
+                        "linear-gradient(90deg, var(--cyan), rgba(79, 155, 236, 0.6))",
                       borderRadius: "var(--radius-sm)",
                       transition: "width 0.4s ease-out",
-                      boxShadow: pct > 30 ? "0 0 12px rgba(79, 155, 236, 0.15)" : "none",
+                      boxShadow:
+                        pct > 30 ? "0 0 12px rgba(79, 155, 236, 0.15)" : "none",
                     }}
                   />
                 </div>
@@ -215,7 +276,10 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                     </span>
                   )}
 
-                <span className="badge badge-cyan" style={{ fontSize: "0.64rem", padding: "1px 6px" }}>
+                <span
+                  className="badge badge-cyan"
+                  style={{ fontSize: "0.64rem", padding: "1px 6px" }}
+                >
                   {teamPicks.length}pk
                 </span>
               </div>
@@ -231,14 +295,25 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
               >
                 {teamPicks.map((p, j) => (
                   <span key={j}>
-                    {j > 0 && <span style={{ margin: "0 2px", opacity: 0.3 }}>·</span>}
-                    <span style={p.isTraded ? { color: "var(--amber)" } : undefined}>
-                      {p.pick}{p.isTraded ? "*" : ""}
+                    {j > 0 && (
+                      <span style={{ margin: "0 2px", opacity: 0.3 }}>·</span>
+                    )}
+                    <span
+                      style={p.isTraded ? { color: "var(--amber)" } : undefined}
+                    >
+                      {p.pick}
+                      {p.isTraded ? "*" : ""}
                     </span>
                   </span>
                 ))}
                 {tradedCount > 0 && (
-                  <span style={{ marginLeft: 6, color: "var(--amber)", opacity: 0.7 }}>
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      color: "var(--amber)",
+                      opacity: 0.7,
+                    }}
+                  >
                     ({tradedCount} traded)
                   </span>
                 )}
@@ -257,8 +332,9 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
           borderTop: "1px solid var(--border)",
         }}
       >
-        ${totalBudget} total budget across {numTeams} teams, {draftRounds} rounds ({season}).{" "}
-        <span style={{ color: "var(--amber)" }}>*</span> = traded pick.
+        ${totalBudget} total budget across {numTeams} teams, {draftRounds}{" "}
+        rounds ({season}). <span style={{ color: "var(--amber)" }}>*</span> =
+        traded pick.
       </div>
     </div>
   );
@@ -272,9 +348,21 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
   }
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-sm)", marginBottom: "var(--space-sm)" }}>
-        <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Pick Values</span>
-        <span className="text-xs muted">Adjusted values used for team totals (expansion picks 1 &amp; 2 averaged)</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: "var(--space-sm)",
+          marginBottom: "var(--space-sm)",
+        }}
+      >
+        <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>
+          Pick Values
+        </span>
+        <span className="text-xs muted">
+          Adjusted values used for team totals (expansion picks 1 &amp; 2
+          averaged)
+        </span>
       </div>
       <div className="table-wrap">
         <table>
@@ -282,14 +370,28 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
             <tr>
               <th style={{ width: 70 }}>Round</th>
               {Array.from({ length: numTeams || 12 }, (_, i) => (
-                <th key={i} style={{ textAlign: "right", fontSize: "0.72rem", minWidth: 44 }}>Pk {i + 1}</th>
+                <th
+                  key={i}
+                  style={{
+                    textAlign: "right",
+                    fontSize: "0.72rem",
+                    minWidth: 44,
+                  }}
+                >
+                  Pk {i + 1}
+                </th>
               ))}
-              <th style={{ textAlign: "right", fontWeight: 700, minWidth: 50 }}>Total</th>
+              <th style={{ textAlign: "right", fontWeight: 700, minWidth: 50 }}>
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
             {rounds.map((rp, ri) => {
-              const total = rp.reduce((s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0), 0);
+              const total = rp.reduce(
+                (s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0),
+                0,
+              );
               return (
                 <tr key={ri}>
                   <td className="font-mono font-bold">R{ri + 1}</td>
@@ -306,7 +408,10 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
                       {fmtDollar(p.adjustedDollarValue ?? p.dollarValue)}
                     </td>
                   ))}
-                  <td className="font-mono font-bold text-green" style={{ textAlign: "right" }}>
+                  <td
+                    className="font-mono font-bold text-green"
+                    style={{ textAlign: "right" }}
+                  >
                     {fmtDollar(total)}
                   </td>
                 </tr>
@@ -333,7 +438,11 @@ function PicksByRound({ picks, draftRounds }) {
   return (
     <>
       {rounds.map(({ round, picks: roundPicks, total }) => (
-        <div key={round} className="card" style={{ marginTop: "var(--space-md)" }}>
+        <div
+          key={round}
+          className="card"
+          style={{ marginTop: "var(--space-md)" }}
+        >
           <div
             style={{
               display: "flex",
@@ -342,7 +451,9 @@ function PicksByRound({ picks, draftRounds }) {
               marginBottom: "var(--space-sm)",
             }}
           >
-            <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Round {round}</span>
+            <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>
+              Round {round}
+            </span>
             <span className="badge badge-green" style={{ fontSize: "0.64rem" }}>
               {fmtDollar(total)}
             </span>
@@ -368,7 +479,10 @@ function PicksByRound({ picks, draftRounds }) {
                     <td style={{ fontWeight: 600 }}>{pick.currentOwner}</td>
                     <td>
                       {pick.isTraded ? (
-                        <span className="badge badge-amber" style={{ fontSize: "0.64rem" }}>
+                        <span
+                          className="badge badge-amber"
+                          style={{ fontSize: "0.64rem" }}
+                        >
                           {pick.originalOwner}
                         </span>
                       ) : (

@@ -30,6 +30,50 @@ from typing import Any
 _CONFIDENCE_HIGH_RATIO = 1.0
 _CONFIDENCE_MEDIUM_RATIO = 0.4
 
+_CONFIDENCE_ORDER = ("low", "medium", "high")
+
+#: Ceiling on a pick's confidence by how many seasons out it is.
+#:
+#: WHY THIS EXISTS.  ``project_draft_order`` derives confidence purely
+#: from how isolated a team's strength score is from its neighbours
+#: **today**.  That is a sound answer to "how firmly is this team
+#: ranked right now" and no answer at all to "where will its pick land
+#: in three years", which is what a row labelled ``2029 1.01`` claims.
+#:
+#: Measured 2026-07-27 before this cap existed: a 2029 pick carried the
+#: identical confidence distribution to a 2027 pick — {high 2, medium 6,
+#: low 4} for all three seasons, and the same team read ``medium`` in
+#: every one.  A field named ``confidence`` that cannot vary with the
+#: horizon it is expressing confidence about is the name/predicate gap
+#: this codebase keeps paying for.
+#:
+#: WHAT THIS IS NOT.  These ceilings are a STATED ASSUMPTION, not a
+#: measurement.  Backtesting them needs multi-season team-strength
+#: snapshots joined to realized final standings, and
+#: ``data/ros/team_strength/`` holds only the current snapshot per
+#: league — there is no history to fit against.  They are deliberately
+#: conservative so the error is "we under-claimed" rather than "we
+#: presented a three-year-out guess as high confidence".  Replace them
+#: with a fitted curve once two seasons of snapshots exist.
+_CONFIDENCE_CEILING_BY_HORIZON: dict[int, str] = {
+    1: "high",  # next season — current strength is genuinely informative
+    2: "medium",
+}
+_CONFIDENCE_CEILING_BEYOND = "low"
+
+
+def _cap_confidence(confidence: str, seasons_out: int) -> str:
+    """Lower ``confidence`` to the ceiling for ``seasons_out``.
+
+    Never raises a confidence — a team in a tight cluster stays ``low``
+    next season too.  The cap is a ceiling, not an assignment.
+    """
+    ceiling = _CONFIDENCE_CEILING_BY_HORIZON.get(seasons_out, _CONFIDENCE_CEILING_BEYOND)
+    try:
+        return min(confidence, ceiling, key=_CONFIDENCE_ORDER.index)
+    except ValueError:  # unknown label — do not silently promote it
+        return ceiling
+
 
 def _to_float(v: Any) -> float | None:
     try:
@@ -172,14 +216,22 @@ def build_pick_projections(
                 unprojectable += 1
                 continue
             slot = slot_row["projectedSlot"]
+            seasons_out = season - current_season
             picks.append(
                 {
                     "season": season,
                     "round": rnd,
+                    "seasonsOut": seasons_out,
                     "projectedSlot": slot,
                     "projectedPickNumber": (rnd - 1) * team_count + slot,
                     "label": f"{season} {rnd}.{slot:02d}",
-                    "confidence": slot_row["confidence"],
+                    # Capped by horizon — see _CONFIDENCE_CEILING_BY_HORIZON.
+                    # ``slotConfidence`` keeps the uncapped, today-only
+                    # reading so a consumer can tell "this team is
+                    # tightly ranked but the pick is far out" from "this
+                    # team is in a scrum".
+                    "confidence": _cap_confidence(slot_row["confidence"], seasons_out),
+                    "slotConfidence": slot_row["confidence"],
                     "ownerRosterId": owner,
                     "ownerTeam": name_by_rid.get(owner),
                     "originalRosterId": original,
