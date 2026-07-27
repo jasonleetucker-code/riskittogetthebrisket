@@ -471,9 +471,21 @@ export default function TradesPage() {
         eyebrow="Ledger"
         title="Trade History"
         description={
-          combineMode
-            ? `Combined head-to-head: ${teamFilter} ↔ ${teamFilterB} — assets that bounced back cancel out.`
-            : `${analysis.analyzed.length} trades in the last ${windowDays} days, graded at alpha=${alpha}.`
+          // The count comes from the contract, so it is only true once
+          // the contract is actually here.  While loading (or after a
+          // failed load) ``analysis.analyzed`` is empty for want of
+          // data, and printing "0 trades in the last N days" states a
+          // settled fact we do not have — the snapshot behind this page
+          // routinely carries 100+ trades.  Say what is actually
+          // happening instead; the skeleton / error banner below
+          // carries the detail.
+          loading
+            ? `Grading trades from the last ${windowDays} days…`
+            : error
+              ? "Trade history unavailable — the board data failed to load."
+              : combineMode
+                ? `Combined head-to-head: ${teamFilter} ↔ ${teamFilterB} — assets that bounced back cancel out.`
+                : `${analysis.analyzed.length} trades in the last ${windowDays} days, graded at alpha=${alpha}.`
         }
       />
 
