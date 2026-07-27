@@ -242,9 +242,7 @@ class TestSiteMaxContamination:
         clean = _contract_values(dc.build_api_data_contract(_payload()))
         poisoned = _contract_values(dc.build_api_data_contract(_payload(corrupt=99990)))
 
-        ratios = [
-            poisoned[n] / clean[n] for n in clean if clean[n] and poisoned.get(n) is not None
-        ]
+        ratios = [poisoned[n] / clean[n] for n in clean if clean[n] and poisoned.get(n) is not None]
         assert ratios, "fixture produced no comparable players"
 
         worst = min(ratios)
