@@ -53,9 +53,7 @@ def _latest_payload() -> Path:
         reverse=True,
     )
     if not candidates:
-        raise SystemExit(
-            "no exports/latest/dynasty_data_*.json found; pass --payload explicitly"
-        )
+        raise SystemExit("no exports/latest/dynasty_data_*.json found; pass --payload explicitly")
     return candidates[0]
 
 
@@ -168,8 +166,10 @@ def diff(before: dict[str, Any], after: dict[str, Any]) -> None:
 
     b_pool = {v.get("poolSize") for v in b_teams.values() if "error" not in v}
     a_pool = {v.get("poolSize") for v in a_teams.values() if "error" not in v}
-    print(f"pool size:          before {sorted(x for x in b_pool if x)}  "
-          f"after {sorted(x for x in a_pool if x)}")
+    print(
+        f"pool size:          before {sorted(x for x in b_pool if x)}  "
+        f"after {sorted(x for x in a_pool if x)}"
+    )
     print()
 
     print("per-team trade count and top-1 stability:")

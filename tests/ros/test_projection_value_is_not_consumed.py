@@ -70,7 +70,9 @@ class TestProjectionValueDoesNotChangeTheOutput:
         Two identical rows differing ONLY in ``projection_value``.  If the
         projection were consumed, these could not agree.
         """
-        without = aggregate([_snapshot([RankedRow("Player A", "WR", 5, 300)])], league=_LEAGUE, now_iso=_NOW)
+        without = aggregate(
+            [_snapshot([RankedRow("Player A", "WR", 5, 300)])], league=_LEAGUE, now_iso=_NOW
+        )
         with_proj = aggregate(
             [_snapshot([RankedRow("Player A", "WR", 5, 300, projection_value=9999.0)])],
             league=_LEAGUE,

@@ -237,8 +237,6 @@ _EVIDENCE_CONFIDENCE: Mapping[AcceptanceEvidence, float] = {
 }
 
 
-
-
 # ── Consumed contracts ───────────────────────────────────────────────
 # The roster engine owns production of RosterProfile / CompetitiveWindow
 # (``profiles.py``, ``window.py``). RosterSignal is the narrow view this
@@ -534,6 +532,7 @@ def _sigmoid(x: float) -> float:
 
 # ── term: market fairness ────────────────────────────────────────────
 
+
 def _reachable_fit_bounds() -> tuple[float, float, float]:
     """``(min, max, max_confidence)`` actually attainable by ``fit_score``.
 
@@ -574,6 +573,7 @@ def _reachable_fit_bounds() -> tuple[float, float, float]:
 FIT_SCORE_REACHABLE_MIN, FIT_SCORE_REACHABLE_MAX, _MAX_REACHABLE_CONFIDENCE = (
     _reachable_fit_bounds()
 )
+
 
 def _fairness_term(shape: TradeShape | None) -> tuple[float, str | None]:
     """Log-odds delta from how the offer prices out for THEM.

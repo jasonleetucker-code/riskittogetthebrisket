@@ -138,9 +138,7 @@ def measure_league_te_premium(
     edges: dict[str, float] = {}
     for te_key, comparators in _TE_EDGE_KEYS:
         te_val = _as_float(scoring.get(te_key)) or 0.0
-        best_comparator = max(
-            (_as_float(scoring.get(c)) or 0.0) for c in comparators
-        )
+        best_comparator = max((_as_float(scoring.get(c)) or 0.0) for c in comparators)
         edges[te_key] = round(te_val - best_comparator, 6)
 
     positive = {k: v for k, v in edges.items() if v > 0}
@@ -151,10 +149,7 @@ def measure_league_te_premium(
             has_positional_edge=False,
             edges=edges,
             measured=True,
-            reason=(
-                "no scoring key advantages TE over WR/RB; measured premium is "
-                "exactly 1.0"
-            ),
+            reason=("no scoring key advantages TE over WR/RB; measured premium is " "exactly 1.0"),
         )
 
     # An edge exists.  Say so, and say why a number is not offered.

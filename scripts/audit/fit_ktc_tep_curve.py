@@ -211,9 +211,13 @@ def main() -> int:
 
     print(f"observations: {fit['n']} TEs on both boards")
     print(f"form:         ratio(v) = 1 + {a:.4g} * v^(-{k:.4f})")
-    print(f"fit:          R2(log) {fit['r2_log_space']:.4f}   median err {fit['median_abs_err']:.4f}")
-    print(f"observed:     ratio {payload['observed_ratio_range'][0]} .. "
-          f"{payload['observed_ratio_range'][1]}")
+    print(
+        f"fit:          R2(log) {fit['r2_log_space']:.4f}   median err {fit['median_abs_err']:.4f}"
+    )
+    print(
+        f"observed:     ratio {payload['observed_ratio_range'][0]} .. "
+        f"{payload['observed_ratio_range'][1]}"
+    )
     print()
     print("  value    fitted ratio")
     floor = payload["floor"]
@@ -223,8 +227,10 @@ def main() -> int:
     print("live constants for comparison:")
     print("  _TE_BLANKET_NON_NATIVE_MULTIPLIER = 1.15")
     print("  _TE_BLANKET_NATIVE_MULTIPLIER     = 1.10")
-    print(f"  -> 1.15 sits BELOW the entire observed range "
-          f"({payload['observed_ratio_range'][0]} .. {payload['observed_ratio_range'][1]})")
+    print(
+        f"  -> 1.15 sits BELOW the entire observed range "
+        f"({payload['observed_ratio_range'][0]} .. {payload['observed_ratio_range'][1]})"
+    )
     return 0
 
 

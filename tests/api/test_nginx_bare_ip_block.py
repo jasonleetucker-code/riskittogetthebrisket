@@ -94,8 +94,7 @@ class TestRedirectTargetIsValidatable:
                 f"the IP — TLS would fail for every redirected client"
             )
             assert target.startswith("https://chaseupside.com"), (
-                f"bare-IP redirect target {target!r} should point at the canonical "
-                "HTTPS origin"
+                f"bare-IP redirect target {target!r} should point at the canonical " "HTTPS origin"
             )
 
 
@@ -116,6 +115,6 @@ class TestHealthEndpointStaysReachable:
         assert upstream is not None, "/api/health does not proxy anywhere"
         name = upstream.group(1)
         text = CONF.read_text(encoding="utf-8")
-        assert re.search(rf"^upstream\s+{name}\s*\{{", text, re.M), (
-            f"proxy_pass targets upstream {name!r}, which this file does not declare"
-        )
+        assert re.search(
+            rf"^upstream\s+{name}\s*\{{", text, re.M
+        ), f"proxy_pass targets upstream {name!r}, which this file does not declare"
