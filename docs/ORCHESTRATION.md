@@ -153,6 +153,30 @@ is. Three-dot distinguishes them; two-dot cannot.
 Run it after every rebase — #567 went through five while merges landed
 underneath it, and it is the reason #567 shipped as four files.
 
+## 2a-1. Tool caveat: `actions_list` filters are not reliable
+
+Two filters on `mcp__github__actions_list` do not do what their names
+say, and both produced wrong readings tonight:
+
+- **`workflow_id` is silently ignored.** A query for
+  `public-league-warmup.yml` returned 7 PR Validation runs and 1 Deploy
+  Production run, and **zero** warmup runs. The orchestrator read three
+  of those as "warmup successes" and nearly reported the fix verified
+  on the strength of them. The tell was visible the whole time: a cron
+  workflow does not run on PR-branch SHAs.
+- **`branch` is loose.** A query scoped to one feature branch returned
+  a `Public League Warmup` run whose head was `main`.
+
+**Always filter the returned JSON yourself** on `r["name"]` and
+`r["head_sha"]`, and match `head_sha` against the branch tip you
+actually care about (`git rev-parse --short=9 origin/<branch>`). Do not
+trust the request parameters to have narrowed anything.
+
+The general form is worth stating because it is not specific to this
+tool: **asking a question and receiving data is not the same as
+receiving an answer to that question.** Label results by what they
+contain, never by what you asked for.
+
 **ADR numbers collide because they are chosen at authoring time against
 a base that moves before merge.** Two agents authoring concurrently both
 pick "the next number" from the same starting state, and whoever merges
@@ -442,7 +466,14 @@ Landing them in the other order leaves a window where the reasoning
 exists in neither file. Neither PR blocks the other technically —
 this is about the record being coherent.
 
-**No file collides across the five.** Verified with
+**CI verified green 02:32 UTC** on all six settled PRs — #573
+(`49a7127e2`), #574 (`5ec9d42a6`), #576 (`fc8f4a437`), #577
+(`e67dd1e85`), #578 (`7b725f23b`), #579 (`fd42d2a2b`). #572 was
+mid-run on its own latest push. Checked by matching `head_sha` against
+each branch tip and filtering on `name == "PR Validation"` — see the
+tool caveat in §2a-1.
+
+**No file collides across the seven.** Verified with
 `git diff --name-only origin/main...<branch>` per PR — every path is
 unique, so they merge in any order without a textual conflict. That is
 not the same as semantically independent, and the items below are what
