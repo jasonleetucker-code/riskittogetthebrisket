@@ -307,7 +307,11 @@ def load_tep_curve() -> tuple[float, float, float, float]:
         if a is not None and k is not None and a > 0 and k > 0:
             floor = floor if (floor is not None and floor >= 1.0) else 1.0
             observed = payload.get("observed_ratio_range")
-            ceiling = _as_float(observed[1]) if isinstance(observed, (list, tuple)) and len(observed) == 2 else None
+            ceiling = (
+                _as_float(observed[1])
+                if isinstance(observed, (list, tuple)) and len(observed) == 2
+                else None
+            )
             if ceiling is None or ceiling < floor:
                 ceiling = max(_FALLBACK_CEILING, floor)
             return a, k, floor, ceiling
