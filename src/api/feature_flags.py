@@ -38,7 +38,10 @@ from typing import Final
 
 _DEFAULTS: Final[dict[str, bool]] = {
     # Phase 1 — Unified ID mapper
-    "unified_id_mapper": True,  # safe: no behavior change, new API only
+    # NO_GATE — the mapper is unconditional and this flag has never
+    # gated it.  OFF so the registry stops reporting a switch that does
+    # not exist; the mapper itself is unaffected either way.
+    "unified_id_mapper": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
     # requirements.txt.  Safe: every fetch is guarded so an import
@@ -49,14 +52,24 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Phase 3 — Realized fantasy points — endpoint-only, inert until
     # a client calls it.  Activated with nfl_data_ingest.
     "realized_points_api": True,
-    # Phase 4 — Confidence intervals — additive ``valueBand`` field
-    # on rankings contract.  Frontend ValueBandBadge renders when
-    # field is present; absent = no badge (safe).  Flipping on now.
-    "value_confidence_intervals": True,
-    # Phase 5 — Positional tiering — additive ``tierId`` field on
-    # rankings rows.  Frontend TierDivider renders when tierId set;
-    # absent = no divider lines (safe).  Flipping on now.
-    "positional_tiers": True,
+    # Phase 4 — Confidence intervals.  NO_GATE, so OFF.
+    #
+    # The old comment here claimed "Frontend ValueBandBadge renders when
+    # field is present".  Nothing renders it: the badge is exported from
+    # the ui barrel and imported by no page, ``stamp_bands_on_players``
+    # has no caller, and ``rank_history_band`` has no caller either.
+    # There is also no ``is_enabled("value_confidence_intervals")``
+    # anywhere — only docstrings describing one.
+    "value_confidence_intervals": False,
+    # Phase 5 — Positional tiering.  NO_GATE, so OFF.
+    #
+    # The old comment claimed "Frontend TierDivider renders when tierId
+    # set".  ``TierDivider`` renders only on /draft, and off a locally
+    # computed ``p.tier`` — the backend never stamps ``tierId`` at all,
+    # because ``stamp_tiers_on_players`` is called only from
+    # ``scripts/refit_tier_thresholds.py``.  Two identifiers for two
+    # different things, which is why the claim read as true.
+    "positional_tiers": False,
     # Phase 6 — Usage-based signals — BUILT BUT NOT WIRED, and OFF.
     #
     # This comment used to read "fires via unified_signal_engine when
@@ -79,14 +92,20 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Turning this on today would only enable a flag with no consumer.
     # Whoever wires the consumer must re-run the audit first.
     "usage_signals": False,
-    # Phase 7 — ESPN injury feed — external endpoint, now protected
-    # by the ``espn_injuries`` circuit breaker (3 failures / 2min →
-    # 3min OPEN).  Safe to activate.
-    "espn_injury_feed": True,
-    # Phase 8 — Depth chart cross-check — same ESPN infrastructure.
-    # Gated by ``espn_depth_charts`` breaker (5 failures / 3min → 3min
-    # OPEN).  Requires injury feed ON to cross-check.
-    "depth_chart_validation": True,
+    # Phase 7 — ESPN injury feed.  UNREACHABLE, so OFF.
+    #
+    # The gate in ``src/nfl_data/injury_feed.py`` is real and correct.
+    # The module has no production importer, so the gate never runs and
+    # the old "Safe to activate" was true only in the sense that
+    # activating it did nothing.
+    "espn_injury_feed": False,
+    # Phase 8 — Depth chart cross-check.  SCRIPT_ONLY, so OFF.
+    #
+    # ``src/nfl_data/depth_charts.py`` is gated and imported — by
+    # ``scripts/refresh_depth_charts.py`` alone.  The old comment's
+    # "Requires injury feed ON to cross-check" made it depend on a flag
+    # whose own module never runs, so neither half could ever fire.
+    "depth_chart_validation": False,
     # Phase 9 — Monte Carlo trade simulator — new endpoint
     # /api/trade/simulate-mc.  Old /api/trade/simulate is unchanged.
     # Enabling reveals the "Simulate" button in the trade-calc UI.
@@ -209,3 +228,110 @@ def snapshot() -> dict[str, bool]:
 def registered_flags() -> list[str]:
     """Return the registered flag names in declaration order."""
     return list(_DEFAULTS.keys())
+
+
+# ── Gate status ───────────────────────────────────────────────────
+#
+# WHY THIS IS DATA AND NOT A COMMENT
+#
+# Every flag below used to carry a prose comment describing what it
+# did.  Measured 2026-07-27 by walking imports transitively from
+# ``server.py``, **7 of 13 could not affect a request at all** — and
+# four of those defaulted True while their comments asserted live
+# behaviour ("fires via unified_signal_engine", "Frontend TierDivider
+# renders when tierId set", "Safe to activate").
+#
+# That is ORCHESTRATION.md §6.15 in registry form: the stated purpose
+# and the actual predicate differ and nothing forces them to agree.  A
+# comment cannot be checked, so the classification moves here where
+# ``tests/api/test_feature_flag_reachability.py`` re-measures it against
+# the real import graph on every run.  Add a flag without classifying
+# it and that test fails.
+#
+# The four statuses:
+#
+#   LIVE          a gate exists in a module reachable from server.py.
+#                 Toggling changes what a request does.
+#   SCRIPT_ONLY   a gate exists, but only in ``scripts/``.  Toggling
+#                 changes an operator tool, never a response.
+#   UNREACHABLE   a gate exists in a module NOTHING imports.  Toggling
+#                 is a no-op today; the gate is real but stranded.
+#   NO_GATE       no ``is_enabled`` call anywhere.  The flag is inert:
+#                 the capability it names is either unconditional or
+#                 absent, and the flag's value means nothing either way.
+#
+# Only LIVE flags may default True — anything else advertising itself
+# as on is the lie this table exists to prevent.
+
+LIVE: Final[str] = "LIVE"
+SCRIPT_ONLY: Final[str] = "SCRIPT_ONLY"
+UNREACHABLE: Final[str] = "UNREACHABLE"
+NO_GATE: Final[str] = "NO_GATE"
+
+_GATE_STATUS: Final[dict[str, str]] = {
+    # ── Reachable from server.py; toggling changes a response ──
+    "nfl_data_ingest": LIVE,
+    "realized_points_api": LIVE,
+    "monte_carlo_trade": LIVE,
+    "te_basis_conversion": LIVE,
+    "idp_scoring_fit": LIVE,
+    "reception_scoring_fit": LIVE,
+    # ── Gate exists, module is stranded ──
+    #
+    # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``
+    # both check their flag properly.  Nothing imports either module, so
+    # the check never executes.
+    "espn_injury_feed": UNREACHABLE,
+    "usage_signals": UNREACHABLE,
+    # ``src/nfl_data/depth_charts.py`` is gated and is imported — by
+    # ``scripts/refresh_depth_charts.py`` only.  Note this is a DIFFERENT
+    # module from ``src/playerctx/normalize.py::parse_depth_charts``,
+    # which is live and ungated; conflating the two reads as "depth
+    # charts work, so the flag must be live".
+    "depth_chart_validation": SCRIPT_ONLY,
+    # ── No gate anywhere: the flag is decoration ──
+    #
+    # Each of these is named in a docstring that describes a gate, and
+    # in no ``is_enabled`` call.  Prose is the only place the gating
+    # exists.
+    #
+    # value_confidence_intervals: ``stamp_bands_on_players`` has no
+    #   caller, ``rank_history_band`` has no caller, and ValueBandBadge
+    #   is exported from the ui barrel and mounted on no page.  Dead at
+    #   all three layers.
+    # positional_tiers: ``stamp_tiers_on_players`` is called only from
+    #   ``scripts/refit_tier_thresholds.py``.  ``TierDivider`` renders
+    #   only on /draft, off a locally computed ``p.tier`` — not the
+    #   backend ``tierId`` the flag's old comment named.
+    # unified_id_mapper: the mapper is unconditional.  The flag has
+    #   never gated it.
+    # dynamic_source_weights: ``src/backtesting/harness.py`` calls
+    #   itself "flag-gated ... implicitly", which is an accurate
+    #   description of not being flag-gated.
+    "value_confidence_intervals": NO_GATE,
+    "positional_tiers": NO_GATE,
+    "unified_id_mapper": NO_GATE,
+    "dynamic_source_weights": NO_GATE,
+}
+
+
+def gate_status(name: str) -> str:
+    """Return whether ``name``'s gate can actually run.
+
+    Raises KeyError for an unregistered flag, same as :func:`is_enabled`.
+    """
+    if name not in _DEFAULTS:
+        raise KeyError(f"unknown feature flag: {name!r}")
+    return _GATE_STATUS[name]
+
+
+def effective_flags() -> dict[str, dict[str, object]]:
+    """Flag values alongside whether they can do anything.
+
+    ``/api/status`` reports :func:`snapshot`, which answers "is it on?".
+    That question is misleading on its own for the seven flags whose
+    gates cannot run — this answers "is it on, and would it matter?".
+    """
+    return {
+        name: {"enabled": is_enabled(name), "gateStatus": _GATE_STATUS[name]} for name in _DEFAULTS
+    }

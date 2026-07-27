@@ -17,7 +17,6 @@
 
 import { useEffect, useState } from "react";
 
-
 export default function AdminPage() {
   const [status, setStatus] = useState(null);
   const [err, setErr] = useState("");
@@ -39,7 +38,9 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => { loadStatus(); }, []);
+  useEffect(() => {
+    loadStatus();
+  }, []);
 
   const runAction = async (label, url, method = "POST") => {
     if (!confirm(`Run: ${label}?`)) return;
@@ -51,7 +52,10 @@ export default function AdminPage() {
       setActionLog((prev) => [
         {
           ts: new Date().toISOString(),
-          label, url, status: res.status, ok,
+          label,
+          url,
+          status: res.status,
+          ok,
           body: JSON.stringify(body).slice(0, 400),
         },
         ...prev.slice(0, 19),
@@ -59,7 +63,14 @@ export default function AdminPage() {
       await loadStatus();
     } catch (e) {
       setActionLog((prev) => [
-        { ts: new Date().toISOString(), label, url, status: "ERR", ok: false, body: e.message },
+        {
+          ts: new Date().toISOString(),
+          label,
+          url,
+          status: "ERR",
+          ok: false,
+          body: e.message,
+        },
         ...prev.slice(0, 19),
       ]);
     } finally {
@@ -74,9 +85,8 @@ export default function AdminPage() {
         <div className="card" style={{ background: "rgba(220, 50, 50, 0.1)" }}>
           <p>{err}</p>
           <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-            This page requires an admin session.  If you're signed in
-            and still seeing this, your username may not be in the
-            allowlist.
+            This page requires an admin session. If you're signed in and still
+            seeing this, your username may not be in the allowlist.
           </p>
         </div>
       </main>
@@ -84,19 +94,30 @@ export default function AdminPage() {
   }
 
   return (
-    <main style={{ padding: "var(--space-lg)", maxWidth: 1100, margin: "0 auto" }}>
+    <main
+      style={{ padding: "var(--space-lg)", maxWidth: 1100, margin: "0 auto" }}
+    >
       <h1 style={{ marginBottom: "var(--space-md)" }}>Admin</h1>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "var(--space-lg)" }}>
-        Operator controls.  Every action logs to the backend with the
-        username + timestamp.  Don't flip flags you don't understand.
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.85rem",
+          marginBottom: "var(--space-lg)",
+        }}
+      >
+        Operator controls. Every action logs to the backend with the username +
+        timestamp. Don't flip flags you don't understand.
       </p>
 
       {/* ── Feature flags ─────────────────────────── */}
       <section className="card" style={{ marginBottom: "var(--space-md)" }}>
-        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Feature flags</h2>
+        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+          Feature flags
+        </h2>
         <p style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-          Flags are env-driven; flip via <code>RISKIT_FEATURE_&lt;NAME&gt;=1</code> + deploy.
-          This table is read-only — it reflects what the server currently sees.
+          Flags are env-driven; flip via{" "}
+          <code>RISKIT_FEATURE_&lt;NAME&gt;=1</code> + deploy. This table is
+          read-only — it reflects what the server currently sees.
         </p>
         {status?.featureFlags ? (
           <table style={{ width: "100%", fontSize: "0.85rem" }}>
@@ -104,19 +125,55 @@ export default function AdminPage() {
               <tr>
                 <th style={{ textAlign: "left" }}>Flag</th>
                 <th>Enabled</th>
+                <th>Gate</th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(status.featureFlags).map(([name, on]) => (
-                <tr key={name}>
-                  <td className="font-mono">{name}</td>
-                  <td style={{ textAlign: "center" }}>
-                    <span style={{ color: on ? "var(--green)" : "var(--muted)" }}>
-                      {on ? "● ON" : "○ off"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {Object.entries(status.featureFlags).map(([name, value]) => {
+                // The server sends {enabled, gateStatus}. A bare boolean
+                // is the pre-2026-07-27 shape — kept working because a
+                // stale server would otherwise render every flag ON,
+                // an object being unconditionally truthy.
+                const isObject = value !== null && typeof value === "object";
+                const on = isObject ? value.enabled === true : value === true;
+                const gate = isObject ? value.gateStatus || "" : "";
+                // A flag that is on but gates nothing is the case this
+                // column exists for — say so rather than showing a
+                // reassuring green dot.
+                const inert = gate && gate !== "LIVE";
+                return (
+                  <tr key={name}>
+                    <td className="font-mono">{name}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span
+                        style={{
+                          color:
+                            on && !inert
+                              ? "var(--green)"
+                              : on
+                                ? "var(--amber)"
+                                : "var(--muted)",
+                        }}
+                      >
+                        {on ? "● ON" : "○ off"}
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        textAlign: "center",
+                        color: inert ? "var(--amber)" : "var(--muted)",
+                      }}
+                      title={
+                        inert
+                          ? "This flag's gate is not reachable from the server, so its value cannot change a response."
+                          : undefined
+                      }
+                    >
+                      {gate || "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
@@ -126,7 +183,9 @@ export default function AdminPage() {
 
       {/* ── ID mapping + NFL data ─────────────────── */}
       <section className="card" style={{ marginBottom: "var(--space-md)" }}>
-        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>ID mapper + NFL data</h2>
+        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+          ID mapper + NFL data
+        </h2>
         {status?.idMappingCoverage ? (
           <pre style={{ fontSize: "0.75rem", overflow: "auto" }}>
             {JSON.stringify(status.idMappingCoverage, null, 2)}
@@ -141,29 +200,47 @@ export default function AdminPage() {
 
       {/* ── Actions ────────────────────────────────── */}
       <section className="card" style={{ marginBottom: "var(--space-md)" }}>
-        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Actions</h2>
-        <div style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap", marginTop: "var(--space-sm)" }}>
+        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+          Actions
+        </h2>
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-sm)",
+            flexWrap: "wrap",
+            marginTop: "var(--space-sm)",
+          }}
+        >
           <button
             className="btn"
             disabled={busy}
-            onClick={() => runAction("Flush NFL data cache", "/api/admin/nfl-data/flush")}
+            onClick={() =>
+              runAction("Flush NFL data cache", "/api/admin/nfl-data/flush")
+            }
           >
             Flush NFL data cache
           </button>
           <button
             className="btn"
             disabled={busy}
-            onClick={() => runAction("Migrate signal state", "/api/admin/signal-state/migrate")}
+            onClick={() =>
+              runAction(
+                "Migrate signal state",
+                "/api/admin/signal-state/migrate",
+              )
+            }
           >
             Migrate signal state
           </button>
           <button
             className="btn btn-danger"
             disabled={busy}
-            onClick={() => runAction(
-              "⚠️ Force-logout ALL sessions",
-              "/api/admin/sessions/force-logout-all",
-            )}
+            onClick={() =>
+              runAction(
+                "⚠️ Force-logout ALL sessions",
+                "/api/admin/sessions/force-logout-all",
+              )
+            }
           >
             Force-logout all sessions
           </button>
@@ -173,8 +250,16 @@ export default function AdminPage() {
       {/* ── Action log ─────────────────────────────── */}
       {actionLog.length > 0 && (
         <section className="card">
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Recent actions</h2>
-          <table style={{ width: "100%", fontSize: "0.75rem", fontFamily: "monospace" }}>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+            Recent actions
+          </h2>
+          <table
+            style={{
+              width: "100%",
+              fontSize: "0.75rem",
+              fontFamily: "monospace",
+            }}
+          >
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Time</th>
@@ -185,11 +270,20 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {actionLog.map((a, i) => (
-                <tr key={i} style={{ color: a.ok ? "var(--green)" : "var(--amber)" }}>
+                <tr
+                  key={i}
+                  style={{ color: a.ok ? "var(--green)" : "var(--amber)" }}
+                >
                   <td>{a.ts.slice(11, 19)}</td>
                   <td>{a.label}</td>
                   <td style={{ textAlign: "center" }}>{a.status}</td>
-                  <td style={{ maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <td
+                    style={{
+                      maxWidth: 400,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {a.body}
                   </td>
                 </tr>
