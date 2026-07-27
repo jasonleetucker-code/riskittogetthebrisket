@@ -234,6 +234,72 @@ board says X" referred to a board no user could see.
 
 ---
 
+## EXP-8 — The 1.368-vs-1.319 TE conflict: same method, different snapshots
+
+**The conflict.** Two workstreams measured KTC's TE++ premium against each other's
+numbers and disagreed:
+
+| metric | LI workstream | this audit | gap |
+|---|---|---|---|
+| median premium | 1.368 | 1.3187 | 3.7% |
+| TE1-12 band | 1.287 | 1.2270 | 4.9% |
+| TE41+ band | 1.512 | 1.5382 | 1.7% |
+| population | 462 (74 TE + 388) | 500 (73 TE + 427) | 38 rows |
+
+Two candidate causes were eliminated before this experiment. **TEP level:**
+`Dynasty Scraper.py:1947` requests `tep=3` but both CSVs come from one payload and
+`_ktc_extract_tep` pulls `tepp` (level 2), so both sides read the same board.
+**Population:** 427 − 38 picks = 389 against their 388, with zero picks among the
+differing rows.
+
+**Method:** run the *other* workstream's own measurement code
+(`src/league_intel/calibration.py::measure_paired_te_premium`, which reads
+`canonicalSiteValues` off the contract) against today's contract, and print its
+internals alongside a direct ratio.
+
+```
+tePremium            1.3186968838526911
+controlRatio         1.0
+controlDrift         0.0
+identicalControlRows 390 / 390
+teRows               73
+depthBands           TE1-12 1.2269   TE13-24 1.2672
+                     TE25-40 1.3074  TE41+   1.4908
+```
+
+**Result: their code, run today, produces this audit's number.** 1.3187, off a
+completely different input path — contract `canonicalSiteValues` joined by canonical
+identity, versus this audit's direct join of `CSVs/site_raw/ktc.csv` against
+`ktcSfTep.csv`. Controls are byte-identical (390/390, drift 0.0), so there is no
+normalisation artifact on either side.
+
+**Cause: neither method is wrong, and the two numbers are three months apart.**
+`tests/league_intel/test_calibration.py:347-360` measures the April baseline fixture
+`audit/baseline/api_data.json` (generated 2026-04-28) and pins **1.3682**; its own
+docstring records **1.3196** on the 2026-07-26 scrape. Today's 2026-07-27 contract gives
+1.3187. The premium genuinely drifted ~3.6% over three months.
+
+The band figures never conflicted either — they were never the same bands.
+`DEFAULT_DEPTH_BANDS` splits `TE1-12 / 13-24 / 25-40 / 41+`; EXP-4's residual table splits
+`1-12 / 13-48 / 49-60 / 61-72`. Only the first band was comparable, and it moves with the
+same drift.
+
+**Conclusion: CLOSED, no defect on either side.** Two independent measurement paths, two
+different populations, one number to four significant figures on the same day. That
+agreement is stronger evidence for the curve than either measurement alone.
+
+**Carried forward:** a quoted constant needs its snapshot date attached or it will be
+read as a disagreement by the next person. `test_calibration.py`'s class docstring does
+this correctly — it names the fixture, the date, and what may legitimately change. The
+1.368 in `calibration.py:233`'s comment does not, and that omission cost this audit a
+round trip.
+
+**Consequence for the staged TE work:** none. `config/weights/te_premium_curve.json` was
+fitted on the July boards and EXP-5b already showed it stable across a refresh. The curve
+is unaffected; only the interpretation of the conflict changes.
+
+---
+
 ## Not run, and why
 
 * **rosValue vs actual weekly points** (finding A's key experiment). Blocked twice:
