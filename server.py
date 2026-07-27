@@ -3919,11 +3919,20 @@ async def get_status():
 
 def _feature_flag_snapshot_safe() -> dict:
     """Return the feature-flag snapshot, tolerant of import errors
-    so a malformed upgrade doesn't 500 /api/status."""
+    so a malformed upgrade doesn't 500 /api/status.
+
+    Reports ``gateStatus`` alongside ``enabled`` because "is it on?" is
+    misleading on its own: 7 of 13 flags gate a module that nothing
+    reachable from this file imports, so their value cannot change a
+    response either way.  A reader who saw only ``enabled: true`` on
+    ``espn_injury_feed`` would reasonably conclude the injury feed was
+    running.  ``enabled`` keeps its old meaning and position so existing
+    consumers are unaffected.
+    """
     try:
         from src.api import feature_flags as _ff
 
-        return _ff.snapshot()
+        return _ff.effective_flags()
     except Exception as exc:  # noqa: BLE001
         log.warning("feature_flag snapshot failed: %s", exc)
         return {}
