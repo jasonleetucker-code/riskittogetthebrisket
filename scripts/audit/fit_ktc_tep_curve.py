@@ -138,18 +138,27 @@ def fit_power(obs: list[tuple[str, int, int]]) -> dict[str, float]:
     }
 
 
-def uplift(value: float, *, a: float, k: float, floor: float = 1.0) -> float:
-    """TE++ uplift ratio for a base-board value.  Always >= ``floor``.
+def uplift(
+    value: float, *, a: float, k: float, floor: float = 1.0, ceiling: float = math.inf
+) -> float:
+    """TE++ uplift ratio for a base-board value.  Clamped to
+    ``[floor, ceiling]``.
 
     The floor is the smallest uplift KTC actually applies to any TE.  The
     unconstrained fit reads ~1.146 at the most valuable TE against an
     observed 1.209, because a smooth curve through 73 points cannot also
     honour its own endpoint.  Clamping to the observed minimum is a
     measured bound, not a fudge: no tight end on the board receives less.
+
+    The ceiling is the largest observed uplift, and matters BELOW the
+    measured range (KTC's board bottoms out around base ~480), where the
+    power form extrapolates unbounded.  ``te_premium.tep_uplift`` applies
+    the same clamp live, reading ``observed_ratio_range`` max from the
+    config this script writes.
     """
     if value <= 0:
-        return max(1.0, floor)
-    return max(floor, 1.0 + a * float(value) ** -k)
+        return min(ceiling, max(1.0, floor))
+    return min(ceiling, max(floor, 1.0 + a * float(value) ** -k))
 
 
 def main() -> int:
@@ -166,7 +175,9 @@ def main() -> int:
         "_comment": (
             "KTC's own TE-premium (TE++, level 2) uplift curve, measured from "
             "CSVs/site_raw/ktc.csv vs ktcSfTep.csv. ratio(v) = 1 + a * v^-k, "
-            "monotone and >= 1 by construction. Regenerate with "
+            "monotone and >= 1 by construction, clamped live to "
+            "[floor, observed_ratio_range max] - the range maximum is read at "
+            "runtime as the uplift cap, not documentation. Regenerate with "
             "scripts/audit/fit_ktc_tep_curve.py --write-config."
         ),
         "_limitation": (
@@ -221,8 +232,11 @@ def main() -> int:
     print()
     print("  value    fitted ratio")
     floor = payload["floor"]
-    for v in (9999, 8000, 5000, 3000, 2000, 1000, 500):
-        print(f"  {v:5d}    {uplift(v, a=a, k=k, floor=floor):.4f}")
+    ceiling = payload["observed_ratio_range"][1]
+    # 200 and 100 sit below KTC's own board (bottoms out ~480) and show
+    # the observed-maximum cap doing its job on out-of-range reads.
+    for v in (9999, 8000, 5000, 3000, 2000, 1000, 500, 200, 100):
+        print(f"  {v:5d}    {uplift(v, a=a, k=k, floor=floor, ceiling=ceiling):.4f}")
     print()
     print("live constants for comparison:")
     print("  _TE_BLANKET_NON_NATIVE_MULTIPLIER = 1.15")

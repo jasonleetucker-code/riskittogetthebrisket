@@ -90,6 +90,14 @@ _FALLBACK_K = 0.632839
 # its own endpoint.  Clamping to the observed minimum is a measured
 # bound, not a fudge: no tight end receives less than this.
 _FALLBACK_FLOOR = 1.2092
+# The largest uplift KTC actually applies, and the cap on the curve.
+# KTC's own board bottoms out around base value ~480, but non-KTC
+# sources produce TE contributions below that, where the power form
+# extrapolates unbounded (3.36x at base 100 against an observed max of
+# ~2.05).  No tight end was ever observed to receive more than this, so
+# reading the curve past it below the measured range would be exactly
+# the kind of unmeasured number this module exists to remove.
+_FALLBACK_CEILING = 2.0531
 
 # KTC's TE-premium ladder, in the order its own payload names them.
 # ``Dynasty Scraper.py`` reads ``superflexValues.tepp`` (level 2) and
@@ -270,8 +278,16 @@ def measure_te_demand(
 
 
 @lru_cache(maxsize=1)
-def load_tep_curve() -> tuple[float, float, float]:
-    """``(a, k, floor)`` for ``ratio(v) = max(floor, 1 + a * v**-k)``.
+def load_tep_curve() -> tuple[float, float, float, float]:
+    """``(a, k, floor, ceiling)`` for
+    ``ratio(v) = min(ceiling, max(floor, 1 + a * v**-k))``.
+
+    The ceiling is the config's ``observed_ratio_range`` maximum — the
+    largest uplift KTC was ever measured to apply.  It exists for values
+    BELOW the measured range: KTC's board bottoms out around base ~480,
+    and the power form extrapolates unbounded past it, so a deep TE from
+    a non-KTC source would otherwise be lifted harder than any tight end
+    KTC has ever lifted.
 
     Falls back to the measured 2026-07-27 constants when the config file
     is absent, so a fresh checkout behaves identically rather than
@@ -289,10 +305,19 @@ def load_tep_curve() -> tuple[float, float, float]:
         k = _as_float(payload.get("k"))
         floor = _as_float(payload.get("floor"))
         if a is not None and k is not None and a > 0 and k > 0:
-            return a, k, floor if (floor is not None and floor >= 1.0) else 1.0
+            floor = floor if (floor is not None and floor >= 1.0) else 1.0
+            observed = payload.get("observed_ratio_range")
+            ceiling = (
+                _as_float(observed[1])
+                if isinstance(observed, (list, tuple)) and len(observed) == 2
+                else None
+            )
+            if ceiling is None or ceiling < floor:
+                ceiling = max(_FALLBACK_CEILING, floor)
+            return a, k, floor, ceiling
     except (OSError, ValueError):
         pass
-    return _FALLBACK_A, _FALLBACK_K, _FALLBACK_FLOOR
+    return _FALLBACK_A, _FALLBACK_K, _FALLBACK_FLOOR, _FALLBACK_CEILING
 
 
 def tep_uplift(
@@ -301,22 +326,30 @@ def tep_uplift(
     a: float | None = None,
     k: float | None = None,
     floor: float | None = None,
+    ceiling: float | None = None,
 ) -> float:
     """KTC's measured TE++ uplift ratio for a base-board TE value.
 
     Monotone non-increasing in ``value`` and ``>= 1.0`` by construction: a
     TE premium can never lower a tight end's value, and a functional form
     that permits it is wrong regardless of its fit statistic.
+
+    Clamped to the observed ratio range on BOTH ends.  The floor is the
+    smallest uplift KTC actually applies; the ceiling is the largest.
+    Both are measured bounds, and the ceiling matters below the measured
+    range, where the power form would otherwise extrapolate a deep TE's
+    uplift past anything KTC has ever done.
     """
-    if a is None or k is None or floor is None:
-        _a, _k, _floor = load_tep_curve()
+    if a is None or k is None or floor is None or ceiling is None:
+        _a, _k, _floor, _ceiling = load_tep_curve()
         a = _a if a is None else a
         k = _k if k is None else k
         floor = _floor if floor is None else floor
+        ceiling = _ceiling if ceiling is None else ceiling
     v = _as_float(value)
     if v is None or v <= 0:
-        return max(1.0, floor)
-    return max(floor, 1.0 + a * v**-k)
+        return min(ceiling, max(1.0, floor))
+    return min(ceiling, max(floor, 1.0 + a * v**-k))
 
 
 def convert_te_value(value: float, *, from_basis: str, to_basis: str) -> float:

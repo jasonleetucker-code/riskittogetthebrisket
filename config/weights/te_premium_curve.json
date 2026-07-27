@@ -1,5 +1,5 @@
 {
-  "_comment": "KTC's own TE-premium (TE++, level 2) uplift curve, measured from CSVs/site_raw/ktc.csv vs ktcSfTep.csv. ratio(v) = 1 + a * v^-k, monotone and >= 1 by construction. Regenerate with scripts/audit/fit_ktc_tep_curve.py --write-config.",
+  "_comment": "KTC's own TE-premium (TE++, level 2) uplift curve, measured from CSVs/site_raw/ktc.csv vs ktcSfTep.csv. ratio(v) = 1 + a * v^-k, monotone and >= 1 by construction, clamped live to [floor, observed_ratio_range max] - the range maximum is read at runtime as the uplift cap, not documentation. Regenerate with scripts/audit/fit_ktc_tep_curve.py --write-config.",
   "_limitation": "Measured within KTC's board. Applying it to another publisher's TE values assumes that board's TEs sit at a comparable base. Nothing here validates that, and nothing here says KTC's TE premium is correct - only that this is what KTC does.",
   "form": "1 + a * value^(-k)",
   "a": 43.555794,
