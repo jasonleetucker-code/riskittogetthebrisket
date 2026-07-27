@@ -195,10 +195,26 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
         ext.sort(key=lambda r: int(r["originalRank"]))
         effs = [int(r["effectiveRank"]) for r in ext]
         for a, b in zip(effs, effs[1:]):
-            self.assertLess(
+            # Non-decreasing; see the note in
+            # ``test_anchor_curve_extrapolation_monotone`` for why ties are
+            # structural and only inversions are defects.
+            self.assertLessEqual(
                 a,
                 b,
-                f"{family} extension curve not monotone: {a} -> {b}",
+                f"{family} extension curve INVERTED: {a} -> {b}",
+            )
+
+        # Ties are tolerated but must not swallow the curve.  If most of a
+        # family collapses onto a handful of effective ranks the curve has
+        # stopped discriminating, which the inversion check alone would
+        # never notice — every row equal is perfectly non-decreasing.
+        if len(effs) >= 10:
+            distinct = len(set(effs))
+            self.assertGreaterEqual(
+                distinct,
+                len(effs) // 2,
+                f"{family} extension curve has collapsed: {len(effs)} rows onto "
+                f"{distinct} distinct effective ranks",
             )
 
     def test_dl_curve_monotone(self):
@@ -262,10 +278,26 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
             last_eff = -1
             for r in ext:
                 eff = int(r["effectiveRank"])
-                self.assertGreater(
+                # NON-DECREASING, not strictly increasing.  ``effectiveRank``
+                # is ``int(round(_interpolate(...)))`` — a continuous curve
+                # rounded onto integers — so two adjacent individual ranks
+                # can legitimately land on the same effective rank.  Ties
+                # are a resolution loss; an INVERSION would be a real
+                # defect, because it would rank a worse player ahead of a
+                # better one.  Only the inversion is asserted.
+                #
+                # This was ``assertGreater`` and failed intermittently on
+                # main for exactly that reason: the CSV refreshes every two
+                # hours and each snapshot ties in different places, so the
+                # failing player changed run to run (Chase Young 107, Nick
+                # Herbig 156, an LB at 163).  Measured on the 2026-07-27
+                # snapshot: 10 ties across DL, zero decreases in any family.
+                self.assertGreaterEqual(
                     eff,
                     last_eff,
-                    f"{fam}: non-monotone extrapolation at {r['name']}",
+                    f"{fam}: extrapolation INVERTED at {r['name']} "
+                    f"({last_eff} -> {eff}); a deeper individual rank must "
+                    "never map to a shallower effective rank",
                 )
                 last_eff = eff
 

@@ -1,0 +1,307 @@
+"""How much this league's scoring rules favour a POSITION over the market's.
+
+The measurement, and the finding that shaped the API
+─────────────────────────────────────────────────────
+The operator's league and the default-scoring baseline league
+(``config/league_comparison.json``) disagree on 95 of 146 scoring keys.
+On IDP the disagreements are large and they point in opposite
+directions — measured live 2026-07-27::
+
+    idp_pass_def   2.11 -> 5.32   2.52x  UP
+    idp_tkl_loss   2.06 -> 4.25   2.06x  UP
+    idp_qb_hit     1.08 -> 2.13   1.97x  UP
+    idp_sack       4.55 -> 2.92   0.64x  DOWN
+    idp_int        6.20 -> 5.32   0.86x  DOWN
+
+Coverage and disruption are paid; finishing plays are discounted. Every
+ranking source prices IDP on a generic rate card closer to the baseline,
+so there is a real mispricing here.
+
+**The obvious exploit does not survive measurement, and that is why this
+module is deliberately position-level and not per-player.**
+
+Scoring all 2025 IDP player-weeks under both rate cards and taking each
+player's ``mine / baseline`` ratio, then normalising within the position
+cohort, gives a per-player "scoring fit". It looks like signal. It is
+not. Measured p90/p10 of the cohort-normalised ratio, by how deep into
+the position you go::
+
+    DL   top24 1.109   top36 1.116   top60 1.115   top120 1.132   all 1.215
+    LB   top24 1.113   top36 1.095   top60 1.100   top120 1.099   all 1.144
+    DB   top24 1.071   top36 1.075   top60 1.083   top120 1.113   all 1.144
+
+Two things to read off that. Among genuinely rosterable players the
+spread is only ~±5%, and it **grows monotonically with pool depth** —
+deeper players take fewer snaps, so their stat mixes are noisier and
+their ratios fan out. That is the signature of small-sample noise, not
+of a real player-selection edge. The most "mispriced" players by this
+measure were Kemon Hall, Cory Durden and Jack Cochrane: bench bodies
+near the scoring floor, not targets.
+
+The **position-level** median, by contrast, is rock stable across depth::
+
+    DL   1.089  1.089  1.088  1.087      <- moves 0.002 across 5x the pool
+    LB   1.043  1.048  1.051  1.049
+    DB   1.014  1.014  1.007  0.994
+
+That stability is what makes it trustworthy. Within a position, DL stat
+mixes are similar enough that the per-key inversions largely cancel and
+move the whole cohort together; they do not separate players inside it.
+
+So the edge is real and it is **positional**: relative to DB, this
+league pays DL about +7% and LB about +3%. That is worth acting on in a
+trade calculator. A per-player multiplier built from the same data would
+be ±5% of noise wearing the costume of a measurement, which is the
+defect class this repo keeps paying for — so the API does not offer one.
+
+Scale is meaningless; only the tilt is real
+───────────────────────────────────────────
+The absolute ratio depends on both rate cards' overall generosity, which
+is an artifact of how each commissioner numbered their sheet and says
+nothing about player value. Only the *relative* difference between
+positions carries information, so the multipliers are normalised to a
+mean of 1.0 across the tracked positions. The result re-allocates value
+between IDP positions; it never inflates IDP as a whole.
+
+Flagged OFF
+───────────
+``RISKIT_FEATURE_IDP_SCORING_FIT`` defaults to 0. This moves every IDP
+value on the board and no operator has asked for it yet.
+"""
+
+from __future__ import annotations
+
+import logging
+import statistics
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Mapping, Sequence
+
+_LOGGER = logging.getLogger(__name__)
+
+__all__ = [
+    "DEPTH_PROBES",
+    "MAX_DEPTH_DRIFT",
+    "MIN_COHORT_SIZE",
+    "PositionFit",
+    "ScoringFitMeasurement",
+    "measure_positional_scoring_fit",
+]
+
+#: Positions this measurement covers. Offence is excluded deliberately:
+#: its biggest divergence is the reception-distance banding, which needs
+#: a per-player depth histogram from play-by-play and is a separate
+#: piece of work. Applying a position-level offence multiplier would
+#: paper over that with a number that cannot express it.
+TRACKED_POSITIONS: tuple[str, ...] = ("DL", "LB", "DB")
+
+#: Pool depths the stability check probes. A real positional effect is
+#: flat across these; a sampling artifact fans out.
+DEPTH_PROBES: tuple[int, ...] = (24, 36, 60, 120)
+
+#: Largest spread between the shallowest and deepest probe before a
+#: position's multiplier is rejected. Measured drift on 2025 is 0.002
+#: (DL), 0.008 (LB), 0.020 (DB); 0.05 is a wide bound that still fails
+#: loudly if the cohort ever stops being coherent.
+MAX_DEPTH_DRIFT: float = 0.05
+
+#: Below this many scored players a cohort median is not worth trusting.
+MIN_COHORT_SIZE: int = 12
+
+
+@dataclass(frozen=True)
+class PositionFit:
+    """One position's measured tilt, with the evidence that backs it."""
+
+    position: str
+    multiplier: float
+    """Mean-normalised across tracked positions. 1.0 means 'no tilt
+    relative to the other IDP positions', NOT 'the two rate cards
+    agree'."""
+
+    raw_ratio: float
+    """Un-normalised median ``mine / baseline``. Diagnostic only — its
+    absolute level reflects rate-card generosity, not value."""
+
+    cohort_size: int
+    depth_drift: float
+    """max-min of the raw ratio across :data:`DEPTH_PROBES`. The
+    trustworthiness signal."""
+
+    trusted: bool
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "position": self.position,
+            "multiplier": round(self.multiplier, 6),
+            "rawRatio": round(self.raw_ratio, 6),
+            "cohortSize": self.cohort_size,
+            "depthDrift": round(self.depth_drift, 6),
+            "trusted": self.trusted,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class ScoringFitMeasurement:
+    """The whole measurement. Carries its own refusals."""
+
+    positions: dict[str, PositionFit] = field(default_factory=dict)
+    season: int | None = None
+    measured: bool = False
+    reason: str = ""
+
+    def multiplier_for(self, position: str) -> float:
+        """Tilt for ``position``; 1.0 for anything unmeasured or
+        untrusted.
+
+        Never raises and never guesses — an unknown position is a no-op,
+        because the alternative is applying an IDP tilt to a wide
+        receiver.
+        """
+        fit = self.positions.get(str(position or "").strip().upper())
+        if fit is None or not fit.trusted:
+            return 1.0
+        return fit.multiplier
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "measured": self.measured,
+            "season": self.season,
+            "reason": self.reason,
+            "positions": {k: v.to_dict() for k, v in sorted(self.positions.items())},
+        }
+
+
+def _median_ratio(pairs: Sequence[tuple[float, float]], top_n: int | None) -> float | None:
+    """Median ``mine / baseline`` over the ``top_n`` players by baseline
+    points. ``top_n=None`` uses the whole cohort."""
+    if not pairs:
+        return None
+    ranked = sorted(pairs, key=lambda p: -p[1])
+    if top_n is not None:
+        ranked = ranked[:top_n]
+    ratios = [mine / base for mine, base in ranked if base > 0]
+    if not ratios:
+        return None
+    return float(statistics.median(ratios))
+
+
+def measure_positional_scoring_fit(
+    weekly_rows: Iterable[Mapping[str, Any]],
+    my_scoring: Mapping[str, Any] | None,
+    baseline_scoring: Mapping[str, Any] | None,
+    *,
+    season: int | None = None,
+    min_baseline_points: float = 20.0,
+) -> ScoringFitMeasurement:
+    """Measure how this league's scoring tilts value between IDP positions.
+
+    Scores every weekly row under BOTH rate cards via the existing
+    :mod:`src.league_comparison.scoring_engine` — the golden-validated
+    scorer, not a second implementation of Sleeper scoring — then takes
+    each position's median ratio and normalises to a mean of 1.0.
+
+    Refuses rather than guesses. A position whose ratio drifts more than
+    :data:`MAX_DEPTH_DRIFT` across :data:`DEPTH_PROBES` is marked
+    untrusted and contributes a 1.0 multiplier, because a ratio that
+    depends on how deep you sample is measuring sample size, not
+    scoring.
+    """
+    if not my_scoring or not baseline_scoring:
+        return ScoringFitMeasurement(
+            measured=False, reason="both leagues' scoring_settings are required"
+        )
+
+    from src.league_comparison.scoring_engine import (  # noqa: PLC0415 - heavy import
+        compute_player_season_scores,
+    )
+
+    rows = list(weekly_rows or [])
+    if not rows:
+        return ScoringFitMeasurement(measured=False, reason="no weekly rows supplied")
+
+    mine = {
+        s.player_id: s for s in compute_player_season_scores(rows, dict(my_scoring), season=season)
+    }
+    base = {
+        s.player_id: s
+        for s in compute_player_season_scores(rows, dict(baseline_scoring), season=season)
+    }
+
+    cohorts: dict[str, list[tuple[float, float]]] = {p: [] for p in TRACKED_POSITIONS}
+    for pid, m in mine.items():
+        b = base.get(pid)
+        if b is None or m.position not in cohorts:
+            continue
+        if b.total_points < min_baseline_points:
+            continue
+        cohorts[m.position].append((float(m.total_points), float(b.total_points)))
+
+    raw: dict[str, tuple[float, float, int]] = {}
+    for pos, pairs in cohorts.items():
+        full = _median_ratio(pairs, None)
+        if full is None or len(pairs) < MIN_COHORT_SIZE:
+            continue
+        probes = [r for r in (_median_ratio(pairs, n) for n in DEPTH_PROBES) if r is not None]
+        drift = (max(probes) - min(probes)) if len(probes) >= 2 else 0.0
+        # Anchor on the shallowest usable probe rather than the whole
+        # pool: the rosterable players are the ones whose valuation this
+        # multiplier will move, and the deep tail is the noisy part.
+        anchor = probes[0] if probes else full
+        raw[pos] = (anchor, drift, len(pairs))
+
+    if not raw:
+        return ScoringFitMeasurement(
+            measured=False,
+            season=season,
+            reason=f"no IDP cohort reached {MIN_COHORT_SIZE} scored players",
+        )
+
+    # Normalise to mean 1.0. Only the tilt between positions carries
+    # information; the shared level is an artifact of how generously
+    # each commissioner numbered their sheet.
+    trusted_ratios = [r for r, drift, _ in raw.values() if drift <= MAX_DEPTH_DRIFT]
+    mean_ratio = (
+        statistics.fmean(trusted_ratios)
+        if trusted_ratios
+        else statistics.fmean([r for r, _, _ in raw.values()])
+    )
+    if mean_ratio <= 0:
+        return ScoringFitMeasurement(measured=False, season=season, reason="degenerate mean ratio")
+
+    positions: dict[str, PositionFit] = {}
+    for pos, (ratio, drift, n) in sorted(raw.items()):
+        ok = drift <= MAX_DEPTH_DRIFT
+        positions[pos] = PositionFit(
+            position=pos,
+            multiplier=(ratio / mean_ratio) if ok else 1.0,
+            raw_ratio=ratio,
+            cohort_size=n,
+            depth_drift=drift,
+            trusted=ok,
+            reason=(
+                f"median mine/baseline over the top {DEPTH_PROBES[0]} by baseline points; "
+                f"stable to {drift:.4f} across depths {DEPTH_PROBES}"
+                if ok
+                else (
+                    f"ratio drifts {drift:.4f} across depths {DEPTH_PROBES} "
+                    f"(max {MAX_DEPTH_DRIFT}) — sampling artifact, not a scoring tilt; "
+                    "multiplier forced to 1.0"
+                )
+            ),
+        )
+        if not ok:
+            _LOGGER.warning(
+                "scoring_fit: %s rejected, depth drift %.4f > %.4f",
+                pos,
+                drift,
+                MAX_DEPTH_DRIFT,
+            )
+
+    return ScoringFitMeasurement(
+        positions=positions,
+        season=season,
+        measured=True,
+        reason=f"measured over {sum(n for _, _, n in raw.values())} IDP player-seasons",
+    )

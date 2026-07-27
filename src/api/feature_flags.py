@@ -103,6 +103,34 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # explicit operator TE-premium slider value also wins over the
     # curve regardless of this flag.
     "te_basis_conversion": True,
+    # IDP positional scoring fit (Tier 2).  This league pays coverage
+    # and disruption and discounts finishing plays, so relative to DB it
+    # values DL about +7% and LB about +3% versus the generic rate card
+    # every ranking source prices on.  Measured, stable across pool
+    # depth, and re-allocates between IDP positions rather than
+    # inflating IDP as a whole — see src/league_intel/scoring_fit.py.
+    #
+    # OFF by default, unlike te_basis_conversion.  The operator directed
+    # the TE basis explicitly and has directed nothing here, and this
+    # moves every IDP value on the board.  Flip with
+    # RISKIT_FEATURE_IDP_SCORING_FIT=1.
+    #
+    # Note what is deliberately NOT behind this flag: a per-player IDP
+    # multiplier.  The same data supports one arithmetically and it is
+    # noise — see the module docstring for the depth-stability
+    # measurement that rules it out.
+    "idp_scoring_fit": False,
+    # Per-player reception-depth tilt (Tier 2).  Separate from
+    # idp_scoring_fit above rather than sharing it: that flag is named
+    # for IDP, and using it to gate an offence feature would make the
+    # name a lie — an operator disabling "idp_scoring_fit" would
+    # silently also disable every receiver adjustment.
+    #
+    # Also OFF by default.  Note the magnitude before enabling: the
+    # per-catch spread is 8x but receptions are 17-33% of a player's
+    # points, so the VALUE move is around +/-8%, not +/-120%.  See
+    # src/league_intel/reception_fit.py.
+    "reception_scoring_fit": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
