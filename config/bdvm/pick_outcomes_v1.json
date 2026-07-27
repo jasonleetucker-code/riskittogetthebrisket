@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "BDVM v1 rookie-pick outcome distributions by rookie-draft overall slot.",
+    "STARTING PRIORS from the BDVM reference (Appendix A PICK_OUTCOMES) —",
+    "explicitly the most placeholder-ish table in the whole model. Replace",
+    "with distributions fit from the platform's own historical rookie ADP +",
+    "later realized values once two years of snapshots exist. Values are on",
+    "the BDVM 0-10000 trade-value scale. v_miss is implicit ~0 in v1.",
+    "class_strength multipliers live per draft class in the payload, bounded",
+    "[0.85, 1.15]."
+  ],
+  "schema_version": 1,
+  "formats": {
+    "default": {
+      "slots": {
+        "1":  {"p_hit": 0.62, "v_hit": 7200, "p_mid": 0.20, "v_mid": 2600},
+        "2":  {"p_hit": 0.55, "v_hit": 6400, "p_mid": 0.22, "v_mid": 2400},
+        "3":  {"p_hit": 0.50, "v_hit": 5900, "p_mid": 0.23, "v_mid": 2300},
+        "4":  {"p_hit": 0.46, "v_hit": 5500, "p_mid": 0.24, "v_mid": 2200},
+        "6":  {"p_hit": 0.38, "v_hit": 5000, "p_mid": 0.26, "v_mid": 2000},
+        "8":  {"p_hit": 0.33, "v_hit": 4600, "p_mid": 0.27, "v_mid": 1800},
+        "12": {"p_hit": 0.27, "v_hit": 4200, "p_mid": 0.28, "v_mid": 1600},
+        "16": {"p_hit": 0.20, "v_hit": 3600, "p_mid": 0.28, "v_mid": 1300},
+        "24": {"p_hit": 0.13, "v_hit": 3000, "p_mid": 0.26, "v_mid": 1000},
+        "36": {"p_hit": 0.07, "v_hit": 2400, "p_mid": 0.20, "v_mid": 700}
+      }
+    }
+  },
+  "class_strength_bounds": [0.85, 1.15]
+}

@@ -4921,6 +4921,102 @@ async def get_league_adjusted_values(request: Request):
     return JSONResponse(content=payload)
 
 
+@app.get("/api/bdvm/values")
+async def get_bdvm_values(request: Request):
+    """BDVM fundamental dynasty values (feature-flagged, default OFF).
+
+    A SECOND, INDEPENDENT value concept: projection-driven fundamental
+    value per the Brisket Dynasty Valuation Model
+    (docs/research/bdvm-v1/).  It runs beside the market board — it
+    never reads or writes ``rankDerivedValue`` and the existing
+    rankings/trade routes are untouched whether the flag is on or off.
+
+    Query parameters::
+
+        leagueKey     optional — standard resolver
+        surplusMode   optional — ``option`` (default) | ``truncated`` |
+                      ``plain``; exposes the §3.3 surplus ablation
+
+    Responses::
+
+        503 feature_disabled     flag ``bdvm_engine`` is off
+        503 data_not_ready       no contract / wrong league loaded
+        200 status=ok            fundamental values + market comparison
+        200 status=no_projection_snapshot
+                                 engine is live but no projection
+                                 snapshot exists for the season — BDVM
+                                 refuses to fabricate projections
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if not _ff.is_enabled("bdvm_engine"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": "bdvm_engine"},
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    surplus_mode = (request.query_params.get("surplusMode") or "option").strip().lower()
+    if surplus_mode not in ("option", "truncated", "plain"):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "bad_request",
+                "message": f"surplusMode must be option|truncated|plain, got {surplus_mode!r}",
+            },
+        )
+
+    from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
+
+    try:
+        payload = await run_in_threadpool(
+            _bdvm_api.get_bdvm_values,
+            contract,
+            league_cfg.key,
+            surplus_mode=surplus_mode,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface, never 500-crash the page
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "bdvm_unavailable",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+            },
+        )
+    payload = dict(payload)
+    payload["leagueKey"] = league_cfg.key
+    return JSONResponse(content=payload)
+
+
 @app.get("/api/gameplan")
 async def get_gameplan(request: Request):
     """Roster intelligence for one team: needs, window, targets, partners.

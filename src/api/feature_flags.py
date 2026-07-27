@@ -80,6 +80,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (falls back to static weights).  Promoted deliberately, not
     # automatically.
     "dynamic_source_weights": False,
+    # BDVM — projection-driven fundamental dynasty valuation engine
+    # (src/bdvm/, endpoint /api/bdvm/values).  Held OFF: the engine is
+    # implemented and tested but the platform has no projection feed
+    # yet, so flipping this on serves an honest "no_projection_snapshot"
+    # payload until projection snapshots exist under
+    # data/bdvm/projections/.  It never touches rankDerivedValue or any
+    # existing route either way.  See
+    # docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
+    "bdvm_engine": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

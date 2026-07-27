@@ -1,0 +1,130 @@
+==============================================================================
+REPLACEMENT LEVELS   (12-tm SF / TEP / PPR / IDP  — synthetic pool)
+==============================================================================
+   QB  startable slots league-wide:  24   replacement FPG:  12.40
+   RB  startable slots league-wide:  33   replacement FPG:   6.35
+   WR  startable slots league-wide:  36   replacement FPG:   6.15
+   TE  startable slots league-wide:  15   replacement FPG:   6.80
+   DL  startable slots league-wide:  24   replacement FPG:   6.70
+   LB  startable slots league-wide:  48   replacement FPG:   7.32
+   DB  startable slots league-wide:  36   replacement FPG:   6.17
+
+======================================================================================================================
+WORKED EXAMPLES — fundamental trade values by strategy profile (0–10,000 scale)
+======================================================================================================================
+Player                         Pos  Age   FPG   VORG   CONT    BAL  REBLD    MKT    GAP  BLEND
+----------------------------------------------------------------------------------------------------------------------
+Young elite QB (dual)           QB   24  22.5  10.10   9800   7974   6265   9400  -1426   8723
+Aging productive QB (pocket)    QB   34  19.0   6.60   3458   2112   1128   3600  -1488   2856
+Young RB, three-down            RB   23  15.5   9.15   8492   6615   4982   7400   -785   7017
+Aging RB, heavy mileage         RB   29  14.5   8.15   2674   1406    520   2200   -794   1798
+Young ascending WR              WR   23  14.0   7.85   9693   9800   9800   7900   1900   8839
+Veteran WR, stable role         WR   30  15.5   9.35   4368   2485   1144   4100  -1615   3297
+Young TE, year-2 leap           TE   24  10.5   3.70   5875   6367   6782   5600    767   5983
+Elite EDGE rusher             EDGE   26  14.5   7.80   6301   4712   3387   6200  -1488   5164
+Three-down LB, green dot        LB   25  17.5  10.18   8946   6661   4750   5400   1261   6267
+Volatile boundary CB            CB   26   9.0   2.83   2055   1328    786   1800   -472   1465
+Box safety, tackle floor         S   27  11.5   5.33   3239   2087   1228   2600   -513   2258
+Rookie WR, 1st-rd capital       WR   22   9.0   2.85   6160   7051   7958   6800    251   6935
+Late-round breakout WR          WR   25  13.0   6.85   6140   4857   3719   3900    957   4396
+
+======================================================================================================================
+PROBABILITY OUTPUTS
+======================================================================================================================
+Player                          P(>repl)  P(elite)  P(start 3y)  P(breakout)  P(collapse 1y)
+----------------------------------------------------------------------------------------------------------------------
+Young elite QB (dual)               0.92      0.54         0.75         0.22            0.13
+Aging productive QB (pocket)        0.86      0.33         0.24         0.08            0.35
+Young RB, three-down                0.89      0.40         0.58         0.36            0.21
+Aging RB, heavy mileage             0.87      0.35         0.01         0.01            0.65
+Young ascending WR                  0.88      0.33         0.73         0.45            0.16
+Veteran WR, stable role             0.92      0.42         0.20         0.05            0.35
+Young TE, year-2 leap               0.75      0.34         0.66         0.51            0.24
+Elite EDGE rusher                   0.88      0.54         0.61         0.27            0.21
+Three-down LB, green dot            0.97      0.51         0.66         0.24            0.12
+Volatile boundary CB                0.67      0.28         0.23         0.30            0.48
+Box safety, tackle floor            0.85      0.41         0.35         0.21            0.30
+Rookie WR, 1st-rd capital           0.63      0.18         0.55         0.52            0.38
+Late-round breakout WR              0.84      0.29         0.57         0.34            0.23
+
+======================================================================================================================
+VALUE DECOMPOSITION (balanced profile)
+======================================================================================================================
+Player                             yr0   yr1-2    yr3+   surv drag     5y traj  age_eff
+----------------------------------------------------------------------------------------------------------------------
+Young elite QB (dual)              27%     44%     29%         10%        -26%     24.0
+Aging productive QB (pocket)       53%     41%      7%         25%        -53%     35.0
+Young RB, three-down               27%     48%     25%         24%        -37%     23.0
+Aging RB, heavy mileage            85%     15%      0%         15%        -95%     30.9
+Young ascending WR                 17%     40%     43%         21%        +52%     23.0
+Veteran WR, stable role            63%     34%      2%         17%        -83%     31.1
+Young TE, year-2 leap              14%     40%     46%         24%        +73%     24.0
+Elite EDGE rusher                  32%     46%     22%         18%        -43%     26.0
+Three-down LB, green dot           31%     47%     22%         18%        -43%     25.0
+Volatile boundary CB               46%     47%      8%         26%        -69%     26.0
+Box safety, tackle floor           44%     47%      9%         22%        -66%     27.0
+Rookie WR, 1st-rd capital          13%     38%     49%         29%       +117%     22.0
+Late-round breakout WR             28%     46%     26%         27%        -20%     25.0
+
+==============================================================================
+SEASON PATH — Young RB vs Aging RB (balanced horizon)
+==============================================================================
+
+Young RB, three-down:
+    t   age  age_eff   muFPG  sigma      SSV   S(t)   E[val]
+    0    23     23.0   15.50   7.41    147.9   1.00    147.9
+    1    24     24.0   17.48   9.85    185.0   0.91    167.8
+    2    25     25.2   18.40  11.74    204.2   0.82    167.9
+    3    26     26.7   17.27  12.18    191.1   0.71    135.6
+    4    27     28.2   13.96  10.73    143.5   0.58     82.8
+    5    28     29.7    9.78   8.10     82.4   0.44     36.3
+    6    29     31.2    5.95   5.31     30.3   0.30      9.2
+
+Aging RB, heavy mileage:
+    t   age  age_eff   muFPG  sigma      SSV   S(t)   E[val]
+    0    29     30.9   14.50   7.25    129.4   1.00    129.4
+    1    30     32.5    7.87   4.72     42.2   0.56     23.8
+    2    31     33.5    4.78   3.37     10.8   0.32      3.4
+    3    32     34.5    2.79   2.38      1.1   0.18      0.2
+    4    33     35.5    1.53   1.76      0.0   0.10      0.0
+    5    34     36.5    0.79   1.46      0.0   0.06      0.0
+    6    35     37.5    0.38   1.34      0.0   0.03      0.0
+
+==============================================================================
+SCARCITY DEMO — LB vs S (the 'more points ≠ more value' requirement)
+==============================================================================
+  LB replacement 7.32 FPG | DB replacement 6.17 FPG
+  Three-down LB @17.5 FPG -> VORG 10.18  | trade value 6661
+  Box safety    @11.5 FPG -> VORG 5.33  | trade value 2087
+  Mid LB        @12.5 FPG -> VORG 5.18  (scores MORE than the safety, is worth LESS)
+
+==============================================================================
+TRADE MATH — 2-for-1 consolidation (theta=1.20)
+==============================================================================
+  Side A: young ascending WR (9800)
+  Side B: veteran WR (2485) + young TE (6367) = naive sum 8852
+  CES package value   A=9800  B=8041  edge to A: +1759 (+9.9%)
+  Same trade, receiving team has 1 open roster spot: B=7921 (roster-spot charge applied)
+
+==============================================================================
+ROOKIE PICKS
+==============================================================================
+  pick  1: contender   4585 | balanced   4984 | rebuilder   5383 | P(hit) 0.62 | ceiling 7200
+  pick  3: contender   3201 | balanced   3479 | rebuilder   3757 | P(hit) 0.50 | ceiling 5900
+  pick  6: contender   2226 | balanced   2420 | rebuilder   2614 | P(hit) 0.38 | ceiling 5000
+  pick 12: contender   1455 | balanced   1582 | rebuilder   1709 | P(hit) 0.27 | ceiling 4200
+  pick 16: contender    997 | balanced   1084 | rebuilder   1171 | P(hit) 0.20 | ceiling 3600
+  pick 24: contender    598 | balanced    650 | rebuilder    702 | P(hit) 0.13 | ceiling 3000
+  pick 36: contender    283 | balanced    308 | rebuilder    333 | P(hit) 0.07 | ceiling 2400
+  next-year pick ~1.06, weak class (0.9x), rebuilder: 2188
+
+==============================================================================
+ROSTER REPORT — sample 13-player roster
+==============================================================================
+  projected_starter_ppg: 158.0
+  contender_capital: 77200.44208318304
+  rebuilder_capital: 52449.00468335995
+  now_vs_future_ratio: 1.471914339447432
+  avg_age: 26.0
+  positional_surplus: {'QB': 1, 'RB': 0, 'WR': 1, 'TE': 0, 'DL': -1, 'LB': -2, 'DB': -1}
+  recommended_direction: contend

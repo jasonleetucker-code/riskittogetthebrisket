@@ -349,6 +349,42 @@ The offline canonical-build path (``scripts/canonical_build.py`` +
 ``/api/data`` contract is the single source of truth; trade
 suggestions read from it directly.
 
+### BDVM — the fundamental valuation engine (feature-flagged, OFF)
+``src/bdvm/`` is a SECOND, INDEPENDENT value concept: projection-driven
+*fundamental* dynasty value per the Brisket Dynasty Valuation Model
+(``docs/research/bdvm-v1/`` — research PDF, verified reference fixture,
+and the living ``IMPLEMENTATION_REPORT.md``).  Core rules, all
+test-pinned (``tests/bdvm/``):
+
+- **It never touches ``rankDerivedValue``** or any existing route. The
+  market board above stays the market-value concept; BDVM is the
+  fundamental-value concept; they are compared, never merged in place.
+- Reachable only behind the ``bdvm_engine`` feature flag (default OFF)
+  at ``GET /api/bdvm/values``.  ``surplusMode=option|truncated|plain``
+  exposes the option-value ablation.
+- Fundamentals compute with ZERO market inputs; the market layer
+  (``src/bdvm/market.py``) runs strictly afterward and reads only
+  value-signal sources (``ktcSfTep``/``ktc``/``idpTradeCalc`` — never
+  the rank-signal synthetic encodings in ``canonicalSiteValues``).
+- No positional multipliers anywhere: Superflex/TEP/IDP format effects
+  flow from exact scoring + flex-aware dynamic replacement.
+- Missing data is never imputed into a normal-looking value: players
+  without a projection or age are returned as ``unpriced`` with a
+  reason; with no projection snapshot the endpoint says so.
+- Every payload is versioned: ``modelVersion`` + content-hashed
+  ``paramSetId`` (``config/bdvm/params_v1.json`` — priors, not
+  validated truth) + league ``configHash`` + ``asOf``.
+- The frozen reference implementation under
+  ``docs/research/bdvm-v1/reference/`` is an acceptance fixture — do
+  not modify it and do not import it from ``src/``; the production
+  engine must keep reproducing its Appendix-C numbers
+  (``tests/bdvm/test_engine_parity.py``).
+
+The platform currently has no forward-looking statistical projection
+feed (everything live is market-rank derived), so BDVM ships with a
+manual-CSV projection adapter + a reconstructed-baseline proxy builder
+and stays dormant until snapshots exist under ``data/bdvm/projections/``.
+
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
 
