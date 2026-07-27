@@ -84,6 +84,11 @@ export default function StaleDataBanner() {
     : null;
   const lastScrape = health.last_scrape || null;
   const stalled = Boolean(health.scrape_stalled);
+  // A worker that died mid-run, as opposed to one that is running but
+  // wedged. Before this existed the orphaned case reported
+  // `status_summary: "idle"` with every flag false, so this banner
+  // never fired and the operator was told nothing at all.
+  const interrupted = Boolean(health.scrape_interrupted);
   const hasData = Boolean(health.has_data);
 
   // Stalled scrape takes precedence — operator needs to see that the
@@ -94,6 +99,22 @@ export default function StaleDataBanner() {
         <strong>Scrape worker stalled.</strong>{" "}
         Data refresh is hung — background worker has not heartbeat-updated
         in over 15 minutes.{" "}
+        {lastScrape && <span>Last successful scrape: {formatAgo(lastScrape)}.</span>}
+      </BannerShell>
+    );
+  }
+
+  // An interrupted run ranks just below a stalled one: nothing is
+  // wedged, but the last run died and nothing will retry it on its own.
+  // Deliberately ABOVE the !hasData guard — a worker that died before
+  // producing any payload is exactly when the operator most needs to
+  // know, and that is the case where hasData is false.
+  if (interrupted) {
+    return (
+      <BannerShell severity="critical">
+        <strong>Last scrape did not finish.</strong>{" "}
+        The background worker exited mid-run without cleaning up. It will
+        not retry on its own.{" "}
         {lastScrape && <span>Last successful scrape: {formatAgo(lastScrape)}.</span>}
       </BannerShell>
     );

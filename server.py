@@ -580,6 +580,10 @@ scrape_status = {
     "is_running": False,  # legacy alias for UI compatibility
     "hung": False,
     "stalled": False,
+    # Verdict on the LAST run, not on the current moment. Set by
+    # _reconcile_orphaned_running_state, cleared by _start_scrape_run.
+    "interrupted": False,
+    "interrupted_at": None,
     "started_at": None,
     "finished_at": None,
     "last_heartbeat": None,
@@ -854,8 +858,23 @@ def _reconcile_orphaned_running_state() -> None:
             worker_id=scrape_status.get("worker_id"),
         )
         scrape_status["running"] = False
-        scrape_status["hung"] = True
-        scrape_status["stalled"] = True
+        # NOT ``stalled``/``hung``.  Both were set here and both were
+        # dead assignments: ``_scrape_status_payload`` calls this
+        # reconciler and then immediately evaluates ``_is_scrape_stalled()``,
+        # which returns False once ``running`` is False, and the else
+        # branch resets ``stalled`` and ``hung`` to False three lines
+        # later.  An orphaned worker therefore reported
+        # ``status_summary: "idle"`` with no error — indistinguishable
+        # from a healthy server that simply had not scraped recently.
+        # /api/health's ``scrape_stalled`` stayed false too, so
+        # StaleDataBanner never fired.
+        #
+        # ``interrupted`` is a property of the LAST RUN rather than of
+        # the current moment, so nothing downstream recomputes it away.
+        # ``_start_scrape_run`` clears it, because a new run supersedes
+        # the verdict on the old one.
+        scrape_status["interrupted"] = True
+        scrape_status["interrupted_at"] = _utc_now_iso()
         scrape_status["finished_at"] = _utc_now_iso()
         scrape_status["current_step"] = "stale_state_reset"
         scrape_status["current_source"] = None
@@ -871,6 +890,9 @@ def _start_scrape_run(trigger: str) -> str:
             "running": True,
             "hung": False,
             "stalled": False,
+            # A fresh run supersedes any verdict on the previous one.
+            "interrupted": False,
+            "interrupted_at": None,
             "started_at": now_iso,
             "finished_at": None,
             "last_heartbeat": now_iso,
@@ -1203,6 +1225,8 @@ def _scrape_status_payload() -> dict:
         if payload.get("running")
         else "failed"
         if payload.get("error")
+        else "interrupted"
+        if payload.get("interrupted")
         else "idle"
     )
     return payload
@@ -4127,6 +4151,11 @@ async def get_health():
             "last_scrape": status_payload.get("last_scrape"),
             "scrape_running": status_payload.get("is_running"),
             "scrape_stalled": status_payload.get("stalled"),
+            # A worker that died mid-run. Distinct from ``scrape_stalled``
+            # (running but not progressing) and from ``data_stale`` (old
+            # data, healthy server): the last run ended without cleanup
+            # and nothing will retry it on its own.
+            "scrape_interrupted": bool(status_payload.get("interrupted")),
             "current_step": status_payload.get("current_step"),
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
