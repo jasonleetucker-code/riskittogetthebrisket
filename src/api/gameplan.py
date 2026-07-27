@@ -1095,3 +1095,55 @@ def get_team_gameplan(
         while len(_TEAM_CACHE) > _TEAM_CACHE_MAX:
             _TEAM_CACHE.popitem(last=False)
     return payload
+
+
+# ── LI-9: league-adjusted values ─────────────────────────────────────
+
+
+def get_league_adjusted_values(
+    league_key: str,
+    scoring_profile: str,
+    contract: Mapping[str, Any] | None,
+    *,
+    include_explanations: bool = False,
+) -> dict[str, Any]:
+    """This league's league-adjusted board, as a client-side overlay.
+
+    Reuses the cached :func:`get_league_bundle` solve purely for its
+    ``scarcity`` — the ~1.35 s replacement build is already paid for by
+    ``/api/gameplan``, so this endpoint is near-free on a warm league
+    and never triggers a second solve.
+
+    LEAGUE-SCOPED by necessity, not convention: ``lineupScarcity`` is
+    measured from this league's twelve rosters, so two leagues sharing
+    a scoring profile get genuinely different values here.  That is why
+    the result is an overlay rather than contract fields — see
+    :mod:`src.league_intel.publish`.
+    """
+    from src.league_intel.publish import build_league_adjusted_payload  # noqa: PLC0415
+
+    bundle, cache_hit = get_league_bundle(league_key, scoring_profile, contract)
+
+    config_version: int | None = None
+    try:
+        from src.league_intel.config import load_canonical_config  # noqa: PLC0415
+
+        config_version = load_canonical_config().config_version
+    except Exception:  # noqa: BLE001
+        # A missing canonical snapshot must not deny the whole board.
+        # The stamp goes out as null and the payload says so, which is
+        # honest; refusing to serve would be worse than serving values
+        # whose config version we cannot name.
+        config_version = None
+
+    rows = (contract or {}).get("playersArray") or []
+    payload = build_league_adjusted_payload(
+        rows,
+        bundle.scarcity,
+        league_key=league_key,
+        config_version=config_version,
+        data_through=(contract or {}).get("date"),
+        include_explanations=include_explanations,
+    )
+    payload["cacheHit"] = cache_hit
+    return payload
