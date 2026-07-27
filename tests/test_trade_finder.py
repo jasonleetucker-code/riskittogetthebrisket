@@ -23,6 +23,7 @@ from src.trade.finder import (
     _opp_appeal_phrase,
     _build_summary,
     EXCLUDED_POSITIONS,
+    ELITE_THRESHOLD,
     KTC_TOP_N_FILTER,
     SINGLE_SOURCE_DISCOUNT,
 )
@@ -670,21 +671,30 @@ class TestFireSaleGuard:
         assert tc is not None
 
     def test_2for1_barely_above_threshold_passes(self):
-        """Just above the 55% ratio → passes."""
-        a1 = _make_asset("A", model=2800, ktc=3500)
-        a2 = _make_asset("B", model=1200, ktc=2000)
-        target = _make_asset("Target", model=7000, ktc=5000)
+        """Just above the 55% ratio → passes.
+
+        The target is kept below ``ELITE_THRESHOLD`` on purpose: an elite
+        target triggers the tighter 65% guard, and this test is about the
+        55% one. It was hardcoded at 7000 against a threshold of 7500 and
+        silently became an elite-path test when F-6 re-derived that
+        constant to 6600.
+        """
+        target_val = int(ELITE_THRESHOLD * 0.93)
+        a1 = _make_asset("A", model=int(target_val * 0.400), ktc=3500)
+        a2 = _make_asset("B", model=int(target_val * 0.172), ktc=2000)
+        target = _make_asset("Target", model=target_val, ktc=5000)
         tc = _score_trade([a1, a2], [target])
-        # 4000/7000 = 0.571 > 0.55
+        # give/recv ~= 0.572 > 0.55
         assert tc is not None
 
     def test_2for1_barely_below_threshold_rejected(self):
         """Just below the 55% ratio → rejected."""
-        a1 = _make_asset("A", model=2700, ktc=3500)
-        a2 = _make_asset("B", model=1100, ktc=2000)
-        target = _make_asset("Target", model=7000, ktc=5000)
+        target_val = int(ELITE_THRESHOLD * 0.93)
+        a1 = _make_asset("A", model=int(target_val * 0.386), ktc=3500)
+        a2 = _make_asset("B", model=int(target_val * 0.157), ktc=2000)
+        target = _make_asset("Target", model=target_val, ktc=5000)
         tc = _score_trade([a1, a2], [target])
-        # 3800/7000 = 0.543 < 0.55
+        # give/recv ~= 0.543 < 0.55
         assert tc is None
 
 
@@ -692,7 +702,14 @@ class TestFireSaleGuard:
 
 
 class TestEliteTargetProtection:
-    """Verify that elite targets (≥7500 model) require tighter multi-for-one ratios."""
+    """Verify that elite targets require tighter multi-for-one ratios.
+
+    Fixture values are expressed RELATIVE to ``ELITE_THRESHOLD`` rather
+    than hardcoded. They were hardcoded at 7000/8000 against a threshold
+    of 7500; the F-6 migration re-derived that constant to 6600 and
+    turned every "non-elite" fixture into an elite-path test that then
+    failed for a reason unrelated to what it was checking.
+    """
 
     def test_2for1_elite_below_65pct_rejected(self):
         """Two mid-tier pieces totaling 60% of elite target → rejected (below 65%)."""
@@ -713,13 +730,14 @@ class TestEliteTargetProtection:
         assert tc is not None
 
     def test_2for1_non_elite_uses_normal_ratio(self):
-        """Non-elite target (below 7500) uses standard 55% ratio."""
-        a1 = _make_asset("A", model=2800, ktc=3500)
-        a2 = _make_asset("B", model=1700, ktc=2500)
-        target = _make_asset("Target", model=7000, ktc=5500)
+        """A target below ELITE_THRESHOLD uses the standard 55% ratio."""
+        target_val = int(ELITE_THRESHOLD * 0.93)  # comfortably non-elite
+        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=3500)
+        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=2500)
+        target = _make_asset("Target", model=target_val, ktc=5500)
         tc = _score_trade([a1, a2], [target])
-        # 4500/7000 = 0.643 > 0.55 ✓, target < 7500 so elite guard skipped
-        # anchor: 2800/7000 = 0.40 > 0.35 ✓
+        # give/recv = 0.643 > 0.55; target < ELITE_THRESHOLD so the elite
+        # guard is skipped; anchor 0.40 > 0.35
         assert tc is not None
 
     def test_1for1_elite_not_blocked(self):
@@ -1206,9 +1224,10 @@ class TestExplainabilityFields:
 
     def test_2for1_non_elite_has_anchor_not_elite(self):
         """2-for-1 below elite threshold has anchor_verified but not elite_target."""
-        a1 = _make_asset("A", model=2800, ktc=3500)
-        a2 = _make_asset("B", model=1700, ktc=2500)
-        target = _make_asset("Target", model=7000, ktc=5500)
+        target_val = int(ELITE_THRESHOLD * 0.93)
+        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=3500)
+        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=2500)
+        target = _make_asset("Target", model=target_val, ktc=5500)
         tc = _score_trade([a1, a2], [target])
         assert tc is not None
         assert "anchor_verified" in tc.flags

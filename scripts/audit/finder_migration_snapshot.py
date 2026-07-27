@@ -38,7 +38,11 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+import inspect  # noqa: E402
+
 from src.trade.finder import find_trades  # noqa: E402
+
+_SUPPORTS_CONTRACT = "contract" in inspect.signature(find_trades).parameters
 
 
 def _latest_payload() -> Path:
@@ -98,6 +102,9 @@ def snapshot(payload_path: Path) -> dict[str, Any]:
                 my_team=me,
                 opponent_teams=opponents,
                 sleeper_teams=teams,
+                # None on the pre-migration tree (find_trades has no such
+                # kwarg there); the post-migration run passes the board.
+                **({"contract": payload} if _SUPPORTS_CONTRACT else {}),
             )
         except Exception as exc:  # noqa: BLE001
             out["teams"][me] = {"error": repr(exc)}
@@ -108,6 +115,8 @@ def snapshot(payload_path: Path) -> dict[str, Any]:
             "tradeCount": len(trades),
             "poolSize": (res.get("metadata") or {}).get("assetPoolSize"),
             "marketCoverage": (res.get("metadata") or {}).get("marketCoverage"),
+            "valueSource": (res.get("metadata") or {}).get("valueSource", "rawComposite"),
+            "assetsUnpricedByBoard": (res.get("metadata") or {}).get("assetsUnpricedByBoard", 0),
             "warnings": res.get("warnings") or [],
             "arbitrageScores": [round(float(t.get("arbitrageScore") or 0), 3) for t in trades],
             "boardDeltas": [int(t.get("boardDelta") or 0) for t in trades],

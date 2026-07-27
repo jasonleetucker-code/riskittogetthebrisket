@@ -170,8 +170,21 @@ class CompetitiveWindow:
         return self.probabilities.get(self.most_likely, 0.0)
 
     def to_dict(self) -> dict[str, Any]:
+        # ``affinities`` is the honest name.  These are softmaxed
+        # NEGATIVE SQUARED DISTANCES to five hand-placed anchors in
+        # (competitiveness x trajectory), normalised so they sum to 1.
+        #
+        # Summing to 1 does not make a distribution a probability.  No
+        # anchor position, no axis weight and no temperature here was
+        # fitted to an observed outcome, and nothing scores these against
+        # what teams actually did — so "70% rebuild" would be a claim the
+        # model cannot support.  ``probabilities`` is retained as a
+        # deprecated alias for one release; new consumers read
+        # ``affinities`` (audit finding H).
+        rounded = _round_preserving_sum(self.probabilities)
         return {
-            "probabilities": _round_preserving_sum(self.probabilities),
+            "affinities": rounded,
+            "probabilities": rounded,  # deprecated alias
             "mostLikely": self.most_likely,
             "confidence": round(self.confidence, 4),
             "overridden": self.overridden,

@@ -1,5 +1,32 @@
 # F-6 — the trade finder values assets off a parallel valuation path
 
+**Status: RESOLVED 2026-07-27** (collaborative audit, finding K). The
+migration landed with before/after numbers for all 12 teams; the result
+and the threshold re-derivation are in
+`docs/collaborative-model-audit/results/F-6-migration-result.md`.
+
+Two claims below did not survive the measurement and are corrected there
+rather than edited out of this document:
+
+* *"It moves every number `/api/trade/finder` emits."* Half right. Values
+  moved (median `boardDelta` 1047 → 1030); ordering did not — the top
+  recommendation was unchanged for **0 of 12** teams. The dominant score
+  term is a ratio (`board_delta / give_model`), so a near-uniform rescale
+  cancels.
+* *"Pick values in particular are tethered downstream of the scraper, so
+  the finder is likely pricing picks on an untethered number."* True, and
+  it remains the largest per-asset divergence cohort — but it did not
+  produce the ranking movement this predicted, for the same reason.
+
+The precondition this document set — "confirm the two scales are
+comparable at all" — was answered by PR #567 and independently
+reproduced during the migration: 803 paired assets, median ratio
+k = 0.875.
+
+---
+
+*Original finding, retained as written:*
+
 **Status:** recorded, NOT actioned. Needs a dedicated investigation with
 before/after numbers.
 

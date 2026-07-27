@@ -305,7 +305,22 @@ an asset-quality gate ("don't propose trading roster clog"), which our
 own board answers for IDP and picks that no single retail board
 covers.
 
-Two traps this documentation previously set:
+**Both engines now read the same internal value.** Until 2026-07-27
+`finder.py` valued assets off `_finalAdjusted` — a verbatim deep copy
+of the raw scraper composite — while `suggestions.py`, `angle.py`,
+`waiver.py`, `monte_carlo.py` and the UI all read `rankDerivedValue`.
+The finder was arbitraging a board no user could see (WS-J F-6 / audit
+finding K). It now reads the canonical board via
+`board_values_from_contract`, its absolute thresholds were re-derived
+for the new scale rather than ported, and `metadata.valueSource` stamps
+which scale produced a run. Assets the board declines to price leave
+its universe and are counted in `metadata.assetsUnpricedByBoard` —
+202 on a real payload — rather than vanishing silently.
+
+What is still deliberately different is the **gate**, per the table
+above: the quality filter, not the value.
+
+Three traps this documentation previously set:
 
 * **`finder.py` was offense-only.** It ranked every asset against KTC,
   and KTC publishes no IDP players — so every defender scored

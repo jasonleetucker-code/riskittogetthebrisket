@@ -171,6 +171,14 @@ should contribute exactly zero, not a confidently-estimated zero-ish
 number."""
 
 MAX_CONFIDENCE_WITHOUT_DECISION_DATA = 0.45
+"""Ceiling on ``acceptanceConfidence`` absent rejection data.
+
+Note this cap does NOT bind: the highest tier reachable without decision
+data is ``HISTORY_INFORMED`` (0.40), so the cap is documentation of
+intent rather than an active constraint.  ``_MAX_REACHABLE_CONFIDENCE``
+below is the number that actually governs, and it is derived rather than
+declared so the two cannot drift apart.
+"""
 """Ceiling on ``acceptanceConfidence`` while no rejection data exists.
 
 Confidence tracks EVIDENCE, not the size of the estimate. Without
@@ -227,6 +235,8 @@ _EVIDENCE_CONFIDENCE: Mapping[AcceptanceEvidence, float] = {
     AcceptanceEvidence.HISTORY_INFORMED: 0.40,
     AcceptanceEvidence.DECISION_CALIBRATED: 0.85,
 }
+
+
 
 
 # ── Consumed contracts ───────────────────────────────────────────────
@@ -459,7 +469,11 @@ class PartnerAssessment:
 
     owner_id: str
     display_name: str
-    trade_partner_fit_score: float  # 0..100, the RANKING quantity
+    # Nominally 0..100, but the REACHABLE range is much narrower — see
+    # ``FIT_SCORE_REACHABLE_MIN`` / ``_MAX``.  Renderers must use the
+    # reachable bounds, not 0..100, or a structurally excellent partner
+    # looks like a failing grade.
+    trade_partner_fit_score: float  # the RANKING quantity
     trade_acceptance_estimate: float
     partner_need_alignment: float
     partner_window_alignment: float
@@ -474,6 +488,20 @@ class PartnerAssessment:
             "ownerId": self.owner_id,
             "displayName": self.display_name,
             "tradePartnerFitScore": round(self.trade_partner_fit_score, 2),
+            # Ship the bounds WITH the number.  A 0-100 field whose real
+            # ceiling is ~43 invites a 0-100 gauge, and then a good
+            # partner renders as a failing grade.
+            "tradePartnerFitScoreRange": {
+                "min": FIT_SCORE_REACHABLE_MIN,
+                "max": FIT_SCORE_REACHABLE_MAX,
+                "nominal": [0.0, 100.0],
+                "why": (
+                    "acceptanceConfidence cannot exceed "
+                    f"{_MAX_REACHABLE_CONFIDENCE} without rejection data, which "
+                    "Sleeper does not expose. The ceiling is a property of the "
+                    "evidence, not of this partner."
+                ),
+            },
             "tradeAcceptanceEstimate": round(self.trade_acceptance_estimate, 4),
             "partnerNeedAlignment": round(self.partner_need_alignment, 4),
             "partnerWindowAlignment": round(self.partner_window_alignment, 4),
@@ -505,6 +533,48 @@ def _sigmoid(x: float) -> float:
 
 
 # ── term: market fairness ────────────────────────────────────────────
+
+def _reachable_fit_bounds() -> tuple[float, float, float]:
+    """``(min, max, max_confidence)`` actually attainable by ``fit_score``.
+
+    DERIVED from the caps rather than declared, so the published bounds
+    cannot drift away from the arithmetic that produces them.  Every
+    constant here is read from module state; changing a cap moves the
+    published range automatically.
+
+    Why this exists: ``tradePartnerFitScore`` is a 0-100 field whose real
+    ceiling is ~43, because ``DECISION_CALIBRATED`` confidence (0.85) is
+    unreachable — it needs rejection data, and Sleeper exposes only
+    accepted trades.  Shipping "43" against an implied 0-100 scale reads
+    as a failing grade for what is in fact the best attainable pairing.
+    The bound is a property of the EVIDENCE, not of the partner.
+    """
+    max_conf = max(
+        conf
+        for tier, conf in _EVIDENCE_CONFIDENCE.items()
+        if tier is not AcceptanceEvidence.DECISION_CALIBRATED
+    )
+    max_conf = min(max_conf, MAX_CONFIDENCE_WITHOUT_DECISION_DATA)
+
+    span = MAX_FAIRNESS_LOGIT + MAX_NEED_LOGIT + MAX_WINDOW_LOGIT + MAX_HISTORY_LOGIT
+    base = _logit(BASE_ACCEPTANCE_PRIOR)
+
+    # Best case: every term maxed, so need = window = 1.0 and the
+    # structural term is 1.0 too.  Worst case: every term floored, so
+    # need = window = 0.0 and the structural term contributes nothing.
+    best_est = _sigmoid(base + span)
+    worst_est = _sigmoid(base - span)
+    best = 0.65 * (BASE_ACCEPTANCE_PRIOR + max_conf * (best_est - BASE_ACCEPTANCE_PRIOR)) + (
+        0.35 * 1.0 * max_conf
+    )
+    worst = 0.65 * (BASE_ACCEPTANCE_PRIOR + max_conf * (worst_est - BASE_ACCEPTANCE_PRIOR))
+    return round(100.0 * worst, 2), round(100.0 * best, 2), max_conf
+
+
+FIT_SCORE_REACHABLE_MIN, FIT_SCORE_REACHABLE_MAX, _MAX_REACHABLE_CONFIDENCE = (
+    _reachable_fit_bounds()
+)
+
 def _fairness_term(shape: TradeShape | None) -> tuple[float, str | None]:
     """Log-odds delta from how the offer prices out for THEM.
 
@@ -836,6 +906,26 @@ def assess_partner(inp: PartnerInputs) -> PartnerAssessment:
     # estimate built on real signal, which is exactly what shrinking
     # toward the prior by (1 - confidence) achieves.
     anchored = BASE_ACCEPTANCE_PRIOR + confidence * (estimate - BASE_ACCEPTANCE_PRIOR)
+
+    # ``need`` and ``window`` enter this score TWICE, deliberately, and
+    # this is the only place that says so.  Once through the capped logit
+    # path above (``need_logit`` / ``window_logit`` → ``estimate`` →
+    # ``anchored``, weight 0.65), and again here, uncapped, weight
+    # 0.35 * confidence.
+    #
+    # The reason is that the two entries answer different questions.  The
+    # logit path asks "does this fit move the odds of engagement?" and is
+    # budgeted against fairness and history so a great fit cannot
+    # manufacture certainty.  This term asks "is this a structurally
+    # sensible pairing at all?" and is what stops a perfectly fair offer
+    # between two teams with nothing to offer each other from ranking
+    # above a slightly lopsided offer that solves both rosters.
+    #
+    # The consequence, which the module docstring's budget table does NOT
+    # reflect: the stated hierarchy (fairness strongest at 1.40) describes
+    # the ESTIMATE, not this ranking score.  On ``fit_score``, need and
+    # window carry more total weight than fairness does.  Pinned by
+    # ``TestNeedAndWindowEnterTwice``.
     structural = 0.5 * (need + window)
     fit_score = 100.0 * _clamp(0.65 * anchored + 0.35 * structural * confidence, 0.0, 1.0)
 

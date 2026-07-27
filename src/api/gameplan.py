@@ -781,10 +781,21 @@ def _league_summary(bundle: LeagueBundle) -> list[dict[str, Any]]:
                 "competitiveWindow": {
                     "mostLikely": window["mostLikely"],
                     "confidence": window["confidence"],
+                    "affinities": window["affinities"],
+                    # Deprecated alias. These are softmaxed distances to
+                    # five hand-placed anchors, normalised to sum to 1.
+                    # Summing to 1 does not make them calibrated
+                    # probabilities — nothing was fitted to outcomes.
                     "probabilities": window["probabilities"],
                     "inputs": window["inputs"],
                     "stateOrder": window["stateOrder"],
                     "orderingCaveat": window["orderingCaveat"],
+                    # Audit finding H: this projection used to DROP notes,
+                    # so an API consumer could not see "no state cleared
+                    # 30%" or that competitiveness came from the
+                    # lineupScoreRank proxy rather than simulated odds.
+                    # Those are exactly the caveats a caller needs.
+                    "notes": window.get("notes") or [],
                 },
                 "playoffOdds": ri.playoff_odds,
                 "playoffOddsCi": list(ri.playoff_odds_ci) if ri.playoff_odds_ci else None,
