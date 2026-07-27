@@ -366,6 +366,19 @@
   color: var(--text-secondary);
   max-width: 60ch;
 }
+/* ValueBasisNote — appears only when the board is NOT market values.
+   Low-key by design: it is a standing clarification, not an alert, and
+   an alert-styled strip on every page would be tuned out. */
+.ds-value-basis-note {
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--accent, currentColor);
+  background: var(--surface-2, transparent);
+  border-radius: var(--radius-sm, 4px);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 72ch;
+}
 .ds-page-header__actions {
   display: flex;
   align-items: center;

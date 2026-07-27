@@ -17,6 +17,7 @@ export { SegmentedControl } from "./SegmentedControl";
 export { Panel } from "./Panel";
 export { CollapsiblePanel } from "./CollapsiblePanel";
 export { PageHeader } from "./PageHeader";
+export { ValueBasisNote } from "./ValueBasisNote";
 export { StatTile } from "./StatTile";
 export { DataTable, sortRows } from "./DataTable";
 export { Tabs, tabId, tabPanelId } from "./Tabs";

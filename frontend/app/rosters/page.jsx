@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { ValueBasisNote } from "@/components/ds";
 import {
   POS_GROUPS,
   OFFENSE_GROUPS,
@@ -147,6 +148,8 @@ export default function RostersPage() {
             </div>
           }
         />
+
+        <ValueBasisNote contract={rawData} />
 
         {/* Position filter — toggle chips.  The previous 13x13 native
             checkbox + 11px label was impossible to tap on mobile.

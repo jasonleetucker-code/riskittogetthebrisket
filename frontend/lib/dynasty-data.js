@@ -1513,6 +1513,46 @@ async function _fetchBaseContract() {
 // (e.g. the ``/api/data`` full view, or test fixtures), we take
 // the simpler path of iterating basePlayersArray and deep-merging
 // delta fields onto each matched entry.
+/**
+ * Which board produced the numbers in `contract` — "market" or
+ * "leagueAdjusted".
+ *
+ * Read this rather than `settings.valuationMode`. The setting is what
+ * the user ASKED for; this is what they GOT, and the two legitimately
+ * diverge:
+ *
+ *   - the overlay fetch can fail, and `fetchDynastyData` degrades to
+ *     the market board rather than serving half a lens;
+ *   - the version pin in `applyValuationOverlay` refuses an overlay
+ *     built against a different scrape;
+ *   - the server can find no roster snapshot, so scarcity is
+ *     unmeasurable, and returns market values with a note.
+ *
+ * In every one of those the setting still says "leagueAdjusted" while
+ * the numbers are market. Labelling off the setting would assert a
+ * basis the board does not have — which is the whole failure this
+ * accessor exists to prevent.
+ *
+ * Accepts either the contract or its `{data}` envelope.
+ */
+export function valuationBasisOf(contract) {
+  const data = contract?.data || contract;
+  if (!data) return "market";
+  if (data.valuationOverlay?.mode === "leagueAdjusted") return "leagueAdjusted";
+  return "market";
+}
+
+/**
+ * Human-readable one-liner naming the basis, for export headers and
+ * page disclosures. Exports need this most: once a spreadsheet leaves
+ * the app nothing distinguishes adjusted values from market ones.
+ */
+export function valuationBasisLabel(contract) {
+  return valuationBasisOf(contract) === "leagueAdjusted"
+    ? "League-adjusted (positional scarcity from this league's rosters)"
+    : "Market consensus";
+}
+
 export function mergeRankingsDelta(baseContract, delta) {
   if (!baseContract || !delta) return baseContract;
   const base = baseContract.data || baseContract;
@@ -1535,6 +1575,33 @@ export function mergeRankingsDelta(baseContract, delta) {
     date: delta.date || base.date,
     generatedAt: delta.generatedAt || base.generatedAt,
   };
+
+  // Carry the server-composed valuation basis onto the SAME field the
+  // client-side overlay path stamps, so every consumer has one question
+  // to ask instead of two.
+  //
+  // Without this the server-composed board (custom weights + the lens,
+  // which the server now computes) would arrive with adjusted values and
+  // NO `valuationOverlay`, and /trade's "Valued on your league's board"
+  // banner — which gates on that field — would go silent on precisely
+  // the board that most needs labelling.
+  //
+  // The server's stamp is authoritative over the request: it can degrade
+  // to market when there is no roster snapshot, without the user's
+  // setting changing. `serverComposed` marks the provenance so a reader
+  // can tell the two paths apart.
+  if (delta.meta?.valuationMode === "leagueAdjusted") {
+    mergedData.valuationOverlay = {
+      mode: "leagueAdjusted",
+      serverComposed: true,
+      adjustedCount: delta.valuationAdjustment?.adjustedCount ?? null,
+    };
+  } else if (delta.meta?.valuationNote) {
+    // Requested but not delivered. Record why rather than leaving the
+    // absence to be read as "the user never asked".
+    mergedData.valuationOverlay = null;
+    mergedData.valuationNote = delta.meta.valuationNote;
+  }
 
   const basePlayersArray = Array.isArray(base.playersArray)
     ? base.playersArray

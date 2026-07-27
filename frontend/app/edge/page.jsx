@@ -29,6 +29,7 @@ import {
   StatTile,
   Tabs,
   tabPanelId,
+  ValueBasisNote,
 } from "@/components/ds";
 import {
   colConfidence,
@@ -258,6 +259,8 @@ export default function EdgePage() {
         description="Where the ranking sources agree, disagree, and flag issues. Every signal is derived from measurable properties of the data — coverage, agreement, divergence. Nothing is predicted."
         actions={teamSelect}
       />
+
+      <ValueBasisNote contract={rawData} />
 
       {!!error && (
         <Banner tone="negative" title="Couldn't load edge data">
