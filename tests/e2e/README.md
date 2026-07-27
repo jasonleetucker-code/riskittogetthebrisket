@@ -61,6 +61,7 @@ are all **expected**:
 | `GET /api/data` → **401** | Correct — that endpoint is auth-gated.  Use a session (the suite does). |
 | `last_success_at: null` | Expected.  The suite runs on the **committed snapshot**, never a live scrape. |
 | backend exits instantly | `server.py` raises at import without `JASON_LOGIN_PASSWORD`.  `npm run e2e` sets `ALLOW_DEFAULT_LOGIN_DEV=1` for you; if you boot the backend by hand, you must too. |
+| `FileNotFoundError: No dynasty_data_YYYY-MM-DD.json files found` from `validate_api_contract.py` | **This one is NOT expected — it is a real failure, and it used to be the recipe's own bug.** Preflight validated the contract *before* seeding the snapshot the validation reads; `data/` is gitignored, so on a clean checkout it aborted here and no spec ever ran.  Fixed 2026-07 by seeding first.  If you still see it: you are on a pre-fix checkout, or you ran `scripts/validate_api_contract.py` directly instead of through `npm run e2e`.  Do **not** file it under "no data" — the row below is about a *running* backend, this is preflight refusing to start.  If `exports/latest/` is genuinely missing too, preflight now says so in plain English instead of raising. |
 
 The check that actually matters is `/api/status` → `has_data: true`,
 and global setup asserts it (plus an authenticated `/api/data`) before

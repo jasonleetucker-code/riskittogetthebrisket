@@ -575,14 +575,35 @@ breaks when the snapshot refreshes.
 
 ## P2.5 — New environment findings (§3)
 
-### §3.1 `/api/terminal` has no Next.js proxy route
+### §3.1 The suite's page topology is not production's — in both directions
 
-`frontend/app/api/` defines 21 proxy handlers. `/api/terminal` is not
-one of them, and neither are `/api/leagues`, `/api/user/state` or
-`/api/health`. In production nginx serves `/api/*` from the backend on
-the same origin, so this is invisible — but the suite's documented
-topology points page navigation at the **Next** origin
-(`E2E_PAGE_ORIGIN`), where a relative `fetch("/api/terminal")` 404s:
+**Corrected after the #578 handoff, which supplied the nginx half.**
+My first pass filed this as "`/api/terminal` has no Next proxy route".
+That is true but it is the less important half, and read alone it points
+at the wrong culprit.
+
+Production nginx (`deploy/nginx/chaseupside-proxy.conf`):
+
+```
+location /api/ { proxy_pass http://dynasty_backend;  }
+location /     { proxy_pass http://dynasty_frontend; }
+```
+
+So in production **`/api/*` never reaches Next at all**. The 22 route
+handlers under `frontend/app/api/**` do not serve a single production
+request — even `/api/dynasty-data`, which the backend implements itself
+(`server.py:3084`).
+
+The suite does the opposite. `global-setup.js:227` and `pageUrl()` send
+page navigation to `E2E_PAGE_ORIGIN || http://127.0.0.1:3000` — the Next
+origin, with no reverse proxy in front — so a relative `fetch("/api/…")`
+from the browser lands on Next. Two consequences, and the second is the
+one that matters:
+
+1. **404s at the Next origin are test artifacts, not product bugs.**
+   `/api/terminal`, `/api/leagues`, `/api/user/state` and `/api/health`
+   have no Next handler, so they 404 here and work fine in production.
+   Observed on a signed-in dashboard load:
 
 ```
 404 http://127.0.0.1:3100/api/health
@@ -592,12 +613,34 @@ topology points page navigation at the **Next** origin
 502 http://127.0.0.1:3100/api/auth/status
 ```
 
-Consequences, observed: the signed-in dashboard renders **"Terminal data
-unavailable"** with `<h1>Pick your team</h1>` and every aggregate tile
-`—`; `/tools/trade-coverage` reports **"FETCH ERRORS 12"**. New specs
-therefore assert contract-derived content and explicitly do **not**
-assert terminal-derived values. That limit is stated in the spec
-comments rather than hidden.
+   The visible result: the signed-in dashboard renders **"Terminal data
+   unavailable"** with `<h1>Pick your team</h1>` and every aggregate
+   tile `—`; `/tools/trade-coverage` reports **"FETCH ERRORS 12"**.
+   New specs therefore assert contract-derived content and explicitly
+   do **not** assert terminal-derived values — stated in the spec
+   comments rather than hidden.
+
+2. **Every spec that passes *because* a `frontend/app/api/**` handler
+   answered is false comfort.** That code does not run in production.
+   It covers `/api/status`, `/api/auth/status`, `/api/rankings/overrides`,
+   `/api/dynasty-data`, `/api/draft-capital`, `/api/angle/*`,
+   `/api/trade/suggestions` and 15 more. A browser-driven assertion
+   against any of them is exercising a routing arrangement that exists
+   only in the test harness.
+
+   This is why the new `api-trade-intelligence.spec.js` drives
+   `/api/draft-capital` and `/api/trade/suggestions` through
+   `page.request` (baseURL = the **backend**, port 8000) rather than
+   through a page. That path matches what nginx does in production. It
+   was originally chosen to dodge the §3.3 auth-status race; the
+   topology argument is the stronger reason and is now the documented
+   one.
+
+**Recommended follow-up (not done here — it is a harness change, not an
+assertion change):** give the suite a same-origin reverse proxy, so page
+navigation and `/api/*` share one origin split the way nginx splits it.
+Until then, treat any browser-observed `/api/*` behaviour as unverified
+against production.
 
 ### §3.2 The suite silently reuses another checkout's stack
 
@@ -628,6 +671,36 @@ This is the mechanism behind the "load-sensitive" failures Part 1 filed
 as D1/D2, and behind gate #12 firing routinely. It is a product-side
 fragility, not a test defect; the new source-health spec spans one 60s
 component refresh so it is deterministic rather than load-sensitive.
+
+### §3.5 The public-league privacy assertion: deliberately scoped
+
+Raised by the #578 handoff, which changed `/league/phases` to fetch
+`/api/data`. Verdict: **deliberately scoped, and left as-is.**
+
+`visitLeague`'s `privateHits` listener watches only the page it
+navigates to, and every caller navigates to `/league` or
+`/league?tab=…`. Sibling routes under `/league/**` are unwatched.
+
+That boundary is the right one. The assertion protects the *anonymous
+public hub* — the surface a stranger lands on, which must never touch
+the private contract. `/league/phases` fetching `/api/data` is correct:
+the endpoint is auth-gated and anonymous visitors get an explicit
+sign-in message, not data. Widening the listener to all of `/league/**`
+would fail the suite on a feature working as designed, and would blur
+what the assertion means.
+
+What that leaves genuinely uncovered, stated plainly rather than
+implied: **no test asserts that a `/league/**` sub-route refrains from
+rendering private data to an anonymous visitor.** The *response* side is
+covered — `multi-league.spec.js` and `critical-smoke.spec.js` both pin
+`/api/data` → 401 without a session — so a leak would require the
+endpoint's auth gate to fail first, which those tests would catch. The
+uncovered case is narrow but real: a sub-route that fetches the private
+contract *with* a valid session and renders it on a page reachable
+without one. Recorded here rather than papered over.
+
+The reasoning is duplicated in a comment above `visitLeague` so the next
+person to widen it has to argue with it first.
 
 ### §3.4 `/league` sections hydrate too slowly for a rapid tab walk
 

@@ -31,6 +31,37 @@ const TABS = [
   "Archives",
 ];
 
+/**
+ * ── Scope of the no-private-endpoints assertion (decided, not drifted)
+ *
+ * `privateHits` only covers the page this helper navigates to, and
+ * every caller navigates to `/league` or `/league?tab=…`.  Sibling
+ * routes under `/league/**` — `/league/phases`, `/league/franchise/…`,
+ * `/league/player/…` — are NOT watched by the tab-hub test.
+ *
+ * That narrowness is **deliberate**, and here is the line: this
+ * assertion protects the *anonymous public hub* — the surface a
+ * stranger lands on, which must never touch the private contract.
+ * `/league/phases` (changed by #578) now fetches `/api/data`
+ * deliberately: it is auth-gated and shows an explicit "sign in"
+ * message to anonymous visitors rather than leaking data.  A fetch to
+ * `/api/data` there is correct behaviour, so widening this listener to
+ * all of `/league/**` would make the assertion fail on a feature that
+ * is working as designed.
+ *
+ * So: scoped on purpose, not accidentally.  What that leaves uncovered
+ * is the *response* side — nothing here asserts that `/api/data` from
+ * an anonymous session returns 401 rather than data.  That IS covered,
+ * separately and correctly, by
+ * `multi-league.spec.js::"/api/data returns 401 without a session"`
+ * and `critical-smoke.spec.js`'s auth-gate block.
+ *
+ * If a future change makes a `/league/**` sub-route fetch the private
+ * contract and render it to anonymous visitors, neither this test nor
+ * those would catch it.  That gap is recorded in
+ * docs/e2e-assertion-audit.md rather than papered over by broadening a
+ * listener whose meaning would then be ambiguous.
+ */
 async function visitLeague(page, path = "/league", { waitForText = null } = {}) {
   const privateHits = [];
   page.on("request", (req) => {
