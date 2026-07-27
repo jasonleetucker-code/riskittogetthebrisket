@@ -337,7 +337,7 @@ class RosterSignal:
                 marg = float(getattr(pp, "marginal_points", 0.0) or 0.0)
                 level = levels.get(pos)
                 if level is None:
-                    level = getattr(pp, "replacement_gap", None)
+                    level = getattr(pp, "replacement_level", None)
                 level = float(level) if level else 0.0
 
                 unfilled = max(0, req - entered)

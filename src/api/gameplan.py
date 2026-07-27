@@ -33,9 +33,20 @@ Resolved by **scoring profile** (shared across same-scoring leagues):
 
 Two scales that must never be mixed
 ───────────────────────────────────
-``rosValue`` (0-100, rest-of-season points) and ``canonicalSiteValues``
-(0-9999, dynasty market) are different currencies with no validated
-conversion between them.
+``rosValue`` (0-100, rest-of-season STRENGTH INDEX) and
+``canonicalSiteValues`` (0-9999, dynasty market) are different currencies
+with no validated conversion between them.
+
+``rosValue`` is not points, despite the arithmetic downstream of it
+looking point-like.  It is ``100·(ln(N+1) − ln(r))/ln(N+1)`` — a
+normalized log-rank index — blended across sources by weight
+(``src/ros/parse.py::rank_to_score``, ``src/ros/aggregate.py``).  It is
+ordinal in origin, so a 10-unit gap does not mean the same thing at the
+top of a position as in the tail, and summing it across a lineup yields a
+strength total rather than a projected score.  This docstring previously
+called it "rest-of-season points"; that was wrong and is corrected here
+rather than quietly dropped, because every field name downstream
+(``lineupScore``, ``startingLineupScore``) inherits the confusion.
 
 The target engines take a ``market_values`` / ``market_prices`` map and
 compute ``(ros_value - price) / price`` against it.  Feeding them the
@@ -844,7 +855,8 @@ def _coverage(
         "marketEdgeUnmeasured": {
             "reason": (
                 "The target engines compute edge as (rosValue - price) / price. "
-                "rosValue is 0-100 rest-of-season points; the only prices this "
+                "rosValue is a 0-100 rest-of-season strength index (normalized "
+                "log-rank, not points); the only prices this "
                 "server holds are canonicalSiteValues on the 0-9999 dynasty "
                 "market. No validated conversion exists between them, and feeding "
                 "one to the other yields an edge near -1 for every player — a "

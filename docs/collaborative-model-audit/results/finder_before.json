@@ -1,0 +1,1802 @@
+{
+  "payload": "dynasty_data_2026-07-27.json",
+  "playersInDict": 1095,
+  "teams": {
+    "Blaine": {
+      "arbitrageScores": [
+        22.83,
+        18.94,
+        18.16,
+        18.01,
+        17.71,
+        17.54,
+        17.35,
+        17.32,
+        17.21,
+        17.01,
+        16.76,
+        16.69,
+        16.68,
+        16.24,
+        16.21,
+        16.09,
+        16.05,
+        15.95,
+        15.9,
+        15.82,
+        15.79,
+        15.71,
+        15.38,
+        14.96,
+        14.73,
+        14.73,
+        14.6,
+        14.15,
+        13.91
+      ],
+      "boardDeltas": [
+        848,
+        267,
+        964,
+        916,
+        280,
+        815,
+        744,
+        528,
+        22,
+        198,
+        468,
+        158,
+        617,
+        188,
+        267,
+        64,
+        146,
+        35,
+        389,
+        148,
+        65,
+        84,
+        112,
+        163,
+        132,
+        161,
+        131,
+        64,
+        18
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 8,
+        "1for2": 21
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 79
+      },
+      "top5": [
+        {
+          "arbitrageScore": 22.83,
+          "boardDelta": 848,
+          "give": [
+            "Saquon Barkley"
+          ],
+          "receive": [
+            "Dak Prescott"
+          ]
+        },
+        {
+          "arbitrageScore": 18.94,
+          "boardDelta": 267,
+          "give": [
+            "Tee Higgins"
+          ],
+          "receive": [
+            "Jared Goff"
+          ]
+        },
+        {
+          "arbitrageScore": 18.16,
+          "boardDelta": 964,
+          "give": [
+            "Josh Allen"
+          ],
+          "receive": [
+            "Dak Prescott",
+            "Rashee Rice"
+          ]
+        },
+        {
+          "arbitrageScore": 18.01,
+          "boardDelta": 916,
+          "give": [
+            "Josh Allen"
+          ],
+          "receive": [
+            "Jaxson Dart",
+            "Michael Wilson"
+          ]
+        },
+        {
+          "arbitrageScore": 17.71,
+          "boardDelta": 280,
+          "give": [
+            "Tee Higgins"
+          ],
+          "receive": [
+            "Makai Lemon"
+          ]
+        }
+      ],
+      "tradeCount": 29,
+      "warnings": []
+    },
+    "Brent": {
+      "arbitrageScores": [
+        26.73,
+        25.62,
+        24.85,
+        24.08,
+        23.66,
+        23.65,
+        23.56,
+        23.41,
+        22.92,
+        22.91,
+        22.82,
+        22.7,
+        22.44,
+        22.41,
+        22.28,
+        22.26,
+        22.14,
+        21.74,
+        21.66,
+        21.63,
+        21.43,
+        21.4,
+        20.96,
+        20.92,
+        20.83,
+        20.75,
+        20.73,
+        20.7,
+        20.68,
+        20.59,
+        20.52,
+        20.44,
+        20.25,
+        20.22,
+        20.2,
+        20.18,
+        20.03,
+        20.0,
+        19.97,
+        19.89
+      ],
+      "boardDeltas": [
+        1287,
+        2154,
+        1914,
+        1807,
+        1634,
+        1207,
+        933,
+        1012,
+        1100,
+        1527,
+        1702,
+        743,
+        636,
+        703,
+        677,
+        620,
+        827,
+        586,
+        1422,
+        995,
+        710,
+        1138,
+        505,
+        506,
+        336,
+        1005,
+        138,
+        96,
+        1031,
+        630,
+        298,
+        58,
+        1270,
+        399,
+        1058,
+        916,
+        898,
+        740,
+        725,
+        523
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 14,
+        "2for1": 26
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 106
+      },
+      "top5": [
+        {
+          "arbitrageScore": 26.73,
+          "boardDelta": 1287,
+          "give": [
+            "Kyle Pitts"
+          ],
+          "receive": [
+            "Jordan Love"
+          ]
+        },
+        {
+          "arbitrageScore": 25.62,
+          "boardDelta": 2154,
+          "give": [
+            "Josh Jacobs",
+            "Mark Andrews"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.85,
+          "boardDelta": 1914,
+          "give": [
+            "Mark Andrews",
+            "Travis Etienne"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.08,
+          "boardDelta": 1807,
+          "give": [
+            "Mark Andrews",
+            "Travis Etienne"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 23.66,
+          "boardDelta": 1634,
+          "give": [
+            "Bucky Irving",
+            "Mark Andrews"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Collin": {
+      "arbitrageScores": [
+        24.01,
+        23.4,
+        23.25,
+        22.95,
+        22.07,
+        22.05,
+        22.05,
+        21.99,
+        21.86,
+        21.72,
+        21.38,
+        21.32,
+        21.23,
+        20.97,
+        20.74,
+        20.51,
+        20.46,
+        20.3,
+        20.12,
+        20.11,
+        20.1,
+        20.08,
+        20.02,
+        19.86,
+        19.78,
+        19.66,
+        19.65,
+        19.63,
+        19.61,
+        19.61,
+        19.57,
+        19.53,
+        19.44,
+        19.37,
+        19.27,
+        19.27,
+        19.27,
+        19.16,
+        19.15,
+        19.15
+      ],
+      "boardDeltas": [
+        1637,
+        1047,
+        1530,
+        875,
+        1528,
+        1264,
+        566,
+        1425,
+        682,
+        126,
+        1000,
+        1157,
+        967,
+        747,
+        1131,
+        860,
+        63,
+        591,
+        255,
+        347,
+        599,
+        1052,
+        1024,
+        66,
+        1291,
+        755,
+        594,
+        1243,
+        627,
+        1069,
+        927,
+        253,
+        148,
+        511,
+        755,
+        399,
+        249,
+        541,
+        1142,
+        309
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 10,
+        "1for2": 3,
+        "2for1": 27
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 110
+      },
+      "top5": [
+        {
+          "arbitrageScore": 24.01,
+          "boardDelta": 1637,
+          "give": [
+            "Jadarian Price",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.4,
+          "boardDelta": 1047,
+          "give": [
+            "Tucker Kraft"
+          ],
+          "receive": [
+            "Bo Nix"
+          ]
+        },
+        {
+          "arbitrageScore": 23.25,
+          "boardDelta": 1530,
+          "give": [
+            "Jadarian Price",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.95,
+          "boardDelta": 875,
+          "give": [
+            "Tucker Kraft"
+          ],
+          "receive": [
+            "Brock Purdy"
+          ]
+        },
+        {
+          "arbitrageScore": 22.07,
+          "boardDelta": 1528,
+          "give": [
+            "Dalton Kincaid",
+            "Matthew Golden"
+          ],
+          "receive": [
+            "Joe Burrow"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Ed": {
+      "arbitrageScores": [
+        31.36,
+        30.69,
+        29.81,
+        28.97,
+        27.79,
+        27.33,
+        26.98,
+        26.82,
+        26.59,
+        26.42,
+        26.41,
+        26.32,
+        26.24,
+        26.14,
+        26.08,
+        26.05,
+        26.02,
+        25.97,
+        25.92,
+        25.89,
+        25.69,
+        25.63,
+        25.58,
+        25.5,
+        25.48,
+        25.37,
+        25.34,
+        25.27,
+        25.17,
+        25.14,
+        25.07,
+        25.05,
+        25.05,
+        24.99,
+        24.85,
+        24.83,
+        24.82,
+        24.81,
+        24.75,
+        24.73
+      ],
+      "boardDeltas": [
+        2115,
+        1871,
+        1883,
+        2360,
+        2253,
+        2142,
+        2146,
+        1765,
+        1260,
+        2035,
+        1423,
+        1461,
+        1088,
+        1901,
+        840,
+        1887,
+        1179,
+        1759,
+        1916,
+        824,
+        2041,
+        1928,
+        1973,
+        339,
+        779,
+        1147,
+        1726,
+        1780,
+        1393,
+        1809,
+        1191,
+        2057,
+        1205,
+        730,
+        1669,
+        662,
+        1729,
+        1616,
+        1149,
+        961
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 3,
+        "2for1": 37
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 117
+      },
+      "top5": [
+        {
+          "arbitrageScore": 31.36,
+          "boardDelta": 2115,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 30.69,
+          "boardDelta": 1871,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 29.81,
+          "boardDelta": 1883,
+          "give": [
+            "AJ Barner",
+            "Gunnar Helm"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        },
+        {
+          "arbitrageScore": 28.97,
+          "boardDelta": 2360,
+          "give": [
+            "Gunnar Helm",
+            "Jake Ferguson"
+          ],
+          "receive": [
+            "Joe Burrow"
+          ]
+        },
+        {
+          "arbitrageScore": 27.79,
+          "boardDelta": 2253,
+          "give": [
+            "Gunnar Helm",
+            "Javonte Williams"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Eric": {
+      "arbitrageScores": [
+        27.02,
+        26.87,
+        26.8,
+        26.5,
+        26.34,
+        26.08,
+        25.92,
+        25.84,
+        25.83,
+        25.6,
+        25.41,
+        24.95,
+        24.52,
+        24.37,
+        24.16,
+        24.05,
+        24.01,
+        24.0,
+        23.98,
+        23.96,
+        23.93,
+        23.92,
+        23.91,
+        23.72,
+        23.66,
+        23.59,
+        23.51,
+        23.51,
+        23.5,
+        23.45,
+        23.36,
+        23.26,
+        23.19,
+        23.12,
+        23.08,
+        23.07,
+        23.07,
+        23.03,
+        23.02,
+        23.0
+      ],
+      "boardDeltas": [
+        1650,
+        1297,
+        1986,
+        1406,
+        1585,
+        1180,
+        1568,
+        1341,
+        857,
+        1418,
+        1324,
+        1353,
+        1336,
+        1232,
+        725,
+        1710,
+        988,
+        1189,
+        709,
+        1215,
+        843,
+        1308,
+        1568,
+        1170,
+        1172,
+        971,
+        1551,
+        1291,
+        1064,
+        1270,
+        1150,
+        1082,
+        1107,
+        1477,
+        1105,
+        1047,
+        1000,
+        1253,
+        1026,
+        906
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 6,
+        "2for1": 34
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 114
+      },
+      "top5": [
+        {
+          "arbitrageScore": 27.02,
+          "boardDelta": 1650,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 26.87,
+          "boardDelta": 1297,
+          "give": [
+            "Sam LaPorta"
+          ],
+          "receive": [
+            "Nico Collins"
+          ]
+        },
+        {
+          "arbitrageScore": 26.8,
+          "boardDelta": 1986,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Justin Herbert"
+          ]
+        },
+        {
+          "arbitrageScore": 26.5,
+          "boardDelta": 1406,
+          "give": [
+            "Chig Okonkwo",
+            "Jonathon Brooks"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 26.34,
+          "boardDelta": 1585,
+          "give": [
+            "Chig Okonkwo",
+            "Kyle Monangai"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Jason": {
+      "arbitrageScores": [
+        31.54,
+        30.83,
+        29.96,
+        29.32,
+        27.91,
+        27.0,
+        26.95,
+        26.67,
+        26.44,
+        26.29,
+        26.09,
+        25.48,
+        25.45,
+        25.41,
+        24.82,
+        24.78,
+        24.5,
+        24.33,
+        24.32,
+        24.27,
+        24.27,
+        24.17,
+        24.11,
+        24.06,
+        24.06,
+        24.02,
+        23.96,
+        23.94,
+        23.87,
+        23.82,
+        23.72,
+        23.57,
+        23.53,
+        23.52,
+        23.46,
+        23.39,
+        23.28,
+        23.25,
+        23.24,
+        23.22
+      ],
+      "boardDeltas": [
+        2171,
+        1927,
+        1939,
+        2581,
+        1691,
+        1821,
+        2064,
+        1316,
+        1517,
+        1144,
+        1944,
+        835,
+        1203,
+        395,
+        718,
+        1127,
+        883,
+        1365,
+        1239,
+        1044,
+        1605,
+        1463,
+        1016,
+        721,
+        1007,
+        1717,
+        995,
+        1058,
+        1575,
+        763,
+        1245,
+        1119,
+        1430,
+        895,
+        1485,
+        1343,
+        1722,
+        1542,
+        875,
+        1649
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 2,
+        "2for1": 38
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 118
+      },
+      "top5": [
+        {
+          "arbitrageScore": 31.54,
+          "boardDelta": 2171,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 30.83,
+          "boardDelta": 1927,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 29.96,
+          "boardDelta": 1939,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        },
+        {
+          "arbitrageScore": 29.32,
+          "boardDelta": 2581,
+          "give": [
+            "Bhayshul Tuten",
+            "T.J. Hockenson"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 27.91,
+          "boardDelta": 1691,
+          "give": [
+            "T.J. Hockenson",
+            "Terrance Ferguson"
+          ],
+          "receive": [
+            "Trevor Lawrence"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Joey": {
+      "arbitrageScores": [
+        26.83,
+        24.66,
+        24.56,
+        24.25,
+        24.12,
+        24.06,
+        24.0,
+        23.91,
+        23.89,
+        23.69,
+        23.6,
+        23.47,
+        23.38,
+        23.28,
+        23.21,
+        23.13,
+        23.13,
+        22.98,
+        22.76,
+        22.72,
+        22.72,
+        22.63,
+        22.35,
+        22.19,
+        22.14,
+        21.87,
+        21.82,
+        21.53,
+        21.47,
+        21.44,
+        21.32,
+        21.29,
+        21.11,
+        21.07,
+        21.05,
+        21.02,
+        21.02,
+        21.0,
+        20.86,
+        20.81
+      ],
+      "boardDeltas": [
+        2102,
+        1525,
+        1165,
+        921,
+        1643,
+        1212,
+        1501,
+        1418,
+        1545,
+        968,
+        1548,
+        1592,
+        1468,
+        933,
+        1686,
+        1438,
+        1232,
+        1515,
+        980,
+        1485,
+        988,
+        1313,
+        464,
+        448,
+        888,
+        1333,
+        1000,
+        685,
+        1380,
+        1149,
+        908,
+        749,
+        550,
+        505,
+        1129,
+        1196,
+        528,
+        732,
+        955,
+        138
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 4,
+        "2for1": 36
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 116
+      },
+      "top5": [
+        {
+          "arbitrageScore": 26.83,
+          "boardDelta": 2102,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Joe Burrow"
+          ]
+        },
+        {
+          "arbitrageScore": 24.66,
+          "boardDelta": 1525,
+          "give": [
+            "Brenton Strange",
+            "Tyler Shough"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 24.56,
+          "boardDelta": 1165,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 24.25,
+          "boardDelta": 921,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 24.12,
+          "boardDelta": 1643,
+          "give": [
+            "Brenton Strange",
+            "Quentin Johnston"
+          ],
+          "receive": [
+            "Malik Nabers"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Kich": {
+      "arbitrageScores": [
+        23.12,
+        22.17,
+        22.02,
+        22.01,
+        21.84,
+        21.64,
+        21.42,
+        21.37,
+        21.31,
+        21.26,
+        21.22,
+        21.05,
+        20.89,
+        20.78,
+        20.63,
+        20.57,
+        20.49,
+        20.4,
+        20.31,
+        20.23,
+        20.19,
+        20.14,
+        20.09,
+        20.06,
+        20.05,
+        20.01,
+        19.9,
+        19.89,
+        19.88,
+        19.87,
+        19.85,
+        19.77,
+        19.73,
+        19.73,
+        19.66,
+        19.63,
+        19.6,
+        19.58,
+        19.57,
+        19.51
+      ],
+      "boardDeltas": [
+        1801,
+        1620,
+        1606,
+        1458,
+        1565,
+        1306,
+        649,
+        1326,
+        1430,
+        1098,
+        1312,
+        1271,
+        1222,
+        1353,
+        1298,
+        1070,
+        1284,
+        1201,
+        1243,
+        897,
+        1090,
+        928,
+        1325,
+        856,
+        1076,
+        993,
+        842,
+        1035,
+        653,
+        389,
+        776,
+        145,
+        375,
+        612,
+        1117,
+        131,
+        334,
+        568,
+        598,
+        90
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 1,
+        "2for1": 39
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 119
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.12,
+          "boardDelta": 1801,
+          "give": [
+            "George Kittle",
+            "Ty Simpson"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.17,
+          "boardDelta": 1620,
+          "give": [
+            "Davante Adams",
+            "KC Concepcion"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.02,
+          "boardDelta": 1606,
+          "give": [
+            "DK Metcalf",
+            "KC Concepcion"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.01,
+          "boardDelta": 1458,
+          "give": [
+            "George Kittle",
+            "Matthew Stafford"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 21.84,
+          "boardDelta": 1565,
+          "give": [
+            "KC Concepcion",
+            "Ty Simpson"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "MaKayla": {
+      "arbitrageScores": [
+        23.65,
+        23.5,
+        22.89,
+        22.74,
+        22.53,
+        22.45,
+        21.97,
+        21.93,
+        21.83,
+        21.83,
+        21.78,
+        21.71,
+        21.7,
+        21.6,
+        21.49,
+        21.49,
+        21.38,
+        21.35,
+        21.2,
+        20.98,
+        20.96,
+        20.96,
+        20.92,
+        20.88,
+        20.88,
+        20.87,
+        20.85,
+        20.82,
+        20.79,
+        20.71,
+        20.69,
+        20.47,
+        20.37,
+        20.28,
+        20.27,
+        20.26,
+        20.2,
+        20.17,
+        20.15,
+        20.14
+      ],
+      "boardDeltas": [
+        1828,
+        1590,
+        1721,
+        1483,
+        1656,
+        1418,
+        1543,
+        1272,
+        1465,
+        995,
+        1549,
+        1311,
+        1541,
+        523,
+        751,
+        1378,
+        279,
+        1331,
+        1165,
+        1100,
+        859,
+        1434,
+        1029,
+        951,
+        953,
+        1191,
+        1267,
+        1371,
+        1189,
+        1293,
+        1017,
+        1206,
+        826,
+        459,
+        677,
+        993,
+        922,
+        844,
+        606,
+        528
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 5,
+        "2for1": 35
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 115
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.65,
+          "boardDelta": 1828,
+          "give": [
+            "Eli Stowers",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.5,
+          "boardDelta": 1590,
+          "give": [
+            "Jameson Williams",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.89,
+          "boardDelta": 1721,
+          "give": [
+            "Eli Stowers",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.74,
+          "boardDelta": 1483,
+          "give": [
+            "Jameson Williams",
+            "Josh Downs"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.53,
+          "boardDelta": 1656,
+          "give": [
+            "Eli Stowers",
+            "Michael Wilson"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Roy": {
+      "arbitrageScores": [
+        23.73,
+        23.51,
+        23.28,
+        22.98,
+        22.75,
+        22.54,
+        21.71,
+        21.7,
+        21.61,
+        21.5,
+        21.36,
+        21.28,
+        21.27,
+        21.25,
+        20.97,
+        20.91,
+        20.89,
+        20.86,
+        20.56,
+        19.74,
+        19.64,
+        19.5,
+        19.33,
+        19.32,
+        19.25,
+        19.12,
+        19.06,
+        18.95,
+        18.94,
+        18.89,
+        18.88,
+        18.84,
+        18.78,
+        18.71,
+        18.64,
+        18.62,
+        18.56,
+        18.51,
+        18.42,
+        18.41
+      ],
+      "boardDeltas": [
+        1414,
+        1572,
+        1293,
+        1307,
+        1465,
+        1186,
+        1202,
+        1265,
+        986,
+        1360,
+        434,
+        1144,
+        1081,
+        777,
+        1158,
+        935,
+        879,
+        656,
+        1037,
+        1053,
+        774,
+        538,
+        349,
+        932,
+        628,
+        318,
+        403,
+        98,
+        173,
+        507,
+        530,
+        421,
+        197,
+        476,
+        143,
+        674,
+        688,
+        409,
+        494,
+        127
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 7,
+        "2for1": 33
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 113
+      },
+      "top5": [
+        {
+          "arbitrageScore": 23.73,
+          "boardDelta": 1414,
+          "give": [
+            "Isaiah Likely",
+            "Oronde Gadsden"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.51,
+          "boardDelta": 1572,
+          "give": [
+            "Bryce Young",
+            "Isaiah Likely"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 23.28,
+          "boardDelta": 1293,
+          "give": [
+            "Isaiah Likely",
+            "Sam Darnold"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 22.98,
+          "boardDelta": 1307,
+          "give": [
+            "Isaiah Likely",
+            "Oronde Gadsden"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 22.75,
+          "boardDelta": 1465,
+          "give": [
+            "Bryce Young",
+            "Isaiah Likely"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    },
+    "Ty": {
+      "arbitrageScores": [
+        21.58,
+        18.18,
+        18.09,
+        17.72,
+        17.63,
+        16.59,
+        16.52
+      ],
+      "boardDeltas": [
+        507,
+        306,
+        286,
+        220,
+        258,
+        145,
+        48
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 7
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 14
+      },
+      "top5": [
+        {
+          "arbitrageScore": 21.58,
+          "boardDelta": 507,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Dak Prescott"
+          ]
+        },
+        {
+          "arbitrageScore": 18.18,
+          "boardDelta": 306,
+          "give": [
+            "C.J. Stroud"
+          ],
+          "receive": [
+            "Jared Goff"
+          ]
+        },
+        {
+          "arbitrageScore": 18.09,
+          "boardDelta": 286,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Breece Hall"
+          ]
+        },
+        {
+          "arbitrageScore": 17.72,
+          "boardDelta": 220,
+          "give": [
+            "TreVeyon Henderson"
+          ],
+          "receive": [
+            "Jordyn Tyson"
+          ]
+        },
+        {
+          "arbitrageScore": 17.63,
+          "boardDelta": 258,
+          "give": [
+            "James Cook"
+          ],
+          "receive": [
+            "Bo Nix"
+          ]
+        }
+      ],
+      "tradeCount": 7,
+      "warnings": []
+    },
+    "jstuedle": {
+      "arbitrageScores": [
+        25.76,
+        25.19,
+        24.98,
+        24.67,
+        23.8,
+        23.71,
+        23.61,
+        22.97,
+        22.85,
+        22.85,
+        22.11,
+        22.0,
+        21.95,
+        21.79,
+        21.79,
+        21.61,
+        21.27,
+        21.17,
+        21.03,
+        20.93,
+        20.92,
+        20.89,
+        20.86,
+        20.79,
+        20.71,
+        20.71,
+        20.65,
+        20.63,
+        20.57,
+        20.41,
+        20.29,
+        20.23,
+        20.16,
+        20.1,
+        20.07,
+        20.03,
+        19.9,
+        19.83,
+        19.68,
+        19.56
+      ],
+      "boardDeltas": [
+        1926,
+        1527,
+        1819,
+        1283,
+        1295,
+        1714,
+        1700,
+        1289,
+        1593,
+        1478,
+        1371,
+        1299,
+        1047,
+        352,
+        108,
+        1488,
+        1192,
+        614,
+        672,
+        1177,
+        1063,
+        1252,
+        1266,
+        500,
+        120,
+        688,
+        830,
+        873,
+        1042,
+        1186,
+        841,
+        191,
+        1145,
+        1006,
+        655,
+        1087,
+        559,
+        126,
+        74,
+        851
+      ],
+      "marketCoverage": {
+        "idpTradeCalc": 0,
+        "ktc": 15,
+        "ktcSfTep": 135
+      },
+      "packageShapes": {
+        "1for1": 1,
+        "2for1": 39
+      },
+      "poolSize": 150,
+      "positionMix": {
+        "?": 119
+      },
+      "top5": [
+        {
+          "arbitrageScore": 25.76,
+          "boardDelta": 1926,
+          "give": [
+            "Cam Skattebo",
+            "Dallas Goedert"
+          ],
+          "receive": [
+            "Lamar Jackson"
+          ]
+        },
+        {
+          "arbitrageScore": 25.19,
+          "boardDelta": 1527,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Patrick Mahomes"
+          ]
+        },
+        {
+          "arbitrageScore": 24.98,
+          "boardDelta": 1819,
+          "give": [
+            "Cam Skattebo",
+            "Dallas Goedert"
+          ],
+          "receive": [
+            "Jayden Daniels"
+          ]
+        },
+        {
+          "arbitrageScore": 24.67,
+          "boardDelta": 1283,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Jalen Hurts"
+          ]
+        },
+        {
+          "arbitrageScore": 23.8,
+          "boardDelta": 1295,
+          "give": [
+            "Dallas Goedert",
+            "Denzel Boston"
+          ],
+          "receive": [
+            "Jaxson Dart"
+          ]
+        }
+      ],
+      "tradeCount": 40,
+      "warnings": []
+    }
+  }
+}

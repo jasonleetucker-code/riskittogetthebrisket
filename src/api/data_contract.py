@@ -1067,7 +1067,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # That means the raw values are already a TE-premium board, so
         # we treat IDPTC like the other TEP-native sources (Yahoo Boone,
         # FP Fitzmaurice, DN SfTep) — only the small 1.10× nudge toward
-        # the operator's TE++ baseline, never the full non-TEP 1.25×.
+        # the operator's TE++ baseline, never the full non-TEP 1.15×.
         "is_tep_premium": True,
     },
     {
@@ -1635,7 +1635,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # so it is TEP-native like KTC SF-TE++ / DN SF-TEP / Yahoo
         # Boone / FP Fitzmaurice / IDPTC: declared
         # ``is_tep_premium=True`` so TE rows get only the small 1.10×
-        # native nudge, never the 1.25× non-TEP boost.  (Before
+        # native nudge, never the 1.15× non-TEP boost.  (Before
         # 2026-05-16 this was mis-flagged False, double-counting TE
         # premium for DS — its already-TEP TE values got the larger
         # non-TEP multiplier — which inflated every TE's DS
@@ -2408,7 +2408,7 @@ def _summarize_source_overrides(
     # enforce, so a non-normalize caller (direct ``build_api_data_contract``
     # invocation, malformed body, etc.) can't pump TE values off the
     # board through the summary stamp.  Live derivations land at the
-    # hardcoded default 1.25; the wider [1.0, 2.0] range that historically
+    # hardcoded default 1.15; the wider [1.0, 2.0] range that historically
     # accommodated ``_derive_tep_multiplier_from_league`` outputs is no
     # longer needed (that derivation is no longer wired into the live
     # build_api_data_contract path — see line ~7190).
@@ -8088,7 +8088,7 @@ def build_api_data_contract(
       * ``None`` + no Sleeper context (cold start, offline, registry
         miss) OR non-TEP league (``bonus_rec_te == 0``) — fall back
         to the hardcoded ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``
-        (1.25).  Stamped as ``tepMultiplierSource = "default"``.
+        (1.15).  Stamped as ``tepMultiplierSource = "default"``.
       * an explicit ``float`` — use the caller's value verbatim (the
         contract-summary stamp clamps to ``[1.0, 1.5]``, matching the
         API-ingress ``normalize_tep_multiplier`` and the /settings
@@ -8110,7 +8110,7 @@ def build_api_data_contract(
     # both operator-tunable and both falling back to hardcoded
     # defaults when ``None``.
     #
-    #   * ``tep_multiplier``        — non-TEP sources (default 1.25,
+    #   * ``tep_multiplier``        — non-TEP sources (default 1.15,
     #     ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``)
     #   * ``tep_native_multiplier`` — TEP-native sources (default 1.10,
     #     ``_TE_BLANKET_NATIVE_MULTIPLIER``)
@@ -8125,7 +8125,7 @@ def build_api_data_contract(
     # Auto-derive ``tep_multiplier_derived`` from the league's
     # ``bonus_rec_te`` when Sleeper actually returned scoring data AND
     # the league has a positive TE bonus.  Otherwise fall back to the
-    # hardcoded ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.25) so cold-
+    # hardcoded ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.15) so cold-
     # start, offline, and non-TEP leagues keep predictable behavior.
     #
     # Examples:
