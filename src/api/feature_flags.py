@@ -103,6 +103,23 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # explicit operator TE-premium slider value also wins over the
     # curve regardless of this flag.
     "te_basis_conversion": True,
+    # IDP positional scoring fit (Tier 2).  This league pays coverage
+    # and disruption and discounts finishing plays, so relative to DB it
+    # values DL about +7% and LB about +3% versus the generic rate card
+    # every ranking source prices on.  Measured, stable across pool
+    # depth, and re-allocates between IDP positions rather than
+    # inflating IDP as a whole — see src/league_intel/scoring_fit.py.
+    #
+    # OFF by default, unlike te_basis_conversion.  The operator directed
+    # the TE basis explicitly and has directed nothing here, and this
+    # moves every IDP value on the board.  Flip with
+    # RISKIT_FEATURE_IDP_SCORING_FIT=1.
+    #
+    # Note what is deliberately NOT behind this flag: a per-player IDP
+    # multiplier.  The same data supports one arithmetically and it is
+    # noise — see the module docstring for the depth-stability
+    # measurement that rules it out.
+    "idp_scoring_fit": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

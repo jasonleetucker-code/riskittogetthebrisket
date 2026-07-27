@@ -117,6 +117,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import time
 from collections import OrderedDict
@@ -1120,6 +1121,68 @@ def get_team_gameplan(
     return payload
 
 
+# ── Tier 2: IDP positional scoring fit ───────────────────────────────
+
+_LOGGER = logging.getLogger(__name__)
+
+_SCORING_FIT_CACHE: dict[str, Any] = {}
+
+
+def invalidate_scoring_fit_cache() -> None:
+    """Drop the memoised measurement.  Tests and a scoring change."""
+    _SCORING_FIT_CACHE.clear()
+
+
+def _resolve_scoring_fit(league_key: str) -> Any | None:
+    """This league's IDP positional scoring tilt, or None.
+
+    Returns None — meaning an ABSENT axis, arithmetically inert —
+    whenever the flag is off, the stat rows are unavailable, or the
+    measurement refuses itself. Never raises: an optional lens must not
+    be able to take down the board it decorates.
+
+    Memoised per league. The measurement scores ~19k player-weeks under
+    two rate cards, which is far too expensive for a per-request path,
+    and its inputs (a completed season's stats, two rate cards) change
+    on the order of weeks.
+    """
+    from src.api import feature_flags  # noqa: PLC0415
+
+    if not feature_flags.is_enabled("idp_scoring_fit"):
+        return None
+    if league_key in _SCORING_FIT_CACHE:
+        return _SCORING_FIT_CACHE[league_key]
+
+    measurement = None
+    try:
+        from src.league_comparison.service import _load_config  # noqa: PLC0415
+        from src.league_comparison.sleeper_scoring import (  # noqa: PLC0415
+            fetch_league_scoring,
+        )
+        from src.league_intel.scoring_fit import (  # noqa: PLC0415
+            measure_positional_scoring_fit,
+        )
+        from src.nfl_data.ingest import fetch_weekly_defensive_stats  # noqa: PLC0415
+
+        cfg = _load_config()
+        mine_id = str((cfg.get("my_league") or {}).get("id") or "")
+        base_id = str((cfg.get("baseline_league") or {}).get("id") or "")
+        seasons = [int(s) for s in (cfg.get("seasons") or []) if str(s).isdigit()]
+        season = max(seasons) if seasons else None
+        if mine_id and base_id and season:
+            mine = fetch_league_scoring(mine_id).scoring_settings
+            baseline = fetch_league_scoring(base_id).scoring_settings
+            rows = fetch_weekly_defensive_stats([season])
+            if mine and baseline and rows:
+                measurement = measure_positional_scoring_fit(rows, mine, baseline, season=season)
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("scoring fit unavailable for %s: %r", league_key, exc)
+        measurement = None
+
+    _SCORING_FIT_CACHE[league_key] = measurement
+    return measurement
+
+
 # ── LI-9: league-adjusted values ─────────────────────────────────────
 
 
@@ -1164,6 +1227,7 @@ def get_league_adjusted_values(
         rows,
         bundle.scarcity,
         league_key=league_key,
+        scoring_fit=_resolve_scoring_fit(league_key),
         config_version=config_version,
         data_through=(contract or {}).get("date"),
         # Version pin: the client refuses to apply an overlay whose

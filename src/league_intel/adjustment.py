@@ -62,6 +62,7 @@ __all__ = [
     "build_board_adjustments",
     "check_position_monotonicity",
     "projection_corroboration_axis",
+    "scoring_fit_axis",
     "structural_scarcity_axis",
     "te_premium_axis",
 ]
@@ -89,6 +90,25 @@ class EvidenceTier(str, Enum):
     """Measured from paired market boards that passed the
     ``calibration.py`` validity gates."""
 
+    SCORING_MEASURED = "scoringMeasured"
+    """Measured by re-scoring REAL player-weeks under two rate cards and
+    passing the depth-stability gate in
+    :mod:`src.league_intel.scoring_fit`.
+
+    A separate tier rather than a reuse of the two above, because the
+    mechanism is genuinely different and the existing tiers name their
+    mechanisms: ``MARKET_MEASURED`` means paired market boards, and
+    ``PROJECTION_CORROBORATED`` means re-scored *projected* lines and is
+    documented as unreachable pending LI-6. Labelling scoring evidence
+    as either would misreport how the number was obtained, and the tier
+    is the field a reader trusts to tell them exactly that.
+
+    Confidence is set equal to ``MARKET_MEASURED``. That is deliberate
+    restraint: re-scored realized stat lines are arguably *stronger*
+    evidence than a paired board, but nothing has measured the two
+    against each other, so claiming a higher tier would be an
+    unevidenced ranking of evidence."""
+
     PROJECTION_CORROBORATED = "projectionCorroborated"
     """Structural effect confirmed against re-scored projected stat
     lines.  Unreachable until LI-6 secures a raw-category source."""
@@ -98,6 +118,7 @@ _TIER_CONFIDENCE: dict[EvidenceTier, float] = {
     EvidenceTier.ABSENT: 0.0,
     EvidenceTier.STRUCTURAL_ONLY: 0.45,
     EvidenceTier.MARKET_MEASURED: 0.70,
+    EvidenceTier.SCORING_MEASURED: 0.70,
     EvidenceTier.PROJECTION_CORROBORATED: 0.90,
 }
 
@@ -233,6 +254,57 @@ def structural_scarcity_axis(
             "from the exact optimizer over real rosters"
         ),
         measured_value=value,
+    )
+
+
+def scoring_fit_axis(
+    position: str,
+    fit: Any | None,
+) -> AdjustmentAxis:
+    """How this league's SCORING rules tilt value toward ``position``.
+
+    Distinct from :func:`structural_scarcity_axis`, and the two are not
+    substitutes: scarcity measures how many of a position this league
+    must start, scoring measures what it pays them per play. A league
+    can start three linebackers and still pay them badly.
+
+    ``fit`` is a :class:`~src.league_intel.scoring_fit.ScoringFitMeasurement`.
+    Returns an ABSENT axis for anything it did not measure or did not
+    trust — including every offensive position, because the offence-side
+    divergence is reception-distance banding and a position-level
+    multiplier cannot express it (see the scoring_fit module docstring).
+    """
+    if fit is None:
+        return AdjustmentAxis(
+            name="scoringFit",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale="no scoring-fit measurement supplied; axis contributes nothing",
+        )
+
+    pos = str(position or "").strip().upper()
+    entry = getattr(fit, "positions", {}).get(pos)
+    if entry is None or not getattr(entry, "trusted", False):
+        return AdjustmentAxis(
+            name="scoringFit",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale=(
+                getattr(entry, "reason", None)
+                or f"scoring fit not measured for {pos or 'unknown position'}"
+            ),
+        )
+
+    return AdjustmentAxis(
+        name="scoringFit",
+        factor=float(entry.multiplier),
+        tier=EvidenceTier.SCORING_MEASURED,
+        rationale=(
+            f"{pos} scores {entry.raw_ratio:.3f}x the baseline rate card over "
+            f"{entry.cohort_size} real player-seasons; normalised across IDP "
+            f"positions to {entry.multiplier:.3f}. {entry.reason}"
+        ),
+        measured_value=float(entry.raw_ratio),
     )
 
 
@@ -583,6 +655,7 @@ def build_board_adjustments(
     scarcity: Mapping[str, Any] | None = None,
     te_measurement: Mapping[str, Any] | None = None,
     projections: Mapping[str, ProjectionEvidence] | None = None,
+    scoring_fit: Any | None = None,
     config_version: int | None = None,
     data_through: str | None = None,
     max_total_adjustment: float = MAX_TOTAL_ADJUSTMENT,
@@ -619,6 +692,13 @@ def build_board_adjustments(
         axes = [
             structural_scarcity_axis(position, pos_scarcity),
             te_premium_axis(measurement=te_measurement) if position == "TE" else None,
+            # Gated by the caller, not here: passing ``scoring_fit=None``
+            # yields an ABSENT axis, so the flag-off path still runs this
+            # code and the guards below still see it.  Leaving the axis
+            # out of the list entirely when disabled would be the
+            # ORCHESTRATION.md 6.14 mistake -- a module nothing imports
+            # cannot be caught by the tests that guard it.
+            scoring_fit_axis(position, scoring_fit),
             projection_corroboration_axis(
                 (projections or {}).get(name),
                 structural_factor=1.0,
