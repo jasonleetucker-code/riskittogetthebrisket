@@ -447,3 +447,143 @@ def test_an_empty_players_array_is_a_clean_noop(league, monkeypatch):  # noqa: F
     assert body["factors"] == {}
     assert body["ranks"] == {}
     assert body["playerCount"] == 0
+
+
+# ── 4. Server-side composition on POST /api/rankings/overrides ───────
+#
+# Custom source weights + the league lens used to be refused. The
+# refusal was correct — the overlay's ranks belong to the un-overridden
+# board — but it meant a user with any custom weight silently lost the
+# lens. The composition now happens server-side.
+#
+# The scope consequence is the subtle part and is what these pin:
+# rankings follow the SCORING PROFILE and are shared across leagues,
+# but scarcity is measured from ONE league's rosters. So asking for the
+# lens narrows a shared response into a league-scoped one, and the
+# endpoint has to start enforcing the stricter rule for that request
+# only.
+
+
+def _raw_payload() -> dict:
+    """The RAW scraper payload the override endpoint rebuilds from.
+
+    ``POST /api/rankings/overrides`` reads ``server.latest_data`` (the
+    pre-contract scrape), not ``latest_contract_data`` — it re-runs the
+    whole pipeline rather than patching the built board. The player
+    names must match the league fixture's roster, or the scarcity
+    factors key off nothing and every composition assertion passes
+    vacuously against an empty adjustment.
+    """
+    players: dict[str, dict] = {}
+    for row in _players_array():
+        v = int(row["rankDerivedValue"])
+        players[row["displayName"]] = {
+            "_composite": v,
+            "_rawComposite": v,
+            "_finalAdjusted": v,
+            "_canonicalSiteValues": {"ktcSfTep": v, "dlfSf": v},
+            "position": row["position"],
+        }
+    return {
+        "players": players,
+        "sites": [{"key": "ktcSfTep"}, {"key": "dlfSf"}],
+        "maxValues": {"ktcSfTep": 9999, "dlfSf": 9999},
+        "sleeper": {"positions": {}},
+    }
+
+
+def _install_raw(monkeypatch):
+    monkeypatch.setattr(server, "latest_data", _raw_payload())
+    monkeypatch.setattr(server, "latest_data_source", None)
+
+
+def _post(client, body, view="delta"):
+    return client.post(f"/api/rankings/overrides?view={view}", json=body)
+
+
+def test_overrides_without_the_lens_stay_scoring_profile_scoped(league, monkeypatch):  # noqa: F811
+    """The default path must be untouched. `side` shares `prof_a` with
+    `main`, so a plain override request for it still succeeds off the
+    loaded contract."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch, league_key="main")
+        _install_raw(monkeypatch)
+        res = _post(c, {"leagueKey": "side", "ktcSfTep": {"include": False}})
+    assert res.status_code == 200, res.text
+    assert res.json()["meta"]["valuationMode"] == "market"
+
+
+def test_asking_for_the_lens_narrows_the_scope_to_one_league(league, monkeypatch):  # noqa: F811
+    """The same request that succeeds above must 503 once the lens is
+    requested — scarcity from `main`'s rosters is not `side`'s answer.
+
+    This is the assertion that makes the composition safe. Without it
+    the endpoint would happily hand league B a board priced by league
+    A's roster shape, which is worse than the refusal it replaced.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch, league_key="main")
+        _install_raw(monkeypatch)
+        res = _post(
+            c,
+            {
+                "leagueKey": "side",
+                "ktcSfTep": {"include": False},
+                "valuation_mode": "leagueAdjusted",
+            },
+        )
+    assert res.status_code == 503
+    body = res.json()
+    assert body["error"] == "data_not_ready"
+    assert body["leagueKey"] == "side"
+
+
+def test_the_composed_board_is_stamped_as_league_adjusted(league, monkeypatch):  # noqa: F811
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        _install_raw(monkeypatch)
+        res = _post(c, {"ktcSfTep": {"include": False}, "valuation_mode": "leagueAdjusted"})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["meta"]["valuationMode"] == "leagueAdjusted"
+    assert body["valuationAdjustment"]["applied"] is True
+    assert body["valuationAdjustment"]["adjustedCount"] > 0, (
+        "the lens was requested and reported applied but moved nothing — "
+        "either the fixture is starved or the factors never reached the board"
+    )
+
+
+def test_a_missing_roster_snapshot_degrades_to_market_and_says_so(
+    league,  # noqa: F811
+    monkeypatch,
+):
+    """Without rosters there is no measurable scarcity. Serving the
+    overridden market board is right; presenting it AS league-adjusted
+    is not. The response has to disclose which one the caller got."""
+    monkeypatch.setattr(gameplan, "load_team_strength_snapshot", lambda key=None: None)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        _install_raw(monkeypatch)
+        res = _post(c, {"ktcSfTep": {"include": False}, "valuation_mode": "leagueAdjusted"})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["meta"]["valuationMode"] == "market"
+    assert "league_adjusted_unavailable" in body["meta"]["valuationNote"]
+    assert any("league_adjusted_unavailable" in w for w in body.get("warnings") or [])
+
+
+def test_the_full_view_refuses_the_lens_rather_than_ignoring_it(league, monkeypatch):  # noqa: F811
+    """A silently-dropped field would return a market board labelled as
+    adjusted. Say no instead."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        _install_raw(monkeypatch)
+        res = _post(
+            c,
+            {"ktcSfTep": {"include": False}, "valuation_mode": "leagueAdjusted"},
+            view="full",
+        )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["meta"]["valuationMode"] == "market"
+    assert body["meta"]["valuationNote"] == "league_adjusted_requires_delta_view"

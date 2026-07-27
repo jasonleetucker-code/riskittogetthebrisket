@@ -1860,21 +1860,26 @@ export async function fetchDynastyData(opts = {}) {
     return overlay ? applyValuationOverlay(base, overlay) : base;
   }
 
-  // Source overrides + league-adjusted is deliberately NOT composed
-  // here.  The overlay is computed against the un-overridden board, so
-  // its ranks are the ranks of `default_consensus x factor` — but the
-  // correct answer is the rank of `overridden_consensus x factor`,
-  // which the server never computed.  No client-side sequencing fixes
-  // that; composing the two would produce a board where neither the
-  // values nor the ranks correspond to anything.  Serve the overridden
-  // market board and say so, until `valuation_mode` is threaded through
-  // the overrides pipeline server-side.
-  if (leagueAdjusted) {
-    console.warn(
-      "[dynasty-data] custom source weights are active; league-adjusted " +
-        "values are not applied (the two cannot be composed client-side)",
-    );
-  }
+  // Source overrides + league-adjusted are now composed SERVER-SIDE.
+  //
+  // They were previously refused outright, and correctly so: the
+  // overlay endpoint computes its ranks against the un-overridden
+  // board, so applying them here would give the ranks of
+  // `default_consensus x factor` when the right answer is the rank of
+  // `overridden_consensus x factor`. No client-side sequencing fixes
+  // that — the server had simply never computed that board.
+  //
+  // It does now. `valuation_mode` rides the override POST, the backend
+  // runs the override pipeline first and applies the scarcity factors
+  // to the resulting values, then re-ranks the adjusted board through
+  // the same `compact_ranks_and_tiers` the default path uses. The
+  // delta comes back with values, ranks and tiers that all describe
+  // one board.
+  //
+  // `meta.valuationMode` on the response says which lens actually
+  // produced it, because the server can still degrade to market (no
+  // roster snapshot => no measurable scarcity). Callers read that
+  // rather than assuming they got what they asked for.
 
   // Override path: POST the override map + TE premium multiplier to
   // the backend delta endpoint, then merge the delta onto the
@@ -1896,6 +1901,13 @@ export async function fetchDynastyData(opts = {}) {
   }
   if (tepNativeCustomized) {
     body.tep_native_multiplier = tepNativeMultiplier;
+  }
+  if (leagueAdjusted) {
+    // Asking for the lens narrows this request to one league — the
+    // backend 503s on a league mismatch when this is set, because
+    // scarcity is measured from one league's rosters and the resulting
+    // board is not shareable across leagues that merely share scoring.
+    body.valuation_mode = "leagueAdjusted";
   }
 
   try {

@@ -3434,6 +3434,74 @@ async def post_rankings_overrides(request: Request):
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
 
+    # ── Server-side valuation-mode composition ───────────────────────
+    #
+    # Custom source weights + the league-adjusted lens used to be
+    # refused outright: the overlay's ranks are the ranks of
+    # ``default_consensus x factor``, while the correct answer is the
+    # rank of ``overridden_consensus x factor``, and the server had
+    # never computed that board.  No client-side sequencing fixes it.
+    # Computing it here is the fix.
+    #
+    # Note what this does to the endpoint's SCOPE.  Rankings follow the
+    # scoring profile and are shared, which is why the profile check
+    # above only 503s when profiles genuinely differ.  The valuation
+    # overlay is league-scoped by necessity — ``lineupScarcity`` is
+    # measured from THIS league's rosters — so the moment the caller
+    # asks for it, this response stops being shareable across leagues
+    # and has to 503 on a league mismatch exactly like
+    # /api/valuation/league-adjusted.  Asking for the lens is what
+    # narrows the scope; a plain override request is unaffected.
+    valuation_mode = ""
+    if isinstance(body, dict):
+        raw_mode = body.get("valuation_mode") or body.get("valuationMode")
+        valuation_mode = str(raw_mode or "").strip()
+    want_league_adjusted = valuation_mode == "leagueAdjusted"
+
+    valuation_factors: dict[str, float] | None = None
+    valuation_note: str | None = None
+    if want_league_adjusted and delta_view:
+        if not sleeper_matches:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"League-adjusted values need league {league_cfg.key!r}'s "
+                        f"rosters; the server holds {loaded_league or 'none'!r}."
+                    ),
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        try:
+            overlay = await run_in_threadpool(
+                _gameplan.get_league_adjusted_values,
+                league_cfg.key,
+                league_cfg.scoring_profile,
+                latest_contract_data,
+            )
+            raw_factors = overlay.get("factors") if isinstance(overlay, dict) else None
+            valuation_factors = {
+                str(k): float(v)
+                for k, v in (raw_factors or {}).items()
+                if isinstance(v, (int, float))
+            }
+        except _gameplan.GameplanUnavailable as exc:
+            # Scarcity is unmeasurable without a roster snapshot. Serve
+            # the overridden market board and SAY SO rather than
+            # silently presenting it as league-adjusted — the whole
+            # point of this endpoint is that the user can tell which
+            # board they are looking at.
+            valuation_factors = None
+            valuation_note = f"league_adjusted_unavailable: {exc.reason}"
+            log.warning("league-adjusted overlay unavailable for overrides: %s", exc.detail)
+    elif want_league_adjusted and not delta_view:
+        # The full view is a legacy compatibility surface; composing
+        # there would mean maintaining two composition paths for one
+        # behaviour. Refuse explicitly instead of quietly ignoring the
+        # field, which would return a market board labelled as adjusted.
+        valuation_note = "league_adjusted_requires_delta_view"
+
     try:
         if delta_view:
             contract_payload = build_rankings_delta_payload(
@@ -3442,6 +3510,7 @@ async def post_rankings_overrides(request: Request):
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
+                valuation_factors=valuation_factors,
             )
         else:
             contract_payload = build_api_data_contract(
@@ -3480,6 +3549,14 @@ async def post_rankings_overrides(request: Request):
         if not sleeper_matches:
             contract_payload["sleeper"] = None
             meta["sleeperLoadedLeagueKey"] = loaded_league or None
+        # Always stamp which lens produced this board. A client that
+        # asked for leagueAdjusted and silently got market is the
+        # failure mode this whole change exists to remove, so the
+        # answer travels with the payload instead of being inferred.
+        meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
+        if valuation_note:
+            meta["valuationNote"] = valuation_note
+            contract_payload.setdefault("warnings", []).append(valuation_note)
 
     headers = {
         "Cache-Control": "no-store",

@@ -9,7 +9,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from src.data_models.contracts import utc_now_iso
 
@@ -8812,6 +8812,51 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
 )
 
 
+def apply_valuation_factors(
+    rows: list[dict[str, Any]],
+    factors: Mapping[str, float] | None,
+    *,
+    anchor_year: int | None = None,
+) -> int:
+    """Multiply ``rankDerivedValue`` by a per-player factor and re-rank.
+
+    Mutates ``rows`` IN PLACE and returns how many rows were re-valued.
+    Callers must therefore own ``rows`` — never hand this
+    ``latest_contract_data``'s list.  ``build_rankings_delta_payload``
+    owns a freshly-built contract, which is why it can.
+
+    This exists so the rankings-override endpoint can serve a board that
+    is BOTH re-weighted and league-adjusted.  The client cannot compose
+    those two: the overlay's ranks are the ranks of
+    ``default_consensus x factor``, while the correct answer is the rank
+    of ``overridden_consensus x factor`` — a board the server had never
+    computed.  Computing it here is the fix that unblocks the
+    combination rather than continuing to refuse it.
+
+    Ranking goes through :func:`compact_ranks_and_tiers`, the one
+    ranker, so an adjusted board is ranked by exactly the same rules as
+    the default one.
+    """
+    if not factors:
+        return 0
+    moved = 0
+    for row in rows:
+        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
+        factor = factors.get(name)
+        base = row.get("rankDerivedValue")
+        if factor and isinstance(base, (int, float)) and base > 0:
+            row["rankDerivedValue"] = int(round(float(base) * float(factor)))
+            moved += 1
+    if not moved:
+        return 0
+    compact_ranks_and_tiers(
+        rows,
+        anchor_year=anchor_year if anchor_year is not None else current_rookie_draft_year(),
+        copy_rows=False,
+    )
+    return moved
+
+
 def build_rankings_delta_payload(
     raw_payload: dict[str, Any],
     *,
@@ -8819,6 +8864,7 @@ def build_rankings_delta_payload(
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
+    valuation_factors: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -8864,6 +8910,18 @@ def build_rankings_delta_payload(
         _for_delta=True,
     )
 
+    # League-adjusted composition.  Applied AFTER the override pipeline
+    # has produced the re-weighted board, so the factors land on the
+    # user's own consensus values and the re-rank is over that board —
+    # not over the default one.  ``full`` is freshly built and owned by
+    # this call, so mutating its rows is safe.
+    valuation_adjusted_count = 0
+    if valuation_factors:
+        valuation_adjusted_count = apply_valuation_factors(
+            full.get("playersArray") or [],
+            valuation_factors,
+        )
+
     delta_players: list[dict[str, Any]] = []
     active_ids: list[str] = []
     for row in full.get("playersArray") or []:
@@ -8896,6 +8954,16 @@ def build_rankings_delta_payload(
         "dataSource": full.get("dataSource"),
         "playerCount": full.get("playerCount"),
     }
+    if valuation_factors is not None:
+        # Stamped whether or not anything moved.  "the lens was applied
+        # and moved nothing" and "the lens was never applied" are
+        # different states, and a client that cannot tell them apart
+        # will render one as the other.
+        payload["valuationAdjustment"] = {
+            "applied": True,
+            "adjustedCount": valuation_adjusted_count,
+            "factorCount": len(valuation_factors),
+        }
     warnings = full.get("warnings")
     if warnings:
         payload["warnings"] = list(warnings)
