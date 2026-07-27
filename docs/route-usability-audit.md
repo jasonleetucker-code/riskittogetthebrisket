@@ -375,8 +375,23 @@ Observed:
  ..."
 ```
 
-All 88 events are `NEWS`. The contract for the same league carries 109
-trades and 785 waivers. So:
+Counted in the DOM: **88 events, 80 `NEWS`, 0 `TRADE`.** The contract
+for the same league carries 109 trades and 785 waivers.
+
+Clicking the **Trades** filter confirms it is dead, and the empty state
+blames the reader for it:
+
+```
+[default (All)] events=88  NEWS=80  TRADE=0
+[type=Trades]   events=0   NEWS=0   TRADE=0
+  "No activity in this view
+   Try widening the scope or changing the type filter."
+```
+
+Widening the scope cannot help. There is no scope in which this page
+has a trade to show.
+
+So:
 
 * the page's own description ("Trades + news in one chronological
   feed") is false;
@@ -563,7 +578,7 @@ are from the loaded sequential sweep and are upper bounds — see M-3.
 | `/intel` | PASS (honest empty) | `/api/intel/summary` 503 `data_not_ready`; UI says "No intel snapshot yet — the first crawl hasn't run", matching the API's own message |
 | `/league` | PASS | 2,784 chars, settled 4.5s — resolves fine on a warm backend; 3 seasons / 12 managers / 190 trades / 1,092 waivers / defending champion all render |
 | `/league-comparison` | PASS | 2,399 chars; not caught by the `/league` prefix gate (`"/league-comparison".startsWith("/league/")` is false) |
-| `/league/activity` | **DEFECT** (empty-state lie + 2 dead controls) | F-2 — 88 events, all NEWS, 0 trades against 109 in the contract |
+| `/league/activity` | **DEFECT** (empty-state lie + 2 dead controls) | F-2 — 88 events / 80 NEWS / **0 TRADE** against 109 trades in the contract; the Trades filter returns "No activity in this view" and tells you to widen a scope that cannot help |
 | `/league/phases` | **FIXED** | FIX-3 — was 282 chars / empty body / structurally dead; now 759 chars, 12 rows, all 12 franchises classified |
 | `/login` | PASS (markup) | form + submit render; invisible-button issue is CSS-layer, F-5 |
 | `/more` | PASS | 1,230 chars, settled 1.6s |
@@ -593,6 +608,26 @@ are from the loaded sequential sweep and are upper bounds — see M-3.
 No route produced an uncaught `pageerror`, a React error boundary, a
 500, or a blank white page. The only genuinely non-functional surface
 was `/league/phases`, now fixed.
+
+---
+
+## Suite status on this branch
+
+```
+$ python3 -m pytest tests/ -q -m "not livedata"
+3927 passed, 325 deselected, 1 warning, 4 subtests passed in 1084.20s (0:18:04)
+
+$ npx vitest run            # frontend, both projects
+Test Files  63 passed (63)
+     Tests  1219 passed (1219)
+
+$ python3 -m ruff format --check .
+538 files already formatted
+```
+
+`python -m ruff check` reports 49 findings repo-wide; all pre-existing
+(this branch changes no `.py` files, and `pr-validation.yml` lints
+changed files only, so the blocking gate has nothing to look at).
 
 ---
 
