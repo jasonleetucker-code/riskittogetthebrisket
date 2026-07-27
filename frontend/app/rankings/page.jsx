@@ -2,7 +2,11 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank, RANKING_SOURCES, siteOverridesAreCustomized } from "@/lib/dynasty-data";
+import {
+  resolvedRank,
+  RANKING_SOURCES,
+  siteOverridesAreCustomized,
+} from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
@@ -52,6 +56,7 @@ import {
   Movement,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
@@ -110,7 +115,8 @@ function posMatchesFilter(pos, assetClass, filter, row) {
   if (filter === "idp") return assetClass === "idp";
   if (filter === "pick") return assetClass === "pick";
   if (filter === "rookie") return !!row?.rookie;
-  if (filter.startsWith("rookie:")) return !!row?.rookie && pos === filter.split(":")[1];
+  if (filter.startsWith("rookie:"))
+    return !!row?.rookie && pos === filter.split(":")[1];
   return pos === filter;
 }
 
@@ -118,12 +124,14 @@ function posMatchesFilter(pos, assetClass, filter, row) {
 // the expanded audit panel.
 function confidenceExplain(row) {
   return (
-    row.confidenceLabel || (
-      row.confidenceBucket === "high" ? "2+ sources, tight agreement (spread ≤30)" :
-      row.confidenceBucket === "medium" ? "2+ sources, moderate spread (30-80)" :
-      row.confidenceBucket === "low" ? "Single source or wide disagreement (spread >80)" :
-      "Unranked"
-    )
+    row.confidenceLabel ||
+    (row.confidenceBucket === "high"
+      ? "2+ sources, tight agreement (spread ≤30)"
+      : row.confidenceBucket === "medium"
+        ? "2+ sources, moderate spread (30-80)"
+        : row.confidenceBucket === "low"
+          ? "Single source or wide disagreement (spread >80)"
+          : "Unranked")
   );
 }
 
@@ -172,7 +180,8 @@ export function describeCustomMix(rankingsOverride) {
 
 function CustomMixBadge({ rankingsOverride }) {
   const [open, setOpen] = useState(false);
-  const { active, disabled, reweighted, summary } = describeCustomMix(rankingsOverride);
+  const { active, disabled, reweighted, summary } =
+    describeCustomMix(rankingsOverride);
   if (!active) return null;
 
   return (
@@ -203,7 +212,9 @@ function CustomMixBadge({ rankingsOverride }) {
               <strong>Reweighted:</strong> {reweighted.join(", ")}
             </p>
           )}
-          <p className={styles.popoverHint}>Change these on the Settings page.</p>
+          <p className={styles.popoverHint}>
+            Change these on the Settings page.
+          </p>
         </div>
       )}
     </span>
@@ -214,7 +225,12 @@ function CustomMixBadge({ rankingsOverride }) {
 
 export default function RankingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings, update: updateSetting, updateSiteWeight, resetSiteWeights } = useSettings();
+  const {
+    settings,
+    update: updateSetting,
+    updateSiteWeight,
+    resetSiteWeights,
+  } = useSettings();
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [sourcesMenuOpen, setSourcesMenuOpen] = useState(false);
   // Per-source blend inclusion.  ``siteWeights[key].include === false``
@@ -227,12 +243,13 @@ export default function RankingsPage() {
   const siteWeights = settings.siteWeights || {};
   const includedSourceKeys = useMemo(
     () =>
-      RANKING_SOURCES.filter(
-        (s) => siteWeights[s.key]?.include !== false,
-      ).map((s) => s.key),
+      RANKING_SOURCES.filter((s) => siteWeights[s.key]?.include !== false).map(
+        (s) => s.key,
+      ),
     [siteWeights],
   );
-  const excludedSourceCount = RANKING_SOURCES.length - includedSourceKeys.length;
+  const excludedSourceCount =
+    RANKING_SOURCES.length - includedSourceKeys.length;
   // Reset clears BOTH exclusions and custom weights, so its enabled
   // state must track any override — not just excluded sources — or a
   // weights-only customization (set on /settings) can't be cleared
@@ -250,15 +267,18 @@ export default function RankingsPage() {
   const hiddenSiteCols = settings.hiddenSiteCols || {};
   const visibleSources = useMemo(
     () => RANKING_SOURCES.filter((s) => !hiddenSiteCols[s.key]),
-    [hiddenSiteCols]
+    [hiddenSiteCols],
   );
   const hiddenCount = RANKING_SOURCES.length - visibleSources.length;
-  const toggleSiteCol = useCallback((key) => {
-    const next = { ...(settings.hiddenSiteCols || {}) };
-    if (next[key]) delete next[key];
-    else next[key] = true;
-    updateSetting("hiddenSiteCols", next);
-  }, [settings.hiddenSiteCols, updateSetting]);
+  const toggleSiteCol = useCallback(
+    (key) => {
+      const next = { ...(settings.hiddenSiteCols || {}) };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      updateSetting("hiddenSiteCols", next);
+    },
+    [settings.hiddenSiteCols, updateSetting],
+  );
   const showAllSiteCols = useCallback(() => {
     updateSetting("hiddenSiteCols", {});
   }, [updateSetting]);
@@ -274,7 +294,8 @@ export default function RankingsPage() {
     serverBacked: watchlistServerBacked,
   } = useUserState();
   const watchlistLower = useMemo(
-    () => new Set((userState?.watchlist || []).map((n) => String(n).toLowerCase())),
+    () =>
+      new Set((userState?.watchlist || []).map((n) => String(n).toLowerCase())),
     [userState?.watchlist],
   );
   // Recent news → per-row news chip (lookupPlayerNews is O(1); the
@@ -312,7 +333,13 @@ export default function RankingsPage() {
   // a league that disables IDP, snap back to "all" so the board
   // doesn't render empty.
   useEffect(() => {
-    if (!idpEnabled && (posFilter === "idp" || posFilter === "DL" || posFilter === "LB" || posFilter === "DB")) {
+    if (
+      !idpEnabled &&
+      (posFilter === "idp" ||
+        posFilter === "DL" ||
+        posFilter === "LB" ||
+        posFilter === "DB")
+    ) {
       setPosFilter("all");
     }
   }, [idpEnabled, posFilter]);
@@ -327,7 +354,9 @@ export default function RankingsPage() {
     const params = new URLSearchParams(window.location.search);
     const requested = (params.get("pos") || "").trim();
     if (!requested) return;
-    const normalized = ["all", "offense", "idp", "pick", "rookie"].includes(requested.toLowerCase())
+    const normalized = ["all", "offense", "idp", "pick", "rookie"].includes(
+      requested.toLowerCase(),
+    )
       ? requested.toLowerCase()
       : requested.toUpperCase();
     setPosFilter(normalized);
@@ -361,7 +390,8 @@ export default function RankingsPage() {
     // 2026 rookie draft has passed — hide current-year slot picks from
     // the board.  Rows stay in buildRows so value resolution still
     // works for trade history; we filter only at display time.
-    let filtered = rows.filter(isEligibleForBoard)
+    let filtered = rows
+      .filter(isEligibleForBoard)
       .filter((r) => !(r.assetClass === "pick" && /^2026\b/.test(r.name)));
     if (!idpEnabled) {
       return filtered.filter((r) => r?.assetClass !== "idp");
@@ -384,7 +414,14 @@ export default function RankingsPage() {
       if (r.quarantined) quarantined++;
       if ((r.sourceCount || 0) >= 2) multiSource++;
     }
-    return { total: eligible.length, high, medium, low, quarantined, multiSource };
+    return {
+      total: eligible.length,
+      high,
+      medium,
+      low,
+      quarantined,
+      multiSource,
+    };
   }, [eligible]);
 
   // ── Edge summary ─────────────────────────────────────────────────
@@ -442,11 +479,14 @@ export default function RankingsPage() {
 
     // Additional filters layer on top of lens
     if (posFilter !== "all") {
-      list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter, r));
+      list = list.filter((r) =>
+        posMatchesFilter(r.pos, r.assetClass, posFilter, r),
+      );
     }
     if (confFilter !== "all") {
       list = list.filter((r) => {
-        if (confFilter === "low") return r.confidenceBucket === "low" || r.confidenceBucket === "none";
+        if (confFilter === "low")
+          return r.confidenceBucket === "low" || r.confidenceBucket === "none";
         return r.confidenceBucket === confFilter;
       });
     }
@@ -476,7 +516,10 @@ export default function RankingsPage() {
         case "name":
           return a.name.localeCompare(b.name) * dir;
         case "pos":
-          return a.pos.localeCompare(b.pos) * dir || resolvedRank(a) - resolvedRank(b);
+          return (
+            a.pos.localeCompare(b.pos) * dir ||
+            resolvedRank(a) - resolvedRank(b)
+          );
         case "score":
           va = a.blendedSourceRank ?? Infinity;
           vb = b.blendedSourceRank ?? Infinity;
@@ -523,12 +566,26 @@ export default function RankingsPage() {
       }
     });
     return sorted;
-  }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc, advCriteria, advActiveCount, teamByPlayer]);
+  }, [
+    eligible,
+    activeLens,
+    posFilter,
+    confFilter,
+    query,
+    sortCol,
+    sortAsc,
+    advCriteria,
+    advActiveCount,
+    teamByPlayer,
+  ]);
 
   // ── Top movers (from the current filtered view — pre-R2 behavior) ──
   const movers = useMemo(() => {
     const withChange = ranked.filter(
-      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
+      (r) =>
+        typeof r?.rankChange === "number" &&
+        r.rankChange !== 0 &&
+        r.rank != null,
     );
     const byDelta = [...withChange].sort(
       (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
@@ -541,7 +598,11 @@ export default function RankingsPage() {
 
   // Apply row limit — search/filter bypasses the limit
   const hasActiveFilter =
-    query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus" || advActiveCount > 0;
+    query ||
+    posFilter !== "all" ||
+    confFilter !== "all" ||
+    activeLens !== "consensus" ||
+    advActiveCount > 0;
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
@@ -564,36 +625,59 @@ export default function RankingsPage() {
   }, [eligible]);
 
   // ── Copy/Export (unchanged columns + format) ────────────────────
-  const buildExportLines = useCallback((joiner, escape = (c) => c) => {
-    const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
-      src.columnLabel,
-      `${src.columnLabel} Rank`,
-    ]);
-    const headers = [
-      "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
-      "Confidence", "Action", "Sources",
-      ...sourceHeaders,
-    ];
-    const lines = [headers.map(escape).join(joiner)];
-    displayRows.forEach((row) => {
-      const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
-      const band = valueBand(val);
-      const action = actionLabel(row);
-      const cautions = cautionLabels(row);
-      const actionStr = [action?.label, ...cautions.map((c) => c.label)]
-        .filter(Boolean).join("; ");
-      const sourceCells = RANKING_SOURCES.flatMap((src) => exportSourceCells(row, src));
-      lines.push(
-        [
-          row.rank, row.name, row.pos, row.team || "",
-          tierLabel(row), val, band.label,
-          row.confidenceBucket || "", actionStr, row.sourceCount || 0,
-          ...sourceCells,
-        ].map(escape).join(joiner)
-      );
-    });
-    return lines;
-  }, [displayRows]);
+  const buildExportLines = useCallback(
+    (joiner, escape = (c) => c) => {
+      const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
+        src.columnLabel,
+        `${src.columnLabel} Rank`,
+      ]);
+      const headers = [
+        "Rank",
+        "Player",
+        "Pos",
+        "Team",
+        "Tier",
+        "Value",
+        "Value Band",
+        "Confidence",
+        "Action",
+        "Sources",
+        ...sourceHeaders,
+      ];
+      const lines = [headers.map(escape).join(joiner)];
+      displayRows.forEach((row) => {
+        const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
+        const band = valueBand(val);
+        const action = actionLabel(row);
+        const cautions = cautionLabels(row);
+        const actionStr = [action?.label, ...cautions.map((c) => c.label)]
+          .filter(Boolean)
+          .join("; ");
+        const sourceCells = RANKING_SOURCES.flatMap((src) =>
+          exportSourceCells(row, src),
+        );
+        lines.push(
+          [
+            row.rank,
+            row.name,
+            row.pos,
+            row.team || "",
+            tierLabel(row),
+            val,
+            band.label,
+            row.confidenceBucket || "",
+            actionStr,
+            row.sourceCount || 0,
+            ...sourceCells,
+          ]
+            .map(escape)
+            .join(joiner),
+        );
+      });
+      return lines;
+    },
+    [displayRows],
+  );
 
   async function copyValues() {
     const lines = buildExportLines("\t");
@@ -652,7 +736,12 @@ export default function RankingsPage() {
   }, [timestamp]);
 
   // ── Tier separator logic ────────────────────────────────────────
-  const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && activeLens === "consensus" && !query;
+  const tierGroupingActive =
+    showTiers &&
+    sortCol === "rank" &&
+    sortAsc &&
+    activeLens === "consensus" &&
+    !query;
   const currentLens = getLens(activeLens);
 
   // ── DataTable wiring ────────────────────────────────────────────
@@ -660,7 +749,9 @@ export default function RankingsPage() {
   // source columns are page semantics); DataTable renders presorted
   // rows and owns only the header state machine + aria-sort stamps.
   const tableSort =
-    sortCol === "lens" ? null : { key: sortCol, direction: sortAsc ? "asc" : "desc" };
+    sortCol === "lens"
+      ? null
+      : { key: sortCol, direction: sortAsc ? "asc" : "desc" };
   const handleTableSort = useCallback((next) => {
     if (!next) return;
     setSortCol(next.key);
@@ -696,7 +787,9 @@ export default function RankingsPage() {
         render: (row) => {
           const tierId = effectiveTierId(row);
           return (
-            <span className={`rankings-tier-badge ${tierId != null ? `tier-${tierId}` : "tier-unknown"}`}>
+            <span
+              className={`rankings-tier-badge ${tierId != null ? `tier-${tierId}` : "tier-unknown"}`}
+            >
               {tierLabel(row)}
             </span>
           );
@@ -713,7 +806,9 @@ export default function RankingsPage() {
             playerMeta: newsPlayerMeta,
           })[0];
           const chips = rowChips(row, { newsItem });
-          const onWatch = watchlistLower.has(String(row.name || "").toLowerCase());
+          const onWatch = watchlistLower.has(
+            String(row.name || "").toLowerCase(),
+          );
           return (
             <div className={styles.playerCell}>
               <PlayerImage
@@ -754,7 +849,10 @@ export default function RankingsPage() {
                   {[row.team, row.age].filter(Boolean).join(" · ")}
                 </span>
               )}
-              <RankChangeGlyph history={row.rankHistory} change={row.rankChange} />
+              <RankChangeGlyph
+                history={row.rankHistory}
+                change={row.rankChange}
+              />
               {chips.length > 0 && (
                 <span className={styles.chips}>
                   {chips.map((c) =>
@@ -770,7 +868,11 @@ export default function RankingsPage() {
                         {c.label}
                       </a>
                     ) : (
-                      <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>
+                      <span
+                        key={c.label}
+                        className={`badge ${c.css} rankings-chip`}
+                        title={c.title}
+                      >
                         {c.label}
                       </span>
                     ),
@@ -811,9 +913,15 @@ export default function RankingsPage() {
         render: (row) => (
           <span
             className={styles.consensusCell}
-            title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
+            title={
+              row.blendedSourceRank != null
+                ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}. Gap = blend penalty/bonus for source disagreement.`
+                : "No sources ranked this player"
+            }
           >
-            {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
+            {row.blendedSourceRank != null
+              ? row.blendedSourceRank.toFixed(1)
+              : "—"}
           </span>
         ),
       },
@@ -835,7 +943,10 @@ export default function RankingsPage() {
               >
                 {val.toLocaleString()}
               </button>
-              <span className={`rankings-value-band ${band.css}`} title={band.title || "Value band"}>
+              <span
+                className={`rankings-value-band ${band.css}`}
+                title={band.title || "Value band"}
+              >
                 {band.label}
               </span>
             </span>
@@ -854,7 +965,9 @@ export default function RankingsPage() {
           hideBelow: "md",
           width: 96,
           headerTitle: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
-            src.isRankSignal ? "Hill curve from this source's ordinal rank" : "linear rescale of this source's native trade value"
+            src.isRankSignal
+              ? "Hill curve from this source's ordinal rank"
+              : "linear rescale of this source's native trade value"
           }) with its effective rank on the shared board in parentheses.`,
           render: (row) => {
             const cell = formatSourceCell(row, src);
@@ -885,16 +998,23 @@ export default function RankingsPage() {
         headerTitle:
           "Sources that matched this player / sources structurally eligible to cover the player's position.",
         render: (row) => {
-          const srcCount = row.sourceCount ?? Object.keys(row.sourceRanks || {}).length;
+          const srcCount =
+            row.sourceCount ?? Object.keys(row.sourceRanks || {}).length;
           const eligibleCount =
             RANKING_SOURCES.filter((s) => {
               const pos = (row.pos || "").toUpperCase();
-              if (s.scope === "overall_offense") return ["QB", "RB", "WR", "TE", "PICK"].includes(pos);
-              if (s.scope === "overall_idp") return ["DL", "LB", "DB"].includes(pos);
+              if (s.scope === "overall_offense")
+                return ["QB", "RB", "WR", "TE", "PICK"].includes(pos);
+              if (s.scope === "overall_idp")
+                return ["DL", "LB", "DB"].includes(pos);
               return false;
             }).length || RANKING_SOURCES.length;
           return (
-            <span className={srcCount >= 2 ? styles.srcCountMulti : styles.srcCountSingle}>
+            <span
+              className={
+                srcCount >= 2 ? styles.srcCountMulti : styles.srcCountSingle
+              }
+            >
               {srcCount}/{eligibleCount}
             </span>
           );
@@ -946,16 +1066,25 @@ export default function RankingsPage() {
           return (
             <>
               {action && (
-                <span className={`action-label ${action.css}`} title={action.title}>
+                <span
+                  className={`action-label ${action.css}`}
+                  title={action.title}
+                >
                   {action.label}
                 </span>
               )}
               {cautions.map((c) => (
-                <span key={c.label} className={`action-label ${c.css}`} title={c.title}>
+                <span
+                  key={c.label}
+                  className={`action-label ${c.css}`}
+                  title={c.title}
+                >
                   {c.label}
                 </span>
               ))}
-              {!action && cautions.length === 0 && <span className="muted">—</span>}
+              {!action && cautions.length === 0 && (
+                <span className="muted">—</span>
+              )}
             </>
           );
         },
@@ -986,8 +1115,19 @@ export default function RankingsPage() {
         description="Unified dynasty board — offense + IDP blended by consensus rank."
         actions={
           <>
+            <SegmentedControl
+              label="Value basis"
+              value={settings.valuationMode || "market"}
+              onChange={(v) => updateSetting("valuationMode", v)}
+              options={[
+                { value: "market", label: "Market" },
+                { value: "leagueAdjusted", label: "My league" },
+              ]}
+            />
             <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
-            {copyStatus && <span className={styles.resultCount}>{copyStatus}</span>}
+            {copyStatus && (
+              <span className={styles.resultCount}>{copyStatus}</span>
+            )}
             <Button
               size="sm"
               variant={showEdgeRail ? "secondary" : "ghost"}
@@ -1004,10 +1144,20 @@ export default function RankingsPage() {
             >
               Methodology
             </Button>
-            <Button size="sm" variant="secondary" onClick={copyValues} title="Copy the current rows as TSV for pasting into a spreadsheet">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={copyValues}
+              title="Copy the current rows as TSV for pasting into a spreadsheet"
+            >
               Copy
             </Button>
-            <Button size="sm" variant="secondary" onClick={exportCsv} title="Download the current rows as a CSV file">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={exportCsv}
+              title="Download the current rows as a CSV file"
+            >
               Export CSV
             </Button>
             {/* Sources popover — blend membership (math). Distinct from
@@ -1020,7 +1170,8 @@ export default function RankingsPage() {
                 onClick={() => setSourcesMenuOpen((v) => !v)}
                 title="Choose which sources are factored into the blended rankings"
               >
-                Sources{excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
+                Sources
+                {excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
               </Button>
               {sourcesMenuOpen && (
                 <div className={styles.popover}>
@@ -1043,21 +1194,30 @@ export default function RankingsPage() {
                     const included = siteWeights[src.key]?.include !== false;
                     // Never let the user disable the last source — the
                     // blend needs at least one.
-                    const isLastIncluded = included && includedSourceKeys.length === 1;
+                    const isLastIncluded =
+                      included && includedSourceKeys.length === 1;
                     return (
                       <label
                         key={src.key}
                         className={`${styles.popoverRow}${isLastIncluded ? ` ${styles.popoverRowDisabled}` : ""}`}
-                        title={isLastIncluded ? "At least one source must stay in the blend" : undefined}
+                        title={
+                          isLastIncluded
+                            ? "At least one source must stay in the blend"
+                            : undefined
+                        }
                       >
                         <input
                           type="checkbox"
                           checked={included}
                           disabled={isLastIncluded}
-                          onChange={(e) => toggleSourceIncluded(src.key, e.target.checked)}
+                          onChange={(e) =>
+                            toggleSourceIncluded(src.key, e.target.checked)
+                          }
                         />
                         <span>{src.columnLabel}</span>
-                        <span className={styles.popoverRowMeta}>{src.displayName}</span>
+                        <span className={styles.popoverRowMeta}>
+                          {src.displayName}
+                        </span>
                       </label>
                     );
                   })}
@@ -1094,11 +1254,15 @@ export default function RankingsPage() {
                       Show all
                     </Button>
                   </div>
-                  <label className={`${styles.popoverRow} ${styles.popoverRowMaster}`}>
+                  <label
+                    className={`${styles.popoverRow} ${styles.popoverRowMaster}`}
+                  >
                     <input
                       type="checkbox"
                       checked={Boolean(settings.showSiteCols)}
-                      onChange={(e) => updateSetting("showSiteCols", e.target.checked)}
+                      onChange={(e) =>
+                        updateSetting("showSiteCols", e.target.checked)
+                      }
                     />
                     <span>Show source columns</span>
                   </label>
@@ -1117,7 +1281,9 @@ export default function RankingsPage() {
                           disabled={rowDisabled}
                         />
                         <span>{src.columnLabel}</span>
-                        <span className={styles.popoverRowMeta}>{src.displayName}</span>
+                        <span className={styles.popoverRowMeta}>
+                          {src.displayName}
+                        </span>
                       </label>
                     );
                   })}
@@ -1139,14 +1305,24 @@ export default function RankingsPage() {
           />
           <StatTile label="Medium" value={trustStats.medium.toLocaleString()} />
           <StatTile label="Low" value={trustStats.low.toLocaleString()} />
-          <StatTile label="Multi-source" value={trustStats.multiSource.toLocaleString()} />
+          <StatTile
+            label="Multi-source"
+            value={trustStats.multiSource.toLocaleString()}
+          />
           <StatTile
             label="Quarantined"
             value={trustStats.quarantined.toLocaleString()}
-            meta={trustStats.quarantined > 0 ? <Badge tone="negative">check audit</Badge> : undefined}
+            meta={
+              trustStats.quarantined > 0 ? (
+                <Badge tone="negative">check audit</Badge>
+              ) : undefined
+            }
           />
           {timestamp && (
-            <span className={styles.trustFootnote} title={`Data generated at ${timestamp}`}>
+            <span
+              className={styles.trustFootnote}
+              title={`Data generated at ${timestamp}`}
+            >
               Last scraped {relativeUpdated || timestamp}
             </span>
           )}
@@ -1223,7 +1399,9 @@ export default function RankingsPage() {
               tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
             />
             {activeLens !== "consensus" && (
-              <p className={styles.lensDescription}>{currentLens.description}</p>
+              <p className={styles.lensDescription}>
+                {currentLens.description}
+              </p>
             )}
 
             {/* Filters — the "rankings-controls" literal class is the
@@ -1275,7 +1453,9 @@ export default function RankingsPage() {
                   aria-label="Confidence filter"
                 >
                   {CONFIDENCE_FILTERS.map((f) => (
-                    <option key={f.key} value={f.key}>{f.label}</option>
+                    <option key={f.key} value={f.key}>
+                      {f.label}
+                    </option>
                   ))}
                 </Select>
               </span>
@@ -1304,7 +1484,10 @@ export default function RankingsPage() {
                 joins league rosters at render time via buildTeamByPlayer
                 (rows are scoring-profile-scoped; owners are league-scoped). */}
             {advOpen && (
-              <div className={styles.advRail} style={{ marginTop: "var(--space-2)" }}>
+              <div
+                className={styles.advRail}
+                style={{ marginTop: "var(--space-2)" }}
+              >
                 <label className={styles.advField}>
                   Age
                   <Input
@@ -1334,7 +1517,9 @@ export default function RankingsPage() {
                 >
                   <option value="">Any experience</option>
                   {EXPERIENCE_BUCKETS.map((b) => (
-                    <option key={b.key} value={b.key}>{b.label}</option>
+                    <option key={b.key} value={b.key}>
+                      {b.label}
+                    </option>
                   ))}
                 </Select>
                 <Select
@@ -1344,7 +1529,9 @@ export default function RankingsPage() {
                 >
                   <option value="">Any NFL team</option>
                   {nflTeamOptions.map((t) => (
-                    <option key={t} value={t}>{t === "FA" ? "Free agent (NFL)" : t}</option>
+                    <option key={t} value={t}>
+                      {t === "FA" ? "Free agent (NFL)" : t}
+                    </option>
                   ))}
                 </Select>
                 {ownerOptions.length > 0 && (
@@ -1356,7 +1543,9 @@ export default function RankingsPage() {
                     <option value="">Any owner</option>
                     <option value={FREE_AGENT_OWNER}>Unrostered</option>
                     {ownerOptions.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
                     ))}
                   </Select>
                 )}
@@ -1413,7 +1602,9 @@ export default function RankingsPage() {
                   <input
                     type="checkbox"
                     checked={!!adv.rookieOnly}
-                    onChange={(e) => setAdvField("rookieOnly", e.target.checked)}
+                    onChange={(e) =>
+                      setAdvField("rookieOnly", e.target.checked)
+                    }
                   />
                   Rookies
                 </label>
@@ -1421,20 +1612,31 @@ export default function RankingsPage() {
                   <input
                     type="checkbox"
                     checked={!!adv.watchlistOnly}
-                    onChange={(e) => setAdvField("watchlistOnly", e.target.checked)}
+                    onChange={(e) =>
+                      setAdvField("watchlistOnly", e.target.checked)
+                    }
                   />
                   Watchlist
                 </label>
                 {advActiveCount > 0 && (
-                  <Button size="sm" variant="ghost" onClick={clearAdv} title="Clear advanced filters">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={clearAdv}
+                    title="Clear advanced filters"
+                  >
                     Clear
                   </Button>
                 )}
               </div>
             )}
 
-            <p className={styles.resultCount} style={{ margin: "var(--space-2) 0 0" }}>
-              {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
+            <p
+              className={styles.resultCount}
+              style={{ margin: "var(--space-2) 0 0" }}
+            >
+              {displayRows.length.toLocaleString()}
+              {hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
               {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
               {confFilter !== "all" && ` · ${confFilter} confidence`}
               {tierGroupingActive && " · grouped by tier"}
@@ -1507,19 +1709,26 @@ export default function RankingsPage() {
                 return (
                   <tr className={styles.tierSeparator}>
                     <td colSpan={totalCols}>
-                      <span className={styles.tierSeparatorLabel}>{tierLabel(row)}</span>
+                      <span className={styles.tierSeparatorLabel}>
+                        {tierLabel(row)}
+                      </span>
                     </td>
                   </tr>
                 );
               }}
               renderAfterRow={(row) => {
                 if (expandedRow !== row.name) return null;
-                const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
+                const val = Math.round(
+                  row.rankDerivedValue || row.values?.full || 0,
+                );
                 return (
                   <>
                     <tr className="rankings-mobile-source-row">
                       <td colSpan={totalCols}>
-                        <MobileSourceStrip row={row} formatSourceCell={formatSourceCell} />
+                        <MobileSourceStrip
+                          row={row}
+                          formatSourceCell={formatSourceCell}
+                        />
                       </td>
                     </tr>
                     {/* rankings-audit-row carries the panel's
@@ -1544,9 +1753,16 @@ export default function RankingsPage() {
 
           {/* ── Show more / show all ── */}
           {hasMore && (
-            <div className={styles.showMore} style={{ paddingBottom: "var(--space-4)" }}>
-              <Button variant="secondary" onClick={() => setRowLimit((l) => l + 200)}>
-                Show more ({(ranked.length - rowLimit).toLocaleString()} remaining)
+            <div
+              className={styles.showMore}
+              style={{ paddingBottom: "var(--space-4)" }}
+            >
+              <Button
+                variant="secondary"
+                onClick={() => setRowLimit((l) => l + 200)}
+              >
+                Show more ({(ranked.length - rowLimit).toLocaleString()}{" "}
+                remaining)
               </Button>
               <Button variant="ghost" onClick={() => setRowLimit(Infinity)}>
                 Show all

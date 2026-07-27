@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserState } from "@/components/useUserState";
 import { invalidateTerminalCache } from "@/components/useTerminal";
-import { _resetBaseContractCache } from "@/lib/dynasty-data";
+import {
+  _resetBaseContractCache,
+  _resetValuationOverlayCache,
+} from "@/lib/dynasty-data";
 
 /**
  * useLeague — which dynasty league is the signed-in user looking at?
@@ -144,7 +147,8 @@ export function useLeague() {
   }, []);
 
   const leagues = useMemo(
-    () => (Array.isArray(leaguesPayload?.leagues) ? leaguesPayload.leagues : []),
+    () =>
+      Array.isArray(leaguesPayload?.leagues) ? leaguesPayload.leagues : [],
     [leaguesPayload],
   );
   const defaultLeagueKey = leaguesPayload?.defaultKey || "";
@@ -214,17 +218,27 @@ export function useLeague() {
       // frontend change.
       try {
         invalidateTerminalCache();
-      } catch { /* hook not mounted yet — safe to ignore */ }
+      } catch {
+        /* hook not mounted yet — safe to ignore */
+      }
       try {
         _resetBaseContractCache();
-      } catch { /* dynasty-data module not initialized — ignore */ }
+        // The valuation overlay is LEAGUE-scoped (scarcity comes from
+        // this league's rosters) while the base contract is
+        // scoring-profile-scoped. Switching leagues invalidates both.
+        _resetValuationOverlayCache();
+      } catch {
+        /* dynasty-data module not initialized — ignore */
+      }
 
       // Tell every other ``useUserState`` consumer that state changed.
       // The simplest signal is a storage event; since we already wrote
       // localStorage above, fire a synthetic event for same-tab
       // subscribers (native 'storage' only fires cross-tab).
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("league:changed", { detail: { key: clean } }));
+        window.dispatchEvent(
+          new CustomEvent("league:changed", { detail: { key: clean } }),
+        );
       }
     },
     [serverBacked],

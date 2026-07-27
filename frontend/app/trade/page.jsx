@@ -37,10 +37,7 @@ import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import RosTradeFitPanel from "@/components/RosTradeFitPanel";
 import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
-import {
-  buildShareUrl,
-  parseShareParam,
-} from "@/lib/trade-share";
+import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
@@ -51,6 +48,7 @@ import {
   Button,
   Panel,
   PageHeader,
+  SegmentedControl,
   Select,
   SkeletonTable,
 } from "@/components/ds";
@@ -88,15 +86,12 @@ const TradeSourceBreakdown = SharedTradeSourceBreakdown;
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings } = useSettings();
+  const { settings, update: updateSetting } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
 
   // Multi-team state: array of { id, label, assets }
-  const [sides, setSides] = useState([
-    createSide(0),
-    createSide(1),
-  ]);
+  const [sides, setSides] = useState([createSide(0), createSide(1)]);
   const [activeSide, setActiveSide] = useState(0); // index into sides
   // Per-side inline search: each side renders its own search input, so
   // adding a player is one tap away — no overlay, no "+ Add" button.
@@ -136,19 +131,21 @@ export default function TradePage() {
   // Share + simulator state.
   const [shareStatus, setShareStatus] = useState("");
   const [shareHydrated, setShareHydrated] = useState(false);
-  const { simulate: simulateTrade, result: simResult, loading: simLoading, error: simError, reset: resetSim } = useTradeSimulator();
+  const {
+    simulate: simulateTrade,
+    result: simResult,
+    loading: simLoading,
+    error: simError,
+    reset: resetSim,
+  } = useTradeSimulator();
   // useTeam is already league-aware: ``selectedTeam`` resolves
   // against the active league, ``idpEnabled`` comes from the
   // league config, ``leagueMismatch`` flags the data-not-ready
   // state.  We use all three below to render the right picker
   // options, auto-attach the right league to trade suggestions,
   // and show a clear "data not ready" banner when needed.
-  const {
-    selectedTeam,
-    idpEnabled,
-    leagueMismatch,
-    selectedLeagueKey,
-  } = useTeam();
+  const { selectedTeam, idpEnabled, leagueMismatch, selectedLeagueKey } =
+    useTeam();
 
   // Extract Sleeper teams from dynasty data
   const sleeperTeams = useMemo(() => {
@@ -267,7 +264,8 @@ export default function TradePage() {
 
   const currentDraftYear = useMemo(() => {
     const fromContract = Number(rawData?.currentDraftYear);
-    if (Number.isFinite(fromContract) && fromContract > 2000) return fromContract;
+    if (Number.isFinite(fromContract) && fromContract > 2000)
+      return fromContract;
     const fromDC = parseInt(String(draftCapital?.season || ""), 10);
     return Number.isFinite(fromDC) ? fromDC : null;
   }, [rawData, draftCapital]);
@@ -287,13 +285,16 @@ export default function TradePage() {
   useEffect(() => {
     setSideTeamNames((prev) =>
       sides.map((s, i) =>
-        sideTeamLocked[i] ? (prev[i] ?? null) : (inferTeamForSide(s)?.name ?? null),
+        sideTeamLocked[i]
+          ? (prev[i] ?? null)
+          : (inferTeamForSide(s)?.name ?? null),
       ),
     );
   }, [sides, inferTeamForSide, sideTeamLocked]);
 
   const tradeHasPicks = useMemo(
-    () => sides.some((s) => (s.assets || []).some((a) => a.assetClass === "pick")),
+    () =>
+      sides.some((s) => (s.assets || []).some((a) => a.assetClass === "pick")),
     [sides],
   );
   // Gate: every side a pick is traded FROM *or* TO needs a resolved
@@ -331,11 +332,15 @@ export default function TradePage() {
     try {
       const saved = localStorage.getItem(ROSTER_KEY);
       if (saved) setRosterInput(saved);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     try {
       const savedTeam = localStorage.getItem(TEAM_KEY);
       if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   // Sync trade-page team picker with the topbar's ``useTeam`` state.
@@ -356,16 +361,19 @@ export default function TradePage() {
     // stable; name is fallback for legacy contracts that don't
     // stamp ownerId.
     const ownerId = String(selectedTeam.ownerId || "");
-    const name = String(selectedTeam.name || "").trim().toLowerCase();
+    const name = String(selectedTeam.name || "")
+      .trim()
+      .toLowerCase();
     let idx = -1;
     if (ownerId) {
-      idx = sleeperTeams.findIndex(
-        (t) => String(t?.ownerId || "") === ownerId,
-      );
+      idx = sleeperTeams.findIndex((t) => String(t?.ownerId || "") === ownerId);
     }
     if (idx < 0 && name) {
       idx = sleeperTeams.findIndex(
-        (t) => String(t?.name || "").trim().toLowerCase() === name,
+        (t) =>
+          String(t?.name || "")
+            .trim()
+            .toLowerCase() === name,
       );
     }
     if (idx < 0) return;
@@ -388,13 +396,18 @@ export default function TradePage() {
         const restored = deserializeWorkspaceMulti(parsed, rowByName);
         if (restored) {
           const nextMode = String(restored.valueMode || "full");
-          if (VALUE_MODES.some((m) => m.key === nextMode)) setValueMode(nextMode);
+          if (VALUE_MODES.some((m) => m.key === nextMode))
+            setValueMode(nextMode);
           setActiveSide(restored.activeSide);
           setSides(restored.sides);
           setValueOverrides({});
         }
       }
-    } catch { /* ignore */ } finally { setHydrated(true); }
+    } catch {
+      /* ignore */
+    } finally {
+      setHydrated(true);
+    }
   }, [rows, hydrated, rowByName]);
 
   // Persist trade workspace to localStorage
@@ -425,7 +438,8 @@ export default function TradePage() {
       const neededSides = Math.max(2, state.sides.length);
       const ensureSides = (prev) => {
         let next = prev;
-        while (next.length < neededSides) next = [...next, createSide(next.length)];
+        while (next.length < neededSides)
+          next = [...next, createSide(next.length)];
         return next;
       };
       setSides((prev) => {
@@ -609,7 +623,8 @@ export default function TradePage() {
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () => computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
+    () =>
+      computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
     [sidesWithOverrides, valueMode, settings, stackContext],
   );
 
@@ -618,10 +633,7 @@ export default function TradePage() {
   // assets (and from whom) are arriving.  Rendered as a "Receiving"
   // section in 3+-team mode so the user doesn't have to mentally
   // reverse-lookup destinations across three separate side cards.
-  const sideFlowAssets = useMemo(
-    () => computeSideFlowAssets(sides),
-    [sides],
-  );
+  const sideFlowAssets = useMemo(() => computeSideFlowAssets(sides), [sides]);
 
   // Which side is the user's own roster?  Derived by counting how
   // many of each side's current assets match the user's selected
@@ -656,7 +668,10 @@ export default function TradePage() {
   const linTotalA = sideTotals[0]?.raw || 0;
   const linTotalB = sideTotals[1]?.raw || 0;
   const pwGap = pwTotalA - pwTotalB;
-  const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
+  const pctGap =
+    Math.max(pwTotalA, pwTotalB) > 0
+      ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
+      : 0;
 
   // Balancing suggestions (2-team mode only).
   //
@@ -671,7 +686,9 @@ export default function TradePage() {
   const balancers = useMemo(() => {
     if (sides.length !== 2) return { list: [], teamName: null };
     if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
-    const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
+    const allInTrade = new Set(
+      sides.flatMap((s) => s.assets.map((a) => a.name)),
+    );
     // Behind side = the one whose total is LOWER.
     const behindSideIdx = pwGap > 0 ? 1 : 0;
     const behindSide = sides[behindSideIdx];
@@ -681,7 +698,9 @@ export default function TradePage() {
     const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
     if (behindTeam) {
       const roster = teamRosterNames(behindTeam);
-      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter(
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+      );
       teamName = behindTeam.name || null;
     }
     // Fallback when no team can be inferred (or the inferred team
@@ -707,10 +726,12 @@ export default function TradePage() {
     if (sides.length <= 2) return null;
     const nets = sideFlows.map((f) => f.net);
     const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
-    const bestIdx = nets.indexOf(Math.max(...nets));  // most positive = getting a deal
+    const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
     const gap = nets[bestIdx] - nets[worstIdx];
     if (gap < 350) return null;
-    const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
+    const allInTrade = new Set(
+      sides.flatMap((s) => s.assets.map((a) => a.name)),
+    );
     // Panel renders on the side that needs to GIVE more (the one with
     // the best deal right now).  Filter the suggestion pool to that
     // side's Sleeper team so the "add more" list is players they
@@ -722,7 +743,9 @@ export default function TradePage() {
     const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
     if (underpayingTeam) {
       const roster = teamRosterNames(underpayingTeam);
-      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter(
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+      );
       teamName = underpayingTeam.name || null;
     }
     if (!pool || pool.length === 0) {
@@ -748,50 +771,61 @@ export default function TradePage() {
   // query, excluding anything already in the trade.  Sorted by
   // consensus rank ascending so the top hits are the most relevant
   // dynasty assets first — matches the KTC trade-calculator UX.
-  const searchAssets = useCallback((query) => {
-    const q = (query || "").trim().toLowerCase();
-    if (!q) return [];
-    const list = rows.filter(
-      (r) => !allTradeNames.has(r.name) &&
-        !(r.assetClass === "pick" && /^2026\b/.test(r.name)) &&
-        r.name.toLowerCase().includes(q),
-    );
-    list.sort((a, b) => (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity));
-    return list.slice(0, 5);
-  }, [rows, allTradeNames]);
+  const searchAssets = useCallback(
+    (query) => {
+      const q = (query || "").trim().toLowerCase();
+      if (!q) return [];
+      const list = rows.filter(
+        (r) =>
+          !allTradeNames.has(r.name) &&
+          !(r.assetClass === "pick" && /^2026\b/.test(r.name)) &&
+          r.name.toLowerCase().includes(q),
+      );
+      list.sort(
+        (a, b) =>
+          (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
+      );
+      return list.slice(0, 5);
+    },
+    [rows, allTradeNames],
+  );
 
   // ── Side management ─────────────────────────────────────────────────
   function addToSide(row, sideIdx) {
     if (!row) return;
     // Check all sides for duplicates
     if (allTradeNames.has(row.name)) return;
-    setSides((prev) => prev.map((s, i) => {
-      if (i !== sideIdx) return s;
-      if (s.assets.some((r) => r.name === row.name)) return s;
-      // 3+-team trades need an explicit destination per asset so the
-      // fairness bar can compute each side's NET flow.  Seed the
-      // default (next side, circular) whenever we're adding to a
-      // multi-side trade.  2-team trades leave destinations empty —
-      // ``computeSideFlows`` handles the implicit "other side" case.
-      const nextDestinations = { ...(s.destinations || {}) };
-      if (prev.length > 2) {
-        nextDestinations[row.name] = defaultDestination(i, prev.length);
-      }
-      return {
-        ...s,
-        assets: [...s.assets, row],
-        destinations: nextDestinations,
-      };
-    }));
+    setSides((prev) =>
+      prev.map((s, i) => {
+        if (i !== sideIdx) return s;
+        if (s.assets.some((r) => r.name === row.name)) return s;
+        // 3+-team trades need an explicit destination per asset so the
+        // fairness bar can compute each side's NET flow.  Seed the
+        // default (next side, circular) whenever we're adding to a
+        // multi-side trade.  2-team trades leave destinations empty —
+        // ``computeSideFlows`` handles the implicit "other side" case.
+        const nextDestinations = { ...(s.destinations || {}) };
+        if (prev.length > 2) {
+          nextDestinations[row.name] = defaultDestination(i, prev.length);
+        }
+        return {
+          ...s,
+          assets: [...s.assets, row],
+          destinations: nextDestinations,
+        };
+      }),
+    );
   }
 
   function setAssetDestination(sideIdx, assetName, destIdx) {
-    setSides((prev) => prev.map((s, i) => {
-      if (i !== sideIdx) return s;
-      const next = { ...(s.destinations || {}) };
-      next[assetName] = Number(destIdx);
-      return { ...s, destinations: next };
-    }));
+    setSides((prev) =>
+      prev.map((s, i) => {
+        if (i !== sideIdx) return s;
+        const next = { ...(s.destinations || {}) };
+        next[assetName] = Number(destIdx);
+        return { ...s, destinations: next };
+      }),
+    );
   }
 
   function addToActiveSide(row) {
@@ -838,21 +872,25 @@ export default function TradePage() {
   }
 
   function removeFromSide(name, sideIdx) {
-    setSides((prev) => prev.map((s, i) => {
-      if (i !== sideIdx) return s;
-      const nextDestinations = { ...(s.destinations || {}) };
-      delete nextDestinations[name];
-      return {
-        ...s,
-        assets: s.assets.filter((r) => r.name !== name),
-        destinations: nextDestinations,
-      };
-    }));
+    setSides((prev) =>
+      prev.map((s, i) => {
+        if (i !== sideIdx) return s;
+        const nextDestinations = { ...(s.destinations || {}) };
+        delete nextDestinations[name];
+        return {
+          ...s,
+          assets: s.assets.filter((r) => r.name !== name),
+          destinations: nextDestinations,
+        };
+      }),
+    );
     clearValueOverride(name);
   }
 
   function clearTrade() {
-    setSides((prev) => prev.map((s) => ({ ...s, assets: [], destinations: {} })));
+    setSides((prev) =>
+      prev.map((s) => ({ ...s, assets: [], destinations: {} })),
+    );
     setValueOverrides({});
   }
 
@@ -862,7 +900,7 @@ export default function TradePage() {
         { ...prev[1], id: 0, label: "A" },
         { ...prev[0], id: 1, label: "B" },
       ]);
-      setActiveSide((s) => s === 0 ? 1 : 0);
+      setActiveSide((s) => (s === 0 ? 1 : 0));
     } else {
       // Rotate: side i takes the previous side's assets.  Each asset
       // moves one slot forward, so its destination also rotates one
@@ -1030,7 +1068,8 @@ export default function TradePage() {
           // 1. Exact case match — fast path, covers 99%.
           let row = rowByName.get(entry.name);
           // 2. Case-insensitive match.
-          if (!row) row = lowerIndex.get(String(entry.name || "").toLowerCase());
+          if (!row)
+            row = lowerIndex.get(String(entry.name || "").toLowerCase());
           // 3. Normalized (punctuation / whitespace / suffix-stripped).
           if (!row) row = normIndex.get(_normalize(entry.name));
           // 4. Pick token fallback — KTC's pick labels ("2026 1.09",
@@ -1066,28 +1105,38 @@ export default function TradePage() {
       const cleanedOne = clean(one.found);
       const cleanedTwo = clean(two.found);
 
-      setSides((prev) => prev.map((s, i) => {
-        if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
-        const replacement = i === 0 ? cleanedOne : cleanedTwo;
-        // Seed default destinations for the newly-loaded assets when
-        // we're in a 3+-team trade; 2-team trades ignore the map.
-        // Old destinations referencing assets that aren't in the new
-        // set are dropped so we don't accumulate stale routing.
-        const nextDestinations = {};
-        if (prev.length > 2) {
-          for (const asset of replacement) {
-            nextDestinations[asset.name] = defaultDestination(i, prev.length);
+      setSides((prev) =>
+        prev.map((s, i) => {
+          if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
+          const replacement = i === 0 ? cleanedOne : cleanedTwo;
+          // Seed default destinations for the newly-loaded assets when
+          // we're in a 3+-team trade; 2-team trades ignore the map.
+          // Old destinations referencing assets that aren't in the new
+          // set are dropped so we don't accumulate stale routing.
+          const nextDestinations = {};
+          if (prev.length > 2) {
+            for (const asset of replacement) {
+              nextDestinations[asset.name] = defaultDestination(i, prev.length);
+            }
           }
-        }
-        return { ...s, assets: replacement, destinations: nextDestinations };
-      }));
+          return { ...s, assets: replacement, destinations: nextDestinations };
+        }),
+      );
       setValueOverrides({});
 
       const warnings = [];
-      if (unresolvedOne.length) warnings.push(`unknown KTC id(s) on side A: ${unresolvedOne.join(", ")}`);
-      if (unresolvedTwo.length) warnings.push(`unknown KTC id(s) on side B: ${unresolvedTwo.join(", ")}`);
-      if (one.missing.length) warnings.push(`no board match for: ${one.missing.join(", ")}`);
-      if (two.missing.length) warnings.push(`no board match for: ${two.missing.join(", ")}`);
+      if (unresolvedOne.length)
+        warnings.push(
+          `unknown KTC id(s) on side A: ${unresolvedOne.join(", ")}`,
+        );
+      if (unresolvedTwo.length)
+        warnings.push(
+          `unknown KTC id(s) on side B: ${unresolvedTwo.join(", ")}`,
+        );
+      if (one.missing.length)
+        warnings.push(`no board match for: ${one.missing.join(", ")}`);
+      if (two.missing.length)
+        warnings.push(`no board match for: ${two.missing.join(", ")}`);
       const totalLoaded = cleanedOne.length + cleanedTwo.length;
       const totalExpected = sideOneEntries.length + sideTwoEntries.length;
       if (totalLoaded === 0) {
@@ -1116,7 +1165,10 @@ export default function TradePage() {
     setExportStatus("");
     const sideOne = (sides[0]?.assets || []).map((r) => r.name);
     const sideTwo = (sides[1]?.assets || []).map((r) => r.name);
-    if (!sideOne.length && !sideTwo.length) { setExportStatus("Nothing to export."); return; }
+    if (!sideOne.length && !sideTwo.length) {
+      setExportStatus("Nothing to export.");
+      return;
+    }
     try {
       const res = await fetch("/api/trade/export-ktc", {
         method: "POST",
@@ -1125,10 +1177,23 @@ export default function TradePage() {
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) { setExportStatus(data?.error || "KTC export failed."); return; }
-      try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard blocked */ }
-      const miss = [...(data.unresolved?.sideOne || []), ...(data.unresolved?.sideTwo || [])];
-      setExportStatus("KTC URL copied" + (miss.length ? ` \u2014 unmatched: ${miss.join(", ")}` : ""));
+      if (!res.ok || !data.ok) {
+        setExportStatus(data?.error || "KTC export failed.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(data.url);
+      } catch {
+        /* clipboard blocked */
+      }
+      const miss = [
+        ...(data.unresolved?.sideOne || []),
+        ...(data.unresolved?.sideTwo || []),
+      ];
+      setExportStatus(
+        "KTC URL copied" +
+          (miss.length ? ` \u2014 unmatched: ${miss.join(", ")}` : ""),
+      );
     } catch (e) {
       setExportStatus("KTC export failed: " + (e?.message || e));
     }
@@ -1138,20 +1203,31 @@ export default function TradePage() {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const el = document.createElement("a");
-    el.href = url; el.download = filename;
-    document.body.appendChild(el); el.click(); el.remove();
+    el.href = url;
+    el.download = filename;
+    document.body.appendChild(el);
+    el.click();
+    el.remove();
     URL.revokeObjectURL(url);
   }, []);
 
   const exportCsv = useCallback(() => {
     const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    _downloadFile(`trade-${iso}.csv`, tradeWorkspaceToCSV(sides, valueMode), "text/csv");
+    _downloadFile(
+      `trade-${iso}.csv`,
+      tradeWorkspaceToCSV(sides, valueMode),
+      "text/csv",
+    );
     setExportStatus("CSV downloaded.");
   }, [sides, valueMode, _downloadFile]);
 
   const exportJson = useCallback(() => {
     const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    _downloadFile(`trade-${iso}.json`, tradeWorkspaceToJSON(sides, valueMode, activeSide), "application/json");
+    _downloadFile(
+      `trade-${iso}.json`,
+      tradeWorkspaceToJSON(sides, valueMode, activeSide),
+      "application/json",
+    );
     setExportStatus("JSON downloaded.");
   }, [sides, valueMode, activeSide, _downloadFile]);
 
@@ -1249,7 +1325,8 @@ export default function TradePage() {
     const picks = (team.picks || []).map((p) => {
       const m = p.match(/^(\d{4})\s+(\d)\./);
       if (m) {
-        const round = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th" }[m[2]] || `${m[2]}th`;
+        const round =
+          { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" }[m[2]] || `${m[2]}th`;
         return `${m[1]} ${round}`;
       }
       return p.replace(/\s*\(.*\)/, "").trim();
@@ -1398,7 +1475,9 @@ export default function TradePage() {
 
   function applySuggestion(s) {
     const giveRows = s.give.map((p) => rowByName.get(p.name)).filter(Boolean);
-    const recvRows = s.receive.map((p) => rowByName.get(p.name)).filter(Boolean);
+    const recvRows = s.receive
+      .map((p) => rowByName.get(p.name))
+      .filter(Boolean);
     // Apply to first two sides, reset others.  Suggestions are
     // inherently 2-team; wipe the 3rd+ side contents (and their
     // destination maps) so stale multi-team routing doesn't linger.
@@ -1413,8 +1492,18 @@ export default function TradePage() {
         return out;
       };
       return prev.map((side, i) => {
-        if (i === 0) return { ...side, assets: giveRows, destinations: seedDestinations(giveRows, 0) };
-        if (i === 1) return { ...side, assets: recvRows, destinations: seedDestinations(recvRows, 1) };
+        if (i === 0)
+          return {
+            ...side,
+            assets: giveRows,
+            destinations: seedDestinations(giveRows, 0),
+          };
+        if (i === 1)
+          return {
+            ...side,
+            assets: recvRows,
+            destinations: seedDestinations(recvRows, 1),
+          };
         return { ...side, assets: [], destinations: {} };
       });
     });
@@ -1424,18 +1513,16 @@ export default function TradePage() {
   // Count per category
   const suggestionCounts = useMemo(() => {
     if (!suggestions) return {};
-    return Object.fromEntries(SUGG_TYPES.map((t) => [t.key, (suggestions[t.key] || []).length]));
+    return Object.fromEntries(
+      SUGG_TYPES.map((t) => [t.key, (suggestions[t.key] || []).length]),
+    );
   }, [suggestions]);
 
   // Balancer payload for a given side — the label + list the SideCard
   // renders.  Returns null when that side has no balancer suggestion.
   function balancersForSide(sideIdx) {
     const isUnderpaying =
-      sides.length === 2
-        ? sideIdx === 0
-          ? pwGap < -350
-          : pwGap > 350
-        : false;
+      sides.length === 2 ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350) : false;
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
       return {
         label: balancers.teamName
@@ -1470,14 +1557,39 @@ export default function TradePage() {
         eyebrow="Terminal"
         title="Trade Builder"
         description="Multi-team trade calculator with live fairness visualization."
+        actions={
+          <SegmentedControl
+            label="Value basis"
+            value={settings.valuationMode || "market"}
+            onChange={(v) => updateSetting("valuationMode", v)}
+            options={[
+              { value: "market", label: "Market" },
+              { value: "leagueAdjusted", label: "My league" },
+            ]}
+          />
+        }
       />
+
+      {/* A trade verdict that silently changed basis is the most
+          dangerous thing this page can do. Say which board it is on. */}
+      {settings.valuationMode === "leagueAdjusted" &&
+      rawData?.valuationOverlay ? (
+        <Banner tone="info" title="Valued on your league's board">
+          Values and ranks are adjusted for positional scarcity measured from
+          this league&apos;s 12 rosters. Draft picks carry no scarcity
+          measurement, so they stay at market value while players move around
+          them.
+        </Banner>
+      ) : null}
 
       {loading ? (
         <Panel flush>
           <SkeletonTable rows={6} columns={4} />
         </Panel>
       ) : null}
-      {loading ? <span className="ds-visually-hidden">Loading player pool...</span> : null}
+      {loading ? (
+        <span className="ds-visually-hidden">Loading player pool...</span>
+      ) : null}
 
       {error ? (
         <Banner tone="negative" title="Couldn't load the player pool">
@@ -1489,8 +1601,8 @@ export default function TradePage() {
         <Banner tone="warning" title="Roster data not ready for this league">
           Rankings and values are available (scoring is shared), but
           team-specific features — Sleeper roster import, &quot;Simulate on my
-          team&quot;, and league-mate pickers — need this league&apos;s scrape to
-          finish. Switch back to the primary league to use them.
+          team&quot;, and league-mate pickers — need this league&apos;s scrape
+          to finish. Switch back to the primary league to use them.
         </Banner>
       ) : null}
 
@@ -1507,7 +1619,10 @@ export default function TradePage() {
         />
       ) : null}
 
-      {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
+      {!loading &&
+      !error &&
+      !leagueMismatch &&
+      suggestions?.totalSuggestions > 0 ? (
         <ProactiveSuggestionsRail
           suggestions={suggestions}
           onApply={(s) => {
@@ -1709,7 +1824,9 @@ export default function TradePage() {
                 side={side}
                 sideIdx={sideIdx}
                 sides={sides}
-                total={sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 }}
+                total={
+                  sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 }
+                }
                 isMySide={sideIdx === mySideIdx}
                 selectedTeam={selectedTeam}
                 sideQuery={sideQueries[sideIdx]}
@@ -1787,7 +1904,9 @@ export default function TradePage() {
               <div className="trade-tray-main">
                 <div>
                   <div className="label">Side A</div>
-                  <div className="value">{Math.round(pwTotalA).toLocaleString()}</div>
+                  <div className="value">
+                    {Math.round(pwTotalA).toLocaleString()}
+                  </div>
                 </div>
                 <div style={{ flex: 1, maxWidth: 220 }}>
                   {/* Verdict bar: marker position is layout math from
@@ -1803,7 +1922,9 @@ export default function TradePage() {
                             ? styles.verdictMarkerNegative
                             : ""
                       }`}
-                      style={{ "--marker-pos": `${verdictBarPosition(pwGap)}%` }}
+                      style={{
+                        "--marker-pos": `${verdictBarPosition(pwGap)}%`,
+                      }}
                     />
                   </div>
                   <div className={`verdict ${colorFromGap(pwGap)}`}>
@@ -1816,7 +1937,9 @@ export default function TradePage() {
                 </div>
                 <div>
                   <div className="label">Side B</div>
-                  <div className="value">{Math.round(pwTotalB).toLocaleString()}</div>
+                  <div className="value">
+                    {Math.round(pwTotalB).toLocaleString()}
+                  </div>
                 </div>
               </div>
             </div>

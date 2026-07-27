@@ -354,6 +354,52 @@ Registry lockstep:
 
 **Fail-fast on missing stamps**: The prior `computeUnifiedRanks` fallback (~280 lines of coverage-aware blend code) has been **removed**. `buildRows` now fails fast when a non-empty payload has zero backend rank stamps: it logs an error and returns an empty rows array, letting the `useDynastyData` error state surface a "no players" banner. There is no silent recompute. If you see the fail-fast error in production logs, the scrape pipeline is not stamping — investigate upstream, do not add a client-side blend.
 
+### Two overlays, and why neither one relaxes the no-frontend-ranker rule
+
+There are **two** delta-shaped overlays on the contract. They differ in the
+one way that matters most in this codebase — their scope:
+
+| overlay | scope | driven by | endpoint |
+|---|---|---|---|
+| rankings override delta | **scoring profile** — shared across leagues | user source weights | `POST /api/rankings/overrides?view=delta` |
+| league-adjusted valuation | **leagueKey** — roster-derived, never shared | positional scarcity from this league's 12 rosters | `GET /api/valuation/league-adjusted` |
+
+The valuation overlay is league-scoped *by necessity, not convention*.
+`lineupScarcity` is measured from one league's rosters, so two leagues sharing a
+scoring profile get different adjusted values. Stamping it onto the contract
+would let one league's roster shape silently reprice another's board — the exact
+collapse the scoring-profile/leagueKey split exists to prevent. Hence an overlay
+the client applies, never contract fields.
+
+**Ranks are backend-computed in both cases.** The valuation overlay ships dense
+`ranks` + `tiers` alongside sparse `factors`, produced by
+`data_contract.py::compact_ranks_and_tiers` — the *same* function the pipeline
+uses, called on shallow copies because `latest_contract_data` is a shared mutable
+global. `buildRows` still consumes stamps verbatim. This feature **conformed to**
+the "no frontend ranking engine, period" rule rather than being excepted from it:
+the rule is what forced the composing design instead of a client-side re-sort.
+
+Two consequences worth knowing before touching this:
+
+- **`factors`, not absolute values.** The adjustment factor is a function of
+  position alone and never reads the consensus value, so it composes exactly
+  against any board — including one the user re-weighted. Absolute values would
+  carry the default board's numbers into a board the server never computed.
+- **The two overlays are NOT composed on the client.** With source overrides
+  active the valuation overlay's ranks are the ranks of
+  `default_consensus × factor`, but the correct answer is
+  `overridden_consensus × factor`, which the server never computed. Composing
+  them yields a board where neither values nor ranks correspond to anything, so
+  `fetchDynastyData` serves the overridden market board and warns instead.
+  Threading `valuation_mode` through the overrides pipeline server-side is the
+  fix; until then the combination is deliberately blocked, not silently wrong.
+
+Regression tests: `frontend/__tests__/valuation-overlay.test.js` (both
+materializer key sets — the legacy dict uses `_canonicalConsensusRank` but
+`rankDerivedValue`, and the legacy path is the default one), and
+`tests/league_intel/test_publish.py` (caller-row isolation, dense contiguous
+ranks, anchor-slot-pick exclusion).
+
 ### Rankings Override Payload Size Optimization
 The `POST /api/rankings/overrides` endpoint supports two response views:
 

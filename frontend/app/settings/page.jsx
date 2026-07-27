@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
+import {
+  useSettings,
+  SETTINGS_DEFAULTS as DEFAULTS,
+} from "@/components/useSettings";
 import { useUserState } from "@/components/useUserState";
 import {
   WEIGHT_PRESETS,
@@ -30,12 +33,22 @@ function Section({ title, defaultOpen = true, children }) {
         className="button-reset"
         onClick={() => setOpen(!open)}
         style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          width: "100%", padding: "8px 0", minHeight: 44, cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+          padding: "8px 0",
+          minHeight: 44,
+          cursor: "pointer",
         }}
       >
         <h3 style={{ margin: 0, fontSize: "0.92rem" }}>{title}</h3>
-        <span className="muted" style={{ fontSize: "1.2rem", width: 24, textAlign: "center" }}>{open ? "−" : "+"}</span>
+        <span
+          className="muted"
+          style={{ fontSize: "1.2rem", width: 24, textAlign: "center" }}
+        >
+          {open ? "−" : "+"}
+        </span>
       </button>
       {open && <div style={{ marginTop: 10 }}>{children}</div>}
     </div>
@@ -44,35 +57,81 @@ function Section({ title, defaultOpen = true, children }) {
 
 function SliderRow({ label, value, min, max, step, onChange, hint }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 8,
+      }}
+    >
       <label style={{ minWidth: 100, fontSize: "0.82rem" }}>{label}</label>
       <input
-        type="range" min={min} max={max} step={step} value={value}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         style={{ flex: 1 }}
       />
-      <span className="badge" style={{ minWidth: 48, textAlign: "center" }}>{value}</span>
-      {hint && <span className="muted" style={{ fontSize: "0.66rem" }}>{hint}</span>}
+      <span className="badge" style={{ minWidth: 48, textAlign: "center" }}>
+        {value}
+      </span>
+      {hint && (
+        <span className="muted" style={{ fontSize: "0.66rem" }}>
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
 
 function ToggleRow({ label, checked, onChange, hint }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", cursor: "pointer" }}>
-        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 6,
+      }}
+    >
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: "0.82rem",
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+        />
         {label}
       </label>
-      {hint && <span className="muted" style={{ fontSize: "0.66rem" }}>{hint}</span>}
+      {hint && (
+        <span className="muted" style={{ fontSize: "0.66rem" }}>
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
 
 export default function SettingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
-  const { state: userState, serverBacked, setNotifications, toggleWatchlist } = useUserState();
+  const { settings, update, updateSiteWeight, resetSiteWeights, reset } =
+    useSettings();
+  const {
+    state: userState,
+    serverBacked,
+    setNotifications,
+    toggleWatchlist,
+  } = useUserState();
   const [watchAddName, setWatchAddName] = useState("");
   const [hydrated, setHydrated] = useState(true);
   const [emailDraft, setEmailDraft] = useState("");
@@ -89,7 +148,10 @@ export default function SettingsPage() {
 
   const saveEmail = useCallback(() => {
     const clean = emailDraft.trim();
-    if (clean && (!clean.includes("@") || !clean.split("@")[1]?.includes("."))) {
+    if (
+      clean &&
+      (!clean.includes("@") || !clean.split("@")[1]?.includes("."))
+    ) {
       setEmailStatus("That doesn't look like a valid email address.");
       return;
     }
@@ -197,12 +259,12 @@ export default function SettingsPage() {
       };
     };
     return {
-      offense: RANKING_SOURCES
-        .filter((s) => s.scope === "overall_offense")
-        .map(decorate),
-      idp: RANKING_SOURCES
-        .filter((s) => s.scope === "overall_idp")
-        .map(decorate),
+      offense: RANKING_SOURCES.filter((s) => s.scope === "overall_offense").map(
+        decorate,
+      ),
+      idp: RANKING_SOURCES.filter((s) => s.scope === "overall_idp").map(
+        decorate,
+      ),
     };
   }, [rows, settings?.siteWeights]);
 
@@ -210,14 +272,25 @@ export default function SettingsPage() {
 
   return (
     <section className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <div>
           <h1 style={{ marginTop: 0 }}>Settings</h1>
           <p className="muted" style={{ marginTop: 4 }}>
-            Tuning controls that affect valuations, trade calculations, and rankings display.
+            Tuning controls that affect valuations, trade calculations, and
+            rankings display.
           </p>
         </div>
-        <button className="button" onClick={resetToDefaults} style={{ fontSize: "0.76rem" }}>
+        <button
+          className="button"
+          onClick={resetToDefaults}
+          style={{ fontSize: "0.76rem" }}
+        >
           Reset Defaults
         </button>
       </div>
@@ -236,8 +309,17 @@ export default function SettingsPage() {
             <option value="standard">Standard (1QB)</option>
           </select>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>TEP — non-native</label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>
+            TEP — non-native
+          </label>
           <input
             type="number"
             min={1.0}
@@ -286,8 +368,17 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>TEP — native</label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>
+            TEP — native
+          </label>
           <input
             type="number"
             min={1.0}
@@ -332,12 +423,14 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
-        <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
-          Two parallel TE Premium multipliers, both applied at blend
-          time on TE rows only.  <strong>Non-native</strong> covers
-          sources whose published board doesn&apos;t already bake in
-          TE premium (DLF, FBG, FP consensus, Flock, DD, DraftSharks).{" "}
-          <strong>Native</strong> covers sources tagged{" "}
+        <p
+          className="muted"
+          style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}
+        >
+          Two parallel TE Premium multipliers, both applied at blend time on TE
+          rows only. <strong>Non-native</strong> covers sources whose published
+          board doesn&apos;t already bake in TE premium (DLF, FBG, FP consensus,
+          Flock, DD, DraftSharks). <strong>Native</strong> covers sources tagged{" "}
           <span
             style={{
               fontFamily: "var(--mono)",
@@ -350,13 +443,12 @@ export default function SettingsPage() {
           >
             TEP NATIVE
           </span>{" "}
-          (IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) — their
-          boards already publish some TE premium so the smaller
-          default (1.10×) is a calibration nudge, not a fresh boost.
-          KTC (standard SF and SF-TE++) is the canonical baseline
-          and passes through both knobs unchanged.  Changing either
-          value re-runs the canonical ranking pipeline so every page
-          (rankings, trade calculator, edge) sees the same values.
+          (IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) — their boards already
+          publish some TE premium so the smaller default (1.10×) is a
+          calibration nudge, not a fresh boost. KTC (standard SF and SF-TE++) is
+          the canonical baseline and passes through both knobs unchanged.
+          Changing either value re-runs the canonical ranking pipeline so every
+          page (rankings, trade calculator, edge) sees the same values.
         </p>
       </Section>
 
@@ -364,14 +456,18 @@ export default function SettingsPage() {
         <SliderRow
           label="Trade History Window"
           value={settings.tradeHistoryWindowDays}
-          min={30} max={730} step={30}
+          min={30}
+          max={730}
+          step={30}
           onChange={(v) => update("tradeHistoryWindowDays", v)}
           hint={`${settings.tradeHistoryWindowDays} days`}
         />
         <SliderRow
           label="Suggestion Pool Cap"
           value={settings.ktcSuggestionTopN ?? 150}
-          min={50} max={300} step={10}
+          min={50}
+          max={300}
+          step={10}
           onChange={(v) => update("ktcSuggestionTopN", v)}
           hint={`Top ${settings.ktcSuggestionTopN ?? 150} KTC offense players considered for trade suggestions`}
         />
@@ -379,16 +475,82 @@ export default function SettingsPage() {
           className="muted"
           style={{ fontSize: "0.7rem", marginTop: 4, marginBottom: 0 }}
         >
-          Default 150 fits a standard 12-team Superflex league.  Raise
-          for deeper formats (14-team 2QB, deep-IDP keeper) where the
-          bottom-50 of your roster pool sits below KTC #150 but is
-          genuinely traded.  Picks + IDP are unaffected by this cap.
+          Default 150 fits a standard 12-team Superflex league. Raise for deeper
+          formats (14-team 2QB, deep-IDP keeper) where the bottom-50 of your
+          roster pool sits below KTC #150 but is genuinely traded. Picks + IDP
+          are unaffected by this cap.
         </p>
+      </Section>
+
+      <Section title="Valuation" defaultOpen>
+        <div
+          style={{ fontSize: "0.72rem", marginBottom: 10 }}
+          className="muted"
+        >
+          This is the only setting that changes the numbers themselves. It
+          applies everywhere — rankings, the trade calculator, exports.
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
+            Value basis
+          </label>
+          <select
+            className="select"
+            value={settings.valuationMode}
+            onChange={(e) => update("valuationMode", e.target.value)}
+          >
+            <option value="market">Market</option>
+            <option value="leagueAdjusted">My league</option>
+          </select>
+        </div>
+        <div
+          style={{ fontSize: "0.72rem", lineHeight: 1.55 }}
+          className="muted"
+        >
+          <p>
+            <strong>Market</strong> — the blended consensus board exactly as the
+            pipeline computes it. Shared by every league on the same scoring
+            settings.
+          </p>
+          <p>
+            <strong>My league</strong> — takes that board and re-prices it by
+            how scarce each position actually is here. We solve your exact
+            starting lineup against the 12 real rosters, measure the drop-off
+            from the best player at a position to the last startable one, and
+            scale every player at that position by up to ±10%. Thin positions
+            lift; deep positions trim. Ranks and tiers are recomputed on the
+            backend.
+          </p>
+          <p>
+            What it does <strong>not</strong> include, deliberately: no
+            tight-end premium — our market anchor is already KTC&apos;s TE++
+            board, so applying another would count the same premium twice. No
+            player projections — no source we can use publishes raw statistical
+            categories yet, so there is nothing to re-score under your rules.
+            And no per-player judgment: the adjustment is identical for every
+            player at a position, so it can never reorder your RBs against each
+            other.
+          </p>
+          <p>
+            What it <strong>does</strong> change is how positions — and{" "}
+            <strong>players versus draft picks</strong> — are priced against one
+            another. Picks carry no scarcity measurement, so they stay at market
+            value while players move around them. That is enough to shift most
+            ranks and to change trade verdicts.
+          </p>
+          <p>
+            Not applied while custom source weights are active: the two cannot
+            be combined correctly yet, so the board stays on your custom market
+            values.
+          </p>
+        </div>
       </Section>
 
       <Section title="Rankings Display" defaultOpen>
         <div style={{ marginBottom: 8 }}>
-          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>Sort Basis</label>
+          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
+            Sort Basis
+          </label>
           <select
             className="select"
             value={settings.rankingsSortBasis}
@@ -407,19 +569,33 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Ranking Sources" defaultOpen>
-        <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
-          Every registered source contributes equally (default weight 1.0) to the
-          blended consensus rank.  Toggle a source off or adjust its weight to
-          recompute the board with your own mix.  Changing any knob flips the
+        <div
+          style={{ fontSize: "0.72rem", marginBottom: 10 }}
+          className="muted"
+        >
+          Every registered source contributes equally (default weight 1.0) to
+          the blended consensus rank. Toggle a source off or adjust its weight
+          to recompute the board with your own mix. Changing any knob flips the
           rankings page into override mode so your settings materially affect
           the displayed rank and value; clearing the overrides returns to the
-          canonical server blend.  IDP Trade Calculator is the IDP backbone and
-          also feeds offense via its secondary scope.  Backend registry:{" "}
-          <code style={{ fontFamily: "var(--mono)" }}>src/api/data_contract.py</code>.
+          canonical server blend. IDP Trade Calculator is the IDP backbone and
+          also feeds offense via its secondary scope. Backend registry:{" "}
+          <code style={{ fontFamily: "var(--mono)" }}>
+            src/api/data_contract.py
+          </code>
+          .
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 10,
+            flexWrap: "wrap",
+          }}
+        >
           {Object.values(WEIGHT_PRESETS).map((preset) => {
-            const active = detectActivePreset(settings?.siteWeights) === preset.key;
+            const active =
+              detectActivePreset(settings?.siteWeights) === preset.key;
             return (
               <button
                 key={preset.key}
@@ -427,7 +603,9 @@ export default function SettingsPage() {
                 className={`button${active ? " button-primary" : ""}`}
                 style={{ fontSize: "0.72rem" }}
                 title={preset.description}
-                onClick={() => update("siteWeights", presetToWeights(preset.key))}
+                onClick={() =>
+                  update("siteWeights", presetToWeights(preset.key))
+                }
               >
                 {preset.label}
                 {active ? " ✓" : ""}
@@ -458,9 +636,14 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Rest-of-Season Engine" defaultOpen={false}>
-        <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0, marginBottom: 10 }}>
+        <p
+          className="muted"
+          style={{ fontSize: "0.72rem", marginTop: 0, marginBottom: 10 }}
+        >
           The ROS engine is a separate short-term contender layer.{" "}
-          <strong>It never modifies dynasty rankings or trade-calculator math.</strong>{" "}
+          <strong>
+            It never modifies dynasty rankings or trade-calculator math.
+          </strong>{" "}
           These flags only control which surfaces show ROS context.
         </p>
         <ToggleRow
@@ -493,7 +676,14 @@ export default function SettingsPage() {
           onChange={(v) => update("showRosTags", v)}
           hint="Appends a Short-term context section to PlayerPopup with ROS value, rank, tier, and tags like Win-now target / Seller cash-out / Rebuilder hold."
         />
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            marginTop: 14,
+          }}
+        >
           <label style={{ fontSize: "0.82rem", minWidth: 200 }}>
             Monte Carlo simulations
           </label>
@@ -506,7 +696,10 @@ export default function SettingsPage() {
             onChange={(e) =>
               update(
                 "rosSimulationCount",
-                Math.max(1000, Math.min(100000, parseInt(e.target.value) || 10000)),
+                Math.max(
+                  1000,
+                  Math.min(100000, parseInt(e.target.value) || 10000),
+                ),
               )
             }
             className="input"
@@ -544,19 +737,18 @@ export default function SettingsPage() {
           <a href="/tools/ros-data-health" style={{ color: "var(--cyan)" }}>
             /tools/ros-data-health
           </a>
-          .  Overrides apply on the next admin Refresh — scheduled scrapes
-          run with registry defaults.
+          . Overrides apply on the next admin Refresh — scheduled scrapes run
+          with registry defaults.
         </p>
       </Section>
 
       <Section title="Pick Settings" defaultOpen={false}>
         <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0 }}>
-          Future-year pick values are discounted automatically by the
-          ranking engine, and the &ldquo;current draft year&rdquo; now
-          rolls forward on its own from the live data — the next draft
-          carries no penalty, and further-out picks are discounted by
-          distance.  There is no longer a manual draft-year setting to
-          keep in sync.
+          Future-year pick values are discounted automatically by the ranking
+          engine, and the &ldquo;current draft year&rdquo; now rolls forward on
+          its own from the live data — the next draft carries no penalty, and
+          further-out picks are discounted by distance. There is no longer a
+          manual draft-year setting to keep in sync.
         </p>
       </Section>
 
@@ -569,8 +761,18 @@ export default function SettingsPage() {
               onChange={toggleEnabled}
               hint="Buy/sell/injury/roster digest, sent once per day when you have live signals."
             />
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
-              <label style={{ fontSize: "0.82rem", minWidth: 100 }}>Email address</label>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginTop: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <label style={{ fontSize: "0.82rem", minWidth: 100 }}>
+                Email address
+              </label>
               <input
                 type="email"
                 className="input"
@@ -582,7 +784,11 @@ export default function SettingsPage() {
                 }}
                 style={{ flex: "1 1 260px", maxWidth: 360 }}
               />
-              <button className="button" onClick={saveEmail} style={{ fontSize: "0.76rem" }}>
+              <button
+                className="button"
+                onClick={saveEmail}
+                style={{ fontSize: "0.76rem" }}
+              >
                 Save
               </button>
               {emailDraft && (
@@ -601,33 +807,65 @@ export default function SettingsPage() {
               )}
             </div>
             {emailStatus && (
-              <div className="muted" style={{ fontSize: "0.72rem", marginTop: 6, color: "var(--green)" }}>
+              <div
+                className="muted"
+                style={{
+                  fontSize: "0.72rem",
+                  marginTop: 6,
+                  color: "var(--green)",
+                }}
+              >
                 {emailStatus}
               </div>
             )}
-            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 10, marginBottom: 0 }}>
-              Alerts fire once per day when the signal engine finds something notable on your
-              roster — buy-low / sell-high opportunities, injury news, rookie or pick movement.
-              We only email you when there&apos;s a change worth acting on.
+            <p
+              className="muted"
+              style={{ fontSize: "0.7rem", marginTop: 10, marginBottom: 0 }}
+            >
+              Alerts fire once per day when the signal engine finds something
+              notable on your roster — buy-low / sell-high opportunities, injury
+              news, rookie or pick movement. We only email you when there&apos;s
+              a change worth acting on.
             </p>
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 12,
+                borderTop: "1px solid var(--border)",
+              }}
+            >
               <PushNotificationToggle enabled={!!serverBacked} />
             </div>
           </>
         ) : (
           <p className="muted" style={{ fontSize: "0.78rem" }}>
-            Sign in to enable email notifications.  Your notification preferences
+            Sign in to enable email notifications. Your notification preferences
             are stored on the server and apply across devices.
           </p>
         )}
       </Section>
 
       <Section title="Watchlist" defaultOpen={false}>
-        <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 8 }}>
+        <div
+          style={{
+            fontSize: "0.78rem",
+            color: "var(--subtext)",
+            marginBottom: 8,
+          }}
+        >
           Players you star (here or via the ☆ on Rankings / a player card).
-          {serverBacked ? " Synced across your devices." : " Saved on this device."}
+          {serverBacked
+            ? " Synced across your devices."
+            : " Saved on this device."}
         </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            marginBottom: 10,
+            flexWrap: "wrap",
+          }}
+        >
           <input
             className="input"
             value={watchAddName}
@@ -690,7 +928,11 @@ export default function SettingsPage() {
                   className="button-reset"
                   title="Remove from watchlist"
                   onClick={() => toggleWatchlist(name)}
-                  style={{ cursor: "pointer", color: "var(--subtext)", padding: "0 6px" }}
+                  style={{
+                    cursor: "pointer",
+                    color: "var(--subtext)",
+                    padding: "0 6px",
+                  }}
                 >
                   ☆ remove
                 </button>
@@ -712,8 +954,17 @@ export default function SettingsPage() {
         <GuestPassPanel />
       </Section>
 
-      <div className="muted" style={{ fontSize: "0.72rem", marginTop: 12, padding: "8px 0", borderTop: "1px solid var(--border)" }}>
-        Settings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.
+      <div
+        className="muted"
+        style={{
+          fontSize: "0.72rem",
+          marginTop: 12,
+          padding: "8px 0",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        Settings are saved automatically to your browser. They affect trade
+        calculations, rankings display, and value composites.
       </div>
     </section>
   );
@@ -737,11 +988,36 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
-              <th className="settings-src-col-role" style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
-              <th style={{ textAlign: "center", padding: "6px 8px" }} title="Include this source in rank blending">On</th>
-              <th style={{ textAlign: "right", padding: "6px 8px" }} title="Weight applied to this source in the blend. Default 1.0">Weight</th>
-              <th className="settings-src-col-covered" style={{ textAlign: "right", padding: "6px 8px" }}>Covered</th>
-              <th className="settings-src-col-status" style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
+              <th
+                className="settings-src-col-role"
+                style={{ textAlign: "left", padding: "6px 8px" }}
+              >
+                Role
+              </th>
+              <th
+                style={{ textAlign: "center", padding: "6px 8px" }}
+                title="Include this source in rank blending"
+              >
+                On
+              </th>
+              <th
+                style={{ textAlign: "right", padding: "6px 8px" }}
+                title="Weight applied to this source in the blend. Default 1.0"
+              >
+                Weight
+              </th>
+              <th
+                className="settings-src-col-covered"
+                style={{ textAlign: "right", padding: "6px 8px" }}
+              >
+                Covered
+              </th>
+              <th
+                className="settings-src-col-status"
+                style={{ textAlign: "center", padding: "6px 8px" }}
+              >
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -763,7 +1039,14 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                   }}
                 >
                   <td style={{ padding: "6px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <span style={{ fontWeight: 600 }}>{src.displayName}</span>
                       {/* Role badge — visible only on mobile where the
                           dedicated Role column is hidden to save horizontal
@@ -789,7 +1072,8 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                           style={{
                             fontSize: "0.58rem",
                             padding: "1px 5px",
-                            background: "var(--green-dim, rgba(80,200,120,0.18))",
+                            background:
+                              "var(--green-dim, rgba(80,200,120,0.18))",
                             color: "var(--green, #4ade80)",
                             border: "1px solid var(--green, #4ade80)",
                             borderRadius: 3,
@@ -812,7 +1096,10 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       </span>
                     </div>
                   </td>
-                  <td className="settings-src-col-role" style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
+                  <td
+                    className="settings-src-col-role"
+                    style={{ padding: "6px 8px", fontSize: "0.72rem" }}
+                  >
                     {role}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "center" }}>
@@ -840,7 +1127,8 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       value={Number(src.userWeight).toFixed(1)}
                       onChange={(e) => {
                         const v = Number(e.target.value);
-                        if (Number.isFinite(v) && v >= 0) onWeight?.(src.key, v);
+                        if (Number.isFinite(v) && v >= 0)
+                          onWeight?.(src.key, v);
                       }}
                       disabled={!enabled}
                       className="input weight-input"
@@ -884,8 +1172,6 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
   );
 }
 
-
-
 function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
   // Triggers an admin scrape with the user's overrides in the body.
   // Falls back to plain "no-body" call if the user hasn't customized
@@ -911,13 +1197,15 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
         if (res.status === 401) {
           setFeedback("Admin session required.");
         } else {
-          setFeedback(`Refresh failed (HTTP ${res.status}): ${text.slice(0, 120)}`);
+          setFeedback(
+            `Refresh failed (HTTP ${res.status}): ${text.slice(0, 120)}`,
+          );
         }
       } else {
         const data = await res.json().catch(() => ({}));
         setFeedback(
           `Refreshed ${data.ranSources?.length ?? "?"} sources · ` +
-          `aggregate=${data.playerCount ?? "?"} players`,
+            `aggregate=${data.playerCount ?? "?"} players`,
         );
       }
     } catch (err) {
@@ -937,10 +1225,20 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
-              <th className="settings-src-col-role" style={{ textAlign: "left", padding: "6px 8px" }}>Type</th>
+              <th
+                className="settings-src-col-role"
+                style={{ textAlign: "left", padding: "6px 8px" }}
+              >
+                Type
+              </th>
               <th style={{ textAlign: "center", padding: "6px 8px" }}>On</th>
               <th style={{ textAlign: "right", padding: "6px 8px" }}>Weight</th>
-              <th className="settings-src-col-status" style={{ textAlign: "center", padding: "6px 8px" }}>Default</th>
+              <th
+                className="settings-src-col-status"
+                style={{ textAlign: "center", padding: "6px 8px" }}
+              >
+                Default
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -953,7 +1251,8 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
               const customized =
                 ov.enabled === false ||
                 (Number.isFinite(Number(ov.weight)) &&
-                  Math.abs(Number(ov.weight) - Number(src.baseWeight ?? 1.0)) > 1e-6);
+                  Math.abs(Number(ov.weight) - Number(src.baseWeight ?? 1.0)) >
+                    1e-6);
               const sourceTypeLabel = src.isRos
                 ? "Real ROS"
                 : src.isDynasty
@@ -968,7 +1267,14 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                   }}
                 >
                   <td style={{ padding: "6px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <span style={{ fontWeight: 600 }}>{src.displayName}</span>
                       {src.isIdp && (
                         <span
@@ -1000,11 +1306,24 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 2 }}>
+                    <div
+                      style={{
+                        fontSize: "0.66rem",
+                        color: "var(--subtext)",
+                        marginTop: 2,
+                      }}
+                    >
                       {src.key}
                     </div>
                   </td>
-                  <td className="settings-src-col-role" style={{ padding: "6px 8px", fontSize: "0.74rem", color: "var(--subtext)" }}>
+                  <td
+                    className="settings-src-col-role"
+                    style={{
+                      padding: "6px 8px",
+                      fontSize: "0.74rem",
+                      color: "var(--subtext)",
+                    }}
+                  >
                     {sourceTypeLabel}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "center" }}>
@@ -1016,7 +1335,13 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                       style={{ cursor: "pointer" }}
                     />
                   </td>
-                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "var(--mono)" }}>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                    }}
+                  >
                     <input
                       type="number"
                       min={0}
@@ -1034,7 +1359,15 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                       disabled={!enabled}
                     />
                   </td>
-                  <td className="settings-src-col-status" style={{ padding: "6px 8px", textAlign: "center", fontSize: "0.7rem", color: "var(--subtext)" }}>
+                  <td
+                    className="settings-src-col-status"
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "center",
+                      fontSize: "0.7rem",
+                      color: "var(--subtext)",
+                    }}
+                  >
                     {customized ? (
                       <button
                         type="button"
@@ -1062,7 +1395,14 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
           </tbody>
         </table>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 10,
+        }}
+      >
         <button
           type="button"
           className="button button-primary"
@@ -1072,13 +1412,13 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
           {submitting ? "Refreshing..." : "Apply now (admin refresh)"}
         </button>
         <span style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
-          {feedback || "Triggers POST /api/ros/refresh — re-runs the orchestrator with these overrides."}
+          {feedback ||
+            "Triggers POST /api/ros/refresh — re-runs the orchestrator with these overrides."}
         </span>
       </div>
     </div>
   );
 }
-
 
 function ServerStatusPanel() {
   const [status, setStatus] = useState(null);
@@ -1107,7 +1447,11 @@ function ServerStatusPanel() {
     try {
       const res = await fetch("/api/scrape", { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      setScrapeMsg(data.error ? `Error: ${data.error}` : "Refresh triggered. Data will update shortly.");
+      setScrapeMsg(
+        data.error
+          ? `Error: ${data.error}`
+          : "Refresh triggered. Data will update shortly.",
+      );
       setTimeout(fetchStatus, 5000);
     } catch {
       setScrapeMsg("Failed to reach backend.");
@@ -1120,10 +1464,19 @@ function ServerStatusPanel() {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 10,
+        }}
+      >
         <span
           style={{
-            width: 8, height: 8, borderRadius: "50%",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
             background: connected ? "var(--green)" : "var(--red)",
             display: "inline-block",
           }}
@@ -1134,11 +1487,21 @@ function ServerStatusPanel() {
       </div>
 
       {connected && (
-        <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {status.player_count != null && <div>Players: {status.player_count}</div>}
+        <div
+          style={{
+            fontSize: "0.72rem",
+            color: "var(--subtext)",
+            marginBottom: 10,
+          }}
+        >
+          {status.player_count != null && (
+            <div>Players: {status.player_count}</div>
+          )}
           {status.last_scrape && <div>Last update: {status.last_scrape}</div>}
           {status.next_scrape && <div>Next update: {status.next_scrape}</div>}
-          {status?.contract?.version && <div>Contract: {status.contract.version}</div>}
+          {status?.contract?.version && (
+            <div>Contract: {status.contract.version}</div>
+          )}
           {status?.uptime?.last_ok && (
             <div>
               Uptime monitor:{" "}
@@ -1151,7 +1514,9 @@ function ServerStatusPanel() {
       )}
 
       {status?.error && (
-        <div style={{ fontSize: "0.72rem", color: "var(--red)", marginBottom: 10 }}>
+        <div
+          style={{ fontSize: "0.72rem", color: "var(--red)", marginBottom: 10 }}
+        >
           {status.error}
         </div>
       )}
@@ -1175,7 +1540,15 @@ function ServerStatusPanel() {
       </div>
 
       {scrapeMsg && (
-        <div style={{ fontSize: "0.72rem", marginTop: 6, color: scrapeMsg.startsWith("Error") ? "var(--red)" : "var(--green)" }}>
+        <div
+          style={{
+            fontSize: "0.72rem",
+            marginTop: 6,
+            color: scrapeMsg.startsWith("Error")
+              ? "var(--red)"
+              : "var(--green)",
+          }}
+        >
           {scrapeMsg}
         </div>
       )}
@@ -1285,14 +1658,15 @@ function GuestPassPanel() {
   }
 
   async function revoke(id) {
-    if (!window.confirm("Revoke this guest pass? The recipient will lose access.")) {
+    if (
+      !window.confirm("Revoke this guest pass? The recipient will lose access.")
+    ) {
       return;
     }
     try {
-      const res = await fetch(
-        `/api/admin/guest-pass/${id}/revoke`,
-        { method: "POST" },
-      );
+      const res = await fetch(`/api/admin/guest-pass/${id}/revoke`, {
+        method: "POST",
+      });
       if (!res.ok) {
         setError(`Revoke failed (${res.status})`);
         return;
@@ -1306,11 +1680,10 @@ function GuestPassPanel() {
   return (
     <div>
       <p className="muted" style={{ fontSize: "0.76rem", margin: "0 0 12px" }}>
-        Generate a temporary password to share with someone you want to
-        give private-app access. They paste it into the login form's
-        password field; their session expires automatically when the
-        pass does. Plaintext tokens are shown ONCE — copy and share
-        immediately.
+        Generate a temporary password to share with someone you want to give
+        private-app access. They paste it into the login form's password field;
+        their session expires automatically when the pass does. Plaintext tokens
+        are shown ONCE — copy and share immediately.
       </p>
 
       {/* ── Generate form ─────────────────────────────────────── */}
@@ -1509,9 +1882,7 @@ function GuestPassPanel() {
                       {p.id}
                     </td>
                     <td style={{ padding: "4px 6px" }}>
-                      {p.note || (
-                        <span className="muted">— no note —</span>
-                      )}
+                      {p.note || <span className="muted">— no note —</span>}
                     </td>
                     <td
                       style={{ padding: "4px 6px", fontFamily: "var(--mono)" }}
