@@ -970,21 +970,39 @@ def test_acquire_idp_target_compares_on_idptc():
     # include_idp must be True — the offer-side "My DL" would
     # otherwise be filtered out of the candidate pool by the default
     # IDP gate.
+    #
+    # The 5% gate this used to run at is now unreachable for a package
+    # of pure IDP.  ``cross_market`` sizes an uncertainty band on the
+    # assumed offense<->IDP exchange rate (±16.8% of any IDP subtotal),
+    # ``compare_packages`` withholds a verdict whose band straddles the
+    # gate, and a ±43% range around a 2% gain straddles 5%.  That is
+    # the known over-correction the module's own ``_shared_scale_band``
+    # docstring flags: with BOTH sides pure IDP the exchange rate is a
+    # common factor and cancels in the ratio, but a package cannot see
+    # the other side of the comparison, so it errs wide.  Widening the
+    # gate here keeps this test on the thing it was written to pin —
+    # that DL packages are priced on IDPTC and not on KTC — which the
+    # explicit totals below now assert directly rather than by proxy.
     result = find_acquisition_packages(
         players,
         ["Target DL"],
         "owner-a",
         teams,
         min_my_gain_pct=5.0,
-        max_market_gain_pct=5.0,
+        max_market_gain_pct=60.0,
         include_idp=True,
     )
     assert result["candidates"], "IDP acquire should qualify on IDPTC"
+    # IDPTC values, not KTC: 5100 for the target, 5000 for the offer.
+    # Reading KTC would put the acquire side at 7000.
+    assert result["acquire"]["market_total"] == 5100
+    assert result["acquire"]["market"] == "idpTradeCalc"
+    assert result["candidates"][0]["market_total"] == 5000
     # market source stamped on acquire and candidate rows.
     assert result["acquire"]["players"][0]["market_source"] == "idpTradeCalc"
 
 
-def test_packages_player_rows_expose_per_position_market_source():
+def test_packages_player_rows_expose_package_market_source():
     offer = ["My QB"]
     teams = [
         {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
@@ -1007,13 +1025,19 @@ def test_packages_player_rows_expose_per_position_market_source():
         min_my_gain_pct=5.0,
         max_market_gain_pct=5.0,
     )
+    # ``market_source`` now names the MARKET the whole package was
+    # priced on, not the key that one row happened to be read from.
+    # For an offense-only package that is ``ktcSfTep`` even when the
+    # fixture only carries the retired legacy ``ktc`` key — same
+    # market, and the UI renders both as "KTC".  Per-row provenance
+    # that contradicted the package total was the thing worth losing.
     for c in result["candidates"]:
         for p in c["players"]:
             if p["position"] == "DL":
                 assert p["market_source"] == "idpTradeCalc"
                 assert p["market_value"] == 5100  # IDPTC value
             elif p["position"] == "WR":
-                assert p["market_source"] == "ktc"
+                assert p["market_source"] == "ktcSfTep"
                 assert p["market_value"] == 5100  # KTC value
 
 
@@ -1191,11 +1215,18 @@ def test_packages_idp_included_when_flag_set():
         _player("My QB", 5000, 5000, position="QB"),
         _idp_player("Opp DL", 6000, 5000, position="DL"),
     ]
+    # Gate widened past the offense<->IDP uncertainty band (±16.8% of
+    # the IDP subtotal).  At the 5% default, an all-IDP counter against
+    # an all-offense offer has a band that straddles the gate and
+    # ``compare_packages`` withholds the verdict — correctly, since the
+    # entire comparison rests on the assumed exchange rate.  This test
+    # is about the include_idp POOL gate, not about that verdict.
     result = find_angle_packages(
         players,
         offer,
         "owner-a",
         teams,
+        max_market_gain_pct=25.0,
         include_idp=True,
     )
     names = {p["name"] for c in result["candidates"] for p in c["players"]}
@@ -1219,11 +1250,15 @@ def test_packages_idp_filter_does_not_touch_seed_players():
         _idp_player("Opp Seed DL", 6000, 5000, position="DL"),
         _player("Opp WR", 6000, 5000, position="WR"),
     ]
+    # Gate widened past the offense<->IDP uncertainty band — see
+    # test_packages_idp_included_when_flag_set.  The seed gate is what
+    # this test pins.
     result = find_angle_packages(
         players,
         offer,
         "owner-a",
         teams,
+        max_market_gain_pct=25.0,
         target_team_owner_ids=["owner-b"],
         seed_player_names=["Opp Seed DL"],
     )
@@ -1259,12 +1294,15 @@ def test_acquire_idp_excluded_from_offer_pool_by_default():
         teams,  # include_idp default False
     )
     assert result["candidates"] == []
-    # Flip include_idp on and the offer packages appear.
+    # Flip include_idp on and the offer packages appear.  Gate widened
+    # past the offense<->IDP uncertainty band — see
+    # test_packages_idp_included_when_flag_set.
     result2 = find_acquisition_packages(
         players,
         ["Target WR"],
         "owner-a",
         teams,
+        max_market_gain_pct=25.0,
         include_idp=True,
     )
     assert result2["candidates"], "LB offers should qualify once IDP is allowed"

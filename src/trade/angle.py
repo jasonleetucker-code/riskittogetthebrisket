@@ -24,26 +24,70 @@ offer (e.g. offering 4 players → returns 3-, 4-, and 5-player
 counter-offers). Same arbitrage math; combinations are evaluated per
 opposing team with the candidate pool clamped to each team's top-N
 players by your calibrated value so the search stays fast.
+
+Per-PLAYER routing was never the bug; per-PACKAGE totalling was
+──────────────────────────────────────────────────────────────────
+:func:`_market_source_for` has always sent each player to the right
+board.  What used to happen next was::
+
+    market_sum = sum(p["market_value"] for p in combo)
+
+over a combo that nothing constrained to one board.  A package holding
+a TE and a linebacker therefore added a KTC number to an IDPTC number
+and produced a total denominated in no market at all.  It was not a
+rounding-level error either: on the 2026-07-26 board Brock Bowers is
+KTC 9,882 and IDPTC 8,975, so a Bowers + Schwesinger offer summed to
+15,549 against a true IDPTC total of 14,642 — 6.2% of overstatement
+handed straight to ``market_gain_pct``, which is the field the ±5%
+plausibility gate reads.
+
+Package totals now go through
+:func:`src.league_intel.cross_market.value_package`, which prices a
+package **entirely inside one market** (offense-only → ``ktcSfTep``;
+any IDP present → ``idpTradeCalc``, the only board spanning both
+universes), and through
+:func:`~src.league_intel.cross_market.compare_packages`, which decides
+whether the resulting verdict survives its own uncertainty.  Nothing
+about single-market valuation is re-implemented here — see ADR-010 and
+that module's docstring for why the exchange-rate assumption is
+stamped rather than buried.
+
+What this deliberately does NOT fix
+───────────────────────────────────
+Each SIDE is valued inside one market, but the two sides can still
+land on different markets — an offense-only offer prices on KTC while
+an IDP-bearing counter prices on IDPTC.  That is the comparison
+``compare_packages`` is built to take, and it is defensible because
+the two boards are measured to share a scale (pooled IDPTC/KTC ratio
+0.9997, Spearman 0.990, n=476).  The residual doubt is not ignored: it
+is exactly what the IDP-bearing side's ``uncertainty_band`` carries
+into the straddle check.  Forcing both sides onto one board would need
+a market argument ``value_package`` does not expose, and inventing one
+here would put a second single-market implementation in the tree.
+
+``find_angles`` (the 1-for-1 pivot) is untouched: it compares two
+single assets, so there is no cross-market sum to constrain.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from itertools import combinations
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 
-_IDP_POSITIONS: frozenset[str] = frozenset(
-    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
+from src.league_intel.cross_market import (
+    NORMALIZATION_VERSION,
+    PackageValuation,
+    compare_packages,
+    value_package,
 )
 
-# KTC-style Value Adjustment (V2) — ports the frontend formula in
-# ``frontend/lib/trade-logic.js`` (``_vaFromSortedSides``) so the Angle
-# engine stops treating a package of 4 filler players as equivalent to
-# Trade-fairness math is now delegated to ``src.trade.ktc_va``, the
-# Python port of KTC's actual algorithm (PR #335 ported it to JS;
-# this replaced the V2 regression-fit constants below in 2026-04-27).
-# The legacy V2 ``_VA_*`` coefficients (calibrated against 13 trades)
-# disagreed materially with what KTC.com displays, leading to Angle
-# Finder grading trades differently than the trade calculator.
+# Trade-fairness math is delegated to ``src.trade.ktc_va``, the Python
+# port of KTC's actual algorithm (PR #335 ported it to JS; this
+# replaced the V2 regression-fit constants in 2026-04-27).  The legacy
+# V2 coefficients (calibrated against 13 trades) disagreed materially
+# with what KTC.com displays, so the Angle Finder graded trades
+# differently than the trade calculator did.
 #
 # Arbitrage math was previously pure sum-of-raw-totals, which is wrong
 # for uneven sizes: 3 stars for 4 scrubs can look fair on market and a
@@ -55,6 +99,23 @@ from src.trade.ktc_va import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
     ktc_adjust_package,
 )
+from src.utils.name_clean import normalize_position as _normalize_position
+
+# Raw spellings, kept as-is because ``server.py`` imports this set to
+# decide whether a caller's ``positions`` request implies an IDP
+# opt-in, and that check runs against un-normalized request tokens.
+# Position DECISIONS inside this module go through
+# :func:`_is_idp_position`, which normalizes first, so a spelling
+# missing from this literal can no longer route a defender to a board
+# that prices no defenders (the #556 defect in ``finder.py``).
+_IDP_POSITIONS: frozenset[str] = frozenset(
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
+)
+
+# The three canonical buckets ``POSITION_ALIASES`` collapses IDP
+# spellings to — same set ``cross_market`` tests against, so routing
+# here and valuation there cannot disagree about what an IDP is.
+_IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
 def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
@@ -81,7 +142,17 @@ def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
 
 
 def _is_idp_position(position: Any) -> bool:
-    return str(position or "").strip().upper() in _IDP_POSITIONS
+    """True for any spelling of a defensive position.
+
+    Normalizes before testing so ``"EDGE"``/``"CB"``/``"MLB"`` and any
+    future spelling ``POSITION_ALIASES`` learns are all caught, then
+    falls back to the raw literal set for anything normalization leaves
+    alone.  Strictly wider than the old raw-membership test.
+    """
+    raw = str(position or "").strip().upper()
+    if not raw:
+        return False
+    return _normalize_position(raw) in _IDP_FAMILIES or raw in _IDP_POSITIONS
 
 
 def _market_source_for(position: str | None) -> str:
@@ -95,10 +166,149 @@ def _market_source_for(position: str | None) -> str:
     fixture only carries the standard board, so callers that
     haven't been migrated keep working.
     """
-    pos = str(position or "").strip().upper()
-    if pos in _IDP_POSITIONS:
+    if _is_idp_position(position):
         return "idpTradeCalc"
     return "ktcSfTep"
+
+
+# ── Package-level market valuation (ADR-010) ─────────────────────────
+
+
+def _market_values(pkg: PackageValuation) -> list[float]:
+    """Per-asset values from a package valuation, in input order.
+
+    These are the numbers the VA step and the totals must be built
+    from: every one of them is denominated in ``pkg.market``.
+    """
+    return [float(a.normalized_market_value or 0.0) for a in pkg.assets]
+
+
+def _restate_on(pkg: PackageValuation, adjusted_total: float) -> PackageValuation:
+    """``pkg`` restated on its VA-adjusted total.
+
+    ``compare_packages`` has to adjudicate the same quantity the caller
+    gates on, and Angle gates on the KTC-Value-Adjustment-adjusted
+    gain, not the raw sum.  Handing it the raw totals would have it
+    certify a verdict about a number nothing downstream uses.
+
+    The band is scaled with the total rather than carried across in
+    absolute points: it represents a proportion of the package's value
+    that rests on the offense<->IDP exchange rate, and a consolidation
+    premium does not make that rate any better known.  Scaling also
+    errs toward the wider band on the side receiving the VA, which
+    matches ``cross_market``'s posture of withholding near-boundary
+    verdicts rather than asserting them.
+    """
+    total = pkg.total
+    if total is None or total <= 0:
+        return pkg
+    scale = adjusted_total / total
+    return replace(
+        pkg,
+        total=adjusted_total,
+        uncertainty_band=pkg.uncertainty_band * scale,
+    )
+
+
+def _market_stamp(pkg: PackageValuation, *, verbose: bool = True) -> dict[str, Any]:
+    """Provenance for a package total, renderable by the caller.
+
+    ``verbose=False`` for the per-candidate stamp.  The prose warnings
+    run ~500 characters and are near-identical across every package on
+    the same market, so repeating them on 50 candidates adds ~25 KB to
+    a response for no information the fixed side does not already
+    carry.  The version string is likewise constant and lives once in
+    ``market_diagnostics``.
+    """
+    stamp = {
+        "market": pkg.market,
+        "market_strategy": pkg.strategy.value,
+        "market_uncertainty_band": int(round(pkg.uncertainty_band)),
+    }
+    if verbose:
+        stamp["market_normalization_version"] = pkg.normalization_version
+        stamp["market_warnings"] = list(pkg.warnings)
+    return stamp
+
+
+def _unvaluable_stamp(pkg: PackageValuation) -> dict[str, Any]:
+    """Provenance for a package that has no defensible total."""
+    return {
+        "market": None,
+        "market_strategy": pkg.strategy.value,
+        "market_uncertainty_band": 0,
+        "market_normalization_version": pkg.normalization_version,
+        "market_unvaluable_reason": pkg.suppressed_reason,
+        "market_unvaluable_label": pkg.label,
+    }
+
+
+def _package_players(
+    entries: Iterable[dict[str, Any]],
+    pkg: PackageValuation,
+) -> list[dict[str, Any]]:
+    """Player rows whose ``market_source`` matches the package total.
+
+    ``value_package`` preserves input order, so asset *i* is entry *i*.
+    Labelling each player with the board the PACKAGE was priced on —
+    rather than the board that player's position indexes — is the whole
+    point: a WR inside an IDP package really was priced on IDPTC, and
+    the UI badge should say so.
+
+    ``market_source`` is deliberately ``pkg.market`` and not the
+    asset's ``raw_market_source``.  On the scalar-fallback path those
+    two differ: an asset the target board does not price is read off
+    the OTHER board and converted, so its raw source would badge a
+    value that is no longer denominated in it.  The raw board is kept,
+    but under ``market_converted_from``, where it reads as provenance
+    instead of as a contradiction of the number beside it.
+    """
+    rows: list[dict[str, Any]] = []
+    for entry, asset in zip(entries, pkg.assets):
+        converted = bool(asset.converted)
+        rows.append(
+            {
+                "name": entry["name"],
+                "position": entry["position"],
+                "my_value": int(entry["my_value"]),
+                "market_value": int(round(float(asset.normalized_market_value or 0.0))),
+                "market_source": pkg.market or asset.raw_market_source,
+                "market_converted": converted,
+                "market_converted_from": asset.raw_market_source if converted else None,
+            }
+        )
+    return rows
+
+
+def _new_market_diagnostics() -> dict[str, Any]:
+    return {
+        "combos_valued": 0,
+        "unvaluable": 0,
+        "withheld_uncertain": 0,
+        "reasons": {},
+        "normalization_version": NORMALIZATION_VERSION,
+    }
+
+
+def _note_reason(diag: dict[str, Any], reason: str | None) -> None:
+    key = (reason or "unspecified")[:160]
+    diag["reasons"][key] = diag["reasons"].get(key, 0) + 1
+
+
+def _diagnostic_warnings(diag: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    if diag["unvaluable"]:
+        out.append(
+            f"{diag['unvaluable']} package(s) excluded: no single market prices every "
+            "asset in them, and Angle will not substitute a cross-board sum."
+        )
+    if diag["withheld_uncertain"]:
+        out.append(
+            f"{diag['withheld_uncertain']} package(s) withheld: the market gap sits "
+            "inside the cross-market uncertainty band around the plausibility gate, "
+            "so the verdict is too close to call."
+        )
+    return out
 
 
 def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
@@ -403,11 +613,60 @@ def find_angle_packages(
         _value_pair(r)[0]
         for r in offer_rows  # type: ignore[index]
     )
-    offer_market_total = sum(
-        _value_pair(r)[1]
-        for r in offer_rows  # type: ignore[index]
-    )
     offer_size = len(offer_rows)
+    diag = _new_market_diagnostics()
+
+    # Offer side: ONE market for the whole package, or no total at all.
+    # The user picks these names freely, with no IDP filter in the way,
+    # so this is the side where a mixed-board sum was reachable from the
+    # UI without any opt-in.
+    offer_pkg = value_package(offer_rows)
+    offer_entries = [
+        {
+            "name": str(r.get("canonicalName") or r.get("displayName") or ""),
+            "position": str(r.get("position") or ""),
+            "my_value": _value_pair(r)[0],  # type: ignore[index]
+        }
+        for r in offer_rows
+    ]
+    if not offer_pkg.is_rankable:
+        _note_reason(diag, offer_pkg.suppressed_reason)
+        diag["unvaluable"] += 1
+        warnings.append(
+            offer_pkg.label or "Offer cannot be valued on a single market — no results."
+        )
+        return {
+            "offer": {
+                "team": None,
+                "size": offer_size,
+                "players": [
+                    {
+                        "name": e["name"],
+                        "position": e["position"],
+                        "my_value": int(e["my_value"]),
+                        "market_value": 0,
+                        "market_source": None,
+                    }
+                    for e in offer_entries
+                ],
+                "my_total": int(round(offer_my_total)),
+                "market_total": 0,
+                **_unvaluable_stamp(offer_pkg),
+            },
+            "candidates": [],
+            "market_diagnostics": diag,
+            "warnings": warnings,
+        }
+    offer_market_total = float(offer_pkg.total or 0.0)
+    if offer_pkg.uncertainty_band > 0:
+        # One line in the UI banner; the full measured/assumed wording
+        # lives in the offer block's ``market_warnings`` so a caller
+        # that wants it can render it without burying the page.
+        warnings.append(
+            f"Offer priced on {offer_pkg.market} because it spans offense and IDP; "
+            f"±{int(round(offer_pkg.uncertainty_band))} pts of that total rests on an "
+            "assumed offense<->IDP exchange rate."
+        )
 
     # Target sizes: N-1, N, N+1 — never less than 1.
     target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
@@ -440,7 +699,7 @@ def find_angle_packages(
             pair = _value_pair(row)
             if pair is None:
                 continue
-            my_v, market_v, market_source = pair
+            my_v = pair[0]
             # Per-player filters: position allow-list, my-value floor,
             # and the IDP gate. IDP players get filtered out of the
             # candidate pool by default because most leaguemates don't
@@ -449,7 +708,7 @@ def find_angle_packages(
             row_pos = str(row.get("position") or "").strip().upper()
             if position_filter is not None and row_pos not in position_filter:
                 continue
-            if not include_idp and row_pos in _IDP_POSITIONS:
+            if not include_idp and _is_idp_position(row_pos):
                 continue
             if my_v < min_my_value_floor:
                 continue
@@ -458,8 +717,10 @@ def find_angle_packages(
                     "name": pname,
                     "position": str(row.get("position") or ""),
                     "my_value": my_v,
-                    "market_value": market_v,
-                    "market_source": market_source,
+                    # ``row`` is the payload: package market values are
+                    # produced by ``value_package`` from the contract
+                    # row, never by re-reading a per-position site key.
+                    "row": row,
                 }
             )
         pool.sort(key=lambda p: -p["my_value"])
@@ -472,10 +733,9 @@ def find_angle_packages(
         (float(_value_pair(r)[0]) for r in offer_rows),
         reverse=True,  # type: ignore[index]
     )
-    offer_market_values = sorted(
-        (float(_value_pair(r)[1]) for r in offer_rows),
-        reverse=True,  # type: ignore[index]
-    )
+    # Market side comes from the single-market valuation, NOT from
+    # per-player ``_value_pair`` reads — that plain sum was the defect.
+    offer_market_values = sorted(_market_values(offer_pkg), reverse=True)
 
     # Normalise target-team + seed inputs for constructed-package mode.
     target_ids: set[str] = {str(t).strip() for t in (target_team_owner_ids or []) if str(t).strip()}
@@ -488,13 +748,11 @@ def find_angle_packages(
         pair = _value_pair(row)
         if pair is None:
             return None
-        my_v, market_v, market_source = pair
         return {
             "name": str(row.get("canonicalName") or row.get("displayName") or ""),
             "position": str(row.get("position") or ""),
-            "my_value": my_v,
-            "market_value": market_v,
-            "market_source": market_source,
+            "my_value": pair[0],
+            "row": row,
         }
 
     def _make_candidate(
@@ -505,14 +763,33 @@ def find_angle_packages(
         # Apply KTC-style Value Adjustment so consolidation packages
         # (e.g. 3 studs vs 4 filler pieces whose raws happen to match)
         # don't slip through the thresholds on pure sum-of-raws.
+        #
+        # My-value gate runs FIRST and unchanged. It is pure arithmetic
+        # on values already in hand, it rejects the overwhelming
+        # majority of combos, and both gates are conjunctive — so
+        # ordering it ahead of the market valuation is free and keeps
+        # ``value_package`` off the hot path.
         counter_my_values = [p["my_value"] for p in combo]
-        counter_market_values = [p["market_value"] for p in combo]
         (
             counter_my_adj,
             offer_my_adj,
             counter_my_va,
             offer_my_va,
         ) = _adjusted_pair_totals(counter_my_values, offer_my_values)
+        if offer_my_adj <= 0:
+            return None
+        my_gain_pct = 100.0 * (counter_my_adj - offer_my_adj) / offer_my_adj
+        if my_gain_pct < min_my_gain_pct:
+            return None
+
+        # Counter side: one market for the whole package, or nothing.
+        counter_pkg = value_package([p["row"] for p in combo])
+        diag["combos_valued"] += 1
+        if not counter_pkg.is_rankable:
+            diag["unvaluable"] += 1
+            _note_reason(diag, counter_pkg.suppressed_reason)
+            return None
+        counter_market_values = _market_values(counter_pkg)
         (
             counter_market_adj,
             offer_market_adj,
@@ -520,31 +797,33 @@ def find_angle_packages(
             offer_market_va,
         ) = _adjusted_pair_totals(counter_market_values, offer_market_values)
 
-        if offer_my_adj <= 0 or offer_market_adj <= 0:
+        if offer_market_adj <= 0:
             return None
-        my_gain_pct = 100.0 * (counter_my_adj - offer_my_adj) / offer_my_adj
         market_gain_pct = 100.0 * (counter_market_adj - offer_market_adj) / offer_market_adj
-        if my_gain_pct < min_my_gain_pct:
-            return None
         if market_gain_pct > max_market_gain_pct:
             return None
 
+        # Does the verdict survive its own uncertainty?  For the
+        # offense-only default both bands are zero and this is certain
+        # by construction; it only bites when IDP is in play, which is
+        # exactly when the offense<->IDP exchange rate is load-bearing.
+        comparison = compare_packages(
+            _restate_on(counter_pkg, counter_market_adj),
+            _restate_on(offer_pkg, offer_market_adj),
+            gate_pct=max_market_gain_pct,
+        )
+        if not comparison.verdict_certain:
+            diag["withheld_uncertain"] += 1
+            _note_reason(diag, comparison.suppressed_reason)
+            return None
+
         my_sum = sum(counter_my_values)
-        market_sum = sum(counter_market_values)
+        market_sum = float(counter_pkg.total or 0.0)
         return {
             "team": team_label,
             "owner_id": owner_id_label,
             "size": len(combo),
-            "players": [
-                {
-                    "name": p["name"],
-                    "position": p["position"],
-                    "my_value": int(p["my_value"]),
-                    "market_value": int(p["market_value"]),
-                    "market_source": p["market_source"],
-                }
-                for p in combo
-            ],
+            "players": _package_players(combo, counter_pkg),
             "my_total": int(round(my_sum)),
             "market_total": int(round(market_sum)),
             "my_total_adjusted": int(round(counter_my_adj)),
@@ -557,7 +836,14 @@ def find_angle_packages(
             "offer_market_value_adjustment": int(round(offer_market_va)),
             "my_gain_pct": round(my_gain_pct, 2),
             "market_gain_pct": round(market_gain_pct, 2),
+            "market_gain_low_pct": (
+                round(comparison.gain_low_pct, 2) if comparison.gain_low_pct is not None else None
+            ),
+            "market_gain_high_pct": (
+                round(comparison.gain_high_pct, 2) if comparison.gain_high_pct is not None else None
+            ),
             "arb_score": round(my_gain_pct - market_gain_pct, 2),
+            **_market_stamp(counter_pkg, verbose=False),
         }
 
     if target_ids:
@@ -689,18 +975,8 @@ def find_angle_packages(
         candidates = kept
     candidates = candidates[: max(1, int(limit))]
 
-    offer_players = []
-    for r in offer_rows:
-        pair = _value_pair(r)
-        offer_players.append(
-            {
-                "name": str(r.get("canonicalName") or ""),
-                "position": str(r.get("position") or ""),
-                "my_value": int(pair[0]) if pair else 0,
-                "market_value": int(pair[1]) if pair else 0,
-                "market_source": pair[2] if pair else _market_source_for(r.get("position")),
-            }
-        )
+    offer_players = _package_players(offer_entries, offer_pkg)
+    warnings.extend(_diagnostic_warnings(diag))
 
     return {
         "offer": {
@@ -709,8 +985,12 @@ def find_angle_packages(
             "players": offer_players,
             "my_total": int(round(offer_my_total)),
             "market_total": int(round(offer_market_total)),
+            # Verbose here and nowhere else: the fixed side is the one
+            # place the measured/assumed wording is worth carrying.
+            **_market_stamp(offer_pkg),
         },
         "candidates": candidates,
+        "market_diagnostics": diag,
         "thresholds": {
             "min_my_gain_pct": min_my_gain_pct,
             "max_market_gain_pct": max_market_gain_pct,
@@ -852,8 +1132,57 @@ def find_acquisition_packages(
         }
 
     desired_my_total = sum(_value_pair(r)[0] for r in desired_rows)  # type: ignore[index]
-    desired_market_total = sum(_value_pair(r)[1] for r in desired_rows)  # type: ignore[index]
     desired_size = len(desired_rows)
+    diag = _new_market_diagnostics()
+
+    # Fixed side: one market for the whole acquire package, or nothing.
+    # ``desired_player_names`` comes straight from the user's picks on
+    # opposing rosters with no IDP filter, so this side mixes boards as
+    # freely as the offer side of ``find_angle_packages`` did.
+    desired_pkg = value_package(desired_rows)
+    desired_entries = [
+        {
+            "name": str(r.get("canonicalName") or r.get("displayName") or ""),
+            "position": str(r.get("position") or ""),
+            "my_value": _value_pair(r)[0],  # type: ignore[index]
+        }
+        for r in desired_rows
+    ]
+    if not desired_pkg.is_rankable:
+        _note_reason(diag, desired_pkg.suppressed_reason)
+        diag["unvaluable"] += 1
+        warnings.append(desired_pkg.label or "Acquire package cannot be valued on a single market.")
+        return {
+            "acquire": {
+                "team": my_team.get("name"),
+                "size": desired_size,
+                "players": [
+                    {
+                        "name": e["name"],
+                        "position": e["position"],
+                        "my_value": int(e["my_value"]),
+                        "market_value": 0,
+                        "market_source": None,
+                        "owner_id": desired_owners.get(e["name"], ""),
+                    }
+                    for e in desired_entries
+                ],
+                "my_total": int(round(desired_my_total)),
+                "market_total": 0,
+                "targets": [],
+                **_unvaluable_stamp(desired_pkg),
+            },
+            "candidates": [],
+            "market_diagnostics": diag,
+            "warnings": warnings,
+        }
+    desired_market_total = float(desired_pkg.total or 0.0)
+    if desired_pkg.uncertainty_band > 0:
+        warnings.append(
+            f"Acquire package priced on {desired_pkg.market} because it spans offense and "
+            f"IDP; ±{int(round(desired_pkg.uncertainty_band))} pts of that total rests on "
+            "an assumed offense<->IDP exchange rate."
+        )
 
     target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
 
@@ -877,14 +1206,14 @@ def find_acquisition_packages(
         pair = _value_pair(row)
         if pair is None:
             continue
-        my_v, market_v, market_source = pair
+        my_v = pair[0]
         row_pos = str(row.get("position") or "").strip().upper()
         if position_filter is not None and row_pos not in position_filter:
             continue
         # IDP gate — see docstring on find_angle_packages. Fixed side
         # (desired players) is never filtered; this only restricts the
         # offer-side pool built from the user's own roster.
-        if not include_idp and row_pos in _IDP_POSITIONS:
+        if not include_idp and _is_idp_position(row_pos):
             continue
         if my_v < min_my_value_floor:
             continue
@@ -893,8 +1222,8 @@ def find_acquisition_packages(
                 "name": pname,
                 "position": str(row.get("position") or ""),
                 "my_value": my_v,
-                "market_value": market_v,
-                "market_source": market_source,
+                # See find_angle_packages: ``row`` is what gets priced.
+                "row": row,
             }
         )
     pool.sort(key=lambda p: -p["my_value"])
@@ -905,10 +1234,7 @@ def find_acquisition_packages(
         (float(_value_pair(r)[0]) for r in desired_rows),
         reverse=True,  # type: ignore[index]
     )
-    desired_market_values = sorted(
-        (float(_value_pair(r)[1]) for r in desired_rows),
-        reverse=True,  # type: ignore[index]
-    )
+    desired_market_values = sorted(_market_values(desired_pkg), reverse=True)
 
     def _make_candidate(combo: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:
         # Arbitrage math: user receives ``desired_*``, gives up
@@ -916,14 +1242,28 @@ def find_acquisition_packages(
         # 4 filler to land 3 studs) isn't treated as a fair swap just
         # because raw totals line up — the consolidated side carries a
         # premium on both my-value and market-value.
+        #
+        # My-value gate first — same reasoning as find_angle_packages.
         offer_my_values = [p["my_value"] for p in combo]
-        offer_market_values = [p["market_value"] for p in combo]
         (
             desired_my_adj,
             offer_my_adj,
             desired_my_va,
             offer_my_va,
         ) = _adjusted_pair_totals(desired_my_values, offer_my_values)
+        if offer_my_adj <= 0:
+            return None
+        my_gain_pct = 100.0 * (desired_my_adj - offer_my_adj) / offer_my_adj
+        if my_gain_pct < min_my_gain_pct:
+            return None
+
+        offer_pkg = value_package([p["row"] for p in combo])
+        diag["combos_valued"] += 1
+        if not offer_pkg.is_rankable:
+            diag["unvaluable"] += 1
+            _note_reason(diag, offer_pkg.suppressed_reason)
+            return None
+        offer_market_values = _market_values(offer_pkg)
         (
             desired_market_adj,
             offer_market_adj,
@@ -931,29 +1271,27 @@ def find_acquisition_packages(
             offer_market_va,
         ) = _adjusted_pair_totals(desired_market_values, offer_market_values)
 
-        if offer_my_adj <= 0 or offer_market_adj <= 0:
+        if offer_market_adj <= 0:
             return None
-        my_gain_pct = 100.0 * (desired_my_adj - offer_my_adj) / offer_my_adj
         market_gain_pct = 100.0 * (desired_market_adj - offer_market_adj) / offer_market_adj
-        if my_gain_pct < min_my_gain_pct:
-            return None
         if market_gain_pct > max_market_gain_pct:
             return None
 
+        comparison = compare_packages(
+            _restate_on(desired_pkg, desired_market_adj),
+            _restate_on(offer_pkg, offer_market_adj),
+            gate_pct=max_market_gain_pct,
+        )
+        if not comparison.verdict_certain:
+            diag["withheld_uncertain"] += 1
+            _note_reason(diag, comparison.suppressed_reason)
+            return None
+
         offer_my_sum = sum(offer_my_values)
-        offer_market_sum = sum(offer_market_values)
+        offer_market_sum = float(offer_pkg.total or 0.0)
         return {
             "size": len(combo),
-            "players": [
-                {
-                    "name": p["name"],
-                    "position": p["position"],
-                    "my_value": int(p["my_value"]),
-                    "market_value": int(p["market_value"]),
-                    "market_source": p["market_source"],
-                }
-                for p in combo
-            ],
+            "players": _package_players(combo, offer_pkg),
             "my_total": int(round(offer_my_sum)),
             "market_total": int(round(offer_market_sum)),
             "my_total_adjusted": int(round(offer_my_adj)),
@@ -966,7 +1304,14 @@ def find_acquisition_packages(
             "acquire_market_value_adjustment": int(round(desired_market_va)),
             "my_gain_pct": round(my_gain_pct, 2),
             "market_gain_pct": round(market_gain_pct, 2),
+            "market_gain_low_pct": (
+                round(comparison.gain_low_pct, 2) if comparison.gain_low_pct is not None else None
+            ),
+            "market_gain_high_pct": (
+                round(comparison.gain_high_pct, 2) if comparison.gain_high_pct is not None else None
+            ),
             "arb_score": round(my_gain_pct - market_gain_pct, 2),
+            **_market_stamp(offer_pkg, verbose=False),
         }
 
     candidates: list[dict[str, Any]] = []
@@ -981,20 +1326,10 @@ def find_acquisition_packages(
     candidates.sort(key=lambda c: c["arb_score"], reverse=True)
     candidates = candidates[: max(1, int(limit))]
 
-    desired_players = []
-    for r in desired_rows:
-        pair = _value_pair(r)
-        dname = str(r.get("canonicalName") or "")
-        desired_players.append(
-            {
-                "name": dname,
-                "position": str(r.get("position") or ""),
-                "my_value": int(pair[0]) if pair else 0,
-                "market_value": int(pair[1]) if pair else 0,
-                "market_source": pair[2] if pair else _market_source_for(r.get("position")),
-                "owner_id": desired_owners.get(dname, ""),
-            }
-        )
+    desired_players = _package_players(desired_entries, desired_pkg)
+    for p in desired_players:
+        p["owner_id"] = desired_owners.get(p["name"], "")
+    warnings.extend(_diagnostic_warnings(diag))
 
     # Deduplicated list of target teams the desired players come from.
     targets: list[dict[str, Any]] = []
@@ -1013,8 +1348,10 @@ def find_acquisition_packages(
             "my_total": int(round(desired_my_total)),
             "market_total": int(round(desired_market_total)),
             "targets": targets,
+            **_market_stamp(desired_pkg),
         },
         "candidates": candidates,
+        "market_diagnostics": diag,
         "thresholds": {
             "min_my_gain_pct": min_my_gain_pct,
             "max_market_gain_pct": max_market_gain_pct,
