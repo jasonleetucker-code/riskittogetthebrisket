@@ -5,9 +5,9 @@ probe is log-only until the operator opts in to a notification channel.
 
 ## What it checks (every 5 minutes)
 
-1. `https://riskittogetthebrisket.org/api/health` — full external path:
+1. `https://chaseupside.com/api/health` — full external path:
    DNS → TLS → nginx → FastAPI backend.
-2. `https://riskittogetthebrisket.org/` — nginx → Next.js frontend.
+2. `https://chaseupside.com/` — nginx → Next.js frontend.
 3. `http://127.0.0.1:8000/api/health` — backend direct (distinguishes
    "backend down" from "nginx/TLS broken"); disable with
    `CHECK_LOCAL=false`.

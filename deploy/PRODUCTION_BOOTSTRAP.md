@@ -8,7 +8,7 @@ Current production target:
 - app path: `/home/dynasty/trade-calculator`
 - venv path: `/home/dynasty/.venvs/trade-calculator`
 - service: `dynasty`
-- domain: `riskittogetthebrisket.org`
+- domain: `chaseupside.com`
 
 ## 1) Repo-managed bootstrap (safe to rerun)
 
@@ -72,18 +72,18 @@ sudo /home/dynasty/.venvs/trade-calculator/bin/python -m playwright install-deps
 
 ## 3) Reverse proxy and TLS
 
-The nginx site config is maintained in `deploy/nginx/riskittogetthebrisket.org.conf`.
+The nginx site config is maintained in `deploy/nginx/chaseupside.com.conf`.
 
 Install or update:
 
 ```bash
-sudo cp deploy/nginx/riskittogetthebrisket.org.conf /etc/nginx/sites-available/riskittogetthebrisket.org
-sudo ln -sf /etc/nginx/sites-available/riskittogetthebrisket.org /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/chaseupside.com.conf /etc/nginx/sites-available/chaseupside.com
+sudo ln -sf /etc/nginx/sites-available/chaseupside.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Routing:
-1. `riskittogetthebrisket.org` terminates TLS at nginx.
+1. `chaseupside.com` terminates TLS at nginx.
 2. HTTP (`:80`) redirects to HTTPS (`:443`).
 3. `/api/*` → Python backend (`127.0.0.1:8000`).
 4. `/_next/*` → Next.js frontend (`127.0.0.1:3000`) — static assets.
@@ -97,7 +97,7 @@ From server:
 ```bash
 sudo -n /bin/systemctl is-active dynasty
 curl -fsS http://127.0.0.1:8000/api/status | head -c 400
-curl -fsS https://riskittogetthebrisket.org/api/health | head -c 400
+curl -fsS https://chaseupside.com/api/health | head -c 400
 ```
 
 From GitHub:

@@ -17,7 +17,7 @@ const BACKEND_ORIGIN = (() => {
 
 // NOTE ON DEPLOYMENT SCOPE: in production, nginx routes every ``/api/*``
 // request (including ``/api/dynasty-data``) straight to the Python
-// backend — see ``deploy/nginx/riskittogetthebrisket.org.conf`` — where
+// backend — see ``deploy/nginx/chaseupside.com.conf`` — where
 // ``server.py::get_dynasty_data_alias`` already honors the caller's
 // ``view``/``leagueKey``.  This Next route only handles the dev flow
 // (no nginx in front) and any Next-fronted deployment.  The improvements

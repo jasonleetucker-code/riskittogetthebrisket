@@ -83,7 +83,7 @@ for the big picture first.
 
 3. Smoke-test:
    ```
-   curl -s -o /dev/null -w "%{http_code}\n" https://riskittogetthebrisket.org/api/health
+   curl -s -o /dev/null -w "%{http_code}\n" https://chaseupside.com/api/health
    ```
 
 ## How do I add a test?

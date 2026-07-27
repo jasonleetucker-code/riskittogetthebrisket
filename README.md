@@ -1,7 +1,7 @@
 # Risk It To Get The Brisket — Dynasty Trade Calculator
 
 Private repo for the dynasty trade calculator stack powering
-[riskittogetthebrisket.org](https://riskittogetthebrisket.org).
+[chaseupside.com](https://chaseupside.com).
 
 **Architecture at a glance:**
 - **Backend:** Python 3.12 FastAPI + Uvicorn (port 8000).

@@ -14,7 +14,7 @@ Let's Encrypt in front of `dynasty.service` (FastAPI :8000) and
 
 ---
 
-## 1. nginx — `deploy/nginx/riskittogetthebrisket.org.conf`
+## 1. nginx — `deploy/nginx/chaseupside.com.conf`
 
 | Change | Rationale |
 |---|---|
@@ -148,7 +148,7 @@ faults.  So:
 ## 5. Uptime monitoring — `deploy/monitoring/` (new)
 
 `uptime_check.sh` + `riskit-uptime.service`/`.timer` (+ README):
-every 5 minutes probes `https://riskittogetthebrisket.org/api/health`,
+every 5 minutes probes `https://chaseupside.com/api/health`,
 the frontend root, and the local backend port; appends one line per run
 to `/var/log/riskit-uptime.log`.
 
@@ -221,8 +221,8 @@ bash deploy/verify-deploy.sh
 Every step is independently reversible:
 
 - **nginx**: the apply script leaves
-  `/etc/nginx/sites-available/riskittogetthebrisket.org.bak.<timestamp>`.
-  `sudo cp <backup> /etc/nginx/sites-available/riskittogetthebrisket.org
+  `/etc/nginx/sites-available/chaseupside.com.bak.<timestamp>`.
+  `sudo cp <backup> /etc/nginx/sites-available/chaseupside.com
   && sudo nginx -t && sudo systemctl reload nginx`.
 - **Service units**: `git checkout <previous-commit> --
   deploy/systemd/dynasty.service.template
