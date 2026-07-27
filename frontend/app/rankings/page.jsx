@@ -6,6 +6,8 @@ import {
   resolvedRank,
   RANKING_SOURCES,
   siteOverridesAreCustomized,
+  valuationBasisLabel,
+  valuationBasisOf,
 } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
@@ -227,6 +229,7 @@ export default function RankingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const {
     settings,
+    hydrated: settingsHydrated,
     update: updateSetting,
     updateSiteWeight,
     resetSiteWeights,
@@ -644,6 +647,15 @@ export default function RankingsPage() {
         "Sources",
         ...sourceHeaders,
       ];
+      // Stamp the value basis as a column on every row, not as a
+      // preamble line. An export outlives the app: once these numbers
+      // are in a spreadsheet, a league-adjusted board and a market
+      // board are indistinguishable, and the two answer different
+      // questions about the same player. A header line would be lost
+      // the first time someone sorts or pastes a subset; a column
+      // travels with the row it describes.
+      headers.push("Value Basis");
+      const basisCell = valuationBasisLabel(rawData);
       const lines = [headers.map(escape).join(joiner)];
       displayRows.forEach((row) => {
         const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
@@ -669,6 +681,7 @@ export default function RankingsPage() {
             actionStr,
             row.sourceCount || 0,
             ...sourceCells,
+            basisCell,
           ]
             .map(escape)
             .join(joiner),
@@ -676,7 +689,7 @@ export default function RankingsPage() {
       });
       return lines;
     },
-    [displayRows],
+    [displayRows, rawData],
   );
 
   async function copyValues() {
@@ -1117,7 +1130,13 @@ export default function RankingsPage() {
           <>
             <SegmentedControl
               label="Value basis"
-              value={settings.valuationMode || "market"}
+              // null until settings hydrate: before that ``settings`` is
+              // SETTINGS_DEFAULTS, so highlighting "Market" would assert
+              // a value basis this device may not be on. Unchecked for
+              // one frame beats confidently wrong — the highlight is the
+              // only thing telling the user which board the numbers came
+              // from.
+              value={settingsHydrated ? settings.valuationMode || "market" : null}
               onChange={(v) => updateSetting("valuationMode", v)}
               options={[
                 { value: "market", label: "Market" },

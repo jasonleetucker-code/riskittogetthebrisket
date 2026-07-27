@@ -9,7 +9,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from src.data_models.contracts import utc_now_iso
 
@@ -5631,6 +5631,51 @@ _TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.15
 _TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
 _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
 
+# ── WIRED 2026-07-27: the flat multiplier is now a measured curve ─────
+#
+# ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` above is retained as the FALLBACK
+# and as the operator slider's default.  The live default path for
+# non-TEP sources is now ``te_premium.convert_te_value(value,
+# from_basis="base", to_basis=_BOARD_TE_BASIS)`` — KTC's own measured
+# base → TE++ uplift, fitted from the two boards this repo already
+# scrapes (``CSVs/site_raw/ktc.csv`` vs ``ktcSfTep.csv``, 73 paired TEs,
+# R² 0.941 in log space).
+#
+# WHY THIS IS NOT A SECOND PREMIUM.  The blend anchors on ``ktcSfTep``,
+# which IS KTC's TE++ board, and every non-TEP source's TE contribution
+# was ALREADY being scaled to align with it.  What changes is only the
+# magnitude of that existing alignment.  1.15 matched nothing observed
+# anywhere in the data: KTC's smallest actual uplift is 1.209 and it
+# reaches 2.053 down the board, so every tight end was under-lifted.
+# The double-count guard is unaffected — KTC stays exempt, and
+# ``convert_te_value`` is a no-op when ``from_basis == to_basis``, so
+# asking to put a TE++ board on TE++ cannot move it.
+#
+# WHY THE TARGET BASIS IS A CONSTANT AND NOT THE LEAGUE'S.
+# ``te_premium.measure_te_demand`` answers "which basis does THIS league
+# need?" from roster structure — and that is a LEAGUE property, while
+# this board is SCORING-PROFILE scoped and shared.  Measured on the live
+# registry: ``dynasty_main`` (2 mandatory TEs) wants ``tepp`` and
+# ``dynasty_new`` (1 TE) wants ``base``, and the two share the
+# ``superflex_tep15_ppr1`` profile.  Threading league demand in here
+# would let one league's roster shape reprice the other's board — the
+# exact collapse CLAUDE.md's core split exists to prevent.  So the blend
+# does Axis A only (align every source onto the basis the board is
+# already anchored on) and Axis B belongs in the league-scoped overlay,
+# ``src/league_intel/publish.py``, where ``tePremium`` is a named
+# inactive axis.
+#
+# The operator's ``/settings`` TE-premium slider still wins: an explicit
+# ``tep_multiplier`` bypasses the curve entirely, because a number the
+# operator typed is a decision, not a measurement to be overruled.
+#
+# TEP-native sources keep the flat 1.10.  ``convert_te_value`` refuses
+# any pair other than base <-> tepp — only those two KTC boards are
+# published, so an intermediate "tep -> tepp" uplift would be invented
+# rather than measured, and it raises instead of interpolating.
+_BOARD_TE_BASIS: str = "tepp"
+_TE_SOURCE_DEFAULT_BASIS: str = "base"
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,
@@ -6155,6 +6200,7 @@ def _compute_unified_rankings(
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
     tep_native_correction: float = 1.0,
+    tep_multiplier_is_override: bool = False,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -6194,12 +6240,20 @@ def _compute_unified_rankings(
     board is the canonical reference everyone else aligns to):
 
       * Sources flagged ``is_tep_premium=False`` (DLF, FantasyPros,
-        Flock, etc.) have their TE contributions multiplied by
-        ``tep_multiplier`` (default
-        ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` = 1.15, operator
-        slider clamped [1.0, 1.5]).  These sources price TEs for a
-        standard league; the multiplier boosts them to the league's
-        actual TEP.
+        Flock, etc.) price TEs for a standard league, so their TE
+        contributions are lifted onto the basis this board is anchored
+        on.  Since 2026-07-27 that lift is KTC's own MEASURED base →
+        TE++ uplift curve
+        (``src/league_intel/te_premium.convert_te_value``), which is
+        rank-dependent: 1.209 at the top of the board rising toward
+        2.05 down it.  The flat
+        ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` = 1.15 remains as the
+        fallback and as the operator slider's default, and an explicit
+        ``tep_multiplier`` (slider, clamped [1.0, 1.5]) bypasses the
+        curve.  ``RISKIT_FEATURE_TE_BASIS_CONVERSION=0`` restores the
+        flat path.  See the ``_BOARD_TE_BASIS`` comment block for why
+        the target basis is a constant rather than the league's own
+        measured TE demand.
       * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds
         SF-TEP, IDPTC) have their TE contributions multiplied by
         ``tep_native_multiplier`` (default
@@ -6284,6 +6338,55 @@ def _compute_unified_rankings(
         if tep_native_multiplier is not None
         else _TE_BLANKET_NATIVE_MULTIPLIER
     )
+
+    # Axis A — TE basis conversion (see the ``_BOARD_TE_BASIS`` block).
+    # Active only when the flag is on AND the operator has not typed an
+    # explicit slider value; a number the operator chose is a decision,
+    # not a measurement to overrule.  Resolved ONCE here rather than per
+    # row: this decides which of two branches the hot loop takes, and
+    # re-deciding it 20,000 times would be both slow and a place for the
+    # two paths to disagree.
+    # ``tep_multiplier`` is NEVER None here — the caller always resolves
+    # it to the operator's slider value, the Sleeper-derived value, or
+    # the 1.15 default before calling.  So "did the operator choose a
+    # number?" has to arrive as its own flag; testing the value for None
+    # would gate on a condition that can never be true, which is exactly
+    # the defect class §6.15 catalogues.
+    #
+    # The DERIVED value does not block the curve, deliberately.  It comes
+    # from ``bonus_rec_te`` — the scoring axis ADR-009 retracted, and
+    # which reads 0.0 for this league in 2026.  The basis question is
+    # structural (how many TEs must be started), not a scoring key.
+    te_basis_conversion = False
+    _convert_te_value = None
+    if not tep_multiplier_is_override:
+        try:
+            from src.api import feature_flags  # noqa: PLC0415
+
+            if feature_flags.is_enabled("te_basis_conversion"):
+                from src.league_intel.te_premium import (  # noqa: PLC0415
+                    convert_te_value as _convert_te_value,
+                )
+                from src.league_intel.te_premium import load_tep_curve  # noqa: PLC0415
+
+                # Warm the memoized curve outside the loop and prove the
+                # conversion is callable before committing the hot path
+                # to it — a lazily-discovered ImportError mid-blend would
+                # take out the whole board.
+                load_tep_curve()
+                _convert_te_value(1000.0, from_basis="base", to_basis=_BOARD_TE_BASIS)
+                te_basis_conversion = True
+        except Exception as exc:  # noqa: BLE001
+            # Degrade to the flat multiplier rather than serving no
+            # board.  Loud, because a silent fallback here is
+            # indistinguishable from the feature working.
+            logging.warning(
+                "TE basis conversion unavailable (%r); falling back to the flat "
+                "%.2f multiplier for non-TEP sources",
+                exc,
+                _TE_BLANKET_NON_NATIVE_MULTIPLIER,
+            )
+            te_basis_conversion = False
 
     # Build the active source list honoring user-supplied overrides.
     # This is the only place ranks + weights are gated, so downstream
@@ -6944,11 +7047,45 @@ def _compute_unified_rankings(
             # Any future league-level TE adjustment must select a target
             # BASIS (see ``src/league_intel/te_premium.py``) rather than
             # multiply a factor in on top of this alignment.
+            #
+            # WIRED 2026-07-27: the non-TEP branch now does exactly that.
+            # ``convert_te_value`` moves the contribution from the basis
+            # a standard board sits on ("base") to the basis this board
+            # is anchored on ("tepp", i.e. ktcSfTep), using KTC's own
+            # measured uplift instead of a flat 1.15 that matched nothing
+            # in the data. Read the ``_BOARD_TE_BASIS`` block before
+            # touching this — in particular why the target is a constant
+            # and not the league's own measured demand.
+            #
+            # The conversion is idempotent by construction (a second
+            # call sees from == to), so this cannot compound even if the
+            # branch is somehow reached twice. That property is the
+            # double-count guard, and it is why the API takes two bases
+            # rather than returning a multiplier.
+            tep_basis_uplift: float | None = None
             if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:
                 if source_key in tep_boosted_source_keys:
-                    value = min(value * effective_non_tep_multiplier, 9999.0)
+                    pre_te_value = value
+                    if te_basis_conversion:
+                        value = min(
+                            float(
+                                _convert_te_value(
+                                    value,
+                                    from_basis=_TE_SOURCE_DEFAULT_BASIS,
+                                    to_basis=_BOARD_TE_BASIS,
+                                )
+                            ),
+                            9999.0,
+                        )
+                        if pre_te_value > 0:
+                            tep_basis_uplift = value / pre_te_value
+                    else:
+                        value = min(value * effective_non_tep_multiplier, 9999.0)
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
+                    # Unchanged: only base <-> tepp is measured, so a
+                    # TEP-native board has no conversion to make without
+                    # inventing an intermediate uplift.
                     value = min(value * effective_native_multiplier, 9999.0)
                     tep_native_corrected = True
             all_values.append(value)
@@ -6978,7 +7115,17 @@ def _compute_unified_rankings(
             meta["isAnchor"] = is_anchor_source
             if tep_applied:
                 meta["tepBoostApplied"] = True
-                meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)
+                if tep_basis_uplift is not None:
+                    # Stamped so the change is auditable per player per
+                    # source: which bases were used and what uplift they
+                    # actually produced at this value. Without it a
+                    # rank-dependent curve is indistinguishable from a
+                    # flat constant by looking at the payload.
+                    meta["tepBasisFrom"] = _TE_SOURCE_DEFAULT_BASIS
+                    meta["tepBasisTo"] = _BOARD_TE_BASIS
+                    meta["tepMultiplier"] = round(tep_basis_uplift, 4)
+                else:
+                    meta["tepMultiplier"] = round(effective_non_tep_multiplier, 4)
             if tep_native_corrected:
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(effective_native_multiplier, 4)
@@ -8352,6 +8499,7 @@ def build_api_data_contract(
                 tep_multiplier=tep_multiplier_effective,
                 tep_native_multiplier=tep_native_multiplier_effective,
                 tep_native_correction=tep_native_correction,
+                tep_multiplier_is_override=(tep_multiplier_source == "override"),
             )
             for _orig, _copy in zip(players_array, _pa_copy):
                 _rdv = _copy.get("rankDerivedValue")
@@ -8375,6 +8523,7 @@ def build_api_data_contract(
         tep_multiplier=tep_multiplier_effective,
         tep_native_multiplier=tep_native_multiplier_effective,
         tep_native_correction=tep_native_correction,
+        tep_multiplier_is_override=(tep_multiplier_source == "override"),
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -8663,6 +8812,51 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
 )
 
 
+def apply_valuation_factors(
+    rows: list[dict[str, Any]],
+    factors: Mapping[str, float] | None,
+    *,
+    anchor_year: int | None = None,
+) -> int:
+    """Multiply ``rankDerivedValue`` by a per-player factor and re-rank.
+
+    Mutates ``rows`` IN PLACE and returns how many rows were re-valued.
+    Callers must therefore own ``rows`` — never hand this
+    ``latest_contract_data``'s list.  ``build_rankings_delta_payload``
+    owns a freshly-built contract, which is why it can.
+
+    This exists so the rankings-override endpoint can serve a board that
+    is BOTH re-weighted and league-adjusted.  The client cannot compose
+    those two: the overlay's ranks are the ranks of
+    ``default_consensus x factor``, while the correct answer is the rank
+    of ``overridden_consensus x factor`` — a board the server had never
+    computed.  Computing it here is the fix that unblocks the
+    combination rather than continuing to refuse it.
+
+    Ranking goes through :func:`compact_ranks_and_tiers`, the one
+    ranker, so an adjusted board is ranked by exactly the same rules as
+    the default one.
+    """
+    if not factors:
+        return 0
+    moved = 0
+    for row in rows:
+        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
+        factor = factors.get(name)
+        base = row.get("rankDerivedValue")
+        if factor and isinstance(base, (int, float)) and base > 0:
+            row["rankDerivedValue"] = int(round(float(base) * float(factor)))
+            moved += 1
+    if not moved:
+        return 0
+    compact_ranks_and_tiers(
+        rows,
+        anchor_year=anchor_year if anchor_year is not None else current_rookie_draft_year(),
+        copy_rows=False,
+    )
+    return moved
+
+
 def build_rankings_delta_payload(
     raw_payload: dict[str, Any],
     *,
@@ -8670,6 +8864,7 @@ def build_rankings_delta_payload(
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
+    valuation_factors: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -8715,6 +8910,18 @@ def build_rankings_delta_payload(
         _for_delta=True,
     )
 
+    # League-adjusted composition.  Applied AFTER the override pipeline
+    # has produced the re-weighted board, so the factors land on the
+    # user's own consensus values and the re-rank is over that board —
+    # not over the default one.  ``full`` is freshly built and owned by
+    # this call, so mutating its rows is safe.
+    valuation_adjusted_count = 0
+    if valuation_factors:
+        valuation_adjusted_count = apply_valuation_factors(
+            full.get("playersArray") or [],
+            valuation_factors,
+        )
+
     delta_players: list[dict[str, Any]] = []
     active_ids: list[str] = []
     for row in full.get("playersArray") or []:
@@ -8747,6 +8954,16 @@ def build_rankings_delta_payload(
         "dataSource": full.get("dataSource"),
         "playerCount": full.get("playerCount"),
     }
+    if valuation_factors is not None:
+        # Stamped whether or not anything moved.  "the lens was applied
+        # and moved nothing" and "the lens was never applied" are
+        # different states, and a client that cannot tell them apart
+        # will render one as the other.
+        payload["valuationAdjustment"] = {
+            "applied": True,
+            "adjustedCount": valuation_adjusted_count,
+            "factorCount": len(valuation_factors),
+        }
     warnings = full.get("warnings")
     if warnings:
         payload["warnings"] = list(warnings)

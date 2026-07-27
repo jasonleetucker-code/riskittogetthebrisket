@@ -97,6 +97,23 @@ class WeeklyDefensiveStatRow:
     the source CSV; we drop the prefix here so the dataclass reads
     naturally, but the underlying fetcher reads from the prefixed
     columns.
+
+    THE THREE TACKLE FIELDS ARE GAMEBOOK VALUES, NOT RAW COLUMNS.
+    nflverse's ``def_tackles_solo`` counts *unassisted* tackles only and
+    excludes ``def_tackles_with_assist`` (measured: 342 of 9,994 2024
+    rows have solo 0 with with_assist > 0).  Its ``def_tackles`` is the
+    gamebook SOLO total — ``solo + with_assist``, an exact identity on
+    9,994 of 9,994 rows — not combined tackles.  So::
+
+        tackles_solo     = def_tackles_solo + def_tackles_with_assist
+        tackles_assist   = def_tackle_assists
+        tackles_combined = tackles_solo + tackles_assist
+
+    ``src.nfl_data.actuals_store.normalize_defensive_row`` is the mapper
+    that applies this; a caller populating this dataclass by hand from
+    raw columns must do the same or it will under-report every defender.
+    The unified 2025+ release drops ``def_tackles`` entirely, so reading
+    it directly now yields zero.
     """
 
     player_id_gsis: str

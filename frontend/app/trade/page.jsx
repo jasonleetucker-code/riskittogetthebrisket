@@ -32,6 +32,7 @@ import {
   buildSlotDollarGrid,
   buildLeagueStacks,
 } from "@/lib/pick-stack";
+import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import RosTradeFitPanel from "@/components/RosTradeFitPanel";
@@ -86,7 +87,11 @@ const TradeSourceBreakdown = SharedTradeSourceBreakdown;
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings, update: updateSetting } = useSettings();
+  const {
+    settings,
+    hydrated: settingsHydrated,
+    update: updateSetting,
+  } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
 
@@ -1215,11 +1220,11 @@ export default function TradePage() {
     const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     _downloadFile(
       `trade-${iso}.csv`,
-      tradeWorkspaceToCSV(sides, valueMode),
+      tradeWorkspaceToCSV(sides, valueMode, valuationBasisLabel(rawData)),
       "text/csv",
     );
     setExportStatus("CSV downloaded.");
-  }, [sides, valueMode, _downloadFile]);
+  }, [sides, valueMode, rawData, _downloadFile]);
 
   const exportJson = useCallback(() => {
     const iso = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
@@ -1560,7 +1565,11 @@ export default function TradePage() {
         actions={
           <SegmentedControl
             label="Value basis"
-            value={settings.valuationMode || "market"}
+            // Unchecked until settings hydrate — see the matching note on
+            // /rankings. It matters more here: a trade verdict rendered
+            // under a basis label the user did not choose is the single
+            // most dangerous thing this page can show.
+            value={settingsHydrated ? settings.valuationMode || "market" : null}
             onChange={(v) => updateSetting("valuationMode", v)}
             options={[
               { value: "market", label: "Market" },
@@ -1571,9 +1580,19 @@ export default function TradePage() {
       />
 
       {/* A trade verdict that silently changed basis is the most
-          dangerous thing this page can do. Say which board it is on. */}
-      {settings.valuationMode === "leagueAdjusted" &&
-      rawData?.valuationOverlay ? (
+          dangerous thing this page can do. Say which board it is on.
+
+          Gated on the CONTRACT, not on `settings.valuationMode`. The
+          setting is what the user asked for; the contract is what they
+          got, and the two diverge whenever the overlay fetch fails, the
+          scrape-version pin refuses, or the server finds no roster
+          snapshot. Reading the setting would label a market board
+          "league-adjusted" in exactly those cases.
+
+          `valuationBasisOf` also covers the server-composed path
+          (custom weights + the lens), which carries no client-applied
+          overlay object of its own. */}
+      {valuationBasisOf(rawData) === "leagueAdjusted" ? (
         <Banner tone="info" title="Valued on your league's board">
           Values and ranks are adjusted for positional scarcity measured from
           this league&apos;s 12 rosters. Draft picks carry no scarcity

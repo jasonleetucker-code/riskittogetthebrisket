@@ -238,6 +238,21 @@ Steps:
 5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
    IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
    tooling only — rookie sources ladder-translate first)
+5a. TE basis conversion (2026-07-27, ADR-015).  TE rows from non-TEP
+   sources are lifted onto the basis the board is anchored on via
+   ``src/league_intel/te_premium.convert_te_value(from_basis="base",
+   to_basis="tepp")`` — KTC's own measured uplift, 1.209 at the top of
+   the board rising toward 2.05 down it.  Replaces a flat 1.15 that sat
+   below the entire observed range.  ``ktc`` / ``ktcSfTep`` are exempt
+   (the anchor IS the TE++ board) and the conversion is a no-op when
+   ``from == to``, so the double-count guard is structural.  TEP-native
+   sources keep the flat 1.10 — only base ↔ tepp is measured.
+   **The target basis is a CONSTANT, not the league's measured TE
+   demand**: demand is a leagueKey property and this board is
+   scoring-profile scoped, and the two live leagues on
+   ``superflex_tep15_ppr1`` want different bases.  That half is overlay
+   work.  Rollback: ``RISKIT_FEATURE_TE_BASIS_CONVERSION=0``; an
+   explicit operator slider value bypasses the curve regardless.
 6. Hierarchical anchor + α-shrinkage (α=0.10) ONLY for IDP and
    picks; offense takes a flat count-aware mean-median across all
    sources.  Pick rows widen the anchor set to include ktcSfTep so

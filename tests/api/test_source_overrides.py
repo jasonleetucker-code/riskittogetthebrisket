@@ -1240,3 +1240,134 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestValuationFactorComposition(unittest.TestCase):
+    """Server-side composition of source overrides + the league lens.
+
+    The two used to be mutually exclusive, and the reason was sound: the
+    overlay endpoint ranks against the UN-overridden board, so applying
+    its ranks to a re-weighted board gives ranks of
+    ``default_consensus x factor`` when the right answer is the rank of
+    ``overridden_consensus x factor``. The server had never computed the
+    latter. It does now, and these pin that it is the latter.
+
+    The distinction is invisible in a payload's shape — both produce a
+    delta with values, ranks and tiers — so every assertion below is
+    about the arithmetic relationship between them.
+    """
+
+    def test_factors_multiply_the_overridden_values_not_the_default_ones(self) -> None:
+        """The whole point, expressed as a ratio.
+
+        Build the same board twice, once with an override and once
+        without, then apply the same factor to each. If the factors were
+        being applied to the default board, the two adjusted results
+        would be identical; they must not be.
+        """
+        plain = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            source_overrides={"ktcSfTep": {"include": False}},
+        )
+        plain_vals = {e["id"]: e.get("rankDerivedValue") for e in plain["rankingsDelta"]["players"]}
+        movers = [n for n, v in plain_vals.items() if isinstance(v, int) and v > 0]
+        self.assertTrue(movers, "fixture produced no priced rows to adjust")
+
+        factors = {name: 1.20 for name in movers}
+        adjusted = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            source_overrides={"ktcSfTep": {"include": False}},
+            valuation_factors=factors,
+        )
+        adj_vals = {
+            e["id"]: e.get("rankDerivedValue") for e in adjusted["rankingsDelta"]["players"]
+        }
+        for name in movers:
+            self.assertEqual(
+                adj_vals[name],
+                int(round(plain_vals[name] * 1.20)),
+                f"{name}: factor was not applied to the OVERRIDDEN value",
+            )
+
+    def test_ranks_are_recomputed_over_the_adjusted_board(self) -> None:
+        """A factor that reorders players must reorder ranks.
+
+        Boosting only the lower-valued half is the test: if ranks were
+        carried over from the pre-adjustment board, the order would be
+        unchanged and this passes vacuously — so it asserts an actual
+        reordering happened.
+        """
+        plain = build_rankings_delta_payload(_fixture_raw_payload())
+        rows = [
+            (e["id"], e.get("rankDerivedValue"), e.get("canonicalConsensusRank"))
+            for e in plain["rankingsDelta"]["players"]
+            if isinstance(e.get("rankDerivedValue"), int)
+            and isinstance(e.get("canonicalConsensusRank"), int)
+        ]
+        rows.sort(key=lambda r: r[2])
+        if len(rows) < 2:
+            self.skipTest("fixture has fewer than two ranked rows")
+
+        # Boost the LAST-ranked row hard enough to pass the first.
+        target = rows[-1][0]
+        top_value = rows[0][1]
+        factor = (top_value * 2.0) / max(rows[-1][1], 1)
+        adjusted = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            valuation_factors={target: factor},
+        )
+        new_ranks = {
+            e["id"]: e.get("canonicalConsensusRank") for e in adjusted["rankingsDelta"]["players"]
+        }
+        self.assertEqual(
+            new_ranks[target], 1, "the boosted row did not take rank 1 — ranks are stale"
+        )
+
+    def test_ranks_stay_dense_and_contiguous_after_adjustment(self) -> None:
+        plain = build_rankings_delta_payload(_fixture_raw_payload())
+        names = [
+            e["id"]
+            for e in plain["rankingsDelta"]["players"]
+            if isinstance(e.get("rankDerivedValue"), int) and e["rankDerivedValue"] > 0
+        ]
+        adjusted = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            valuation_factors={n: 1.1 for n in names},
+        )
+        ranks = sorted(
+            e["canonicalConsensusRank"]
+            for e in adjusted["rankingsDelta"]["players"]
+            if isinstance(e.get("canonicalConsensusRank"), int)
+        )
+        self.assertEqual(ranks, list(range(1, len(ranks) + 1)))
+
+    def test_no_factors_is_byte_identical_to_the_plain_override_path(self) -> None:
+        """The composition must be inert when the lens is off — the
+        default path is the one every user is on."""
+        a = build_rankings_delta_payload(
+            _fixture_raw_payload(), source_overrides={"ktcSfTep": {"include": False}}
+        )
+        b = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            source_overrides={"ktcSfTep": {"include": False}},
+            valuation_factors=None,
+        )
+        # Compare the ranking payload rather than the whole envelope —
+        # the envelope carries build timestamps that differ by
+        # microseconds between two calls and say nothing about the
+        # composition path.
+        self.assertEqual(a["rankingsDelta"], b["rankingsDelta"])
+        self.assertEqual(a.get("rankingsOverride"), b.get("rankingsOverride"))
+        self.assertNotIn("valuationAdjustment", a)
+        self.assertNotIn("valuationAdjustment", b)
+
+    def test_an_empty_factor_map_is_reported_as_applied_but_inert(self) -> None:
+        """`applied and moved nothing` and `never applied` are different
+        states. A caller that cannot tell them apart renders one as the
+        other, which is the exact confusion this endpoint removes."""
+        payload = build_rankings_delta_payload(
+            _fixture_raw_payload(), valuation_factors={"Nobody At All": 1.5}
+        )
+        self.assertEqual(payload["valuationAdjustment"]["applied"], True)
+        self.assertEqual(payload["valuationAdjustment"]["adjustedCount"], 0)
+        self.assertEqual(payload["valuationAdjustment"]["factorCount"], 1)

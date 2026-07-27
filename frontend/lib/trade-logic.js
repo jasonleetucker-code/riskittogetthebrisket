@@ -1519,7 +1519,19 @@ export function tradeWorkspaceToJSON(sides, valueMode, activeSide) {
   return JSON.stringify(serializeWorkspaceMulti(sides, valueMode, activeSide), null, 2);
 }
 
-export function tradeWorkspaceToCSV(sides, valueMode = "full") {
+// `valueBasis` is the human-readable board these values came from
+// ("Market consensus" / "League-adjusted ..."), from
+// `valuationBasisLabel`. It rides as a COLUMN rather than a preamble
+// because an exported trade outlives the app: a market valuation and a
+// league-adjusted one answer different questions about the same trade,
+// and once the rows are in a spreadsheet nothing else distinguishes
+// them. A header line would be lost the first time someone sorts or
+// pastes a subset.
+//
+// Defaulted rather than required so an existing caller cannot silently
+// break — but the default says "unspecified", never "Market", because
+// guessing the basis is the exact error this column exists to prevent.
+export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") {
   const esc = (v) => {
     const s = v == null ? "" : String(v);
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -1529,10 +1541,13 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full") {
     const v = valueMode === "raw" ? (vals.raw ?? vals.full) : (vals.full ?? vals.raw);
     return v == null ? "" : Math.round(Number(v));
   };
-  const lines = ["Side,Asset,Position,Team,Value"];
+  const basis = valueBasis || "unspecified";
+  const lines = ["Side,Asset,Position,Team,Value,Value Basis"];
   for (const s of sides || []) {
     for (const r of s.assets || []) {
-      lines.push([s.label, r.name, r.pos || "", r.team || "", pickVal(r)].map(esc).join(","));
+      lines.push(
+        [s.label, r.name, r.pos || "", r.team || "", pickVal(r), basis].map(esc).join(","),
+      );
     }
   }
   return lines.join("\n") + "\n";

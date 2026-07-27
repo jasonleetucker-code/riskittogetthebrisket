@@ -12,6 +12,7 @@ import {
   Select,
   SkeletonTable,
   StatTile,
+  ValueBasisNote,
 } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
@@ -572,6 +573,8 @@ export default function WaiversPage() {
             : "Every unrostered player measured against your roster"
         }
       />
+
+      <ValueBasisNote contract={rawData} />
 
       {!signedOut && !leagueMismatch ? (
         <ManualAddDrop

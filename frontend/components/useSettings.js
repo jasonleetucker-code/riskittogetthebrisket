@@ -220,6 +220,34 @@ function getServerSnapshot() {
   return SETTINGS_DEFAULTS;
 }
 
+// ── Hydration signal ───────────────────────────────────────────────────
+//
+// ``getServerSnapshot`` is what React uses for BOTH the server render and
+// the client's hydration pass, so the first client render of every
+// settings consumer sees SETTINGS_DEFAULTS regardless of what is in
+// localStorage.  React then re-renders with ``getSnapshot``.
+//
+// For most settings that gap is invisible.  For ``valuationMode`` it is
+// not: a user whose persisted lens is "leagueAdjusted" gets one frame of
+// a toggle highlighting "Market" — which is not a cosmetic flicker but a
+// claim about which board the numbers on screen came from, on a page
+// where that claim decides trade verdicts.  It also costs a wasted
+// round-trip, because ``useDynastyData``'s fetch effect fires once on the
+// defaults and again after hydration.
+//
+// This is the canonical detector: the same store, read through a snapshot
+// pair that differs only in which side is asking.  No extra state, no
+// effect, and it flips in the same commit that brings the real settings
+// in — so a consumer gating on it can never be told "hydrated" while
+// still holding defaults.
+function getHydratedSnapshot() {
+  return true;
+}
+
+function getHydratedServerSnapshot() {
+  return false;
+}
+
 function notify(next) {
   cached = next;
   for (const cb of listeners) cb();
@@ -240,6 +268,16 @@ if (typeof window !== "undefined") {
  */
 export function useSettings() {
   const settings = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // False during SSR and the hydration pass, true from the first
+  // post-hydration render on.  While false, ``settings`` is
+  // SETTINGS_DEFAULTS and NOT this device's persisted values — see the
+  // note above ``getHydratedSnapshot``.  Consumers whose rendering makes
+  // a claim about a persisted value should gate on this.
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    getHydratedSnapshot,
+    getHydratedServerSnapshot,
+  );
 
   const update = useCallback((key, value) => {
     const next = { ...getSnapshot(), [key]: value };
@@ -283,5 +321,5 @@ export function useSettings() {
     notify({ ...SETTINGS_DEFAULTS });
   }, []);
 
-  return { settings, update, updateSiteWeight, resetSiteWeights, reset };
+  return { settings, hydrated, update, updateSiteWeight, resetSiteWeights, reset };
 }

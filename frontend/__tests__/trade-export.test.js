@@ -8,17 +8,33 @@ const sides = [
 
 describe("tradeWorkspaceToCSV", () => {
   it("emits header + a row per asset with the right value mode", () => {
-    const csv = tradeWorkspaceToCSV(sides, "full");
+    const csv = tradeWorkspaceToCSV(sides, "full", "Market consensus");
     const lines = csv.trim().split("\n");
-    expect(lines[0]).toBe("Side,Asset,Position,Team,Value");
-    expect(lines[1]).toBe("A,Josh Allen,QB,BUF,8000");
+    expect(lines[0]).toBe("Side,Asset,Position,Team,Value,Value Basis");
+    expect(lines[1]).toBe("A,Josh Allen,QB,BUF,8000,Market consensus");
     // comma in name must be quoted
-    expect(lines[2]).toBe('B,"Bijan, Jr.",RB,ATL,7000');
+    expect(lines[2]).toBe('B,"Bijan, Jr.",RB,ATL,7000,Market consensus');
   });
   it("raw mode falls back to full when raw missing", () => {
     const csv = tradeWorkspaceToCSV(sides, "raw");
     expect(csv).toContain("A,Josh Allen,QB,BUF,7900");
     expect(csv).toContain('"Bijan, Jr.",RB,ATL,7000');
+  });
+  it("says 'unspecified' rather than guessing when no basis is passed", () => {
+    // An export outlives the app: a market board and a league-adjusted
+    // board are indistinguishable in a spreadsheet, and they answer
+    // different questions about the same trade. A caller that forgets
+    // to pass the basis must produce an honestly blank cell, never a
+    // confident "Market" — guessing is the error the column exists to
+    // prevent.
+    const csv = tradeWorkspaceToCSV(sides, "full");
+    expect(csv.trim().split("\n")[1]).toBe("A,Josh Allen,QB,BUF,8000,unspecified");
+  });
+  it("carries the league-adjusted basis through to every row", () => {
+    const csv = tradeWorkspaceToCSV(sides, "full", "League-adjusted (x)");
+    const rows = csv.trim().split("\n").slice(1);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const r of rows) expect(r).toContain("League-adjusted (x)");
   });
 });
 

@@ -80,6 +80,29 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (falls back to static weights).  Promoted deliberately, not
     # automatically.
     "dynamic_source_weights": False,
+    # Collaborative audit, finding F — TE basis conversion at blend time.
+    #
+    # Replaces the flat ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.15) on
+    # non-TEP sources' TE contributions with KTC's own MEASURED base →
+    # TE++ uplift curve (``src/league_intel/te_premium.py``).  The blend
+    # is already anchored on ``ktcSfTep``, which IS the TE++ board, so
+    # this corrects the magnitude of an alignment that was happening
+    # anyway — it does not add a second one.  1.15 sits below the entire
+    # observed range (KTC's smallest actual uplift is 1.209), so every
+    # tight end was being lifted too little.
+    #
+    # ON by default and deliberately so.  A flag defaulting OFF here
+    # would repeat ORCHESTRATION.md 6.14/6.15's named mistake: the
+    # previous TE module was left unimported so "toggle off" would be
+    # byte-identical, which also meant the double-count guard could
+    # never fire on it.  Both paths are exercised by
+    # ``tests/api/test_te_basis_conversion.py``.
+    #
+    # This moves live consensus values for TEs, so it has a rollback:
+    # RISKIT_FEATURE_TE_BASIS_CONVERSION=0 restores the flat 1.15.  An
+    # explicit operator TE-premium slider value also wins over the
+    # curve regardless of this flag.
+    "te_basis_conversion": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
