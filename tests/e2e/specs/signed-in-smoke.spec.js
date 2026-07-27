@@ -26,7 +26,12 @@ const { test, expect } = require("../helpers/auth-fixture");
 // the backend's page proxy it renders the ANONYMOUS landing shell
 // even with a valid session, so this whole file would assert against
 // logged-out chrome.  API assertions below keep the backend baseURL.
-const { pageUrl, pageHeading, contractFixture } = require("../helpers/journey");
+const {
+  pageUrl,
+  pageHeading,
+  contractFixture,
+  desktopOnly,
+} = require("../helpers/journey");
 
 
 // ── Assertion policy for this file ─────────────────────────────────
@@ -43,6 +48,17 @@ const { pageUrl, pageHeading, contractFixture } = require("../helpers/journey");
 // names and data, never classes, colours or fonts.
 
 test.describe("signed-in: basic navigation + UI render", () => {
+  // Desktop only, and this gate is new.  The originals ran on every
+  // project, but they asserted body text that the shell prints at any
+  // viewport — so running them on mobile added a green tick, not
+  // coverage.  The replacements assert real page chrome (the team
+  // switcher in the top bar, page <h1>s), and the top-bar switcher is
+  // CSS-hidden at 390px where MobileChrome takes over: the element
+  // resolves but is `hidden`, so the assertion is genuinely
+  // viewport-coupled rather than flaky.  Mobile coverage lives in
+  // mobile-smoke.spec.js, per the convention in helpers/journey.js.
+  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+
   test("home dashboard renders the war-room surface with a real team list", async ({ authedPage }) => {
     const { teamNames } = await contractFixture(authedPage);
     expect(teamNames.length, "contract must carry Sleeper teams").toBeGreaterThan(0);
