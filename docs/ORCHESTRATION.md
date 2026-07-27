@@ -1042,9 +1042,12 @@ any KV read, so it says nothing about whether `user_kv` works for a
 signed-in user. Verifying that needs a session cookie the orchestrator
 does not hold. Unverified, not fine.
 
-### 6.12 The startup staleness check fires on a file nothing consumes — FIXED 2026-07-27 ~19:00
+### 6.12 The startup staleness check fires on a file nothing consumes — FIXED 2026-07-27 ~19:00, landed ~19:30
 
-**Closed.** The check now reads `scrapeTimestamp` from
+**Closed**, though the first attempt (#597) shipped a hook calling a
+probe that `.gitignore` had silently dropped — see §6.15, instance 5,
+for that and the fourth cheap check it produced. The check now reads
+`scrapeTimestamp` from
 `dynasty_data_*.json` and reports per-source coverage, exactly as
 prescribed below. Both defects named here are gone: the hardcoded 12h is
 replaced by `config/source_staleness.json`, and the mirror is no longer
@@ -1294,6 +1297,46 @@ nothing until the new guard has been watched firing:
 This closes §6.12, which left the fix deliberately undone as "worth ten
 minutes at the window".
 
+**The fix shipped broken, in the same defect class it was fixing.**
+Recorded in full because a pattern this section claims is *dominant*
+catching its own author, twice in one evening, is the strongest evidence
+for it available.
+
+The probe first shipped as a sibling file, `.claude/freshness.py`, with
+the hook invoking it as `python .claude/freshness.py 2>/dev/null || echo
+"UNKNOWN: …"`. But `.gitignore:28` ignores `.claude/` wholesale —
+`health-check.sh` survives only as a force-added exception. So `git
+add -A` skipped the probe **without a word**, the commit looked clean,
+CI was green, and #597 merged a hook that called a file `main` does not
+contain. Verified after the merge with `git cat-file -e
+origin/main:.claude/freshness.py` → absent.
+
+The result on every fresh clone: `UNKNOWN: freshness probe failed to
+run.` A check that cannot report anything, anywhere — which is precisely
+what the mtime version was, in a new costume. And the `2>/dev/null ||`
+was what hid it: a missing file and a genuine unknown were rendered
+identically, so the failure read as a data condition rather than a repo
+defect. **That is the same substitution the section is about**, made
+inside the fix for it.
+
+Two things this changes going forward:
+
+- **The probe is now inline in `health-check.sh`** as a heredoc, not a
+  sibling file. Not a style preference — a heredoc cannot be silently
+  dropped by the next `git add`, and `.claude/` will keep swallowing
+  anything placed beside the hook.
+- **Add a fourth cheap check** (below): *does the thing I just committed
+  actually exist where it will run?* `git add -A` reports success for
+  files it ignored. For anything under an ignored path, confirm with
+  `git cat-file -e <ref>:<path>` rather than trusting a clean status.
+
+Re-verified after inlining, with the sibling file **deleted** so the
+heredoc is genuinely what ran: healthy, contract 99h (**WARNING fires**),
+source dropped from `siteStats` (`ABSENT`), stamp missing (`UNKNOWN`),
+no contract (`UNKNOWN`), unparseable stamp (`UNKNOWN`), corrupt JSON
+(`UNKNOWN` naming the parse error). Six degraded paths, none reaching a
+confident "0h".
+
 **Cheap checks, in order of value:**
 1. *Can I make this test fail right now, deliberately?* If not, it is not
    a test. The house standard already requires observing a regression
@@ -1302,6 +1345,12 @@ minutes at the window".
    docstring claim?* Substring-vs-identity is the recurring gap.
 3. *Does the alarm have an off switch, and the exemption an expiry?*
    Anything that can only accumulate will eventually be ignored.
+4. *Does what I just committed exist where it will actually run?*
+   `git add -A` succeeds silently on ignored paths. For anything under
+   one — `.claude/` above all — verify with
+   `git cat-file -e <ref>:<path>`, not a clean `git status`. And never
+   let a swallowed error (`2>/dev/null ||`) render "the file is missing"
+   and "the data is unknown" as the same message.
 
 ### 6.4 Historical record — resolved blockers
 
