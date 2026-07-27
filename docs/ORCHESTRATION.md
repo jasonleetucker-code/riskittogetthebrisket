@@ -4,7 +4,49 @@ Maintained by the main orchestrator session. This file IS the unified plan,
 ownership model, git/integration policy, and dashboard. Update on every
 material change. Supersedes ad-hoc per-track instructions.
 
-**Amended 2026-07-27 ~06:40 UTC, against `origin/main` = `3e87d55d8`.**
+**Amended 2026-07-27 ~10:40 UTC, against `origin/main` = `5e1f49c32`.**
+
+Merged since the 06:40 amendment: **#584** (LI-7 wired — league-adjusted
+values computed and served), **#585** (collaborative audit: F-6 finder
+migration onto `rankDerivedValue`, security fixes, TE curve built but
+**unwired**), **#586** (LI-9 — the valuation toggle works end to end),
+**#587** (EXP-8, closing the TE measurement conflict). Open: **#589**
+(nflverse 2025 fix, CI running).
+
+**The cron is proven on a real scheduled trigger.** A `schedule`-event
+run fired 08:06 UTC on `1210d2db6` and went green — the first since the
+04:25 failure, on post-fix code. Four `workflow_dispatch` runs had
+already proven the *fix*; this proves the *trigger*, which is a
+different claim and was deliberately held open until observed. Note the
+scheduler dropped the 06:42 and 09:42 slots entirely, so slot-skipping
+is normal here and is not evidence of a fault.
+
+**The TE measurement conflict is CLOSED — there was never a
+disagreement.** ×1.368 is an April baseline; the July number is ~1.319.
+Four measurements, three independent code paths, one day: #585 got
+1.3187 from a direct CSV join, this session got 1.3187 independently,
+#587 got 1.3186968838526911 by running the LI workstream's own
+`measure_paired_te_premium`, and ADR-009 had already recorded the drift
+(1.3682 → 1.3196) months earlier. Controls byte-identical 390/390,
+drift 0.0. Recorded in `docs/collaborative-model-audit/EXPERIMENT_LOG.md`
+as EXP-8. **This unblocks the TE basis wiring**, which remains staged
+and deliberately not connected.
+
+**New §6.15 — the dominant defect class in this repo.** Four separate
+instances found in one session of *a guard that cannot fire*. Read it
+before writing another guard.
+
+**Scoring divergence measured** against the operator's default-scoring
+baseline league (already `BASELINE_LEAGUE_ID`, already scaffolded in
+`config/league_comparison.json` v1.2): **91 of 146 keys differ.**
+Receptions are distance-banded (`rec: 0.08` + `rec_0_4 .17` …
+`rec_40p 1.92`) so the mean is calibrated to 0.75 PPR while a checkdown
+back earns ~0.25/catch and a deep threat ~2.00 — an 8× spread every
+source prices as flat 0.75. IDP inverts the market (`idp_sack` 4.55 →
+2.92, `idp_pass_def` 2.11 → 5.32). This is the largest unexploited edge
+identified to date and it is gated on the nflverse fix in #589.
+
+**Prior amendment 2026-07-27 ~06:40 UTC, against `origin/main` = `3e87d55d8`.**
 #583 (rebrand → Chase Upside) merged. **§6.2 and §6.3 are CLOSED** —
 both were verified by reading current main, and both had been sitting
 marked OPEN for several merges after the work actually landed. New
@@ -1140,6 +1182,35 @@ answer.
 
 **Cheap check that would have caught it in one command, before any
 code:** `git grep -l leagueAdjusted -- src/`.
+
+### 6.15 The dominant defect class: a guard that cannot fire
+
+**Four instances found in one session, 2026-07-27.** Each was written in
+good faith, each looked like coverage, and each was structurally
+incapable of catching the thing it named. This is the most common real
+defect in this codebase and it is worth checking for by reflex.
+
+| guard | why it could not fire |
+|---|---|
+| `test_url_templates_contain_expected_paths` — docstring: *"if nflverse re-organizes their releases this test fails fast"* | asserted the substring `"player_stats"`, which the retired path `player_stats/player_stats_{year}.csv` satisfies right up until it 404s. Could not distinguish "the path exists" from "the path is named this". The 2025 rename went unnoticed for a season. (#589) |
+| the TE double-count invariant in `tests/league_intel/test_te_premium_invariants.py` | real and correct — but the module it would have caught was deliberately left unimported so "toggle off" would be byte-identical. A design whose safety argument is *"nothing calls it yet"* disables the tests that would catch it. |
+| `soft` staleness flag in `config/source_staleness.json` | had no upper bound, so an exempted source could die permanently and CI would never say so. A lapsed cookie and a dead vendor looked identical, forever. Fixed with `softEscalateHours`. |
+| the `stale-sources` alert issue | opened and commented on failure, with **no path that could ever close it**. An alert that cannot clear is indistinguishable from one nobody acted on, and stops being read. Fixed with a close-on-green step. |
+
+**The tell in all four:** the guard's *stated* purpose and its *actual*
+predicate differ, and nothing forces them to agree. A substring stands in
+for an identity; an import that never happens stands in for a call; an
+exemption with no bound stands in for a temporary one; an alarm with no
+reset stands in for a signal.
+
+**Cheap checks, in order of value:**
+1. *Can I make this test fail right now, deliberately?* If not, it is not
+   a test. The house standard already requires observing a regression
+   test fail pre-fix — extend it to guards written alongside new code.
+2. *What exactly does the predicate assert, versus what the name and
+   docstring claim?* Substring-vs-identity is the recurring gap.
+3. *Does the alarm have an off switch, and the exemption an expiry?*
+   Anything that can only accumulate will eventually be ignored.
 
 ### 6.4 Historical record — resolved blockers
 
