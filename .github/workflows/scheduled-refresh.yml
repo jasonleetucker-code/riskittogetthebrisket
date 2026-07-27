@@ -233,9 +233,14 @@ jobs:
           stamp_if_present ktc                CSVs/site_raw/ktc.csv               100
           stamp_if_present ktcSfTep           CSVs/site_raw/ktcSfTep.csv          100
           stamp_if_present idpTradeCalc       CSVs/site_raw/idpTradeCalc.csv       50
-          stamp_if_present dynastyNerdsSfTep  CSVs/site_raw/dynastyNerdsSfTep.csv  50
-          stamp_if_present fantasyProsSf      CSVs/site_raw/fantasyProsSf.csv      50
-          stamp_if_present fantasyProsIdp     CSVs/site_raw/fantasyProsIdp.csv     50
+          # NOTE: dynastyNerdsSfTep / fantasyProsSf / fantasyProsIdp used
+          # to be stamped here too.  They are now fetched below instead —
+          # see "Three sources were frozen" further down.  Leaving the
+          # stamps here would be actively harmful: ``stamp_if_present``
+          # only fires for a CSV the scraper rewrote this run, and the
+          # scraper no longer produces these at all, so the stamps could
+          # never fire and their presence implied a producer that does
+          # not exist.
 
           # Fetch Dynasty Daddy SF rankings
           run_fetcher dynastyDaddy:dynastyDaddySf "Dynasty Daddy" python scripts/fetch_dynasty_daddy.py --mirror-data-dir
@@ -308,6 +313,40 @@ jobs:
           # stays byte-identical between drops — the stamp is what
           # tracks that the fetcher itself succeeded each cycle.
           run_fetcher fantasyProsFitzmaurice "FP Fitzmaurice" python scripts/fetch_fantasypros_fitzmaurice.py
+
+          # ── Three sources were frozen. This unfreezes them. ─────────
+          #
+          # ``dynastyNerdsSfTep``, ``fantasyProsSf`` and ``fantasyProsIdp``
+          # had NO producer at all:
+          #
+          #   * ``Dynasty Scraper.py`` sets DynastyNerds / FantasyPros /
+          #     FantasyPros_IDP to ``False`` in its ``SITES`` dict
+          #     ("disabled in scope reduction") — only KTC and
+          #     IDPTradeCalc remain ``True``.
+          #   * Replacement fetchers were WRITTEN but never wired:
+          #     ``fetch_dynasty_nerds.py``, ``fetch_fantasypros_offense.py``
+          #     and ``fetch_fantasypros_idp.py`` had zero references in
+          #     .github/workflows/ before this change.
+          #
+          # So the only thing touching them was ``stamp_if_present``,
+          # which correctly declined to stamp a CSV nothing rewrote.
+          # Their last real fetch was 2026-07-25; the checked-in
+          # ``dynastyNerdsSfTep.csv`` dates from 2026-07-20. Measured
+          # 2026-07-27 against a live fetch: 131 of 269 shared players
+          # had moved >=10 ranks, 25 players were missing entirely, and
+          # the #2 overall asset was wrong (frozen said Drake Maye, live
+          # says Bijan Robinson). All three kept voting in every
+          # player's blend the whole time — 420 + 169 + 293 served rows
+          # of week-old data.
+          #
+          # All three fetchers were validated live before wiring:
+          # FantasyPros offense 540 players (QB 72 / RB 137 / TE 99 /
+          # WR 232), FantasyPros IDP 183, Dynasty Nerds 294 rows. Each
+          # is a plain ``requests.get`` against a public page — no auth,
+          # no paywall bypass — exactly like the fetchers above.
+          run_fetcher dynastyNerdsSfTep "Dynasty Nerds SF-TEP" python scripts/fetch_dynasty_nerds.py --mirror-data-dir
+          run_fetcher fantasyProsSf "FantasyPros Dynasty SF" python scripts/fetch_fantasypros_offense.py --mirror-data-dir
+          run_fetcher fantasyProsIdp "FantasyPros Dynasty IDP" python scripts/fetch_fantasypros_idp.py --mirror-data-dir
 
           # Fetch Justin Boone's Yahoo Sports dynasty trade value charts
           # (QB / RB / WR / TE).  Public web pages, no auth, so the
