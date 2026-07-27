@@ -502,26 +502,42 @@ So it missed real outages *and* invented fake ones, and the fake one is what
 exposed it: the reported 49h sent me looking for a scrape failure that did not
 exist.
 
-Two things the fix had to get right, neither of which is about mtime:
+It was also watching the wrong artifact. `exports/latest/site_raw/` is a raw
+mirror — `preflight.py::_seed_data_cache` copies `dynasty_data_*.json` and does
+**not** copy `site_raw/`, so the pipeline, the E2E suite and production all read
+the JSON. The 2h cron handles these three sources with `stamp_if_present` rather
+than `run_fetcher`, so the mirror is written only by full scraper runs and
+freezes for days with nothing wrong.
 
-- **The threshold was answering the wrong question.** IDPTradeCalc's real
-  publication cadence is 5–20 days in the offseason (measured across four months
-  of commits: gaps of 6, 8, 12, 18, 23 days). A 12h threshold on *content age*
-  fires permanently and trains the reader to skip the section — the same end
-  state as a guard that never fires. `config/source_staleness.json` already
-  states the right policy in its own comment: alert on **fetch success**, not
-  vendor publication. The check now measures the age of the last automated
-  refresh commit for that, and reports per-source content age as information
-  with no warning attached.
-- **The replacement needed its own guard.** Commit history is exactly what a
-  shallow clone lacks, and every age would silently compute as 0 — recreating
-  the original can't-fire bug in the fix for it. It now detects that and reports
-  `UNKNOWN` rather than clean.
+**A correction to my own first fix**, recorded because the error is the
+instructive part. That pass measured the mirror's commit cadence and concluded
+*"idpTradeCalc legitimately goes 5–20 days between updates in the offseason."*
+The gaps are real — 6, 8, 12, 18, 23 days — but the attribution was wrong: that
+is the cadence of **full scraper runs**, not of IDPTradeCalc publishing. I
+measured the instrument and described the vendor. The right conclusion (don't
+warn on it) came from the wrong premise, and would have survived indefinitely
+because the output looked correct. ORCHESTRATION.md §6.12 had diagnosed this
+correctly twelve hours earlier; I hadn't read it first.
 
-Verified all three paths: healthy (pipeline 3h against a 24h threshold, no
-warning), firing (threshold forced to 1h → warning appears), and shallow
-(`UNKNOWN`). The middle one matters most — a fix for a guard that could not fire
-is worth nothing until you have watched the new one fire.
+The check now reads `scrapeTimestamp` from the contract — an internal content
+stamp, so unlike mtime *or* commit dates it survives cloning and means the same
+thing everywhere. Threshold from `config/source_staleness.json`. Per-source
+health is reported as **coverage** (how many players carry a value), because
+that is what a dead source changes and a line count is not.
+
+Every degraded input had a path back to a confident "0h fresh", so all five are
+pinned — and the second one is the point:
+
+| path | result |
+|---|---|
+| healthy | 4h against 24h, silent |
+| contract 99h old | **WARNING fires** |
+| source dropped from `siteStats` | `ABSENT — source produced nothing this run` |
+| `scrapeTimestamp` missing | `UNKNOWN`, not 0h |
+| no contract file | `UNKNOWN` |
+
+A fix for a guard that could not fire is worth nothing until you have watched
+the new one fire.
 
 **Three cheap checks, in order of value:**
 

@@ -27,70 +27,32 @@ fi
 
 # 2. Scrape data freshness
 #
-# This check used to read filesystem mtime, which is wrong here and was wrong
-# in BOTH directions. Remote sessions clone the repo fresh, so mtime is
-# *checkout* time and carries no information about when data was fetched:
+# This read filesystem mtime and called it data freshness. It was wrong in
+# BOTH directions, which is how it got caught — see ORCHESTRATION.md §6.15.
+# Remote sessions clone the repo fresh, so mtime is *checkout* time:
 #
-#   - A fresh clone stamps every file with "now", so every source reads 0h and
-#     the warning CANNOT FIRE — even if the pipeline had been dead for months.
-#   - A branch switch rewrites only the files that differ, so untouched files
-#     keep an older mtime and read as stale when they are not. Measured
-#     2026-07-27: idpTradeCalc.csv reported 49h against a real content age of
-#     131h (82h under-reported) while ktc.csv reported 0h against 3h.
+#   - A fresh clone stamps every file "now", so every source reads 0h and the
+#     warning CANNOT FIRE even if the pipeline died months ago.
+#   - A branch switch rewrites only differing files, so unchanged ones keep an
+#     older mtime and read as stale. Measured 2026-07-27: idpTradeCalc.csv
+#     reported 49h against a real content age of 131h, ktc.csv 0h against 3h.
 #
-# So it simultaneously missed real outages and invented fake ones — see
-# docs/ORCHESTRATION.md §6.15.
+# It also watched the wrong artifact. `exports/latest/site_raw/` is a raw
+# mirror — `preflight.py::_seed_data_cache` copies `dynasty_data_*.json` and
+# does NOT copy `site_raw/`, so the pipeline, the E2E suite and production all
+# read the JSON. The mirror is written only by full scraper runs (the 2h cron
+# handles ktc/ktcSfTep/idpTradeCalc with `stamp_if_present`, not
+# `run_fetcher`), so it freezes for days with nothing wrong. §6.12 chased that
+# exact false alarm at 03:05 and reached the same place.
 #
-# What survives cloning is the commit history. The question the operator
-# actually wants answered is "is the scrape pipeline alive?", and
-# config/source_staleness.json is explicit that the alerting criterion is
-# FETCH SUCCESS, not vendor publication. The 2h cron commits whenever a fetch
-# changes anything, so the age of the last site_raw commit measures exactly
-# that. Per-source content age is reported separately and deliberately does
-# NOT warn: idpTradeCalc legitimately goes 5-20 days between updates in the
-# offseason (measured over four months of history), so warning on it would
-# fire permanently and train the reader to ignore this whole section.
-#
-# Known limitation, stated rather than hidden: a refresh that fetches
-# successfully but yields byte-identical output for every source produces no
-# commit and would read as an outage. In practice ktc.csv (500 rows of a live
-# market) changes on essentially every run, so a gap here is a real signal.
+# So the check reads `scrapeTimestamp` from the contract instead. It is an
+# internal content stamp, so unlike mtime or commit dates it survives cloning
+# and means the same thing everywhere. Per-source health is reported as
+# coverage — how many players actually carry a value — which is what a dead
+# source would change, and a line count would not.
 echo ""
 echo "--- Data Freshness ---"
-STALE_HOURS=$(python -c "import json;print(json.load(open('config/source_staleness.json'))['thresholds'].get('ktc',24))" 2>/dev/null || echo 24)
-NOW=$(date +%s)
-
-# Guard the guard: without commit history every age below reads as 0, which is
-# the exact false-clean the mtime version produced. Say so instead.
-if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null)" == "true" ]]; then
-  echo "  UNKNOWN: shallow clone — no commit history, cannot measure data freshness."
-  echo "  (Deepen with 'git fetch --unshallow' if this check matters here.)"
-else
-  LAST_REFRESH=$(git log -1 --format=%ct -- exports/latest/site_raw/ 2>/dev/null || echo "")
-  if [[ -z "$LAST_REFRESH" ]]; then
-    echo "  UNKNOWN: no commits touch exports/latest/site_raw/ — cannot measure."
-  else
-    PIPELINE_AGE=$(( (NOW - LAST_REFRESH) / 3600 ))
-    echo "  Pipeline: last refresh commit ${PIPELINE_AGE}h ago (threshold ${STALE_HOURS}h)"
-    if (( PIPELINE_AGE > STALE_HOURS )); then
-      echo "  WARNING: no data refresh in ${PIPELINE_AGE}h. Check scheduled-refresh workflow."
-    fi
-  fi
-
-  for csv in exports/latest/site_raw/ktc.csv exports/latest/site_raw/idpTradeCalc.csv; do
-    if [[ -f "$csv" ]]; then
-      LINES=$(wc -l < "$csv")
-      CHANGED=$(git log -1 --format=%ct -- "$csv" 2>/dev/null || echo "")
-      if [[ -n "$CHANGED" ]]; then
-        echo "  $(basename "$csv"): ${LINES} lines, content last changed $(( (NOW - CHANGED) / 86400 ))d ago"
-      else
-        echo "  $(basename "$csv"): ${LINES} lines, no commit history"
-      fi
-    else
-      echo "  $(basename "$csv"): MISSING"
-    fi
-  done
-fi
+python .claude/freshness.py 2>/dev/null || echo "  UNKNOWN: freshness probe failed to run."
 
 # 3. Git status
 echo ""
