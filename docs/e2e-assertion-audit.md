@@ -672,6 +672,137 @@ as D1/D2, and behind gate #12 firing routinely. It is a product-side
 fragility, not a test defect; the new source-health spec spans one 60s
 component refresh so it is deterministic rather than load-sensitive.
 
+## P2.6 — Results, and the honest bottom line
+
+### Before
+
+Measured on `origin/main` + the preflight fix (without it, nothing runs
+at all), against a frontend built from this branch on an isolated port:
+
+```
+  3 failed
+  30 skipped
+  145 passed (20.2m)
+EXIT=1
+```
+
+**The suite was already red.** The premise that it was green does not
+hold — Part 1 measured the same 145 / 30 / 3. The three failures were
+the known load-sensitive pair (D1/D2) plus `/api/data returns 200`.
+
+### After
+
+```
+  6 failed
+  34 skipped
+  146 passed (12.4m)
+```
+
+The +4 skips are exactly the two new spec files' four tests gating off
+`mobile-chromium` (`desktopOnly`), which is the intended behaviour.
+
+Of the six failures, **one was mine**: the rewritten home-dashboard test
+asserted the top-bar team switcher, which is CSS-hidden at 390px where
+`MobileChrome` takes over. Genuine viewport coupling, not flake — fixed
+by gating that describe block to desktop, matching the existing
+convention. Verified after the fix:
+
+```
+  ✓ [desktop-1366] home dashboard renders the war-room surface with a real team list (3.0s)
+  ✓ [desktop-1366] trade builder renders its own page body, not just the nav link (3.1s)
+  ✓ [desktop-1366] rosters page power-ranks every team in the contract (3.3s)
+  ✓ [desktop-1366] settings page lists the real ranking-source registry (1.6s)
+  - [mobile-chromium] (all four) — skipped, desktop journey
+```
+
+### The environment collapsed mid-session — and that is itself evidence
+
+The remaining failures are not attributable to this branch, and the
+proof is direct rather than inferred. The backend on `:8000` was booted
+by a **different worktree** (§3.2). That worktree was reclaimed and
+rebuilt underneath the still-running process:
+
+```
+$ ls -la .../worktrees/agent-ac26f9e0ef914b8f6/data/
+-rw-r--r--  4096  session_store.sqlite
+-rw-r--r--     0  user_kv.sqlite        <-- 0 bytes
+(no dynasty_data_*.json at all)
+```
+
+A zombie backend: the process survives, its in-memory contract still
+serves (`/api/data` → 1095 players, 12 teams), but every disk-backed
+endpoint is now broken:
+
+```
+$ curl -b cookies http://127.0.0.1:8000/api/user/state
+{"error":"internal_error","context":{"errorType":"OperationalError"}}   (a1=500 a2=500 a3=500)
+
+$ curl -b cookies http://127.0.0.1:8000/api/draft-capital
+{"error":"Draft data workbook not found or empty","leagueKey":"dynasty_main"}
+```
+
+`/api/user/state returns 200` **passed in the before baseline 20 minutes
+earlier**, and this branch changes no backend code. Restarting that
+process was not available (it belongs to another agent's workstream).
+
+**This turned into the best available demonstration of the PR's point.**
+`/api/draft-capital` silently lost its entire pick board. Before this
+branch there was **no test on that endpoint at all**, so the regression
+would have been completely invisible — a green run over a valuation
+endpoint returning nothing. With the new spec:
+
+```
+  ✘ api: draft capital valuation › GET /api/draft-capital prices a complete,
+    internally consistent pick board (587ms)
+
+    Error: draft-capital returned no picks
+    Expected: > 0
+    Received:   0
+```
+
+That is the entire thesis of this document, observed live and by
+accident: the difference between a suite that reports green and a suite
+that tells you the truth.
+
+### Is the green check trustworthy now?
+
+**More than it was, and in specific, nameable ways — but not yet fully.**
+
+Trustworthy now:
+
+* The suite **runs at all** from a clean checkout (P2.0).
+* The four signed-in page journeys can no longer pass on a blank page —
+  proven against a decoy, not asserted (P2.1).
+* The four `public-league-visual` tests assert something; previously,
+  under the documented run command, they asserted nothing.
+* Four permanently-off data gates are now assertions, so an empty
+  pipeline fails instead of skipping green.
+* Two untested high-blast-radius surfaces (pick valuation, trade
+  suggestions) now have invariants that survive the nightly refresh.
+
+Still NOT trustworthy, and these are the honest gaps:
+
+1. **Browser-observed `/api/*` behaviour is unverified against
+   production** (§3.1). The suite's page origin routes `/api/*` to Next
+   handlers that serve zero production traffic. This is the largest
+   remaining hole and it needs a harness change, not an assertion
+   change.
+2. **`critical-smoke.spec.js:169/176` still report green while executing
+   nothing.** Two annotation-and-return blocks over permanently-401
+   endpoints. Recorded, deliberately not fixed in the same PR as the
+   rewrites.
+3. **`/tools/ros-data-health`, `/intel`, `/trending`, `/angle`,
+   `/draft`, `/league-comparison`, `/players/compare`, `/more` remain
+   uncovered.** 25 of 33 selector-registry entries are still unused. The
+   two new files close the highest-value part of the gap, not the gap.
+4. **The suite silently reuses whatever stack is on :8000/:3000**
+   (§3.2). Tonight that meant testing another worktree's build, and then
+   a zombie. Until that is fixed, *any* run's provenance is unproven —
+   which is a trust problem at least as large as any individual
+   assertion.
+5. **`/league` per-tab content is asserted four sections deep, not
+   twelve** (§3.4), bounded by real SSR slowness rather than by choice.
+
 ### §3.5 The public-league privacy assertion: deliberately scoped
 
 Raised by the #578 handoff, which changed `/league/phases` to fetch
