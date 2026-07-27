@@ -129,6 +129,11 @@ jobs:
           DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
           DLF_USERNAME: ${{ secrets.DLF_USERNAME }}
           DLF_PASSWORD: ${{ secrets.DLF_PASSWORD }}
+          # Contents of ``idpshow_session.json`` — the browser-minted
+          # Substack cookie jar. Optional: absent means CI skips
+          # idpShow and the prod systemd timer remains its only
+          # producer, which is the behaviour before this secret existed.
+          IDPSHOW_SESSION_JSON: ${{ secrets.IDPSHOW_SESSION_JSON }}
         run: |
           set -Eeuo pipefail
 
@@ -355,6 +360,38 @@ jobs:
           # The stamp captures fetcher success on every cycle even when
           # the resolved article URL hasn't changed.
           run_fetcher yahooBoone "Yahoo Boone" python scripts/fetch_yahoo_boone.py
+
+          # IDP Show — only when the session secret is configured.
+          #
+          # The rankings sit behind a Substack paywall whose login is
+          # captcha-gated, so there is no credential pair to hand the
+          # fetcher; it needs a browser-minted cookie jar. Until this
+          # secret existed, the ONLY producer was the prod systemd
+          # timer (deploy/idpshow_fetch_and_push.sh) — which is why
+          # idpShow is soft-flagged in config/source_staleness.json.
+          #
+          # Written to a file and deleted in the same block rather than
+          # left on disk: the repo is committed from this working tree
+          # later in the job, and idpshow_session.json is gitignored,
+          # but relying on a gitignore entry to keep a live session
+          # cookie out of a public-ish commit is one edit away from
+          # leaking it. The trap fires on any exit path.
+          if [[ -n "${IDPSHOW_SESSION_JSON:-}" ]]; then
+            trap 'rm -f idpshow_session.json' EXIT
+            printf '%s' "$IDPSHOW_SESSION_JSON" > idpshow_session.json
+            # Validate before spending a request: a truncated or
+            # mis-pasted secret should say so plainly rather than
+            # surface as an indistinguishable "paywall" failure.
+            if python -c "import json,sys; d=json.load(open('idpshow_session.json')); sys.exit(0 if d.get('cookies') else 1)" 2>/dev/null; then
+              run_fetcher idpShow "IDP Show" python scripts/fetch_idpshow.py
+            else
+              echo "::warning title=IDP Show secret malformed::IDPSHOW_SESSION_JSON is set but is not JSON with a non-empty 'cookies' array. Skipping; the prod timer still covers idpShow."
+            fi
+            rm -f idpshow_session.json
+            trap - EXIT
+          else
+            echo "IDPSHOW_SESSION_JSON not configured; skipping idpShow (prod timer remains its producer)"
+          fi
 
           # IDP Show (Adamidp) is a Substack paywalled source with
           # captcha-protected login, so the scraper reads cached
