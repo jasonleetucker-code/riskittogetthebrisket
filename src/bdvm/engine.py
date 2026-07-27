@@ -54,6 +54,9 @@ class PlayerInput:
     n_sources: int = 1
     any_proxy: bool = False
     stale_source_count: int = 0
+    # Structured-event hooks (src/bdvm/events.py).  Defaults are inert.
+    event_sigma_mult: float = 1.0
+    event_hazard_mult: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -146,14 +149,17 @@ class DynastyEngine:
             a_eff = effective_age(self.params, pos, age_t, p.career_load + t * load_rate)
             A = aging_mult(self.params, pos, a_eff, p.archetype, dual_blend=p.dual_blend)
             mu = p.fpg * (A / A0) * ascension_mult(self.params, p.kappa, t)
-            sigma = sigma_fpg(
-                self.params,
-                pos,
-                max(mu, 0.1),
-                p.risk,
-                p.sigma_source,
-                t,
-                true_position_known=p.true_position_known,
+            sigma = (
+                sigma_fpg(
+                    self.params,
+                    pos,
+                    max(mu, 0.1),
+                    p.risk,
+                    p.sigma_source,
+                    t,
+                    true_position_known=p.true_position_known,
+                )
+                * p.event_sigma_mult
             )
             games = (
                 p.games
@@ -172,7 +178,13 @@ class DynastyEngine:
                 # the surplus is the truncated difference at that outcome.
                 ssv = max(0.0, mu_eval - R) * games
             if t > 0:
-                s_survive *= 1.0 - hazard(self.params, pos, age_t, p.risk, dc_decay)
+                h = hazard(self.params, pos, age_t, p.risk, dc_decay)
+                if p.event_hazard_mult != 1.0:
+                    clip = self.params["hazard_adjusters"]
+                    h = max(
+                        float(clip["clip_lo"]), min(float(clip["clip_hi"]), h * p.event_hazard_mult)
+                    )
+                s_survive *= 1.0 - h
             rows.append(
                 {
                     "t": t,

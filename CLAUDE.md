@@ -360,8 +360,19 @@ test-pinned (``tests/bdvm/``):
   market board above stays the market-value concept; BDVM is the
   fundamental-value concept; they are compared, never merged in place.
 - Reachable only behind the ``bdvm_engine`` feature flag (default OFF)
-  at ``GET /api/bdvm/values``.  ``surplusMode=option|truncated|plain``
-  exposes the option-value ablation.
+  at ``GET /api/bdvm/values`` (``surplusMode=option|truncated|plain``
+  exposes the option-value ablation), ``GET /api/bdvm/roster``
+  (strategy capitals + league-relative direction per roster) and
+  ``GET /api/bdvm/trades`` (double-positive scan: each side must gain
+  in its OWN strategy currency, gated by single-market fairness).
+- Projections come from immutable snapshots under
+  ``data/bdvm/projections/``: real sources via the manual-CSV adapter
+  when they exist, else the §8.3 reconstructed baseline built by
+  ``scripts/bdvm_build_baseline.py`` (realized nflverse PPG under the
+  league's exact scoring + rookie draft-slot priors, all flagged
+  ``is_proxy``).  Structured events (closed ontology,
+  ``config/bdvm/event_types_v1.json``) adjust module inputs — never a
+  final score — from ``data/bdvm/events/<season>.json``.
 - Fundamentals compute with ZERO market inputs; the market layer
   (``src/bdvm/market.py``) runs strictly afterward and reads only
   value-signal sources (``ktcSfTep``/``ktc``/``idpTradeCalc`` — never

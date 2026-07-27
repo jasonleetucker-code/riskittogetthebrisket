@@ -1,7 +1,65 @@
 # BDVM v1 Integration — Implementation Report
 
 Living report required by the master integration prompt (§20).
-Status date: **2026-07-27**.  Branch: `claude/fully-implemented-riu0zp`.
+Status date: **2026-07-27** (second pass — completion sweep).
+Branch: `claude/fully-implemented-riu0zp`.
+
+> **Second-pass addendum.** After the initial integration (sections
+> below), the remaining-work items that are implementable without
+> waiting for calendar time were implemented and live-verified:
+>
+> 1. **Structured event system (§7)** — closed 18-type ontology
+>    (`config/bdvm/event_types_v1.json`), confidence/reliability/decay
+>    scaling, speculation-widens-σ-only rule, reflected-event skip,
+>    module-targeted impacts through `PlayerInput` event hooks
+>    (`src/bdvm/events.py`; events load from `data/bdvm/events/<season>.json`).
+> 2. **Player context** (`src/bdvm/context.py`) — nflverse id-map
+>    (birth date → age fallback, overall draft pick → capital score,
+>    rookie season → NFL season) + career loads (touches/targets/
+>    dropbacks from weekly stats, defensive snaps from snap counts).
+>    Live: 721 of 727 priced players context-enriched, 519 with real
+>    draft capital, 718 with career loads.
+> 3. **Reconstructed-baseline projections are LIVE** —
+>    `scripts/bdvm_build_baseline.py` fetched 3 seasons of nflverse
+>    weekly stats (2023–25, REG only), scored them under the league's
+>    exact 141-key Sleeper scoring via the production realized-points
+>    path, and wrote an immutable snapshot: **2,815 proxy projections**
+>    (`src/bdvm/baseline.py`).  Rookie draft-slot priors (§8.3) are
+>    implemented and verified on the 2025 class (205 drafted rookies);
+>    the 2026 class activates when nflverse publishes 2026 draft data
+>    (currently absent upstream — verified, not a code gap).
+> 4. **First live board produced**: 727 players priced (322 IDP) from
+>    the committed contract export — replacement levels QB 11.96 /
+>    LB 8.60 / WR 6.48…, three visibly diverging currencies (e.g. the
+>    top-projected 30-year-old QB is the #1 contender asset and a
+>    rebuilder STRONG_SELL), 668 preseason ROS values, 48 picks priced.
+> 5. **Preseason ROS completed** — nflverse schedule fetch with bye
+>    weeks + fantasy-playoff weighting (`src/bdvm/schedule.py`), per
+>    player per strategy profile; degrades to `None` without a schedule.
+> 6. **Roster intelligence + double-positive trade scan**
+>    (`src/bdvm/roster.py`; `GET /api/bdvm/roster`, `GET /api/bdvm/trades`)
+>    — strategy capitals, league-relative contend/retool/rebuild
+>    classification (absolute reference thresholds saturate under a
+>    proxy baseline — documented judgment call), quick starter FPG
+>    (authoritative lineup remains `src/ros/lineup.py` per ADR-004),
+>    and a pruned 1-1/2-1/1-2 scan where each side must gain in ITS OWN
+>    currency, gated by single-market fairness (mixed sides fall back
+>    to model-clearing values, never raw KTC+IDPTC sums).  Live run:
+>    228k candidates scanned in 1.8s → 40 double-positives with exactly
+>    the expected shape (aging contender ships vets to young rebuilders).
+> 7. **Phase-11 backtest harness** (`src/bdvm/backtest.py`) —
+>    rolling-origin folds, structural as-of leakage guard, baselines
+>    B0–B4, Spearman/MAE/RMSE/Brier/calibration-slope metrics, S(3)
+>    calibration check, surplus-mode ablation comparator.  The harness
+>    is complete and tested; the *measurements* still await calendar
+>    time (historical projection snapshots + realized outcomes).
+>
+> Test count is now **182** in `tests/bdvm/`; the full repository suite
+> passes (result pinned in the PR).  Still genuinely awaiting data (no
+> code can conjure them): honest source-accuracy weights, 2026 rookie
+> draft slots (upstream), market-momentum history, in-season ROS recent
+> form, backtest measurements, and pick distributions fit from own
+> history.
 
 Status vocabulary used throughout: **implemented** (code + tests merged on this
 branch), **reference-only** (frozen fixture, imported by nothing),
@@ -304,10 +362,14 @@ migrations exist).
 
 ## 23. Files changed
 
-New: `src/bdvm/` (16 files), `src/api/bdvm_api.py`, `config/bdvm/` (2 files),
-`tests/bdvm/` (13 files), `docs/research/bdvm-v1/` (2 PDFs, reference/ 7 files,
-this report). Modified: `src/api/feature_flags.py` (+1 flag),
-`server.py` (+1 route, ~100 lines). Nothing deleted.
+New: `src/bdvm/` (22 files — core engine plus `events.py`, `context.py`,
+`baseline.py`, `schedule.py`, `roster.py`, `backtest.py`),
+`src/api/bdvm_api.py`, `config/bdvm/` (3 files incl. the event ontology),
+`scripts/bdvm_build_baseline.py`, `tests/bdvm/` (20 files),
+`docs/research/bdvm-v1/` (2 PDFs, reference/ 7 files, this report).
+Modified: `src/api/feature_flags.py` (+1 flag), `server.py` (+3 routes:
+`/api/bdvm/values`, `/api/bdvm/roster`, `/api/bdvm/trades`),
+`CLAUDE.md` (BDVM section). Nothing deleted.
 
 ## 24. Tests run and results
 
@@ -365,24 +427,36 @@ outputs are labels, not calibrated probabilities (§12.3 policy followed).
 9. `risk_neutral` added as a 4th strategy profile (prompt §4.10 requires λ=0
    output) — anchors are per-strategy so the reference three are unaffected.
 
-## 29. Remaining work (in dependency order)
+## 29. Remaining work (updated after the completion sweep)
 
-1. Wire a real projection source (or schedule the reconstructed-baseline
-   builder against `src/nfl_data` realized points) → first live BDVM board.
-2. Wire `playerctx` (draft capital, contracts) + `nfl_data` usage into risk
-   profiles, κ features and career load.
-3. Structured event system (§7) — ontology + decay math, updating modules not
-   final scores.
-4. ROS production inputs (schedule, byes, weekly form) to replace the rank
-   index in `src/ros`.
-5. Feed BDVM currencies into `roster_intel` ΔU and the trade finder
-   double-positive search (Phases 7–8).
-6. Pick distributions fit from own history (replace Appendix-A priors).
-7. Phase 11: rolling-origin backtests, B0–B4 baselines, the option-value
-   ablation measurement, S(3) calibration; then parameter refits through the
-   model-registry governance.
-8. UI: none yet, deliberately (§15 — no UI work while value contracts are
-   unstable).
+Done since the first pass: baseline projections live (item 1), context
+wiring for draft capital + career loads (item 2, via nflverse rather
+than playerctx — contracts/guarantees still pending), the event system
+(item 3), preseason ROS schedule inputs (item 4 preseason half), the
+BDVM-native roster analysis + double-positive scan (item 5's BDVM
+half), and the full backtest harness (item 7's infrastructure).
+
+Still open, in dependency order:
+
+1. **Awaiting data (no code can close these):** honest source-accuracy
+   weights (needs archived preseason projections + outcomes); 2026
+   rookie draft slots (upstream nflverse gap — priors auto-activate);
+   market-momentum/gap-persistence history (rank/source history files
+   accumulate forward); backtest *measurements* + S(3) calibration +
+   the option-value ablation verdict; pick distributions fit from own
+   history (needs 2 years of snapshots).
+2. Contract/guarantee signals into risk profiles (wire `playerctx`
+   snapshots once `scripts/refresh_playerctx.py` output lands on disk).
+3. In-season ROS recent-form blending (weekly realized points feed into
+   `blend_ros_mu` once the season starts).
+4. Feed BDVM currencies into `roster_intel`'s exact ΔU machinery (the
+   authoritative personalized verdict; BDVM's own scan is the generic
+   layer).
+5. A scheduled job for weekly baseline refresh + valuation snapshots
+   (deliberately not added while the flag is off; one systemd timer or
+   workflow step when enabled in staging).
+6. UI: none yet, deliberately (§15 — no UI work while value contracts
+   are unstable).
 
 ## 30. Rollback plan
 

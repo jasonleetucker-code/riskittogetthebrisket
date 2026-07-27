@@ -21,9 +21,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from dataclasses import replace as _dc_replace
+
 from src.bdvm import MODEL_VERSION
+from src.bdvm.context import PlayerContext
 from src.bdvm.curves import compute_kappa
 from src.bdvm.engine import DynastyEngine, PlayerInput, Valuation
+from src.bdvm.events import PlayerEvent, apply_events, load_events_file
 from src.bdvm.league_config import LeagueConfigError, from_contract
 from src.bdvm.market import buy_hold_sell, market_comparison, market_view_for_row
 from src.bdvm.params import ParamSet, load_param_set
@@ -37,7 +41,15 @@ from src.bdvm.projections import (
     load_snapshot,
 )
 from src.bdvm.replacement import ReplacementEngine
+from src.bdvm.ros import ros_value
 from src.bdvm.survival import RiskProfile
+from src.utils.name_clean import normalize_player_name
+
+
+def replace_risk(risk: RiskProfile, **fields: float) -> RiskProfile:
+    """Frozen-dataclass update helper for context-driven risk fields."""
+    return _dc_replace(risk, **fields)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUATION_DIR = REPO_ROOT / "data" / "bdvm" / "valuations"
@@ -117,6 +129,38 @@ def _nfl_season_for_row(row: Mapping[str, Any]) -> tuple[int, bool]:
     return (1, False) if row.get("rookie") else (3, False)
 
 
+def _ros_for_player(
+    v: Valuation,
+    blended: ConsensusProjection,
+    row: Mapping[str, Any],
+    *,
+    schedule_weeks: Mapping[str, list] | None,
+    params: ParamSet,
+) -> dict[str, Any] | None:
+    """Preseason rest-of-season value (single horizon, no aging/survival).
+
+    Requires the league schedule (byes) for the player's NFL team; when
+    unavailable the field is None with no fabrication.  Preseason
+    ``w_proj`` = 1, so µ_ROS is the blended projection itself; in-season
+    recent-form blending activates once weekly points are wired.
+    """
+    if not schedule_weeks:
+        return None
+    team = str(row.get("team") or "").upper()
+    weeks = schedule_weeks.get(team)
+    if not weeks:
+        return {"value": None, "reason": f"no_schedule_for_team:{team or 'FA'}"}
+    sigma0 = v.seasons[0]["sigma"]
+    replacement = v.raw["replacement"]
+    out: dict[str, Any] = {"muRos": round(blended.mu_fpg, 3), "weeks": len(weeks)}
+    for strategy in params.strategy_names():
+        pw = float(params.strategy(strategy).get("playoff_weight", 0.0))
+        out[strategy] = round(
+            ros_value(blended.mu_fpg, sigma0, replacement, weeks, playoff_weight=pw), 1
+        )
+    return out
+
+
 def _parse_pick_slot(display_name: str, teams: int) -> tuple[int, int] | None:
     """(overall_slot, pick_year) for a pick asset name, else None."""
     m = _PICK_SLOT_RE.search(display_name or "")
@@ -151,6 +195,9 @@ def run_valuation(
     season: int | None = None,
     surplus_mode: str = "option",
     write_snapshot_files: bool = False,
+    context: Mapping[str, "PlayerContext"] | None = None,
+    events: Iterable["PlayerEvent"] | None = None,
+    schedule_weeks: Mapping[str, list] | None = None,
 ) -> dict[str, Any]:
     """Compute BDVM fundamental values for every priceable asset.
 
@@ -159,6 +206,12 @@ def run_valuation(
     no projections exist at all the payload reports
     ``status="no_projection_snapshot"`` — the engine refuses to invent
     a fundamental board out of nothing.
+
+    ``context`` (age / draft capital / career load per player_key,
+    ``src.bdvm.context``) enriches inputs when the contract row lacks
+    them; ``events`` are structured §7 events (auto-loaded from
+    ``data/bdvm/events/<season>.json`` when None); ``schedule_weeks``
+    maps NFL team → RosWeek list for the preseason ROS output.
     """
     params = params or load_param_set()
     as_of = _utc_now_iso()
@@ -219,6 +272,16 @@ def run_valuation(
         "recordCount": len(records),
     }
 
+    # ---- structured events (§7) -------------------------------------------
+    if events is None:
+        events = load_events_file(season)
+    events_by_player: dict[str, list[PlayerEvent]] = {}
+    for ev in events:
+        events_by_player.setdefault(ev.player_key, []).append(ev)
+    meta["eventCount"] = sum(len(v) for v in events_by_player.values())
+
+    context = context or {}
+
     by_player: dict[str, list[ProjectionRecord]] = {}
     for r in records:
         by_player.setdefault(r.player_key, []).append(r)
@@ -241,6 +304,7 @@ def run_valuation(
     rows = contract.get("playersArray") or []
     unpriced: list[dict[str, Any]] = []
     inputs: list[tuple[PlayerInput, Mapping[str, Any], ConsensusProjection]] = []
+    extras_by_key: dict[str, dict[str, Any]] = {}
 
     # production z-scores by group over consensus FPG
     group_stats: dict[str, tuple[float, float]] = {}
@@ -263,8 +327,10 @@ def run_valuation(
         if asset_class == "pick":
             pick_rows.append(row)
             continue
-        name_key = row.get("canonicalName") or ""
-        display = row.get("displayName") or name_key
+        display = row.get("displayName") or row.get("canonicalName") or ""
+        # Contract canonicalName is the raw display name; projections and
+        # events key on the normalized form — normalize before joining.
+        name_key = normalize_player_name(str(row.get("canonicalName") or display))
         position = str(row.get("position") or "").upper()
         if not position or position in _UNSUPPORTED_POSITIONS:
             unpriced.append(
@@ -280,24 +346,36 @@ def run_valuation(
         if blended is None:
             unpriced.append({"name": display, "reason": "no_projection", "position": position})
             continue
+        ctx = context.get(name_key)
         age = row.get("age")
+        age_source = "contract"
         try:
             age_f = float(age) if age is not None else None
         except (TypeError, ValueError):
             age_f = None
+        if (age_f is None or age_f <= 0) and ctx is not None:
+            age_f = ctx.age_at_season_start(season)
+            age_source = "nflverse_birth_date"
         if age_f is None or age_f <= 0:
             unpriced.append({"name": display, "reason": "missing_age", "position": position})
             continue
 
         # Prefer the projection source's position when it is a true
-        # position and the contract only has the platform group.
+        # position and the contract only has the platform group; the
+        # nflverse listing is the next-best signal.
         pos_for_model = blended.position.upper()
+        if pos_for_model not in _TRUE_POSITIONS_KNOWN and ctx is not None and ctx.true_position:
+            pos_for_model = ctx.true_position
         if pos_for_model not in _TRUE_POSITIONS_KNOWN:
             pos_for_model = position
         true_known = pos_for_model in _TRUE_POSITIONS_KNOWN
         modelling_pos = params.modelling_position(pos_for_model)
 
         nfl_season, _season_known = _nfl_season_for_row(row)
+        if ctx is not None:
+            ctx_season = ctx.nfl_season_for(season)
+            if ctx_season is not None:
+                nfl_season = ctx_season
         try:
             grp = cfg.group(pos_for_model)
         except LeagueConfigError:
@@ -306,12 +384,26 @@ def run_valuation(
         mean, stdev = group_stats.get(grp, (blended.mu_fpg, 1.0))
         production_z = max(-2.0, min(2.0, (blended.mu_fpg - mean) / stdev))
         risk = _risk_profile_for_row(row, modelling_pos, production_z, any_proxy=blended.any_proxy)
+        career_load = 0.0
+        dc_score = 0.0
+        if ctx is not None:
+            mileage = params.mileage(modelling_pos)
+            if mileage is not None:
+                career_load = ctx.career_load_for(mileage[0])
+            dc_score = ctx.draft_capital_score
+            risk_updates: dict[str, float] = {}
+            if dc_score > 0.0:
+                risk_updates["draft_capital"] = dc_score
+            if ctx.position_ambiguous and grp in _IDP_GROUPS:
+                risk_updates["designation_risk"] = max(risk.designation_risk, 0.30)
+            if risk_updates:
+                risk = replace_risk(risk, **risk_updates)
         kappa = compute_kappa(
             params,
             nfl_season=nfl_season,
-            draft_capital_score=0.0,  # no feed yet — documented
-            college_score=0.0,
-            opportunity_score=0.0,
+            draft_capital_score=dc_score,
+            college_score=0.0,  # no college feed yet — documented
+            opportunity_score=0.0,  # no opportunity feed yet — documented
             incumbency=0.0,
         )
         p_in = PlayerInput(
@@ -323,7 +415,7 @@ def run_valuation(
             fpg=blended.mu_fpg,
             games=blended.games,
             sigma_source=blended.sigma_source,
-            career_load=0.0,  # career-load feed not wired; mileage inert
+            career_load=career_load,
             kappa=kappa,
             risk=risk,
             true_position_known=true_known,
@@ -331,6 +423,17 @@ def run_valuation(
             any_proxy=blended.any_proxy,
             stale_source_count=len(blended.stale_sources),
         )
+        event_audit: list[dict[str, Any]] = []
+        evts = events_by_player.get(name_key)
+        if evts:
+            p_in, event_audit = apply_events(p_in, evts, as_of=snapshot_as_of)
+        extras_by_key[name_key] = {
+            "ageSource": age_source,
+            "careerLoad": round(career_load, 1),
+            "draftCapitalScore": round(dc_score, 3),
+            "draftOverall": ctx.draft_overall if ctx is not None else None,
+            "eventAudit": event_audit,
+        }
         inputs.append((p_in, row, blended))
 
     # ---- fundamentals FIRST -----------------------------------------------
@@ -386,6 +489,20 @@ def run_valuation(
                 "dynastyScore0to100": round(_pct(v.trade_value.get("balanced", 0.0)), 1),
             }
         )
+        extras = extras_by_key.get(
+            normalize_player_name(str(row.get("canonicalName") or row.get("displayName") or "")),
+            {},
+        )
+        entry["context"] = {
+            "ageSource": extras.get("ageSource"),
+            "careerLoad": extras.get("careerLoad", 0.0),
+            "draftCapitalScore": extras.get("draftCapitalScore", 0.0),
+            "draftOverall": extras.get("draftOverall"),
+        }
+        entry["events"] = extras.get("eventAudit", [])
+        entry["ros"] = _ros_for_player(
+            v, blended, row, schedule_weeks=schedule_weeks, params=params
+        )
         players_out.append(entry)
 
     # ---- picks (distributions, market-anchored) ----------------------------
@@ -436,6 +553,19 @@ def run_valuation(
                 "unpricedByReason": unpriced_counts,
                 "picks": len(picks_out),
                 "projectionPlayers": len(consensus),
+                "contextEnriched": sum(
+                    1
+                    for e in extras_by_key.values()
+                    if e.get("ageSource") != "contract"
+                    or e.get("draftCapitalScore")
+                    or e.get("careerLoad")
+                ),
+                "eventsApplied": sum(
+                    1
+                    for e in extras_by_key.values()
+                    for a in e.get("eventAudit", [])
+                    if a.get("applied")
+                ),
             },
         },
         "replacement": repl.to_dict(),

@@ -1,0 +1,100 @@
+{
+  "_comment": [
+    "BDVM structured event ontology (master prompt §7). CLOSED enum: an",
+    "event type not listed here is rejected — no free-form value bumps.",
+    "Default impacts are per-module deltas/multipliers applied at full",
+    "strength (confidence=1, reliability=1, unreflected, zero decay);",
+    "the effective adjustment is scaled by",
+    "confidence × reliability × (1 − reflected) × 2^(−days/half_life).",
+    "Impact channels — each targets a MODULE, never the final score:",
+    "  mu_pct              current-season projected FPG, ±fraction",
+    "  role_security_delta RiskProfile.role_security shift",
+    "  role_uncertainty_delta RiskProfile.role_uncertainty shift",
+    "  contract_security_delta RiskProfile.contract_security shift",
+    "  durability_delta    RiskProfile.durability shift",
+    "  scheme_stability_delta RiskProfile.scheme_stability shift",
+    "  designation_risk_delta RiskProfile.designation_risk shift",
+    "  sigma_mult          outcome dispersion multiplier (>= 1 widens)",
+    "  hazard_mult         annual survival hazard multiplier",
+    "  games_delta         expected games this season, ± games",
+    "Speculation rule: events with confidence < 0.5 may only widen sigma",
+    "(all non-sigma channels are suppressed by the engine adapter).",
+    "All numbers are PRIORS."
+  ],
+  "schema_version": 1,
+  "event_types": {
+    "INJURY": {
+      "impact": {"games_delta": -2.0, "durability_delta": -0.10, "sigma_mult": 1.15},
+      "half_life_days": 30
+    },
+    "SURGERY": {
+      "impact": {"games_delta": -4.0, "durability_delta": -0.15, "sigma_mult": 1.25},
+      "half_life_days": 60
+    },
+    "PRACTICE_LIMITATION": {
+      "impact": {"games_delta": -0.5, "sigma_mult": 1.08},
+      "half_life_days": 14
+    },
+    "ACTIVATED_RETURN": {
+      "impact": {"games_delta": 1.0, "sigma_mult": 0.95, "durability_delta": 0.03},
+      "half_life_days": 21
+    },
+    "SUSPENSION": {
+      "impact": {"games_delta": -4.0},
+      "half_life_days": 180,
+      "_comment": "confirmed suspensions only (§4.9); set games_delta to the actual length via impact override"
+    },
+    "TRADE": {
+      "impact": {"role_uncertainty_delta": 0.15, "scheme_stability_delta": -0.20, "sigma_mult": 1.15},
+      "half_life_days": 90
+    },
+    "SIGNING": {
+      "impact": {"contract_security_delta": 0.15, "role_security_delta": 0.05},
+      "half_life_days": 120
+    },
+    "RELEASE": {
+      "impact": {"role_security_delta": -0.25, "contract_security_delta": -0.30, "sigma_mult": 1.30},
+      "half_life_days": 90
+    },
+    "CONTRACT_EXTENSION": {
+      "impact": {"contract_security_delta": 0.25, "role_security_delta": 0.10},
+      "half_life_days": 365
+    },
+    "FIFTH_YEAR_OPTION": {
+      "impact": {"contract_security_delta": 0.15},
+      "half_life_days": 365
+    },
+    "FRANCHISE_TAG": {
+      "impact": {"contract_security_delta": 0.10},
+      "half_life_days": 365
+    },
+    "DRAFT_COMPETITION": {
+      "impact": {"role_security_delta": -0.15, "role_uncertainty_delta": 0.10, "hazard_mult": 1.10},
+      "half_life_days": 120
+    },
+    "DEPTH_CHART_COMPETITION_ADDED": {
+      "impact": {"mu_pct": -0.08, "role_security_delta": -0.15, "sigma_mult": 1.20, "hazard_mult": 1.10},
+      "half_life_days": 45
+    },
+    "DEPTH_CHART_PROMOTION": {
+      "impact": {"mu_pct": 0.10, "role_security_delta": 0.15, "role_uncertainty_delta": -0.10},
+      "half_life_days": 45
+    },
+    "DEPTH_CHART_DEMOTION": {
+      "impact": {"mu_pct": -0.12, "role_security_delta": -0.20, "hazard_mult": 1.15, "sigma_mult": 1.15},
+      "half_life_days": 45
+    },
+    "COORDINATOR_CHANGE": {
+      "impact": {"scheme_stability_delta": -0.25, "role_uncertainty_delta": 0.10, "sigma_mult": 1.10},
+      "half_life_days": 180
+    },
+    "SCHEME_ROLE_CHANGE": {
+      "impact": {"role_uncertainty_delta": 0.15, "sigma_mult": 1.15},
+      "half_life_days": 90
+    },
+    "POSITION_ELIGIBILITY_CHANGE": {
+      "impact": {"designation_risk_delta": 0.30, "sigma_mult": 1.10},
+      "half_life_days": 180
+    }
+  }
+}
