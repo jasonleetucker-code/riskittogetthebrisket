@@ -1,0 +1,225 @@
+"""Market comparison layer — runs strictly AFTER the fundamental model.
+
+Isolation contract (Phase-5 gate, enforced by the function signatures
+here and pinned by tests):
+
+* the fundamental engine (``engine.py``) has no market inputs;
+* every function in this module takes a *completed* fundamental
+  valuation and never mutates it;
+* the market may inform ``market_adjusted`` outputs only — separately
+  labeled, stored beside (never over) the fundamental value.
+
+Market sources come from the live contract's ``canonicalSiteValues``.
+ONLY value-signal sources may be read as market prices: the Phase-0
+audit established that rank-signal sources store a synthetic encoding
+(``999900 − rank×100``) in that dict, so treating them as values would
+be garbage arithmetic.  v1 anchors: ``ktcSfTep`` (offense + picks) and
+``idpTradeCalc`` (IDP) — directly comparable per the 2026-07-26
+cross-market study (median value ratio 1.000, both top out at 9999).
+
+Raw KTC and raw IDPTC numbers for DIFFERENT assets are never summed
+without a normalization tag: ``MarketView.normalization_version``
+records the mapping under which any cross-market comparison happened.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from src.bdvm.params import ParamSet
+
+# Value-signal market sources with their market-type tags (§8.1).
+VALUE_MARKET_SOURCES: dict[str, str] = {
+    "ktcSfTep": "crowd",
+    "ktc": "crowd",
+    "idpTradeCalc": "crowd",
+}
+NORMALIZATION_VERSION = "ktc-idptc-peer-v1"  # 2026-07-26 study: ratio ~1.000
+
+_IDP_GROUPS = frozenset({"DL", "LB", "DB"})
+
+
+class MarketIsolationError(RuntimeError):
+    """Raised when market code is asked to run before fundamentals exist."""
+
+
+@dataclass(frozen=True)
+class MarketView:
+    """One asset's market picture, on the shared 0-10000 scale."""
+
+    market_value: float | None
+    market_source: str | None
+    market_type: str | None
+    dispersion: float  # 0-1 cross-source disagreement proxy
+    liquidity: float
+    normalization_version: str = NORMALIZATION_VERSION
+
+
+def market_view_for_row(
+    contract_row: Mapping[str, Any],
+    group: str,
+    params: ParamSet,
+) -> MarketView:
+    """Extract the market anchor for one contract row.
+
+    Offense + picks anchor on KTC SF-TEP; IDP anchors on IDPTradeCalc.
+    A missing anchor yields ``market_value=None`` — gap/alpha are then
+    omitted entirely rather than fabricated (§9.5).
+    """
+    site_values = contract_row.get("canonicalSiteValues") or {}
+    if group in _IDP_GROUPS:
+        source_order = ("idpTradeCalc",)
+    else:
+        source_order = ("ktcSfTep", "ktc")
+    value: float | None = None
+    source: str | None = None
+    for key in source_order:
+        raw = site_values.get(key)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+            source = key
+            break
+        except (TypeError, ValueError):
+            continue
+
+    dispersion = _dispersion_for_row(contract_row)
+    liq_cfg = params["market"]["liquidity"]
+    liquidity = min(
+        float(liq_cfg["clip_hi"]),
+        max(
+            float(liq_cfg["clip_lo"]),
+            float(liq_cfg["base"]) + float(liq_cfg["dispersion_coeff"]) * dispersion,
+        ),
+    )
+    return MarketView(
+        market_value=value,
+        market_source=source,
+        market_type=VALUE_MARKET_SOURCES.get(source or "", None),
+        dispersion=dispersion,
+        liquidity=liquidity,
+    )
+
+
+def _dispersion_for_row(row: Mapping[str, Any]) -> float:
+    for key in ("marketDispersionCV", "sourceRankPercentileSpread"):
+        v = row.get(key)
+        if v is None:
+            continue
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            continue
+    return 0.20
+
+
+def market_comparison(
+    fundamental_trade_values: Mapping[str, float],
+    view: MarketView,
+    params: ParamSet,
+    *,
+    is_idp: bool,
+    is_rookie: bool,
+    small_sample: float = 0.0,
+) -> dict[str, Any]:
+    """Gap / alpha / market-adjusted outputs for one completed valuation.
+
+    ``fundamental_trade_values`` MUST already be computed — this
+    function cannot run first, and it never writes into them.
+    """
+    if not fundamental_trade_values:
+        raise MarketIsolationError(
+            "market_comparison called before fundamental values were computed"
+        )
+    fund_balanced = float(fundamental_trade_values.get("balanced", 0.0))
+    mcfg = params["market"]
+
+    out: dict[str, Any] = {
+        "marketValue": None,
+        "marketSource": view.market_source,
+        "marketType": view.market_type,
+        "marketDispersion": round(view.dispersion, 4),
+        "liquidity": round(view.liquidity, 4),
+        "normalizationVersion": view.normalization_version,
+        "gap": None,
+        "alpha": None,
+        "marketAdjusted": None,
+        "tradeClearing": None,
+        "blendWeightModel": None,
+    }
+    if view.market_value is None:
+        return out
+
+    market_tv = float(view.market_value)
+    gap = fund_balanced - market_tv
+    alpha = gap * view.liquidity
+
+    # Bayesian-style precision blend weight (reference §5.10).
+    tau_market = 1.0
+    if is_idp:
+        tau_market *= float(mcfg["tau_market_idp_mult"])
+    if is_rookie:
+        tau_market *= float(mcfg["tau_market_rookie_mult"])
+    tau_market *= 1.0 - float(mcfg["tau_market_dispersion_mult"]) * view.dispersion
+    tau_model = float(mcfg["tau_model"]) * (
+        1.0 - float(mcfg["tau_model_small_sample_mult"]) * small_sample
+    )
+    w_model = tau_model / max(1e-9, tau_model + tau_market)
+
+    lam_display = float(mcfg["lambda_market_display"])
+    lam_clearing = float(mcfg["lambda_market_clearing"])
+    out.update(
+        {
+            "marketValue": market_tv,
+            "gap": round(gap, 1),
+            "alpha": round(alpha, 1),
+            # MA = FUND + λ·(MARKET − FUND); fundamental itself is λ=0.
+            "marketAdjusted": round(fund_balanced + lam_display * (market_tv - fund_balanced), 1),
+            "tradeClearing": round(fund_balanced + lam_clearing * (market_tv - fund_balanced), 1),
+            "blendWeightModel": round(w_model, 4),
+        }
+    )
+    return out
+
+
+def buy_hold_sell(
+    market_out: Mapping[str, Any],
+    params: ParamSet,
+    *,
+    gap_persisted_days: int | None = None,
+    p_collapse_1y: float | None = None,
+) -> dict[str, Any]:
+    """Signal policy (§8.4).  Persistence-guarded; explains itself."""
+    alpha = market_out.get("alpha")
+    if alpha is None:
+        return {"signal": "NO_MARKET", "reason": "no market anchor for this asset"}
+    th = params["market"]["signal_thresholds"]
+    liquidity = float(market_out.get("liquidity") or 0.0)
+    persisted = gap_persisted_days is not None and gap_persisted_days >= int(
+        th["gap_persistence_days"]
+    )
+    if (
+        alpha > float(th["strong_buy_alpha"])
+        and persisted
+        and liquidity > float(th["strong_buy_min_liquidity"])
+    ):
+        return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, gap persisted, liquid"}
+    if alpha > float(th["buy_alpha"]):
+        if gap_persisted_days is not None and not persisted:
+            return {
+                "signal": "HOLD",
+                "reason": "positive gap but not yet persistent (momentum guard)",
+            }
+        return {"signal": "BUY", "reason": f"alpha {alpha:+.0f}"}
+    if p_collapse_1y is not None and p_collapse_1y > 0.5 and alpha < 0:
+        return {
+            "signal": "STRONG_SELL",
+            "reason": f"collapse probability {p_collapse_1y:.0%} and market > model",
+        }
+    if alpha < float(th["strong_sell_alpha"]):
+        return {"signal": "STRONG_SELL", "reason": f"alpha {alpha:+.0f}"}
+    if alpha < float(th["sell_alpha"]):
+        return {"signal": "SELL", "reason": f"alpha {alpha:+.0f}"}
+    return {"signal": "HOLD", "reason": f"alpha {alpha:+.0f} inside hold band"}

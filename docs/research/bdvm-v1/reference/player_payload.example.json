@@ -1,0 +1,89 @@
+{
+  "_request": {
+    "league_config_id": "brisket_sf_tep_idp_12",
+    "season": 2026,
+    "as_of": "2026-07-27",
+    "strategies": ["contender", "balanced", "rebuilder"],
+    "include": ["path", "probs", "explain", "market"],
+    "players": [
+      {
+        "player_id": "00-0000000",
+        "pos_true": "WR",
+        "archetype": null,
+        "birth_date": "2003-02-14",
+        "nfl_season": 2,
+        "draft_round": 1, "draft_pick": 18,
+        "career_load": 140,
+
+        "_comment": "Provide EITHER stat_line (preferred) OR fpts per source.",
+        "projections": [
+          { "source": "SourceA", "games": 16.0,
+            "stat_line": { "rec": 82, "rec_yd": 1120, "rec_td": 7,
+                           "rush_yd": 40, "rush_td": 0, "fum_lost": 1 } },
+          { "source": "SourceB", "games": 16.0, "fpts": 229.0, "scoring_native": false },
+          { "source": "SourceC", "games": 15.5,
+            "stat_line": { "rec": 76, "rec_yd": 1015, "rec_td": 6 },
+            "proj_high": 268.0, "proj_low": 154.0 }
+        ],
+        "role": { "route_pct": 0.68, "tgt_share": 0.21, "tprr": 0.22,
+                  "snap_pct": 0.74, "vacated_tgt_share": 0.09 },
+
+        "risk": { "role_security": 0.72, "draft_capital": 0.88,
+                  "contract_security": 0.85, "durability": 0.70,
+                  "production_z": 0.7, "scheme_stability": 0.7,
+                  "role_uncertainty": 0.22, "event_volatility": 0.30,
+                  "small_sample": 0.0, "designation_risk": 0.0 },
+
+        "college": { "breakout_age": 19.6, "peak_dominator": 0.34, "early_declare": true },
+
+        "market": { "consensus": 7900, "dispersion": 0.26, "momentum_30d": -0.03,
+                    "sources": { "ktc": 8100, "fantasycalc": 7600, "expert_consensus": 8000 } }
+      }
+    ]
+  },
+
+  "_response": {
+    "meta": { "model_version": "1.0.0", "param_set_id": 42,
+              "config_id": "brisket_sf_tep_idp_12", "as_of": "2026-07-27" },
+    "players": [
+      {
+        "player_id": "00-0000000", "pos": "WR", "age": 23.4,
+        "projection": { "fpg": 14.0, "games": 16.0, "sigma_source": 1.4,
+                        "n_sources": 3, "imputed": false },
+        "replacement": { "group": "WR", "fpg": 6.15, "rank": 48 },
+        "values": { "contender": 9693, "balanced": 9800, "rebuilder": 9800 },
+        "value_raw": { "contender": 512.4, "balanced": 604.1, "rebuilder": 803.9 },
+        "market": { "consensus": 7900, "dispersion": 0.26,
+                    "gap": 1900, "liquidity": 0.77, "alpha": 1463,
+                    "blended": 8839, "signal": "STRONG_BUY",
+                    "gap_first_seen": "2026-07-05" },
+        "probs": { "above_replacement": 0.88, "elite_season": 0.33,
+                   "starter_in_3y": 0.73, "bust_year1": 0.12,
+                   "breakout": 0.45, "collapse_1y": 0.16 },
+        "range": { "floor_p20": 6900, "median": 9800, "ceiling_p85": 12400,
+                   "confidence": 0.58, "volatility": 0.71 },
+        "path": [
+          { "t": 0, "age": 23.4, "age_eff": 23.4, "mu": 14.00, "sigma": 4.90,
+            "games": 16.0, "ssv": 128.4, "survival": 1.00, "expected": 128.4 },
+          { "t": 1, "age": 24.4, "age_eff": 24.4, "mu": 16.61, "sigma": 6.42,
+            "games": 16.6, "ssv": 176.8, "survival": 0.88, "expected": 155.6 },
+          { "t": 2, "age": 25.4, "age_eff": 25.6, "mu": 18.02, "sigma": 7.71,
+            "games": 16.6, "ssv": 199.6, "survival": 0.79, "expected": 157.7 }
+        ],
+        "explain": {
+          "year_0_share": 0.17, "years_1_2_share": 0.40, "years_3_plus_share": 0.43,
+          "survival_drag": 0.21, "traj_5y": 0.52, "scarcity_leverage": 6.15,
+          "top_drivers": [
+            { "driver": "role_growth", "direction": "+", "magnitude": 0.31 },
+            { "driver": "age_curve",   "direction": "+", "magnitude": 0.19 },
+            { "driver": "positional_scarcity", "direction": "+", "magnitude": 0.12 },
+            { "driver": "role_uncertainty", "direction": "-", "magnitude": 0.09 }
+          ],
+          "narrative": "Model has him WR4; market has him WR9. The gap is role growth the market hasn't paid for. His 68% route share is the weak link."
+        },
+        "flags": ["ASCENSION_UNCONFIRMED", "BUY_CANDIDATE"],
+        "data_quality": 0.92
+      }
+    ]
+  }
+}

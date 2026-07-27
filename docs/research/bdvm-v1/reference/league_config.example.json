@@ -1,0 +1,55 @@
+{
+  "config_id": "brisket_sf_tep_idp_12",
+  "display_name": "12-team Superflex / TE Premium / PPR / IDP dynasty (Sleeper)",
+  "teams": 12,
+  "roster_size": 35,
+  "taxi_size": 5,
+  "best_ball": false,
+
+  "starters": { "QB": 1, "RB": 2, "WR": 3, "TE": 1, "DL": 2, "LB": 3, "DB": 3 },
+  "flex_slots": {
+    "FLEX":      { "count": 1, "eligible": ["RB", "WR", "TE"] },
+    "SUPERFLEX": { "count": 1, "eligible": ["QB", "RB", "WR", "TE"] },
+    "IDP_FLEX":  { "count": 1, "eligible": ["DL", "LB", "DB"] }
+  },
+
+  "_comment_pos_groups": "Map TRUE position -> lineup group. Change DT/EDGE to separate groups for a DT-required league, or split CB/S for a CB-required league.",
+  "pos_groups": {
+    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE",
+    "DT": "DL", "EDGE": "DL", "LB": "LB", "CB": "DB", "S": "DB"
+  },
+
+  "_comment_buffer": "Players per team rostered AND startable-quality beyond the startable count. This sets the origin of the value scale — tune it first.",
+  "waiver_buffer": {
+    "QB": 0.85, "RB": 0.75, "WR": 1.00, "TE": 0.40,
+    "DL": 0.50, "LB": 0.50, "DB": 0.50
+  },
+
+  "scoring": {
+    "pass_yd": 0.04, "pass_td": 4.0, "interception": -2.0,
+    "rush_yd": 0.1,  "rush_td": 6.0,
+    "rec": 1.0, "rec_te_bonus": 0.5, "rec_yd": 0.1, "rec_td": 6.0,
+    "fumble_lost": -2.0, "first_down": 0.0,
+
+    "tackle_solo": 1.5, "tackle_assist": 0.75,
+    "sack": 4.0, "tfl": 1.0, "qb_hit": 0.5,
+    "pass_defended": 1.5, "interception_def": 4.0,
+    "forced_fumble": 3.0, "fumble_recovery": 2.0,
+    "def_td": 6.0, "safety": 2.0
+  },
+
+  "strategy_profiles": {
+    "contender": { "discount": 0.72, "horizon": 4,
+                   "usability": [1.00, 0.95, 0.80, 0.65, 0.55],
+                   "risk_lambda": 0.20,  "pick_premium": 0.92 },
+    "balanced":  { "discount": 0.85, "horizon": 6,
+                   "usability": [1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80],
+                   "risk_lambda": 0.10,  "pick_premium": 1.00 },
+    "rebuilder": { "discount": 0.93, "horizon": 8,
+                   "usability": [0.45, 0.75, 1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80],
+                   "risk_lambda": -0.10, "pick_premium": 1.08 }
+  },
+
+  "scale": { "target_top_value": 9800, "stud_gamma": 1.20,
+             "package_theta": 1.20, "roster_spot_cost": 120 }
+}

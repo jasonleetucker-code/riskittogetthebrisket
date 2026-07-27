@@ -185,6 +185,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # points, so the VALUE move is around +/-8%, not +/-120%.  See
     # src/league_intel/reception_fit.py.
     "reception_scoring_fit": False,
+    # BDVM — projection-driven fundamental dynasty valuation engine
+    # (src/bdvm/, endpoints /api/bdvm/values|roster|trades).  Held OFF:
+    # the engine is implemented and tested (tests/bdvm/); it serves an
+    # honest "no_projection_snapshot" payload until projection snapshots
+    # exist under data/bdvm/projections/ (scripts/bdvm_build_baseline.py
+    # or scripts/fetch_idpshow_projections.py build them).  It never
+    # touches rankDerivedValue or any existing route either way.  See
+    # docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
+    "bdvm_engine": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -294,6 +303,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     "te_basis_conversion": LIVE,
     "idp_scoring_fit": LIVE,
     "reception_scoring_fit": LIVE,
+    # bdvm_engine gates three routes inline in server.py
+    # (/api/bdvm/values, /api/bdvm/roster, /api/bdvm/trades): off →
+    # 503 feature_disabled, on → the BDVM payloads.
+    "bdvm_engine": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``

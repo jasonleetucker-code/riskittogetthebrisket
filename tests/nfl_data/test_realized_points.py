@@ -174,6 +174,47 @@ def test_rounding_stable_across_dict_serialization():
     assert d["fantasyPoints"] == 13.32
 
 
+# ── Sleeper scoring-key aliases + nflverse-direct column fallbacks ──
+#
+# The live dynasty_main league dump publishes passes-defended as
+# ``idp_pass_def`` (not the canonical ``idp_pd`` this module was
+# written against — src/scoring/sleeper_ingest.KEY_ALIASES documents
+# the alias), and the nflverse-direct weekly file carries fumble
+# recoveries in ``fumble_recovery_own`` with no ``def_`` prefix.
+# Both used to score silently as 0.
+
+
+def test_idp_pass_def_alias_scores_pd():
+    stat = {"season": 2025, "week": 1, "position": "CB", "def_pass_defended": 3}
+    out = rp.compute_weekly_points(stat, {"idp_pass_def": 5.32}, position="CB")
+    assert out.fantasy_points == 3 * 5.32
+
+
+def test_alias_never_double_counts_when_both_keys_present():
+    stat = {"season": 2025, "week": 1, "position": "CB", "def_pass_defended": 3}
+    out = rp.compute_weekly_points(stat, {"idp_pd": 1.5, "idp_pass_def": 5.32}, position="CB")
+    # canonical key wins; the alias must not add a second contribution
+    assert out.fantasy_points == 3 * 1.5
+
+
+def test_fumble_recovery_column_fallback_for_direct_rows():
+    stat = {"season": 2025, "week": 1, "position": "LB", "fumble_recovery_own": 1}
+    out = rp.compute_weekly_points(stat, {"idp_fum_rec": 3.19}, position="LB")
+    assert out.fantasy_points == 3.19
+
+
+def test_prefixed_fumble_recovery_column_still_wins():
+    stat = {
+        "season": 2025,
+        "week": 1,
+        "position": "LB",
+        "def_fumble_recovery_own": 2,
+        "fumble_recovery_own": 9,
+    }
+    out = rp.compute_weekly_points(stat, {"idp_fum_rec": 3.19}, position="LB")
+    assert out.fantasy_points == 2 * 3.19
+
+
 # ── IDP scoring ───────────────────────────────────────────────────────
 #
 # This path had no coverage at all before 2026-07-27, which is how it

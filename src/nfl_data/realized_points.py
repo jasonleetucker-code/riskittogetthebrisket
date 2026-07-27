@@ -152,6 +152,19 @@ _IDP_TACKLE_KEYS: tuple[tuple[str, str], ...] = (
     ("idp_tkl", "Tkl"),
 )
 
+# Sleeper publishes some rules under more than one SCORING key name and
+# league dumps use either.  ``src/scoring/sleeper_ingest.KEY_ALIASES``
+# already normalizes these for the translation layer, but realized
+# points only read the canonical spelling — a league whose dump says
+# ``idp_pass_def`` (the live dynasty_main league does, at 5.32/event)
+# silently scored passes-defended as 0.  Applied only when the
+# canonical key is absent so a dump carrying both can never
+# double-count.  (Distinct from the STAT-column candidates above:
+# those absorb nflverse renames, this absorbs Sleeper's.)
+_SCORING_KEY_ALIASES: dict[str, str] = {
+    "idp_pass_def": "idp_pd",
+}
+
 
 # Position labels that count as IDP scoring eligible.  nflverse uses
 # both the abstract group (DL/LB/DB) and the specific listing
@@ -270,6 +283,9 @@ def compute_weekly_points(
             breakdown=[("no_scoring_settings", 0.0, 0.0)],
         )
     scoring = {str(k): _num(v) for k, v in scoring_settings.items()}
+    for alias, canonical in _SCORING_KEY_ALIASES.items():
+        if alias in scoring and canonical not in scoring:
+            scoring[canonical] = scoring[alias]
     breakdown: list[tuple[str, float, float]] = []
     total = 0.0
 
