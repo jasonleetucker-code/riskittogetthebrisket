@@ -59,8 +59,35 @@ class TestMarketAnchorExemption:
 
         # Pinned so a change is a deliberate, reviewed act — ADR-009
         # explains why these are NOT the league's own TE premium.
+        #
+        # SCOPE NARROWED 2026-07-27. ``_TE_BLANKET_NON_NATIVE_MULTIPLIER``
+        # is no longer the live default path: non-TEP sources now go
+        # through the measured base → TE++ conversion, and this constant
+        # is the fallback plus the operator slider's default. It stays
+        # pinned because both of those still matter, but a reader must
+        # not take this test as evidence that 1.15 is what the board
+        # applies. ``tests/api/test_te_basis_conversion.py`` covers what
+        # actually runs.
         assert _TE_BLANKET_NON_NATIVE_MULTIPLIER == 1.15
         assert _TE_BLANKET_NATIVE_MULTIPLIER == 1.10
+
+    def test_the_conversion_target_is_the_anchor_basis_so_ktc_cannot_move(self):
+        """The double-count guard restated for the wired path.
+
+        The old argument was "KTC is in the exemption set". That still
+        holds, but there is now a second, structural reason: the target
+        basis IS ``tepp``, ``ktcSfTep`` is already on ``tepp``, and
+        ``convert_te_value`` returns the value untouched when
+        ``from == to``. Even if the exemption were deleted, the anchor
+        could not be lifted — which is the property that makes this
+        design safe rather than merely careful.
+        """
+        from src.api.data_contract import _BOARD_TE_BASIS
+        from src.league_intel.te_premium import convert_te_value
+
+        assert _BOARD_TE_BASIS == "tepp"
+        for v in (500.0, 4000.0, 9999.0):
+            assert convert_te_value(v, from_basis=_BOARD_TE_BASIS, to_basis=_BOARD_TE_BASIS) == v
 
 
 class TestLeagueHasNoTeScoringPremium:

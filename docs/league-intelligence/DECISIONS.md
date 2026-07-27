@@ -529,10 +529,76 @@ substituting one unverified shape for another), stamp VA-adjusted
 IDPTC totals as carrying an unverified adjustment, and treat any
 future IDPTC consolidation disclosure as the trigger to revisit.
 
+## ADR-015: the TE alignment is now a measured basis conversion, and Axis B stays out of the shared board
+**Status:** SHIPPED 2026-07-27.  Supersedes the "no code change yet"
+half of ADR-009 for Axis A; ADR-009's Axis B question stays open.
+
+**What changed.**  `_compute_unified_rankings` no longer multiplies
+non-TEP sources' TE contributions by a flat
+`_TE_BLANKET_NON_NATIVE_MULTIPLIER` (1.15).  It calls
+`src/league_intel/te_premium.convert_te_value(value, from_basis="base",
+to_basis="tepp")` — KTC's own measured base → TE++ uplift, fitted from
+the two boards this repo already scrapes (73 paired TEs, R² 0.941 in log
+space, `config/weights/te_premium_curve.json`).
+
+**Why this is not a second premium.**  The blend anchors on `ktcSfTep`,
+which IS KTC's TE++ board, and every non-TEP source's TE contribution
+was already being scaled to align with it.  Only the *magnitude* of that
+existing alignment changes.  1.15 matched nothing observed anywhere in
+the data: KTC's smallest actual uplift is 1.209 and it reaches 2.053
+down the board, so every tight end was under-lifted.
+
+The double-count guard is now structural rather than procedural.  KTC
+stays in the exemption set, but even without it `convert_te_value` is a
+no-op when `from_basis == to_basis`, and `ktcSfTep` is already on
+`tepp`.  The API takes two bases precisely so a caller cannot multiply
+it in twice; a multiplier API cannot offer that.
+
+**Measured blast radius** (2026-07-27 live board, 810 rows):
+
+| | |
+|---|---|
+| TE value change | all 80 move up: +1.08% (Bowers, against the 9999 ceiling) to +30.17% (Ruckert, deep), median +14.27% |
+| non-TE value change | 48 PICK rows only, via the documented current-year pick tethering inheriting rookie-TE values (2026 Pick 1.07 +3.91% = Kenyon Sadiq exactly) |
+| QB / RB / WR / IDP | zero value change |
+| rank displacement | median 7, p90 22, max 214 (Ruckert, 717 → 503) |
+
+**Why the target basis is a constant and not the league's own demand.**
+This is the load-bearing decision, and it follows from CLAUDE.md's core
+split rather than from convenience.  `te_premium.measure_te_demand`
+answers *which basis does THIS league need?* from roster structure — a
+LEAGUE property.  This board is SCORING-PROFILE scoped and shared.
+Measured on the live registry: `dynasty_main` (2 mandatory TE starters)
+wants `tepp`, `dynasty_new` (1) wants `base`, and **the two share the
+`superflex_tep15_ppr1` profile.**  Threading league demand into the
+blend would let one league's roster shape reprice the other's board.
+
+So the blend does Axis A only — align every source onto the basis the
+board is already anchored on — and Axis B belongs in the league-scoped
+overlay (`src/league_intel/publish.py`), where `tePremium` is a named
+inactive axis.  A one-TE league on this profile is currently carrying a
+two-TE premium it does not want; taking it back off is overlay work and
+needs the netting ADR-009 requires, now against the measured curve
+rather than against 1.15.
+
+**Rollback.** `RISKIT_FEATURE_TE_BASIS_CONVERSION=0` restores the flat
+path.  An explicit operator slider value bypasses the curve regardless
+of the flag — a number the operator typed is a decision, not a
+measurement to overrule.  The Sleeper-*derived* value does not block the
+curve: it comes from `bonus_rec_te`, the scoring axis ADR-009 retracted,
+which reads 0.0 for this league in 2026.
+
+**What this closes.** ORCHESTRATION.md §6.14/§6.15's named instance —
+a complete TE module `data_contract.py` deliberately never imported, so
+that "toggle off" would be byte-identical, which also meant the
+double-count guard could never fire on it.
+`tests/api/test_te_basis_conversion.py` spies on `convert_te_value` and
+fails if the blend stops calling it.
+
 ## ADR-009 (AUDIT, pre-LI-7): the league deleted its TE premium; consensus still charges for it
-**Status:** finding recorded 2026-07-26 — **no code change yet.**  This
-is the §22 "audit the existing TEP pipeline first" step.  The residual
-model itself lands in LI-7.
+**Status:** finding recorded 2026-07-26.  **Axis A shipped 2026-07-27 —
+see ADR-015 above**; the Axis-B residual model still lands in LI-7.
+This was the §22 "audit the existing TEP pipeline first" step.
 
 **What consensus already embeds.**  `_compute_unified_rankings`
 applies TE-only, value-level multipliers during the blend:

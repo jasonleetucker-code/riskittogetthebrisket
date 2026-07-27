@@ -1183,6 +1183,20 @@ answer.
 **Cheap check that would have caught it in one command, before any
 code:** `git grep -l leagueAdjusted -- src/`.
 
+**UPDATE 2026-07-27 — the corrected module landed, and is now WIRED.**
+A rewritten `src/league_intel/te_premium.py` (basis-based, no multiplier
+field, curve in `config/weights/te_premium_curve.json`) did ship, but
+with **zero callers** — reproducing this section's own §6.15 failure a
+second time. `data_contract.py` now calls
+`convert_te_value(value, from_basis="base", to_basis="tepp")` in place
+of the flat 1.15 for non-TEP sources. See ADR-015 in
+`docs/league-intelligence/DECISIONS.md` for the measured blast radius
+and, more importantly, for why the target basis is a **constant** and
+not the league's own measured demand: `dynasty_main` (2 TE starters)
+and `dynasty_new` (1) share the `superflex_tep15_ppr1` scoring profile
+and want different bases, so Axis B cannot enter a scoring-profile-scoped
+board. Axis A is in the blend; Axis B stays an overlay axis.
+
 ### 6.15 The dominant defect class: a guard that cannot fire
 
 **Four instances found in one session, 2026-07-27.** Each was written in

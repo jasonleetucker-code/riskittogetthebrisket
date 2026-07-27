@@ -64,6 +64,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -268,12 +269,19 @@ def measure_te_demand(
     )
 
 
+@lru_cache(maxsize=1)
 def load_tep_curve() -> tuple[float, float, float]:
     """``(a, k, floor)`` for ``ratio(v) = max(floor, 1 + a * v**-k)``.
 
     Falls back to the measured 2026-07-27 constants when the config file
     is absent, so a fresh checkout behaves identically rather than
     silently disabling the curve.
+
+    Memoized: ``tep_uplift`` calls this on every invocation, and the
+    blend loop invokes it once per TE per source — a file read and a
+    JSON parse each time, in the hot path.  The config does not change
+    within a process; call ``load_tep_curve.cache_clear()`` if a test
+    rewrites it.
     """
     try:
         payload = json.loads(_CURVE_PATH.read_text(encoding="utf-8"))

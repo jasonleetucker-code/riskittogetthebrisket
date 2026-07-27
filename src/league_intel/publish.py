@@ -48,6 +48,26 @@ WHAT MOVES A VALUE, AND WHAT DELIBERATELY DOES NOT
   (``tests/league_intel/test_te_premium_invariants.py`` pins this).
   Per-source *pre-blend* alignment is a different insertion point and a
   separate workstream.
+
+  **That pre-blend half landed 2026-07-27** — ``data_contract.py`` now
+  converts non-TEP sources' TE contributions onto the board's ``tepp``
+  basis using ``te_premium.convert_te_value`` instead of a flat 1.15.
+  That is Axis A (source alignment), and it is scoring-profile-safe
+  because the target basis is a constant: the basis the board is already
+  anchored on.
+
+  Axis B — *which basis does THIS league need?* — is what would belong
+  here, and it is genuinely league-scoped rather than merely
+  conventionally so.  Measured on the live registry:
+  ``measure_te_demand`` returns ``tepp`` for ``dynasty_main`` (2
+  mandatory TE starters) and ``base`` for ``dynasty_new`` (1), and the
+  two share the ``superflex_tep15_ppr1`` scoring profile.  A one-TE
+  league on this board is therefore carrying a two-TE premium it does
+  not want, and the only correct place to take it back off is an
+  overlay — exactly like ``structuralScarcity``.  Wiring it needs the
+  netting ADR-009 requires (the residual against what the blend now
+  embeds, which is the measured curve rather than 1.15), so this stays
+  ABSENT and named rather than half-applied.
 * **projectionCorroboration** — ABSENT pending LI-6.
 
 **Picks never move.**  ``compute_scarcity`` keys off rostered players and
