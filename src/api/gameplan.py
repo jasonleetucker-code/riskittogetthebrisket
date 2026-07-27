@@ -1143,6 +1143,11 @@ def get_league_adjusted_values(
         league_key=league_key,
         config_version=config_version,
         data_through=(contract or {}).get("date"),
+        # Version pin: the client refuses to apply an overlay whose
+        # contract build does not match the base it fetched, rather than
+        # applying board B's ranks to board A's values.
+        contract_version=(contract or {}).get("contractVersion"),
+        scrape_timestamp=(contract or {}).get("scrapeTimestamp"),
         include_explanations=include_explanations,
     )
     payload["cacheHit"] = cache_hit

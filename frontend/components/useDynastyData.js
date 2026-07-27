@@ -19,6 +19,9 @@ export function useDynastyData() {
   // frontend TEP multiplication either.
   const { settings } = useSettings();
   const siteOverrides = settings?.siteWeights || null;
+  // Valuation lens. "market" (the default) is today's board; changing
+  // it refetches, because the overlay is a separate league-scoped GET.
+  const valuationMode = settings?.valuationMode || "market";
   // tepMultiplier: null means "auto from league" (derive on backend
   // from Sleeper's bonus_rec_te).  A finite number means the user
   // dragged the slider and wants that exact override.  Coercing null
@@ -85,6 +88,7 @@ export function useDynastyData() {
           siteOverrides,
           tepMultiplier,
           tepNativeMultiplier,
+          valuationMode,
         });
         if (!active) return;
 
@@ -95,9 +99,12 @@ export function useDynastyData() {
         // Detect structurally-valid but empty payloads that would silently render nothing.
         if (data && typeof data === "object") {
           const hasPlayers = Object.keys(data.players || {}).length > 0;
-          const hasPlayersArray = Array.isArray(data.playersArray) && data.playersArray.length > 0;
+          const hasPlayersArray =
+            Array.isArray(data.playersArray) && data.playersArray.length > 0;
           if (!hasPlayers && !hasPlayersArray) {
-            setError("Data loaded but contains no players. Backend may still be initializing.");
+            setError(
+              "Data loaded but contains no players. Backend may still be initializing.",
+            );
           }
         } else if (!data) {
           setError("No data received from server. Check backend status.");
@@ -142,7 +149,13 @@ export function useDynastyData() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteOverridesKey, tepMultiplier, tepNativeMultiplier, leagueRefreshKey]);
+  }, [
+    siteOverridesKey,
+    tepMultiplier,
+    tepNativeMultiplier,
+    valuationMode,
+    leagueRefreshKey,
+  ]);
 
   const rows = useMemo(() => {
     try {

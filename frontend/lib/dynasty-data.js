@@ -95,9 +95,7 @@ export function normalizePlayerName(name) {
 // never disagrees with the backend on position assignment.
 export const IDP_PRIORITY = ["DL", "DB", "LB"];
 
-const _NON_IDP_ALIASES = new Set([
-  "QB", "RB", "WR", "TE", "K", "P", "PICK",
-]);
+const _NON_IDP_ALIASES = new Set(["QB", "RB", "WR", "TE", "K", "P", "PICK"]);
 
 function _collectIdpFamilies(raw, state) {
   const accept = (token) => {
@@ -169,10 +167,14 @@ export function classifyPos(pos) {
 // those stamps verbatim.
 
 export function inferValueBundle(player = {}) {
-  const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
+  const raw =
+    Number(
+      player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0,
+    ) || 0;
   // Prefer 1–9999 display value; fall back to internal calibrated value
   const display = Number(player._canonicalDisplayValue ?? 0) || 0;
-  const internal = Number(player._finalAdjusted ?? player._composite ?? raw) || raw;
+  const internal =
+    Number(player._finalAdjusted ?? player._composite ?? raw) || raw;
   const full = display || internal;
   return {
     raw: Math.round(raw),
@@ -929,7 +931,8 @@ export function tepMultiplierIsCustomized(tepMultiplier) {
  * (1.10)" so ``fetchDynastyData`` skips posting the field.
  */
 export function tepNativeMultiplierIsCustomized(tepNativeMultiplier) {
-  if (tepNativeMultiplier === null || tepNativeMultiplier === undefined) return false;
+  if (tepNativeMultiplier === null || tepNativeMultiplier === undefined)
+    return false;
   const n = Number(tepNativeMultiplier);
   return Number.isFinite(n);
 }
@@ -972,9 +975,8 @@ function _materializePlayerArrayRow(player) {
 
   // Prefer 1–9999 display value; fall back to internal calibrated value
   const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
-  const internalVal = Number(
-    player?.values?.finalAdjusted ?? player?.values?.overall ?? 0
-  ) || 0;
+  const internalVal =
+    Number(player?.values?.finalAdjusted ?? player?.values?.overall ?? 0) || 0;
   const rawValues = {
     raw: Number(player?.values?.rawComposite ?? 0) || 0,
     full: displayVal || internalVal,
@@ -1067,10 +1069,13 @@ function _materializePlayerArrayRow(player) {
     // confidence / anomaly flags, all of which are computed on the
     // post-Hampel set.  Falls back to `{}` for legacy payloads.
     effectiveSourceRanks:
-      player.effectiveSourceRanks && typeof player.effectiveSourceRanks === "object"
+      player.effectiveSourceRanks &&
+      typeof player.effectiveSourceRanks === "object"
         ? player.effectiveSourceRanks
         : {},
-    droppedSources: Array.isArray(player.droppedSources) ? player.droppedSources : [],
+    droppedSources: Array.isArray(player.droppedSources)
+      ? player.droppedSources
+      : [],
     sourceRankMeta: backendSourceRankMeta,
     blendedSourceRank: backendBlendedSourceRank,
     sourceCount: backendSourceCount,
@@ -1109,17 +1114,26 @@ function _materializePlayerArrayRow(player) {
     sourceRankSpread: player.sourceRankSpread ?? null,
     marketGapDirection: String(player.marketGapDirection || "none"),
     marketGapMagnitude: player.marketGapMagnitude ?? null,
-    sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
-      ? player.sourceOriginalRanks : {},
+    sourceOriginalRanks:
+      player.sourceOriginalRanks &&
+      typeof player.sourceOriginalRanks === "object"
+        ? player.sourceOriginalRanks
+        : {},
     // Native vendor values for rank-signal sources — the real number
     // behind the synthetic encoding in canonicalSites (parallel map
     // to sourceOriginalRanks; keep both materializers in lockstep).
-    sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
-      ? player.sourceNativeValues : {},
+    sourceNativeValues:
+      player.sourceNativeValues && typeof player.sourceNativeValues === "object"
+        ? player.sourceNativeValues
+        : {},
     // NFL years of experience (0 = rookie) — drives the experience
     // filter; null when the Sleeper blob never matched this player.
-    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
-      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
+    yearsExp:
+      Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+        ? Number(player.yearsExp)
+        : Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null
+          ? Number(player._yearsExp)
+          : null,
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1134,12 +1148,21 @@ function _materializePlayerArrayRow(player) {
 
 function _materializeLegacyDictRow(name, player, posMap) {
   if (!player || typeof player !== "object") return null;
-  const isPick = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(name) || /^20\d{2}\s+pick/i.test(name);
-  const pos = isPick ? "PICK" : normalizePos(posMap[name] || player.position || "");
+  const isPick =
+    /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(
+      name,
+    ) || /^20\d{2}\s+pick/i.test(name);
+  const pos = isPick
+    ? "PICK"
+    : normalizePos(posMap[name] || player.position || "");
   if (classifyPos(pos) === "excluded") return null;
 
   const rawValues = inferValueBundle(player);
-  const canonicalSites = player._canonicalSiteValues && typeof player._canonicalSiteValues === "object" ? player._canonicalSiteValues : {};
+  const canonicalSites =
+    player._canonicalSiteValues &&
+    typeof player._canonicalSiteValues === "object"
+      ? player._canonicalSiteValues
+      : {};
   // Legacy dict rows carry raw scrape values at the top level (e.g.
   // ``player.ktcSfTep``).  Mirror the playersArray materializer's
   // ``rawSourceValues`` field for the popup chip render — KTC TE++
@@ -1177,7 +1200,9 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // carrying only _isRookie, so reading one signal alone made
     // rookie filters exclude every actual rookie on the view=app
     // path (Codex round 4 on PR #535).
-    rookie: Boolean(player._formatFitRookie || player._isRookie || player.rookie),
+    rookie: Boolean(
+      player._formatFitRookie || player._isRookie || player.rookie,
+    ),
     assetClass: classifyPos(pos || "?"),
     values,
     siteCount: Number(player.sourceCount || player._sites || 0),
@@ -1188,15 +1213,24 @@ function _materializeLegacyDictRow(name, player, posMap) {
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
     canonicalTierId: Number(player._canonicalTierId) || null,
-    sourceRanks: player.sourceRanks && typeof player.sourceRanks === "object" ? player.sourceRanks : {},
+    sourceRanks:
+      player.sourceRanks && typeof player.sourceRanks === "object"
+        ? player.sourceRanks
+        : {},
     // See ``_materializePlayerArrayRow`` for the rationale on these
     // two fields — keep both materializers in lockstep.
     effectiveSourceRanks:
-      player.effectiveSourceRanks && typeof player.effectiveSourceRanks === "object"
+      player.effectiveSourceRanks &&
+      typeof player.effectiveSourceRanks === "object"
         ? player.effectiveSourceRanks
         : {},
-    droppedSources: Array.isArray(player.droppedSources) ? player.droppedSources : [],
-    sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object" ? player.sourceRankMeta : {},
+    droppedSources: Array.isArray(player.droppedSources)
+      ? player.droppedSources
+      : [],
+    sourceRankMeta:
+      player.sourceRankMeta && typeof player.sourceRankMeta === "object"
+        ? player.sourceRankMeta
+        : {},
     blendedSourceRank: player.blendedSourceRank ?? null,
     sourceCount: Number(player.sourceCount || 0),
     confidenceBucket: String(player.confidenceBucket || "none"),
@@ -1207,20 +1241,32 @@ function _materializeLegacyDictRow(name, player, posMap) {
     hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
     sourceRankSpread: player.sourceRankSpread ?? null,
     sourceRankPercentileSpread: player.sourceRankPercentileSpread ?? null,
-    sourceAudit: player.sourceAudit && typeof player.sourceAudit === "object" ? player.sourceAudit : null,
+    sourceAudit:
+      player.sourceAudit && typeof player.sourceAudit === "object"
+        ? player.sourceAudit
+        : null,
     marketGapDirection: String(player.marketGapDirection || "none"),
     marketGapMagnitude: player.marketGapMagnitude ?? null,
-    sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
-      ? player.sourceOriginalRanks : {},
+    sourceOriginalRanks:
+      player.sourceOriginalRanks &&
+      typeof player.sourceOriginalRanks === "object"
+        ? player.sourceOriginalRanks
+        : {},
     // Native vendor values for rank-signal sources — the real number
     // behind the synthetic encoding in canonicalSites (parallel map
     // to sourceOriginalRanks; keep both materializers in lockstep).
-    sourceNativeValues: player.sourceNativeValues && typeof player.sourceNativeValues === "object"
-      ? player.sourceNativeValues : {},
+    sourceNativeValues:
+      player.sourceNativeValues && typeof player.sourceNativeValues === "object"
+        ? player.sourceNativeValues
+        : {},
     // NFL years of experience (0 = rookie) — drives the experience
     // filter; null when the Sleeper blob never matched this player.
-    yearsExp: Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
-      ? Number(player.yearsExp) : (Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null ? Number(player._yearsExp) : null),
+    yearsExp:
+      Number.isFinite(Number(player.yearsExp)) && player.yearsExp !== null
+        ? Number(player.yearsExp)
+        : Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null
+          ? Number(player._yearsExp)
+          : null,
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
@@ -1239,7 +1285,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
  */
 function _hasBackendRankStamps(rows) {
   for (const r of rows) {
-    if (r && Number.isInteger(r.canonicalConsensusRank) && r.canonicalConsensusRank > 0) {
+    if (
+      r &&
+      Number.isInteger(r.canonicalConsensusRank) &&
+      r.canonicalConsensusRank > 0
+    ) {
       return true;
     }
   }
@@ -1248,7 +1298,9 @@ function _hasBackendRankStamps(rows) {
 
 export function buildRows(data) {
   const players = data?.players || {};
-  const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
+  const playersArray = Array.isArray(data?.playersArray)
+    ? data.playersArray
+    : [];
   const posMap = data?.sleeper?.positions || {};
   const rows = [];
 
@@ -1288,7 +1340,19 @@ export function buildRows(data) {
   // end of the table. For ranked rows this ordering matches the
   // integer-rank order because the backend has already made value
   // monotonic with rank; the change only affects null-rank rows.
+  // When a valuation overlay is applied, ranked rows sort by the SERVED
+  // rank rather than by value.  Python rounds half-to-even and JS rounds
+  // half-up, so `consensus x factor` can differ by one unit between the
+  // two — enough to swap adjacent rows against the ranks the server
+  // sent, which renders as a `#100, #101, #100` stutter in the `#`
+  // column.  Null-rank rows still interleave by value.
+  const overlayActive = Boolean(data?.valuationOverlay);
   rows.sort((a, b) => {
+    if (overlayActive) {
+      const ra = a.canonicalConsensusRank ?? null;
+      const rb = b.canonicalConsensusRank ?? null;
+      if (ra != null && rb != null) return ra - rb;
+    }
     const va = Number(a.rankDerivedValue) || 0;
     const vb = Number(b.rankDerivedValue) || 0;
     if (vb !== va) return vb - va;
@@ -1305,7 +1369,10 @@ export function buildRows(data) {
     // local computed ordinal as before; picks show no rank number.
     if (r.canonicalConsensusRank != null) {
       r.rank = r.canonicalConsensusRank;
-    } else if (r.assetClass === "pick") {
+    } else if (r.assetClass === "pick" || overlayActive) {
+      // With an overlay active the local ordinal would be derived from
+      // ADJUSTED values — a client-computed rank in the `#` column,
+      // which is the one thing `buildRows` must never produce.
       r.rank = null;
     } else {
       r.rank = r.computedConsensusRank;
@@ -1392,7 +1459,12 @@ async function _fetchBaseContract() {
   // The Next.js API route wraps the payload: { ok, source, data: <contract> }
   // The Python backend alias returns the raw contract.  Normalize both.
   let wrapped;
-  if (json && typeof json === "object" && !json.data && (json.players || json.playersArray)) {
+  if (
+    json &&
+    typeof json === "object" &&
+    !json.data &&
+    (json.players || json.playersArray)
+  ) {
     wrapped = {
       ok: true,
       source: json.dataSource?.type
@@ -1445,7 +1517,8 @@ export function mergeRankingsDelta(baseContract, delta) {
   if (!baseContract || !delta) return baseContract;
   const base = baseContract.data || baseContract;
   const rankingsDelta = delta.rankingsDelta;
-  if (!rankingsDelta || !Array.isArray(rankingsDelta.players)) return baseContract;
+  if (!rankingsDelta || !Array.isArray(rankingsDelta.players))
+    return baseContract;
   const playerKey = rankingsDelta.playerKey || "displayName";
   const deltaByKey = new Map();
   for (const entry of rankingsDelta.players) {
@@ -1463,7 +1536,9 @@ export function mergeRankingsDelta(baseContract, delta) {
     generatedAt: delta.generatedAt || base.generatedAt,
   };
 
-  const basePlayersArray = Array.isArray(base.playersArray) ? base.playersArray : [];
+  const basePlayersArray = Array.isArray(base.playersArray)
+    ? base.playersArray
+    : [];
 
   if (basePlayersArray.length > 0) {
     // Fast path: base already has a fully-materialized playersArray,
@@ -1476,7 +1551,10 @@ export function mergeRankingsDelta(baseContract, delta) {
         continue;
       }
       const id = String(
-        basePlayer[playerKey] || basePlayer.displayName || basePlayer.canonicalName || "",
+        basePlayer[playerKey] ||
+          basePlayer.displayName ||
+          basePlayer.canonicalName ||
+          "",
       );
       const deltaEntry = deltaByKey.get(id);
       if (!deltaEntry) {
@@ -1504,9 +1582,9 @@ export function mergeRankingsDelta(baseContract, delta) {
     // override is actually reflected in the materialized rows.
     const legacyPlayers =
       base.players && typeof base.players === "object" ? base.players : {};
-    const posMap =
-      (base.sleeper && base.sleeper.positions) || {};
-    const PICK_RE = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i;
+    const posMap = (base.sleeper && base.sleeper.positions) || {};
+    const PICK_RE =
+      /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i;
     const synthesizedArray = [];
     for (const deltaEntry of rankingsDelta.players) {
       if (!deltaEntry || !deltaEntry.id) continue;
@@ -1530,16 +1608,16 @@ export function mergeRankingsDelta(baseContract, delta) {
         // offense/IDP name twins can inherit each other's owner
         // (Codex round 3 on PR #535).
         playerId: String(legacy._sleeperId || "").trim() || null,
-        position: isPick
-          ? "PICK"
-          : String(posMap[id] || legacy.position || ""),
+        position: isPick ? "PICK" : String(posMap[id] || legacy.position || ""),
         team: legacy.team != null ? legacy.team : null,
         age: legacy.age != null ? legacy.age : null,
         // Override-invariant like team/age: without this copy the
         // experience filters return an empty board whenever a source
         // override is active (fail-closed predicate over null).
         yearsExp: legacy._yearsExp != null ? legacy._yearsExp : null,
-        rookie: Boolean(legacy._formatFitRookie || legacy._isRookie || legacy.rookie),
+        rookie: Boolean(
+          legacy._formatFitRookie || legacy._isRookie || legacy.rookie,
+        ),
         assetClass: String(legacy.assetClass || ""),
         identityConfidence: Number(legacy.identityConfidence ?? 0.7),
         identityMethod: String(legacy.identityMethod || "name_only"),
@@ -1547,7 +1625,8 @@ export function mergeRankingsDelta(baseContract, delta) {
         // the retail-vs-consensus gap column can fall back when the
         // delta dropped a source.
         canonicalSiteValues:
-          legacy._canonicalSiteValues && typeof legacy._canonicalSiteValues === "object"
+          legacy._canonicalSiteValues &&
+          typeof legacy._canonicalSiteValues === "object"
             ? legacy._canonicalSiteValues
             : {},
         // Vendor-native values are override-INVARIANT (toggling a
@@ -1556,7 +1635,8 @@ export function mergeRankingsDelta(baseContract, delta) {
         // mirror or the tooltips lose natives while an override is
         // active (Codex review on PR #532 round 8).
         sourceNativeValues:
-          legacy.sourceNativeValues && typeof legacy.sourceNativeValues === "object"
+          legacy.sourceNativeValues &&
+          typeof legacy.sourceNativeValues === "object"
             ? legacy.sourceNativeValues
             : {},
       };
@@ -1580,6 +1660,166 @@ export function mergeRankingsDelta(baseContract, delta) {
   };
 }
 
+// League-scoped, unlike ``_cachedBaseContract`` which is
+// scoring-profile-scoped. Reset together on a league switch.
+let _cachedValuationOverlay = null;
+
+export function _resetValuationOverlayCache() {
+  _cachedValuationOverlay = null;
+}
+
+async function _fetchValuationOverlay() {
+  if (_cachedValuationOverlay) return _cachedValuationOverlay;
+  try {
+    const leagueKey = _readActiveLeagueKey();
+    const qs = leagueKey ? `?leagueKey=${encodeURIComponent(leagueKey)}` : "";
+    const res = await fetch(`/api/valuation/league-adjusted${qs}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.warn(
+        `[dynasty-data] valuation overlay ${res.status}; serving market values`,
+      );
+      return null;
+    }
+    const body = await res.json();
+    if (!body || body.isNoop) return null;
+    _cachedValuationOverlay = body;
+    return body;
+  } catch (err) {
+    console.warn(
+      "[dynasty-data] valuation overlay fetch failed; serving market values",
+      err,
+    );
+    return null;
+  }
+}
+
+/**
+ * Apply the league-adjusted valuation overlay to a contract.
+ *
+ * NOT ``mergeRankingsDelta``.  That function's runtime-view branch
+ * synthesizes ``playersArray`` from delta entries only, so a player the
+ * delta doesn't mention disappears; and its ``activePlayerIds`` branch
+ * nulls the rank of anything absent.  Both are correct for a dense
+ * override delta and catastrophic for this overlay, where ``factors``
+ * is sparse and absence means "unchanged".
+ *
+ * Writes TWO key sets, because the two materializers disagree:
+ *   - ``playersArray`` rows carry ``canonicalConsensusRank`` / ``canonicalTierId``
+ *   - the legacy ``players`` dict carries ``_canonicalConsensusRank`` /
+ *     ``_canonicalTierId`` — but ``rankDerivedValue`` with no underscore
+ *
+ * The legacy path is the DEFAULT one (``server.py`` pops ``playersArray``
+ * off the runtime payload), so an applier that writes only the first set
+ * moves the value and leaves the rank stale — on the path that actually
+ * ships, and nowhere else.
+ *
+ * Copy-on-write: untouched rows are returned by reference.
+ */
+export function applyValuationOverlay(baseContract, overlay) {
+  if (!baseContract || !overlay) return baseContract;
+  const factors = overlay.factors;
+  if (
+    !factors ||
+    typeof factors !== "object" ||
+    Object.keys(factors).length === 0
+  ) {
+    return baseContract;
+  }
+
+  const data = baseContract.data || baseContract;
+
+  // Version pin.  Overlay ranks are computed against one contract
+  // build; a scrape landing between the base fetch and the overlay
+  // fetch would apply board B's ranks to board A's values.  Refuse
+  // outright rather than half-apply — a board whose ranks disagree with
+  // its values is worse than the market board.
+  const baseStamp = data.scrapeTimestamp;
+  const overlayStamp = overlay.scrapeTimestamp;
+  if (baseStamp && overlayStamp && baseStamp !== overlayStamp) {
+    console.warn(
+      "[dynasty-data] valuation overlay is for a different scrape " +
+        `(base ${baseStamp} vs overlay ${overlayStamp}); serving market values`,
+    );
+    return baseContract;
+  }
+
+  const ranks = overlay.ranks || {};
+  const tiers = overlay.tiers || {};
+  const scale = (v, f) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * f) : v;
+  };
+
+  const nextData = {
+    ...data,
+    valuationOverlay: { mode: "leagueAdjusted", ...overlay },
+  };
+
+  if (Array.isArray(data.playersArray) && data.playersArray.length > 0) {
+    nextData.playersArray = data.playersArray.map((row) => {
+      const key = String(row?.displayName || row?.canonicalName || "").trim();
+      const f = factors[key];
+      const hasRank = Object.prototype.hasOwnProperty.call(ranks, key);
+      if (!f && !hasRank) return row;
+      const next = { ...row };
+      if (f) {
+        next.rankDerivedValue = scale(row.rankDerivedValue, f);
+        if (row.values && typeof row.values === "object") {
+          // All four aliases are identical on live rows; keep them so.
+          next.values = { ...row.values };
+          for (const k of ["overall", "finalAdjusted", "displayValue"]) {
+            if (row.values[k] != null) next.values[k] = scale(row.values[k], f);
+          }
+        }
+      }
+      if (hasRank) {
+        next.canonicalConsensusRank = ranks[key];
+        if (tiers[key] != null) next.canonicalTierId = tiers[key];
+      } else if (f) {
+        // Moved in value but not on the ranked board (past the cap, or
+        // an anchor slot pick). Leave the rank null rather than letting
+        // buildRows derive one from the adjusted sort order.
+        next.canonicalConsensusRank = null;
+      }
+      // "moved up N since the previous scrape" is a statement about the
+      // market board. Next to an adjusted rank it is simply false.
+      next.rankChange = null;
+      return next;
+    });
+  }
+
+  if (data.players && typeof data.players === "object") {
+    const nextPlayers = {};
+    for (const [name, row] of Object.entries(data.players)) {
+      const f = factors[name];
+      const hasRank = Object.prototype.hasOwnProperty.call(ranks, name);
+      if (!f && !hasRank) {
+        nextPlayers[name] = row;
+        continue;
+      }
+      const next = { ...row };
+      if (f) {
+        next.rankDerivedValue = scale(row.rankDerivedValue, f);
+        if (row._finalAdjusted != null)
+          next._finalAdjusted = scale(row._finalAdjusted, f);
+      }
+      if (hasRank) {
+        next._canonicalConsensusRank = ranks[name];
+        if (tiers[name] != null) next._canonicalTierId = tiers[name];
+      } else if (f) {
+        next._canonicalConsensusRank = null;
+      }
+      next._rankChange = null;
+      nextPlayers[name] = next;
+    }
+    nextData.players = nextPlayers;
+  }
+
+  return { ...baseContract, source: "backend:leagueAdjusted", data: nextData };
+}
+
 export async function fetchDynastyData(opts = {}) {
   const siteOverrides = opts.siteOverrides || null;
   // Preserve ``null`` / ``undefined`` as "inherit derived default"
@@ -1601,15 +1841,39 @@ export async function fetchDynastyData(opts = {}) {
         : null;
   const sitesCustomized = siteOverridesAreCustomized(siteOverrides);
   const tepCustomized = tepMultiplierIsCustomized(tepMultiplier);
-  const tepNativeCustomized = tepNativeMultiplierIsCustomized(tepNativeMultiplier);
+  const tepNativeCustomized =
+    tepNativeMultiplierIsCustomized(tepNativeMultiplier);
   const customized = sitesCustomized || tepCustomized || tepNativeCustomized;
+
+  const leagueAdjusted = opts.valuationMode === "leagueAdjusted";
 
   // Default path (no overrides): fetch + cache the base contract.
   // The backend will derive tep_multiplier from the operator's
   // Sleeper league ``bonus_rec_te`` and bake it into the blend for
   // us, so the frontend doesn't need to POST anything.
   if (!customized) {
-    return _fetchBaseContract();
+    const base = await _fetchBaseContract();
+    if (!leagueAdjusted) return base;
+    const overlay = await _fetchValuationOverlay();
+    // A failed overlay fetch degrades to the market board. Half a
+    // valuation lens is not a lens.
+    return overlay ? applyValuationOverlay(base, overlay) : base;
+  }
+
+  // Source overrides + league-adjusted is deliberately NOT composed
+  // here.  The overlay is computed against the un-overridden board, so
+  // its ranks are the ranks of `default_consensus x factor` — but the
+  // correct answer is the rank of `overridden_consensus x factor`,
+  // which the server never computed.  No client-side sequencing fixes
+  // that; composing the two would produce a board where neither the
+  // values nor the ranks correspond to anything.  Serve the overridden
+  // market board and say so, until `valuation_mode` is threaded through
+  // the overrides pipeline server-side.
+  if (leagueAdjusted) {
+    console.warn(
+      "[dynasty-data] custom source weights are active; league-adjusted " +
+        "values are not applied (the two cannot be composed client-side)",
+    );
   }
 
   // Override path: POST the override map + TE premium multiplier to
@@ -1643,7 +1907,11 @@ export async function fetchDynastyData(opts = {}) {
     });
     if (overrideRes.ok) {
       const deltaPayload = await overrideRes.json();
-      if (deltaPayload && deltaPayload.mode === "delta" && deltaPayload.rankingsDelta) {
+      if (
+        deltaPayload &&
+        deltaPayload.mode === "delta" &&
+        deltaPayload.rankingsDelta
+      ) {
         return mergeRankingsDelta(base, deltaPayload);
       }
       // Full-contract fallback: the backend may have returned a full
