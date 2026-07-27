@@ -120,6 +120,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # noise — see the module docstring for the depth-stability
     # measurement that rules it out.
     "idp_scoring_fit": False,
+    # Per-player reception-depth tilt (Tier 2).  Separate from
+    # idp_scoring_fit above rather than sharing it: that flag is named
+    # for IDP, and using it to gate an offence feature would make the
+    # name a lie — an operator disabling "idp_scoring_fit" would
+    # silently also disable every receiver adjustment.
+    #
+    # Also OFF by default.  Note the magnitude before enabling: the
+    # per-catch spread is 8x but receptions are 17-33% of a player's
+    # points, so the VALUE move is around +/-8%, not +/-120%.  See
+    # src/league_intel/reception_fit.py.
+    "reception_scoring_fit": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

@@ -62,6 +62,7 @@ __all__ = [
     "build_board_adjustments",
     "check_position_monotonicity",
     "projection_corroboration_axis",
+    "reception_fit_axis",
     "scoring_fit_axis",
     "structural_scarcity_axis",
     "te_premium_axis",
@@ -305,6 +306,65 @@ def scoring_fit_axis(
             f"positions to {entry.multiplier:.3f}. {entry.reason}"
         ),
         measured_value=float(entry.raw_ratio),
+    )
+
+
+def reception_fit_axis(
+    display_name: str,
+    position: str,
+    multipliers_by_name: Mapping[str, float] | None,
+) -> AdjustmentAxis:
+    """How this league's reception-distance banding reprices ONE player.
+
+    The only per-player axis in the model. Every other axis is a
+    function of position, which is what lets them compose against a
+    re-weighted board; this one is not, and that is deliberate — the
+    thing being measured (a receiver's catch-depth distribution) is a
+    property of the player, not of his position.
+
+    ``multipliers_by_name`` is keyed by
+    :func:`~src.utils.name_clean.resolve_canonical_name`. The
+    measurement itself is keyed by GSIS id; the caller does that join,
+    because it owns the stat rows that carry both identifiers.
+
+    ABSENT for offensive positions with no measurement and for every
+    defensive position — IDP catches are not a thing this league's
+    reception keys pay for.
+    """
+    if not multipliers_by_name:
+        return AdjustmentAxis(
+            name="receptionFit",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale="no reception-depth measurement supplied; axis contributes nothing",
+        )
+
+    from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
+
+    key = resolve_canonical_name(display_name)
+    factor = multipliers_by_name.get(key)
+    if factor is None:
+        return AdjustmentAxis(
+            name="receptionFit",
+            factor=1.0,
+            tier=EvidenceTier.ABSENT,
+            rationale=(
+                f"no measured catch-depth distribution for {display_name!r} "
+                "(fewer than the minimum receptions, or no scored season)"
+            ),
+        )
+
+    return AdjustmentAxis(
+        name="receptionFit",
+        factor=float(factor),
+        tier=EvidenceTier.SCORING_MEASURED,
+        rationale=(
+            f"catch-depth distribution repriced against this league's banded "
+            f"reception keys: {float(factor):.3f}x. Composed as "
+            "1 + reception_share x (per_catch_ratio - 1), so the value move is "
+            "a fraction of the per-catch move."
+        ),
+        measured_value=float(factor),
     )
 
 
@@ -656,6 +716,7 @@ def build_board_adjustments(
     te_measurement: Mapping[str, Any] | None = None,
     projections: Mapping[str, ProjectionEvidence] | None = None,
     scoring_fit: Any | None = None,
+    reception_fit: Mapping[str, float] | None = None,
     config_version: int | None = None,
     data_through: str | None = None,
     max_total_adjustment: float = MAX_TOTAL_ADJUSTMENT,
@@ -699,6 +760,7 @@ def build_board_adjustments(
             # ORCHESTRATION.md 6.14 mistake -- a module nothing imports
             # cannot be caught by the tests that guard it.
             scoring_fit_axis(position, scoring_fit),
+            reception_fit_axis(name, position, reception_fit),
             projection_corroboration_axis(
                 (projections or {}).get(name),
                 structural_factor=1.0,

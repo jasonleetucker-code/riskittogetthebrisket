@@ -1133,6 +1133,108 @@ def invalidate_scoring_fit_cache() -> None:
     _SCORING_FIT_CACHE.clear()
 
 
+_RECEPTION_FIT_CACHE: dict[str, Any] = {}
+
+
+def invalidate_reception_fit_cache() -> None:
+    _RECEPTION_FIT_CACHE.clear()
+
+
+def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
+    """Per-player reception-depth multipliers, keyed by canonical NAME.
+
+    The measurement is keyed by GSIS id; contract rows are keyed by
+    display name. The join happens here rather than in the adjustment
+    model because this is where both identifiers are in scope — the
+    weekly stat rows carry ``player_id`` (GSIS) and
+    ``player_display_name`` together, so the mapping is free.
+
+    Returns None — an ABSENT axis — when the flag is off, the inputs are
+    missing, or the measurement refuses itself. Never raises.
+    """
+    from src.api import feature_flags  # noqa: PLC0415
+
+    if not feature_flags.is_enabled("reception_scoring_fit"):
+        return None
+    if league_key in _RECEPTION_FIT_CACHE:
+        return _RECEPTION_FIT_CACHE[league_key]
+
+    by_name: dict[str, float] | None = None
+    try:
+        from src.league_comparison.scoring_engine import (  # noqa: PLC0415
+            compute_player_season_scores,
+        )
+        from src.league_comparison.service import _load_config  # noqa: PLC0415
+        from src.league_comparison.sleeper_scoring import (  # noqa: PLC0415
+            fetch_league_scoring,
+        )
+        from src.league_intel.reception_fit import (  # noqa: PLC0415
+            measure_reception_depth_fit,
+            reception_scoring_keys,
+        )
+        from src.nfl_data.ingest import fetch_weekly_stats  # noqa: PLC0415
+        from src.nfl_data.reception_depth import load_reception_depth  # noqa: PLC0415
+        from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
+
+        cfg = _load_config()
+        mine_id = str((cfg.get("my_league") or {}).get("id") or "")
+        base_id = str((cfg.get("baseline_league") or {}).get("id") or "")
+        seasons = [int(s) for s in (cfg.get("seasons") or []) if str(s).isdigit()]
+        season = max(seasons) if seasons else None
+        depth = load_reception_depth(season) if season else None
+
+        if mine_id and base_id and season and depth:
+            mine = fetch_league_scoring(mine_id).scoring_settings
+            baseline = fetch_league_scoring(base_id).scoring_settings
+            rows = fetch_weekly_stats([season])
+            if mine and baseline and rows:
+                # Reception share is measured under the BASELINE card:
+                # that is the card the market prices on, so it is the
+                # right denominator for "how much of this player's
+                # market value is reception-driven".
+                stripped = {k: v for k, v in baseline.items() if k not in reception_scoring_keys()}
+                full = {
+                    s.player_id: s
+                    for s in compute_player_season_scores(rows, baseline, season=season)
+                }
+                norec = {
+                    s.player_id: s
+                    for s in compute_player_season_scores(rows, stripped, season=season)
+                }
+                shares = {
+                    pid: (s.total_points - (norec[pid].total_points if pid in norec else 0.0))
+                    / s.total_points
+                    for pid, s in full.items()
+                    if s.total_points > 0
+                }
+                measurement = measure_reception_depth_fit(
+                    depth, shares, mine, baseline, season=season
+                )
+                if measurement.trusted:
+                    names = {s.player_id: s.player_name for s in full.values() if s.player_name}
+                    by_name = {}
+                    for gsis, mult in measurement.multipliers.items():
+                        key = resolve_canonical_name(names.get(gsis, ""))
+                        if key:
+                            by_name[key] = mult
+                    if not by_name:
+                        # Every id failed to resolve to a name. An empty
+                        # map and "the feature is off" are different
+                        # states and must not read the same.
+                        _LOGGER.warning(
+                            "reception fit measured %d players but none resolved to a "
+                            "name; serving no overlay",
+                            len(measurement.multipliers),
+                        )
+                        by_name = None
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("reception fit unavailable for %s: %r", league_key, exc)
+        by_name = None
+
+    _RECEPTION_FIT_CACHE[league_key] = by_name
+    return by_name
+
+
 def _resolve_scoring_fit(league_key: str) -> Any | None:
     """This league's IDP positional scoring tilt, or None.
 
@@ -1228,6 +1330,7 @@ def get_league_adjusted_values(
         bundle.scarcity,
         league_key=league_key,
         scoring_fit=_resolve_scoring_fit(league_key),
+        reception_fit=_resolve_reception_fit(league_key),
         config_version=config_version,
         data_through=(contract or {}).get("date"),
         # Version pin: the client refuses to apply an overlay whose

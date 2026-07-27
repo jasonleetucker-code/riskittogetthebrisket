@@ -207,3 +207,112 @@ def test_reception_keys_cover_the_flat_and_banded_forms():
     keys = reception_scoring_keys()
     assert "rec" in keys
     assert "rec_0_4" in keys and "rec_40p" in keys
+
+
+# ── The axis: wired, not staged ──────────────────────────────────────
+#
+# ORCHESTRATION.md 6.14/6.15: a module nothing imports cannot be caught
+# by the guards written for it. The axis is constructed on every board
+# and yields ABSENT when there is no measurement, so the flag-off path
+# still exercises this code.
+
+
+def test_a_measured_player_reaches_the_axis_with_its_evidence():
+    from src.league_intel.adjustment import EvidenceTier, reception_fit_axis
+
+    axis = reception_fit_axis("Alec Pierce", "WR", {"alec pierce": 1.048})
+    assert axis.tier is EvidenceTier.SCORING_MEASURED
+    assert axis.applied
+    assert axis.factor == pytest.approx(1.048)
+    # The rationale must state the composition, because "1.048x" alone
+    # invites someone to think it came from the per-catch ratio.
+    assert "per_catch_ratio" in axis.rationale
+
+
+def test_an_unmeasured_player_is_inert():
+    from src.league_intel.adjustment import EvidenceTier, reception_fit_axis
+
+    axis = reception_fit_axis("Nobody At All", "WR", {"alec pierce": 1.048})
+    assert axis.tier is EvidenceTier.ABSENT
+    assert axis.effective_factor == 1.0
+
+
+def test_no_measurement_at_all_is_inert():
+    """The flag-off path. `_resolve_reception_fit` returns None, and the
+    axis is still constructed so the guards keep running against it."""
+    from src.league_intel.adjustment import EvidenceTier, reception_fit_axis
+
+    axis = reception_fit_axis("Alec Pierce", "WR", None)
+    assert axis.tier is EvidenceTier.ABSENT
+    assert axis.effective_factor == 1.0
+
+
+def test_the_axis_joins_on_the_canonical_name_not_the_raw_string():
+    """Contract rows and stat rows spell names differently — suffixes,
+    apostrophes, accents. Joining on the raw string would silently drop
+    exactly the players whose names are hardest to spell."""
+    from src.league_intel.adjustment import reception_fit_axis
+    from src.utils.name_clean import resolve_canonical_name
+
+    key = resolve_canonical_name("Ja'Marr Chase")
+    axis = reception_fit_axis("JaMarr Chase Jr.", "WR", {key: 0.93})
+    assert axis.factor == pytest.approx(0.93)
+
+
+def test_the_board_applies_the_per_player_tilt():
+    """End to end through build_board_adjustments — the wiring, not just
+    the axis function."""
+    from src.league_intel.adjustment import build_board_adjustments
+
+    rows = [
+        {"displayName": "Deep Threat", "position": "WR", "rankDerivedValue": 5000},
+        {"displayName": "Check Down", "position": "RB", "rankDerivedValue": 5000},
+    ]
+    board = build_board_adjustments(rows, reception_fit={"deep threat": 1.05, "check down": 0.90})
+    by_name = {e.display_name: e for e in board.explanations}
+    assert by_name["Deep Threat"].league_adjusted_value > 5000
+    assert by_name["Check Down"].league_adjusted_value < 5000
+
+
+def test_the_board_is_unchanged_without_a_measurement():
+    """Flag-off must be arithmetically identical to the board before
+    this feature existed."""
+    from src.league_intel.adjustment import build_board_adjustments
+
+    rows = [{"displayName": "Deep Threat", "position": "WR", "rankDerivedValue": 5000}]
+    plain = build_board_adjustments(rows)
+    with_none = build_board_adjustments(rows, reception_fit=None)
+    assert (
+        plain.explanations[0].league_adjusted_value
+        == with_none.explanations[0].league_adjusted_value
+    )
+    assert with_none.explanations[0].league_adjusted_value == pytest.approx(5000)
+
+
+def test_the_reception_flag_is_separate_from_the_idp_one():
+    """Sharing `idp_scoring_fit` would make its name a lie: an operator
+    disabling the IDP feature would silently also disable every receiver
+    adjustment. Both default off, independently."""
+    from src.api import feature_flags
+
+    feature_flags.reload()
+    assert feature_flags.is_enabled("reception_scoring_fit") is False
+    assert feature_flags.is_enabled("idp_scoring_fit") is False
+
+
+def test_the_resolver_is_inert_while_the_reception_flag_is_off(monkeypatch):
+    from src.api import feature_flags, gameplan
+
+    monkeypatch.setenv("RISKIT_FEATURE_RECEPTION_SCORING_FIT", "0")
+    feature_flags.reload()
+    gameplan.invalidate_reception_fit_cache()
+    called = []
+    monkeypatch.setattr(
+        "src.nfl_data.ingest.fetch_weekly_stats", lambda *a, **k: called.append(1) or []
+    )
+    try:
+        assert gameplan._resolve_reception_fit("main") is None
+        assert called == [], "flag off must not fetch stats"
+    finally:
+        feature_flags.reload()
+        gameplan.invalidate_reception_fit_cache()
