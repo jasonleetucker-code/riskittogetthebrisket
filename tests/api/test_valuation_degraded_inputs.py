@@ -14,9 +14,11 @@ bearing and invisible*:
     formula divides by it.  See ``TestSiteMaxContamination``.
   * negative / zero source values being dropped rather than voted.
 
-A known **unfixed** gap is characterised (not asserted as correct) in
-``TestSiteMaxContamination.test_out_of_range_finite_value_rescales_the_board``
-— see ``docs/python-coverage-audit.md``.
+The out-of-range gap that was characterised here as *unfixed* (D-1) was
+closed 2026-07-27 — see
+``TestSiteMaxContamination.test_out_of_range_finite_value_does_not_rescale_the_board``,
+``_partition_value_source_ranges`` in ``src/api/data_contract.py``, and
+``docs/python-coverage-audit.md`` D-1.
 """
 
 from __future__ import annotations
@@ -185,8 +187,18 @@ class TestNonPositiveAndNonFiniteValues:
 class TestSiteMaxContamination:
     """The value-direct branch is ``raw / site_max × 9999``.
 
-    ``site_max`` is an unbounded max over the pool, so one bad cell in
-    a value-based source rescales *every* player in that source.
+    ``site_max`` USED to be an unbounded max over the pool, so one bad
+    cell in a value-based source rescaled *every* player in that source.
+    Two independent guards now stand there, and both are load-bearing:
+
+      * ``_safe_num`` rejects non-finite values before they can reach
+        the max at all;
+      * ``_partition_value_source_ranges`` (D-1, 2026-07-27) computes
+        the max over in-range values only, and drops out-of-range rows
+        to the rank→Hill fallback.
+
+    Neither subsumes the other — ``inf`` is caught by coercion, an
+    extra digit is caught by the range check.
     """
 
     def test_non_finite_values_never_become_the_site_max(self):
