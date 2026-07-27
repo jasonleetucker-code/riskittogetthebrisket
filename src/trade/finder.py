@@ -210,6 +210,19 @@ class TradeCandidate:
     ranking_factors: dict = field(default_factory=dict)  # Score component breakdown
     flags: list[str] = field(default_factory=list)  # Active guards/bonuses
 
+    def markets_used(self) -> list[str]:
+        """Which retail markets priced the assets in this trade.
+
+        ``ktc`` and ``ktcSfTep`` are the same publisher's board and
+        collapse to one entry; ``idpTradeCalc`` is a different one.
+        """
+        seen: set[str] = set()
+        for a in (*self.give, *self.receive):
+            if not a.market_source:
+                continue
+            seen.add("idpTradeCalc" if a.market_source in IDP_MARKET_KEYS else "ktc")
+        return sorted(seen)
+
     def to_dict(self) -> dict[str, Any]:
         trade_has_idp = any(a.position in IDP_POSITIONS for a in [*self.give, *self.receive])
 
@@ -239,6 +252,25 @@ class TradeCandidate:
             "opponentKtcAppeal": round(self.opponent_ktc_appeal, 3),
             "arbitrageScore": round(self.arbitrage_score, 2),
             "ktcCoverage": self.ktc_coverage,
+            # T4-2: which markets this trade's delta actually spans.
+            #
+            # ``ktcDelta`` sums ``ktcValue`` across every asset, and the
+            # per-market gate prices offense and picks on KTC but IDP on
+            # IDPTradeCalc.  A mixed trade's delta therefore adds two
+            # publishers' numbers together, and nothing in the payload
+            # said so.
+            #
+            # The sum is defensible — the two boards are directly
+            # comparable, both topping out at 9999, with a median
+            # cross-board value ratio of 1.000 measured over the 475
+            # players they share (CLAUDE.md, 2026-07-26).  But the p10-p90
+            # is 0.888-1.054, so per-player disagreement of +/-10% is
+            # normal, and a mixed-market delta smaller than that is not
+            # distinguishable from the two boards simply disagreeing.
+            # A reader cannot apply that caveat without knowing it
+            # applies.
+            "marketsUsed": self.markets_used(),
+            "mixedMarket": len(self.markets_used()) > 1,
             "confidenceScore": round(self.confidence_score, 2),
             "confidenceTier": self.confidence_tier,
             "edgeLabel": self.edge_label,
@@ -1015,6 +1047,10 @@ def find_trades(
             "marketTopNFilter": market_top_n,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
+            # How many returned trades span both retail markets. Zero
+            # and "we never checked" are different states, so this is
+            # stamped unconditionally rather than only when non-zero.
+            "mixedMarketTrades": sum(1 for t in capped if len(t.markets_used()) > 1),
             # Deprecated aliases — the gate is per-market now.
             "ktcTopNFilter": market_top_n,
             "ktcCoveragePercent": round(market_coverage_pct * 100, 1),

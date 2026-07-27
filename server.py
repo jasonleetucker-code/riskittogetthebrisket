@@ -580,6 +580,10 @@ scrape_status = {
     "is_running": False,  # legacy alias for UI compatibility
     "hung": False,
     "stalled": False,
+    # Verdict on the LAST run, not on the current moment. Set by
+    # _reconcile_orphaned_running_state, cleared by _start_scrape_run.
+    "interrupted": False,
+    "interrupted_at": None,
     "started_at": None,
     "finished_at": None,
     "last_heartbeat": None,
@@ -854,8 +858,23 @@ def _reconcile_orphaned_running_state() -> None:
             worker_id=scrape_status.get("worker_id"),
         )
         scrape_status["running"] = False
-        scrape_status["hung"] = True
-        scrape_status["stalled"] = True
+        # NOT ``stalled``/``hung``.  Both were set here and both were
+        # dead assignments: ``_scrape_status_payload`` calls this
+        # reconciler and then immediately evaluates ``_is_scrape_stalled()``,
+        # which returns False once ``running`` is False, and the else
+        # branch resets ``stalled`` and ``hung`` to False three lines
+        # later.  An orphaned worker therefore reported
+        # ``status_summary: "idle"`` with no error — indistinguishable
+        # from a healthy server that simply had not scraped recently.
+        # /api/health's ``scrape_stalled`` stayed false too, so
+        # StaleDataBanner never fired.
+        #
+        # ``interrupted`` is a property of the LAST RUN rather than of
+        # the current moment, so nothing downstream recomputes it away.
+        # ``_start_scrape_run`` clears it, because a new run supersedes
+        # the verdict on the old one.
+        scrape_status["interrupted"] = True
+        scrape_status["interrupted_at"] = _utc_now_iso()
         scrape_status["finished_at"] = _utc_now_iso()
         scrape_status["current_step"] = "stale_state_reset"
         scrape_status["current_source"] = None
@@ -871,6 +890,9 @@ def _start_scrape_run(trigger: str) -> str:
             "running": True,
             "hung": False,
             "stalled": False,
+            # A fresh run supersedes any verdict on the previous one.
+            "interrupted": False,
+            "interrupted_at": None,
             "started_at": now_iso,
             "finished_at": None,
             "last_heartbeat": now_iso,
@@ -1203,6 +1225,8 @@ def _scrape_status_payload() -> dict:
         if payload.get("running")
         else "failed"
         if payload.get("error")
+        else "interrupted"
+        if payload.get("interrupted")
         else "idle"
     )
     return payload
@@ -4127,6 +4151,11 @@ async def get_health():
             "last_scrape": status_payload.get("last_scrape"),
             "scrape_running": status_payload.get("is_running"),
             "scrape_stalled": status_payload.get("stalled"),
+            # A worker that died mid-run. Distinct from ``scrape_stalled``
+            # (running but not progressing) and from ``data_stale`` (old
+            # data, healthy server): the last run ended without cleanup
+            # and nothing will retry it on its own.
+            "scrape_interrupted": bool(status_payload.get("interrupted")),
             "current_step": status_payload.get("current_step"),
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
@@ -9616,11 +9645,15 @@ async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
     authed user's active league scoring settings.
 
-    Gated on ``realized_points_api`` feature flag (default OFF).
-    When the flag is off, returns 503 feature_disabled.  When ON
-    but ``nfl_data_ingest`` is also needed to fetch stats — which
-    is why this endpoint returns an empty weeks list with a clear
-    `reason` when no stats are available, rather than 500-ing.
+    Gated on ``realized_points_api``, which defaults **ON**
+    (``src/api/feature_flags.py``).  This docstring previously said
+    "default OFF"; it was wrong, and the difference mattered — it made a
+    live defect read as dormant.  ``nfl_data_ingest`` is also needed to
+    fetch stats, which is why this returns an empty weeks list with a
+    clear ``reason`` rather than 500-ing when none are available.
+
+    What kept the row-filter bug below invisible was not the flag but
+    the absence of a caller: nothing in the frontend requests this.
     """
     from src.api import feature_flags as _ff
 
@@ -9681,7 +9714,31 @@ async def get_player_realized(sleeper_id: str, request: Request):
                 "weeks": [],
             }
         )
-    player_rows = [r for r in weekly if str(r.get("player_id_gsis") or "") == resolved.gsis_id]
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
     cumulative = _rp.compute_cumulative_points(
         player_rows,
         scoring_settings,
