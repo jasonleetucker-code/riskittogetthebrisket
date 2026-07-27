@@ -20,6 +20,42 @@ reason, so nobody re-litigates them from scratch.
 
 ---
 
+## Read this first: five items have open PRs
+
+Added 2026-07-27 ~18:45, within an hour of compiling this file. A parallel
+session had work in flight that this document could not see, and **the statuses
+below are stale for five items**. They are still accurate against `main` — none
+of this is merged — but starting any of them from this file would duplicate
+finished work. Check the PR before picking one up.
+
+| item below | status here | actually |
+|---|---|---|
+| §1.1 endpoint has zero tests | NOT STARTED · *highest risk* | **#591** — 17 tests, incl. the 400/503/404 routing contract and in-place-mutation guard |
+| §1.2 hydration flash | NOT STARTED | **#591** — `useSettings` returns `hydrated`; also fixed a duplicate first fetch |
+| §2.1 TE basis wiring | BUILT, NOT WIRED | **#591** — wired pre-blend; measured blast radius, 80 TEs up, median +14.27% |
+| §4.2 persist player-week actuals | NOT STARTED · *the one open Tier-0 item* | **#591** — 22 weeks / 16,995 player-weeks persisted for 2025 |
+| §8.2 `tep=3` vs `tepp` | NOT STARTED · latent | **#593** — half of it *was* live via the DOM fallback; see below |
+
+Two of those carry findings that change what this file says, not just its status:
+
+- **§8.2 was not purely latent.** I recorded it as harmless-today because KTC
+  returns every TEP level regardless of the parameter — which is true of the
+  *payload* path. #593 measured the other path: `tep=3` changes the rendered
+  DOM, and the last-resort DOM fallback reads exactly that and writes it to the
+  base-SuperFlex `ktc` source. When that fallback fired it inflated every tight
+  end by ~22% with no log line. My "latent, silent" was half right — silent,
+  not latent.
+- **§4.2 is bigger than persistence.** Repointing at the unified release
+  (#589) also **renamed six columns**, and reading a renamed column yields
+  zeros rather than an error. #591 found `realized_points.py`'s IDP scoring had
+  been reading three dead columns — `idp_tkl` and both tackle bonuses scoring 0
+  all season — in a module with no test coverage at all.
+
+Corrected in place rather than by rewriting the sections, so the original
+reading and what displaced it both stay legible.
+
+---
+
 ## 1. The valuation toggle (LI-9) — PARTIAL
 
 The toggle **works** and is merged (#586). It defaults to `market`, so nothing
@@ -441,9 +477,51 @@ Four separate instances this session of **a guard that cannot fire** — recorde
 3. The `soft` staleness flag had no upper bound, so a lapsed cookie and a dead vendor
    looked identical forever.
 4. The `stale-sources` alert issue had no path that could ever close it.
+5. **The session-start health check measured filesystem mtime** and called it data
+   freshness. Found and fixed while compiling this file, from its own false alarm.
 
 **The tell is the same each time:** the guard's *stated* purpose and its *actual*
 predicate differ, and nothing forces them to agree.
+
+Instance 5 is worth expanding, because it is the first one that failed in **both**
+directions at once and so shows the pattern more completely than the other four.
+
+Remote sessions clone the repo fresh, which stamps every file with the checkout
+time. So `stat -c %Y` answers "when did git write this?", never "when was this
+data fetched":
+
+- In a fresh clone every source reads **0h** and the `>12h` warning **cannot
+  fire** — the pipeline could have been dead for months and this check would
+  report clean. That is instances 1–4's failure mode.
+- After a branch switch git rewrites only files that *differ*, so unchanged files
+  keep an older mtime and read as stale when they are not. Measured 2026-07-27:
+  `idpTradeCalc.csv` reported **49h against a real content age of 131h** — 82h
+  under-reported — while `ktc.csv` reported 0h against 3h.
+
+So it missed real outages *and* invented fake ones, and the fake one is what
+exposed it: the reported 49h sent me looking for a scrape failure that did not
+exist.
+
+Two things the fix had to get right, neither of which is about mtime:
+
+- **The threshold was answering the wrong question.** IDPTradeCalc's real
+  publication cadence is 5–20 days in the offseason (measured across four months
+  of commits: gaps of 6, 8, 12, 18, 23 days). A 12h threshold on *content age*
+  fires permanently and trains the reader to skip the section — the same end
+  state as a guard that never fires. `config/source_staleness.json` already
+  states the right policy in its own comment: alert on **fetch success**, not
+  vendor publication. The check now measures the age of the last automated
+  refresh commit for that, and reports per-source content age as information
+  with no warning attached.
+- **The replacement needed its own guard.** Commit history is exactly what a
+  shallow clone lacks, and every age would silently compute as 0 — recreating
+  the original can't-fire bug in the fix for it. It now detects that and reports
+  `UNKNOWN` rather than clean.
+
+Verified all three paths: healthy (pipeline 3h against a 24h threshold, no
+warning), firing (threshold forced to 1h → warning appears), and shallow
+(`UNKNOWN`). The middle one matters most — a fix for a guard that could not fire
+is worth nothing until you have watched the new one fire.
 
 **Three cheap checks, in order of value:**
 

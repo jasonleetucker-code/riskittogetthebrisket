@@ -32,9 +32,12 @@ drift 0.0. Recorded in `docs/collaborative-model-audit/EXPERIMENT_LOG.md`
 as EXP-8. **This unblocks the TE basis wiring**, which remains staged
 and deliberately not connected.
 
-**New §6.15 — the dominant defect class in this repo.** Four separate
+**New §6.15 — the dominant defect class in this repo.** Five separate
 instances found in one session of *a guard that cannot fire*. Read it
-before writing another guard.
+before writing another guard. The fifth is this repo's own session-start
+health check, which measured file mtime and called it data freshness —
+caught because it raised a *false* alarm, not because anyone noticed its
+silence.
 
 **Scoring divergence measured** against the operator's default-scoring
 baseline league (already `BASELINE_LEAGUE_ID`, already scaffolded in
@@ -1185,7 +1188,7 @@ code:** `git grep -l leagueAdjusted -- src/`.
 
 ### 6.15 The dominant defect class: a guard that cannot fire
 
-**Four instances found in one session, 2026-07-27.** Each was written in
+**Five instances found in one session, 2026-07-27.** Each was written in
 good faith, each looked like coverage, and each was structurally
 incapable of catching the thing it named. This is the most common real
 defect in this codebase and it is worth checking for by reflex.
@@ -1196,12 +1199,53 @@ defect in this codebase and it is worth checking for by reflex.
 | the TE double-count invariant in `tests/league_intel/test_te_premium_invariants.py` | real and correct — but the module it would have caught was deliberately left unimported so "toggle off" would be byte-identical. A design whose safety argument is *"nothing calls it yet"* disables the tests that would catch it. |
 | `soft` staleness flag in `config/source_staleness.json` | had no upper bound, so an exempted source could die permanently and CI would never say so. A lapsed cookie and a dead vendor looked identical, forever. Fixed with `softEscalateHours`. |
 | the `stale-sources` alert issue | opened and commented on failure, with **no path that could ever close it**. An alert that cannot clear is indistinguishable from one nobody acted on, and stops being read. Fixed with a close-on-green step. |
+| `.claude/health-check.sh` data-freshness section | measured filesystem **mtime** and called it data freshness. Remote sessions clone fresh, so mtime is *checkout* time — every source reads 0h and the `>12h` warning cannot fire even if the pipeline died months ago. Fixed 2026-07-27; see below. |
 
-**The tell in all four:** the guard's *stated* purpose and its *actual*
+**The tell in all five:** the guard's *stated* purpose and its *actual*
 predicate differ, and nothing forces them to agree. A substring stands in
 for an identity; an import that never happens stands in for a call; an
 exemption with no bound stands in for a temporary one; an alarm with no
-reset stands in for a signal.
+reset stands in for a signal; a file's mtime stands in for when its
+contents were fetched.
+
+**Instance 5 in full, because it failed in both directions at once** and
+so shows the pattern more completely than the other four.
+
+It was caught by its *false* alarm, not its silence. The session-start
+check reported `idpTradeCalc.csv: 49h old — WARNING: Stale (>12h)`,
+which sent me looking for a scrape outage that did not exist. Two
+separate errors, both from the same substitution:
+
+- **Cannot fire.** A fresh clone stamps every file with the checkout
+  time, so all sources read 0h. The warning is unreachable in the
+  environment it runs in — instances 1-4's failure mode exactly.
+- **Fires falsely.** A branch switch rewrites only files that *differ*;
+  unchanged files keep an older mtime and read as stale. Measured:
+  `idpTradeCalc.csv` reported 49h against a real content age of 131h
+  (82h under-reported), while `ktc.csv` reported 0h against 3h.
+
+Two things the fix had to get right, neither about mtime:
+
+- **The threshold was answering the wrong question.** IDPTradeCalc's real
+  publication cadence is 5-20 days in the offseason — measured across
+  four months of commits, gaps of 6, 8, 12, 18 and 23 days. A 12h
+  threshold on *content age* fires permanently and trains the reader to
+  skip the section, which lands in the same place as a guard that never
+  fires. `config/source_staleness.json` already states the correct
+  policy in its own `_comment`: alert on **fetch success**, not vendor
+  publication. The check now measures the age of the last automated
+  refresh commit for that, reads its threshold from that config instead
+  of a hardcoded 12, and reports per-source content age as information
+  with no warning attached.
+- **The replacement needed a guard of its own.** Commit history is
+  precisely what a shallow clone lacks, and every age would silently
+  compute as 0 — recreating the can't-fire bug inside its own fix. It
+  detects that case and reports `UNKNOWN`.
+
+All three paths verified: healthy (pipeline 3h against 24h, silent),
+firing (threshold forced to 1h, warning appears), shallow (`UNKNOWN`).
+The middle one is the one that matters — a fix for a guard that could not
+fire is worth nothing until the new guard has been watched firing.
 
 **Cheap checks, in order of value:**
 1. *Can I make this test fail right now, deliberately?* If not, it is not
