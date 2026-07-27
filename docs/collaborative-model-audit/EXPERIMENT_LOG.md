@@ -155,6 +155,35 @@ The risk was introduced by *this audit*: the first API returned a `multiplier` f
 caller would naturally stack on top. Replaced with a target *basis*, which cannot be
 multiplied into anything.
 
+## EXP-5b — Is the TE++ curve stable across a board refresh?
+
+**Method:** `main` moved 10 commits while this branch was open, including two automated
+data refreshes that rewrote `CSVs/site_raw/ktc.csv` (554 lines changed) and
+`ktcSfTep.csv` (560 lines). Re-ran the fitter against the refreshed boards and compared
+to the committed config, which was fitted ~1h earlier.
+
+| parameter | committed | refit on new data | delta |
+|---|---|---|---|
+| `a` | 43.555794 | 43.58 | +0.05% |
+| `k` | 0.632839 | 0.6329 | identical to 4dp |
+| `floor` | 1.2092 | 1.2093 | +0.0001 |
+| R² (log) | 0.9411 | 0.9411 | none |
+| n | 73 | 73 | none |
+| observed range | 1.2092–2.0531 | 1.2093–2.0531 | none meaningful |
+
+**Conclusion:** the config was NOT regenerated — the difference is below the rounding in
+the published values, and regeneration would be churn.
+
+**The stability is itself evidence.** Hundreds of underlying player values moved and the
+fitted TE++ relationship did not. A curve that survives a full board refresh unchanged is
+describing something structural about how KTC applies its TE premium, not fitting noise
+in one snapshot. This is the closest thing to an out-of-sample check the curve has had.
+
+**Carried forward:** re-run this whenever the curve is touched. It is one command and it
+converts "the config might be stale" from a standing worry into a measured statement.
+
+---
+
 ## EXP-6 — F-6 threshold re-derivation: percentile or scale?
 
 **Method one (percentile equivalence on the full pools):** absurd. `MIN_MARKET_VALUE`

@@ -124,16 +124,53 @@ magnitude is too small. Correcting it moves TE values **UP**, not down.
 
 ## G — `lineupScarcity` measures top-heaviness, not scarcity
 
-**DEAD CODE — the question is moot.**
+**SUPERSEDED 2026-07-27 — was DEAD CODE, is now LIVE on a separate surface.**
+
+### Original adjudication (accurate when written, at base `a6edd364`)
 
 `replacement.py:615-621` computes it correctly. Its only consumer,
-`adjustment.py::structural_scarcity_axis`, has **no non-test caller**;
-`values.py:59` forces `LEAGUE_ADJUSTED_IS_NOOP = True`; `src/league/__init__.py` is an
+`adjustment.py::structural_scarcity_axis`, had **no non-test caller**;
+`values.py:59` forced `LEAGUE_ADJUSTED_IS_NOOP = True`; `src/league/__init__.py` is an
 empty placeholder ("LAM and scarcity adjustments have been removed"). It never
-multiplies a value.
+multiplied a value.
 
-One scarcity multiplier IS live — `targets.py:458-471` — but it uses `waiverScarcity`
-and scores trade targets, not player values.
+### What changed
+
+**PR #584** ("LI-7/LI-9 league-adjusted values") merged into `main` while this branch
+was open and flipped the apparatus on:
+
+* `src/league_intel/values.py:59` — `LEAGUE_ADJUSTED_IS_NOOP = **False**`
+* `src/league_intel/publish.py` (new) calls `build_board_adjustments`
+* `server.py:4828` — `GET /api/league-adjusted-values`, via
+  `src/api/gameplan.py::get_league_adjusted_values`
+
+So the finding's *premise* ("nothing consumes it") is no longer true, and the question
+of whether `lineupScarcity` measures the right thing is **live again**.
+
+### What did NOT change, and why it matters for TE
+
+`src/api/data_contract.py` contains **no reference to league-adjusted values**. LI-7
+publishes a **parallel value surface on its own endpoint** — it does not modify
+`rankDerivedValue`. The canonical board is untouched by it.
+
+And `adjustment.py::te_premium_axis` is still unconditionally `ABSENT`, with a rationale
+that reads: *"scoring-axis residual would double-count the blend's existing alignment
+multiplier."*
+
+That is a coherent division of labour, and it should be preserved deliberately:
+
+> **The blend owns TE alignment. LI-7's TE axis stays inert so the two cannot stack.**
+
+**Consequence for the staged TE wiring:** it is safe to proceed *today*, because the TE
+axis on the LI-7 side contributes exactly zero. It stops being safe the moment anyone
+supplies a `measurement` to `te_premium_axis`. Whoever does that must first check
+whether the blend is still applying its own TE alignment — otherwise the double-count
+the user warned about reappears on a surface nobody was watching.
+
+### Unchanged from the original
+
+One scarcity multiplier was already live — `targets.py:458-471` — but it uses
+`waiverScarcity` and scores trade targets, not player values.
 
 ---
 
