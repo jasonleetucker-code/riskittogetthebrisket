@@ -336,7 +336,10 @@ def test_reruns_replace_a_week_rather_than_appending(tmp_path):
     )
 
     lines = (
-        actuals_store.season_path(2025, actuals_dir=out).read_text(encoding="utf-8").strip().split("\n")
+        actuals_store.season_path(2025, actuals_dir=out)
+        .read_text(encoding="utf-8")
+        .strip()
+        .split("\n")
     )
     assert len(lines) == 1, "a revised week must replace, not accumulate"
     entry = json.loads(lines[0])
@@ -385,7 +388,9 @@ def test_regular_season_and_playoffs_are_separate_lines(tmp_path):
     )
     entries = actuals_store.load_season(2025, actuals_dir=out)
     assert [(e["week"], e["seasonType"]) for e in entries] == [(1, "REG"), (19, "POST")]
-    assert [e["week"] for e in actuals_store.load_season(2025, actuals_dir=out, season_types=["REG"])] == [1]
+    assert [
+        e["week"] for e in actuals_store.load_season(2025, actuals_dir=out, season_types=["REG"])
+    ] == [1]
 
 
 def test_duplicate_rows_from_the_two_fetchers_collapse(tmp_path):

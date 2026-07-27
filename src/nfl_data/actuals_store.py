@@ -545,9 +545,7 @@ def persist_weekly_actuals(
         if refresh:
             for key in (f"weekly_stats:{season}", f"weekly_def_stats:{season}"):
                 _cache.evict(key, cache_dir=cache_dir)
-        offensive = fetch_weekly_stats(
-            [season], _provider=_offensive_provider, cache_dir=cache_dir
-        )
+        offensive = fetch_weekly_stats([season], _provider=_offensive_provider, cache_dir=cache_dir)
         defensive = fetch_weekly_defensive_stats(
             [season], _provider=_defensive_provider, cache_dir=cache_dir
         )
@@ -745,7 +743,9 @@ def coverage(*, actuals_dir: Path | None = None) -> dict[str, Any]:
                 "weeks": weeks,
                 "weekCount": len(entries),
                 "playerWeeks": sum(_int(e.get("playerCount")) for e in entries),
-                "seasonTypes": sorted({_str(e.get("seasonType")).upper() or "REG" for e in entries}),
+                "seasonTypes": sorted(
+                    {_str(e.get("seasonType")).upper() or "REG" for e in entries}
+                ),
                 "capturedAt": max((str(e.get("capturedAt") or "") for e in entries), default=None)
                 or None,
                 "path": str(path),

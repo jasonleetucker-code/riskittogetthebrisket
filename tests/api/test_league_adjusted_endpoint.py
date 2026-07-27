@@ -182,8 +182,7 @@ def test_the_fixture_actually_moves_values(league, monkeypatch):  # noqa: F811
     # standing in for "measured nothing".
     assert body["scarcity"], "no scarcity measured — the league bundle fed nothing in"
     assert any(
-        isinstance(comp.get("lineupScarcity"), (int, float))
-        for comp in body["scarcity"].values()
+        isinstance(comp.get("lineupScarcity"), (int, float)) for comp in body["scarcity"].values()
     ), "every position reported an unmeasurable lineupScarcity"
 
 

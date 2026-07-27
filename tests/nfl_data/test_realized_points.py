@@ -246,9 +246,7 @@ def test_idp_tackles_use_the_gamebook_solo_total():
     Reading the raw column would score 5.0 here, so the assertion
     distinguishes the two.
     """
-    out = rp.compute_weekly_points(
-        _unified_idp_row(), {"idp_tkl_solo": 1.0}, position="LB"
-    )
+    out = rp.compute_weekly_points(_unified_idp_row(), {"idp_tkl_solo": 1.0}, position="LB")
     assert out is not None
     assert out.fantasy_points == 7.0
 
@@ -257,17 +255,13 @@ def test_idp_combined_tackles_are_scored_at_all():
     """``idp_tkl`` read ``def_tackles``, which the unified release
     removed — the key silently scored zero.  Combined is solo (7) plus
     assists (1) = 8, and no nflverse column carries it."""
-    out = rp.compute_weekly_points(
-        _unified_idp_row(), {"idp_tkl": 1.0}, position="LB"
-    )
+    out = rp.compute_weekly_points(_unified_idp_row(), {"idp_tkl": 1.0}, position="LB")
     assert out is not None
     assert out.fantasy_points == 8.0
 
 
 def test_idp_safety_survives_the_def_safeties_rename():
-    out = rp.compute_weekly_points(
-        _unified_idp_row(), {"idp_safe": 8.0}, position="LB"
-    )
+    out = rp.compute_weekly_points(_unified_idp_row(), {"idp_safe": 8.0}, position="LB")
     assert out is not None
     assert out.fantasy_points == 8.0
 

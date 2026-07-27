@@ -69,9 +69,7 @@ def _raw() -> dict:
       that scaled every position would look exactly like a working TE
       premium against a TE-only fixture.
     """
-    players = {
-        f"Filler {i:02d}": _player(9000 - i * 60, "WR") for i in range(40)
-    }
+    players = {f"Filler {i:02d}": _player(9000 - i * 60, "WR") for i in range(40)}
     players[_TE_NAME] = _player(5000, "TE")
     players[_WR_NAME] = _player(4940, "WR")
     return {
