@@ -152,8 +152,18 @@ def test_fetch_pbp():
 
 def test_url_templates_contain_expected_paths():
     """Pin the URL pattern — if nflverse re-organizes their releases
-    this test fails fast."""
-    assert "player_stats" in nd._URL_TEMPLATES["weekly_stats"]  # noqa: SLF001
+    this test fails fast.
+
+    It did re-organize, in 2025, and this assertion did NOT fail fast:
+    it asserted the substring ``player_stats``, which the retired path
+    ``player_stats/player_stats_{year}.csv`` satisfied right up until
+    that path started 404ing for 2025. The substring was too weak to
+    distinguish "the path exists" from "the path is named this", so the
+    guard passed through the exact break it was written to catch.
+    Pinned to the current release now; the stronger structural checks
+    live in ``test_nflverse_url_templates.py``.
+    """
+    assert "stats_player_week" in nd._URL_TEMPLATES["weekly_stats"]  # noqa: SLF001
     assert "snap_counts" in nd._URL_TEMPLATES["snap_counts"]  # noqa: SLF001
     assert "players.csv" in nd._URL_TEMPLATES["id_map"]  # noqa: SLF001
     assert "play_by_play" in nd._URL_TEMPLATES["pbp"]  # noqa: SLF001
