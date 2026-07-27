@@ -48,6 +48,26 @@ WHAT MOVES A VALUE, AND WHAT DELIBERATELY DOES NOT
   (``tests/league_intel/test_te_premium_invariants.py`` pins this).
   Per-source *pre-blend* alignment is a different insertion point and a
   separate workstream.
+
+  **That pre-blend half landed 2026-07-27** — ``data_contract.py`` now
+  converts non-TEP sources' TE contributions onto the board's ``tepp``
+  basis using ``te_premium.convert_te_value`` instead of a flat 1.15.
+  That is Axis A (source alignment), and it is scoring-profile-safe
+  because the target basis is a constant: the basis the board is already
+  anchored on.
+
+  Axis B — *which basis does THIS league need?* — is what would belong
+  here, and it is genuinely league-scoped rather than merely
+  conventionally so.  Measured on the live registry:
+  ``measure_te_demand`` returns ``tepp`` for ``dynasty_main`` (2
+  mandatory TE starters) and ``base`` for ``dynasty_new`` (1), and the
+  two share the ``superflex_tep15_ppr1`` scoring profile.  A one-TE
+  league on this board is therefore carrying a two-TE premium it does
+  not want, and the only correct place to take it back off is an
+  overlay — exactly like ``structuralScarcity``.  Wiring it needs the
+  netting ADR-009 requires (the residual against what the blend now
+  embeds, which is the measured curve rather than 1.15), so this stays
+  ABSENT and named rather than half-applied.
 * **projectionCorroboration** — ABSENT pending LI-6.
 
 **Picks never move.**  ``compute_scarcity`` keys off rostered players and
@@ -87,6 +107,24 @@ def _row_key(row: Mapping[str, Any]) -> str:
     return str(row.get("displayName") or row.get("canonicalName") or "").strip()
 
 
+def _inactive_axes(
+    scoring_fit: Any | None, reception_fit: Mapping[str, float] | None = None
+) -> list[str]:
+    """Which axes contributed nothing to this board, by name."""
+    names = ["tePremium", "projectionCorroboration"]
+    trusted = bool(
+        scoring_fit is not None
+        and any(
+            getattr(f, "trusted", False) for f in getattr(scoring_fit, "positions", {}).values()
+        )
+    )
+    if not trusted:
+        names.append("scoringFit")
+    if not reception_fit:
+        names.append("receptionFit")
+    return names
+
+
 def build_league_adjusted_payload(
     rows: Sequence[Mapping[str, Any]],
     scarcity: Mapping[str, Any] | None,
@@ -96,6 +134,8 @@ def build_league_adjusted_payload(
     data_through: str | None = None,
     contract_version: str | None = None,
     scrape_timestamp: str | None = None,
+    scoring_fit: Any | None = None,
+    reception_fit: Mapping[str, float] | None = None,
     include_explanations: bool = False,
 ) -> dict[str, Any]:
     """Compute this league's adjusted board as an overlay payload.
@@ -124,6 +164,8 @@ def build_league_adjusted_payload(
     board = build_board_adjustments(
         rows,
         scarcity=normalised,
+        scoring_fit=scoring_fit,
+        reception_fit=reception_fit,
         config_version=config_version,
         data_through=data_through,
     )
@@ -210,7 +252,11 @@ def build_league_adjusted_payload(
         "warnings": warnings,
         # Named so a reader does not have to infer the omission from an
         # empty diff — see the module docstring for why TE is out.
-        "inactiveAxes": ["tePremium", "projectionCorroboration"],
+        # Named so a reader does not have to infer an omission from an
+        # empty diff.  scoringFit joins the list only when it is off or
+        # unmeasured -- when it IS live it shows up in the axes instead,
+        # and listing it in both places would be a contradiction.
+        "inactiveAxes": _inactive_axes(scoring_fit, reception_fit),
     }
     if include_explanations:
         payload["explanations"] = [e.to_dict() for e in board.explanations]

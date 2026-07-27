@@ -35,7 +35,6 @@ IDP = {
     "idp_pd": 1.5,
     "idp_int": 4.0,
 }
-IDP_TKL_BONUS = {**IDP, "idp_tkl_5p": 1.0, "idp_tkl_10p": 2.0}
 
 WR_LINE = {"receptions": 5, "receiving_yards": 70, "receiving_tds": 0.5}
 QB_LINE = {"passing_yards": 250, "passing_tds": 2, "interceptions": 1}
@@ -73,11 +72,15 @@ class TestHandScoredExamples(unittest.TestCase):
             )
 
     def test_idp_tackle_volume_thresholds(self):
-        line = {"def_tackles": 11}
+        # Unified-schema columns: thresholds key off COMBINED tackles
+        # (solo + assists via realized_points._tackle_view).  Scoring
+        # dict is threshold-only to isolate the bonus contribution.
+        thresholds_only = {"idp_tkl_5p": 1.0, "idp_tkl_10p": 2.0}
+        line = {"def_tackles_solo": 7, "def_tackle_assists": 4}  # combined 11
         # 5+ and 10+ both fire: 1 + 2 = 3
-        self.assertAlmostEqual(score_stat_line_per_game(line, IDP_TKL_BONUS, position="LB"), 3.0)
-        line5 = {"def_tackles": 6}
-        self.assertAlmostEqual(score_stat_line_per_game(line5, IDP_TKL_BONUS, position="LB"), 1.0)
+        self.assertAlmostEqual(score_stat_line_per_game(line, thresholds_only, position="LB"), 3.0)
+        line5 = {"def_tackles_solo": 4, "def_tackle_assists": 2}  # combined 6
+        self.assertAlmostEqual(score_stat_line_per_game(line5, thresholds_only, position="LB"), 1.0)
 
     def test_season_line_to_per_game(self):
         per_game = season_line_to_per_game({"receiving_yards": 170, "receptions": 17}, 17.0)

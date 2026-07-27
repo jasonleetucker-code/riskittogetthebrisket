@@ -157,6 +157,10 @@ def run_all(
     # Directories.
     checks.append(check_dir_writable(data_dir))
     checks.append(check_dir_writable(data_dir / "nfl_data_cache"))
+    # Durable player-week actuals.  Distinct from the cache above: that
+    # one is an evictable 24h TTL store, this one accumulates and must
+    # survive.  See src/nfl_data/actuals_store.py.
+    checks.append(check_dir_writable(data_dir / "nfl_data" / "actuals"))
     # SQLite files.
     checks.append(check_sqlite_reachable(data_dir / "user_kv.sqlite"))
     checks.append(check_sqlite_reachable(data_dir / "session_store.sqlite"))

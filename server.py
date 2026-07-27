@@ -580,6 +580,10 @@ scrape_status = {
     "is_running": False,  # legacy alias for UI compatibility
     "hung": False,
     "stalled": False,
+    # Verdict on the LAST run, not on the current moment. Set by
+    # _reconcile_orphaned_running_state, cleared by _start_scrape_run.
+    "interrupted": False,
+    "interrupted_at": None,
     "started_at": None,
     "finished_at": None,
     "last_heartbeat": None,
@@ -854,8 +858,23 @@ def _reconcile_orphaned_running_state() -> None:
             worker_id=scrape_status.get("worker_id"),
         )
         scrape_status["running"] = False
-        scrape_status["hung"] = True
-        scrape_status["stalled"] = True
+        # NOT ``stalled``/``hung``.  Both were set here and both were
+        # dead assignments: ``_scrape_status_payload`` calls this
+        # reconciler and then immediately evaluates ``_is_scrape_stalled()``,
+        # which returns False once ``running`` is False, and the else
+        # branch resets ``stalled`` and ``hung`` to False three lines
+        # later.  An orphaned worker therefore reported
+        # ``status_summary: "idle"`` with no error — indistinguishable
+        # from a healthy server that simply had not scraped recently.
+        # /api/health's ``scrape_stalled`` stayed false too, so
+        # StaleDataBanner never fired.
+        #
+        # ``interrupted`` is a property of the LAST RUN rather than of
+        # the current moment, so nothing downstream recomputes it away.
+        # ``_start_scrape_run`` clears it, because a new run supersedes
+        # the verdict on the old one.
+        scrape_status["interrupted"] = True
+        scrape_status["interrupted_at"] = _utc_now_iso()
         scrape_status["finished_at"] = _utc_now_iso()
         scrape_status["current_step"] = "stale_state_reset"
         scrape_status["current_source"] = None
@@ -871,6 +890,9 @@ def _start_scrape_run(trigger: str) -> str:
             "running": True,
             "hung": False,
             "stalled": False,
+            # A fresh run supersedes any verdict on the previous one.
+            "interrupted": False,
+            "interrupted_at": None,
             "started_at": now_iso,
             "finished_at": None,
             "last_heartbeat": now_iso,
@@ -1203,6 +1225,8 @@ def _scrape_status_payload() -> dict:
         if payload.get("running")
         else "failed"
         if payload.get("error")
+        else "interrupted"
+        if payload.get("interrupted")
         else "idle"
     )
     return payload
@@ -3434,6 +3458,74 @@ async def post_rankings_overrides(request: Request):
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
 
+    # ── Server-side valuation-mode composition ───────────────────────
+    #
+    # Custom source weights + the league-adjusted lens used to be
+    # refused outright: the overlay's ranks are the ranks of
+    # ``default_consensus x factor``, while the correct answer is the
+    # rank of ``overridden_consensus x factor``, and the server had
+    # never computed that board.  No client-side sequencing fixes it.
+    # Computing it here is the fix.
+    #
+    # Note what this does to the endpoint's SCOPE.  Rankings follow the
+    # scoring profile and are shared, which is why the profile check
+    # above only 503s when profiles genuinely differ.  The valuation
+    # overlay is league-scoped by necessity — ``lineupScarcity`` is
+    # measured from THIS league's rosters — so the moment the caller
+    # asks for it, this response stops being shareable across leagues
+    # and has to 503 on a league mismatch exactly like
+    # /api/valuation/league-adjusted.  Asking for the lens is what
+    # narrows the scope; a plain override request is unaffected.
+    valuation_mode = ""
+    if isinstance(body, dict):
+        raw_mode = body.get("valuation_mode") or body.get("valuationMode")
+        valuation_mode = str(raw_mode or "").strip()
+    want_league_adjusted = valuation_mode == "leagueAdjusted"
+
+    valuation_factors: dict[str, float] | None = None
+    valuation_note: str | None = None
+    if want_league_adjusted and delta_view:
+        if not sleeper_matches:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"League-adjusted values need league {league_cfg.key!r}'s "
+                        f"rosters; the server holds {loaded_league or 'none'!r}."
+                    ),
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        try:
+            overlay = await run_in_threadpool(
+                _gameplan.get_league_adjusted_values,
+                league_cfg.key,
+                league_cfg.scoring_profile,
+                latest_contract_data,
+            )
+            raw_factors = overlay.get("factors") if isinstance(overlay, dict) else None
+            valuation_factors = {
+                str(k): float(v)
+                for k, v in (raw_factors or {}).items()
+                if isinstance(v, (int, float))
+            }
+        except _gameplan.GameplanUnavailable as exc:
+            # Scarcity is unmeasurable without a roster snapshot. Serve
+            # the overridden market board and SAY SO rather than
+            # silently presenting it as league-adjusted — the whole
+            # point of this endpoint is that the user can tell which
+            # board they are looking at.
+            valuation_factors = None
+            valuation_note = f"league_adjusted_unavailable: {exc.reason}"
+            log.warning("league-adjusted overlay unavailable for overrides: %s", exc.detail)
+    elif want_league_adjusted and not delta_view:
+        # The full view is a legacy compatibility surface; composing
+        # there would mean maintaining two composition paths for one
+        # behaviour. Refuse explicitly instead of quietly ignoring the
+        # field, which would return a market board labelled as adjusted.
+        valuation_note = "league_adjusted_requires_delta_view"
+
     try:
         if delta_view:
             contract_payload = build_rankings_delta_payload(
@@ -3442,6 +3534,7 @@ async def post_rankings_overrides(request: Request):
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
+                valuation_factors=valuation_factors,
             )
         else:
             contract_payload = build_api_data_contract(
@@ -3480,6 +3573,14 @@ async def post_rankings_overrides(request: Request):
         if not sleeper_matches:
             contract_payload["sleeper"] = None
             meta["sleeperLoadedLeagueKey"] = loaded_league or None
+        # Always stamp which lens produced this board. A client that
+        # asked for leagueAdjusted and silently got market is the
+        # failure mode this whole change exists to remove, so the
+        # answer travels with the payload instead of being inferred.
+        meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
+        if valuation_note:
+            meta["valuationNote"] = valuation_note
+            contract_payload.setdefault("warnings", []).append(valuation_note)
 
     headers = {
         "Cache-Control": "no-store",
@@ -3818,11 +3919,20 @@ async def get_status():
 
 def _feature_flag_snapshot_safe() -> dict:
     """Return the feature-flag snapshot, tolerant of import errors
-    so a malformed upgrade doesn't 500 /api/status."""
+    so a malformed upgrade doesn't 500 /api/status.
+
+    Reports ``gateStatus`` alongside ``enabled`` because "is it on?" is
+    misleading on its own: 7 of 13 flags gate a module that nothing
+    reachable from this file imports, so their value cannot change a
+    response either way.  A reader who saw only ``enabled: true`` on
+    ``espn_injury_feed`` would reasonably conclude the injury feed was
+    running.  ``enabled`` keeps its old meaning and position so existing
+    consumers are unaffected.
+    """
     try:
         from src.api import feature_flags as _ff
 
-        return _ff.snapshot()
+        return _ff.effective_flags()
     except Exception as exc:  # noqa: BLE001
         log.warning("feature_flag snapshot failed: %s", exc)
         return {}
@@ -4050,6 +4160,11 @@ async def get_health():
             "last_scrape": status_payload.get("last_scrape"),
             "scrape_running": status_payload.get("is_running"),
             "scrape_stalled": status_payload.get("stalled"),
+            # A worker that died mid-run. Distinct from ``scrape_stalled``
+            # (running but not progressing) and from ``data_stale`` (old
+            # data, healthy server): the last run ended without cleanup
+            # and nothing will retry it on its own.
+            "scrape_interrupted": bool(status_payload.get("interrupted")),
             "current_step": status_payload.get("current_step"),
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
@@ -7296,11 +7411,20 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     The pick-value Excel workbook (``CSVs/Draft Data.xlsx``) is
     wired to the default league's draft — per-team budgets,
     carry-over balances, and standings all reflect that league's
-    actual data.  Non-default leagues 501 with
-    ``not_configured_for_league`` rather than serving league-A
-    numbers under league-B's team names.  Angle-finder + roster
-    picks still work across leagues via the Sleeper overlay; only
-    the workbook-sourced budget column is league-specific.
+    actual data.  Angle-finder + roster picks still work across
+    leagues via the Sleeper overlay; only the workbook-sourced budget
+    column is league-specific.
+
+    Non-default leagues take the Sleeper-derived fallback, which needs
+    the canonical contract for pick values and so 503s
+    ``data_not_ready`` when NO contract is loaded.  A contract belonging
+    to a *different* league is still served — that is Defect D-2, an
+    open decision, not settled here.
+
+    (This paragraph previously claimed non-default leagues "501 with
+    ``not_configured_for_league``".  No such branch has existed since
+    the fallback landed; the docstring described a design that was
+    replaced and not updated.)
 
     Pass ``?refresh=1`` to force a fresh KTC fetch."""
     try:
@@ -7309,6 +7433,45 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         return err.json_response()
     default_cfg = _league_registry.get_default_league()
     is_default_league = default_cfg and league_cfg.key == default_cfg.key
+
+    # CLAUDE.md lists /api/draft-capital among the endpoints that must
+    # 503 ``data_not_ready`` when the loaded contract is not this
+    # league's.  It never did, and the failure was not a blank board:
+    # the Sleeper-derived path reads pick values via
+    # ``_pick_value_from_contract``, which falls through to a HARDCODED
+    # table — 7000 / 4000 / 2000 / 1200 by round — when the contract
+    # cannot answer.  With no contract loaded the endpoint therefore
+    # returned 200 and a full board of invented numbers that a caller
+    # cannot distinguish from the Hill-curve-calibrated real ones.
+    #
+    # Guard only the non-default path: the workbook path reads
+    # ``CSVs/Draft Data.xlsx`` and does not consult the contract at all,
+    # so 503-ing it on a cold contract would break the one league that
+    # never needed it.
+    #
+    # SCOPE, DELIBERATELY NARROW.  This fires only when there is NO
+    # contract, not when the contract belongs to a different league.
+    # The mismatch case is Defect D-2 in docs/python-coverage-audit.md —
+    # an OPEN product decision between "503 per CLAUDE.md's table" and
+    # "keep the cross-league fallback and fix the doc" — and
+    # ``tests/api/test_league_isolation_invariants.py`` pins today's
+    # behaviour explicitly rather than pre-empting it.  Serving a
+    # foreign league its OWN Sleeper rosters is real functionality;
+    # taking it away is the operator's call, not a bug fix.
+    #
+    # No-contract-at-all has no such tension: nobody wants the
+    # fabricated values described above, and refusing them removes no
+    # capability.
+    if not is_default_league and not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:
@@ -9739,11 +9902,15 @@ async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
     authed user's active league scoring settings.
 
-    Gated on ``realized_points_api`` feature flag (default OFF).
-    When the flag is off, returns 503 feature_disabled.  When ON
-    but ``nfl_data_ingest`` is also needed to fetch stats — which
-    is why this endpoint returns an empty weeks list with a clear
-    `reason` when no stats are available, rather than 500-ing.
+    Gated on ``realized_points_api``, which defaults **ON**
+    (``src/api/feature_flags.py``).  This docstring previously said
+    "default OFF"; it was wrong, and the difference mattered — it made a
+    live defect read as dormant.  ``nfl_data_ingest`` is also needed to
+    fetch stats, which is why this returns an empty weeks list with a
+    clear ``reason`` rather than 500-ing when none are available.
+
+    What kept the row-filter bug below invisible was not the flag but
+    the absence of a caller: nothing in the frontend requests this.
     """
     from src.api import feature_flags as _ff
 
@@ -9804,7 +9971,31 @@ async def get_player_realized(sleeper_id: str, request: Request):
                 "weeks": [],
             }
         )
-    player_rows = [r for r in weekly if str(r.get("player_id_gsis") or "") == resolved.gsis_id]
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
     cumulative = _rp.compute_cumulative_points(
         player_rows,
         scoring_settings,

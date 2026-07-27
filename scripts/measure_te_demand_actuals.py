@@ -24,7 +24,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-REPO = Path("/home/user/riskittogetthebrisket/.claude/worktrees/agent-aeac57da8fea835ea")
+# Derived from this file's location, not hardcoded.  This previously
+# pointed at ``.claude/worktrees/agent-aeac57da8fea835ea`` — the throwaway
+# worktree it happened to be written in, deleted the moment that agent
+# finished. Every run since has failed on the fixture read below with a
+# FileNotFoundError naming a directory nobody recognises.
+REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from src.ros.lineup import RosterPlayer, optimize_lineup  # noqa: E402
 

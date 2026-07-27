@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
+from src.api import league_registry
 from src.intel import service, store
 from tests.intel.conftest import DAY_MS, HOUR_MS
 
@@ -179,14 +180,33 @@ class TestBearerAuthHygiene:
 
 
 class TestLeagueScoping:
-    def test_reads_go_through_the_league_resolver(self, intel_data_dir, authed):
-        # No league_stub here → the REAL resolver runs against the
-        # test env's empty registry → the standard 404.  Proves the
-        # endpoints actually resolve the request's league.
+    def test_reads_go_through_the_league_resolver(
+        self, intel_data_dir, authed, tmp_path, monkeypatch
+    ):
+        # Defect D-5 (docs/python-coverage-audit.md).  This used to run
+        # with no registry setup at all and a comment claiming "the test
+        # env's empty registry" — i.e. it depended on AMBIENT state.
+        # Serially that held, because nothing had loaded a registry yet.
+        # Under ``-n 4 --dist loadfile`` another file's registry landed
+        # on the same xdist worker first and the assertion flipped from
+        # 404 ``no_leagues_configured`` to 503 ``data_not_ready``.
+        #
+        # An empty registry is a PRECONDITION of this test, so it
+        # establishes one instead of hoping for it.  That also makes the
+        # test honest about what it proves: the resolver is reached and
+        # reports "no leagues", not "some other file left the world in a
+        # state where this happens to pass".
+        empty = tmp_path / "empty_registry.json"
+        empty.write_text(json.dumps({"leagues": []}), encoding="utf-8")
+        monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(empty))
+        league_registry.reload_registry()
+
         with TestClient(server.app, raise_server_exceptions=True) as c:
             res = c.get("/api/intel/summary")
         assert res.status_code == 404
         assert res.json()["error"] == "no_leagues_configured"
+
+        league_registry.reload_registry()
 
     def test_no_snapshot_for_league_returns_503_data_not_ready(
         self, intel_data_dir, authed, league_stub

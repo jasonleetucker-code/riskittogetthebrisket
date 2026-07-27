@@ -43,19 +43,42 @@ def test_every_flag_defaults_off_except_safe_additive():
         "depth_chart_validation",  # circuit-breaker protected
         "monte_carlo_trade",  # new endpoint, old unchanged
     }
+    # Flags that default ON and KNOWINGLY change output.  Deliberately a
+    # separate set from ``safe_on``: every member of that one is there
+    # because it is additive, inert, or otherwise cannot move a number,
+    # and quietly admitting a value-moving flag would erode the only
+    # thing the set's name promises.  Entry here requires a MEASURED
+    # blast radius recorded at the point of change, not an argument that
+    # the change is probably fine.
+    value_moving_on = {
+        # Collaborative audit finding F.  Replaces the flat 1.15 TE
+        # alignment multiplier with KTC's measured base → TE++ curve.
+        # Blast radius measured against the 2026-07-27 live board (810
+        # rows): all 80 TEs move up, +1.08% (Bowers, against the 9999
+        # ceiling) to +30.17% (Ruckert, deep), median +14.27%.  The only
+        # non-TE values that move are 48 PICK rows, via the documented
+        # current-year pick tethering inheriting rookie-TE values —
+        # e.g. 2026 Pick 1.07 +3.91% matches Kenyon Sadiq exactly.  No
+        # QB/RB/WR/IDP value changes.  Rank displacement median 7, p90
+        # 22.  Rollback: RISKIT_FEATURE_TE_BASIS_CONVERSION=0.
+        "te_basis_conversion",
+    }
     off_only = {
         "dynamic_source_weights",  # held OFF until backtest data exists
     }
+    assert not (safe_on & value_moving_on), "a flag cannot be both no-change and value-moving"
     for name, value in flags.items():
-        if name in safe_on:
+        if name in safe_on or name in value_moving_on:
             continue
         if name in off_only:
             assert value is False, f"flag {name!r} expected OFF but is ON"
             continue
         assert value is False, (
             f"flag {name!r} defaults ON but hasn't been vetted as "
-            f"regression-safe.  Either add to the safe_on set with "
-            f"rationale in _DEFAULTS, or flip the default to False."
+            f"regression-safe.  Either add it to ``safe_on`` (additive / "
+            f"inert / cannot move a number) or to ``value_moving_on`` "
+            f"(with a MEASURED blast radius), with matching rationale in "
+            f"_DEFAULTS — or flip the default to False."
         )
 
 

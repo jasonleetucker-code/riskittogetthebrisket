@@ -48,21 +48,21 @@ class TestNormalization(unittest.TestCase):
                 "passing_interceptions": 2,
                 "sacks_suffered": 3,
                 "fumbles_lost_total": 1,
-                "def_safeties": 1,
             }
         )
         self.assertEqual(row["interceptions"], 2)
         self.assertEqual(row["sacks"], 3)
         self.assertEqual(row["fumbles_lost"], 1)
-        self.assertEqual(row["def_safety"], 1)
 
     def test_existing_canonical_keys_win(self):
         row = normalize_weekly_row({"interceptions": 1, "passing_interceptions": 9})
         self.assertEqual(row["interceptions"], 1)
 
-    def test_combined_tackles_synthesized(self):
+    def test_combined_tackles_never_synthesized(self):
+        """A published ``def_tackles`` means gamebook SOLO to the scoring
+        path (pre-2025 schema) — the normalizer must not fabricate one."""
         row = normalize_weekly_row({"def_tackles_solo": 4, "def_tackle_assists": 2})
-        self.assertEqual(row["def_tackles"], 6.0)
+        self.assertNotIn("def_tackles", row)
 
 
 class TestHistory(unittest.TestCase):

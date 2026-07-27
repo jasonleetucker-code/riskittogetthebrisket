@@ -235,6 +235,12 @@ def parse_projection_csv(csv_text: str) -> tuple[list[dict[str, Any]], dict[str,
             combined = entry["stats"]["def_tackles"]
             entry["stats"]["def_tackles_solo"] = combined * TACKLE_SOLO_SHARE
             entry["stats"]["def_tackle_assists"] = combined * (1.0 - TACKLE_SOLO_SHARE)
+        # Never emit ``def_tackles``: realized_points interprets a
+        # published value under that name as the PRE-2025 gamebook SOLO
+        # total (see its _tackle_view), so passing a combined count
+        # through would inflate every solo-scored league.  Solo/assist
+        # carry the information.
+        entry["stats"].pop("def_tackles", None)
         if not entry["stats"] and entry.get("fpts") is None and entry.get("fpg") is None:
             report["skippedRows"] += 1
             continue

@@ -124,8 +124,14 @@ function ToggleRow({ label, checked, onChange, hint }) {
 
 export default function SettingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings, update, updateSiteWeight, resetSiteWeights, reset } =
-    useSettings();
+  const {
+    settings,
+    hydrated: settingsHydrated,
+    update,
+    updateSiteWeight,
+    resetSiteWeights,
+    reset,
+  } = useSettings();
   const {
     state: userState,
     serverBacked,
@@ -494,9 +500,19 @@ export default function SettingsPage() {
           <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
             Value basis
           </label>
+          {/* A <select> has no honest indeterminate state — a blank
+              option would read as a third choice — so this one stays
+              disabled until settings hydrate instead. The displayed
+              value is still the default for that one frame, but the
+              control cannot be acted on while it might be about to
+              change under the user's cursor. The /rankings and /trade
+              toggles get the stronger treatment (no highlight at all);
+              see the note above `getHydratedSnapshot` in useSettings. */}
           <select
             className="select"
             value={settings.valuationMode}
+            disabled={!settingsHydrated}
+            aria-busy={!settingsHydrated}
             onChange={(e) => update("valuationMode", e.target.value)}
           >
             <option value="market">Market</option>

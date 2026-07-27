@@ -26,11 +26,15 @@ _LOGGER = logging.getLogger(__name__)
 
 # Raw nflverse-direct column → the vocabulary compute_weekly_points
 # reads.  Only keys that differ are listed; identical names pass through.
+# Defensive columns need NO aliases here: ``realized_points`` resolves
+# them through candidate lists and ``_tackle_view`` (which rebuilds
+# gamebook solo/assist/combined from the raw 2025-unified columns —
+# never synthesize ``def_tackles`` yourself; a published value under
+# that name is interpreted as the PRE-2025 gamebook SOLO total).
 _RAW_ALIASES = {
     "interceptions": "passing_interceptions",
     "sacks": "sacks_suffered",
     "fumbles_lost": "fumbles_lost_total",
-    "def_safety": "def_safeties",
 }
 
 _MIN_PPG_FLOOR = 1.0  # ignore sub-1-PPG seasons when forming the mean pool
@@ -40,18 +44,12 @@ def normalize_weekly_row(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Map a raw nflverse weekly row onto the scoring vocabulary.
 
     Handles both the nflverse-direct raw columns and already-normalized
-    rows (aliases only fill keys that are absent).  Also synthesizes
-    ``def_tackles`` (combined) when the source ships solo/assist only.
+    rows (aliases only fill keys that are absent).
     """
     row = dict(raw)
     for canonical, source in _RAW_ALIASES.items():
         if canonical not in row and source in row:
             row[canonical] = row[source]
-    if "def_tackles" not in row:
-        solo = _num(row.get("def_tackles_solo"))
-        ast = _num(row.get("def_tackle_assists"))
-        if solo or ast:
-            row["def_tackles"] = solo + ast
     return row
 
 

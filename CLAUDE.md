@@ -155,10 +155,32 @@ Error behavior on endpoints:
   profiles genuinely differ.  When they match but sleeper is for a
   different league, serve shared rankings with `sleeper: null` +
   `sleeperDataReady: false`.
-- `/api/terminal`, `/api/trade/*`, `/api/angle/*`,
-  `/api/draft-capital` — 503 whenever the loaded contract's
-  `leagueKey` doesn't match the request.  These endpoints can't
-  meaningfully work without the specific league's rosters.
+- `/api/terminal`, `/api/trade/*`, `/api/angle/*` — 503 whenever the
+  loaded contract's `leagueKey` doesn't match the request.  These
+  endpoints can't meaningfully work without the specific league's
+  rosters.
+- `/api/draft-capital` — 503 `data_not_ready` only when NO contract is
+  loaded, and only on the non-default path.  It deliberately does NOT
+  503 on a league *mismatch*.
+  - The default league is served from `CSVs/Draft Data.xlsx` and never
+    consults the contract, so contract readiness is irrelevant to it.
+  - A non-default league takes the Sleeper-derived fallback
+    (`src/api/draft_capital_fallback.py`), which fetches **that
+    league's own** rosters and traded picks.  It needs the contract
+    only for pick VALUES, so a foreign-league contract still produces
+    a correct board for the requested league — refusing it would
+    remove working multi-league functionality to satisfy a table.
+  - This resolves Defect D-2 (`docs/python-coverage-audit.md`), which
+    was open between "503 per this table" and "keep the fallback and
+    fix the doc".  Fixing the doc is the answer, and this is it.
+  - What was NOT acceptable, and is fixed: with no contract at all,
+    `_pick_value_from_contract` fell through to a hardcoded
+    7000/4000/2000/1200-by-round table, so the endpoint returned 200
+    and a full board of invented numbers indistinguishable from the
+    Hill-curve-calibrated real ones.  That is the case the 503 covers.
+  - Pinned by `tests/api/test_draft_capital_data_not_ready.py`, which
+    fails if a future change re-resolves D-2 by accident in either
+    direction.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring
@@ -238,6 +260,21 @@ Steps:
 5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
    IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
    tooling only — rookie sources ladder-translate first)
+5a. TE basis conversion (2026-07-27, ADR-015).  TE rows from non-TEP
+   sources are lifted onto the basis the board is anchored on via
+   ``src/league_intel/te_premium.convert_te_value(from_basis="base",
+   to_basis="tepp")`` — KTC's own measured uplift, 1.209 at the top of
+   the board rising toward 2.05 down it.  Replaces a flat 1.15 that sat
+   below the entire observed range.  ``ktc`` / ``ktcSfTep`` are exempt
+   (the anchor IS the TE++ board) and the conversion is a no-op when
+   ``from == to``, so the double-count guard is structural.  TEP-native
+   sources keep the flat 1.10 — only base ↔ tepp is measured.
+   **The target basis is a CONSTANT, not the league's measured TE
+   demand**: demand is a leagueKey property and this board is
+   scoring-profile scoped, and the two live leagues on
+   ``superflex_tep15_ppr1`` want different bases.  That half is overlay
+   work.  Rollback: ``RISKIT_FEATURE_TE_BASIS_CONVERSION=0``; an
+   explicit operator slider value bypasses the curve regardless.
 6. Hierarchical anchor + α-shrinkage (α=0.10) ONLY for IDP and
    picks; offense takes a flat count-aware mean-median across all
    sources.  Pick rows widen the anchor set to include ktcSfTep so

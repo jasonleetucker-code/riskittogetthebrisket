@@ -17,7 +17,7 @@ export function useDynastyData() {
   // materializer that reads the already-canonical rows off the
   // merged contract; there is no client-side recompute and no
   // frontend TEP multiplication either.
-  const { settings } = useSettings();
+  const { settings, hydrated: settingsHydrated } = useSettings();
   const siteOverrides = settings?.siteWeights || null;
   // Valuation lens. "market" (the default) is today's board; changing
   // it refetches, because the overlay is a separate league-scoped GET.
@@ -80,6 +80,17 @@ export function useDynastyData() {
 
   useEffect(() => {
     let active = true;
+    // Do not fetch on the hydration pass.  ``useSettings`` serves
+    // SETTINGS_DEFAULTS until hydration completes, so firing here would
+    // request the DEFAULT board — market lens, no source overrides, the
+    // default TE multiplier — and then immediately re-request the real
+    // one, having rendered the wrong numbers in between.  Two round
+    // trips, and the first one wins the first paint.
+    //
+    // ``loading`` is already true from its initial state, so the page
+    // keeps showing its skeleton rather than an empty board; the delay
+    // is one commit, not a network round trip.
+    if (!settingsHydrated) return undefined;
     async function run() {
       try {
         setLoading(true);
@@ -150,6 +161,7 @@ export function useDynastyData() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    settingsHydrated,
     siteOverridesKey,
     tepMultiplier,
     tepNativeMultiplier,

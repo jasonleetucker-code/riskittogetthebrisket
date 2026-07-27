@@ -11,8 +11,23 @@ import ActivityHeatmap from "@/components/graphs/ActivityHeatmap";
 function ActivitySection({ managers, data, onNavigate }) {
   const feed = data?.feed || [];
   const [filter, setFilter] = useState("");
-  if (!feed.length && !data?.totalCount) return <EmptyCard label="Trade activity" />;
 
+  // EVERY hook must run before the early return below.
+  //
+  // This `useMemo` used to sit AFTER `if (!feed.length && ...) return`,
+  // making the hook COUNT depend on the data: /league fetches its
+  // payload, so the first render has an empty feed and takes the early
+  // return calling one hook, and the render after the data lands calls
+  // two. That is the Rules-of-Hooks violation React's lint rule exists
+  // for.
+  //
+  // Honest about the blast radius: I did not manage to reproduce React
+  // actually raising "Rendered more hooks than during the previous
+  // render" on this path — the probe that tried threw for its own
+  // unrelated reason. So this is a latent correctness defect rather
+  // than a confirmed crash. The reordering is correct and risk-free
+  // regardless, which is why it is done rather than left pending a
+  // repro.
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return feed;
@@ -22,10 +37,15 @@ function ActivitySection({ managers, data, onNavigate }) {
         t.week,
         ...(t.sides || []).map((s) => s.displayName),
         ...(t.sides || []).flatMap((s) => (s.receivedAssets || []).map((a) => a.playerName || "")),
-      ].filter(Boolean).join(" ").toLowerCase();
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return tokens.includes(q);
     });
   }, [feed, filter]);
+
+  if (!feed.length && !data?.totalCount) return <EmptyCard label="Trade activity" />;
 
   return (
     <>

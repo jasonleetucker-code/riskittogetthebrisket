@@ -45,6 +45,12 @@ The IDP scoring path consumes nflverse ``def_*`` columns.  Rows
 where ``position`` is not in the IDP set skip the IDP keys entirely
 so the offense path is unaffected.
 
+Two caveats on those columns, both corrected 2026-07-27 and explained
+in full above ``_IDP_KEYS``: the 2025 unified release renamed
+``def_safety`` and removed ``def_tackles`` outright, and no nflverse
+column has ever carried combined tackles.  Every ``def_*`` read here
+goes through a candidate list, and tackles through ``_tackle_view``.
+
 Degradation
 -----------
 * Missing scoring_settings → returns fantasyPoints=0 with
@@ -67,27 +73,6 @@ from typing import Any
 # Split into simple_keys (direct column read) and bonus_keys
 # (threshold-based boolean).
 
-# Sleeper publishes some rules under more than one key name; league
-# dumps use either.  ``src/scoring/sleeper_ingest.KEY_ALIASES`` already
-# normalizes these for the translation layer, but realized points
-# used to read only the canonical spelling — a league whose dump says
-# ``idp_pass_def`` (the live dynasty_main league does) silently scored
-# passes-defended as 0.  Applied only when the canonical key is absent
-# so a dump carrying both can never double-count.
-_SCORING_KEY_ALIASES: dict[str, str] = {
-    "idp_pass_def": "idp_pd",
-}
-
-# Stat-column fallbacks: nfl_data_py and the nflverse-direct CSVs name
-# a few defensive columns differently (the direct weekly file has no
-# ``def_``-prefixed fumble-recovery columns — recoveries live in
-# ``fumble_recovery_own``/``..._yards_own``).  Without the fallback,
-# FR points were silently 0 on the direct path.
-_STAT_KEY_FALLBACKS: dict[str, str] = {
-    "def_fumble_recovery_own": "fumble_recovery_own",
-    "def_fumble_recovery_yards_own": "fumble_recovery_yards_own",
-}
-
 _SIMPLE_KEYS: dict[str, tuple[str, str]] = {
     # (stat_row_key, human_label)
     "pass_yd": ("passing_yards", "Pass Yds"),
@@ -109,22 +94,75 @@ _SIMPLE_KEYS: dict[str, tuple[str, str]] = {
 # is zero, so the loop is a no-op.  Extends the same shape as
 # ``_SIMPLE_KEYS`` so the ``compute_weekly_points`` scoring loop
 # can iterate both with one code path.
-_IDP_KEYS: dict[str, tuple[str, str]] = {
-    "idp_tkl_solo": ("def_tackles_solo", "Solo Tkl"),
-    "idp_tkl_ast": ("def_tackle_assists", "Ast Tkl"),
-    "idp_tkl": ("def_tackles", "Tkl"),
-    "idp_tkl_loss": ("def_tackles_for_loss", "TFL"),
-    "idp_sack": ("def_sacks", "Sack"),
-    "idp_sack_yd": ("def_sack_yards", "Sack Yds"),
-    "idp_hit": ("def_qb_hits", "QB Hit"),
-    "idp_pd": ("def_pass_defended", "PD"),
-    "idp_int": ("def_interceptions", "INT"),
-    "idp_int_ret_yd": ("def_interception_yards", "INT Ret Yds"),
-    "idp_ff": ("def_fumbles_forced", "FF"),
-    "idp_fum_rec": ("def_fumble_recovery_own", "FR"),
-    "idp_fum_ret_yd": ("def_fumble_recovery_yards_own", "FR Ret Yds"),
-    "idp_def_td": ("def_tds", "Def TD"),
-    "idp_safe": ("def_safety", "Safety"),
+# CORRECTED 2026-07-27.  Three of these mappings read columns that the
+# 2025 unified nflverse release does not have, and a fourth carried the
+# wrong quantity.  Each failed silently — ``stat_row.get`` returns None,
+# ``_num`` turns it into 0.0, and the key is skipped as though the
+# player had recorded nothing.  An IDP league scored zero tackles all
+# season and nothing said so.
+#
+#   def_safety   → def_safeties      (renamed; see #589's URL change)
+#   def_tackles  → REMOVED           (no replacement column at all)
+#
+# And the semantics, measured against the retired 2024 defensive release
+# rather than assumed:
+#
+#   * ``def_tackles_solo`` counts UNASSISTED tackles only — it excludes
+#     ``def_tackles_with_assist``.  342 of 9,994 rows have solo 0 with
+#     with_assist > 0, which is impossible if one contained the other.
+#     So ``idp_tkl_solo`` off the raw column under-reported every
+#     defender who was assisted on a stop.
+#   * ``def_tackles`` was ``solo + with_assist`` — an exact identity on
+#     9,994 of 9,994 rows.  That is the gamebook SOLO total, NOT
+#     combined tackles, so ``idp_tkl`` was scoring the wrong quantity
+#     even when the column existed.
+#
+# Cross-checked against a real box score: Zack Baun (PHI) 2024 wk1 reads
+# solo 9 / with_assist 2 / assists 4 — gamebook 11 solo, 4 assists, 15
+# combined, which is his actual line.
+#
+# Values are now tuples of CANDIDATE columns (first present wins) so a
+# backfill over pre-2025 seasons and a live pull over the current one go
+# through one table.  The three tackle keys are resolved by
+# :func:`_tackle_view` instead, because no single column carries them.
+_IDP_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    "idp_tkl_loss": (("def_tackles_for_loss",), "TFL"),
+    "idp_sack": (("def_sacks",), "Sack"),
+    "idp_sack_yd": (("def_sack_yards",), "Sack Yds"),
+    "idp_hit": (("def_qb_hits",), "QB Hit"),
+    "idp_pd": (("def_pass_defended", "def_passes_defended"), "PD"),
+    "idp_int": (("def_interceptions",), "INT"),
+    "idp_int_ret_yd": (("def_interception_yards",), "INT Ret Yds"),
+    "idp_ff": (("def_fumbles_forced",), "FF"),
+    # Not def_-prefixed in the unified release.
+    "idp_fum_rec": (("def_fumble_recovery_own", "fumble_recovery_own"), "FR"),
+    "idp_fum_ret_yd": (
+        ("def_fumble_recovery_yards_own", "fumble_recovery_yards_own"),
+        "FR Ret Yds",
+    ),
+    "idp_def_td": (("def_tds",), "Def TD"),
+    "idp_safe": (("def_safeties", "def_safety"), "Safety"),
+}
+
+# Resolved by ``_tackle_view`` rather than a column read.  Ordered
+# solo, assist, combined — matching the tuple that function returns.
+_IDP_TACKLE_KEYS: tuple[tuple[str, str], ...] = (
+    ("idp_tkl_solo", "Solo Tkl"),
+    ("idp_tkl_ast", "Ast Tkl"),
+    ("idp_tkl", "Tkl"),
+)
+
+# Sleeper publishes some rules under more than one SCORING key name and
+# league dumps use either.  ``src/scoring/sleeper_ingest.KEY_ALIASES``
+# already normalizes these for the translation layer, but realized
+# points only read the canonical spelling — a league whose dump says
+# ``idp_pass_def`` (the live dynasty_main league does, at 5.32/event)
+# silently scored passes-defended as 0.  Applied only when the
+# canonical key is absent so a dump carrying both can never
+# double-count.  (Distinct from the STAT-column candidates above:
+# those absorb nflverse renames, this absorbs Sleeper's.)
+_SCORING_KEY_ALIASES: dict[str, str] = {
+    "idp_pass_def": "idp_pd",
 }
 
 
@@ -182,6 +220,43 @@ def _num(val: Any) -> float:
         return float(val or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _first_num(stat_row: dict[str, Any], columns: tuple[str, ...]) -> float:
+    """First candidate column present with a value; 0.0 if none are.
+
+    The candidate list is what absorbs nflverse's 2025 renames without
+    breaking a backfill over older seasons — see the note above
+    ``_IDP_KEYS``.
+    """
+    for col in columns:
+        val = stat_row.get(col)
+        if val is not None and val != "":
+            return _num(val)
+    return 0.0
+
+
+def _tackle_view(stat_row: dict[str, Any]) -> tuple[float, float, float]:
+    """``(gamebook solo, assists, combined)`` from any nflverse schema.
+
+    Pre-2025 rows publish ``def_tackles``, which IS the gamebook solo
+    total.  The unified 2025+ release dropped it, so solo is rebuilt as
+    ``def_tackles_solo + def_tackles_with_assist``.  Combined is always
+    solo plus ``def_tackle_assists`` — no column carries it.
+
+    Mirrors ``src.nfl_data.actuals_store._tackle_view``; the two are
+    pinned to each other by
+    ``tests/nfl_data/test_realized_points.py::test_tackle_view_matches_the_actuals_store``.
+    """
+    published = stat_row.get("def_tackles")
+    if published is not None and published != "":
+        solo = _num(published)
+    else:
+        solo = _num(stat_row.get("def_tackles_solo")) + _num(
+            stat_row.get("def_tackles_with_assist")
+        )
+    assists = _num(stat_row.get("def_tackle_assists"))
+    return solo, assists, solo + assists
 
 
 def compute_weekly_points(
@@ -244,14 +319,24 @@ def compute_weekly_points(
     # _IDP_KEYS entry separately produces the correct stacked total
     # without any explicit "stack bonus" logic.
     if _is_idp_position(pos):
-        for key, (stat_key, label) in _IDP_KEYS.items():
+        for key, (stat_keys, label) in _IDP_KEYS.items():
             pts_per = scoring.get(key, 0.0)
             if pts_per == 0.0:
                 continue
-            stat = _num(stat_row.get(stat_key))
-            if stat == 0 and stat_key in _STAT_KEY_FALLBACKS:
-                stat = _num(stat_row.get(_STAT_KEY_FALLBACKS[stat_key]))
+            stat = _first_num(stat_row, stat_keys)
             if stat == 0:
+                continue
+            contribution = stat * pts_per
+            breakdown.append((label, stat, contribution))
+            total += contribution
+
+        # Tackles come from _tackle_view, not a column read — nflverse
+        # publishes no combined-tackle column, and its ``solo`` column
+        # is unassisted-only.  See the note above _IDP_KEYS.
+        tackle_stats = _tackle_view(stat_row)
+        for (key, label), stat in zip(_IDP_TACKLE_KEYS, tackle_stats):
+            pts_per = scoring.get(key, 0.0)
+            if pts_per == 0.0 or stat == 0:
                 continue
             contribution = stat * pts_per
             breakdown.append((label, stat, contribution))
@@ -268,7 +353,11 @@ def compute_weekly_points(
             pts_per = scoring.get(key, 0.0)
             if pts_per == 0.0:
                 continue
-            tkls = _num(stat_row.get("def_tackles"))
+            # Sleeper's 5+/10+ thresholds are on COMBINED tackles, which
+            # is the third element of the view.  This previously read
+            # ``def_tackles`` — the gamebook solo count pre-2025, and
+            # absent entirely after, so the bonus stopped firing.
+            tkls = tackle_stats[2]
             if tkls >= thresh:
                 breakdown.append((label, tkls, pts_per))
                 total += pts_per

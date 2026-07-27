@@ -1513,6 +1513,46 @@ async function _fetchBaseContract() {
 // (e.g. the ``/api/data`` full view, or test fixtures), we take
 // the simpler path of iterating basePlayersArray and deep-merging
 // delta fields onto each matched entry.
+/**
+ * Which board produced the numbers in `contract` — "market" or
+ * "leagueAdjusted".
+ *
+ * Read this rather than `settings.valuationMode`. The setting is what
+ * the user ASKED for; this is what they GOT, and the two legitimately
+ * diverge:
+ *
+ *   - the overlay fetch can fail, and `fetchDynastyData` degrades to
+ *     the market board rather than serving half a lens;
+ *   - the version pin in `applyValuationOverlay` refuses an overlay
+ *     built against a different scrape;
+ *   - the server can find no roster snapshot, so scarcity is
+ *     unmeasurable, and returns market values with a note.
+ *
+ * In every one of those the setting still says "leagueAdjusted" while
+ * the numbers are market. Labelling off the setting would assert a
+ * basis the board does not have — which is the whole failure this
+ * accessor exists to prevent.
+ *
+ * Accepts either the contract or its `{data}` envelope.
+ */
+export function valuationBasisOf(contract) {
+  const data = contract?.data || contract;
+  if (!data) return "market";
+  if (data.valuationOverlay?.mode === "leagueAdjusted") return "leagueAdjusted";
+  return "market";
+}
+
+/**
+ * Human-readable one-liner naming the basis, for export headers and
+ * page disclosures. Exports need this most: once a spreadsheet leaves
+ * the app nothing distinguishes adjusted values from market ones.
+ */
+export function valuationBasisLabel(contract) {
+  return valuationBasisOf(contract) === "leagueAdjusted"
+    ? "League-adjusted (positional scarcity from this league's rosters)"
+    : "Market consensus";
+}
+
 export function mergeRankingsDelta(baseContract, delta) {
   if (!baseContract || !delta) return baseContract;
   const base = baseContract.data || baseContract;
@@ -1535,6 +1575,33 @@ export function mergeRankingsDelta(baseContract, delta) {
     date: delta.date || base.date,
     generatedAt: delta.generatedAt || base.generatedAt,
   };
+
+  // Carry the server-composed valuation basis onto the SAME field the
+  // client-side overlay path stamps, so every consumer has one question
+  // to ask instead of two.
+  //
+  // Without this the server-composed board (custom weights + the lens,
+  // which the server now computes) would arrive with adjusted values and
+  // NO `valuationOverlay`, and /trade's "Valued on your league's board"
+  // banner — which gates on that field — would go silent on precisely
+  // the board that most needs labelling.
+  //
+  // The server's stamp is authoritative over the request: it can degrade
+  // to market when there is no roster snapshot, without the user's
+  // setting changing. `serverComposed` marks the provenance so a reader
+  // can tell the two paths apart.
+  if (delta.meta?.valuationMode === "leagueAdjusted") {
+    mergedData.valuationOverlay = {
+      mode: "leagueAdjusted",
+      serverComposed: true,
+      adjustedCount: delta.valuationAdjustment?.adjustedCount ?? null,
+    };
+  } else if (delta.meta?.valuationNote) {
+    // Requested but not delivered. Record why rather than leaving the
+    // absence to be read as "the user never asked".
+    mergedData.valuationOverlay = null;
+    mergedData.valuationNote = delta.meta.valuationNote;
+  }
 
   const basePlayersArray = Array.isArray(base.playersArray)
     ? base.playersArray
@@ -1860,21 +1927,26 @@ export async function fetchDynastyData(opts = {}) {
     return overlay ? applyValuationOverlay(base, overlay) : base;
   }
 
-  // Source overrides + league-adjusted is deliberately NOT composed
-  // here.  The overlay is computed against the un-overridden board, so
-  // its ranks are the ranks of `default_consensus x factor` — but the
-  // correct answer is the rank of `overridden_consensus x factor`,
-  // which the server never computed.  No client-side sequencing fixes
-  // that; composing the two would produce a board where neither the
-  // values nor the ranks correspond to anything.  Serve the overridden
-  // market board and say so, until `valuation_mode` is threaded through
-  // the overrides pipeline server-side.
-  if (leagueAdjusted) {
-    console.warn(
-      "[dynasty-data] custom source weights are active; league-adjusted " +
-        "values are not applied (the two cannot be composed client-side)",
-    );
-  }
+  // Source overrides + league-adjusted are now composed SERVER-SIDE.
+  //
+  // They were previously refused outright, and correctly so: the
+  // overlay endpoint computes its ranks against the un-overridden
+  // board, so applying them here would give the ranks of
+  // `default_consensus x factor` when the right answer is the rank of
+  // `overridden_consensus x factor`. No client-side sequencing fixes
+  // that — the server had simply never computed that board.
+  //
+  // It does now. `valuation_mode` rides the override POST, the backend
+  // runs the override pipeline first and applies the scarcity factors
+  // to the resulting values, then re-ranks the adjusted board through
+  // the same `compact_ranks_and_tiers` the default path uses. The
+  // delta comes back with values, ranks and tiers that all describe
+  // one board.
+  //
+  // `meta.valuationMode` on the response says which lens actually
+  // produced it, because the server can still degrade to market (no
+  // roster snapshot => no measurable scarcity). Callers read that
+  // rather than assuming they got what they asked for.
 
   // Override path: POST the override map + TE premium multiplier to
   // the backend delta endpoint, then merge the delta onto the
@@ -1896,6 +1968,13 @@ export async function fetchDynastyData(opts = {}) {
   }
   if (tepNativeCustomized) {
     body.tep_native_multiplier = tepNativeMultiplier;
+  }
+  if (leagueAdjusted) {
+    // Asking for the lens narrows this request to one league — the
+    // backend 503s on a league mismatch when this is set, because
+    // scarcity is measured from one league's rosters and the resulting
+    // board is not shareable across leagues that merely share scoring.
+    body.valuation_mode = "leagueAdjusted";
   }
 
   try {

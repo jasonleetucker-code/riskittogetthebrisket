@@ -25,6 +25,7 @@ from typing import Any, Iterable
 
 from src.ros import ROS_DATA_DIR
 from src.ros.lineup import RosterPlayer, optimize_lineup
+from src.utils.name_clean import resolve_canonical_name
 
 
 # Composite weights — can be overridden per-league via settings later;
@@ -63,7 +64,42 @@ def compute_team_strength(
 
     # Index aggregated values by canonical name for O(1) lookup per
     # team-player pair.
-    by_name = {p["canonicalName"]: p for p in aggregated_players}
+    #
+    # BOTH SIDES go through ``resolve_canonical_name`` because neither
+    # is reliably canonical on its own.  ``src/ros/aggregate.py`` copies
+    # each source parser's ``canonical_name`` verbatim, so 16 of 1,087
+    # aggregate rows are stored non-lowercase; the roster side falls
+    # back to ``displayName`` / ``name``, which never were.  An exact
+    # string join therefore drops players for two different reasons.
+    #
+    # Measured 2026-07-27 on the live 12-team snapshot: 36 roster
+    # players were unmapped, and **8 of them map once both sides are
+    # canonicalised** — "kam curl" -> "kamren curl", "chig okonkwo" ->
+    # "chigoziem okonkwo", plus casing-only misses like "Dax Hill" and
+    # "Sauce Gardner".  The other 28 are genuinely unranked by every
+    # ROS source, which is the state ``unmapped`` exists to report.
+    #
+    # This matters beyond the roster page: an unmapped player scores
+    # ZERO toward ``teamRosStrength``, which sets the projected
+    # reverse-standings draft order behind the Pick Projector. Eight
+    # phantom zeroes biased that order.
+    #
+    # Note ``.lower()`` alone would fix only 14 of the 16 stored names.
+    # "Greg Rousseau" and "Chig Okonkwo" need the alias map, which is
+    # exactly what ``resolve_canonical_name`` is for, and why the fix
+    # is not a casefold.
+    #
+    # NOT fixed at the writer on purpose: ``canonicalName`` doubles as a
+    # DISPLAY fallback (``displayName or canonicalName``) in
+    # ``src/api/terminal.py`` and three frontend modules, so
+    # normalising what is written would render "cam skattebo" wherever
+    # ``displayName`` is absent. The field serves two jobs that want
+    # different normalisation; the join is the one that wants this.
+    by_name: dict[str, dict[str, Any]] = {}
+    for p in aggregated_players:
+        key = resolve_canonical_name(p.get("canonicalName") or "")
+        if key:
+            by_name.setdefault(key, p)
 
     out: list[dict[str, Any]] = []
     for team in teams:
@@ -81,7 +117,9 @@ def compute_team_strength(
                 for fp in (p.get("fantasyPositions") or ())
                 if str(fp or "").strip()
             )
-            agg = by_name.get(name)
+            # ``name`` stays raw for the unmapped list — that list is
+            # rendered, so it wants the readable form, not the join key.
+            agg = by_name.get(resolve_canonical_name(name))
             if not agg or agg.get("rosValue", 0) <= 0:
                 # Player isn't ranked by any ROS source — represented
                 # as zero contribution but kept on the unmapped list

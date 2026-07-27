@@ -383,6 +383,105 @@ export function PlayerContextSection({ row }) {
 // render nothing.
 const _POPUP_NEWS_LIMIT = 5;
 
+// ── Realized fantasy points (Tier 3 stats surface) ──────────────────
+// GET /api/player/{sleeperId}/realized scores this player's real weekly
+// stat lines under THIS league's scoring settings. The endpoint has
+// existed for some time and nothing called it, which is how its row
+// filter came to return zero weeks for every player without anyone
+// noticing.
+//
+// Rendered only when there are weeks to show. The endpoint answers 200
+// with an empty list and a `reason` for several legitimate states
+// (stats not ingested, player unmapped, offseason), and none of those
+// are worth a box that says "no data" on every popup.
+const _realizedCache = new Map(); // sleeperId → {payload|null, fetchedAt}
+const _REALIZED_TTL_MS = 30 * 60 * 1000;
+
+export async function _loadRealized(sleeperId) {
+  const key = String(sleeperId || "").trim();
+  if (!key) return null;
+  const cached = _realizedCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < _REALIZED_TTL_MS) return cached.payload;
+  try {
+    const res = await fetch(`/api/player/${encodeURIComponent(key)}/realized`);
+    // 503 is the feature flag being off; 401 is signed-out. Both are
+    // "nothing to show", not errors worth surfacing on a popup.
+    const payload = res.ok ? await res.json() : null;
+    _realizedCache.set(key, { payload, fetchedAt: Date.now() });
+    return payload;
+  } catch {
+    _realizedCache.set(key, { payload: null, fetchedAt: Date.now() });
+    return null;
+  }
+}
+
+export function RealizedPointsSection({ row }) {
+  const [data, setData] = useState(null);
+  const sleeperId = String(row?.raw?.playerId || row?.playerId || "").trim();
+
+  useEffect(() => {
+    if (!sleeperId) return;
+    let active = true;
+    setData(null);
+    _loadRealized(sleeperId).then((payload) => {
+      if (active) setData(payload);
+    });
+    return () => {
+      active = false;
+    };
+  }, [sleeperId]);
+
+  const weeks = Array.isArray(data?.weeks) ? data.weeks : [];
+  if (!weeks.length) return null;
+
+  const best = data?.bestWeek || null;
+  const worst = data?.worstWeek || null;
+
+  return (
+    <div className={styles.section} data-testid="realized-points">
+      <p className={styles.sectionLabel}>
+        Realized points{" "}
+        <span className={styles.ctxNote}>scored on your league&apos;s settings</span>
+      </p>
+      <div className={styles.ctxGrid}>
+        <div className={styles.ctxRow}>
+          <span className={styles.ctxKey}>Total</span>
+          <span className={styles.ctxVal}>
+            {Number(data.totalPoints || 0).toFixed(1)} pts
+          </span>
+          <span className={styles.ctxNote}>
+            {data.weekCount} {data.weekCount === 1 ? "week" : "weeks"} ·{" "}
+            {Number(data.averagePoints || 0).toFixed(1)}/wk
+          </span>
+        </div>
+        {best && (
+          <div className={styles.ctxRow}>
+            <span className={styles.ctxKey}>Best</span>
+            <span className={styles.ctxVal}>
+              {Number(best.fantasyPoints || 0).toFixed(1)} pts
+            </span>
+            <span className={styles.ctxNote}>
+              {best.season} wk {best.week}
+            </span>
+          </div>
+        )}
+        {worst && (
+          <div className={styles.ctxRow}>
+            <span className={styles.ctxKey}>Worst</span>
+            <span className={styles.ctxVal}>
+              {Number(worst.fantasyPoints || 0).toFixed(1)} pts
+            </span>
+            <span className={styles.ctxNote}>
+              {worst.season} wk {worst.week}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function PlayerNewsSection({ playerName, position, team }) {
   const { byPlayer, digestByPlayer } = useNews();
   const { rows: liveRows } = useApp();
@@ -892,6 +991,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
 
           {/* ── Player context (contracts / snaps / depth) ── */}
           <PlayerContextSection row={row} />
+          <RealizedPointsSection row={row} />
 
           {/* Value chain — how we arrived at Our Value */}
           {valueChain.length > 0 && (

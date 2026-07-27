@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
 import {
   buildTeamIndexLookup,
@@ -67,6 +68,7 @@ import {
   Panel,
   SkeletonText,
   StatTile,
+  ValueBasisNote,
 } from "@/components/ds";
 import styles from "./draft.module.css";
 
@@ -3241,6 +3243,11 @@ function DraftGlossary() {
 export default function DraftDashboardPage() {
   const router = useRouter();
   const { authenticated, checking } = useAuthContext();
+  // Only for the value-basis disclosure. The draft board prices off
+  // /api/draft-capital and its own workspace, but the player values it
+  // shows alongside come from the same contract every other page reads,
+  // so the same lens applies and the same silence applied here too.
+  const { rawData } = useApp();
   // League-scoped draft workspace — a draft-in-progress lives per
   // league, keyed by ``DRAFT_STORAGE_KEY__<leagueKey>``.  Switching
   // leagues mid-draft doesn't destroy the prior league's board.
@@ -4504,6 +4511,8 @@ export default function DraftDashboardPage() {
           </div>
         }
       />
+
+      <ValueBasisNote contract={rawData} />
 
       {syncError ? (
         <Banner tone="negative" title="Sync error" onDismiss={() => setSyncError("")}>

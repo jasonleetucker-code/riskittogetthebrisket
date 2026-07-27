@@ -657,10 +657,30 @@ def test_rejected_target_players_carry_their_reason(league, monkeypatch):
     body = _payload(monkeypatch)
     players = body["targetPlayers"]
     assert players
+    rejected = [t for t in players if not t["recommended"]]
+    # Non-vacuity. Every assertion below is inside a loop over rejected
+    # targets, so an empty list would pass the whole test having checked
+    # nothing. Measured on this fixture: 15 rejected, 0 recommended.
+    assert rejected, "fixture produced no rejected targets; the loop below would be a no-op"
+
     for target in players:
         assert target["reason"]
-        if not target["recommended"]:
-            assert target["corroborating"] == [] or len(target["corroborating"]) >= 0
+
+    for target in rejected:
+        # This previously read
+        #     assert t["corroborating"] == [] or len(t["corroborating"]) >= 0
+        # and ``len(x) >= 0`` is true of every list, so the disjunction
+        # was a tautology — the one assertion about rejected targets
+        # asserted nothing at all about them.
+        #
+        # The real invariant, measured across all 15 rejected targets on
+        # this fixture: a target is rejected precisely because nothing
+        # corroborated it, so the list is empty.
+        assert target["corroborating"] == [], (
+            f"{target.get('name') or target.get('displayName')!r} was rejected but "
+            f"carries corroboration {target['corroborating']!r} — rejection and "
+            "corroboration disagree"
+        )
     yields = body["coverage"]["corroborationYield"]
     assert yields["evaluated"] == len(players)
     assert yields["recommended"] == sum(1 for t in players if t["recommended"])

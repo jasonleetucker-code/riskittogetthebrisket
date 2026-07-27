@@ -8,6 +8,19 @@ on:
   pull_request:
     branches:
       - main
+      # Stacked PRs too.  A PR whose base is another work branch —
+      # tier 2 on top of tier 1, say — matched none of these filters,
+      # so GitHub created it with ZERO check runs.  Not a failing gate:
+      # no gate at all, which reviews identically to a passing one and
+      # is exactly the defect class ORCHESTRATION.md 6.15 names.
+      #
+      # The alternative was to wait for the base to merge (GitHub
+      # auto-retargets an open PR to main when its base branch is
+      # merged and deleted, and CI would run then).  That is true but
+      # useless for review: the stack is reviewed BEFORE the base
+      # merges, which is the whole point of stacking.
+      - 'claude/**'
+      - 'codex/**'
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}

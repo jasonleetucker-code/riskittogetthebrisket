@@ -57,6 +57,9 @@ class TestParsing(unittest.TestCase):
         carl = rows[0]
         self.assertAlmostEqual(carl["stats"]["def_tackles_solo"], 140 * 0.62)
         self.assertAlmostEqual(carl["stats"]["def_tackle_assists"], 140 * 0.38)
+        # def_tackles must never survive into the stat line: the scoring
+        # path reads that name as pre-2025 gamebook SOLO.
+        self.assertNotIn("def_tackles", carl["stats"])
 
     def test_points_only_table_is_usable(self):
         rows, report = idp.parse_projection_csv(POINTS_ONLY_CSV)

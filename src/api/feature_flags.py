@@ -38,7 +38,10 @@ from typing import Final
 
 _DEFAULTS: Final[dict[str, bool]] = {
     # Phase 1 — Unified ID mapper
-    "unified_id_mapper": True,  # safe: no behavior change, new API only
+    # NO_GATE — the mapper is unconditional and this flag has never
+    # gated it.  OFF so the registry stops reporting a switch that does
+    # not exist; the mapper itself is unaffected either way.
+    "unified_id_mapper": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
     # requirements.txt.  Safe: every fetch is guarded so an import
@@ -49,27 +52,60 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Phase 3 — Realized fantasy points — endpoint-only, inert until
     # a client calls it.  Activated with nfl_data_ingest.
     "realized_points_api": True,
-    # Phase 4 — Confidence intervals — additive ``valueBand`` field
-    # on rankings contract.  Frontend ValueBandBadge renders when
-    # field is present; absent = no badge (safe).  Flipping on now.
-    "value_confidence_intervals": True,
-    # Phase 5 — Positional tiering — additive ``tierId`` field on
-    # rankings rows.  Frontend TierDivider renders when tierId set;
-    # absent = no divider lines (safe).  Flipping on now.
-    "positional_tiers": True,
-    # Phase 6 — Usage-based signals — fires via unified_signal_engine
-    # when nfl_data_ingest supplies stats.  Freshness-guarded: blocks
-    # mid-week data pre-Thursday.  Active-starter-only SELL guard
-    # prevents backup-role false alerts.
-    "usage_signals": True,
-    # Phase 7 — ESPN injury feed — external endpoint, now protected
-    # by the ``espn_injuries`` circuit breaker (3 failures / 2min →
-    # 3min OPEN).  Safe to activate.
-    "espn_injury_feed": True,
-    # Phase 8 — Depth chart cross-check — same ESPN infrastructure.
-    # Gated by ``espn_depth_charts`` breaker (5 failures / 3min → 3min
-    # OPEN).  Requires injury feed ON to cross-check.
-    "depth_chart_validation": True,
+    # Phase 4 — Confidence intervals.  NO_GATE, so OFF.
+    #
+    # The old comment here claimed "Frontend ValueBandBadge renders when
+    # field is present".  Nothing renders it: the badge is exported from
+    # the ui barrel and imported by no page, ``stamp_bands_on_players``
+    # has no caller, and ``rank_history_band`` has no caller either.
+    # There is also no ``is_enabled("value_confidence_intervals")``
+    # anywhere — only docstrings describing one.
+    "value_confidence_intervals": False,
+    # Phase 5 — Positional tiering.  NO_GATE, so OFF.
+    #
+    # The old comment claimed "Frontend TierDivider renders when tierId
+    # set".  ``TierDivider`` renders only on /draft, and off a locally
+    # computed ``p.tier`` — the backend never stamps ``tierId`` at all,
+    # because ``stamp_tiers_on_players`` is called only from
+    # ``scripts/refit_tier_thresholds.py``.  Two identifiers for two
+    # different things, which is why the claim read as true.
+    "positional_tiers": False,
+    # Phase 6 — Usage-based signals — BUILT BUT NOT WIRED, and OFF.
+    #
+    # This comment used to read "fires via unified_signal_engine when
+    # nfl_data_ingest supplies stats".  It did not fire, because nothing
+    # in the tree calls ``detect_usage_transitions`` or
+    # ``unified_signal_engine`` at all — the flag reported True for a
+    # capability with no live path (gap analysis §4.2).
+    #
+    # It stays OFF now for a second, independent reason, measured
+    # 2026-07-27 against the persisted 2025 season by
+    # ``scripts/audit/measure_usage_signal_rate.py``: the detector fires
+    # on a mean **17.8% of active players every week**, stable across
+    # weeks 6-18.  Threshold tuning does not fix it — flooring the
+    # standard deviation makes it worse (19% -> 32%), and a plain
+    # 30-percentage-point absolute-move rule still hits 21%.  A
+    # four-observation z-score on a bounded 0-1 share does not
+    # discriminate, because real NFL snap share genuinely moves that
+    # much week to week.
+    #
+    # Turning this on today would only enable a flag with no consumer.
+    # Whoever wires the consumer must re-run the audit first.
+    "usage_signals": False,
+    # Phase 7 — ESPN injury feed.  UNREACHABLE, so OFF.
+    #
+    # The gate in ``src/nfl_data/injury_feed.py`` is real and correct.
+    # The module has no production importer, so the gate never runs and
+    # the old "Safe to activate" was true only in the sense that
+    # activating it did nothing.
+    "espn_injury_feed": False,
+    # Phase 8 — Depth chart cross-check.  SCRIPT_ONLY, so OFF.
+    #
+    # ``src/nfl_data/depth_charts.py`` is gated and imported — by
+    # ``scripts/refresh_depth_charts.py`` alone.  The old comment's
+    # "Requires injury feed ON to cross-check" made it depend on a flag
+    # whose own module never runs, so neither half could ever fire.
+    "depth_chart_validation": False,
     # Phase 9 — Monte Carlo trade simulator — new endpoint
     # /api/trade/simulate-mc.  Old /api/trade/simulate is unchanged.
     # Enabling reveals the "Simulate" button in the trade-calc UI.
@@ -80,13 +116,82 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (falls back to static weights).  Promoted deliberately, not
     # automatically.
     "dynamic_source_weights": False,
+    # Collaborative audit, finding F — TE basis conversion at blend time.
+    #
+    # Replaces the flat ``_TE_BLANKET_NON_NATIVE_MULTIPLIER`` (1.15) on
+    # non-TEP sources' TE contributions with KTC's own MEASURED base →
+    # TE++ uplift curve (``src/league_intel/te_premium.py``).  The blend
+    # is already anchored on ``ktcSfTep``, which IS the TE++ board, so
+    # this corrects the magnitude of an alignment that was happening
+    # anyway — it does not add a second one.  1.15 sits below the entire
+    # observed range (KTC's smallest actual uplift is 1.209), so every
+    # tight end was being lifted too little.
+    #
+    # ON by default and deliberately so.  A flag defaulting OFF here
+    # would repeat ORCHESTRATION.md 6.14/6.15's named mistake: the
+    # previous TE module was left unimported so "toggle off" would be
+    # byte-identical, which also meant the double-count guard could
+    # never fire on it.  Both paths are exercised by
+    # ``tests/api/test_te_basis_conversion.py``.
+    #
+    # This moves live consensus values for TEs, so it has a rollback:
+    # RISKIT_FEATURE_TE_BASIS_CONVERSION=0 restores the flat 1.15.  An
+    # explicit operator TE-premium slider value also wins over the
+    # curve regardless of this flag.
+    "te_basis_conversion": True,
+    # IDP positional scoring fit (Tier 2).  This league pays coverage
+    # and disruption and discounts finishing plays, so relative to DB it
+    # values DL about +7% and LB about +3% versus the generic rate card
+    # every ranking source prices on.  Measured, stable across pool
+    # depth, and re-allocates between IDP positions rather than
+    # inflating IDP as a whole — see src/league_intel/scoring_fit.py.
+    #
+    # OFF by default, unlike te_basis_conversion.  Flip with
+    # RISKIT_FEATURE_IDP_SCORING_FIT=1.
+    #
+    # 2026-07-27, operator delegated the decision and it stays OFF.
+    # Not because the edge is doubted — the Tier 2 measurement is real
+    # and the risk is lower than it looks, since this axis reaches only
+    # ``build_board_adjustments``, i.e. the OPT-IN league-adjusted lens,
+    # never the default market board.  It stays off because
+    # ``tests/api/test_feature_flags.py`` requires a MEASURED blast
+    # radius for any value-moving default-ON flag, and an attempt to
+    # re-derive one in that session returned an empty positional map.
+    # That turned out to be a harness fault — the persisted actuals
+    # carry raw positions (DT/DE/CB/SAF/FS) and the scoring engine
+    # dropped ``SAF`` as unknown, so the DL/LB/DB family mapping was
+    # never applied — but "my harness was wrong" and "the fit collapsed"
+    # are indistinguishable until it is re-run correctly.
+    #
+    # Turning a value-moving flag on from a number that could not be
+    # reproduced at the time is the exact defect class this codebase
+    # keeps paying for.  Re-run the measurement with the family mapping
+    # applied, record the blast radius here and in ``value_moving_on``,
+    # and then flip it.  The cost of waiting is one env var.
+    #
+    # Note what is deliberately NOT behind this flag: a per-player IDP
+    # multiplier.  The same data supports one arithmetically and it is
+    # noise — see the module docstring for the depth-stability
+    # measurement that rules it out.
+    "idp_scoring_fit": False,
+    # Per-player reception-depth tilt (Tier 2).  Separate from
+    # idp_scoring_fit above rather than sharing it: that flag is named
+    # for IDP, and using it to gate an offence feature would make the
+    # name a lie — an operator disabling "idp_scoring_fit" would
+    # silently also disable every receiver adjustment.
+    #
+    # Also OFF by default.  Note the magnitude before enabling: the
+    # per-catch spread is 8x but receptions are 17-33% of a player's
+    # points, so the VALUE move is around +/-8%, not +/-120%.  See
+    # src/league_intel/reception_fit.py.
+    "reception_scoring_fit": False,
     # BDVM — projection-driven fundamental dynasty valuation engine
-    # (src/bdvm/, endpoint /api/bdvm/values).  Held OFF: the engine is
-    # implemented and tested but the platform has no projection feed
-    # yet, so flipping this on serves an honest "no_projection_snapshot"
-    # payload until projection snapshots exist under
-    # data/bdvm/projections/.  It never touches rankDerivedValue or any
-    # existing route either way.  See
+    # (src/bdvm/, endpoints /api/bdvm/values|roster|trades).  Held OFF:
+    # the engine is implemented and tested (tests/bdvm/); it serves an
+    # honest "no_projection_snapshot" payload until projection snapshots
+    # exist under data/bdvm/projections/ (scripts/bdvm_build_baseline.py
+    # or scripts/fetch_idpshow_projections.py build them).  It never
+    # touches rankDerivedValue or any existing route either way.  See
     # docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
     "bdvm_engine": False,
 }
@@ -150,3 +255,114 @@ def snapshot() -> dict[str, bool]:
 def registered_flags() -> list[str]:
     """Return the registered flag names in declaration order."""
     return list(_DEFAULTS.keys())
+
+
+# ── Gate status ───────────────────────────────────────────────────
+#
+# WHY THIS IS DATA AND NOT A COMMENT
+#
+# Every flag below used to carry a prose comment describing what it
+# did.  Measured 2026-07-27 by walking imports transitively from
+# ``server.py``, **7 of 13 could not affect a request at all** — and
+# four of those defaulted True while their comments asserted live
+# behaviour ("fires via unified_signal_engine", "Frontend TierDivider
+# renders when tierId set", "Safe to activate").
+#
+# That is ORCHESTRATION.md §6.15 in registry form: the stated purpose
+# and the actual predicate differ and nothing forces them to agree.  A
+# comment cannot be checked, so the classification moves here where
+# ``tests/api/test_feature_flag_reachability.py`` re-measures it against
+# the real import graph on every run.  Add a flag without classifying
+# it and that test fails.
+#
+# The four statuses:
+#
+#   LIVE          a gate exists in a module reachable from server.py.
+#                 Toggling changes what a request does.
+#   SCRIPT_ONLY   a gate exists, but only in ``scripts/``.  Toggling
+#                 changes an operator tool, never a response.
+#   UNREACHABLE   a gate exists in a module NOTHING imports.  Toggling
+#                 is a no-op today; the gate is real but stranded.
+#   NO_GATE       no ``is_enabled`` call anywhere.  The flag is inert:
+#                 the capability it names is either unconditional or
+#                 absent, and the flag's value means nothing either way.
+#
+# Only LIVE flags may default True — anything else advertising itself
+# as on is the lie this table exists to prevent.
+
+LIVE: Final[str] = "LIVE"
+SCRIPT_ONLY: Final[str] = "SCRIPT_ONLY"
+UNREACHABLE: Final[str] = "UNREACHABLE"
+NO_GATE: Final[str] = "NO_GATE"
+
+_GATE_STATUS: Final[dict[str, str]] = {
+    # ── Reachable from server.py; toggling changes a response ──
+    "nfl_data_ingest": LIVE,
+    "realized_points_api": LIVE,
+    "monte_carlo_trade": LIVE,
+    "te_basis_conversion": LIVE,
+    "idp_scoring_fit": LIVE,
+    "reception_scoring_fit": LIVE,
+    # bdvm_engine gates three routes inline in server.py
+    # (/api/bdvm/values, /api/bdvm/roster, /api/bdvm/trades): off →
+    # 503 feature_disabled, on → the BDVM payloads.
+    "bdvm_engine": LIVE,
+    # ── Gate exists, module is stranded ──
+    #
+    # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``
+    # both check their flag properly.  Nothing imports either module, so
+    # the check never executes.
+    "espn_injury_feed": UNREACHABLE,
+    "usage_signals": UNREACHABLE,
+    # ``src/nfl_data/depth_charts.py`` is gated and is imported — by
+    # ``scripts/refresh_depth_charts.py`` only.  Note this is a DIFFERENT
+    # module from ``src/playerctx/normalize.py::parse_depth_charts``,
+    # which is live and ungated; conflating the two reads as "depth
+    # charts work, so the flag must be live".
+    "depth_chart_validation": SCRIPT_ONLY,
+    # ── No gate anywhere: the flag is decoration ──
+    #
+    # Each of these is named in a docstring that describes a gate, and
+    # in no ``is_enabled`` call.  Prose is the only place the gating
+    # exists.
+    #
+    # value_confidence_intervals: ``stamp_bands_on_players`` has no
+    #   caller, ``rank_history_band`` has no caller, and ValueBandBadge
+    #   is exported from the ui barrel and mounted on no page.  Dead at
+    #   all three layers.
+    # positional_tiers: ``stamp_tiers_on_players`` is called only from
+    #   ``scripts/refit_tier_thresholds.py``.  ``TierDivider`` renders
+    #   only on /draft, off a locally computed ``p.tier`` — not the
+    #   backend ``tierId`` the flag's old comment named.
+    # unified_id_mapper: the mapper is unconditional.  The flag has
+    #   never gated it.
+    # dynamic_source_weights: ``src/backtesting/harness.py`` calls
+    #   itself "flag-gated ... implicitly", which is an accurate
+    #   description of not being flag-gated.
+    "value_confidence_intervals": NO_GATE,
+    "positional_tiers": NO_GATE,
+    "unified_id_mapper": NO_GATE,
+    "dynamic_source_weights": NO_GATE,
+}
+
+
+def gate_status(name: str) -> str:
+    """Return whether ``name``'s gate can actually run.
+
+    Raises KeyError for an unregistered flag, same as :func:`is_enabled`.
+    """
+    if name not in _DEFAULTS:
+        raise KeyError(f"unknown feature flag: {name!r}")
+    return _GATE_STATUS[name]
+
+
+def effective_flags() -> dict[str, dict[str, object]]:
+    """Flag values alongside whether they can do anything.
+
+    ``/api/status`` reports :func:`snapshot`, which answers "is it on?".
+    That question is misleading on its own for the seven flags whose
+    gates cannot run — this answers "is it on, and would it matter?".
+    """
+    return {
+        name: {"enabled": is_enabled(name), "gateStatus": _GATE_STATUS[name]} for name in _DEFAULTS
+    }
