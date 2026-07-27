@@ -135,7 +135,9 @@ class TestDoubleCountIsStructurallyImpossible:
         assert once == twice
 
     def test_round_trip_returns_the_original(self):
-        for v in (490, 1000, 3000, 8169):
+        # 200 sits below KTC's measured range, where the uplift is the
+        # flat observed-maximum cap — the inversion must hold there too.
+        for v in (200, 490, 1000, 3000, 8169):
             up = convert_te_value(v, from_basis="base", to_basis="tepp")
             back = convert_te_value(up, from_basis="tepp", to_basis="base")
             assert back == pytest.approx(v, rel=1e-3)
@@ -175,6 +177,21 @@ class TestAxisATheKtcUpliftCurve:
         for v in (1, 500, 3000, 8169, 9999, 10**6):
             assert tep_uplift(v) >= curve["floor"] - 1e-9
 
+    def test_curve_never_reads_above_the_observed_maximum(self):
+        """The other end of the same argument.  KTC's board bottoms out
+        around base ~480; below that the power form extrapolates
+        unbounded (3.36x at base 100, 43x at base 1), and non-KTC
+        sources DO produce TE contributions down there.  No tight end
+        was ever observed above the config's ratio maximum, so the curve
+        must not read past it — an extrapolated uplift is exactly the
+        unmeasured number this module exists to remove."""
+        curve = json.loads(
+            (REPO / "config" / "weights" / "te_premium_curve.json").read_text(encoding="utf-8")
+        )
+        ceiling = curve["observed_ratio_range"][1]
+        for v in (0, 1, 50, 100, 400, 482, 3000, 9999):
+            assert tep_uplift(v) <= ceiling + 1e-9
+
     def test_live_blanket_constant_under_corrects_every_tight_end(self):
         """The finding that SURVIVES the Axis-B correction, and gets
         stronger under it.
@@ -194,10 +211,11 @@ class TestAxisATheKtcUpliftCurve:
     def test_config_and_fallback_agree(self):
         from src.league_intel import te_premium as tp
 
-        a, k, floor = load_tep_curve()
+        a, k, floor, ceiling = load_tep_curve()
         assert a == pytest.approx(tp._FALLBACK_A, rel=1e-6)
         assert k == pytest.approx(tp._FALLBACK_K, rel=1e-6)
         assert floor == pytest.approx(tp._FALLBACK_FLOOR, rel=1e-4)
+        assert ceiling == pytest.approx(tp._FALLBACK_CEILING, rel=1e-4)
 
 
 class TestTheTwoAxesStaySeparate:
