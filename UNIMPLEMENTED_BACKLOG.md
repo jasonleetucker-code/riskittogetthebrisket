@@ -546,3 +546,45 @@ the new one fire.
    Substring-vs-identity is the recurring gap.
 3. *Does the alarm have an off switch, and the exemption an expiry?* Anything that can
    only accumulate will eventually be ignored.
+
+---
+
+## 13. §9 defect sweep — disposition, 2026-07-27
+
+All 18 rows of §9 were worked. Nine were fixed and merged (#592, #596,
+#599 and the PR carrying this note). The rest are recorded here with
+what was actually measured, because several of §9's own descriptions did
+not survive checking and re-deriving them cost more than fixing them.
+
+**A standing caveat, earned the hard way:** §9 is reliable in KIND and
+unreliable in NUMBER. Verified drift so far — "6 duplicate player rows"
+(0 today), "40 of 666 fail to match" (36), "5 dead feature flags" (7),
+"pick tethering untested" (tested, 15 tests, none of which CI ran),
+"43 of 208 modules unreachable" (16 orphans / 2,044 lines, and 8 of
+those are dynamically dispatched). Check each row before working it.
+
+### Fixed
+
+| # | What it actually was |
+|---|---|
+| 2 | `test_anchor_curve_extrapolation_monotone` — asserted strict monotonicity where ties are structural (#592) |
+| 7 | "5 dead feature flags" — measured **7 of 13** unable to affect a request; classification moved into `_GATE_STATUS` as checkable data (#596) |
+| 11 | "pick tethering untested" — 15 tests existed; `-m "not livedata"` collected **15 deselected, 0 run**. Pure-logic half split out so 9 now block (#599) |
+| 12 | Two tests that could not fail — a `len(x) >= 0` tautology, and a weekday-dependent assertion accepting both outcomes (#599) |
+| 15 | Script pinned to a deleted agent worktree (#599) |
+| 16 | Default export path correct for exactly one day (#599) |
+| 18 | ROS team-strength joined two uncanonicalised sides; 8 of 36 unmapped players recovered (#599) |
+| 4 | `/league/activity` — `useMemo` sat *after* a conditional return, making the hook count data-dependent. Reordered |
+| 8 | `auction_power` — Python "source of truth" and the JS the user actually sees had duplicate constants and no parity guard. Added |
+| 13 | D-5 isolation leak — the test depended on ambient registry state; now establishes its own |
+
+### Not fixed, and why
+
+| # | Finding | Why it stays open |
+|---|---|---|
+| 5 | `/api/chat` | **Three layers dead**, confirmed: `src/api/chat.py` (351 lines) is not imported by `server.py`; `frontend/app/api/chat/route.js` proxies to a backend route that does not exist; and nothing in the UI calls the proxy. Wiring it is not a defect fix — it ships a streaming-LLM feature with an API-key dependency and per-request cost. That is a product decision. The reachability audit (`scripts/audit/measure_module_reachability.py`) already reports it as ORPHAN, so it cannot rot unnoticed. |
+| 6 | `finder.py` has no UI caller | Confirmed, and the real shape is worse than "no caller": `/finder` computes arbitrage **client-side** off `useDynastyData`, so there are two implementations and the shipped one is not the audited one. The T4-2 mixed-market disclosure therefore landed on an engine nobody calls. Resolving it means choosing which implementation is canonical — a product decision, not a bug fix. |
+| 14 | Sticky trade header | Could not reproduce. `trade.module.css` and `page.jsx` carry a working `trade-sticky-tray`; no defect was visible by inspection. Needs a concrete repro (viewport, page state) or it should be closed as stale. |
+| 1 | Forced public-league rebuild makes the API unresponsive | Marked "OPEN, unproven" in §9 and still unproven. Needs a live reproduction against a running backend; cannot be established by reading. |
+| 3 | `/league` SSR exceeds a 5s proxy timeout cold | A performance claim that needs live measurement against a cold backend, and §5 of this document already notes its figures predate the R5 perf pass. Re-measure before optimising. |
+| 17 | `deploy/apply_hardening.sh` unwired | Confirmed: referenced only from `deploy/**/README.md`, never from `.github/workflows/`. Deliberately left alone — it reinstalls the repo's nginx config over the installed one and could revert certbot. Wiring a script that rewrites production TLS config is an operator decision with an irreversible failure mode, not something to land from a defect sweep. |
