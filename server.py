@@ -9725,8 +9725,10 @@ async def get_player_realized(sleeper_id: str, request: Request):
     # Measured 2026-07-27 on the real 2025 file: the old expression
     # matched 0 rows for a GSIS id the correct one matched 17.
     #
-    # It went unnoticed because ``realized_points_api`` defaults OFF, so
-    # the code had never run. A flag-off path is not a tested path.
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
     #
     # Both keys are accepted so a caller passing normalized
     # dataclass-shaped rows still works.
