@@ -1944,7 +1944,25 @@ async def scrape_ktc(page, players):
     tep_name_map = {}
     try:
         sf = "true" if SUPERFLEX else "false"
-        url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=3&filters=QB|WR|RB|TE|RDP"
+        # ``tep=0``, not 3.  MEASURED 2026-07-27, not assumed: KTC's
+        # inline ``playersArray`` is IDENTICAL for tep=0, tep=2 and
+        # tep=3 — every level ships in every response.  Brock Bowers
+        # reads base=8167, tep=9038, tepp=9876, teppp=9999 under all
+        # three.  So the param does not affect what the API/playersArray
+        # extractors read; ``_ktc_extract_tep`` names ``tepp`` and gets
+        # TE++ regardless.
+        #
+        # What the param DOES affect is the RENDERED DOM, and the
+        # last-resort DOM fallback below reads exactly that — assigning
+        # it to ``name_map`` as the base SuperFlex value for the ``ktc``
+        # source.  Under tep=3 that silently wrote TE+++ numbers into a
+        # source documented as carrying no TE premium: 9999 instead of
+        # 8167 for Bowers, a 22% inflation on every tight end.
+        #
+        # tep=0 makes the rendered value the base SF value, which is
+        # what that fallback is trying to read, while leaving the
+        # payload path untouched.  Strictly better with no downside.
+        url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=0&filters=QB|WR|RB|TE|RDP"
 
         # ── Strategy 1: Intercept KTC API responses ──
         api_data = {}
