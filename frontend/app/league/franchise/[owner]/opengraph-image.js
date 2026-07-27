@@ -63,7 +63,7 @@ export default async function FranchiseOGImage({ params }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#FFC704", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
-            Brisket League · Franchise
+            Chase Upside · Franchise
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

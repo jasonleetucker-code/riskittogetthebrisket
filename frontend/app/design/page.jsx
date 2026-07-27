@@ -9,7 +9,7 @@
 import DesignGallery from "./DesignGallery";
 
 export const metadata = {
-  title: "Design System — Brisket",
+  title: "Design System — Chase Upside",
   robots: { index: false, follow: false },
 };
 

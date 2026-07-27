@@ -622,7 +622,7 @@ export default function RankingsPage() {
     const iso = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `brisket-rankings-${iso}.csv`;
+    a.download = `chaseupside-rankings-${iso}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

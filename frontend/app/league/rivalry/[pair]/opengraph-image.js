@@ -79,7 +79,7 @@ export default async function RivalryOGImage({ params }) {
       >
         <div style={{ display: "flex", gap: 16, color: "#f87171", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
-            Brisket League · Rivalry
+            Chase Upside · Rivalry
           </span>
         </div>
 

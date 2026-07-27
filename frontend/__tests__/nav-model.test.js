@@ -143,7 +143,7 @@ describe("pageTitleFor", () => {
   });
 
   it("falls back to the brand for unknown routes", () => {
-    expect(pageTitleFor("/nonexistent")).toBe("Brisket");
+    expect(pageTitleFor("/nonexistent")).toBe("Chase Upside");
   });
 });
 

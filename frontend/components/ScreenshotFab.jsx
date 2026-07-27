@@ -67,14 +67,14 @@ export default function ScreenshotFab() {
         );
       });
 
-      const filename = `brisket-${new Date().toISOString().slice(0, 10)}.png`;
+      const filename = `chaseupside-${new Date().toISOString().slice(0, 10)}.png`;
       const file = new File([blob], filename, { type: "image/png" });
 
       // Prefer Web Share API with files (iOS 15+ / Android — share sheet
       // includes "Save Image" → camera roll).
       if (canShareFiles(file)) {
         try {
-          await navigator.share({ files: [file], title: "Brisket Rankings" });
+          await navigator.share({ files: [file], title: "Chase Upside Rankings" });
           return;
         } catch (err) {
           if (err?.name === "AbortError") return; // user dismissed

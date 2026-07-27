@@ -43,7 +43,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Brisket",
+    title: "Chase Upside",
   },
   // Theme color matches the manifest's ``theme_color`` — drives
   // the Android Chrome URL bar tint when the user is on the site.
