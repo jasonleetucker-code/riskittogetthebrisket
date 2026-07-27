@@ -86,7 +86,11 @@ const TradeSourceBreakdown = SharedTradeSourceBreakdown;
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings, update: updateSetting } = useSettings();
+  const {
+    settings,
+    hydrated: settingsHydrated,
+    update: updateSetting,
+  } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
 
@@ -1560,7 +1564,11 @@ export default function TradePage() {
         actions={
           <SegmentedControl
             label="Value basis"
-            value={settings.valuationMode || "market"}
+            // Unchecked until settings hydrate — see the matching note on
+            // /rankings. It matters more here: a trade verdict rendered
+            // under a basis label the user did not choose is the single
+            // most dangerous thing this page can show.
+            value={settingsHydrated ? settings.valuationMode || "market" : null}
             onChange={(v) => updateSetting("valuationMode", v)}
             options={[
               { value: "market", label: "Market" },

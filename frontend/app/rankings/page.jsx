@@ -227,6 +227,7 @@ export default function RankingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const {
     settings,
+    hydrated: settingsHydrated,
     update: updateSetting,
     updateSiteWeight,
     resetSiteWeights,
@@ -1117,7 +1118,13 @@ export default function RankingsPage() {
           <>
             <SegmentedControl
               label="Value basis"
-              value={settings.valuationMode || "market"}
+              // null until settings hydrate: before that ``settings`` is
+              // SETTINGS_DEFAULTS, so highlighting "Market" would assert
+              // a value basis this device may not be on. Unchecked for
+              // one frame beats confidently wrong — the highlight is the
+              // only thing telling the user which board the numbers came
+              // from.
+              value={settingsHydrated ? settings.valuationMode || "market" : null}
               onChange={(v) => updateSetting("valuationMode", v)}
               options={[
                 { value: "market", label: "Market" },
