@@ -259,7 +259,7 @@ function SeasonTables({ block }) {
 }
 
 function SeasonSide({ title, data, accent }) {
-  const color = accent === "gold" ? "var(--gold, #FFC704)" : "var(--cyan)";
+  const color = accent === "gold" ? "var(--gold, #4f9bec)" : "var(--cyan)";
   const positions = data.positions || {};
   const flex = data.flex || {};
   const top = (data.topPlayers || []).slice(0, 8);

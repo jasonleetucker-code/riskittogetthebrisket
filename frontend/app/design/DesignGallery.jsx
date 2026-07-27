@@ -53,13 +53,13 @@ const SURFACES = [
   ["--surface-3", "overlay"],
 ];
 const TEXTS = [
-  ["--text-primary", "primary · 16.4:1"],
-  ["--text-secondary", "secondary · 7.6:1"],
-  ["--text-tertiary", "tertiary · 5.2:1"],
+  ["--text-primary", "primary · 15.7:1"],
+  ["--text-secondary", "secondary · 8.4:1"],
+  ["--text-tertiary", "tertiary · 5.9:1"],
   ["--text-disabled", "disabled · decorative"],
 ];
 const ACCENTS = [
-  ["--accent", "accent (gold)"],
+  ["--accent", "accent (signal blue)"],
   ["--accent-hover", "hover"],
   ["--accent-pressed", "pressed"],
   ["--accent-muted", "muted wash"],
@@ -78,9 +78,9 @@ const TYPE_SCALE = [
   ["sm", "13px · dense tables"],
   ["md", "14px · body"],
   ["lg", "16px · emphasized"],
-  ["xl", "20px · panel headline"],
-  ["2xl", "24px · page title"],
-  ["3xl", "32px · hero stat"],
+  ["xl", "18px · panel headline"],
+  ["2xl", "22px · page title"],
+  ["3xl", "28px · hero stat"],
 ];
 
 function Swatch({ token, note, height = 56 }) {
@@ -110,7 +110,7 @@ export default function DesignGallery() {
       <PageHeader
         eyebrow="Redesign R0"
         title="Design system"
-        description="War-room terminal: near-black violet neutrals, one gold accent, restrained market semantics, tabular data everywhere. Every ramp and component state on this page is the live system."
+        description="Terminal: near-black cool neutrals, one signal-blue accent, market direction on a CVD-validated blue/orange pair, mono everywhere. Every ramp and component state on this page is the live system."
         actions={<Badge tone="outline">docs/DESIGN-SYSTEM.md</Badge>}
       />
 
@@ -170,7 +170,7 @@ export default function DesignGallery() {
       {/* ── Typography ────────────────────────────────────────────── */}
       <Panel
         title="Typography"
-        subtitle="Inter (UI) + JetBrains Mono (data), loaded via next/font. Eight sizes — there is no ninth."
+        subtitle="JetBrains Mono throughout, via next/font. Inter survives only inside .ds-prose — see the prose exception in tokens.css. Eight sizes, there is no ninth."
       >
         <div className={styles.stack}>
           {TYPE_SCALE.map(([size, note]) => (

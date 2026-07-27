@@ -26,9 +26,10 @@ export const REQUIRED_TOKENS = [
   "--neutral-900",
   "--neutral-950",
   "--neutral-1000",
-  // Brand primitives
-  "--brand-gold",
-  "--brand-purple",
+  // Brand primitives: REMOVED with the Terminal direction. The accent is
+  // structural now, not a franchise colour, and the old names are deleted
+  // rather than aliased so a stray reference fails instead of rendering
+  // something plausible.
   // Surfaces
   "--surface-0",
   "--surface-1",
@@ -57,6 +58,13 @@ export const REQUIRED_TOKENS = [
   "--accent-muted",
   "--accent-border",
   "--text-on-accent",
+  // Market direction — deliberately separate from good/bad state
+  "--data-up",
+  "--data-up-text",
+  "--data-up-muted",
+  "--data-down",
+  "--data-down-text",
+  "--data-down-muted",
   // Semantic state
   "--positive",
   "--positive-text",
@@ -87,6 +95,12 @@ export const REQUIRED_TOKENS = [
   // Typography
   "--font-ui",
   "--font-data",
+  // The prose exception — see tokens.css for which routes qualify
+  "--font-prose",
+  "--font-size-prose",
+  "--font-size-prose-lead",
+  "--line-height-prose",
+  "--measure-prose",
   "--font-size-2xs",
   "--font-size-xs",
   "--font-size-sm",
@@ -103,6 +117,10 @@ export const REQUIRED_TOKENS = [
   "--line-height-snug",
   "--line-height-normal",
   "--tracking-wide",
+  "--tracking-tight",
+  // Row rhythm — the terminal's defining measurement
+  "--row-h",
+  "--row-h-comfortable",
   // Spacing
   "--space-0",
   "--space-1",

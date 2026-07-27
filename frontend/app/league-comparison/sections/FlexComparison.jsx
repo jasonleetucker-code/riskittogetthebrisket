@@ -47,7 +47,7 @@ export default function FlexComparison({ data }) {
 }
 
 function FlexBlock({ title, flex, accent }) {
-  const color = accent === "gold" ? "var(--gold, #FFC704)" : "var(--cyan)";
+  const color = accent === "gold" ? "var(--gold, #4f9bec)" : "var(--cyan)";
   const m = flex.metrics || {};
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", padding: "var(--space-sm)" }}>

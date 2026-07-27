@@ -275,7 +275,7 @@ export default function SettingsPage() {
               className="button-reset"
               style={{
                 fontSize: "0.7rem",
-                color: "var(--accent-gold, #FFC704)",
+                color: "var(--accent-gold, #4f9bec)",
                 textDecoration: "underline",
                 cursor: "pointer",
                 padding: 0,
@@ -321,7 +321,7 @@ export default function SettingsPage() {
               className="button-reset"
               style={{
                 fontSize: "0.7rem",
-                color: "var(--accent-gold, #FFC704)",
+                color: "var(--accent-gold, #4f9bec)",
                 textDecoration: "underline",
                 cursor: "pointer",
                 padding: 0,

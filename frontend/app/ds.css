@@ -236,6 +236,7 @@
 .ds-panel {
   background: var(--surface-1);
   border: 1px solid var(--border-default);
+  /* --radius-3 is 3px under Terminal: machined, not moulded. */
   border-radius: var(--radius-3);
   display: flex;
   flex-direction: column;
@@ -425,9 +426,12 @@
 .ds-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-size-sm);
+  /* TERMINAL: 12px, not 13px — the board is the densest surface in the
+     app and the one this direction is designed around. */
+  font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 .ds-table--compact {
   font-size: var(--font-size-xs);
@@ -448,9 +452,18 @@
   white-space: nowrap;
 }
 .ds-table tbody td {
-  padding: var(--space-2) var(--space-3);
+  /* 4px/12px against the old 8px/12px: a ~28px row versus ~40px, which is
+     the ~2.3x rows-per-screen this direction exists for. */
+  padding: var(--space-1) var(--space-3);
+  height: var(--row-h);
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
+}
+/* Zebra instead of elevation. On a 28px row the hairline alone stops
+   carrying the eye across a wide table; the fill is doing tracking work,
+   not decoration, which is why it is a surface step and not a tint. */
+.ds-table tbody tr:nth-child(even) td {
+  background: var(--surface-2);
 }
 .ds-table--compact thead th,
 .ds-table--compact tbody td {
@@ -661,11 +674,16 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   line-height: 1;
   white-space: nowrap;
 }
+/* Market direction uses the DATA pair, not the good/bad pair. A value
+   falling is not an error, and green/red collapses to ΔE ~2-4 under
+   red-green CVD where the blue/orange pair holds at 26.8. The arrow glyph
+   still carries direction independently — colour is never doing this
+   alone. */
 .ds-movement--up {
-  color: var(--positive-text);
+  color: var(--data-up-text);
 }
 .ds-movement--down {
-  color: var(--negative-text);
+  color: var(--data-down-text);
 }
 .ds-movement--flat {
   color: var(--neutral-signal);
