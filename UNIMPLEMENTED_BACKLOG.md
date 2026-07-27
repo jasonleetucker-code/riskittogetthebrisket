@@ -1,0 +1,454 @@
+# Chase Upside — Everything Discussed But Not Implemented
+
+**Compiled:** 2026-07-27 · **`main` at compile time:** `d224e15de`
+**Scope:** every item raised across this session that is not on `main` today.
+
+This is deliberately exhaustive and includes things that were **considered and
+correctly rejected** — because "we decided not to" is information the next person
+needs as much as "we haven't got to it." Rejected items are marked and carry the
+reason, so nobody re-litigates them from scratch.
+
+**How to read the status column:**
+
+| status | meaning |
+|---|---|
+| NOT STARTED | no code exists |
+| BUILT, NOT WIRED | code exists and is tested, but nothing calls it |
+| PARTIAL | some of it shipped, the rest did not |
+| REJECTED | investigated and deliberately not done — reason recorded |
+| OPERATOR ONLY | needs access or a decision I do not have |
+
+---
+
+## 1. The valuation toggle (LI-9) — PARTIAL
+
+The toggle **works** and is merged (#586). It defaults to `market`, so nothing
+changed for you until you flip it. These are the gaps.
+
+### 1.1 Endpoint has zero tests — NOT STARTED · **highest risk item in this file**
+
+`GET /api/valuation/league-adjusted` is live on `main` with **no test coverage of the
+HTTP path at all**. The payload builder (`build_league_adjusted_payload`) is well
+covered — 23 tests — but the route itself, its auth gating, its league-mismatch 503,
+and the Next.js dev proxy shim at `frontend/app/api/valuation/league-adjusted/route.js`
+are entirely unexercised. Verified by grep: zero test files reference the path or
+`get_league_adjusted_values`.
+
+**Why it matters:** this is the endpoint the toggle depends on. A regression in the
+route (not the builder) ships silently.
+
+### 1.2 Hydration flash — NOT STARTED
+
+`useSettings`' `getServerSnapshot()` returns defaults, so server-render and first paint
+show **Market**, then hydration flips to the stored value and the board re-sorts
+visibly. `frontend/app/trade/page.jsx:1279-1283` already documents this exact failure
+mode for a different setting. Fix: gate the overlay fetch on a hydrated flag, or hold
+the loading state until the first settings-resolved fetch lands.
+
+### 1.3 Server-side composition — NOT STARTED
+
+**Today the combination is deliberately blocked, not silently wrong.** If you have
+custom source weights active *and* switch to league-adjusted, the overlay is not
+applied and a warning is logged.
+
+The reason: the overlay's ranks are the ranks of `default_consensus × factor`, but the
+correct answer is `overridden_consensus × factor`, which the server never computed. No
+client-side sequencing fixes it — composing them yields a board where neither the
+values nor the ranks correspond to anything.
+
+**The fix** is to thread `valuation_mode` through the existing
+`POST /api/rankings/overrides?view=delta` pipeline so the factors are applied inside
+the same build, before the compact pass. `_DELTA_PLAYER_FIELDS` already carries every
+field this changes, so the delta shape is unchanged.
+
+**Accepted cost, to decide consciously:** `/api/rankings/overrides` becomes
+league-scoped when `valuation_mode != "market"`, needing the same league-mismatch 503
+guard `/api/gameplan` has, plus `leagueKey` in its cache key. That is a genuine
+widening of that endpoint's contract.
+
+### 1.4 Surface honesty — PARTIAL
+
+`rankChange` is nulled when the overlay is active (so "moved up N since the previous
+scrape" is never printed next to an adjusted rank). The rest was not done:
+
+- **Top Movers panel** (`frontend/app/rankings/page.jsx:531-540`) builds risers/fallers
+  from `rankChange`. Because it's nulled, the panel goes **empty rather than false** —
+  not wrong, but unhandled. It should be hidden.
+- **Suggestions rail** (`frontend/app/trade/page.jsx:1296-1330`) is server-computed off
+  the un-overlaid contract, so with the toggle on its recommendations silently disagree
+  with the local trade math. Either thread the mode or label it.
+- **`/draft`** (`frontend/app/draft/page.jsx:4049-4056`) reads values straight off the
+  contract, bypassing `buildRows`, so it stays on market values with no indication.
+  In or out is fine; silent is not.
+- **Exports** — `tradeWorkspaceToCSV` emits adjusted values with no marker. A CSV of
+  adjusted values is indistinguishable from a market one.
+
+### 1.5 Status badge — NOT STARTED
+
+A sibling to `CustomMixBadge` (`rankings/page.jsx:1007`) saying "this is not the
+canonical board." Currently only the control itself indicates the state.
+
+### 1.6 Precomputed warm cache — NOT STARTED
+
+Every overlay fetch pays a live build; a cold league pays the ~1.35 s replacement
+solve. `_warm_overlays_in_background` (`server.py:1550`) already warms other payloads
+with bytes/gzip/etag caches. Pure performance — no correctness impact.
+
+---
+
+## 2. TE premium — BUILT, NOT WIRED
+
+### 2.1 The TE basis wiring — BUILT, NOT WIRED · **now unblocked**
+
+`src/league_intel/te_premium.py`, `config/weights/te_premium_curve.json` and
+`scripts/audit/fit_ktc_tep_curve.py` are merged (#585), tested, and **deliberately not
+connected to `_compute_unified_rankings`**. The live path still uses the flat
+`_TE_BLANKET_NON_NATIVE_MULTIPLIER = 1.15`.
+
+**The finding:** 1.15 sits **below the entire observed range** (1.209–2.053) of KTC's
+measured TE++ uplift. It **under-corrects every tight end**. Wiring it moves TE values
+**UP**.
+
+**Insertion point** — both sessions independently reached the same conclusion: the
+**pre-blend, per-source** site at `data_contract.py:6849-6855`. The blend already does
+per-source TE alignment there; replacing a blanket constant with a measured curve at
+the same point is not double-counting.
+
+**Non-negotiables when wiring:**
+- Preserve the KTC exemption (it's already on the TE++ basis — converting is a no-op).
+- `adjustment.py::te_premium_axis` must stay `ABSENT`, so the post-blend axis and the
+  blend never stack.
+- Produce a board-wide before/after TE delta artifact.
+- **No non-TE value may move.**
+- Update the source-text guard in `tests/league_intel/test_te_premium_invariants.py`.
+- Full rule-4 downstream sweep (UI, sorting, filtering, exports, league transforms).
+
+**What unblocked it:** the ×1.319-vs-×1.368 conflict is **closed** (#587). There was
+never a disagreement — ×1.368 is an April baseline, ×1.319 is July, and ADR-009 had
+already recorded the drift. Four measurements across three independent code paths agree:
+#585 at 1.3187, this session at 1.3187, #587 at 1.31869688 (running the LI workstream's
+own function), and ADR-009's 1.3196 on the 07-26 scrape. Controls byte-identical
+390/390.
+
+### 2.2 Per-source TE alignment across all sources — NOT STARTED
+
+Your idea, and it's sound: rather than one blanket multiplier for all non-TEP sources,
+measure **each source's** implicit TE posture and use KTC's curve to close the residual
+gap per source.
+
+**The obstacle:** normally this needs a paired standard/TE-premium board per source, and
+the survey found **only KTC has one**. FantasyPros' pair is rank-encoded and was
+rejected (on a rank encoding every ratio compresses to ~1.0 *including the controls*, so
+the validity check passes vacuously and certifies a meaningless number).
+
+**The workaround, untested:** compare each source's TE-vs-non-TE relationship against
+`ktc` *standard*, then apply KTC's measured TE++/standard curve to close the remaining
+gap. This needs no paired variant per source.
+
+**Hard gates required** — a cross-vendor ensemble was tried and failed once already: it
+flipped sign depending on which boards were included, and a header-case bug silently
+dropped a fourth board, making a wrong answer look clean. Reuse `calibration.py`'s
+existing two conditions (controls-at-unity **and** genuine cardinal scale).
+**Explicit exit: a source that fails the gates keeps the blanket constant.** No source
+inherits KTC's curve by analogy.
+
+### 2.3 `src/canonical/te_premium.py` — REJECTED (built, then discarded)
+
+I built a complete measured-curve module this session: config, regeneration script, 30
+tests, full suite green at 4105 passed, committed — then dropped it before pushing.
+
+**Why:** it double-counted. The market anchor `ktcSfTep` **is** KTC's TE++ board, so the
+blend already embeds the structural 2-TE premium. The module measured `ktcSfTep / ktc`
+and proposed applying that ratio to a board already anchored on `ktcSfTep`.
+`tests/league_intel/test_te_premium_invariants.py` exists specifically to prevent this.
+
+**Do not resurrect it.** The correct insertion point is pre-blend (§2.1), not post-blend.
+
+---
+
+## 3. Scoring settings — NOT STARTED · **largest unexploited edge found**
+
+Measured against your default-scoring baseline league `1328545898812170240`:
+**91 of 146 scoring keys differ.** This is not a variant of default — it's a different
+scoring philosophy, and no ranking source accounts for any of it.
+
+### 3.1 Distance-banded receptions — the headline
+
+| | baseline | yours |
+|---|---|---|
+| `rec` | **0.75 flat** | **0.08** |
+| `rec_0_4` | 0.0 | 0.17 |
+| `rec_5_9` | 0.0 | 0.42 |
+| `rec_10_19` | 0.0 | 0.67 |
+| `rec_20_29` | 0.0 | 0.92 |
+| `rec_30_39` | 0.0 | 1.17 |
+| `rec_40p` | 0.0 | **1.92** |
+
+A ~10-yard catch scores 0.08 + 0.67 = **0.75**, identical to baseline. So the *mean* is
+calibrated to 0.75 PPR, but the *distribution* is completely different: a checkdown back
+earns ~0.25/catch while a deep threat earns ~2.00. **An 8× spread that every source you
+ingest prices as a flat 0.75.**
+
+Directly measurable — nflverse carries `receiving_air_yards`, `targets`,
+`air_yards_share` per player-week, and those columns are now arriving after #589.
+
+### 3.2 IDP inverts the market
+
+| | baseline | yours |
+|---|---|---|
+| `idp_sack` | 4.55 | **2.92** ↓ |
+| `idp_pass_def` | 2.11 | **5.32** ↑ 2.5× |
+| `idp_tkl_loss` | 2.06 | **4.25** ↑ |
+| `idp_qb_hit` | 1.08 | 2.13 ↑ |
+
+Sacks are worth *less* here; coverage is worth *far* more. Every IDP board on the market
+is built around edge rushers. Your league pays for coverage linebackers and ball-hawking
+DBs.
+
+### 3.3 Passing is accuracy-weighted
+
+`pass_td` 5.0→6.0, `pass_int` −1.5→**−4.0**, plus `pass_cmp` 0.15, `pass_inc` −0.22,
+`pass_sack` −1.0, `pass_int_td` −2.0. First downs 0 → 1.0 for RB/WR/TE (0.67 QB).
+
+Note `bonus_fd_te` == `bonus_fd_wr` == `bonus_fd_rb`, which independently re-confirms
+**no TE scoring premium** — and is exactly why TE demand must be read from roster
+structure (2 TE starters), not scoring keys.
+
+### 3.4 The gating question — PARTIALLY ANSWERED
+
+A per-league scoring adjustment **was built and then removed**. `data_contract.py:7738`:
+
+> LAM (League Adjustment Multiplier) and positional scarcity have been **fully removed**
+> from the codebase. […] They are **stripped from ALL API responses**.
+
+Deliberately removed *and* actively stripped is a strong prior it was found unsound.
+The precise reason still needs the consolidation commit history.
+
+**Exit condition stands: if the retirement reason still holds, document it and stop.**
+Do not rebuild a retired system to rediscover why it was retired.
+
+### 3.5 Remaining spike questions — NOT STARTED
+
+- What in `src/scoring/` is live vs dead? Four call sites exist (`Dynasty Scraper.py:67`,
+  `src/public_league/awards.py:1171`, two scripts). The package has `scoring_delta.py`
+  (full stat taxonomy incl. first downs), `baseline_config.py`, `archetype_model.py`,
+  `feature_engineering.py`, `replacement_level.py`, `backtest.py`, `tiering.py`.
+- What fraction of the board can be assigned a historical stat mix? Rookies and low-snap
+  players will have none — they must come out **ABSENT**, not shrunk toward a positional
+  mean.
+- What reference scoring do the sources actually price to? The baseline league is a
+  *defensible* reference but "sources price to the default" is an **assumption, not a
+  measurement**. State it as such.
+
+---
+
+## 4. The data foundation — PARTIAL
+
+### 4.1 nflverse 2025 URL — **DONE** (#589)
+
+Recorded here only because it was the blocker for everything above.
+`fetch_weekly_stats([2025])` returned `[]` all season; now returns **19,421 rows**.
+
+### 4.2 Persist player-week actuals — NOT STARTED · **the one open Tier-0 item**
+
+Nothing writes fetched stats to durable storage, so **the system structurally cannot
+backtest its own value changes**.
+
+`src/nfl_data/ingest.py` already has `WeeklyStatRow` (:48) and `WeeklyDefensiveStatRow`
+(:91); `fetch_weekly_stats` (:288) and `fetch_weekly_defensive_stats` (:317) now return
+real data. The work is writing what they return to disk.
+
+**Not a DB migration.** Follow the existing JSONL pattern —
+`data/source_value_history.jsonl` (one JSON object per line) and
+`data/ros/aggregate/history/{ISO-timestamp}.json`. Reuse the atomic-write helper the
+snapshot store already has.
+
+**Two things to check first:** `data/nfl_data_cache/` is an **empty directory** despite
+being referenced as a TTL cache — decide if it's the right home or vestigial. And
+`data/source_value_history.jsonl` **does exist** (92 KB), contrary to the prior handoff
+listing it as production-only.
+
+### 4.3 What backtesting is and isn't available
+
+An important correction from this session. **Past-season data is usable and is most of
+what you'd want:**
+
+| what | data | backtestable |
+|---|---|---|
+| Scoring re-score under your rules | historical NFL stats | **now** |
+| Reception-distance / IDP category edges | historical NFL stats | **now** |
+| Our board's predictive accuracy | our own past outputs | thin — partly reconstructable |
+
+Only the third is calendar-bound, because we didn't save our own historical board
+values. Even that has workarounds — KTC publishes historical value charts.
+
+---
+
+## 5. Performance — NOT STARTED
+
+You asked for this explicitly ("everything as fast as possible without sacrificing
+anywhere else") and it never got done.
+
+Measured earlier in the session, **before the R5 performance pass merged** — so
+re-measure before optimizing:
+
+- `/rankings` ~28.8 s
+- `/trade` ~16.3 s
+- The 5.6 MB contract fetched **twice**, the override delta **twice**, draft-capital
+  **twice**
+- Single uvicorn worker with no `workers` argument
+
+The duplicate fetches are almost certainly real regardless of R5 and are the cheap win.
+
+---
+
+## 6. Machine learning / player archetypes — NOT STARTED
+
+You asked "what happened to the whole machine learning engine we talked about with
+player archetypes?"
+
+`src/scoring/archetype_model.py` and `feature_engineering.py` exist. My recommendation
+at the time was to **delete the dead archetype code**, and you said "whatever you
+recommend" — but neither the deletion nor any revival happened. It is in the same
+ambiguous state: present, largely uncalled, undecided.
+
+This is worth an explicit decision rather than continued drift. It's also entangled with
+§3 — if the scoring work proceeds, archetypes may become genuinely useful for assigning
+stat mixes to players with thin histories.
+
+---
+
+## 7. Competitor-parity roadmap (PFK + Fantasy Navigator) — mostly DONE
+
+Shipped earlier in the session: both sources ingested, player search/filters, FAAB v2,
+Sleeper intel + Sharp Tracker, the News tab, Pick Projector, and the full R0–R5
+redesign.
+
+**Not done:**
+
+- **Best-ball ADP ingestion** (Underdog) — NOT STARTED
+- **Player contracts / snap-share data** — NOT STARTED. PFK has
+  `pfk_player_contracts` and `pfk_player_season_snap_share`; nflverse has equivalents,
+  and `snap_counts` is already in `_URL_TEMPLATES`.
+- **Stats tab on the player popup** — NOT STARTED
+- **Dispersal draft tool** — REJECTED, de-prioritized as not league-edge
+- **Creators / polls** — REJECTED, same reason
+
+---
+
+## 8. Audit backlog (inherited from the collaborative audit)
+
+### 8.1 Source-family confidence (Finding P) — NOT STARTED
+
+`_compute_confidence_bucket` (`data_contract.py:1879-1909`) gates "high" confidence on
+`source_count >= 2`, where `sourceCount` is a plain `len()`. **There is no notion of
+source families anywhere in the codebase.**
+
+Correlated clusters counted as fully independent: **DLF ×4, FantasyPros ×3, Flock ×2,
+DraftSharks ×2**. A rookie WR appearing on four DLF/Flock entries reaches "high"
+confidence off **two publishers** and escapes the 0.30 single-source haircut.
+
+**Do measurement only first** — pairwise Spearman over shared players. The clustering
+above is the *hypothesis*, not the finding.
+
+### 8.2 `tep=3` vs `tepp` extraction — NOT STARTED · latent, silent
+
+`Dynasty Scraper.py:1947` requests `?sf=true&tep=3` (**TE+++, level 3**) while
+`_ktc_extract_tep` deliberately pulls `tepp` (**TE++, level 2**).
+
+Harmless *today* only because KTC returns every level in the payload regardless of the
+query parameter. If KTC ever filters by the requested level, `ktcSfTep.csv` silently
+becomes TE+++ or empty **and no test would catch it**. An unguarded dependency on
+undocumented upstream behaviour.
+
+### 8.3 Mixed-market disclosure (Finding N) — NOT STARTED · needs a product decision
+
+`finder.py` sums KTC-offense values with IDPTradeCalc-defender values with no
+`marketsMixed` flag. `angle.py` documents a 6.2% overstatement from that class of sum.
+Recommendation is **disclosure, not suppression** — the finder's premise needs a market
+number.
+
+### 8.4 Removal-cost surplus (Finding E) — NOT STARTED
+
+Changes a live output; wants the F-6 before/after harness first.
+
+### 8.5 True weekly-points ROS utility (Finding A) — NOT STARTED
+
+Blocked on §4.2. `rosValue` is a normalized log-rank index (0–100), **not points**,
+despite downstream field names (`lineupScore`, `startingLineupScore`) implying otherwise.
+
+### 8.6 Agent orchestration reform (Finding R) — NOT STARTED, organizational
+
+---
+
+## 9. Known defects, open
+
+| # | defect | status |
+|---|---|---|
+| 1 | **Forced public-league rebuild makes the whole API unresponsive** (§6.11) | OPEN, unproven — the only item still on the task list |
+| 2 | `test_anchor_curve_extrapolation_monotone` **fails on `main`** — `Chase Young` ties at rank 107 against a strictly-increasing assertion. It's `livedata`-marked so **CI deselects it**: a real failure that is invisible | OPEN |
+| 3 | `/league` SSR exceeds even a 5 s proxy timeout on a cold backend | OPEN |
+| 4 | `/league/activity` Trades filter | OPEN |
+| 5 | `/api/chat` | OPEN |
+| 6 | `finder.py` has no UI caller | OPEN |
+| 7 | 5 dead feature flags | OPEN |
+| 8 | `auction_power.py` parity | OPEN |
+| 9 | **43 of 208 `src/` modules unreachable** (~12,571 lines) | OPEN |
+| 10 | `/api/draft-capital` returns 200 where 503 is expected | OPEN |
+| 11 | Pick tethering untested | OPEN |
+| 12 | Two tests that cannot fail | OPEN |
+| 13 | D-5 isolation leak | OPEN |
+| 14 | Sticky trade header | OPEN |
+| 15 | `scripts/measure_te_demand_actuals.py:29` hardcodes a dead worktree path | OPEN |
+| 16 | `scripts/measure_engine_value_divergence.py` hardcodes a dated default payload | OPEN |
+| 17 | `deploy/apply_hardening.sh` reinstalls repo nginx config over the installed one and **is not wired to any workflow** — could revert certbot | OPEN |
+| 18 | `data/ros/aggregate/latest.json` has **6 duplicate player rows** (same player in two naming conventions) and 16 rows with non-lowercase `canonicalName`; 40 of 666 rostered players fail to match | OPEN |
+
+---
+
+## 10. Operator-only — cannot be closed from a session
+
+| item | what's needed |
+|---|---|
+| **nginx bare-IP deploy** | Confirm no external monitor probes the bare IP before applying. The change serves health-only over plaintext and 301s everything else to `https://chaseupside.com`. Merging does **not** deploy it — `deploy.yml` has no nginx reference and `apply_hardening.sh` isn't wired to any workflow. |
+| **`IDPSHOW_SESSION_JSON` secret** | Add as a repo secret to let CI fetch IDP Show. Workflow is **pre-wired and inert** — absent, CI logs a skip and the prod systemd timer stays the only producer. Contents: the full JSON of your local `idpshow_session.json` (`connect.sid`, `AWSALBTG`, `AWSALBTGCORS`). |
+| **`INTEL_REFRESH_TOKEN` rotation** | Unverified whether completed |
+| **certbot renewal dry-run** | `ssh root@chaseupside.com "certbot renew --dry-run"` |
+| **`grant-ssh-access.yml`** | Did it execute in its 33-minute window? Open since a prior session. |
+| **Which TE calibration system survives** | `src/league_intel/te_premium.py` vs `src/league_intel/calibration.py` + `scripts/extract_te_calibration_pairs.py`. Duplicate solutions to one problem; no file collides today but they collide conceptually. |
+
+---
+
+## 11. Long-horizon, explicitly future
+
+**Link any Sleeper account, pull that league's scoring, adjust rankings accordingly.**
+Your stated eventual goal. Its prerequisite is exactly §3 + §4.2 — a working
+scoring-delta engine plus persisted historical stat lines. Everything in those two
+sections is a step toward it.
+
+---
+
+## 12. The pattern worth carrying forward
+
+Four separate instances this session of **a guard that cannot fire** — recorded as
+§6.15 in `docs/ORCHESTRATION.md`:
+
+1. `test_url_templates_contain_expected_paths` asserted the substring `"player_stats"`,
+   which the retired path satisfies right up until it 404s. Missed the nflverse rename
+   for a whole season.
+2. The TE double-count invariant was real and correct — but the module it would have
+   caught was deliberately left unimported, so it had nothing to catch.
+3. The `soft` staleness flag had no upper bound, so a lapsed cookie and a dead vendor
+   looked identical forever.
+4. The `stale-sources` alert issue had no path that could ever close it.
+
+**The tell is the same each time:** the guard's *stated* purpose and its *actual*
+predicate differ, and nothing forces them to agree.
+
+**Three cheap checks, in order of value:**
+
+1. *Can I make this test fail right now, deliberately?* If not, it isn't a test.
+2. *What does the predicate actually assert, versus what the name and docstring claim?*
+   Substring-vs-identity is the recurring gap.
+3. *Does the alarm have an off switch, and the exemption an expiry?* Anything that can
+   only accumulate will eventually be ignored.
