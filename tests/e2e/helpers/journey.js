@@ -187,6 +187,57 @@ async function boardPlayerNames(page) {
 }
 
 /**
+ * The page's own <h1>.
+ *
+ * ── Why this exists ────────────────────────────────────────────────
+ * The R1 shell renders a persistent sidebar/tab-bar carrying the word
+ * "Trade", "Rosters", "Settings", "News", "Team Strength" … on EVERY
+ * route.  So a body-level `toContainText(/Trade/i)` passes on a page
+ * whose entire body failed to render — the nav link alone satisfies
+ * it.  Four such assertions were the whole of the signed-in page
+ * coverage before this audit (see docs/e2e-assertion-audit.md).
+ *
+ * The shell owns NO <h1>: every page title comes from `ui/PageHeader`
+ * or `ds/PageHeader`, both of which render the page's single <h1>
+ * (verified 2026-07-27 — `grep -rn "<h1" frontend/components` returns
+ * only those two files, plus /settings' inline one).  Matching on the
+ * <h1>'s accessible name therefore proves the PAGE BODY rendered, and
+ * it survives the design-system rewrite because it pins a role and an
+ * accessible name rather than a class, colour or font.
+ */
+function pageHeading(page, name) {
+  return page.getByRole("heading", { level: 1, name });
+}
+
+/**
+ * Fetch the live contract once and return the fields specs build
+ * data-derived assertions from.
+ *
+ * Assertions anchored on these fail when the pipeline stops serving
+ * rosters or players — the regression class that "a heading exists"
+ * can never detect.  Never assert on a hardcoded name: the snapshot
+ * refreshes nightly.
+ */
+async function contractFixture(page, { view = "app" } = {}) {
+  const res = await page.request.get(`/api/data?view=${view}`);
+  expect(res.status(), `GET /api/data?view=${view} must serve the suite`).toBe(200);
+  const contract = await res.json();
+  const teams = contract?.sleeper?.teams || [];
+  const playersArray = Array.isArray(contract?.playersArray)
+    ? contract.playersArray
+    : [];
+  const playerNames = playersArray.length
+    ? playersArray.map((p) => p?.displayName).filter(Boolean)
+    : Object.keys(contract?.players || {});
+  return {
+    contract,
+    teams,
+    teamNames: teams.map((t) => t?.name).filter(Boolean),
+    playerNames,
+  };
+}
+
+/**
  * Assert none of the given cells contain NaN/undefined artifacts —
  * the classic symptom of a broken value pipeline reaching the UI.
  */
@@ -251,6 +302,8 @@ module.exports = {
   mobileOnly,
   gotoRankingsBoard,
   boardPlayerNames,
+  pageHeading,
+  contractFixture,
   expectNoBadValueTokens,
   attachConsoleGuards,
 };

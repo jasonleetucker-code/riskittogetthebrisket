@@ -159,8 +159,19 @@ def _run_contract_validation(repo_root: Path) -> None:
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     _compile_python(repo_root)
-    _run_contract_validation(repo_root)
+    # Seed BEFORE validating.  ``validate_api_contract.py`` loads the
+    # newest ``data/dynasty_data_*.json`` and hard-fails with
+    # FileNotFoundError when there is none — and ``data/`` is
+    # gitignored, so on a genuinely clean checkout there never is one.
+    # With the old ordering the documented one-command recipe
+    # (``npm ci && npm --prefix frontend ci && npm run e2e``) aborted at
+    # preflight before ``_seed_data_cache`` could copy the committed
+    # ``exports/latest/`` snapshot across, and not a single spec ran.
+    # It only looked fine on machines that happened to carry a snapshot
+    # from an earlier local scrape.  Seeding first also means the
+    # validation runs against the exact file the backend will serve.
     _seed_data_cache(repo_root)
+    _run_contract_validation(repo_root)
     _check_node_deps(repo_root)
     print("[preflight] ready for browser regression suite")
     return 0

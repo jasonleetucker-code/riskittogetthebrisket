@@ -26,41 +26,156 @@ const { test, expect } = require("../helpers/auth-fixture");
 // the backend's page proxy it renders the ANONYMOUS landing shell
 // even with a valid session, so this whole file would assert against
 // logged-out chrome.  API assertions below keep the backend baseURL.
-const { pageUrl } = require("../helpers/journey");
+const {
+  pageUrl,
+  pageHeading,
+  contractFixture,
+  desktopOnly,
+} = require("../helpers/journey");
 
+
+// ── Assertion policy for this file ─────────────────────────────────
+// Every test below previously asserted `body).toContainText(/Word/i)`
+// where `Word` also appears in the persistent shell nav ("Trade",
+// "Rosters", "Settings", "Team Strength").  All four passed against a
+// page whose body rendered nothing at all — proven in
+// docs/e2e-assertion-audit.md by running the originals against
+// /login, which has the chrome and none of the page bodies.
+//
+// Replacements anchor on (a) the page's own <h1> — the shell owns no
+// <h1> — and (b) content derived from the live contract at run time.
+// Both survive the design-system rewrite: they pin roles, accessible
+// names and data, never classes, colours or fonts.
 
 test.describe("signed-in: basic navigation + UI render", () => {
-  test("home page renders with team switcher hydrated", async ({ authedPage }) => {
+  // Desktop only, and this gate is new.  The originals ran on every
+  // project, but they asserted body text that the shell prints at any
+  // viewport — so running them on mobile added a green tick, not
+  // coverage.  The replacements assert real page chrome (the team
+  // switcher in the top bar, page <h1>s), and the top-bar switcher is
+  // CSS-hidden at 390px where MobileChrome takes over: the element
+  // resolves but is `hidden`, so the assertion is genuinely
+  // viewport-coupled rather than flaky.  Mobile coverage lives in
+  // mobile-smoke.spec.js, per the convention in helpers/journey.js.
+  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+
+  test("home dashboard renders the war-room surface with a real team list", async ({ authedPage }) => {
+    const { teamNames } = await contractFixture(authedPage);
+    expect(teamNames.length, "contract must carry Sleeper teams").toBeGreaterThan(0);
+
     await authedPage.goto(pageUrl("/"));
-    // The team switcher is client-hydrated; wait for it to appear.
-    // It shows the team name once data loads, or 'Pick your team'.
-    // 60s: hydration sits behind the ~5 MB contract fetch, which can
-    // crawl on a starved runner.
-    await expect(authedPage.locator("body")).toContainText(
-      /Pick your team|Rossini|JasonLeeTucker|Team/i,
-      { timeout: 60000 },
-    );
+
+    // The dashboard's own body, anchored on the command bar's
+    // accessible name.  The shell does not render this — a blank or
+    // crashed dashboard fails here, which the old
+    // `body contains /Team/i` (matching the nav's "Team Strength")
+    // could not detect.
+    await expect(
+      authedPage.locator('[aria-label="Team command bar"]'),
+      "dashboard command bar should render",
+    ).toBeVisible({ timeout: 60_000 });
+
+    // Data-derived: TeamSwitcher returns null unless the contract
+    // actually delivered rosters (`components/TeamSwitcher.jsx:56`), and
+    // its listbox is populated from that same list.  Opening it and
+    // matching against the contract proves the roster pipeline reached
+    // the UI — not merely that some chrome rendered.
+    const switcher = authedPage.locator('button[aria-haspopup="listbox"]').first();
+    await expect(
+      switcher,
+      "team switcher only renders when rosters loaded — absent means the contract served none",
+    ).toBeVisible({ timeout: 60_000 });
+    await switcher.click();
+
+    const options = authedPage.locator('[role="option"]');
+    await expect
+      .poll(() => options.count(), {
+        message: `team switcher should offer all ${teamNames.length} contract teams`,
+        timeout: 30_000,
+      })
+      .toBe(teamNames.length);
+
+    const offered = (await options.allInnerTexts()).map((t) => t.split("\n")[0].trim());
+    for (const name of teamNames) {
+      expect(offered, `team "${name}" missing from the switcher`).toContain(name);
+    }
   });
 
-  test("trade calculator page renders", async ({ authedPage }) => {
+  test("trade builder renders its own page body, not just the nav link", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/trade"));
-    await expect(authedPage.locator("body")).toContainText(/Trade|Side/i, {
-      timeout: 30000,
+    await expect(pageHeading(authedPage, /Trade Builder/i)).toBeVisible({
+      timeout: 60_000,
     });
+    // The pool has to actually load — the builder is useless without it.
+    await authedPage.waitForFunction(
+      () => !document.body.innerText.includes("Loading player pool..."),
+      null,
+      { timeout: 60_000 },
+    );
+    await expect(
+      authedPage.getByRole("button", { name: /Clear Trade/ }),
+    ).toBeVisible();
   });
 
-  test("rosters page renders", async ({ authedPage }) => {
+  test("rosters page power-ranks every team in the contract", async ({ authedPage }) => {
+    const { teamNames } = await contractFixture(authedPage);
+    expect(teamNames.length).toBeGreaterThan(0);
+
     await authedPage.goto(pageUrl("/rosters"));
-    await expect(authedPage.locator("body")).toContainText(/Roster|Team/i, {
-      timeout: 30000,
+    await expect(pageHeading(authedPage, /Roster Dashboard/i)).toBeVisible({
+      timeout: 60_000,
     });
+
+    // One ranked row per Sleeper team, and the names must be the real
+    // ones.  A blank table, a partial roster load, or a rename in the
+    // pipeline all fail here; "the word Roster is on the page" — the
+    // assertion this replaced — catches none of them.
+    const teamCells = authedPage.locator(".table-wrap table tbody tr td:nth-child(2)");
+    await expect
+      .poll(() => teamCells.count(), {
+        message: `rosters table should render one row per contract team (${teamNames.length})`,
+        timeout: 60_000,
+      })
+      .toBeGreaterThanOrEqual(teamNames.length);
+
+    const rendered = (await teamCells.allInnerTexts()).map((t) =>
+      t.split("\n")[0].trim(),
+    );
+    for (const name of teamNames) {
+      expect(rendered, `team "${name}" missing from the roster power rankings`).toContain(
+        name,
+      );
+    }
   });
 
-  test("settings page renders", async ({ authedPage }) => {
+  test("settings page lists the real ranking-source registry", async ({ authedPage }) => {
+    // Authoritative count from the backend registry.
+    const regRes = await authedPage.request.get("/api/rankings/sources");
+    expect(regRes.status()).toBe(200);
+    const registry = await regRes.json();
+    const sources = registry.sources || registry;
+    const registeredCount = Array.isArray(sources)
+      ? sources.length
+      : Object.keys(sources).length;
+    expect(registeredCount).toBeGreaterThan(3);
+
     await authedPage.goto(pageUrl("/settings"));
-    await expect(authedPage.locator("body")).toContainText(/Settings|Notification|Signal/i, {
-      timeout: 30000,
+    await expect(pageHeading(authedPage, /^Settings$/i)).toBeVisible({
+      timeout: 60_000,
     });
+
+    // The page's substance is the source registry it exposes for
+    // toggling.  Pin it to the backend's count so a settings page that
+    // renders its shell but drops the registry fails.
+    const toggles = authedPage.locator(
+      'input.settings-src-toggle[aria-label^="Include "]',
+    );
+    await expect
+      .poll(() => toggles.count(), {
+        message: `settings should expose >= ${registeredCount} source toggles`,
+        timeout: 60_000,
+      })
+      .toBeGreaterThanOrEqual(registeredCount);
   });
 });
 

@@ -61,6 +61,7 @@ are all **expected**:
 | `GET /api/data` → **401** | Correct — that endpoint is auth-gated.  Use a session (the suite does). |
 | `last_success_at: null` | Expected.  The suite runs on the **committed snapshot**, never a live scrape. |
 | backend exits instantly | `server.py` raises at import without `JASON_LOGIN_PASSWORD`.  `npm run e2e` sets `ALLOW_DEFAULT_LOGIN_DEV=1` for you; if you boot the backend by hand, you must too. |
+| `FileNotFoundError: No dynasty_data_YYYY-MM-DD.json files found` from `validate_api_contract.py` | **This one is NOT expected — it is a real failure, and it used to be the recipe's own bug.** Preflight validated the contract *before* seeding the snapshot the validation reads; `data/` is gitignored, so on a clean checkout it aborted here and no spec ever ran.  Fixed 2026-07 by seeding first.  If you still see it: you are on a pre-fix checkout, or you ran `scripts/validate_api_contract.py` directly instead of through `npm run e2e`.  Do **not** file it under "no data" — the row below is about a *running* backend, this is preflight refusing to start.  If `exports/latest/` is genuinely missing too, preflight now says so in plain English instead of raising. |
 
 The check that actually matters is `/api/status` → `has_data: true`,
 and global setup asserts it (plus an authenticated `/api/data`) before
@@ -120,6 +121,8 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | `signed-in-smoke.spec.js` | signed-in | Authed pages + API round-trips |
 | `waivers-smoke.spec.js` | signed-in UI | `/waivers` renders + filters operate |
 | `multi-league.spec.js` | API | League registry + `?leagueKey=` contract |
+| `api-trade-intelligence.spec.js` | signed-in API | `/api/draft-capital` pick-board completeness + round-over-round value monotonicity; `/api/trade/suggestions` top-150 board gate and "you can only trade players you own" |
+| `journey-tools-health.spec.js` | signed-in UI | `/tools/source-health` names match `/api/status`'s enabled sources; `/tools/trade-coverage` renders one audited row per Sleeper team |
 | `chart-visual-regression.spec.js`, `public-league-visual.spec.js` | visual | Pixel baselines (not committed — run with `--update-snapshots` locally to generate; skipped by `--ignore-snapshots` / `SKIP_VISUAL_REGRESSION=1`) |
 
 Retired (2026-07): `smoke-api.spec.js`, `rankings-more.spec.js`,
@@ -143,10 +146,28 @@ pass; the journey specs above are their Next.js-era replacements.
    registry — the journey assertions themselves should not need to
    change.  If an assertion has to change, the redesign changed
    behavior, which is exactly what this suite exists to surface.
-5. **Skip cleanly, never fail on absent infra.**  Missing
-   `E2E_TEST_SECRET`, a not-yet-shipped route (`/news`), or an empty
-   league dataset produce annotated skips with a reason.
-6. **Screenshots/videos/traces on failure** come free from the config
+5. **Skip cleanly on absent INFRA — never on absent DATA.**  Missing
+   `E2E_TEST_SECRET` or a wrong project produce annotated skips with a
+   reason: that infrastructure genuinely isn't here.  An empty league
+   dataset is the opposite — the committed snapshot always carries
+   rosters, rivalries, matchups and players, so "no data" means the
+   pipeline broke and must **fail**.  Four such data gates were audited
+   in 2026-07 and none of them had ever fired; each is now an assertion
+   that the data is present.  Before adding a `test.skip` on a data
+   condition, check whether the seeded snapshot can actually produce
+   it — if it can't, you are writing a permanently-off guard that will
+   one day convert a real regression into a green skip.
+   See `docs/e2e-assertion-audit.md`.
+6. **Assertions must be able to fail.**  The shell renders a nav
+   carrying "Trade", "Rosters", "Settings", "News" on every route, so
+   `expect(body).toContainText(/Trade/i)` passes on a page whose body
+   never rendered.  Anchor on the page's own `<h1>`
+   (`pageHeading()` in `helpers/journey.js` — the shell owns no `<h1>`)
+   and on content derived from the live contract
+   (`contractFixture()`), never on chrome.  When in doubt, run the
+   assertion against a *different* page: if it still passes, it is
+   vacuous.
+7. **Screenshots/videos/traces on failure** come free from the config
    (`screenshot: only-on-failure`, `video: retain-on-failure`,
    `trace: on-first-retry`) — check `test-results/` or the CI
    artifact.
