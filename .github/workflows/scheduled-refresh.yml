@@ -129,6 +129,11 @@ jobs:
           DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
           DLF_USERNAME: ${{ secrets.DLF_USERNAME }}
           DLF_PASSWORD: ${{ secrets.DLF_PASSWORD }}
+          # Contents of ``idpshow_session.json`` — the browser-minted
+          # Substack cookie jar. Optional: absent means CI skips
+          # idpShow and the prod systemd timer remains its only
+          # producer, which is the behaviour before this secret existed.
+          IDPSHOW_SESSION_JSON: ${{ secrets.IDPSHOW_SESSION_JSON }}
         run: |
           set -Eeuo pipefail
 
@@ -355,6 +360,38 @@ jobs:
           # The stamp captures fetcher success on every cycle even when
           # the resolved article URL hasn't changed.
           run_fetcher yahooBoone "Yahoo Boone" python scripts/fetch_yahoo_boone.py
+
+          # IDP Show — only when the session secret is configured.
+          #
+          # The rankings sit behind a Substack paywall whose login is
+          # captcha-gated, so there is no credential pair to hand the
+          # fetcher; it needs a browser-minted cookie jar. Until this
+          # secret existed, the ONLY producer was the prod systemd
+          # timer (deploy/idpshow_fetch_and_push.sh) — which is why
+          # idpShow is soft-flagged in config/source_staleness.json.
+          #
+          # Written to a file and deleted in the same block rather than
+          # left on disk: the repo is committed from this working tree
+          # later in the job, and idpshow_session.json is gitignored,
+          # but relying on a gitignore entry to keep a live session
+          # cookie out of a public-ish commit is one edit away from
+          # leaking it. The trap fires on any exit path.
+          if [[ -n "${IDPSHOW_SESSION_JSON:-}" ]]; then
+            trap 'rm -f idpshow_session.json' EXIT
+            printf '%s' "$IDPSHOW_SESSION_JSON" > idpshow_session.json
+            # Validate before spending a request: a truncated or
+            # mis-pasted secret should say so plainly rather than
+            # surface as an indistinguishable "paywall" failure.
+            if python -c "import json,sys; d=json.load(open('idpshow_session.json')); sys.exit(0 if d.get('cookies') else 1)" 2>/dev/null; then
+              run_fetcher idpShow "IDP Show" python scripts/fetch_idpshow.py
+            else
+              echo "::warning title=IDP Show secret malformed::IDPSHOW_SESSION_JSON is set but is not JSON with a non-empty 'cookies' array. Skipping; the prod timer still covers idpShow."
+            fi
+            rm -f idpshow_session.json
+            trap - EXIT
+          else
+            echo "IDPSHOW_SESSION_JSON not configured; skipping idpShow (prod timer remains its producer)"
+          fi
 
           # IDP Show (Adamidp) is a Substack paywalled source with
           # captcha-protected login, so the scraper reads cached
@@ -691,3 +728,47 @@ jobs:
               --body "$BODY" \
               --label stale-sources
           fi
+
+      - name: Close the tracking issue on a green run
+        # The counterpart the alert step never had.  Failures opened or
+        # commented on a rolling ``stale-sources`` issue, but nothing
+        # ever closed it — so once the underlying problem was fixed the
+        # issue stayed open forever, collecting comments from unrelated
+        # future outages.  An alert that cannot clear is indistinguishable
+        # from an alert nobody acted on, and after a few days it stops
+        # being read at all.
+        #
+        # ``success()`` is the whole condition deliberately: every gate
+        # in this workflow (scrape sanity, DLF freshness, the staleness
+        # watchdog, contract coverage) has already run by here, so a
+        # green run IS the all-clear.  Re-deriving "is it really fixed?"
+        # from individual step outcomes would duplicate that logic and
+        # let the two drift.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Close every open one, not just the first.  The pre-#584 alert
+          # step could fall back to creating UNLABELLED duplicates, and a
+          # label was added to the query later, so more than one may be
+          # open; ``--json number --jq '.[0]'`` (the read the alert step
+          # uses) would leave the rest orphaned.
+          OPEN=$(gh issue list --state open --label stale-sources \
+                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open stale-sources issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Scheduled data refresh is green again — all gates passed (scrape sanity, DLF freshness, staleness watchdog, contract coverage).
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if the refresh fails again." || true
+          done

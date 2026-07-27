@@ -81,6 +81,21 @@ export const SETTINGS_DEFAULTS = {
   // enabled at weight 1.0, no backend round-trip needed.
   siteWeights: {},
 
+  // Valuation lens (LI-9).  "market" is the consensus board exactly as
+  // the canonical pipeline computes it — today's behaviour and the
+  // deliberate default, so nothing moves until this is switched on.
+  //
+  // "leagueAdjusted" overlays GET /api/valuation/league-adjusted, which
+  // reprices by positional scarcity measured from THIS league's twelve
+  // rosters.  It is a per-league overlay rather than contract fields
+  // because the contract is shared across leagues with the same
+  // scoring profile — see src/league_intel/publish.py.
+  //
+  // Starts "market" on every device and is never auto-flipped: a value
+  // lens that turned itself on would silently change every number on
+  // the site, including in trade evaluation.
+  valuationMode: "market",
+
   // Trade history
   tradeHistoryWindowDays: 365,       // rolling 1-year window for trade analysis
 

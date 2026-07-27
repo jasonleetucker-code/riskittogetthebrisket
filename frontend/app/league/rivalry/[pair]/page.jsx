@@ -58,8 +58,8 @@ export async function generateMetadata({ params }) {
   const detail = findDetail(data, a, b);
   if (!detail) {
     return {
-      title: "Rivalry · Brisket League",
-      description: "Public head-to-head record for two managers in the Brisket dynasty league.",
+      title: "Rivalry · Chase Upside",
+      description: "Public head-to-head record for two managers in the dynasty league.",
     };
   }
   const [idA, idB] = detail.ownerIds;
@@ -73,7 +73,7 @@ export async function generateMetadata({ params }) {
   return {
     title,
     description,
-    openGraph: { title, description, type: "article", siteName: "Risk It To Get The Brisket" },
+    openGraph: { title, description, type: "article", siteName: "Chase Upside" },
     twitter: { card: "summary", title, description },
   };
 }

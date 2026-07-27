@@ -10,16 +10,16 @@
  */
 export default function manifest() {
   return {
-    name: "Risk It To Get The Brisket",
-    short_name: "Brisket",
+    name: "Chase Upside",
+    short_name: "Chase Upside",
     description:
       "Dynasty fantasy football terminal — rankings, trade calculator, league analysis.",
     start_url: "/",
     id: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0f0a1a",
-    theme_color: "#4F2185",
+    background_color: "#0b0d10",
+    theme_color: "#0b0d10",
     categories: ["sports", "productivity"],
     icons: [
       {

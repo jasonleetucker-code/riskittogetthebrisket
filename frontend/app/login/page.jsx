@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // Default landing post-login is the Brisket Home dashboard at "/" —
+  // Default landing post-login is the Chase Upside home dashboard at "/" —
   // Team Value + Top Movers + Risers/Fallers — which gives a more
   // useful daily-checkin view than the raw rankings table.  Users
   // who deep-linked to a specific page before being bounced to login

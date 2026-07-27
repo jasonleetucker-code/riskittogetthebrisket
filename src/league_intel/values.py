@@ -56,9 +56,22 @@ MODEL_VERSION = "li.values.2026-07-26.v1"
 """Identifies the logic that produced the numbers, independent of the
 schema shape.  Changes when the adjustment model changes (LI-7)."""
 
-LEAGUE_ADJUSTED_IS_NOOP = True
-"""True while ``leagueAdjustedDynastyValue == consensusValue``.  LI-7
-flips this to False when the adjustment model is validated."""
+LEAGUE_ADJUSTED_IS_NOOP = False
+"""False since LI-7 (2026-07-27): the adjustment model is wired and a
+real ``leagueAdjustedDynastyValue`` can differ from ``consensusValue``.
+
+**This flag is about the MODEL, not about any one row.**  A row still
+comes back at consensus unless a caller supplies a computed
+``league_adjusted`` — see :func:`build_player_values`.  That is not a
+loophole, it is the load-bearing part: the adjustment depends on
+board-level scarcity measured across all twelve rosters
+(:func:`src.league_intel.replacement.compute_scarcity`), so a single
+row in isolation genuinely has no adjusted value.  Only the board pass
+in :mod:`src.league_intel.publish` has the inputs to compute one.
+
+Validated on the live board before flipping: 719 of 874 rows moved,
+**zero monotonicity violations**, ratio to consensus median 1.024 over
+[0.953, 1.043] — comfortably inside ``MAX_TOTAL_ADJUSTMENT``."""
 
 # Primary market anchor per asset class — mirrors
 # ``data_contract._MARKET_ANCHOR_BY_ASSET_CLASS``.  Duplicated as a
@@ -187,6 +200,7 @@ def build_player_values(
     *,
     config_version: int | None = None,
     data_through: str | None = None,
+    league_adjusted: float | None = None,
 ) -> PlayerValues:
     """Build the parallel value bundle for one contract row.
 
@@ -195,19 +209,23 @@ def build_player_values(
     ``data_through`` the contract's freshness stamp, so a stored value
     can always be traced to the rules and data that produced it.
 
-    The no-op guarantee is applied here: ``leagueAdjustedDynastyValue``
-    is set to ``consensusValue`` while :data:`LEAGUE_ADJUSTED_IS_NOOP`
-    holds.  No caller can accidentally publish an unvalidated adjusted
-    number, because none is ever computed.
+    ``league_adjusted`` is the value computed by the board pass in
+    :mod:`src.league_intel.publish`.  **Omitting it yields consensus**,
+    and that is the correct answer rather than a fallback: the
+    adjustment is a function of league-wide scarcity measured across
+    every roster, so one row on its own has no adjusted value to
+    return.  Inventing one here — a prior, a positional average — is
+    exactly the manufactured number this package exists to refuse.
+
+    The guarantee that survives LI-7 is therefore narrower but still
+    real: *no adjusted number reaches a caller unless something with
+    board-level evidence computed it.*
     """
     consensus = _consensus_from_row(row)
     market, anchor_source = _market_from_row(row)
-    if not LEAGUE_ADJUSTED_IS_NOOP:  # pragma: no cover - LI-7 wires the model
-        raise NotImplementedError(
-            "league-adjusted valuation model not implemented; LI-7 must supply it "
-            "before LEAGUE_ADJUSTED_IS_NOOP is set False"
-        )
-    league_adjusted = consensus
+    league_adjusted = _positive_float(league_adjusted)
+    if league_adjusted is None:
+        league_adjusted = consensus
     return PlayerValues(
         display_name=str(row.get("displayName") or row.get("canonicalName") or "").strip(),
         market_value=market,
