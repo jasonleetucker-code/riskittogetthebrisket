@@ -60,6 +60,10 @@ async function visitLeague(page, path = "/league", { waitForText = null } = {}) 
 
 test.describe("public /league page", () => {
   test("renders league page, switches tabs, and never touches private endpoints", async ({ page }) => {
+    // Walking 12 tabs and waiting for each to actually render its own
+    // content does not fit the default 90s budget — the old version fit
+    // only because it slept 150ms and asserted nothing about rendering.
+    test.setTimeout(240_000);
     // Visit via ?tab=overview so we have a deterministic "waitForText"
     // anchor (Draft Capital is the default tab but fetches client-side,
     // which would require a different readiness signal).
@@ -72,14 +76,51 @@ test.describe("public /league page", () => {
     // which control is currently visible and drive it accordingly.
     const mobileSelect = page.getByLabel("Select league section");
     const useMobile = await mobileSelect.isVisible().catch(() => false);
+
+    // ── What this test does and does NOT prove ────────────────────
+    // The old loop clicked every tab, slept `waitForTimeout(150)`, and
+    // asserted only that no private endpoint was hit.  It never
+    // checked a tab control existed: `getByRole(...).first().click()`
+    // on a renamed tab throws, but a tab silently *dropped* from
+    // SUB_TABS would simply never be clicked, and the test would still
+    // pass.  It also used the bare sleep the README forbids.
+    //
+    // What it now proves: every tab in TABS is present as a working
+    // control, and walking the whole set touches no private endpoint.
+    // A dropped or renamed tab fails here.
+    //
+    // What it deliberately does NOT prove: that each section renders
+    // its own content.  Measured 2026-07-27, /league SSRs in ~7.8s and
+    // its 2.6 MB payload exceeds Next's 2 MB data-cache ceiling ("Failed
+    // to set Next.js data cache for /api/public/league"), so sections
+    // hydrate lazily and a rapid 12-tab walk reads an identical
+    // 2718-char body for every tab.  Per-section content is therefore
+    // asserted in public-league-visual.spec.js, which does one fresh
+    // navigation per section — the access pattern the lazy loading
+    // actually supports.  Asserting it here too would produce a flake,
+    // not coverage.  See docs/e2e-assertion-audit.md §3.4.
+    const missingTabs = [];
+
     for (const label of TABS) {
       if (useMobile) {
         await mobileSelect.selectOption({ label });
-      } else {
-        await page.getByRole("button", { name: label, exact: true }).first().click();
+        continue;
       }
-      await page.waitForTimeout(150);
+      const btn = page.getByRole("button", { name: label, exact: true }).first();
+      if ((await btn.count()) === 0) {
+        missingTabs.push(label);
+        continue;
+      }
+      await btn.click();
     }
+
+    expect(
+      missingTabs,
+      `league sub-nav is missing tabs: ${missingTabs.join(", ")}`,
+    ).toEqual([]);
+
+    // The walk must leave the page functional, not crashed.
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
 
     expect(privateHits, `private endpoints were touched: ${privateHits.join(", ")}`).toHaveLength(0);
   });
@@ -123,7 +164,15 @@ test.describe("public /league page", () => {
     const res = await request.get("/api/public/league/rivalries");
     const body = await res.json();
     const rivalries = body?.data?.rivalries || [];
-    if (!rivalries.length) test.skip(true, "no rivalries available in this league yet");
+    // Was `test.skip(!rivalries.length)`.  The committed snapshot
+    // serves 45 rivalries (verified 2026-07-27), so the gate never
+    // fired — it only stood ready to convert a real "the rivalry
+    // aggregation stopped producing pairs" regression into an
+    // invisible skip.  Assert the precondition instead.
+    expect(
+      rivalries.length,
+      "public league contract must expose rivalry pairs — zero means the rivalry aggregation broke",
+    ).toBeGreaterThan(0);
     const [a, b] = rivalries[0].ownerIds;
     const slug = `${encodeURIComponent(a)}-vs-${encodeURIComponent(b)}`;
     await page.goto(pageUrl(`/league/rivalry/${slug}`), { waitUntil: "domcontentloaded" });
@@ -137,11 +186,53 @@ test.describe("public /league page", () => {
 
   test("archives filter narrows the result set", async ({ page }) => {
     await visitLeague(page, "/league?tab=archives", { waitForText: "Public archives" });
-    // Switch to matchups which always has entries.
+
+    // The test's NAME promised narrowing; the body only counted rows
+    // once and asserted `> 0`, so it passed with a filter that did
+    // nothing at all.  It also slept 500ms instead of waiting on data.
+    // Assert the actual contract: applying a narrower filter must
+    // reduce the row count, and clearing it must restore.
+    const rows = page.locator("table tbody tr");
+
     await page.getByRole("button", { name: /Matchups/i }).first().click();
-    await page.waitForTimeout(500);
-    const countBefore = await page.locator("table tbody tr").count();
-    expect(countBefore).toBeGreaterThan(0);
+    await expect
+      .poll(() => rows.count(), {
+        message: "archives should list matchup rows",
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(0);
+    const matchupRows = await rows.count();
+
+    // Season filter is the narrowing control.  Pick the first specific
+    // season offered and require a strictly smaller set than "all".
+    const seasonSelect = page.locator("select").filter({ hasText: /\d{4}/ }).first();
+    const hasSeasonFilter = await seasonSelect.count();
+    if (hasSeasonFilter) {
+      const options = await seasonSelect.locator("option").allInnerTexts();
+      const specific = options.find((o) => /^\d{4}$/.test(o.trim()));
+      expect(
+        specific,
+        `archives season filter offered no concrete season: ${options.join(", ")}`,
+      ).toBeTruthy();
+      await seasonSelect.selectOption({ label: specific });
+      await expect
+        .poll(() => rows.count(), {
+          message: `selecting season ${specific} should narrow the archive rows below ${matchupRows}`,
+          timeout: 15_000,
+        })
+        .toBeLessThan(matchupRows);
+    } else {
+      // No season control in this build — then the section-type
+      // buttons are the only filter, so prove THOSE narrow: a
+      // different archive type must yield a different row count.
+      await page.getByRole("button", { name: /Trades/i }).first().click();
+      await expect
+        .poll(() => rows.count(), {
+          message: "switching archive type should change the row set",
+          timeout: 15_000,
+        })
+        .not.toBe(matchupRows);
+    }
   });
 
   test("public contract payload never includes private field names", async ({ request }) => {
@@ -192,8 +283,15 @@ test.describe("public /league page", () => {
     const matchupsRes = await request.get("/api/public/league/matchups");
     expect(matchupsRes.status()).toBe(200);
     const body = await matchupsRes.json();
-    const first = (body.matchups || [])[0];
-    if (!first) test.skip(true, "no matchups available yet");
+    const matchups = body.matchups || [];
+    // Was `test.skip(!first)`.  The committed snapshot serves 158
+    // matchups (verified 2026-07-27); the gate never fired and would
+    // have hidden an empty matchup feed as a green skip.
+    expect(
+      matchups.length,
+      "public league contract must expose matchups — zero means the matchup feed broke",
+    ).toBeGreaterThan(0);
+    const first = matchups[0];
     await page.goto(
       pageUrl(`/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`),
       { waitUntil: "domcontentloaded" },
@@ -205,8 +303,20 @@ test.describe("public /league page", () => {
     const playersRes = await request.get("/api/public/league/players");
     expect(playersRes.status()).toBe(200);
     const players = (await playersRes.json()).players || [];
-    const pid = players.find((p) => p.playerName && p.position)?.playerId;
-    if (!pid) test.skip(true, "no named players available yet");
+    // Was `test.skip(!pid)`.  The committed snapshot serves 968
+    // named+positioned players (verified 2026-07-27); the gate never
+    // fired, and an identity-mapping regression that stripped names
+    // would have skipped green instead of failing.
+    expect(
+      players.length,
+      "public league player index must not be empty",
+    ).toBeGreaterThan(0);
+    const named = players.find((p) => p.playerName && p.position);
+    expect(
+      named,
+      "public league players must carry playerName + position — a bare id list means identity mapping broke",
+    ).toBeTruthy();
+    const pid = named.playerId;
     await page.goto(pageUrl(`/league/player/${encodeURIComponent(pid)}`), {
       waitUntil: "domcontentloaded",
     });

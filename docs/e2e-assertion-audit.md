@@ -310,3 +310,341 @@ PR whose point is the audit.
 15.78 s measurement belongs to #555 item 3, where that work is filed.
 Widening the test's 15 s budget would paper over a real product defect;
 the reclassification is worth more than the green.
+
+---
+---
+
+# Part 2 — the rewrite batch (2026-07-27)
+
+**Status: fixes applied.** This is the follow-up Part 1 deferred
+("*a batch of assertion rewrites … deserve their own review*"). Every
+finding below is either a Part 1 item now fixed, or a new finding this
+pass turned up.
+
+Branch `claude/e2e-assertion-honesty`, base `57b030b01`.
+
+## P2.0 — The recipe in the README never ran on a clean checkout
+
+Before any assertion could be judged, the suite had to run. It did not.
+
+`npm run e2e` on a clean checkout:
+
+```
+[preflight] Python compile checks passed
+Traceback (most recent call last):
+  File ".../scripts/validate_api_contract.py", line 45, in main
+    payload, source_file = _load_latest_payload(repo_root)
+  File ".../scripts/validate_api_contract.py", line 26, in _load_latest_payload
+    raise FileNotFoundError(
+FileNotFoundError: No dynasty_data_YYYY-MM-DD.json files found in repo/data or repo root.
+```
+
+`preflight.py::main()` ran `_run_contract_validation()` **before**
+`_seed_data_cache()`. The validator hard-fails without
+`data/dynasty_data_*.json`; `data/` is gitignored (`.gitignore:45`), so
+on a clean checkout there is never one, and the seeding step that would
+have supplied it never got to run. Zero specs executed.
+
+It looked fine only on machines already carrying a snapshot from an
+earlier local scrape — neither the shared checkout nor a fresh worktree
+of `origin/main` had one:
+
+```
+$ ls data/dynasty_data_*.json
+ls: cannot access 'data/dynasty_data_*.json': No such file or directory
+```
+
+**Fixed** — seed first, then validate (so the validation also runs
+against the exact file the backend will serve):
+
+```
+[preflight] seeded data/dynasty_data_2026-07-26.json from committed exports/latest/ (1077 players)
+[contract] ok=True errors=0 warnings=2 players=1095
+[preflight] API contract validation passed
+[e2e] stack verified — 1095 players served, test sessions enabled, snapshot loaded
+Running 178 tests using 2 workers
+```
+
+This dominates the rest of the audit: a green nobody can reproduce from
+a clean checkout is not a safety net.
+
+## P2.1 — Proving the rewrites are non-vacuous
+
+An assertion is vacuous if it cannot distinguish *"the page I named
+rendered"* from *"some other page rendered"*. So each original
+assertion and its replacement were run against a **decoy** — a real,
+working authed page (`/settings`) carrying the same shell chrome.
+
+* original **passes** on the decoy ⇒ it was matching chrome
+* replacement **fails** on the decoy ⇒ it is anchored to the real page
+
+This needs no app-code edits (owned by another agent tonight) and is
+deterministic. Harness output, verbatim:
+
+```
+Running 10 tests using 1 worker
+  ✓  1 › OLD /rosters assertion passes on the DECOY page (=> vacuous) (9.0s)
+  ✘  2 › NEW /rosters assertion FAILS on the DECOY page (=> real) (17.7s)
+  ✓  3 › OLD /trade assertion passes on the DECOY page (=> vacuous) (10.2s)
+  ✘  4 › NEW /trade assertion FAILS on the DECOY page (=> real) (21.7s)
+  ✓  5 › OLD home assertion passes on the DECOY page (=> vacuous) (7.2s)
+  ✘  6 › NEW home assertion FAILS on the DECOY page (=> real) (15.0s)
+  ✓  7 › OLD locator is satisfied WITHOUT opening any tab (=> vacuous) (8.7s)
+  ✓  8 › OLD opener silently no-ops on a NONEXISTENT tab (=> vacuous) (9.1s)
+  ✘  9 › NEW opener FAILS on a NONEXISTENT tab (=> real) (25.2s)
+  ✓ 10 › OLD assertion passes with NO filter applied at all (=> vacuous) (17.7s)
+```
+
+Six passes (every "the old assertion is vacuous" demonstration) and four
+failures (every "the new assertion is real" demonstration) — exactly the
+designed outcome. Sample failure, showing the replacement genuinely
+discriminating:
+
+```
+1) NEW /rosters assertion FAILS on the DECOY page (=> real)
+   Error: expect(locator).toBeVisible() failed
+   Locator: getByRole('heading', { name: /Roster Dashboard/i, level: 1 })
+   Expected: visible
+   Error: element(s) not found
+```
+
+The harness was deleted after the run; it is reproduced here rather
+than committed.
+
+## P2.2 — What was replaced
+
+| Part 1 ref | File | Change |
+|---|---|---|
+| A2 | `signed-in-smoke.spec.js` | `/Roster\|Team/i` → page `<h1>` "Roster Dashboard" **+** one ranked row per contract team, every real team name present |
+| A1 | `signed-in-smoke.spec.js` | `/Trade\|Side/i` → page `<h1>` "Trade Builder" + player pool loaded + "Clear Trade" control |
+| A3 | `signed-in-smoke.spec.js` | `/Settings\|Notification\|Signal/i` → page `<h1>` "Settings" + source-toggle count ≥ the backend registry count |
+| — | `signed-in-smoke.spec.js` | home `/…\|Team/i` → dashboard command bar + team switcher listing **exactly** the contract's 12 teams |
+| B2 | `public-league-visual.spec.js` | `section`-first locator → tab button hard-asserted, section's own content waited on, per-section data assertions (e.g. Records must list a `(YYYY wk N)` entry) |
+| — | `public-league.spec.js` | "archives filter narrows the result set" now actually applies a filter and requires a strictly smaller row count |
+| — | `public-league.spec.js` | tab walk no longer sleeps; asserts every tab control exists and the page survives the walk |
+| C4 | `journey-trade.spec.js` | `test.skip(teams.length === 0)` → assertion that rosters are present |
+| C5 | `public-league.spec.js` | three `test.skip`s (rivalries / matchups / players) → assertions that the data is present |
+
+Two assertions are **kept and documented rather than "fixed"**, because
+changing them would trade real signal for cosmetics:
+
+* **A7** — `critical-smoke`'s `/` → `/Brisket/i`. Chrome-matching, but
+  the test's load-bearing assertion is "no JS errors on this route",
+  and the marker only needs to prove the route responded.
+* **`expect.soft` in `attachConsoleGuards`** — soft assertions still
+  mark a test failed in Playwright; they only defer the throw. Not an
+  optional assertion, correctly used.
+
+## P2.3 — Skip gates: the measured answer
+
+The brief's list was close but not exact. **`journey-news.spec.js` has
+no skip** (removed in Part 1), and two cited line numbers are comments.
+Verified inventory and, crucially, **which ones actually fired** in a
+full run:
+
+| # | Site | Category | Fires? |
+|---|---|---|---|
+| 1-2 | `journey.js:150,158` `desktopOnly`/`mobileOnly` | project gate | fires on the opposite project only — **29 of the 30 baseline skips** |
+| 3-4 | `auth-fixture.js:27,34` | env gate | never here (`playwright.config.js:78` defaults the secret) |
+| 5 | `journey-trade.spec.js:87` | data gate | **never** → converted to assertion |
+| 6-8 | `public-league.spec.js:126,196,209` | data gate | **never** → converted to assertions |
+| 9-10 | visual specs, `SKIP_VISUAL_REGRESSION` | env gate | never in `npm run e2e` |
+| 11 | `public-league-visual.spec.js:81` | project gate | fires on mobile only |
+| 12 | `journey-settings-overrides.spec.js:116` | conditional escape hatch | **fires** — see below |
+| 13-14 | `critical-smoke.spec.js:169,176` | **dead** | never runs |
+
+### Counts
+
+| Category | Count |
+|---|---|
+| Legitimate project/env gate (kept) | 8 |
+| Data gate that never fires (converted to assertions) | 4 |
+| Conditional escape hatch (kept, fires in practice) | 1 |
+| Dead / unreachable test body | 2 |
+
+### Evidence the four data gates never fire
+
+Against the stack seeded from the committed snapshot:
+
+```
+rivalries  len=45
+matchups   len=158
+players    len=968   sample: {"playerId":"10213","playerName":"Tre Tucker","position":"WR"}
+sleeper teams: 12  ['Blaine','Brent','Collin','Ed','Eric','Jason',
+                    'Joey','Kich','MaKayla','Roy','Ty','jstuedle']
+```
+
+### The actual skip list from the reporter (not inferred)
+
+Baseline run, parsed from the JSON reporter — **30 skipped, and 29 of
+them are project gating**:
+
+```
+TOTAL SKIPPED: 30
+    9  [mobile-chromium] chart-visual-regression.spec.js
+    6  [mobile-chromium] journey-rankings.spec.js
+    4  [mobile-chromium] journey-trade.spec.js
+    4  [mobile-chromium] public-league-visual.spec.js
+    3  [desktop-1366]    mobile-smoke.spec.js
+    2  [mobile-chromium] journey-settings-overrides.spec.js
+    1  [mobile-chromium] journey-news.spec.js
+    1  [desktop-1366]    journey-settings-overrides.spec.js   ← NOT a project gate
+```
+
+That last row is gate #12, and its recorded reason is:
+
+```
+"override endpoint degraded to base-contract fallback on this run
+ ([dynasty-data] /api/rankings/overrides request failed: Failed to fetch)
+ — round-trip already asserted"
+```
+
+So **C6 fires routinely in this environment**, not rarely. It is honest
+(the round-trip itself is hard-asserted above it), but Part 1's warning
+stands: a *persistent* override failure shows up as a permanent skip.
+The root cause is §3.3 below, not the override engine.
+
+### #13/#14 are worse than skips
+
+```js
+if (res.status() === 401) {
+  test.info().annotations.push({ type: "skip", description: "..." });
+  return;
+}
+```
+
+That is not `test.skip` — Playwright reports the test **passed**. So
+these two do not even appear in the skip list above; they are invisible
+in both the pass count and the skip count. `/api/terminal` is
+permanently 401 anonymous (the test's own comment says it moved to the
+auth-gated set), so every assertion below that line is unreachable.
+Left in place with the dead-code status recorded here rather than
+deleted in the same PR as the rewrites — but they should be deleted or
+re-pointed at an authenticated session; they are currently two green
+ticks that verify nothing.
+
+## P2.4 — New coverage
+
+The 33-entry selector registry in `helpers/journey.js` is a map of what
+the redesign must not break. Only **9** entries were referenced by any
+spec:
+
+```
+$ grep -rho "SEL\.[a-zA-Z]*" tests/e2e/specs/ | sort | uniq -c | sort -rn
+      3 SEL.overlaySheet   2 SEL.searchInput   2 SEL.posSelect
+      2 SEL.playerName     2 SEL.boardRow      1 SEL.tradeLedgerEntry
+      1 SEL.searchResultName  1 SEL.searchResult  1 SEL.navSearchButton
+```
+
+The 25 unused entries name the untested surfaces exactly. Two new spec
+files close the highest-value part of that gap — chosen for blast radius
+(valuation arithmetic and the diagnostics you'd use to notice a break),
+not for count:
+
+**`api-trade-intelligence.spec.js`** — neither endpoint had any e2e
+coverage.
+
+* `GET /api/draft-capital`: pick board must be exactly
+  `numTeams × draftRounds` (72 = 12 × 6); every pick owned and priced;
+  **round-1 mean value must exceed the last round's** — the core pick-
+  curve property, and one that survives the nightly snapshot refresh;
+  every `isTraded` pick must actually have changed hands.
+* `POST /api/trade/suggestions`: asserts `totalSuggestions > 0` *before*
+  iterating (the A8 trap — the engine returned 0 with no opponent
+  rosters, and a loop over an empty array proves nothing); every asset
+  `boardRank ≤ 150`, matching the `boardTopNFilter: 150` the response
+  advertises; and **every give-side player must be on the submitted
+  roster** — you cannot trade away someone you do not own.
+
+**`journey-tools-health.spec.js`** — `/tools/source-health` appeared in
+no spec; `/tools/trade-coverage` appeared only in the anonymous-redirect
+list.
+
+* `/tools/source-health`: source names rendered must match
+  `source_health.source_runtime.enabled_sources` from `/api/status`.
+  Both states are pinned — when the backend reports zero enabled
+  sources the strip must render *nothing* (its documented contract at
+  `SourceHealthStrip.jsx:129`), rather than the test skipping.
+* `/tools/trade-coverage`: exactly one audit row per contract team, all
+  12 real names present, the scan counter must reach `12/12`, and every
+  team's player count must be a positive integer.
+
+Both files are gated `desktopOnly` and derive every expectation from a
+payload fetched inside the test — no hardcoded names, nothing that
+breaks when the snapshot refreshes.
+
+## P2.5 — New environment findings (§3)
+
+### §3.1 `/api/terminal` has no Next.js proxy route
+
+`frontend/app/api/` defines 21 proxy handlers. `/api/terminal` is not
+one of them, and neither are `/api/leagues`, `/api/user/state` or
+`/api/health`. In production nginx serves `/api/*` from the backend on
+the same origin, so this is invisible — but the suite's documented
+topology points page navigation at the **Next** origin
+(`E2E_PAGE_ORIGIN`), where a relative `fetch("/api/terminal")` 404s:
+
+```
+404 http://127.0.0.1:3100/api/health
+404 http://127.0.0.1:3100/api/user/state
+404 http://127.0.0.1:3100/api/leagues
+404 http://127.0.0.1:3100/api/terminal?windowDays=30
+502 http://127.0.0.1:3100/api/auth/status
+```
+
+Consequences, observed: the signed-in dashboard renders **"Terminal data
+unavailable"** with `<h1>Pick your team</h1>` and every aggregate tile
+`—`; `/tools/trade-coverage` reports **"FETCH ERRORS 12"**. New specs
+therefore assert contract-derived content and explicitly do **not**
+assert terminal-derived values. That limit is stated in the spec
+comments rather than hidden.
+
+### §3.2 The suite silently reuses another checkout's stack
+
+`playwright.config.js` sets `reuseExistingServer: true` for both
+servers and `server.py` hardcodes `PORT = 8000`. In a multi-agent
+container a run therefore tests **whatever build is already up**.
+Observed mid-audit:
+
+```
+active_data_source.path =
+  /home/user/.../worktrees/agent-ac26f9e0ef914b8f6/data/dynasty_data_2026-07-26.json
+```
+
+— a different agent's worktree. Every measurement in Part 2 was
+re-taken against a frontend built from this branch on an isolated port
+(`:3100`) to remove that contamination. The same hazard applies to any
+CI runner that leaves a stale stack behind.
+
+### §3.3 Next proxy routes abort at 3s and fall back to a silent null
+
+`app/api/status/route.js` and `app/api/auth/status/route.js` both use a
+hard `setTimeout(() => ctl.abort(), 3000)` and return 502 on timeout.
+Components treat that as "no data" and render nothing —
+`SourceHealthStrip` returns `null`, `useAuth` cannot confirm the
+session and the shell renders logged-out chrome.
+
+This is the mechanism behind the "load-sensitive" failures Part 1 filed
+as D1/D2, and behind gate #12 firing routinely. It is a product-side
+fragility, not a test defect; the new source-health spec spans one 60s
+component refresh so it is deterministic rather than load-sensitive.
+
+### §3.4 `/league` sections hydrate too slowly for a rapid tab walk
+
+Measured 2026-07-27: `/league` SSRs in **7.8s**, and its 2.6 MB payload
+exceeds Next's data-cache ceiling, so nothing is cached:
+
+```
+Failed to set Next.js data cache for http://127.0.0.1:8000/api/public/league,
+items over 2MB can not be cached (2674660 bytes)
+```
+
+A 12-tab walk clicking through at ~2.5s intervals reads an **identical
+2718-character body for every tab** — the sections have not hydrated.
+Per-section content assertions therefore live in
+`public-league-visual.spec.js` (one fresh navigation per section, which
+the lazy loading does support); the tab-walk test asserts tab presence
+and the privacy invariant. Related to #555 item 3.
+
+---
+

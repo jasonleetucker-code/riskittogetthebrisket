@@ -84,7 +84,17 @@ test.describe("journey: trade surfaces", () => {
     expect(dataRes.status()).toBe(200);
     const contract = await dataRes.json();
     const teams = contract?.sleeper?.teams || [];
-    test.skip(teams.length === 0, "no sleeper rosters in the loaded contract");
+    // Was `test.skip(teams.length === 0, ...)`.  The committed snapshot
+    // carries 12 Sleeper teams (verified 2026-07-27), so the gate never
+    // fired — and it masked exactly the documented multi-league failure
+    // mode (`sleeperDataReady: false`), reporting an empty roster
+    // pipeline as "nothing to test" inside a green run.  Assert the
+    // precondition instead so that regression fails loudly.
+    expect(
+      teams.length,
+      "contract served no Sleeper rosters — the finder cannot be exercised, " +
+        "and this is the sleeperDataReady:false regression, not an absent fixture",
+    ).toBeGreaterThan(0);
 
     const myTeam = teams[0].name;
     const res = await page.request.post("/api/trade/finder", {
