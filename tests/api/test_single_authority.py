@@ -192,3 +192,76 @@ class TestFrontendFallbackGuards(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLegacyLamStripperDoesNotEatLiveFields(unittest.TestCase):
+    """The legacy LAM stripper must not silently delete a modern field.
+
+    CONTEXT, because this is easy to misread. LAM — League Adjustment
+    Multiplier, a position-based value multiplier — was deleted in April
+    2026 along with positional scarcity, on the grounds that upstream
+    sources already price the operator's SF/TEP/IDP config and the
+    per-league delta was small and noisy (``src/league/README.md``,
+    audit finding F2).
+
+    ``_strip_legacy_lam_fields`` then deletes ``_lam*``, ``_rawLeague*``,
+    ``_shrunkLeague*``, ``_leagueAdjusted``, ``_effectiveMultiplier`` and
+    top-level ``empiricalLAM`` from EVERY response. That is hygiene, not
+    suppression: data files on disk predate the removal and still carry
+    those fields, so without the strip the API would serve stale LAM
+    numbers computed by code that no longer exists.
+
+    THE TRAP: it strips by PREFIX, and league-aware valuation has since
+    come BACK in ``src/league_intel/`` under names built from the same
+    words — ``leagueAdjustedDynastyValue`` and friends. Today's names
+    are safe only because none of them start with an underscore. A
+    plausible future tidy-up that marks one private
+    (``_rawLeagueAdjusted``, say) would match the ``_rawLeague`` prefix
+    and vanish from every response with no error and no log line.
+
+    A field that disappears from a payload looks exactly like a field
+    that was never computed. This test makes that collision loud instead
+    of leaving it to be discovered from a blank UI.
+    """
+
+    def test_live_valuation_field_names_survive_the_stripper(self) -> None:
+        from src.api.data_contract import _strip_legacy_lam_fields
+
+        live_names = [
+            "leagueAdjustedDynastyValue",
+            "leagueAdjustedIsNoop",
+            "rankDerivedValue",
+            "canonicalConsensusRank",
+            "valuationOverlay",
+        ]
+        players = {"P": {name: 1 for name in live_names}}
+        base: dict[str, Any] = {}
+        _strip_legacy_lam_fields(base, players)
+        for name in live_names:
+            self.assertIn(
+                name,
+                players["P"],
+                f"{name!r} was eaten by the legacy LAM stripper — rename the field "
+                f"or narrow _LEGACY_LAM_PLAYER_PREFIXES",
+            )
+
+    def test_the_stripper_still_removes_what_it_is_for(self) -> None:
+        """The control. Without this the test above passes against a
+        stripper that does nothing at all."""
+        from src.api.data_contract import _strip_legacy_lam_fields
+
+        players = {
+            "P": {
+                "_lamMultiplier": 1.2,
+                "_rawLeagueValue": 900,
+                "_shrunkLeagueValue": 880,
+                "_leagueAdjusted": 910,
+                "_effectiveMultiplier": 1.05,
+                "keepMe": 1,
+            }
+        }
+        base = {"empiricalLAM": {"QB": 1.1}, "keepMe": 1}
+        _strip_legacy_lam_fields(base, players)
+        self.assertEqual(list(players["P"].keys()), ["keepMe"])
+        self.assertNotIn("empiricalLAM", base)
+        self.assertIn("keepMe", base)
