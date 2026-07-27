@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
+import { Card } from "../shared-server.jsx";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
@@ -74,28 +75,25 @@ export default function RosChampionshipSection() {
   }
   if (error && !data) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState title="Championship odds unavailable" message={error} />
-      </div>
+      </Card>
     );
   }
   const rows = data?.championshipOdds || [];
   if (!rows.length) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState
           title="No championship odds yet"
           message="Need at least a partial regular season to simulate the bracket."
         />
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>
-        ROS Championship Odds
-      </div>
+    <Card title="ROS Championship Odds">
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         {data.n_simulations?.toLocaleString() || "—"} Monte Carlo runs ·{" "}
         {data.playoffSeeds || 6} playoff seeds · {data.byeSeeds || 2} byes ·{" "}
@@ -159,6 +157,6 @@ export default function RosChampionshipSection() {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

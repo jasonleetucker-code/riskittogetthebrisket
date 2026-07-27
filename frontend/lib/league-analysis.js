@@ -603,11 +603,15 @@ function sumTopN(values, n) {
  * @param {object} team - { players: string[], picks: string[] }
  * @param {object} playerMeta - from buildPlayerMetaMap
  * @param {object[]} rows - all rows for pick value lookup
- * @param {string} valueMode - "full" | "players" | "starters"
+ * @param {string} assetScope - WHICH ASSETS to count: "full" (players +
+ *   picks) | "players" | "starters".  NOT a valuation selector — note
+ *   that `lib/trade-logic.js` exports a different `VALUE_MODES`
+ *   ("full" | "raw") meaning which value NUMBER to read.  Both use the
+ *   key "full", so mixing them up runs clean and returns wrong totals.
  * @param {object} [pickAliases] - optional backend alias map
  * @returns {{ total, byGroup, playerDetails, pickDetails }}
  */
-export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "full", pickAliases = null) {
+export function buildTeamValueBreakdown(team, playerMeta, rows, assetScope = "full", pickAliases = null) {
   const byGroup = {};
   POS_GROUPS.forEach((g) => { byGroup[g] = 0; });
   const playerDetails = [];
@@ -627,7 +631,7 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
     const pm = playerMeta[key];
     if (!pm) continue;
     playerDetails.push(pm);
-    if (valueMode !== "starters") {
+    if (assetScope !== "starters") {
       if (byGroup[pm.group] !== undefined) byGroup[pm.group] += pm.meta;
     }
     if (buckets[pm.group]) buckets[pm.group].push(pm.meta);
@@ -636,7 +640,7 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
   // Resolve pick values using multi-candidate lookup so Sleeper labels
   // like "2026 1.04 (from Team X)" resolve against rankings rows stored
   // as "2026 Pick 1.04".
-  if (valueMode === "full") {
+  if (assetScope === "full") {
     const pickSources = teamPicks.length > 0 ? teamPicks : teamPlayers.filter((p) => parsePickToken(p));
     for (const pickName of pickSources) {
       if (!parsePickToken(pickName)) continue;
@@ -649,13 +653,13 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
     }
   }
 
-  if (valueMode === "starters") {
+  if (assetScope === "starters") {
     Object.keys(buckets).forEach((g) => {
       byGroup[g] = sumTopN(buckets[g], STARTER_SLOTS[g] || 0);
     });
   }
 
-  byGroup.PICKS = valueMode === "full" ? pickValue : 0;
+  byGroup.PICKS = assetScope === "full" ? pickValue : 0;
   const total = POS_GROUPS.reduce((s, g) => s + (byGroup[g] || 0), 0);
 
   return { total, byGroup, playerDetails, pickDetails };
@@ -666,9 +670,9 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
  * Build summary data for all teams in the league.
  * Returns sorted array of team objects with value breakdowns.
  */
-export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode = "full", pickAliases = null) {
+export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, assetScope = "full", pickAliases = null) {
   const teams = (sleeperTeams || []).map((team) => {
-    const breakdown = buildTeamValueBreakdown(team, playerMeta, rows, valueMode, pickAliases);
+    const breakdown = buildTeamValueBreakdown(team, playerMeta, rows, assetScope, pickAliases);
     return {
       name: team.name,
       roster_id: team.roster_id,

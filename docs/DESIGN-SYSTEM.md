@@ -114,6 +114,7 @@ hex — CI-enforced), keyboard/a11y correct, doc comment with usage rules.
 | `DataTable` | The product. Column-spec driven; sortable headers are real `<button>`s with `aria-sort` + polite live-region announce; numeric first-click sorts DESC; sticky header; `regular/compact` density; numeric cells auto right-align in the data face; built-in scroll wrapper (unwrapped tables can no longer happen); `onRowClick` rows are keyboard-operable; `caption` required. |
 | `StatTile` | The one KPI tile (replaces 3 implementations). Label + tabular value + `Movement`/meta; `bare` for in-panel rows. |
 | `Badge` / `StatusIndicator` / `Movement` | The signal language. Badge tones carry meaning, not decoration. StatusIndicator = dot + required label. **Movement = direction (SVG arrow) + magnitude (tabular) + confidence (0-3 ticks)** — replaces every raw red/green delta; announces e.g. "up 340, high confidence". |
+| `Confidence` | The same 3-tick meter, standalone, for values with confidence but no direction (a projection, a rank, a probability). **Quiet by default: a high-confidence value renders NOTHING** (`showWhen="degraded"`), so the marker's presence is itself the signal and a healthy page carries no caveat chrome. `showWhen="always"` only where a column must be uniformly populated. `limitedBy` names the ONE binding dimension, never all of them. **Never rendered in the status palette** — low confidence is thin evidence, not a bad outcome. |
 | `Button` | primary (one per view region) / secondary / ghost / danger; sm; loading with `aria-busy`. |
 | `Field` + `Input`, `Select`, `SegmentedControl` | Field wires label/hint/error ids + `aria-invalid`. Select stays native. SegmentedControl = radiogroup with arrow keys, for 2-5 value choices (panels → Tabs, >5 → Select). |
 | `Tabs` | Real tablist, roving tabindex, Arrow/Home/End, `aria-controls`; horizontal overflow scrolls. Replaces `SubNav` + hand-rolled chip rows. |
@@ -127,6 +128,34 @@ hex — CI-enforced), keyboard/a11y correct, doc comment with usage rules.
 
 Living reference: **`/design`** (unlinked, noindexed) renders every ramp and
 component state.
+
+### Showing uncertainty: draw it if there's room, tick it if there isn't
+
+One rule governs `Confidence` and every chart that carries an interval:
+
+> **Where uncertainty can be drawn geometrically, draw it. `Confidence`
+> is for values with no room for an interval.**
+
+An error bar, an interval rule, a band, a range label — these *are* the
+uncertainty, stated in the same visual language and on the same scale as
+the value. A tick meter beside one is not extra rigour; it is the same
+fact re-encoded in a second language, which costs horizontal space, adds
+a second thing to learn, and makes the row harder to read rather than
+more honest. Pick one per value:
+
+| The value lives in | Use |
+|---|---|
+| a chart with an axis (dot plot, bar, line) | the interval — drawn, on the axis |
+| a table cell, `StatTile`, badge, or inline rank | `Confidence` |
+| a chart *and* a table view of the same number | interval in the chart, `Confidence` in the table |
+
+The last row is the common case and the reason the rule is worth
+stating: the same number legitimately gets different treatment in
+different surfaces. What is never right is both, on one value, at once.
+
+Corollary for precision: coarsening a number is itself an uncertainty
+encoding (`+3.4` → `+3` → `+2 to +5`). It composes with either mechanism
+and costs nothing, so reach for it before adding chrome.
 
 ---
 
@@ -189,6 +218,71 @@ Seeded from audit §5; PR review checks against this list.
 13. **Gold is not a paint bucket.** One primary action per region; accent
     never used as large background fill or body-text color.
 14. **No cycled chart palettes** — slots in fixed order; >6 series folds.
+15. **No `role="tab"` on a control that owns no tabpanel.** A tab that
+    controls nothing announces "tab, 1 of 4" and then leads nowhere —
+    worse than a plain button, because it promises a structure that
+    isn't there. Filters and toggles are `SegmentedControl`, or `Button`
+    + `aria-pressed`. **Never fix one by hand-adding `aria-controls`**:
+    that names a region that does not exist. Enforced by
+    `__tests__/a11y-tab-roles.test.js` (ratcheted baseline).
+
+---
+
+## 5a. Two migration lessons that cost us real time
+
+Both were learned the expensive way during R5. They generalise well
+beyond this codebase, so they live here rather than only in the
+migration doc that gets archived when the migration ends.
+
+### "Migrations come in under budget" is a property of DELETIONS
+
+R2, R3 and R4 each landed *smaller* than the code they replaced, and
+that became an assumption. It broke immediately on the first migration
+phase that didn't delete anything: `/league`'s `Card` → `Panel` swap
+went **167.8 → 171.0 KB and over budget**, because the legacy `.card`
+rule and its 80-odd remaining consumers all stayed.
+
+> Those earlier phases came in under because they **deleted what they
+> replaced** — the old container died, hand-rolled tables died, inline
+> styles collapsed into shared CSS. A migration only pays for itself in
+> the phase where the old thing is *removed*.
+
+**Budget an additive phase as additive.** If a migration is staged so
+that adoption lands before removal, expect the adoption phase to cost
+and say so up front — don't let a bundle check be the thing that
+discovers it. (Confirmed in the other direction too: the first deleting
+slice of phase B gave 0.9 KB straight back.)
+
+### Tree-shaking follows MODULE granularity, not export granularity
+
+`Panel` imported `Icon` for one disclosure chevron, and every Panel
+consumer paid ~2.2 KB for the entire glyph set. The instinct — "give
+`Icon` per-glyph named exports so bundlers can drop the rest" — does not
+work, and it's worth knowing why before spending a day on it:
+
+1. **A map in a single object literal cannot be shaken.** No bundler
+   drops members of an object literal, whatever the export shape.
+2. **A runtime lookup defeats it regardless.** `<Icon name={x} />`
+   selects by string at run time; static analysis cannot know which
+   glyph is reachable.
+3. **One `Object.keys(PATHS)` retains everything.** A single reference
+   to the whole map (here, to build `ICON_NAMES`) pins all of it.
+
+Plus `sideEffects` was absent from `package.json`, which would have
+defeated shaking on its own — and setting it isn't free, since
+`globals.css` is imported for effect and needs `sideEffects: ["*.css"]`
+rather than `false`.
+
+**What works is splitting the file.** `glyph-chevron-down.jsx` holds the
+one glyph, `Panel` imports that module, and the rest of the set never
+enters the graph — measured 171.0 → 169.0 KB. The public `Icon` API is
+unchanged and sources its geometry from the same exported constant, so
+there is one definition, not two to drift.
+
+**Rule:** a shared primitive that needs *one* item from a large module
+should import it as its own module. And when you're told a change will
+tree-shake, measure it — the three blockers above are invisible in a
+diff and obvious in a build.
 
 ---
 

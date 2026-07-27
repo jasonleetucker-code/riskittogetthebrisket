@@ -19,7 +19,25 @@ import {
 } from "@/lib/league-analysis";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 
-const VALUE_MODES = [
+/**
+ * WHICH ASSETS to count in a team total — NOT which valuation to use.
+ *
+ * Renamed off `VALUE_MODES` / `valueMode` deliberately. `lib/trade-logic.js`
+ * exports a DIFFERENT `VALUE_MODES` (`full` | `raw`) meaning which value
+ * NUMBER to read, and this file previously shadowed that export with a
+ * local const of the same name and incompatible semantics. Both use the
+ * key `"full"`, so the collision is silent: swap one for the other and it
+ * runs, type-checks, and produces plausible-but-wrong totals.
+ *
+ * Concretely, the "obvious consolidation" — importing the canonical
+ * VALUE_MODES here — renders an "Our Value / Raw" dropdown wired into an
+ * asset-scope branch, where `raw` is neither `"full"` nor `"starters"` and
+ * so silently falls through to "all players, no picks". No error, wrong
+ * numbers, on the page that ranks all 12 teams.
+ *
+ * Keep these names distinct.
+ */
+const ASSET_SCOPES = [
   { key: "full", label: "Players + Picks" },
   { key: "players", label: "Players only" },
   { key: "starters", label: "Starters only" },
@@ -28,7 +46,7 @@ const VALUE_MODES = [
 export default function RostersPage() {
   const { rows, rawData, loading, error } = useApp();
   const { settings, update } = useSettings();
-  const [valueMode, setValueMode] = useState("full");
+  const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
 
   const sleeperTeams = rawData?.sleeper?.teams || [];
@@ -38,8 +56,8 @@ export default function RostersPage() {
   const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
 
   const teams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode, pickAliases),
-    [sleeperTeams, playerMeta, rows, valueMode, pickAliases],
+    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, assetScope, pickAliases),
+    [sleeperTeams, playerMeta, rows, assetScope, pickAliases],
   );
 
   // Sort by active group totals
@@ -105,6 +123,7 @@ export default function RostersPage() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
                 className="input"
+                aria-label="My team"
                 value={myTeam}
                 onChange={(e) => update("selectedTeam", e.target.value)}
                 style={{ flex: 1, minWidth: 0 }}
@@ -116,11 +135,12 @@ export default function RostersPage() {
               </select>
               <select
                 className="input"
-                value={valueMode}
-                onChange={(e) => setValueMode(e.target.value)}
+                aria-label="Assets counted in team totals"
+                value={assetScope}
+                onChange={(e) => setAssetScope(e.target.value)}
                 style={{ flex: 1, minWidth: 0 }}
               >
-                {VALUE_MODES.map((m) => (
+                {ASSET_SCOPES.map((m) => (
                   <option key={m.key} value={m.key}>{m.label}</option>
                 ))}
               </select>

@@ -23,30 +23,38 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── PRIMITIVES · neutral ramp (violet undertone, hue ≈ 265) ─────────────
-     0 = lightest, 1000 = darkest. Theme-invariant raw material. */
+  /* ── PRIMITIVES · neutral ramp (cool near-neutral, hue ≈ 215) ────────────
+     0 = lightest, 1000 = darkest. Theme-invariant raw material.
+
+     TERMINAL: the violet undertone (hue 265) is gone. A trading-desk
+     surface wants to read as unlit glass, not as a tinted brand colour —
+     any warmth or purple in the base reads as decoration once the only
+     other colour on screen is data. Steps 300/400 are tuned so
+     --text-secondary / --text-tertiary clear AA on surface-3, the worst
+     case, with margin: 12px body has less optical mass than 14px, so
+     borderline contrast that was survivable before is not. */
   --neutral-0: #ffffff;
-  --neutral-50: #f2eff7;
-  --neutral-100: #e4e0ee;
-  --neutral-200: #c9c2da;
-  --neutral-300: #a9a1bc;
-  --neutral-400: #8b82a3;
-  --neutral-500: #6d6486;
-  --neutral-600: #55506a;
-  --neutral-700: #4a3f63;
-  --neutral-750: #332b45;
-  --neutral-800: #221d30;
-  --neutral-850: #1b1726;
-  --neutral-900: #14111c;
-  --neutral-950: #0d0b12;
-  --neutral-1000: #080610;
+  --neutral-50: #eceef2;
+  --neutral-100: #d7dae1;
+  --neutral-200: #b6bcc7;
+  --neutral-300: #a8b0be;
+  --neutral-400: #8b93a5;
+  --neutral-500: #6b7383;
+  --neutral-600: #545b68;
+  --neutral-700: #363b45;
+  --neutral-750: #2a2e37;
+  --neutral-800: #202329;
+  --neutral-850: #191c21;
+  --neutral-900: #131519;
+  --neutral-950: #0b0d10;
+  --neutral-1000: #06080a;
 
   /* ── PRIMITIVES · brand ──────────────────────────────────────────────────
-     The franchise gold survives the redesign as the ONE accent. The legacy
-     saturated-purple card surfaces do not — purple lives on only as the
-     neutral undertone and these raw brand hexes. */
-  --brand-gold: #ffc704;
-  --brand-purple: #4f2185;
+     REMOVED (Terminal). `--brand-gold` (#ffc704) and `--brand-purple`
+     (#4f2185) are deleted rather than re-pointed at new values, so nothing
+     keeps the old names alive by accident and a stray reference fails loudly
+     at build time instead of silently rendering the wrong hue.
+     The accent is now structural, not a franchise colour — see below. */
 
   /* ═══ SEMANTIC ALIASES — what components actually use ═══════════════════ */
 
@@ -77,39 +85,67 @@
   --border-default: var(--neutral-750); /* panel outlines            */
   --border-strong: var(--neutral-700); /* interactive rest borders  */
 
-  /* ── Accent (ONE accent: gold) ── */
-  --accent: var(--brand-gold);
-  --accent-hover: #ffd43b;
-  --accent-pressed: #e0ae00;
-  --accent-muted: rgba(255, 199, 4, 0.13); /* selected wash / chip bg   */
-  --accent-border: rgba(255, 199, 4, 0.35);
-  --text-on-accent: #191203;
+  /* ── Accent (ONE accent: signal blue) ──
+     Structural only: active control, selection, focus. It is NOT a data
+     colour — see the data pair below. Ratios on the four surfaces:
+     6.70 / 6.29 / 5.88 / 5.42, all clear of the 3:1 UI floor. */
+  --accent: #4f9bec;
+  --accent-hover: #6bb0f0;
+  --accent-pressed: #3987e5;
+  --accent-muted: rgba(79, 155, 236, 0.13); /* selected wash / chip bg   */
+  --accent-border: rgba(79, 155, 236, 0.35);
+  --text-on-accent: #06080a; /* 6.91:1 on --accent */
 
   /* ── Semantic: market direction & system state ──
      Restrained terminal palette — desaturated green/coral, never neon.
      Base = marks/icons (≥3:1); *-text = copy (≥4.5:1); *-muted = washes. */
   --positive: #4cc38a;
-  --positive-text: #63d69f;
+  --positive-text: #5fcf9b; /* 8.16:1 worst surface */
   --positive-muted: rgba(76, 195, 138, 0.12);
   --negative: #e5646e;
-  --negative-text: #f2828b;
+  --negative-text: #f2848d; /* 6.34:1 */
   --negative-muted: rgba(229, 100, 110, 0.12);
   --warning: #e09f3e;
-  --warning-text: #edb25e;
+  --warning-text: #e8b25e; /* 8.22:1 */
   --warning-muted: rgba(224, 159, 62, 0.12);
   --info: #6ca5e8;
-  --info-text: #8fbcf0;
+  --info-text: #8fbcf0; /* 7.96:1 */
   --info-muted: rgba(108, 165, 232, 0.12);
   --neutral-signal: var(--neutral-400); /* "hold" / no movement      */
-  --neutral-signal-muted: rgba(139, 130, 163, 0.12);
+  --neutral-signal-muted: rgba(139, 147, 165, 0.12);
+
+  /* ── Semantic: MARKET DIRECTION (distinct from good/bad) ──
+     Terminal separates two things the old palette conflated: whether a
+     number went up, and whether something is in a good state. A value
+     falling is not an error, and green/red is the worst possible pair for
+     the ~8% of men with red-green CVD.
+
+     This is the blue/orange pair validated for this codebase with
+     scripts/validate_palette.js: ΔE 26.8 protan / 32.4 tritan on
+     --surface-0, versus a ~2-4 ΔE collapse for green/red. Direction is
+     still never colour-alone — Movement pairs it with an arrow glyph. */
+  --data-up: #3987e5; /* mark / glyph  ≥3:1 on all surfaces */
+  --data-up-text: #6bb0f0; /* copy      ≥4.5:1               */
+  --data-up-muted: rgba(57, 135, 229, 0.13);
+  --data-down: #d95926;
+  --data-down-text: #f08a5c;
+  --data-down-muted: rgba(217, 89, 38, 0.13);
 
   /* ── Focus ── */
   --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
   --focus-ring-color: var(--accent);
 
   /* ── Charts (validated categorical order — see DESIGN-SYSTEM.md) ──
-     Assign in fixed slot order, never cycle. >6 series → fold to "Other". */
-  --chart-1: #c98500; /* gold   (brand family leads)  */
+     Assign in fixed slot order, never cycle. >6 series → fold to "Other".
+
+     DELIBERATELY UNCHANGED by Terminal. Re-ordering these to lead with the
+     new blue accent was tried and FAILS the validator's normal-vision floor
+     (magenta ↔ orange become adjacent at ΔE 11.6, below the 15 minimum), and
+     magenta ↔ aqua collapse to ΔE 1.6 for deuteranopes if they ever touch.
+     The shipped order already avoids both, and re-checking it against the
+     new darker surface passes all six checks — so it stays. Slot 1 is just a
+     hue now, not "the brand". */
+  --chart-1: #c98500; /* amber                        */
   --chart-2: #3987e5; /* blue                         */
   --chart-3: #d55181; /* magenta                      */
   --chart-4: #9085e9; /* violet                       */
@@ -121,32 +157,71 @@
   /* ── Typography ──
      Families resolve to next/font variables set on <html> (layout.jsx);
      the raw names are fallbacks for non-Next contexts. */
-  --font-ui: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
-    BlinkMacSystemFont, sans-serif;
+  /* TERMINAL: the UI face is the MONO face. Chrome, tables, controls and
+     figures all set in JetBrains Mono (already vendored — no new bytes).
+     --font-prose is the documented exception; see the block below it. */
+  --font-ui: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
+    ui-monospace, monospace;
   --font-data: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
     ui-monospace, monospace;
 
+  /* ── THE PROSE EXCEPTION ──────────────────────────────────────────────
+     Mono at 12px is excellent for figures and measurably worse for running
+     text: uniform advance widths destroy word-shape, which is what fluent
+     reading depends on. Rather than let each long-form page improvise its
+     own escape, the exception is a token set with an explicit boundary.
+
+     A route is PROSE if its primary job is reading sentences:
+       /news              — headlines, digests, story bodies
+       /league/articles/* — generated recaps and previews
+       /league/weekly/*   — matchup write-ups
+       any Banner/EmptyState body copy, anywhere
+     A route is TERMINAL if its primary job is comparing numbers — every
+     board, table, calculator and dashboard. When a page does both, the
+     prose scope wraps only the sentences, never the surrounding chrome.
+
+     Applied via the `.ds-prose` scope in ds.css. Do not set these
+     families ad hoc: the boundary is a decision, and it lives here. */
+  --font-prose: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-size-prose: 0.875rem; /*    14px  running text            */
+  --font-size-prose-lead: 1rem; /*   16px  standfirst / lede        */
+  --line-height-prose: 1.65;
+  --measure-prose: 68ch; /* max line length for running text       */
+
   /* Type scale — EIGHT sizes, period. (was: 47 distinct sizes)
-     2xs is the floor: 11px. Nothing renders smaller than this. */
-  --font-size-2xs: 0.6875rem; /* 11px  micro labels, table meta   */
-  --font-size-xs: 0.75rem; /*   12px  captions, badges           */
-  --font-size-sm: 0.8125rem; /* 13px  dense table body, secondary */
-  --font-size-md: 0.875rem; /*  14px  body (matches legacy body)  */
-  --font-size-lg: 1rem; /*       16px  emphasized body, tile value */
-  --font-size-xl: 1.25rem; /*    20px  section / panel headline    */
-  --font-size-2xl: 1.5rem; /*    24px  page title                  */
-  --font-size-3xl: 2rem; /*      32px  hero stat                   */
+     2xs is the floor: 11px. Nothing renders smaller than this.
+
+     TERMINAL retunes the values, not the names, so no consumer changes.
+     Body moves 14px → 12px and the top of the scale compresses; the 11px
+     floor holds, because it is an accessibility limit rather than a style
+     choice. Headline sizes shrink hardest — a terminal earns hierarchy from
+     weight, tracking and rules, not from 32px type. */
+  --font-size-2xs: 0.6875rem; /* 11px  micro labels, column heads  */
+  --font-size-xs: 0.75rem; /*   12px  BODY — the terminal default */
+  --font-size-sm: 0.8125rem; /* 13px  emphasized row, secondary   */
+  --font-size-md: 0.875rem; /*  14px  prose body, comfortable read */
+  --font-size-lg: 1rem; /*       16px  tile value, lede           */
+  --font-size-xl: 1.125rem; /*   18px  section / panel headline    */
+  --font-size-2xl: 1.375rem; /*  22px  page title                  */
+  --font-size-3xl: 1.75rem; /*   28px  hero stat                   */
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  --line-height-tight: 1.2; /* headings, tiles      */
-  --line-height-snug: 1.35; /* dense table rows     */
-  --line-height-normal: 1.5; /* body copy            */
+  --line-height-tight: 1.15; /* headings, tiles     */
+  --line-height-snug: 1.3; /*  dense table rows     */
+  --line-height-normal: 1.45; /* body copy           */
 
-  --tracking-wide: 0.06em; /* uppercase eyebrows / column headers */
+  --tracking-wide: 0.1em; /* uppercase eyebrows / column headers  */
+  --tracking-tight: -0.01em; /* large figures                     */
+
+  /* Row rhythm — the terminal's defining measurement. A 28px row against
+     the old ~40px is what puts ~2.3x the board on one screen. */
+  --row-h: 28px;
+  --row-h-comfortable: 34px; /* prose lists, settings rows */
 
   /* ── Spacing (4px base grid) ── */
   --space-0: 0;
@@ -161,11 +236,14 @@
   --space-9: 3rem; /*    48px */
   --space-10: 4rem; /*   64px */
 
-  /* ── Radii — FOUR values (was: 24) ── */
-  --radius-1: 4px; /* inputs, badges, cells      */
-  --radius-2: 8px; /* buttons, tiles, popovers   */
-  --radius-3: 12px; /* panels, modals             */
-  --radius-full: 999px; /* pills, status dots     */
+  /* ── Radii — FOUR values (was: 24) ──
+     TERMINAL: near-square. Rounded corners read as consumer-app softness;
+     an instrument panel is machined, not moulded. --radius-full survives
+     only for status dots, which must read as dots. */
+  --radius-1: 2px; /* inputs, badges, cells      */
+  --radius-2: 2px; /* buttons, tiles, popovers   */
+  --radius-3: 3px; /* panels, modals             */
+  --radius-full: 999px; /* status dots only       */
 
   /* ── Shadows — THREE elevations (was: 14). Dark UI leans on surface
      lightness + borders; shadows only reinforce true overlays. ── */
@@ -238,17 +316,17 @@
   --border-default: #d8d3e4;
   --border-strong: #b9b1cc;
 
-  /* Gold flips to its text-safe step on light surfaces. Ratios
-     (WCAG, computed): #7d6200 on --surface-1 #fdfcfe = 5.67:1, on
-     --surface-2 #efecf5 = 4.97:1, on --surface-0 #f6f4fa = 5.32:1,
-     on --surface-3 #ffffff = 5.80:1; white --text-on-accent on the
-     accent = 5.80:1 — all ≥ 4.5:1 small-text target. Hover/pressed
-     darken further (#6d5600 = 6.03:1+, #5f4b00 = 7.21:1+). */
-  --accent: #7d6200;
-  --accent-hover: #6d5600;
-  --accent-pressed: #5f4b00;
-  --accent-muted: rgba(125, 98, 0, 0.1);
-  --accent-border: rgba(125, 98, 0, 0.35);
+  /* The blue accent flips to a text-safe step on light surfaces.
+     Ratios (WCAG, measured): #1a5fb4 on --surface-1 #fdfcfe = 6.15:1,
+     on --surface-2 #efecf5 = 5.39:1, on --surface-0 #f6f4fa = 5.76:1,
+     on --surface-3 #ffffff = 6.29:1; white --text-on-accent on the
+     accent = 6.29:1 — all ≥ 4.5:1. Hover #164f97 ≥ 6.92:1, pressed
+     #123f79 ≥ 8.94:1 (worst surface in each case). */
+  --accent: #1a5fb4;
+  --accent-hover: #164f97;
+  --accent-pressed: #123f79;
+  --accent-muted: rgba(26, 95, 180, 0.1);
+  --accent-border: rgba(26, 95, 180, 0.35);
   --text-on-accent: #ffffff;
 
   --positive: #157f4c;

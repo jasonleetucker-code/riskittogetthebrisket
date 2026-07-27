@@ -16,12 +16,16 @@
 "use client";
 
 import React from "react";
+// Sourced from the standalone glyph module so there is ONE definition of
+// this path: `Panel` imports that module directly to avoid pulling the
+// whole set in for a single chevron (see glyph-chevron-down.jsx).
+import { CHEVRON_DOWN_D } from "./glyph-chevron-down";
 
 const PATHS = {
   "arrow-up": <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" />,
   "arrow-down": <path d="M8 3v10M3.5 8.5 8 13l4.5-4.5" />,
   "arrow-right": <path d="M3 8h10M8.5 3.5 13 8l-4.5 4.5" />,
-  "chevron-down": <path d="M3.5 6 8 10.5 12.5 6" />,
+  "chevron-down": <path d={CHEVRON_DOWN_D} />,
   "chevron-up": <path d="M3.5 10 8 5.5 12.5 10" />,
   "chevron-right": <path d="M6 3.5 10.5 8 6 12.5" />,
   close: <path d="M4 4l8 8M12 4l-8 8" />,

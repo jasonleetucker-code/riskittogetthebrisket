@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
+import { Card } from "../shared-server.jsx";
 
 // Module-level cache so tab-switching doesn't re-fetch on every mount.
 // Same pattern + 30-min TTL that the other ROS sections use.
@@ -156,27 +157,26 @@ export default function RosTeamStrengthSection() {
   if (loading && !data) return <LoadingState message="Loading ROS roster strength..." />;
   if (error && !data) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState title="ROS roster strength unavailable" message={error} />
-      </div>
+      </Card>
     );
   }
   if (!data) return <EmptyCard label="ROS roster strength" />;
   const teams = Array.isArray(data.teams) ? data.teams : [];
   if (teams.length === 0) {
     return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <Card>
         <EmptyState
           title="ROS data not ready"
           message="The ROS pipeline hasn't produced a team-strength snapshot yet. The next scheduled scrape will populate it; admins can also POST /api/ros/refresh."
         />
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>ROS Roster Strength</div>
+    <Card title="ROS Roster Strength">
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         Composite team strength for the rest of the season. 72% starting lineup + 18%
         best-ball depth + 5% positional coverage + 5% health. Read-only contender layer
@@ -204,6 +204,6 @@ export default function RosTeamStrengthSection() {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

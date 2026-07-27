@@ -1079,7 +1079,23 @@ export function SuggestionsDesk({
 
         {suggestions && suggestions.totalSuggestions > 0 ? (
           <>
-            <div className={styles.suggestBadges} role="tablist" aria-label="Suggestion category">
+            {/* Filter toggles, not tabs. These were `role="tablist"` +
+                `role="tab"` + `aria-selected` with no `role="tabpanel"`
+                and no `aria-controls` anywhere in the file — the list
+                below is a plain div. A tab that controls nothing is not
+                a tab: a screen reader announces "tab, 1 of 4" and then
+                finds no tabpanel to move to, which is worse than plain
+                buttons because it promises a structure that isn't there.
+                Hand-adding `aria-controls` would have made it worse
+                still, by naming a region that does not exist.
+                These are pressed-state filters over one list, so that is
+                what they now say. Guarded by
+                __tests__/a11y-tab-roles.test.js. */}
+            <div
+              className={styles.suggestBadges}
+              role="group"
+              aria-label="Suggestion category"
+            >
               {SUGG_TYPES.map((t) => {
                 const count = suggestionCounts[t.key] || 0;
                 const isActive = suggestionTab === t.key;
@@ -1088,8 +1104,7 @@ export function SuggestionsDesk({
                     key={t.key}
                     size="sm"
                     variant={isActive ? "primary" : "ghost"}
-                    role="tab"
-                    aria-selected={isActive}
+                    aria-pressed={isActive}
                     onClick={() => onTabChange(t.key)}
                     disabled={count === 0 && !isActive}
                   >

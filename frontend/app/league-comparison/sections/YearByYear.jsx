@@ -9,6 +9,7 @@ import {
   linearScale,
   linePath,
 } from "@/lib/chart-primitives";
+import { Panel } from "@/components/ds";
 
 /**
  * YearByYear — collapsible per-season detail.  For each available
@@ -57,14 +58,14 @@ export default function YearByYear({ data }) {
 
   if (seasons.length === 0) {
     return (
-      <div className="card">
+      <Panel>
         <p className="muted">No per-season data available.</p>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="card">
+    <Panel>
       <h2 className="section-title">Year-by-Year Detail</h2>
       <p className="muted text-sm" style={{ marginTop: 6 }}>
         Each season is computed independently and then equally averaged for the
@@ -82,7 +83,7 @@ export default function YearByYear({ data }) {
           />
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -258,7 +259,7 @@ function SeasonTables({ block }) {
 }
 
 function SeasonSide({ title, data, accent }) {
-  const color = accent === "gold" ? "var(--gold, #FFC704)" : "var(--cyan)";
+  const color = accent === "gold" ? "var(--gold, #4f9bec)" : "var(--cyan)";
   const positions = data.positions || {};
   const flex = data.flex || {};
   const top = (data.topPlayers || []).slice(0, 8);

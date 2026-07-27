@@ -23,6 +23,28 @@
  *
  *   A11y: emits an aria-label like "up 340, high confidence"; the visual
  *   glyphs are aria-hidden.
+ *
+ * <Confidence> — the same 3-tick meter, standalone, for values that
+ *   carry confidence but have no DIRECTION (a projection, a rank, a
+ *   probability). <Movement> can only annotate a delta; this annotates
+ *   anything.
+ *   Props:
+ *     confidence  0..1 — same scale and buckets as Movement
+ *     showWhen    "degraded" (default) | "always"
+ *     limitedBy   string — names the ONE binding dimension ("role"),
+ *                 not all of them
+ *     srLabel     string — override the generated sentence
+ *
+ *   Why "degraded" is the default: on a surface where every value is
+ *   confident, this renders NOTHING, so the page stays quiet and the
+ *   deviation itself is the signal. A confidence marker beside every
+ *   number is a wall of caveats that gets tuned out — which costs you
+ *   the one place it mattered. Pass showWhen="always" only where a
+ *   column must be uniformly populated (e.g. a value-comparison table).
+ *
+ *   NOT a status: confidence is never rendered in the positive/negative/
+ *   warning palette. Low confidence means thin evidence, not a bad
+ *   outcome, and those tones are reserved for state that IS good or bad.
  */
 "use client";
 
@@ -110,6 +132,46 @@ export function Movement({
           ))}
         </span>
       ) : null}
+    </span>
+  );
+}
+
+export function Confidence({
+  confidence,
+  showWhen = "degraded",
+  limitedBy,
+  srLabel,
+  className = "",
+  ...rest
+}) {
+  const bucket = confidenceBucket(confidence);
+  // Nothing known about confidence => claim nothing. An absent marker
+  // and a "no confidence" marker are different statements.
+  if (bucket == null) return null;
+  // The quiet-by-default rule: a fully-confident value renders NOTHING,
+  // so the marker's presence is itself the signal.
+  if (showWhen !== "always" && bucket >= 3) return null;
+
+  const label =
+    srLabel ||
+    `${CONFIDENCE_WORDS[bucket]} confidence${limitedBy ? `, limited by ${limitedBy}` : ""}`;
+
+  return (
+    <span
+      className={`ds-confidence ds-confidence--${bucket} ${className}`.trim()}
+      role="img"
+      aria-label={label}
+      {...rest}
+    >
+      <span className="ds-confidence__ticks" aria-hidden="true">
+        {TICK_HEIGHTS.map((h, i) => (
+          <span
+            key={i}
+            className={`ds-confidence__tick${i < bucket ? " ds-confidence__tick--on" : ""}`}
+            style={{ height: h }}
+          />
+        ))}
+      </span>
     </span>
   );
 }

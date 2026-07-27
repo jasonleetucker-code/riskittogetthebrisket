@@ -392,7 +392,7 @@ function TradeSimulatorSide({
                       padding: "2px 6px",
                       border: "1px solid var(--border-bright)",
                       borderRadius: 4,
-                      background: "rgba(255,199,4,0.08)",
+                      background: "rgba(79, 155, 236, 0.08)",
                     }}
                   >
                     {p.pick}{" "}

@@ -142,7 +142,7 @@ function PlayerColumn({ row, settings, valueMode = "full" }) {
               <span
                 key={src}
                 style={{
-                  background: "rgba(255, 199, 4, 0.06)",
+                  background: "rgba(79, 155, 236, 0.06)",
                   border: "1px solid var(--border)",
                   borderRadius: 4,
                   padding: "2px 6px",

@@ -149,8 +149,8 @@ export default function RosTradeFitPanel({ sides, settings }) {
       style={{
         marginTop: 14,
         padding: "10px 14px",
-        background: "rgba(255, 199, 4, 0.04)",
-        border: "1px solid rgba(255, 199, 4, 0.15)",
+        background: "rgba(79, 155, 236, 0.04)",
+        border: "1px solid rgba(79, 155, 236, 0.15)",
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.84rem" }}>

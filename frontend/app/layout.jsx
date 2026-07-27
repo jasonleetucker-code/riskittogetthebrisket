@@ -47,7 +47,9 @@ export const metadata = {
   },
   // Theme color matches the manifest's ``theme_color`` — drives
   // the Android Chrome URL bar tint when the user is on the site.
-  themeColor: "#4F2185",
+  // Terminal: the mobile browser-chrome colour follows the page surface,
+  // not a franchise hex. Was #4F2185 (Vikings purple).
+  themeColor: "#0b0d10",
 };
 
 // Explicit viewport so Next.js does not fall back to a stale default.

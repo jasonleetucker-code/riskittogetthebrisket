@@ -25,7 +25,7 @@ const SIDE_PADDING = 24;
 const VIEWBOX_HEIGHT_PER_SIDE = NODE_HEIGHT + NODE_GAP;
 
 const SIDE_COLOR = [
-  "rgba(255, 199, 4, 0.85)", // gold
+  "rgba(79, 155, 236, 0.85)", // gold
   "rgba(96, 165, 250, 0.85)", // blue
   "rgba(74, 222, 128, 0.85)", // green
   "rgba(248, 113, 113, 0.85)", // red

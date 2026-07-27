@@ -26,8 +26,8 @@
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────────── */
 /* Minnesota Vikings skin — aligned to the official 4-color palette
  * (schemecolor.com/minnesota-vikings-team-colors):
- *     Dark Yellow  #FFC704   (primary gold)
- *     Aesthetic P. #4F2185   (primary purple)
+ *     Dark Yellow  var(--accent)   (primary gold)
+ *     Aesthetic P. var(--border-default)   (primary purple)
  *     Full White   #FFFFFF
  *     Blush Orange #EABF99   (warm cream accent)
  *
@@ -48,26 +48,33 @@
  *     previous navy-blue highlight, so even the backdrop says "Vikings".
  */
 :root {
-  --bg: #0f0a1a;
-  --bg-soft: #1a0f2e;
-  --card: #2a1550;
-  --card-hover: #3d1e6e;
-  --text: #ffffff;
-  --subtext: #c7b8dc;
-  --muted: #c7b8dc;
-  --cyan: #FFC704;
-  --green: #34d399;
-  --red: #f87171;
-  --amber: #FFC704;
-  --border: #4F2185;
-  --border-bright: #6d35b3;
-  /* Explicit brand colors — reach for these when you want the raw
-   * Vikings hex without going through the semantic variable names. */
-  --vikings-purple: #4F2185;
-  --vikings-gold: #FFC704;
-  --vikings-blush: #EABF99;
-  /* Aliased for CSS usage: ``var(--blush)`` reads cleaner inline. */
-  --blush: #EABF99;
+  /* ── LEGACY PALETTE — retuned for Terminal ──────────────────────────
+     These names predate the token layer and are still read by the ~105
+     raw `.card` sites that have not been migrated to ds primitives yet.
+     Retuning them HERE is what lets those pages follow the new direction
+     without editing 105 call sites — the alternative was a migration we
+     deliberately did not attempt tonight.
+
+     Every value now points at, or matches, its `tokens.css` equivalent.
+     The Vikings hexes are DELETED, not re-pointed: a stray
+     `var(--vikings-purple)` should fail loudly rather than quietly render
+     something plausible. `--cyan` and `--amber` keep their (misleading)
+     names because ~200 call sites use them; both now resolve to the
+     accent, and renaming them is a separate mechanical pass. */
+  --bg: #0b0d10;
+  --bg-soft: #131519;
+  --card: #131519;
+  --card-hover: #191c21;
+  --text: #eceef2;
+  --subtext: #a8b0be;
+  --muted: #8b93a5;
+  --cyan: #4f9bec; /* legacy name; now the signal-blue accent */
+  --green: #5fcf9b;
+  --red: #f2848d;
+  --amber: #e8b25e;
+  --border: #2a2e37;
+  --border-bright: #363b45;
+  --blush: #a8b0be;
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -102,15 +109,45 @@
 html, body { margin: 0; padding: 0; min-height: 100%; }
 
 body {
-  font-family: var(--font);
-  /* Vikings purple radial glow top-right, fading into the deep
-   * near-black base.  Replaces the pre-skin navy #12264f highlight
-   * so the backdrop matches the palette. */
-  background: radial-gradient(circle at top right, #3b186a 0%, var(--bg) 50%);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
+  /* TERMINAL: the UI face is the mono face, and the body is 12px.
+     `--font-ui` now resolves to JetBrains Mono (already vendored). */
+  font-family: var(--font-ui, var(--font));
+  /* The Vikings purple radial glow is GONE — it was the single most
+     visible brand artefact on every page, and a glow is decoration in a
+     direction where colour is reserved for data. Flat instrument black. */
+  background: var(--surface-0, var(--bg));
+  color: var(--text-primary, var(--text));
+  font-size: var(--font-size-xs, 12px);
+  line-height: var(--line-height-normal, 1.45);
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── THE PROSE EXCEPTION ────────────────────────────────────────────────
+   Opt-in scope for running text. Mono at 12px is measurably worse for
+   sentences than for figures, so long-form surfaces wrap their copy in
+   `.ds-prose` and get the sans face, a comfortable size, and a bounded
+   measure. See tokens.css for which routes count as prose and why —
+   the boundary is a decision recorded there, not a per-page improvisation.
+
+   Scope the sentences, never the surrounding chrome: a prose page's nav,
+   tables and controls stay terminal. */
+.ds-prose {
+  font-family: var(--font-prose);
+  font-size: var(--font-size-prose);
+  line-height: var(--line-height-prose);
+  color: var(--text-secondary);
+}
+.ds-prose > * {
+  max-width: var(--measure-prose);
+}
+.ds-prose h1,
+.ds-prose h2,
+.ds-prose h3,
+.ds-prose strong {
+  color: var(--text-primary);
+}
+.ds-prose--lead {
+  font-size: var(--font-size-prose-lead);
 }
 
 a { color: inherit; text-decoration: none; }
@@ -173,8 +210,8 @@ a { color: inherit; text-decoration: none; }
 
 .nav-link.nav-active {
   color: var(--cyan);
-  border-color: rgba(255, 199, 4, 0.25);
-  background: rgba(255, 199, 4, 0.06);
+  border-color: rgba(79, 155, 236, 0.25);
+  background: rgba(79, 155, 236, 0.06);
 }
 
 /* Subtle vertical divider between desktop-nav groups.  The hierarchy
@@ -220,7 +257,7 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   z-index: 50;
   min-width: 240px;
-  background: rgba(8, 19, 44, 0.96);
+  background: var(--surface-2);
   backdrop-filter: blur(6px);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius);
@@ -243,11 +280,11 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-dropdown-item:hover {
-  background: rgba(255, 199, 4, 0.07);
+  background: rgba(79, 155, 236, 0.07);
 }
 
 .nav-dropdown-item.nav-active {
-  background: rgba(255, 199, 4, 0.12);
+  background: rgba(79, 155, 236, 0.12);
   color: var(--cyan);
 }
 
@@ -428,14 +465,53 @@ a { color: inherit; text-decoration: none; }
 /* ══════════════════════════════════════════════════════════════════════════
    CARDS
    ══════════════════════════════════════════════════════════════════════════ */
+/* R5 step 1 of 2 — de-seam, then migrate.
+ *
+ * `.card` still has 48 consumers after R2-R4 (86 of them in /league and
+ * /league-comparison, which no redesign phase has scoped). It cannot be
+ * deleted; it has to be migrated page by page, and that is a large job.
+ *
+ * But its OLD rule was a hardcoded pre-redesign navy gradient — off the
+ * token palette entirely, and a gradient at all, which the design
+ * direction rules out. Left alone, the moment R2-R4 land those pages
+ * become the only ones still rendering in the old blue, one nav click
+ * from redesigned surfaces: a visible product seam.
+ *
+ * So this retargets the SURFACE onto the same tokens `.ds-panel` uses,
+ * which removes the seam everywhere at once with no structural change
+ * and no behaviour risk. Every legacy text token gains contrast on the
+ * new background (white 16.6->18.6, --muted 8.9->10.1, --green
+ * 8.6->9.7, --red 6.0->6.7, gold 10.6->11.9), so nothing regresses.
+ *
+ * Padding stays `--space-md` deliberately: the seam is the colour, and
+ * changing spacing here would silently reflow 48 files. Structural
+ * migration to ds `Panel` is tracked in
+ * docs/redesign/R5-PANEL-CSS-PURGE.md §7 and removes this rule for good.
+ */
 .card {
-  background: linear-gradient(180deg, rgba(20, 39, 79, 0.9) 0%, rgba(13, 29, 63, 0.92) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
   padding: var(--space-md);
 }
 
 .card + .card {
+  margin-top: var(--space-md);
+}
+
+/* INTERIM — delete with the last `.card` consumer (R5 phase B).
+ *
+ * /league's `Card` became a ds `Panel` in phase A, and Panel sets no
+ * margins by design: vertical rhythm belongs to the page. But the
+ * /league sections render sequential Cards with no stack container, so
+ * without this the migration would silently collapse the spacing on all
+ * ~70 of them. This preserves the exact previous value while getting it
+ * off the inline style it used to live in.
+ *
+ * Phase B gives each section a real grid/flex gap; this rule goes with
+ * it. See docs/redesign/R5-PHASE-A-READY.md.
+ */
+.league-card {
   margin-top: var(--space-md);
 }
 
@@ -528,7 +604,7 @@ a { color: inherit; text-decoration: none; }
 .select {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(8, 19, 44, 0.7);
+  background: var(--surface-2);
   color: var(--text);
   padding: 8px 10px;
   font-family: inherit;
@@ -559,7 +635,7 @@ a { color: inherit; text-decoration: none; }
 .button {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(8, 19, 44, 0.7);
+  background: var(--surface-2);
   color: var(--text);
   padding: 8px 12px;
   font-family: inherit;
@@ -583,13 +659,13 @@ a { color: inherit; text-decoration: none; }
 }
 
 .button-primary {
-  background: rgba(255, 199, 4, 0.12);
-  border-color: rgba(255, 199, 4, 0.35);
+  background: rgba(79, 155, 236, 0.12);
+  border-color: rgba(79, 155, 236, 0.35);
   color: var(--cyan);
 }
 
 .button-primary:hover {
-  background: rgba(255, 199, 4, 0.18);
+  background: rgba(79, 155, 236, 0.18);
 }
 
 .button-danger {
@@ -602,7 +678,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .button-reset {
-  background: rgba(8, 19, 44, 0.5);
+  background: var(--surface-1);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -837,11 +913,11 @@ input[type="range"]::-moz-range-thumb {
 }
 
 input[type="range"]:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(255, 199, 4, 0.25),
+  box-shadow: 0 0 0 4px rgba(79, 155, 236, 0.25),
               0 2px 6px rgba(0, 0, 0, 0.35);
 }
 input[type="range"]:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 4px rgba(255, 199, 4, 0.25),
+  box-shadow: 0 0 0 4px rgba(79, 155, 236, 0.25),
               0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
@@ -871,12 +947,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(8, 19, 44, 0.5);
+  background: var(--surface-1);
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .global-search-input-row:focus-within {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(255, 199, 4, 0.15);
+  box-shadow: 0 0 0 3px rgba(79, 155, 236, 0.15);
 }
 .global-search-input {
   flex: 1;
@@ -924,7 +1000,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .player-popup-watchlist.is-active {
   color: var(--cyan);
   border-color: var(--cyan);
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .player-popup-watchlist:hover {
   color: var(--cyan);
@@ -1008,8 +1084,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 .badge-cyan {
   color: var(--cyan);
-  border-color: rgba(255, 199, 4, 0.35);
-  background: rgba(255, 199, 4, 0.08);
+  border-color: rgba(79, 155, 236, 0.35);
+  background: rgba(79, 155, 236, 0.08);
 }
 
 .badge-green {
@@ -1197,9 +1273,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      results/controls underneath.  Desktop browsers treat dvh the same
      as vh, so this is a pure mobile win with no desktop regression. */
   max-height: 80dvh;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(20, 39, 79, 0.97) 0%, rgba(13, 29, 63, 0.98) 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
+  /* R5 de-seam: was a hardcoded navy gradient.  ds Modal/Drawer sit on
+     --surface-1; this is the same kind of surface, so it uses the same
+     token.  Contrast improves (white 16.6->18.6, --muted 8.9->10.1). */
+  background: var(--surface-1);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -1249,7 +1328,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   height: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(8, 19, 44, 0.7);
+  background: var(--surface-2);
   color: var(--text);
   font-size: 1.3rem;
   line-height: 1;
@@ -1285,7 +1364,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
 }
 .picker-row:active {
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1307,7 +1386,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-top: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(8, 19, 44, 0.85);
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1330,7 +1409,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .trade-side-search-result:hover,
 .trade-side-search-result:active {
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 
 .trade-side-search-result-body {
@@ -1381,7 +1460,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(8, 19, 44, 0.92);
+  background: var(--surface-2);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -1400,7 +1479,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 199, 4, 0.06);
+  background: rgba(79, 155, 236, 0.06);
   color: var(--text);
   font-size: 0.78rem;
   font-weight: 600;
@@ -1442,7 +1521,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-top: 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(8, 19, 44, 0.96);
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1470,7 +1549,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .mobile-quick-add-result:active {
-  background: rgba(255, 199, 4, 0.10);
+  background: rgba(79, 155, 236, 0.10);
 }
 
 .mobile-quick-add-result-body {
@@ -1520,9 +1599,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      disappearing behind it. */
   max-height: 85dvh;
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  /* R5 de-seam: was a hardcoded purple gradient.  Same surface class
+     as ds Drawer, so the same token.  (white 18.2->18.6). */
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
   padding: var(--space-md);
   -webkit-overflow-scrolling: touch;
 }
@@ -1612,8 +1693,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .toast-info {
-  background: rgba(255, 199, 4, 0.18);
-  border: 1px solid rgba(255, 199, 4, 0.35);
+  background: rgba(79, 155, 236, 0.18);
+  border: 1px solid rgba(79, 155, 236, 0.35);
   color: var(--cyan);
 }
 
@@ -1645,18 +1726,21 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, rgba(255, 199, 4, 0.08), transparent 48%);
+  background: radial-gradient(circle at top left, rgba(79, 155, 236, 0.08), transparent 48%);
 }
 
 .login-panel {
   width: min(460px, 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(10, 22, 50, 0.85) 0%, rgba(10, 22, 46, 0.95) 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
+  /* R5 de-seam: was a hardcoded navy gradient — and /login is the first
+     surface a signed-out visitor sees, so it was the seam with the
+     widest audience.  (white 18.0->18.6). */
+  background: var(--surface-1);
   padding: 18px;
 }
 
-.login-badge { color: var(--cyan); border-color: rgba(255, 199, 4, 0.35); background: rgba(255, 199, 4, 0.08); }
+.login-badge { color: var(--cyan); border-color: rgba(79, 155, 236, 0.35); background: rgba(79, 155, 236, 0.08); }
 .login-form { margin-top: var(--space-md); display: grid; gap: 10px; }
 .login-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .login-input { width: 100%; }
@@ -2110,7 +2194,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  background: rgba(8, 19, 44, 0.5);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-md);
@@ -2139,7 +2223,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 .rankings-methodology-body {
   padding: var(--space-sm) var(--space-md);
-  background: rgba(8, 19, 44, 0.4);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-md);
@@ -2178,7 +2262,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   min-width: 260px;
   max-width: 340px;
   padding: 10px 12px;
-  background: rgba(8, 19, 44, 0.98);
+  background: var(--surface-2);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-sm);
   z-index: 20;
@@ -2287,7 +2371,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .rankings-tier-separator td {
   padding: 6px 10px 4px;
   border-bottom: 1px solid var(--border-bright);
-  background: rgba(8, 19, 44, 0.6);
+  background: var(--surface-2);
 }
 
 .rankings-tier-separator-label {
@@ -2579,7 +2663,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    EDGE RAIL
    ══════════════════════════════════════════════════════════════════════════ */
 .edge-rail {
-  background: rgba(8, 19, 44, 0.4);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-sm) var(--space-md);
@@ -2776,7 +2860,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .trade-meter {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(8, 19, 44, 0.5);
+  background: var(--surface-1);
   padding: var(--space-md);
   margin-bottom: var(--space-md);
 }
@@ -2789,8 +2873,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 10px;
   padding: 10px 14px;
   margin-bottom: var(--space-md);
-  border: 1px solid rgba(255, 199, 4, 0.18);
-  background: rgba(255, 199, 4, 0.05);
+  border: 1px solid rgba(79, 155, 236, 0.18);
+  background: rgba(79, 155, 236, 0.05);
   border-radius: var(--radius);
 }
 
@@ -3057,23 +3141,33 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border-bright);
-  background: linear-gradient(135deg, #4F2185 0%, #2a1550 100%);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 0.82rem;
+  padding: 8px 14px;
+  /* Terminal: squared, not a pill. --radius-full is reserved for status
+     dots; a rounded floating pill was the last consumer-app shape left
+     on screen. */
+  border-radius: var(--radius-2);
+  border: 1px solid var(--border-default);
+  /* R5 de-seam: was a hardcoded purple gradient.  Deliberately NOT
+     --accent: this is a screenshot utility, and painting it gold would
+     promote it to the visual weight of a primary action.  Raised chrome
+     (--surface-3, the overlay token) de-seams it without re-ranking it.
+     (white 13.7->16.3). */
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  /* was var(--font) — the FAB was the only sans element left on screen */
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
   font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(255, 199, 4, 0.14);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  box-shadow: var(--shadow-2);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 .screenshot-fab:hover {
   transform: translateY(-1px);
   border-color: var(--cyan);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(255, 199, 4, 0.3);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(79, 155, 236, 0.3);
 }
 .screenshot-fab--busy { opacity: 0.6; cursor: wait; }
 .screenshot-fab-icon {
@@ -3096,7 +3190,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     width: 44px;
     height: 44px;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: var(--radius-2);
     right: 12px;
     bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
   }
@@ -3202,7 +3296,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom: none;
 }
 .source-breakdown-table tbody tr:hover {
-  background: rgba(255, 199, 4, 0.04);
+  background: rgba(79, 155, 236, 0.04);
 }
 
 /* ── Draft dashboard ──────────────────────────────────────────────── */
@@ -3228,8 +3322,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-bottom: 14px;
 }
 .draft-stat {
-  background: rgba(255, 199, 4, 0.04);
-  border: 1px solid rgba(255, 199, 4, 0.15);
+  background: rgba(79, 155, 236, 0.04);
+  border: 1px solid rgba(79, 155, 236, 0.15);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -3416,7 +3510,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-left: 2px solid var(--green);
 }
 .draft-row:hover {
-  background: rgba(255, 199, 4, 0.04);
+  background: rgba(79, 155, 236, 0.04);
 }
 
 .draft-tag {
@@ -3552,7 +3646,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
 }
 .draft-live-idle    { color: var(--muted); }
-.draft-live-push    { color: var(--cyan); border-color: var(--cyan); background: rgba(255, 199, 4, 0.08); }
+.draft-live-push    { color: var(--cyan); border-color: var(--cyan); background: rgba(79, 155, 236, 0.08); }
 .draft-live-target  { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
 .draft-live-pass    { color: var(--red); border-color: var(--red); background: rgba(248, 113, 113, 0.08); }
 .draft-live-mine    { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
@@ -3581,7 +3675,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-family: var(--mono, monospace);
 }
 .draft-tier-S {
-  background: rgba(255, 199, 4, 0.15);
+  background: rgba(79, 155, 236, 0.15);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -3644,15 +3738,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .draft-progress-fill {
   height: 100%;
-  /* Vikings palette sweep: purple → gold → blush so all three
-   * brand colors ride the progress bar.  Visual beat: the user
-   * sees the whole league palette fill in as the draft completes. */
-  background: linear-gradient(
-    to right,
-    var(--vikings-purple),
-    var(--vikings-gold) 60%,
-    var(--blush)
-  );
+  /* Was a Vikings purple → gold → blush sweep — the last consumer of the
+     brand hexes. Terminal has no brand colours to parade, and a
+     three-hue gradient on a progress bar is decoration: the bar already
+     encodes progress by length, so the extra channel says nothing. Flat
+     accent instead. */
+  background: var(--accent);
   transition: width 0.35s ease;
 }
 .draft-progress-labels {
@@ -3684,7 +3775,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   align-items: center;
 }
 .draft-tag-tab:hover {
-  background: rgba(255, 199, 4, 0.05);
+  background: rgba(79, 155, 236, 0.05);
 }
 .draft-tag-tab-active {
   font-weight: 600;
@@ -3712,7 +3803,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   justify-content: center;
 }
 .draft-tag-chip:hover {
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .draft-tag-chip:disabled {
   opacity: 0.4;
@@ -3758,7 +3849,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--green);
 }
 .draft-rec-steal {
-  background: rgba(255, 199, 4, 0.12);
+  background: rgba(79, 155, 236, 0.12);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -3773,7 +3864,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--green);
 }
 .draft-rec-spend {
-  background: rgba(255, 199, 4, 0.1);
+  background: rgba(79, 155, 236, 0.1);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -3816,7 +3907,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(153, 166, 200, 0.04);
 }
 .draft-nbt-row:hover {
-  background: rgba(255, 199, 4, 0.05);
+  background: rgba(79, 155, 236, 0.05);
 }
 .draft-nbt-target {
   background: rgba(52, 211, 153, 0.06);
@@ -3939,7 +4030,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 8px 12px;
   margin-bottom: 12px;
   border-radius: 6px;
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
   border: 1px solid var(--cyan);
   color: var(--cyan);
   font-size: 0.78rem;
@@ -3984,7 +4075,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(153, 166, 200, 0.04);
 }
 .draft-tb-row:hover {
-  background: rgba(255, 199, 4, 0.05);
+  background: rgba(79, 155, 236, 0.05);
 }
 .draft-tb-row-mine {
   background: rgba(52, 211, 153, 0.08);
@@ -4097,7 +4188,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .draft-tb-status-tight {
   border-color: var(--cyan);
-  background: rgba(255, 199, 4, 0.06);
+  background: rgba(79, 155, 236, 0.06);
 }
 .draft-tb-status-tight .draft-tb-status-line {
   color: var(--cyan);
@@ -4186,7 +4277,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .draft-row-selected {
   outline: 2px solid var(--cyan);
   outline-offset: -2px;
-  background: rgba(255, 199, 4, 0.08) !important;
+  background: rgba(79, 155, 236, 0.08) !important;
 }
 
 /* ── Draft glossary ─────────────────────────────────────────────── */
@@ -4327,7 +4418,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--text);
 }
 .draft-alert-warn {
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
   border: 1px solid var(--cyan);
   color: var(--text);
 }
@@ -4396,7 +4487,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 /* Quick-record inline row */
 .draft-quick-row td {
-  background: rgba(255, 199, 4, 0.06);
+  background: rgba(79, 155, 236, 0.06);
   border-left: 2px solid var(--cyan) !important;
   padding: 6px 10px;
 }
@@ -4503,8 +4594,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   animation: team-switcher-pulse 2s ease-in-out infinite;
 }
 @keyframes team-switcher-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(86, 214, 255, 0); }
-  50% { box-shadow: 0 0 0 3px rgba(86, 214, 255, 0.25); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 155, 236, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(79, 155, 236, 0.25); }
 }
 .team-switcher-label {
   overflow: hidden;
@@ -4552,12 +4643,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   transition: background 0.12s, color 0.12s;
 }
 .team-switcher-option:hover {
-  background: rgba(86, 214, 255, 0.08);
+  background: rgba(79, 155, 236, 0.08);
   color: var(--cyan);
 }
 .team-switcher-option.is-active {
   color: var(--cyan);
-  background: rgba(86, 214, 255, 0.12);
+  background: rgba(79, 155, 236, 0.12);
   font-weight: 600;
 }
 .team-switcher-option-name {
@@ -4838,7 +4929,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
 }
 .panel-tab.is-active {
-  background: rgba(86, 214, 255, 0.12);
+  background: rgba(79, 155, 236, 0.12);
   color: var(--cyan);
 }
 .panel-tab:disabled {
@@ -4983,7 +5074,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .ticker-scope-tab.is-active {
   color: var(--cyan);
   border-color: var(--cyan);
-  background: rgba(86, 214, 255, 0.1);
+  background: rgba(79, 155, 236, 0.1);
 }
 .ticker-strip {
   flex: 1;
@@ -5092,7 +5183,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(8, 19, 44, 0.55);
+  background: var(--surface-2);
 }
 
 .top-signals-rail-header {
@@ -5127,7 +5218,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(8, 19, 44, 0.7);
+  background: var(--surface-2);
   text-align: left;
   cursor: pointer;
   color: inherit;
@@ -5138,7 +5229,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 .top-signal-card:hover,
 .top-signal-card:focus-visible {
-  background: rgba(8, 19, 44, 0.95);
+  background: var(--surface-2);
   outline: none;
 }
 
@@ -5286,7 +5377,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .pmm-scope-tab.is-active {
   color: var(--cyan);
   border-color: var(--cyan);
-  background: rgba(86, 214, 255, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .pmm-scope-tab:disabled {
   cursor: default;
@@ -5370,7 +5461,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .signal-filter.is-active {
   color: var(--text);
   border-color: var(--cyan);
-  background: rgba(86, 214, 255, 0.06);
+  background: rgba(79, 155, 236, 0.06);
 }
 .signal-filter--up.is-active     { border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
 .signal-filter--down.is-active   { border-color: var(--red); background: rgba(248, 113, 113, 0.1); }
@@ -5541,7 +5632,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-color: var(--cyan);
 }
 .signal-card-dismiss--restore:hover {
-  background: rgba(255, 199, 4, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .signal-card--dismissed {
   opacity: 0.55;
@@ -5593,7 +5684,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .signal-badge--up   { color: var(--green); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.1); }
 .signal-badge--down { color: var(--red); border-color: rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.1); }
 .signal-badge--warn { color: var(--amber); border-color: rgba(251, 191, 36, 0.5); background: rgba(251, 191, 36, 0.1); }
-.signal-badge--flat { color: var(--cyan); border-color: rgba(86, 214, 255, 0.5); background: rgba(86, 214, 255, 0.1); }
+.signal-badge--flat { color: var(--cyan); border-color: rgba(79, 155, 236, 0.5); background: rgba(79, 155, 236, 0.1); }
 .signal-badge--sm {
   font-size: 0.6rem;
   padding: 1px 6px;
@@ -5715,7 +5806,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
-.scouting-dist-bar--high { background: rgba(86, 214, 255, 0.55); }
+.scouting-dist-bar--high { background: rgba(79, 155, 236, 0.55); }
 .scouting-dist-bar--med  { background: rgba(251, 191, 36, 0.4); }
 .scouting-dist-bar--low  { background: rgba(79, 33, 133, 0.6); }
 .scouting-dist-legend {
@@ -6061,7 +6152,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .scouting-insight-badge--up   { color: var(--green); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.08); }
 .scouting-insight-badge--down { color: var(--red);   border-color: rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.08); }
 .scouting-insight-badge--warn { color: var(--amber); border-color: rgba(251, 191, 36, 0.5); background: rgba(251, 191, 36, 0.08); }
-.scouting-insight-badge--flat { color: var(--cyan);  border-color: rgba(86, 214, 255, 0.5); background: rgba(86, 214, 255, 0.08); }
+.scouting-insight-badge--flat { color: var(--cyan);  border-color: rgba(79, 155, 236, 0.5); background: rgba(79, 155, 236, 0.08); }
 
 .scouting-insight-player {
   display: inline-flex;
@@ -6204,7 +6295,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .news-item--sev-watch { border-left-color: var(--amber); }
 .news-item--sev-info  { border-left-color: var(--cyan); }
 .news-item--roster {
-  background: rgba(86, 214, 255, 0.04);
+  background: rgba(79, 155, 236, 0.04);
 }
 .news-item-meta {
   display: flex;
@@ -6273,7 +6364,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .news-item-player--roster {
   color: var(--cyan);
   border-color: var(--cyan);
-  background: rgba(86, 214, 255, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .news-item-players-empty {
   color: var(--muted);
@@ -6406,7 +6497,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .pmm-sort-chip.is-active {
   color: var(--cyan);
   border-color: var(--cyan);
-  background: rgba(86, 214, 255, 0.08);
+  background: rgba(79, 155, 236, 0.08);
 }
 .pmm-empty {
   padding: var(--space-md);
@@ -6432,8 +6523,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   transition: background 0.12s, border-color 0.12s;
 }
 .pmm-row--roster {
-  border-color: rgba(86, 214, 255, 0.2);
-  background: rgba(86, 214, 255, 0.04);
+  border-color: rgba(79, 155, 236, 0.2);
+  background: rgba(79, 155, 236, 0.04);
 }
 .pmm-row:hover { background: rgba(255, 255, 255, 0.04); }
 .pmm-row-trigger {
@@ -6489,7 +6580,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-radius: 999px;
   border: 1px solid var(--border);
 }
-.pmm-vol-pill--low  { color: var(--cyan); border-color: rgba(86, 214, 255, 0.4); }
+.pmm-vol-pill--low  { color: var(--cyan); border-color: rgba(79, 155, 236, 0.4); }
 .pmm-vol-pill--med  { color: var(--amber); border-color: rgba(251, 191, 36, 0.4); }
 .pmm-vol-pill--high { color: var(--red); border-color: rgba(248, 113, 113, 0.4); }
 .pmm-vol-pill--none { color: var(--muted); }
@@ -6746,7 +6837,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--bg);
-  background: var(--amber, #FFC704);
+  background: var(--amber, var(--accent));
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -6786,7 +6877,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(255, 255, 255, 0.05);
 }
 .watchlist-row--roster {
-  border-color: rgba(255, 199, 4, 0.25);
+  border-color: rgba(79, 155, 236, 0.25);
 }
 .watchlist-row-trigger {
   display: grid;
@@ -7029,7 +7120,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   flex-shrink: 0;
 }
 .source-health-dot--up   { background: var(--green); }
-.source-health-dot--warn { background: #FFC704; }
+.source-health-dot--warn { background: var(--accent); }
 .source-health-dot--down { background: var(--red); }
 .source-health-dot--flat { background: var(--muted); }
 .source-health-summary {
@@ -7057,7 +7148,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 3px 0;
 }
 .source-health-row--down { color: var(--red); }
-.source-health-row--warn { color: var(--amber, #FFC704); }
+.source-health-row--warn { color: var(--amber, var(--accent)); }
 .source-health-name {
   font-weight: 600;
   color: var(--text);

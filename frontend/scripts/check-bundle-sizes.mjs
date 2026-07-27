@@ -61,7 +61,13 @@ const BUDGETS_KB = {
   "/edge/page": 30,
   "/finder/page": 20,
   "/angle/page": 30,
-  "/league/page": 170, // public hub bundles every section together; bumped 165→170 for /league?tab=teamAssignment
+  // Public hub bundles every section together; bumped 165→170 for
+  // /league?tab=teamAssignment. Held at 170 through R5 phase A: the
+  // Card→Panel migration cost 3.2 KB (Panel + its static `Icon`
+  // dependency landing in a bundle that had zero ds usage), and 2.2 of
+  // that was recovered by splitting the chevron into its own module
+  // rather than by bumping this number. See glyph-chevron-down.jsx.
+  "/league/page": 170,
   "/rosters/page": 30,
   "/trades/page": 20,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
