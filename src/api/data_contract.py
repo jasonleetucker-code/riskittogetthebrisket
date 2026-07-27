@@ -2053,6 +2053,85 @@ def _tier_id_from_rank(rank: int) -> int:
     return 10
 
 
+def compact_ranks_and_tiers(
+    rows: list[dict[str, Any]],
+    *,
+    anchor_year: int,
+    copy_rows: bool = False,
+) -> list[dict[str, Any]]:
+    """Assign contiguous ranks + gap-based tiers from ``rankDerivedValue``.
+
+    **The one ranker.** Extracted from the Phase 5 compact pass so the
+    league-adjusted overlay can re-rank an adjusted board without
+    reimplementing it.  A second ranker is exactly what the
+    "no secondary ranker anywhere in the stack" rule exists to prevent —
+    two implementations drift, and the one that drifts is the one nobody
+    is looking at.
+
+    Sorts by ``rankDerivedValue`` descending with the prior
+    ``canonicalConsensusRank`` as tiebreaker, so rows whose values were
+    not mutated keep their existing relative order.
+
+    Current-year slot picks (e.g. "2026 Pick 1.06") are deliberately
+    skipped: they carry a real value but must NOT consume a rank slot,
+    because they are a proxy for the corresponding rookie and would
+    otherwise push every player below them down one. Their rank and tier
+    are cleared; the row itself stays on the board. Tier-generic picks
+    ("2026 Early 1st") take ordinary slots.
+
+    Args:
+        rows: every candidate row. Only rows with a truthy
+            ``canonicalConsensusRank`` are considered — that set is
+            already the contiguous 1..N board, so a permutation of it is
+            automatically unique and contiguous.
+        anchor_year: current rookie draft year, for the slot-pick skip.
+        copy_rows: shallow-copy before mutating. **The overlay path must
+            pass True.** ``latest_contract_data`` is a shared module
+            global; mutating its rows to build one league's overlay would
+            permanently overwrite the board every other request reads.
+
+    Returns the ranked, compacted rows in rank order — i.e. exactly the
+    rows that received a tier, with anchor slot picks excluded.
+    """
+    candidates = [r for r in rows if r.get("canonicalConsensusRank")]
+    if copy_rows:
+        candidates = [dict(r) for r in candidates]
+
+    ranked_rows = sorted(
+        candidates,
+        key=lambda r: (
+            -int(r.get("rankDerivedValue") or 0),
+            int(r["canonicalConsensusRank"]),
+        ),
+    )
+
+    tiered_rows: list[dict[str, Any]] = []
+    new_rank = 0
+    for r in ranked_rows:
+        is_anchor_slot_pick = False
+        if r.get("assetClass") == "pick":
+            parsed = _parse_pick_slot(r.get("canonicalName") or "")
+            if parsed is not None and parsed[0] == anchor_year:
+                is_anchor_slot_pick = True
+        if is_anchor_slot_pick:
+            r["canonicalConsensusRank"] = None
+            r["canonicalTierId"] = None
+            continue
+        new_rank += 1
+        if r.get("canonicalConsensusRank") != new_rank:
+            r["canonicalConsensusRank"] = new_rank
+        tiered_rows.append(r)
+
+    # Gap-based tier detection on the blended value series.  Tiers land
+    # where the per-player value gap is unusually large relative to the
+    # local rolling-median gap: a 400-point drop from rank 12->13 is a
+    # boundary; a 3-point drop from 312->313 is not.
+    for r, tier_id in zip(tiered_rows, _compute_value_based_tier_ids(tiered_rows)):
+        r["canonicalTierId"] = tier_id
+
+    return tiered_rows
+
+
 def _retail_source_keys() -> frozenset[str]:
     """Return the set of ranking source keys marked `is_retail` in the registry.
 
@@ -7479,52 +7558,16 @@ def _compute_unified_rankings(
     #     for all rows whose values were not mutated.  Tier IDs are
     #     re-derived after compaction via gap-based detection on the
     #     blended ``rankDerivedValue`` series (see below).
-    ranked_rows = sorted(
-        [r for r in players_array if r.get("canonicalConsensusRank")],
-        key=lambda r: (
-            -int(r.get("rankDerivedValue") or 0),
-            int(r["canonicalConsensusRank"]),
-        ),
+    # Extracted to ``compact_ranks_and_tiers`` so the league-adjusted
+    # overlay re-ranks through the SAME code rather than a second
+    # implementation.  In-place here (copy_rows=False): these are the
+    # canonical board's own rows and the pipeline owns them.  The overlay
+    # passes copy_rows=True — see that function's docstring for why.
+    tiered_rows = compact_ranks_and_tiers(
+        players_array,
+        anchor_year=_anchor_year,
+        copy_rows=False,
     )
-    # Compact ranks, skipping current-year slot picks so picks don't
-    # consume merged-board rank slots. Picks still appear (the row is
-    # kept in the array) but their ``canonicalConsensusRank`` is
-    # cleared — they're a proxy for the corresponding rookie, so the
-    # user sees the value without the pick pushing every other player
-    # down one rank. Only applies to slot-specific current-year picks
-    # (e.g. "2026 Pick 1.06"); tier-generic picks ("2026 Early 1st")
-    # still take ordinary rank slots.
-    #
-    # Collect the ranked rows that actually receive a tier ID so the
-    # gap-detection pass below sees only the compacted board (no
-    # None-ranked anchor slot picks in the middle of its gap series).
-    tiered_rows: list[dict[str, Any]] = []
-    new_rank = 0
-    for r in ranked_rows:
-        is_anchor_slot_pick = False
-        if r.get("assetClass") == "pick":
-            parsed = _parse_pick_slot(r.get("canonicalName") or "")
-            if parsed is not None and parsed[0] == _anchor_year:
-                is_anchor_slot_pick = True
-        if is_anchor_slot_pick:
-            r["canonicalConsensusRank"] = None
-            r["canonicalTierId"] = None
-            continue
-        new_rank += 1
-        old_rank = r.get("canonicalConsensusRank")
-        if old_rank != new_rank:
-            r["canonicalConsensusRank"] = new_rank
-        tiered_rows.append(r)
-
-    # Gap-based tier detection on the blended value series.  Tiers
-    # land where the per-player value gap is unusually large relative
-    # to the local rolling-median gap: a 400-point drop from rank
-    # 12→13 registers as a new tier boundary; a 3-point drop from
-    # 312→313 does not.  The frontend renders the resulting tier IDs
-    # as generic "Tier N" labels, so every math-detected tier flows
-    # through uncapped.
-    for r, tier_id in zip(tiered_rows, _compute_value_based_tier_ids(tiered_rows)):
-        r["canonicalTierId"] = tier_id
 
     # Rank-change vs previous scrape.  Stamps ``rankChange`` on
     # each row from the persisted snapshot; writes the current ranks
