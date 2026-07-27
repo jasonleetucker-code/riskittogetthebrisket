@@ -121,12 +121,37 @@ Rebase onto `origin/main` directly, never onto another PR's branch, and
 then run the check that catches it:
 
 ```
-git diff --stat origin/main HEAD    # must show ONLY your own files
+git diff --stat origin/main...HEAD   # THREE dots. Only your own files.
 ```
 
-That check is the whole defence. It is one command, it is unambiguous,
-and it is the reason #567 shipped as four files. Run it after every
-rebase — #567 went through five while merges landed underneath it.
+**Use three dots, not two. This correction was paid for.** The check was
+written here as `git diff --stat origin/main HEAD` (two dots), and on
+2026-07-27 the orchestrator read a two-dot diff on a branch that was
+merely *behind* main, saw `public-league-warmup.yml | 107 ++-------`,
+and announced that the branch "would have silently reverted #575". It
+would not have. That claim was wrong, and it was stated confidently in
+a PR body before being checked.
+
+The two forms answer different questions:
+
+| Form | Answers | On a branch that is behind main |
+|---|---|---|
+| `origin/main HEAD` (two dots) | "what differs between these two commits" | lists every change made on main since you branched, rendered as if you were undoing it — **false positives** |
+| `origin/main...HEAD` (three dots) | "what did *I* change since the merge-base" | only your files |
+
+Measured on #573, which was based on `ae3042935` while main was at
+`74d5c556b`: two-dot listed 2 files including the warmup revert;
+three-dot listed 1 file. And the merge itself is fine —
+`git merge-tree --write-tree origin/main <branch>` produced a tree
+whose `public-league-warmup.yml` still contains the health gate and
+`timeout-minutes: 10`. **GitHub three-way merges from the merge-base;
+an un-rebased branch does not revert intervening work.**
+
+Being behind main is not a defect. Carrying a revert *in your own diff*
+is. Three-dot distinguishes them; two-dot cannot.
+
+Run it after every rebase — #567 went through five while merges landed
+underneath it, and it is the reason #567 shipped as four files.
 
 **ADR numbers collide because they are chosen at authoring time against
 a base that moves before merge.** Two agents authoring concurrently both
@@ -1003,8 +1028,10 @@ measures the trade-engine value divergence (F-6 input, no fix) and
 refutes its own prior §16.7 hypothesis about the corridor clamp. It
 merged *while this dashboard rebuild was in flight*, which is itself the
 §2a lesson landing for a third time today: this branch was rebased onto
-`origin/main` and `git diff --stat origin/main HEAD` re-run to confirm
-it still carried only its own file.
+`origin/main` and the diff re-run to confirm it still carried only its
+own file. (That re-run used the two-dot form; on a rebased branch the
+two forms agree, so the conclusion held — but see §2a for why the
+three-dot form is the one to write down.)
 
 Its measured result is worth carrying into §6.2's eventual fix: the
 board runs ~12% below the composite (k = 0.880 across 803 assets), so
