@@ -146,10 +146,28 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # depth, and re-allocates between IDP positions rather than
     # inflating IDP as a whole — see src/league_intel/scoring_fit.py.
     #
-    # OFF by default, unlike te_basis_conversion.  The operator directed
-    # the TE basis explicitly and has directed nothing here, and this
-    # moves every IDP value on the board.  Flip with
+    # OFF by default, unlike te_basis_conversion.  Flip with
     # RISKIT_FEATURE_IDP_SCORING_FIT=1.
+    #
+    # 2026-07-27, operator delegated the decision and it stays OFF.
+    # Not because the edge is doubted — the Tier 2 measurement is real
+    # and the risk is lower than it looks, since this axis reaches only
+    # ``build_board_adjustments``, i.e. the OPT-IN league-adjusted lens,
+    # never the default market board.  It stays off because
+    # ``tests/api/test_feature_flags.py`` requires a MEASURED blast
+    # radius for any value-moving default-ON flag, and an attempt to
+    # re-derive one in that session returned an empty positional map.
+    # That turned out to be a harness fault — the persisted actuals
+    # carry raw positions (DT/DE/CB/SAF/FS) and the scoring engine
+    # dropped ``SAF`` as unknown, so the DL/LB/DB family mapping was
+    # never applied — but "my harness was wrong" and "the fit collapsed"
+    # are indistinguishable until it is re-run correctly.
+    #
+    # Turning a value-moving flag on from a number that could not be
+    # reproduced at the time is the exact defect class this codebase
+    # keeps paying for.  Re-run the measurement with the family mapping
+    # applied, record the blast radius here and in ``value_moving_on``,
+    # and then flip it.  The cost of waiting is one env var.
     #
     # Note what is deliberately NOT behind this flag: a per-player IDP
     # multiplier.  The same data supports one arithmetically and it is
