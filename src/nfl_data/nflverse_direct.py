@@ -56,15 +56,29 @@ _RELEASE_BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 
 # Per-dataset URL templates.  ``{year}`` is the season year.
 _URL_TEMPLATES = {
-    "weekly_stats": (f"{_RELEASE_BASE}/player_stats/player_stats_{{year}}.csv"),
-    "weekly_defensive_stats": (
-        # Defensive per-week stats live in a separate nflverse file
-        # from offensive stats.  Columns are prefixed ``def_``:
-        # ``def_tackles_solo``, ``def_sacks``, ``def_qb_hits``,
-        # ``def_pass_defended``, ``def_interceptions``, etc.
-        # Verified live 2026-04-26.
-        f"{_RELEASE_BASE}/player_stats/player_stats_def_{{year}}.csv"
-    ),
+    # nflverse RENAMED and UNIFIED this release in 2025.  The old
+    # ``player_stats/player_stats_{year}.csv`` 404s for 2025+ while
+    # still serving <=2024, so the break was invisible: ``_fetch_csv``
+    # swallows the 404, returns [], and every downstream consumer sees
+    # "no rows for 2025" as though the season had no data.  Probed
+    # 2026-07-27:
+    #
+    #     player_stats/player_stats_2024.csv          200
+    #     player_stats/player_stats_2025.csv          404
+    #     player_stats/player_stats_def_2024.csv      200
+    #     player_stats/player_stats_def_2025.csv      404
+    #     stats_player/stats_player_week_2024.csv     200
+    #     stats_player/stats_player_week_2025.csv     200
+    #
+    # The new file serves BOTH years and unifies offense and defense —
+    # it carries 15 ``def_*`` columns (``def_tackles_solo``,
+    # ``def_sacks``, ``def_tackles_for_loss``, ``def_pass_defended``,
+    # …) alongside the offensive ones.  So both keys point at one URL
+    # and the two fetch functions differ only in how they filter, not
+    # in what they request.  Keeping both templates (rather than one)
+    # preserves the public API its callers in ``ingest.py`` depend on.
+    "weekly_stats": (f"{_RELEASE_BASE}/stats_player/stats_player_week_{{year}}.csv"),
+    "weekly_defensive_stats": (f"{_RELEASE_BASE}/stats_player/stats_player_week_{{year}}.csv"),
     "snap_counts": (f"{_RELEASE_BASE}/snap_counts/snap_counts_{{year}}.csv"),
     "id_map": (f"{_RELEASE_BASE}/players/players.csv"),
     "pbp": (f"{_RELEASE_BASE}/pbp/play_by_play_{{year}}.csv"),
@@ -103,12 +117,30 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC) as resp:
             body = resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
-        _LOGGER.warning(
-            "nflverse_direct=http label=%s url=%s status=%d",
-            label,
-            url,
-            getattr(exc, "code", 0),
-        )
+        status = getattr(exc, "code", 0)
+        # A 404 is categorically different from a 5xx or a timeout.
+        # The host answered and said this path does not exist, which
+        # means OUR URL template is wrong — nflverse renamed or moved
+        # the release. Retrying will never fix it, and the caller sees
+        # the same empty list it would see for a genuinely dataless
+        # season. That is exactly how the 2025 rename went unnoticed:
+        # `player_stats_{year}.csv` kept serving <=2024 while 404ing
+        # 2025, so the break looked like "no data yet".
+        if status == 404:
+            _LOGGER.error(
+                "nflverse_direct=url_stale label=%s url=%s status=404 "
+                "— the release path no longer exists; the URL template in "
+                "_URL_TEMPLATES needs updating. Returning no rows.",
+                label,
+                url,
+            )
+        else:
+            _LOGGER.warning(
+                "nflverse_direct=http label=%s url=%s status=%d",
+                label,
+                url,
+                status,
+            )
         if bp is not None:
             bp.report_failure(exc)
         return []
