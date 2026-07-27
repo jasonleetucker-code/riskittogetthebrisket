@@ -177,7 +177,42 @@ copies, which remain useful as live-board checks.
 
 ## 4. Defects
 
-### D-1 — one out-of-range source value rescales the entire board *(UNRESOLVED — documented, not fixed)*
+### D-1 — one out-of-range source value rescales the entire board *(**RESOLVED 2026-07-27**)*
+
+> **Resolution.** Fixed in `src/api/data_contract.py` by
+> `_partition_value_source_ranges` + `_value_is_in_declared_range`.
+> Operator decision was **"B with a C escalation"**:
+>
+> * **B** — an out-of-range row is dropped from the value-direct path
+>   for that source only and falls through to the existing rank→Hill
+>   fallback, exactly as a missing value already does. Every other
+>   player is untouched.
+> * **C** — above `_VALUE_RANGE_ESCALATION_FRACTION` (2%) out-of-range
+>   rows the vendor has changed their scale rather than glitched, so
+>   the whole source is suppressed from the value-direct path (it still
+>   votes via rank→Hill) and the run logs an ERROR.
+> * **Minimum sample** — `_VALUE_RANGE_ESCALATION_MIN_ROWS` (50). Below
+>   that we always take policy B. Escalation C is a claim about the
+>   *source*, and a fraction over a handful of rows cannot support it:
+>   on a 4-row fixture one glitch is 25%. This was caught by a test,
+>   not by review.
+> * The ceiling is **per source**, not a global 9999 — `dynastyNerdsSfTep`
+>   publishes up to 10256, so a hardcoded ceiling would be wrong the
+>   moment a differently-scaled board joins `_VALUE_BASED_SOURCES`.
+>
+> **It changed no live number.** Verified against the real board on the
+> day of the fix: `ktcSfTep` 464 rows / 0 out of range / max 9999;
+> `idpTradeCalc` 814 rows / 0 out of range / max 9999; nothing
+> suppressed. A tripwire, not a repricing.
+>
+> The characterisation test below
+> (`test_out_of_range_finite_value_rescales_the_board`) has been
+> converted to the no-contamination assertion it asked for and renamed
+> `test_out_of_range_finite_value_does_not_rescale_the_board`.
+> `tests/api/test_value_range_guard.py` adds 15 more.
+>
+> The original write-up is retained below because the measurement and
+> the policy reasoning are the load-bearing part.
 
 **Where** `src/api/data_contract.py::_compute_unified_rankings`, the
 `value_source_max` construction (~line 6597) feeding the value-direct
