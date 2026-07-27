@@ -32,9 +32,12 @@ drift 0.0. Recorded in `docs/collaborative-model-audit/EXPERIMENT_LOG.md`
 as EXP-8. **This unblocks the TE basis wiring**, which remains staged
 and deliberately not connected.
 
-**New §6.15 — the dominant defect class in this repo.** Four separate
+**New §6.15 — the dominant defect class in this repo.** Five separate
 instances found in one session of *a guard that cannot fire*. Read it
-before writing another guard.
+before writing another guard. The fifth is this repo's own session-start
+health check, which measured file mtime and called it data freshness —
+caught because it raised a *false* alarm, not because anyone noticed its
+silence.
 
 **Scoring divergence measured** against the operator's default-scoring
 baseline league (already `BASELINE_LEAGUE_ID`, already scaffolded in
@@ -1039,7 +1042,16 @@ any KV read, so it says nothing about whether `user_kv` works for a
 signed-in user. Verifying that needs a session cookie the orchestrator
 does not hold. Unverified, not fine.
 
-### 6.12 The startup staleness check fires on a file nothing consumes
+### 6.12 The startup staleness check fires on a file nothing consumes — FIXED 2026-07-27 ~19:00
+
+**Closed.** The check now reads `scrapeTimestamp` from
+`dynasty_data_*.json` and reports per-source coverage, exactly as
+prescribed below. Both defects named here are gone: the hardcoded 12h is
+replaced by `config/source_staleness.json`, and the mirror is no longer
+consulted. It also turned out to carry a third defect this section did
+not reach — it measured file **mtime**, which in a freshly cloned remote
+session cannot fire at all. Full account in §6.15, instance 5. The
+diagnosis below stands and is retained as the record.
 
 The SessionStart hook reported `idpTradeCalc.csv: 901 lines, 34h old —
 WARNING: Stale (>12h). Check scheduled-refresh workflow.` Chased it;
@@ -1199,7 +1211,7 @@ board. Axis A is in the blend; Axis B stays an overlay axis.
 
 ### 6.15 The dominant defect class: a guard that cannot fire
 
-**Four instances found in one session, 2026-07-27.** Each was written in
+**Five instances found in one session, 2026-07-27.** Each was written in
 good faith, each looked like coverage, and each was structurally
 incapable of catching the thing it named. This is the most common real
 defect in this codebase and it is worth checking for by reflex.
@@ -1210,12 +1222,77 @@ defect in this codebase and it is worth checking for by reflex.
 | the TE double-count invariant in `tests/league_intel/test_te_premium_invariants.py` | real and correct — but the module it would have caught was deliberately left unimported so "toggle off" would be byte-identical. A design whose safety argument is *"nothing calls it yet"* disables the tests that would catch it. |
 | `soft` staleness flag in `config/source_staleness.json` | had no upper bound, so an exempted source could die permanently and CI would never say so. A lapsed cookie and a dead vendor looked identical, forever. Fixed with `softEscalateHours`. |
 | the `stale-sources` alert issue | opened and commented on failure, with **no path that could ever close it**. An alert that cannot clear is indistinguishable from one nobody acted on, and stops being read. Fixed with a close-on-green step. |
+| `.claude/health-check.sh` data-freshness section | measured filesystem **mtime** and called it data freshness. Remote sessions clone fresh, so mtime is *checkout* time — every source reads 0h and the `>12h` warning cannot fire even if the pipeline died months ago. Fixed 2026-07-27; see below. |
 
-**The tell in all four:** the guard's *stated* purpose and its *actual*
+**The tell in all five:** the guard's *stated* purpose and its *actual*
 predicate differ, and nothing forces them to agree. A substring stands in
 for an identity; an import that never happens stands in for a call; an
 exemption with no bound stands in for a temporary one; an alarm with no
-reset stands in for a signal.
+reset stands in for a signal; a file's mtime stands in for when its
+contents were fetched.
+
+**Instance 5 in full, because it failed in both directions at once** and
+so shows the pattern more completely than the other four.
+
+It was caught by its *false* alarm, not its silence. The session-start
+check reported `idpTradeCalc.csv: 49h old — WARNING: Stale (>12h)`,
+which sent me looking for a scrape outage that did not exist. Two
+separate errors, both from the same substitution:
+
+- **Cannot fire.** A fresh clone stamps every file with the checkout
+  time, so all sources read 0h. The warning is unreachable in the
+  environment it runs in — instances 1-4's failure mode exactly.
+- **Fires falsely.** A branch switch rewrites only files that *differ*;
+  unchanged files keep an older mtime and read as stale. Measured:
+  `idpTradeCalc.csv` reported 49h against a real content age of 131h
+  (82h under-reported), while `ktc.csv` reported 0h against 3h.
+
+**It was also watching the wrong artifact**, which §6.12 had already
+established at 03:05 the same day and which my first pass missed by not
+reading it. `exports/latest/site_raw/` is a raw mirror:
+`preflight.py::_seed_data_cache` copies `dynasty_data_*.json` and does
+**not** copy `site_raw/`, so the pipeline, the E2E suite and production
+all read the JSON. The 2h cron handles `ktc` / `ktcSfTep` /
+`idpTradeCalc` with `stamp_if_present` rather than `run_fetcher`
+(`scheduled-refresh.yml:238-240`), so the mirror is written only by full
+scraper runs and freezes for days with nothing wrong.
+
+**A correction to my own first fix, recorded because the error is the
+instructive part.** That pass measured the mirror's commit cadence and
+concluded *"idpTradeCalc legitimately goes 5-20 days between updates in
+the offseason."* The gaps are real — 6, 8, 12, 18, 23 days — but the
+attribution was wrong: that is the cadence of **full scraper runs**, not
+of IDPTradeCalc publishing. I measured the instrument and described the
+vendor. The right conclusion (do not warn on it) was reached from the
+wrong premise, which would have survived indefinitely because the output
+looked correct.
+
+So the check now reads `scrapeTimestamp` from the contract — an internal
+content stamp, so unlike mtime *or* commit dates it survives cloning and
+means the same thing in every environment. Threshold comes from
+`config/source_staleness.json`, whose own `_comment` already states the
+policy: alert on **fetch success**, not vendor publication. Per-source
+health is reported as **coverage** — how many players carry a value —
+because that is what a dead source changes and a line count is not.
+
+Live: contract scraped 4h ago, `ktc` 704 values across 590 players,
+`idpTradeCalc` 1054 across 898.
+
+**The replacement needed guards of its own**, since every degraded input
+had a path back to a confident "0h fresh". Five paths verified, and the
+middle one is the point — a fix for a guard that could not fire is worth
+nothing until the new guard has been watched firing:
+
+| path | result |
+|---|---|
+| healthy | 4h against 24h, silent |
+| contract 99h old | **WARNING fires** |
+| source dropped from `siteStats` | `ABSENT — source produced nothing this run` |
+| `scrapeTimestamp` missing | `UNKNOWN`, not 0h |
+| no contract file | `UNKNOWN` |
+
+This closes §6.12, which left the fix deliberately undone as "worth ten
+minutes at the window".
 
 **Cheap checks, in order of value:**
 1. *Can I make this test fail right now, deliberately?* If not, it is not

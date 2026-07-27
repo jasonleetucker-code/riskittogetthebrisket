@@ -26,20 +26,33 @@ if (( COLLECT_RC != 0 )); then
 fi
 
 # 2. Scrape data freshness
+#
+# This read filesystem mtime and called it data freshness. It was wrong in
+# BOTH directions, which is how it got caught — see ORCHESTRATION.md §6.15.
+# Remote sessions clone the repo fresh, so mtime is *checkout* time:
+#
+#   - A fresh clone stamps every file "now", so every source reads 0h and the
+#     warning CANNOT FIRE even if the pipeline died months ago.
+#   - A branch switch rewrites only differing files, so unchanged ones keep an
+#     older mtime and read as stale. Measured 2026-07-27: idpTradeCalc.csv
+#     reported 49h against a real content age of 131h, ktc.csv 0h against 3h.
+#
+# It also watched the wrong artifact. `exports/latest/site_raw/` is a raw
+# mirror — `preflight.py::_seed_data_cache` copies `dynasty_data_*.json` and
+# does NOT copy `site_raw/`, so the pipeline, the E2E suite and production all
+# read the JSON. The mirror is written only by full scraper runs (the 2h cron
+# handles ktc/ktcSfTep/idpTradeCalc with `stamp_if_present`, not
+# `run_fetcher`), so it freezes for days with nothing wrong. §6.12 chased that
+# exact false alarm at 03:05 and reached the same place.
+#
+# So the check reads `scrapeTimestamp` from the contract instead. It is an
+# internal content stamp, so unlike mtime or commit dates it survives cloning
+# and means the same thing everywhere. Per-source health is reported as
+# coverage — how many players actually carry a value — which is what a dead
+# source would change, and a line count would not.
 echo ""
 echo "--- Data Freshness ---"
-for csv in exports/latest/site_raw/ktc.csv exports/latest/site_raw/idpTradeCalc.csv; do
-  if [[ -f "$csv" ]]; then
-    AGE_HOURS=$(( ($(date +%s) - $(stat --format=%Y "$csv" 2>/dev/null || stat -f %m "$csv" 2>/dev/null)) / 3600 ))
-    LINES=$(wc -l < "$csv")
-    echo "  $(basename "$csv"): ${LINES} lines, ${AGE_HOURS}h old"
-    if (( AGE_HOURS > 12 )); then
-      echo "  WARNING: Stale (>12h). Check scheduled-refresh workflow."
-    fi
-  else
-    echo "  $(basename "$csv"): MISSING"
-  fi
-done
+python .claude/freshness.py 2>/dev/null || echo "  UNKNOWN: freshness probe failed to run."
 
 # 3. Git status
 echo ""
