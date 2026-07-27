@@ -4,13 +4,28 @@ Maintained by the main orchestrator session. This file IS the unified plan,
 ownership model, git/integration policy, and dashboard. Update on every
 material change. Supersedes ad-hoc per-track instructions.
 
-**Last dashboard rebuild: 2026-07-26 ~22:10 UTC, against `origin/main` =
-`ec60cdb0e`.** Statuses in §1 and §6 were rebuilt from artifacts — merged
+**Last dashboard rebuild: 2026-07-27 ~00:55 UTC, against `origin/main` =
+`ae3042935`.** Statuses in §1 and §6 were rebuilt from artifacts — merged
 SHAs, open PR numbers, pushed branches — rather than carried forward from
 prior text. Anything that could not be tied to an artifact was downgraded
 to *not started*. If you are reading this well after that timestamp,
 re-verify before relying on §1, §5 or §6; the rules sections (§2, §2a,
 §2b, §2c, §3) are durable and do not expire.
+
+**Prior rebuild was 2026-07-26 ~22:10 UTC against `ec60cdb0e`.** Since
+then #568–#571 merged and §6.1 closed. Two of the three §6 blockers are
+still open but now have owners in flight, which is a different status
+from the *not started* they carried at the last rebuild — an
+orchestrator reading the stale table could have double-dispatched them.
+
+**Amended 2026-07-27 ~01:05 UTC, same `main`.** Four agents pushed in
+the fifteen minutes after the rebuild, so half the *dispatched* rows
+had already earned a real status before this file could merge. Rows
+D, K, L and P are updated below, and §6.6 records a production finding
+from the same window. The lesson is not "the rebuild was wrong" — it
+is that during an active fleet a dashboard is stale on arrival, and
+the fix is a strict status vocabulary you can re-derive in one command,
+not more frequent prose.
 
 Target: **comprehensively functional, integrated, polished product in ~1
 week** (by ~2026-08-02). Optimize for the final integrated system, not
@@ -18,32 +33,51 @@ constant main-branch stability.
 
 ## 1. Workstreams & ownership (one owner each)
 
-**Dashboard rebuilt from artifacts 2026-07-26 ~22:10 UTC**, against
-`origin/main` = `ec60cdb0e`. Status vocabulary is now strict and every
-cell must cite the artifact that earns it:
+**Dashboard rebuilt from artifacts 2026-07-27 ~00:55 UTC**, against
+`origin/main` = `ae3042935`. Status vocabulary is strict and every cell
+must cite the artifact that earns it:
 
 - **Done** → a merged commit SHA on `main`.
 - **In review** → an open PR number.
 - **In progress** → a pushed branch name.
+- **Dispatched** → an agent is running but has pushed nothing. Carries
+  no artifact and is therefore *not* evidence of progress; it is a claim
+  with a container's lifetime. See the note below the table.
 - **Not started** → everything else, regardless of prior claims.
 
 Statuses that could not be tied to one of those were downgraded, not
-carried forward. Fifteen PRs merged today and the previous dashboard
-predated nearly all of them.
+carried forward.
+
+**`Dispatched` is new, and it exists because of what this rebuild
+found.** At 00:50 UTC, six of the seven running agents had pushed
+nothing — every branch below marked *dispatched* existed only inside an
+ephemeral container worktree that is reclaimed on inactivity. The old
+vocabulary had no cell for "work is happening but no artifact exists
+yet", so the honest options were to record it as *in progress* (which
+overstates it — there is nothing to recover) or *not started* (which
+risks a double-dispatch). Neither was true. All six were sent a
+checkpoint-push instruction; until a branch appears on `origin`, treat a
+*dispatched* row as work that may simply evaporate.
 
 | WS | Workstream | Owner (agent) | Branch | Scope (exclusive) | Status |
 |---|---|---|---|---|---|
 | A | Redesign R2 — rankings + profiles | design custodian | claude/redesign-r2-rankings | frontend/app/rankings/, PlayerPopup, ds/ additions | **Done** — `9ccdecea6` (#549) |
 | B | Redesign R3 — dashboard, news, market surfaces | design custodian | claude/redesign-r3-surfaces | frontend/app/{page,news,edge,finder}/ | **Done** — `253568bc4` (#551), 19:38 UTC |
 | C | Redesign R4 — draft war room + trade surfaces | design custodian | claude/redesign-r4-warroom | frontend/app/{draft,trade,trades,angle,waivers}/ | **Done** — `49e005b2a` (#552), 20:04 UTC |
-| D | Redesign R5 — perf/a11y/mobile sweep + dead-CSS purge | design custodian | claude/redesign-r5-polish | global CSS, cross-page | **In progress** — branch pushed, 17 commits / 33 files ahead of main, last push 21:37 UTC. No PR yet. Phase A (`/league` Card→Panel) and phase B (ROS sections, league-comparison) are on the branch only |
+| D | Redesign R5 — perf/a11y/mobile + **Terminal token layer** | design custodian | claude/redesign-r5-polish | `globals.css`, design-system CSS, token layer | **In progress** — branch pushed, 17 commits / 33 files ahead of main, last push 2026-07-26 21:37 UTC. No PR. Phase A (`/league` Card→Panel) and phase B (ROS sections, league-comparison) are on the branch only. Agent re-tasked overnight with the **Terminal** visual direction (operator chose it from three specimens): dark, 12px mono, CVD-validated data hues, Vikings palette removed. **Pushed `484409826` at 00:36 UTC** — 18 commits / 45 files, rebased onto `ae3042935`, no deletions (so nothing merged in between was reverted). Standing constraint held: the ~105 raw `.card` sites were NOT converted. **Contrast floor caught a real regression** — the first candidate ramp failed AA for `--text-tertiary` at 4.30/4.01/3.70 where the shipped ramp passes at 4.52; step 400 was lifted to `#8b93a5` rather than the floor being lowered. One conflict was reported instead of worked around: re-ordering the chart palette to lead with the new accent fails the CVD validator (magenta↔aqua collapse to ΔE 1.6 for deuteranopes), so the shipped order stands |
 | E | League Intelligence LI-1..LI-8 | league-intel agent | claude/league-intel-foundation | src/league_intel/, config/league_intel/, tests/league_intel/, coordinated: registry.json, src/ros/lineup.py | **Done** — `608610c9d` (#550) lands LI-1..LI-8, 20:37 UTC; League Twin bridge + sim calibration `7cdc4070f` (#565), 21:15 UTC. The registry/`DEFAULT_STARTER_NEEDS` staleness is fixed in production (verified by direct read on main) |
 | F | LI-9 UI (valuation-mode toggle) | design custodian | — | R1 shell TopBar + getActiveValue adoption | **Not started** — no branch, no PR. Its blockers (E, A) have both cleared, so it is now unblocked rather than blocked |
 | G | E2E safety net upkeep | e2e agent | claude/e2e-r1-reconcile → claude/e2e-abort-guard | tests/e2e/ | **Done** — `e55f791b8` (#559), 20:38 UTC, which contains #554 in full (verified: `12cf9dceb` is an ancestor of the #559 head, so #554 was closed rather than merged). Assertion audit `ca41c981c` (#566), 21:40 UTC |
 | H | Identity sweep close-out | identity agent | claude/identity-sweep | identity joins (re-scoped post-merges) | **Done** for #547 (`2aa7e56d4`). Residual aggregate-join defect handed over by #550 (6 duplicate rows, 40/666 join failures) is **not started** — no branch, no PR |
-| I | Ops: refresh/deploy/intel cron, VPS | orchestrator | main (dispatch only) | workflows, monitoring | **Done** — deploy skip/reverse guard `998572713` (#560); auth status-timeout fix `1ec3311be` (#558); domain remediation + `grant-ssh-access.yml` deleted (`c534280db`). **Outstanding for the operator: still no TLS on the bare IP** |
-| J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Engine **Done** — `4f9cb05b6` (#562), `783721534` (#563). **But it has no callers — see §6.3. "Merged" here does not mean "shipped."** F-1 rewiring of `angle.py` still open (§6.2); refit gate in progress (§6.1) |
-| R | Fresh-eyes review | reviewer agent | read-only | PR comments | **Done** — #567 merged `ec60cdb0e` at 22:06 UTC. No PRs currently open |
+| I | Ops: refresh/deploy/intel cron, VPS, domain | orchestrator | main (dispatch only) | workflows, monitoring, nginx | **Done** — deploy skip/reverse guard `998572713` (#560); auth status-timeout fix `1ec3311be` (#558); `grant-ssh-access.yml` deleted (`c534280db`). **Domain cutover to `chaseupside.com` complete** — nginx + runbook `1d14c0d7b` (#570), runtime origins `57b030b01` (#571). TLS live, HTTP→HTTPS 301, `JASON_AUTH_COOKIE_SECURE` flipped true, key-based SSH, kernel upgraded. Verified 00:35 UTC: `/`, `/login`, `/api/health` all 200; `contract_ok: true`, scrape completed 00:22 UTC in 776 s. **Two operator tasks remain — see §6.5.** Warmup timeout fix **in review — #575** (§6.6) |
+| J | Roster & Trade Intelligence (additive on WS-E) | 3 agents, see below | claude/ws-j-* | src/roster_intel/, coordinated: src/trade/ | Engine **Done** — `4f9cb05b6` (#562), `783721534` (#563). **Still no callers on `ae3042935` — see §6.3. "Merged" does not mean "shipped."** Refit gate (§6.1) **closed** by `ab988717a` (#569). `angle.py` rewire (§6.2) **dispatched** |
+| K | `/api/gameplan` — first caller for `src/roster_intel/` | gameplan agent | claude/api-gameplan-endpoint | `server.py` endpoint, reads `src/roster_intel/` | **In review — #574**, CI **green**. `GET /api/gameplan`, `contractVersion 2026-07-27.v1`, session-gated. Full suite as CI runs it: `3958 passed`, zero failures. Honesty stamps held and pinned by tests. Measured, not estimated: cold 2,410 ms / warm 10 ms, 14 KB gzipped; `analyze_roster` is the whole cost at 91 ms/roster. **Merging this closes §6.3** |
+| L | `angle.py` → single-market (§6.2) | angle agent | claude/angle-single-market | `src/trade/angle.py` only | **In progress** — `27728278b` pushed 00:39 UTC, 3 files, no PR yet; agent still running. Must cover all four unconstrained sites (`:471-475`, `:509`, `:526`, ~`:919`), not just the acquire side |
+| M | Route usability sweep — all 38 routes | route agent | claude/route-usability-sweep | `frontend/app/`, `components/`, `lib/` | **In review — #578.** 3 fixes + `docs/route-usability-audit.md`. **Headline: `/league/phases` had never rendered** — see §6.8. Also `/trades` claimed "0 trades" while loading against a 109-trade snapshot, and `/tools/source-health` returned `null` on a failed `/api/status`, showing a legend for dots that weren't there. Zero uncaught exceptions across all 38 routes; every console error accounted for |
+| N | E2E assertion honesty | e2e agent | claude/e2e-assertion-honesty | `tests/e2e/` only | **In review — #579.** Fixes the preflight ordering bug (§6.9), replaces the vacuous assertions and proves each replacement against a **decoy page**, converts 4 permanently-off skip gates into assertions, adds 2 spec files. **Corrects the brief**: the suite was never green — see §6.10 |
+| O | Python coverage sweep | coverage agent | claude/python-coverage-sweep | `tests/` except `tests/e2e/` | **In review — #577.** Coverage 80.1% → 80.5%, `waiver.py` 27.0% → 99.2%, +85 CI-blocking tests each watched fail against 20 source mutations. Found §2c-4 — the live valuation constants had no CI-blocking test at all |
+| P | Competitor gap analysis + ranked backlog | gap agent | claude/competitor-gap-analysis | `docs/competitor-gap-analysis.md` | **In review — #573**, CI **green**. Used a *fourth* axis (built / reachable / used / **correct**) and reported `used` as **unverifiable** throughout — no per-route telemetry exists, and inferring usage from reachability is the error the document exists to prevent. Headline: an AST import-graph pass finds **43 of 208 `src/` modules unreachable, ~12,571 lines**. See §6.7 |
+| R | Fresh-eyes review | reviewer agent | read-only | PR comments | **Done** — #567 merged `ec60cdb0e` at 22:06 UTC. **Zero PRs open** as of 00:52 UTC; the entire 19-PR queue landed. Next reviewer pass is due before the mid-week window |
 
 Idle agents with retained domain context (resume, never cold-spawn):
 intel, FAAB, playerctx, news, prod-hardening — reassigned as B/C owners or
@@ -87,12 +121,61 @@ Rebase onto `origin/main` directly, never onto another PR's branch, and
 then run the check that catches it:
 
 ```
-git diff --stat origin/main HEAD    # must show ONLY your own files
+git diff --stat origin/main...HEAD   # THREE dots. Only your own files.
 ```
 
-That check is the whole defence. It is one command, it is unambiguous,
-and it is the reason #567 shipped as four files. Run it after every
-rebase — #567 went through five while merges landed underneath it.
+**Use three dots, not two. This correction was paid for.** The check was
+written here as `git diff --stat origin/main HEAD` (two dots), and on
+2026-07-27 the orchestrator read a two-dot diff on a branch that was
+merely *behind* main, saw `public-league-warmup.yml | 107 ++-------`,
+and announced that the branch "would have silently reverted #575". It
+would not have. That claim was wrong, and it was stated confidently in
+a PR body before being checked.
+
+The two forms answer different questions:
+
+| Form | Answers | On a branch that is behind main |
+|---|---|---|
+| `origin/main HEAD` (two dots) | "what differs between these two commits" | lists every change made on main since you branched, rendered as if you were undoing it — **false positives** |
+| `origin/main...HEAD` (three dots) | "what did *I* change since the merge-base" | only your files |
+
+Measured on #573, which was based on `ae3042935` while main was at
+`74d5c556b`: two-dot listed 2 files including the warmup revert;
+three-dot listed 1 file. And the merge itself is fine —
+`git merge-tree --write-tree origin/main <branch>` produced a tree
+whose `public-league-warmup.yml` still contains the health gate and
+`timeout-minutes: 10`. **GitHub three-way merges from the merge-base;
+an un-rebased branch does not revert intervening work.**
+
+Being behind main is not a defect. Carrying a revert *in your own diff*
+is. Three-dot distinguishes them; two-dot cannot.
+
+Run it after every rebase — #567 went through five while merges landed
+underneath it, and it is the reason #567 shipped as four files.
+
+## 2a-1. Tool caveat: `actions_list` filters are not reliable
+
+Two filters on `mcp__github__actions_list` do not do what their names
+say, and both produced wrong readings tonight:
+
+- **`workflow_id` is silently ignored.** A query for
+  `public-league-warmup.yml` returned 7 PR Validation runs and 1 Deploy
+  Production run, and **zero** warmup runs. The orchestrator read three
+  of those as "warmup successes" and nearly reported the fix verified
+  on the strength of them. The tell was visible the whole time: a cron
+  workflow does not run on PR-branch SHAs.
+- **`branch` is loose.** A query scoped to one feature branch returned
+  a `Public League Warmup` run whose head was `main`.
+
+**Always filter the returned JSON yourself** on `r["name"]` and
+`r["head_sha"]`, and match `head_sha` against the branch tip you
+actually care about (`git rev-parse --short=9 origin/<branch>`). Do not
+trust the request parameters to have narrowed anything.
+
+The general form is worth stating because it is not specific to this
+tool: **asking a question and receiving data is not the same as
+receiving an answer to that question.** Label results by what they
+contain, never by what you asked for.
 
 **ADR numbers collide because they are chosen at authoring time against
 a base that moves before merge.** Two agents authoring concurrently both
@@ -326,46 +409,186 @@ unbegun work in the plan.
 
 ## 5. One-week backward plan
 
-**Revised 2026-07-26 22:00 UTC.** Integration window #1 was scheduled for
-Mon–Tue and effectively ran tonight instead — R2, R3, R4, the full LI
-batch and E2E all merged on Sunday, roughly two days early. The plan
-below is rewritten from that actual position rather than the original
-projection.
+**Revised 2026-07-27 00:55 UTC.** Integration window #1 ran early — R2,
+R3, R4, the full LI batch and E2E all merged Sunday, about two days
+ahead. The whole 19-PR queue has since landed and **zero PRs are open**.
+The plan below is rewritten from that actual position.
+
+The operator's overnight directive re-pointed the fleet: *"everything
+usable — not only usable but tested as much as possible and full
+confidence in."* Three new workstreams (M, N, O) exist because of it,
+and they are deliberately about **earning** confidence rather than
+adding surface area. Nothing new is being built on M/N/O; they measure
+what is already there.
 
 - **~~Now–Sun~~ DONE**: R2 (`9ccdecea6`), R3 (`253568bc4`), R4
   (`49e005b2a`), LI-1..LI-8 (`608610c9d` + `7cdc4070f`), E2E
   (`e55f791b8` + `ca41c981c`), ops hardening (`998572713`,
   `1ec3311be`), WS-J engines (`4f9cb05b6`, `783721534`), model registry
-  (`a5a8b8676`), engine-divergence measurement (`ec60cdb0e`). Fifteen
-  PRs; see the merge ledger in §6.
-- **Mon (next up)**: the three §6 open items, in this order —
-  (1) land the refit gate from `claude/ws-j-refit-gate` so the weekly
-  refit stops shipping unchecked constants (§6.1, has a branch, needs a
-  PR); (2) rewire `angle.py` onto the single-market path (§6.2);
-  (3) decide the surface for `src/roster_intel/` and wire it, or
-  explicitly park it — right now it is merged code with no consumer
-  (§6.3). Also: resolve the #555 page-proxy decision.
-- **Tue–Wed**: WS-D R5 sweep lands (branch is 17 commits deep, needs a
-  PR); F (LI-9 valuation-mode toggle) is now **unblocked** and unstarted
-  — its dependencies E(LI-4) and A both merged; WS-H residual
-  aggregate-join defect.
+  (`a5a8b8676`), engine-divergence measurement (`ec60cdb0e`), refit gate
+  `ab988717a` (#569), dashboard rebuild `af2df3aed` (#568), domain
+  cutover `1d14c0d7b` (#570) + `57b030b01` (#571). Nineteen PRs.
+- **Overnight Sun→Mon (running now)**: seven agents — D (Terminal
+  tokens), K (`/api/gameplan`), L (`angle.py` single-market), M (route
+  usability sweep), N (e2e assertion honesty), O (Python coverage
+  sweep), P (competitor gap analysis). Six had pushed nothing at 00:50
+  UTC and were sent checkpoint-push instructions.
+- **Mon**: triage what the overnight fleet produced. Expect the three
+  audit deliverables (`docs/route-usability-audit.md`,
+  `docs/e2e-assertion-audit.md`, `docs/python-coverage-audit.md`) to
+  generate more work than they close — that is the point of running
+  them. §6.2 and §6.3 should close if L and K land. Also: resolve the
+  #555 page-proxy decision.
+- **Tue–Wed**: mid-week integration window (~Jul 29) — reviewer pass
+  first, then merge in dependency order. WS-D R5 lands (branch is 17
+  commits deep plus unpushed token work). F (LI-9 valuation-mode
+  toggle) is **unblocked and unstarted**; WS-H residual aggregate-join
+  defect.
 - **Thu–Fri**: golden backtests; the first real nightly E2E signal
-  (first scheduled run 2026-07-27 06:23 UTC — treat it as unproven, not
-  as a baseline).
-- **Fri–Sat**: final integration window — full-suite + E2E + visual pass,
-  perf, docs, release checklist, deploy, VPS apply notes for user.
-  **Blocking for the operator: still no TLS on the bare IP.**
+  (first scheduled run 2026-07-27 06:23 UTC — **treat it as unproven,
+  not as a baseline**, and note WS-N is rewriting assertions
+  underneath it, so an early green there measures the old suite).
+- **Fri–Sat**: final integration window — full-suite + E2E + visual
+  pass, perf, docs, release checklist, deploy. **Operator tasks that no
+  agent can close: see §6.5.**
+
+## 5a. Integration window checklist (mid-week, ~2026-07-29)
+
+**Seven PRs open** as of 02:25 UTC: #572, #573, #574, #576, #577, #578,
+#579. All seven overnight workstreams have reported; nothing is still
+running. Prepared so the window is execution, not rediscovery.
+
+**Merge #579 before #578.** #578's `/league/phases` fix is the subject
+of a §3.5 decision inside #579 (the public-league no-private-endpoints
+assertion is declared *deliberately* scoped, so `/league/phases`
+fetching auth-gated `/api/data` is correct and must not trip it).
+Landing them in the other order leaves a window where the reasoning
+exists in neither file. Neither PR blocks the other technically —
+this is about the record being coherent.
+
+**CI verified green 02:32 UTC** on all six settled PRs — #573
+(`49a7127e2`), #574 (`5ec9d42a6`), #576 (`fc8f4a437`), #577
+(`e67dd1e85`), #578 (`7b725f23b`), #579 (`fd42d2a2b`). #572 was
+mid-run on its own latest push. Checked by matching `head_sha` against
+each branch tip and filtering on `name == "PR Validation"` — see the
+tool caveat in §2a-1.
+
+**No file collides across the seven.** Verified with
+`git diff --name-only origin/main...<branch>` per PR — every path is
+unique, so they merge in any order without a textual conflict. That is
+not the same as semantically independent, and the items below are what
+the file-level check cannot see.
+
+| # | Branch | Files | Merging it |
+|---|---|---|---|
+| 572 | orchestration-tick-0727 | 2 | dashboard + CLAUDE.md truth |
+| 573 | competitor-gap-analysis | 1 | Phase-1 deliverable |
+| 574 | api-gameplan-endpoint | 4 | **closes §6.3** |
+| 576 | angle-single-market | 3 | **closes §6.2** |
+| 577 | python-coverage-sweep | 6 | closes §2c-4 (partially) |
+| 578 | route-usability-sweep | 7 | **§6.8** — `/league/phases` renders at all |
+| 579 | e2e-assertion-honesty | 10 | **§6.9** — the suite can start; **§6.10** — green means something |
+
+### Actions the window must take, that no single PR can
+
+1. **Add `/api/gameplan` to `LEAGUE_SCOPED_GETS`.** #577's
+   `tests/api/test_league_isolation_invariants.py` enumerates
+   league-scoped routes from a **hardcoded** list
+   (`LEAGUE_SCOPED_GETS = ["/api/terminal"]`, plus three POSTs). #574
+   adds `/api/gameplan`, a league-scoped GET that 503s on mismatch.
+   Nothing breaks when both land — the sweep simply will not cover the
+   newest endpoint, which is the exact class of gap the sweep exists to
+   catch. #574 does test its own routing contract, so this is a missing
+   belt, not a missing brace.
+
+   The general form is worth fixing once rather than per endpoint: a
+   hardcoded route list cannot notice a route added after it was
+   written. Consider deriving it from `app.routes` filtered by a
+   marker, so a new league-scoped endpoint is covered by construction.
+
+2. **Re-check #576's "first production consumer" claim.** #576 states
+   it is the first production importer of
+   `src/league_intel/cross_market.py`. #574 also consumes
+   `value_package`. Both are true of `main` today and both stop being
+   true the moment the other merges — neither PR is wrong, but the
+   sentence in `cross_market.py`'s docstring ("the honest count of
+   production importers of THIS file is zero") needs updating to two.
+
+3. **Run the integrated tree, not five separate suites.** Every PR was
+   validated against `main`, none against each other. #577 adds tests
+   asserting current pipeline behaviour; #576 changes trade-engine
+   behaviour. They touch disjoint files, so nothing will conflict — but
+   a suite that is green on two branches separately can still be red on
+   the union, and that has to be measured rather than assumed.
+
+4. **Reviewer pass before merges**, per §2.4. Priority order for
+   attention: #576 (live valuation path, 890 additions), #574 (new
+   public surface), #577 (test-only but large), then the two docs PRs.
+
+### Not blockers, but decide at the window
+
+- **D-1 is a live production risk with no owner.** One out-of-range
+  value in a value-based source rescales the whole board — measured,
+  one row at `ktcSfTep=99990` deflates every player by 45.3%, silently.
+  #577 documented it rather than fixing it because the guard's *shape*
+  (clamp `site_max`? drop the row? mark the source unhealthy?) moves
+  real numbers and is a product call. **It needs a decision, not an
+  agent.**
+- **D-2** — `/api/draft-capital` returns 200 where CLAUDE.md says 503,
+  and prices one league's picks from another's contract with no
+  scoring-profile check. No roster leak (mutation-verified).
+- **D-5** — `tests/intel/test_endpoints.py::TestLeagueScoping::test_reads_go_through_the_league_resolver`
+  fails under parallel runs only, identically before and after #577,
+  passes serially. Pre-existing cross-file registry-state leak.
 
 ## 6. Open merge blockers
 
-The three items below are the load-bearing open facts as of
-`origin/main` = `ec60cdb0e`. Each was verified against the tree, not
-carried forward from a claim. Everything after §6.4 is the historical
-record of already-resolved blockers, retained deliberately.
+Re-verified against `origin/main` = `ae3042935` on 2026-07-27 ~00:55
+UTC, by reading the tree — not by carrying forward the previous
+rebuild's text. **§6.1 is now closed. §6.2 and §6.3 remain open**, both
+with an agent dispatched. §6.5 is new and is operator-only. Everything
+after §6.5 is the historical record of already-resolved blockers,
+retained deliberately.
 
-### 6.1 The weekly Hill-curve refit still ships unvalidated constants — OPEN
+### 6.1 The weekly Hill-curve refit shipping unvalidated constants — CLOSED 2026-07-27
 
-**Status: open.** `.github/workflows/refit-hill-curves.yml` rewrites the
+**Status: closed** by `ab988717a` (#569), merged 2026-07-26 18:46 UTC.
+Verified by reading `.github/workflows/refit-hill-curves.yml` on
+`ae3042935`:
+
+- The `-m "not livedata"` sweep that deselected the guard is **gone**;
+  the workflow now runs `python -m pytest tests/model_registry/ -q`
+  (line 92).
+- The workflow **no longer commits `player_valuation.py`**. Its own
+  comment at lines 148–151 says it commits "ONLY the registry. Never
+  `player_valuation.py`". `git add` is scoped to
+  `config/model_registry/` (line 151).
+- Promotion is demoted to a recorded manual action
+  (`scripts/model_registry.py promote` + `apply`); the workflow's
+  success path only files an issue saying a challenger is promotable
+  and awaits a human (lines 125, 176).
+
+The fix is structural rather than cosmetic: the vacuous guard was not
+repaired, it was removed from the critical path, and the thing it
+failed to gate — constants reaching production unchecked — can no
+longer happen because the workflow cannot write those constants at all.
+That is the right shape of fix for a §2c "guard that cannot take
+effect": remove the capability, don't add a second guard in front of a
+broken one.
+
+**One residue, deliberately left and worth knowing about.**
+`tests/conftest.py::_LIVEDATA_MODULES` still lists
+`test_ktc_reconciliation.py` (line 89), so that test is still
+deselected by every `-m "not livedata"` run, including CI. This is now
+harmless — nothing gates on it — but it is exactly the artifact that
+made §6.1 invisible for weeks. **If anyone ever reinstates a
+reconciliation-based gate, that line is where it will silently die
+again.** Do not read its continued presence as evidence the check runs.
+
+Historical description of the defect, retained because the reasoning is
+load-bearing:
+
+`.github/workflows/refit-hill-curves.yml` used to rewrite the
 eight `HILL_*_C/S` constants in `src/canonical/player_valuation.py`,
 commits them to `main`, and triggers a deploy. Its regression guard
 cannot fail, for three independent reasons — and the third is the one
@@ -384,10 +607,66 @@ that matters:
    guard is deselected by the very step meant to run it — 13 deselected,
    0 run. Constants reach production with no check of any kind.
 
-This is instance 2 of §2c, and the only one still live. The repo
-half-knew: the workflow's own comment says gating on the pins "is
+This was instance 2 of §2c, and was the only one still live. The repo
+half-knew: the workflow's own comment said gating on the pins "is
 circular", and that reasoning was used to justify *excluding* the check
 rather than building a non-circular one.
+
+~~With #569 merged, §2c has no live instances.~~ **RETRACTED within the
+hour — see §2c-4 below.** I wrote that sentence at 00:55 UTC and #577
+falsified it at 01:28. It was not a typo; it was the same mistake this
+section documents, made while documenting it: I checked the instances I
+already knew about, found them closed, and reported *absence* rather
+than "no remaining instances **among the ones I looked for**."
+
+An earlier claim of "four live instances" was also wrong, and was
+corrected by the agent that checked it: the `e2e.yml` duplicate existed
+only on a branch and never on `main`, and the LI-8 inert fix landed in
+#550 without ever reaching production.
+
+**Do not restate a §2c tally without re-deriving it.** It has now been
+wrong twice in both directions — once too high, once too low — and both
+times the number was asserted rather than measured.
+
+### 2c-4. The live valuation constants had no CI-blocking test at all
+
+**Found by #577, 2026-07-27 01:28 UTC. This is the largest instance
+yet, and it was live the entire time the other three were being
+discussed.**
+
+`tests/conftest.py::_LIVEDATA_MODULES` marks 16 modules, and CI runs
+`-m "not livedata"`. Verified independently on `ae3042935`:
+
+- `_SINGLE_SOURCE_VALUE_RETENTION` (the 0.30 single-source haircut) is
+  referenced in exactly one test module — `test_data_contract.py`,
+  which is in `_LIVEDATA_MODULES`.
+- `_ALPHA_SHRINKAGE` (α=0.10) likewise appears only in
+  `test_single_curve_live.py`, also `_LIVEDATA_MODULES`.
+- Pick tethering and `_VALUE_BASED_SOURCES` membership: same shape.
+
+**Changing `0.30` to `0.50` — repricing every single-source player on
+the board — would have passed CI green.**
+
+The detail that makes this §2c rather than a plain coverage gap:
+`data_contract.py` cites one of those deselected tests *in a source
+comment* as the guard that fails "if that reference ever starts
+mutating live values". It cannot, for two independent reasons — the
+module is deselected, **and** every test in it calls `skipTest` without
+a live export on disk. A comment asserting a guard exists is worse than
+no comment, because it stops the next reader from looking.
+
+#577 adds 85 CI-blocking synthetic-fixture tests, each watched fail
+against 20 deliberate source mutations, and leaves the livedata copies
+in place. Note it does **not** close the whole family: pick tethering
+(stage 11) is still covered only by two deselected modules.
+
+Also from #577, and worth internalising: removing the percentile clamp
+in `data_contract.py` alone leaves the suite green, because
+`percentile_to_value` clamps again internally. The agent's first
+version of that test passed only because it re-implemented the formula
+instead of driving the pipeline — it caught and rewrote that itself.
+Defence-in-depth means a single-site mutation is not a valid test of
+whether a guard is load-bearing.
 
 **#564 (`a5a8b8676`) deliberately did NOT rewire the workflow.** It built
 the infrastructure — `src/model_registry/` with provenance-stamped
@@ -417,10 +696,13 @@ permanent property.
 
 ### 6.2 `src/trade/angle.py` is the last unrewired cross-market call site — OPEN
 
-**Status: open.** ADR-010 ("cross-market packages are valued on ONE
-market, or not at all") is **accepted**, the interface and suppression
-path are built, and the rest of the codebase has moved to the
-single-market path — `src/trade/finder.py` now gates per market
+**Status: open on `ae3042935`; agent dispatched (WS-L,
+`claude/angle-single-market`, nothing pushed as of 00:50 UTC).**
+Re-verified tonight by reading `angle.py` on current main — the four
+unconstrained sites are all still present. ADR-010 ("cross-market
+packages are valued on ONE market, or not at all") is **accepted**, the
+interface and suppression path are built, and the rest of the codebase
+has moved to the single-market path — `src/trade/finder.py` now gates per market
 (`MARKET_TOP_N_FILTER`, `marketCoverage`, `KTC_TOP_N_FILTER` retained
 only as a deprecated alias) and `src/api/data_contract.py` resolves
 market per row. `angle.py` did not move.
@@ -456,6 +738,13 @@ not.** WS-J's Roster Intelligence Engine landed in #562 (`4f9cb05b6`)
 and the trade layer in #563 (`783721534`). Both are real, tested code.
 **Nothing calls them.**
 
+**Status on `ae3042935`: still zero callers. Agent dispatched** (WS-K,
+`claude/api-gameplan-endpoint`, nothing pushed as of 00:50 UTC) to build
+`/api/gameplan` as the first consumer. Re-ran the check tonight —
+`git grep -l roster_intel` excluding `src/roster_intel/`, `tests/` and
+`docs/` returns **nothing at all**. The situation has not moved since
+the last rebuild; only the ownership has.
+
 Verified: `git grep -l roster_intel`, excluding `src/roster_intel/` and
 `tests/roster_intel/`, returns **only three documentation files** —
 `docs/CLAUDE_SESSION_AUDIT_HANDOFF.md`, `docs/ORCHESTRATION.md` (this
@@ -477,6 +766,291 @@ unstarted work, and no branch exists for it** — per §1's vocabulary,
 
 This is a close cousin of §2c: code that reads correctly and cannot take
 effect, differing only in that nothing is even attempting to reach it.
+
+### 6.5 Operator-only tasks — no agent can close these — OPEN
+
+Both require credentials or shell access on the production host. **No
+agent in this fleet can do either**, and neither should be recorded as
+"in progress" by anyone; they sit with the operator until done.
+
+**1. Certificate renewal has never been tested.** The `certbot` timer
+existing is not evidence that renewal works — that is §2c's shape
+applied to ops. If renewal is broken, the failure mode is the site
+going dark roughly 85 days after issue with no prior warning, which is
+the worst available way to find out.
+
+```
+ssh root@chaseupside.com "certbot renew --dry-run"
+```
+
+Note for anyone tempted to verify this from an agent container: **you
+cannot.** There is no `ssh` client installed, and outbound HTTPS goes
+through a re-signing egress proxy, so `openssl s_client` against
+`chaseupside.com:443` returns the proxy's certificate
+(`issuer=O = Anthropic, CN = Egress Gateway SDS Issuing CA`), not Let's
+Encrypt's. Any expiry date read that way is the wrong certificate's.
+Reading it and reporting it as the production cert would be a
+confident, wrong answer — exactly the failure this document keeps
+warning about.
+
+**2. `INTEL_REFRESH_TOKEN` needs rotating.** It sat unencrypted for
+months. Rotation is cheap; the exposure window is already spent.
+
+Superseded: the previous dashboard's "still no TLS on the bare IP" is
+no longer the right framing. Certbot's `--redirect` rewrote port 80 as
+host-matched redirects with a `return 404` default, so the bare IP
+stops serving entirely rather than serving without TLS. That is the
+desired end state, and it is why #571's monitor repoint was
+load-bearing rather than cosmetic.
+
+### 6.6 A forced public-league rebuild makes the WHOLE API unresponsive — OPEN, UNPROVEN
+
+**Observed 2026-07-27 00:42–00:48:34 UTC.** During a
+`/api/public/league?refresh=1` rebuild, `/api/health` and `/api/status`
+both returned nothing for ~6.5 minutes while `/` kept serving in
+0.61 s. It self-recovered with no intervention.
+
+**This contradicts a documented invariant.** `deploy.yml:629-632`
+states: *"The event loop stays responsive during the rebuild
+(threadpool offload, #519) — which is why `/api/status` passes while
+`/league` and `/api/public/league` still wait on the snapshot."* The
+whole API was down, not just the snapshot endpoints.
+
+Plausible mechanism, **not proven**: `?refresh=1` →
+`_get_public_snapshot(force_refresh=True)` → `_rebuild_public_snapshot`,
+which holds `_public_league_refresh_lock` — a `threading.Lock` with no
+timeout — across `build_public_snapshot`'s multi-season network I/O.
+Callers queue on that lock *inside* `run_in_threadpool` workers, and
+Starlette's default limiter is 40 threads. Exhaust it and every
+threadpool-offloaded endpoint blocks, `/api/health` included.
+
+**Deliberately not chased further.** Confirming it means inducing
+another outage on the live host; it needs a local repro instead. Stated
+as an observation with a hypothesis, not as a diagnosis — the §2b
+discipline applies to incident analysis too.
+
+Honest disclosure: the orchestrator caused this window by calling
+`?refresh=1` against production while diagnosing the warmup failure.
+The measurement is real; the outage was self-inflicted and avoidable by
+reading what the query parameter does first.
+
+#575 reduces exposure — the cron stops forcing a blocking rebuild every
+20 minutes — but does not fix the underlying behaviour.
+
+### 6.7 43 of 208 `src/` modules are unreachable — ~12,571 lines
+
+From #573's AST import-graph pass (BFS from `server.py`, `scripts/*`
+and root modules; relative imports resolved; dynamic `importlib`
+targets hand-checked, with `src/ros/sources/*` correctly excluded as
+registry-loaded rather than dead).
+
+§6.3 turns out to be the *visible* instance of a much larger pattern:
+
+- **`src/roster_intel/` — all 4,673 lines.** Closes with #574.
+- **`src/league_intel/` — 7 of 10 modules, 3,244 lines.** `twin.py`
+  (LI-8) has zero importers at all; four more are reachable only
+  through `roster_intel`, so they are transitively dead.
+- **`/api/chat` is three-quarters built** — Next proxy, `src/api/chat.py`
+  and the dependency all exist; `server.py` registers no route.
+- **Five feature flags read `True` and gate unreachable code.**
+  `ValueBandBadge` is mounted on no page. This is §2c in another
+  costume: a flag whose "on" state cannot have an effect.
+- **`src/api/auction_power.py` calls itself the source of truth and
+  never runs.** The live implementation is its JS mirror, with no
+  parity test between them.
+- **`src/trade/finder.py` has no UI caller** — `/finder` is a
+  client-side filter. So **F-6 is a correctness bug on a path no
+  surface reaches**, and re-deriving five thresholds for it should wait
+  on a product decision about whether the arbitrage finder gets a UI.
+
+Two of the roadmap's three self-audit seeds were **already fixed** and
+would have been re-worked on the strength of a stale document. That
+2-of-3 false-positive rate on assumed-still-true findings is the
+argument for dating every audit to a SHA.
+
+### 6.8 `/league/phases` had never rendered, for anyone, since it shipped
+
+Found by #578, verified independently by the orchestrator on
+`ae3042935` before acceptance. Not slow, not data-dependent —
+structurally incapable of rendering.
+
+1. `frontend/components/AppShell.jsx:33` — `PUBLIC_ONLY_ROUTE_PREFIXES
+   = ["/league"]`, and `isPublicOnlyRoute` matches any path starting
+   `/league/`. AppShell then deliberately refuses to hydrate the
+   private contract, which is correct: it is the isolation rule that
+   keeps private rankings off the public hub.
+2. `frontend/components/TeamPhasePanel.jsx:26` reads `useApp()`, so on
+   this route it always receives `{rows: [], rawData: null}`.
+3. Line 39: `if (!analysis.teams.length) return null`.
+4. The route's entire body is `<TeamPhasePanel />` plus a header.
+
+Result: HTTP 200, 282 characters, empty body, every time. Fixed by
+adopting the pattern the sibling route already used —
+`RosterComparePanel` on `/league/franchise/[owner]` has the same
+constraint and solves it with `useDynastyData()`. Now 759 chars and all
+12 franchises classified; anonymous visitors get an explicit message
+behind the auth gate rather than data.
+
+**The generalisable part:** a correct security rule and a correct
+component can compose into a dead page, and neither file is wrong on
+its own inspection. Nothing in CI could see it — the route returned
+200. This is CLAUDE.md rule 1 ("do not assume features work — trace the
+live execution path end-to-end") paying for itself.
+
+### 6.9 The documented one-command E2E recipe could not run — FIXED in #579
+
+`tests/e2e/preflight.py::main()` called `_run_contract_validation()`
+before `_seed_data_cache()`. `data/` is gitignored, so on a clean
+checkout there is never a snapshot and validation aborts with a raw
+`FileNotFoundError` — before a single spec runs.
+
+It only ever worked on machines carrying a snapshot from an earlier
+local scrape, which is why it survived this long.
+
+**The compounding failure:** that traceback reads exactly like the "no
+data" symptom the README's *"Don't trust these signals — they're
+misleading here"* table tells the reader to ignore. The one document
+written to prevent this misdiagnosis was pointing readers away from a
+real bug. At least two prior agents concluded "the stack is broken"
+from it. #579 fixes the ordering, verified by watching it fail first
+(`EXIT=1` with the traceback on `origin/main`'s ordering, `EXIT=0` and
+"seeded ... 1077 players" after), and names the traceback in that table
+as **not** expected.
+
+### 6.10 The E2E suite was never green — the brief was wrong
+
+**Recorded because the orchestrator asserted it.** WS-N's dispatch brief
+said "the suite is green and that green is unearned." The first half
+was false. Measured baseline on `origin/main` (with only the preflight
+fix applied so it could run at all):
+
+```
+12 specs — 145 passed, 30 skipped, 3 FAILED
+```
+
+#566 measured the same 145/30/3 earlier. The orchestrator restated
+"green" from the dashboard without re-deriving it — the identical
+failure as the §2c tally, in a different costume, and the second time
+in one night that a confident summary went out ahead of a measurement.
+
+Two findings from the same PR that a green-looking run was hiding:
+
+- **`critical-smoke.spec.js:169/176` are worse than skips.** They push
+  a "skip" *annotation* and then `return`, so Playwright reports them
+  **passed**. `/api/terminal` is permanently 401 anonymous, so both
+  bodies are unreachable. Two green ticks that verify nothing —
+  §2c's shape inside the test suite itself.
+- **Four data-availability skip gates could never fire.** Measured
+  against the seeded snapshot: rivalries 45, matchups 158, players 968,
+  sleeper teams 12. They stood ready only to convert a real pipeline
+  regression into an invisible green skip. Now assertions.
+
+The decoy-page technique is worth reusing: run each old assertion
+against a *different* page carrying the same shell chrome. Six old
+assertions passed on the decoy (proving them vacuous); four
+replacements failed on it (proving them real).
+
+### 6.11 `user_kv` returned 500 in the shared container — CAUSE FOUND: the orchestrator
+
+**The orchestrator broke the e2e agent's environment mid-run.** Not
+mysterious container state — a specific, avoidable mistake, recorded
+because the failure mode generalises.
+
+At ~02:05 UTC I ran `git worktree remove` on
+`.claude/worktrees/agent-ac26f9e0ef914b8f6` after its agent reported
+complete, to reclaim disk. **The container's shared backend was running
+out of that directory.** Proven afterwards from `/proc`:
+
+```
+pid=16830 cwd=/home/user/riskittogetthebrisket/.claude/worktrees/agent-ac26f9e0ef914b8f6 (deleted)
+          cmd=python3 server.py
+```
+
+The `(deleted)` marker is unambiguous. Deleting the tree under a live
+process is what zeroed `user_kv.sqlite` and removed the snapshot,
+which is why `/api/user/state` began returning `500 OperationalError`
+and `/api/draft-capital` "silently lost its entire pick board" while
+#579's suite was running.
+
+**The lesson, which is not obvious:** a worktree is not only files. An
+agent may leave a *service* running inside it, and other agents on the
+same box may be depending on that service without either agent knowing.
+"The agent reported complete" is not sufficient grounds to delete its
+worktree while any other agent is still running.
+
+Before removing an agent worktree, check nothing is running out of it:
+
+```
+for p in $(pgrep -f 'server.py|uvicorn|next'); do
+  readlink /proc/$p/cwd
+done
+```
+
+The orphan was left listening on :8000 serving 503 with corrupt state
+for roughly 20 minutes and has since been stopped. That is its own
+hazard: `playwright.config.js` sets `reuseExistingServer: true` against
+a hardcoded port 8000, so any later run would have silently bound to
+the zombie and tested against it — exactly the §3.2 finding #579
+raised, demonstrated live.
+
+#579's conclusions are unaffected: its before-baseline (145/30/3) was
+measured before the breakage, its measurements were re-taken against an
+isolated frontend, and it reported the collapse rather than working
+around it. CI validates the PR in a clean environment regardless.
+
+**Production is separately NOT cleared on this path.** An anonymous
+probe of `https://chaseupside.com/api/user/state` returns a clean
+`401 auth_required` — but 401 short-circuits at the auth layer *before*
+any KV read, so it says nothing about whether `user_kv` works for a
+signed-in user. Verifying that needs a session cookie the orchestrator
+does not hold. Unverified, not fine.
+
+### 6.12 The startup staleness check fires on a file nothing consumes
+
+The SessionStart hook reported `idpTradeCalc.csv: 901 lines, 34h old —
+WARNING: Stale (>12h). Check scheduled-refresh workflow.` Chased it;
+**the data is fine and the alarm is looking at the wrong artifact.**
+
+Measured 2026-07-27 ~03:05 UTC:
+
+| Artifact | IDPTC freshness |
+|---|---|
+| Production live scrape | **fresh** — `complete_sources: ['IDPTradeCalc','KTC']`, run finished 01:13 UTC, 900 rows, 768 served |
+| `exports/latest/dynasty_data_2026-07-26.json` | **fresh** — `scrapeTimestamp 2026-07-26T23:43:51`, **898 of 1077 players** carry `idpTradeCalc`, `siteStats` count 1054 |
+| `exports/latest/site_raw/idpTradeCalc.csv` | **stale — last changed `43cfd29d8`, 07-22 07:24, ~5 days** |
+
+Only the third is stale, and it is a raw-source *mirror*.
+`preflight.py::_seed_data_cache` copies `exports/latest/dynasty_data_*.json`
+— it does **not** copy `site_raw/`. So the E2E suite, the pipeline and
+production all read fresh IDP values.
+
+Why the mirror freezes: `scheduled-refresh.yml:235` handles
+`idpTradeCalc` with `stamp_if_present`, not `run_fetcher` — it is
+expected from the scraper rather than fetched. Every recent
+`automated data refresh` commit touches only `ktc.csv` + `ktcSfTep.csv`.
+`dlf` and `idpShow` avoid this because they have dedicated
+`deploy/*_fetch_and_push.sh` jobs pushing from the production box
+(5 commits each in the last 40); `idpTradeCalc` has no such job.
+
+**Two defects here, both in the monitoring rather than the data:**
+
+1. The hook's threshold (**12h**) contradicts the repo's own policy —
+   `config/source_staleness.json` sets `idpTradeCalc: 24`. It would
+   have warned at 12h even under a healthy 2h cron cadence.
+2. It measures a mirror no consumer reads, so it cannot distinguish
+   "IDP values are stale" (serious) from "a raw CSV copy drifted"
+   (cosmetic). It reported the second in the language of the first.
+
+This is the warmup lesson again in a different place: **a monitor that
+cries wolf trains the operator to ignore it.** The fix is to point the
+check at `exports/latest/dynasty_data_*.json`'s `scrapeTimestamp`, or
+at production's `source_health`, and to read its threshold from
+`config/source_staleness.json` instead of hardcoding one.
+
+Deliberately not fixed in this tick: the hook is operator tooling
+outside the seven open PRs, and changing a monitoring threshold at
+03:00 while holding a merge queue is how a real alarm gets silenced by
+accident. Worth ten minutes at the window.
 
 ### 6.4 Historical record — resolved blockers
 
@@ -751,8 +1325,10 @@ measures the trade-engine value divergence (F-6 input, no fix) and
 refutes its own prior §16.7 hypothesis about the corridor clamp. It
 merged *while this dashboard rebuild was in flight*, which is itself the
 §2a lesson landing for a third time today: this branch was rebased onto
-`origin/main` and `git diff --stat origin/main HEAD` re-run to confirm
-it still carried only its own file.
+`origin/main` and the diff re-run to confirm it still carried only its
+own file. (That re-run used the two-dot form; on a rebased branch the
+two forms agree, so the conclusion held — but see §2a for why the
+three-dot form is the one to write down.)
 
 Its measured result is worth carrying into §6.2's eventual fix: the
 board runs ~12% below the composite (k = 0.880 across 803 assets), so
