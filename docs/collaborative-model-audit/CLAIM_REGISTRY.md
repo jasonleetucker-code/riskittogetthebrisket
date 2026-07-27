@@ -91,12 +91,31 @@ pre-blend, KTC exempt.
 The prompt's suggested interim posture — "describe the existing treatment as source
 alignment if that is what it is" — was already the state of the code.
 
-**What measurement added.** KTC publishes the same players with and without a TE premium
-(`ktc.csv` vs `ktcSfTep.csv`), so the source-alignment conversion is directly measurable.
-73 TEs differ; uplift is rank-dependent, 1.209 at the top to 2.053 at the bottom, median
-1.319. **1.15 sits below the entire observed range** — it under-corrects for every tight
-end. And the league's own measured TE premium is exactly 1.000 (all TE-touching keys
-matched by their WR/RB equivalents, not just `bonus_rec_te`).
+**What measurement added.** KTC publishes the same players with and without a TE
+premium (`ktc.csv` vs `ktcSfTep.csv`), so the source-alignment conversion is directly
+measurable. 73 TEs differ; uplift is rank-dependent, 1.209 at the top to 2.053 at the
+bottom, median 1.319. **1.15 sits below the entire observed range** — every non-TEP
+board is lifted too little.
+
+**CORRECTION 2026-07-27 — the league-demand half was wrong.** A first pass measured TE
+demand from *scoring keys alone*, found `bonus_rec_te = 0.0` with every TE key matched
+by its WR/RB equivalent, and concluded the league's TE premium was "exactly 1.000",
+implying TE values should be translated DOWN off the TE++ basis.
+
+The league starts **two mandatory tight ends** (`roster_positions` contains `TE, TE`)
+and TE is additionally FLEX- and SFLEX-eligible. That is large structural demand, and it
+exists whether or not a scoring key rewards the position — twelve teams must field
+twenty-four tight ends every week. KTC's TE-premium boards exist for exactly this class
+of league.
+
+Reading "no scoring bonus" as "no TE premium" confused the *mechanism* with the *demand*.
+Translating down would have stripped a premium the league genuinely has. The live blend's
+own comment had it right all along: *"KTC is the canonical TE++ retail signal and is left
+untouched; every other source's TE values are scaled at blend time to align with KTC's
+TE++ baseline."*
+
+**Net effect of the correction:** the direction of the live adjustment is right and its
+magnitude is too small. Correcting it moves TE values **UP**, not down.
 
 **Decision:** build both axes, measure both, wire neither yet. See
 `IMPLEMENTATION_STATUS.md`.

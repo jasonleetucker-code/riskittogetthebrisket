@@ -96,24 +96,64 @@ observed range*. It under-corrects for every tight end.
 
 ---
 
-## EXP-5 — What is the league's actual TE premium?
+## EXP-5 — What is the league's actual TE demand?
 
-**Method:** read every TE-touching scoring key from the committed league snapshot and
-compare against WR/RB equivalents.
+**RETRACTED AND REDONE.** The first version of this experiment measured the wrong thing.
+
+### First attempt (wrong)
+
+**Method:** read every TE-touching scoring key and compare against WR/RB equivalents.
 
 ```
 bonus_rec_te 0.0   bonus_rec_wr 0.0   bonus_rec_rb 0.0
 bonus_fd_te  1.0   bonus_fd_wr  1.0   bonus_fd_rb  1.0
 ```
 
-**Conclusion:** exactly **1.000**. `bonus_fd_te = 1.0` reads as a TE premium until the
-comparators are checked. The existing `_derive_tep_multiplier_from_league` reads
-`bonus_rec_te` alone and would miss this class in the other direction.
+**Conclusion drawn:** TE premium is exactly 1.000, so TE values should be translated
+*down* off the TE++ basis.
 
-*(Incidental: `rec = 0.08` with first-down bonuses of 1.0 — this is a first-down-premium
-format, not PPR. Not acted on.)*
+**Why it was wrong:** it measured the scoring *mechanism* and called it the *demand*.
 
----
+### Redone
+
+**Method:** read `roster_positions` from the league snapshot.
+
+```
+['QB','RB','RB','WR','WR','WR','TE','TE','FLEX','FLEX','SUPER_FLEX', ...]
+                                    ^^^^^^^^^^
+counts: {'QB':1,'RB':2,'WR':3,'TE':2,'FLEX':2,'SUPER_FLEX':1, ...}
+flexEligible: [RB, WR, TE]   sflexEligible: [QB, RB, WR, TE]
+```
+
+**Conclusion:** **two mandatory TE starters**, plus TE eligibility in both FLEX and
+SUPER_FLEX. Twelve teams must field twenty-four tight ends every week. That is large
+structural demand, entirely independent of scoring — and it is the class of league KTC's
+TE-premium boards exist for.
+
+**Target basis: TE++**, which is what the live blend already assumes. So the direction of
+the live adjustment was right; only its magnitude (a flat 1.15 against a measured
+1.209–2.053) is wrong, and correcting it moves TE values **UP**.
+
+**Carried forward:** a scoring key is one way demand shows up, not the definition of it.
+Any "does this league value position X" question must read roster structure first.
+
+### Double-count check
+
+With the target basis established as TE++, the risk is applying an uplift to something
+already on that basis. Verified:
+
+| case | result |
+|---|---|
+| `ktcSfTep` (already `tepp`) → `tepp` | no-op, value unchanged |
+| convert twice with the same pair | second call sees `from == to`, no compounding |
+| `base 8169 → tepp → base` | returns 8169 (round-trip exact) |
+| `base 8169 → tepp` | 9878 — matches Brock Bowers' real KTC pair |
+| `base → teppp` | raises; no fitted curve, refuses to interpolate |
+
+The blend site was already safe — its `if/elif` is mutually exclusive and KTC is exempt.
+The risk was introduced by *this audit*: the first API returned a `multiplier` field a
+caller would naturally stack on top. Replaced with a target *basis*, which cannot be
+multiplied into anything.
 
 ## EXP-6 — F-6 threshold re-derivation: percentile or scale?
 

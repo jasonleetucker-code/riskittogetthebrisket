@@ -6846,6 +6846,25 @@ def _compute_unified_rankings(
             # boosted contribution exceeds 9,999, structurally letting
             # one TE out-value the consensus #1 overall — the premium
             # must reposition TEs *within* the scale, not break it.
+            # DOUBLE-COUNT GUARD — do not restructure this without
+            # reading the note (audit finding F, corrected 2026-07-27).
+            #
+            # Exactly one multiplier may reach a TE row:
+            #   * KTC (``ktcSfTep``) is EXEMPT — it already publishes the
+            #     TE++ board that is the alignment target. Lifting it
+            #     would double-count.
+            #   * every other source takes the if/elif below, which is
+            #     mutually exclusive by construction.
+            #
+            # The league is a TWO-TIGHT-END league (roster_positions
+            # carries ``TE, TE``, and TE is FLEX/SFLEX eligible), which
+            # is what KTC's TE++ setting targets. That structural demand
+            # — not any scoring key — is why the TE++ basis is correct
+            # here. ``bonus_rec_te`` is 0.0 and that is irrelevant to it.
+            #
+            # Any future league-level TE adjustment must select a target
+            # BASIS (see ``src/league_intel/te_premium.py``) rather than
+            # multiply a factor in on top of this alignment.
             if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:
                 if source_key in tep_boosted_source_keys:
                     value = min(value * effective_non_tep_multiplier, 9999.0)

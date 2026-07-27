@@ -55,6 +55,21 @@ identically on either. Downgraded to a documentation note. Writing a comment bea
   showed 1.15 sits *below the entire observed range* of KTC's own TE++ uplift
   (1.209–2.053) — it under-corrects for every tight end, which is the opposite of the
   "over-correction" the prior documentation worried about.
+
+**4. And one of my own conclusions had to be retracted mid-flight.** I measured the
+league's TE demand from *scoring keys* — found `bonus_rec_te = 0.0` with every TE key
+matched by its WR/RB equivalent — and concluded the premium was "exactly 1.000", implying
+TE values should come DOWN. The league starts **two mandatory tight ends**. Structural
+demand is demand whether or not a scoring key rewards it, and I had confused the
+mechanism with the thing itself. Corrected: the target basis is TE++, the live direction
+was right, and the correction moves TE values **up**.
+
+The failure mode is worth naming because it is the one this audit kept finding in other
+people's work: a number that is *correct about what it measures* and wrong about what it
+is taken to mean. `measure_league_te_premium` returned an accurate scoring measurement
+under a name that claimed more. It now returns a target *basis* instead of a multiplier,
+so the same mistake cannot be made numerically — a basis cannot be multiplied into
+anything.
 * On F-6: the doc predicted the migration "moves every number the endpoint emits". It
   moved the levels slightly and the ordering barely at all — the top recommendation was
   unchanged for 0 of 12 teams, because the dominant score term is a ratio and a

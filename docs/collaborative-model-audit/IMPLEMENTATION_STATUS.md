@@ -39,18 +39,22 @@ fix landed; the ROS trio was additionally mutation-tested.
 The KTC TE++ curve and the league-scoring measurement both exist, are tested, and change
 nothing in the live value path yet.
 
-**Why staged.** The user asked for measured scoring plus KTC's TE++ curve, and
-measurement produced a result worth seeing before it ships:
+**Why staged.** You asked for measured scoring plus KTC's TE++ curve. Measuring produced
+a result worth seeing before it ships — and a correction to my own first pass.
 
-* The pipeline blends against `ktcSfTep` — a **TE++ board** — and then multiplies
-  non-TEP sources *up* by 1.15.
-* The league's measured TE premium is **1.000**.
-* So under measured scoring the correction runs the other way: TEs should be translated
-  **down** off the TE++ basis toward base.
+* The league starts **two mandatory TE starters**, with TE also FLEX/SFLEX eligible. The
+  target basis is therefore **TE++**, which is what the blend already assumes.
+* KTC's measured TE++ uplift is **1.209–2.053**, rank-dependent. The live flat **1.15**
+  sits below that entire range.
+* So non-TEP boards are lifted **too little**, and correcting it moves TE values **UP**.
 
-That is a large live value move on the default board, and CLAUDE.md rule 4 requires
-verifying downstream effects across rankings, sorting, filtering, exports and trade math
-before it ships. The machinery is in place; the flip is one reviewed step.
+*(A first pass measured demand from scoring keys alone, found no `bonus_rec_te`, and
+concluded the opposite — that values should come down. That confused the scoring
+mechanism with the structural demand. Retracted; see `CLAIM_REGISTRY.md` finding F.)*
+
+The remaining work is a live value move on the default board, so CLAUDE.md rule 4
+requires verifying downstream effects across rankings, sorting, filtering, exports and
+trade math before it ships.
 
 **What wiring it needs:**
 1. Route the two axes into `_compute_unified_rankings` at the existing per-source TE

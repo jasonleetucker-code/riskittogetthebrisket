@@ -62,31 +62,64 @@ assumes their TEs sit at a comparable base.
 
 ---
 
-## FR-3 — league TE premium (NEW, not yet wired)
+## FR-3 — league TE demand (NEW, not yet wired)
 
-**Version:** `te.league.2026-07-27.v1` · **Unit:** dimensionless multiplier, or `None`
+**Version:** `te.demand.2026-07-27.v2` · **Returns:** a target *basis*, never a multiplier
 
 ```
-OLD   1.0 + bonus_rec_te · _TEP_DERIVATION_SLOPE        (reads ONE key)
+v1 (WRONG)  edge(key) = TE key - max(WR key, RB key)
+            no positive edge -> multiplier = 1.0
 
-NEW   edge(key) = value(TE key) − max(value(WR key), value(RB key))
-      no positive edge  →  multiplier = 1.0   (exact)
-      any positive edge →  multiplier = None  + the measured edges
+v2          required_te = count of TE in roster_positions
+            basis   = tepp  if required_te >= 2
+                      teppp if required_te >= 3
+                      base  otherwise
+            scoring edge can RAISE the basis one step; never lower it
 ```
 
-**Reason:** reading `bonus_rec_te` alone misses both directions. `bonus_fd_te = 1.0`
-looks like a TE premium until you notice `bonus_fd_wr` and `bonus_fd_rb` are also 1.0.
+**Why v1 was wrong.** It measured the scoring *mechanism* and called it the *demand*.
+The league starts two mandatory tight ends and allows TE in both FLEX and SUPER_FLEX;
+that demand exists whether or not receptions pay extra. v1's answer (premium = 1.000)
+implied translating TE values DOWN off a basis they belong on.
 
-**Evidence:** `config/league_intel/sleeper_league_snapshot_2026-07-26.json` — every
-`bonus_rec_*` is 0.0 and every `bonus_fd_*` for a pass-catcher is 1.0. The operator's
-measured 2026 TE premium is exactly **1.000**, corroborating `data_contract.py`'s own
-retraction across all TE-touching keys rather than just the one.
+**Evidence:** `roster_positions` contains `TE, TE`; `flexEligible` and `sflexEligible`
+both include TE. Scoring measured separately and adds nothing here — but is no longer
+able to subtract.
 
-**Why `None` rather than a number** when an edge exists: converting "+0.5 per reception"
-into "TEs are worth X% more" needs per-player volume data the repo does not persist
-(finding Q). Reporting the edge beats inventing a slope.
+**Provenance note:** the "2 required TE → TE++" mapping encodes an operator-supplied
+domain fact about what KTC's TE++ setting targets. It is recorded as an assumption, not
+dressed up as something this repo measured. The measurable half — the roster requirement
+— is read directly from the league.
 
 ---
+
+## FR-3b — `convert_te_value` (NEW): the double-count guard
+
+**Version:** `te.convert.2026-07-27.v1`
+
+```
+convert_te_value(v, from_basis, to_basis)
+    from == to              -> v unchanged        (no-op)
+    base -> tepp            -> v * uplift(v)
+    tepp -> base            -> numeric inverse of the above
+    any other pair          -> raises
+    unknown basis           -> raises
+```
+
+**Why a basis API rather than a multiplier.** Two multiplications always compound; two
+conversions between named bases cannot, because the second call sees `from == to`. The
+guard is structural rather than a matter of discipline.
+
+This matters specifically because `ktcSfTep` is *already* on `tepp`. Under a multiplier
+API, lifting "all TE sources" would hit it twice. Under this one, asking to put a `tepp`
+value on `tepp` returns it untouched.
+
+Unmeasured pairs raise rather than interpolating. Only `base <-> tepp` is fitted, from
+KTC's own two boards; inventing an intermediate uplift for `tep` or `teppp` would be the
+kind of unmeasured number this audit exists to remove.
+
+**Verified:** `base 8169 -> tepp` gives 9878, matching Brock Bowers' real KTC pair
+(8169 / 9878). Round-trip returns the original.
 
 ## FR-4 — finder value source (F-6)
 
