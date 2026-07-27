@@ -61,7 +61,7 @@ export default async function MatchupOGImage({ params }) {
         }}
       >
         <div style={{ display: "flex", color: "#FFC704", fontSize: 28, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
-          {`Brisket League · ${season} Week ${week}${m?.isPlayoff ? " · Playoffs" : ""}`}
+          {`Chase Upside · ${season} Week ${week}${m?.isPlayoff ? " · Playoffs" : ""}`}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>

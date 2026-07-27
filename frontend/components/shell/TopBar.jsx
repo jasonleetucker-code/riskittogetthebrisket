@@ -48,7 +48,7 @@ export default function TopBar({ authenticated, isPublic, onSearch, onLogout }) 
           <span className="shell-brand-mark" aria-hidden="true">
             ▪
           </span>
-          Brisket
+          Chase Upside
         </Link>
         <nav className="shell-nav" aria-label="Primary">
           {groups.map((group) =>

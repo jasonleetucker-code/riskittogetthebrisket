@@ -18,7 +18,7 @@ function LandingHome() {
   return (
     <section className="login-shell">
       <div className="login-panel" style={{ textAlign: "center" }}>
-        <h1 style={{ margin: "0 0 8px", fontSize: "1.4rem" }}>Risk It To Get The Brisket</h1>
+        <h1 style={{ margin: "0 0 8px", fontSize: "1.4rem" }}>Chase Upside</h1>
         <p className="muted" style={{ marginBottom: "var(--space-lg)" }}>Choose where you want to go.</p>
         <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Link href="/league" className="button" style={{ textAlign: "center", padding: "14px 12px" }}>

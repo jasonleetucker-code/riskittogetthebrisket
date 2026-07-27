@@ -13,13 +13,14 @@
 const { test, expect } = require("@playwright/test");
 
 const PUBLIC_ROUTES = [
-  // Anonymous "/" no longer shows the "Risk It To Get The Brisket"
-  // wordmark: the R1 shell brands the chrome "Brisket", and an
-  // unauthenticated visit now lands on the sign-in surface.  Assert on
-  // the brand, which is present in the shell on every route and every
-  // auth state — this check exists to prove the route renders at all,
-  // not to pin the marketing copy.
-  { path: "/", mustHave: /Brisket/i },
+  // The shell brands the chrome "Chase Upside" (renamed from "Brisket"
+  // 2026-07-27; the Sleeper LEAGUE is still called "Risk It To Get The
+  // Brisket" and that name is deliberately untouched).  An
+  // unauthenticated visit lands on the sign-in surface.  Assert on the
+  // brand, which is present in the shell on every route and every auth
+  // state — this check exists to prove the route renders at all, not to
+  // pin the marketing copy.
+  { path: "/", mustHave: /Chase Upside/i },
   // ``/league`` removed from this list: the backend's ``_proxy_next``
   // helper is hit by these tests (baseURL = backend port) but the
   // /league SSR pass is consistently slower than even a 5s proxy

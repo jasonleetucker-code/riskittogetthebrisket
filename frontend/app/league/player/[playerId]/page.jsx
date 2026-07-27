@@ -80,8 +80,8 @@ export async function generateMetadata({ params }) {
   const payload = await fetchPlayer(playerId);
   if (!payload || !payload.player) {
     return {
-      title: `Player journey · Brisket League`,
-      description: "Public player transaction + scoring history across the Brisket dynasty league.",
+      title: `Player journey · Chase Upside`,
+      description: "Public player transaction + scoring history across the dynasty league.",
     };
   }
   const p = payload.player.identity;
@@ -90,7 +90,7 @@ export async function generateMetadata({ params }) {
   const title = `${p.playerName} (${p.position}) — league journey`;
   const description = top
     ? `${p.playerName} scored ${top.pointsTotal} pts for ${top.displayName} across ${top.weeksRostered} weeks.`
-    : `${p.playerName}'s transaction history in the Brisket dynasty league.`;
+    : `${p.playerName}'s transaction history in the dynasty league.`;
   return {
     title,
     description,

@@ -52,7 +52,7 @@ export default async function PlayerOGImage({ params }) {
       >
         <div style={{ display: "flex", gap: 16, color: "#FFC704", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
-            Brisket League · Player Journey
+            Chase Upside · Player Journey
           </span>
         </div>
 

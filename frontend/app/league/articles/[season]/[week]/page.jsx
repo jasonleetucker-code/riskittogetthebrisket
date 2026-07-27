@@ -36,7 +36,7 @@ async function fetchSlate(season, week) {
 export async function generateMetadata({ params }) {
   const { season, week } = await params;
   return {
-    title: `Articles · ${season} Week ${week} — Brisket League`,
+    title: `Articles · ${season} Week ${week} — Chase Upside`,
     description: `AI-generated previews and recaps for the ${season} Week ${week} matchup slate.`,
   };
 }

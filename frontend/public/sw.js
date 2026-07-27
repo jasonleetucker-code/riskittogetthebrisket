@@ -1,5 +1,5 @@
 /**
- * Service worker — minimal "offline-first shell" for Brisket.
+ * Service worker — minimal "offline-first shell" for Chase Upside.
  *
  * What this does:
  *   - Cache-first for static assets (``/_next/static/*``, icons,
@@ -53,7 +53,7 @@
 // v3: push + notificationclick handlers added.  Cache layout is
 // otherwise unchanged; the bump just forces an SW activation cycle so
 // existing tabs pick up the new event listeners.
-const CACHE_VERSION = "brisket-v5";
+const CACHE_VERSION = "chaseupside-v6";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -204,13 +204,13 @@ self.addEventListener("push", (event) => {
       payload = event.data.json();
     } catch {
       try {
-        payload = { title: "Brisket", body: event.data.text() };
+        payload = { title: "Chase Upside", body: event.data.text() };
       } catch {
         payload = {};
       }
     }
   }
-  const title = String(payload.title || "Brisket").slice(0, 120);
+  const title = String(payload.title || "Chase Upside").slice(0, 120);
   const body = String(payload.body || "").slice(0, 300);
   const url = typeof payload.url === "string" ? payload.url : "/";
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;

@@ -209,5 +209,5 @@ export function pageTitleFor(pathname) {
     if (!isNavActive(item.href, pathname)) continue;
     if (!best || item.href.length > best.href.length) best = item;
   }
-  return best ? best.label : "Brisket";
+  return best ? best.label : "Chase Upside";
 }

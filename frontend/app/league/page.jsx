@@ -44,12 +44,12 @@ export async function generateMetadata() {
   if (!data) {
     return {
       title: "Risk It To Get The Brisket — public league",
-      description: "Public league home for the Brisket dynasty league.",
+      description: "Public league home for the dynasty league.",
     };
   }
   const league = data.league || {};
   const overview = data.sections?.overview || {};
-  const name = league.leagueName || "Brisket League";
+  const name = league.leagueName || "Chase Upside";
   const range = overview.seasonRangeLabel || (league.seasonsCovered || []).join("–");
   const champ = overview.currentChampion;
   const decorated = overview.mostDecoratedFranchise;
