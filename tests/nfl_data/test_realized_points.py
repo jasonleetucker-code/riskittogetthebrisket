@@ -172,3 +172,160 @@ def test_rounding_stable_across_dict_serialization():
     d = out.to_dict()
     # Reproducible rounding, not something like 13.320000000000002.
     assert d["fantasyPoints"] == 13.32
+
+
+# ── IDP scoring ───────────────────────────────────────────────────────
+#
+# This path had no coverage at all before 2026-07-27, which is how it
+# came to be scoring three columns that the current nflverse release
+# does not have.  Every assertion below pins a NON-ZERO point total onto
+# a column whose name changed or vanished — the only shape of assertion
+# a silent-zero defect can fail.  "the call returned a RealizedPoints"
+# passes against the bug.
+
+
+def _idp_scoring():
+    """A representative IDP scoring block, tackle-heavy the way real
+    IDP leagues are."""
+    return {
+        "idp_tkl_solo": 1.0,
+        "idp_tkl_ast": 0.5,
+        "idp_tkl": 0.0,
+        "idp_sack": 4.0,
+        "idp_int": 6.0,
+        "idp_pd": 1.5,
+        "idp_ff": 4.0,
+        "idp_fum_rec": 3.0,
+        "idp_safe": 8.0,
+        "idp_tkl_loss": 2.0,
+    }
+
+
+def _unified_idp_row():
+    """2025 unified-release spellings, measured live 2026-07-27."""
+    return {
+        "player_id": "00-0032899",
+        "position": "LB",
+        "season": 2025,
+        "week": 1,
+        # gamebook: 5 + 2 = 7 solo, 1 assist, 8 combined
+        "def_tackles_solo": 5,
+        "def_tackles_with_assist": 2,
+        "def_tackle_assists": 1,
+        "def_sacks": 1.0,
+        "def_interceptions": 1,
+        "def_pass_defended": 2,
+        "def_fumbles_forced": 1,
+        "def_fumble_recovery_own": 1,
+        "def_tackles_for_loss": 1,
+        # RENAMED from def_safety.
+        "def_safeties": 1,
+    }
+
+
+def _legacy_idp_row():
+    """Retired pre-2025 spellings — a backfill must still score."""
+    return {
+        "player_id": "00-0022222",
+        "position": "LB",
+        "season": 2024,
+        "week": 4,
+        # def_tackles IS the gamebook solo total.
+        "def_tackles": 7,
+        "def_tackles_solo": 5,
+        "def_tackles_with_assist": 2,
+        "def_tackle_assists": 1,
+        "def_safety": 1,
+    }
+
+
+def test_idp_tackles_use_the_gamebook_solo_total():
+    """``def_tackles_solo`` alone under-reports: it excludes
+    ``def_tackles_with_assist``.  Gamebook solo is 5 + 2 = 7.
+
+    Reading the raw column would score 5.0 here, so the assertion
+    distinguishes the two.
+    """
+    out = rp.compute_weekly_points(
+        _unified_idp_row(), {"idp_tkl_solo": 1.0}, position="LB"
+    )
+    assert out is not None
+    assert out.fantasy_points == 7.0
+
+
+def test_idp_combined_tackles_are_scored_at_all():
+    """``idp_tkl`` read ``def_tackles``, which the unified release
+    removed — the key silently scored zero.  Combined is solo (7) plus
+    assists (1) = 8, and no nflverse column carries it."""
+    out = rp.compute_weekly_points(
+        _unified_idp_row(), {"idp_tkl": 1.0}, position="LB"
+    )
+    assert out is not None
+    assert out.fantasy_points == 8.0
+
+
+def test_idp_safety_survives_the_def_safeties_rename():
+    out = rp.compute_weekly_points(
+        _unified_idp_row(), {"idp_safe": 8.0}, position="LB"
+    )
+    assert out is not None
+    assert out.fantasy_points == 8.0
+
+
+def test_idp_tackle_thresholds_fire_on_combined_tackles():
+    """The 5+/10+ bonuses read ``def_tackles`` too, so they stopped
+    firing entirely.  Combined is 8 here: 5+ fires, 10+ does not."""
+    out = rp.compute_weekly_points(
+        _unified_idp_row(),
+        {"idp_tkl_5p": 2.0, "idp_tkl_10p": 5.0},
+        position="LB",
+    )
+    assert out is not None
+    assert out.fantasy_points == 2.0
+
+
+def test_idp_full_line_stacks_every_category():
+    """Sleeper stacks: one play can credit sack + TFL + solo tackle.
+
+    7 solo x 1.0 + 1 ast x 0.5 + 1 sack x 4 + 1 int x 6 + 2 pd x 1.5
+    + 1 ff x 4 + 1 fr x 3 + 1 safety x 8 + 1 tfl x 2 = 37.5
+    """
+    out = rp.compute_weekly_points(_unified_idp_row(), _idp_scoring(), position="LB")
+    assert out is not None
+    assert out.fantasy_points == 37.5
+    labels = {lab for (lab, _s, _p) in out.breakdown}
+    assert {"Solo Tkl", "Ast Tkl", "Sack", "INT", "PD", "FF", "FR", "Safety", "TFL"} <= labels
+
+
+def test_legacy_column_spellings_score_identically():
+    """The same gamebook line expressed in pre-2025 columns."""
+    out = rp.compute_weekly_points(
+        _legacy_idp_row(),
+        {"idp_tkl_solo": 1.0, "idp_tkl_ast": 0.5, "idp_tkl": 1.0, "idp_safe": 8.0},
+        position="LB",
+    )
+    assert out is not None
+    # 7 solo + 0.5 ast + 8 combined + 8 safety = 23.5
+    assert out.fantasy_points == 23.5
+
+
+def test_offensive_position_never_picks_up_idp_keys():
+    """The gate that keeps a WR's zeroed def_ block out of the total.
+    Every unified row carries def_* columns for every player."""
+    row = {**_unified_idp_row(), "position": "WR"}
+    out = rp.compute_weekly_points(row, _idp_scoring(), position="WR")
+    assert out is not None
+    assert out.fantasy_points == 0.0
+
+
+def test_tackle_view_matches_the_actuals_store():
+    """Two modules derive the same three numbers from the same columns.
+    They must not drift apart — a durable log and the scorer disagreeing
+    about how many tackles a player made is unresolvable after the fact.
+    """
+    from src.nfl_data import actuals_store
+
+    row = _unified_idp_row()
+    assert rp._tackle_view(row) == actuals_store._tackle_view(row)
+    legacy = _legacy_idp_row()
+    assert rp._tackle_view(legacy) == actuals_store._tackle_view(legacy)
