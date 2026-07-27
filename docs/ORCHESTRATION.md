@@ -428,6 +428,78 @@ what is already there.
   pass, perf, docs, release checklist, deploy. **Operator tasks that no
   agent can close: see §6.5.**
 
+## 5a. Integration window checklist (mid-week, ~2026-07-29)
+
+Five PRs are open and **all five are green**: #572, #573, #574, #576,
+#577. Prepared 2026-07-27 ~01:35 UTC so the window is execution, not
+rediscovery.
+
+**No file collides across the five.** Verified with
+`git diff --name-only origin/main...<branch>` per PR — every path is
+unique, so they merge in any order without a textual conflict. That is
+not the same as semantically independent, and the items below are what
+the file-level check cannot see.
+
+| # | Branch | Files | Merging it |
+|---|---|---|---|
+| 572 | orchestration-tick-0727 | 2 | dashboard + CLAUDE.md truth |
+| 573 | competitor-gap-analysis | 1 | Phase-1 deliverable |
+| 574 | api-gameplan-endpoint | 4 | **closes §6.3** |
+| 576 | angle-single-market | 3 | **closes §6.2** |
+| 577 | python-coverage-sweep | 6 | closes §2c-4 (partially) |
+
+### Actions the window must take, that no single PR can
+
+1. **Add `/api/gameplan` to `LEAGUE_SCOPED_GETS`.** #577's
+   `tests/api/test_league_isolation_invariants.py` enumerates
+   league-scoped routes from a **hardcoded** list
+   (`LEAGUE_SCOPED_GETS = ["/api/terminal"]`, plus three POSTs). #574
+   adds `/api/gameplan`, a league-scoped GET that 503s on mismatch.
+   Nothing breaks when both land — the sweep simply will not cover the
+   newest endpoint, which is the exact class of gap the sweep exists to
+   catch. #574 does test its own routing contract, so this is a missing
+   belt, not a missing brace.
+
+   The general form is worth fixing once rather than per endpoint: a
+   hardcoded route list cannot notice a route added after it was
+   written. Consider deriving it from `app.routes` filtered by a
+   marker, so a new league-scoped endpoint is covered by construction.
+
+2. **Re-check #576's "first production consumer" claim.** #576 states
+   it is the first production importer of
+   `src/league_intel/cross_market.py`. #574 also consumes
+   `value_package`. Both are true of `main` today and both stop being
+   true the moment the other merges — neither PR is wrong, but the
+   sentence in `cross_market.py`'s docstring ("the honest count of
+   production importers of THIS file is zero") needs updating to two.
+
+3. **Run the integrated tree, not five separate suites.** Every PR was
+   validated against `main`, none against each other. #577 adds tests
+   asserting current pipeline behaviour; #576 changes trade-engine
+   behaviour. They touch disjoint files, so nothing will conflict — but
+   a suite that is green on two branches separately can still be red on
+   the union, and that has to be measured rather than assumed.
+
+4. **Reviewer pass before merges**, per §2.4. Priority order for
+   attention: #576 (live valuation path, 890 additions), #574 (new
+   public surface), #577 (test-only but large), then the two docs PRs.
+
+### Not blockers, but decide at the window
+
+- **D-1 is a live production risk with no owner.** One out-of-range
+  value in a value-based source rescales the whole board — measured,
+  one row at `ktcSfTep=99990` deflates every player by 45.3%, silently.
+  #577 documented it rather than fixing it because the guard's *shape*
+  (clamp `site_max`? drop the row? mark the source unhealthy?) moves
+  real numbers and is a product call. **It needs a decision, not an
+  agent.**
+- **D-2** — `/api/draft-capital` returns 200 where CLAUDE.md says 503,
+  and prices one league's picks from another's contract with no
+  scoring-profile check. No roster leak (mutation-verified).
+- **D-5** — `tests/intel/test_endpoints.py::TestLeagueScoping::test_reads_go_through_the_league_resolver`
+  fails under parallel runs only, identically before and after #577,
+  passes serially. Pre-existing cross-file registry-state leak.
+
 ## 6. Open merge blockers
 
 Re-verified against `origin/main` = `ae3042935` on 2026-07-27 ~00:55
