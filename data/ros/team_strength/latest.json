@@ -595,7 +595,7 @@
           "DL",
           "LB"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
@@ -2812,8 +2812,8 @@
     "ownerId": "609821340567941120",
     "rosterId": 6,
     "teamName": "Eric",
-    "teamRosStrength": 527.29,
-    "startingLineupScore": 680.99,
+    "teamRosStrength": 529.52,
+    "startingLineupScore": 684.09,
     "benchDepthScore": 150.33,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
@@ -2840,12 +2840,12 @@
       },
       {
         "slot": "DB",
-        "playerId": "8333",
-        "canonicalName": "alontae taylor",
+        "playerId": "7811",
+        "canonicalName": "talanoa hufanga",
         "position": "DB",
-        "rosValue": 18.83,
-        "adjustedValue": 18.83,
-        "confidence": 0.771,
+        "rosValue": 21.93,
+        "adjustedValue": 21.93,
+        "confidence": 0.872,
         "flagged": null
       },
       {
@@ -3181,7 +3181,7 @@
         "fantasyPositions": [
           "DB"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
@@ -4697,8 +4697,8 @@
     "ownerId": "714912789268865024",
     "rosterId": 5,
     "teamName": "MaKayla",
-    "teamRosStrength": 478.01,
-    "startingLineupScore": 620.54,
+    "teamRosStrength": 483.73,
+    "startingLineupScore": 628.48,
     "benchDepthScore": 119.57,
     "positionalCoverageScore": 94.05,
     "healthAvailabilityScore": 100.0,
@@ -4755,12 +4755,12 @@
       },
       {
         "slot": "DL",
-        "playerId": "6900",
-        "canonicalName": "jonathan greenard",
-        "position": "DE",
-        "rosValue": 14.73,
-        "adjustedValue": 14.73,
-        "confidence": 0.853,
+        "playerId": "7635",
+        "canonicalName": "jaelan phillips",
+        "position": "LB",
+        "rosValue": 22.67,
+        "adjustedValue": 22.67,
+        "confidence": 0.811,
         "flagged": null
       },
       {
@@ -5147,7 +5147,7 @@
           "DL",
           "LB"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
@@ -8451,9 +8451,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 364.49,
-    "startingLineupScore": 469.88,
-    "benchDepthScore": 91.08,
+    "teamRosStrength": 371.77,
+    "startingLineupScore": 479.21,
+    "benchDepthScore": 94.18,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -8489,6 +8489,16 @@
       },
       {
         "slot": "DL",
+        "playerId": "4967",
+        "canonicalName": "bradley chubb",
+        "position": "LB",
+        "rosValue": 23.11,
+        "adjustedValue": 23.11,
+        "confidence": 0.768,
+        "flagged": null
+      },
+      {
+        "slot": "DL",
         "playerId": "7113",
         "canonicalName": "alex highsmith",
         "position": "LB",
@@ -8505,16 +8515,6 @@
         "rosValue": 17.76,
         "adjustedValue": 17.76,
         "confidence": 0.831,
-        "flagged": null
-      },
-      {
-        "slot": "DL",
-        "playerId": "5871",
-        "canonicalName": "zach allen",
-        "position": "DE",
-        "rosValue": 13.78,
-        "adjustedValue": 13.78,
-        "confidence": 0.781,
         "flagged": null
       },
       {
@@ -8694,6 +8694,14 @@
         "depthContribution": 4.34
       },
       {
+        "playerId": "5871",
+        "canonicalName": "zach allen",
+        "position": "DE",
+        "rosValue": 13.78,
+        "depthFactor": 1.0,
+        "depthContribution": 13.78
+      },
+      {
         "playerId": "4147",
         "canonicalName": "samaje perine",
         "position": "RB",
@@ -8724,14 +8732,6 @@
         "rosValue": 11.28,
         "depthFactor": 0.65,
         "depthContribution": 7.33
-      },
-      {
-        "playerId": "11597",
-        "canonicalName": "theo johnson",
-        "position": "TE",
-        "rosValue": 10.68,
-        "depthFactor": 1.0,
-        "depthContribution": 10.68
       }
     ],
     "fullRoster": [
@@ -9256,7 +9256,7 @@
           "DL",
           "LB"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
