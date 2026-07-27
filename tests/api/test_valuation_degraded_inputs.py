@@ -14,9 +14,11 @@ bearing and invisible*:
     formula divides by it.  See ``TestSiteMaxContamination``.
   * negative / zero source values being dropped rather than voted.
 
-A known **unfixed** gap is characterised (not asserted as correct) in
-``TestSiteMaxContamination.test_out_of_range_finite_value_rescales_the_board``
-— see ``docs/python-coverage-audit.md``.
+The out-of-range gap that was characterised here as *unfixed* (D-1) was
+closed 2026-07-27 — see
+``TestSiteMaxContamination.test_out_of_range_finite_value_does_not_rescale_the_board``,
+``_partition_value_source_ranges`` in ``src/api/data_contract.py``, and
+``docs/python-coverage-audit.md`` D-1.
 """
 
 from __future__ import annotations
@@ -185,8 +187,18 @@ class TestNonPositiveAndNonFiniteValues:
 class TestSiteMaxContamination:
     """The value-direct branch is ``raw / site_max × 9999``.
 
-    ``site_max`` is an unbounded max over the pool, so one bad cell in
-    a value-based source rescales *every* player in that source.
+    ``site_max`` USED to be an unbounded max over the pool, so one bad
+    cell in a value-based source rescaled *every* player in that source.
+    Two independent guards now stand there, and both are load-bearing:
+
+      * ``_safe_num`` rejects non-finite values before they can reach
+        the max at all;
+      * ``_partition_value_source_ranges`` (D-1, 2026-07-27) computes
+        the max over in-range values only, and drops out-of-range rows
+        to the rank→Hill fallback.
+
+    Neither subsumes the other — ``inf`` is caught by coercion, an
+    extra digit is caught by the range check.
     """
 
     def test_non_finite_values_never_become_the_site_max(self):
@@ -217,32 +229,39 @@ class TestSiteMaxContamination:
                 poisoned_vals[name] == value
             ), f"{name} was repriced by a non-finite cell in another row"
 
-    def test_out_of_range_finite_value_rescales_the_board(self):
-        """CHARACTERISATION of a known, unfixed gap — not an endorsement.
+    def test_out_of_range_finite_value_does_not_rescale_the_board(self):
+        """D-1 CLOSED — this was a characterisation test; it is now a guard.
 
-        ``_safe_num`` only rejects non-finite values.  A finite but
-        out-of-scale cell (e.g. an extra digit: 99990 on a board that
-        tops out at 9999) is accepted, becomes ``site_max``, and
-        deflates every player's contribution from that source.
+        Until 2026-07-27 this asserted the *defect*: ``_safe_num`` only
+        rejected non-finite values, so a finite but out-of-scale cell
+        (an extra digit — 99990 on a board topping out at 9999) was
+        accepted, became ``site_max``, and deflated every player's
+        contribution from that source by ~45%.  The original docstring
+        instructed the next reader to "turn this into a no-contamination
+        assertion" once a range guard landed.  It has, so this is it.
 
-        This test pins the CURRENT behaviour so that whenever a range
-        guard is added the change is deliberate and visible, rather
-        than landing silently.  See ``docs/python-coverage-audit.md``
-        (Defect D-1) for the numbers and the open policy question.
+        The guard is policy "B with a C escalation" (operator decision):
+        the out-of-range row is dropped from the value-direct path for
+        that source and falls through to rank->Hill, exactly as a
+        missing value already does.  Everyone else is untouched — which
+        is what this now asserts.
+
+        Note the fixture is 120 players, above
+        ``_VALUE_RANGE_ESCALATION_MIN_ROWS`` (50), and one bad row is
+        ~0.8% — below the 2% escalation threshold.  So this exercises
+        policy B specifically, not the source-level suppression.
         """
         clean = _contract_values(dc.build_api_data_contract(_payload()))
         poisoned = _contract_values(dc.build_api_data_contract(_payload(corrupt=99990)))
 
-        # Today: every player is deflated, and by the same proportion.
-        deflated = [
-            poisoned[n] / clean[n] for n in clean if clean[n] and poisoned.get(n) is not None
-        ]
-        assert deflated, "fixture produced no comparable players"
-        assert all(r < 0.75 for r in deflated), (
-            "expected the documented board-wide deflation; if this now "
-            "passes at ~1.0 a range guard has been added — update "
-            "docs/python-coverage-audit.md D-1 and turn this into a "
-            "no-contamination assertion"
+        ratios = [poisoned[n] / clean[n] for n in clean if clean[n] and poisoned.get(n) is not None]
+        assert ratios, "fixture produced no comparable players"
+
+        worst = min(ratios)
+        assert worst > 0.99, (
+            f"a single out-of-range cell repriced the board (worst ratio "
+            f"{worst:.4f}); the D-1 range guard is not holding — see "
+            f"_partition_value_source_ranges in src/api/data_contract.py"
         )
 
 
