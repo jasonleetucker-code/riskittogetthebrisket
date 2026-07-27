@@ -25,10 +25,10 @@ async function fetchStatus() {
       credentials: "same-origin",
       headers: { "Cache-Control": "no-store" },
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}`, data: null };
+    return { ok: true, reason: null, data: await res.json() };
+  } catch (err) {
+    return { ok: false, reason: err?.message || "network error", data: null };
   }
 }
 
@@ -59,15 +59,24 @@ function toneFor(source, runtime, ageHours) {
 
 export default function SourceHealthStrip({ variant = "inline" }) {
   const [status, setStatus] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function pull() {
-      const data = await fetchStatus();
+      const result = await fetchStatus();
       if (cancelled) return;
-      setStatus(data);
+      // Keep the last good payload on a transient blip so a 60s poll
+      // failure doesn't blank a working strip; only report the error
+      // when we have nothing to show.
+      if (result.ok) {
+        setStatus(result.data);
+        setFetchError(null);
+      } else {
+        setFetchError(result.reason);
+      }
       setLoading(false);
     }
     pull();
@@ -127,8 +136,34 @@ export default function SourceHealthStrip({ variant = "inline" }) {
   }, [status]);
 
   if (loading) return null;
-  if (!summary) return null;
-  if (summary.entries.length === 0) return null;
+
+  // ── Nothing to show ───────────────────────────────────────────────
+  // Inline: stay hidden.  A broken status card must not clutter an
+  // otherwise-functional page — that is the documented intent.
+  //
+  // Page: this component IS /tools/source-health.  Returning null there
+  // left the route rendering a legend for dots that weren't present,
+  // with no way to distinguish "all sources healthy" from "the status
+  // endpoint is down".  A failure the reader can't see is exactly what
+  // CLAUDE.md's fail-fast convention forbids.
+  const isPage = variant === "page";
+  if (!summary || summary.entries.length === 0) {
+    if (!isPage) return null;
+    const detail = !summary
+      ? `Couldn't reach /api/status${fetchError ? ` (${fetchError})` : ""}.`
+      : "The scrape runtime reports no enabled sources.";
+    return (
+      <div
+        className={`source-health-strip source-health-strip--${variant} source-health-strip--down`}
+        role="status"
+      >
+        <span className="source-health-dot source-health-dot--down" aria-hidden="true" />
+        <span className="source-health-summary">
+          {summary ? "No sources reported" : "Source health unavailable"} — {detail}
+        </span>
+      </div>
+    );
+  }
 
   const overallTone =
     summary.overall === "complete"

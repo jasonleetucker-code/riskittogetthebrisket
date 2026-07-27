@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useApp } from "@/components/AppShell";
+import { useDynastyData } from "@/components/useDynastyData";
 import { useUserState } from "@/components/useUserState";
 import { analyzeLeaguePhases } from "@/lib/team-phase";
 
@@ -23,7 +23,18 @@ function fmtValue(v) {
 }
 
 export default function TeamPhasePanel() {
-  const { rows, rawData, loading } = useApp();
+  // Deliberately NOT ``useApp()``.  This panel is the entire body of
+  // /league/phases, and AppShell refuses to hydrate the private
+  // contract anywhere under the ``/league`` prefix
+  // (PUBLIC_ONLY_ROUTE_PREFIXES) — so useApp() there is permanently
+  // ``{loading: false, rows: [], rawData: null}`` and the page could
+  // never render.  Reading the private contract directly is the
+  // established pattern for a private panel hosted under the public
+  // prefix; RosterComparePanel does the same thing on
+  // /league/franchise/[owner].  ``/api/data`` is auth-gated, so an
+  // anonymous visitor gets a 401 and the explicit message below
+  // rather than any leaked data.
+  const { rows, rawData, loading } = useDynastyData();
   const { state: userState } = useUserState();
 
   const myOwnerId = userState?.selectedTeam?.ownerId
@@ -35,8 +46,23 @@ export default function TeamPhasePanel() {
     [rawData, rows],
   );
 
-  if (loading) return null;
-  if (!analysis.teams.length) return null;
+  // Never render nothing: this component owns a whole route, so a
+  // silent null is indistinguishable from a broken page.
+  if (loading) {
+    return (
+      <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0" }}>
+        Loading league rosters…
+      </p>
+    );
+  }
+  if (!analysis.teams.length) {
+    return (
+      <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0" }}>
+        League phases unavailable — no Sleeper rosters in the active league&apos;s
+        data. Sign in and pick your team on the league page.
+      </p>
+    );
+  }
 
   const myRow = myOwnerId
     ? analysis.teams.find((t) => t.ownerId === myOwnerId)
