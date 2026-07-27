@@ -69,11 +69,32 @@ class TestSchema:
 
 
 class TestNoOpGuarantee:
-    def test_league_adjusted_equals_consensus(self):
-        assert LEAGUE_ADJUSTED_IS_NOOP is True
+    """LI-7 narrowed this guarantee rather than removing it.
+
+    Before LI-7 no adjusted value existed anywhere. Now one exists, but
+    only where board-level scarcity was actually measured — a row on
+    its own still cannot produce one, because the adjustment is a
+    function of all twelve rosters.
+    """
+
+    def test_a_lone_row_still_gets_consensus(self):
+        """No board context in, no adjustment out. This is the rule
+        that keeps a manufactured number from reaching a caller."""
+        assert LEAGUE_ADJUSTED_IS_NOOP is False, "LI-7 wired the model"
         v = build_player_values(_row())
         assert v.league_adjusted_dynasty_value == v.consensus_value == 7200
-        assert v.league_adjusted_is_noop is True
+
+    def test_supplied_adjustment_is_used(self):
+        v = build_player_values(_row(), league_adjusted=7500)
+        assert v.league_adjusted_dynasty_value == 7500
+        assert v.consensus_value == 7200, "consensus must not be overwritten"
+
+    @pytest.mark.parametrize("bad", [0, -1, None, "abc"])
+    def test_unusable_supplied_adjustment_falls_back_to_consensus(self, bad):
+        """A non-positive or unparseable adjustment is discarded, not
+        published — a zero here would read as 'worthless player'."""
+        v = build_player_values(_row(), league_adjusted=bad)
+        assert v.league_adjusted_dynasty_value == 7200
 
     def test_noop_holds_for_unpriced_rows(self):
         v = build_player_values(_row(rankDerivedValue=None, values={}))

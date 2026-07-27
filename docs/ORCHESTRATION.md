@@ -4,7 +4,25 @@ Maintained by the main orchestrator session. This file IS the unified plan,
 ownership model, git/integration policy, and dashboard. Update on every
 material change. Supersedes ad-hoc per-track instructions.
 
-**Last dashboard rebuild: 2026-07-27 ~00:55 UTC, against `origin/main` =
+**Amended 2026-07-27 ~06:40 UTC, against `origin/main` = `3e87d55d8`.**
+#583 (rebrand → Chase Upside) merged. **§6.2 and §6.3 are CLOSED** —
+both were verified by reading current main, and both had been sitting
+marked OPEN for several merges after the work actually landed. New
+§6.14 records a TE-premium curve that was fully built, tested green,
+and thrown away because `src/league_intel/` already does it; the cheap
+check that would have prevented it is in that entry.
+
+Scraper audit run the same hour, since "are all the sources actually
+refreshing" kept coming up: **all 21 registered sources have a live
+producer on a ≤2h cadence** — 17 via the CI cron (`42 */2 * * *`), 4
+via prod systemd timers (DLF `00/2:27`, idpShow `00/2:32`, offset so
+their pushes to main don't collide). `scripts/watchdog_freshness.py`
+returns `ok: 22 sources fresh, 0 hard-stale`. The 10 `SITES` entries
+set to `False` in `Dynasty Scraper.py` are not lost coverage — each
+was replaced by a plain-HTTP fetcher, and all 12 map to a registered
+source with a fresh stamp.
+
+**Prior rebuild: 2026-07-27 ~00:55 UTC, against `origin/main` =
 `ae3042935`.** Statuses in §1 and §6 were rebuilt from artifacts — merged
 SHAs, open PR numbers, pushed branches — rather than carried forward from
 prior text. Anything that could not be tied to an artifact was downgraded
@@ -648,9 +666,19 @@ Until that lands, treat every constant the weekly refit has shipped as
 unvalidated. This is a statement about the 2026-07-26 build, not a
 permanent property.
 
-### 6.2 `src/trade/angle.py` is the last unrewired cross-market call site — OPEN
+### 6.2 `src/trade/angle.py` is the last unrewired cross-market call site — CLOSED 2026-07-27
 
-**Status: open on `ae3042935`; agent dispatched (WS-L,
+**CLOSED, verified on `3e87d55d8` at 06:40 UTC.** `angle.py:78` now
+reads `from src.league_intel.cross_market import (...)` and the
+docstring cites `value_package` / `compare_packages` as the pricing and
+decision path. The four unconstrained sites are gone.
+
+Verification was a read of the file on current main, not a status
+claim — the entry below was still marked OPEN four merges after the
+work landed, which is exactly the drift §1's artifact rule exists to
+stop. Historical detail retained:
+
+**Status when written: open on `ae3042935`; agent dispatched (WS-L,
 `claude/angle-single-market`, nothing pushed as of 00:50 UTC).**
 Re-verified tonight by reading `angle.py` on current main — the four
 unconstrained sites are all still present. ADR-010 ("cross-market
@@ -685,7 +713,17 @@ directly comparable, not incommensurable — pooled median `IDPTC/KTC`
 a correctness and auditability failure rather than a wild
 mis-scaling. That is a reason to fix it cleanly, not a reason to defer.
 
-### 6.3 `src/roster_intel/` has no callers — the engine is merged, the feature does not exist
+### 6.3 `src/roster_intel/` has no callers — CLOSED 2026-07-27
+
+**CLOSED, verified on `3e87d55d8` at 06:40 UTC.** `/api/gameplan` shipped
+and is the consumer: `src/api/gameplan.py:125-129` imports `packages`,
+`partner`, `targets`, `engine.analyze_roster` and `marginal`, and
+`server.py:4831` documents the API surface over them. The same
+`git grep` that returned nothing at the last rebuild now returns real
+call sites outside the package and its tests.
+
+Historical statement of the problem retained below, because the
+distinction it draws — merged is not shipped — is the durable part.
 
 **State this plainly, because "merged" is reading as "shipped" and it is
 not.** WS-J's Roster Intelligence Engine landed in #562 (`4f9cb05b6`)
@@ -1048,6 +1086,60 @@ produces this any more" look identical from the dashboard. The
 distinguishing question is not *how* stale but *what would refresh it*
 — and answering that meant grepping the workflow for the fetcher's
 filename, not reading the stamp.
+
+### 6.14 Do not rebuild the TE-premium curve — it exists, and a second one double-counts
+
+**A full build was completed and thrown away on 2026-07-27 (~06:00
+UTC). Recorded so the next agent does not repeat it**, because every
+step of it looked correct in isolation.
+
+What was built: `src/canonical/te_premium.py`, a measured curve config,
+a regeneration script, and 30 passing tests. The full suite was green
+(**4105 passed**) and it was committed. Then a `grep` for
+`leagueAdjusted` surfaced `src/league_intel/` — 4,471 lines that
+already do this, better. The commit was dropped before it was pushed.
+
+**Three independent reasons it was wrong, in order of severity.**
+
+1. **It double-counts.** `tests/league_intel/test_te_premium_invariants.py`
+   says it outright: the market anchor `ktcSfTep` **is** the TE++ board,
+   so it already embeds the structural 2-TE premium, and any TE
+   correction "must be netted against what the blend already embeds,
+   never stacked on top of it." The dropped module measured
+   `ktcSfTep / ktc` and proposed applying that ratio to a board already
+   anchored on `ktcSfTep`.
+2. **It hardcoded a number ADR-009 forbids hardcoding.** That ADR
+   measured the premium twice, three months apart: structure replicated
+   exactly, level moved `1.3682 → 1.3196` (~3.6%/quarter). Its
+   conclusion is a binding design constraint — recompute at build time,
+   stamp the measurement date, surface the drift. A committed
+   `te_premium_curve.json` is precisely what it rules out.
+3. **It shipped one validity gate where the existing code has two.**
+   `calibration.py` requires controls-at-unity **and** a cardinal
+   scale. The second is the one that bites: on a rank-encoded source
+   every ratio compresses to ~1.0 *including the controls*, so gate 1
+   passes vacuously and certifies a meaningless number. ADR-009 records
+   a first pass that fell for exactly this on FantasyPros.
+
+**The generalisable failure is §2c, self-inflicted.** The module was
+deliberately not imported by `data_contract.py` so that "toggle off"
+would be byte-identical to the live board — which also meant the
+existing double-count guard *could not fire on it*. A design whose
+safety argument is "nothing calls it yet" disables the tests that would
+have caught it on the first run.
+
+**Rule.** TE premium lives in `src/league_intel/` — `calibration.py`
+measures it (`measure_paired_te_premium`, `derive_structural_te_premium`,
+`compare_premium_estimates`), `values.py` gates publication
+(`LEAGUE_ADJUSTED_IS_NOOP`), `adjustment.py` applies the guardrails.
+The remaining work is LI-7: compute the **net** residual (consensus
+embeds +15%/+10%; this league's 2026 scoring axis is ~0.87 against
+that, partially offset by the structural 2-TE premium) and flip the
+no-op. It is not a new module, and the raw market ratio is not the
+answer.
+
+**Cheap check that would have caught it in one command, before any
+code:** `git grep -l leagueAdjusted -- src/`.
 
 ### 6.4 Historical record — resolved blockers
 

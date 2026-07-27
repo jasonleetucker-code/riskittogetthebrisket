@@ -16,8 +16,10 @@
     "fantasyNavigator": 24,
     "pfkDynasty": 24
   },
-  "_comment_soft": "Sources listed in 'soft' are still reported everywhere (on-site stale banner, email alerts with their existing cooldown, the freshness-watchdog summary) but do NOT hard-fail the scheduled-refresh workflow or open a failure issue. Use this only for sources whose staleness recurs for reasons outside the cron's control. idpShow authenticates with a browser-minted cookie (deploy/idpshow_fetch_and_push.sh) that the operator must periodically re-mint by hand; when it lapses, one expiring cookie should not turn every 2h run red. Matched by exact key or vendor prefix, same as thresholds. (draftSharks was temporarily soft-flagged 2026-07-25 while its fetcher was broken by the DS UI redesign; removed the same day after the rebuilt Alpine activation chain was validated live in run 30178412079.)",
+  "_comment_soft": "Sources listed in 'soft' are still reported everywhere (on-site stale banner, email alerts with their existing cooldown, the freshness-watchdog summary) but do NOT hard-fail the scheduled-refresh workflow for the first 'softEscalateHours'. Use this only for sources whose staleness recurs for reasons outside the cron's control. idpShow authenticates with a browser-minted cookie (deploy/idpshow_fetch_and_push.sh) that the operator must periodically re-mint by hand; when it lapses, one expiring cookie should not turn every 2h run red. SOFT IS A DELAY, NOT AN EXEMPTION: past softEscalateHours a soft source hard-fails like any other. Before 2026-07-27 the flag had no upper bound, which quietly meant 'this source is unmonitored' \u2014 a lapsed cookie and a dead vendor looked identical forever. Matched by exact key or vendor prefix, same as thresholds. (draftSharks was temporarily soft-flagged 2026-07-25 while its fetcher was broken by the DS UI redesign; removed the same day after the rebuilt Alpine activation chain was validated live in run 30178412079.)",
   "soft": [
     "idpShow"
-  ]
+  ],
+  "_comment_soft_escalate": "Hours after which a 'soft' source stops being exempt and hard-fails the run. Quiet for the first day past its threshold (a cookie re-mint is a chore, not an incident); loud after three (nobody is coming \u2014 treat it as an outage). Set <= 0 to disable escalation, which is a legitimate choice for a source that may genuinely lapse indefinitely, but it has to be written down to take effect rather than being the accidental default.",
+  "softEscalateHours": 72
 }

@@ -4824,6 +4824,103 @@ async def post_waiver_faab_recommend(request: Request):
     return JSONResponse(content=rec)
 
 
+@app.get("/api/valuation/league-adjusted")
+async def get_league_adjusted_values(request: Request):
+    """This league's league-adjusted value overlay (LI-9).
+
+    Returns only the rows whose value the league adjustment MOVED,
+    keyed by ``displayName``.  The client merges it over the consensus
+    board; an unmentioned player is unchanged, not missing.  That keeps
+    the payload small and makes "nothing to apply" expressible via
+    ``isNoop`` rather than an ambiguous empty map.
+
+    LEAGUE-SCOPED, and not merely by convention.  The adjustment is
+    driven by ``lineupScarcity``, measured from this league's twelve
+    rosters, so two leagues sharing a scoring profile get different
+    values here.  That is precisely why these are NOT contract fields:
+    the contract is scoring-profile-scoped and shared, and stamping a
+    roster-derived number onto it would let one league's roster shape
+    silently reprice another's board (CLAUDE.md's core split).  Hence
+    the 503 on a league mismatch, matching ``/api/gameplan``.
+
+    Query parameters::
+
+        leagueKey       optional — standard resolver
+        explanations    optional — ``1`` to include the full per-player
+                        axis decomposition.  Off by default: it is a
+                        debugging surface and multiplies the payload.
+
+    Near-free on a warm league: it reuses ``/api/gameplan``'s cached
+    bundle solely for its scarcity map and never forces a second solve.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body)
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    want_explanations = (request.query_params.get("explanations") or "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+    try:
+        payload = await run_in_threadpool(
+            _gameplan.get_league_adjusted_values,
+            league_cfg.key,
+            league_cfg.scoring_profile,
+            contract,
+            include_explanations=want_explanations,
+        )
+    except _gameplan.GameplanUnavailable as exc:
+        # The roster snapshot is missing, so scarcity is unmeasurable.
+        # Serve an explicit empty overlay rather than a 503: the board
+        # is still perfectly usable at consensus, and a hard failure
+        # here would take the whole rankings page down for a missing
+        # optional lens.
+        return JSONResponse(
+            content={
+                "leagueKey": league_cfg.key,
+                "isNoop": True,
+                "adjustedCount": 0,
+                "values": {},
+                "unavailable": {"reason": exc.reason, "message": exc.detail},
+            }
+        )
+
+    return JSONResponse(content=payload)
+
+
 @app.get("/api/gameplan")
 async def get_gameplan(request: Request):
     """Roster intelligence for one team: needs, window, targets, partners.
