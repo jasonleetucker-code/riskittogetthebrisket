@@ -52,6 +52,14 @@ a result worth seeing before it ships — and a correction to my own first pass.
 concluded the opposite — that values should come down. That confused the scoring
 mechanism with the structural demand. Retracted; see `CLAIM_REGISTRY.md` finding F.)*
 
+**The 1.368-vs-1.319 cross-workstream conflict is resolved and was never a conflict.**
+Running the LI workstream's own `measure_paired_te_premium` against today's contract
+returns 1.3187 with byte-identical controls — the same number this audit measured off the
+raw CSVs, by a different path. The 1.368 figure is the April 2026-04-28 baseline fixture;
+`tests/league_intel/test_calibration.py:347-360` records both. Three months of real board
+drift, not a methodological disagreement. See EXP-8. Nothing about the staged curve
+changes.
+
 The remaining work is a live value move on the default board, so CLAUDE.md rule 4
 requires verifying downstream effects across rankings, sorting, filtering, exports and
 trade math before it ships.
