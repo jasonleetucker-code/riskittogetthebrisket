@@ -26,6 +26,9 @@ PRIVATE_API_PATHS = [
     "/api/data/rank-history",
     "/api/data/player-source-history",
     "/api/terminal",
+    # Roster intelligence: needs, competitive window, trade targets and
+    # partner fit for a named team. Strictly more private than /api/data.
+    "/api/gameplan",
     "/api/trade/suggestions",
     "/api/trade/finder",
     "/api/trade/simulate",

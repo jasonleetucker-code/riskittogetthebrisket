@@ -67,6 +67,7 @@ from src.api.data_contract import (
     normalize_tep_native_multiplier,
     validate_api_data_contract,
 )
+from src.api import gameplan as _gameplan
 from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
@@ -4821,6 +4822,135 @@ async def post_waiver_faab_recommend(request: Request):
     rec["resolvedDropValue"] = drop_value
     rec["resolvedAddPosition"] = add_position
     return JSONResponse(content=rec)
+
+
+@app.get("/api/gameplan")
+async def get_gameplan(request: Request):
+    """Roster intelligence for one team: needs, window, targets, partners.
+
+    The API surface over ``src/roster_intel/`` — ``analyze_roster``,
+    the per-position profiles, the five-state competitive window, both
+    target engines, the partner model, and (on request) the Trade
+    Package Generator's Pareto frontier.  Assembly lives in
+    ``src/api/gameplan.py``; this is the transport shell.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver (explicit key, else the
+                    user's activeLeagueKey, else the registry default)
+        team        optional — ownerId. Defaults to the session's
+                    Sleeper user id, then the league's default_team_map.
+        partner     optional — ownerId from the ``partners`` list. Its
+                    PRESENCE is what turns the package generator on:
+                    packages are per-counterparty and running all
+                    eleven costs ~1.6 s.
+
+    LEAGUE-SCOPED.  Rosters, starter slots, replacement levels, lineup
+    solves, partner fit and packages all resolve through ``leagueKey``;
+    only player ages and market prices follow the scoring profile.  So
+    this endpoint 503s ``data_not_ready`` when the loaded contract is
+    for a different league, matching ``/api/terminal`` and
+    ``/api/trade/*``.
+
+    Cost is real and is reported rather than hidden: a cold league
+    build is ~1.35 s and a cold team view ~1.9 s on the 12-team league.
+    Both are cached on a source stamp (snapshot mtimes + the contract's
+    scrape timestamp) and run in a threadpool; every response stamps
+    ``timing`` so the cost stays measurable in production.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        # Echo the requested key so a caller can tell which league the
+        # error is about, the way the other league-scoped routes do.
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body)
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    params = request.query_params
+    owner_id = (params.get("team") or params.get("ownerId") or "").strip()
+    if not owner_id:
+        session = _get_auth_session(request) or {}
+        owner_id = str(session.get("sleeper_user_id") or "").strip()
+        if not owner_id:
+            username = str(session.get("username") or "").strip().lower()
+            mapped = (league_cfg.default_team_map or {}).get(username) or {}
+            owner_id = str(mapped.get("ownerId") or "").strip()
+    if not owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    partner_owner_id = (params.get("partner") or "").strip() or None
+
+    try:
+        payload = await run_in_threadpool(
+            _gameplan.get_team_gameplan,
+            league_cfg.key,
+            league_cfg.scoring_profile,
+            contract,
+            owner_id,
+            partner_owner_id=partner_owner_id,
+        )
+    except _gameplan.GameplanUnavailable as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "reason": exc.reason,
+                "message": exc.detail,
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except _gameplan.TeamNotInLeague:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "team_not_found",
+                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    # Private roster intelligence — never cached by a shared proxy.
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/trade/suggestions")
