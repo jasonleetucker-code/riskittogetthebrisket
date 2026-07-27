@@ -250,9 +250,20 @@ Steps:
    diagnostics-only (``softFallbackCount`` never touches the math).
 9. Single-source haircut: non-pick rows resting on one post-Hampel
    source keep 30% of their blended value
-10. IDP calibration post-pass (``_apply_idp_calibration_post_pass``
-    reads ``config/idp_calibration.json``), contained by the market
-    corridor clamp (IDP rows only, P90 drift band)
+10. Market corridor clamp (``_apply_market_corridor_clamp``) — IDP
+    rows only, P90 drift band per confidence bucket, hard band cap
+    ``_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS = {"idp": 0.15}``.
+    Offense rows are not clamped at all.
+    RETIRED: the IDP calibration post-pass this stage used to describe
+    (``_apply_idp_calibration_post_pass`` reading
+    ``config/idp_calibration.json``) no longer exists — see the
+    "Phase 4c: removed" note in ``data_contract.py``.  Neither the
+    function nor the config file is in the tree; ``rankDerivedValue``
+    is the canonical-pipeline output with no post-blend IDP
+    adjustment.  Note that the clamp's own comments still justify it
+    as containing "the IDP calibration runaway", which is now a
+    retired mechanism — the clamp still does real work against raw
+    blend drift, but that stated rationale is stale.
 11. Pick tethering — current-year slot picks inherit the merged
     rookie pool's values (offense + IDP rookies combined)
 12. Multiplicative future-year pick discount

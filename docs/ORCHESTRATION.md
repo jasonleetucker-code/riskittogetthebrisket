@@ -474,14 +474,61 @@ half-knew: the workflow's own comment said gating on the pins "is
 circular", and that reasoning was used to justify *excluding* the check
 rather than building a non-circular one.
 
-**With #569 merged, §2c has no live instances.** The honest tally
-across this project is **two that reached production** (this one, and
-the `e2e.yml` case) and **two caught before merge**. An earlier claim of
-"four live instances" was wrong and was corrected by the agent that
-checked it: the `e2e.yml` duplicate existed only on a branch and never
-on `main`, and the LI-8 inert fix landed in #550 without ever reaching
-production. Recorded here because the count itself was a small instance
-of the same failure — asserting a number without verifying each case.
+~~With #569 merged, §2c has no live instances.~~ **RETRACTED within the
+hour — see §2c-4 below.** I wrote that sentence at 00:55 UTC and #577
+falsified it at 01:28. It was not a typo; it was the same mistake this
+section documents, made while documenting it: I checked the instances I
+already knew about, found them closed, and reported *absence* rather
+than "no remaining instances **among the ones I looked for**."
+
+An earlier claim of "four live instances" was also wrong, and was
+corrected by the agent that checked it: the `e2e.yml` duplicate existed
+only on a branch and never on `main`, and the LI-8 inert fix landed in
+#550 without ever reaching production.
+
+**Do not restate a §2c tally without re-deriving it.** It has now been
+wrong twice in both directions — once too high, once too low — and both
+times the number was asserted rather than measured.
+
+### 2c-4. The live valuation constants had no CI-blocking test at all
+
+**Found by #577, 2026-07-27 01:28 UTC. This is the largest instance
+yet, and it was live the entire time the other three were being
+discussed.**
+
+`tests/conftest.py::_LIVEDATA_MODULES` marks 16 modules, and CI runs
+`-m "not livedata"`. Verified independently on `ae3042935`:
+
+- `_SINGLE_SOURCE_VALUE_RETENTION` (the 0.30 single-source haircut) is
+  referenced in exactly one test module — `test_data_contract.py`,
+  which is in `_LIVEDATA_MODULES`.
+- `_ALPHA_SHRINKAGE` (α=0.10) likewise appears only in
+  `test_single_curve_live.py`, also `_LIVEDATA_MODULES`.
+- Pick tethering and `_VALUE_BASED_SOURCES` membership: same shape.
+
+**Changing `0.30` to `0.50` — repricing every single-source player on
+the board — would have passed CI green.**
+
+The detail that makes this §2c rather than a plain coverage gap:
+`data_contract.py` cites one of those deselected tests *in a source
+comment* as the guard that fails "if that reference ever starts
+mutating live values". It cannot, for two independent reasons — the
+module is deselected, **and** every test in it calls `skipTest` without
+a live export on disk. A comment asserting a guard exists is worse than
+no comment, because it stops the next reader from looking.
+
+#577 adds 85 CI-blocking synthetic-fixture tests, each watched fail
+against 20 deliberate source mutations, and leaves the livedata copies
+in place. Note it does **not** close the whole family: pick tethering
+(stage 11) is still covered only by two deselected modules.
+
+Also from #577, and worth internalising: removing the percentile clamp
+in `data_contract.py` alone leaves the suite green, because
+`percentile_to_value` clamps again internally. The agent's first
+version of that test passed only because it re-implemented the formula
+instead of driving the pipeline — it caught and rewrote that itself.
+Defence-in-depth means a single-site mutation is not a valid test of
+whether a guard is load-bearing.
 
 **#564 (`a5a8b8676`) deliberately did NOT rewire the workflow.** It built
 the infrastructure — `src/model_registry/` with provenance-stamped
