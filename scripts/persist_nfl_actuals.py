@@ -71,6 +71,15 @@ def main() -> int:
         help="Print what is already on disk and exit without fetching.",
     )
     parser.add_argument(
+        "--no-snaps",
+        action="store_true",
+        help=(
+            "Skip the snap-counts join.  Player-weeks then carry snaps=None, "
+            "which readers treat as 'not fetched' — distinct from a joined "
+            "zero, which means the player dressed and took no snaps."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Log each provider rung and per-season write.",
@@ -104,7 +113,10 @@ def main() -> int:
 
     print(f"[actuals] fetching seasons {args.seasons}")
     result = actuals_store.persist_weekly_actuals(
-        args.seasons, actuals_dir=actuals_dir, refresh=args.refresh
+        args.seasons,
+        actuals_dir=actuals_dir,
+        refresh=args.refresh,
+        with_snaps=not args.no_snaps,
     )
     print(json.dumps(result.to_dict(), indent=2))
 
@@ -128,8 +140,19 @@ def main() -> int:
     print(
         f"[actuals] wrote {result.weeks_written} week(s), "
         f"{result.player_weeks} player-weeks "
-        f"({result.offense_records} offensive, {result.defense_records} defensive)"
+        f"({result.offense_records} offensive, {result.defense_records} defensive, "
+        f"{result.snap_records} with snaps)"
     )
+    if not args.no_snaps and result.player_weeks and not result.snap_records:
+        # Not fatal — the stats are written and correct — but every
+        # snap-derived usage signal is dead until this is fixed, and a
+        # silent zero here is how it would stay dead.
+        print(
+            "[actuals] WARNING: snaps were requested but zero player-weeks "
+            "joined.  Check the snapJoin report above: crossWalkPairs 0 means "
+            "players.csv failed, snapRowsFetched 0 means the snap release did.",
+            file=sys.stderr,
+        )
     return 0
 
 
