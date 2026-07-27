@@ -919,19 +919,60 @@ against a *different* page carrying the same shell chrome. Six old
 assertions passed on the decoy (proving them vacuous); four
 replacements failed on it (proving them real).
 
-### 6.11 `user_kv` returned 500 in the shared container — production NOT cleared
+### 6.11 `user_kv` returned 500 in the shared container — CAUSE FOUND: the orchestrator
 
-#579 reproduced `/api/user/state` → `500 OperationalError` outside
-Playwright, persistently, on the container's shared backend. That
-branch changes no backend code and the same test passed 20 minutes
-earlier, so it is most likely container-local state.
+**The orchestrator broke the e2e agent's environment mid-run.** Not
+mysterious container state — a specific, avoidable mistake, recorded
+because the failure mode generalises.
 
-**Production is not proven healthy on this path.** An anonymous probe
-of `https://chaseupside.com/api/user/state` returns a clean
+At ~02:05 UTC I ran `git worktree remove` on
+`.claude/worktrees/agent-ac26f9e0ef914b8f6` after its agent reported
+complete, to reclaim disk. **The container's shared backend was running
+out of that directory.** Proven afterwards from `/proc`:
+
+```
+pid=16830 cwd=/home/user/riskittogetthebrisket/.claude/worktrees/agent-ac26f9e0ef914b8f6 (deleted)
+          cmd=python3 server.py
+```
+
+The `(deleted)` marker is unambiguous. Deleting the tree under a live
+process is what zeroed `user_kv.sqlite` and removed the snapshot,
+which is why `/api/user/state` began returning `500 OperationalError`
+and `/api/draft-capital` "silently lost its entire pick board" while
+#579's suite was running.
+
+**The lesson, which is not obvious:** a worktree is not only files. An
+agent may leave a *service* running inside it, and other agents on the
+same box may be depending on that service without either agent knowing.
+"The agent reported complete" is not sufficient grounds to delete its
+worktree while any other agent is still running.
+
+Before removing an agent worktree, check nothing is running out of it:
+
+```
+for p in $(pgrep -f 'server.py|uvicorn|next'); do
+  readlink /proc/$p/cwd
+done
+```
+
+The orphan was left listening on :8000 serving 503 with corrupt state
+for roughly 20 minutes and has since been stopped. That is its own
+hazard: `playwright.config.js` sets `reuseExistingServer: true` against
+a hardcoded port 8000, so any later run would have silently bound to
+the zombie and tested against it — exactly the §3.2 finding #579
+raised, demonstrated live.
+
+#579's conclusions are unaffected: its before-baseline (145/30/3) was
+measured before the breakage, its measurements were re-taken against an
+isolated frontend, and it reported the collapse rather than working
+around it. CI validates the PR in a clean environment regardless.
+
+**Production is separately NOT cleared on this path.** An anonymous
+probe of `https://chaseupside.com/api/user/state` returns a clean
 `401 auth_required` — but 401 short-circuits at the auth layer *before*
 any KV read, so it says nothing about whether `user_kv` works for a
 signed-in user. Verifying that needs a session cookie the orchestrator
-does not hold. Recorded as unverified rather than "fine".
+does not hold. Unverified, not fine.
 
 ### 6.4 Historical record — resolved blockers
 
