@@ -48,7 +48,7 @@ describe("TopBar landmarks + active state", () => {
   });
 
   it("group menus open from a BUTTON trigger (click), list menuitems, and mark the current route", async () => {
-    pathname = "/finder";
+    pathname = "/arbitrage";
     const user = userEvent.setup();
     render(
       <TopBar authenticated isPublic={isPublic} onSearch={() => {}} onLogout={() => {}} />

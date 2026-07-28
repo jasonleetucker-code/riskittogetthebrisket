@@ -126,7 +126,11 @@ describe("active matching", () => {
 describe("pageTitleFor", () => {
   it("derives titles from the model (no hand-maintained map)", () => {
     expect(pageTitleFor("/rankings")).toBe("Rankings");
-    expect(pageTitleFor("/finder")).toBe("Arbitrage Finder");
+    expect(pageTitleFor("/finder")).toBe("Signal Blotter");
+    // /arbitrage holds the Arbitrage Finder label now; /finder computes
+    // no arbitrage and its old label is what produced the phantom in
+    // backlog #6.
+    expect(pageTitleFor("/arbitrage")).toBe("Arbitrage Finder");
     expect(pageTitleFor("/tools/source-health")).toBe("Source Health");
     expect(pageTitleFor("/")).toBe("Home");
   });
