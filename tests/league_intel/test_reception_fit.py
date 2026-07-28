@@ -289,15 +289,35 @@ def test_the_board_is_unchanged_without_a_measurement():
     assert with_none.explanations[0].league_adjusted_value == pytest.approx(5000)
 
 
-def test_the_reception_flag_is_separate_from_the_idp_one():
-    """Sharing `idp_scoring_fit` would make its name a lie: an operator
+def test_the_reception_flag_is_separate_from_the_idp_one(monkeypatch):
+    """Sharing ``idp_scoring_fit`` would make its name a lie: an operator
     disabling the IDP feature would silently also disable every receiver
-    adjustment. Both default off, independently."""
+    adjustment.
+
+    This used to assert both flags were ``False``, which passed for the
+    wrong reason — they merely happened to share a default. When
+    ``idp_scoring_fit`` was enabled on 2026-07-27 the test failed, having
+    caught a deliberate change rather than a regression.
+
+    Independence is the actual invariant, so that is what is asserted
+    now: two distinct keys, and moving one must not move the other. The
+    defaults are free to diverge, and today they do.
+    """
     from src.api import feature_flags
 
+    monkeypatch.setenv("RISKIT_FEATURE_IDP_SCORING_FIT", "1")
+    monkeypatch.setenv("RISKIT_FEATURE_RECEPTION_SCORING_FIT", "0")
     feature_flags.reload()
+    assert feature_flags.is_enabled("idp_scoring_fit") is True
     assert feature_flags.is_enabled("reception_scoring_fit") is False
+
+    # And the other way round, so the test cannot pass by both being
+    # wired to the same underlying switch in either direction.
+    monkeypatch.setenv("RISKIT_FEATURE_IDP_SCORING_FIT", "0")
+    monkeypatch.setenv("RISKIT_FEATURE_RECEPTION_SCORING_FIT", "1")
+    feature_flags.reload()
     assert feature_flags.is_enabled("idp_scoring_fit") is False
+    assert feature_flags.is_enabled("reception_scoring_fit") is True
 
 
 def test_the_resolver_is_inert_while_the_reception_flag_is_off(monkeypatch):

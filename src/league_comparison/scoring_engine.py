@@ -123,7 +123,14 @@ def _canonical_position(raw_pos: str | None) -> str | None:
         return "DL"
     if aliased in {"LB", "ILB", "OLB", "MLB"}:
         return "LB"
-    if aliased in {"DB", "CB", "S", "FS", "SS"}:
+    # ``SAF`` is nflverse's own spelling for a safety and appears on
+    # 1,441 of the 11,540 persisted 2025 IDP player-weeks — the third
+    # largest defensive group after LB and CB.  It was in neither
+    # POSITION_ALIASES nor this table, so every safety was dropped from
+    # every scoring comparison, silently: the only trace was a
+    # ``unknown_positions_dropped`` warning listing it beside genuinely
+    # untracked positions like K, P and OL.
+    if aliased in {"DB", "CB", "S", "SAF", "FS", "SS"}:
         return "DB"
     return None
 

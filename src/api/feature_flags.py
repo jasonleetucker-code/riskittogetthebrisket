@@ -146,34 +146,29 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # depth, and re-allocates between IDP positions rather than
     # inflating IDP as a whole — see src/league_intel/scoring_fit.py.
     #
-    # OFF by default, unlike te_basis_conversion.  Flip with
-    # RISKIT_FEATURE_IDP_SCORING_FIT=1.
+    # ON by default as of 2026-07-27, on the operator's explicit
+    # direction and after re-measuring the blast radius the
+    # ``value_moving_on`` gate requires.  Rollback:
+    # RISKIT_FEATURE_IDP_SCORING_FIT=0.
     #
-    # 2026-07-27, operator delegated the decision and it stays OFF.
-    # Not because the edge is doubted — the Tier 2 measurement is real
-    # and the risk is lower than it looks, since this axis reaches only
-    # ``build_board_adjustments``, i.e. the OPT-IN league-adjusted lens,
-    # never the default market board.  It stays off because
-    # ``tests/api/test_feature_flags.py`` requires a MEASURED blast
-    # radius for any value-moving default-ON flag, and an attempt to
-    # re-derive one in that session returned an empty positional map.
-    # That turned out to be a harness fault — the persisted actuals
-    # carry raw positions (DT/DE/CB/SAF/FS) and the scoring engine
-    # dropped ``SAF`` as unknown, so the DL/LB/DB family mapping was
-    # never applied — but "my harness was wrong" and "the fit collapsed"
-    # are indistinguishable until it is re-run correctly.
+    # THE DIRECTION IN THE ORIGINAL MEASUREMENT WAS BACKWARDS.  #592
+    # recorded "relative to DB, pays DL about +7% and LB about +3%".
+    # Re-run through the module's own entry point on raw nflverse rows,
+    # with both leagues' scoring_settings verified byte-identical to
+    # what #592 recorded (zero drift on all 8 IDP keys), it measures
+    # DB 1.0366 / DL 1.0001 / LB 0.9633 — DB highest, LB lowest.
     #
-    # Turning a value-moving flag on from a number that could not be
-    # reproduced at the time is the exact defect class this codebase
-    # keeps paying for.  Re-run the measurement with the family mapping
-    # applied, record the blast radius here and in ``value_moving_on``,
-    # and then flip it.  The cost of waiting is one env var.
+    # The rate card settles which is right: idp_pass_def is 2.52x UP
+    # (a DB stat, and the biggest move on the board) while idp_sack is
+    # 0.64x DOWN (the signature DL stat) and idp_tkl_solo 0.92x DOWN
+    # (the LB volume stat).  A league that pays coverage and discounts
+    # sacks cannot be tilting toward DL.  See scoring_fit's docstring.
     #
-    # Note what is deliberately NOT behind this flag: a per-player IDP
-    # multiplier.  The same data supports one arithmetically and it is
-    # noise — see the module docstring for the depth-stability
-    # measurement that rules it out.
-    "idp_scoring_fit": False,
+    # Scope: this axis reaches only ``build_board_adjustments`` — the
+    # OPT-IN league-adjusted lens.  The default market board is
+    # untouched, which is why enabling it is a smaller step than the
+    # blast radius below makes it sound.
+    "idp_scoring_fit": True,
     # Per-player reception-depth tilt (Tier 2).  Separate from
     # idp_scoring_fit above rather than sharing it: that flag is named
     # for IDP, and using it to gate an offence feature would make the
