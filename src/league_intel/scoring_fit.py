@@ -126,10 +126,25 @@ positions carries information, so the multipliers are normalised to a
 mean of 1.0 across the tracked positions. The result re-allocates value
 between IDP positions; it never inflates IDP as a whole.
 
-Flagged OFF
-───────────
-``RISKIT_FEATURE_IDP_SCORING_FIT`` defaults to 0. This moves every IDP
-value on the board and no operator has asked for it yet.
+Flagged ON since 2026-07-28
+───────────────────────────
+``RISKIT_FEATURE_IDP_SCORING_FIT`` defaults to **1**; set it to 0 to roll
+back.  Until 2026-07-28 this section still announced the opposite — that
+the default was 0 and no operator had asked for the feature — which
+stayed behind when the operator did ask and the default flipped in #606.
+A stale claim about live behaviour, in the one file a reader would open
+to find out.  ``tests/league_intel/test_flag_docs_match_reality.py`` now
+compares this paragraph against the registry.
+
+It reaches the OPT-IN league-adjusted lens only, never the default
+market board.  Blast radius on the 2026-07-28 board (1,094 rows): 398
+IDP rows move — DL n=145 +4.21%, DB n=139 -0.29%, LB n=114 -3.92% — and
+zero non-IDP values change.
+
+Two bounds apply to what this can emit.  ``MAX_DEPTH_DRIFT`` rejects a
+position whose ratio moves with sample depth (sampling noise), and
+``MAX_TILT`` caps the multiplier itself (input corruption).  They catch
+disjoint failures and both are needed; see ``MAX_TILT``.
 """
 
 from __future__ import annotations
