@@ -6,6 +6,16 @@ scoring, via the same production loop the reconstructed baseline uses
 (``normalize_weekly_row`` + ``compute_weekly_points`` — ADR-005: one
 scoring engine, never two).
 
+Which season?  The CALENDAR one, never ``currentDraftYear``.  The
+contract's draft year is the *upcoming rookie draft* and rolls to
+year+1 mid-summer — during the entire Sept–Jan regular season it
+points one season ahead, whose weekly file doesn't exist yet.  Keying
+the fetch on it would make the posterior structurally unreachable in
+production.  ``current_nfl_season`` derives the season being played
+from today's date instead, and returns ``None`` outside the Sept–Jan
+window so offseason boards stay forward-looking (no completed-season
+actuals blended into next year's projections).
+
 Preseason honesty: before the season starts the file simply doesn't
 exist upstream (the fetch returns nothing) and this module returns
 ``(None, {})`` — callers degrade to the preseason projection with an
@@ -15,11 +25,30 @@ explicit meta stamp, never a fabricated update.  An empty result is
 
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from typing import Any, Callable, Mapping
 
 from src.bdvm.baseline import normalize_weekly_row
 from src.bdvm.context import TRUE_POSITION_MAP
 from src.nfl_data.realized_points import compute_weekly_points
+
+
+def current_nfl_season(today: date | None = None) -> int | None:
+    """NFL season whose REG weeks are being played right now, else None.
+
+    Sept–Dec → this year; Jan → last year (week 18 spills into early
+    January); Feb–Aug → None.  The None window is deliberate: after the
+    season completes, blending a finished season's actuals into the
+    NEXT season's projection set would be §8.4 applied across a season
+    boundary — dynasty boards go back to forward-looking preseason
+    semantics instead.
+    """
+    d = today or datetime.now(timezone.utc).date()
+    if d.month >= 9:
+        return d.year
+    if d.month == 1:
+        return d.year - 1
+    return None
 
 
 def weekly_points_from_rows(
@@ -32,10 +61,20 @@ def weekly_points_from_rows(
     """(current_week, player_key → [(week, points), ...]) from raw rows.
 
     Regular-season rows of ``season`` only.  ``current_week`` is the
-    next unplayed week (max observed + 1, capped at 18); ``None`` when
-    no rows exist — the preseason no-op signal.
+    next unplayed week (max observed + 1 — deliberately UNCAPPED: after
+    the week-18 slate it becomes 19 so ROS correctly sums zero
+    remaining weeks instead of double-counting the banked final week);
+    ``None`` when no rows exist — the preseason no-op signal.
+
+    Distinct players colliding on a normalized name (real precedent:
+    Byron Murphy / Byron Murphy II, both active) are DROPPED, mirroring
+    the projection side's same-side collision policy — a per-week max
+    over two different players is a chimera biased high by
+    construction, and moving a player's µ on production that isn't his
+    is worse than leaving him on the preseason prior.
     """
     samples: dict[str, dict[int, float]] = {}
+    ids_by_key: dict[str, set[str]] = {}
     max_week = 0
     for raw in weekly_rows or []:
         try:
@@ -61,36 +100,52 @@ def weekly_points_from_rows(
         if week <= 0:
             continue
         key = name_normalizer(name)
-        # A player appears once per week; if a source ever duplicates,
-        # keep the larger line rather than double-counting.
+        pid = str(raw.get("player_id") or raw.get("gsis_id") or "").strip()
+        if pid:
+            ids_by_key.setdefault(key, set()).add(pid)
+        # The same player can appear once per week; if a source ever
+        # duplicates that row, keep the larger line rather than
+        # double-counting.  (Cross-PLAYER merges are handled by the
+        # collision drop below, not by this max.)
         bucket = samples.setdefault(key, {})
         bucket[week] = max(bucket.get(week, float("-inf")), float(rp.fantasy_points))
         max_week = max(max_week, week)
     if max_week <= 0:
         return None, {}
-    current_week = min(18, max_week + 1)
+    for key, ids in ids_by_key.items():
+        if len(ids) > 1:
+            samples.pop(key, None)
+    current_week = max_week + 1
     return current_week, {key: sorted(by_week.items()) for key, by_week in samples.items()}
 
 
 def fetch_current_season_actuals(
-    season: int,
     scoring_settings: Mapping[str, Any],
     *,
     name_normalizer: Callable[[str], str],
+    season: int | None = None,
+    today: date | None = None,
 ) -> tuple[int | None, dict[str, list[tuple[int, float]]]]:
-    """Fetch + score this season's weekly rows.
+    """Fetch + score the in-progress season's weekly rows.
 
-    Fetches ``[season]`` ALONE so the current season gets its own
-    24h-TTL disk-cache entry (the ingest cache keys on the whole year
-    list — bundling years would refetch history weekly).  Any fetch
-    problem degrades to ``(None, {})``.
+    ``season`` defaults to ``current_nfl_season(today)``; outside the
+    Sept–Jan window that is None and the result is the preseason
+    signal without any fetch.  Fetches ``[season]`` ALONE so the
+    current season gets its own 24h-TTL disk-cache entry (the ingest
+    cache keys on the whole year list — bundling years would refetch
+    history weekly).
+
+    Fetch/network errors RAISE so the caller can decide not to
+    memoize them — a transient blip must not pin the whole board to
+    preseason values for the rest of the day.
     """
-    try:
-        from src.nfl_data import ingest  # noqa: PLC0415
-
-        rows = ingest.fetch_weekly_stats([int(season)]) or []
-    except Exception:  # noqa: BLE001
+    if season is None:
+        season = current_nfl_season(today)
+    if season is None:
         return None, {}
+    from src.nfl_data import ingest  # noqa: PLC0415
+
+    rows = ingest.fetch_weekly_stats([int(season)]) or []
     return weekly_points_from_rows(
         rows, scoring_settings, season=season, name_normalizer=name_normalizer
     )

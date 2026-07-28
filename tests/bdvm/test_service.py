@@ -121,6 +121,15 @@ def build_contract():
                 "canonicalSiteValues": {"ktcSfTep": 5600},
             },
             {
+                # The platform's canonical slot-pick displayName form —
+                # the one every real /api/data pick row carries.
+                "canonicalName": "2026 Pick 1.04",
+                "displayName": "2026 Pick 1.04",
+                "assetClass": "pick",
+                "position": "PICK",
+                "canonicalSiteValues": {"ktcSfTep": 5200},
+            },
+            {
                 "canonicalName": "mystery pick",
                 "displayName": "Mystery Pick",
                 "assetClass": "pick",
@@ -238,6 +247,13 @@ class TestEndToEnd(unittest.TestCase):
         dist = slot_pick["distribution"]["balanced"]
         self.assertLessEqual(abs(dist["ev"] - 3479.0), 1.0)  # Appendix C pick 3
         self.assertAlmostEqual(dist["p_hit"] + dist["p_mid"] + dist["p_miss"], 1.0)
+        # The canonical "YYYY Pick R.SS" displayName — the form the live
+        # contract and the trade page actually use — must parse too;
+        # before the regex allowed the "Pick" token, all 72 real slot
+        # picks were unpriced (review finding, 2026-07-28).
+        canonical = picks["2026 Pick 1.04"]
+        self.assertEqual(canonical["overallSlot"], 4)
+        self.assertIsNotNone(canonical["distribution"])
         mystery = picks["Mystery Pick"]
         self.assertIsNone(mystery["distribution"])
         self.assertEqual(mystery["reason"], "unparseable_pick_name")

@@ -116,9 +116,26 @@ def _today() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def _actuals_for(contract: Mapping[str, Any], season: int) -> tuple[int | None, Mapping[str, Any]]:
-    """Current-season weekly actuals, cached per (season, UTC day)."""
-    cache_key = (season, _today())
+def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, Any]]:
+    """In-progress-season weekly actuals, cached per (season, UTC day).
+
+    The season is the CALENDAR NFL season (``current_nfl_season``),
+    never the contract's ``currentDraftYear`` — the draft year points
+    one season ahead for the entire Sept–Jan window, which would make
+    the posterior structurally unreachable in production.
+
+    A fetch that RAISES is returned but NOT memoized: a transient
+    nflverse/network blip on the day's first request must not pin the
+    board to preseason values until midnight.  (An empty SUCCESS is
+    cached for the day — that's the honest preseason/early-window
+    signal.)
+    """
+    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+
+    nfl_season = current_nfl_season()
+    if nfl_season is None:
+        return (None, {})
+    cache_key = (nfl_season, _today())
     with _aux_lock:
         if cache_key in _actuals_cache:
             return _actuals_cache[cache_key]
@@ -128,11 +145,11 @@ def _actuals_for(contract: Mapping[str, Any], season: int) -> tuple[int | None, 
 
         scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
         result = fetch_current_season_actuals(
-            season, scoring, name_normalizer=normalize_player_name
+            scoring, name_normalizer=normalize_player_name, season=nfl_season
         )
     except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("bdvm: in-season actuals unavailable: %s", exc)
-        result = (None, {})
+        _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
+        return (None, {})
     with _aux_lock:
         # Drop stale day entries so the cache never grows unbounded.
         for old_key in [k for k in _actuals_cache if k[1] != cache_key[1]]:
@@ -152,7 +169,7 @@ def get_bdvm_values(
     params = params or load_param_set()
     season = int(contract.get("currentDraftYear") or 0)
     snapshot = latest_snapshot_path(season) if season else None
-    actuals = _actuals_for(contract, season) if season else (None, {})
+    actuals = _actuals_for(contract)
     key = (
         id(contract),
         contract.get("generatedAt"),

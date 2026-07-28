@@ -70,6 +70,32 @@ class TestBdvmEndpoint(unittest.TestCase):
         # resolver error wins.  Either way it must not be a 500.
         self.assertLess(resp.status_code, 500)
 
+    def test_trade_eval_body_league_key_reaches_the_resolver(self):
+        # BdvmTradePanel sends leagueKey in the JSON body (the POST
+        # convention).  The route must parse the body BEFORE the gate
+        # and thread it through — resolving from the query string only
+        # would silently price the trade against the wrong league's
+        # replacement levels (review finding, 2026-07-28).
+        os.environ["RISKIT_FEATURE_BDVM_ENGINE"] = "1"
+        feature_flags.reload()
+        seen: dict = {}
+
+        def spy_resolve(request, *, body=None, require_loaded_contract=False):
+            seen["body"] = body
+            raise server.LeagueResolutionError(400, "unknown_league", "short-circuit for test")
+
+        with mock.patch.object(server, "_resolve_league_for_request", spy_resolve):
+            resp = self.client.post(
+                "/api/bdvm/trade-eval",
+                json={
+                    "sideA": [{"name": "Someone"}],
+                    "sideB": [{"name": "Someone Else"}],
+                    "leagueKey": "league_b",
+                },
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual((seen.get("body") or {}).get("leagueKey"), "league_b")
+
 
 if __name__ == "__main__":
     unittest.main()

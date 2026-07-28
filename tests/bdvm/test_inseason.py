@@ -16,8 +16,13 @@ The contract under test:
 from __future__ import annotations
 
 import unittest
+from datetime import date
 
-from src.bdvm.actuals import weekly_points_from_rows
+from src.bdvm.actuals import (
+    current_nfl_season,
+    fetch_current_season_actuals,
+    weekly_points_from_rows,
+)
 from src.bdvm.params import load_param_set
 from src.bdvm.ros import ros_projection_weight
 from src.bdvm.service import run_valuation
@@ -169,6 +174,13 @@ class TestRosRemainingWeeks(unittest.TestCase):
         self.assertEqual(pre_ros["weeks"], 18)
         self.assertEqual(mid_ros["weeks"], 9)  # weeks 10..18
         self.assertLess(mid_ros["balanced"], pre_ros["balanced"])
+        # Boundary week: current_week=10 means SOME team has played
+        # week 9 — Quiet WR has no week-9 sample, so his week 9 is
+        # still remaining (nflverse publishes game-by-game; dropping
+        # the in-progress week for everyone would vanish a real week
+        # of value league-wide from Thursday to Monday).
+        quiet_ros = next(p for p in mid["players"] if p["name"] == "Quiet WR")["ros"]
+        self.assertEqual(quiet_ros["weeks"], 10)  # weeks 9..18
 
 
 class TestActualsFeed(unittest.TestCase):
@@ -208,6 +220,78 @@ class TestActualsFeed(unittest.TestCase):
 
     def test_no_rows_is_preseason(self):
         week, by_key = weekly_points_from_rows([], SCORING, season=2026, name_normalizer=_norm)
+        self.assertIsNone(week)
+        self.assertEqual(by_key, {})
+
+    def test_week_18_played_means_zero_remaining(self):
+        # current_week is deliberately UNCAPPED: after the final slate
+        # it must be 19 so ROS sums zero remaining weeks — a cap at 18
+        # would double-count the banked final week as future value.
+        rows = [
+            {
+                "player_display_name": "Steady WR",
+                "position": "WR",
+                "season": 2026,
+                "week": 18,
+                "season_type": "REG",
+                "receptions": 5,
+                "receiving_yards": 70,
+            }
+        ]
+        week, _ = weekly_points_from_rows(rows, SCORING, season=2026, name_normalizer=_norm)
+        self.assertEqual(week, 19)
+
+    def test_distinct_players_colliding_on_name_are_dropped(self):
+        # Byron Murphy (CB) vs Byron Murphy II (DT): the suffix strips
+        # to the same key.  A per-week max over two different players
+        # is a chimera — mirror the projection side and drop the key.
+        def row(pid, week, yards):
+            return {
+                "player_display_name": "Byron Murphy",
+                "player_id": pid,
+                "position": "WR",
+                "season": 2026,
+                "week": week,
+                "season_type": "REG",
+                "receptions": 1,
+                "receiving_yards": yards,
+            }
+
+        _week, by_key = weekly_points_from_rows(
+            [row("00-001", 1, 100), row("00-002", 1, 50), row("00-002", 2, 60)],
+            SCORING,
+            season=2026,
+            name_normalizer=_norm,
+        )
+        self.assertNotIn("byron murphy", by_key)
+        # Same player id duplicated is NOT a collision — max dedupe.
+        _week, by_key = weekly_points_from_rows(
+            [row("00-001", 1, 100), row("00-001", 1, 100)],
+            SCORING,
+            season=2026,
+            name_normalizer=_norm,
+        )
+        self.assertEqual(by_key["byron murphy"], [(1, 11.0)])
+
+
+class TestSeasonDerivation(unittest.TestCase):
+    """The actuals season is the CALENDAR NFL season — never
+    currentDraftYear, which points one season ahead for the entire
+    Sept–Jan window (review finding, 2026-07-28)."""
+
+    def test_calendar_window(self):
+        self.assertEqual(current_nfl_season(date(2026, 9, 10)), 2026)
+        self.assertEqual(current_nfl_season(date(2026, 12, 31)), 2026)
+        self.assertEqual(current_nfl_season(date(2027, 1, 5)), 2026)  # week 18 spill
+        self.assertIsNone(current_nfl_season(date(2026, 7, 28)))  # preseason
+        self.assertIsNone(current_nfl_season(date(2027, 3, 1)))  # offseason
+
+    def test_out_of_window_is_preseason_signal_without_fetch(self):
+        # July: no season in progress → (None, {}) and NO network call
+        # (a fetch would raise inside the sandboxed test env).
+        week, by_key = fetch_current_season_actuals(
+            SCORING, name_normalizer=_norm, today=date(2026, 7, 28)
+        )
         self.assertIsNone(week)
         self.assertEqual(by_key, {})
 

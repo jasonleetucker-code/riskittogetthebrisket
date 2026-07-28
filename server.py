@@ -5132,9 +5132,13 @@ async def get_bdvm_values(request: Request):
     return JSONResponse(content=payload)
 
 
-def _bdvm_gate_and_league(request: Request):
+def _bdvm_gate_and_league(request: Request, body: dict | None = None):
     """Shared gate for the BDVM family: flag check + league resolution +
-    contract readiness.  Returns (league_cfg, contract, error_response)."""
+    contract readiness.  Returns (league_cfg, contract, error_response).
+
+    POST callers must parse their body FIRST and pass it here — the
+    resolver only honors a body ``leagueKey`` when it receives the
+    body (CLAUDE.md: query string for GET, body field for POST)."""
     from src.api import feature_flags as _ff  # noqa: PLC0415
 
     if not _ff.is_enabled("bdvm_engine"):
@@ -5147,7 +5151,7 @@ def _bdvm_gate_and_league(request: Request):
             ),
         )
     try:
-        league_cfg = _resolve_league_for_request(request)
+        league_cfg = _resolve_league_for_request(request, body=body)
     except LeagueResolutionError as err:
         return None, None, err.json_response()
     contract = latest_contract_data
@@ -5261,13 +5265,18 @@ async def post_bdvm_trade_eval(request: Request):
     silently priced at zero.  Package math is the display-layer CES,
     never a plain sum.
     """
-    league_cfg, contract, err = _bdvm_gate_and_league(request)
-    if err is not None:
-        return err
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
         return JSONResponse(status_code=400, content={"error": "invalid_json"})
+    # Body parses BEFORE the gate: the frontend sends leagueKey in the
+    # JSON body (the POST convention), and the resolver only sees it
+    # when the body is passed through.
+    league_cfg, contract, err = _bdvm_gate_and_league(
+        request, body=body if isinstance(body, dict) else None
+    )
+    if err is not None:
+        return err
     side_a = body.get("sideA") if isinstance(body, dict) else None
     side_b = body.get("sideB") if isinstance(body, dict) else None
     if not isinstance(side_a, list) or not isinstance(side_b, list) or not (side_a or side_b):

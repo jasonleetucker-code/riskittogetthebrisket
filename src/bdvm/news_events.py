@@ -42,16 +42,42 @@ _AUTO_EVENT_MAX_AGE_DAYS = 90
 _AUTO_CONFIDENCE = 0.45  # strictly below the §7 speculation threshold
 _AUTO_RELIABILITY = 0.6  # aggregated headlines, not primary reporting
 
+# A second same-type auto event for the same player inside this window
+# is suppressed on merge.  The aggregate feed carries the same story
+# from several providers (each with its own item id) plus weekly
+# advice churn — without this, N providers would stack N sigma
+# wideners for one real-world fact.
+_DUP_EVENT_WINDOW_DAYS = 14
+
+# List/advice articles name many players; real transaction or injury
+# reporting names one or two.  An item mentioning more than this many
+# players is editorial coverage, not an event about any of them.
+_MAX_PLAYER_MENTIONS = 3
+
+# Advice/listicle language → NOTHING, checked before every rule.  The
+# aggregate feed includes fantasy-advice RSS providers whose headlines
+# are full of transaction VOCABULARY about players nothing happened to
+# ("trade targets", "who makes the cut", "buy low").  Conservative by
+# design: suppressing a real story costs one speculative sigma
+# widener; passing an advice column through costs dozens of them.
+_ADVICE_NOISE_RE = re.compile(
+    r"trade (?:target|value|advice|candidate|bait|chart|calculator)s?"
+    r"|buy[- ]low|sell[- ]high|start[ /-]?sit|waiver wire|mock draft"
+    r"|rankings?|sleepers?|projections?|preview|outlook|cheat sheet"
+    r"|top[- ]\d+|tiers?\b|roster (?:projection|prediction|bubble)"
+    r"|makes? the (?:final )?cut|cut candidates?",
+    re.I,
+)
+
 # Conservative keyword rules, checked IN ORDER — first match wins.
 # Only ontology types with an unambiguous news-side signal appear;
-# everything else stays human-entry only.
+# everything else stays human-entry only.  ACTIVATED_RETURN is
+# deliberately absent: its ontology impact NARROWS sigma, and the
+# speculation lane may only widen — a headline-confidence event of
+# that type would be a no-op at best (effective_impact clamps it).
 _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("SURGERY", re.compile(r"surgery|torn|\bacl\b|achilles|season[- ]ending", re.I)),
     ("SUSPENSION", re.compile(r"suspend|suspension", re.I)),
-    (
-        "ACTIVATED_RETURN",
-        re.compile(r"activated|cleared to (?:play|practice)|returns? to practice", re.I),
-    ),
     (
         "INJURY",
         re.compile(
@@ -74,7 +100,7 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(r"demoted|loses? (?:the )?starting (?:job|role)|benched", re.I),
     ),
     ("TRADE", re.compile(r"\btrade[ds]?\b|acquired (?:via|in a) trade", re.I)),
-    ("RELEASE", re.compile(r"released|waived|\bcut\b", re.I)),
+    ("RELEASE", re.compile(r"released|waived", re.I)),
     ("CONTRACT_EXTENSION", re.compile(r"extension|extended (?:his|the) contract", re.I)),
     ("FRANCHISE_TAG", re.compile(r"franchise tag", re.I)),
     ("SIGNING", re.compile(r"\bsigns?\b|\bsigned\b|agrees? to (?:a )?(?:deal|terms)", re.I)),
@@ -86,6 +112,8 @@ def classify_news_item(item: Mapping[str, Any]) -> str | None:
     text = f"{item.get('headline') or ''} {item.get('body') or item.get('summary') or ''}"
     if not text.strip():
         return None
+    if _ADVICE_NOISE_RE.search(text):
+        return None  # advice/listicle coverage, not an event
     for event_type, pattern in _RULES:
         if pattern.search(text):
             return event_type
@@ -102,6 +130,9 @@ def map_news_items_to_events(
     for item in items or []:
         if not isinstance(item, Mapping):
             continue
+        mentions = item.get("players") or []
+        if len(mentions) > _MAX_PLAYER_MENTIONS:
+            continue  # list article, not an event about any one player
         event_type = classify_news_item(item)
         if event_type is None:
             continue
@@ -137,7 +168,18 @@ def map_news_items_to_events(
 
 
 def _is_auto(event: Mapping[str, Any]) -> bool:
-    return str(event.get("eventId") or "").startswith("news:")
+    """Still machine-owned: news:* eventId AND speculation-lane
+    confidence.  A human who raised confidence to >= 0.5 turned the
+    entry into a confirmed, mean-affecting event — it keeps its
+    news:* id (that's what existing-wins protects) but is no longer
+    ours to prune; deleting it would silently discard human work while
+    the event still carries most of its half-life strength."""
+    if not str(event.get("eventId") or "").startswith("news:"):
+        return False
+    try:
+        return float(event.get("confidence")) < 0.5
+    except (TypeError, ValueError):
+        return True  # news:* with unparseable confidence → still ours
 
 
 def _is_stale_auto(event: Mapping[str, Any], today: datetime) -> bool:
@@ -150,6 +192,15 @@ def _is_stale_auto(event: Mapping[str, Any], today: datetime) -> bool:
     except (TypeError, ValueError):
         return True  # unparseable auto event → prune
     return today - effective > timedelta(days=_AUTO_EVENT_MAX_AGE_DAYS)
+
+
+def _event_date(event: Mapping[str, Any]) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(event.get("effectiveDate"))[:10]).replace(
+            tzinfo=timezone.utc
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 def merge_events_file(
@@ -171,18 +222,45 @@ def merge_events_file(
     today = now or datetime.now(timezone.utc)
 
     existing: list[dict[str, Any]] = []
+    payload: dict[str, Any] = {}
     if path.exists():
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-            existing = list(payload.get("events") or [])
         except (OSError, ValueError):
             # A corrupt events file must not brick ingestion, but we
             # also must not silently discard human entries — refuse.
             return {"ok": False, "reason": "events_file_unreadable", "path": str(path)}
+        # Valid JSON with the wrong SHAPE is the classic hand-edit slip
+        # ("events": {...} instead of [...]).  Iterating it anyway
+        # would masquerade the operator's entries as prunable garbage
+        # and rewrite the file without them — refuse just as hard as
+        # for unparseable JSON.
+        if not isinstance(payload, dict) or not isinstance(payload.get("events", []), list):
+            return {"ok": False, "reason": "events_file_invalid_shape", "path": str(path)}
+        existing = list(payload.get("events") or [])
+        if not all(isinstance(e, Mapping) for e in existing):
+            return {"ok": False, "reason": "events_file_invalid_shape", "path": str(path)}
 
-    seen = {str(e.get("eventId")) for e in existing if isinstance(e, Mapping)}
-    added = [e for e in new_events if e["eventId"] not in seen]
-    kept = [e for e in existing if isinstance(e, Mapping) and not _is_stale_auto(e, today)]
+    seen = {str(e.get("eventId")) for e in existing}
+    # Same-fact suppression: the same real-world story arrives from N
+    # providers under N item ids, and again in next week's coverage.
+    # One (playerKey, eventType) inside the window is one fact — the
+    # sigma widener must not stack per provider.
+    recent: set[tuple[str, str]] = set()
+    for e in existing:
+        d = _event_date(e)
+        if d is not None and (today - d).days <= _DUP_EVENT_WINDOW_DAYS:
+            recent.add((str(e.get("playerKey")), str(e.get("eventType"))))
+    added = []
+    for e in new_events:
+        if e["eventId"] in seen:
+            continue
+        fact = (str(e.get("playerKey")), str(e.get("eventType")))
+        if fact in recent:
+            continue
+        recent.add(fact)
+        added.append(e)
+    kept = [e for e in existing if not _is_stale_auto(e, today)]
     pruned = len(existing) - len(kept)
 
     if not added and not pruned:
@@ -197,8 +275,10 @@ def merge_events_file(
     merged = kept + added
     root.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
+    # Preserve any other top-level keys a human added (e.g. a
+    # _comment block, the convention config/bdvm files use).
     tmp.write_text(
-        json.dumps({"events": merged}, indent=1) + "\n",
+        json.dumps({**payload, "events": merged}, indent=1) + "\n",
         encoding="utf-8",
     )
     tmp.replace(path)

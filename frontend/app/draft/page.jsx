@@ -947,7 +947,7 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
  * Way faster than opening the full draft modal when you just need
  * to log a sale.
  */
-function QuickRecordRow({ player, workspace, onSubmit, onCancel }) {
+function QuickRecordRow({ player, workspace, onSubmit, onCancel, colSpan = 14 }) {
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? 0;
   const [teamIdx, setTeamIdx] = useState(myTeamIdx);
   const [amount, setAmount] = useState("");
@@ -971,7 +971,7 @@ function QuickRecordRow({ player, workspace, onSubmit, onCancel }) {
 
   return (
     <tr className="draft-quick-row">
-      <td colSpan={13}>
+      <td colSpan={colSpan}>
         <div className="draft-quick-inner">
           <span className="muted" style={{ fontSize: "0.7rem" }}>
             Quick record <strong>{player.name}</strong>
@@ -1555,6 +1555,7 @@ export function RookieBoard({
                       workspace={workspace}
                       onSubmit={onQuickSubmit}
                       onCancel={onQuickCancel}
+                      colSpan={14 + (bdvmIndex ? 1 : 0)}
                     />,
                   );
                 }

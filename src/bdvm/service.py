@@ -74,7 +74,15 @@ _EVENT_VOL_PRIOR = {
     "TE": 0.35,
 }
 
-_PICK_SLOT_RE = re.compile(r"(?P<year>20\d{2})\s+(?P<round>\d)\.(?P<slot>\d{2})")
+# Accepts both the bare "2026 1.04" form and the platform's canonical
+# slot-pick displayName "2026 Pick 1.04" — the exact string the trade
+# page and /api/data rows carry.  Without the optional token every
+# canonical slot pick fell through to unparseable_pick_name and the
+# whole current-year pick board (and any trade-eval ref to it) was
+# unpriced.
+_PICK_SLOT_RE = re.compile(
+    r"(?P<year>20\d{2})\s+(?:pick\s+)?(?P<round>\d)\.(?P<slot>\d{1,2})", re.IGNORECASE
+)
 _PICK_TIER_RE = re.compile(
     r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>1st|2nd|3rd|4th)", re.IGNORECASE
 )
@@ -139,6 +147,7 @@ def _ros_for_player(
     schedule_weeks: Mapping[str, list] | None,
     params: ParamSet,
     current_week: int | None = None,
+    played_weeks: set[int] | None = None,
 ) -> dict[str, Any] | None:
     """Rest-of-season value (single horizon, no aging/survival).
 
@@ -146,8 +155,15 @@ def _ros_for_player(
     unavailable the field is None with no fabrication.  Preseason
     (``current_week`` None) sums the full slate and µ_ROS is the
     blended projection itself; in-season, ``blended`` already carries
-    the §8.4 posterior and only weeks >= ``current_week`` are summed —
-    played weeks are banked points, not remaining value.
+    the §8.4 posterior and played weeks are banked points, not
+    remaining value.
+
+    Boundary week: ``current_week`` is global (max week observed
+    league-wide + 1), but nflverse publishes game-by-game — after
+    Thursday night the file already holds week-W rows while ~30 teams
+    haven't played W yet.  For THIS player, week W counts as remaining
+    unless it appears in ``played_weeks`` — otherwise one real week of
+    value would vanish league-wide for three days every week.
     """
     if not schedule_weeks:
         return None
@@ -156,7 +172,13 @@ def _ros_for_player(
     if not weeks:
         return {"value": None, "reason": f"no_schedule_for_team:{team or 'FA'}"}
     if current_week is not None:
-        weeks = [wk for wk in weeks if wk.week >= current_week]
+        boundary = current_week - 1
+        played = played_weeks or set()
+        weeks = [
+            wk
+            for wk in weeks
+            if wk.week >= current_week or (wk.week == boundary and boundary not in played)
+        ]
     sigma0 = v.seasons[0]["sigma"]
     replacement = v.raw["replacement"]
     out: dict[str, Any] = {"muRos": round(blended.mu_fpg, 3), "weeks": len(weeks)}
@@ -324,9 +346,16 @@ def run_valuation(
     # untouched — absence of evidence is never evidence of zero.
     current_week: int | None = None
     inseason_updated = 0
+    # Per-player played weeks, for the ROS boundary-week rule (a week
+    # some teams have played and others haven't is remaining for the
+    # teams that haven't).
+    actuals_played: dict[str, set[int]] = {}
     if actuals is not None:
         current_week, weekly_by_key = actuals
         if current_week is not None and weekly_by_key:
+            actuals_played = {
+                key: {wk for wk, _pts in samples} for key, samples in weekly_by_key.items()
+            }
             for key, blended in list(consensus.items()):
                 samples = weekly_by_key.get(key)
                 if not samples:
@@ -567,6 +596,9 @@ def run_valuation(
             schedule_weeks=schedule_weeks,
             params=params,
             current_week=current_week,
+            played_weeks=actuals_played.get(
+                normalize_player_name(str(row.get("canonicalName") or row.get("displayName") or ""))
+            ),
         )
         players_out.append(entry)
 
