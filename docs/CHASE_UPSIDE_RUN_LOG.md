@@ -714,3 +714,86 @@ Pattern worth naming: THREE of the defects so far (#2, #7, #11) were
 "the guard exists and cannot fire", and #12 was "the assertion exists
 and cannot fail". The doc's descriptions keep understating: it says
 untested/dead when the truth is tested-but-never-run.
+
+---
+
+## 2026-07-28 — idp_scoring_fit ON, and the last six §9 rows
+
+### idp_scoring_fit (PR #606, merged)
+
+Operator asked to re-measure properly and turn it on. Re-measuring
+surfaced a data defect that had corrupted the original measurement.
+
+`SAF` — nflverse's own spelling for a safety — was in neither
+POSITION_ALIASES nor scoring_engine's IDP collapse table, so EVERY
+SAFETY was dropped from every scoring comparison. 1,468 of 18,539
+persisted 2025 regular-season rows; third-largest defensive group after
+LB and CB. Silent by construction: the only trace was an
+`unknown_positions_dropped` line that also lists K/P/OL/C/G, so a real
+gap looked exactly like intended behaviour. `S`/`FS`/`SS` WERE mapped,
+which is why the hole was invisible — safeties appeared handled.
+
+Effect: DB cohort 288 -> 188, DB multiplier 1.0366 -> 1.0594. With the
+gap closed the direction is the REVERSE of what #592 recorded:
+
+    DB 1.0366 (n=288)   DL 1.0001 (n=213)   LB 0.9633 (n=203)
+
+Two checks made it a correction rather than a drift. Settings unchanged
+(all 8 IDP keys byte-identical to #592's record). And the rate card
+mechanically predicts the new order: idp_pass_def 2.52x UP (DB stat,
+biggest move on the card), idp_sack 0.64x DOWN (DL signature),
+idp_tkl_solo 0.92x DOWN (LB volume).
+
+Blast radius on the live board: 280 IDP rows move (DB +3.66%, DL +0.01%,
+LB -3.67%), ZERO non-IDP values change, 544 rows shift rank (median 4,
+p90 35) of which 279 move only because IDP passed them.
+
+### The last six §9 rows (PR #608)
+
+#1 REPRODUCED. Mechanism is the FAILURE path. fetched_at advances only
+on success, so the post-lock re-check is unsatisfiable while the vendor
+is down and every waiter re-attempts serially — each holding an AnyIO
+token from the process-wide limiter. 8 callers -> 8 attempts, 18.02
+thread-seconds, unbounded in N. Cooldown + wait ceiling -> 1 attempt,
+4.00 thread-seconds.
+
+#3 MEASURED, framing wrong. NOT a cold-start cost: warm 6.449/6.643/
+6.484s, cold 6.418s. build_public_contract runs every request, 7.26s
+alone. player_position called 514,020 times per build. Memoized ->
+build ~2.3s, endpoint 2.24-2.53s.
+
+#5 Three layers dead. Removed the dead proxy (a live route that could
+only 404). Kept src/api/chat.py. Shipping chat stays a product call.
+
+#6 DESCRIPTION WRONG. /finder does no arbitrage at all — the word came
+from a stale header comment. No phantom "two implementations", so no
+product decision was ever needed. Engine still has no UI caller; that is
+a feature, not a defect.
+
+#14 REPRODUCED, and the earlier "not visible by inspection" explained:
+`bottom` existed, but only inside @media (max-width: 768px). Correct on
+phones, unanchored everywhere wider.
+
+#17 Kept unwired, now with a tripwire. Its `nginx -t` guard cannot catch
+the case that matters — a config reverting certbot's edits is still
+VALID nginx.
+
+### THE MEASUREMENT LESSON, worth more than any single fix
+
+My first check of whether the #3 memo changed output said DIFFERENT.
+Taken at face value that reverts a correct 2.7x fix. The contract embeds
+wall-clock stamps, so two runs of the SAME code never match either.
+
+What caught it: comparing an implementation against ITSELF before
+comparing it against the alternative. A differential test without that
+control cannot distinguish "my change broke it" from "this was never
+deterministic".
+
+Corollary to §12's three cheap checks, and the same shape as the
+"measured the instrument and described the vendor" error in §12:
+BEFORE concluding a diff means your change is wrong, confirm the
+baseline is stable.
+
+### §9: 18 of 18 worked. 14 fixed, 2 standing policy, 2 open as FEATURES
+(#6 wiring the arbitrage engine to a UI; #5 shipping chat). Both are
+product calls with the defect half already closed.
