@@ -91,6 +91,30 @@ def test_every_flag_defaults_off_except_safe_additive():
         # wrong was the recorded rationale, including the one used to
         # justify turning this flag on.
         "idp_scoring_fit",
+        # Reception-distance banding — the largest scoring divergence on
+        # this card, and one the market structurally cannot see: the
+        # per-catch spread is 8x while every ranking source prices a
+        # flat rate.
+        #
+        # Blast radius measured over 199 receivers with 20+ catches
+        # (2025).  Quote the TILT, never the 8x:
+        #
+        #   median 1.000  p10 0.942  p90 1.042  min 0.765  max 1.098
+        #   0 of 199 at the clamp; dispersion drift 0.0226 (bound 0.12)
+        #
+        # Coherent at the extremes — checkdown backs and short-area
+        # tight ends down (Jerome Ford 0.765), deep threats up (Alec
+        # Pierce 1.098) — and the band shape is year-over-year stable
+        # (r=0.72-0.77), so it is a player trait rather than noise.
+        #
+        # Mean-normalised, so it re-allocates between receivers and
+        # cannot inflate the receiving corps as a class.  The shared
+        # LEVEL (0.9543) is deliberately held OUT: it depends on the
+        # baseline league being what the market prices, an assumption
+        # that swings the level 2x and flips its sign across plausible
+        # rates.  Opt-in league-adjusted lens only.
+        # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
+        "reception_scoring_fit",
     }
     off_only = {
         "dynamic_source_weights",  # held OFF until backtest data exists
