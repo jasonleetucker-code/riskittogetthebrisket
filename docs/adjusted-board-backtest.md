@@ -132,8 +132,17 @@ scoring reality?
 Supported: "the adjusted board does not align better with our scoring
 than the market board does."
 Not supported: "the adjusted board predicts next season worse." That
-would need board snapshots taken *before* a season, which this repo does
-not keep.
+would need board snapshots taken *before* a season.
+
+**Those snapshots exist.** `src/api/rank_history.py` appends one per UTC
+date on every contract rebuild (`server.py:1710`), carrying both ranks
+and `rankDerivedValue` on the canonical pipeline scale, and retention is
+`365 * 3` — three years, deliberately tripled from six months because
+"the prior six-month cap clipped any long-horizon study before it could
+start". So the forward test is a matter of reading
+`data/rank_history.jsonl` on prod rather than building anything; the
+only open question is how far back that file actually reaches, which is
+a function of when appending started, not of the retention policy.
 
 Power: the CI half-width is about 0.009 ρ, so this design detects a
 difference of roughly ±0.015 and cannot rule out a genuine improvement
@@ -142,8 +151,13 @@ axes produce, not a null at any effect size.
 
 ## What would change the answer
 
-* **Keep board snapshots.** Stamping the served board weekly turns this
-  into a real forward test in one season and removes the caveat above.
+* **Run the forward test against `data/rank_history.jsonl`.** The
+  snapshots are already being kept (see above). Point this script's
+  board source at a dated snapshot from before the 2025 season instead
+  of `exports/latest/`, and the common-mode caveat disappears entirely —
+  it becomes "did this board predict the season", which is the question
+  actually worth answering. No new infrastructure; `compare_boards` and
+  the realized-points join are unchanged.
 * **More per-player axes.** Four of eight positions currently receive a
   single scalar. Reception fit is the only per-player signal live, and
   it reaches RB/TE/WR only. An IDP per-player axis was refused for good

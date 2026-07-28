@@ -201,8 +201,11 @@ had every chance to see what it is being scored against. That is exactly
 right for the question asked — *has the market absorbed this* — and
 exactly wrong for a different one it must not be read as: it does **not**
 show the market predicted 2025 efficiency in advance. Establishing that
-needs board snapshots taken before a season, which this repo does not
-yet keep.
+needs board snapshots taken before a season — and **those are already
+being kept**, in `data/rank_history.jsonl`, daily, with values, for three
+years (`src/api/rank_history.py`). Re-running this residual test against
+a pre-season snapshot rather than the live board is the version that
+would answer the predictive question.
 
 ## Reproduce
 
