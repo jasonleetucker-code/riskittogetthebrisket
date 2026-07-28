@@ -45,7 +45,14 @@ export const NAV_MODEL = [
     items: [
       { href: "/trade", label: "Calculator", hint: "Build and grade a trade", keywords: ["simulate"] },
       { href: "/trades", label: "History", hint: "Analyzed history of every league trade" },
-      { href: "/finder", label: "Arbitrage Finder", hint: "Find KTC market gaps you can exploit", keywords: ["market gaps"] },
+      // /arbitrage is the real board-vs-market engine (src/trade/finder.py).
+      // /finder is a board filter and computes no arbitrage at all — it
+      // was labelled "Arbitrage Finder" here, which is a large part of
+      // why an audit recorded a phantom second arbitrage implementation
+      // competing with the engine (backlog #6). The labels now say what
+      // each page does.
+      { href: "/arbitrage", label: "Arbitrage Finder", hint: "Trades that gain on our board but read as fair on theirs", keywords: ["market gaps", "arbitrage"] },
+      { href: "/finder", label: "Signal Blotter", hint: "Filter the board by source disagreement, confidence and rookie status", keywords: ["signals", "spread"] },
       { href: "/angle", label: "Counter-Pitch", hint: "Generate counter-package suggestions", keywords: ["packages"] },
     ],
   },

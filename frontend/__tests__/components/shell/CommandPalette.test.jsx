@@ -110,7 +110,7 @@ describe("navigation targets", () => {
     await user.keyboard("arbitrage");
     const opt = screen.getByRole("option", { name: /Arbitrage Finder/ });
     await user.click(opt);
-    expect(push).toHaveBeenCalledWith("/finder");
+    expect(push).toHaveBeenCalledWith("/arbitrage");
   });
 
   it("matches by keyword (faab → Waivers)", async () => {
