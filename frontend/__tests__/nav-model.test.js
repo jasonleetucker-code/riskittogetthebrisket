@@ -33,6 +33,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/waivers",
   "/rosters",
   "/edge",
+  "/bdvm",
   "/intel",
   "/idptc-rookies",
   "/league",

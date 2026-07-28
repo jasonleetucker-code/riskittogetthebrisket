@@ -28,8 +28,9 @@
 #   2. fetch + reset --hard origin/main so we always start from the
 #      latest CI-committed state.
 #   3. Pull cached cookies from ``$WORK_DIR/idpshow_session.json``.
-#   4. Run ``scripts/fetch_idpshow.py``.  The fetcher refreshes its
-#      own cookie expiry on success; we copy the result back.
+#   4. Run ``scripts/fetch_idpshow.py``.  (The fetcher only READS the
+#      jar — no code path rewrites cookies; re-mints are human-made
+#      directly into ``$WORK_DIR``, which stays the source of truth.)
 #   5. Stamp ``data/scrape_state/idpShow_last_success`` with the
 #      current epoch, stage the CSV + stamp, commit, push.  Push
 #      retries on rebase conflict (CI's data-refresh cron also
@@ -86,8 +87,9 @@ if ! "${VENV_PYTHON}" scripts/fetch_idpshow.py; then
   exit 1
 fi
 
-# Persist the (possibly refreshed) session jar back to the work dir
-# so the next run can skip re-checking the cookie.
+# Copy the repo-clone jar back to the work dir.  Today this is a
+# byte-identical no-op safeguard (the fetcher never rewrites the jar);
+# it only matters if a future fetcher starts refreshing cookies.
 if [[ -f "${REPO_DIR}/idpshow_session.json" ]]; then
   cp -f "${REPO_DIR}/idpshow_session.json" "${SESSION_FILE}"
   chmod 600 "${SESSION_FILE}"

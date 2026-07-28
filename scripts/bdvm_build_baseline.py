@@ -7,6 +7,18 @@ latest committed contract export by default), builds the BDVM §8.3
 proxy projections, and writes an immutable snapshot under
 ``data/bdvm/projections/<season>/``.
 
+Real (non-proxy) records from the previous latest snapshot are carried
+forward over the fresh proxy baseline: a weekly baseline rebuild must
+never silently downgrade the serving board from real projections back
+to proxies just because the real source's stage failed that week.
+Carried records keep their original per-record ``asOf``, so the
+consensus staleness penalty downweights them as they age instead of
+this script deleting them.
+
+Snapshots are immutable and date-stamped, so a same-day rerun (boot
+catch-up, manual ``systemctl start``) is a NO-OP success, not a
+failure — the expensive nflverse fetch is skipped entirely.
+
 Usage::
 
     python scripts/bdvm_build_baseline.py --season 2026
@@ -14,7 +26,8 @@ Usage::
         --contract exports/latest/dynasty_data_2026-07-27.json \
         --seasons-back 3 --label baseline
 
-Exit codes: 0 success, 1 nothing built, 2 error.
+Exit codes: 0 success (including the same-day no-op), 1 nothing built,
+2 error.
 """
 
 from __future__ import annotations
@@ -29,13 +42,40 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from src.bdvm import projections as _proj  # noqa: E402
 from src.bdvm.baseline import fetch_and_build_baseline  # noqa: E402
-from src.bdvm.projections import write_snapshot  # noqa: E402
+from src.bdvm.projections import (  # noqa: E402
+    ProjectionError,
+    latest_snapshot_path,
+    load_snapshot,
+    write_snapshot,
+)
 
 
 def _default_contract_path() -> Path | None:
     candidates = sorted(glob.glob(str(REPO_ROOT / "exports" / "latest" / "dynasty_data_*.json")))
     return Path(candidates[-1]) if candidates else None
+
+
+def _target_path(season: int, as_of: str, label: str) -> Path:
+    """The exact path write_snapshot would use (kept in lockstep)."""
+    suffix = f"_{label}" if label else ""
+    return _proj.SNAPSHOT_DIR / str(season) / f"projections_{str(as_of)[:10]}{suffix}.json"
+
+
+def merge_baseline_over_prior(new_records, prior_records):
+    """Carry prior real (non-proxy) records forward over a fresh proxy
+    baseline.
+
+    Real records win per player: the new proxy for a player covered by
+    a carried real record is dropped (same policy as
+    idpshow_projections.merge_into_snapshot, from the other side).
+    Returns (merged_records, carried_count).
+    """
+    real = [r for r in prior_records if not r.is_proxy]
+    covered = {r.player_key for r in real}
+    kept = [r for r in new_records if r.player_key not in covered]
+    return kept + real, len(real)
 
 
 def main() -> int:
@@ -53,6 +93,14 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="build but do not write")
     args = parser.parse_args()
 
+    as_of = datetime.now(timezone.utc).date().isoformat()
+
+    # Same-day rerun → no-op success BEFORE the expensive fetch.
+    target = _target_path(args.season, as_of, args.label)
+    if not args.dry_run and target.exists():
+        print(f"snapshot for today already exists — no-op: {target}")
+        return 0
+
     contract_path = args.contract or _default_contract_path()
     if contract_path is None or not contract_path.exists():
         print("ERROR: no contract export found for scoring settings", file=sys.stderr)
@@ -63,7 +111,6 @@ def main() -> int:
         print(f"ERROR: {contract_path} has no sleeper.scoringSettings", file=sys.stderr)
         return 2
 
-    as_of = datetime.now(timezone.utc).date().isoformat()
     try:
         records, summary = fetch_and_build_baseline(
             season=args.season,
@@ -81,10 +128,28 @@ def main() -> int:
     if not records:
         print("nothing built (no realized history?)", file=sys.stderr)
         return 1
+
+    prior = latest_snapshot_path(args.season)
+    if prior is not None:
+        try:
+            _prior_as_of, prior_records = load_snapshot(prior)
+        except (OSError, ValueError) as exc:
+            print(f"WARN: could not read prior snapshot {prior}: {exc}", file=sys.stderr)
+            prior_records = []
+        records, carried = merge_baseline_over_prior(records, prior_records)
+        if carried:
+            print(f"carried forward {carried} real (non-proxy) records from {prior.name}")
+
     if args.dry_run:
         print("dry run — snapshot not written")
         return 0
-    path = write_snapshot(records, season=args.season, as_of=as_of, label=args.label)
+    try:
+        path = write_snapshot(records, season=args.season, as_of=as_of, label=args.label)
+    except ProjectionError as exc:
+        # Race with a concurrent same-day run — the snapshot exists, so
+        # the day's work is done.
+        print(f"snapshot for today already exists — no-op ({exc})")
+        return 0
     print(f"snapshot written: {path} ({len(records)} records)")
     return 0
 

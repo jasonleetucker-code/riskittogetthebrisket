@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections import OrderedDict
 from typing import Any, Mapping
 
 from src.api import league_registry as _league_registry
@@ -30,8 +31,13 @@ from src.bdvm.service import run_valuation
 _LOGGER = logging.getLogger(__name__)
 
 _lock = threading.Lock()
-_cache_key: tuple | None = None
-_cache_value: dict[str, Any] | None = None
+# Small LRU, not a single slot: the roster/trades path always computes
+# with the default surplus mode while /api/bdvm/values may carry a
+# non-default one — a single-entry cache would make those two keys
+# evict each other on every alternation, turning each request into a
+# cold multi-second engine run.
+_VALUES_CACHE_MAX = 4
+_values_cache: OrderedDict[tuple, dict[str, Any]] = OrderedDict()
 
 _aux_lock = threading.Lock()
 _context_cache: dict[int, Mapping[str, Any]] = {}
@@ -88,7 +94,6 @@ def get_bdvm_values(
     params: ParamSet | None = None,
 ) -> dict[str, Any]:
     """Compute (or serve cached) BDVM values for one league."""
-    global _cache_key, _cache_value
     params = params or load_param_set()
     season = int(contract.get("currentDraftYear") or 0)
     snapshot = latest_snapshot_path(season) if season else None
@@ -101,8 +106,10 @@ def get_bdvm_values(
         surplus_mode,
     )
     with _lock:
-        if key == _cache_key and _cache_value is not None:
-            return _cache_value
+        cached = _values_cache.get(key)
+        if cached is not None:
+            _values_cache.move_to_end(key)
+            return cached
 
     roster_settings, idp_enabled, scoring_profile = _registry_settings_for(league_key)
     context = _context_for(season) if season else {}
@@ -119,8 +126,10 @@ def get_bdvm_values(
         schedule_weeks=schedule_weeks,
     )
     with _lock:
-        _cache_key = key
-        _cache_value = payload
+        _values_cache[key] = payload
+        _values_cache.move_to_end(key)
+        while len(_values_cache) > _VALUES_CACHE_MAX:
+            _values_cache.popitem(last=False)
     return payload
 
 
@@ -179,10 +188,8 @@ def get_bdvm_trades(
 
 def reset_cache() -> None:
     """Test hook."""
-    global _cache_key, _cache_value
     with _lock:
-        _cache_key = None
-        _cache_value = None
+        _values_cache.clear()
     with _aux_lock:
         _context_cache.clear()
         _schedule_cache.clear()

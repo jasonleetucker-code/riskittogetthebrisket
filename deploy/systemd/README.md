@@ -58,10 +58,15 @@ Timers rendered + enabled by `deploy/install-systemd-service.sh`
 | `dynasty-dlf-fetch.*` | DLF CSV fetch + push (CI is Cloudflare-blocked) | Every 2h | DLF creds in `.env` |
 | `dynasty-idpshow-fetch.*` | IDP Show rankings fetch + push | Every 2h | always |
 | `dynasty-playerctx-refresh.*` | Player context (contracts / snap share / depth chart) → `data/playerctx/snapshot.json`, served by `/api/playerctx/player` | Weekly Tue 05:40 UTC | always (public data, no creds) |
+| `dynasty-bdvm-refresh.*` | BDVM projection snapshots (reconstructed baseline + IDP Show real projections) → `data/bdvm/projections/<season>/`, served by `/api/bdvm/*` (flag `bdvm_engine`) | Weekly Tue 06:10 UTC | always (baseline needs no creds; IDP Show stage self-skips without the session jar) |
 
-`dynasty-playerctx-refresh` must run **on prod**, not in CI: the
-endpoint reads a local file and `data/` is gitignored, so a CI-built
-snapshot would never reach the VPS.  See `docs/playerctx.md`.
+`dynasty-playerctx-refresh` and `dynasty-bdvm-refresh` must run **on
+prod**, not in CI: their endpoints read local files and `data/` is
+gitignored, so a CI-built snapshot would never reach the VPS.  See
+`docs/playerctx.md`; for BDVM, `scripts/refresh_bdvm_projections.py`
+documents the stage/exit-code contract, and the IDP Show session jar
+is shared with the rankings timer at
+`/var/lib/idpshow-fetch/idpshow_session.json`.
 
 ## Manual runs
 
