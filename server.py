@@ -10374,6 +10374,46 @@ async def run_signal_alerts(request: Request):
     def _run_sweep() -> dict[str, object]:
         db = _user_kv.all_user_states()
         summary: list[dict] = []
+
+        # BDVM market-signal transitions piggyback on this same sweep
+        # (flag-gated; no extra timer).  The whole-league board + the
+        # ownerId → rostered-playerIds map are computed ONCE per league
+        # and shared across users — the engine run is the expensive
+        # part, the per-user slice is a set lookup.  Any failure here
+        # degrades to a "bdvm": {"error": ...} field, never a failed
+        # sweep.
+        bdvm_enabled = False
+        try:
+            from src.api import feature_flags as _ff  # noqa: PLC0415
+
+            bdvm_enabled = _ff.is_enabled("bdvm_engine")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bdvm flag check failed in signal sweep: %s", exc)
+        bdvm_league_cache: dict[str, tuple[dict | None, dict[str, set]]] = {}
+
+        def _bdvm_league_data(cfg_key: str, contract: dict):
+            if cfg_key in bdvm_league_cache:
+                return bdvm_league_cache[cfg_key]
+            values: dict | None = None
+            assets_by_owner: dict[str, set] = {}
+            try:
+                from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
+
+                values = _bdvm_api.get_bdvm_values(contract, cfg_key)
+                roster = _bdvm_api.get_bdvm_roster(contract, cfg_key)
+                if roster.get("status") == "ok":
+                    for r in roster.get("rosters") or []:
+                        oid = str(r.get("ownerId") or "")
+                        if oid:
+                            assets_by_owner[oid] = {
+                                str(a.get("playerId") or "") for a in (r.get("assets") or [])
+                            }
+            except Exception as exc:  # noqa: BLE001
+                log.warning("bdvm signal sweep data failed for %s: %s", cfg_key, exc)
+                values = None
+            bdvm_league_cache[cfg_key] = (values, assets_by_owner)
+            return values, assets_by_owner
+
         loaded_league = (
             (latest_contract_data or {}).get("meta", {}).get("leagueKey")
             if isinstance(latest_contract_data, dict)
@@ -10489,13 +10529,39 @@ async def run_signal_alerts(request: Request):
                     delivery=_deliver_email_smtp,
                     league_key=cfg.key,
                 )
-                user_summary.append({"leagueKey": cfg.key, **result})
+                league_summary = {"leagueKey": cfg.key, **result}
+                if bdvm_enabled:
+                    try:
+                        from src.api import bdvm_signal_alerts as _bdvm_alerts  # noqa: PLC0415
+
+                        values, assets_by_owner = _bdvm_league_data(cfg.key, contract)
+                        entries = _bdvm_alerts.roster_bdvm_entries(
+                            values, assets_by_owner.get(league_owner_id) or ()
+                        )
+                        league_summary["bdvm"] = _bdvm_alerts.process_user_bdvm_alerts(
+                            username,
+                            entries=entries,
+                            display_name=username,
+                            email=email,
+                            delivery=_deliver_email_smtp,
+                            league_key=cfg.key,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning(
+                            "bdvm signal alerts failed for %s / %s: %s",
+                            username,
+                            cfg.key,
+                            exc,
+                        )
+                        league_summary["bdvm"] = {"error": str(exc)}
+                user_summary.append(league_summary)
             if user_summary:
                 summary.append({"username": username, "byLeague": user_summary})
         return {
             "total_users_checked": len(db),
             "processed": len(summary),
             "results": summary,
+            "bdvmEnabled": bdvm_enabled,
         }
 
     result = await run_in_threadpool(_run_sweep)

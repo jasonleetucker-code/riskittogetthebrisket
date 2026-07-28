@@ -455,6 +455,27 @@ Operational surfaces (post-merge additions):
   it (session jar shared with the rankings fetch timer; stage self-skips
   without it). Exit codes 0/1/2 in the playerctx style; runs on prod
   because the endpoints read local gitignored ``data/``.
+- **Rankings gap column**: /rankings grows a "Fund gap" column
+  (fundamental balanced minus market, tinted by BDVM signal) joined
+  onto board rows AT RENDER TIME from ``/api/bdvm/values`` —
+  playerId-first, name fallback (``lib/bdvm.js::buildBdvmIndex`` /
+  ``bdvmEntryForRow``). The column exists only while the endpoint
+  serves an ok payload and vanishes silently on any 503 (flag off, no
+  snapshot, wrong league). Ranks and the ``#`` column stay
+  backend-stamped — this is display enrichment, never a re-rank; the
+  page's ``presorted`` sort switch gained a ``case "gap"`` (nulls sink).
+- **Signal alerts**: ``src/api/bdvm_signal_alerts.py`` piggybacks on the
+  daily ``/api/signal-alerts/run`` sweep (no new timer). Separate
+  detector from the terminal one by design: different label set
+  (STRONG_BUY..STRONG_SELL actionable; HOLD/NO_MARKET never) and a
+  separate user_kv namespace (``bdvmSignalAlertStateByLeague``, keys
+  ``bdvm:{playerId}``). Roster-scoped via the BDVM roster analysis;
+  whole-league board computed once per league per sweep. **Baseline
+  seeding**: the first sweep for a (user, league) records current
+  actionable signals silently (``notifiedAt: 0``) so flag-on day never
+  floods inboxes — pinned in ``tests/api/test_bdvm_signal_alerts.py``.
+  Flag off → the sweep stamps ``bdvmEnabled: false`` and skips
+  entirely.
 
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
