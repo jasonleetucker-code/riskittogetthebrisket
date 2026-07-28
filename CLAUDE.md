@@ -403,14 +403,25 @@ test-pinned (``tests/bdvm/``):
   ``GET /api/bdvm/trades`` (double-positive scan: each side must gain
   in its OWN strategy currency, gated by single-market fairness).
 - Projections come from immutable snapshots under
-  ``data/bdvm/projections/``: real sources first — The IDP Show
-  projections via ``scripts/fetch_idpshow_projections.py``
-  (authenticated Datawrapper/Sheet pattern shared with the idpShow
-  rankings fetcher; ``--csv`` for a manually downloaded sheet) and the
-  manual-CSV adapter — else the §8.3 reconstructed baseline built by
+  ``data/bdvm/projections/``: real sources first — **Mike Clay's ESPN
+  guide** via ``scripts/fetch_clay_projections.py`` (public CDN PDF,
+  ``pdftotext -layout``, team pages only: raw season stat lines for
+  offense — the real OFFENSE source — plus a second IDP feed; combined
+  tackles split with the shared 0.62 solo share; a two-way player gets
+  ONE record combining both sides under the DEFENSIVE position so the
+  scoring gate counts everything; same-side name collisions dropped,
+  never guessed), **The IDP Show** projections via
+  ``scripts/fetch_idpshow_projections.py`` (authenticated
+  Datawrapper/Sheet pattern shared with the idpShow rankings fetcher;
+  ``--csv`` for a manually downloaded sheet) and the manual-CSV
+  adapter — else the §8.3 reconstructed baseline built by
   ``scripts/bdvm_build_baseline.py`` (realized nflverse PPG under the
   league's exact scoring + rookie draft-slot priors, all flagged
-  ``is_proxy``).  Real records supersede proxies per player at merge.
+  ``is_proxy``; carries real records forward on rebuild).  All real
+  sources merge via the shared ``supersede_merge_into_snapshot``
+  policy: each replaces its own prior run wholesale and supersedes
+  proxies per player while other real sources carry through, so a
+  defender covered by Clay AND IDP Show gets a two-source consensus.
   Structured events (closed ontology,
   ``config/bdvm/event_types_v1.json``) adjust module inputs — never a
   final score — from ``data/bdvm/events/<season>.json``.
@@ -451,10 +462,11 @@ Operational surfaces (post-merge additions):
   ``frontend/__tests__/bdvm-lib.test.js`` + ``components/bdvm-page.test.jsx``.
 - **Snapshot cadence**: ``scripts/refresh_bdvm_projections.py`` (weekly
   ``dynasty-bdvm-refresh`` systemd timer, Tue 06:10 UTC) rebuilds the
-  reconstructed baseline then merges The IDP Show real projections over
-  it (session jar shared with the rankings fetch timer; stage self-skips
-  without it). Exit codes 0/1/2 in the playerctx style; runs on prod
-  because the endpoints read local gitignored ``data/``.
+  reconstructed baseline, then merges Mike Clay's guide (self-skips
+  without poppler-utils or on a CDN 404), then The IDP Show real
+  projections (session jar shared with the rankings fetch timer; stage
+  self-skips without it). Exit codes 0/1/2 in the playerctx style; runs
+  on prod because the endpoints read local gitignored ``data/``.
 - **Rankings gap column**: /rankings grows a "Fund gap" column
   (fundamental balanced minus market, tinted by BDVM signal) joined
   onto board rows AT RENDER TIME from ``/api/bdvm/values`` —

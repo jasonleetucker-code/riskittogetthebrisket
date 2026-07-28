@@ -80,20 +80,20 @@ class _RunHarness(unittest.TestCase):
 
 
 class TestExitCodeAggregation(_RunHarness):
-    def test_both_stages_write(self):
+    def test_all_stages_write(self):
         rc, calls = self._run(
             ["--season", "2026"],
-            {"baseline": 0, "idpshow": 0},
+            {"baseline": 0, "clay": 0, "idpshow": 0},
             session_exists=True,
         )
         self.assertEqual(rc, 0)
         # order matters: proxies first so real records supersede them
-        self.assertEqual([c[0] for c in calls], ["baseline", "idpshow"])
+        self.assertEqual([c[0] for c in calls], ["baseline", "clay", "idpshow"])
 
-    def test_baseline_writes_idpshow_paywalled_is_still_success(self):
+    def test_baseline_writes_real_sources_soft_fail_is_still_success(self):
         rc, _ = self._run(
             ["--season", "2026"],
-            {"baseline": 0, "idpshow": 1},
+            {"baseline": 0, "clay": 1, "idpshow": 1},
             session_exists=True,
         )
         self.assertEqual(rc, 0)
@@ -101,7 +101,7 @@ class TestExitCodeAggregation(_RunHarness):
     def test_nothing_written_is_soft_failure(self):
         rc, _ = self._run(
             ["--season", "2026"],
-            {"baseline": 1, "idpshow": 1},
+            {"baseline": 1, "clay": 1, "idpshow": 1},
             session_exists=True,
         )
         self.assertEqual(rc, 1)
@@ -109,7 +109,7 @@ class TestExitCodeAggregation(_RunHarness):
     def test_hard_error_with_nothing_written_is_2(self):
         rc, _ = self._run(
             ["--season", "2026"],
-            {"baseline": 2, "idpshow": 1},
+            {"baseline": 2, "clay": 1, "idpshow": 1},
             session_exists=True,
         )
         self.assertEqual(rc, 2)
@@ -119,7 +119,15 @@ class TestExitCodeAggregation(_RunHarness):
         # journal via the ERROR log line, not the exit code.
         rc, _ = self._run(
             ["--season", "2026"],
-            {"baseline": 0, "idpshow": 2},
+            {"baseline": 0, "clay": 0, "idpshow": 2},
+            session_exists=True,
+        )
+        self.assertEqual(rc, 0)
+
+    def test_clay_alone_writing_is_success(self):
+        rc, _ = self._run(
+            ["--season", "2026"],
+            {"baseline": 1, "clay": 0, "idpshow": 1},
             session_exists=True,
         )
         self.assertEqual(rc, 0)
@@ -127,15 +135,15 @@ class TestExitCodeAggregation(_RunHarness):
     def test_missing_session_skips_idpshow_stage(self):
         rc, calls = self._run(
             ["--season", "2026"],
-            {"baseline": 0},
+            {"baseline": 0, "clay": 0},
             session_exists=False,
         )
         self.assertEqual(rc, 0)
-        self.assertEqual([c[0] for c in calls], ["baseline"])
+        self.assertEqual([c[0] for c in calls], ["baseline", "clay"])
 
     def test_skip_flags(self):
         rc, calls = self._run(
-            ["--season", "2026", "--skip-baseline", "--skip-idpshow"],
+            ["--season", "2026", "--skip-baseline", "--skip-clay", "--skip-idpshow"],
             {},
         )
         self.assertEqual(rc, 1)  # nothing written → soft

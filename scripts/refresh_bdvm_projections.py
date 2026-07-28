@@ -7,10 +7,16 @@ Composes the two existing snapshot producers into the one command the
    baseline (public nflverse data, no credentials).  It carries prior
    real (non-proxy) records forward, so a baseline rebuild can never
    downgrade the serving board from real projections back to proxies.
-2. ``scripts/fetch_idpshow_projections.py`` — The IDP Show real IDP
-   projections (authenticated via ``idpshow_session.json``).  Real
-   records supersede baseline proxies per player at merge, so order
-   matters: baseline first, real source second.
+2. ``scripts/fetch_clay_projections.py`` — Mike Clay's ESPN guide
+   (public CDN PDF, no credentials; soft-skips if poppler-utils is
+   missing).  The first real OFFENSE source, plus a second IDP feed.
+3. ``scripts/fetch_idpshow_projections.py`` — The IDP Show real IDP
+   projections (authenticated via ``idpshow_session.json``).
+
+Real records supersede baseline proxies per player at merge, so order
+matters: baseline first, real sources after.  Clay and IDP Show
+records coexist (shared supersede policy replaces only a source's OWN
+prior run), giving defenders covered by both a two-source consensus.
 
 Both producers treat "today's snapshot already exists" as a no-op
 success, so boot-time catch-up runs and manual reruns stay green.
@@ -161,6 +167,7 @@ def main() -> int:
         help="target season (default: contract currentDraftYear, else date rule)",
     )
     parser.add_argument("--skip-baseline", action="store_true")
+    parser.add_argument("--skip-clay", action="store_true")
     parser.add_argument("--skip-idpshow", action="store_true")
     parser.add_argument(
         "--session",
@@ -189,6 +196,24 @@ def main() -> int:
             log("WARN: baseline built nothing; last-good snapshot untouched")
         else:
             log("ERROR: baseline stage hard-errored")
+            hard_error = True
+
+    if args.skip_clay:
+        log("clay stage skipped by flag")
+    else:
+        rc = _run_stage(
+            "clay",
+            [sys.executable, "scripts/fetch_clay_projections.py", "--season", str(season)],
+        )
+        if rc == 0:
+            wrote_any = True
+        elif rc == 1:
+            log(
+                "WARN: clay guide unavailable (CDN 404 / poppler missing?); "
+                "prior Clay records stay on the board via the baseline carry-forward"
+            )
+        else:
+            log("ERROR: clay stage hard-errored")
             hard_error = True
 
     if args.skip_idpshow:

@@ -152,21 +152,12 @@ class TestMergePolicy(unittest.TestCase):
         )
 
     def test_real_records_supersede_proxies_only_for_covered_players(self):
+        # merge_into_snapshot delegates to the shared supersede policy,
+        # which resolves SNAPSHOT_DIR at call time — patching it is the
+        # only redirection needed.
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
-            with (
-                mock.patch.object(bdvm_projections, "SNAPSHOT_DIR", base),
-                mock.patch.object(
-                    idp,
-                    "latest_snapshot_path",
-                    lambda season: bdvm_projections.latest_snapshot_path(season, base_dir=base),
-                ),
-                mock.patch.object(
-                    idp,
-                    "write_snapshot",
-                    lambda recs, **kw: write_snapshot(recs, base_dir=base, **kw),
-                ),
-            ):
+            with mock.patch.object(bdvm_projections, "SNAPSHOT_DIR", base):
                 write_snapshot(
                     [self._proxy("covered lb"), self._proxy("uncovered wr", "WR")],
                     season=2026,
@@ -190,19 +181,7 @@ class TestMergePolicy(unittest.TestCase):
     def test_rerun_replaces_own_prior_records(self):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
-            with (
-                mock.patch.object(bdvm_projections, "SNAPSHOT_DIR", base),
-                mock.patch.object(
-                    idp,
-                    "latest_snapshot_path",
-                    lambda season: bdvm_projections.latest_snapshot_path(season, base_dir=base),
-                ),
-                mock.patch.object(
-                    idp,
-                    "write_snapshot",
-                    lambda recs, **kw: write_snapshot(recs, base_dir=base, **kw),
-                ),
-            ):
+            with mock.patch.object(bdvm_projections, "SNAPSHOT_DIR", base):
                 idp.merge_into_snapshot(
                     [self._real("guy a")], season=2026, as_of="2026-07-27", label="run1"
                 )

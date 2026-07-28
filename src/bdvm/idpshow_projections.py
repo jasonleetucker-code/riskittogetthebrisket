@@ -31,12 +31,7 @@ import re
 from typing import Any, Iterable, Mapping
 
 from src.bdvm.context import TRUE_POSITION_MAP
-from src.bdvm.projections import (
-    ProjectionRecord,
-    latest_snapshot_path,
-    load_snapshot,
-    write_snapshot,
-)
+from src.bdvm.projections import ProjectionRecord, supersede_merge_into_snapshot
 
 SOURCE_NAME = "idpShowProjections"
 
@@ -331,28 +326,15 @@ def merge_into_snapshot(
     label: str = "idpshow",
 ) -> tuple[Any, dict[str, Any]]:
     """Merge real records over the latest snapshot (proxy-replacement
-    policy) and write a new immutable snapshot."""
+    policy) and write a new immutable snapshot.  The policy itself is
+    the shared ``supersede_merge_into_snapshot`` — one implementation
+    for every real source."""
     if not new_records:
         raise IdpShowParseError("refusing to write a snapshot from zero records")
-    existing: list[ProjectionRecord] = []
-    prior = latest_snapshot_path(season)
-    if prior is not None:
-        _as_of, existing = load_snapshot(prior)
-    covered = {r.player_key for r in new_records}
-    kept = [
-        r
-        for r in existing
-        if r.source != SOURCE_NAME  # replaced wholesale
-        and not (r.is_proxy and r.player_key in covered)  # proxy superseded
-    ]
-    merged = kept + new_records
-    path = write_snapshot(merged, season=season, as_of=as_of, label=label)
-    summary = {
-        "priorSnapshot": str(prior) if prior else None,
-        "priorRecords": len(existing),
-        "newRealRecords": len(new_records),
-        "proxiesSuperseded": sum(1 for r in existing if r.is_proxy and r.player_key in covered),
-        "mergedRecords": len(merged),
-        "snapshot": str(path),
-    }
-    return path, summary
+    return supersede_merge_into_snapshot(
+        new_records,
+        source_name=SOURCE_NAME,
+        season=season,
+        as_of=as_of,
+        label=label,
+    )
