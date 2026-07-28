@@ -30,11 +30,25 @@ import {
 import styles from "./finder.module.css";
 
 // ── FINDER (Redesign R3) ─────────────────────────────────────────────
-// The arbitrage blotter: pick a workflow, get the players whose source
+// The signal blotter: pick a workflow, get the players whose source
 // signals match that opportunity shape. Sibling to /edge — same signal
 // vocabulary, same column specs (imported, not re-declared), different
 // question. /edge asks "where is the market wrong?"; /finder asks
 // "show me every player of THIS shape."
+//
+// NOT an arbitrage calculator, despite the route name. Every workflow
+// below filters and sorts the board that the backend already stamped
+// (sourceRankSpread, confidenceBucket, isSingleSource, rookie); nothing
+// here compares our value against a market value. This comment used to
+// say "arbitrage blotter", and that one word is why backlog #6 recorded
+// a client-side arbitrage implementation competing with
+// ``src/trade/finder.py`` — there is no such implementation, and per
+// CLAUDE.md's "no frontend ranking engine, period" rule there must not
+// be one.
+//
+// The real arbitrage engine is ``src/trade/finder.py``, served at
+// POST /api/trade/finder. It currently has no UI caller at all; see
+// tests/trade/test_finder_engine_has_no_ui_caller.py.
 //
 // Everything is preserved verbatim: the five workflow presets and
 // their filter/sort predicates, IDP league gating (workflows + pos

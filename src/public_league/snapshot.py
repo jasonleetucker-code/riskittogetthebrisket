@@ -202,10 +202,45 @@ class PublicLeagueSnapshot:
         return f"{first} {last}".strip() or str(player_id)
 
     def player_position(self, player_id: str | None) -> str:
+        """Canonical position for ``player_id``, memoized per snapshot.
+
+        **The memo is load-bearing, not a micro-optimisation.** Profiling
+        ``build_public_contract`` on the live 3-season snapshot measured
+        514,020 calls to this method in a single contract build —
+        ``awards.py`` walks every starter of every matchup of every week
+        of every season, several times over, for VORP, unit points,
+        rookie-of-year and the season races. The underlying
+        ``resolve_idp_position`` accounted for 15.3s of a 19.3s
+        cumulative, and the whole build ran 7.3s of wall clock on **every
+        request**, cached snapshot or not.
+
+        The distinct key space is the league's player universe — order
+        1,000 — so the memo turns half a million resolutions into a few
+        hundred. Backlog defect #3.
+
+        Cached on ``__dict__`` rather than as a dataclass field on
+        purpose: ``dataclasses.fields()`` and ``asdict()`` do not see
+        plain instance attributes, so the memo cannot leak into the
+        persisted snapshot or into equality.
+
+        Correctness rests on ``nfl_players`` being immutable for the
+        life of the snapshot. It is assembled once in ``_fetch_season``
+        and only read afterwards; a snapshot refresh builds a whole new
+        instance with a new ``generated_at``, which is also what
+        invalidates the heavy-section cache in ``server.py``.
+        """
         if not player_id:
             return ""
-        p = self.nfl_players.get(str(player_id))
+        key = str(player_id)
+        cache = self.__dict__.get("_position_memo")
+        if cache is None:
+            cache = self.__dict__["_position_memo"] = {}
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
+        p = self.nfl_players.get(key)
         if not isinstance(p, dict):
+            cache[key] = ""
             return ""
         # If the player is IDP-eligible via any route, collapse to the
         # canonical DL > DB > LB family. Non-IDP players fall through
@@ -213,9 +248,9 @@ class PublicLeagueSnapshot:
         from src.utils.name_clean import resolve_idp_position
 
         idp = resolve_idp_position(p.get("fantasy_positions"), p.get("position"))
-        if idp:
-            return idp
-        return str(p.get("position") or "").upper()
+        resolved = idp if idp else str(p.get("position") or "").upper()
+        cache[key] = resolved
+        return resolved
 
 
 def _fetch_season(

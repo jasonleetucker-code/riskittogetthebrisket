@@ -421,12 +421,12 @@ despite downstream field names (`lineupScore`, `startingLineupScore`) implying o
 
 | # | defect | status |
 |---|---|---|
-| 1 | **Forced public-league rebuild makes the whole API unresponsive** (§6.11) | OPEN, unproven — the only item still on the task list |
+| 1 | **Forced public-league rebuild makes the whole API unresponsive** (§6.11) | FIXED 2026-07-28 (§14) — reproduced, mechanism was the failure path |
 | 2 | `test_anchor_curve_extrapolation_monotone` **fails on `main`** — `Chase Young` ties at rank 107 against a strictly-increasing assertion. It's `livedata`-marked so **CI deselects it**: a real failure that is invisible | OPEN |
-| 3 | `/league` SSR exceeds even a 5 s proxy timeout on a cold backend | OPEN |
+| 3 | `/league` SSR exceeds even a 5 s proxy timeout on a cold backend | FIXED 2026-07-28 (§14) — not a cold-start cost; 6.45s → 2.35s |
 | 4 | `/league/activity` Trades filter | OPEN |
-| 5 | `/api/chat` | OPEN |
-| 6 | `finder.py` has no UI caller | OPEN |
+| 5 | `/api/chat` | FIXED 2026-07-28 (§14) — dead proxy removed; wiring chat still a product decision |
+| 6 | `finder.py` has no UI caller | OPEN as a FEATURE (§14) — the "two implementations" description was wrong |
 | 7 | 5 dead feature flags | OPEN |
 | 8 | `auction_power.py` parity | OPEN |
 | 9 | **43 of 208 `src/` modules unreachable** (~12,571 lines) | OPEN |
@@ -434,10 +434,10 @@ despite downstream field names (`lineupScore`, `startingLineupScore`) implying o
 | 11 | Pick tethering untested | OPEN |
 | 12 | Two tests that cannot fail | OPEN |
 | 13 | D-5 isolation leak | OPEN |
-| 14 | Sticky trade header | OPEN |
+| 14 | Sticky trade header | FIXED 2026-07-28 (§14) — no vertical anchor above 768px |
 | 15 | `scripts/measure_te_demand_actuals.py:29` hardcodes a dead worktree path | OPEN |
 | 16 | `scripts/measure_engine_value_divergence.py` hardcodes a dated default payload | OPEN |
-| 17 | `deploy/apply_hardening.sh` reinstalls repo nginx config over the installed one and **is not wired to any workflow** — could revert certbot | OPEN |
+| 17 | `deploy/apply_hardening.sh` reinstalls repo nginx config over the installed one and **is not wired to any workflow** — could revert certbot | CLOSED 2026-07-28 (§14) — standing policy + tripwire test |
 | 18 | `data/ros/aggregate/latest.json` has **6 duplicate player rows** (same player in two naming conventions) and 16 rows with non-lowercase `canonicalName`; 40 of 666 rostered players fail to match | OPEN |
 
 ---
@@ -580,11 +580,49 @@ those are dynamically dispatched). Check each row before working it.
 
 ### Not fixed, and why
 
-| # | Finding | Why it stays open |
+*(Superseded 2026-07-28 — every row below was reworked in the closing
+sweep. See §14.)*
+
+| # | Finding | Why it stayed open at the time |
 |---|---|---|
-| 5 | `/api/chat` | **Three layers dead**, confirmed: `src/api/chat.py` (351 lines) is not imported by `server.py`; `frontend/app/api/chat/route.js` proxies to a backend route that does not exist; and nothing in the UI calls the proxy. Wiring it is not a defect fix — it ships a streaming-LLM feature with an API-key dependency and per-request cost. That is a product decision. The reachability audit (`scripts/audit/measure_module_reachability.py`) already reports it as ORPHAN, so it cannot rot unnoticed. |
-| 6 | `finder.py` has no UI caller | Confirmed, and the real shape is worse than "no caller": `/finder` computes arbitrage **client-side** off `useDynastyData`, so there are two implementations and the shipped one is not the audited one. The T4-2 mixed-market disclosure therefore landed on an engine nobody calls. Resolving it means choosing which implementation is canonical — a product decision, not a bug fix. |
-| 14 | Sticky trade header | Could not reproduce. `trade.module.css` and `page.jsx` carry a working `trade-sticky-tray`; no defect was visible by inspection. Needs a concrete repro (viewport, page state) or it should be closed as stale. |
-| 1 | Forced public-league rebuild makes the API unresponsive | Marked "OPEN, unproven" in §9 and still unproven. Needs a live reproduction against a running backend; cannot be established by reading. |
-| 3 | `/league` SSR exceeds a 5s proxy timeout cold | A performance claim that needs live measurement against a cold backend, and §5 of this document already notes its figures predate the R5 perf pass. Re-measure before optimising. |
-| 17 | `deploy/apply_hardening.sh` unwired | Confirmed: referenced only from `deploy/**/README.md`, never from `.github/workflows/`. Deliberately left alone — it reinstalls the repo's nginx config over the installed one and could revert certbot. Wiring a script that rewrites production TLS config is an operator decision with an irreversible failure mode, not something to land from a defect sweep. |
+| 5 | `/api/chat` | **Three layers dead**, confirmed: `src/api/chat.py` (351 lines) is not imported by `server.py`; `frontend/app/api/chat/route.js` proxies to a backend route that does not exist; and nothing in the UI calls the proxy. Wiring it is not a defect fix — it ships a streaming-LLM feature with an API-key dependency and per-request cost. That is a product decision. |
+| 6 | `finder.py` has no UI caller | Recorded as "two competing implementations". **This description was wrong** — see §14. |
+| 14 | Sticky trade header | Could not reproduce; "no defect was visible by inspection". **There was one** — see §14. |
+| 1 | Forced public-league rebuild makes the API unresponsive | Marked "OPEN, unproven". Needs a live reproduction against a running backend. |
+| 3 | `/league` SSR exceeds a 5s proxy timeout cold | A performance claim that needs live measurement against a cold backend. |
+| 17 | `deploy/apply_hardening.sh` unwired | Confirmed: referenced only from `deploy/**/README.md`, never from `.github/workflows/`. Reinstalls the repo's nginx config over the installed one and could revert certbot. |
+
+---
+
+## 14. Closing sweep — the last six, 2026-07-28
+
+All six remaining §9 rows were worked to a conclusion. Four were real
+defects and are fixed; two are recorded as deliberate standing policy
+with a tripwire. **Three of the six had descriptions that did not
+survive measurement**, which is the same standing caveat §13 opened with
+— §9 is reliable in KIND, not in NUMBER, and now demonstrably not always
+in MECHANISM either.
+
+| # | Outcome | What it actually was |
+|---|---|---|
+| 1 | **Fixed** | Real, and the mechanism is the *failure* path. Handlers resolve the snapshot inside `run_in_threadpool`, so each waiter holds an AnyIO worker token from the process-wide limiter that every other endpoint shares. The lock's dedup re-check only advances `fetched_at` on success, so with the vendor down it is unsatisfiable and every waiter re-attempts in turn. Measured with 8 concurrent `?refresh=1` against a 0.5s builder: **8 serial upstream attempts, 4.01s wall, 18.02 thread-seconds**, growing without limit in N. Fixed with a failure cooldown + a wait ceiling → **1 attempt, 0.50s, 4.00 thread-seconds**. |
+| 3 | **Fixed** | Real, but **not a cold-start cost** — the recorded framing pointed at the wrong place. Warm `GET /api/public/league` measured 6.449 / 6.643 / 6.484s; cold `?refresh=1` measured 6.418s. The snapshot cache was irrelevant because `build_public_contract` runs on *every* request and took 7.26s by itself. Profiling found `PublicLeagueSnapshot.player_position` called **514,020 times per build** (`awards.py` re-walks every starter of every week of every season), re-running `resolve_idp_position` each time — 15.3s of a 19.3s cumulative. Memoized per snapshot: build **7.26s → ~2.3s**, endpoint **6.45s → 2.24-2.53s**, under the 5s timeout the defect named. Output verified identical modulo the contract's own embedded timestamps. |
+| 5 | **Fixed** | Three layers confirmed dead. Wiring chat remains a product decision and was **not** made. What was fixed is the half-wired state: `frontend/app/api/chat/route.js` was a live user-facing route proxying to a backend route that does not exist, so it could only ever 404. Removed. `src/api/chat.py` is kept — it is the valuable half, and the reachability audit reports it as ORPHAN. A consistency test now fails on any *partial* wiring, in either direction. |
+| 6 | **Description wrong** | `src/trade/finder.py` genuinely has no UI caller — that part holds. But `/finder` does **not** compute arbitrage client-side. Its five presets filter and sort the board on `sourceRankSpread` / `confidenceBucket` / `isSingleSource` / `rookie`; there is no market-versus-board comparison anywhere on the page. The only occurrence of "arbitrage" was a stale header comment calling it "the arbitrage blotter", and that one word is what produced the phantom second implementation — and with it the phantom product decision. Comment corrected, true state pinned. **Wiring the engine to a UI is a feature, not a defect fix, and is still open as such.** |
+| 14 | **Fixed** | Reproducible, and the earlier "not visible by inspection" is explained. `.trade-sticky-tray` declared `position: fixed; left: 0; right: 0` with **no vertical offset**; the only rule supplying `bottom` sat in an `@media (max-width: 768px)` block. So the tray anchored correctly on phones and had `bottom: auto` — painted at its static position and pinned there — on every wider viewport. Grepping the class shows a `bottom` and reads as complete; you have to notice which block it is in. A scan now rejects any top-level `position: fixed` rule with no vertical anchor (`position: sticky` excluded — a frozen table column is correct without one). |
+| 17 | **Standing policy + tripwire** | Confirmed unwired, and deliberately staying that way. Its mitigations are real but do not cover the case that matters: a config that reverts certbot's in-place edits is still *valid* nginx, so the script's own `nginx -t` guard passes and the site returns serving the wrong certificate paths. Kept operator-run. A test now fails if any workflow references it, so wiring it becomes a deliberate act rather than a line added during an unrelated change. |
+
+**Pattern, continued from §12.** Two more instances of a guard whose
+stated purpose and actual predicate differ, both found here: the
+public-league lock documented as preventing a burst from "multiplying
+work" (true only while the upstream is healthy — the exact condition
+under which bursts do not happen), and a sticky-positioning rule whose
+anchor lived at one breakpoint. Both read as complete at the point of
+use.
+
+**And one about measurement.** The first check of whether the #3 memo
+changed output reported *different* — which, taken at face value, would
+have reverted a correct 2.7x fix. The contract embeds wall-clock stamps
+(`generatedAt`, `asOf`), so two runs of the *same* code never match
+either. The control that caught it was comparing an implementation
+against itself before comparing it against the alternative.
