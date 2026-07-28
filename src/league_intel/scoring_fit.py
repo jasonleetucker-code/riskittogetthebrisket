@@ -38,21 +38,57 @@ of a real player-selection edge. The most "mispriced" players by this
 measure were Kemon Hall, Cory Durden and Jack Cochrane: bench bodies
 near the scoring floor, not targets.
 
-The **position-level** median, by contrast, is rock stable across depth::
-
-    DL   1.089  1.089  1.088  1.087      <- moves 0.002 across 5x the pool
-    LB   1.043  1.048  1.051  1.049
-    DB   1.014  1.014  1.007  0.994
-
-That stability is what makes it trustworthy. Within a position, DL stat
+The **position-level** median, by contrast, is stable across depth, and
+that stability is what makes it trustworthy. Within a position, stat
 mixes are similar enough that the per-key inversions largely cancel and
 move the whole cohort together; they do not separate players inside it.
 
-So the edge is real and it is **positional**: relative to DB, this
-league pays DL about +7% and LB about +3%. That is worth acting on in a
-trade calculator. A per-player multiplier built from the same data would
-be ±5% of noise wearing the costume of a measurement, which is the
-defect class this repo keeps paying for — so the API does not offer one.
+So the edge is real and it is **positional**. A per-player multiplier
+built from the same data would be ±5% of noise wearing the costume of a
+measurement, which is the defect class this repo keeps paying for — so
+the API does not offer one.
+
+THE DIRECTION, RE-MEASURED 2026-07-27 — AND CORRECTED
+─────────────────────────────────────────────────────
+This docstring previously recorded ``DL 1.089 / LB 1.043 / DB 1.014``
+and concluded "relative to DB, this league pays DL about +7% and LB
+about +3%". **That direction was wrong, and it was backwards.**
+
+Re-run through this module's own public entry point on raw nflverse
+weekly rows, with both leagues' live ``scoring_settings`` (verified
+byte-identical to the values the original measurement recorded — zero
+drift on all 8 IDP keys), the mean-normalised multipliers are::
+
+    DB   1.0366     raw 1.2031   n=288   depth drift 0.029
+    DL   1.0001     raw 1.1608   n=213   depth drift 0.026
+    LB   0.9633     raw 1.1180   n=203   depth drift 0.015
+
+DB highest, LB lowest — the reverse of what was recorded.
+
+The rate card says the new numbers are the right ones, and this is the
+check that settles it rather than the arithmetic agreeing with itself:
+
+* ``idp_pass_def`` is **2.52x UP**, the single largest move on the
+  board, and pass deflections are overwhelmingly a DB stat. ``idp_int``
+  is 0.86x down, but PD volume dwarfs INT volume, so DB nets up.
+* ``idp_sack`` is **0.64x DOWN** — the largest cut, and the signature
+  DL stat. ``idp_qb_hit`` 1.97x and ``idp_tkl_loss`` 2.06x roughly
+  offset it, leaving DL flat.
+* ``idp_tkl_solo``, the LB volume stat, is 0.92x down against
+  ``idp_tkl_ast`` 1.07x up — a net cut on the stat LBs accumulate most.
+
+A league that pays coverage and disruption and discounts sacks cannot
+be tilting toward DL. The old figures were not reproducible through
+this API with identical inputs, and asserting a tilt whose direction
+contradicts its own rate card is exactly what the mechanical check
+above exists to prevent.
+
+Part of the gap was a real bug, fixed alongside this: ``SAF`` — the
+nflverse spelling for a safety, 1,468 of the 2025 regular-season rows —
+was in neither ``POSITION_ALIASES`` nor ``scoring_engine``'s IDP
+collapse table, so every safety was silently dropped from the DB
+cohort. Including them moves DB from 1.0594 to 1.0366 and grows the
+cohort from 188 to 288. It narrows the tilt; it does not create it.
 
 Scale is meaningless; only the tilt is real
 ───────────────────────────────────────────
