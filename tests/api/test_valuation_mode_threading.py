@@ -283,7 +283,10 @@ def test_the_engines_see_different_numbers_under_the_two_lenses(
     """The point of the whole change. Same request, two lenses, and the
     values the engine reads must actually differ — otherwise every stamp
     above is decoration on an identical board."""
-    with TestClient(server.app, raise_server_exceptions=True) as c:
+    # The client is entered for the app lifespan the league fixture
+    # needs, not to issue a request — the comparison is on the board
+    # itself, which is what every engine reads.
+    with TestClient(server.app, raise_server_exceptions=True):
         stub = _install_contract(monkeypatch)
         overlay = gameplan.get_league_adjusted_values("main", "prof_a", stub)
     factors = overlay["factors"]
