@@ -30,9 +30,12 @@ import styles from "./terminal.module.css";
  */
 export default function WatchlistPanel() {
   const { openPlayerPopup } = useApp();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { state: userState, toggleWatchlist, serverBacked } = useUserState();
   const { watchlist: serverWatchlist = [] } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

@@ -48,10 +48,13 @@ import styles from "./terminal.module.css";
  * but the big aggregates come from that one network call.
  */
 export default function TerminalLayout() {
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   // Prime the cache — the return value is intentionally unused; each
   // panel re-calls the hook with the same key.
   useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

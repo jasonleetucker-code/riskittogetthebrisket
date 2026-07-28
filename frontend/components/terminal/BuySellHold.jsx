@@ -39,7 +39,7 @@ const DEFAULT_FILTERS = new Set([SIGNALS.RISK, SIGNALS.SELL, SIGNALS.MONITOR, SI
 
 export default function BuySellHold() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam, selectedLeagueKey } = useTeam();  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
+  const { selectedTeam, selectedLeagueKey, loading: teamLoading } = useTeam();  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
   const {
     state: userState,
     dismissSignal,
@@ -52,6 +52,9 @@ export default function BuySellHold() {
   // local verdicts below so every card renders the injury chip
   // when applicable.
   const { signals: serverSignals } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

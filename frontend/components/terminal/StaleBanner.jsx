@@ -22,8 +22,11 @@ import { Banner } from "@/components/ds";
  * numerical drift against the current scrape as meaningful.
  */
 export default function StaleBanner() {
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { stale, staleAs, loading, error } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

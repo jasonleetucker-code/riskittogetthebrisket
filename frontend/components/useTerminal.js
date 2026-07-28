@@ -107,7 +107,7 @@ export function invalidateTerminalCache() {
  * widen to 7/30/90/180 via the window selector in the Team Command
  * Header.
  */
-export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {}) {
+export function useTerminal({ ownerId = "", teamName = "", windowDays = 30, skip = false } = {}) {
   const [state, setState] = useState({
     loading: true,
     error: null,
@@ -143,6 +143,12 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
   }, []);
 
   useEffect(() => {
+    // ``skip`` (team identity still resolving from the contract):
+    // stay in the loading state without fetching.  Before this gate,
+    // every terminal surface fired an ``ownerId: ""`` fetch while the
+    // contract loaded and a second fetch once the team resolved —
+    // two /api/terminal builds per page view, one of them discarded.
+    if (skip) return undefined;
     const controller = new AbortController();
     setState((prev) => ({ ...prev, loading: true, error: null }));
     fetchTerminal({ ownerId, name: teamName, windowDays, signal: controller.signal })
@@ -160,7 +166,7 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
         });
       });
     return () => controller.abort();
-  }, [ownerId, teamName, windowDays, leagueRefreshKey, valuationMode]);
+  }, [ownerId, teamName, windowDays, leagueRefreshKey, valuationMode, skip]);
 
   const value = useMemo(() => {
     const p = state.payload || {};

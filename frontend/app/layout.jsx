@@ -64,6 +64,16 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        {/* Player headshots + team logos come from sleepercdn.com —
+            the one third-party origin.  Warming the connection saves
+            a DNS+TLS round-trip before the first avatar paints. */}
+        <link
+          rel="preconnect"
+          href="https://sleepercdn.com"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>
         <ServiceWorkerRegistrar />
         <PullToRefresh />

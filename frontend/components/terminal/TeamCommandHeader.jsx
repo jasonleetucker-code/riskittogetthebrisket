@@ -111,6 +111,9 @@ export default function TeamCommandHeader() {
   const { selectedLeague, leagues } = useLeague();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
   const { teamAggregates: serverAggregates, loading: terminalLoading } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,
