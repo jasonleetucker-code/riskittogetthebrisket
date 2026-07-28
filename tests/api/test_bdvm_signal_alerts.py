@@ -283,25 +283,59 @@ class TestProcessAndEmail:
         assert "(gap -350)" in formatted["body"]
 
 
+def _sweep(c, monkeypatch, server):
+    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "test-token-abc123")
+    monkeypatch.setattr(server._user_kv, "all_user_states", lambda: {})
+    return c.post(
+        "/api/signal-alerts/run",
+        headers={"Authorization": "Bearer test-token-abc123"},
+    )
+
+
 def test_sweep_reports_flag_state_and_stays_green_when_off(monkeypatch):
-    """With bdvm_engine at its default (OFF), the signal sweep runs
-    exactly as before and stamps bdvmEnabled=false — the detector adds
-    zero risk to the existing digest when the feature is dormant."""
+    """The OFF path is the documented rollback, so it stays tested —
+    now via the env override, since bdvm_engine ships ON as of
+    2026-07-28.  The detector must add zero risk to the existing digest
+    when the feature is dormant."""
     from fastapi.testclient import TestClient
 
     import server
+    from src.api import feature_flags
 
+    monkeypatch.setenv("RISKIT_FEATURE_BDVM_ENGINE", "0")
+    feature_flags.reload()
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            # Patch AFTER lifespan so startup can't clobber the stubs
+            # (see test_signal_alerts.py for the rationale).
+            res = _sweep(c, monkeypatch, server)
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["bdvmEnabled"] is False
+        assert body["results"] == []
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_BDVM_ENGINE", raising=False)
+        feature_flags.reload()
+
+
+def test_sweep_stays_green_with_the_flag_on(monkeypatch):
+    """The path that is now the DEFAULT.
+
+    Flag-on day runs this sweep against every user.  It must stay green
+    and stamp bdvmEnabled=true — a BDVM-leg failure degrades to an error
+    stamped on the league summary, never a failed digest for everyone.
+    """
+    from fastapi.testclient import TestClient
+
+    import server
+    from src.api import feature_flags
+
+    feature_flags.reload()
+    assert feature_flags.is_enabled("bdvm_engine"), "default should be ON here"
     with TestClient(server.app, raise_server_exceptions=True) as c:
-        # Patch AFTER lifespan so startup can't clobber the stubs (see
-        # test_signal_alerts.py for the rationale).
-        monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
-        monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "test-token-abc123")
-        monkeypatch.setattr(server._user_kv, "all_user_states", lambda: {})
-        res = c.post(
-            "/api/signal-alerts/run",
-            headers={"Authorization": "Bearer test-token-abc123"},
-        )
+        res = _sweep(c, monkeypatch, server)
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["bdvmEnabled"] is False
+    assert body["bdvmEnabled"] is True
     assert body["results"] == []

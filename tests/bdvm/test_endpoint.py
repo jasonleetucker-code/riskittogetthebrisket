@@ -36,11 +36,24 @@ class TestBdvmEndpoint(unittest.TestCase):
         finally:
             self._auth_patch.start()
 
-    def test_flag_registered_and_default_off(self):
+    def test_flag_registered_and_default_on(self):
+        """ROLLBACK GUARD, not a restatement of the constant.
+
+        ``bdvm_engine`` shipped ON on 2026-07-28 once real projection
+        snapshots existed.  A silent revert to False would not break
+        anything loudly — every endpoint would go back to serving a
+        well-formed empty payload, and /rankings' Fund gap column
+        self-suppresses — so the regression would look exactly like
+        "the snapshot is missing again".  This is what tells the two
+        apart.
+        """
         feature_flags.reload()
-        self.assertFalse(feature_flags.is_enabled("bdvm_engine"))
+        self.assertTrue(feature_flags.is_enabled("bdvm_engine"))
 
     def test_disabled_flag_returns_503_feature_disabled(self):
+        """The OFF path is still the documented rollback, so it stays
+        tested — now via the env override rather than the default."""
+        os.environ["RISKIT_FEATURE_BDVM_ENGINE"] = "0"
         feature_flags.reload()
         resp = self.client.get("/api/bdvm/values")
         self.assertEqual(resp.status_code, 503)

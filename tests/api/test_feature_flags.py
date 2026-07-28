@@ -42,6 +42,20 @@ def test_every_flag_defaults_off_except_safe_additive():
         "espn_injury_feed",  # circuit-breaker protected
         "depth_chart_validation",  # circuit-breaker protected
         "monte_carlo_trade",  # new endpoint, old unchanged
+        # BDVM.  ON since 2026-07-28, and ADDITIVE in the strict sense
+        # this set requires: it computes a SECOND value concept beside
+        # the market board and never writes rankDerivedValue or touches
+        # any existing route.  Turning it on cannot move a number that
+        # was already on screen.
+        #
+        # What it adds: the /bdvm page, /api/bdvm/{values,roster,trades},
+        # a "Fund gap" column on /rankings, and a leg on the daily
+        # signal sweep.  Each degrades to nothing rather than to
+        # something wrong — the column gates on status == "ok" so it
+        # self-suppresses without a snapshot, and the alert leg seeds a
+        # silent baseline per (user, league) so flag-on day cannot
+        # flood.  Rollback: RISKIT_FEATURE_BDVM_ENGINE=0 + restart.
+        "bdvm_engine",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there

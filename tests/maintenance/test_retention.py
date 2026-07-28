@@ -32,11 +32,14 @@ def _build_tree(base: Path) -> None:
     _touch(data / "canonical" / "nested" / "blob.json", age_days=1)
     (data / "canonical" / ".gitkeep").parent.mkdir(parents=True, exist_ok=True)
     (data / "canonical" / ".gitkeep").write_text("")
-    # exports archive (both roots) — 14d age cutoff
+    # exports archive (both roots) — every zip for 14d, then one per
+    # day out to a year, nothing beyond.
     _touch(data / "exports" / "archive" / "dynasty_export_old.zip", age_days=30)
     _touch(data / "exports" / "archive" / "dynasty_export_new.zip", age_days=2)
+    _touch(data / "exports" / "archive" / "dynasty_export_expired.zip", age_days=400)
     _touch(base / "exports" / "archive" / "dynasty_export_ancient.zip", age_days=99)
     _touch(base / "exports" / "archive" / "dynasty_export_fresh.zip", age_days=1)
+    _touch(base / "exports" / "archive" / "dynasty_export_prehistoric.zip", age_days=999)
     # raw_sources — keep newest 30
     for i in range(40):
         _touch(
@@ -71,13 +74,28 @@ def test_canonical_fully_purged_but_gitkeep_survives(tmp_path):
     assert not (canonical / "nested").exists()
 
 
-def test_exports_archive_age_cutoff_both_roots(tmp_path):
+def test_exports_archive_keeps_a_daily_tail_in_both_roots(tmp_path):
+    """The archive is the only thing that can repair a gap in
+    ``data/rank_history.jsonl``, and ``backfill_rank_history.py`` can
+    only replay what is still here.  A flat 14-day cutoff made any
+    stall longer than a fortnight permanently unrecoverable, so
+    single-per-day entries survive out to a year.
+    """
     _build_tree(tmp_path)
     prune_data_dir(tmp_path, now=NOW)
-    assert not (tmp_path / "data" / "exports" / "archive" / "dynasty_export_old.zip").exists()
-    assert (tmp_path / "data" / "exports" / "archive" / "dynasty_export_new.zip").exists()
-    assert not (tmp_path / "exports" / "archive" / "dynasty_export_ancient.zip").exists()
-    assert (tmp_path / "exports" / "archive" / "dynasty_export_fresh.zip").exists()
+    data_arch = tmp_path / "data" / "exports" / "archive"
+    base_arch = tmp_path / "exports" / "archive"
+
+    # Inside the full-fidelity window.
+    assert (data_arch / "dynasty_export_new.zip").exists()
+    assert (base_arch / "dynasty_export_fresh.zip").exists()
+    # Inside the daily window — one per date, and these are the only
+    # entry for theirs, so they survive where the old policy deleted them.
+    assert (data_arch / "dynasty_export_old.zip").exists()
+    assert (base_arch / "dynasty_export_ancient.zip").exists()
+    # Past the daily window — gone, in both roots.
+    assert not (data_arch / "dynasty_export_expired.zip").exists()
+    assert not (base_arch / "dynasty_export_prehistoric.zip").exists()
 
 
 def test_archive_age_derived_from_filename_not_mtime(tmp_path):
@@ -90,9 +108,10 @@ def test_archive_age_derived_from_filename_not_mtime(tmp_path):
     (``dynasty_export_YYYYMMDD_HHMMSS.zip``); that must drive the cutoff.
     """
     arch = tmp_path / "exports" / "archive"
-    # Old by NAME (well past the 14d cutoff) but FRESH mtime — the CI
-    # fresh-checkout case.  Must be pruned on the strength of the name.
-    stale = _touch(arch / "dynasty_export_20250101_000000.zip", age_days=0)
+    # Old by NAME (well past the one-year tail; NOW is 2025-06-15) but
+    # FRESH mtime — the CI fresh-checkout case.  Must be pruned on the
+    # strength of the name.
+    stale = _touch(arch / "dynasty_export_20230101_000000.zip", age_days=0)
     # Fresh by NAME (1 day before NOW) but ANCIENT mtime — embedded
     # timestamp must win and keep it.
     fresh = _touch(arch / "dynasty_export_20250614_000000.zip", age_days=999)
@@ -223,3 +242,63 @@ def test_containment_guard_blocks_protected_root(tmp_path):
     assert target.exists()
     assert cat.errors == 1
     assert cat.deleted == 0
+
+
+# ── the daily-thinning band ─────────────────────────────────────────────
+
+
+def _archive_day(base: Path, day: str, times: list[str]) -> list[Path]:
+    """Several zips stamped on one UTC date, oldest first."""
+    arch = base / "exports" / "archive"
+    return [_touch(arch / f"dynasty_export_{day}_{t}.zip", age_days=0) for t in times]
+
+
+def test_only_one_zip_per_day_survives_beyond_the_full_window(tmp_path):
+    """THE POINT OF THE BAND.
+
+    ~9 zips land per day. Keeping all of them for a year would cost
+    ~700 MB for no additional repair capability, because
+    ``backfill_rank_history.py`` replays one snapshot per date.
+    """
+    # NOW is 2025-06-15; these are ~5 months back, inside the daily band.
+    made = _archive_day(tmp_path, "20250115", ["010000", "090000", "170000"])
+    prune_data_dir(tmp_path, now=NOW)
+    survivors = sorted(p.name for p in made if p.exists())
+    assert survivors == ["dynasty_export_20250115_170000.zip"]
+
+
+def test_the_survivor_is_the_newest_of_the_day_not_the_oldest(tmp_path):
+    """``append_snapshot`` is idempotent per UTC date — a same-day re-run
+    OVERWRITES the entry. So the board the log held for a date is the
+    one from that day's LAST scrape. Backfilling from the day's first
+    zip would write a board the log never had.
+    """
+    made = _archive_day(tmp_path, "20250210", ["000500", "235500"])
+    prune_data_dir(tmp_path, now=NOW)
+    assert not made[0].exists()
+    assert made[1].exists()
+
+
+def test_the_recent_window_keeps_every_zip_from_the_same_day(tmp_path):
+    """Debugging one bad scrape needs the specific zip, and which one
+    depends on when it went wrong. That only matters for a fortnight,
+    which is why the full-fidelity band still exists."""
+    made = _archive_day(tmp_path, "20250614", ["010000", "090000", "170000"])
+    prune_data_dir(tmp_path, now=NOW)
+    assert all(p.exists() for p in made), "recent same-day zips must not be thinned"
+
+
+def test_days_are_kept_independently(tmp_path):
+    """One survivor PER DATE, not one survivor overall."""
+    a = _archive_day(tmp_path, "20250301", ["010000", "020000"])
+    b = _archive_day(tmp_path, "20250302", ["010000", "020000"])
+    prune_data_dir(tmp_path, now=NOW)
+    assert [p.exists() for p in a] == [False, True]
+    assert [p.exists() for p in b] == [False, True]
+
+
+def test_a_dry_run_deletes_nothing_in_the_daily_band(tmp_path):
+    made = _archive_day(tmp_path, "20250115", ["010000", "170000"])
+    report = prune_data_dir(tmp_path, now=NOW, dry_run=True)
+    assert all(p.exists() for p in made)
+    assert report.dry_run is True

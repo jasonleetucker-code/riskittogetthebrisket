@@ -544,3 +544,103 @@ class StampContract(unittest.TestCase):
             rank_history.stamp_contract_with_history(contract, path=path)
             self.assertIn("rankHistory", contract["players"]["Bare Legacy"])
             self.assertEqual(contract["players"]["Bare Legacy"]["rankHistory"][-1]["rank"], 42)
+
+
+class Coverage(unittest.TestCase):
+    """Is the log still being written?
+
+    This log is the only record of what the board said on a past date,
+    and its append is best-effort inside a ``try`` that fires only on a
+    fresh scrape.  A stall costs one warning line and then silence —
+    nobody finds out until a study needs the history, a year later.
+    """
+
+    def _write(self, directory: str, dates: list[str], *, with_values: bool = True) -> Path:
+        path = Path(directory) / "rank_history.jsonl"
+        with path.open("w", encoding="utf-8") as fh:
+            for d in dates:
+                entry: dict = {"date": d, "ranks": {"A::offense": 1}}
+                if with_values:
+                    entry["values"] = {"A::offense": 9000}
+                fh.write(json.dumps(entry) + "\n")
+        return path
+
+    def test_an_absent_log_says_so_rather_than_looking_empty(self):
+        """THE CASE THIS EXISTS FOR.  "The log is missing" and "the log
+        ran but recorded nothing" must not read the same: the first
+        means the append has never worked."""
+        with TemporaryDirectory() as tmp:
+            out = rank_history.coverage(path=Path(tmp) / "nope.jsonl")
+        self.assertFalse(out["exists"])
+        self.assertEqual(out["snapshots"], 0)
+        self.assertIn("reason", out)
+
+    def test_a_present_but_undated_log_is_distinguished_from_an_absent_one(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            path.write_text('{"ranks": {"A::offense": 1}}\n', encoding="utf-8")
+            out = rank_history.coverage(path=path)
+        self.assertTrue(out["exists"])
+        self.assertEqual(out["snapshots"], 0)
+        self.assertIn("reason", out)
+
+    def test_it_reports_the_span_and_the_shape(self):
+        with TemporaryDirectory() as tmp:
+            path = self._write(tmp, ["2026-01-01", "2026-01-02", "2026-01-03"])
+            out = rank_history.coverage(path=path)
+        self.assertEqual(out["snapshots"], 3)
+        self.assertEqual(out["firstDate"], "2026-01-01")
+        self.assertEqual(out["lastDate"], "2026-01-03")
+        self.assertEqual(out["spanDays"], 3)
+        self.assertEqual(out["missingDays"], 0)
+        self.assertEqual(out["snapshotsWithValues"], 3)
+        self.assertEqual(out["retentionCap"], rank_history.MAX_SNAPSHOTS)
+
+    def test_gaps_inside_the_span_are_counted(self):
+        """A snapshot COUNT reveals nothing on its own — 400 entries
+        could be 400 consecutive days or a block that stopped growing in
+        March.  Gaps against the calendar are what expose a stall."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(tmp, ["2026-01-01", "2026-01-10"])
+            out = rank_history.coverage(path=path)
+        self.assertEqual(out["snapshots"], 2)
+        self.assertEqual(out["spanDays"], 10)
+        self.assertEqual(out["missingDays"], 8)
+
+    def test_only_staleness_catches_a_log_that_stopped_growing(self):
+        """Span, gap count and snapshot count are all PERFECT on a log
+        whose newest entry is years old.  ``staleDays`` is the only
+        field that catches the live-stall case."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(tmp, ["2020-01-01", "2020-01-02", "2020-01-03"])
+            out = rank_history.coverage(path=path)
+        self.assertEqual(out["missingDays"], 0, "the gap check alone calls this healthy")
+        self.assertGreater(out["staleDays"], 365)
+
+    def test_duplicate_dates_count_once(self):
+        """The writer is idempotent per UTC date; the reader must agree,
+        or a same-day rewrite would look like extra coverage."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(tmp, ["2026-01-01", "2026-01-01", "2026-01-02"])
+            out = rank_history.coverage(path=path)
+        self.assertEqual(out["snapshots"], 2)
+
+    def test_a_values_less_log_is_reported_as_such(self):
+        """Legacy entries carry ranks but no values.  A future backtest
+        needs values, so "we have 400 snapshots" must not conceal "none
+        of them are usable for it"."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(tmp, ["2026-01-01"], with_values=False)
+            out = rank_history.coverage(path=path)
+        self.assertEqual(out["snapshots"], 1)
+        self.assertEqual(out["snapshotsWithValues"], 0)
+
+    def test_it_never_raises_on_a_corrupt_log(self):
+        """A diagnostic that can take down the thing it reports on is
+        worse than no diagnostic."""
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            path.write_text('{"date": "2026-01-01"}\nnot json at all\n', encoding="utf-8")
+            out = rank_history.coverage(path=path)
+        self.assertTrue(out["exists"])
+        self.assertEqual(out["snapshots"], 1)
