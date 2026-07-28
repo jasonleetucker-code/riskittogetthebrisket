@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import { withValuationMode } from "@/lib/valuation-mode";
+
 /**
  * useTradeSimulator — client hook around ``POST /api/trade/simulate``.
  *
@@ -32,7 +34,9 @@ export function useTradeSimulator() {
       // returns 503 ``data_not_ready`` when the loaded contract is
       // for a different league — that's a nicer failure mode than
       // simulating the wrong league silently.
-      const payload = { ...(body || {}) };
+      // The engine answers off whichever board the user picked, and
+      // stamps back the one it actually served.
+      const payload = withValuationMode(body);
       if (!payload.leagueKey && typeof window !== "undefined") {
         try {
           const k = localStorage.getItem("next_active_league_v1") || "";

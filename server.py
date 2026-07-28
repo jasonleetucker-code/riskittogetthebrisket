@@ -4462,6 +4462,9 @@ async def post_waiver_suggestions(request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
 
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
     sleeper = (latest_contract_data or {}).get("sleeper") or {}
     sleeper_teams = sleeper.get("teams") or []
     try:
@@ -4479,7 +4482,7 @@ async def post_waiver_suggestions(request: Request):
     try:
         result = await run_in_threadpool(
             _waiver.find_waiver_targets,
-            latest_contract_data,
+            contract,
             sleeper_teams,
             min_value=min_value,
             include_kicker_def=include_kicker,
@@ -4491,6 +4494,7 @@ async def post_waiver_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
 
@@ -4556,7 +4560,10 @@ async def post_waiver_faab_recommend(request: Request):
         )
 
     # Resolve player rows + values from the live contract.
-    arr = latest_contract_data.get("playersArray") or []
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    arr = (contract or {}).get("playersArray") or []
 
     def _norm(s: str) -> str:
         return str(s or "").strip().lower()
@@ -4936,6 +4943,11 @@ async def post_waiver_faab_recommend(request: Request):
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value
     rec["resolvedAddPosition"] = add_position
+    # ``resolvedAddValue`` is only interpretable against a named board —
+    # the same player is worth a different number under each lens, and a
+    # bid derived from one labelled as the other is exactly the
+    # confusion this stamp removes.
+    _stamp_valuation_mode(rec, valuation_mode, valuation_note)
     return JSONResponse(content=rec)
 
 
@@ -5455,8 +5467,11 @@ async def post_trade_suggestions(request: Request):
     # flow of (a) loading the offline canonical snapshot and
     # (b) overlaying live values on top — with the contract-native
     # path there's only one source of truth.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
     pool = build_asset_pool_from_contract(
-        latest_contract_data,
+        contract,
         ktc_top_n=ktc_top_n,
     )
 
@@ -5475,6 +5490,7 @@ async def post_trade_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
 
@@ -5546,6 +5562,16 @@ async def post_trade_finder(request: Request):
         finder_ktc_top_n = _FINDER_KTC_TOP_N_DEFAULT
     finder_ktc_top_n = max(50, min(300, finder_ktc_top_n))
 
+    # Only OUR side of the arbitrage follows the lens.  The market
+    # anchor is read from the raw ``players`` dict and stays the retail
+    # board, which is the point: the finder measures the gap between
+    # what an asset is worth to us and what the counterparty's
+    # calculator says.  Adjusting both sides would close the gap it
+    # exists to find.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -5558,7 +5584,7 @@ async def post_trade_finder(request: Request):
             # with `rankDerivedValue` — the board the user actually sees.
             # Without this the finder arbitrages the raw scraper
             # composite, which no other engine and no UI surface reads.
-            contract=latest_contract_data,
+            contract=contract,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -5566,6 +5592,7 @@ async def post_trade_finder(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
 
@@ -5749,10 +5776,15 @@ async def post_angle_find(request: Request):
 
     from src.trade.angle import find_angles
 
+    # Same asymmetry as the finder: our side follows the lens, the
+    # market anchor the pitch rests on does not.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
     try:
         result = await run_in_threadpool(
             find_angles,
-            players_array,
+            (contract or {}).get("playersArray") or players_array,
             player_name,
             owner_id,
             sleeper_teams,
@@ -5769,6 +5801,7 @@ async def post_angle_find(request: Request):
         )
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
 
@@ -5901,13 +5934,20 @@ async def post_angle_packages(request: Request):
     ):
         include_idp = True
 
+    # Same asymmetry as /api/angle/find: our side follows the lens, the
+    # market anchor the pitch rests on does not.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    lens_rows = (contract or {}).get("playersArray") or players_array
+
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
         try:
             result = await run_in_threadpool(
                 find_acquisition_packages,
-                players_array,
+                lens_rows,
                 player_names,
                 owner_id,
                 sleeper_teams,
@@ -5926,6 +5966,7 @@ async def post_angle_packages(request: Request):
                 content={"error": f"Angle acquire failed: {exc}"},
             )
         result = {"mode": "acquire", **result, "leagueKey": league_cfg.key}
+        _stamp_valuation_mode(result, valuation_mode, valuation_note)
         return JSONResponse(content=result)
 
     target_teams_req = body.get("targetTeamOwnerIds") or []
@@ -5943,7 +5984,7 @@ async def post_angle_packages(request: Request):
     try:
         result = await run_in_threadpool(
             find_angle_packages,
-            players_array,
+            lens_rows,
             player_names,
             owner_id,
             sleeper_teams,
@@ -5965,6 +6006,7 @@ async def post_angle_packages(request: Request):
             content={"error": f"Angle packages failed: {exc}"},
         )
     result = {"mode": "offer", **result, "leagueKey": league_cfg.key}
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
 
@@ -6125,6 +6167,120 @@ def _resolve_league_for_request(
                 f"No data loaded for league {cfg.key!r} yet",
             )
     return cfg
+
+
+def _requested_valuation_mode(request: "Request", body: dict | None = None) -> str:
+    """Which board this request is asking for: ``market`` or
+    ``leagueAdjusted``.
+
+    Body first, then query string, so a POST engine and a GET surface
+    can ask the same way.  Anything unrecognised reads as ``market``:
+    a typo must degrade to the board the server always has, never to an
+    error and never to a lens the caller did not name.
+    """
+    raw = ""
+    if isinstance(body, dict):
+        raw = str(body.get("valuation_mode") or body.get("valuationMode") or "").strip()
+    if not raw:
+        raw = (request.query_params.get("valuationMode") or "").strip()
+    return "leagueAdjusted" if raw == "leagueAdjusted" else "market"
+
+
+async def _valuation_scoped_contract(
+    request: "Request",
+    body: dict | None,
+    league_cfg: "_league_registry.LeagueConfig",
+    *,
+    base: dict | None = None,
+) -> tuple[dict | None, str, str | None]:
+    """The contract this request should be answered from.
+
+    Returns ``(contract, mode, note)``.  ``mode`` is what the caller
+    must stamp on its response — the mode ACTUALLY served, which is not
+    always the mode requested.
+
+    WHY THE ENGINES NEEDED THIS.  ``/api/valuation/league-adjusted``
+    publishes factors for the *client* to multiply on.  Every trade,
+    angle, waiver and terminal engine runs server-side off
+    ``latest_contract_data`` and never sees them.  So switching the
+    board used to change ``/rankings`` and nothing else: adjusted
+    rankings, market-priced trade advice, no way to tell which was
+    which.  Handing the engines a pre-adjusted contract fixes all of
+    them at once, because every engine reads exactly one value —
+    ``rankDerivedValue`` on ``playersArray`` rows.
+
+    DEGRADES, NEVER FAILS.  Scarcity is unmeasurable without a roster
+    snapshot, and the adjustment can produce an incoherent board.  In
+    both cases the market board is served with a ``note`` naming the
+    reason.  Refusing outright would take down working engines to
+    protect an optional lens; serving the market board *silently* under
+    an adjusted label is the failure this whole path exists to remove.
+    Callers stamp ``mode``, so the answer travels with the payload.
+
+    Callers must have resolved the league first.  An adjusted contract
+    is valid for exactly one league — ``lineupScarcity`` comes from that
+    league's rosters — so this is never shareable across leagues even
+    when they share a scoring profile.
+
+    ``base`` overrides the contract the lens is applied to, for the two
+    callers that do not answer from ``latest_contract_data`` verbatim:
+    /api/terminal and /api/trade/simulate both splice a foreign league's
+    Sleeper overlay onto the loaded rankings, and that splice must
+    survive.  The factors themselves still come from the loaded
+    contract's rows, which are the same rows — only the ``sleeper``
+    block differs.
+    """
+    source = base if base is not None else latest_contract_data
+    if _requested_valuation_mode(request, body) != "leagueAdjusted":
+        return source, "market", None
+    if not source or not latest_contract_data:
+        return source, "market", "league_adjusted_unavailable: no_contract"
+
+    try:
+        overlay = await run_in_threadpool(
+            _gameplan.get_league_adjusted_values,
+            league_cfg.key,
+            league_cfg.scoring_profile,
+            latest_contract_data,
+        )
+    except _gameplan.GameplanUnavailable as exc:
+        log.warning(
+            "league-adjusted engine board unavailable for %s: %s", league_cfg.key, exc.detail
+        )
+        return source, "market", f"league_adjusted_unavailable: {exc.reason}"
+    except Exception as exc:  # noqa: BLE001
+        log.warning("league-adjusted engine board failed for %s: %r", league_cfg.key, exc)
+        return source, "market", "league_adjusted_unavailable: overlay_error"
+
+    raw_factors = overlay.get("factors") if isinstance(overlay, dict) else None
+    factors = {
+        str(k): float(v) for k, v in (raw_factors or {}).items() if isinstance(v, (int, float))
+    }
+    from src.league_intel.overlay import adjusted_contract as _adjusted_contract
+
+    adjusted = _adjusted_contract(source, factors)
+    if adjusted is None:
+        return source, "market", "league_adjusted_unavailable: no_op"
+    return adjusted, "leagueAdjusted", None
+
+
+def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
+    """Record which board answered, on the response the caller returns.
+
+    Unconditional — including for ``market`` — because "this is the
+    market board" and "this field is missing" must not read the same to
+    a client deciding what label to show next to a number.
+    """
+    if not isinstance(result, dict):
+        return
+    result["valuationMode"] = mode
+    if note:
+        result["valuationNote"] = note
+        warnings = result.get("warnings")
+        if isinstance(warnings, list):
+            warnings.append(note)
+        else:
+            result["warnings"] = [note]
 
 
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
@@ -9507,6 +9663,13 @@ async def get_terminal(request: Request):
             },
         }
 
+    # Apply the requested lens on top of whatever contract the routing
+    # above settled on — including the cross-league hybrid, whose
+    # spliced ``sleeper`` block must survive.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, None, league_cfg, base=contract
+    )
+
     params = request.query_params
     team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
     team_name = (params.get("teamName") or "").strip()
@@ -9579,6 +9742,7 @@ async def get_terminal(request: Request):
     payload["stale"] = stale
     payload["staleAs"] = stale_as
     payload["authenticated"] = authed
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
 
     cache_control = (
         "public, max-age=60, stale-while-revalidate=600"
@@ -9701,6 +9865,12 @@ async def post_trade_simulate(request: Request):
         }
         contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
+    # Lens on top of whatever contract the routing above settled on,
+    # keeping any spliced cross-league ``sleeper`` block.
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg, base=contract
+    )
+
     team_owner_id = str(body.get("team") or "").strip()
     team_name = str(body.get("teamName") or "").strip()
 
@@ -9737,6 +9907,7 @@ async def post_trade_simulate(request: Request):
         roster_settings=dict(league_cfg.roster_settings or {}),
     )
     result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},
