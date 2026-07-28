@@ -312,6 +312,16 @@ latest_startup_data: dict | None = None
 latest_startup_data_bytes: bytes | None = None
 latest_startup_data_gzip_bytes: bytes | None = None
 latest_startup_data_etag: str | None = None
+# Array payload: full contract minus the LEGACY ``players`` dict.  The
+# dict and ``playersArray`` are parallel encodings of the same players
+# (~5.8MB + ~6.6MB of a ~12MB payload); ``playersArray`` is the richer
+# one and the only one the frontend materializer reads when present, so
+# desktop clients request this view and cut the wire/parse cost roughly
+# in half with zero field loss.
+latest_array_data: dict | None = None
+latest_array_data_bytes: bytes | None = None
+latest_array_data_gzip_bytes: bytes | None = None
+latest_array_data_etag: str | None = None
 # Compact payload for mobile / slow networks (~90% smaller).  Precomputed
 # (bytes + gzip + etag) at refresh time so the ``?view=compact`` fast path
 # never re-runs ``compact_contract`` + ``json.dumps`` + gzip on the event
@@ -339,6 +349,22 @@ _OVERLAY_RESPONSE_CACHE: dict = {}
 # dict needs no extra synchronization.
 _OVERLAY_ENCODE_LOCKS: dict = {}
 _OVERLAY_RESPONSE_CACHE_MAX = 32
+# ``POST /api/rankings/overrides`` response memo.  Nearly every client
+# posts the identical stock body ({"tep_multiplier": 1.15} — the
+# /settings default), so one cached entry serves the whole user base
+# between scrapes.  Same shape as the overlay cache above:
+# ``key -> (raw_bytes, gzip_bytes, version)`` where ``version`` is the
+# ``latest_data_etag`` generation the entry was built from.  Key =
+# (canonical body JSON hash, delta_view, league key, sleeper_matches) —
+# everything that can alter the response body.  Entries whose version
+# no longer matches are rebuilt in place (one generation per slot);
+# ``_prime_latest_payload`` clears the dict outright on scrape
+# promotion.  The leagueAdjusted path is deliberately NOT cached (its
+# factors come from the gameplan module with its own freshness) but
+# still builds off the event loop.
+_OVERRIDES_RESPONSE_CACHE: dict = {}
+_OVERRIDES_ENCODE_LOCKS: dict = {}
+_OVERRIDES_RESPONSE_CACHE_MAX = 16
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -422,6 +448,28 @@ def _reset_news_service_for_tests(svc: NewsService | None = None) -> None:
         _news_service = svc
 
 
+# Memo for the full-contract scans below (~2,000-row walks that were
+# re-run on every /api/terminal and /api/news request).  Key: the
+# contract generation (``latest_data_etag``) — a scrape promotion mints
+# a new etag, which invalidates every entry implicitly.  Values are
+# shared references: CALLERS MUST TREAT THEM AS READ-ONLY (they already
+# do — the news service only reads names/meta).  No caching while the
+# etag is None (mid-prime / startup).
+_LIVE_CONTRACT_SCAN_MEMO: dict[str, tuple[str, Any]] = {}
+
+
+def _live_contract_scan(kind: str, builder):
+    etag = latest_data_etag
+    if not etag:
+        return builder()
+    hit = _LIVE_CONTRACT_SCAN_MEMO.get(kind)
+    if hit is not None and hit[0] == etag:
+        return hit[1]
+    val = builder()
+    _LIVE_CONTRACT_SCAN_MEMO[kind] = (etag, val)
+    return val
+
+
 def _live_player_names() -> list[str]:
     """Return every player name visible in the live contract.
 
@@ -429,19 +477,25 @@ def _live_player_names() -> list[str]:
     players; returning an empty list when the contract hasn't
     loaded yet degrades gracefully — headlines still surface,
     they just arrive with empty ``players[]``.
+
+    Memoized per contract generation — treat the result as read-only.
     """
-    contract = latest_contract_data or {}
-    rows = contract.get("playersArray") or []
-    names: list[str] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        for key in ("displayName", "name", "canonicalName", "fullName"):
-            v = row.get(key)
-            if isinstance(v, str) and v.strip():
-                names.append(v.strip())
-                break
-    return names
+
+    def _build() -> list[str]:
+        contract = latest_contract_data or {}
+        rows = contract.get("playersArray") or []
+        names: list[str] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            for key in ("displayName", "name", "canonicalName", "fullName"):
+                v = row.get(key)
+                if isinstance(v, str) and v.strip():
+                    names.append(v.strip())
+                    break
+        return names
+
+    return _live_contract_scan("player_names", _build)
 
 
 # How many top-board players get per-player ESPN news coverage.
@@ -527,39 +581,45 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
     can be told apart on per-player surfaces.  ``team`` is sparsely
     populated until the next scrape cycle — null when absent;
     position is always available on contract rows.
+
+    Memoized per contract generation — treat the result as read-only.
     """
-    contract = latest_contract_data or {}
-    rows = contract.get("playersArray") or []
-    meta: dict[str, dict[str, str | None]] = {}
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        name = ""
-        for key in ("displayName", "name", "canonicalName", "fullName"):
-            v = row.get(key)
-            if isinstance(v, str) and v.strip():
-                name = v.strip()
-                break
-        if not name:
-            continue
-        position = row.get("position")
-        team = row.get("team")
-        entry = {
-            "position": position.strip()
-            if isinstance(position, str) and position.strip()
-            else None,
-            "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
-        }
-        prior = meta.get(name)
-        if prior is None:
-            meta[name] = entry
-        elif prior != entry:
-            # Two contract rows share the EXACT display string with
-            # different identities — an exact-name lookup can't
-            # attribute a mention safely, so stamp nothing rather
-            # than the wrong player's identity.
-            meta[name] = {"position": None, "team": None}
-    return meta
+
+    def _build() -> dict[str, dict[str, str | None]]:
+        contract = latest_contract_data or {}
+        rows = contract.get("playersArray") or []
+        meta: dict[str, dict[str, str | None]] = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = ""
+            for key in ("displayName", "name", "canonicalName", "fullName"):
+                v = row.get(key)
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+                    break
+            if not name:
+                continue
+            position = row.get("position")
+            team = row.get("team")
+            entry = {
+                "position": position.strip()
+                if isinstance(position, str) and position.strip()
+                else None,
+                "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
+            }
+            prior = meta.get(name)
+            if prior is None:
+                meta[name] = entry
+            elif prior != entry:
+                # Two contract rows share the EXACT display string with
+                # different identities — an exact-name lookup can't
+                # attribute a mention safely, so stamp nothing rather
+                # than the wrong player's identity.
+                meta[name] = {"position": None, "team": None}
+        return meta
+
+    return _live_contract_scan("player_meta", _build)
 
 
 # R-9: Lightweight metrics counters
@@ -1445,9 +1505,32 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     }
 
 
+# 30s memo for the disk-probing observability helpers below.  They
+# glob + stat dozens of files per call, run on the event loop, and are
+# hit by /api/status (polled by /settings + tools pages) and
+# /api/health (polled every 60s by StaleDataBanner on EVERY page).
+# Pure observability data: key = helper name, TTL-only invalidation,
+# results treated as read-only, ≤30s staleness is invisible for
+# freshness ages measured in hours.
+_DISK_PROBE_MEMO: dict[str, tuple[float, Any]] = {}
+_DISK_PROBE_TTL_SEC = 30.0
+
+
+def _disk_probe_memo(kind: str, builder):
+    now = time.time()
+    hit = _DISK_PROBE_MEMO.get(kind)
+    if hit is not None and (now - hit[0]) < _DISK_PROBE_TTL_SEC:
+        return hit[1]
+    val = builder()
+    _DISK_PROBE_MEMO[kind] = (now, val)
+    return val
+
+
 def _per_source_freshness() -> dict[str, dict]:
     """Per-source ``{lastFetched, ageHours}`` for every source registered
     in ``_SOURCE_CSV_PATHS``.
+
+    Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
 
     Freshness signal preference, in order:
 
@@ -1473,47 +1556,51 @@ def _per_source_freshness() -> dict[str, dict]:
     the output entirely.  Returns ``{}`` if the source registry can't
     be loaded.
     """
-    try:
-        from src.api.data_contract import _SOURCE_CSV_PATHS
-    except Exception:  # pragma: no cover
-        return {}
-    repo_root = Path(__file__).resolve().parent
-    state_dir = repo_root / "data" / "scrape_state"
-    out: dict[str, dict] = {}
-    now_epoch = time.time()
-    for src_key, entry in _SOURCE_CSV_PATHS.items():
-        csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
-        if not csv_rel:
-            continue
-        csv_path = repo_root / csv_rel
 
-        # Prefer the stamp content over CSV mtime; fall back when the
-        # stamp is missing or unparseable.
-        stamp_path = state_dir / f"{src_key}_last_success"
-        last_epoch: float | None = None
+    def _build() -> dict[str, dict]:
         try:
-            stamp_text = stamp_path.read_text().strip()
-        except OSError:
-            stamp_text = ""
-        if stamp_text:
-            try:
-                last_epoch = float(stamp_text)
-            except ValueError:
-                last_epoch = None
-        if last_epoch is None:
-            try:
-                last_epoch = csv_path.stat().st_mtime
-            except OSError:
+            from src.api.data_contract import _SOURCE_CSV_PATHS
+        except Exception:  # pragma: no cover
+            return {}
+        repo_root = Path(__file__).resolve().parent
+        state_dir = repo_root / "data" / "scrape_state"
+        out: dict[str, dict] = {}
+        now_epoch = time.time()
+        for src_key, entry in _SOURCE_CSV_PATHS.items():
+            csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
+            if not csv_rel:
                 continue
+            csv_path = repo_root / csv_rel
 
-        age_hours = max(0.0, (now_epoch - last_epoch) / 3600.0)
-        out[src_key] = {
-            "lastFetched": datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat(
-                timespec="seconds"
-            ),
-            "ageHours": round(age_hours, 2),
-        }
-    return out
+            # Prefer the stamp content over CSV mtime; fall back when the
+            # stamp is missing or unparseable.
+            stamp_path = state_dir / f"{src_key}_last_success"
+            last_epoch: float | None = None
+            try:
+                stamp_text = stamp_path.read_text().strip()
+            except OSError:
+                stamp_text = ""
+            if stamp_text:
+                try:
+                    last_epoch = float(stamp_text)
+                except ValueError:
+                    last_epoch = None
+            if last_epoch is None:
+                try:
+                    last_epoch = csv_path.stat().st_mtime
+                except OSError:
+                    continue
+
+            age_hours = max(0.0, (now_epoch - last_epoch) / 3600.0)
+            out[src_key] = {
+                "lastFetched": datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                "ageHours": round(age_hours, 2),
+            }
+        return out
+
+    return _disk_probe_memo("per_source_freshness", _build)
 
 
 def _backup_freshness() -> dict:
@@ -1526,7 +1613,13 @@ def _backup_freshness() -> dict:
     within a day of a silent backup failure — the exact gap that let
     backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
     returns null age when no backup is found.
+
+    Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
+    return _disk_probe_memo("backup_freshness", _backup_freshness_uncached)
+
+
+def _backup_freshness_uncached() -> dict:
     result = {
         "newestBackupAgeHours": None,
         "newestBackupPath": None,
@@ -1661,31 +1754,83 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_gzip_bytes, \
         latest_startup_data_etag
     global \
+        latest_array_data, \
+        latest_array_data_bytes, \
+        latest_array_data_gzip_bytes, \
+        latest_array_data_etag
+    global \
         latest_compact_data, \
         latest_compact_data_bytes, \
         latest_compact_data_gzip_bytes, \
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
-    served_source_coverage = {}
-    latest_data_bytes = None
-    latest_data_gzip_bytes = None
-    latest_data_etag = None
-    latest_contract_data = None
-    latest_runtime_data = None
-    latest_runtime_data_bytes = None
-    latest_runtime_data_gzip_bytes = None
-    latest_runtime_data_etag = None
-    latest_startup_data = None
-    latest_startup_data_bytes = None
-    latest_startup_data_gzip_bytes = None
-    latest_startup_data_etag = None
-    latest_compact_data = None
-    latest_compact_data_bytes = None
-    latest_compact_data_gzip_bytes = None
-    latest_compact_data_etag = None
+
+    def _swap_to_empty() -> None:
+        """Publish the 'no payload' generation (falsy data / failed
+        build).  Plain reference assignments, no I/O — near-atomic."""
+        global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
+        global \
+            latest_runtime_data, \
+            latest_runtime_data_bytes, \
+            latest_runtime_data_gzip_bytes, \
+            latest_runtime_data_etag
+        global \
+            latest_startup_data, \
+            latest_startup_data_bytes, \
+            latest_startup_data_gzip_bytes, \
+            latest_startup_data_etag
+        global \
+            latest_array_data, \
+            latest_array_data_bytes, \
+            latest_array_data_gzip_bytes, \
+            latest_array_data_etag
+        global \
+            latest_compact_data, \
+            latest_compact_data_bytes, \
+            latest_compact_data_gzip_bytes, \
+            latest_compact_data_etag
+        global served_source_coverage
+        served_source_coverage = {}
+        latest_data_bytes = None
+        latest_data_gzip_bytes = None
+        latest_data_etag = None
+        latest_contract_data = None
+        latest_runtime_data = None
+        latest_runtime_data_bytes = None
+        latest_runtime_data_gzip_bytes = None
+        latest_runtime_data_etag = None
+        latest_startup_data = None
+        latest_startup_data_bytes = None
+        latest_startup_data_gzip_bytes = None
+        latest_startup_data_etag = None
+        latest_array_data = None
+        latest_array_data_bytes = None
+        latest_array_data_gzip_bytes = None
+        latest_array_data_etag = None
+        latest_compact_data = None
+        latest_compact_data_bytes = None
+        latest_compact_data_gzip_bytes = None
+        latest_compact_data_etag = None
+        # A new contract generation invalidates every memoized overrides
+        # response (they are versioned on ``latest_data_etag``, but clearing
+        # eagerly also frees the multi-MB byte payloads immediately).
+        _OVERRIDES_RESPONSE_CACHE.clear()
+        # Draft-capital results price picks off the live contract on the
+        # non-default-league path — drop them with the old generation.
+        _DRAFT_CAPITAL_CACHE.clear()
+
     if not data:
+        _swap_to_empty()
         return
+
+    # ── Stage 1: compute the ENTIRE new generation into locals.
+    # This function is offloaded to a worker thread at the scrape-
+    # completion call site, so requests can interleave with the
+    # multi-second build.  No global is touched until every variant is
+    # encoded; the publish happens in the tight swap at the end.  (The
+    # previous reset-globals-first shape was only safe because the
+    # whole build used to block the event loop.)
     try:
         contract_payload = build_api_data_contract(data, data_source=latest_data_source)
         contract_report = validate_api_data_contract(contract_payload)
@@ -1752,9 +1897,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 meta_block["scoringProfile"] = _default_cfg.scoring_profile
         except Exception:  # noqa: BLE001
             pass
-        latest_contract_data = contract_payload
-        contract_health = contract_report
-        served_source_coverage = _compute_served_source_coverage(contract_payload)
+        new_coverage = _compute_served_source_coverage(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -1789,9 +1932,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode(
             "utf-8"
         )
-        latest_data_bytes = raw
-        latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
-        latest_data_etag = hashlib.sha1(raw).hexdigest()
+        full_gzip = gzip.compress(raw, compresslevel=5)
+        full_etag = hashlib.sha1(raw).hexdigest()
 
         # Runtime payload: keep canonical top-level data shape used by the live UI,
         # but remove heavyweight contract array duplication to reduce parse/transfer cost.
@@ -1801,10 +1943,24 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode(
             "utf-8"
         )
-        latest_runtime_data = runtime_payload
-        latest_runtime_data_bytes = runtime_raw
-        latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
-        latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
+        runtime_gzip = gzip.compress(runtime_raw, compresslevel=5)
+        runtime_etag = hashlib.sha1(runtime_raw).hexdigest()
+
+        # Array payload: full contract minus the LEGACY ``players`` dict.
+        # ``playersArray`` and the dict are parallel encodings; the array
+        # is strictly richer (the dict's fields are underscore-mirrors +
+        # flat per-source values the array carries in structured form)
+        # and it is the branch ``buildRows`` prefers whenever present.
+        # Desktop clients request ``?view=array`` and get the identical
+        # board at roughly half the bytes/parse cost of the full view.
+        array_payload = dict(contract_payload)
+        array_payload.pop("players", None)
+        array_payload["payloadView"] = "array"
+        array_raw = json.dumps(array_payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        array_gzip = gzip.compress(array_raw, compresslevel=5)
+        array_etag = hashlib.sha1(array_raw).hexdigest()
 
         # Startup payload: same contract shape, but strips heavyweight fields
         # not needed for first screen render so first data-visible is faster.
@@ -1812,16 +1968,18 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode(
             "utf-8"
         )
-        latest_startup_data = startup_payload
-        latest_startup_data_bytes = startup_raw
-        latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
-        latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
+        startup_gzip = gzip.compress(startup_raw, compresslevel=5)
+        startup_etag = hashlib.sha1(startup_raw).hexdigest()
 
         # Compact payload: mobile / slow-network view (~90% smaller).
         # Precompute bytes + gzip + etag here so ``?view=compact`` serves
         # from the same fast path as the other views instead of running
         # ``compact_contract`` + ``json.dumps`` + gzip per request on the
         # event loop.
+        compact_payload = None
+        compact_raw = None
+        compact_gzip = None
+        compact_etag = None
         try:
             from src.api.compact_view import compact_contract
 
@@ -1829,15 +1987,22 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             compact_raw = json.dumps(
                 compact_payload, ensure_ascii=False, separators=(",", ":")
             ).encode("utf-8")
-            latest_compact_data = compact_payload
-            latest_compact_data_bytes = compact_raw
-            latest_compact_data_gzip_bytes = gzip.compress(compact_raw, compresslevel=5)
-            latest_compact_data_etag = hashlib.sha1(compact_raw).hexdigest()
+            compact_gzip = gzip.compress(compact_raw, compresslevel=5)
+            compact_etag = hashlib.sha1(compact_raw).hexdigest()
         except Exception as exc:  # noqa: BLE001
             # Non-fatal: the endpoint falls back to on-demand compaction
             # when the precomputed compact payload is unavailable.
+            compact_payload = None
+            compact_raw = None
+            compact_gzip = None
+            compact_etag = None
             log.warning("compact payload precompute failed: %s", exc)
     except Exception as e:
+        # Failed build: publish the empty generation (same end state as
+        # before — /api/data 503s, health invalid).  This also covers a
+        # mid-encode failure, which previously could leave a contract
+        # object published with no bytes behind it.
+        _swap_to_empty()
         contract_health = {
             "ok": False,
             "status": "invalid",
@@ -1850,6 +2015,38 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             "playerCount": 0,
         }
         log.error(f"Failed to pre-serialize latest payload: {e}")
+        return
+
+    # ── Stage 2: tight swap — publish the new generation.  Plain
+    # reference assignments only; concurrent readers see the old
+    # generation or the new one, never a torn one (each individual
+    # response is built from ONE consistent (bytes, etag) pair grabbed
+    # in a single statement server-side).
+    latest_contract_data = contract_payload
+    contract_health = contract_report
+    served_source_coverage = new_coverage
+    latest_data_bytes = raw
+    latest_data_gzip_bytes = full_gzip
+    latest_data_etag = full_etag
+    latest_runtime_data = runtime_payload
+    latest_runtime_data_bytes = runtime_raw
+    latest_runtime_data_gzip_bytes = runtime_gzip
+    latest_runtime_data_etag = runtime_etag
+    latest_array_data = array_payload
+    latest_array_data_bytes = array_raw
+    latest_array_data_gzip_bytes = array_gzip
+    latest_array_data_etag = array_etag
+    latest_startup_data = startup_payload
+    latest_startup_data_bytes = startup_raw
+    latest_startup_data_gzip_bytes = startup_gzip
+    latest_startup_data_etag = startup_etag
+    latest_compact_data = compact_payload
+    latest_compact_data_bytes = compact_raw
+    latest_compact_data_gzip_bytes = compact_gzip
+    latest_compact_data_etag = compact_etag
+    # Old-generation memoized responses go with the old etag.
+    _OVERRIDES_RESPONSE_CACHE.clear()
+    _DRAFT_CAPITAL_CACHE.clear()
 
 
 def load_from_disk() -> dict | None:
@@ -2207,7 +2404,16 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # (``_prime_latest_payload`` called in the lifespan hook)
             # leaves is_fresh_scrape=False so the history log stays
             # read-only until a real scrape lands.
-            _prime_latest_payload(result, is_fresh_scrape=True)
+            #
+            # Offloaded to the threadpool: the contract build + 5×
+            # multi-MB json/gzip encodes are seconds of CPU that used
+            # to freeze the event loop at every scrape end.  The
+            # function computes into locals and publishes via a tight
+            # reference-assignment swap, so interleaved requests keep
+            # serving the OLD generation until the new one is fully
+            # encoded.  (The lifespan call site stays inline — it runs
+            # before the port binds, so there is nothing to block.)
+            await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -2801,6 +3007,28 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
     return Response(content=raw, media_type="application/json", headers=headers)
 
 
+def _overrides_encode_lock(cache_key) -> asyncio.Lock:
+    """Per-key single-flight lock for the overrides response memo."""
+    lock = _OVERRIDES_ENCODE_LOCKS.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _OVERRIDES_ENCODE_LOCKS[cache_key] = lock
+    return lock
+
+
+def _evict_overrides_cache_if_oversized(keep_key) -> None:
+    """Bound the overrides memo.  Key space is normally tiny (one stock
+    body × active leagues); the cap only guards against a client
+    spraying distinct bodies.  Held locks are preserved for the same
+    reason as ``_evict_overlay_cache_if_oversized``."""
+    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+        return
+    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
+        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
+        del _OVERRIDES_ENCODE_LOCKS[k]
+
+
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request):
@@ -2863,6 +3091,7 @@ async def get_data(request: Request):
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
         runtime_view = view in {"app", "runtime", "lite"}
+        array_view = view in {"array", "desktop"}
         compact_view = view in {"compact", "slim"}
 
         payload_bytes = latest_data_bytes
@@ -2883,6 +3112,15 @@ async def get_data(request: Request):
             payload_etag = latest_runtime_data_etag
             payload_obj = latest_runtime_data
             payload_view_name = "runtime"
+        elif array_view and latest_array_data is not None:
+            # Desktop view: full contract minus the legacy ``players``
+            # dict (a parallel encoding of ``playersArray``).  Identical
+            # board, identical audit fields, ~half the bytes.
+            payload_bytes = latest_array_data_bytes
+            payload_gzip_bytes = latest_array_data_gzip_bytes
+            payload_etag = latest_array_data_etag
+            payload_obj = latest_array_data
+            payload_view_name = "array"
         elif compact_view and latest_contract_data is not None:
             # Mobile / slow-network view — prune ~20 audit + trust
             # fields.  ~90% byte reduction.  Additive: a frontend
@@ -3526,11 +3764,28 @@ async def post_rankings_overrides(request: Request):
         # field, which would return a market board labelled as adjusted.
         valuation_note = "league_adjusted_requires_delta_view"
 
-    try:
+    # Snapshot the shared globals ONCE on the event loop.  The worker
+    # thread below must not re-read them mid-build: a concurrent scrape
+    # promotion swaps them, and a build that saw two generations would
+    # emit a chimera payload.
+    data_snapshot = latest_data
+    source_snapshot = latest_data_source
+    contract_version = latest_data_etag
+
+    def _build_response_bytes() -> tuple[bytes, bytes]:
+        """Full pipeline rebuild + meta stamping + JSON/gzip encode.
+
+        Runs on a worker thread — this is multiple seconds of CPU on a
+        real contract and previously blocked the whole event loop.  The
+        raw bytes reproduce ``JSONResponse.render`` exactly
+        (``ensure_ascii=False, allow_nan=False, separators=(",", ":")``)
+        so memoizing bytes instead of returning JSONResponse is
+        wire-invisible.
+        """
         if delta_view:
             contract_payload = build_rankings_delta_payload(
-                latest_data,
-                data_source=latest_data_source,
+                data_snapshot,
+                data_source=source_snapshot,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
@@ -3538,12 +3793,89 @@ async def post_rankings_overrides(request: Request):
             )
         else:
             contract_payload = build_api_data_contract(
-                latest_data,
-                data_source=latest_data_source,
+                data_snapshot,
+                data_source=source_snapshot,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
             )
+
+        if warnings:
+            contract_payload.setdefault("warnings", []).extend(warnings)
+
+        # Stamp meta fields so the frontend can assert compatibility:
+        # ``leagueKey`` = resolved league; ``scoringProfile`` = which
+        # rules the pipeline used; ``sleeperDataReady`` = whether the
+        # ``sleeper`` block can be trusted for this league.  When the
+        # loaded contract was built for a different league (same scoring
+        # profile though — we'd have 503'd above if profiles differed),
+        # null the sleeper block so callers don't render the wrong
+        # league's teams.
+        if isinstance(contract_payload, dict):
+            meta = contract_payload.setdefault("meta", {})
+            meta["leagueKey"] = league_cfg.key
+            meta["scoringProfile"] = league_cfg.scoring_profile
+            meta["sleeperDataReady"] = sleeper_matches
+            if not sleeper_matches:
+                contract_payload["sleeper"] = None
+                meta["sleeperLoadedLeagueKey"] = loaded_league or None
+            # Always stamp which lens produced this board. A client that
+            # asked for leagueAdjusted and silently got market is the
+            # failure mode this whole change exists to remove, so the
+            # answer travels with the payload instead of being inferred.
+            meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
+            if valuation_note:
+                meta["valuationNote"] = valuation_note
+                contract_payload.setdefault("warnings", []).append(valuation_note)
+
+        raw = json.dumps(
+            contract_payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        gz = gzip.compress(raw, compresslevel=5)
+        return raw, gz
+
+    # ── Response memo ────────────────────────────────────────────────
+    # Cache key: everything that can change the response body.  The
+    # canonical body JSON covers overrides + tep knobs + any unknown
+    # keys (which produce per-body warnings).  ``valuation_mode``
+    # requests are excluded: their factors come from the gameplan
+    # module whose freshness this cache cannot see.  Entries are
+    # versioned on ``latest_data_etag`` (the contract generation) and
+    # rebuilt in place when stale; ``_prime_latest_payload`` clears the
+    # whole dict on scrape promotion.
+    cacheable = not want_league_adjusted and contract_version is not None
+    cache_key = None
+    if cacheable:
+        canonical_body = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+        cache_key = (
+            "overrides",
+            hashlib.sha1(canonical_body.encode("utf-8")).hexdigest(),
+            delta_view,
+            league_cfg.key,
+            sleeper_matches,
+        )
+
+    try:
+        if cache_key is None:
+            raw, gz = await run_in_threadpool(_build_response_bytes)
+        else:
+            entry = _OVERRIDES_RESPONSE_CACHE.get(cache_key)
+            if entry is not None and entry[2] != contract_version:
+                entry = None
+            if entry is None:
+                async with _overrides_encode_lock(cache_key):
+                    entry = _OVERRIDES_RESPONSE_CACHE.get(cache_key)
+                    if entry is not None and entry[2] != contract_version:
+                        entry = None
+                    if entry is None:
+                        raw, gz = await run_in_threadpool(_build_response_bytes)
+                        entry = (raw, gz, contract_version)
+                        _evict_overrides_cache_if_oversized(cache_key)
+                        _OVERRIDES_RESPONSE_CACHE[cache_key] = entry
+            raw, gz, _ = entry
     except Exception as exc:
         log.exception("Failed to rebuild contract with overrides: %s", exc)
         return JSONResponse(
@@ -3554,39 +3886,16 @@ async def post_rankings_overrides(request: Request):
             },
         )
 
-    if warnings:
-        contract_payload.setdefault("warnings", []).extend(warnings)
-
-    # Stamp meta fields so the frontend can assert compatibility:
-    # ``leagueKey`` = resolved league; ``scoringProfile`` = which
-    # rules the pipeline used; ``sleeperDataReady`` = whether the
-    # ``sleeper`` block can be trusted for this league.  When the
-    # loaded contract was built for a different league (same scoring
-    # profile though — we'd have 503'd above if profiles differed),
-    # null the sleeper block so callers don't render the wrong
-    # league's teams.
-    if isinstance(contract_payload, dict):
-        meta = contract_payload.setdefault("meta", {})
-        meta["leagueKey"] = league_cfg.key
-        meta["scoringProfile"] = league_cfg.scoring_profile
-        meta["sleeperDataReady"] = sleeper_matches
-        if not sleeper_matches:
-            contract_payload["sleeper"] = None
-            meta["sleeperLoadedLeagueKey"] = loaded_league or None
-        # Always stamp which lens produced this board. A client that
-        # asked for leagueAdjusted and silently got market is the
-        # failure mode this whole change exists to remove, so the
-        # answer travels with the payload instead of being inferred.
-        meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
-        if valuation_note:
-            meta["valuationNote"] = valuation_note
-            contract_payload.setdefault("warnings", []).append(valuation_note)
-
     headers = {
         "Cache-Control": "no-store",
         "X-Payload-View": "rankings-overrides-delta" if delta_view else "rankings-overrides",
+        "Vary": "Accept-Encoding",
     }
-    return JSONResponse(content=contract_payload, headers=headers)
+    accept_encoding = (request.headers.get("accept-encoding") or "").lower()
+    if "gzip" in accept_encoding and gz:
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gz, media_type="application/json", headers=headers)
+    return Response(content=raw, media_type="application/json", headers=headers)
 
 
 # Cache of Sleeper league ``name`` fields.  Refreshed every
@@ -3919,7 +4228,11 @@ async def get_status():
             "idMappingCoverage": _id_mapping_coverage_safe(),
             "nflDataProvider": _nfl_data_provider_status_safe(),
             "normalizationHealth": _normalization_health_safe(),
-        }
+        },
+        # Observability payload — the disk-probe helpers behind it are
+        # memoized 30s server-side; let pollers (settings page, tools)
+        # reuse it browser-side for the same window.
+        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
     )
 
 
@@ -4288,12 +4601,17 @@ async def get_news(request: Request):
 
     svc = _get_news_service()
     try:
-        aggregated = await run_in_threadpool(
-            svc.aggregate,
-            player_names=_live_player_names(),
-            team_names=team_names or None,
-            player_meta=_live_player_meta(),
-        )
+        # One callable so the two full-contract scans run on the worker
+        # thread too — as call arguments they'd execute on the event
+        # loop before the threadpool hop.
+        def _aggregate():
+            return svc.aggregate(
+                player_names=_live_player_names(),
+                team_names=team_names or None,
+                player_meta=_live_player_meta(),
+            )
+
+        aggregated = await run_in_threadpool(_aggregate)
     except Exception as exc:
         log.warning("/api/news aggregation failed: %s", exc)
         # Signal "temporarily unavailable" — the frontend surfaces an
@@ -5548,18 +5866,25 @@ async def post_trade_suggestions(request: Request):
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
-    pool = build_asset_pool_from_contract(
-        contract,
-        ktc_top_n=ktc_top_n,
-    )
 
-    try:
-        result = generate_suggestions_from_pool(
+    # Pool build + suggestion generation are heavy CPU passes over the
+    # full playersArray × league rosters — run them on a worker thread
+    # exactly like /api/trade/finder already does, instead of stalling
+    # the event loop for every concurrent request.
+    def _generate():
+        pool = build_asset_pool_from_contract(
+            contract,
+            ktc_top_n=ktc_top_n,
+        )
+        return generate_suggestions_from_pool(
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
             ktc_top_n=ktc_top_n,
         )
+
+    try:
+        result = await run_in_threadpool(_generate)
     except Exception as e:
         log.error(f"Trade suggestion generation failed: {e}")
         return JSONResponse(
@@ -6366,6 +6691,14 @@ DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
 # Cache for KTC live data: {"rookies": [...], "fetched_at": timestamp}
 _ktc_cache = {"rookies": None, "fetched_at": 0}
+
+# /api/draft-capital result cache — see the endpoint for the full
+# cache contract (key = league key, TTL 300s, ?refresh=1 busts,
+# cleared on scrape promotion because the non-default path prices
+# picks off the live contract).
+_DRAFT_CAPITAL_CACHE: dict[str, tuple[float, dict]] = {}
+_DRAFT_CAPITAL_TTL_SEC = 300.0
+_DRAFT_CAPITAL_LOCKS: dict[str, asyncio.Lock] = {}
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
@@ -6645,6 +6978,42 @@ def _vendor_dollars_for_rookies(
     return _dollars_by_vendor("ktcRaw"), _dollars_by_vendor("idpRaw")
 
 
+# mtime-keyed cache of the Draft Data workbook.  The workbook was
+# re-parsed by openpyxl on EVERY /api/draft-capital request (twice per
+# request, in fact — spine read + full parse).  Key: (path, mtime_ns,
+# size); invalidation: file replacement (the only way the sheet
+# changes); no TTL.  Cached workbooks are never close()d — data_only
+# workbooks are fully materialized in memory after load.
+_DRAFT_WB_CACHE: dict[str, tuple[tuple, Any]] = {}
+_DRAFT_WB_LOCK = threading.Lock()
+
+
+def _load_draft_workbook():
+    """Return the (cached) Draft Data workbook, or None if unavailable."""
+    try:
+        import openpyxl
+    except ImportError:
+        return None
+    if not DRAFT_DATA_XLSX.exists():
+        return None
+    try:
+        stat = DRAFT_DATA_XLSX.stat()
+        key = (str(DRAFT_DATA_XLSX), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return None
+    with _DRAFT_WB_LOCK:
+        cached = _DRAFT_WB_CACHE.get("wb")
+        if cached and cached[0] == key:
+            return cached[1]
+        try:
+            wb = openpyxl.load_workbook(DRAFT_DATA_XLSX, data_only=True)
+        except Exception as exc:  # noqa: BLE001
+            logging.warning(f"Could not open {DRAFT_DATA_XLSX}: {exc}")
+            return None
+        _DRAFT_WB_CACHE["wb"] = (key, wb)
+        return wb
+
+
 def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     """Return (spine[E2:E_n+1], r5_bonus_total) from the workbook so
     ``_rookie_dollars_from_values`` faithfully matches the sheet's
@@ -6656,17 +7025,14 @@ def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     unreadable so callers don't blow up.
     """
     try:
-        import openpyxl
-
-        if not DRAFT_DATA_XLSX.exists():
+        wb = _load_draft_workbook()
+        if wb is None:
             return [1.0] * n, 0
-        wb = openpyxl.load_workbook(DRAFT_DATA_XLSX, data_only=True)
         ws = wb["Draft Data"]
         spine: list[float] = []
         for r in range(2, 2 + n):
             v = ws.cell(r, 5).value  # E = column 5
             spine.append(float(v) if v is not None else 1.0)
-        wb.close()
     except Exception:
         return [1.0] * n, 0
     return spine, n  # R5 bonus = +$1 × 12 picks = $12 total floor add
@@ -6828,19 +7194,8 @@ def _parse_draft_xlsx():
         O30:R42  — standings (slot → original owner)
         T63:U74  — team totals (authoritative)
     """
-    try:
-        import openpyxl
-    except ImportError:
-        logging.warning("openpyxl not installed — falling back to CSV")
-        return None
-
-    if not DRAFT_DATA_XLSX.exists():
-        return None
-
-    try:
-        wb = openpyxl.load_workbook(DRAFT_DATA_XLSX, data_only=True)
-    except Exception as e:
-        logging.warning(f"Could not open {DRAFT_DATA_XLSX}: {e}")
+    wb = _load_draft_workbook()
+    if wb is None:
         return None
 
     ws = wb["Draft Data"]
@@ -6901,7 +7256,7 @@ def _parse_draft_xlsx():
         if team and val is not None:
             workbook_team_totals[str(team).strip()] = float(val)
 
-    wb.close()
+    # NOTE: no wb.close() — the workbook is shared via _DRAFT_WB_CACHE.
     return pick_dollars, workbook_picks, slot_to_original_owner, workbook_team_totals, pick_values_l
 
 
@@ -7714,32 +8069,75 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             },
         )
 
+    # ── Result cache ─────────────────────────────────────────────
+    # This endpoint used to run ~4s of synchronous work — an openpyxl
+    # parse plus up to six blocking Sleeper calls — directly on the
+    # event loop, per request, with /draft calling it three times per
+    # page load.  Cache: key = league key; TTL = 300s (same freshness
+    # class as the Sleeper overlay: pick ownership moves on trades,
+    # which the 15-min overlay already bounds — 5 min here is
+    # strictly fresher); invalidation = ``?refresh=1`` (which also
+    # busts the KTC cache, as before) or TTL expiry; stale data can
+    # be shown for ≤5 min, matching the rest of the Sleeper-derived
+    # surfaces.  Per-league asyncio single-flight so concurrent
+    # misses (the /draft triple-fetch) coalesce onto one build, which
+    # itself runs in the threadpool — never on the loop.
+    now = time.time()
+    cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
+    if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
+        return JSONResponse(
+            content=cache_slot[1],
+            headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
+        )
+
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
-    try:
+
+    def _compute():
         if is_default_league:
             # Workbook path — rich per-pick values pinned to League A's
             # rookie pool.
-            result = _fetch_draft_capital(league_cfg.key)
-        else:
-            # Sleeper-derived fallback for non-default leagues.
-            # Uses the canonical contract's pick values (Hill-curve-
-            # calibrated) + Sleeper's traded_picks.  Clearly labeled
-            # in the UI so users see "Sleeper-derived" vs.
-            # "workbook-calibrated".
-            from src.api.draft_capital_fallback import build_sleeper_derived
+            return _fetch_draft_capital(league_cfg.key)
+        # Sleeper-derived fallback for non-default leagues.
+        # Uses the canonical contract's pick values (Hill-curve-
+        # calibrated) + Sleeper's traded_picks.  Clearly labeled
+        # in the UI so users see "Sleeper-derived" vs.
+        # "workbook-calibrated".
+        from src.api.draft_capital_fallback import build_sleeper_derived
 
-            result = build_sleeper_derived(
-                league_cfg.sleeper_league_id,
-                latest_contract_data or {},
-                current_season=datetime.now(timezone.utc).year,
-                num_teams=league_cfg.roster_settings.get("teamCount", 12)
-                if hasattr(league_cfg, "roster_settings")
-                else 12,
-            )
-        if isinstance(result, dict):
-            result["leagueKey"] = league_cfg.key
-        return JSONResponse(content=result)
+        return build_sleeper_derived(
+            league_cfg.sleeper_league_id,
+            latest_contract_data or {},
+            current_season=datetime.now(timezone.utc).year,
+            num_teams=league_cfg.roster_settings.get("teamCount", 12)
+            if hasattr(league_cfg, "roster_settings")
+            else 12,
+        )
+
+    lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _DRAFT_CAPITAL_LOCKS[league_cfg.key] = lock
+    try:
+        async with lock:
+            # Re-check after the wait — a concurrent request may have
+            # populated the slot while we queued.
+            cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
+            if (
+                not refresh
+                and cache_slot
+                and (time.time() - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC
+            ):
+                result = cache_slot[1]
+            else:
+                result = await run_in_threadpool(_compute)
+                if isinstance(result, dict):
+                    result["leagueKey"] = league_cfg.key
+                    _DRAFT_CAPITAL_CACHE[league_cfg.key] = (time.time(), result)
+        return JSONResponse(
+            content=result,
+            headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
+        )
     except Exception as e:
         logging.error(f"Draft capital computation failed: {e}")
         return JSONResponse(
@@ -9789,25 +10187,34 @@ async def get_terminal(request: Request):
                 )
 
     try:
-        payload = await run_in_threadpool(
-            _terminal.build_terminal_payload,
-            contract,
-            resolved_team=resolved_team,
-            window_days=window_days,
-            news_items=_terminal.gather_news_items(
+        # ONE callable so every heavy piece runs on the worker thread.
+        # Python evaluates call arguments eagerly, so the previous
+        # ``run_in_threadpool(build, ..., news_items=gather_news_items(...))``
+        # shape executed the news aggregation (up to ~11 RSS providers)
+        # and two full-contract scans ON THE EVENT LOOP before the
+        # threadpool hop — stalling every concurrent request.
+        def _build_terminal():
+            news_items = _terminal.gather_news_items(
                 lambda: _get_news_service(),
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
                 player_meta=_live_player_meta(),
-            ),
-            user_state=user_state,
-            public_mode=not authed,
-            # Scope dismissals to the active league so a dismissal
-            # on league A doesn't silence the same player's signal
-            # on league B.  See terminal.build_terminal_payload +
-            # user_kv.active_dismissals docstrings.
-            league_key=league_cfg.key if league_cfg else None,
-        )
+            )
+            return _terminal.build_terminal_payload(
+                contract,
+                resolved_team=resolved_team,
+                window_days=window_days,
+                news_items=news_items,
+                user_state=user_state,
+                public_mode=not authed,
+                # Scope dismissals to the active league so a dismissal
+                # on league A doesn't silence the same player's signal
+                # on league B.  See terminal.build_terminal_payload +
+                # user_kv.active_dismissals docstrings.
+                league_key=league_cfg.key if league_cfg else None,
+            )
+
+        payload = await run_in_threadpool(_build_terminal)
     except Exception as exc:
         log.exception("/api/terminal build failed: %s", exc)
         return JSONResponse(

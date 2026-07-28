@@ -54,29 +54,42 @@ export default function TradeCoveragePage() {
 
     async function run() {
       setProgress({ done: 0, total: availableTeams.length });
-      for (const team of availableTeams) {
-        if (cancelled) return;
-        const ownerId = String(team.ownerId || "");
-        if (!ownerId) continue;
-        try {
-          const payload = await fetchTerminalFor(ownerId, 180);
-          if (payload?.authenticated === false) {
-            setAuthOk(false);
+      // Bounded-concurrency pool (was a fully sequential await loop:
+      // 12 teams × ~3s of /api/terminal each = ~40s to settle).
+      // Per-team state is keyed by ownerId, so completion order is
+      // irrelevant; 4 in flight keeps the single-process backend
+      // responsive for other requests.
+      const queue = availableTeams
+        .map((team) => ({ team, ownerId: String(team.ownerId || "") }))
+        .filter((entry) => entry.ownerId);
+      const CONCURRENCY = 4;
+      async function worker() {
+        while (queue.length > 0) {
+          if (cancelled) return;
+          const { team, ownerId } = queue.shift();
+          try {
+            const payload = await fetchTerminalFor(ownerId, 180);
+            if (payload?.authenticated === false) {
+              setAuthOk(false);
+            }
+            if (cancelled) return;
+            setPerTeam((prev) => ({
+              ...prev,
+              [ownerId]: { team, payload, error: null },
+            }));
+          } catch (err) {
+            if (cancelled) return;
+            setPerTeam((prev) => ({
+              ...prev,
+              [ownerId]: { team, payload: null, error: err?.message || "fetch_failed" },
+            }));
           }
-          if (cancelled) return;
-          setPerTeam((prev) => ({
-            ...prev,
-            [ownerId]: { team, payload, error: null },
-          }));
-        } catch (err) {
-          if (cancelled) return;
-          setPerTeam((prev) => ({
-            ...prev,
-            [ownerId]: { team, payload: null, error: err?.message || "fetch_failed" },
-          }));
+          setProgress((p) => ({ ...p, done: p.done + 1 }));
         }
-        setProgress((p) => ({ ...p, done: p.done + 1 }));
       }
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker),
+      );
     }
     run();
     return () => {

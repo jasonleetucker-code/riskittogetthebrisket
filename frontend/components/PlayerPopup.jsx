@@ -754,8 +754,11 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   // Injury impact lookup from the server-side signals block.
   // Only populated for roster players today — non-roster players
   // won't have impact data, and the chip simply doesn't render.
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { signals: serverSignals } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

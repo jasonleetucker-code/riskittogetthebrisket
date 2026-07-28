@@ -56,6 +56,22 @@ log = logging.getLogger(__name__)
 _CACHE: dict[str, dict[str, Any]] = {}
 _CACHE_LOCK = threading.Lock()
 _CACHE_TTL_SEC = 15 * 60
+# Stale-serve ceiling: an expired-but-present overlay is served
+# immediately (with a background refresh kicked off) up to this age.
+# Past it, the request blocks on a single-flighted rebuild.  Sign-off:
+# rosters/trades may briefly render up to 30 min old instead of 15 —
+# a freshness-window widening on an already-15-min-stale live overlay,
+# never a computation change.  Rankings/values are unaffected (they
+# come from the scrape pipeline, not this overlay).
+_STALE_SERVE_MAX_SEC = 2 * _CACHE_TTL_SEC
+# Per-league build locks: a cold overlay build is ~50-100 Sleeper
+# round-trips, and before these locks concurrent expirees each
+# launched their own storm.  Exactly one builder per league now runs
+# at a time; the rest wait and read its result.
+_BUILD_LOCKS: dict[str, threading.Lock] = {}
+# League ids with a background refresh in flight (stale-serve path) so
+# repeat stale hits don't stack refresh threads.
+_REFRESHING: set[str] = set()
 _HTTP_TIMEOUT_SEC = 8.0
 _USER_AGENT = "brisket-sleeper-overlay/1.0"
 
@@ -152,20 +168,67 @@ def _http_get_json(url: str) -> Any:
         return None
 
 
-def _walk_league_chain(root_league_id: str, max_depth: int = 2) -> list[str]:
+class _BuildFetcher:
+    """Build-scoped URL memo + parallel prefetch for one overlay build.
+
+    A single overlay build touches several Sleeper URLs more than once:
+    the league-chain walk runs for both the trades AND waivers builders,
+    rosters/users are fetched by the teams block and again by the
+    per-league rid lookup, and — the big one — the 19 weekly
+    ``/transactions/{week}`` feeds are iterated by BOTH builders (they
+    read the same feed with different type filters).  Memoizing by URL
+    within one build halves the round-trips with zero freshness change,
+    because every duplicate was previously fetched milliseconds apart
+    anyway.
+
+    ``prefetch`` issues a set of URLs concurrently (bounded pool) so
+    the serial per-week walk turns into one parallel round-trip wave.
+
+    Resolves ``_http_get_json`` late (module-global lookup at call
+    time) so tests that monkeypatch it keep working — including
+    through the prefetch pool's worker threads.
+    """
+
+    def __init__(self) -> None:
+        self._results: dict[str, Any] = {}
+        self._lock = threading.Lock()
+
+    def get(self, url: str) -> Any:
+        with self._lock:
+            if url in self._results:
+                return self._results[url]
+        val = _http_get_json(url)
+        with self._lock:
+            return self._results.setdefault(url, val)
+
+    def prefetch(self, urls: list[str], max_workers: int = 8) -> None:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with self._lock:
+            pending = list(dict.fromkeys(u for u in urls if u not in self._results))
+        if not pending:
+            return
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="sleeper-prefetch"
+        ) as ex:
+            list(ex.map(self.get, pending))
+
+
+def _walk_league_chain(root_league_id: str, max_depth: int = 2, getter=None) -> list[str]:
     """Walk backwards through previous_league_id so trade history
     covers multiple seasons when the ``/transactions`` endpoint
     only returns current-season trades.  Mirrors the scraper's
     ``_league_chain_ids`` helper (Dynasty Scraper.py ~line 1109)
     but capped at 2 levels to keep the overlay fetch fast.
     """
+    fetch = getter or _http_get_json
     out: list[str] = []
     seen: set[str] = set()
     cur = str(root_league_id or "").strip()
     while cur and cur not in seen and len(out) < max_depth:
         seen.add(cur)
         out.append(cur)
-        info = _http_get_json(f"https://api.sleeper.app/v1/league/{cur}")
+        info = fetch(f"https://api.sleeper.app/v1/league/{cur}")
         if not isinstance(info, dict):
             break
         prev = info.get("previous_league_id") or info.get("previous_league")
@@ -203,6 +266,7 @@ def _build_pick_ownership(
     roster_ids: list[int],
     num_rounds: int = 6,
     num_years: int = 3,
+    getter=None,
 ) -> dict[int, list[dict[str, Any]]]:
     """Return ``{rosterId: [pickDetail, ...]}`` — which future picks
     each roster currently owns based on the league's
@@ -231,7 +295,9 @@ def _build_pick_ownership(
             for rid in roster_ids:
                 ownership[(year, rnd, rid)] = rid
 
-    traded = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks")
+    traded = (getter or _http_get_json)(
+        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+    )
     if isinstance(traded, list):
         for tp in traded:
             if not isinstance(tp, dict):
@@ -271,6 +337,7 @@ def _build_pick_ownership(
 def _build_teams_block(
     sleeper_league_id: str,
     id_to_player: dict[str, str] | None,
+    getter=None,
 ) -> list[dict[str, Any]] | None:
     """Assemble the ``sleeper.teams`` array for one league.
 
@@ -286,8 +353,9 @@ def _build_teams_block(
     This is what unblocks /api/draft-capital + angle-finder for
     non-default leagues.
     """
-    rosters = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
-    users = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
+    fetch = getter or _http_get_json
+    rosters = fetch(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
+    users = fetch(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
     if not isinstance(rosters, list) or not isinstance(users, list):
         return None
 
@@ -296,7 +364,7 @@ def _build_teams_block(
     # FAAB.  When the league call fails (rare) we still emit the
     # block — faabRemaining just falls back to None and the
     # frontend renders "—" instead of a number.
-    league_info = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
+    league_info = fetch(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
     league_settings = league_info.get("settings") if isinstance(league_info, dict) else None
     league_faab_budget = None
     if isinstance(league_settings, dict):
@@ -339,7 +407,7 @@ def _build_teams_block(
                 roster_ids.append(int(r["roster_id"]))
             except (TypeError, ValueError):
                 continue
-    pick_ownership = _build_pick_ownership(sleeper_league_id, roster_ids)
+    pick_ownership = _build_pick_ownership(sleeper_league_id, roster_ids, getter=getter)
 
     teams: list[dict[str, Any]] = []
     for r in rosters:
@@ -413,6 +481,7 @@ def _safe_int(v: Any) -> int | None:
 
 def _league_rid_lookup(
     target_league_id: str,
+    getter=None,
 ) -> tuple[dict[Any, str], dict[Any, str]]:
     """Per-league roster lookup: ``(rid_to_name, rid_to_owner_id)``.
 
@@ -429,10 +498,11 @@ def _league_rid_lookup(
     coercing first.  Empty maps on any fetch failure (the trade
     builder degrades gracefully).
     """
+    fetch = getter or _http_get_json
     rid_to_name: dict[Any, str] = {}
     rid_to_owner: dict[Any, str] = {}
-    rosters = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
-    users = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/users")
+    rosters = fetch(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
+    users = fetch(f"https://api.sleeper.app/v1/league/{target_league_id}/users")
     if not isinstance(rosters, list):
         return rid_to_name, rid_to_owner
     user_map: dict[str, str] = {}
@@ -470,6 +540,7 @@ def _league_rid_lookup(
 def _league_draft_slot_lookup(
     target_league_id: str,
     rosters: list[dict[str, Any]] | None = None,
+    getter=None,
 ) -> dict[tuple[int, int], int]:
     """Build ``{(season, origin_roster_id): slot}`` for trade-history
     pick labels.
@@ -493,8 +564,9 @@ def _league_draft_slot_lookup(
     still resolve through ``buildPickLookupCandidates`` on the
     frontend, just less precisely.
     """
+    fetch = getter or _http_get_json
     out: dict[tuple[int, int], int] = {}
-    drafts = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/drafts")
+    drafts = fetch(f"https://api.sleeper.app/v1/league/{target_league_id}/drafts")
     if not isinstance(drafts, list):
         return out
 
@@ -504,7 +576,7 @@ def _league_draft_slot_lookup(
     owner_to_rid: dict[str, int] = {}
     rs = rosters
     if rs is None:
-        rs_resp = _http_get_json(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
+        rs_resp = fetch(f"https://api.sleeper.app/v1/league/{target_league_id}/rosters")
         rs = rs_resp if isinstance(rs_resp, list) else []
     for r in rs or []:
         if not isinstance(r, dict):
@@ -524,7 +596,7 @@ def _league_draft_slot_lookup(
 
         # Try the DETAIL endpoint first (slot_to_roster_id usually
         # lands here even when the LIST endpoint's copy is empty).
-        detail = _http_get_json(f"https://api.sleeper.app/v1/draft/{draft_id}")
+        detail = fetch(f"https://api.sleeper.app/v1/draft/{draft_id}")
         detail_dict = detail if isinstance(detail, dict) else {}
 
         # draft_order: { user_id: slot } — needs owner_id → roster_id.
@@ -736,6 +808,7 @@ def _build_waivers_block(
     sleeper_league_id: str,
     window_days: int = 365,
     id_to_player: dict[str, str] | None = None,
+    getter=None,
 ) -> list[dict[str, Any]]:
     """Sister to ``_build_trades_block`` — collects ``waiver`` and
     ``free_agent`` transactions across the league chain (same depth-2
@@ -766,8 +839,9 @@ def _build_waivers_block(
     typically reused from the loaded contract.  When absent, player
     labels fall back to the raw Sleeper id.
     """
+    fetch = getter or _http_get_json
     cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
-    chain = _walk_league_chain(sleeper_league_id, max_depth=2)
+    chain = _walk_league_chain(sleeper_league_id, max_depth=2, getter=getter)
     if not chain:
         return []
 
@@ -777,11 +851,11 @@ def _build_waivers_block(
     seen: set[str] = set()
 
     for lid in chain:
-        rid_to_name, rid_to_owner = _league_rid_lookup(lid)
+        rid_to_name, rid_to_owner = _league_rid_lookup(lid, getter=getter)
 
         for week in range(0, 19):
             url = f"https://api.sleeper.app/v1/league/{lid}/transactions/{week}"
-            txs = _http_get_json(url)
+            txs = fetch(url)
             if not isinstance(txs, list):
                 continue
             for tx in txs:
@@ -869,6 +943,7 @@ def _build_trades_block(
     sleeper_league_id: str,
     window_days: int = 365,
     id_to_player: dict[str, str] | None = None,
+    getter=None,
 ) -> list[dict[str, Any]]:
     """Fetch the rolling trade history for the league chain and
     PROCESS each trade into the same shape the offline scraper bakes
@@ -896,8 +971,9 @@ def _build_trades_block(
     """
     import datetime as _dt
 
+    fetch = getter or _http_get_json
     cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
-    chain = _walk_league_chain(sleeper_league_id, max_depth=2)
+    chain = _walk_league_chain(sleeper_league_id, max_depth=2, getter=getter)
     if not chain:
         return []
 
@@ -914,12 +990,13 @@ def _build_trades_block(
         # roster identity (a roster_id can change human ownership
         # across seasons).  The rosters fetch is reused by the
         # draft-slot lookup so we don't pay the round-trip twice.
-        rosters_resp = _http_get_json(f"https://api.sleeper.app/v1/league/{lid}/rosters")
+        rosters_resp = fetch(f"https://api.sleeper.app/v1/league/{lid}/rosters")
         rosters_list = rosters_resp if isinstance(rosters_resp, list) else []
-        rid_to_name, rid_to_owner = _league_rid_lookup(lid)
+        rid_to_name, rid_to_owner = _league_rid_lookup(lid, getter=getter)
         draft_slot_by_origin = _league_draft_slot_lookup(
             lid,
             rosters=rosters_list,
+            getter=getter,
         )
         # League size drives Early/Mid/Late tier bucketing for
         # future-year picks.  Default to 12-team when the rosters
@@ -933,7 +1010,7 @@ def _build_trades_block(
         # trades that happened before week 1.
         for week in range(0, 19):
             url = f"https://api.sleeper.app/v1/league/{lid}/transactions/{week}"
-            txs = _http_get_json(url)
+            txs = fetch(url)
             if not isinstance(txs, list):
                 continue
             for tx in txs:
@@ -1039,8 +1116,8 @@ def _normalize_ts_ms(v: Any) -> int:
     return n
 
 
-def _fetch_league_name(sleeper_league_id: str) -> str | None:
-    info = _http_get_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
+def _fetch_league_name(sleeper_league_id: str, getter=None) -> str | None:
+    info = (getter or _http_get_json)(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
     if not isinstance(info, dict):
         return None
     name = info.get("name")
@@ -1077,35 +1154,143 @@ def fetch_sleeper_overlay(
     be loaded).  Partial fetches are acceptable — e.g. trades
     empty but teams populated.
 
-    Caches per ``sleeper_league_id`` for 15 minutes.  Pass
-    ``force_refresh=True`` to bust the cache (used by tests).
+    Caching (documented for the perf audit):
+      * key: ``sleeper_league_id``.
+      * fresh TTL: 15 min (``_CACHE_TTL_SEC``) — unchanged.
+      * stale-serve window: 15-30 min (``_STALE_SERVE_MAX_SEC``).  An
+        expired entry is served immediately and exactly ONE daemon
+        thread refreshes it in the background (``_REFRESHING`` guard),
+        so no user request ever blocks on the ~50-100-call rebuild
+        while a usable overlay exists.
+      * single-flight: the blocking build path (cold cache, or stale
+        beyond 30 min) holds a per-league lock, so concurrent misses
+        coalesce onto one upstream storm instead of N.
+      * invalidation: ``force_refresh=True`` (tests + the background
+        refresher) rebuilds unconditionally;
+        ``invalidate_overlay_cache`` drops entries.
     """
     sleeper_league_id = str(sleeper_league_id or "").strip()
     if not sleeper_league_id:
         return None
 
-    now = time.time()
     if not force_refresh:
+        now = time.time()
         with _CACHE_LOCK:
             cached = _CACHE.get(sleeper_league_id)
-            if cached and (now - float(cached.get("_cached_at") or 0)) < _CACHE_TTL_SEC:
+        if cached:
+            age = now - float(cached.get("_cached_at") or 0)
+            if age < _CACHE_TTL_SEC:
+                return dict(cached["payload"])
+            if age < _STALE_SERVE_MAX_SEC:
+                _kick_overlay_background_refresh(
+                    sleeper_league_id,
+                    id_to_player=id_to_player,
+                    trade_window_days=trade_window_days,
+                )
                 return dict(cached["payload"])
 
-    teams = _build_teams_block(sleeper_league_id, id_to_player)
+    lock = _overlay_build_lock(sleeper_league_id)
+    with lock:
+        # Re-check under the lock: another thread may have completed
+        # the build while we waited.
+        if not force_refresh:
+            with _CACHE_LOCK:
+                cached = _CACHE.get(sleeper_league_id)
+            if cached and (time.time() - float(cached.get("_cached_at") or 0)) < _CACHE_TTL_SEC:
+                return dict(cached["payload"])
+        return _build_overlay_and_cache(
+            sleeper_league_id,
+            id_to_player=id_to_player,
+            trade_window_days=trade_window_days,
+        )
+
+
+def _overlay_build_lock(sleeper_league_id: str) -> threading.Lock:
+    with _CACHE_LOCK:
+        lock = _BUILD_LOCKS.get(sleeper_league_id)
+        if lock is None:
+            lock = threading.Lock()
+            _BUILD_LOCKS[sleeper_league_id] = lock
+        return lock
+
+
+def _kick_overlay_background_refresh(
+    sleeper_league_id: str,
+    *,
+    id_to_player: dict[str, str] | None,
+    trade_window_days: int,
+) -> None:
+    """Start (at most) one daemon refresh for a stale-served league."""
+    with _CACHE_LOCK:
+        if sleeper_league_id in _REFRESHING:
+            return
+        _REFRESHING.add(sleeper_league_id)
+
+    def _run() -> None:
+        try:
+            fetch_sleeper_overlay(
+                sleeper_league_id=sleeper_league_id,
+                id_to_player=id_to_player,
+                trade_window_days=trade_window_days,
+                force_refresh=True,
+            )
+        except Exception as exc:  # noqa: BLE001 — background best-effort
+            log.warning("overlay background refresh failed for %s: %s", sleeper_league_id, exc)
+        finally:
+            with _CACHE_LOCK:
+                _REFRESHING.discard(sleeper_league_id)
+
+    threading.Thread(target=_run, daemon=True, name=f"overlay-refresh-{sleeper_league_id}").start()
+
+
+def _build_overlay_and_cache(
+    sleeper_league_id: str,
+    *,
+    id_to_player: dict[str, str] | None,
+    trade_window_days: int,
+) -> dict[str, Any] | None:
+    """The actual ~league-chain-wide build.  Uses a build-scoped URL
+    memo (``_BuildFetcher``) plus one parallel prefetch wave for the
+    weekly transaction feeds + per-league lookups, cutting a cold
+    build from ~100 sequential round-trips to ~2 short parallel waves.
+    Output is byte-identical to the sequential build: the memo only
+    dedupes URLs that were fetched multiple times per build, and the
+    builders still consume weeks in order."""
+    fetcher = _BuildFetcher()
+
+    # Wave 1: the chain walk (1-2 calls, inherently sequential).
+    chain = _walk_league_chain(sleeper_league_id, max_depth=2, getter=fetcher.get)
+
+    # Wave 2: everything whose URL is known up front, in parallel —
+    # per-league rosters/users/league/drafts/traded_picks and the
+    # 19 weekly transaction feeds per chain league that BOTH the
+    # trades and waivers builders consume.
+    prefetch_urls: list[str] = []
+    for lid in chain or [sleeper_league_id]:
+        base = f"https://api.sleeper.app/v1/league/{lid}"
+        prefetch_urls.extend([f"{base}/rosters", f"{base}/users", base, f"{base}/drafts"])
+        prefetch_urls.extend(f"{base}/transactions/{week}" for week in range(0, 19))
+    root_base = f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
+    prefetch_urls.append(f"{root_base}/traded_picks")
+    fetcher.prefetch(prefetch_urls)
+
+    teams = _build_teams_block(sleeper_league_id, id_to_player, getter=fetcher.get)
     if teams is None:
         # Hard fetch failure — nothing useful to return.
         return None
 
-    league_name = _fetch_league_name(sleeper_league_id) or ""
+    league_name = _fetch_league_name(sleeper_league_id, getter=fetcher.get) or ""
     trades = _build_trades_block(
         sleeper_league_id,
         window_days=trade_window_days,
         id_to_player=id_to_player,
+        getter=fetcher.get,
     )
     waivers = _build_waivers_block(
         sleeper_league_id,
         window_days=trade_window_days,
         id_to_player=id_to_player,
+        getter=fetcher.get,
     )
 
     cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=int(trade_window_days))
@@ -1127,7 +1312,7 @@ def fetch_sleeper_overlay(
     }
 
     with _CACHE_LOCK:
-        _CACHE[sleeper_league_id] = {"payload": dict(payload), "_cached_at": now}
+        _CACHE[sleeper_league_id] = {"payload": dict(payload), "_cached_at": time.time()}
     return payload
 
 

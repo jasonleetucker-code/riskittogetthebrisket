@@ -27,6 +27,7 @@ logic testable without stubbing HTTP.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import threading
 import time
@@ -40,7 +41,13 @@ from .providers import available_provider_names, build_provider
 
 log = logging.getLogger(__name__)
 
-DEFAULT_CACHE_TTL_S = 180  # 3 minutes — rate-limit-safe for all providers
+# 10 minutes (was 3).  Aggregated RSS feeds rarely update faster, and
+# every TTL expiry used to run the full provider sweep inline on a user
+# request — raising the TTL cuts that slow path to a third of its old
+# frequency.  Approved freshness tradeoff: headlines may be up to
+# 10 min old.  (``FAILURE_CACHE_TTL_S`` below is unchanged — outages
+# still retry quickly.)
+DEFAULT_CACHE_TTL_S = 600
 # Hard freshness cutoff: every surface (news tab, popups, chips)
 # must only show news from the last week, so the drop happens HERE
 # at aggregation — not per consumer.  Items whose timestamp cannot
@@ -302,7 +309,12 @@ class NewsService:
         # the param.  Instead the unfiltered aggregate is cached once
         # per known-names universe and filters are projected onto a
         # copy on the way out.
-        cache_key = tuple(known_names)
+        #
+        # The key is a sha1 of the joined names rather than a
+        # ~2,000-element string tuple: same universe ⇒ same key, but
+        # hashing a 40-char digest per request beats hashing (and
+        # keeping alive) thousands of strings per cache entry.
+        cache_key = hashlib.sha1("\n".join(known_names).encode("utf-8")).hexdigest()
 
         # Cold-cache single-flight: exactly one thread (the "leader")
         # refreshes a given key; concurrent callers wait on the
@@ -412,18 +424,19 @@ class NewsService:
         and converted into a ``ProviderRunResult(ok=False)`` so
         the aggregate response can still succeed on the survivors.
 
-        Run order follows registration order (priority).  We do
-        this sequentially rather than in a thread pool because
-        the worst-case total latency is small (2 providers × 5s
-        timeout = 10s cap, but realistic steady state is
-        sub-second) and keeping it sequential avoids another
-        dependency on a shared thread pool.
+        Providers run CONCURRENTLY in a bounded pool: the registry has
+        grown to ~6 enabled providers at a 5s timeout each, so a cold
+        refresh on the sequential path could stall a user request for
+        up to ~30s (the old "2 providers × 5s" rationale had gone
+        stale).  Results are collected back in registration order so
+        item ordering, dedupe preference, and ``providerRuns`` output
+        are byte-identical to the sequential implementation.
         """
-        all_items: List[NewsItem] = []
-        runs: List[ProviderRunResult] = []
-        for provider in self._providers:
+
+        def _run_one(provider) -> tuple[List[NewsItem], ProviderRunResult]:
             run = ProviderRunResult(name=provider.name, label=provider.label)
             started = time.monotonic()
+            items_out: List[NewsItem] = []
             try:
                 items = provider.fetch(
                     player_names=known_names,
@@ -432,7 +445,7 @@ class NewsService:
                 if not isinstance(items, list):
                     items = list(items or [])
                 run.count = len(items)
-                all_items.extend(items)
+                items_out = items
             except Exception as exc:  # defensive — providers
                 # shouldn't raise, but if they do we isolate the
                 # failure here rather than 500-ing the route.
@@ -441,6 +454,23 @@ class NewsService:
                 run.error = f"{type(exc).__name__}: {exc}"
             finally:
                 run.elapsed_ms = int((time.monotonic() - started) * 1000)
+            return items_out, run
+
+        providers = list(self._providers)
+        if len(providers) <= 1:
+            results = [_run_one(p) for p in providers]
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(
+                max_workers=min(6, len(providers)), thread_name_prefix="news-provider"
+            ) as ex:
+                results = list(ex.map(_run_one, providers))
+
+        all_items: List[NewsItem] = []
+        runs: List[ProviderRunResult] = []
+        for items, run in results:
+            all_items.extend(items)
             runs.append(run)
         return all_items, runs
 

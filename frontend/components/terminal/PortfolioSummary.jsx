@@ -49,7 +49,7 @@ function formatPct(v) {
  */
 export default function PortfolioSummary() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam, idpEnabled } = useTeam();
+  const { selectedTeam, idpEnabled, loading: teamLoading } = useTeam();
   // IDP gating: skip the IDP positional bucket (and any IDP rows in
   // the positional stack) for leagues that don't support IDP.  The
   // portfolio computation still runs globally on the contract; we
@@ -69,6 +69,9 @@ export default function PortfolioSummary() {
   // the same backend-stamped row values but does the grouping in
   // the browser.
   const { portfolio: serverPortfolio } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

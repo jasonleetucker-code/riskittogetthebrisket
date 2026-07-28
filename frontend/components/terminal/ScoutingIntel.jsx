@@ -43,7 +43,7 @@ function formatValue(v) {
  */
 export default function ScoutingIntel() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
 
   const sleeperTeams = rawData?.sleeper?.teams;
@@ -67,6 +67,9 @@ export default function ScoutingIntel() {
   // ``computePortfolio`` + ``computeInsights`` below so the panel
   // never renders a blank state waiting on the network.
   const { portfolio: serverPortfolio } = useTerminal({
+    // Hold the fetch until team identity resolves from the contract
+    // (prevents the discarded ownerId:"" duplicate call).
+    skip: teamLoading,
     ownerId: String(selectedTeam?.ownerId || ""),
     teamName: selectedTeam?.name || "",
     windowDays: 30,

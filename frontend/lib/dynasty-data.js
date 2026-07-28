@@ -1386,17 +1386,42 @@ const RANKINGS_OVERRIDES_URL = "/api/rankings/overrides";
 const DEFAULT_DATA_URL = "/api/dynasty-data";
 
 // ── Base contract cache ──────────────────────────────────────────────
-// The rankings-override delta path needs a base payload to merge the
-// delta onto.  We keep the last successfully loaded full contract in
-// module-level state so the second call with overrides does not have
-// to refetch the 2.5MB base payload.
+// The multi-MB base contract is fetched by every ``useDynastyData``
+// mount — and the hook mounts at least twice per page (AppShell + the
+// page itself), with more mounts on league/auth events.  This block
+// collapses all of that onto one network fetch:
+//
+//   * ``_cachedBaseContract`` — last successful payload.  Cache key is
+//     ``(leagueKey, view)``; TTL is ``_BASE_CONTRACT_TTL_MS`` (30s,
+//     matching the server's ``Cache-Control: max-age=30`` — the client
+//     never holds data longer than the HTTP layer already permits).
+//     After the TTL the refetch goes out with ``cache: "no-cache"``,
+//     so an unchanged contract revalidates to a 304 instead of a
+//     multi-MB re-download.
+//   * ``_inflightBaseContract`` — in-flight promise, so concurrent
+//     mounts share one request instead of racing duplicates.
+//   * Invalidation: ``_resetBaseContractCache()`` (league switch via
+//     ``useLeague``, tests) and the module-scope ``auth:changed``
+//     listener below.  Errors are never cached.
 //
 // NOTE: rankings are scoped by scoring profile (see CLAUDE.md).  When
 // two leagues share a profile they share this cached contract.  We
 // still pass ``leagueKey`` on the wire so the server can stamp the
 // response with the right league's ``sleeper`` block (or null it
 // when the specific league's roster data isn't loaded yet).
+const _BASE_CONTRACT_TTL_MS = 30_000;
 let _cachedBaseContract = null;
+let _cachedBaseContractKey = "";
+let _cachedBaseContractAt = 0;
+let _inflightBaseContract = null; // { key, promise }
+
+// Memo of the final merged override result (base + delta).  Keyed on
+// the POST body + league + the base contract's object identity, so a
+// new base generation (or league switch) invalidates it naturally.
+// Same 30s TTL as the base cache.  Collapses the duplicate
+// ``POST /api/rankings/overrides`` fired by the double-mounted hook.
+let _cachedOverrideResult = null; // { key, base, at, value }
+let _inflightOverrideResult = null; // { key, base, promise }
 
 // Key to read the active league from localStorage — written by
 // ``useLeague`` whenever the user switches leagues.  We can't
@@ -1414,9 +1439,24 @@ function _readActiveLeagueKey() {
   }
 }
 
-/** Clear the in-memory base contract cache.  Useful for tests. */
+/** Clear every in-memory contract cache (base, merged override
+ * result, in-flight markers).  Called on league switch (``useLeague``),
+ * on ``auth:changed``, and from tests. */
 export function _resetBaseContractCache() {
   _cachedBaseContract = null;
+  _cachedBaseContractKey = "";
+  _cachedBaseContractAt = 0;
+  _inflightBaseContract = null;
+  _cachedOverrideResult = null;
+  _inflightOverrideResult = null;
+}
+
+// Login/logout must drop cached private payloads immediately — the
+// TTL alone would let a just-logged-out session keep rendering them.
+// (League switches already call ``_resetBaseContractCache`` directly
+// via ``useLeague``.)
+if (typeof window !== "undefined") {
+  window.addEventListener("auth:changed", _resetBaseContractCache);
 }
 
 async function _fetchBaseContract() {
@@ -1431,6 +1471,29 @@ async function _fetchBaseContract() {
   } catch {
     // device-profile is advisory only; absence just keeps old default.
   }
+  const cacheKey = `${leagueKey}|${view || ""}`;
+  if (
+    _cachedBaseContract &&
+    _cachedBaseContractKey === cacheKey &&
+    Date.now() - _cachedBaseContractAt < _BASE_CONTRACT_TTL_MS
+  ) {
+    return _cachedBaseContract;
+  }
+  if (_inflightBaseContract && _inflightBaseContract.key === cacheKey) {
+    return _inflightBaseContract.promise;
+  }
+  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey);
+  _inflightBaseContract = { key: cacheKey, promise };
+  try {
+    return await promise;
+  } finally {
+    if (_inflightBaseContract && _inflightBaseContract.promise === promise) {
+      _inflightBaseContract = null;
+    }
+  }
+}
+
+async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // Append leagueKey so the server can stamp ``meta.leagueKey`` and
   // ``meta.sleeperDataReady`` correctly on the response.  When the
   // active league shares the scoring profile with the loaded
@@ -1442,14 +1505,17 @@ async function _fetchBaseContract() {
   if (view && view !== "delta") params.set("view", view);
   const qs = params.toString();
   const url = qs ? `${DEFAULT_DATA_URL}?${qs}` : DEFAULT_DATA_URL;
-  // ``no-store`` is deliberate and must stay until the response is
-  // auth-scoped.  This contract is private (``_private_api_gate``) but
-  // is served with ``Cache-Control: public, max-age=30,
-  // stale-while-revalidate=300``; letting the browser HTTP cache hold it
-  // would allow an authenticated payload to be replayed after logout, or
-  // to the next account on a shared browser, without ever revalidating
-  // against the gate.
-  const res = await fetch(url, { cache: "no-store" });
+  // ``no-cache`` (not ``no-store``): the browser may STORE the response
+  // but must REVALIDATE before every reuse.  The backend serves this
+  // contract with ``Cache-Control: private, max-age=30,
+  // stale-while-revalidate=300`` plus an ``ETag``, and the
+  // ``_private_api_gate`` middleware 401s unauthenticated requests
+  // before any 304 can be minted — so after logout the revalidation
+  // fails and the cached payload is never replayed.  What ``no-cache``
+  // buys over ``no-store``: an unchanged contract answers with a
+  // zero-body 304 instead of a multi-MB re-download on every
+  // navigation past the in-memory TTL.
+  const res = await fetch(url, { cache: "no-cache" });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
@@ -1479,6 +1545,8 @@ async function _fetchBaseContract() {
   }
   if (wrapped && wrapped.data) {
     _cachedBaseContract = wrapped;
+    _cachedBaseContractKey = cacheKey;
+    _cachedBaseContractAt = Date.now();
   }
   return wrapped;
 }
@@ -1730,13 +1798,28 @@ export function mergeRankingsDelta(baseContract, delta) {
 // League-scoped, unlike ``_cachedBaseContract`` which is
 // scoring-profile-scoped. Reset together on a league switch.
 let _cachedValuationOverlay = null;
+let _inflightValuationOverlay = null;
 
 export function _resetValuationOverlayCache() {
   _cachedValuationOverlay = null;
+  _inflightValuationOverlay = null;
 }
 
 async function _fetchValuationOverlay() {
   if (_cachedValuationOverlay) return _cachedValuationOverlay;
+  if (_inflightValuationOverlay) return _inflightValuationOverlay;
+  const promise = _fetchValuationOverlayNetwork();
+  _inflightValuationOverlay = promise;
+  try {
+    return await promise;
+  } finally {
+    if (_inflightValuationOverlay === promise) {
+      _inflightValuationOverlay = null;
+    }
+  }
+}
+
+async function _fetchValuationOverlayNetwork() {
   try {
     const leagueKey = _readActiveLeagueKey();
     const qs = leagueKey ? `?leagueKey=${encodeURIComponent(leagueKey)}` : "";
@@ -1953,7 +2036,7 @@ export async function fetchDynastyData(opts = {}) {
   // cached base contract.  The backend bakes TEP into every TE's
   // rankDerivedValue stamp before producing the delta, so the
   // frontend never needs to multiply on render.
-  const base = _cachedBaseContract || (await _fetchBaseContract());
+  const base = await _fetchBaseContract();
 
   // Build the POST body: start from the siteOverrides map (legacy
   // shape) and stamp the tep_multiplier field on top only when the
@@ -1977,6 +2060,41 @@ export async function fetchDynastyData(opts = {}) {
     body.valuation_mode = "leagueAdjusted";
   }
 
+  // Merged-result memo: the double-mounted hook fires two identical
+  // override requests per page; serve the second from memory.  Key =
+  // POST body + active league; validity additionally requires the SAME
+  // base contract object (a new base generation or league switch
+  // yields a different reference) and the shared 30s TTL.  Only
+  // successful merges are cached — a fallback-to-base result must stay
+  // retryable.
+  const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}`;
+  if (
+    _cachedOverrideResult &&
+    _cachedOverrideResult.key === overrideKey &&
+    _cachedOverrideResult.base === base &&
+    Date.now() - _cachedOverrideResult.at < _BASE_CONTRACT_TTL_MS
+  ) {
+    return _cachedOverrideResult.value;
+  }
+  if (
+    _inflightOverrideResult &&
+    _inflightOverrideResult.key === overrideKey &&
+    _inflightOverrideResult.base === base
+  ) {
+    return _inflightOverrideResult.promise;
+  }
+  const promise = _postOverridesAndMerge(base, body, overrideKey);
+  _inflightOverrideResult = { key: overrideKey, base, promise };
+  try {
+    return await promise;
+  } finally {
+    if (_inflightOverrideResult && _inflightOverrideResult.promise === promise) {
+      _inflightOverrideResult = null;
+    }
+  }
+}
+
+async function _postOverridesAndMerge(base, body, overrideKey) {
   try {
     const overrideRes = await fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
       method: "POST",
@@ -1991,16 +2109,30 @@ export async function fetchDynastyData(opts = {}) {
         deltaPayload.mode === "delta" &&
         deltaPayload.rankingsDelta
       ) {
-        return mergeRankingsDelta(base, deltaPayload);
+        const merged = mergeRankingsDelta(base, deltaPayload);
+        _cachedOverrideResult = {
+          key: overrideKey,
+          base,
+          at: Date.now(),
+          value: merged,
+        };
+        return merged;
       }
       // Full-contract fallback: the backend may have returned a full
       // payload (e.g. proxy stripped view=delta).  Pass through.
       if (deltaPayload && (deltaPayload.players || deltaPayload.playersArray)) {
-        return {
+        const passthrough = {
           ok: true,
           source: "backend:override",
           data: deltaPayload,
         };
+        _cachedOverrideResult = {
+          key: overrideKey,
+          base,
+          at: Date.now(),
+          value: passthrough,
+        };
+        return passthrough;
       }
     } else if (typeof console !== "undefined" && console.warn) {
       console.warn(

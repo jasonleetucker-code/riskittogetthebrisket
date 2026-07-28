@@ -53,7 +53,10 @@
 // v3: push + notificationclick handlers added.  Cache layout is
 // otherwise unchanged; the bump just forces an SW activation cycle so
 // existing tabs pick up the new event listeners.
-const CACHE_VERSION = "chaseupside-v6";
+// v7: /api/data + /api/dynasty-data added to NEVER_CACHE (stop the
+// per-navigation multi-MB cache.put of the private contract).  Bump
+// evicts runtime caches that may still hold contract payloads.
+const CACHE_VERSION = "chaseupside-v7";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -72,6 +75,13 @@ const NEVER_CACHE = [
   "/api/trade/simulate",
   "/api/signal-alerts/",
   "/api/rankings/overrides",
+  // The multi-MB private contract: networkFirst wrote it to
+  // CacheStorage on EVERY navigation but only ever read it back when
+  // offline — pure write cost per page load, plus private data at
+  // rest.  The in-memory data layer + HTTP ETag revalidation own this
+  // payload's caching now.
+  "/api/data",
+  "/api/dynasty-data",
 ];
 
 function isNeverCache(url) {

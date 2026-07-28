@@ -629,14 +629,22 @@ export default function RankingsPage() {
     };
   }, [ranked]);
 
-  // Apply row limit — search/filter bypasses the limit
-  const hasActiveFilter =
+  // Apply row limit — search/filter bypasses the limit.  Memoized:
+  // this slice runs on every render of a 1,800-line page, and when a
+  // filter is active `displayRows` is the FULL board (~1.1k rows), so
+  // a fresh array identity per render forced the whole table to
+  // reconcile even when nothing changed.
+  const hasActiveFilter = Boolean(
     query ||
-    posFilter !== "all" ||
-    confFilter !== "all" ||
-    activeLens !== "consensus" ||
-    advActiveCount > 0;
-  const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
+      posFilter !== "all" ||
+      confFilter !== "all" ||
+      activeLens !== "consensus" ||
+      advActiveCount > 0,
+  );
+  const displayRows = useMemo(
+    () => (hasActiveFilter ? ranked : ranked.slice(0, rowLimit)),
+    [hasActiveFilter, ranked, rowLimit],
+  );
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
   // Per-position ranks (QB3, RB5, LB2…) — computed from the eligible

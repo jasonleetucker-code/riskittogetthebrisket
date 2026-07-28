@@ -79,9 +79,13 @@ describe("device-profile", () => {
     expect(preferredDataView()).toBe("compact");
   });
 
-  it("preferredDataView → delta on desktop", () => {
+  it("preferredDataView → array on desktop", () => {
+    // "array" = full contract minus the legacy players dict — the
+    // zero-field-loss desktop view.  The old "delta" return was not a
+    // valid GET view and silently fell through to the ~12MB full
+    // payload.
     setWindow({ innerWidth: 1920 });
-    expect(preferredDataView()).toBe("delta");
+    expect(preferredDataView()).toBe("array");
   });
 
   it("preferredDataView → compact on slow network", () => {
