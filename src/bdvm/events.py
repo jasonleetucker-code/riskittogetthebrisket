@@ -121,7 +121,16 @@ def effective_impact(
         value = float(raw)
         if channel == "sigma_mult":
             # multiplicative channel: scale the log-effect
-            out[channel] = math.exp(math.log(max(1e-6, value)) * scale)
+            scaled = math.exp(math.log(max(1e-6, value)) * scale)
+            if speculative:
+                # Speculation may only WIDEN sigma.  Without this
+                # clamp a sub-1.0 sigma_mult (ACTIVATED_RETURN's 0.95)
+                # would let a rumor NARROW uncertainty and move option
+                # value downward — the exact one-way promise the
+                # speculation lane makes would be broken in the one
+                # channel it leaves open.
+                scaled = max(1.0, scaled)
+            out[channel] = scaled
         elif channel == "hazard_mult":
             if speculative:
                 continue

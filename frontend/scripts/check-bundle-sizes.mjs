@@ -56,7 +56,7 @@ const BUDGETS_KB = {
   // the same PR and call it out — that's the audit trail.
   "/page": 90, // landing
   "/rankings/page": 65, // dense table + filter bar + popups
-  "/trade/page": 75, // calculator + simulator + breakdown
+  "/trade/page": 82, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval)
   "/draft/page": 128, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432)
   "/edge/page": 30,
   "/finder/page": 20,

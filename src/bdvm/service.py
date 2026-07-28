@@ -15,6 +15,7 @@ never a silent zero, never an invented value.
 from __future__ import annotations
 
 import json
+import math
 import re
 import statistics
 from datetime import datetime, timezone
@@ -41,7 +42,8 @@ from src.bdvm.projections import (
     load_snapshot,
 )
 from src.bdvm.replacement import ReplacementEngine
-from src.bdvm.ros import ros_value
+from src.bdvm.ros import blend_ros_mu, ros_projection_weight, ros_value
+from src.bdvm.scoring import is_idp_position
 from src.bdvm.survival import RiskProfile
 from src.utils.name_clean import normalize_player_name
 
@@ -72,7 +74,15 @@ _EVENT_VOL_PRIOR = {
     "TE": 0.35,
 }
 
-_PICK_SLOT_RE = re.compile(r"(?P<year>20\d{2})\s+(?P<round>\d)\.(?P<slot>\d{2})")
+# Accepts both the bare "2026 1.04" form and the platform's canonical
+# slot-pick displayName "2026 Pick 1.04" — the exact string the trade
+# page and /api/data rows carry.  Without the optional token every
+# canonical slot pick fell through to unparseable_pick_name and the
+# whole current-year pick board (and any trade-eval ref to it) was
+# unpriced.
+_PICK_SLOT_RE = re.compile(
+    r"(?P<year>20\d{2})\s+(?:pick\s+)?(?P<round>\d)\.(?P<slot>\d{1,2})", re.IGNORECASE
+)
 _PICK_TIER_RE = re.compile(
     r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>1st|2nd|3rd|4th)", re.IGNORECASE
 )
@@ -136,13 +146,24 @@ def _ros_for_player(
     *,
     schedule_weeks: Mapping[str, list] | None,
     params: ParamSet,
+    current_week: int | None = None,
+    played_weeks: set[int] | None = None,
 ) -> dict[str, Any] | None:
-    """Preseason rest-of-season value (single horizon, no aging/survival).
+    """Rest-of-season value (single horizon, no aging/survival).
 
     Requires the league schedule (byes) for the player's NFL team; when
     unavailable the field is None with no fabrication.  Preseason
-    ``w_proj`` = 1, so µ_ROS is the blended projection itself; in-season
-    recent-form blending activates once weekly points are wired.
+    (``current_week`` None) sums the full slate and µ_ROS is the
+    blended projection itself; in-season, ``blended`` already carries
+    the §8.4 posterior and played weeks are banked points, not
+    remaining value.
+
+    Boundary week: ``current_week`` is global (max week observed
+    league-wide + 1), but nflverse publishes game-by-game — after
+    Thursday night the file already holds week-W rows while ~30 teams
+    haven't played W yet.  For THIS player, week W counts as remaining
+    unless it appears in ``played_weeks`` — otherwise one real week of
+    value would vanish league-wide for three days every week.
     """
     if not schedule_weeks:
         return None
@@ -150,6 +171,14 @@ def _ros_for_player(
     weeks = schedule_weeks.get(team)
     if not weeks:
         return {"value": None, "reason": f"no_schedule_for_team:{team or 'FA'}"}
+    if current_week is not None:
+        boundary = current_week - 1
+        played = played_weeks or set()
+        weeks = [
+            wk
+            for wk in weeks
+            if wk.week >= current_week or (wk.week == boundary and boundary not in played)
+        ]
     sigma0 = v.seasons[0]["sigma"]
     replacement = v.raw["replacement"]
     out: dict[str, Any] = {"muRos": round(blended.mu_fpg, 3), "weeks": len(weeks)}
@@ -198,6 +227,7 @@ def run_valuation(
     context: Mapping[str, "PlayerContext"] | None = None,
     events: Iterable["PlayerEvent"] | None = None,
     schedule_weeks: Mapping[str, list] | None = None,
+    actuals: tuple[int | None, Mapping[str, list]] | None = None,
 ) -> dict[str, Any]:
     """Compute BDVM fundamental values for every priceable asset.
 
@@ -211,7 +241,16 @@ def run_valuation(
     ``src.bdvm.context``) enriches inputs when the contract row lacks
     them; ``events`` are structured §7 events (auto-loaded from
     ``data/bdvm/events/<season>.json`` when None); ``schedule_weeks``
-    maps NFL team → RosWeek list for the preseason ROS output.
+    maps NFL team → RosWeek list for the ROS output.
+
+    ``actuals`` is the in-season evidence feed:
+    ``(current_week, player_key → [(week, points), ...])`` from
+    ``src.bdvm.actuals``.  When present, each covered player's
+    consensus is replaced by the §8.4 posterior — the preseason µ
+    shrinks toward realized per-game production with weight
+    ``n_prior/(n_prior + weeks_played)`` (``blend_ros_mu``), σ shrinks
+    by the same evidence factor, and ROS sums only the REMAINING
+    weeks.  ``(None, {})`` or omitted → exact preseason behavior.
     """
     params = params or load_param_set()
     as_of = _utc_now_iso()
@@ -295,6 +334,55 @@ def run_valuation(
         )
         if blended is not None:
             consensus[key] = blended
+
+    # ---- in-season posterior update (§8.4) ---------------------------------
+    # ONE mutation point, BEFORE pools/replacement: replacement levels,
+    # group z-stats, engine µ/σ, and ROS all read from ``consensus``,
+    # so updating here keeps every downstream number on the same
+    # posterior.  µ shrinks toward realized production with weight
+    # n_prior/(n_prior + weeks_played); σ shrinks by the same evidence
+    # factor (more observed games → less cross-source uncertainty).
+    # Players without observed weeks keep the preseason consensus
+    # untouched — absence of evidence is never evidence of zero.
+    current_week: int | None = None
+    inseason_updated = 0
+    # Per-player played weeks, for the ROS boundary-week rule (a week
+    # some teams have played and others haven't is remaining for the
+    # teams that haven't).
+    actuals_played: dict[str, set[int]] = {}
+    if actuals is not None:
+        current_week, weekly_by_key = actuals
+        if current_week is not None and weekly_by_key:
+            actuals_played = {
+                key: {wk for wk, _pts in samples} for key, samples in weekly_by_key.items()
+            }
+            for key, blended in list(consensus.items()):
+                samples = weekly_by_key.get(key)
+                if not samples:
+                    continue
+                weeks_played = float(len(samples))
+                mu_recent = sum(pts for _wk, pts in samples) / weeks_played
+                is_idp = is_idp_position(blended.position)
+                mu_post = blend_ros_mu(
+                    blended.mu_fpg,
+                    mu_recent,
+                    weeks_played,
+                    is_idp=is_idp,
+                    params=params,
+                )
+                w_prior = ros_projection_weight(weeks_played, is_idp=is_idp, params=params)
+                sigma_post = blended.sigma_source * math.sqrt(w_prior)
+                consensus[key] = _dc_replace(blended, mu_fpg=mu_post, sigma_source=sigma_post)
+                inseason_updated += 1
+    meta["inSeason"] = (
+        {
+            "currentWeek": current_week,
+            "playersUpdated": inseason_updated,
+            "source": "nflverse stats_player_week",
+        }
+        if current_week is not None
+        else {"active": False}
+    )
 
     # ---- pools + replacement (from projections only) ----------------------
     pools = build_group_pools(consensus.values(), cfg)
@@ -502,7 +590,15 @@ def run_valuation(
         }
         entry["events"] = extras.get("eventAudit", [])
         entry["ros"] = _ros_for_player(
-            v, blended, row, schedule_weeks=schedule_weeks, params=params
+            v,
+            blended,
+            row,
+            schedule_weeks=schedule_weeks,
+            params=params,
+            current_week=current_week,
+            played_weeks=actuals_played.get(
+                normalize_player_name(str(row.get("canonicalName") or row.get("displayName") or ""))
+            ),
         )
         players_out.append(entry)
 

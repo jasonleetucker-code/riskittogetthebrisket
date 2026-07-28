@@ -36,6 +36,7 @@ import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import RosTradeFitPanel from "@/components/RosTradeFitPanel";
+import BdvmTradePanel from "@/components/BdvmTradePanel";
 import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
 import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
@@ -1805,6 +1806,7 @@ export default function TradePage() {
             valueMode={valueMode}
           />
           <RosTradeFitPanel sides={sides} settings={settings} />
+          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
 
           {sides.length === 2 ? (
             <Panel>

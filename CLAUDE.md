@@ -506,6 +506,72 @@ Operational surfaces (post-merge additions):
   floods inboxes — pinned in ``tests/api/test_bdvm_signal_alerts.py``.
   Flag off → the sweep stamps ``bdvmEnabled: false`` and skips
   entirely.
+- **Trade calculator check**: ``POST /api/bdvm/trade-eval``
+  (``src/api/bdvm_api.py::get_bdvm_trade_eval``) CES-evaluates ONE
+  specific trade in every strategy currency — package math is
+  ``package_value`` (§3.13), never a plain sum. Asset refs resolve
+  playerId-first → normalized name → pick name (picks use the
+  strategy's distribution EV); unresolvable refs are reported in
+  ``unresolved`` per side, never silently priced at zero. The route
+  parses its body BEFORE the shared gate so the body ``leagueKey``
+  reaches the resolver (POST convention — pinned by
+  ``tests/bdvm/test_endpoint.py``). Renders as the "Fundamentals
+  check (BDVM)" panel on /trade
+  (``frontend/components/BdvmTradePanel.jsx``, below RosTradeFitPanel):
+  display-only, never touches sideTotals/TradeMeter, silent-vanish on
+  any non-ok. Tests: ``tests/bdvm/test_trade_eval.py``.
+- **In-season updating** (§8.4): ``run_valuation(actuals=...)`` blends
+  realized weekly PPG — scored under the league's exact settings from
+  nflverse weekly rows (``src/bdvm/actuals.py``, REG weeks only, its
+  own 24h disk-cache key) — into the projection posterior via
+  ``blend_ros_mu`` (``w = n_prior/(n_prior+weeks)``, n_prior 6 offense
+  / 8 IDP); σ shrinks by ``√w_prior``; ROS drops already-played weeks
+  via ``current_week`` (uncapped — after the week-18 slate it is 19 so
+  ROS sums zero, never double-counting the banked final week), with a
+  per-player boundary-week rule: the in-progress week counts as
+  remaining for players who haven't played it yet (nflverse publishes
+  game-by-game). The actuals season is the CALENDAR NFL season
+  (``current_nfl_season``: Sept–Dec → year, Jan → year−1, else None)
+  — NEVER ``currentDraftYear``, which points one season ahead for the
+  whole Sept–Jan window and would make the posterior structurally
+  unreachable. Distinct players colliding on a normalized name are
+  dropped (chimera guard, projection-side policy). Preseason is an
+  exact no-op (``meta.inSeason = {"active": false}``). ``bdvm_api``
+  refreshes actuals once per UTC day; fetch FAILURES are returned but
+  never memoized, so a transient blip can't pin the board to preseason
+  values until midnight. Tests: ``tests/bdvm/test_inseason.py``.
+- **News → events ingestion**: ``src/bdvm/news_events.py`` piggybacks
+  on the same daily signal-alerts sweep (runs BEFORE the per-user
+  loop). Aggregated headlines map via conservative ordered keyword
+  rules onto 11 of the 18 §7 ontology types (no match → NOTHING;
+  ambiguous player mention → NOTHING; advice/listicle language —
+  "trade targets", "who makes the cut", rankings/waiver/mock-draft
+  vocabulary — → NOTHING; items naming >3 players → NOTHING;
+  ACTIVATED_RETURN deliberately unmapped because its impact narrows
+  σ). Auto events land in the speculation lane structurally:
+  ``confidence = 0.45 < 0.5`` means ``effective_impact`` suppresses
+  every non-sigma channel AND clamps ``sigma_mult ≥ 1.0`` — a headline
+  can widen uncertainty but can NEVER move a mean or narrow σ; raising
+  confidence is a human edit to ``data/bdvm/events/<season>.json``.
+  Merge is dedup-by-eventId (``news:<item-id>:<player-key>``) plus
+  same-fact suppression (one ``(playerKey, eventType)`` per 14 days —
+  N providers ≠ N sigma wideners) with existing-wins; the 90d prune
+  touches only ``news:*`` events still at speculation confidence
+  (human-raised confidence exempts an event); refuses on corrupt OR
+  valid-JSON-wrong-shape files rather than discarding human entries,
+  and preserves extra top-level keys (``_comment``) on rewrite. The
+  events-file fingerprint (mtime_ns, size) sits in the bdvm_api cache
+  key, so every write invalidates cached boards. Tests:
+  ``tests/bdvm/test_news_events.py``.
+- **Draft board join**: /draft grows a "Fund gap" column on the
+  RookieBoard — name-based join only (draft rows are keyed by
+  ``playerSlug`` and carry no playerId) — plus a collapsed-by-default
+  "Fundamental pick values (BDVM)" panel (balanced-strategy pick
+  EV / hit% / median / ceiling beside the market anchor, from
+  ``buildBdvmPickRows``). Same silent-vanish posture as the rankings
+  gap column; sorting by gap sinks unpriced rows; auction math and
+  backend-stamped ranks untouched. Tests:
+  ``frontend/__tests__/components/DraftBoardSort.test.jsx``.
 
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.

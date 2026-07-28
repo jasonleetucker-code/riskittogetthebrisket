@@ -42,6 +42,11 @@ _values_cache: OrderedDict[tuple, dict[str, Any]] = OrderedDict()
 _aux_lock = threading.Lock()
 _context_cache: dict[int, Mapping[str, Any]] = {}
 _schedule_cache: dict[int, Mapping[str, Any] | None] = {}
+# In-season actuals change WEEKLY, so unlike context/schedule this
+# cache keys on (season, UTC day) — a failed or preseason-empty fetch
+# is retried the next day, and the day rides the ingest layer's 24h
+# disk TTL underneath.
+_actuals_cache: dict[tuple[int, str], tuple[int | None, Mapping[str, Any]]] = {}
 
 
 def _registry_settings_for(league_key: str) -> tuple[Mapping[str, Any] | None, bool, str]:
@@ -86,6 +91,73 @@ def _schedule_for(season: int) -> Mapping[str, Any] | None:
     return sched
 
 
+def _events_fingerprint(season: int) -> tuple[int, int] | None:
+    """(mtime_ns, size) of the season's events file, or None.
+
+    Joins the values cache key so writing/editing
+    ``data/bdvm/events/<season>.json`` (the daily news→events ingest,
+    or a hand edit) invalidates cached valuations — without this, a
+    new event would sit unseen until the next contract rebuild.
+    """
+    try:
+        from src.bdvm.events import EVENTS_DIR  # noqa: PLC0415
+
+        stat = (EVENTS_DIR / f"{season}.json").stat()
+        return (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _today() -> str:
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, Any]]:
+    """In-progress-season weekly actuals, cached per (season, UTC day).
+
+    The season is the CALENDAR NFL season (``current_nfl_season``),
+    never the contract's ``currentDraftYear`` — the draft year points
+    one season ahead for the entire Sept–Jan window, which would make
+    the posterior structurally unreachable in production.
+
+    A fetch that RAISES is returned but NOT memoized: a transient
+    nflverse/network blip on the day's first request must not pin the
+    board to preseason values until midnight.  (An empty SUCCESS is
+    cached for the day — that's the honest preseason/early-window
+    signal.)
+    """
+    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+
+    nfl_season = current_nfl_season()
+    if nfl_season is None:
+        return (None, {})
+    cache_key = (nfl_season, _today())
+    with _aux_lock:
+        if cache_key in _actuals_cache:
+            return _actuals_cache[cache_key]
+    try:
+        from src.bdvm.actuals import fetch_current_season_actuals  # noqa: PLC0415
+        from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
+        scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
+        result = fetch_current_season_actuals(
+            scoring, name_normalizer=normalize_player_name, season=nfl_season
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
+        return (None, {})
+    with _aux_lock:
+        # Drop stale day entries so the cache never grows unbounded.
+        for old_key in [k for k in _actuals_cache if k[1] != cache_key[1]]:
+            _actuals_cache.pop(old_key, None)
+        _actuals_cache[cache_key] = result
+    return result
+
+
 def get_bdvm_values(
     contract: Mapping[str, Any],
     league_key: str,
@@ -97,6 +169,7 @@ def get_bdvm_values(
     params = params or load_param_set()
     season = int(contract.get("currentDraftYear") or 0)
     snapshot = latest_snapshot_path(season) if season else None
+    actuals = _actuals_for(contract)
     key = (
         id(contract),
         contract.get("generatedAt"),
@@ -104,6 +177,12 @@ def get_bdvm_values(
         params.param_set_id,
         str(snapshot) if snapshot else None,
         surplus_mode,
+        # In-season freshness: a new observed week (or day rollover
+        # after one) must recompute; events-file edits are covered by
+        # the fingerprint.
+        actuals[0],
+        _today() if actuals[0] is not None else None,
+        _events_fingerprint(season),
     )
     with _lock:
         cached = _values_cache.get(key)
@@ -124,6 +203,7 @@ def get_bdvm_values(
         surplus_mode=surplus_mode,
         context=context,
         schedule_weeks=schedule_weeks,
+        actuals=actuals,
     )
     with _lock:
         _values_cache[key] = payload
@@ -169,6 +249,125 @@ def get_bdvm_roster(
     return analysis
 
 
+def get_bdvm_trade_eval(
+    contract: Mapping[str, Any],
+    league_key: str,
+    *,
+    side_a: list[Any],
+    side_b: list[Any],
+    params: ParamSet | None = None,
+) -> dict[str, Any]:
+    """CES evaluation of ONE specific trade in every strategy currency.
+
+    ``side_a`` / ``side_b`` are asset refs: dicts with ``playerId`` or
+    ``name``, or plain strings (player names or pick names like
+    "2027 1.05").  Resolution is playerId-first, then normalized name,
+    then the pick table.  Unresolvable refs are REPORTED, never
+    silently priced at zero — a trade grade that quietly dropped an
+    asset would be worse than no grade.
+
+    Package math is the display-layer CES (never a plain sum — §3.13);
+    when both sides' rosters are known to the BDVM roster analysis,
+    the own-currency double-positive verdict is included.
+    """
+    params = params or load_param_set()
+    values = get_bdvm_values(contract, league_key, params=params)
+    if values.get("status") != "ok":
+        return {
+            "status": values.get("status"),
+            "message": values.get("message"),
+            "byStrategy": {},
+        }
+
+    from src.bdvm.trade_math import package_value  # noqa: PLC0415
+    from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
+    strategies = [s for s in ("contender", "balanced", "rebuilder", "risk_neutral")]
+    by_id: dict[str, dict] = {}
+    by_name: dict[str, dict] = {}
+    for p in values.get("players") or []:
+        pid = str(p.get("playerId") or "")
+        if pid:
+            by_id[pid] = p
+        name = str(p.get("name") or "")
+        if name:
+            by_name[normalize_player_name(name)] = p
+    picks_by_name = {
+        str(p.get("name") or "").lower(): p
+        for p in values.get("picks") or []
+        if p.get("distribution")
+    }
+
+    def _resolve(ref: Any) -> tuple[dict | None, str, str]:
+        """(strategy→value source dict, kind, label) or (None, 'unresolved', label)."""
+        if isinstance(ref, Mapping):
+            pid = str(ref.get("playerId") or "").strip()
+            label = str(ref.get("name") or pid)
+            if pid and pid in by_id:
+                return by_id[pid], "player", label
+            name = str(ref.get("name") or "").strip()
+        else:
+            name = str(ref or "").strip()
+            label = name
+        if not name:
+            return None, "unresolved", label
+        player = by_name.get(normalize_player_name(name))
+        if player is not None:
+            return player, "player", name
+        pick = picks_by_name.get(name.lower())
+        if pick is not None:
+            return pick, "pick", name
+        return None, "unresolved", name
+
+    def _side_values(refs: list[Any]) -> tuple[dict[str, list[float]], list[str], list[dict]]:
+        per_strategy: dict[str, list[float]] = {s: [] for s in strategies}
+        unresolved: list[str] = []
+        resolved: list[dict] = []
+        for ref in refs or []:
+            asset, kind, label = _resolve(ref)
+            if asset is None:
+                unresolved.append(label)
+                continue
+            entry: dict[str, Any] = {"name": label, "kind": kind, "values": {}}
+            for s in strategies:
+                if kind == "player":
+                    v = float((asset.get("tradeValue") or {}).get(s) or 0.0)
+                else:
+                    v = float(((asset.get("distribution") or {}).get(s) or {}).get("ev") or 0.0)
+                per_strategy[s].append(v)
+                entry["values"][s] = round(v, 1)
+            resolved.append(entry)
+        return per_strategy, unresolved, resolved
+
+    a_vals, a_unresolved, a_assets = _side_values(side_a)
+    b_vals, b_unresolved, b_assets = _side_values(side_b)
+
+    by_strategy: dict[str, dict[str, float]] = {}
+    for s in strategies:
+        pkg_a = package_value(a_vals[s], params)
+        pkg_b = package_value(b_vals[s], params)
+        total = max(1.0, pkg_a + pkg_b)
+        by_strategy[s] = {
+            "sideA": round(pkg_a, 1),
+            "sideB": round(pkg_b, 1),
+            "edge": round(pkg_a - pkg_b, 1),
+            "edgePct": round(100.0 * (pkg_a - pkg_b) / total, 1),
+        }
+
+    return {
+        "status": "ok",
+        "byStrategy": by_strategy,
+        "sideAAssets": a_assets,
+        "sideBAssets": b_assets,
+        "unresolved": {"sideA": a_unresolved, "sideB": b_unresolved},
+        "meta": {
+            "packageMath": "ces",
+            "valuationAsOf": (values.get("meta") or {}).get("asOf"),
+            "paramSetId": (values.get("meta") or {}).get("paramSetId"),
+        },
+    }
+
+
 def get_bdvm_trades(
     contract: Mapping[str, Any],
     league_key: str,
@@ -193,3 +392,4 @@ def reset_cache() -> None:
     with _aux_lock:
         _context_cache.clear()
         _schedule_cache.clear()
+        _actuals_cache.clear()
