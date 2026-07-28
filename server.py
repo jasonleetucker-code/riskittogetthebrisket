@@ -312,6 +312,16 @@ latest_startup_data: dict | None = None
 latest_startup_data_bytes: bytes | None = None
 latest_startup_data_gzip_bytes: bytes | None = None
 latest_startup_data_etag: str | None = None
+# Array payload: full contract minus the LEGACY ``players`` dict.  The
+# dict and ``playersArray`` are parallel encodings of the same players
+# (~5.8MB + ~6.6MB of a ~12MB payload); ``playersArray`` is the richer
+# one and the only one the frontend materializer reads when present, so
+# desktop clients request this view and cut the wire/parse cost roughly
+# in half with zero field loss.
+latest_array_data: dict | None = None
+latest_array_data_bytes: bytes | None = None
+latest_array_data_gzip_bytes: bytes | None = None
+latest_array_data_etag: str | None = None
 # Compact payload for mobile / slow networks (~90% smaller).  Precomputed
 # (bytes + gzip + etag) at refresh time so the ``?view=compact`` fast path
 # never re-runs ``compact_contract`` + ``json.dumps`` + gzip on the event
@@ -1677,6 +1687,11 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_startup_data_gzip_bytes, \
         latest_startup_data_etag
     global \
+        latest_array_data, \
+        latest_array_data_bytes, \
+        latest_array_data_gzip_bytes, \
+        latest_array_data_etag
+    global \
         latest_compact_data, \
         latest_compact_data_bytes, \
         latest_compact_data_gzip_bytes, \
@@ -1696,6 +1711,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_startup_data_bytes = None
     latest_startup_data_gzip_bytes = None
     latest_startup_data_etag = None
+    latest_array_data = None
+    latest_array_data_bytes = None
+    latest_array_data_gzip_bytes = None
+    latest_array_data_etag = None
     latest_compact_data = None
     latest_compact_data_bytes = None
     latest_compact_data_gzip_bytes = None
@@ -1825,6 +1844,24 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_runtime_data_bytes = runtime_raw
         latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
         latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
+
+        # Array payload: full contract minus the LEGACY ``players`` dict.
+        # ``playersArray`` and the dict are parallel encodings; the array
+        # is strictly richer (the dict's fields are underscore-mirrors +
+        # flat per-source values the array carries in structured form)
+        # and it is the branch ``buildRows`` prefers whenever present.
+        # Desktop clients request ``?view=array`` and get the identical
+        # board at roughly half the bytes/parse cost of the full view.
+        array_payload = dict(contract_payload)
+        array_payload.pop("players", None)
+        array_payload["payloadView"] = "array"
+        array_raw = json.dumps(array_payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        latest_array_data = array_payload
+        latest_array_data_bytes = array_raw
+        latest_array_data_gzip_bytes = gzip.compress(array_raw, compresslevel=5)
+        latest_array_data_etag = hashlib.sha1(array_raw).hexdigest()
 
         # Startup payload: same contract shape, but strips heavyweight fields
         # not needed for first screen render so first data-visible is faster.
@@ -2905,6 +2942,7 @@ async def get_data(request: Request):
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
         runtime_view = view in {"app", "runtime", "lite"}
+        array_view = view in {"array", "desktop"}
         compact_view = view in {"compact", "slim"}
 
         payload_bytes = latest_data_bytes
@@ -2925,6 +2963,15 @@ async def get_data(request: Request):
             payload_etag = latest_runtime_data_etag
             payload_obj = latest_runtime_data
             payload_view_name = "runtime"
+        elif array_view and latest_array_data is not None:
+            # Desktop view: full contract minus the legacy ``players``
+            # dict (a parallel encoding of ``playersArray``).  Identical
+            # board, identical audit fields, ~half the bytes.
+            payload_bytes = latest_array_data_bytes
+            payload_gzip_bytes = latest_array_data_gzip_bytes
+            payload_etag = latest_array_data_etag
+            payload_obj = latest_array_data
+            payload_view_name = "array"
         elif compact_view and latest_contract_data is not None:
             # Mobile / slow-network view — prune ~20 audit + trust
             # fields.  ~90% byte reduction.  Additive: a frontend

@@ -79,14 +79,30 @@ export function adjustedPollingMs(baseMs, { when = "foreground" } = {}) {
 }
 
 /**
- * Append `view=compact` to /api/data URLs on mobile so the
- * frontend gets the ~500KB pruned view instead of ~4MB full.
- * The frontend materializer ignores missing audit fields
- * gracefully (shape test pins the contract).
+ * Which `/api/data` view the contract fetch should request.
+ *
+ *   Mobile / slow network → "compact" (prunes ~20 audit fields the
+ *   mobile UI never renders; materializer tolerates their absence).
+ *   Desktop → "array" (full contract minus the LEGACY `players` dict,
+ *   which is a parallel encoding of `playersArray` — the branch
+ *   `buildRows` prefers whenever present).  Identical board, identical
+ *   audit fields, roughly half the bytes and half the client-side
+ *   JSON.parse work vs the full view (~5.9MB vs ~11.8MB uncompressed).
+ *
+ * Desktop deliberately does NOT use "app"/"runtime" (drops
+ * `playersArray`, losing tier ids, confidence, and the audit fields
+ * 20+ desktop surfaces render) or "compact" (prunes audit fields the
+ * desktop rankings board and PlayerPopup show).  Row-parity against
+ * the full view is pinned by `tests/api/test_array_view.py`.
+ *
+ * Historical note: this used to return "delta" for desktop, which is
+ * NOT a valid `GET /api/data` view — the caller dropped it and the
+ * request went out with no view param at all, silently serving the
+ * full ~11.8MB payload to every desktop browser.
  */
 export function preferredDataView() {
   if (isMobileProfile() || isSlowNetwork()) {
     return "compact";
   }
-  return "delta";  // existing default
+  return "array";
 }
