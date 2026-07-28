@@ -139,6 +139,8 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.nfl_data.measurement_provenance import Provenance, scoring_provenance
+
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
@@ -169,6 +171,26 @@ MAX_DEPTH_DRIFT: float = 0.05
 
 #: Below this many scored players a cohort median is not worth trusting.
 MIN_COHORT_SIZE: int = 12
+
+#: Hard clamp on the emitted multiplier, mirroring
+#: :data:`src.league_intel.reception_fit.MAX_TILT`.
+#:
+#: **The depth-drift check above does not cover this case, and cannot.**
+#: Drift detects a ratio that moves with sample depth — the signature of
+#: sampling noise. A corrupted INPUT produces a ratio that is large and
+#: perfectly stable, so it sails through: measured with one rate parsed
+#: 100x too large, this module returned DL 2.899 / LB 0.050 / DB 0.050,
+#: a 57x spread, with all three marked ``trusted`` at drift 0.0000.
+#:
+#: ``reception_fit`` — written as this module's sibling, and sharing its
+#: probe design — already carried exactly this bound, for exactly this
+#: reason ("so an upstream data fault cannot express itself as a 3x
+#: repricing"). Only one of the two got it. This closes that asymmetry.
+#:
+#: 0.25 is generous against a measured range of 0.9608-1.0421, so it
+#: never engages in normal operation; it exists solely so a data fault
+#: cannot reprice every IDP asset on the board by multiples.
+MAX_TILT: float = 0.25
 
 
 @dataclass(frozen=True)
@@ -214,6 +236,17 @@ class ScoringFitMeasurement:
     measured: bool = False
     reason: str = ""
 
+    provenance: Provenance = field(default_factory=Provenance)
+    """What this measurement was computed from.
+
+    Added after the 2026-07-28 correction, in which these multipliers
+    shipped with DB and DL inverted because they were measured on a
+    scoring card with one alias repaired and a second still unread.
+    ``provenance.inputs_complete`` is False in exactly that situation,
+    so the number now carries its own warning instead of looking
+    identical to a sound one.
+    """
+
     def multiplier_for(self, position: str) -> float:
         """Tilt for ``position``; 1.0 for anything unmeasured or
         untrusted.
@@ -233,6 +266,7 @@ class ScoringFitMeasurement:
             "season": self.season,
             "reason": self.reason,
             "positions": {k: v.to_dict() for k, v in sorted(self.positions.items())},
+            "provenance": self.provenance.to_dict(),
         }
 
 
@@ -336,9 +370,26 @@ def measure_positional_scoring_fit(
     positions: dict[str, PositionFit] = {}
     for pos, (ratio, drift, n) in sorted(raw.items()):
         ok = drift <= MAX_DEPTH_DRIFT
+        normalised = (ratio / mean_ratio) if ok else 1.0
+        clamped = max(1.0 - MAX_TILT, min(1.0 + MAX_TILT, normalised))
+        if clamped != normalised:
+            # Only reachable from a corrupted input — see MAX_TILT.  Loud
+            # because the clamp keeps the board sane while leaving the
+            # underlying fault in place, and a silently-clamped number
+            # looks exactly like a measured one.
+            _LOGGER.error(
+                "scoring_fit multiplier for %s clamped %.4f -> %.4f (bound %.2f). "
+                "A tilt this large is not a scoring difference, it is an input "
+                "fault; the depth-drift check cannot catch it because a corrupt "
+                "rate produces a STABLE ratio. Check the scoring card.",
+                pos,
+                normalised,
+                clamped,
+                MAX_TILT,
+            )
         positions[pos] = PositionFit(
             position=pos,
-            multiplier=(ratio / mean_ratio) if ok else 1.0,
+            multiplier=clamped,
             raw_ratio=ratio,
             cohort_size=n,
             depth_drift=drift,
@@ -362,9 +413,30 @@ def measure_positional_scoring_fit(
                 MAX_DEPTH_DRIFT,
             )
 
+    prov = scoring_provenance(
+        my_scoring,
+        baseline_scoring,
+        rows_scored=len(rows),
+        notes="mean-normalised median ratio, per IDP position family",
+    )
+    if not prov.inputs_complete:
+        # Loud on purpose.  This is the exact condition that produced an
+        # inverted DB-vs-DL tilt and shipped it: a scoring rule the
+        # engine could read and did not, biasing one position group
+        # against another.  A relative measurement cannot absorb an
+        # asymmetric input gap.
+        _LOGGER.warning(
+            "scoring_fit measured on INCOMPLETE inputs: %s unread scoring "
+            "rule(s) %s — the multipliers below may be biased between "
+            "positions, not merely imprecise",
+            len(prov.input_gaps),
+            list(prov.input_gaps),
+        )
+
     return ScoringFitMeasurement(
         positions=positions,
         season=season,
         measured=True,
         reason=f"measured over {sum(n for _, _, n in raw.values())} IDP player-seasons",
+        provenance=prov,
     )

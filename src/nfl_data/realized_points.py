@@ -87,7 +87,48 @@ _SIMPLE_KEYS: dict[str, tuple[str, str]] = {
     "rec_yd": ("receiving_yards", "Rec Yds"),
     "rec_td": ("receiving_tds", "Rec TD"),
     "fum_lost": ("fumbles_lost", "Fum Lost"),
+    # ADDED 2026-07-28.  Per-play scoring the engine never read, found
+    # by src/nfl_data/scoring_coverage.py.  Both columns are on the
+    # unified feed and both rules are live in dynasty_main: pass_cmp at
+    # 0.15/completion (1,762 unscored points across 2025) and rush_att
+    # at 0.08/carry (1,225).  ``pass_inc`` is the third of this family
+    # and is derived rather than read — see below.
+    "pass_cmp": ("completions", "Completions"),
+    "rush_att": ("carries", "Rush Att"),
 }
+
+
+# Position-scoped first-down bonuses.  Sleeper exposes TWO first-down
+# families and a dump can carry both: ``pass_fd`` / ``rush_fd`` /
+# ``rec_fd`` are scoped by PLAY TYPE, while ``bonus_fd_qb`` / ``_rb`` /
+# ``_te`` / ``_wr`` are scoped by the receiving player's POSITION.  In
+# dynasty_main the play-type keys are all 0.0 and the position-scoped
+# ones carry the rates, which is what establishes they are distinct
+# rules rather than aliases of each other.
+#
+# A position-scoped bonus pays the player for every first down they
+# gain, by any means — a QB scrambling for a first down and an RB
+# catching one both count — so all three first-down columns are summed
+# and the rate is chosen by the player's position.
+#
+# Worth 13,323 unscored points across 2025, and asymmetric by position
+# (QB 4,134 / RB 3,840 / WR 3,823 / TE 1,526).  That asymmetry is why
+# this mattered beyond a magnitude error: a per-position understatement
+# tilts any RELATIVE comparison between positions, the same way the
+# ``idp_pass_def`` alias gap inverted the measured DB-vs-DL tilt.
+_FIRST_DOWN_BONUS_KEYS: dict[str, str] = {
+    "QB": "bonus_fd_qb",
+    "RB": "bonus_fd_rb",
+    "WR": "bonus_fd_wr",
+    "TE": "bonus_fd_te",
+}
+
+#: Columns summed to get a player's total first downs.
+_FIRST_DOWN_COLUMNS: tuple[str, ...] = (
+    "passing_first_downs",
+    "rushing_first_downs",
+    "receiving_first_downs",
+)
 
 
 # Defensive scoring keys → nflverse ``def_*`` stat columns.  Only
@@ -321,6 +362,18 @@ def compute_weekly_points(
         breakdown.append((label, stat, contribution))
         total += contribution
 
+    # Incompletions — derived, not a column.  nflverse publishes
+    # attempts and completions; Sleeper charges the difference.  Guarded
+    # against a negative result so a malformed row can never award
+    # points for a penalty rule (dynasty_main pays -0.22/incompletion).
+    inc_rate = scoring.get("pass_inc", 0.0)
+    if inc_rate != 0.0:
+        incompletions = _num(stat_row.get("attempts")) - _num(stat_row.get("completions"))
+        if incompletions > 0:
+            contribution = incompletions * inc_rate
+            breakdown.append(("Incompletions", incompletions, contribution))
+            total += contribution
+
     # Position-specific bonus rec (TE premium).
     pos = (position or str(stat_row.get("position") or "")).upper()
     te_bonus = scoring.get("bonus_rec_te", 0.0)
@@ -329,6 +382,19 @@ def compute_weekly_points(
         if recs:
             breakdown.append(("TE Rec Bonus", recs, recs * te_bonus))
             total += recs * te_bonus
+
+    # Position-scoped first-down bonus.  See _FIRST_DOWN_BONUS_KEYS for
+    # why all three columns are summed and why this is keyed on position
+    # rather than play type.
+    fd_key = _FIRST_DOWN_BONUS_KEYS.get(pos)
+    if fd_key:
+        fd_rate = scoring.get(fd_key, 0.0)
+        if fd_rate != 0.0:
+            first_downs = sum(_num(stat_row.get(c)) for c in _FIRST_DOWN_COLUMNS)
+            if first_downs:
+                contribution = first_downs * fd_rate
+                breakdown.append(("First Downs", first_downs, contribution))
+                total += contribution
 
     # IDP keys — only fire for defensive positions.  Sleeper's
     # stacked-scoring stance: a sack on a solo tackle credits
