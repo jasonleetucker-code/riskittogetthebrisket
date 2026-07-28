@@ -203,14 +203,26 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
     "reception_scoring_fit": True,
     # BDVM — projection-driven fundamental dynasty valuation engine
-    # (src/bdvm/, endpoints /api/bdvm/values|roster|trades).  Held OFF:
-    # the engine is implemented and tested (tests/bdvm/); it serves an
-    # honest "no_projection_snapshot" payload until projection snapshots
-    # exist under data/bdvm/projections/ (scripts/bdvm_build_baseline.py
-    # or scripts/fetch_idpshow_projections.py build them).  It never
-    # touches rankDerivedValue or any existing route either way.  See
-    # docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
-    "bdvm_engine": False,
+    # (src/bdvm/, endpoints /api/bdvm/values|roster|trades).  ON as of
+    # 2026-07-28: the condition it was held OFF for is satisfied.
+    # ``scripts/bdvm_build_baseline.py`` now writes a real snapshot
+    # (2,815 records for 2026) and the engine answers status="ok" —
+    # 726 players priced, 222 honestly unpriced — instead of the
+    # placeholder "no_projection_snapshot" payload.
+    #
+    # Blast radius is small by construction:
+    #   * it never touches rankDerivedValue or any existing route;
+    #   * /rankings' "Fund gap" column gates on status == "ok", so it
+    #     self-suppresses wherever a snapshot is missing rather than
+    #     rendering blanks;
+    #   * the signal-alert leg seeds a silent baseline per (user,
+    #     league) on its first sweep, so flag-on day cannot flood.
+    #
+    # Rollback: RISKIT_FEATURE_BDVM_ENGINE=0 and restart (flag reads
+    # are cached per process).  A box with no snapshot on disk degrades
+    # to the same honest empty payload it served before.
+    # See docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
+    "bdvm_engine": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

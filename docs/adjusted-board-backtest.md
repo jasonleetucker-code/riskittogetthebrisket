@@ -132,8 +132,35 @@ scoring reality?
 Supported: "the adjusted board does not align better with our scoring
 than the market board does."
 Not supported: "the adjusted board predicts next season worse." That
-would need board snapshots taken *before* a season, which this repo does
-not keep.
+would need board snapshots taken *before* a season.
+
+**The mechanism to keep those snapshots exists, but it cannot reach
+2025.** `src/api/rank_history.py` appends one entry per UTC date on
+every fresh scrape (`server.py:1710`), carrying both ranks and
+`rankDerivedValue`, retained for three years. What it does *not* have is
+depth: the append path is recent, so the log does not go back to the
+2025 season, and it cannot be backfilled there either —
+`scripts/backfill_rank_history.py` replays `exports/archive/*.zip` and
+that directory was capped at 14 days. Every other dated artifact in the
+repo starts 2026-03-22 or later.
+
+So a genuine forward test needs a board snapshot taken before a season
+whose outcomes we then observe, and the earliest such pair is **a board
+from before the 2026 season scored against 2026 results — available
+around December 2026**, not now.
+
+Two changes landed 2026-07-28 to make sure that date is actually
+reachable rather than discovered-too-late:
+
+* `rank_history.coverage()`, surfaced on `/api/status` as
+  `rankHistoryCoverage`. The append is best-effort inside a `try` and
+  fires only on a fresh scrape, so a stall costs one warning line and
+  then silence. `staleDays` is the field that catches it: a log that
+  stopped growing yesterday looks perfect by span, count and gap count.
+* Export archives now keep every zip for 14 days and then **one per day
+  out to a year** (`EXPORTS_ARCHIVE_DAILY_MAX_AGE_DAYS`). At a flat 14
+  days any stall longer than a fortnight was permanently unrepairable;
+  a year of dailies costs ~80 MB and makes the backfill actually useful.
 
 Power: the CI half-width is about 0.009 ρ, so this design detects a
 difference of roughly ±0.015 and cannot rule out a genuine improvement
@@ -142,8 +169,16 @@ axes produce, not a null at any effect size.
 
 ## What would change the answer
 
-* **Keep board snapshots.** Stamping the served board weekly turns this
-  into a real forward test in one season and removes the caveat above.
+* **Run the forward test once the 2026 season has outcomes** (~Dec
+  2026). Point this script's board source at a dated entry in
+  `data/rank_history.jsonl` from before the season instead of
+  `exports/latest/`, and the common-mode caveat disappears entirely —
+  it becomes "did this board predict the season", which is the question
+  actually worth answering. `compare_boards` and the realized-points
+  join are unchanged; the one thing to build is a position lookup,
+  since snapshots key on `name::assetClass` and carry no position.
+  Check `rankHistoryCoverage` on `/api/status` before then — if the log
+  has stalled, the window closes silently.
 * **More per-player axes.** Four of eight positions currently receive a
   single scalar. Reception fit is the only per-player signal live, and
   it reaches RB/TE/WR only. An IDP per-player axis was refused for good

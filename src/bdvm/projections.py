@@ -28,6 +28,7 @@ from typing import Any, Iterable, Mapping
 
 from src.bdvm.params import ParamSet
 from src.bdvm.scoring import score_stat_line_per_game, season_line_to_per_game
+from src.nfl_data.first_down_rate import with_imputed_first_downs
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = REPO_ROOT / "data" / "bdvm" / "projections"
@@ -70,6 +71,19 @@ class ProjectionRecord:
                 "neither a stat line nor fantasy points"
             )
 
+    @property
+    def first_downs_imputed(self) -> bool:
+        """Were this projection's first downs estimated rather than supplied?
+
+        Inspectable rather than inferable: a points figure that silently
+        might or might not include an estimate is the ambiguity the
+        imputation exists to remove, so the fact travels with the record.
+        """
+        if self.stat_line is None:
+            return False
+        _, imputed = with_imputed_first_downs(self.stat_line, self.position)
+        return imputed
+
     def resolve_fpg(self, scoring_settings: Mapping[str, Any]) -> tuple[float, bool]:
         """(fpg under league scoring, scoring_native flag for this value)."""
         if self.stat_line is not None:
@@ -79,7 +93,22 @@ class ProjectionRecord:
                 else season_line_to_per_game(self.stat_line, self.games)
             )
             return (
-                score_stat_line_per_game(per_game, scoring_settings, position=self.position),
+                score_stat_line_per_game(
+                    per_game,
+                    scoring_settings,
+                    position=self.position,
+                    # THE projection boundary.  No projection source
+                    # publishes first downs, and the realized path reads
+                    # them from columns, so scoring a projected line
+                    # as-is drops 22-30% of a player's points — unevenly
+                    # by position, and only for players a real source
+                    # covers, since proxy rows are scored from realized
+                    # stats that DO have the columns.  Imputed from the
+                    # measured one-per-twenty-yards fit; a no-op if the
+                    # source supplied them or the league does not pay
+                    # the bonus.  See src/nfl_data/first_down_rate.py.
+                    impute_first_downs=True,
+                ),
                 True,
             )
         if self.fpg is not None:

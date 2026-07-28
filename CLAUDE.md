@@ -386,7 +386,7 @@ The offline canonical-build path (``scripts/canonical_build.py`` +
 ``/api/data`` contract is the single source of truth; trade
 suggestions read from it directly.
 
-### BDVM — the fundamental valuation engine (feature-flagged, OFF)
+### BDVM — the fundamental valuation engine (feature-flagged, ON since 2026-07-28)
 ``src/bdvm/`` is a SECOND, INDEPENDENT value concept: projection-driven
 *fundamental* dynasty value per the Brisket Dynasty Valuation Model
 (``docs/research/bdvm-v1/`` — research PDF, verified reference fixture,
@@ -396,7 +396,18 @@ test-pinned (``tests/bdvm/``):
 - **It never touches ``rankDerivedValue``** or any existing route. The
   market board above stays the market-value concept; BDVM is the
   fundamental-value concept; they are compared, never merged in place.
-- Reachable only behind the ``bdvm_engine`` feature flag (default OFF)
+- Reachable behind the ``bdvm_engine`` feature flag, **default ON**
+  since 2026-07-28 — the condition it was held off for is met:
+  ``scripts/bdvm_build_baseline.py`` writes a real snapshot (2,815
+  records for 2026) and the engine answers ``status: "ok"`` with
+  726 players priced and 222 honestly unpriced. Additive by
+  construction: it never writes ``rankDerivedValue`` or touches an
+  existing route, the /rankings Fund-gap column gates on
+  ``status == "ok"`` so it self-suppresses without a snapshot, and
+  the alert leg seeds a silent per-(user, league) baseline so
+  flag-on day cannot flood. Rollback:
+  ``RISKIT_FEATURE_BDVM_ENGINE=0`` **and restart** — flag reads are
+  cached per process and there is no runtime toggle. Endpoints:
   at ``GET /api/bdvm/values`` (``surplusMode=option|truncated|plain``
   exposes the option-value ablation), ``GET /api/bdvm/roster``
   (strategy capitals + league-relative direction per roster) and

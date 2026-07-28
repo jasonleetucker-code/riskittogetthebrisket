@@ -3910,6 +3910,12 @@ async def get_status():
             # is additive/informational; enabling a flag at runtime is
             # the operator's decision.
             "featureFlags": _feature_flag_snapshot_safe(),
+            # The rank-history log is the only record of what the board
+            # said on a past date, and its append is best-effort inside
+            # a try at the contract-rebuild site.  A stall is therefore
+            # silent; surfacing coverage here is what makes it visible
+            # before a study needs the history and finds it absent.
+            "rankHistoryCoverage": _rank_history_coverage_safe(),
             "idMappingCoverage": _id_mapping_coverage_safe(),
             "nflDataProvider": _nfl_data_provider_status_safe(),
             "normalizationHealth": _normalization_health_safe(),
@@ -3935,6 +3941,20 @@ def _feature_flag_snapshot_safe() -> dict:
         return _ff.effective_flags()
     except Exception as exc:  # noqa: BLE001
         log.warning("feature_flag snapshot failed: %s", exc)
+        return {}
+
+
+def _rank_history_coverage_safe() -> dict:
+    """Rank-history log coverage, tolerant of read errors.
+
+    Never raises: this is a diagnostic on a status endpoint, and a
+    diagnostic that can take down the thing it reports on is worse than
+    no diagnostic.
+    """
+    try:
+        return _rank_history.coverage()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("rank_history coverage failed: %s", exc)
         return {}
 
 

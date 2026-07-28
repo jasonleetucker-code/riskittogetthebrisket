@@ -56,7 +56,26 @@ _FILENAME_TS_RE = re.compile(r"(\d{8})(?:[._T-]?(\d{6}))?")
 # behaviour is identical in tests, CI, and prod — there is no reason to
 # tune these per-environment and an env override would just be another
 # way to accidentally nuke history.
+# Export archives serve two different jobs with different shelf lives,
+# so they get two windows rather than one.
+#
+#   * Debugging a specific scrape wants EVERY zip — there are ~9 a day
+#     and which one you need depends on when the thing went wrong.
+#     That only matters for a week or two.
+#   * Repairing a gap in ``data/rank_history.jsonl`` wants ONE zip per
+#     day, going back as far as the history log itself.  That log is
+#     the only record of what the board said on a past date, its append
+#     is best-effort, and ``scripts/backfill_rank_history.py`` can only
+#     replay what is still in this directory.  At a flat 14 days, any
+#     stall longer than a fortnight was permanently unrecoverable.
+#
+# Measured 2026-07-28: 130 zips over 15 days = 28 MB, ~0.22 MB each.
+# Keeping one per day for a year costs ~80 MB on a disk with 27 GB
+# free.  Raising the flat cap to a year instead would cost ~700 MB for
+# no additional repair capability, since the backfill only replays one
+# snapshot per date anyway.
 EXPORTS_ARCHIVE_MAX_AGE_DAYS = 14
+EXPORTS_ARCHIVE_DAILY_MAX_AGE_DAYS = 365
 DYNASTY_DATA_MAX_AGE_DAYS = 45
 RAW_SOURCES_KEEP = 30
 RAW_PER_SOURCE_KEEP = 30
@@ -270,6 +289,60 @@ def _prune_keep_newest(
         _delete(entry, directory, protected, cat, dry_run=dry_run)
 
 
+def _prune_thin_to_daily(
+    directory: Path,
+    pattern: str,
+    full_days: int,
+    daily_days: int,
+    protected: list[Path],
+    cat: CategoryResult,
+    *,
+    now: float,
+    dry_run: bool,
+) -> None:
+    """Keep everything recent, one per day beyond that, nothing past the tail.
+
+    Three bands, by the timestamp embedded in the filename (see
+    :func:`_age_source` for why not mtime):
+
+        newer than ``full_days``        keep all
+        ``full_days``..``daily_days``   keep the NEWEST per UTC date
+        older than ``daily_days``       delete
+
+    The middle band is what makes a rank-history gap repairable a year
+    later instead of a fortnight later, at roughly a ninth of the disk
+    a flat cap would need.
+
+    Keeping the *newest* of each day rather than the oldest is
+    deliberate: it matches what ``append_snapshot`` would have recorded
+    for that date, since a same-day re-run overwrites the existing
+    entry.  Backfilling from the oldest zip of a day would write a board
+    the log never held.
+    """
+    if not directory.is_dir():
+        return
+    full_cutoff = now - full_days * _DAY_SECONDS
+    daily_cutoff = now - daily_days * _DAY_SECONDS
+
+    # Newest first, so the first entry seen for a date is the keeper.
+    entries = sorted(directory.glob(pattern), key=_age_source, reverse=True)
+    seen_dates: set[str] = set()
+    for entry in entries:
+        age_epoch = _age_source(entry)
+        if age_epoch >= full_cutoff:
+            cat.kept += 1
+            continue
+        if age_epoch < daily_cutoff:
+            _delete(entry, directory, protected, cat, dry_run=dry_run)
+            continue
+        day = datetime.fromtimestamp(age_epoch, tz=timezone.utc).strftime("%Y-%m-%d")
+        if day in seen_dates:
+            _delete(entry, directory, protected, cat, dry_run=dry_run)
+        else:
+            seen_dates.add(day)
+            cat.kept += 1
+
+
 def prune_data_dir(
     base_dir: Path,
     *,
@@ -293,13 +366,16 @@ def prune_data_dir(
         data_dir / "canonical", protected, report._cat("canonical"), dry_run=dry_run
     )
 
-    # 2. Export archive zips — keep 14 days (both known archive roots).
+    # 2. Export archive zips — every zip for the recent window, then one
+    #    per day out to a year so a rank-history gap stays repairable.
+    #    See the constants for why two bands rather than one.
     arch = report._cat("exports_archive")
     for archive_dir in (data_dir / "exports" / "archive", base_dir / "exports" / "archive"):
-        _prune_by_age(
+        _prune_thin_to_daily(
             archive_dir,
             "dynasty_export_*.zip",
             EXPORTS_ARCHIVE_MAX_AGE_DAYS,
+            EXPORTS_ARCHIVE_DAILY_MAX_AGE_DAYS,
             protected,
             arch,
             now=now,

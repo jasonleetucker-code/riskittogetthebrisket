@@ -19,11 +19,23 @@ JSONL is chosen deliberately:
   continues).
 * Text-friendly for ``git diff`` if we ever archive a slice.
 
-Retention: we keep the newest ``MAX_SNAPSHOTS`` entries on disk
-(currently 180 — six months of daily scrapes).  The trim happens
+Retention: we keep the newest ``MAX_SNAPSHOTS`` entries on disk — see
+that constant for the current value and the reasoning behind it.  The
+number is deliberately NOT restated here: this paragraph used to say
+"currently 180 — six months", which stopped being true when retention
+was tripled and nothing forced the two to agree.  The trim happens
 lazily on each append so a long-running deployment stays bounded.
 Dedup: only one snapshot per UTC date is retained; a re-run on the
 same day overwrites the existing entry.
+
+This log is the ONLY artifact that records what the board said on a
+past date, which makes a silent stall expensive in a way no error
+message would reveal: ``append_snapshot`` runs inside a best-effort
+``try`` at ``server.py:1710`` and only on a *fresh scrape*, so a
+failure degrades to one warning line and a log that quietly stops
+growing.  Nobody notices until a study needs the history and finds it
+absent — a year later.  :func:`coverage` exists to make that visible
+before then.
 
 Public API
 ──────────
@@ -42,6 +54,11 @@ Public API
         ``RankChangeGlyph`` picks it up automatically — zero
         frontend changes needed to activate sparklines once the
         log has >=2 entries.
+
+    coverage()
+        What is actually on disk: how many snapshots, spanning which
+        dates, with how many missing days.  The answer to "is this
+        still being written?" without opening the file.
 """
 
 from __future__ import annotations
@@ -386,6 +403,71 @@ def load_history(
                     val = _value_from_rank(rank, scope)
             per_player.setdefault(str(name), []).append({"date": date, "rank": rank, "val": val})
     return per_player
+
+
+def coverage(*, path: Path | None = None) -> dict[str, Any]:
+    """What is actually on disk — the answer to "is this still being
+    written?" without opening the file.
+
+    Mirrors :func:`src.nfl_data.actuals_store.coverage`.  Reports the
+    absent case explicitly rather than returning an empty dict, because
+    "the log is missing" and "the log is fine but I could not read it"
+    must not look the same to whatever surfaces this.
+
+    ``missingDays`` is the point of the whole function.  A count of
+    snapshots tells you nothing on its own — 400 entries could be four
+    hundred consecutive days or a year-old block that stopped growing
+    in March.  Gaps against the calendar are what reveal a stall, and
+    ``staleDays`` is what reveals one that is happening right now.
+    """
+    path = path or HISTORY_PATH
+    if not path.exists():
+        return {
+            "path": str(path),
+            "exists": False,
+            "snapshots": 0,
+            "reason": "no rank-history log on disk; nothing has been appended",
+        }
+
+    entries = _read_lines(path)
+    dates = sorted({str(e.get("date")) for e in entries if isinstance(e.get("date"), str)})
+    if not dates:
+        return {
+            "path": str(path),
+            "exists": True,
+            "snapshots": 0,
+            "reason": "log present but carries no dated entries",
+        }
+
+    first, last = dates[0], dates[-1]
+    try:
+        d0 = datetime.strptime(first, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        d1 = datetime.strptime(last, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        span_days = int((d1 - d0).days) + 1
+        stale_days = int((datetime.now(timezone.utc) - d1).days)
+    except ValueError:
+        span_days = len(dates)
+        stale_days = -1
+
+    with_values = sum(1 for e in entries if isinstance(e.get("values"), dict) and e["values"])
+    return {
+        "path": str(path),
+        "exists": True,
+        "snapshots": len(dates),
+        "firstDate": first,
+        "lastDate": last,
+        "spanDays": span_days,
+        # Calendar days inside the span with no snapshot.  Non-zero is
+        # not automatically a fault — the append only fires on a fresh
+        # scrape — but a large or growing number is.
+        "missingDays": max(0, span_days - len(dates)),
+        # Days since the newest entry.  This is the live-stall signal:
+        # a log that stopped growing yesterday still looks healthy by
+        # every other field here.
+        "staleDays": stale_days,
+        "snapshotsWithValues": with_values,
+        "retentionCap": MAX_SNAPSHOTS,
+    }
 
 
 def stamp_contract_with_history(

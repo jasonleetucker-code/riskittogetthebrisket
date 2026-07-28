@@ -20,12 +20,24 @@ Known limitation (documented, second-order): threshold bonuses
 (``bonus_pass_yd_300`` etc.) are evaluated against the per-game *mean*
 stat line, so a projection that averages 290 pass yards contributes no
 300-yard-game bonus even though some individual weeks would clear it.
+
+The vocabulary gap that is NOT second-order: **first downs.**  The
+scorer reads them from ``*_first_downs`` columns and no projection
+source publishes those, so a projected line scored as-is contributes
+zero first-down points under a card that pays 1.00 each — understating
+a QB by 30% and a back by 22%, unevenly, and putting real-source
+players ~24% below proxy players who were scored from realized rows
+that do have the columns.  ``impute_first_downs=True`` closes it from
+the measured one-per-twenty-yards relationship; see
+:mod:`src.nfl_data.first_down_rate` for the fit and for why this is
+measurement rather than invention.
 """
 
 from __future__ import annotations
 
 from typing import Any, Mapping
 
+from src.nfl_data.first_down_rate import with_imputed_first_downs
 from src.nfl_data.realized_points import compute_weekly_points
 
 # Positions whose stat lines may carry IDP keys.
@@ -39,13 +51,25 @@ def score_stat_line_per_game(
     scoring_settings: Mapping[str, Any],
     *,
     position: str,
+    impute_first_downs: bool = False,
 ) -> float:
     """Fantasy points for one per-game projected stat line.
 
     ``position`` gates position-conditional rules (TE reception bonus,
     IDP keys) exactly as the realized path does.
+
+    ``impute_first_downs`` fills the one vocabulary gap between a
+    projection and a realized row — see the module docstring.  It
+    defaults to False so nothing changes implicitly and the one caller
+    that wants it says so at the call site; it is a no-op on a line that
+    already carries first downs, on an unmeasured position, and in a
+    league that does not pay the bonus.
     """
-    row = dict(stat_line)
+    row, _ = (
+        with_imputed_first_downs(stat_line, position)
+        if impute_first_downs
+        else (dict(stat_line), False)
+    )
     row.setdefault("season", 0)
     row.setdefault("week", 0)
     result = compute_weekly_points(row, dict(scoring_settings), position=position)
