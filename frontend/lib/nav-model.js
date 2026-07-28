@@ -68,6 +68,7 @@ export const NAV_MODEL = [
     items: [
       { href: "/trending", label: "Trending", hint: "Biggest rank movers, last 1d/7d/30d", keywords: ["movers", "risers", "fallers"] },
       { href: "/edge", label: "Edge", hint: "Where ranking sources disagree most", keywords: ["signals", "disagreement"] },
+      { href: "/bdvm", label: "Fundamentals", hint: "BDVM projection-driven values vs the market", keywords: ["bdvm", "fundamental", "projections", "buy low"] },
       { href: "/intel", label: "Sharp Tracker", hint: "What league-mates buy/sell across their leagues", keywords: ["sleeper intelligence"] },
       { href: "/idptc-rookies", label: "Rookie Lab", hint: "Rookie board (IDPTC + KTC) with blurbs + export", keywords: ["rookies", "idptc"] },
     ],

@@ -1,0 +1,27 @@
+[Unit]
+Description=Weekly BDVM projection snapshot refresh for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already
+# binds it, and a [Unit] Requires= would (a) start the service on every
+# boot regardless of OnCalendar and (b) let a service failure stop the
+# timer itself, killing the weekly schedule.  Persistent=true below is
+# the intended catch-up mechanism for missed runs.
+
+[Timer]
+# Weekly, Tuesday 06:10 UTC.  Cadence rationale: the baseline stage
+# consumes nflverse weekly stats, which republish on the same Tuesday
+# cadence the player-context refresh and the Hill-curve refit already
+# target; preseason projections themselves move slower than weekly.
+#
+# Slot rationale: playerctx fires 05:40+<=10min jitter and finishes in
+# ~3 min, so 06:10 starts strictly after it on the same box; the
+# randomized delay keeps us off nflverse's release CDN on the same
+# second as every other weekly consumer.  Persistent=true backfills a
+# missed run after a reboot.
+OnCalendar=Tue *-*-* 06:10:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-bdvm-refresh.service
+
+[Install]
+WantedBy=timers.target

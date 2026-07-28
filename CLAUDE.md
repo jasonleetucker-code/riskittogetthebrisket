@@ -437,6 +437,25 @@ feed (everything live is market-rank derived), so BDVM ships with a
 manual-CSV projection adapter + a reconstructed-baseline proxy builder
 and stays dormant until snapshots exist under ``data/bdvm/projections/``.
 
+Operational surfaces (post-merge additions):
+
+- **Frontend**: ``/bdvm`` ("Fundamentals", Intel nav group) renders the
+  three endpoints — value board (strategy-currency selector, surplus-mode
+  ablation, fundamental-vs-market gap + signals), roster strategy
+  capitals with expandable assets, and the double-positive trade scan.
+  Pure display layer: ``frontend/lib/bdvm.js`` only reshapes/formats
+  backend numbers (same materializer rule as ``buildRows``); the flag-off
+  503 renders an explicit "engine switched off" state, never a generic
+  error (``classifyBdvmFailure`` distinguishes the three 503 variants).
+  Dev bridge routes at ``frontend/app/api/bdvm/*``; tests in
+  ``frontend/__tests__/bdvm-lib.test.js`` + ``components/bdvm-page.test.jsx``.
+- **Snapshot cadence**: ``scripts/refresh_bdvm_projections.py`` (weekly
+  ``dynasty-bdvm-refresh`` systemd timer, Tue 06:10 UTC) rebuilds the
+  reconstructed baseline then merges The IDP Show real projections over
+  it (session jar shared with the rankings fetch timer; stage self-skips
+  without it). Exit codes 0/1/2 in the playerctx style; runs on prod
+  because the endpoints read local gitignored ``data/``.
+
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
 

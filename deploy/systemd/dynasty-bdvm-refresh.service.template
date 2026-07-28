@@ -1,0 +1,49 @@
+[Unit]
+Description=Dynasty Trade Calculator BDVM projection snapshot refresh (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Produces immutable snapshots under data/bdvm/projections/<season>/ —
+# what GET /api/bdvm/values (feature flag: bdvm_engine) prices players
+# from.  Two stages via scripts/refresh_bdvm_projections.py:
+#   1. reconstructed baseline (public nflverse, no credentials)
+#   2. The IDP Show real projections (cookies staged from the
+#      idpshow-fetch work dir; stage self-skips when absent)
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: the endpoint reads a LOCAL file
+# and data/ is gitignored repo-wide, so a snapshot built on a CI
+# runner never reaches the VPS.  The producer has to run where the
+# reader lives — same reasoning as the player-context refresh.
+#
+# Safe to install while bdvm_engine is OFF: snapshots are the
+# prerequisite for flipping the flag, and building them touches no
+# existing route or data.
+#
+# Exit codes (scripts/refresh_bdvm_projections.py):
+#   0 - at least one stage wrote a snapshot
+#   1 - soft failure; last-good snapshot untouched
+#   2 - a stage hard-errored; last-good untouched
+# systemd reports 1 and 2 as unit failures so the journal shows them.
+# On 1/2 the previously written snapshot stays live (stale projections
+# beat no projections); on 0 the baseline stage carries prior real
+# records forward, so a rebuild never downgrades real → proxy. Reruns
+# on the same day are no-op successes (immutable date-stamped
+# snapshots), so boot catch-ups stay green.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_bdvm_projections.py
+StandardOutput=journal
+StandardError=journal
+# Dominated by the nflverse weekly-stats downloads (3 seasons, cached
+# by ETag on repeat runs).  Background enrichment — never user-facing.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1200
+
+[Install]
+WantedBy=multi-user.target

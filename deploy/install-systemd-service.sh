@@ -387,6 +387,54 @@ main() {
     fi
   fi
 
+  # ── BDVM projection refresh timer (weekly snapshots for /api/bdvm/*) ──
+  # Builds data/bdvm/projections/<season>/ snapshots — a LOCAL file the
+  # bdvm_engine-flagged endpoints read, so like playerctx the producer
+  # must run where the reader lives.  The baseline stage needs NO
+  # credentials (public nflverse); the IDP Show stage self-skips when
+  # the session jar is absent, so this installs unconditionally
+  # whenever both templates are present.  Safe while the flag is OFF:
+  # snapshots are the prerequisite for flipping it.
+  local bdvm_service_template="${APP_DIR}/deploy/systemd/dynasty-bdvm-refresh.service.template"
+  local bdvm_timer_template="${APP_DIR}/deploy/systemd/dynasty-bdvm-refresh.timer.template"
+  local bdvm_service_name="${SERVICE_NAME}-bdvm-refresh"
+  local bdvm_service_path="/etc/systemd/system/${bdvm_service_name}.service"
+  local bdvm_timer_path="/etc/systemd/system/${bdvm_service_name}.timer"
+  local bdvm_needs_install=false
+
+  if [[ -f "${bdvm_service_template}" && -f "${bdvm_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${bdvm_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${bdvm_service_path} + timer."
+        bdvm_needs_install=true
+      else
+        log "BDVM-refresh timer already installed; skipping."
+      fi
+    else
+      log "Installing BDVM projection refresh service + timer."
+      bdvm_needs_install=true
+    fi
+
+    if [[ "${bdvm_needs_install}" == "true" ]]; then
+      local tmp_bdvm_service tmp_bdvm_timer
+      tmp_bdvm_service="$(mktemp)"
+      tmp_bdvm_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${bdvm_service_template}" > "${tmp_bdvm_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${bdvm_timer_template}" > "${tmp_bdvm_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_bdvm_service}" "${bdvm_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_bdvm_timer}" "${bdvm_timer_path}"
+      rm -f "${tmp_bdvm_service}" "${tmp_bdvm_timer}"
+      log "Installed ${bdvm_service_name}.service + .timer"
+    fi
+  fi
+
   # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
   # CI cannot run scripts/fetch_dlf.py — Cloudflare 403s the GitHub
   # Actions runner IPs.  The same script succeeds from prod, so this
@@ -545,6 +593,19 @@ main() {
       # --no-block: a ~3 min download must never stall the deploy.
       sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
         log "Note: initial player-context build could not be started; the timer will cover it."
+    fi
+  fi
+  if [[ "${bdvm_needs_install}" == "true" ]]; then
+    # --now arms the timer immediately; the FIRST snapshots are built
+    # by the explicit kick below rather than waiting for Tuesday, so
+    # /api/bdvm/values has data the moment the flag is flipped.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${bdvm_service_name}.timer"
+    log "Enabled ${bdvm_service_name}.timer"
+    if ! ls "${APP_DIR}"/data/bdvm/projections/*/projections_*.json >/dev/null 2>&1; then
+      log "No BDVM projection snapshot yet — kicking an initial build in the background."
+      # --no-block: multi-minute nflverse downloads must never stall the deploy.
+      sudo -n "${SYSTEMCTL_BIN}" start --no-block "${bdvm_service_name}.service" || \
+        log "Note: initial BDVM snapshot build could not be started; the timer will cover it."
     fi
   fi
   if [[ "${dlf_fetch_needs_install}" == "true" ]]; then

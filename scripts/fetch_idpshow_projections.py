@@ -35,7 +35,8 @@ Run
     python3 scripts/fetch_idpshow_projections.py --season 2026
     python3 scripts/fetch_idpshow_projections.py --season 2026 --dry-run
 
-Exit codes: 0 snapshot written, 1 no usable data / paywalled, 2 error.
+Exit codes: 0 snapshot written (or today's already exists — no-op),
+1 no usable data / paywalled, 2 error.
 """
 
 from __future__ import annotations
@@ -56,6 +57,7 @@ from src.bdvm.idpshow_projections import (  # noqa: E402
     pick_best_table,
     records_from_rows,
 )
+from src.bdvm.projections import ProjectionError  # noqa: E402
 from src.utils.name_clean import normalize_player_name  # noqa: E402
 
 ARTICLE_URL = "https://www.theidpshow.com/p/2026-idp-fantasy-football-projections-rankings"
@@ -145,7 +147,15 @@ def main() -> int:
     if args.dry_run:
         print("dry run — snapshot not written")
         return 0
-    _path, merge_summary = merge_into_snapshot(records, season=args.season, as_of=as_of)
+    try:
+        _path, merge_summary = merge_into_snapshot(records, season=args.season, as_of=as_of)
+    except ProjectionError as exc:
+        # Snapshots are immutable and date-stamped: a same-day rerun
+        # (boot catch-up, manual restart) collides with today's file.
+        # The day's merge already happened — no-op success, not a
+        # failure the journal blames on cookies.
+        print(f"snapshot for today already exists — no-op ({exc})")
+        return 0
     print(json.dumps(merge_summary, indent=1))
     return 0
 
