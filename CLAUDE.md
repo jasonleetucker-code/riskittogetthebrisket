@@ -587,7 +587,7 @@ param for GET) and answers from the corresponding board:
 | `POST /api/waiver/faab-recommend` | yes | a bid is derived from a value |
 | `GET /api/terminal` | yes | applies on top of the cross-league hybrid contract |
 | `POST /api/trade/simulate-mc` | n/a | values arrive in the request body; the client already sends whichever board it holds |
-| `GET /api/draft-capital` | n/a | `compute_scarcity` has no `PICK` key, so picks carry factor 1.0 and the lens is a no-op |
+| `GET /api/draft-capital` | n/a | `compute_scarcity` has no `PICK` key, so picks carry factor 1.0 and the lens is a no-op for the pick board itself. Its `rookieKtcValue` IS a player value and does move under the lens — `/draft` therefore stays market-priced and says so via `ValueBasisNote` rather than being threaded |
 
 Mechanism, in one place: `server.py::_valuation_scoped_contract` fetches the
 league's factors and hands the engine a contract whose `playersArray` rows are

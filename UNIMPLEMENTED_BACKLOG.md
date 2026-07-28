@@ -126,9 +126,19 @@ one of them stamps back the board it ACTUALLY served (`valuationMode`, plus a
 `valuationNote` when it degraded). See the `valuation_mode` section in CLAUDE.md
 for the endpoint table and the four load-bearing rules.
 
-Still open from this item: **`/draft`** reads values straight off the contract
-bypassing `buildRows`, and **`tradeWorkspaceToCSV`** emits adjusted values with
-no marker. Both are display-layer, both are still silent.
+Neither remaining bullet below is silent any more, contrary to what this
+section said — the T1-e honesty pass (615b7082) already landed both:
+`/draft` renders `ValueBasisNote` (`frontend/app/draft/page.jsx:4515`) and
+`tradeWorkspaceToCSV` emits a `Value Basis` column
+(`frontend/lib/trade-logic.js:1545`).
+
+What is genuinely still open is smaller and different: **`/draft`'s numbers
+stay on the market board even with the lens on.** It fetches `/api/data` and
+`/api/draft-capital` directly rather than going through `buildRows`, so the
+overlay never reaches it. It says so, which is the important half; the values
+themselves are unthreaded. `/api/draft-capital` is a deliberate no-op for
+picks (factor 1.0), but its `rookieKtcValue` is a *player* value and does move
+under the lens.
 
 Also settled, separately: **the adjusted board stays a toggle rather than
 becoming the default.** That was measured, not assumed —
