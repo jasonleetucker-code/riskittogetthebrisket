@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSettings } from "@/components/useSettings";
+import { applyValuationModeParam } from "@/lib/valuation-mode";
 
 /**
  * useTerminal — fetch the server-side terminal aggregation.
@@ -47,19 +49,25 @@ function readActiveLeagueKey() {
   }
 }
 
-function cacheKey({ ownerId, name, windowDays, leagueKey }) {
-  return `${leagueKey || "_"}::${ownerId || "_"}::${name || "_"}::${windowDays || 30}`;
+function cacheKey({ ownerId, name, windowDays, leagueKey, valuationMode }) {
+  // ``valuationMode`` is IN the key. Without it, switching the board
+  // re-serves the cached market payload for the full TTL, which looks
+  // exactly like the toggle not working.
+  return `${leagueKey || "_"}::${ownerId || "_"}::${name || "_"}::${
+    windowDays || 30
+  }::${valuationMode || "market"}`;
 }
 
 async function fetchTerminal({ ownerId, name, windowDays, signal }) {
   const leagueKey = readActiveLeagueKey();
-  const key = cacheKey({ ownerId, name, windowDays, leagueKey });
+  const params = new URLSearchParams();
+  const valuationMode = applyValuationModeParam(params);
+  const key = cacheKey({ ownerId, name, windowDays, leagueKey, valuationMode });
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expires > now) return cached.result;
   if (inflight.has(key)) return inflight.get(key);
 
-  const params = new URLSearchParams();
   if (ownerId) params.set("team", ownerId);
   if (name) params.set("teamName", name);
   if (windowDays) params.set("windowDays", String(windowDays));
@@ -109,6 +117,12 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
   // as useDynastyData.  Keeps the hook signature unchanged while
   // wiring league-awareness for the Phase 1 migration.
   const [leagueRefreshKey, setLeagueRefreshKey] = useState(0);
+  // The selected board is a fetch input, so it has to be a fetch
+  // DEPENDENCY.  ``fetchTerminal`` reads it from localStorage, which
+  // React cannot observe — without this the payload would keep
+  // showing the previous board until some other input changed.
+  const { settings } = useSettings();
+  const valuationMode = settings?.valuationMode || "market";
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -146,7 +160,7 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
         });
       });
     return () => controller.abort();
-  }, [ownerId, teamName, windowDays, leagueRefreshKey]);
+  }, [ownerId, teamName, windowDays, leagueRefreshKey, valuationMode]);
 
   const value = useMemo(() => {
     const p = state.payload || {};

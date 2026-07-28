@@ -63,6 +63,7 @@ import {
   SuggestionsDesk,
   SUGG_TYPES,
 } from "./trade-sections";
+import { withValuationMode } from "@/lib/valuation-mode";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -1463,7 +1464,7 @@ export default function TradePage() {
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json();
       if (!res.ok) {

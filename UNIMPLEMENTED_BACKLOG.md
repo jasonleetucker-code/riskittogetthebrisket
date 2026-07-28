@@ -37,6 +37,8 @@ picking anything up.
 | §8.2 `tep=3` vs `tepp` | NOT STARTED · latent | **#593** — half of it *was* live via the DOM fallback; see below |
 | §6 ML / archetypes — "undecided" | NOT STARTED | largely **overtaken by BDVM v1** (#600, merged) — a projection-driven fundamental engine beside the market board, flag `bdvm_engine` OFF |
 | §12 guard-that-cannot-fire (4 instances) | — | **five**, and the fifth was this repo's own health check. See ORCHESTRATION.md §6.15 |
+| §1.3 server-side composition | NOT STARTED | **DONE** — `valuation_mode` rides the override POST; the endpoint narrows to leagueKey scope when the lens is asked for |
+| §1.4 surface honesty (suggestions rail, `/draft`) | PARTIAL | **mostly DONE** — the lens now reaches every engine, not just the rankings page; see below |
 
 One item the file **never contained at all**, because it was found after
 compiling: the realized-points scoring aliases — added as §13 at the end.
@@ -87,7 +89,14 @@ visibly. `frontend/app/trade/page.jsx:1279-1283` already documents this exact fa
 mode for a different setting. Fix: gate the overlay fetch on a hydrated flag, or hold
 the loading state until the first settings-resolved fetch lands.
 
-### 1.3 Server-side composition — NOT STARTED
+### 1.3 Server-side composition — DONE
+
+**Superseded 2026-07-28.** `POST /api/rankings/overrides?view=delta` accepts
+`valuation_mode` and applies the factors inside the same build. The accepted cost
+below was taken consciously: asking for the lens narrows that response from
+scoring-profile scope to leagueKey scope, with the same 503 guard.
+
+The original text follows.
 
 **Today the combination is deliberately blocked, not silently wrong.** If you have
 custom source weights active *and* switch to league-adjusted, the overlay is not
@@ -108,7 +117,24 @@ league-scoped when `valuation_mode != "market"`, needing the same league-mismatc
 guard `/api/gameplan` has, plus `leagueKey` in its cache key. That is a genuine
 widening of that endpoint's contract.
 
-### 1.4 Surface honesty — PARTIAL
+### 1.4 Surface honesty — PARTIAL (the big half is DONE)
+
+**Superseded 2026-07-28 for the engines.** The suggestions rail is no longer
+"server-computed off the un-overlaid contract" — every league-scoped engine
+endpoint takes `valuation_mode` and answers from the selected board, and every
+one of them stamps back the board it ACTUALLY served (`valuationMode`, plus a
+`valuationNote` when it degraded). See the `valuation_mode` section in CLAUDE.md
+for the endpoint table and the four load-bearing rules.
+
+Still open from this item: **`/draft`** reads values straight off the contract
+bypassing `buildRows`, and **`tradeWorkspaceToCSV`** emits adjusted values with
+no marker. Both are display-layer, both are still silent.
+
+Also settled, separately: **the adjusted board stays a toggle rather than
+becoming the default.** That was measured, not assumed —
+`docs/adjusted-board-backtest.md`.
+
+The original text follows.
 
 `rankChange` is nulled when the overlay is active (so "moved up N since the previous
 scrape" is never printed next to an adjusted rank). The rest was not done:

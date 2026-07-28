@@ -540,20 +540,81 @@ Two consequences worth knowing before touching this:
   position alone and never reads the consensus value, so it composes exactly
   against any board — including one the user re-weighted. Absolute values would
   carry the default board's numbers into a board the server never computed.
-- **The two overlays are NOT composed on the client.** With source overrides
-  active the valuation overlay's ranks are the ranks of
+- **The two overlays are composed SERVER-SIDE, never on the client.** With
+  source overrides active the valuation overlay's ranks are the ranks of
   `default_consensus × factor`, but the correct answer is
-  `overridden_consensus × factor`, which the server never computed. Composing
-  them yields a board where neither values nor ranks correspond to anything, so
-  `fetchDynastyData` serves the overridden market board and warns instead.
-  Threading `valuation_mode` through the overrides pipeline server-side is the
-  fix; until then the combination is deliberately blocked, not silently wrong.
+  `overridden_consensus × factor` — a board the client cannot construct because
+  it never had the overridden consensus in the first place. So
+  `POST /api/rankings/overrides?view=delta` accepts `valuation_mode` and
+  computes it, and asking for the lens is what narrows that response's scope
+  from scoring-profile to leagueKey (it 503s on a league mismatch exactly like
+  `/api/valuation/league-adjusted`). The full view refuses the field explicitly
+  rather than ignoring it, which would return a market board labelled adjusted.
 
 Regression tests: `frontend/__tests__/valuation-overlay.test.js` (both
 materializer key sets — the legacy dict uses `_canonicalConsensusRank` but
 `rankDerivedValue`, and the legacy path is the default one), and
 `tests/league_intel/test_publish.py` (caller-row isolation, dense contiguous
 ranks, anchor-slot-pick exclusion).
+
+### The lens reaches the engines: `valuation_mode`
+
+The overlay above is for the *client* to multiply onto a board it holds.
+That covers `/rankings` and nothing else — every engine (trade suggestions,
+the arbitrage finder, angles, waivers, the terminal, the simulator) runs
+server-side off `latest_contract_data` and never saw it. Switching the board
+changed the rankings page and left the trade advice market-priced, with no
+field on any response saying which was which.
+
+Every league-scoped engine endpoint now accepts `valuation_mode`
+(`"market"` | `"leagueAdjusted"`; body field for POST, `valuationMode` query
+param for GET) and answers from the corresponding board:
+
+| endpoint | wired | note |
+|---|---|---|
+| `POST /api/trade/suggestions` | yes | |
+| `POST /api/trade/finder` | yes | our side only — the market anchor stays retail, else the arbitrage gap closes itself |
+| `POST /api/angle/find`, `/api/angle/packages` | yes | same asymmetry |
+| `POST /api/trade/simulate` | yes | |
+| `POST /api/waiver/suggestions` | yes | no UI caller — `/waivers` computes client-side from contract rows, which already carry the lens |
+| `POST /api/waiver/faab-recommend` | yes | a bid is derived from a value |
+| `GET /api/terminal` | yes | applies on top of the cross-league hybrid contract |
+| `POST /api/trade/simulate-mc` | n/a | values arrive in the request body; the client already sends whichever board it holds |
+| `GET /api/draft-capital` | n/a | `compute_scarcity` has no `PICK` key, so picks carry factor 1.0 and the lens is a no-op |
+
+Mechanism, in one place: `server.py::_valuation_scoped_contract` fetches the
+league's factors and hands the engine a contract whose `playersArray` rows are
+already repriced (`src/league_intel/overlay.py`). No engine knows the feature
+exists, because every engine reads exactly one value — `rankDerivedValue`.
+
+Four rules that are load-bearing:
+
+- **`overlay.adjusted_rows` returns EVERY row, not the ranked ones.**
+  `compact_ranks_and_tiers` returns only rows it ranked, dropping unranked rows
+  and clearing current-year slot picks. Serving that subset measured 740 of
+  1093 rows on the live contract — every 2026 pick gone from the trade
+  calculator under the adjusted lens. It ranks our copies in place instead.
+- **Nothing mutates `latest_contract_data`.** It is a shared module global; one
+  in-place multiply would reprice the market board for every other request.
+- **Degrade, never fail.** No roster snapshot, an incoherent adjusted board, or
+  a broken overlay all serve the *market* board with a `valuationNote` naming
+  the reason. Refusing would take down working engines to protect an optional
+  lens.
+- **Every response stamps `valuationMode` — including `"market"`.** "This is
+  the market board" and "this field is missing" must not read the same.
+  `tests/api/test_valuation_mode_threading.py` statically requires every
+  handler that applies the lens to also stamp it.
+
+Client side: `frontend/lib/valuation-mode.js` is the single answer to "which
+board did the user pick" for all six call sites. `useTerminal` keys its cache
+on the mode — a cache without it serves the stale market payload for the full
+TTL after a switch, which looks exactly like the toggle being broken.
+
+**The adjusted board is a toggle, not the default, and that is a measured
+decision** — see `docs/adjusted-board-backtest.md`. Ranked against realized
+2025 scoring over 572 players, four framings all return "no difference
+detected" and three of four lean negative. Re-run
+`scripts/backtest_adjusted_board.py` after any axis change.
 
 ### Rankings Override Payload Size Optimization
 The `POST /api/rankings/overrides` endpoint supports two response views:

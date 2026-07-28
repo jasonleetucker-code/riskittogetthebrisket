@@ -38,6 +38,8 @@ import {
   StatTile,
 } from "@/components/ds";
 import styles from "@/app/waivers/waivers.module.css";
+import { useSettings } from "@/components/useSettings";
+import { withValuationMode } from "@/lib/valuation-mode";
 
 function fmtBid(n) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
@@ -399,6 +401,8 @@ export default function FaabRecommendation({
   const [state, setState] = useState("idle"); // idle | loading | done | error
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
+  const { settings } = useSettings();
+  const valuationMode = settings?.valuationMode || "market";
 
   useEffect(() => {
     if (!addPlayer?.name) {
@@ -414,12 +418,16 @@ export default function FaabRecommendation({
         const res = await fetch("/api/waiver/faab-recommend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            leagueKey,
-            addPlayerName: addPlayer.name,
-            dropPlayerName: dropPlayer?.name || undefined,
-            teamOwnerId: ownerId || undefined,
-          }),
+          // A bid is derived from a value, and the same player is
+          // worth a different number under each board.
+          body: JSON.stringify(
+            withValuationMode({
+              leagueKey,
+              addPlayerName: addPlayer.name,
+              dropPlayerName: dropPlayer?.name || undefined,
+              teamOwnerId: ownerId || undefined,
+            }),
+          ),
         });
         if (cancelled) return;
         if (!res.ok) {
@@ -441,7 +449,11 @@ export default function FaabRecommendation({
     return () => {
       cancelled = true;
     };
-  }, [addPlayer?.name, dropPlayer?.name, leagueKey, ownerId]);
+  // ``valuationMode`` is a dependency because it is a fetch INPUT:
+  // ``withValuationMode`` reads it from localStorage, which React
+  // cannot observe.  Without it a bid computed on the market board
+  // would stay on screen after the user switches to the adjusted one.
+  }, [addPlayer?.name, dropPlayer?.name, leagueKey, ownerId, valuationMode]);
 
   if (state === "idle") return null;
 
