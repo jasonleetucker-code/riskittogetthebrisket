@@ -180,3 +180,65 @@ def test_the_shipped_constant_sits_in_the_fitted_range():
     between roughly 30 and 60. This pins that the shipped value stays in
     that basin rather than drifting to an endpoint."""
     assert 30.0 <= SHRINK_K <= 60.0
+
+
+# ── In-season blending ───────────────────────────────────────────────
+
+
+def test_blending_weights_counts_not_shapes():
+    """Sample size must carry through the blend.
+
+    A 3-catch current season must not get an equal vote with a 90-catch
+    prior. Weighting shapes rather than counts would do exactly that,
+    and would hand the loudest voice to the least evidence — in week 2,
+    every week.
+    """
+    from src.nfl_data.reception_shape_projection import blend_seasons
+
+    blended = blend_seasons({2025: {"rec_0_4": 90}, 2026: {"rec_40p": 3}})
+    assert blended["rec_40p"] == pytest.approx(3.0)
+    assert blended["rec_0_4"] == pytest.approx(45.0)  # 90 at half weight
+    assert blended["rec_0_4"] > blended["rec_40p"], "3 catches outvoted 90"
+
+
+def test_the_current_season_is_weighted_highest():
+    from src.nfl_data.reception_shape_projection import blend_seasons
+
+    blended = blend_seasons(
+        {2024: {"rec_0_4": 100}, 2025: {"rec_0_4": 100}, 2026: {"rec_0_4": 100}}
+    )
+    # 100 + 50 + 25 across three seasons at a one-season half-life.
+    assert blended["rec_0_4"] == pytest.approx(175.0)
+
+
+def test_a_changed_role_pulls_the_blend_as_the_season_accumulates():
+    """The property that makes in-season data worth ingesting at all.
+
+    A player who was a checkdown back and is now running deep routes
+    should move — slowly at first, then decisively — rather than being
+    pinned to his history forever.
+    """
+    from src.nfl_data.reception_shape_projection import blend_seasons
+
+    prior = {"rec_0_4": 80}
+    early = blend_seasons({2025: prior, 2026: {"rec_40p": 5}})
+    late = blend_seasons({2025: prior, 2026: {"rec_40p": 60}})
+    share_early = early["rec_40p"] / sum(early.values())
+    share_late = late["rec_40p"] / sum(late.values())
+    assert share_early < 0.2, "5 catches should barely move him"
+    assert share_late > 0.5, "60 catches should dominate an old shape"
+    assert share_late > share_early
+
+
+def test_blending_a_single_season_is_a_no_op():
+    from src.nfl_data.reception_shape_projection import blend_seasons
+
+    assert blend_seasons({2025: {"rec_10_19": 40}})["rec_10_19"] == pytest.approx(40.0)
+
+
+def test_blending_nothing_is_empty_not_uniform():
+    from src.nfl_data.reception_shape_projection import blend_seasons
+
+    blended = blend_seasons({})
+    assert sum(blended.values()) == 0.0
+    assert project_band_shape(blended, None) is None, "empty must stay unknown"
