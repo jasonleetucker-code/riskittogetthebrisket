@@ -589,6 +589,27 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
   });
 });
 
+// URL-routing fetch mock.  The base GET and the overrides POST start
+// CONCURRENTLY (the POST never needed the base payload), so ordered
+// ``mockResolvedValueOnce`` queues would hand the base payload to
+// whichever request happens to dispatch first.  Route responses by URL
+// instead; multiple delta responses are consumed FIFO (the last one
+// sticks for any further POSTs).
+function routeFetchMock({ base, deltas = [] }) {
+  const deltaQueue = [...deltas];
+  return vi.fn(async (url) => {
+    if (String(url).includes("/api/rankings/overrides")) {
+      if (deltaQueue.length > 1) return deltaQueue.shift();
+      return deltaQueue[0] ?? { ok: false, status: 503, json: async () => ({}) };
+    }
+    return base;
+  });
+}
+
+function callsMatching(fetchMock, pattern) {
+  return fetchMock.mock.calls.filter(([url]) => pattern.test(String(url)));
+}
+
 describe("fetchDynastyData — routes overrides to backend endpoint", () => {
   const realFetch = globalThis.fetch;
 
@@ -619,9 +640,8 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
   });
 
   it("POSTs to /api/rankings/overrides?view=delta when the map is customized", async () => {
-    // First call: /api/dynasty-data (base contract load).
-    globalThis.fetch
-      .mockResolvedValueOnce({
+    globalThis.fetch = routeFetchMock({
+      base: {
         ok: true,
         json: async () => ({
           ok: true,
@@ -641,38 +661,45 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
             ],
           },
         }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          mode: "delta",
-          rankingsOverride: {
-            isCustomized: true,
-            enabledSources: ["idpTradeCalc"],
-            received: { ktcSfTep: { include: false } },
-          },
-          rankingsDelta: {
-            playerKey: "displayName",
-            players: [
-              {
-                id: "Player A",
-                canonicalConsensusRank: 1,
-                rankDerivedValue: 9700,
-                sourceRanks: { idpTradeCalc: 1 },
-              },
-            ],
-            activePlayerIds: ["Player A"],
-          },
-        }),
-      });
+      },
+      deltas: [
+        {
+          ok: true,
+          json: async () => ({
+            mode: "delta",
+            rankingsOverride: {
+              isCustomized: true,
+              enabledSources: ["idpTradeCalc"],
+              received: { ktcSfTep: { include: false } },
+            },
+            rankingsDelta: {
+              playerKey: "displayName",
+              players: [
+                {
+                  id: "Player A",
+                  canonicalConsensusRank: 1,
+                  rankDerivedValue: 9700,
+                  sourceRanks: { idpTradeCalc: 1 },
+                },
+              ],
+              activePlayerIds: ["Player A"],
+            },
+          }),
+        },
+      ],
+    });
     const result = await fetchDynastyData({
       siteOverrides: { ktcSfTep: { include: false } },
     });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
-    const [url1] = globalThis.fetch.mock.calls[0];
-    const [url2, opts2] = globalThis.fetch.mock.calls[1];
-    expect(String(url1)).toMatch(/\/api\/dynasty-data/);
-    expect(String(url2)).toMatch(/\/api\/rankings\/overrides\?view=delta/);
+    const baseCalls = callsMatching(globalThis.fetch, /\/api\/dynasty-data/);
+    const postCalls = callsMatching(
+      globalThis.fetch,
+      /\/api\/rankings\/overrides\?view=delta/,
+    );
+    expect(baseCalls).toHaveLength(1);
+    expect(postCalls).toHaveLength(1);
+    const [, opts2] = postCalls[0];
     expect(opts2?.method).toBe("POST");
     expect(opts2?.headers?.["Content-Type"]).toBe("application/json");
     const body = JSON.parse(opts2.body);
@@ -683,8 +710,8 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
   });
 
   it("reuses the cached base contract for a second override fetch", async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce({
+    globalThis.fetch = routeFetchMock({
+      base: {
         ok: true,
         json: async () => ({
           ok: true,
@@ -703,43 +730,46 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
             ],
           },
         }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          mode: "delta",
-          rankingsOverride: { isCustomized: true },
-          rankingsDelta: {
-            playerKey: "displayName",
-            players: [
-              {
-                id: "Player A",
-                canonicalConsensusRank: 1,
-                rankDerivedValue: 9600,
-              },
-            ],
-            activePlayerIds: ["Player A"],
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          mode: "delta",
-          rankingsOverride: { isCustomized: true },
-          rankingsDelta: {
-            playerKey: "displayName",
-            players: [
-              {
-                id: "Player A",
-                canonicalConsensusRank: 1,
-                rankDerivedValue: 9500,
-              },
-            ],
-            activePlayerIds: ["Player A"],
-          },
-        }),
-      });
+      },
+      deltas: [
+        {
+          ok: true,
+          json: async () => ({
+            mode: "delta",
+            rankingsOverride: { isCustomized: true },
+            rankingsDelta: {
+              playerKey: "displayName",
+              players: [
+                {
+                  id: "Player A",
+                  canonicalConsensusRank: 1,
+                  rankDerivedValue: 9600,
+                },
+              ],
+              activePlayerIds: ["Player A"],
+            },
+          }),
+        },
+        {
+          ok: true,
+          json: async () => ({
+            mode: "delta",
+            rankingsOverride: { isCustomized: true },
+            rankingsDelta: {
+              playerKey: "displayName",
+              players: [
+                {
+                  id: "Player A",
+                  canonicalConsensusRank: 1,
+                  rankDerivedValue: 9500,
+                },
+              ],
+              activePlayerIds: ["Player A"],
+            },
+          }),
+        },
+      ],
+    });
 
     await fetchDynastyData({ siteOverrides: { ktcSfTep: { include: false } } });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
@@ -747,27 +777,33 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
     const result2 = await fetchDynastyData({
       siteOverrides: { ktcSfTep: { weight: 2.0 } },
     });
+    // Second call: base served from the in-memory cache, so only ONE
+    // more network call (the second override POST).
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
-    const [url3] = globalThis.fetch.mock.calls[2];
-    expect(String(url3)).toMatch(/\/api\/rankings\/overrides\?view=delta/);
+    expect(
+      callsMatching(globalThis.fetch, /\/api\/rankings\/overrides\?view=delta/),
+    ).toHaveLength(2);
     expect(result2.data.playersArray[0].rankDerivedValue).toBe(9500);
   });
 
   it("falls through to base contract when the override endpoint fails", async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce({
+    globalThis.fetch = routeFetchMock({
+      base: {
         ok: true,
         json: async () => ({
           ok: true,
           source: "backend",
           data: fixture(),
         }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 503,
-        json: async () => ({ error: "unavailable" }),
-      });
+      },
+      deltas: [
+        {
+          ok: false,
+          status: 503,
+          json: async () => ({ error: "unavailable" }),
+        },
+      ],
+    });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await fetchDynastyData({
       siteOverrides: { ktcSfTep: { include: false } },
@@ -912,15 +948,20 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
   });
 
   it("routes to override endpoint when only tepMultiplier is customized", async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce(baseMock())
-      .mockResolvedValueOnce(deltaTepMock(4550));
+    globalThis.fetch = routeFetchMock({
+      base: baseMock(),
+      deltas: [deltaTepMock(4550)],
+    });
 
     const result = await fetchDynastyData({ tepMultiplier: 1.15 });
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
-    const [url2, opts2] = globalThis.fetch.mock.calls[1];
-    expect(String(url2)).toMatch(/\/api\/rankings\/overrides\?view=delta/);
+    const postCalls = callsMatching(
+      globalThis.fetch,
+      /\/api\/rankings\/overrides\?view=delta/,
+    );
+    expect(postCalls).toHaveLength(1);
+    const [, opts2] = postCalls[0];
     expect(opts2.method).toBe("POST");
     const body = JSON.parse(opts2.body);
     expect(body.tep_multiplier).toBe(1.15);
@@ -932,9 +973,10 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
   });
 
   it("routes to override endpoint with BOTH siteOverrides and tepMultiplier", async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce(baseMock())
-      .mockResolvedValueOnce(deltaTepMock(4400));
+    globalThis.fetch = routeFetchMock({
+      base: baseMock(),
+      deltas: [deltaTepMock(4400)],
+    });
 
     await fetchDynastyData({
       siteOverrides: { ktcSfTep: { include: false } },
@@ -942,7 +984,10 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
     });
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
-    const [, opts2] = globalThis.fetch.mock.calls[1];
+    const [, opts2] = callsMatching(
+      globalThis.fetch,
+      /\/api\/rankings\/overrides\?view=delta/,
+    )[0];
     const body = JSON.parse(opts2.body);
     // siteOverrides map fields flow through
     expect(body.ktcSfTep).toEqual({ include: false });
@@ -951,20 +996,25 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
   });
 
   it("cache key: changing tepMultiplier between fetches re-issues the override request", async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce(baseMock())
-      .mockResolvedValueOnce(deltaTepMock(4500))
-      .mockResolvedValueOnce(deltaTepMock(4600));
+    globalThis.fetch = routeFetchMock({
+      base: baseMock(),
+      deltas: [deltaTepMock(4500), deltaTepMock(4600)],
+    });
 
     await fetchDynastyData({ tepMultiplier: 1.15 });
     await fetchDynastyData({ tepMultiplier: 1.25 });
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    const postCalls = callsMatching(
+      globalThis.fetch,
+      /\/api\/rankings\/overrides\?view=delta/,
+    );
+    expect(postCalls).toHaveLength(2);
     // First override call (1.15)
-    const body1 = JSON.parse(globalThis.fetch.mock.calls[1][1].body);
+    const body1 = JSON.parse(postCalls[0][1].body);
     expect(body1.tep_multiplier).toBe(1.15);
     // Second override call (1.25)
-    const body2 = JSON.parse(globalThis.fetch.mock.calls[2][1].body);
+    const body2 = JSON.parse(postCalls[1][1].body);
     expect(body2.tep_multiplier).toBe(1.25);
   });
 });

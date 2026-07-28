@@ -1,8 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { buildRows, fetchDynastyData, getSiteKeys } from "@/lib/dynasty-data";
+import {
+  buildRows,
+  fetchDynastyData,
+  getSiteKeys,
+  prefetchBaseContract,
+} from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
+
+// Shared materialization cache: the hook is mounted by AppShell AND by
+// the page component, and after the fetch-layer dedup both instances
+// hold the SAME contract object — but each still paid its own
+// ``buildRows`` pass (~1,100 row objects + a sort, twice per page).
+// Keyed by contract object identity; consumers already treat rows as
+// immutable (the "pure materializer" rule — pages sort/filter copies),
+// so sharing one array is safe.  WeakMap so a replaced contract frees
+// its rows with it.
+const _rowsByContract = new WeakMap();
+
+function buildRowsShared(rawData) {
+  if (!rawData || typeof rawData !== "object") return buildRows(rawData || {});
+  const hit = _rowsByContract.get(rawData);
+  if (hit) return hit;
+  const rows = buildRows(rawData);
+  _rowsByContract.set(rawData, rows);
+  return rows;
+}
 
 export function useDynastyData() {
   // Read user-level source overrides from settings so per-source
@@ -78,6 +102,15 @@ export function useDynastyData() {
     };
   }, []);
 
+  // Warm the base-contract download immediately on mount.  The base
+  // payload does not depend on settings (only the overrides POST
+  // does), so there is no reason for the page's largest download to
+  // sit behind the settings-hydration gate below — the real fetch
+  // joins this in-flight request instead of starting from zero.
+  useEffect(() => {
+    prefetchBaseContract();
+  }, []);
+
   useEffect(() => {
     let active = true;
     // Do not fetch on the hydration pass.  ``useSettings`` serves
@@ -85,7 +118,9 @@ export function useDynastyData() {
     // request the DEFAULT board — market lens, no source overrides, the
     // default TE multiplier — and then immediately re-request the real
     // one, having rendered the wrong numbers in between.  Two round
-    // trips, and the first one wins the first paint.
+    // trips, and the first one wins the first paint.  (The BASE
+    // contract is settings-independent and is prefetched above; only
+    // the overrides POST waits for hydration.)
     //
     // ``loading`` is already true from its initial state, so the page
     // keeps showing its skeleton rather than an empty board; the delay
@@ -171,7 +206,7 @@ export function useDynastyData() {
 
   const rows = useMemo(() => {
     try {
-      return buildRows(rawData || {});
+      return buildRowsShared(rawData);
     } catch (e) {
       console.error("[useDynastyData] buildRows crashed:", e);
       return [];
