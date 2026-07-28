@@ -18,6 +18,7 @@ import server as srv
 
 
 def test_per_source_freshness_returns_dict_with_known_sources():
+    srv._DISK_PROBE_MEMO.clear()  # helper is 30s-memoized; probe fresh
     out = srv._per_source_freshness()
     assert isinstance(out, dict)
     # KTC always has a CSV in the live repo; this confirms the
@@ -34,6 +35,7 @@ def test_per_source_freshness_returns_dict_with_known_sources():
 
 
 def test_freshness_records_have_consistent_age_window():
+    srv._DISK_PROBE_MEMO.clear()  # helper is 30s-memoized; probe fresh
     out = srv._per_source_freshness()
     if not out:
         pytest.skip("no CSV sources present in this checkout")
@@ -55,6 +57,7 @@ def test_per_source_freshness_returns_empty_when_repo_missing(monkeypatch, tmp_p
     bogus = tmp_path / "fake_repo_root"
     bogus.mkdir()
     monkeypatch.setattr(srv, "__file__", str(bogus / "server.py"))
+    srv._DISK_PROBE_MEMO.clear()  # helper is 30s-memoized; probe fresh
     out = srv._per_source_freshness()
     assert out == {}
 
@@ -79,6 +82,9 @@ def _redirect_repo_root(monkeypatch, tmp_path, source_key: str, csv_rel: str):
     from src.api import data_contract as dc
 
     monkeypatch.setattr(dc, "_SOURCE_CSV_PATHS", {source_key: csv_rel})
+    # The helper is 30s-memoized in production; each redirected test
+    # needs a fresh probe of its own fake repo root.
+    srv._DISK_PROBE_MEMO.clear()
     return csv_path, stamp_path
 
 
