@@ -100,11 +100,59 @@ class ConsensusProjection:
     any_proxy: bool
     all_scoring_native: bool
     stale_sources: tuple[str, ...] = ()
+    # Sources down-weighted because their stat line's league-scored IDP
+    # categories are a strict subset of a peer's (vocabulary-dominated).
+    vocabulary_limited: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
 # Consensus blend
 # ---------------------------------------------------------------------------
+
+
+def _idp_scoring_vocabulary(
+    scoring_settings: Mapping[str, Any],
+) -> tuple[frozenset[str], dict[str, str]]:
+    """(league-scored IDP category ids, stat-column → category map).
+
+    Derived from the production scoring vocabulary in
+    ``realized_points`` (its private maps are the single source of
+    truth for which stat columns feed which Sleeper keys — ADR-005;
+    duplicating the list here is exactly the drift this module must
+    not create).  Categories collapse column-name variants
+    (``def_pass_defended`` / ``def_passes_defended``) so two sources
+    spelling the same category differently compare as equals.
+    """
+    from src.nfl_data.realized_points import (  # noqa: PLC0415
+        _IDP_KEYS,
+        _IDP_TACKLE_KEYS,
+        _SCORING_KEY_ALIASES,
+    )
+
+    effective = dict(scoring_settings)
+    for alias, canonical in _SCORING_KEY_ALIASES.items():
+        if alias in effective and canonical not in effective:
+            effective[canonical] = effective[alias]
+
+    def _nonzero(key: str) -> bool:
+        try:
+            return abs(float(effective.get(key) or 0.0)) > 0.0
+        except (TypeError, ValueError):
+            return False
+
+    col_to_cat: dict[str, str] = {}
+    scored: set[str] = set()
+    for sleeper_key, (candidates, _label) in _IDP_KEYS.items():
+        for col in candidates:
+            col_to_cat[col] = sleeper_key
+        if _nonzero(sleeper_key):
+            scored.add(sleeper_key)
+    # All tackle columns resolve through one view — one category.
+    for col in ("def_tackles_solo", "def_tackle_assists", "def_tackles"):
+        col_to_cat[col] = "idp_tkl"
+    if any(_nonzero(key) for key, _label in _IDP_TACKLE_KEYS):
+        scored.add("idp_tkl")
+    return frozenset(scored), col_to_cat
 
 
 def _staleness_weight(
@@ -176,6 +224,43 @@ def blend_consensus(
             stale.append(r.source)
         scored.append((r, fpg, w, native))
 
+    # Vocabulary-aware down-weighting.  A stat-line record whose
+    # league-scored IDP categories are a STRICT SUBSET of a peer's is
+    # known-incomplete under THIS league's scoring — e.g. a source
+    # publishing no TFL/PD in a league that pays 4.25/5.32 for them is
+    # biased low by construction, not lower on the player.  A plain
+    # mean would drag every dual-covered defender down by the missing
+    # categories' value.  Down-weighting via a labelled prior keeps
+    # the corroboration signal without silently imputing the missing
+    # categories (§6.3: never invent numbers).  Proxies and
+    # direct-points records compare as None: complete-by-construction
+    # or unknowable — they neither dominate nor get dominated.
+    vocab_limited: list[str] = []
+    vocab_mult = float(cfg.get("vocabulary_dominated_weight_mult", 1.0))
+    if vocab_mult < 1.0 and len(scored) >= 2:
+        scored_cats, col_to_cat = _idp_scoring_vocabulary(scoring_settings)
+        vocabs: list[frozenset[str] | None] = []
+        for r, _fpg, _w, _native in scored:
+            if r.is_proxy or not r.stat_line:
+                vocabs.append(None)
+            else:
+                cats = frozenset(
+                    col_to_cat[c] for c in r.stat_line if col_to_cat.get(c) in scored_cats
+                )
+                vocabs.append(cats or None)
+        for i, vocab_i in enumerate(vocabs):
+            if vocab_i is None:
+                continue
+            dominated = any(
+                vocab_j is not None and vocab_i < vocab_j
+                for j, vocab_j in enumerate(vocabs)
+                if j != i
+            )
+            if dominated:
+                r, fpg, w, native = scored[i]
+                scored[i] = (r, fpg, w * vocab_mult, native)
+                vocab_limited.append(r.source)
+
     # Trim extremes when enough sources exist.
     if len(scored) >= int(cfg["trim_min_sources"]) and float(cfg["trim_frac"]) > 0:
         scored.sort(key=lambda t: t[1])
@@ -203,6 +288,7 @@ def blend_consensus(
         any_proxy=any(r.is_proxy for (r, _, _, _) in scored),
         all_scoring_native=all(native for (_, _, _, native) in scored),
         stale_sources=tuple(stale),
+        vocabulary_limited=tuple(vocab_limited),
     )
 
 
