@@ -31,6 +31,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { RookieBoard } from "@/app/draft/page";
+import { buildBdvmIndex } from "@/lib/bdvm";
 
 function player(id, name, rank, winBid, tier = "A") {
   return {
@@ -61,10 +62,11 @@ const PLAYERS = [
   player("p3", "Charlie End", 3, 30),
 ];
 
-function renderBoard() {
+function renderBoard(extraProps = {}) {
   const noop = () => {};
   return render(
     <RookieBoard
+      {...extraProps}
       stats={{
         enrichedPlayers: PLAYERS,
         tierStats: {},
@@ -179,5 +181,67 @@ describe("draft board sortable headers", () => {
     const desc = boardOrder();
     await user.click(screen.getByRole("button", { name: "Player" }));
     expect(boardOrder()).toEqual([...desc].reverse());
+  });
+});
+
+/**
+ * BDVM Fund gap column — flag-gated join, same posture as the rankings
+ * page: the column exists only when a bdvmIndex is supplied (endpoint
+ * answered ok) and vanishes entirely without one.  Draft rows carry no
+ * playerId, so the join is name-based via buildBdvmIndex's byName map.
+ */
+describe("draft board BDVM fund gap column", () => {
+  // Real index built by the real helper — exercises the actual join
+  // path, not a hand-rolled Map shape that could drift.
+  const bdvmIndex = buildBdvmIndex({
+    players: [
+      {
+        name: "Alpha Back",
+        market: { gap: 512, marketValue: 4000 },
+        tradeValue: { balanced: 4512 },
+        signal: { signal: "BUY", reason: "market underprices profile" },
+      },
+      {
+        name: "Bravo Wide",
+        market: { gap: -240, marketValue: 3000 },
+        tradeValue: { balanced: 2760 },
+        signal: { signal: "SELL", reason: "aging curve" },
+      },
+      // Charlie End deliberately absent → unpriced, muted dash.
+    ],
+  });
+
+  it("column is absent without an index and present with one", () => {
+    const { unmount } = renderBoard();
+    expect(screen.queryByRole("button", { name: "Fund gap" })).toBeNull();
+    unmount();
+
+    renderBoard({ bdvmIndex });
+    expect(screen.getByRole("button", { name: "Fund gap" })).toBeInTheDocument();
+  });
+
+  it("shows signed gaps for priced rows and a dash for unpriced rows", () => {
+    renderBoard({ bdvmIndex });
+    expect(screen.getByText("+512")).toBeInTheDocument();
+    expect(screen.getByText("−240")).toBeInTheDocument();
+    // Charlie End has no fundamental value: his row's gap cell is a dash.
+    const charlieRow = screen.getByText("Charlie End").closest("tr");
+    const cells = within(charlieRow).getAllByRole("cell");
+    // Fund gap sits right after Market (rank, tier, tag, rec, player,
+    // preDraft, market, gap → index 7).
+    expect(cells[7].textContent.trim()).toBe("—");
+  });
+
+  it("sorts by gap with unpriced rows sinking in both directions", async () => {
+    const user = userEvent.setup();
+    renderBoard({ bdvmIndex });
+
+    await user.click(screen.getByRole("button", { name: "Fund gap" }));
+    // Descending: +512, −240, then unpriced sinks.
+    expect(boardOrder()).toEqual(["Alpha Back", "Bravo Wide", "Charlie End"]);
+
+    await user.click(screen.getByRole("button", { name: "Fund gap" }));
+    // Ascending: −240, +512 — unpriced STILL last.
+    expect(boardOrder()).toEqual(["Bravo Wide", "Alpha Back", "Charlie End"]);
   });
 });

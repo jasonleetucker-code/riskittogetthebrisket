@@ -4826,7 +4826,7 @@ async def post_waiver_faab_recommend(request: Request):
             contention_skip_reason = "no opponent rosters available — rival contention skipped."
         elif usable_balances * 2 < len(opponents):
             contention_skip_reason = (
-                "rival FAAB balances unavailable for most opponents — " "rival contention skipped."
+                "rival FAAB balances unavailable for most opponents — rival contention skipped."
             )
     if requested_team and requested_team_matched and contention_skip_reason is None:
         # teamAggression keyed by historical ownerIds — filter to
@@ -5233,6 +5233,55 @@ async def get_bdvm_trades(request: Request):
     try:
         payload = await run_in_threadpool(
             _bdvm_api.get_bdvm_trades, contract, league_cfg.key, team=team
+        )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(
+            status_code=503,
+            content={"error": "bdvm_unavailable", "message": str(exc), "leagueKey": league_cfg.key},
+        )
+    payload = dict(payload)
+    payload["leagueKey"] = league_cfg.key
+    return JSONResponse(content=payload)
+
+
+@app.post("/api/bdvm/trade-eval")
+async def post_bdvm_trade_eval(request: Request):
+    """CES evaluation of ONE specific trade in every strategy currency
+    (feature-flagged, default OFF).
+
+    Body::
+
+        {
+          "sideA": [{"playerId": "..."} | {"name": "..."} | "name", ...],
+          "sideB": [...],
+          "leagueKey": optional — standard resolver
+        }
+
+    Unresolvable refs are reported in ``unresolved`` per side, never
+    silently priced at zero.  Package math is the display-layer CES,
+    never a plain sum.
+    """
+    league_cfg, contract, err = _bdvm_gate_and_league(request)
+    if err is not None:
+        return err
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse(status_code=400, content={"error": "invalid_json"})
+    side_a = body.get("sideA") if isinstance(body, dict) else None
+    side_b = body.get("sideB") if isinstance(body, dict) else None
+    if not isinstance(side_a, list) or not isinstance(side_b, list) or not (side_a or side_b):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "sideA and sideB must be lists"},
+        )
+    from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
+
+    try:
+        payload = await run_in_threadpool(
+            lambda: _bdvm_api.get_bdvm_trade_eval(
+                contract, league_cfg.key, side_a=side_a, side_b=side_b
+            )
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
@@ -10391,6 +10440,37 @@ async def run_signal_alerts(request: Request):
             log.warning("bdvm flag check failed in signal sweep: %s", exc)
         bdvm_league_cache: dict[str, tuple[dict | None, dict[str, set]]] = {}
 
+        # News → structured-events ingest rides the same daily sweep
+        # (no extra timer).  Runs BEFORE the per-user loop so freshly
+        # ingested events feed this very sweep's valuations — the
+        # events-file fingerprint in bdvm_api's cache key makes the
+        # write invalidate any earlier cached board.  Auto events land
+        # in the §7 speculation lane (confidence < 0.5): they can only
+        # widen uncertainty, never move a mean.
+        bdvm_news_events_summary: dict | None = None
+        if bdvm_enabled:
+            try:
+                from src.bdvm import news_events as _bdvm_news_events  # noqa: PLC0415
+                from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
+                _news_svc = _get_news_service()
+                _aggregated = _news_svc.aggregate(
+                    player_names=_live_player_names(),
+                    player_meta=_live_player_meta(),
+                )
+                _season = int(
+                    (latest_contract_data or {}).get("currentDraftYear")
+                    or datetime.now(timezone.utc).year
+                )
+                bdvm_news_events_summary = _bdvm_news_events.ingest_news_events(
+                    [it.to_dict() for it in _aggregated.items],
+                    season=_season,
+                    name_normalizer=normalize_player_name,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("bdvm news-events ingest failed: %s", exc)
+                bdvm_news_events_summary = {"ok": False, "error": str(exc)}
+
         def _bdvm_league_data(cfg_key: str, contract: dict):
             if cfg_key in bdvm_league_cache:
                 return bdvm_league_cache[cfg_key]
@@ -10562,6 +10642,7 @@ async def run_signal_alerts(request: Request):
             "processed": len(summary),
             "results": summary,
             "bdvmEnabled": bdvm_enabled,
+            "bdvmNewsEvents": bdvm_news_events_summary,
         }
 
     result = await run_in_threadpool(_run_sweep)

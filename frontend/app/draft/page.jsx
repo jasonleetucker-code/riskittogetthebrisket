@@ -58,10 +58,20 @@ import {
   updateTeam,
 } from "@/lib/draft-logic";
 import { classifyPos } from "@/lib/dynasty-data";
+import { useBdvmEndpoint } from "@/components/useBdvm";
+import {
+  buildBdvmIndex,
+  buildBdvmPickRows,
+  bdvmEntryForRow,
+  bdvmSignalEdgeCss,
+  formatBdvmGap,
+  formatBdvmValue,
+} from "@/lib/bdvm";
 import {
   Badge,
   Banner,
   Button,
+  CollapsiblePanel,
   Icon,
   Modal,
   PageHeader,
@@ -1052,6 +1062,7 @@ export function RookieBoard({
   tagFilter,
   onTagFilterChange,
   onAdd,
+  bdvmIndex,
 }) {
   const [sort, setSort] = useState({ col: "myWinningBid", asc: false });
 
@@ -1107,11 +1118,21 @@ export function RookieBoard({
           return (
             ((a.pick?.amount ?? -1) - (b.pick?.amount ?? -1)) * dir
           );
+        case "gap": {
+          // BDVM fundamental gap — unpriced rows sink regardless of
+          // direction (same null handling as the rankings page).
+          const ga = bdvmEntryForRow(bdvmIndex, a)?.gap;
+          const gb = bdvmEntryForRow(bdvmIndex, b)?.gap;
+          if (ga == null && gb == null) return 0;
+          if (ga == null) return 1;
+          if (gb == null) return -1;
+          return (ga - gb) * dir;
+        }
         default:
           return 0;
       }
     });
-  }, [stats.enrichedPlayers, sort, query, showDrafted, tagFilter]);
+  }, [stats.enrichedPlayers, sort, query, showDrafted, tagFilter, bdvmIndex]);
 
   // Tier-separator rows — only when the current sort groups by tier
   // naturally (rank or preDraft descending/ascending).  Scatter sorts
@@ -1228,6 +1249,7 @@ export function RookieBoard({
               >
                 Market
               </th>
+              {bdvmIndex ? th("Fund gap", "gap", 76) : null}
               {th("Fair", "inflatedFair", 70)}
               {th("Enforce", "enforceUpTo", 70)}
               {th("Win at", "myWinningBid", 80)}
@@ -1249,7 +1271,7 @@ export function RookieBoard({
                       key={`tier-${p.tier}`}
                       className="draft-tier-divider"
                     >
-                      <td colSpan={14}>
+                      <td colSpan={14 + (bdvmIndex ? 1 : 0)}>
                         <span
                           className={`draft-tier-chip draft-tier-${p.tier}`}
                           style={{ marginRight: 8 }}
@@ -1377,6 +1399,42 @@ export function RookieBoard({
                       ? fmt$(m) : "—";
                   })()}
                 </td>
+                {bdvmIndex ? (
+                  <td className="draft-money">
+                    {(() => {
+                      // BDVM fundamental gap — display-only join, same
+                      // idiom as the rankings page column. Rows the
+                      // fundamental board declines to price show a
+                      // muted dash, never a fabricated number.
+                      const entry = bdvmEntryForRow(bdvmIndex, p);
+                      if (!entry || entry.gap == null) {
+                        return (
+                          <span
+                            className="muted"
+                            title={
+                              entry?.signalReason ||
+                              "not priced by the fundamental board"
+                            }
+                          >
+                            —
+                          </span>
+                        );
+                      }
+                      const css = bdvmSignalEdgeCss(entry.signal);
+                      const title =
+                        `${entry.signal}: ${entry.signalReason} — fundamental ` +
+                        `${formatBdvmValue(entry.fundamental)} vs market ` +
+                        `${formatBdvmValue(entry.marketValue)}`;
+                      return css ? (
+                        <span className={`edge-label ${css}`} title={title}>
+                          {formatBdvmGap(entry.gap)}
+                        </span>
+                      ) : (
+                        <span title={title}>{formatBdvmGap(entry.gap)}</span>
+                      );
+                    })()}
+                  </td>
+                ) : null}
                 <td className="draft-money">{fmt$(p.inflatedFair)}</td>
                 <td className="draft-money">{fmt$(p.enforceUpTo)}</td>
                 <td
@@ -1506,7 +1564,7 @@ export function RookieBoard({
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={14 + (bdvmIndex ? 1 : 0)}
                   className="muted"
                   style={{ padding: 14, textAlign: "center" }}
                 >
@@ -3271,6 +3329,22 @@ export default function DraftDashboardPage() {
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("all"); // all | target | avoid | untagged
+  // BDVM fundamental values — optional flag-gated enrichment, same
+  // posture as the rankings gap column: the Fund gap column and the
+  // pick-value panel exist only while /api/bdvm/values answers ok and
+  // vanish silently on any 503 (flag off, no snapshot, wrong league).
+  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values");
+  const bdvmIndex = useMemo(
+    () => (!bdvmFailure && bdvmData?.status === "ok" ? buildBdvmIndex(bdvmData) : null),
+    [bdvmData, bdvmFailure],
+  );
+  const bdvmPickRows = useMemo(
+    () =>
+      !bdvmFailure && bdvmData?.status === "ok"
+        ? buildBdvmPickRows(bdvmData, "balanced")
+        : [],
+    [bdvmData, bdvmFailure],
+  );
   // Late-draft triage mode: when my slotPressure crosses 0.7, auto-
   // flip the board filter to "Targets" so I see only the players I
   // still want.  Tracked so a user who manually changes the filter
@@ -4702,7 +4776,56 @@ export default function DraftDashboardPage() {
         tagFilter={tagFilter}
         onTagFilterChange={setTagFilter}
         onAdd={onAdd}
+        bdvmIndex={bdvmIndex}
       />
+
+      {bdvmPickRows.length > 0 && (
+        <CollapsiblePanel
+          title="Fundamental pick values (BDVM)"
+          subtitle="Rookie-pick EV in the balanced strategy currency — hit rate and outcome spread from the fundamental model, market anchor beside it"
+          defaultCollapsed
+        >
+          <div className="draft-table-wrap">
+            <table className="draft-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Pick</th>
+                  <th style={{ width: 90, textAlign: "right" }}>EV</th>
+                  <th style={{ width: 80, textAlign: "right" }} title="Probability the pick returns a startable player">
+                    Hit %
+                  </th>
+                  <th style={{ width: 90, textAlign: "right" }}>Median</th>
+                  <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
+                  <th style={{ width: 100, textAlign: "right" }}>Market</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bdvmPickRows.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td className="draft-money">{formatBdvmValue(row.ev)}</td>
+                    <td className="draft-money">
+                      {row.pHit == null ? "—" : `${Math.round(row.pHit * 100)}%`}
+                    </td>
+                    <td className="draft-money">{formatBdvmValue(row.median)}</td>
+                    <td className="draft-money">{formatBdvmValue(row.ceiling)}</td>
+                    <td
+                      className="draft-money"
+                      title={row.marketSource || undefined}
+                    >
+                      {formatBdvmValue(row.marketValue)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted" style={{ margin: "var(--space-2) 0 0", fontSize: "var(--font-size-2xs)" }}>
+            Fundamental (projection-driven) values — compared against the
+            market, never merged into the auction math above.
+          </p>
+        </CollapsiblePanel>
+      )}
 
       <DraftGlossary />
 

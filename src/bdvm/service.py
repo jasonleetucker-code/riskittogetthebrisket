@@ -15,6 +15,7 @@ never a silent zero, never an invented value.
 from __future__ import annotations
 
 import json
+import math
 import re
 import statistics
 from datetime import datetime, timezone
@@ -41,7 +42,8 @@ from src.bdvm.projections import (
     load_snapshot,
 )
 from src.bdvm.replacement import ReplacementEngine
-from src.bdvm.ros import ros_value
+from src.bdvm.ros import blend_ros_mu, ros_projection_weight, ros_value
+from src.bdvm.scoring import is_idp_position
 from src.bdvm.survival import RiskProfile
 from src.utils.name_clean import normalize_player_name
 
@@ -136,13 +138,16 @@ def _ros_for_player(
     *,
     schedule_weeks: Mapping[str, list] | None,
     params: ParamSet,
+    current_week: int | None = None,
 ) -> dict[str, Any] | None:
-    """Preseason rest-of-season value (single horizon, no aging/survival).
+    """Rest-of-season value (single horizon, no aging/survival).
 
     Requires the league schedule (byes) for the player's NFL team; when
     unavailable the field is None with no fabrication.  Preseason
-    ``w_proj`` = 1, so µ_ROS is the blended projection itself; in-season
-    recent-form blending activates once weekly points are wired.
+    (``current_week`` None) sums the full slate and µ_ROS is the
+    blended projection itself; in-season, ``blended`` already carries
+    the §8.4 posterior and only weeks >= ``current_week`` are summed —
+    played weeks are banked points, not remaining value.
     """
     if not schedule_weeks:
         return None
@@ -150,6 +155,8 @@ def _ros_for_player(
     weeks = schedule_weeks.get(team)
     if not weeks:
         return {"value": None, "reason": f"no_schedule_for_team:{team or 'FA'}"}
+    if current_week is not None:
+        weeks = [wk for wk in weeks if wk.week >= current_week]
     sigma0 = v.seasons[0]["sigma"]
     replacement = v.raw["replacement"]
     out: dict[str, Any] = {"muRos": round(blended.mu_fpg, 3), "weeks": len(weeks)}
@@ -198,6 +205,7 @@ def run_valuation(
     context: Mapping[str, "PlayerContext"] | None = None,
     events: Iterable["PlayerEvent"] | None = None,
     schedule_weeks: Mapping[str, list] | None = None,
+    actuals: tuple[int | None, Mapping[str, list]] | None = None,
 ) -> dict[str, Any]:
     """Compute BDVM fundamental values for every priceable asset.
 
@@ -211,7 +219,16 @@ def run_valuation(
     ``src.bdvm.context``) enriches inputs when the contract row lacks
     them; ``events`` are structured §7 events (auto-loaded from
     ``data/bdvm/events/<season>.json`` when None); ``schedule_weeks``
-    maps NFL team → RosWeek list for the preseason ROS output.
+    maps NFL team → RosWeek list for the ROS output.
+
+    ``actuals`` is the in-season evidence feed:
+    ``(current_week, player_key → [(week, points), ...])`` from
+    ``src.bdvm.actuals``.  When present, each covered player's
+    consensus is replaced by the §8.4 posterior — the preseason µ
+    shrinks toward realized per-game production with weight
+    ``n_prior/(n_prior + weeks_played)`` (``blend_ros_mu``), σ shrinks
+    by the same evidence factor, and ROS sums only the REMAINING
+    weeks.  ``(None, {})`` or omitted → exact preseason behavior.
     """
     params = params or load_param_set()
     as_of = _utc_now_iso()
@@ -295,6 +312,48 @@ def run_valuation(
         )
         if blended is not None:
             consensus[key] = blended
+
+    # ---- in-season posterior update (§8.4) ---------------------------------
+    # ONE mutation point, BEFORE pools/replacement: replacement levels,
+    # group z-stats, engine µ/σ, and ROS all read from ``consensus``,
+    # so updating here keeps every downstream number on the same
+    # posterior.  µ shrinks toward realized production with weight
+    # n_prior/(n_prior + weeks_played); σ shrinks by the same evidence
+    # factor (more observed games → less cross-source uncertainty).
+    # Players without observed weeks keep the preseason consensus
+    # untouched — absence of evidence is never evidence of zero.
+    current_week: int | None = None
+    inseason_updated = 0
+    if actuals is not None:
+        current_week, weekly_by_key = actuals
+        if current_week is not None and weekly_by_key:
+            for key, blended in list(consensus.items()):
+                samples = weekly_by_key.get(key)
+                if not samples:
+                    continue
+                weeks_played = float(len(samples))
+                mu_recent = sum(pts for _wk, pts in samples) / weeks_played
+                is_idp = is_idp_position(blended.position)
+                mu_post = blend_ros_mu(
+                    blended.mu_fpg,
+                    mu_recent,
+                    weeks_played,
+                    is_idp=is_idp,
+                    params=params,
+                )
+                w_prior = ros_projection_weight(weeks_played, is_idp=is_idp, params=params)
+                sigma_post = blended.sigma_source * math.sqrt(w_prior)
+                consensus[key] = _dc_replace(blended, mu_fpg=mu_post, sigma_source=sigma_post)
+                inseason_updated += 1
+    meta["inSeason"] = (
+        {
+            "currentWeek": current_week,
+            "playersUpdated": inseason_updated,
+            "source": "nflverse stats_player_week",
+        }
+        if current_week is not None
+        else {"active": False}
+    )
 
     # ---- pools + replacement (from projections only) ----------------------
     pools = build_group_pools(consensus.values(), cfg)
@@ -502,7 +561,12 @@ def run_valuation(
         }
         entry["events"] = extras.get("eventAudit", [])
         entry["ros"] = _ros_for_player(
-            v, blended, row, schedule_weeks=schedule_weeks, params=params
+            v,
+            blended,
+            row,
+            schedule_weeks=schedule_weeks,
+            params=params,
+            current_week=current_week,
         )
         players_out.append(entry)
 
