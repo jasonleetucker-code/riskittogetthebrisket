@@ -1,0 +1,307 @@
+{
+  "season": 2025,
+  "leagueKey": "dynasty_main",
+  "board": "dynasty_data_2026-07-28.json",
+  "contractVersion": "2026-03-10.v2",
+  "adjustmentModelVersion": "li.adjustment.2026-07-26.v1",
+  "inactiveAxes": [
+    "tePremium",
+    "projectionCorroboration"
+  ],
+  "factorsApplied": 930,
+  "factorShape": {
+    "?": {
+      "n": 1,
+      "distinct": 1,
+      "min": 1.016188,
+      "median": 1.016188,
+      "max": 1.016188
+    },
+    "DB": {
+      "n": 139,
+      "distinct": 1,
+      "min": 1.006528,
+      "median": 1.006528,
+      "max": 1.006528
+    },
+    "DL": {
+      "n": 145,
+      "distinct": 1,
+      "min": 1.083074,
+      "median": 1.083074,
+      "max": 1.083074
+    },
+    "K": {
+      "n": 19,
+      "distinct": 1,
+      "min": 0.952464,
+      "median": 0.952464,
+      "max": 0.952464
+    },
+    "LB": {
+      "n": 114,
+      "distinct": 1,
+      "min": 0.993205,
+      "median": 0.993205,
+      "max": 0.993205
+    },
+    "QB": {
+      "n": 72,
+      "distinct": 1,
+      "min": 1.012045,
+      "median": 1.012045,
+      "max": 1.012045
+    },
+    "RB": {
+      "n": 142,
+      "distinct": 45,
+      "min": 0.798582,
+      "median": 1.043323,
+      "max": 1.066421
+    },
+    "TE": {
+      "n": 85,
+      "distinct": 49,
+      "min": 0.887259,
+      "median": 1.014991,
+      "max": 1.059096
+    },
+    "WR": {
+      "n": 213,
+      "distinct": 96,
+      "min": 0.909885,
+      "median": 1.026421,
+      "max": 1.127274
+    }
+  },
+  "join": {
+    "boardRows": 1093,
+    "picks": 144,
+    "unpriced": 240,
+    "unjoined": 137
+  },
+  "results": {
+    "fullBoard": {
+      "n": 572,
+      "marketRho": 0.561951,
+      "adjustedRho": 0.554118,
+      "delta": -0.007833,
+      "winRate": 0.0425,
+      "ci95": [
+        -0.016591,
+        0.000687
+      ],
+      "movers": 568,
+      "byPosition": {
+        "DB": {
+          "n": 75.0,
+          "marketRho": 0.435677,
+          "adjustedRho": 0.435677,
+          "delta": 0.0
+        },
+        "DL": {
+          "n": 98.0,
+          "marketRho": 0.550432,
+          "adjustedRho": 0.550432,
+          "delta": 0.0
+        },
+        "LB": {
+          "n": 68.0,
+          "marketRho": 0.490972,
+          "adjustedRho": 0.490972,
+          "delta": 0.0
+        },
+        "QB": {
+          "n": 52.0,
+          "marketRho": 0.740801,
+          "adjustedRho": 0.740801,
+          "delta": 0.0
+        },
+        "RB": {
+          "n": 89.0,
+          "marketRho": 0.827493,
+          "adjustedRho": 0.824632,
+          "delta": -0.00286
+        },
+        "TE": {
+          "n": 62.0,
+          "marketRho": 0.783521,
+          "adjustedRho": 0.788371,
+          "delta": 0.00485
+        },
+        "WR": {
+          "n": 128.0,
+          "marketRho": 0.762569,
+          "adjustedRho": 0.76489,
+          "delta": 0.002321
+        }
+      },
+      "verdict": "NO DIFFERENCE DETECTED \u2014 the 95% interval spans zero, so the adjustment neither helps nor hurts at this sample size"
+    },
+    "top300": {
+      "n": 245,
+      "marketRho": 0.531064,
+      "adjustedRho": 0.531901,
+      "delta": 0.000838,
+      "winRate": 0.5245,
+      "ci95": [
+        -0.011499,
+        0.015372
+      ],
+      "movers": 242,
+      "byPosition": {
+        "DL": {
+          "n": 29.0,
+          "marketRho": 0.474384,
+          "adjustedRho": 0.474384,
+          "delta": 0.0
+        },
+        "LB": {
+          "n": 20.0,
+          "marketRho": 0.106767,
+          "adjustedRho": 0.106767,
+          "delta": 0.0
+        },
+        "QB": {
+          "n": 33.0,
+          "marketRho": 0.424799,
+          "adjustedRho": 0.424799,
+          "delta": 0.0
+        },
+        "RB": {
+          "n": 50.0,
+          "marketRho": 0.768163,
+          "adjustedRho": 0.764706,
+          "delta": -0.003457
+        },
+        "TE": {
+          "n": 40.0,
+          "marketRho": 0.607692,
+          "adjustedRho": 0.633208,
+          "delta": 0.025516
+        },
+        "WR": {
+          "n": 66.0,
+          "marketRho": 0.567853,
+          "adjustedRho": 0.565056,
+          "delta": -0.002797
+        }
+      },
+      "verdict": "NO DIFFERENCE DETECTED \u2014 the 95% interval spans zero, so the adjustment neither helps nor hurts at this sample size"
+    },
+    "perGame": {
+      "n": 572,
+      "marketRho": 0.584551,
+      "adjustedRho": 0.578658,
+      "delta": -0.005893,
+      "winRate": 0.104,
+      "ci95": [
+        -0.014701,
+        0.002989
+      ],
+      "movers": 568,
+      "byPosition": {
+        "DB": {
+          "n": 75.0,
+          "marketRho": 0.545333,
+          "adjustedRho": 0.545333,
+          "delta": 0.0
+        },
+        "DL": {
+          "n": 98.0,
+          "marketRho": 0.56233,
+          "adjustedRho": 0.56233,
+          "delta": 0.0
+        },
+        "LB": {
+          "n": 68.0,
+          "marketRho": 0.587055,
+          "adjustedRho": 0.587055,
+          "delta": 0.0
+        },
+        "QB": {
+          "n": 52.0,
+          "marketRho": 0.8237,
+          "adjustedRho": 0.8237,
+          "delta": 0.0
+        },
+        "RB": {
+          "n": 89.0,
+          "marketRho": 0.80285,
+          "adjustedRho": 0.804842,
+          "delta": 0.001992
+        },
+        "TE": {
+          "n": 62.0,
+          "marketRho": 0.810718,
+          "adjustedRho": 0.822216,
+          "delta": 0.011498
+        },
+        "WR": {
+          "n": 128.0,
+          "marketRho": 0.840502,
+          "adjustedRho": 0.84276,
+          "delta": 0.002258
+        }
+      },
+      "verdict": "NO DIFFERENCE DETECTED \u2014 the 95% interval spans zero, so the adjustment neither helps nor hurts at this sample size"
+    },
+    "overReplacement": {
+      "n": 572,
+      "marketRho": 0.453528,
+      "adjustedRho": 0.445915,
+      "delta": -0.007614,
+      "winRate": 0.0435,
+      "ci95": [
+        -0.016485,
+        0.001109
+      ],
+      "movers": 568,
+      "byPosition": {
+        "DB": {
+          "n": 75.0,
+          "marketRho": 0.435677,
+          "adjustedRho": 0.435677,
+          "delta": 0.0
+        },
+        "DL": {
+          "n": 98.0,
+          "marketRho": 0.550432,
+          "adjustedRho": 0.550432,
+          "delta": 0.0
+        },
+        "LB": {
+          "n": 68.0,
+          "marketRho": 0.490972,
+          "adjustedRho": 0.490972,
+          "delta": 0.0
+        },
+        "QB": {
+          "n": 52.0,
+          "marketRho": 0.740801,
+          "adjustedRho": 0.740801,
+          "delta": 0.0
+        },
+        "RB": {
+          "n": 89.0,
+          "marketRho": 0.827493,
+          "adjustedRho": 0.824632,
+          "delta": -0.00286
+        },
+        "TE": {
+          "n": 62.0,
+          "marketRho": 0.783521,
+          "adjustedRho": 0.788371,
+          "delta": 0.00485
+        },
+        "WR": {
+          "n": 128.0,
+          "marketRho": 0.762569,
+          "adjustedRho": 0.76489,
+          "delta": 0.002321
+        }
+      },
+      "verdict": "NO DIFFERENCE DETECTED \u2014 the 95% interval spans zero, so the adjustment neither helps nor hurts at this sample size"
+    }
+  }
+}

@@ -15,6 +15,7 @@ import {
   SkeletonTable,
   StatTile,
 } from "@/components/ds";
+import { withValuationMode } from "@/lib/valuation-mode";
 import styles from "./arbitrage.module.css";
 
 // ── /arbitrage — the board-vs-market arbitrage finder ─────────────────
@@ -147,7 +148,9 @@ export default function ArbitragePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify(body),
+        // Our side of the arbitrage follows the selected board; the
+        // market anchor it is measured against never does.
+        body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

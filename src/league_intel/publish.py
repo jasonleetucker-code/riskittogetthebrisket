@@ -154,10 +154,8 @@ def build_league_adjusted_payload(
     caller's rows would corrupt ``latest_contract_data``, which is a
     shared module global read by every other request.
     """
-    from src.api.data_contract import (  # noqa: PLC0415 - heavy import graph
-        assert_ranking_coherence,
-        compact_ranks_and_tiers,
-        current_rookie_draft_year,
+    from src.league_intel.overlay import (  # noqa: PLC0415 - heavy import graph
+        adjusted_rows as apply_overlay_rows,
     )
 
     normalised = _scarcity_to_mapping(scarcity)
@@ -185,35 +183,22 @@ def build_league_adjusted_payload(
     warnings: list[str] = []
 
     if factors:
-        # Adjusted copies. compact_ranks_and_tiers copies again
-        # (copy_rows=True) so the caller's rows are never touched; the
-        # multiply below therefore also has to land on a copy.
-        adjusted_rows: list[dict[str, Any]] = []
-        for row in rows:
-            copy = dict(row)
-            base = copy.get("rankDerivedValue")
-            factor = factors.get(_row_key(row))
-            if factor and isinstance(base, (int, float)) and base > 0:
-                copy["rankDerivedValue"] = int(round(float(base) * factor))
-            adjusted_rows.append(copy)
+        # ONE implementation of "apply factors and re-rank", shared with
+        # the server-side engine path (``src.league_intel.overlay``).
+        # Two copies of this would drift, and the failure would be
+        # silent: the client would render one adjusted board while the
+        # trade engines priced against a different one.
+        ranked = apply_overlay_rows(rows, factors)
 
-        ranked = compact_ranks_and_tiers(
-            adjusted_rows,
-            anchor_year=current_rookie_draft_year(),
-            copy_rows=True,
-        )
-
-        errors = assert_ranking_coherence(ranked)
-        if errors:
+        if ranked is None:
             # Serving an incoherent board is worse than serving none:
             # the client would render ranks that contradict the values
             # next to them. Degrade to consensus and say why.
             logging.warning(
-                "league-adjusted overlay incoherent for %s (%d errors); serving no-op",
+                "league-adjusted overlay incoherent for %s; serving no-op",
                 league_key,
-                len(errors),
             )
-            warnings.append(f"ranking incoherent ({len(errors)} errors); overlay suppressed")
+            warnings.append("ranking incoherent; overlay suppressed")
             factors = {}
         else:
             for r in ranked:
