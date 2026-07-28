@@ -65,6 +65,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
+
 
 # ── Scoring-key mapping ───────────────────────────────────────────
 #
@@ -161,8 +163,26 @@ _IDP_TACKLE_KEYS: tuple[tuple[str, str], ...] = (
 # canonical key is absent so a dump carrying both can never
 # double-count.  (Distinct from the STAT-column candidates above:
 # those absorb nflverse renames, this absorbs Sleeper's.)
+#
+# DERIVED, not hand-listed.  This started as a one-entry literal
+# ``{"idp_pass_def": "idp_pd"}`` fixing the key that was noticed.
+# ``KEY_ALIASES`` knows **eight**, and a second one is live in this very
+# league — ``idp_qb_hit`` at 2.13/event, which the module reads as
+# ``idp_hit``.  Measured on 2025: passes-defended cost 11,119 points and
+# QB hits 6,545.
+#
+# Half-fixing was not half-right, it was differently wrong: PD is a
+# cornerback stat and QB hits are an edge-rusher stat, so correcting
+# only PD tilts DB up against DL by 11k points with no offsetting
+# credit to the linemen who were owed 6.5k.  A partial correction to a
+# *relative* ranking introduces a bias that no correction at all does
+# not.
+#
+# Deriving from the one map that already enumerates them means the next
+# alias Sleeper adds is picked up by both layers at once, instead of
+# drifting until someone notices a position group scoring low.
 _SCORING_KEY_ALIASES: dict[str, str] = {
-    "idp_pass_def": "idp_pd",
+    alias: canonical for alias, canonical in _SLEEPER_KEY_ALIASES.items() if alias != canonical
 }
 
 

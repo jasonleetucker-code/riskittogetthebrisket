@@ -20,13 +20,13 @@ reason, so nobody re-litigates them from scratch.
 
 ---
 
-## Read this first: five items have open PRs
+## Read this first: much of this file is already superseded
 
-Added 2026-07-27 ~18:45, within an hour of compiling this file. A parallel
-session had work in flight that this document could not see, and **the statuses
-below are stale for five items**. They are still accurate against `main` — none
-of this is merged — but starting any of them from this file would duplicate
-finished work. Check the PR before picking one up.
+**Updated 2026-07-28 ~00:15.** This document was compiled against `main` at
+`d224e15de` and was stale within the hour — a parallel session had a large
+amount of work in flight that it could not see. Treat every status below as a
+claim about a `main` that no longer exists, and check the PR column before
+picking anything up.
 
 | item below | status here | actually |
 |---|---|---|
@@ -35,8 +35,14 @@ finished work. Check the PR before picking one up.
 | §2.1 TE basis wiring | BUILT, NOT WIRED | **#591** — wired pre-blend; measured blast radius, 80 TEs up, median +14.27% |
 | §4.2 persist player-week actuals | NOT STARTED · *the one open Tier-0 item* | **#591** — 22 weeks / 16,995 player-weeks persisted for 2025 |
 | §8.2 `tep=3` vs `tepp` | NOT STARTED · latent | **#593** — half of it *was* live via the DOM fallback; see below |
+| §6 ML / archetypes — "undecided" | NOT STARTED | largely **overtaken by BDVM v1** (#600, merged) — a projection-driven fundamental engine beside the market board, flag `bdvm_engine` OFF |
+| §12 guard-that-cannot-fire (4 instances) | — | **five**, and the fifth was this repo's own health check. See ORCHESTRATION.md §6.15 |
 
-Two of those carry findings that change what this file says, not just its status:
+One item the file **never contained at all**, because it was found after
+compiling: the realized-points scoring aliases — added as §13 at the end.
+
+Two entries carry findings that change what this file *says*, not just its
+status:
 
 - **§8.2 was not purely latent.** I recorded it as harmless-today because KTC
   returns every TEP level regardless of the parameter — which is true of the
@@ -588,3 +594,45 @@ those are dynamically dispatched). Check each row before working it.
 | 1 | Forced public-league rebuild makes the API unresponsive | Marked "OPEN, unproven" in §9 and still unproven. Needs a live reproduction against a running backend; cannot be established by reading. |
 | 3 | `/league` SSR exceeds a 5s proxy timeout cold | A performance claim that needs live measurement against a cold backend, and §5 of this document already notes its figures predate the R5 perf pass. Re-measure before optimising. |
 | 17 | `deploy/apply_hardening.sh` unwired | Confirmed: referenced only from `deploy/**/README.md`, never from `.github/workflows/`. Deliberately left alone — it reinstalls the repo's nginx config over the installed one and could revert certbot. Wiring a script that rewrites production TLS config is an operator decision with an irreversible failure mode, not something to land from a defect sweep. |
+
+---
+
+## 13. Realized-points scoring aliases — FOUND AFTER COMPILING, FIXED
+
+Not in the original file: found on 2026-07-28 while reviewing #600, and worth
+recording because the *shape* of the mistake generalises.
+
+Sleeper publishes some scoring rules under two key names. `realized_points.py`
+read only the canonical spelling, so any rule your league dumps under the alias
+scored **zero, silently** — the key is simply absent from the settings dict, so
+there is nothing to raise.
+
+Measured against live 2025 data, both aliases are live in this league:
+
+| alias in your dump | module read | value | 2025 points unscored | who it hits |
+|---|---|---|---|---|
+| `idp_pass_def` | `idp_pd` | 5.32 | **11,119** | cornerbacks |
+| `idp_qb_hit` | `idp_hit` | 2.13 | **6,545** | edge rushers |
+
+Top single players affected: Mike Jackson 23 PD (122 pts), Zach Allen 51 QB hits
+(109 pts). For a CB whose realized season lands near 150–200 points, that is not
+a rounding error.
+
+**The generalisable part.** #600 fixed the first one — the key someone happened
+to trip over — with a one-entry literal. `sleeper_ingest.KEY_ALIASES` already
+enumerated **eight**. Half-fixing was not half-right, it was *differently*
+wrong: PD is a corner stat and QB hits an edge stat, so correcting only PD tilts
+DB up against DL by 11k points while the linemen stay owed 6.5k. **A partial
+correction to a relative ranking introduces a bias that no correction does
+not** — the arithmetic gets closer to true while the ordering gets further from
+it.
+
+Fixed by deriving the map from `KEY_ALIASES` rather than restating it, so the
+ninth alias Sleeper adds is picked up by both layers at once. Six regression
+tests, all observed failing against the one-entry version first.
+
+Still open, and deliberately not guessed at: whether any of the other six
+aliases go live if you ever change scoring, and whether the same
+noticed-one-only pattern exists in the *offensive* keys. `KEY_ALIASES` shows no
+genuine offensive aliases today, but that was not measured against a second
+league's dump.
