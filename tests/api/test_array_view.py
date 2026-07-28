@@ -59,9 +59,7 @@ def array_env(tmp_path, monkeypatch):
 
     monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
     # Keep the live Sleeper overlay out of these tests.
-    monkeypatch.setattr(
-        server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kwargs: None
-    )
+    monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kwargs: None)
 
     yield
 
@@ -77,9 +75,7 @@ def _install_views(monkeypatch):
     full_payload = {
         "meta": {"leagueKey": "main"},
         "players": {"Josh Allen": {"rankDerivedValue": 9200}},
-        "playersArray": [
-            {"displayName": "Josh Allen", "rankDerivedValue": 9200}
-        ],
+        "playersArray": [{"displayName": "Josh Allen", "rankDerivedValue": 9200}],
         "sleeper": {"teams": []},
     }
     full_raw = json.dumps(full_payload, ensure_ascii=False, separators=(",", ":")).encode()
@@ -97,9 +93,7 @@ def _install_views(monkeypatch):
     monkeypatch.setattr(server, "latest_array_data", array_payload)
     monkeypatch.setattr(server, "latest_array_data_bytes", array_raw)
     monkeypatch.setattr(server, "latest_array_data_gzip_bytes", _gzip.compress(array_raw))
-    monkeypatch.setattr(
-        server, "latest_array_data_etag", _hashlib.sha1(array_raw).hexdigest()
-    )
+    monkeypatch.setattr(server, "latest_array_data_etag", _hashlib.sha1(array_raw).hexdigest())
     return full_payload
 
 

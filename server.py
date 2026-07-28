@@ -3849,9 +3849,7 @@ async def post_rankings_overrides(request: Request):
     cacheable = not want_league_adjusted and contract_version is not None
     cache_key = None
     if cacheable:
-        canonical_body = json.dumps(
-            body, sort_keys=True, separators=(",", ":"), default=str
-        )
+        canonical_body = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
         cache_key = (
             "overrides",
             hashlib.sha1(canonical_body.encode("utf-8")).hexdigest(),
@@ -8125,7 +8123,11 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             # Re-check after the wait — a concurrent request may have
             # populated the slot while we queued.
             cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
-            if not refresh and cache_slot and (time.time() - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
+            if (
+                not refresh
+                and cache_slot
+                and (time.time() - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC
+            ):
                 result = cache_slot[1]
             else:
                 result = await run_in_threadpool(_compute)

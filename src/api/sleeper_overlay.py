@@ -1240,9 +1240,7 @@ def _kick_overlay_background_refresh(
             with _CACHE_LOCK:
                 _REFRESHING.discard(sleeper_league_id)
 
-    threading.Thread(
-        target=_run, daemon=True, name=f"overlay-refresh-{sleeper_league_id}"
-    ).start()
+    threading.Thread(target=_run, daemon=True, name=f"overlay-refresh-{sleeper_league_id}").start()
 
 
 def _build_overlay_and_cache(
@@ -1270,9 +1268,7 @@ def _build_overlay_and_cache(
     prefetch_urls: list[str] = []
     for lid in chain or [sleeper_league_id]:
         base = f"https://api.sleeper.app/v1/league/{lid}"
-        prefetch_urls.extend(
-            [f"{base}/rosters", f"{base}/users", base, f"{base}/drafts"]
-        )
+        prefetch_urls.extend([f"{base}/rosters", f"{base}/users", base, f"{base}/drafts"])
         prefetch_urls.extend(f"{base}/transactions/{week}" for week in range(0, 19))
     root_base = f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
     prefetch_urls.append(f"{root_base}/traded_picks")
