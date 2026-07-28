@@ -118,14 +118,55 @@ Efficiency could still earn an axis on the part of it the market
 regardless of outcome — a volume term wearing per-touch clothes, and
 workload already captures it.
 
-The QB term is genuine efficiency, a completion-percentage tax:
+### The QB completion-rate term, isolated — and declined
+
+An earlier draft of this document named QB completion-rate scoring as
+"the one term that is both stable and genuinely unpriced". **That was
+wrong, and it was wrong because it conflated two measurements**: an
+ex-touchdown stability figure for QB efficiency *overall* (r = 0.597)
+and a points figure for the combined per-play terms *including*
+``rush_att``. Neither was about ``pass_cmp`` / ``pass_inc``.
+
+Isolating those two keys alone — 2025, 36 QBs with 200+ attempts —
+fails on all three counts a new axis has to clear.
+
+**1. The prize is small.** The term spans **−2.9 to +22.7 points** over
+a whole season, which is −1.5% to +4.3% of a QB's points:
 
 ```
-Drake Maye        +31.0 pts over 596 plays   (0.052/play)
-Josh Allen        +25.8 pts over 572 plays   (0.045/play)
-Mac Jones         +13.7 pts over 325 plays   (0.042/play)
-Shedeur Sanders    -0.6 pts over 233 plays  (-0.003/play)
+Drake Maye      +22.7   (72.0% completions)
+Mac Jones       +10.8   (69.6%)
+Brock Purdy     +10.4   (69.4%)
+   ...
+Caleb Williams   -2.9   (58.1%)
+Shedeur Sanders  -2.2   (56.6%)
+J.J. McCarthy    -1.7   (57.6%)
 ```
+
+**2. It does not replicate.** Year-over-year correlation of the term
+per attempt — identical to completion percentage's, since the term is a
+linear function of it:
+
+| pair | n | r |
+|---|---|---|
+| 2023→2024 | 26 | +0.428 |
+| 2024→2025 | 27 | **+0.159** |
+
+One pair moderate, the next essentially zero. Compare the measurements
+that *did* justify building something: reception band shape 0.767 /
+0.718, per-touch WR efficiency 0.558 / 0.571. Those replicate; this
+does not, and n ≈ 26 is as large as the sample will ever get — there
+are only ~32 starting quarterbacks.
+
+**3. And it is partly priced anyway.** Residual board value after
+volume and age, against the completion term: **+0.194** on our board,
+**+0.273** on KTC.
+
+Multiply through — a spread of a few points, times a stability that
+averages ~0.29 and swings between 0.43 and 0.16, minus the share the
+market already holds — and the exploitable edge is on the order of **one
+point per season**. Not worth an axis, and not worth the risk of
+shipping a tilt fitted on 26 quarterbacks.
 
 ## Verdict
 
@@ -138,7 +179,8 @@ the same reason the first-down axis was declined
 (`docs/first-down-signal.md`).
 
 What remains genuinely unpriced is small: the league-specific per-touch
-terms are 2.9% of a QB's season and 0.2% of a WR's.
+terms are 2.9% of a QB's season and 0.2% of a WR's — and the QB half of
+that, isolated below, neither replicates nor is fully unpriced.
 
 **What is worth pursuing instead**, in order:
 
@@ -146,9 +188,9 @@ terms are 2.9% of a QB's season and 0.2% of a WR's.
    least informative and efficiency most, and the market prices TE
    efficiency less completely than WR (0.508 vs 0.652). Blocked on
    sample — a fifth season roughly doubles the power.
-2. **QB completion-rate scoring, if anywhere.** Genuinely invisible to a
-   generic market board and worth up to ~31 points a season. Small, and
-   one position.
+2. **Not QB completion rate.** Measured and declined — see above. It
+   does not replicate across season pairs, the sample cannot grow past
+   ~32 quarterbacks, and the market already holds part of it.
 3. **Nothing for RB and WR.** WR efficiency is stable but fully priced;
    RB efficiency is neither. Effort belongs on projecting opportunity.
 
