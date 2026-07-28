@@ -422,6 +422,13 @@ test-pinned (``tests/bdvm/``):
   policy: each replaces its own prior run wholesale and supersedes
   proxies per player while other real sources carry through, so a
   defender covered by Clay AND IDP Show gets a two-source consensus.
+  The consensus is **vocabulary-aware**: a stat-line record whose
+  league-scored IDP categories are a strict subset of a peer's (Clay
+  publishes no TFL/PD — categories this league pays 4.25/5.32 for) is
+  down-weighted by the labelled prior
+  ``projection_consensus.vocabulary_dominated_weight_mult`` instead of
+  dragging the mean down or silently imputing the missing categories;
+  affected sources are stamped in ``projection.vocabularyLimitedSources``.
   Structured events (closed ontology,
   ``config/bdvm/event_types_v1.json``) adjust module inputs — never a
   final score — from ``data/bdvm/events/<season>.json``.

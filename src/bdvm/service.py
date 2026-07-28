@@ -478,6 +478,7 @@ def run_valuation(
                     "sources": list(blended.sources),
                     "anyProxy": blended.any_proxy,
                     "staleSources": list(blended.stale_sources),
+                    "vocabularyLimitedSources": list(blended.vocabulary_limited),
                 },
                 "replacement": {
                     "group": v.group,

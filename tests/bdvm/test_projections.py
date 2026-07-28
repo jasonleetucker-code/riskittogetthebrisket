@@ -241,3 +241,117 @@ class TestReconstructedBaseline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+IDP_SCORING = {
+    "idp_tkl_solo": 1.33,
+    "idp_tkl_ast": 0.8,
+    "idp_tkl_loss": 4.25,
+    "idp_sack": 2.92,
+    "idp_int": 5.32,
+    "idp_pass_def": 5.32,  # alias spelling — the live league's dump
+}
+
+
+def _stat_rec(source, stats, *, key="dual lb", pos="LB", as_of="2026-07-25", proxy=False):
+    return ProjectionRecord(
+        source=source,
+        player_key=key,
+        position=pos,
+        season=2026,
+        as_of=as_of,
+        games=17.0,
+        stat_line=stats,
+        stat_basis="season",
+        is_proxy=proxy,
+    )
+
+
+class TestVocabularyDomination(unittest.TestCase):
+    """A source whose stat line omits categories THIS league pays for
+    (Clay: no TFL/PD) is biased low by construction — the blend must
+    not average that bias in at full weight.  Down-weighting is a
+    labelled prior, never silent imputation."""
+
+    # Clay-style: solo/ast/sack/int only.  ~ (62*1.33+38*0.8+3*2.92+1*5.32)/17
+    CLAY = {
+        "def_tackles_solo": 62.0,
+        "def_tackle_assists": 38.0,
+        "def_sacks": 3.0,
+        "def_interceptions": 1.0,
+    }
+    # IDP-Show-style: same core numbers PLUS the categories Clay omits.
+    FULL = {
+        "def_tackles_solo": 62.0,
+        "def_tackle_assists": 38.0,
+        "def_sacks": 3.0,
+        "def_interceptions": 1.0,
+        "def_tackles_for_loss": 8.0,
+        "def_pass_defended": 4.0,
+    }
+
+    def _blend(self, records, scoring=IDP_SCORING):
+        return blend_consensus(
+            records,
+            scoring_settings=scoring,
+            snapshot_as_of="2026-07-27",
+            params=PARAMS,
+        )
+
+    def test_subset_line_is_down_weighted_toward_the_complete_source(self):
+        clay = _stat_rec("clayProjections", self.CLAY)
+        full = _stat_rec("idpShowProjections", self.FULL)
+        c = self._blend([clay, full])
+        fpg_clay, _ = clay.resolve_fpg(IDP_SCORING)
+        fpg_full, _ = full.resolve_fpg(IDP_SCORING)
+        mult = PARAMS["projection_consensus"]["vocabulary_dominated_weight_mult"]
+        expected = (mult * fpg_clay + 1.0 * fpg_full) / (mult + 1.0)
+        self.assertEqual(c.vocabulary_limited, ("clayProjections",))
+        self.assertAlmostEqual(c.mu_fpg, expected, places=6)
+        # materially closer to the complete line than a plain mean
+        self.assertGreater(c.mu_fpg, (fpg_clay + fpg_full) / 2)
+
+    def test_no_domination_when_league_ignores_the_missing_categories(self):
+        # Solo/ast/sack/int-only league: TFL/PD carry no weight, so the
+        # two vocabularies are EQUAL after filtering — plain mean.
+        scoring = {"idp_tkl_solo": 1.0, "idp_tkl_ast": 0.5, "idp_sack": 4.0, "idp_int": 4.0}
+        clay = _stat_rec("clayProjections", self.CLAY)
+        full = _stat_rec("idpShowProjections", self.FULL)
+        c = self._blend([clay, full], scoring=scoring)
+        self.assertEqual(c.vocabulary_limited, ())
+        fpg_clay, _ = clay.resolve_fpg(scoring)
+        fpg_full, _ = full.resolve_fpg(scoring)
+        self.assertAlmostEqual(c.mu_fpg, (fpg_clay + fpg_full) / 2, places=6)
+
+    def test_alias_scoring_key_counts_as_scored(self):
+        # League spells passes-defended as idp_pass_def (alias) — PD
+        # must still count as a scored category.
+        scoring = {"idp_tkl_solo": 1.0, "idp_pass_def": 5.32}
+        clay = _stat_rec("clayProjections", self.CLAY)
+        full = _stat_rec("idpShowProjections", self.FULL)
+        c = self._blend([clay, full], scoring=scoring)
+        self.assertEqual(c.vocabulary_limited, ("clayProjections",))
+
+    def test_proxy_never_dominates_a_real_source(self):
+        clay = _stat_rec("clayProjections", self.CLAY)
+        proxy = rec("reconstructedBaseline", 9.0, key="dual lb", pos="LB", is_proxy=True)
+        c = self._blend([clay, proxy])
+        self.assertEqual(c.vocabulary_limited, ())
+
+    def test_direct_points_record_neither_dominates_nor_is_dominated(self):
+        clay = _stat_rec("clayProjections", self.CLAY)
+        direct = rec("idpShowProjections", 12.0, key="dual lb", pos="LB")
+        c = self._blend([clay, direct])
+        self.assertEqual(c.vocabulary_limited, ())
+
+    def test_single_source_untouched(self):
+        c = self._blend([_stat_rec("clayProjections", self.CLAY)])
+        self.assertEqual(c.vocabulary_limited, ())
+
+    def test_column_spelling_variants_compare_as_the_same_category(self):
+        # def_passes_defended vs def_pass_defended are ONE category —
+        # neither line dominates the other.
+        a = _stat_rec("srcA", {**self.CLAY, "def_pass_defended": 4.0})
+        b = _stat_rec("srcB", {**self.CLAY, "def_passes_defended": 5.0})
+        c = self._blend([a, b])
+        self.assertEqual(c.vocabulary_limited, ())

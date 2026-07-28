@@ -1,230 +1,611 @@
 {
-  "_comment": [
-    "BDVM v1 parameter set. EVERY number here is a STARTING PRIOR from the",
-    "BDVM v1.0 research document (docs/research/bdvm-v1/BDVM_v1_complete.pdf,",
-    "Part 6) — informed by published research but NOT backtested truth.",
-    "Do not edit in place once a param_set_id has shipped values: copy to a",
-    "new file (params_v2.json, ...), change, and point BDVM_PARAM_SET at it.",
-    "The param_set_id is a content hash, so any edit produces a new id."
+ "_comment": [
+  "BDVM v1 parameter set. EVERY number here is a STARTING PRIOR from the",
+  "BDVM v1.0 research document (docs/research/bdvm-v1/BDVM_v1_complete.pdf,",
+  "Part 6) \u2014 informed by published research but NOT backtested truth.",
+  "Do not edit in place once a param_set_id has shipped values: copy to a",
+  "new file (params_v2.json, ...), change, and point BDVM_PARAM_SET at it.",
+  "The param_set_id is a content hash, so any edit produces a new id."
+ ],
+ "schema_version": 1,
+ "label": "bdvm-v1-priors",
+ "model_version": "1.0.0",
+ "positions_true": [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "DT",
+  "EDGE",
+  "LB",
+  "CB",
+  "S"
+ ],
+ "_comment_platform_fallback": [
+  "When a player's true position is unknown we only know the platform",
+  "lineup group (Sleeper: DL / LB / DB). These fallbacks pick the modelling",
+  "position used for curves/hazard/CV, and the engine widens sigma via",
+  "unknown_true_position_sigma_mult and lowers data quality."
+ ],
+ "platform_group_fallback_position": {
+  "DL": "EDGE",
+  "LB": "LB",
+  "DB": "S",
+  "QB": "QB",
+  "RB": "RB",
+  "WR": "WR",
+  "TE": "TE"
+ },
+ "unknown_true_position_sigma_mult": 1.1,
+ "age_curves": {
+  "_comment": "pos/archetype -> [peak_age, c_up, c_dn]; asymmetric Gaussian",
+  "QB_pocket": [
+   30.0,
+   0.006,
+   0.01
   ],
-  "schema_version": 1,
-  "label": "bdvm-v1-priors",
-  "model_version": "1.0.0",
-
-  "positions_true": ["QB", "RB", "WR", "TE", "DT", "EDGE", "LB", "CB", "S"],
-
-  "_comment_platform_fallback": [
-    "When a player's true position is unknown we only know the platform",
-    "lineup group (Sleeper: DL / LB / DB). These fallbacks pick the modelling",
-    "position used for curves/hazard/CV, and the engine widens sigma via",
-    "unknown_true_position_sigma_mult and lowers data quality."
+  "QB_dual": [
+   26.0,
+   0.01,
+   0.028
   ],
-  "platform_group_fallback_position": {
-    "DL": "EDGE",
-    "LB": "LB",
-    "DB": "S",
-    "QB": "QB",
-    "RB": "RB",
-    "WR": "WR",
-    "TE": "TE"
+  "RB": [
+   25.0,
+   0.012,
+   0.03
+  ],
+  "WR": [
+   27.0,
+   0.014,
+   0.024
+  ],
+  "TE": [
+   27.5,
+   0.03,
+   0.018
+  ],
+  "DT": [
+   27.5,
+   0.016,
+   0.02
+  ],
+  "EDGE": [
+   27.0,
+   0.014,
+   0.022
+  ],
+  "LB": [
+   26.5,
+   0.012,
+   0.03
+  ],
+  "CB": [
+   26.0,
+   0.01,
+   0.03
+  ],
+  "S": [
+   27.0,
+   0.012,
+   0.026
+  ]
+ },
+ "mileage": {
+  "_comment": "pos -> [unit, reference_load, load_per_effective_year, cap_years]",
+  "RB": [
+   "touches",
+   750.0,
+   500.0,
+   2.5
+  ],
+  "WR": [
+   "targets",
+   500.0,
+   450.0,
+   1.5
+  ],
+  "TE": [
+   "targets",
+   400.0,
+   450.0,
+   1.5
+  ],
+  "QB": [
+   "dropbacks",
+   2000.0,
+   2500.0,
+   1.0
+  ],
+  "LB": [
+   "snaps",
+   3000.0,
+   2200.0,
+   1.5
+  ],
+  "EDGE": [
+   "snaps",
+   3000.0,
+   2400.0,
+   1.5
+  ],
+  "DT": [
+   "snaps",
+   3000.0,
+   2400.0,
+   1.0
+  ],
+  "CB": [
+   "snaps",
+   3000.0,
+   2400.0,
+   1.5
+  ],
+  "S": [
+   "snaps",
+   3000.0,
+   2400.0,
+   1.5
+  ]
+ },
+ "base_hazard": {
+  "_comment": "pos -> [[age_upper_bound_exclusive, annual_hazard], ...]; fallthrough 0.5",
+  "QB": [
+   [
+    24,
+    0.16
+   ],
+   [
+    27,
+    0.1
+   ],
+   [
+    30,
+    0.09
+   ],
+   [
+    33,
+    0.14
+   ],
+   [
+    36,
+    0.24
+   ],
+   [
+    99,
+    0.38
+   ]
+  ],
+  "RB": [
+   [
+    24,
+    0.11
+   ],
+   [
+    26,
+    0.15
+   ],
+   [
+    27,
+    0.22
+   ],
+   [
+    28,
+    0.3
+   ],
+   [
+    29,
+    0.38
+   ],
+   [
+    99,
+    0.5
+   ]
+  ],
+  "WR": [
+   [
+    24,
+    0.13
+   ],
+   [
+    27,
+    0.09
+   ],
+   [
+    29,
+    0.13
+   ],
+   [
+    31,
+    0.22
+   ],
+   [
+    33,
+    0.34
+   ],
+   [
+    99,
+    0.46
+   ]
+  ],
+  "TE": [
+   [
+    24,
+    0.16
+   ],
+   [
+    27,
+    0.1
+   ],
+   [
+    30,
+    0.12
+   ],
+   [
+    32,
+    0.2
+   ],
+   [
+    34,
+    0.32
+   ],
+   [
+    99,
+    0.44
+   ]
+  ],
+  "DT": [
+   [
+    24,
+    0.14
+   ],
+   [
+    27,
+    0.1
+   ],
+   [
+    30,
+    0.14
+   ],
+   [
+    32,
+    0.24
+   ],
+   [
+    99,
+    0.38
+   ]
+  ],
+  "EDGE": [
+   [
+    24,
+    0.14
+   ],
+   [
+    27,
+    0.1
+   ],
+   [
+    30,
+    0.15
+   ],
+   [
+    32,
+    0.26
+   ],
+   [
+    99,
+    0.4
+   ]
+  ],
+  "LB": [
+   [
+    24,
+    0.15
+   ],
+   [
+    27,
+    0.12
+   ],
+   [
+    29,
+    0.18
+   ],
+   [
+    31,
+    0.28
+   ],
+   [
+    99,
+    0.42
+   ]
+  ],
+  "CB": [
+   [
+    24,
+    0.18
+   ],
+   [
+    27,
+    0.15
+   ],
+   [
+    29,
+    0.22
+   ],
+   [
+    31,
+    0.32
+   ],
+   [
+    99,
+    0.46
+   ]
+  ],
+  "S": [
+   [
+    24,
+    0.16
+   ],
+   [
+    27,
+    0.13
+   ],
+   [
+    29,
+    0.19
+   ],
+   [
+    31,
+    0.29
+   ],
+   [
+    99,
+    0.44
+   ]
+  ]
+ },
+ "hazard_adjusters": {
+  "_comment": "multiplicative adjusters around reference points; clip bounds",
+  "role_security": {
+   "gamma": 0.55,
+   "reference": 0.6
   },
-  "unknown_true_position_sigma_mult": 1.10,
-
-  "age_curves": {
-    "_comment": "pos/archetype -> [peak_age, c_up, c_dn]; asymmetric Gaussian",
-    "QB_pocket": [30.0, 0.006, 0.010],
-    "QB_dual": [26.0, 0.010, 0.028],
-    "RB": [25.0, 0.012, 0.030],
-    "WR": [27.0, 0.014, 0.024],
-    "TE": [27.5, 0.030, 0.018],
-    "DT": [27.5, 0.016, 0.020],
-    "EDGE": [27.0, 0.014, 0.022],
-    "LB": [26.5, 0.012, 0.030],
-    "CB": [26.0, 0.010, 0.030],
-    "S": [27.0, 0.012, 0.026]
+  "draft_capital": {
+   "gamma": 0.3,
+   "reference": 0.5,
+   "decays": true
   },
-
-  "mileage": {
-    "_comment": "pos -> [unit, reference_load, load_per_effective_year, cap_years]",
-    "RB": ["touches", 750.0, 500.0, 2.5],
-    "WR": ["targets", 500.0, 450.0, 1.5],
-    "TE": ["targets", 400.0, 450.0, 1.5],
-    "QB": ["dropbacks", 2000.0, 2500.0, 1.0],
-    "LB": ["snaps", 3000.0, 2200.0, 1.5],
-    "EDGE": ["snaps", 3000.0, 2400.0, 1.5],
-    "DT": ["snaps", 3000.0, 2400.0, 1.0],
-    "CB": ["snaps", 3000.0, 2400.0, 1.5],
-    "S": ["snaps", 3000.0, 2400.0, 1.5]
+  "contract_security": {
+   "gamma": 0.25,
+   "reference": 0.6
   },
-
-  "base_hazard": {
-    "_comment": "pos -> [[age_upper_bound_exclusive, annual_hazard], ...]; fallthrough 0.5",
-    "QB": [[24, 0.16], [27, 0.10], [30, 0.09], [33, 0.14], [36, 0.24], [99, 0.38]],
-    "RB": [[24, 0.11], [26, 0.15], [27, 0.22], [28, 0.30], [29, 0.38], [99, 0.50]],
-    "WR": [[24, 0.13], [27, 0.09], [29, 0.13], [31, 0.22], [33, 0.34], [99, 0.46]],
-    "TE": [[24, 0.16], [27, 0.10], [30, 0.12], [32, 0.20], [34, 0.32], [99, 0.44]],
-    "DT": [[24, 0.14], [27, 0.10], [30, 0.14], [32, 0.24], [99, 0.38]],
-    "EDGE": [[24, 0.14], [27, 0.10], [30, 0.15], [32, 0.26], [99, 0.40]],
-    "LB": [[24, 0.15], [27, 0.12], [29, 0.18], [31, 0.28], [99, 0.42]],
-    "CB": [[24, 0.18], [27, 0.15], [29, 0.22], [31, 0.32], [99, 0.46]],
-    "S": [[24, 0.16], [27, 0.13], [29, 0.19], [31, 0.29], [99, 0.44]]
+  "durability": {
+   "gamma": 0.35,
+   "reference": 0.6
   },
-
-  "hazard_adjusters": {
-    "_comment": "multiplicative adjusters around reference points; clip bounds",
-    "role_security": {"gamma": 0.55, "reference": 0.6},
-    "draft_capital": {"gamma": 0.30, "reference": 0.5, "decays": true},
-    "contract_security": {"gamma": 0.25, "reference": 0.6},
-    "durability": {"gamma": 0.35, "reference": 0.6},
-    "production_z": {"gamma": 0.18, "clip": 2.0},
-    "designation_risk": {"gamma": 0.20},
-    "clip_lo": 0.02,
-    "clip_hi": 0.85
+  "production_z": {
+   "gamma": 0.18,
+   "clip": 2.0
   },
-
-  "cv_base": {
-    "QB": 0.26, "RB": 0.36, "WR": 0.34, "TE": 0.36,
-    "DT": 0.32, "EDGE": 0.34, "LB": 0.26, "CB": 0.40, "S": 0.30
+  "designation_risk": {
+   "gamma": 0.2
   },
-  "drift_vol": {
-    "QB": 0.16, "RB": 0.30, "WR": 0.22, "TE": 0.22,
-    "DT": 0.20, "EDGE": 0.22, "LB": 0.22, "CB": 0.30, "S": 0.24
-  },
-  "sigma_multipliers": {
-    "role_uncertainty": 0.90,
-    "event_volatility": 0.45,
-    "small_sample": 0.60
-  },
-
-  "ascension": {
-    "tau": 1.5,
-    "kappa_min": -0.15,
-    "kappa_max": 0.60,
-    "kappa_force_zero_after_season": 4,
-    "draft_capital_decay_rate": 0.45,
-    "college_decay_rate": 1.10,
-    "kappa_weights": {
-      "_comment": "kappa = clip(b1*DC + b2*w_col*COL + b3*OPP + b4*YOUTH - b5*INCUMBENT)",
-      "draft_capital": 0.30,
-      "college": 0.15,
-      "opportunity": 0.25,
-      "youth": 0.05,
-      "incumbency": 0.30
-    }
-  },
-
-  "event_regression": {
-    "_comment": "applied to mu(t>=1) only, never the current-season projection",
-    "offense_td_rate": 0.40,
-    "sack_to_expected": 0.35
-  },
-
-  "strategies": {
-    "contender": {
-      "discount": 0.72, "horizon": 4,
-      "usability": [1.00, 0.95, 0.80, 0.65, 0.55],
-      "risk_lambda": 0.20, "pick_premium": 0.92, "playoff_weight": 0.35
-    },
-    "balanced": {
-      "discount": 0.85, "horizon": 6,
-      "usability": [1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80],
-      "risk_lambda": 0.10, "pick_premium": 1.00, "playoff_weight": 0.15
-    },
-    "rebuilder": {
-      "discount": 0.93, "horizon": 8,
-      "usability": [0.45, 0.75, 1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80],
-      "risk_lambda": -0.10, "pick_premium": 1.08, "playoff_weight": 0.0
-    },
-    "risk_neutral": {
-      "discount": 0.85, "horizon": 6,
-      "usability": [1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80],
-      "risk_lambda": 0.0, "pick_premium": 1.00, "playoff_weight": 0.15
-    }
-  },
-  "risk_lambda_dispersion_coeff": 0.35,
-
-  "scale": {
-    "stud_gamma": 1.20,
-    "target_top_value": 9800.0,
-    "trade_value_max": 10000.0
-  },
-
-  "package": {
-    "theta": 1.20,
-    "theta_shallow_league": 1.35,
-    "shallow_roster_size_threshold": 26,
-    "roster_spot_cost": 120.0
-  },
-
-  "market": {
-    "tau_model": 0.85,
-    "tau_model_small_sample_mult": 0.40,
-    "tau_market_idp_mult": 0.45,
-    "tau_market_rookie_mult": 0.55,
-    "tau_market_dispersion_mult": 0.50,
-    "lambda_market_fundamental": 0.0,
-    "lambda_market_display": 0.25,
-    "lambda_market_clearing": 0.50,
-    "liquidity": {"base": 0.35, "dispersion_coeff": 1.6, "clip_lo": 0.2, "clip_hi": 1.0},
-    "signal_thresholds": {
-      "strong_buy_alpha": 900.0, "buy_alpha": 400.0,
-      "sell_alpha": -400.0, "strong_sell_alpha": -900.0,
-      "gap_persistence_days": 14, "strong_buy_min_liquidity": 0.5
-    }
-  },
-
-  "games": {
-    "default_games": 17.0,
-    "future_games_base": 0.86,
-    "future_games_durability_coeff": 0.10,
-    "season_length": 17.0
-  },
-
-  "annual_load_rate": {
-    "_comment": "career-load accumulation per future season, by position",
-    "RB": 260.0, "WR": 120.0, "TE": 90.0, "QB": 560.0, "default": 700.0
-  },
-
-  "probabilities": {
-    "elite_pool_rank_divisor": 2,
-    "elite_fallback_mult": 1.75,
-    "elite_fallback_floor_frac": 0.45,
-    "breakout_mult": 1.35
-  },
-
-  "ros": {
-    "n_prior_offense": 6.0,
-    "n_prior_idp": 8.0
-  },
-
-  "projection_consensus": {
-    "trim_frac": 0.10,
-    "trim_min_sources": 5,
-    "max_single_source_weight": 0.35,
-    "equal_weight_shrinkage": 0.30,
-    "stale_after_days": 21,
-    "stale_weight_mult": 0.5
-  },
-
-  "replacement": {
-    "_comment": [
-      "waiver_buffer: startable-quality players per team rostered beyond the",
-      "startable count, by lineup group. THE most sensitive knob in the model",
-      "(it sets the origin of the value scale). Groups absent here use",
-      "default_buffer."
-    ],
-    "waiver_buffer": {
-      "QB": 0.85, "RB": 0.75, "WR": 1.00, "TE": 0.40,
-      "DL": 0.50, "LB": 0.50, "DB": 0.50,
-      "DT": 0.50, "EDGE": 0.50, "CB": 0.50, "S": 0.50, "K": 0.25
-    },
-    "default_buffer": 0.50,
-    "best_ball_buffer_bump": {"RB": 0.5, "WR": 0.5}
-  },
-
-  "single_source_projection_sigma_mult": 1.50,
-  "missing_projection_impute": {
-    "enabled": false,
-    "_comment": "v1: a player with no projection gets NO fundamental value (status=unpriced), never a silent zero or a fabricated number."
+  "clip_lo": 0.02,
+  "clip_hi": 0.85
+ },
+ "cv_base": {
+  "QB": 0.26,
+  "RB": 0.36,
+  "WR": 0.34,
+  "TE": 0.36,
+  "DT": 0.32,
+  "EDGE": 0.34,
+  "LB": 0.26,
+  "CB": 0.4,
+  "S": 0.3
+ },
+ "drift_vol": {
+  "QB": 0.16,
+  "RB": 0.3,
+  "WR": 0.22,
+  "TE": 0.22,
+  "DT": 0.2,
+  "EDGE": 0.22,
+  "LB": 0.22,
+  "CB": 0.3,
+  "S": 0.24
+ },
+ "sigma_multipliers": {
+  "role_uncertainty": 0.9,
+  "event_volatility": 0.45,
+  "small_sample": 0.6
+ },
+ "ascension": {
+  "tau": 1.5,
+  "kappa_min": -0.15,
+  "kappa_max": 0.6,
+  "kappa_force_zero_after_season": 4,
+  "draft_capital_decay_rate": 0.45,
+  "college_decay_rate": 1.1,
+  "kappa_weights": {
+   "_comment": "kappa = clip(b1*DC + b2*w_col*COL + b3*OPP + b4*YOUTH - b5*INCUMBENT)",
+   "draft_capital": 0.3,
+   "college": 0.15,
+   "opportunity": 0.25,
+   "youth": 0.05,
+   "incumbency": 0.3
   }
+ },
+ "event_regression": {
+  "_comment": "applied to mu(t>=1) only, never the current-season projection",
+  "offense_td_rate": 0.4,
+  "sack_to_expected": 0.35
+ },
+ "strategies": {
+  "contender": {
+   "discount": 0.72,
+   "horizon": 4,
+   "usability": [
+    1.0,
+    0.95,
+    0.8,
+    0.65,
+    0.55
+   ],
+   "risk_lambda": 0.2,
+   "pick_premium": 0.92,
+   "playoff_weight": 0.35
+  },
+  "balanced": {
+   "discount": 0.85,
+   "horizon": 6,
+   "usability": [
+    1.0,
+    1.0,
+    1.0,
+    0.95,
+    0.9,
+    0.85,
+    0.8
+   ],
+   "risk_lambda": 0.1,
+   "pick_premium": 1.0,
+   "playoff_weight": 0.15
+  },
+  "rebuilder": {
+   "discount": 0.93,
+   "horizon": 8,
+   "usability": [
+    0.45,
+    0.75,
+    1.0,
+    1.0,
+    1.0,
+    0.95,
+    0.9,
+    0.85,
+    0.8
+   ],
+   "risk_lambda": -0.1,
+   "pick_premium": 1.08,
+   "playoff_weight": 0.0
+  },
+  "risk_neutral": {
+   "discount": 0.85,
+   "horizon": 6,
+   "usability": [
+    1.0,
+    1.0,
+    1.0,
+    0.95,
+    0.9,
+    0.85,
+    0.8
+   ],
+   "risk_lambda": 0.0,
+   "pick_premium": 1.0,
+   "playoff_weight": 0.15
+  }
+ },
+ "risk_lambda_dispersion_coeff": 0.35,
+ "scale": {
+  "stud_gamma": 1.2,
+  "target_top_value": 9800.0,
+  "trade_value_max": 10000.0
+ },
+ "package": {
+  "theta": 1.2,
+  "theta_shallow_league": 1.35,
+  "shallow_roster_size_threshold": 26,
+  "roster_spot_cost": 120.0
+ },
+ "market": {
+  "tau_model": 0.85,
+  "tau_model_small_sample_mult": 0.4,
+  "tau_market_idp_mult": 0.45,
+  "tau_market_rookie_mult": 0.55,
+  "tau_market_dispersion_mult": 0.5,
+  "lambda_market_fundamental": 0.0,
+  "lambda_market_display": 0.25,
+  "lambda_market_clearing": 0.5,
+  "liquidity": {
+   "base": 0.35,
+   "dispersion_coeff": 1.6,
+   "clip_lo": 0.2,
+   "clip_hi": 1.0
+  },
+  "signal_thresholds": {
+   "strong_buy_alpha": 900.0,
+   "buy_alpha": 400.0,
+   "sell_alpha": -400.0,
+   "strong_sell_alpha": -900.0,
+   "gap_persistence_days": 14,
+   "strong_buy_min_liquidity": 0.5
+  }
+ },
+ "games": {
+  "default_games": 17.0,
+  "future_games_base": 0.86,
+  "future_games_durability_coeff": 0.1,
+  "season_length": 17.0
+ },
+ "annual_load_rate": {
+  "_comment": "career-load accumulation per future season, by position",
+  "RB": 260.0,
+  "WR": 120.0,
+  "TE": 90.0,
+  "QB": 560.0,
+  "default": 700.0
+ },
+ "probabilities": {
+  "elite_pool_rank_divisor": 2,
+  "elite_fallback_mult": 1.75,
+  "elite_fallback_floor_frac": 0.45,
+  "breakout_mult": 1.35
+ },
+ "ros": {
+  "n_prior_offense": 6.0,
+  "n_prior_idp": 8.0
+ },
+ "projection_consensus": {
+  "trim_frac": 0.1,
+  "trim_min_sources": 5,
+  "max_single_source_weight": 0.35,
+  "equal_weight_shrinkage": 0.3,
+  "stale_after_days": 21,
+  "stale_weight_mult": 0.5,
+  "vocabulary_dominated_weight_mult": 0.25
+ },
+ "replacement": {
+  "_comment": [
+   "waiver_buffer: startable-quality players per team rostered beyond the",
+   "startable count, by lineup group. THE most sensitive knob in the model",
+   "(it sets the origin of the value scale). Groups absent here use",
+   "default_buffer."
+  ],
+  "waiver_buffer": {
+   "QB": 0.85,
+   "RB": 0.75,
+   "WR": 1.0,
+   "TE": 0.4,
+   "DL": 0.5,
+   "LB": 0.5,
+   "DB": 0.5,
+   "DT": 0.5,
+   "EDGE": 0.5,
+   "CB": 0.5,
+   "S": 0.5,
+   "K": 0.25
+  },
+  "default_buffer": 0.5,
+  "best_ball_buffer_bump": {
+   "RB": 0.5,
+   "WR": 0.5
+  }
+ },
+ "single_source_projection_sigma_mult": 1.5,
+ "missing_projection_impute": {
+  "enabled": false,
+  "_comment": "v1: a player with no projection gets NO fundamental value (status=unpriced), never a silent zero or a fabricated number."
+ }
 }
