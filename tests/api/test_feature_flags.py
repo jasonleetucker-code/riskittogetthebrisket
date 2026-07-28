@@ -62,23 +62,34 @@ def test_every_flag_defaults_off_except_safe_additive():
         # QB/RB/WR/IDP value changes.  Rank displacement median 7, p90
         # 22.  Rollback: RISKIT_FEATURE_TE_BASIS_CONVERSION=0.
         "te_basis_conversion",
-        # IDP positional scoring fit.  Blast radius measured against the
-        # 2026-07-27 live board (1,095 rows, 709 of them ranked):
+        # IDP positional scoring fit.  Blast radius RE-measured against
+        # the 2026-07-28 live board (1,094 rows) on the complete scoring
+        # card:
         #
-        #   280 IDP rows move — DB n=84 at +3.66%, DL n=113 at +0.01%,
-        #   LB n=83 at -3.67%.  ZERO non-IDP values change: the
-        #   multiplier is keyed on the DL/LB/DB family and nothing else
-        #   resolves to one.
-        #
-        #   Rank displacement across the ranked board: 544 rows shift,
-        #   median 4, p90 35, max 71.  279 of those are non-IDP rows
-        #   moving only because IDP rows moved past them — their VALUES
-        #   are untouched.
+        #   398 IDP rows move — DL n=145 at +4.21%, DB n=139 at -0.29%,
+        #   LB n=114 at -3.92%.  ZERO non-IDP values change (696 rows):
+        #   the multiplier is keyed on the DL/LB/DB family and nothing
+        #   else resolves to one.
         #
         # Mean-normalised, so it re-allocates between IDP positions and
         # cannot inflate IDP as a class.  Applies to the OPT-IN
         # league-adjusted lens only, never the default market board.
         # Rollback: RISKIT_FEATURE_IDP_SCORING_FIT=0.
+        #
+        # CORRECTION.  The figures first recorded here (DB +3.66% / DL
+        # +0.01% / LB -3.67%) were measured on a PARTIALLY corrected
+        # scoring card and had DB and DL the wrong way round.
+        # ``idp_pass_def`` (a CB stat) had been aliased and was scoring;
+        # ``idp_qb_hit`` (an EDGE stat, 6,545 points across 2025) had
+        # not, and was scoring zero.  Fixing one and not the other lifts
+        # DB against DL by precisely what DL was owed — the
+        # partial-correction bias described in UNIMPLEMENTED_BACKLOG.md
+        # §14, which a purely RELATIVE measurement like this one is
+        # maximally exposed to.  No code changed: the multipliers are
+        # computed at runtime, so the engine produced the corrected
+        # numbers as soon as the alias map was completed.  What was
+        # wrong was the recorded rationale, including the one used to
+        # justify turning this flag on.
         "idp_scoring_fit",
     }
     off_only = {

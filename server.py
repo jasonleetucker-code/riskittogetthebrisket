@@ -7682,8 +7682,63 @@ _public_league_cache: dict = {
     "snapshot_league_id": None,
     "fetched_at": 0.0,
     "refreshing": False,
+    # Set when an upstream rebuild raises.  Only ``fetched_at`` advances
+    # on success, so without a *failure* stamp the post-lock re-check in
+    # ``_rebuild_public_snapshot`` can never be satisfied while the
+    # vendor is down, and every queued waiter re-attempts in turn.
+    "last_failure_at": 0.0,
+    "last_failure_error": None,
 }
 _public_league_refresh_lock = threading.Lock()
+
+# ── Rebuild storm containment ────────────────────────────────────────
+# Every ``/api/public/league*`` handler resolves its snapshot inside
+# ``run_in_threadpool(_build)``, so a caller waiting on a rebuild holds
+# an AnyIO worker token for the whole wait.  Those tokens come from the
+# process-wide default limiter shared by every sync endpoint and every
+# other ``run_in_threadpool`` call in this file — so enough waiters
+# starve unrelated endpoints, ``/api/health`` included.
+#
+# The lock alone does not bound this.  It stops duplicate *work* on the
+# success path (measured: 8 concurrent force-refreshes against a 0.5s
+# builder produce 1 upstream call), but on the *failure* path the
+# re-check it guards is unsatisfiable, so the same 8 callers produced 8
+# serial upstream attempts — 4.01s wall and 18.02 thread-seconds for
+# 0.5s of nominal work, growing without limit in N.  That burst arrives
+# exactly when the vendor is down and users are mashing refresh.
+#
+# Two bounds, both required:
+#   * a failure cooldown, so a known-down upstream is reported from
+#     memory instead of re-probed once per caller;
+#   * a wait ceiling, so no caller holds a worker token indefinitely
+#     behind an in-flight rebuild.
+#
+# This is the hazard the ``playoffOdds`` single-flight cache below was
+# built for; the snapshot rebuild never got the equivalent treatment.
+
+#: How long a failed rebuild suppresses further upstream attempts.
+#: Deliberately short — a cooldown without an expiry turns one vendor
+#: blip into a permanently dead endpoint.
+_PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS", "30")
+)
+
+#: How long a caller will wait for an in-flight rebuild before giving
+#: up.  On timeout it serves the stale snapshot when one exists and
+#: raises (-> 503) when none does; either way it releases its worker.
+_PUBLIC_LEAGUE_REFRESH_WAIT_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_REFRESH_WAIT_SECONDS", "10")
+)
+
+
+class PublicSnapshotUnavailable(RuntimeError):
+    """Raised when a rebuild is refused rather than attempted.
+
+    Handlers already map any exception out of the build closure to a 503,
+    so this needs no special casing — it exists so the refusal is
+    distinguishable from a genuine upstream error in logs and tests.
+    """
+
 
 # ── Heavy-section single-flight cache ────────────────────────────────
 # ``playoffOdds`` ALWAYS runs a 10,000-run, pure-Python (GIL-bound)
@@ -7775,6 +7830,15 @@ _public_league_metrics: dict = {
     "background_refresh_suppressed": 0,
     "rebuild_count": 0,
     "rebuild_failures": 0,
+    # Storm containment.  A rising ``rebuild_cooldown_*`` pair means the
+    # upstream is down and the cooldown is absorbing the retry burst
+    # rather than forwarding it; a rising ``refresh_wait_timeout_*`` pair
+    # means rebuilds are outlasting the wait ceiling and the ceiling —
+    # or the rebuild — needs attention.
+    "rebuild_cooldown_served_stale": 0,
+    "rebuild_cooldown_refused": 0,
+    "refresh_wait_timeout_served_stale": 0,
+    "refresh_wait_timeout_refused": 0,
     "total_rebuild_seconds": 0.0,
     "last_rebuild_seconds": None,
     "last_rebuild_iso": None,
@@ -7848,13 +7912,83 @@ def _public_league_id() -> str:
     return (sid or "").strip()
 
 
+def _recent_rebuild_failure(league_id: str) -> str | None:
+    """Return the recorded error if a rebuild failed inside the cooldown.
+
+    Split out of ``_rebuild_public_snapshot`` so both the pre-lock fast
+    path and the post-lock re-check consult exactly one predicate.
+    """
+    last_failure_at = float(_public_league_cache.get("last_failure_at") or 0.0)
+    if not last_failure_at:
+        return None
+    if (time.time() - last_failure_at) >= _PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS:
+        return None
+    if _public_league_cache.get("snapshot_league_id") not in (None, league_id):
+        # A different league's outage says nothing about this one.
+        return None
+    return str(_public_league_cache.get("last_failure_error") or "upstream unavailable")
+
+
 def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
     """Synchronously rebuild the public snapshot for ``league_id``.
 
     Guarded by ``_public_league_refresh_lock`` so a burst of requests
-    while the background refresh is running doesn't multiply work.
+    while the background refresh is running doesn't multiply work — and,
+    on the failure path, by the cooldown and wait ceiling documented at
+    ``_PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS``.  The lock alone bounds
+    duplicate work only while the upstream is healthy; see that comment
+    for the measured storm it does not contain.
     """
-    with _public_league_refresh_lock:
+    # Fast path, taken WITHOUT the lock: a known-down upstream is
+    # reported from memory.  Checking here rather than only after
+    # acquiring is the point — a waiter that queues for the lock is
+    # holding an AnyIO worker token the whole time.
+    failure = _recent_rebuild_failure(league_id)
+    if failure is not None:
+        cached = _public_league_cache.get("snapshot")
+        if cached is not None and _public_league_cache.get("snapshot_league_id") == league_id:
+            _public_league_metrics["rebuild_cooldown_served_stale"] += 1
+            _log_public_league_event(
+                "rebuild_cooldown_served_stale",
+                trigger=trigger,
+                league_id=league_id,
+                error=failure,
+            )
+            return cached
+        _public_league_metrics["rebuild_cooldown_refused"] += 1
+        _log_public_league_event(
+            "rebuild_cooldown_refused",
+            trigger=trigger,
+            league_id=league_id,
+            error=failure,
+        )
+        raise PublicSnapshotUnavailable(f"public league upstream unavailable: {failure}")
+
+    acquired = _public_league_refresh_lock.acquire(timeout=_PUBLIC_LEAGUE_REFRESH_WAIT_SECONDS)
+    if not acquired:
+        # Someone else has been rebuilding for longer than we are willing
+        # to hold a worker token for.  Serve what we have; refuse if we
+        # have nothing.
+        cached = _public_league_cache.get("snapshot")
+        if cached is not None and _public_league_cache.get("snapshot_league_id") == league_id:
+            _public_league_metrics["refresh_wait_timeout_served_stale"] += 1
+            _log_public_league_event(
+                "refresh_wait_timeout_served_stale",
+                trigger=trigger,
+                league_id=league_id,
+            )
+            return cached
+        _public_league_metrics["refresh_wait_timeout_refused"] += 1
+        _log_public_league_event(
+            "refresh_wait_timeout_refused",
+            trigger=trigger,
+            league_id=league_id,
+        )
+        raise PublicSnapshotUnavailable(
+            "public league snapshot rebuild is already running; try again shortly"
+        )
+
+    try:
         now = time.time()
         cached = _public_league_cache.get("snapshot")
         cached_id = _public_league_cache.get("snapshot_league_id")
@@ -7872,12 +8006,24 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 league_id=league_id,
             )
             return cached
+        # Re-check under the lock: the thread we queued behind may have
+        # just discovered the upstream is down.  Without this, the whole
+        # queue still attempts serially — the original defect.
+        failure = _recent_rebuild_failure(league_id)
+        if failure is not None:
+            if cached is not None and cached_id == league_id:
+                _public_league_metrics["rebuild_cooldown_served_stale"] += 1
+                return cached
+            _public_league_metrics["rebuild_cooldown_refused"] += 1
+            raise PublicSnapshotUnavailable(f"public league upstream unavailable: {failure}")
         started = time.time()
         snapshot = None
         try:
             snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
         except Exception as exc:  # noqa: BLE001
             _public_league_metrics["rebuild_failures"] += 1
+            _public_league_cache["last_failure_at"] = time.time()
+            _public_league_cache["last_failure_error"] = str(exc)
             _log_public_league_event(
                 "rebuild_failed",
                 trigger=trigger,
@@ -7887,6 +8033,10 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             raise
         finally:
             _public_league_cache["refreshing"] = False
+        # A success clears the cooldown, so recovery needs no operator
+        # action and no waiting out the remaining window.
+        _public_league_cache["last_failure_at"] = 0.0
+        _public_league_cache["last_failure_error"] = None
 
         elapsed = round(time.time() - started, 4)
         _public_league_cache["snapshot"] = snapshot
@@ -7922,6 +8072,8 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             contract_bytes=contract_bytes,
         )
         return snapshot
+    finally:
+        _public_league_refresh_lock.release()
 
 
 def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-revalidate"):

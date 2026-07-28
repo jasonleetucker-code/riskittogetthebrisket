@@ -1236,6 +1236,15 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   position: fixed;
   left: 0;
   right: 0;
+  /* Required in the BASE rule, not only in the mobile override below.
+     A position:fixed box with bottom:auto and top:auto is painted at its
+     static position and pinned there, so without this the tray sat
+     mid-page on every viewport wider than 768px — the @media
+     (max-width: 768px) block further down was the only rule supplying a
+     vertical anchor.  That is why the tray looked correct on a phone and
+     unanchored on a desktop, and why grepping the class showed a
+     `bottom` and read as fine. */
+  bottom: 0;
   z-index: 35;
   background: rgba(15, 10, 26, 0.95);
   border-top: 1px solid var(--border);

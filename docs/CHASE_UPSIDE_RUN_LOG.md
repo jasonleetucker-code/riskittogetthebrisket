@@ -714,3 +714,140 @@ Pattern worth naming: THREE of the defects so far (#2, #7, #11) were
 "the guard exists and cannot fire", and #12 was "the assertion exists
 and cannot fail". The doc's descriptions keep understating: it says
 untested/dead when the truth is tested-but-never-run.
+
+---
+
+## 2026-07-28 — idp_scoring_fit ON, and the last six §9 rows
+
+### idp_scoring_fit (PR #606, merged)
+
+Operator asked to re-measure properly and turn it on. Re-measuring
+surfaced a data defect that had corrupted the original measurement.
+
+`SAF` — nflverse's own spelling for a safety — was in neither
+POSITION_ALIASES nor scoring_engine's IDP collapse table, so EVERY
+SAFETY was dropped from every scoring comparison. 1,468 of 18,539
+persisted 2025 regular-season rows; third-largest defensive group after
+LB and CB. Silent by construction: the only trace was an
+`unknown_positions_dropped` line that also lists K/P/OL/C/G, so a real
+gap looked exactly like intended behaviour. `S`/`FS`/`SS` WERE mapped,
+which is why the hole was invisible — safeties appeared handled.
+
+Effect: DB cohort 288 -> 188, DB multiplier 1.0366 -> 1.0594. With the
+gap closed the direction is the REVERSE of what #592 recorded:
+
+    DB 1.0366 (n=288)   DL 1.0001 (n=213)   LB 0.9633 (n=203)
+
+Two checks made it a correction rather than a drift. Settings unchanged
+(all 8 IDP keys byte-identical to #592's record). And the rate card
+mechanically predicts the new order: idp_pass_def 2.52x UP (DB stat,
+biggest move on the card), idp_sack 0.64x DOWN (DL signature),
+idp_tkl_solo 0.92x DOWN (LB volume).
+
+Blast radius on the live board: 280 IDP rows move (DB +3.66%, DL +0.01%,
+LB -3.67%), ZERO non-IDP values change, 544 rows shift rank (median 4,
+p90 35) of which 279 move only because IDP passed them.
+
+### The last six §9 rows (PR #608)
+
+#1 REPRODUCED. Mechanism is the FAILURE path. fetched_at advances only
+on success, so the post-lock re-check is unsatisfiable while the vendor
+is down and every waiter re-attempts serially — each holding an AnyIO
+token from the process-wide limiter. 8 callers -> 8 attempts, 18.02
+thread-seconds, unbounded in N. Cooldown + wait ceiling -> 1 attempt,
+4.00 thread-seconds.
+
+#3 MEASURED, framing wrong. NOT a cold-start cost: warm 6.449/6.643/
+6.484s, cold 6.418s. build_public_contract runs every request, 7.26s
+alone. player_position called 514,020 times per build. Memoized ->
+build ~2.3s, endpoint 2.24-2.53s.
+
+#5 Three layers dead. Removed the dead proxy (a live route that could
+only 404). Kept src/api/chat.py. Shipping chat stays a product call.
+
+#6 DESCRIPTION WRONG. /finder does no arbitrage at all — the word came
+from a stale header comment. No phantom "two implementations", so no
+product decision was ever needed. Engine still has no UI caller; that is
+a feature, not a defect.
+
+#14 REPRODUCED, and the earlier "not visible by inspection" explained:
+`bottom` existed, but only inside @media (max-width: 768px). Correct on
+phones, unanchored everywhere wider.
+
+#17 Kept unwired, now with a tripwire. Its `nginx -t` guard cannot catch
+the case that matters — a config reverting certbot's edits is still
+VALID nginx.
+
+### THE MEASUREMENT LESSON, worth more than any single fix
+
+My first check of whether the #3 memo changed output said DIFFERENT.
+Taken at face value that reverts a correct 2.7x fix. The contract embeds
+wall-clock stamps, so two runs of the SAME code never match either.
+
+What caught it: comparing an implementation against ITSELF before
+comparing it against the alternative. A differential test without that
+control cannot distinguish "my change broke it" from "this was never
+deterministic".
+
+Corollary to §12's three cheap checks, and the same shape as the
+"measured the instrument and described the vendor" error in §12:
+BEFORE concluding a diff means your change is wrong, confirm the
+baseline is stable.
+
+### §9: 18 of 18 worked. 14 fixed, 2 standing policy, 2 open as FEATURES
+(#6 wiring the arbitrage engine to a UI; #5 shipping chat). Both are
+product calls with the defect half already closed.
+
+### CORRECTION 2026-07-28 — the idp_scoring_fit direction was wrong
+
+Caught while resolving a merge conflict, not by a test. Main had added a
+§14 about Sleeper scoring-key aliases; reading it flagged that my
+measurement might predate part of it. It did.
+
+I measured AFTER ff602013 (which aliased idp_pass_def -> idp_pd, a
+CORNERBACK stat, so PD started scoring) but BEFORE d3212864 (which
+derived the whole alias map from KEY_ALIASES and picked up
+idp_qb_hit -> idp_hit, an EDGE stat worth 6,545 points across 2025).
+
+So I measured on a partially corrected card. Re-measured on the complete
+one:
+
+    pos   shipped    correct    delta
+    DB    1.0366     0.9971    -0.0395
+    DL    1.0001     1.0421    +0.0420
+    LB    0.9633     0.9608    -0.0025
+
+THE ORDERING FLIPPED. I shipped DB-highest; DL-highest is correct.
+
+Main's own §14 predicted this exactly: "a partial correction to a
+relative ranking introduces a bias that no correction does not — PD is a
+corner stat and QB hits an edge stat, so correcting only PD tilts DB up
+against DL." This module measures a purely RELATIVE quantity, so it is
+maximally exposed. I read that warning as being about realized_points
+and did not connect it to the thing I had just measured with
+realized_points.
+
+No code was wrong — multipliers are computed at runtime, so the engine
+started emitting the corrected numbers the moment the alias map was
+completed. What was wrong was the RECORDED RATIONALE, including the
+justification I gave for turning the flag on. Corrected in
+scoring_fit.py's docstring and in test_feature_flags.py's blast radius.
+
+Corrected blast radius, live board 2026-07-28 (1,094 rows):
+398 IDP rows move — DL n=145 +4.21%, DB n=139 -0.29%, LB n=114 -3.92%.
+Zero non-IDP values change.
+
+THE LESSON, and it is not "check your inputs":
+A measurement's inputs can be fixed BETWEEN when you measure and when
+anyone reads the result, and nothing in the number tells you that
+happened. The tell here was a doc section someone else wrote about a
+module I had used. Two guards that would have caught it independently:
+(1) stamp measurements with the commit of the code that produced them;
+(2) for anything RELATIVE, treat a partial upstream correction as
+worse than none — the ordering can invert while every individual
+number moves in the right direction.
+
+Note this lands closer to #592's ORIGINAL "DL +7%" on the DL-over-DB
+ordering. That is not vindication of #592 — its derivation was never
+verified either. Agreeing with an unverified prior is not evidence
+(ORCHESTRATION.md 2b).
