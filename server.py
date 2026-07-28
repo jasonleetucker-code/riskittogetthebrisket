@@ -339,6 +339,22 @@ _OVERLAY_RESPONSE_CACHE: dict = {}
 # dict needs no extra synchronization.
 _OVERLAY_ENCODE_LOCKS: dict = {}
 _OVERLAY_RESPONSE_CACHE_MAX = 32
+# ``POST /api/rankings/overrides`` response memo.  Nearly every client
+# posts the identical stock body ({"tep_multiplier": 1.15} — the
+# /settings default), so one cached entry serves the whole user base
+# between scrapes.  Same shape as the overlay cache above:
+# ``key -> (raw_bytes, gzip_bytes, version)`` where ``version`` is the
+# ``latest_data_etag`` generation the entry was built from.  Key =
+# (canonical body JSON hash, delta_view, league key, sleeper_matches) —
+# everything that can alter the response body.  Entries whose version
+# no longer matches are rebuilt in place (one generation per slot);
+# ``_prime_latest_payload`` clears the dict outright on scrape
+# promotion.  The leagueAdjusted path is deliberately NOT cached (its
+# factors come from the gameplan module with its own freshness) but
+# still builds off the event loop.
+_OVERRIDES_RESPONSE_CACHE: dict = {}
+_OVERRIDES_ENCODE_LOCKS: dict = {}
+_OVERRIDES_RESPONSE_CACHE_MAX = 16
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -1684,6 +1700,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_compact_data_bytes = None
     latest_compact_data_gzip_bytes = None
     latest_compact_data_etag = None
+    # A new contract generation invalidates every memoized overrides
+    # response (they are versioned on ``latest_data_etag``, but clearing
+    # eagerly also frees the multi-MB byte payloads immediately).
+    _OVERRIDES_RESPONSE_CACHE.clear()
     if not data:
         return
     try:
@@ -2801,6 +2821,28 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
     return Response(content=raw, media_type="application/json", headers=headers)
 
 
+def _overrides_encode_lock(cache_key) -> asyncio.Lock:
+    """Per-key single-flight lock for the overrides response memo."""
+    lock = _OVERRIDES_ENCODE_LOCKS.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _OVERRIDES_ENCODE_LOCKS[cache_key] = lock
+    return lock
+
+
+def _evict_overrides_cache_if_oversized(keep_key) -> None:
+    """Bound the overrides memo.  Key space is normally tiny (one stock
+    body × active leagues); the cap only guards against a client
+    spraying distinct bodies.  Held locks are preserved for the same
+    reason as ``_evict_overlay_cache_if_oversized``."""
+    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+        return
+    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
+        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
+        del _OVERRIDES_ENCODE_LOCKS[k]
+
+
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request):
@@ -3526,11 +3568,28 @@ async def post_rankings_overrides(request: Request):
         # field, which would return a market board labelled as adjusted.
         valuation_note = "league_adjusted_requires_delta_view"
 
-    try:
+    # Snapshot the shared globals ONCE on the event loop.  The worker
+    # thread below must not re-read them mid-build: a concurrent scrape
+    # promotion swaps them, and a build that saw two generations would
+    # emit a chimera payload.
+    data_snapshot = latest_data
+    source_snapshot = latest_data_source
+    contract_version = latest_data_etag
+
+    def _build_response_bytes() -> tuple[bytes, bytes]:
+        """Full pipeline rebuild + meta stamping + JSON/gzip encode.
+
+        Runs on a worker thread — this is multiple seconds of CPU on a
+        real contract and previously blocked the whole event loop.  The
+        raw bytes reproduce ``JSONResponse.render`` exactly
+        (``ensure_ascii=False, allow_nan=False, separators=(",", ":")``)
+        so memoizing bytes instead of returning JSONResponse is
+        wire-invisible.
+        """
         if delta_view:
             contract_payload = build_rankings_delta_payload(
-                latest_data,
-                data_source=latest_data_source,
+                data_snapshot,
+                data_source=source_snapshot,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
@@ -3538,12 +3597,91 @@ async def post_rankings_overrides(request: Request):
             )
         else:
             contract_payload = build_api_data_contract(
-                latest_data,
-                data_source=latest_data_source,
+                data_snapshot,
+                data_source=source_snapshot,
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
             )
+
+        if warnings:
+            contract_payload.setdefault("warnings", []).extend(warnings)
+
+        # Stamp meta fields so the frontend can assert compatibility:
+        # ``leagueKey`` = resolved league; ``scoringProfile`` = which
+        # rules the pipeline used; ``sleeperDataReady`` = whether the
+        # ``sleeper`` block can be trusted for this league.  When the
+        # loaded contract was built for a different league (same scoring
+        # profile though — we'd have 503'd above if profiles differed),
+        # null the sleeper block so callers don't render the wrong
+        # league's teams.
+        if isinstance(contract_payload, dict):
+            meta = contract_payload.setdefault("meta", {})
+            meta["leagueKey"] = league_cfg.key
+            meta["scoringProfile"] = league_cfg.scoring_profile
+            meta["sleeperDataReady"] = sleeper_matches
+            if not sleeper_matches:
+                contract_payload["sleeper"] = None
+                meta["sleeperLoadedLeagueKey"] = loaded_league or None
+            # Always stamp which lens produced this board. A client that
+            # asked for leagueAdjusted and silently got market is the
+            # failure mode this whole change exists to remove, so the
+            # answer travels with the payload instead of being inferred.
+            meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
+            if valuation_note:
+                meta["valuationNote"] = valuation_note
+                contract_payload.setdefault("warnings", []).append(valuation_note)
+
+        raw = json.dumps(
+            contract_payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        gz = gzip.compress(raw, compresslevel=5)
+        return raw, gz
+
+    # ── Response memo ────────────────────────────────────────────────
+    # Cache key: everything that can change the response body.  The
+    # canonical body JSON covers overrides + tep knobs + any unknown
+    # keys (which produce per-body warnings).  ``valuation_mode``
+    # requests are excluded: their factors come from the gameplan
+    # module whose freshness this cache cannot see.  Entries are
+    # versioned on ``latest_data_etag`` (the contract generation) and
+    # rebuilt in place when stale; ``_prime_latest_payload`` clears the
+    # whole dict on scrape promotion.
+    cacheable = not want_league_adjusted and contract_version is not None
+    cache_key = None
+    if cacheable:
+        canonical_body = json.dumps(
+            body, sort_keys=True, separators=(",", ":"), default=str
+        )
+        cache_key = (
+            "overrides",
+            hashlib.sha1(canonical_body.encode("utf-8")).hexdigest(),
+            delta_view,
+            league_cfg.key,
+            sleeper_matches,
+        )
+
+    try:
+        if cache_key is None:
+            raw, gz = await run_in_threadpool(_build_response_bytes)
+        else:
+            entry = _OVERRIDES_RESPONSE_CACHE.get(cache_key)
+            if entry is not None and entry[2] != contract_version:
+                entry = None
+            if entry is None:
+                async with _overrides_encode_lock(cache_key):
+                    entry = _OVERRIDES_RESPONSE_CACHE.get(cache_key)
+                    if entry is not None and entry[2] != contract_version:
+                        entry = None
+                    if entry is None:
+                        raw, gz = await run_in_threadpool(_build_response_bytes)
+                        entry = (raw, gz, contract_version)
+                        _evict_overrides_cache_if_oversized(cache_key)
+                        _OVERRIDES_RESPONSE_CACHE[cache_key] = entry
+            raw, gz, _ = entry
     except Exception as exc:
         log.exception("Failed to rebuild contract with overrides: %s", exc)
         return JSONResponse(
@@ -3554,39 +3692,16 @@ async def post_rankings_overrides(request: Request):
             },
         )
 
-    if warnings:
-        contract_payload.setdefault("warnings", []).extend(warnings)
-
-    # Stamp meta fields so the frontend can assert compatibility:
-    # ``leagueKey`` = resolved league; ``scoringProfile`` = which
-    # rules the pipeline used; ``sleeperDataReady`` = whether the
-    # ``sleeper`` block can be trusted for this league.  When the
-    # loaded contract was built for a different league (same scoring
-    # profile though — we'd have 503'd above if profiles differed),
-    # null the sleeper block so callers don't render the wrong
-    # league's teams.
-    if isinstance(contract_payload, dict):
-        meta = contract_payload.setdefault("meta", {})
-        meta["leagueKey"] = league_cfg.key
-        meta["scoringProfile"] = league_cfg.scoring_profile
-        meta["sleeperDataReady"] = sleeper_matches
-        if not sleeper_matches:
-            contract_payload["sleeper"] = None
-            meta["sleeperLoadedLeagueKey"] = loaded_league or None
-        # Always stamp which lens produced this board. A client that
-        # asked for leagueAdjusted and silently got market is the
-        # failure mode this whole change exists to remove, so the
-        # answer travels with the payload instead of being inferred.
-        meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
-        if valuation_note:
-            meta["valuationNote"] = valuation_note
-            contract_payload.setdefault("warnings", []).append(valuation_note)
-
     headers = {
         "Cache-Control": "no-store",
         "X-Payload-View": "rankings-overrides-delta" if delta_view else "rankings-overrides",
+        "Vary": "Accept-Encoding",
     }
-    return JSONResponse(content=contract_payload, headers=headers)
+    accept_encoding = (request.headers.get("accept-encoding") or "").lower()
+    if "gzip" in accept_encoding and gz:
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gz, media_type="application/json", headers=headers)
+    return Response(content=raw, media_type="application/json", headers=headers)
 
 
 # Cache of Sleeper league ``name`` fields.  Refreshed every
