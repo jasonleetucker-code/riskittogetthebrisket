@@ -58,7 +58,7 @@ Timers rendered + enabled by `deploy/install-systemd-service.sh`
 | `dynasty-dlf-fetch.*` | DLF CSV fetch + push (CI is Cloudflare-blocked) | Every 2h | DLF creds in `.env` |
 | `dynasty-idpshow-fetch.*` | IDP Show rankings fetch + push | Every 2h | always |
 | `dynasty-playerctx-refresh.*` | Player context (contracts / snap share / depth chart) → `data/playerctx/snapshot.json`, served by `/api/playerctx/player` | Weekly Tue 05:40 UTC | always (public data, no creds) |
-| `dynasty-bdvm-refresh.*` | BDVM projection snapshots (reconstructed baseline + IDP Show real projections) → `data/bdvm/projections/<season>/`, served by `/api/bdvm/*` (flag `bdvm_engine`) | Weekly Tue 06:10 UTC | always (baseline needs no creds; IDP Show stage self-skips without the session jar) |
+| `dynasty-bdvm-refresh.*` | BDVM projection snapshots (reconstructed baseline + Mike Clay ESPN guide + IDP Show real projections) → `data/bdvm/projections/<season>/`, served by `/api/bdvm/*` (flag `bdvm_engine`) | Weekly Tue 06:10 UTC | always (baseline + Clay need no creds; Clay self-skips without poppler-utils; IDP Show stage self-skips without the session jar) |
 
 `dynasty-playerctx-refresh` and `dynasty-bdvm-refresh` must run **on
 prod**, not in CI: their endpoints read local files and `data/` is

@@ -81,6 +81,12 @@ KNOWN_KEYS = frozenset(
         # Prevents a SELL in league A from silently suppressing the same
         # player's SELL notification in league B.
         "signalAlertStateByLeague",
+        # Same shape, separate namespace, for BDVM fundamental-vs-market
+        # signal transitions (bdvm_signal_alerts.py).  State keys are
+        # ``bdvm:{playerId}`` so they can never collide with the terminal
+        # engine's ``name::tag`` / ``sid:..`` keys, and a first-ever
+        # bucket for a league is the baseline-seeding sentinel.
+        "bdvmSignalAlertStateByLeague",
         "updatedAt",
         # League preference — the user's currently-active league key from
         # the league registry (``src/api/league_registry``).  Persists

@@ -19,6 +19,9 @@ import {
   buildBdvmPickRows,
   buildBdvmRosterRows,
   buildBdvmTradeRows,
+  buildBdvmIndex,
+  bdvmEntryForRow,
+  bdvmSignalEdgeCss,
   bdvmGroupOptions,
   bdvmSignalTone,
   bdvmDirectionTone,
@@ -206,6 +209,48 @@ describe("buildBdvmTradeRows", () => {
     expect(row.bGain).toBe(250.0);
     expect(row.minGain).toBe(250.0);
     expect(row.fairnessBasis).toBe("single_market");
+  });
+});
+
+describe("buildBdvmIndex + bdvmEntryForRow (rankings gap join)", () => {
+  const payload = {
+    players: [
+      player("Elite Backer", { playerId: "sid1" }),
+      player("No Id Guy", { playerId: null }),
+    ],
+  };
+
+  it("joins playerId-first, then lowercased name", () => {
+    const index = buildBdvmIndex(payload);
+    // rankings rows carry playerId at top level or under raw
+    expect(bdvmEntryForRow(index, { raw: { playerId: "sid1" }, name: "X" }).gap).toBe(200.0);
+    expect(bdvmEntryForRow(index, { playerId: "sid1", name: "X" }).gap).toBe(200.0);
+    expect(bdvmEntryForRow(index, { name: "NO ID GUY" }).gap).toBe(200.0);
+    expect(bdvmEntryForRow(index, { name: "Unknown Player" })).toBeNull();
+  });
+
+  it("returns null for an empty or non-ok payload shape", () => {
+    expect(buildBdvmIndex({ players: [] })).toBeNull();
+    expect(buildBdvmIndex(null)).toBeNull();
+  });
+
+  it("null index resolves nothing (column vanishes)", () => {
+    expect(bdvmEntryForRow(null, { name: "Elite Backer" })).toBeNull();
+  });
+
+  it("entries carry the tooltip fields", () => {
+    const index = buildBdvmIndex(payload);
+    const entry = bdvmEntryForRow(index, { name: "elite backer" });
+    expect(entry.fundamental).toBe(5000);
+    expect(entry.marketValue).toBe(4800);
+    expect(entry.signal).toBe("BUY");
+  });
+
+  it("maps signals onto the Edge column's pill classes", () => {
+    expect(bdvmSignalEdgeCss("BUY")).toBe("edge-buy");
+    expect(bdvmSignalEdgeCss("STRONG_SELL")).toBe("edge-sell");
+    expect(bdvmSignalEdgeCss("HOLD")).toBe("edge-hold");
+    expect(bdvmSignalEdgeCss("NO_MARKET")).toBe("");
   });
 });
 

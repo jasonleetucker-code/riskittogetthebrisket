@@ -43,6 +43,14 @@ import {
   teamOptions,
 } from "@/lib/player-filters";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
+import { useBdvmEndpoint } from "@/components/useBdvm";
+import {
+  buildBdvmIndex,
+  bdvmEntryForRow,
+  bdvmSignalEdgeCss,
+  formatBdvmGap,
+  formatBdvmValue,
+} from "@/lib/bdvm";
 import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
 import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
@@ -304,6 +312,17 @@ export default function RankingsPage() {
   // Recent news → per-row news chip (lookupPlayerNews is O(1); the
   // news hook is single-flighted at module level).
   const { byPlayer: newsByPlayer } = useNews();
+
+  // BDVM fundamental gap — optional flag-gated enrichment. Non-blocking:
+  // the board renders without it; the column appears only when the
+  // endpoint answers ok (bdvm_engine on + a projection snapshot exists)
+  // and vanishes silently on any 503/failure. League-config-scoped data
+  // joined onto rows at render time — never stamped into the contract.
+  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values");
+  const bdvmIndex = useMemo(
+    () => (!bdvmFailure && bdvmData?.status === "ok" ? buildBdvmIndex(bdvmData) : null),
+    [bdvmData, bdvmFailure],
+  );
   const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(rows), [rows]);
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
@@ -537,6 +556,16 @@ export default function RankingsPage() {
           vb = order[b.confidenceBucket] ?? 3;
           return (va - vb) * dir;
         }
+        case "gap": {
+          // BDVM fundamental gap. Unpriced/no-market rows sink to the
+          // bottom regardless of direction, then keep rank order.
+          const ga = bdvmEntryForRow(bdvmIndex, a)?.gap;
+          const gb = bdvmEntryForRow(bdvmIndex, b)?.gap;
+          if (ga == null && gb == null) return resolvedRank(a) - resolvedRank(b);
+          if (ga == null) return 1;
+          if (gb == null) return -1;
+          return (ga - gb) * dir;
+        }
         default: {
           // Dynamic source-column sort: col === `src:${sourceKey}`.
           // Sort by the same 9,999-scale ``valueContribution`` the cell
@@ -580,6 +609,7 @@ export default function RankingsPage() {
     advCriteria,
     advActiveCount,
     teamByPlayer,
+    bdvmIndex,
   ]);
 
   // ── Top movers (from the current filtered view — pre-R2 behavior) ──
@@ -1068,41 +1098,86 @@ export default function RankingsPage() {
           );
         },
       },
-      {
-        key: "signal",
-        header: "Signal",
+    );
+
+    // BDVM fundamental gap — present only while the flag-gated endpoint
+    // serves an ok payload (see the bdvmIndex memo). Display-only join;
+    // ranks and the # column stay backend-stamped.
+    if (bdvmIndex) {
+      cols.push({
+        key: "gap",
+        header: "Fund gap",
+        numeric: true,
+        sortable: true,
         hideBelow: "md",
-        width: 170,
+        width: 110,
+        headerTitle:
+          "BDVM fundamental value (balanced) minus market anchor — " +
+          "positive means the market underprices the player. " +
+          "Visible only while the BDVM engine is enabled.",
         render: (row) => {
-          const action = actionLabel(row);
-          const cautions = cautionLabels(row);
-          return (
-            <>
-              {action && (
-                <span
-                  className={`action-label ${action.css}`}
-                  title={action.title}
-                >
-                  {action.label}
-                </span>
-              )}
-              {cautions.map((c) => (
-                <span
-                  key={c.label}
-                  className={`action-label ${c.css}`}
-                  title={c.title}
-                >
-                  {c.label}
-                </span>
-              ))}
-              {!action && cautions.length === 0 && (
-                <span className="muted">—</span>
-              )}
-            </>
+          const entry = bdvmEntryForRow(bdvmIndex, row);
+          if (!entry) return <span className="muted">—</span>;
+          if (entry.gap == null) {
+            return (
+              <span
+                className="muted"
+                title={entry.signalReason || "no market anchor for this asset"}
+              >
+                —
+              </span>
+            );
+          }
+          const css = bdvmSignalEdgeCss(entry.signal);
+          const title =
+            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+            `${formatBdvmValue(entry.fundamental)} vs market ` +
+            `${formatBdvmValue(entry.marketValue)}`;
+          return css ? (
+            <span className={`edge-label ${css}`} title={title}>
+              {formatBdvmGap(entry.gap)}
+            </span>
+          ) : (
+            <span title={title}>{formatBdvmGap(entry.gap)}</span>
           );
         },
+      });
+    }
+
+    cols.push({
+      key: "signal",
+      header: "Signal",
+      hideBelow: "md",
+      width: 170,
+      render: (row) => {
+        const action = actionLabel(row);
+        const cautions = cautionLabels(row);
+        return (
+          <>
+            {action && (
+              <span
+                className={`action-label ${action.css}`}
+                title={action.title}
+              >
+                {action.label}
+              </span>
+            )}
+            {cautions.map((c) => (
+              <span
+                key={c.label}
+                className={`action-label ${c.css}`}
+                title={c.title}
+              >
+                {c.label}
+              </span>
+            ))}
+            {!action && cautions.length === 0 && (
+              <span className="muted">—</span>
+            )}
+          </>
+        );
       },
-    );
+    });
 
     return cols;
   }, [
@@ -1115,6 +1190,7 @@ export default function RankingsPage() {
     positionRankByName,
     openPlayerPopup,
     toggleWatchlist,
+    bdvmIndex,
   ]);
 
   const totalCols = columns.length;

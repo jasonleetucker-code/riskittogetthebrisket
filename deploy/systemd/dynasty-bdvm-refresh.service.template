@@ -5,9 +5,11 @@ Wants=network-online.target
 
 # Produces immutable snapshots under data/bdvm/projections/<season>/ —
 # what GET /api/bdvm/values (feature flag: bdvm_engine) prices players
-# from.  Two stages via scripts/refresh_bdvm_projections.py:
+# from.  Three stages via scripts/refresh_bdvm_projections.py:
 #   1. reconstructed baseline (public nflverse, no credentials)
-#   2. The IDP Show real projections (cookies staged from the
+#   2. Mike Clay's ESPN guide (public CDN PDF; self-skips when
+#      poppler-utils is missing or the seasonal URL 404s)
+#   3. The IDP Show real projections (cookies staged from the
 #      idpshow-fetch work dir; stage self-skips when absent)
 #
 # WHY A PROD-SIDE TIMER AND NOT CI: the endpoint reads a LOCAL file

@@ -289,6 +289,55 @@ def latest_snapshot_path(season: int, base_dir: Path | None = None) -> Path | No
     return candidates[-1] if candidates else None
 
 
+def supersede_merge_into_snapshot(
+    new_records: list[ProjectionRecord],
+    *,
+    source_name: str,
+    season: int,
+    as_of: str,
+    label: str,
+    base_dir: Path | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Merge one real source's records over the latest snapshot and
+    write a new immutable snapshot.
+
+    The shared merge policy every real (non-proxy) source uses:
+
+    * this source's own prior records are replaced wholesale (a rerun
+      is authoritative for its source);
+    * reconstructed-baseline proxies are dropped for players the new
+      records cover (the proxy is a stand-in for absent data, BDVM
+      §8.3);
+    * every other source's records — real records from other feeds,
+      proxies for uncovered players — carry through untouched, so two
+      real sources coexist and feed the consensus as peers.
+    """
+    if not new_records:
+        raise ProjectionError("refusing to write a snapshot from zero records")
+    existing: list[ProjectionRecord] = []
+    prior = latest_snapshot_path(season, base_dir=base_dir)
+    if prior is not None:
+        _as_of, existing = load_snapshot(prior)
+    covered = {r.player_key for r in new_records}
+    kept = [
+        r
+        for r in existing
+        if r.source != source_name  # replaced wholesale
+        and not (r.is_proxy and r.player_key in covered)  # proxy superseded
+    ]
+    merged = kept + new_records
+    path = write_snapshot(merged, season=season, as_of=as_of, label=label, base_dir=base_dir)
+    summary = {
+        "priorSnapshot": str(prior) if prior else None,
+        "priorRecords": len(existing),
+        "newRealRecords": len(new_records),
+        "proxiesSuperseded": sum(1 for r in existing if r.is_proxy and r.player_key in covered),
+        "mergedRecords": len(merged),
+        "snapshot": str(path),
+    }
+    return path, summary
+
+
 # ---------------------------------------------------------------------------
 # Adapter: manual CSV drop
 # ---------------------------------------------------------------------------
