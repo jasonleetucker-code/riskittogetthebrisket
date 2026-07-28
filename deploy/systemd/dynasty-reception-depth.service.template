@@ -1,0 +1,59 @@
+[Unit]
+Description=Dynasty Trade Calculator reception-depth histogram refresh (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Produces per-player reception-band histograms under
+# data/nfl_data/actuals/reception_depth_<season>.jsonl by streaming
+# nflverse play-by-play.
+#
+# WHY THIS EXISTS: this league bands receptions by yards gained
+# (0.25/catch at 0-4 yards rising to 2.00 at 40+), an 8x spread that
+# every ranking source prices as a flat rate.  The band shape is what
+# src/league_intel/reception_fit.py turns into a per-player tilt, and
+# src/nfl_data/reception_shape_projection.py projects forward.
+#
+# WHY A CADENCE, when historical seasons never change: the CURRENT
+# season does.  A player whose role has changed — a checkdown back now
+# running deep routes, a rookie taking over a slot — only appears in
+# the data as those catches accumulate.  Without an in-season refresh
+# every player is priced on last year's shape all year.  Completed
+# seasons already on disk are skipped, so this streams one file, not
+# the whole history.
+#
+# WHY PROD-SIDE AND NOT CI: the readers load a LOCAL file and data/ is
+# gitignored repo-wide, so a histogram built on a CI runner never
+# reaches the VPS.  Same reasoning as the player-context and BDVM
+# refreshes.
+#
+# Exit codes (scripts/refresh_reception_depth.py):
+#   0 - refreshed at least one season
+#   1 - a season that SHOULD exist could not be fetched (release path
+#       likely moved) — this is the one worth investigating
+#   2 - nothing to do: the current season has not kicked off, or every
+#       requested season is already complete on disk
+#
+# 2 is the NORMAL state from March to August and is not a failure.
+# Reporting the offseason as failure would leave the unit red for
+# months and train everyone to ignore it — which is exactly when a
+# genuinely broken release path would slip past.  SuccessExitStatus
+# below keeps those months green.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_reception_depth.py
+SuccessExitStatus=0 2
+StandardOutput=journal
+StandardError=journal
+# Streams one ~98 MB CSV and keeps only counts in memory.  Background
+# enrichment — never user-facing.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
