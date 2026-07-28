@@ -139,6 +139,8 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.nfl_data.measurement_provenance import Provenance, scoring_provenance
+
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
@@ -214,6 +216,17 @@ class ScoringFitMeasurement:
     measured: bool = False
     reason: str = ""
 
+    provenance: Provenance = field(default_factory=Provenance)
+    """What this measurement was computed from.
+
+    Added after the 2026-07-28 correction, in which these multipliers
+    shipped with DB and DL inverted because they were measured on a
+    scoring card with one alias repaired and a second still unread.
+    ``provenance.inputs_complete`` is False in exactly that situation,
+    so the number now carries its own warning instead of looking
+    identical to a sound one.
+    """
+
     def multiplier_for(self, position: str) -> float:
         """Tilt for ``position``; 1.0 for anything unmeasured or
         untrusted.
@@ -233,6 +246,7 @@ class ScoringFitMeasurement:
             "season": self.season,
             "reason": self.reason,
             "positions": {k: v.to_dict() for k, v in sorted(self.positions.items())},
+            "provenance": self.provenance.to_dict(),
         }
 
 
@@ -362,9 +376,30 @@ def measure_positional_scoring_fit(
                 MAX_DEPTH_DRIFT,
             )
 
+    prov = scoring_provenance(
+        my_scoring,
+        baseline_scoring,
+        rows_scored=len(rows),
+        notes="mean-normalised median ratio, per IDP position family",
+    )
+    if not prov.inputs_complete:
+        # Loud on purpose.  This is the exact condition that produced an
+        # inverted DB-vs-DL tilt and shipped it: a scoring rule the
+        # engine could read and did not, biasing one position group
+        # against another.  A relative measurement cannot absorb an
+        # asymmetric input gap.
+        _LOGGER.warning(
+            "scoring_fit measured on INCOMPLETE inputs: %s unread scoring "
+            "rule(s) %s — the multipliers below may be biased between "
+            "positions, not merely imprecise",
+            len(prov.input_gaps),
+            list(prov.input_gaps),
+        )
+
     return ScoringFitMeasurement(
         positions=positions,
         season=season,
         measured=True,
         reason=f"measured over {sum(n for _, _, n in raw.values())} IDP player-seasons",
+        provenance=prov,
     )

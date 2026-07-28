@@ -437,43 +437,48 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
             "Comparison cannot be computed."
         )
 
-    # Pre-flag any scoring keys present in either league but not handled
-    # by the scoring engine — surfaces in the methodology / warnings UI.
-    from src.nfl_data.realized_points import _SIMPLE_KEYS, _IDP_KEYS  # noqa: PLC0415
-
-    handled = (
-        set(_SIMPLE_KEYS.keys())
-        | set(_IDP_KEYS.keys())
-        | {
-            "bonus_rec_te",
-            "bonus_pass_yd_300",
-            "bonus_pass_yd_400",
-            "bonus_rush_yd_100",
-            "bonus_rush_yd_200",
-            "bonus_rec_yd_100",
-            "bonus_rec_yd_200",
-            "pass_2pt",
-            "rush_2pt",
-            "rec_2pt",
-            "idp_tkl_5p",
-            "idp_tkl_10p",
-        }
+    # Pre-flag any scoring rules the engine does not score — surfaces in
+    # the methodology / warnings UI.
+    #
+    # This used to compare against a HAND-MAINTAINED ``handled`` set, and
+    # a hand-maintained mirror of behaviour drifts from it.  That set was
+    # wrong in both directions: it omitted ``idp_tkl_solo`` /
+    # ``idp_tkl_ast`` (the highest-volume IDP stats, which the engine
+    # does score) and so warned about them falsely, while listing keys
+    # under names the engine reaches only conditionally.  A warning
+    # surface that mislabels its own subject is worse than none — it is
+    # what let three separate silent-zero scoring bugs survive.
+    #
+    # ``scoring_coverage`` answers the question by PROBING the engine
+    # instead, and separates two cases the old lump conflated:
+    #   * NOT_APPLICABLE — DST / kicker / special-teams rules, correctly
+    #     ignored because none of those is a tradeable asset here.
+    #     Warning about them was pure noise, and noise gets suppressed.
+    #   * GAP / UNSCORABLE — rules for players we DO value, which really
+    #     do understate their realized points.
+    from src.nfl_data.scoring_coverage import (  # noqa: PLC0415
+        Coverage,
+        audit_scoring_settings,
+        describe_gaps,
     )
-    unsupported_my = sorted(set(my_info.scoring_settings.keys()) - handled)
-    unsupported_base = sorted(set(base_info.scoring_settings.keys()) - handled)
-    if unsupported_my or unsupported_base:
-        keys = sorted(set(unsupported_my) | set(unsupported_base))
-        # Only warn about keys with non-zero values — many leagues
-        # have dozens of zeroed keys for unused categories.
-        nonzero = [
-            k
-            for k in keys
-            if my_info.scoring_settings.get(k, 0) or base_info.scoring_settings.get(k, 0)
-        ]
-        if nonzero:
+
+    for label, info in (("your league", my_info), ("the baseline league", base_info)):
+        audit = audit_scoring_settings(info.scoring_settings)
+        gaps = audit[Coverage.GAP]
+        if gaps:
             warnings.append(
-                "Some scoring categories are present but not modeled by the engine "
-                f"(zeroed in calculations): {', '.join(nonzero)}."
+                f"Scoring rules in {label} that the engine can score but does not "
+                f"({', '.join(sorted(gaps))}) — realized points are understated. "
+                "This is a defect; please report it."
+            )
+        detail = describe_gaps(info.scoring_settings)
+        unscorable = audit[Coverage.UNSCORABLE]
+        if unscorable:
+            warnings.append(
+                f"Scoring rules in {label} that available data cannot reconstruct "
+                f"({', '.join(sorted(unscorable))}) — realized points for affected "
+                "players are understated. "
+                + " ".join(d for d in detail if d.startswith(tuple(unscorable)))
             )
 
     my_block = _build_league_block(my_info, seasons_map, sample_sizes)
