@@ -47,12 +47,47 @@ extremes are also coherent rather than random: deep threats at the top
 at the bottom (White, Gainwell, Ferguson), which is the axis the banding
 is built on.
 
-The median sits at ~0.96, so the receiving corps as a whole is priced
-slightly high by flat-PPR sources. That is a real level effect and it is
-kept rather than normalised away — unlike the IDP case, where the shared
-level was an artifact of rate-card generosity. Here both cards are being
-applied to the same catches, so a shared shift is a fact about the
-scoring, not about how the commissioners numbered their sheets.
+The tilt is robust; the level rests on an assumption
+────────────────────────────────────────────────────
+This section previously argued that the shared level should be KEPT
+rather than normalised away: unlike the IDP case, where the shared level
+is an artifact of rate-card generosity, here both cards score the same
+catches, so a shared shift is a fact about the scoring.
+
+That reasoning is sound **only if the baseline card is what the market
+actually prices**, and nothing establishes that. The baseline is one
+Sleeper league from ``config/league_comparison.json`` that happens to pay
+a flat 0.75/catch. Dynasty boards are built nearer 0.5 or 1.0.
+
+Measured across plausible market rates, on 201 receivers with 20+ catches
+(2025)::
+
+    assumed market PPR   median ratio    p10     p90    p90/p10
+              0.50           1.239      0.978   1.466    1.498
+              0.75           0.826      0.652   0.977    1.498
+              1.00           0.619      0.489   0.733    1.498
+
+**The spread is identical to three decimals; the level swings 2x.** A
+flat baseline scales every player by the same constant, so the tilt
+between players cannot depend on the assumption — and the level is
+nothing but the assumption. At 0.5 the whole receiving corps marks UP
+24%; at 1.0 it marks DOWN 38%. The direction flips.
+
+So the two halves are reported separately and only the tilt is applied
+by default:
+
+* :attr:`ReceptionFitMeasurement.multipliers` carries the **tilt** —
+  mean-normalised across the measured population, invariant to the
+  market-rate assumption, safe to act on.
+* :attr:`ReceptionFitMeasurement.level_multiplier` carries the shared
+  shift, stamped with the assumption that produced it. It is NOT folded
+  into the per-player multipliers, because acting on a number whose sign
+  you cannot establish is worse than not acting.
+
+The level is real in principle and may well be worth applying. Doing so
+needs a measured answer to "what reception rate do dynasty boards price
+on?", which is a separate piece of work — see
+``docs/reception-banding.md``.
 """
 
 from __future__ import annotations
@@ -79,10 +114,27 @@ __all__ = [
 #: rosterable in a 12-team league several times over.
 MIN_RECEPTIONS: int = 20
 
-#: Hard clamp on the composed multiplier. Nothing measured comes close
-#: (observed range 0.92-1.09); this exists so an upstream data fault
-#: cannot express itself as a 3x repricing.
-MAX_TILT: float = 0.25
+#: Hard clamp on the emitted tilt, so an upstream data fault cannot
+#: express itself as a 3x repricing.
+#:
+#: WIDENED 0.25 -> 0.35 on 2026-07-28, when the level was split out.
+#: The old bound was set against the pre-split range, which carried the
+#: level and sat near 0.92-1.09. Tilt is centred on 1.0 by construction
+#: and spreads wider: measured over 199 receivers (2025), min 0.765 and
+#: max 1.098.
+#:
+#: 0.765 against a 0.75 floor is 1.5% of headroom — the clamp had
+#: stopped being a backstop and started shaping the result, and it was
+#: binding hardest on exactly the archetype this measurement exists to
+#: find (Jerome Ford, a checkdown back). A safety bound that truncates
+#: the signal it is protecting is worse than none, because the
+#: truncation is invisible in the output.
+#:
+#: At 0.35 the observed extremes sit 15% inside the bound on both sides,
+#: and a genuine fault still cannot move a player more than a third.
+#: :func:`tests...test_the_bound_keeps_clear_of_real_data` fails if real
+#: data ever creeps back toward it.
+MAX_TILT: float = 0.35
 
 #: Depth probes and tolerance, mirroring
 #: :mod:`src.league_intel.scoring_fit` so the two measurements are
@@ -114,6 +166,19 @@ class ReceptionFitMeasurement:
     sample_size: int = 0
     reason: str = ""
 
+    level_multiplier: float = 1.0
+    """The shared shift, held OUT of :attr:`multipliers`.
+
+    This is the part that depends on the market-rate assumption — it
+    swings 2x and changes sign across plausible values (see the module
+    docstring). Reported so it can be inspected and later applied on
+    purpose; never folded in silently.
+    """
+
+    level_basis: str = ""
+    """What the level was measured against, so the number is never read
+    as more established than it is."""
+
     def multiplier_for(self, player_id_gsis: str) -> float:
         """1.0 for anything unmeasured or untrusted. Never raises."""
         if not self.trusted:
@@ -128,6 +193,9 @@ class ReceptionFitMeasurement:
             "sampleSize": self.sample_size,
             "dispersionDrift": round(self.dispersion_drift, 6),
             "medianMultiplier": round(self.median_multiplier, 6),
+            "levelMultiplier": round(self.level_multiplier, 6),
+            "levelApplied": False,
+            "levelBasis": self.level_basis,
             "reason": self.reason,
             "playerCount": len(self.multipliers),
         }
@@ -209,11 +277,10 @@ def measure_reception_depth_fit(
         share = max(0.0, min(1.0, float(share)))
 
         raw = 1.0 + share * (ratio - 1.0)
-        multiplier = max(1.0 - MAX_TILT, min(1.0 + MAX_TILT, raw))
-        multipliers[gsis] = multiplier
+        multipliers[gsis] = raw  # normalised and clamped below
         ratios[gsis] = ratio
         shares_out[gsis] = share
-        ranked.append((summary["receptions"], multiplier))
+        ranked.append((summary["receptions"], gsis))
 
     if len(multipliers) < 10:
         return ReceptionFitMeasurement(
@@ -222,6 +289,22 @@ def measure_reception_depth_fit(
             reason=f"only {len(multipliers)} players had both a band shape and a scored season",
         )
 
+    # Split level from tilt.  The level is the population median of the
+    # composed multiplier; the tilt is what remains once it is divided
+    # out.  Only the tilt survives into ``multipliers`` — see the module
+    # docstring for why the level cannot be applied on this evidence.
+    level = statistics.median(multipliers.values())
+    if level <= 0:
+        return ReceptionFitMeasurement(
+            season=season, measured=False, reason="degenerate level multiplier"
+        )
+    for gsis, raw in list(multipliers.items()):
+        tilt = raw / level
+        multipliers[gsis] = max(1.0 - MAX_TILT, min(1.0 + MAX_TILT, tilt))
+
+    # (receptions, tilt) so dispersion is probed by volume, resolved by
+    # id rather than by relying on dict and list orders coinciding.
+    ranked = [(rec, multipliers[g]) for rec, g in ranked]
     ranked.sort(key=lambda t: -t[0])
     probes = [_dispersion([m for _, m in ranked[:n]]) for n in _DEPTH_PROBES if len(ranked) >= n]
     probes = [p for p in probes if p > 0]
@@ -248,6 +331,12 @@ def measure_reception_depth_fit(
         dispersion_drift=drift,
         median_multiplier=median_mult,
         sample_size=len(multipliers),
+        level_multiplier=level,
+        level_basis=(
+            "population median of (1 + share x (per-catch ratio - 1)) against the "
+            "baseline league's card; DEPENDS on that card being what the market "
+            "prices, which is unestablished — held out of the per-player multipliers"
+        ),
         reason=(
             f"composed over {len(multipliers)} receivers with >={min_receptions} catches; "
             f"dispersion stable to {drift:.4f} across depths {_DEPTH_PROBES}"

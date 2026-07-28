@@ -181,10 +181,43 @@ def test_a_mild_tilt_passes_through_unclamped():
         assert f.multiplier != pytest.approx(1.0 + MAX_TILT), "clamped a mild tilt"
 
 
-def test_the_two_sibling_fits_share_a_bound():
-    """These modules are explicitly built as siblings. The asymmetry
-    that let one go unbounded is what this pins shut."""
-    assert scoring_fit.MAX_TILT == reception_fit.MAX_TILT
+def test_both_sibling_fits_are_bounded_at_all():
+    """The asymmetry that let one go unbounded is what this pins shut.
+
+    An earlier version asserted the two bounds were EQUAL. That was a
+    proxy for the real property and it was wrong: the bounds should
+    track each measurement's own spread, and those differ. IDP
+    positional multipliers span 0.96-1.04 against a 0.25 bound, while
+    per-player reception tilt spans 0.765-1.098 and needed 0.35 to stop
+    the clamp shaping the result. Equality would have forced one of them
+    to be wrong for its data.
+
+    What must hold is that each exists and each is sane.
+    """
+    for mod in (scoring_fit, reception_fit):
+        bound = getattr(mod, "MAX_TILT", None)
+        assert bound is not None, f"{mod.__name__} has no MAX_TILT"
+        assert 0.0 < bound < 1.0, (
+            f"{mod.__name__}.MAX_TILT={bound} — a bound at or above 1.0 permits "
+            "a player's value to be zeroed or doubled, which is not a backstop"
+        )
+
+
+def test_each_bound_clears_its_own_measured_data():
+    """The principle the equality check was reaching for.
+
+    A bound must not bind on real data — that is the difference between
+    a fault backstop and a silent shaper. Each module records its own
+    measured extremes next to its constant; this asserts the bound sits
+    outside them with room.
+    """
+    # scoring_fit: measured IDP multipliers, 2026-07-28.
+    for observed in (0.9608, 1.0421):
+        assert 1.0 - scoring_fit.MAX_TILT < observed < 1.0 + scoring_fit.MAX_TILT
+
+    # reception_fit: measured per-player tilt over 199 receivers, 2025.
+    for observed in (0.765, 1.098):
+        assert 1.0 - reception_fit.MAX_TILT < observed < 1.0 + reception_fit.MAX_TILT
 
 
 # ── the curves the sweep found already sound ──────────────────────────

@@ -175,11 +175,33 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # name a lie — an operator disabling "idp_scoring_fit" would
     # silently also disable every receiver adjustment.
     #
-    # Also OFF by default.  Note the magnitude before enabling: the
-    # per-catch spread is 8x but receptions are 17-33% of a player's
-    # points, so the VALUE move is around +/-8%, not +/-120%.  See
-    # src/league_intel/reception_fit.py.
-    "reception_scoring_fit": False,
+    # ON since 2026-07-28.  Reception-distance banding is the largest
+    # scoring divergence on this card and the market cannot see it: the
+    # per-catch spread is 8x (0.25 to 2.00) while every ranking source
+    # prices a flat rate.
+    #
+    # Magnitude, measured — quote THIS, not the 8x.  Receptions are only
+    # 17-33% of a skill player's points, so the composed VALUE tilt over
+    # 199 receivers with 20+ catches (2025) is:
+    #
+    #   median 1.000  p10 0.942  p90 1.042  min 0.765  max 1.098
+    #   0 of 199 at the clamp; dispersion drift 0.0226 (bound 0.12)
+    #
+    # Coherent at the extremes rather than random: checkdown backs and
+    # short-area tight ends down (Jerome Ford 0.765), deep threats up
+    # (Alec Pierce 1.098).  Year-over-year r=0.72-0.77, so the band shape
+    # is a real player trait rather than noise.
+    #
+    # The multipliers carry TILT ONLY.  The shared level (0.9543) is
+    # held out and reported separately, because it depends on the
+    # baseline league being what the market prices — an assumption that
+    # swings the level 2x and flips its sign across plausible rates.
+    # Mean-normalised, so this cannot inflate receivers as a class.
+    #
+    # Reaches the OPT-IN league-adjusted lens (/api/gameplan) only,
+    # never the default market board.
+    # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
+    "reception_scoring_fit": True,
     # BDVM — projection-driven fundamental dynasty valuation engine
     # (src/bdvm/, endpoints /api/bdvm/values|roster|trades).  Held OFF:
     # the engine is implemented and tested (tests/bdvm/); it serves an

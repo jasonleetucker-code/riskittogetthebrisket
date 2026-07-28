@@ -20,6 +20,8 @@ depth, kept) from the IDP per-player one (fans out, refused).
 
 from __future__ import annotations
 
+import statistics
+
 import pytest
 
 from src.league_intel.reception_fit import (
@@ -67,30 +69,43 @@ def test_composition_shrinks_the_per_catch_ratio_toward_one():
     Applying the per-catch ratio straight to player value is the error
     this test exists to prevent.
     """
-    bands = {"rec_40p": 30, "rec_30_39": 10}  # all long
-    # Share deliberately below the level at which MAX_TILT would bind,
-    # so this test measures the COMPOSITION and not the clamp — the
-    # clamp has its own test and a fixture that hit both would not
-    # distinguish them.
+    # A MIXED population is required now that the level is split out.
+    # In a uniform cohort every receiver has the same shape, so there is
+    # no tilt between them by construction and every multiplier is
+    # exactly 1.0 — correct, but it tests nothing about composition.
     share = 0.15
-    players, shares = _uniform(20, bands, share=share)
-    m = measure_reception_depth_fit(_payload(players), shares, _MINE, _BASE, season=2025)
+    deep, deep_shares = _uniform(10, {"rec_40p": 30, "rec_30_39": 10}, share=share, prefix="d")
+    mid, mid_shares = _uniform(10, {"rec_10_19": 40}, share=share, prefix="m")
+    m = measure_reception_depth_fit(
+        _payload({**deep, **mid}), {**deep_shares, **mid_shares}, _MINE, _BASE, season=2025
+    )
     assert m.measured and m.trusted
 
-    gid = "p000"
-    per_catch = m.per_catch_ratios[gid]
-    multiplier = m.multipliers[gid]
-    assert per_catch > 2.0, "fixture is not actually a deep-threat shape"
-    assert multiplier < 1.0 + MAX_TILT, "fixture hit the clamp; it is testing the wrong thing"
-    # Exactly where the composition puts it, and far below the per-catch
-    # ratio it came from.
-    assert multiplier == pytest.approx(1.0 + share * (per_catch - 1.0))
-    # The claim stated as a shrinkage: the value moves by the SHARE of
-    # the per-catch move, so a 142% per-catch premium becomes a 21%
-    # value premium. Asserting the deviations rather than the raw
-    # numbers is what makes this about composition.
-    assert (multiplier - 1.0) == pytest.approx(share * (per_catch - 1.0))
-    assert (multiplier - 1.0) < 0.25 * (per_catch - 1.0)
+    per_catch_deep = m.per_catch_ratios["d000"]
+    per_catch_mid = m.per_catch_ratios["m000"]
+    assert per_catch_deep > 2.0, "fixture is not actually a deep-threat shape"
+
+    # The composed, pre-normalisation multipliers.
+    raw_deep = 1.0 + share * (per_catch_deep - 1.0)
+    raw_mid = 1.0 + share * (per_catch_mid - 1.0)
+
+    # The deep threat's TILT is his composed value relative to the
+    # population level, and it is far smaller than his per-catch ratio.
+    tilt_deep = m.multipliers["d000"]
+    assert tilt_deep == pytest.approx(raw_deep / m.level_multiplier)
+    assert tilt_deep < 1.0 + MAX_TILT, "fixture hit the clamp; it is testing the wrong thing"
+
+    # The shrinkage claim, stated on the ratio BETWEEN the two shapes so
+    # it is invariant to the level: a 2x+ per-catch gap becomes a value
+    # gap of only a few percent, because catches are a small slice of
+    # each player's points.
+    value_gap = raw_deep / raw_mid
+    per_catch_gap = per_catch_deep / per_catch_mid
+    assert per_catch_gap > 2.0
+    assert value_gap < 1.25, (
+        f"value gap {value_gap:.3f} from a per-catch gap of {per_catch_gap:.3f} — "
+        "composition is not shrinking the effect"
+    )
 
 
 def test_a_zero_reception_share_is_a_no_op_however_extreme_the_shape():
@@ -114,12 +129,56 @@ def test_the_direction_matches_the_band_the_catches_fall_in():
 
 
 def test_the_tilt_is_clamped(monkeypatch):
-    """An upstream data fault must not be able to express itself as a
-    3x repricing. The clamp is a backstop, not a shaper — on real 2025
-    data exactly one of 200 receivers reaches it."""
+    """An upstream data fault must not express itself as a 3x repricing.
+
+    The clamp is a backstop, not a shaper. Needs a MIXED population: the
+    clamp bounds a player's tilt relative to the population level, so a
+    uniform cohort — however extreme its shape — has every member at
+    exactly 1.0 and can never reach it.
+    """
+    deep, deep_shares = _uniform(12, {"rec_40p": 40}, share=1.0, prefix="d")
+    short, short_shares = _uniform(12, {"rec_0_4": 40}, share=1.0, prefix="s")
+    m = measure_reception_depth_fit(
+        _payload({**deep, **short}), {**deep_shares, **short_shares}, _MINE, _BASE, season=2025
+    )
+    assert m.multipliers["d000"] == pytest.approx(1.0 + MAX_TILT)
+    assert m.multipliers["s000"] == pytest.approx(1.0 - MAX_TILT)
+
+
+def test_a_uniform_cohort_has_no_tilt_and_all_of_the_level():
+    """The property that split the two apart.
+
+    If every receiver catches the same way, none is advantaged relative
+    to another — the entire effect is a level shift on the whole
+    receiving corps, which is exactly the part that depends on an
+    unestablished market rate. Pre-split this returned 1.25 for every
+    player, applying an assumption as if it were a measurement.
+    """
     players, shares = _uniform(20, {"rec_40p": 40}, share=1.0)
     m = measure_reception_depth_fit(_payload(players), shares, _MINE, _BASE, season=2025)
-    assert m.multipliers["p000"] == pytest.approx(1.0 + MAX_TILT)
+    for gid in players:
+        assert m.multipliers[gid] == pytest.approx(1.0), "a uniform cohort cannot have tilt"
+    assert m.level_multiplier > 1.5, "the level should carry the whole (large) effect"
+    assert m.level_basis, "the level must record what it was measured against"
+
+
+def test_the_level_is_never_folded_into_the_per_player_multipliers():
+    """The guard on the decision.
+
+    Multiplying tilt by level would re-apply the assumption this split
+    exists to hold back, and would look identical to the pre-split
+    output.
+    """
+    deep, deep_shares = _uniform(10, {"rec_40p": 40}, share=0.4, prefix="d")
+    mid, mid_shares = _uniform(10, {"rec_10_19": 40}, share=0.4, prefix="m")
+    m = measure_reception_depth_fit(
+        _payload({**deep, **mid}), {**deep_shares, **mid_shares}, _MINE, _BASE, season=2025
+    )
+    assert m.level_multiplier != pytest.approx(1.0), "fixture has no level to hold back"
+    assert statistics.median(m.multipliers.values()) == pytest.approx(
+        1.0, abs=1e-9
+    ), "the per-player multipliers still carry the level"
+    assert m.to_dict()["levelApplied"] is False
 
 
 def test_players_below_the_reception_floor_are_excluded():
@@ -336,3 +395,47 @@ def test_the_resolver_is_inert_while_the_reception_flag_is_off(monkeypatch):
     finally:
         feature_flags.reload()
         gameplan.invalidate_reception_fit_cache()
+
+
+#: Tilt extremes measured over 199 receivers with 20+ catches, 2025,
+#: after the level split. Recorded so a future change to the bound is
+#: judged against real data rather than intuition.
+_MEASURED_TILT_MIN = 0.765  # Jerome Ford, a checkdown back
+_MEASURED_TILT_MAX = 1.098  # Alec Pierce, a deep threat
+
+
+def test_the_bound_keeps_clear_of_real_data():
+    """A safety bound must not shape the result it is protecting.
+
+    At MAX_TILT=0.25 the measured minimum sat 1.5% above the floor —
+    binding hardest on precisely the archetype this measurement exists
+    to surface, and doing it invisibly. The bound was widened to 0.35.
+
+    This fails if the bound is tightened back, or if real data drifts
+    toward it, rather than letting either happen silently.
+    """
+    floor, ceil = 1.0 - MAX_TILT, 1.0 + MAX_TILT
+    assert floor < _MEASURED_TILT_MIN and _MEASURED_TILT_MAX < ceil
+
+    low_headroom = (_MEASURED_TILT_MIN - floor) / (1.0 - floor)
+    high_headroom = (ceil - _MEASURED_TILT_MAX) / (ceil - 1.0)
+    assert low_headroom > 0.10, (
+        f"only {low_headroom:.1%} headroom below — the clamp is shaping the "
+        "signal, not backstopping a fault"
+    )
+    assert high_headroom > 0.10, f"only {high_headroom:.1%} headroom above"
+
+
+def test_the_bound_still_contains_a_fault():
+    """Widening must not turn the backstop off.
+
+    An extreme mixed population still cannot move a player by more than
+    a third, which is the property the clamp exists for.
+    """
+    deep, deep_shares = _uniform(12, {"rec_40p": 40}, share=1.0, prefix="d")
+    short, short_shares = _uniform(12, {"rec_0_4": 40}, share=1.0, prefix="s")
+    m = measure_reception_depth_fit(
+        _payload({**deep, **short}), {**deep_shares, **short_shares}, _MINE, _BASE, season=2025
+    )
+    for v in m.multipliers.values():
+        assert 0.6 <= v <= 1.4, f"tilt {v} escaped a sane bound"
