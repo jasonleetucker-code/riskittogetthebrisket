@@ -172,6 +172,26 @@ MAX_DEPTH_DRIFT: float = 0.05
 #: Below this many scored players a cohort median is not worth trusting.
 MIN_COHORT_SIZE: int = 12
 
+#: Hard clamp on the emitted multiplier, mirroring
+#: :data:`src.league_intel.reception_fit.MAX_TILT`.
+#:
+#: **The depth-drift check above does not cover this case, and cannot.**
+#: Drift detects a ratio that moves with sample depth — the signature of
+#: sampling noise. A corrupted INPUT produces a ratio that is large and
+#: perfectly stable, so it sails through: measured with one rate parsed
+#: 100x too large, this module returned DL 2.899 / LB 0.050 / DB 0.050,
+#: a 57x spread, with all three marked ``trusted`` at drift 0.0000.
+#:
+#: ``reception_fit`` — written as this module's sibling, and sharing its
+#: probe design — already carried exactly this bound, for exactly this
+#: reason ("so an upstream data fault cannot express itself as a 3x
+#: repricing"). Only one of the two got it. This closes that asymmetry.
+#:
+#: 0.25 is generous against a measured range of 0.9608-1.0421, so it
+#: never engages in normal operation; it exists solely so a data fault
+#: cannot reprice every IDP asset on the board by multiples.
+MAX_TILT: float = 0.25
+
 
 @dataclass(frozen=True)
 class PositionFit:
@@ -350,9 +370,26 @@ def measure_positional_scoring_fit(
     positions: dict[str, PositionFit] = {}
     for pos, (ratio, drift, n) in sorted(raw.items()):
         ok = drift <= MAX_DEPTH_DRIFT
+        normalised = (ratio / mean_ratio) if ok else 1.0
+        clamped = max(1.0 - MAX_TILT, min(1.0 + MAX_TILT, normalised))
+        if clamped != normalised:
+            # Only reachable from a corrupted input — see MAX_TILT.  Loud
+            # because the clamp keeps the board sane while leaving the
+            # underlying fault in place, and a silently-clamped number
+            # looks exactly like a measured one.
+            _LOGGER.error(
+                "scoring_fit multiplier for %s clamped %.4f -> %.4f (bound %.2f). "
+                "A tilt this large is not a scoring difference, it is an input "
+                "fault; the depth-drift check cannot catch it because a corrupt "
+                "rate produces a STABLE ratio. Check the scoring card.",
+                pos,
+                normalised,
+                clamped,
+                MAX_TILT,
+            )
         positions[pos] = PositionFit(
             position=pos,
-            multiplier=(ratio / mean_ratio) if ok else 1.0,
+            multiplier=clamped,
             raw_ratio=ratio,
             cohort_size=n,
             depth_drift=drift,
