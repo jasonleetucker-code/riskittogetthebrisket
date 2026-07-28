@@ -4,7 +4,10 @@ the 'value vs realized' feature in the upgraded player popup."""
 
 from __future__ import annotations
 
+import pytest
+
 from src.nfl_data import realized_points as rp
+from src.scoring import sleeper_ingest
 
 
 def _half_ppr():
@@ -195,6 +198,60 @@ def test_alias_never_double_counts_when_both_keys_present():
     out = rp.compute_weekly_points(stat, {"idp_pd": 1.5, "idp_pass_def": 5.32}, position="CB")
     # canonical key wins; the alias must not add a second contribution
     assert out.fantasy_points == 3 * 1.5
+
+
+def test_idp_qb_hit_alias_scores_hits():
+    """The SECOND live alias in this league, missed by the first fix.
+
+    ``idp_qb_hit`` reads 2.13/event in the dynasty_main dump while this
+    module scores ``idp_hit``. Fails against the one-entry alias map:
+    QB hits scored 0, which on 2025 data was 3,073 hits / 6,545 points.
+    """
+    stat = {"season": 2025, "week": 1, "position": "EDGE", "def_qb_hits": 4}
+    out = rp.compute_weekly_points(stat, {"idp_qb_hit": 2.13}, position="EDGE")
+    assert out.fantasy_points == pytest.approx(4 * 2.13)
+
+
+def test_every_sleeper_alias_is_honoured_not_just_the_noticed_one():
+    """Pins the derivation, not a hand-list.
+
+    The first fix enumerated the one key someone tripped over.
+    ``KEY_ALIASES`` knew eight, and two of those are live here — so a
+    hand-list is a guard that stops firing the moment Sleeper adds a
+    ninth. Deriving is what makes this checkable at all.
+
+    Half-fixing was not half-right: PD is a cornerback stat and QB hits
+    an edge-rusher stat, so correcting only PD tilts DB against DL. A
+    partial correction to a *relative* ranking introduces a bias that no
+    correction does not.
+    """
+    expected = {a: c for a, c in sleeper_ingest.KEY_ALIASES.items() if a != c}
+    # Guard the guard: if KEY_ALIASES ever stops carrying real aliases,
+    # an empty expectation would make every assertion below vacuous.
+    assert len(expected) >= 8, "KEY_ALIASES no longer enumerates the aliases this derives from"
+    assert rp._SCORING_KEY_ALIASES == expected
+
+
+@pytest.mark.parametrize(
+    "alias,canonical,stat_col,stat_val",
+    [
+        ("idp_pass_def", "idp_pd", "def_pass_defended", 3),
+        ("idp_qb_hit", "idp_hit", "def_qb_hits", 4),
+        ("idp_tfl", "idp_tkl_loss", "def_tackles_for_loss", 2),
+        ("idp_fr", "idp_fum_rec", "def_fumble_recovery_own", 1),
+        ("idp_td", "idp_def_td", "def_tds", 1),
+    ],
+)
+def test_alias_scores_and_never_double_counts(alias, canonical, stat_col, stat_val):
+    """Each alias pays once under the alias, and once under both."""
+    stat = {"season": 2025, "week": 1, "position": "LB", stat_col: stat_val}
+
+    alias_only = rp.compute_weekly_points(stat, {alias: 5.0}, position="LB")
+    assert alias_only.fantasy_points == pytest.approx(stat_val * 5.0)
+
+    # Canonical present too — it wins, and the alias adds nothing.
+    both = rp.compute_weekly_points(stat, {canonical: 2.0, alias: 5.0}, position="LB")
+    assert both.fantasy_points == pytest.approx(stat_val * 2.0)
 
 
 def test_fumble_recovery_column_fallback_for_direct_rows():
