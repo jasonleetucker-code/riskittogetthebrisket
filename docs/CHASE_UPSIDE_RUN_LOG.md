@@ -797,3 +797,57 @@ baseline is stable.
 ### §9: 18 of 18 worked. 14 fixed, 2 standing policy, 2 open as FEATURES
 (#6 wiring the arbitrage engine to a UI; #5 shipping chat). Both are
 product calls with the defect half already closed.
+
+### CORRECTION 2026-07-28 — the idp_scoring_fit direction was wrong
+
+Caught while resolving a merge conflict, not by a test. Main had added a
+§14 about Sleeper scoring-key aliases; reading it flagged that my
+measurement might predate part of it. It did.
+
+I measured AFTER ff602013 (which aliased idp_pass_def -> idp_pd, a
+CORNERBACK stat, so PD started scoring) but BEFORE d3212864 (which
+derived the whole alias map from KEY_ALIASES and picked up
+idp_qb_hit -> idp_hit, an EDGE stat worth 6,545 points across 2025).
+
+So I measured on a partially corrected card. Re-measured on the complete
+one:
+
+    pos   shipped    correct    delta
+    DB    1.0366     0.9971    -0.0395
+    DL    1.0001     1.0421    +0.0420
+    LB    0.9633     0.9608    -0.0025
+
+THE ORDERING FLIPPED. I shipped DB-highest; DL-highest is correct.
+
+Main's own §14 predicted this exactly: "a partial correction to a
+relative ranking introduces a bias that no correction does not — PD is a
+corner stat and QB hits an edge stat, so correcting only PD tilts DB up
+against DL." This module measures a purely RELATIVE quantity, so it is
+maximally exposed. I read that warning as being about realized_points
+and did not connect it to the thing I had just measured with
+realized_points.
+
+No code was wrong — multipliers are computed at runtime, so the engine
+started emitting the corrected numbers the moment the alias map was
+completed. What was wrong was the RECORDED RATIONALE, including the
+justification I gave for turning the flag on. Corrected in
+scoring_fit.py's docstring and in test_feature_flags.py's blast radius.
+
+Corrected blast radius, live board 2026-07-28 (1,094 rows):
+398 IDP rows move — DL n=145 +4.21%, DB n=139 -0.29%, LB n=114 -3.92%.
+Zero non-IDP values change.
+
+THE LESSON, and it is not "check your inputs":
+A measurement's inputs can be fixed BETWEEN when you measure and when
+anyone reads the result, and nothing in the number tells you that
+happened. The tell here was a doc section someone else wrote about a
+module I had used. Two guards that would have caught it independently:
+(1) stamp measurements with the commit of the code that produced them;
+(2) for anything RELATIVE, treat a partial upstream correction as
+worse than none — the ordering can invert while every individual
+number moves in the right direction.
+
+Note this lands closer to #592's ORIGINAL "DL +7%" on the DL-over-DB
+ordering. That is not vindication of #592 — its derivation was never
+verified either. Agreeing with an unverified prior is not evidence
+(ORCHESTRATION.md 2b).

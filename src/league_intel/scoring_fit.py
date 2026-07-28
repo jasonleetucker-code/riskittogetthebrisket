@@ -59,36 +59,63 @@ weekly rows, with both leagues' live ``scoring_settings`` (verified
 byte-identical to the values the original measurement recorded — zero
 drift on all 8 IDP keys), the mean-normalised multipliers are::
 
-    DB   1.0366     raw 1.2031   n=288   depth drift 0.029
-    DL   1.0001     raw 1.1608   n=213   depth drift 0.026
-    LB   0.9633     raw 1.1180   n=203   depth drift 0.015
+    DB   0.9971     raw 1.1979   n=295   depth drift low
+    DL   1.0421     raw 1.2519   n=221   depth drift low
+    LB   0.9608     raw 1.1542   n=208   depth drift low
 
-DB highest, LB lowest — the reverse of what was recorded.
+DL highest, LB lowest.
 
-The rate card says the new numbers are the right ones, and this is the
-check that settles it rather than the arithmetic agreeing with itself:
+**A correction, and the reason it is recorded here rather than quietly
+applied.** An intermediate measurement on 2026-07-27 produced DB 1.0366
+/ DL 1.0001 / LB 0.9633 — DB highest — and that number was shipped: it
+is what turned this flag on. It was measured on a **partially corrected
+scoring card**, and the partial correction is what produced the wrong
+ordering.
 
-* ``idp_pass_def`` is **2.52x UP**, the single largest move on the
-  board, and pass deflections are overwhelmingly a DB stat. ``idp_int``
-  is 0.86x down, but PD volume dwarfs INT volume, so DB nets up.
-* ``idp_sack`` is **0.64x DOWN** — the largest cut, and the signature
-  DL stat. ``idp_qb_hit`` 1.97x and ``idp_tkl_loss`` 2.06x roughly
-  offset it, leaving DL flat.
+Sleeper publishes some rules under two key names.  At the time of that
+measurement ``idp_pass_def`` had just been aliased to ``idp_pd`` and was
+scoring, but ``idp_qb_hit`` -> ``idp_hit`` had not yet been, so QB hits
+were still scoring **zero**.  PD is a cornerback stat; QB hits are an
+edge-rusher stat.  Correcting one and not the other lifted DB against DL
+by exactly the amount the missing DL stat was owed — 6,545 points across
+2025.
+
+This is the failure mode ``UNIMPLEMENTED_BACKLOG.md`` §14 names
+explicitly: *a partial correction to a relative ranking introduces a
+bias that no correction does not*.  This module measures a purely
+relative quantity, so it is maximally exposed to it.  Deriving the alias
+map from ``sleeper_ingest.KEY_ALIASES`` rather than restating it (commit
+``d3212864``) closed the gap, and re-measuring on the complete card
+gives the figures above.
+
+The rate card corroborates the corrected ordering:
+
+* ``idp_sack`` is **0.64x DOWN** — the largest single cut, and the
+  signature DL stat — but ``idp_tkl_loss`` is **2.06x UP** and
+  ``idp_qb_hit`` **1.97x UP**, and those two are also DL-heavy. Once QB
+  hits actually score, the disruption bonuses more than offset the sack
+  cut, and DL nets **up**.
+* ``idp_pass_def`` is **2.52x UP**, the single largest move on the card
+  and overwhelmingly a DB stat — but ``idp_int`` is 0.86x down, and the
+  net leaves DB essentially flat rather than ahead.
 * ``idp_tkl_solo``, the LB volume stat, is 0.92x down against
-  ``idp_tkl_ast`` 1.07x up — a net cut on the stat LBs accumulate most.
+  ``idp_tkl_ast`` 1.07x up — a net cut on the stat LBs accumulate most,
+  which is why LB is lowest under both measurements.
 
-A league that pays coverage and disruption and discounts sacks cannot
-be tilting toward DL. The old figures were not reproducible through
-this API with identical inputs, and asserting a tilt whose direction
-contradicts its own rate card is exactly what the mechanical check
-above exists to prevent.
+Note that this lands closer to the ORIGINAL #592 record ("DL +7%, LB +3%
+relative to DB") on the DL-over-DB ordering, though not on the
+magnitudes, and #592's own derivation was never verified.  Agreeing with
+an unverified prior is not evidence — the alias mechanism above is.
 
-Part of the gap was a real bug, fixed alongside this: ``SAF`` — the
-nflverse spelling for a safety, 1,468 of the 2025 regular-season rows —
-was in neither ``POSITION_ALIASES`` nor ``scoring_engine``'s IDP
-collapse table, so every safety was silently dropped from the DB
-cohort. Including them moves DB from 1.0594 to 1.0366 and grows the
-cohort from 188 to 288. It narrows the tilt; it does not create it.
+A second real bug was fixed alongside this, and it is independent of the
+alias problem above: ``SAF`` — the nflverse spelling for a safety, 1,468
+of the 2025 regular-season rows — was in neither ``POSITION_ALIASES``
+nor ``scoring_engine``'s IDP collapse table, so every safety was
+silently dropped from the DB cohort, shrinking it from 288 to 188.  Both
+defects inflated DB, by different routes: one excluded most of the
+cohort, the other credited it with a stat its rivals were not being paid
+for.  ``tests/league_comparison/test_position_family_coverage.py`` pins
+the position vocabulary against what the feed actually emits.
 
 Scale is meaningless; only the tilt is real
 ───────────────────────────────────────────
