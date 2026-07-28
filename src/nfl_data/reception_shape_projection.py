@@ -70,11 +70,60 @@ _LOGGER = logging.getLogger(__name__)
 __all__ = [
     "SHRINK_K",
     "MIN_RECEPTIONS_FOR_SHAPE",
+    "RECENCY_HALF_LIFE_SEASONS",
+    "blend_seasons",
     "expected_points_per_catch",
     "fit_shrinkage_constant",
     "position_shapes",
     "project_band_shape",
 ]
+
+#: How fast older seasons lose weight. At a half-life of 1.0 the prior
+#: season counts half as much as the current one, the season before that
+#: a quarter, and so on.
+#:
+#: Chosen rather than fitted, and the distinction is deliberate:
+#: :data:`SHRINK_K` is fitted because there is a clean held-out target
+#: for it (next season's per-catch value). Recency weighting has no such
+#: target without a longer history than the three seasons on disk, and
+#: fitting it on two transitions would be reading noise. 1.0 is the
+#: conventional default; it is a prior, not a measurement, and is
+#: labelled as one.
+RECENCY_HALF_LIFE_SEASONS: float = 1.0
+
+
+def blend_seasons(
+    bands_by_season: Mapping[int, Mapping[str, float]],
+    *,
+    half_life: float = RECENCY_HALF_LIFE_SEASONS,
+) -> dict[str, float]:
+    """Combine several seasons of raw band counts into one weighted count.
+
+    **This is what makes an in-season shape usable.** In week 4 a player
+    has maybe 15 catches — far too few to trust on their own, and
+    :func:`project_band_shape` would rightly shrink almost all of it
+    away toward his position. But his last two seasons are still
+    informative about how he catches, and a receiver whose role has
+    genuinely changed will pull his blended shape as the current season
+    accumulates.
+
+    Counts are weighted, not shapes, so sample size carries through: a
+    3-catch current season contributes 3 weighted catches, not an equal
+    vote with a 90-catch prior. The result feeds
+    :func:`project_band_shape` exactly as a single season would, so
+    shrinkage still applies on top.
+    """
+    if not bands_by_season:
+        return {b: 0.0 for b in BAND_KEYS}
+    newest = max(int(s) for s in bands_by_season)
+    out = {b: 0.0 for b in BAND_KEYS}
+    for season, bands in bands_by_season.items():
+        age = newest - int(season)
+        weight = 0.5 ** (age / float(half_life)) if half_life > 0 else (1.0 if age == 0 else 0.0)
+        for b in BAND_KEYS:
+            out[b] += weight * max(0.0, float((bands or {}).get(b, 0) or 0))
+    return out
+
 
 #: Below this the player's own shape is ignored entirely and the
 #: position shape is used unchanged. A handful of catches carries no

@@ -435,6 +435,56 @@ main() {
     fi
   fi
 
+  # ── Reception-depth histogram timer ───────────────────────────────────
+  # Streams nflverse play-by-play into per-player reception-band
+  # histograms.  Like playerctx and BDVM the readers load a LOCAL file
+  # and data/ is gitignored, so the producer must run where the reader
+  # lives.  Needs no credentials (public nflverse), so this installs
+  # unconditionally whenever both templates are present.
+  #
+  # The unit treats exit 2 as success: "the current season has not
+  # kicked off" is the normal state from March to August, and a unit
+  # sitting red for half the year is a unit nobody reads.
+  local rd_service_template="${APP_DIR}/deploy/systemd/dynasty-reception-depth.service.template"
+  local rd_timer_template="${APP_DIR}/deploy/systemd/dynasty-reception-depth.timer.template"
+  local rd_service_name="${SERVICE_NAME}-reception-depth"
+  local rd_service_path="/etc/systemd/system/${rd_service_name}.service"
+  local rd_timer_path="/etc/systemd/system/${rd_service_name}.timer"
+  local rd_needs_install=false
+
+  if [[ -f "${rd_service_template}" && -f "${rd_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${rd_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${rd_service_path} + timer."
+        rd_needs_install=true
+      else
+        log "Reception-depth timer already installed; skipping."
+      fi
+    else
+      log "Installing reception-depth refresh service + timer."
+      rd_needs_install=true
+    fi
+
+    if [[ "${rd_needs_install}" == "true" ]]; then
+      local tmp_rd_service tmp_rd_timer
+      tmp_rd_service="$(mktemp)"
+      tmp_rd_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${rd_service_template}" > "${tmp_rd_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${rd_timer_template}" > "${tmp_rd_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_rd_service}" "${rd_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_rd_timer}" "${rd_timer_path}"
+      rm -f "${tmp_rd_service}" "${tmp_rd_timer}"
+      log "Installed ${rd_service_name}.service + .timer"
+    fi
+  fi
+
   # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
   # CI cannot run scripts/fetch_dlf.py — Cloudflare 403s the GitHub
   # Actions runner IPs.  The same script succeeds from prod, so this
@@ -594,6 +644,15 @@ main() {
       sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
         log "Note: initial player-context build could not be started; the timer will cover it."
     fi
+  fi
+  if [[ "${rd_needs_install}" == "true" ]]; then
+    # --now arms the timer.  No initial kick here: the histograms for
+    # completed seasons are either already on disk or will be built by
+    # the first Wednesday run, and streaming three ~98 MB CSVs during a
+    # deploy would stall it for no gain.  The script skips seasons it
+    # already has, so that first run is cheap.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${rd_service_name}.timer"
+    log "Enabled ${rd_service_name}.timer"
   fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
     # --now arms the timer immediately; the FIRST snapshots are built

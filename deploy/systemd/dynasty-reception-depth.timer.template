@@ -1,0 +1,28 @@
+[Unit]
+Description=Weekly reception-depth histogram refresh for __SERVICE_NAME__
+# Deliberately NO Requires= on the service: [Timer] Unit= already binds
+# it, and a [Unit] Requires= would start the service on every boot
+# regardless of OnCalendar and let a service failure deactivate the
+# timer itself.  Persistent=true is the intended catch-up for a missed
+# run.
+
+[Timer]
+# Weekly, Wednesday 07:20 UTC.
+#
+# Cadence: band histograms are season aggregates, so they gain nothing
+# from firing more often than the games do.  Weekly is the natural
+# grain and matches what the shape blend consumes.
+#
+# Slot: Tuesday already carries playerctx (05:40), the Hill-curve refit
+# and the BDVM refresh (06:10).  Wednesday keeps this off that stack
+# and lands after nflverse has published the week's completed pbp.  The
+# randomized delay keeps us off the release CDN on the same second as
+# every other weekly consumer.
+OnCalendar=Wed *-*-* 07:20:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-reception-depth.service
+
+[Install]
+WantedBy=timers.target

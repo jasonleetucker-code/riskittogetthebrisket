@@ -112,6 +112,32 @@ _HTTP_TIMEOUT_SEC = 180.0
 _USER_AGENT = "brisket-reception-depth/1.0"
 
 
+#: Month in which the NFL regular season starts. Used only to tell an
+#: expected pre-season 404 apart from a broken release path —
+#: deliberately coarse, because the alternative is fetching a schedule
+#: to answer a question about log severity.
+_SEASON_START_MONTH: int = 9
+
+
+def season_has_plausibly_started(season: int, *, now: datetime | None = None) -> bool:
+    """Has ``season`` kicked off, as far as the calendar can tell?
+
+    Answers exactly one question: is a 404 from the pbp release expected,
+    or does it mean the URL moved?
+
+    Erring toward "started" for any past season means a genuinely stale
+    URL is never silenced. Erring toward "not started" only within the
+    current year's preseason means the offseason stays quiet.
+    """
+    now = now or datetime.now(timezone.utc)
+    season = int(season)
+    if season < now.year:
+        return True
+    if season > now.year:
+        return False
+    return now.month >= _SEASON_START_MONTH
+
+
 def band_for_yards(yards: float) -> str:
     """Which Sleeper band a reception of ``yards`` falls in.
 
@@ -296,11 +322,30 @@ def persist_reception_depth(
                     resp.close()
         except urllib.error.HTTPError as exc:
             if getattr(exc, "code", 0) == 404:
-                _LOGGER.error(
-                    "reception_depth=url_stale season=%d status=404 — the pbp "
-                    "release path no longer exists; update _PBP_URL. No rows.",
-                    season,
-                )
+                # A 404 means two completely different things, and they
+                # must not share a message. nflverse publishes a
+                # season's pbp file only once that season kicks off, so
+                # a 404 for the current season in July is EXPECTED and
+                # is not an error. A 404 for a season that HAS started
+                # means the release path moved.
+                #
+                # Logging both as "url_stale, update _PBP_URL" would cry
+                # wolf every offseason, and once an operator learns to
+                # ignore that, a genuinely stale URL reads identically.
+                if not season_has_plausibly_started(season):
+                    _LOGGER.info(
+                        "reception_depth=not_started season=%d — nflverse "
+                        "publishes pbp once the season kicks off; nothing to "
+                        "fetch yet.",
+                        season,
+                    )
+                else:
+                    _LOGGER.error(
+                        "reception_depth=url_stale season=%d status=404 — this "
+                        "season has started, so the release path no longer "
+                        "exists; update _PBP_URL. No rows.",
+                        season,
+                    )
             else:
                 _LOGGER.warning("reception_depth=http season=%d status=%s", season, exc)
             continue
