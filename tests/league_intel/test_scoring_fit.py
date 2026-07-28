@@ -259,10 +259,35 @@ def test_the_resolver_is_inert_while_the_flag_is_off(monkeypatch):
         gameplan.invalidate_scoring_fit_cache()
 
 
-def test_the_flag_defaults_off():
-    """Unlike te_basis_conversion, which the operator directed on. This
-    moves every IDP value on the board and nobody has asked for it."""
+def test_the_flag_defaults_on_and_the_rollback_still_works():
+    """The operator directed this ON on 2026-07-27, after the fit was
+    re-measured against a corrected position map.
+
+    It previously defaulted OFF with the rationale "nobody has asked for
+    it".  They have now asked, so the honest guard is no longer "is it
+    off" but "is the documented rollback real".  A default flipped ON
+    with a rollback that does not actually roll back is strictly worse
+    than one that never moved: the operator believes they have an escape
+    hatch they do not have.
+
+    ``RISKIT_FEATURE_IDP_SCORING_FIT=0`` is the rollback recorded in
+    ``_DEFAULTS``, in ``tests/api/test_feature_flags.py`` and in the
+    ``scoring_fit`` module docstring.  This exercises it.
+    """
     from src.api import feature_flags
 
     feature_flags.reload()
-    assert feature_flags.is_enabled("idp_scoring_fit") is False
+    assert feature_flags.is_enabled("idp_scoring_fit") is True
+
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setenv("RISKIT_FEATURE_IDP_SCORING_FIT", "0")
+        feature_flags.reload()
+        assert (
+            feature_flags.is_enabled("idp_scoring_fit") is False
+        ), "the documented rollback does not disable the flag"
+    finally:
+        monkeypatch.undo()
+        feature_flags.reload()
+
+    assert feature_flags.is_enabled("idp_scoring_fit") is True
