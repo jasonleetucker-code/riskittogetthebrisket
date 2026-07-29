@@ -1,391 +1,150 @@
 # Codebase Handoff: Risk It To Get The Brisket
-*Generated 2026-03-21 | Full codebase review*
+
+*Original: 2026-03-21. Replaced 2026-07-29 — see "Why this was rewritten".*
+
+**Live at:** `https://chaseupside.com` (nginx + Let's Encrypt).
+
+> The original `riskittogetthebrisket.org` domain lapsed and was re-registered
+> by a third party. Do not probe, link, or deploy to it.
+> `deploy/nginx/riskittogetthebrisket.org.conf` is kept only as a reference
+> diff against the live config and is marked DO NOT APPLY — its `:443` block
+> points at certificate paths that no longer exist, so applying it fails
+> `nginx -t` and aborts the reload.
 
 ---
 
-## What This Project Is
+## Start here
 
-A **dynasty fantasy football trade calculator and league management tool** built for a private 12-team Superflex TEP league. It scrapes trade values from 11 external sites, blends them into a composite score, applies league-specific scoring adjustments, and serves a web dashboard with trade evaluation, rankings, roster analysis, and draft capital tracking.
+This file is a **pointer**, not a description. These documents are actively
+maintained and checked against the code; read those instead:
 
-**Live at:** `https://chaseupside.com` (HTTPS via nginx + Let's Encrypt)
-
-> The original `riskittogetthebrisket.org` domain lapsed and was re-registered by a
-> third party. Do not probe, link, or deploy to it.
-
----
-
-## Repository Layout
-
-```
-/
-├── server.py                  # FastAPI server (2550 lines) — main process
-├── Dynasty Scraper.py         # Async scraper (11,489 lines) — run by server
-├── Static/                    # Legacy vanilla JS frontend (production default)
-│   ├── index.html             # Main app (~10k lines)
-│   ├── landing.html           # Entry router / login
-│   ├── league.html            # Public draft capital page
-│   └── js/
-│       ├── 00-core-shell.js   # Constants, helpers, tab management
-│       ├── 10-rankings-and-picks.js
-│       ├── 20-data-and-calculator.js
-│       ├── 30-more-surfaces.js  # League analytics dashboards
-│       ├── 35-draft-capital.js
-│       ├── 40-runtime-features.js  # Server integration, player popup
-│       └── 50-bootstrap.js    # Startup sequence
-├── frontend/                  # Next.js 15 / React 19 (in-progress migration)
-│   ├── app/
-│   │   ├── page.jsx           # Home dashboard
-│   │   ├── rankings/page.jsx  # Rankings table
-│   │   ├── trade/page.jsx     # Trade builder
-│   │   ├── login/page.jsx     # Auth (demo only)
-│   │   └── api/dynasty-data/route.js  # Backend proxy + file fallback
-│   ├── components/useDynastyData.js
-│   └── lib/dynasty-data.js    # Data normalization
-├── src/                       # Python pipeline modules
-│   ├── adapters/              # Data ingestion adapters (DLF, KTC stub, manual)
-│   ├── api/data_contract.py   # API payload builder + validator
-│   ├── canonical/             # Pipeline orchestration + value transform
-│   ├── data_models/contracts.py
-│   ├── identity/              # Player identity resolution
-│   ├── league/                # Placeholder (scarcity/replacement/settings deleted)
-│   ├── scoring/               # Scoring adjustments, archetypes, backtesting
-│   └── utils/
-├── data/                      # Runtime data files (dynasty_data_*.json)
-├── exports/                   # Scraper output bundles
-├── scripts/                   # Utility scripts
-│   ├── ingest_dlf.py
-│   ├── run_canonical_pipeline.py
-│   ├── run_identity_pipeline.py
-│   └── validate_ingest.py
-├── tests/                     # pytest suite
-├── Caddyfile                  # Reverse proxy config
-└── dynasty_data.js            # Embedded fallback data (served statically)
-```
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────┐
-│                  server.py                  │
-│  FastAPI  ·  Auth  ·  Scheduler  ·  State   │
-│                                             │
-│  Every 2h: run_scraper() ──────────────────►│──► Dynasty Scraper.py
-│                                             │         │
-│  Serves:                                    │         ▼
-│   /api/data      (pre-serialized JSON)      │   scrapes 11 sites
-│   /api/status    (health/metrics)           │   computes composites
-│   /api/draft-capital                        │   writes dynasty_data*.json
-│   /api/auth/*                               │
-│   /app, /rankings, /trade (frontend)        │
-└─────────────────────────────────────────────┘
-         │                        │
-         ▼                        ▼
-   Static/ (default)       frontend/ (opt-in)
-   Vanilla JS SPA          Next.js React
-```
-
-### Data Flow
-1. **Scraper** fetches values from KTC, FantasyCalc, DynastyDaddy, DynastyNerds, DraftSharks, FantasyPros, Yahoo, IDPTradeCalc, PFF IDP, Flock, DLF
-2. Blends into per-player composite (Z-score weighted average)
-3. Writes `dynasty_data_YYYY-MM-DD_HHMMSS.json` to `data/`
-5. **Server** loads it, builds API contract payload, pre-serializes 3 views (full / runtime / startup)
-6. **Frontend** fetches `/api/data?view=app` and renders
-
----
-
-## Key Configuration (Environment Variables)
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `JASON_LOGIN_PASSWORD` | `«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»` ⚠️ | App password — **change this, default is hardcoded** |
-| `SLEEPER_LEAGUE_ID` | `1312006700437352448` | Primary league for roster/picks/trades |
-| `BASELINE_LEAGUE_ID` | — | Baseline comparison league |
-| ~~`CANONICAL_DATA_MODE`~~ | — | **RETIRED** (2026-07-29 audit): the offline canonical-build path was removed; this var is read nowhere in the tree. |
-| `FRONTEND_RUNTIME` | `next` | Hardcoded — Next.js is sole frontend |
-| `FRONTEND_URL` | `http://127.0.0.1:3000` | Next.js dev server URL |
-| `SCRAPE_INTERVAL_HOURS` | `2` | How often to auto-scrape |
-| `SCRAPE_RUN_TIMEOUT_SECONDS` | `7200` | Max scrape wall time |
-| `ALERT_ENABLED` | `false` | Email alerts on failures |
-| `ALERT_TO` / `ALERT_FROM` | — | Gmail alert recipients |
-| `ALERT_PASSWORD` | — | Gmail app password |
-| `DN_EMAIL` / `DN_PASS` | — | DynastyNerds login |
-| `DS_EMAIL` / `DS_PASS` | — | DraftSharks login |
-| `ALERT_THRESHOLD` | `5.0` | Value movement % to trigger alert |
-| `UPTIME_CHECK_ENABLED` | `true` | Self-ping health watchdog |
-
----
-
-## How to Run
-
-```bash
-# Install Python deps
-pip install fastapi uvicorn playwright requests
-
-# Install Playwright browsers
-playwright install chromium
-
-# Start server (serves on :8000)
-python server.py
-
-# Or with gunicorn
-uvicorn server:app --host 0.0.0.0 --port 8000
-
-# Frontend (Next.js dev mode)
-cd frontend && npm install && npm run dev  # runs on :3000
-```
-
-### Trigger a manual scrape
-```
-POST /api/scrape
-# or via admin UI at /app (More tab → Update Values)
-```
-
----
-
-## The Scraper (`Dynasty Scraper.py`) — 11,489 lines
-
-### What It Does
-- Launches a headless Chromium browser via Playwright
-- Runs ~10 scrapers in parallel + sequential groups
-- Each scraper has 3–5 fallback extraction strategies
-- Applies name matching (exact → normalized → fuzzy) to unify player names
-- Builds composite values, pick model, scoring adjustments
-- Exports JSON + CSV + ZIP bundle
-
-### Site Inventory
-
-| Site | Method | Timeout | Risk |
-|---|---|---|---|
-| KTC | API interception → DOM → regex | 300s | 🔴 Regex fragile |
-| FantasyCalc | JSON API | 90s | 🟡 Schema change |
-| DynastyDaddy | Table DOM | 300s | 🟡 Column detection |
-| DynastyNerds | Session → JS → text → top10 → cache | 300s | 🔴 Paywalled |
-| DraftSharks | Infinite scroll + JS | 360s | 🟡 Race condition |
-| FantasyPros | Article URL auto-discovery | 300s | 🟡 URL patterns |
-| Yahoo | Article URL auto-discovery | 300s | 🟡 URL patterns |
-| IDPTradeCalc | Google Sheets API → toggle → React Fiber → autocomplete | 480s | 🔴 Very fragile |
-| PFF IDP | Unknown — likely paywalled | 300s | 🔴 Often fails |
-| Flock | Saved session (`flock_session.json`) | 300s | 🔴 Session expires |
-| DLF | Local CSV files | n/a | 🟡 Files must be fresh |
-
-### Required Files in Script Directory
-```
-dlf_superflex.csv
-dlf_idp.csv
-dlf_rookie_superflex.csv
-dlf_rookie_idp.csv
-rookie_must_have.txt        # One player name per line
-flock_session.json          # Manual login required
-dynastynerds_session.json   # Manual login required
-```
-
-### Name Matching Pipeline
-`clean_name()` → `normalize_lookup_name()` → 5-stage match:
-1. Exact
-2. Period-stripped
-3. Lookup-normalized (suffixes, apostrophes, unicode)
-4. Initial expansion (`J. Smith-Njigba` → `Jaxon Smith-Njigba`)
-5. Fuzzy (`SequenceMatcher` ≥ 0.78 threshold with safety guards)
-
-### Pick Model
-- **2026:** 1:1 mapping to top 72 rookie composites, extrapolated with 6% decay
-- **2027/2028:** Tier-based (Early/Mid/Late) with calibrated discounts (84% / 70% defaults)
-- Discount recalibrated against live market data when available
-
-### Data Quality Guarantees
-- Every Sleeper-rostered player gets a composite (floor = positional median × 0.35)
-- Every player in `rookie_must_have.txt` gets a composite (curve-derived fallback)
-- Target pools: 350 offensive + 275 IDP players
-- Partial scrape block: if <50% of sites return data, server rejects result and keeps last-known-good
-
----
-
-## The Server (`server.py`) — 2,550 lines
-
-### Endpoints
-
-| Endpoint | Auth | Purpose |
-|---|---|---|
-| `GET /api/data?view=` | ✅ | Main data feed (`full`/`startup`/`runtime`) |
-| `GET /api/status` | ✅ | Scrape state, source health, payload sizes |
-| `GET /api/health` | ❌ | 200/503 for reverse proxy |
-| `GET /api/metrics` | ✅ | Request count, scrape stats, disk space |
-| `GET /api/draft-capital?refresh=1` | ✅ | Draft pick values per team |
-| `POST /api/scrape` | ✅ | Trigger manual scrape |
-| `POST /api/auth/login` | ❌ | Set session cookie |
-| `POST /api/auth/logout` | ❌ | Clear session |
-| `GET /api/auth/status` | ❌ | Check auth |
-| `GET /app`, `/rankings`, `/trade` | ✅ | Frontend (static or Next proxy) |
-| `GET /` | ❌ | Landing page |
-| `GET /league` | ❌ | Public draft capital page |
-| `GET /api/scaffold/*` | ✅ | Raw pipeline debug data |
-
-### Auth System
-- Single user (`jason`) with password from env
-- In-memory session dict (UUID keys)
-- Sessions never expire — **no TTL** (known gap)
-- No CSRF protection on login POST (mitigated by SameSite=lax)
-- No rate limiting on login
-
-### State Management
-```python
-latest_data              # Raw scraper output
-latest_contract_data     # Validated API contract payload
-latest_data_bytes        # Pre-serialized (full view)
-latest_runtime_data_bytes  # Pre-serialized (runtime view)
-latest_startup_data_bytes  # Pre-serialized (startup view)
-# + gzip versions of each
-```
-Memory note: 6 copies of payload in RAM. For a 50MB payload this is ~300MB.
-
-### Canonical Data Modes
-- `off` (default): Pure scraper data
-- `shadow`: Load pipeline data, log comparison, serve scraper data
-- `primary`: Serve pipeline data, fallback to scraper
-
-### Scrape Lifecycle
-```
-idle → lock acquired → import scraper → run with timeout
-  → progress_callback updates UI
-  → partial-data check (reject if <50% sites)
-  → disk-space check (skip write if <500MB free)
-  → pre-serialize 3 payload views
-  → release lock
-```
-
-### Draft Capital Endpoint
-- Reads pick dollar values from `Copy of Draft Data.xlsx - Draft Data.csv`
-- Fetches KTC rookie rankings (live scrape → CSV fallback, cached 6h)
-- Queries Sleeper for pick ownership + team rosters
-- Exponential decay curve to extend rookie list to 72 picks
-
----
-
-## The Frontend
-
-### Dual Runtime
-`FRONTEND_RUNTIME` controls which frontend is served:
-- `static` (default): Serves `Static/index.html` — full-featured vanilla JS app
-- `next`: Proxies to Next.js dev server on :3000
-- `auto`: Tries Next proxy, falls back to static on error
-
-### Static App Features
-| Feature | Status |
+| Document | What it answers |
 |---|---|
-| Trade Calculator (2-3 sides) | ✅ |
-| Rankings (filter/sort/tiers/export) | ✅ |
-| League Edge (BUY/SELL signals) | ✅ |
-| Roster Dashboard | ✅ |
-| Trade History (Sleeper) | ✅ |
-| Waiver Wire Gems | ✅ |
-| Draft Capital | ✅ |
-| Settings (site weights, anchors) | ✅ |
-| Mobile UI | ✅ |
+| [`CLAUDE.md`](CLAUDE.md) | Architecture rules, the valuation pipeline stage by stage, the scoring-profile vs leagueKey split, non-negotiables. **The authority.** |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System map |
+| [`docs/ONBOARDING.md`](docs/ONBOARDING.md) | How to add a league, a source, or a feature flag |
+| [`README.md`](README.md) | Setup and commands |
+| [`UNIMPLEMENTED_BACKLOG.md`](UNIMPLEMENTED_BACKLOG.md) | What was discussed and not built, including things deliberately rejected |
 
-### Next.js App (Partial Migration)
-| Feature | Status |
-|---|---|
-| Trade Calculator | ✅ |
-| Rankings | ✅ |
-| Trade History | ❌ not migrated |
-| League Edge | ❌ not migrated |
-| Roster Dashboard | ❌ not migrated |
-| Draft Capital | ❌ not migrated |
-| Settings Panel | ❌ not migrated |
-
-Next.js login (`login/page.jsx`) is **demo-only** — no backend validation. Use landing.html for real auth.
-
-### Data Loading (Static)
-```
-fetchFromServer()
-  → /api/data?view=startup  (fast first paint)
-  → deferred: /api/data?view=app  (full hydration)
-  → fallback: embedded window.DYNASTY_DATA (dynasty_data.js)
-```
-
-### Key Global State (Static JS)
-- `loadedData` — current dataset
-- `sleeperTeams` — league rosters
-- Session storage: calculator state (`dynastyCalcV5`)
-- Local storage: site settings, recent players, trade workspace, mobile prefs
+Current manual/owner tasks live in
+[`docs/OWNER_ACTION_AUDIT_2026-07-29.md`](docs/OWNER_ACTION_AUDIT_2026-07-29.md).
 
 ---
 
-## The `src/` Pipeline Modules
+## Why this was rewritten
 
-These are an **in-progress canonical pipeline** — not yet in production flow. They sit alongside the scraper.
+The previous version was generated on 2026-03-21 and was not maintained. By
+July it was not merely out of date — it was **actively misleading**, and its
+worst claim was one nobody would think to double-check:
 
-| Module | Purpose | Status |
-|---|---|---|
-| `adapters/dlf_csv_adapter.py` | Ingest DLF CSV rankings | ✅ Complete |
-| `adapters/ktc_stub_adapter.py` | KTC adapter | ⚠️ Stub only |
-| `adapters/manual_csv_adapter.py` | Generic CSV | ⚠️ Stub only |
-| `canonical/pipeline.py` | Orchestrate value computation | ✅ Complete |
-| `canonical/transform.py` | Z-score blending, universe split | ✅ Complete |
-| `identity/matcher.py` | Player identity resolution | ✅ Complete |
-| `league/` | Placeholder (scarcity/replacement/settings removed) | ⬜ Gutted |
-| `scoring/player_adjustment.py` | Scoring multiplier computation | ✅ Complete |
-| `scoring/sleeper_ingest.py` | Fetch + normalize Sleeper config | ✅ Complete |
-| `api/data_contract.py` | API payload builder + validator | ✅ Complete |
+> *"No CI/CD configured — tests run manually. Deployment is manual SSH +
+> restart."*
 
-Scripts to run them:
-```bash
-python scripts/ingest_dlf.py
-python scripts/run_canonical_pipeline.py
-python scripts/run_identity_pipeline.py
-python scripts/validate_ingest.py
-```
+There are **14 workflows**. `pr-validation.yml` gates every pull request and
+`deploy.yml` ships every push to `main` to production with health
+verification and auto-rollback. Anyone trusting that sentence would have
+built a second deployment pipeline beside a working one.
 
----
+It was wrong about the rest of the stack too. It documented a `Caddyfile`
+that is not in the tree (production is nginx), a `Static/` vanilla-JS
+frontend that has been removed (`FRONTEND_RUNTIME` is hardcoded to `"next"`
+and pinned by `tests/api/test_frontend_migration.py`), a
+`scripts/run_canonical_pipeline.py` that does not exist (the offline
+canonical path was retired), and `DN_EMAIL` / `DN_PASS` env vars that appear
+nowhere in the codebase.
 
-## Tests & CI
-
-```bash
-pytest tests/           # Full suite
-pytest tests/ -x -q     # Fast fail
-```
-
-Tests cover: adapters, canonical transform, identity matcher, scoring modules, data contract, utils.
-
-No CI/CD configured — tests run manually. Deployment is manual SSH + restart.
+Rather than patch a hundred stale lines into a differently-wrong document,
+the body is replaced by the pointer table above. **Two documents describing
+one architecture is how this happened**: `CLAUDE.md` was kept true and this
+one drifted, with nothing flagging the divergence.
 
 ---
 
-## Deployment
+## Verified state, 2026-07-29
 
-```
-Server: Linux VPS
-Process: uvicorn via systemd (assumed) or manual
-Proxy: Caddy (Caddyfile in repo root)
-```
+Checked against live production and the tree on this date. Confirmed, not
+assumed.
 
-**Caddy handles:** HTTPS termination, reverse proxy to :8000, static file serving for `/static`, `/js`, `/Static`.
+**Stack.** Python 3.12 FastAPI + Uvicorn on `:8000`; Next.js 15 / React 19 on
+`:3000`. Both are systemd units (`dynasty.service`,
+`dynasty-frontend.service`). nginx terminates TLS, routes `/api/*` to the
+backend and everything else to Next.
+
+**One consequence worth internalising:** because nginx sends `location /`
+straight to Next, `server.py`'s page routes are **not** in the production
+path. Page protection is `frontend/middleware.js`; the backend's default-deny
+`/api/` gate is the real authority.
+
+**Health.** `contract_ok: true`, 1,094 players, all 21 ranking sources
+fetched within 3 hours, `scrape_success_rate_24h: 1.0`.
+
+**Sources.** 21 in the `_RANKING_SOURCES` registry
+(`src/api/data_contract.py`), and all 21 were live in production on this date.
+Ingestion is `Dynasty Scraper.py` plus `scripts/fetch_*.py`, **not** one
+adapter per source — `src/adapters/` holds only `base.py` (the frozen
+contract, imported by tests), `scraper_bridge_adapter.py`,
+`sleeper_trending.py` and `ktc_crowd_faab.py`.
+
+**Tests.** ~5,350 Python (25 skipped, 470 subtests) and ~1,518 frontend.
+`make test` locally; `Validate PR` runs the same gates in CI.
 
 ---
 
-## Known Issues & Things to Fix
+## Known issues, re-verified 2026-07-29
 
-### Security (Fix First)
-1. **Hardcoded password** — `server.py:103`: `"«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»"` is the default. Set `JASON_LOGIN_PASSWORD` env var and remove the fallback.
-2. **No session TTL** — sessions never expire. Add a 24h max lifetime check.
-3. **No login rate limiting** — brute-force possible.
+Only items confirmed against current code. Anything from the March list that
+could not be re-confirmed was dropped rather than carried forward on faith.
+
+### Security
+
+1. **No login rate limiting — STILL OPEN.** `src/api/rate_limit.py` is a
+   generic per-IP limiter (60/min, 1000/hour) with no login-specific lockout,
+   and `server.py` has no failed-attempt counter. Brute-force against the
+   single operator account is slowed only by the generic limit.
+
+   *Fixed since March, and no longer issues:* the hardcoded password default
+   is gone (`server.py` refuses to start without `JASON_LOGIN_PASSWORD`; CI
+   sets `ALLOW_DEFAULT_LOGIN_DEV=1` only to clear the import-time guard on
+   runners that never serve auth), and sessions do expire —
+   `SESSION_TTL_DAYS` is enforced by `src/api/session_store.py`.
+
+2. **The repository is currently public.** A deliberate owner decision made
+   with the exposure understood. It means the tracked snapshots under `data/`
+   and `exports/` (~8,000 files), `config/leagues/registry.json` and the
+   valuation engine are all world-readable. See `SECURITY.md`.
 
 ### Operational
-4. **Old data files accumulate** — `data/dynasty_data_*.json` grows forever. Add a retention policy (keep last N).
-5. **Memory footprint** — 6 pre-serialized payload copies in RAM. Fine for current data size but watch if it grows.
-6. **Alert cooldown is global** — one 1h cooldown covers all alert types. Scrape failure + uptime failure in same hour = only one email sent.
-7. **Flock session expires** — requires manual re-login. No automated refresh.
-8. **DynastyNerds requires credentials** — without `DN_EMAIL`/`DN_PASS` or a valid `dynastynerds_session.json`, falls back to public top-10 only.
 
-### Frontend
-9. **Next.js migration is incomplete** — League Edge, Roster Dashboard, Trade History, Draft Capital not yet ported.
-10. **Next.js login is demo-only** — does not call backend. Don't use as real auth.
+3. **Alert cooldown is global** — one 1h cooldown covers all alert types, so a
+   scrape failure and an uptime failure in the same hour send one email.
+
+4. **The scraper's email path is unauthenticated localhost SMTP** —
+   `smtplib.SMTP("localhost", 25)`. With no MTA listening it fails and logs
+   "alert saved to file only". Distinct from `server.py`'s Gmail path
+   (`ALERT_FROM` / `ALERT_PASSWORD`), which is the one that actually delivers.
+
+5. **`KTC_TradeDB` / `KTC_WaiverDB` run partial** — production reports
+   *"skipped — no playerID→name mapping available"*, `valueCount: 0`. The map
+   is built by regexing `page.content()` for `"playerID": N … "playerName": "X"`
+   within a 500-character window (`Dynasty Scraper.py`, in `scrape_ktc`); KTC's
+   payload no longer satisfies it. The main KTC board is unaffected (500
+   values). Affects the crowd-FAAB path only.
+
+6. **Old data files accumulate** — `data/dynasty_data_*.json` has no retention
+   policy.
 
 ### Pipeline
-11. **KTC and Manual CSV adapters are stubs** — not functional, listed in adapter registry but return empty data.
-12. **`save_json()` uses `ensure_ascii=True`** — drops non-ASCII characters from JSON output.
+
+7. **`data/ros/aggregate/latest.json` has 6 duplicate player rows** (the same
+   player under two naming conventions) and 16 rows with non-lowercase
+   `canonicalName`; 40 of 666 rostered players fail to match.
+
+8. **`test_anchor_curve_extrapolation_monotone` fails on `main`** — `Chase
+   Young` ties at rank 107 against a strictly-increasing assertion. It is
+   `livedata`-marked so CI deselects it: a real failure that is invisible.
+
+See `UNIMPLEMENTED_BACKLOG.md` §9 for the full defect register and §10 for
+operator-only items.
 
 ---
 
@@ -393,19 +152,10 @@ Proxy: Caddy (Caddyfile in repo root)
 
 | Term | Meaning |
 |---|---|
-| **Composite** | Blended trade value (0–9999 scale) from all active sites |
-| **LAM** | League Adjustment Multiplier — fully removed from the system (was a position-based value multiplier; deleted along with positional scarcity) |
-| **SF / Superflex** | Superflex format (can start 2 QBs) |
-| **TEP** | Tight End Premium — extra points for TE receptions |
-| **KTC** | KeepTradeCut — primary dynasty value site |
-| **DLF** | Dynasty League Football — CSV rankings source |
-| **IDP** | Individual Defensive Player |
-| **Canonical pipeline** | `src/api/data_contract.py::_compute_unified_rankings` — THE live value path (no longer "alternative"; the offline build it referred to is retired) |
-| ~~**CANONICAL_DATA_MODE**~~ | **RETIRED** — read nowhere in the tree as of the 2026-07-29 audit |
-| **Pick model** | Derived pick values using rookie composite curve + year discounts |
-| **Roster guarantee** | Every Sleeper-rostered player is guaranteed a non-zero composite |
-| **Partial scrape block** | Server rejects scrape result if <50% of sites returned data |
-
----
-
-*End of handoff — covers all 11,489 lines of scraper, 2,550 lines of server, all src/ modules, Static JS, and Next.js frontend.*
+| **Contract** | The versioned `/api/data` payload. `src/api/data_contract.py` builds it; it is the single source of truth for live values. |
+| **Scoring profile** | Which rules produce a player's value. Shared across leagues with identical scoring. Drives rankings. |
+| **League key** | Which league's rosters, teams, managers and draft. Never shared. Drives context. |
+| **`rankDerivedValue`** | The canonical blended board value every engine reads. |
+| **BDVM** | Brisket Dynasty Valuation Model — the projection-driven *fundamental* value concept in `src/bdvm/`, deliberately never merged into the market board. |
+| **Hill curve** | The percentile→value conversion in `src/canonical/player_valuation.py`. Refit weekly as a *challenger*; only a human promotes one. |
+| **Scope master** | Per-scope Hill constants (GLOBAL / OFFENSE / IDP / ROOKIE). |

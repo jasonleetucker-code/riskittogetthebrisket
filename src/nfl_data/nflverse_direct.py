@@ -42,8 +42,10 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re
 import urllib.error
 import urllib.request
+from datetime import date, datetime, timezone
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,6 +89,58 @@ _URL_TEMPLATES = {
 _HTTP_TIMEOUT_SEC = 30.0
 _USER_AGENT = "brisket-nflverse-direct/1.0"
 
+# Seasons whose assets nflverse cannot have published yet.
+#
+# A 404 has two causes and they need opposite responses.  The one the
+# module was written for is a stale template (the 2025 rename below) —
+# permanent, our fault, and worth shouting about.  The other is asking
+# for a season that has not started: nflverse publishes a season's
+# release assets once it is under way, so every `*_{next_year}.csv`
+# 404s for the whole Feb–Aug window by design.
+#
+# Measured 2026-07-29, with the 2026 season not yet begun:
+#
+#     stats_player/stats_player_week_2025.csv     200
+#     stats_player/stats_player_week_2026.csv     404
+#     snap_counts/snap_counts_2025.csv            200
+#     snap_counts/snap_counts_2026.csv            404
+#     pbp/play_by_play_2025.csv                   200
+#     pbp/play_by_play_2026.csv                   404
+#
+# Treating that as a failure was wrong twice over.  It logged
+# "the URL template needs updating" at ERROR for a URL that is
+# correct and will start working in September, and — the part that
+# actually bites — it fed `report_failure` on a breaker scoped to the
+# WHOLE module (threshold 3 / 180s).  Three future-season datasets
+# probed together is exactly three failures inside the window, which
+# opens the breaker for 300s and blocks the 2025 fetches that were
+# working fine.  A permanent, predictable, correct-by-design 404 is
+# not a transient fault and must not be counted as one.
+
+
+def _latest_published_season(today: "date | None" = None) -> int:
+    """Most recent season nflverse can plausibly have published.
+
+    September onward the current year's assets exist; before that the
+    newest complete release is last year's.  Deliberately NOT
+    ``current_nfl_season`` from ``src.bdvm.actuals``: that one answers
+    "is a season being played right now" and returns None Feb–Aug,
+    which is the wrong question here — nflverse still serves last
+    season's finished data all offseason.
+    """
+    d = today or datetime.now(timezone.utc).date()
+    return d.year if d.month >= 9 else d.year - 1
+
+
+def _season_in_url(url: str) -> int | None:
+    """The 4-digit season a release URL asks for, if it names one.
+
+    Anchored to the filename so a year inside the host or release base
+    can never be mistaken for the requested season.
+    """
+    m = re.search(r"_(\d{4})\.csv$", url)
+    return int(m.group(1)) if m else None
+
 
 def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
     """Fetch a CSV URL and parse to list[dict].  Returns [] on
@@ -127,6 +181,20 @@ def _fetch_csv(url: str, *, label: str) -> list[dict[str, Any]]:
         # `player_stats_{year}.csv` kept serving <=2024 while 404ing
         # 2025, so the break looked like "no data yet".
         if status == 404:
+            season = _season_in_url(url)
+            if season is not None and season > _latest_published_season():
+                # Not published yet, not broken. Return [] as always,
+                # but do NOT report to the breaker — see the note above
+                # _latest_published_season for why that matters.
+                _LOGGER.info(
+                    "nflverse_direct=season_unpublished label=%s url=%s status=404 "
+                    "— season %d has not started; nflverse publishes its assets "
+                    "once it is under way. Returning no rows; nothing to fix.",
+                    label,
+                    url,
+                    season,
+                )
+                return []
             _LOGGER.error(
                 "nflverse_direct=url_stale label=%s url=%s status=404 "
                 "— the release path no longer exists; the URL template in "

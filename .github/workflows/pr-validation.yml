@@ -21,6 +21,22 @@ on:
       # merges, which is the whole point of stacking.
       - 'claude/**'
       - 'codex/**'
+      #
+      # A SECOND cause of zero check runs, and this one no trigger
+      # config can fix. GitHub builds `pull_request` runs against the
+      # computed merge ref (`refs/pull/N/merge`). When the PR has merge
+      # conflicts that ref cannot be created, so the run is never
+      # scheduled — the PR sits with NO checks at all, which on the
+      # merge page reads identically to checks having passed.
+      #
+      # Observed on #625 (2026-07-29): zero check runs for the whole
+      # time it was `mergeable_state: dirty`, then a run appeared and
+      # went green within minutes of the conflicts being resolved.
+      #
+      # The mitigation is branch protection, not this file: a ruleset
+      # that REQUIRES `Validate PR` turns "no checks" from something
+      # that looks mergeable into something that cannot be merged.
+      # Without it, a conflicted PR is an ungated PR.
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
