@@ -2036,7 +2036,6 @@ export async function fetchDynastyData(opts = {}) {
   // cached base contract.  The backend bakes TEP into every TE's
   // rankDerivedValue stamp before producing the delta, so the
   // frontend never needs to multiply on render.
-  const base = await _fetchBaseContract();
 
   // Build the POST body: start from the siteOverrides map (legacy
   // shape) and stamp the tep_multiplier field on top only when the
@@ -2062,29 +2061,31 @@ export async function fetchDynastyData(opts = {}) {
 
   // Merged-result memo: the double-mounted hook fires two identical
   // override requests per page; serve the second from memory.  Key =
-  // POST body + active league; validity additionally requires the SAME
-  // base contract object (a new base generation or league switch
-  // yields a different reference) and the shared 30s TTL.  Only
-  // successful merges are cached — a fallback-to-base result must stay
-  // retryable.
+  // POST body + active league; a cached VALUE is additionally pinned
+  // to the base contract object it was merged onto (a new base
+  // generation or league switch yields a different reference) and the
+  // shared 30s TTL.  Only successful merges are cached — a
+  // fallback-to-base result must stay retryable.
   const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}`;
   if (
     _cachedOverrideResult &&
     _cachedOverrideResult.key === overrideKey &&
-    _cachedOverrideResult.base === base &&
+    _cachedOverrideResult.base === _cachedBaseContract &&
+    _cachedBaseContract &&
+    Date.now() - _cachedBaseContractAt < _BASE_CONTRACT_TTL_MS &&
     Date.now() - _cachedOverrideResult.at < _BASE_CONTRACT_TTL_MS
   ) {
     return _cachedOverrideResult.value;
   }
-  if (
-    _inflightOverrideResult &&
-    _inflightOverrideResult.key === overrideKey &&
-    _inflightOverrideResult.base === base
-  ) {
+  if (_inflightOverrideResult && _inflightOverrideResult.key === overrideKey) {
     return _inflightOverrideResult.promise;
   }
-  const promise = _postOverridesAndMerge(base, body, overrideKey);
-  _inflightOverrideResult = { key: overrideKey, base, promise };
+  // Base fetch and overrides POST run CONCURRENTLY — the POST never
+  // needed the base payload (only the merge does), yet they used to
+  // run serially, putting a full extra round-trip on the critical
+  // path of every first page view.
+  const promise = _postOverridesAndMerge(_fetchBaseContract(), body, overrideKey);
+  _inflightOverrideResult = { key: overrideKey, promise };
   try {
     return await promise;
   } finally {
@@ -2094,15 +2095,31 @@ export async function fetchDynastyData(opts = {}) {
   }
 }
 
-async function _postOverridesAndMerge(base, body, overrideKey) {
+async function _postOverridesAndMerge(basePromise, body, overrideKey) {
+  // Kick the POST off immediately (it never needed the base payload)
+  // and hold its failure in-band so the two error semantics stay
+  // exactly what they were on the serial path:
+  //   * base fetch failure → THROWS out of fetchDynastyData (the page
+  //     shows its error state);
+  //   * overrides POST failure → falls back to the base contract.
+  const postPromise = fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  }).catch((err) => {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[dynasty-data] /api/rankings/overrides request failed:",
+        err?.message || err,
+      );
+    }
+    return null;
+  });
+  const base = await basePromise;
   try {
-    const overrideRes = await fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
-    if (overrideRes.ok) {
+    const overrideRes = await postPromise;
+    if (overrideRes && overrideRes.ok) {
       const deltaPayload = await overrideRes.json();
       if (
         deltaPayload &&
@@ -2134,7 +2151,7 @@ async function _postOverridesAndMerge(base, body, overrideKey) {
         };
         return passthrough;
       }
-    } else if (typeof console !== "undefined" && console.warn) {
+    } else if (overrideRes && typeof console !== "undefined" && console.warn) {
       console.warn(
         `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
           "falling through to base contract.",
@@ -2143,7 +2160,7 @@ async function _postOverridesAndMerge(base, body, overrideKey) {
   } catch (err) {
     if (typeof console !== "undefined" && console.warn) {
       console.warn(
-        "[dynasty-data] /api/rankings/overrides request failed:",
+        "[dynasty-data] /api/rankings/overrides response handling failed:",
         err?.message || err,
       );
     }
@@ -2151,4 +2168,26 @@ async function _postOverridesAndMerge(base, body, overrideKey) {
 
   // Override endpoint failed — return the base contract unchanged.
   return base;
+}
+
+/**
+ * Warm the base-contract cache without waiting for settings hydration.
+ *
+ * The base contract does not depend on user settings — only the
+ * overrides POST does — yet the data hook's fetch effect gates on
+ * ``settingsHydrated``, so the largest download of the page used to
+ * start only after the settings store + auth probe settled.  Calling
+ * this from the hook's mount effect starts the download immediately;
+ * the real ``fetchDynastyData`` call then hits the in-flight promise
+ * (or the fresh cache) instead of the network.  Errors are swallowed:
+ * this is purely advisory warming, and the real fetch surfaces them.
+ */
+export function prefetchBaseContract() {
+  try {
+    const p = _fetchBaseContract();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+    return p;
+  } catch {
+    return null;
+  }
 }

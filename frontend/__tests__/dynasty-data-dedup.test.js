@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   fetchDynastyData,
+  prefetchBaseContract,
   _resetBaseContractCache,
   _resetValuationOverlayCache,
 } from "@/lib/dynasty-data.js";
@@ -174,5 +175,62 @@ describe("contract data layer dedup + TTL", () => {
     const [url, opts] = globalThis.fetch.mock.calls[0];
     expect(String(url)).toMatch(/\/api\/dynasty-data/);
     expect(opts?.cache).toBe("no-cache");
+  });
+
+  it("override path fires base GET and overrides POST concurrently", async () => {
+    // Make the base fetch slow; assert the POST is already on the wire
+    // before the base resolves (they used to run serially, putting an
+    // extra round-trip on every first page view).
+    let resolveBase;
+    const urls = [];
+    globalThis.fetch = vi.fn((url) => {
+      urls.push(String(url));
+      if (String(url).includes("/api/rankings/overrides")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => structuredClone(DELTA_PAYLOAD),
+        });
+      }
+      return new Promise((resolve) => {
+        resolveBase = () =>
+          resolve({ ok: true, json: async () => structuredClone(BASE_PAYLOAD) });
+      });
+    });
+
+    const resultPromise = fetchDynastyData({ tepMultiplier: 1.15 });
+    // Give microtasks a chance to dispatch both requests.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(
+      urls.some((u) => u.includes("/api/rankings/overrides")),
+      "overrides POST must start before the base GET resolves",
+    ).toBe(true);
+    resolveBase();
+    const result = await resultPromise;
+    expect(result.source).toBe("backend:override:delta");
+  });
+
+  it("prefetchBaseContract shares its in-flight request with the real fetch", async () => {
+    prefetchBaseContract();
+    const result = await fetchDynastyData();
+    expect(result.ok).toBe(true);
+    const gets = globalThis.fetch.mock.calls
+      .map(([u]) => String(u))
+      .filter((u) => u.includes("/api/dynasty-data"));
+    expect(gets).toHaveLength(1);
+  });
+
+  it("prefetchBaseContract swallows failures and leaves the path retryable", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "no" })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => structuredClone(BASE_PAYLOAD),
+      });
+    prefetchBaseContract();
+    // Let the rejected prefetch settle without surfacing.
+    await new Promise((r) => setTimeout(r, 0));
+    const result = await fetchDynastyData();
+    expect(result.ok).toBe(true);
   });
 });
