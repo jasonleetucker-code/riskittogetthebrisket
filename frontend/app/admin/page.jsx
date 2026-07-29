@@ -16,6 +16,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ServerStatusPanel from "@/components/admin/ServerStatusPanel";
+import GuestPassPanel from "@/components/admin/GuestPassPanel";
 
 export default function AdminPage() {
   const [status, setStatus] = useState(null);
@@ -292,6 +294,19 @@ export default function AdminPage() {
           </table>
         </section>
       )}
+
+      {/* ── Data + access, moved here from /settings ───────────────
+          Both of these were sections on the preferences page every
+          signed-in user opens to change their TEP setting.  Triggering
+          a scrape and minting credentials are operator actions, and
+          their endpoints are admin-gated already. */}
+      <section style={{ marginBottom: "var(--space-md)" }}>
+        <ServerStatusPanel />
+      </section>
+
+      <section style={{ marginBottom: "var(--space-md)" }}>
+        <GuestPassPanel />
+      </section>
     </main>
   );
 }

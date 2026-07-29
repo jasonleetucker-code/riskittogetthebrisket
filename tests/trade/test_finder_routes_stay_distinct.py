@@ -20,8 +20,8 @@ therefore no decision to make — only a missing caller.
 without it computing any: a stale header comment ("the arbitrage
 blotter") and, more consequentially, the nav model, which labelled
 ``/finder`` as *"Arbitrage Finder — Find KTC market gaps you can
-exploit"*. Both are corrected; ``/arbitrage`` now holds that label and
-``/finder`` is the "Signal Blotter".
+exploit"*. Both are corrected: the arbitrage vocabulary now belongs to
+``/arbitrage`` alone, and ``/finder`` is the "Player Screener".
 
 So the tests here changed shape. They no longer assert the engine has no
 caller — it has one. They assert the two routes stay distinct, which is
@@ -120,9 +120,15 @@ def test_the_nav_does_not_promise_arbitrage_from_the_board_filter():
     entries = re.findall(r'\{\s*href:\s*"([^"]+)"[^}]*?label:\s*"([^"]+)"[^}]*?\}', nav)
     by_href = dict(entries)
 
-    assert (
-        by_href.get("/arbitrage") == "Arbitrage Finder"
-    ), f"/arbitrage should carry the Arbitrage Finder label, got {by_href.get('/arbitrage')!r}"
+    # The invariant is about which ROUTE owns the word, not the exact
+    # string: the nav label is now "Arbitrage" so it matches the page's
+    # own <h1> (they disagreed before, which was its own small part of
+    # the confusion).  What must never drift is the word landing on the
+    # route that does not compute it.
+    arbitrage_label = by_href.get("/arbitrage", "")
+    assert "arbitrage" in arbitrage_label.lower(), (
+        f"/arbitrage should carry the arbitrage label, got {arbitrage_label!r}"
+    )
     finder_label = by_href.get("/finder", "")
     assert "arbitrage" not in finder_label.lower(), (
         f"/finder is labelled {finder_label!r}, which promises arbitrage it does "
