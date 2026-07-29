@@ -288,8 +288,24 @@ _SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$", re.IGNORECASE)
 
 
 def _norm_name(s: str) -> str:
-    """Mirror the import resolver's normalization ladder so export
-    matches the same way import does."""
+    """Private lookup key over KTC's OWN name vocabulary.
+
+    Family 4 (private one-off) in the ``src/utils/name_clean`` registry.
+    Lowercase → drop ``.`` and straight ``'`` → collapse whitespace →
+    strip a trailing generational suffix.  Hyphens survive on purpose
+    (``"Amon-Ra St. Brown" → "amon-ra st brown"``) and curly
+    apostrophes are NOT handled (``"Ja’Marr" → "ja’marr"``), because
+    both sides of every lookup are KTC player-map names.
+
+    Used only by :func:`build_ktc_url`, which builds ``by_norm`` from
+    the KTC player map and resolves against this same function; the key
+    never escapes this module, so it is intentionally not one of the
+    shared families.
+
+    (The previous docstring claimed to "mirror the import resolver's
+    normalization ladder".  It does not — :func:`resolve_ktc_ids`
+    resolves purely by integer KTC ID and normalizes no names at all.)
+    """
     out = str(s or "").lower()
     out = re.sub(r"[.']", "", out)
     out = re.sub(r"\s+", " ", out).strip()

@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { Icon, Panel } from "@/components/ds";
 
+// Labels here are the canonical names from lib/nav-model.js.  This
+// panel used to label /finder "Trade Finder" — a name that belonged to
+// a different page (/angle) — so the one navigational shortcut on the
+// dashboard pointed at the wrong tool.
 const ACTIONS = [
-  { href: "/finder", label: "Trade Finder" },
-  { href: "/trade", label: "Trade Calculator" },
   { href: "/rankings", label: "Rankings" },
-  { href: "/rosters", label: "Rosters" },
+  { href: "/trade", label: "Trade Calculator" },
+  { href: "/waivers", label: "Waivers" },
+  { href: "/rosters", label: "Team Strength" },
 ];
 
 /**
  * Quick Actions — deep links into the rest of the app from the
- * landing page.  Structural stub: no icons, no counts.
+ * dashboard.  Four everyday destinations, in the order a manager
+ * usually wants them: check values, price a deal, work the wire, look
+ * at the field.
  */
 export default function QuickActions() {
   return (

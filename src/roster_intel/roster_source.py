@@ -32,12 +32,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.utils.name_clean import compact_name_key
+
 __all__ = [
     "HybridCoverage",
     "JoinReport",
     "build_nfl_position_index",
     "build_roster_pool",
     "build_value_index",
+    "compact_name_key",
     "hybrid_coverage",
     "normalize_name",
 ]
@@ -62,11 +65,22 @@ _MULTI_FAMILY = {
 }
 
 
-def normalize_name(name: Any) -> str:
-    """Lowercase alphanumeric key.  Matches the convention the rest of
-    the repo uses for name joins (``ktc_crowd_faab._normalize_name``,
-    the frontend's ``normName``), so keys agree across modules."""
-    return "".join(c for c in str(name or "").lower() if c.isalnum())
+# Deprecated alias, kept because it is in ``__all__`` and imported by
+# tests and callers.  The lowercase-alphanumeric key now has exactly
+# one definition — ``src/utils/name_clean.compact_name_key``, family 2
+# in that module's key registry — shared with
+# ``src/adapters/ktc_crowd_faab``.
+#
+# It is NOT byte-equivalent to the frontend's
+# ``waiver-logic.normalizeNameCompact`` (Python's ``str.isalnum()``
+# keeps ``é``; the JS ``[^a-z0-9]`` strip drops it), and the previous
+# docstring here claimed otherwise.  Nothing joins across that
+# boundary, so the two stay independent — see the registry note.
+#
+# It is also NOT interchangeable with ``normalize_player_name``: this
+# key keeps generational suffixes, so swapping it would change which
+# roster rows collide.
+normalize_name = compact_name_key
 
 
 @dataclass(frozen=True)
@@ -116,7 +130,7 @@ def build_value_index(
     """
     out: dict[str, Mapping[str, Any]] = {}
     for row in aggregate_rows:
-        key = normalize_name(row.get("canonicalName") or row.get("name"))
+        key = compact_name_key(row.get("canonicalName") or row.get("name"))
         if not key:
             continue
         prev = out.get(key)
@@ -146,7 +160,7 @@ def build_nfl_position_index(
         name = entry.get("full_name") or (
             f"{entry.get('first_name') or ''} {entry.get('last_name') or ''}".strip()
         )
-        key = normalize_name(name)
+        key = compact_name_key(name)
         if not key:
             continue
         fpos = tuple(
@@ -186,7 +200,7 @@ def build_roster_pool(
     hybrids = 0
 
     for name in roster_names:
-        key = normalize_name(name)
+        key = compact_name_key(name)
         val_row = values.get(key)
         if val_row is None:
             unmatched.append(str(name))

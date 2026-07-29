@@ -256,16 +256,34 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
 # no env var — it preserves the scraper's ability to run standalone
 # without any config.  Multi-league scrape is a future refactor;
 # for now we still scrape exactly one league per run.
+# PRECEDENCE FIX (2026-07-29 audit): this used to be
+# ``_env_str("SLEEPER_LEAGUE_ID", _registry_league_id or DEFAULT)``,
+# i.e. env-BEFORE-registry — which contradicted the comment directly
+# above it and inverted the platform-wide rule every other consumer
+# follows (CLAUDE.md: resolve via the registry, never read the env var
+# in new code).  On a multi-league host that still exports the legacy
+# single-league variable, the scrape would run against whatever that
+# variable points at instead of the registry's default league.  The
+# same inversion was fixed in
+# ``scripts/build_public_league_snapshot.py`` in this audit.
 try:
     from src.api import league_registry as _league_registry  # noqa: E402
 
     _registry_league_id = _league_registry.get_sleeper_league_id()
 except Exception:  # noqa: BLE001 — registry is optional at scrape time
     _registry_league_id = None
+
+# Last-resort constant for a fresh dev box with NO registry and NO env
+# var.  Unreachable in CI and prod, both of which ship the tracked
+# ``config/leagues/registry.json``; kept because removing it would turn
+# that already-degraded standalone case from "scrapes the default
+# league" into "skips the Sleeper fetch entirely", and prod's .env
+# could not be inspected to confirm a second safety net.
 DEFAULT_SLEEPER_LEAGUE_ID = "1312006700437352448"
-SLEEPER_LEAGUE_ID = _env_str(
+
+SLEEPER_LEAGUE_ID = _registry_league_id or _env_str(
     "SLEEPER_LEAGUE_ID",
-    _registry_league_id or DEFAULT_SLEEPER_LEAGUE_ID,
+    DEFAULT_SLEEPER_LEAGUE_ID,
 )
 
 # ─────────────────────────────────────────

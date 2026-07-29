@@ -1,0 +1,129 @@
+{
+  "_comment": "Shared corpus for the strict canonical name-key parity pair. Backend half: tests/utils/test_name_key_parity.py (src/utils/name_clean.py::normalize_player_name). Frontend half: frontend/__tests__/name-key-parity.test.js (frontend/lib/player-name-match.js::normalizePlayerNameKey). Neither half may hardcode expectations of its own -- if the two implementations ever drift, exactly one suite goes red against this human-reviewable statement of what the key means. Expectations were generated from the Python function, which is the source of truth; the JS is the mirror.",
+  "cases": [
+    {
+      "input": "T.J. Watt",
+      "expected": "tj watt"
+    },
+    {
+      "input": "TJ Watt",
+      "expected": "tj watt"
+    },
+    {
+      "input": "t j watt",
+      "expected": "tj watt"
+    },
+    {
+      "input": "  T.J.  WATT  ",
+      "expected": "tj watt"
+    },
+    {
+      "input": "C.J. Stroud",
+      "expected": "cj stroud"
+    },
+    {
+      "input": "CJ Stroud",
+      "expected": "cj stroud"
+    },
+    {
+      "input": "A.J. Brown",
+      "expected": "aj brown"
+    },
+    {
+      "input": "D.J. Moore",
+      "expected": "dj moore"
+    },
+    {
+      "input": "Ja'Marr Chase",
+      "expected": "jamarr chase"
+    },
+    {
+      "input": "Ja’Marr Chase",
+      "expected": "jamarr chase"
+    },
+    {
+      "input": "JaMarr Chase",
+      "expected": "jamarr chase"
+    },
+    {
+      "input": "D'Andre Swift",
+      "expected": "dandre swift"
+    },
+    {
+      "input": "DAndre Swift",
+      "expected": "dandre swift"
+    },
+    {
+      "input": "Ka'imi Fairbairn",
+      "expected": "kaimi fairbairn"
+    },
+    {
+      "input": "Marvin Harrison Jr.",
+      "expected": "marvin harrison"
+    },
+    {
+      "input": "Marvin Harrison",
+      "expected": "marvin harrison"
+    },
+    {
+      "input": "Kenneth Walker III",
+      "expected": "kenneth walker"
+    },
+    {
+      "input": "Kenneth Walker",
+      "expected": "kenneth walker"
+    },
+    {
+      "input": "Brian Thomas Jr",
+      "expected": "brian thomas"
+    },
+    {
+      "input": "Odell Beckham Jr",
+      "expected": "odell beckham"
+    },
+    {
+      "input": "Michael Pittman Jr.",
+      "expected": "michael pittman"
+    },
+    {
+      "input": "Juanyéh Thomas",
+      "expected": "juanyeh thomas"
+    },
+    {
+      "input": "Juanyeh Thomas",
+      "expected": "juanyeh thomas"
+    },
+    {
+      "input": "José Ramírez",
+      "expected": "jose ramirez"
+    },
+    {
+      "input": "Amon-Ra St. Brown",
+      "expected": "amon ra st brown"
+    },
+    {
+      "input": "Equanimeous St. Brown",
+      "expected": "equanimeous st brown"
+    },
+    {
+      "input": "Jean-Baptiste Léon",
+      "expected": "jean baptiste leon"
+    },
+    {
+      "input": "  Bijan   Robinson  ",
+      "expected": "bijan robinson"
+    },
+    {
+      "input": "AJ & Friends",
+      "expected": "aj and friends"
+    },
+    {
+      "input": "Dr. Pepper",
+      "expected": "pepper"
+    },
+    {
+      "input": "",
+      "expected": ""
+    }
+  ]
+}

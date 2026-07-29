@@ -11,6 +11,8 @@
  * math: the same rule that makes buildRows a pure materializer.
  */
 
+import { normalizePlayerNameKey } from "@/lib/player-name-match";
+
 export const BDVM_STRATEGIES = [
   { value: "balanced", label: "Balanced" },
   { value: "contender", label: "Contender" },
@@ -174,8 +176,15 @@ export function buildBdvmTradeRows(payload) {
 
 /**
  * Index /api/bdvm/values players for render-time joins onto board rows
- * (the /rankings gap column). playerId-first with lowercased-name
- * fallback — the same id-then-name idiom the ownership join uses.
+ * (the /rankings gap column). playerId-first with a canonical
+ * name-key fallback — the same id-then-name idiom the ownership join
+ * uses. The name key is ``normalizePlayerNameKey`` (the JS mirror of
+ * ``src/utils/name_clean.py::normalize_player_name``), NOT a bare
+ * ``toLowerCase``: BDVM names come from the projection snapshot while
+ * board rows come from the scrape contract, so punctuation/suffix/
+ * accent variants ("D.J. Moore" vs "DJ Moore", "Kenneth Walker III"
+ * vs "Kenneth Walker") are routine across the two vocabularies and a
+ * raw lowercase key silently drops the gap column for them.
  * Returns null when the payload carries no joinable players, so
  * callers can treat "no index" and "endpoint unavailable" identically
  * (column vanishes).
@@ -194,18 +203,20 @@ export function buildBdvmIndex(payload) {
     };
     const id = p?.playerId != null ? String(p.playerId).trim() : "";
     if (id) byId.set(id, entry);
-    const name = p?.name ? String(p.name).toLowerCase() : "";
+    const name = normalizePlayerNameKey(p?.name);
     if (name) byName.set(name, entry);
   }
   return byId.size || byName.size ? { byId, byName } : null;
 }
 
-/** Resolve a board row against a buildBdvmIndex result (or null). */
+/** Resolve a board row against a buildBdvmIndex result (or null).
+ * playerId wins outright; the canonical name key is only the fallback
+ * for rows that carry no id (draft rows, legacy rows). */
 export function bdvmEntryForRow(index, row) {
   if (!index || !row) return null;
   const id = String(row?.raw?.playerId ?? row?.playerId ?? "").trim();
   if (id && index.byId.has(id)) return index.byId.get(id);
-  const name = String(row?.name || "").toLowerCase();
+  const name = normalizePlayerNameKey(row?.name);
   return (name && index.byName.get(name)) || null;
 }
 

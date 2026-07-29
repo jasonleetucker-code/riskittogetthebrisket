@@ -1,6 +1,17 @@
-// Dynamic robots.txt.  Allows crawling of all public routes (the
-// entire /league surface + /trades + /draft-capital) and disallows
-// the private surfaces that exist behind auth.
+// Dynamic robots.txt.
+//
+// ALLOWLIST, not a denylist.  The previous version disallowed eight
+// named private routes and allowed everything else — so every page
+// added after it was written (/draft, /waivers, /bdvm, /intel,
+// /trending, /angle, /arbitrage, /admin, /tools/*, /more,
+// /players/compare, …) was crawlable by default.  A denylist has to be
+// updated every time a page ships; an allowlist fails closed.
+//
+// The public set is the same one the app shell and middleware use —
+// lib/public-routes.js — restated here in robots syntax because
+// robots.txt has no import mechanism.  Keep them in sync.
+
+import { PUBLIC_PREFIXES } from "@/lib/public-routes";
 
 function _origin() {
   return (
@@ -16,17 +27,14 @@ export default function robots() {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/league", "/league/", "/trades", "/draft-capital"],
-        disallow: [
-          "/api/",
-          "/rankings",
-          "/trade",
-          "/edge",
-          "/finder",
-          "/rosters",
-          "/settings",
+        allow: [
+          "/$", // the marketing landing page, exactly — not the whole tree
           "/login",
+          // Public league hub + every share-friendly subtree beneath it
+          // (franchises, players, rivalries, weekly recaps, articles).
+          ...PUBLIC_PREFIXES.flatMap((p) => [p, `${p}/`]),
         ],
+        disallow: ["/"],
       },
     ],
     sitemap: `${origin}/sitemap.xml`,

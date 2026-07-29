@@ -34,22 +34,31 @@ import {
   buildOwnedNameSet,
   buildTopWaiverPool,
   normalizeName,
+  normalizeNameCompact,
 } from "@/lib/waiver-logic";
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
 import FaabRecommendation from "@/components/waivers/FaabRecommendation";
 import { MonteCarloButton, PlayerImage } from "@/components/ui";
-import { Badge, Button, Input, Panel, StatTile } from "@/components/ds";
+import { Badge, Button, Input, Panel, SkeletonTable, StatTile } from "@/components/ds";
 import styles from "@/app/waivers/waivers.module.css";
 
 // ── helpers ────────────────────────────────────────────────────
-
-export function normName(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
+//
+// Name keying in this file: there is no local normalizer.  Both keys
+// come from lib/waiver-logic, and which one applies is decided by the
+// consumer, not by taste:
+//
+//   normalizeNameCompact — this component's OWN joins and search
+//       (rosterRowsForTeam, SidePicker typeahead).  Punctuation-
+//       insensitive, because Sleeper roster strings and contract row
+//       names disagree on it.
+//   normalizeName        — the ``myRosterNameSet`` handed to
+//       buildTopWaiverPool, which keys its rows with normalizeName
+//       (backend parity).  A Set built with the compact key would
+//       never be hit there, silently un-filtering your own roster
+//       out of the add pool.
 
 /**
  * Build the lookup map: roster name (string from selectedTeam.players)
@@ -62,13 +71,13 @@ export function rosterRowsForTeam(rows, rosterNames) {
   if (!Array.isArray(rows) || !Array.isArray(rosterNames)) return [];
   const byName = new Map();
   for (const r of rows) {
-    const k = normName(r?.name);
+    const k = normalizeNameCompact(r?.name);
     if (k && !byName.has(k)) byName.set(k, r);
   }
   const out = [];
   const seen = new Set();
   for (const name of rosterNames) {
-    const k = normName(name);
+    const k = normalizeNameCompact(name);
     if (!k || seen.has(k)) continue;
     seen.add(k);
     const row = byName.get(k);
@@ -133,9 +142,11 @@ function SidePicker({
   const [focused, setFocused] = useState(false);
 
   const results = useMemo(() => {
-    const term = normName(q);
+    const term = normalizeNameCompact(q);
     if (!term) return pool.slice(0, 8);
-    return pool.filter((r) => normName(r?.name).includes(term)).slice(0, 8);
+    return pool
+      .filter((r) => normalizeNameCompact(r?.name).includes(term))
+      .slice(0, 8);
   }, [q, pool]);
 
   const showResults = focused && !selected;
@@ -270,6 +281,7 @@ export default function ManualAddDrop({
   valueMode = "full",
   settings,
   leagueKey,
+  teamLoading = false,
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
@@ -315,6 +327,8 @@ export default function ManualAddDrop({
   // even when it doesn't strictly upgrade the lowest bench filler.
   const addPoolResult = useMemo(() => {
     const ownedNameSet = buildOwnedNameSet(sleeperTeams);
+    // normalizeName (NOT the compact key) on purpose — buildTopWaiverPool
+    // keys its rows with normalizeName, so this Set must match it.
     const myRosterNameSet = new Set(
       (selectedTeam?.players || []).map(normalizeName).filter(Boolean),
     );
@@ -361,7 +375,14 @@ export default function ManualAddDrop({
       subtitle="One player out, one in — the trade calculator's fairness bar and per-vendor breakdown, applied to a single transaction."
       aria-label="Manual add/drop calculator"
     >
-      {!selectedTeam ? (
+      {!selectedTeam && teamLoading ? (
+        // Hold the settled calculator's height while team identity
+        // resolves.  Rendering the short "select a team" message here
+        // and then expanding to the full calculator grew this panel
+        // 150px -> 646px and pushed the entire page down — the whole
+        // of /waivers' 0.22 CLS.
+        <SkeletonTable rows={12} columns={3} />
+      ) : !selectedTeam ? (
         <p className="muted">
           Select a team below to use the manual add/drop calculator.
         </p>

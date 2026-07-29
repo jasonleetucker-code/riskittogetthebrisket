@@ -4,6 +4,7 @@ import {
   normalizePoints,
   computeWindowTrend,
   computeVolatility,
+  buildHistoryLookup,
 } from "@/lib/value-history";
 
 /**
@@ -73,8 +74,16 @@ const RULES = [
     id: "sell.sustained_downtrend",
     signal: SIGNALS.SELL,
     priority: 80,
+    // trend30 is null when the 30d window has no coverage, which means
+    // "unmeasured", NOT "flat".  A `?? 0` here made absent history
+    // satisfy `<= 0`, so a player we know nothing about over 30 days
+    // came back SELL — and SELL is in ACTIONABLE_SIGNALS, so it emails.
+    // The Python engine (src/api/terminal.py::_evaluate_signal) always
+    // guarded on `is not None`; this is the side that was wrong.
+    // Pinned by tests/fixtures/signal_parity_cases.json ::
+    // r3_trend30_null_no_history.
     test: (c) =>
-      (c.trend7 ?? 0) <= -3 && (c.trend30 ?? 0) <= 0,
+      (c.trend7 ?? 0) <= -3 && c.trend30 != null && c.trend30 <= 0,
     reason: (c) =>
       `7d trend ${fmtDelta(c.trend7)} continues a 30d trend of ${fmtDelta(c.trend30)}.`,
     tag: "sustained_downtrend",
@@ -127,9 +136,15 @@ const RULES = [
     id: "strong.elite_stable",
     signal: SIGNALS.STRONG_HOLD,
     priority: 50,
+    // Same null-vs-zero fix as sell.sustained_downtrend above: absent
+    // 30d coverage is not evidence of stability, and this rule's whole
+    // claim is stability.  Matches Python's `trend30 is not None`.
+    // Pinned by tests/fixtures/signal_parity_cases.json ::
+    // r8_trend30_null_no_history.
     test: (c) =>
       c.value >= 7000 &&
-      (c.trend30 ?? 0) >= 0 &&
+      c.trend30 != null &&
+      c.trend30 >= 0 &&
       (c.volatility?.label === "low" || c.volatility?.label === "med"),
     reason: (c) =>
       `Elite value (${c.value.toLocaleString()}) with a non-negative 30d trend and non-high volatility.`,
@@ -255,12 +270,26 @@ export function evaluateRoster({ rows, selectedTeam, history, newsItems }) {
   const rowByName = new Map();
   for (const r of rows) rowByName.set(String(r.name).toLowerCase(), r);
 
-  const histLower = new Map();
-  if (history && typeof history === "object") {
-    for (const k of Object.keys(history)) {
-      histLower.set(k.toLowerCase(), history[k]);
-    }
-  }
+  // History arrives from ``useRankHistory`` -> ``fetchRankHistory`` ->
+  // ``GET /api/data/rank-history``, whose keys are
+  // ``src/api/rank_history.py::_player_key`` — i.e. composite
+  // ``"Name::assetClass"`` ("Ja'Marr Chase::offense"), NOT bare names.
+  //
+  // FIXED 2026-07-29 (audit N1): this used to build a bare
+  // ``k.toLowerCase()`` map and probe it with the player name, which
+  // missed EVERY composite key. ``historyPoints`` was therefore [] for
+  // every player, trend7 / trend30 / volatility were all null, and every
+  // trend-driven rule declined to fire — so the Signals panel and
+  // TopSignalsRail collapsed to HOLD for the entire roster.
+  //
+  // ``buildHistoryLookup`` is the shared resolver written for exactly
+  // this bug elsewhere (its docstring records that the bare lookup "is
+  // why Top Gainers rendered as all-dashes"). portfolio-insights.js,
+  // PlayerMarketMovement.jsx and app/trades/page.jsx already use it;
+  // this was the last consumer on the naive path. It handles both key
+  // shapes, and disambiguates by assetClass when one display name spans
+  // two scopes rather than picking arbitrarily.
+  const historyLookup = buildHistoryLookup(history);
 
   const newsByPlayer = new Map();
   if (Array.isArray(newsItems)) {
@@ -279,7 +308,7 @@ export function evaluateRoster({ rows, selectedTeam, history, newsItems }) {
     const key = String(name).toLowerCase();
     const row = rowByName.get(key);
     if (!row) continue;
-    const historyPoints = normalizePoints(histLower.get(key) || history?.[name]);
+    const historyPoints = normalizePoints(historyLookup(name, row?.assetClass));
     const playerNews = newsByPlayer.get(key) || [];
     const context = buildContext({ row, historyPoints, newsItems: playerNews });
     const verdict = evaluate(context);

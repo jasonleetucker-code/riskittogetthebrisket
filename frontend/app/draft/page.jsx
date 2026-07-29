@@ -72,6 +72,8 @@ import {
   Banner,
   Button,
   CollapsiblePanel,
+  HelpModal,
+  InfoTip,
   Icon,
   Modal,
   PageHeader,
@@ -91,8 +93,8 @@ const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
 function marketDollarFor(player) {
   if (!player) return null;
   const isIdp =
-    player.assetClass === "idp"
-    || (player.assetClass !== "offense" && classifyPos(player.pos) === "idp");
+    player.assetClass === "idp" ||
+    (player.assetClass !== "offense" && classifyPos(player.pos) === "idp");
   const v = isIdp ? player.idpTradeCalcDollar : player.ktcDollar;
   return Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null;
 }
@@ -130,39 +132,46 @@ function fmtMultiplier(n) {
 
 /* ── Live Sleeper sync toggle ─────────────────────────────────────── */
 
-function LiveSyncToggle({ enabled, onToggle, status, error, lastSyncAt, latestPickNo }) {
+function LiveSyncToggle({
+  enabled,
+  onToggle,
+  status,
+  error,
+  lastSyncAt,
+  latestPickNo,
+}) {
   // Colored status dot maps directly to the hook's derived status.
   //   connected → green   stale → amber   error → red
   //   complete  → cyan    idle → grey
   const dotColor = !enabled
     ? "#666"
     : status === "connected"
-    ? "var(--green, #4ade80)"
-    : status === "stale"
-    ? "#f59e0b"
-    : status === "error"
-    ? "#ef4444"
-    : status === "complete"
-    ? "var(--cyan)"
-    : "#888";
+      ? "var(--green, #4ade80)"
+      : status === "stale"
+        ? "#f59e0b"
+        : status === "error"
+          ? "#ef4444"
+          : status === "complete"
+            ? "var(--cyan)"
+            : "#888";
   const label = !enabled
     ? "Live sync: OFF"
     : status === "connected"
-    ? `Live · pick ${latestPickNo || 0}`
-    : status === "stale"
-    ? "Live · waiting"
-    : status === "error"
-    ? "Live · error"
-    : status === "complete"
-    ? "Live · complete"
-    : "Live · idle";
+      ? `Live · pick ${latestPickNo || 0}`
+      : status === "stale"
+        ? "Live · waiting"
+        : status === "error"
+          ? "Live · error"
+          : status === "complete"
+            ? "Live · complete"
+            : "Live · idle";
   const title = !enabled
     ? "Auto-import picks from your Sleeper auction draft. OFF — toggle to start polling."
     : error
-    ? `Live sync error: ${error}`
-    : lastSyncAt
-    ? `Last sync ${Math.round((Date.now() - lastSyncAt) / 1000)}s ago`
-    : "Live sync ON";
+      ? `Live sync error: ${error}`
+      : lastSyncAt
+        ? `Last sync ${Math.round((Date.now() - lastSyncAt) / 1000)}s ago`
+        : "Live sync ON";
   return (
     <button
       type="button"
@@ -185,7 +194,10 @@ function LiveSyncToggle({ enabled, onToggle, status, error, lastSyncAt, latestPi
           height: 8,
           borderRadius: "50%",
           backgroundColor: dotColor,
-          boxShadow: enabled && status === "connected" ? `0 0 4px ${dotColor}` : undefined,
+          boxShadow:
+            enabled && status === "connected"
+              ? `0 0 4px ${dotColor}`
+              : undefined,
         }}
       />
       {label}
@@ -293,8 +305,8 @@ function TeamPanel({
           <div>
             <h3 style={{ margin: "0 0 4px" }}>Teams & budgets</h3>
             <div className="muted" style={{ fontSize: "0.72rem" }}>
-              Budgets pre-fill from the live Draft Capital feed. Edit
-              any row to match your carry-over balances; click{" "}
+              Budgets pre-fill from the live Draft Capital feed. Edit any row to
+              match your carry-over balances; click{" "}
               <strong>Load from Draft Capital</strong> to re-pull.
             </div>
           </div>
@@ -303,43 +315,69 @@ function TeamPanel({
             onClick={confirmAndLoad}
             disabled={capitalStatus.loading}
             title="Re-pull per-team auction $ from /api/draft-capital"
-            style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+            // ``nowrap`` is load-bearing, not cosmetic: the label swaps
+            // "Loading…" -> "↻ Load from Draft Capital" when the feed
+            // lands, and the longer label wrapped onto a second line
+            // (35px -> 52px).  That grew the header and pushed the
+            // ~440px team list below it down 20px — the single largest
+            // layout shift on the site (CLS 0.33 on /draft).
+            style={{
+              borderColor: "var(--cyan)",
+              color: "var(--cyan)",
+              whiteSpace: "nowrap",
+              // 223px is the measured settled width of the long label.
+              // ``nowrap`` alone only fixed the button's HEIGHT — the
+              // width still changed between states, which re-wrapped
+              // the sibling description text next to it and moved the
+              // team list anyway.  Pinning the width makes the whole
+              // header row geometry identical in both states.
+              minWidth: 224,
+            }}
           >
             {capitalStatus.loading ? "Loading…" : "↻ Load from Draft Capital"}
           </button>
         </div>
-        {capitalStatus.info && (
-          <div
-            className="muted"
-            style={{
-              fontSize: "0.72rem",
-              marginTop: 6,
-              color: "var(--green)",
-            }}
-          >
-            {capitalStatus.info}
-          </div>
-        )}
-        {capitalStatus.error && (
-          <div
-            style={{
-              fontSize: "0.72rem",
-              marginTop: 6,
-              color: "var(--red)",
-            }}
-          >
-            Draft Capital error: {capitalStatus.error}
-          </div>
-        )}
-        {capitalStatus.source?.season && !capitalStatus.error && (
-          <div
-            className="muted"
-            style={{ fontSize: "0.68rem", marginTop: 4 }}
-          >
-            Source: {capitalStatus.source.season} Draft Capital · $
-            {capitalStatus.source.totalBudget} total
-          </div>
-        )}
+        {/* Status line slot — height reserved.
+            All three blocks below are absent until the Draft Capital
+            feed resolves, and then exactly one of them appears.  That
+            insertion grew this header ~20px and pushed the ~440px team
+            list down by the same amount: the whole of /draft's 0.33
+            CLS.  Reserving one line's worth up front makes the arrival
+            a repaint instead of a reflow. */}
+        <div style={{ minHeight: 26 }}>
+          {capitalStatus.info && (
+            <div
+              className="muted"
+              style={{
+                fontSize: "0.72rem",
+                marginTop: 6,
+                color: "var(--green)",
+              }}
+            >
+              {capitalStatus.info}
+            </div>
+          )}
+          {capitalStatus.error && (
+            <div
+              style={{
+                fontSize: "0.72rem",
+                marginTop: 6,
+                color: "var(--red)",
+              }}
+            >
+              Draft Capital error: {capitalStatus.error}
+            </div>
+          )}
+          {capitalStatus.source?.season && !capitalStatus.error && (
+            <div
+              className="muted"
+              style={{ fontSize: "0.68rem", marginTop: 4 }}
+            >
+              Source: {capitalStatus.source.season} Draft Capital · $
+              {capitalStatus.source.totalBudget} total
+            </div>
+          )}
+        </div>
       </div>
       <div className="draft-team-list">
         <div className="draft-team-row draft-team-row-head">
@@ -349,20 +387,35 @@ function TeamPanel({
           <span>Spent</span>
           <span>Remaining</span>
           <span title="Slots drafted / initial slots owned">Slots</span>
-          <span
-            title="Slot-adjusted effective $ — max single-bid this team can actually afford while still filling their other slots at $1 each."
-          >
+          <span>
             Eff $
+            <InfoTip label="Eff $">
+              Slot-adjusted effective dollars — the most this team can bid on a
+              single player while still reserving $1 for each remaining slot.
+            </InfoTip>
           </span>
-          <span
-            title="Marginal Dollar Value = remaining $ / slots remaining.  Higher = more $ per pick = buying power.  Shaded by pressure tier."
-          >
+          <span>
             MDV
+            <InfoTip label="MDV">
+              <p>
+                Marginal Dollar Value — remaining dollars divided by remaining
+                slots. Higher means more money per pick, so more buying power.
+              </p>
+              <p>Shaded by pressure tier.</p>
+            </InfoTip>
           </span>
-          <span
-            title="Overpay index = (Σ paid − Σ preDraft at pick time) / Σ preDraft. >0 overpayer, <0 value hunter, ~0 market-rational."
-          >
+          <span>
             Over%
+            <InfoTip label="Over%">
+              <p>
+                Overpay index — how much a team has paid above what the board
+                said an asset was worth at the moment it was bought.
+              </p>
+              <p>
+                Above 0 is an overpayer, below 0 a value hunter, around 0
+                market-rational.
+              </p>
+            </InfoTip>
           </span>
         </div>
         {stats.teamStats.map((t) => {
@@ -372,14 +425,13 @@ function TeamPanel({
           // non-bankrupt teams.  Red = meaningfully below median
           // (pressed for $); green = meaningfully above (flush).
           // Gray = near median.
-          const mdvClass =
-            slotsEmpty
-              ? "draft-mdv-empty"
-              : t.mdv >= 40
-                ? "draft-mdv-high"
-                : t.mdv >= 15
-                  ? "draft-mdv-mid"
-                  : "draft-mdv-low";
+          const mdvClass = slotsEmpty
+            ? "draft-mdv-empty"
+            : t.mdv >= 40
+              ? "draft-mdv-high"
+              : t.mdv >= 15
+                ? "draft-mdv-mid"
+                : "draft-mdv-low";
           const overpayClass =
             t.overpayIndex == null
               ? "muted"
@@ -594,7 +646,10 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
   );
   const [amount, setAmount] = useState(existingPick?.amount ?? "");
   const [liveBid, setLiveBid] = useState("");
-  const liveStatus = useMemo(() => bidStatus(player, liveBid), [player, liveBid]);
+  const liveStatus = useMemo(
+    () => bidStatus(player, liveBid),
+    [player, liveBid],
+  );
 
   // Bid simulator: project the workspace forward with this pick
   // applied so the user can see the downstream effect before
@@ -728,10 +783,10 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
               const diff = amt - myCeiling;
               return (
                 <div className="draft-modal-warn">
-                  <strong>Overpay.</strong> ${amt} is ${diff} above your
-                  winning bid (${myCeiling}). The top rival can only
-                  bid ${fmt$(stats.topCompetitorMax)} — you don't need
-                  to pay more than ${myCeiling} to lock this player.
+                  <strong>Overpay.</strong> ${amt} is ${diff} above your winning
+                  bid (${myCeiling}). The top rival can only bid $
+                  {fmt$(stats.topCompetitorMax)} — you don't need to pay more
+                  than ${myCeiling} to lock this player.
                 </div>
               );
             }
@@ -807,7 +862,9 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
                 onChange={(e) => setLiveBid(e.target.value)}
                 placeholder="Live bid $"
               />
-              <span className={`draft-live-badge draft-live-${liveStatus.level}`}>
+              <span
+                className={`draft-live-badge draft-live-${liveStatus.level}`}
+              >
                 {liveStatus.label || "—"}
               </span>
             </div>
@@ -852,7 +909,11 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
                   onChange={(e) => {
                     const idx = Number(e.target.value);
                     if (!Number.isInteger(idx)) return;
-                    onSubmit({ _nominate: true, playerId: player.id, teamIdx: idx });
+                    onSubmit({
+                      _nominate: true,
+                      playerId: player.id,
+                      teamIdx: idx,
+                    });
                     e.target.value = "";
                   }}
                 >
@@ -947,7 +1008,13 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
  * Way faster than opening the full draft modal when you just need
  * to log a sale.
  */
-function QuickRecordRow({ player, workspace, onSubmit, onCancel, colSpan = 14 }) {
+function QuickRecordRow({
+  player,
+  workspace,
+  onSubmit,
+  onCancel,
+  colSpan = 14,
+}) {
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? 0;
   const [teamIdx, setTeamIdx] = useState(myTeamIdx);
   const [amount, setAmount] = useState("");
@@ -1115,9 +1182,7 @@ export function RookieBoard({
         case "myWinningBid":
           return (a.myWinningBid - b.myWinningBid) * dir;
         case "final":
-          return (
-            ((a.pick?.amount ?? -1) - (b.pick?.amount ?? -1)) * dir
-          );
+          return ((a.pick?.amount ?? -1) - (b.pick?.amount ?? -1)) * dir;
         case "gap": {
           // BDVM fundamental gap — unpriced rows sink regardless of
           // direction (same null handling as the rankings page).
@@ -1138,11 +1203,9 @@ export function RookieBoard({
   // naturally (rank or preDraft descending/ascending).  Scatter sorts
   // (win bid, fair) skip the dividers to avoid noise.
   const showTierDividers =
-    (sort.col === "rank" && sort.asc) ||
-    (sort.col === "preDraft" && !sort.asc);
+    (sort.col === "rank" && sort.asc) || (sort.col === "preDraft" && !sort.asc);
 
-  const teamName = (idx) =>
-    workspace.teams[idx]?.name || `Team ${idx + 1}`;
+  const teamName = (idx) => workspace.teams[idx]?.name || `Team ${idx + 1}`;
 
   // Sortable header.  The draft board keeps its own hand-rolled
   // ``.draft-table`` (migrating it to the ds DataTable is a separate
@@ -1154,7 +1217,11 @@ export function RookieBoard({
   // of the draft board were mouse-only.
   function th(label, col, width) {
     const active = sort.col === col;
-    const ariaSort = active ? (sort.asc ? "ascending" : "descending") : undefined;
+    const ariaSort = active
+      ? sort.asc
+        ? "ascending"
+        : "descending"
+      : undefined;
     return (
       <th style={{ width }} aria-sort={ariaSort}>
         <button
@@ -1226,11 +1293,12 @@ export function RookieBoard({
           <thead>
             <tr>
               {th("#", "rank", 40)}
-              <th
-                style={{ width: 44 }}
-                title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2"
-              >
+              <th style={{ width: 44 }}>
                 Tier
+                <InfoTip label="Tier">
+                  Banded by PreDraft dollars — S is $60+, A $25–59, B $8–24,
+                  C $3–7, D $1–2.
+                </InfoTip>
               </th>
               <th
                 style={{ width: 70 }}
@@ -1243,11 +1311,13 @@ export function RookieBoard({
               </th>
               {th("Player", "name")}
               {th("PreDraft", "preDraft", 82)}
-              <th
-                style={{ width: 76, textAlign: "right" }}
-                title="Market value: KTC for offense, IDPTradeCalc for IDP — same $1200 scale as our PreDraft"
-              >
+              <th style={{ width: 76, textAlign: "right" }}>
                 Market
+                <InfoTip label="Market">
+                  What the retail market says — KTC for offense, IDP TradeCalc
+                  for defenders — converted to the same $1200 scale as our
+                  PreDraft column so the two are directly comparable.
+                </InfoTip>
               </th>
               {bdvmIndex ? th("Fund gap", "gap", 76) : null}
               {th("Fair", "inflatedFair", 70)}
@@ -1267,10 +1337,7 @@ export function RookieBoard({
                 if (showTierDividers && p.tier !== lastTier) {
                   const info = stats.tierStats?.[p.tier];
                   rendered.push(
-                    <tr
-                      key={`tier-${p.tier}`}
-                      className="draft-tier-divider"
-                    >
+                    <tr key={`tier-${p.tier}`} className="draft-tier-divider">
                       <td colSpan={14 + (bdvmIndex ? 1 : 0)}>
                         <span
                           className={`draft-tier-chip draft-tier-${p.tier}`}
@@ -1278,9 +1345,7 @@ export function RookieBoard({
                         >
                           {p.tier}
                         </span>
-                        <strong>
-                          {TIER_LABELS[p.tier] || p.tier} tier
-                        </strong>
+                        <strong>{TIER_LABELS[p.tier] || p.tier} tier</strong>
                         {info && (
                           <span
                             className="muted"
@@ -1301,248 +1366,270 @@ export function RookieBoard({
                 const rec = playerRecommendation(p, stats);
                 const recInfo = rec ? REC_CHIP[rec.level] : null;
                 rendered.push(
-              <tr
-                key={p.id}
-                onClick={() => onSelectRow?.(p.id)}
-                className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
-                  p.mine ? " draft-row-mine" : ""
-                }${p.userTag === TAG_TARGET ? " draft-row-target" : ""}${
-                  p.userTag === TAG_AVOID ? " draft-row-avoid" : ""
-                }${p.id === selectedPlayerId ? " draft-row-selected" : ""}`}
-              >
-                <td className="draft-money">{p.rank}</td>
-                <td>
-                  <span
-                    className={`draft-tier-chip draft-tier-${p.tier}`}
-                    title={`${TIER_LABELS[p.tier] || p.tier} tier`}
+                  <tr
+                    key={p.id}
+                    onClick={() => onSelectRow?.(p.id)}
+                    className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
+                      p.mine ? " draft-row-mine" : ""
+                    }${p.userTag === TAG_TARGET ? " draft-row-target" : ""}${
+                      p.userTag === TAG_AVOID ? " draft-row-avoid" : ""
+                    }${p.id === selectedPlayerId ? " draft-row-selected" : ""}`}
                   >
-                    {p.tier}
-                  </span>
-                  {p.pos && needSet?.has(p.pos) && (
-                    <span
-                      className="draft-need-chip-row"
-                      title={`${p.pos} is a roster need`}
-                    >
-                      NEED
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className={`draft-tag-chip${p.userTag ? ` draft-tag-${p.userTag}` : ""}`}
-                    onClick={() => onCycleTag(p.id)}
-                    disabled={p.drafted}
-                    title={
-                      p.userTag === TAG_TARGET
-                        ? "Target — click to cycle to avoid"
-                        : p.userTag === TAG_AVOID
-                          ? "Avoid — click to clear"
-                          : "Click to mark target"
-                    }
-                  >
-                    {p.userTag === TAG_TARGET
-                      ? "★"
-                      : p.userTag === TAG_AVOID
-                        ? "⊘"
-                        : "+"}
-                  </button>
-                </td>
-                <td>
-                  {recInfo ? (
-                    <span
-                      className={`draft-rec-chip ${recInfo.cls}`}
-                      title={rec.rationale || rec.label}
-                    >
-                      {recInfo.text}
-                    </span>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td>{p.name}</td>
-                <td>
-                  <input
-                    type="number"
-                    className="draft-inline-input draft-money-input"
-                    min="0"
-                    value={p.preDraft}
-                    onChange={(e) =>
-                      onEditPreDraft(p.id, Number(e.target.value) || 0)
-                    }
-                    disabled={p.drafted}
-                  />
-                </td>
-                <td
-                  className="draft-money"
-                  title={(() => {
-                    const isIdp = p.assetClass === "idp"
-                      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
-                    const m = marketDollarFor(p)
-                      ?? (isIdp
-                        ? marketDollars?.idp?.get(String(p.name).toLowerCase())
-                        : marketDollars?.ktc?.get(String(p.name).toLowerCase()));
-                    if (!Number.isFinite(Number(m)) || Number(m) <= 0) {
-                      return "No market value for this rookie";
-                    }
-                    return `${isIdp ? "IDPTradeCalc" : "KTC"} $${Math.round(m)}`;
-                  })()}
-                >
-                  {(() => {
-                    const isIdp = p.assetClass === "idp"
-                      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
-                    const m = marketDollarFor(p)
-                      ?? (isIdp
-                        ? marketDollars?.idp?.get(String(p.name).toLowerCase())
-                        : marketDollars?.ktc?.get(String(p.name).toLowerCase()));
-                    return Number.isFinite(Number(m)) && Number(m) > 0
-                      ? fmt$(m) : "—";
-                  })()}
-                </td>
-                {bdvmIndex ? (
-                  <td className="draft-money">
-                    {(() => {
-                      // BDVM fundamental gap — display-only join, same
-                      // idiom as the rankings page column. Rows the
-                      // fundamental board declines to price show a
-                      // muted dash, never a fabricated number.
-                      const entry = bdvmEntryForRow(bdvmIndex, p);
-                      if (!entry || entry.gap == null) {
-                        return (
-                          <span
-                            className="muted"
-                            title={
-                              entry?.signalReason ||
-                              "not priced by the fundamental board"
-                            }
-                          >
-                            —
-                          </span>
-                        );
-                      }
-                      const css = bdvmSignalEdgeCss(entry.signal);
-                      const title =
-                        `${entry.signal}: ${entry.signalReason} — fundamental ` +
-                        `${formatBdvmValue(entry.fundamental)} vs market ` +
-                        `${formatBdvmValue(entry.marketValue)}`;
-                      return css ? (
-                        <span className={`edge-label ${css}`} title={title}>
-                          {formatBdvmGap(entry.gap)}
+                    <td className="draft-money">{p.rank}</td>
+                    <td>
+                      <span
+                        className={`draft-tier-chip draft-tier-${p.tier}`}
+                        title={`${TIER_LABELS[p.tier] || p.tier} tier`}
+                      >
+                        {p.tier}
+                      </span>
+                      {p.pos && needSet?.has(p.pos) && (
+                        <span
+                          className="draft-need-chip-row"
+                          title={`${p.pos} is a roster need`}
+                        >
+                          NEED
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`draft-tag-chip${p.userTag ? ` draft-tag-${p.userTag}` : ""}`}
+                        onClick={() => onCycleTag(p.id)}
+                        disabled={p.drafted}
+                        title={
+                          p.userTag === TAG_TARGET
+                            ? "Target — click to cycle to avoid"
+                            : p.userTag === TAG_AVOID
+                              ? "Avoid — click to clear"
+                              : "Click to mark target"
+                        }
+                      >
+                        {p.userTag === TAG_TARGET
+                          ? "★"
+                          : p.userTag === TAG_AVOID
+                            ? "⊘"
+                            : "+"}
+                      </button>
+                    </td>
+                    <td>
+                      {recInfo ? (
+                        <span
+                          className={`draft-rec-chip ${recInfo.cls}`}
+                          title={rec.rationale || rec.label}
+                        >
+                          {recInfo.text}
                         </span>
                       ) : (
-                        <span title={title}>{formatBdvmGap(entry.gap)}</span>
-                      );
-                    })()}
-                  </td>
-                ) : null}
-                <td className="draft-money">{fmt$(p.inflatedFair)}</td>
-                <td className="draft-money">{fmt$(p.enforceUpTo)}</td>
-                <td
-                  className="draft-money draft-money-win"
-                  title={
-                    capped
-                      ? `Capped by top rival ceiling (${fmt$(
-                          stats.topCompetitorMax,
-                        )} + $1). Theoretical max was ${fmt$(
-                          p.theoreticalMaxBid,
-                        )}.`
-                      : `Limited by my theoretical max (${fmt$(
-                          p.theoreticalMaxBid,
-                        )})`
-                  }
-                >
-                  {fmt$(p.myWinningBid)}
-                  {capped && (
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        fontSize: "0.64rem",
-                        color: "var(--green)",
-                      }}
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td>{p.name}</td>
+                    <td>
+                      <input
+                        type="number"
+                        className="draft-inline-input draft-money-input"
+                        min="0"
+                        value={p.preDraft}
+                        onChange={(e) =>
+                          onEditPreDraft(p.id, Number(e.target.value) || 0)
+                        }
+                        disabled={p.drafted}
+                      />
+                    </td>
+                    <td
+                      className="draft-money"
+                      title={(() => {
+                        const isIdp =
+                          p.assetClass === "idp" ||
+                          (p.assetClass !== "offense" &&
+                            classifyPos(p.pos) === "idp");
+                        const m =
+                          marketDollarFor(p) ??
+                          (isIdp
+                            ? marketDollars?.idp?.get(
+                                String(p.name).toLowerCase(),
+                              )
+                            : marketDollars?.ktc?.get(
+                                String(p.name).toLowerCase(),
+                              ));
+                        if (!Number.isFinite(Number(m)) || Number(m) <= 0) {
+                          return "No market value for this rookie";
+                        }
+                        return `${isIdp ? "IDPTradeCalc" : "KTC"} $${Math.round(m)}`;
+                      })()}
                     >
-                      ✓
-                    </span>
-                  )}
-                </td>
-                <td className="draft-money draft-money-max" title="Theoretical max bid if forced all the way to the ceiling.">
-                  {fmt$(p.myMaxBid)}
-                </td>
-                <td className="draft-money">
-                  {p.drafted ? fmt$(p.pick.amount) : "—"}
-                  {p.drafted && p.valueVsFair != null && (
-                    <span
-                      className={`draft-vs-fair ${
-                        p.valueVsFair > 0
-                          ? "draft-vs-fair-win"
-                          : p.valueVsFair < 0
-                            ? "draft-vs-fair-lose"
-                            : ""
-                      }`}
-                      title={`Inflated fair ${fmt$(
-                        p.inflatedFair,
-                      )} − final ${fmt$(p.pick.amount)}`}
+                      {(() => {
+                        const isIdp =
+                          p.assetClass === "idp" ||
+                          (p.assetClass !== "offense" &&
+                            classifyPos(p.pos) === "idp");
+                        const m =
+                          marketDollarFor(p) ??
+                          (isIdp
+                            ? marketDollars?.idp?.get(
+                                String(p.name).toLowerCase(),
+                              )
+                            : marketDollars?.ktc?.get(
+                                String(p.name).toLowerCase(),
+                              ));
+                        return Number.isFinite(Number(m)) && Number(m) > 0
+                          ? fmt$(m)
+                          : "—";
+                      })()}
+                    </td>
+                    {bdvmIndex ? (
+                      <td className="draft-money">
+                        {(() => {
+                          // BDVM fundamental gap — display-only join, same
+                          // idiom as the rankings page column. Rows the
+                          // fundamental board declines to price show a
+                          // muted dash, never a fabricated number.
+                          const entry = bdvmEntryForRow(bdvmIndex, p);
+                          if (!entry || entry.gap == null) {
+                            return (
+                              <span
+                                className="muted"
+                                title={
+                                  entry?.signalReason ||
+                                  "not priced by the fundamental board"
+                                }
+                              >
+                                —
+                              </span>
+                            );
+                          }
+                          const css = bdvmSignalEdgeCss(entry.signal);
+                          const title =
+                            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+                            `${formatBdvmValue(entry.fundamental)} vs market ` +
+                            `${formatBdvmValue(entry.marketValue)}`;
+                          return css ? (
+                            <span className={`edge-label ${css}`} title={title}>
+                              {formatBdvmGap(entry.gap)}
+                            </span>
+                          ) : (
+                            <span title={title}>
+                              {formatBdvmGap(entry.gap)}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    ) : null}
+                    <td className="draft-money">{fmt$(p.inflatedFair)}</td>
+                    <td className="draft-money">{fmt$(p.enforceUpTo)}</td>
+                    <td
+                      className="draft-money draft-money-win"
+                      title={
+                        capped
+                          ? `Capped by top rival ceiling (${fmt$(
+                              stats.topCompetitorMax,
+                            )} + $1). Theoretical max was ${fmt$(
+                              p.theoreticalMaxBid,
+                            )}.`
+                          : `Limited by my theoretical max (${fmt$(
+                              p.theoreticalMaxBid,
+                            )})`
+                      }
                     >
-                      {p.valueVsFair > 0 ? "+" : ""}
-                      {fmt$(p.valueVsFair)}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {p.drafted ? (
-                    <span
-                      className={`draft-tag${p.mine ? " draft-tag-mine" : ""}`}
+                      {fmt$(p.myWinningBid)}
+                      {capped && (
+                        <span
+                          style={{
+                            marginLeft: 4,
+                            fontSize: "0.64rem",
+                            color: "var(--green)",
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className="draft-money draft-money-max"
+                      title="Theoretical max bid if forced all the way to the ceiling."
                     >
-                      {teamName(p.pick.teamIdx)}
-                    </span>
-                  ) : (
-                    <span className="muted" style={{ fontSize: "0.72rem" }}>
-                      —
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <div className="draft-row-actions">
-                    <button
-                      className="button"
-                      style={{ fontSize: "0.72rem", padding: "3px 8px" }}
-                      onClick={() => onDraft(p)}
-                    >
-                      {p.drafted ? "Edit" : "Draft"}
-                    </button>
-                    {!p.drafted && (
-                      <>
+                      {fmt$(p.myMaxBid)}
+                    </td>
+                    <td className="draft-money">
+                      {p.drafted ? fmt$(p.pick.amount) : "—"}
+                      {p.drafted && p.valueVsFair != null && (
+                        <span
+                          className={`draft-vs-fair ${
+                            p.valueVsFair > 0
+                              ? "draft-vs-fair-win"
+                              : p.valueVsFair < 0
+                                ? "draft-vs-fair-lose"
+                                : ""
+                          }`}
+                          title={`Inflated fair ${fmt$(
+                            p.inflatedFair,
+                          )} − final ${fmt$(p.pick.amount)}`}
+                        >
+                          {p.valueVsFair > 0 ? "+" : ""}
+                          {fmt$(p.valueVsFair)}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {p.drafted ? (
+                        <span
+                          className={`draft-tag${p.mine ? " draft-tag-mine" : ""}`}
+                        >
+                          {teamName(p.pick.teamIdx)}
+                        </span>
+                      ) : (
+                        <span className="muted" style={{ fontSize: "0.72rem" }}>
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="draft-row-actions">
                         <button
                           className="button"
-                          style={{
-                            fontSize: "0.68rem",
-                            padding: "2px 6px",
-                            borderColor: "var(--cyan)",
-                            color: "var(--cyan)",
-                          }}
-                          onClick={() => onQuickOpen?.(p.id)}
-                          title="Quick record (Q when selected)"
+                          style={{ fontSize: "0.72rem", padding: "3px 8px" }}
+                          onClick={() => onDraft(p)}
                         >
-                          Q
+                          {p.drafted ? "Edit" : "Draft"}
                         </button>
-                        <button
-                          className="button-reset draft-remove-btn"
-                          onClick={() => {
-                            if (
-                              typeof window !== "undefined" &&
-                              window.confirm(`Remove ${p.name} from the board?`)
-                            ) {
-                              onRemovePlayer(p.id);
-                            }
-                          }}
-                          title="Remove from board"
-                        >
-                          ×
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>,
+                        {!p.drafted && (
+                          <>
+                            <button
+                              className="button"
+                              style={{
+                                fontSize: "0.68rem",
+                                padding: "2px 6px",
+                                borderColor: "var(--cyan)",
+                                color: "var(--cyan)",
+                              }}
+                              onClick={() => onQuickOpen?.(p.id)}
+                              title="Quick record (Q when selected)"
+                            >
+                              Q
+                            </button>
+                            <button
+                              className="button-reset draft-remove-btn"
+                              onClick={() => {
+                                if (
+                                  typeof window !== "undefined" &&
+                                  window.confirm(
+                                    `Remove ${p.name} from the board?`,
+                                  )
+                                ) {
+                                  onRemovePlayer(p.id);
+                                }
+                              }}
+                              title="Remove from board"
+                            >
+                              ×
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>,
                 );
                 // Inline quick-record row — only rendered when this
                 // specific player is in quick-record mode.  Keeps the
@@ -1628,11 +1715,7 @@ function InflationSparkline({ series, width = 140, height = 36 }) {
 
   const last = values[values.length - 1];
   const color =
-    last > 1.03
-      ? "var(--green)"
-      : last < 0.97
-        ? "var(--red)"
-        : "var(--muted)";
+    last > 1.03 ? "var(--green)" : last < 0.97 ? "var(--red)" : "var(--muted)";
 
   return (
     <svg
@@ -1735,10 +1818,7 @@ function ParSheet({
   // Quick-add suggestions: pool players whose name fuzzy-matches the
   // typed text.  Excludes anything already on the par sheet.  Limit
   // the dropdown to a handful so it stays compact.
-  const sheetIds = useMemo(
-    () => new Set(rows.map((r) => r.id)),
-    [rows],
-  );
+  const sheetIds = useMemo(() => new Set(rows.map((r) => r.id)), [rows]);
   const suggestions = useMemo(() => {
     const q = name.trim().toLowerCase();
     if (q.length < 2) return [];
@@ -1787,11 +1867,7 @@ function ParSheet({
   const totals = psStats.totals;
   const surplus = totals.surplus || 0;
   const surplusClass =
-    surplus > 0
-      ? "draft-vs-fair-win"
-      : surplus < 0
-        ? "draft-vs-fair-lose"
-        : "";
+    surplus > 0 ? "draft-vs-fair-win" : surplus < 0 ? "draft-vs-fair-lose" : "";
 
   return (
     <Panel className="draft-target-board draft-par-sheet">
@@ -1806,8 +1882,8 @@ function ParSheet({
             </span>
           </h3>
           <div className="muted" style={{ fontSize: "0.7rem" }}>
-            Pre-draft shopping list with your own fair value · surplus
-            on bargains rolls into headroom you can spend elsewhere
+            Pre-draft shopping list with your own fair value · surplus on
+            bargains rolls into headroom you can spend elsewhere
           </div>
         </div>
         <div className="draft-tb-actions">
@@ -1836,10 +1912,10 @@ function ParSheet({
           className="muted"
           style={{ fontSize: "0.76rem", padding: "6px 0 4px" }}
         >
-          Type a player and your fair-value $ below to start your par
-          sheet.  As picks land, each row marks itself "Won" (with
-          surplus vs your FV) or "Lost".  Bottom-line headroom shows
-          what you have left if you hit every open row at your FV.
+          Type a player and your fair-value $ below to start your par sheet. As
+          picks land, each row marks itself "Won" (with surplus vs your FV) or
+          "Lost". Bottom-line headroom shows what you have left if you hit every
+          open row at your FV.
         </div>
       )}
 
@@ -2096,9 +2172,7 @@ function TargetBoard({
     return stats.enrichedPlayers
       .filter(
         (p) =>
-          !p.drafted &&
-          !boardIds.has(p.id) &&
-          p.name.toLowerCase().includes(q),
+          !p.drafted && !boardIds.has(p.id) && p.name.toLowerCase().includes(q),
       )
       .slice(0, 8);
   }, [search, stats.enrichedPlayers, slots]);
@@ -2152,9 +2226,9 @@ function TargetBoard({
           className="muted"
           style={{ fontSize: "0.76rem", padding: "6px 0 4px" }}
         >
-          Pick up to {TARGET_BOARD_MAX} rookies to track closely.  The
-          board will show what each costs now, what you paid (if won),
-          and how the full portfolio fits your remaining budget.
+          Pick up to {TARGET_BOARD_MAX} rookies to track closely. The board will
+          show what each costs now, what you paid (if won), and how the full
+          portfolio fits your remaining budget.
         </div>
       )}
 
@@ -2276,11 +2350,15 @@ function TargetBoard({
       <div className={`draft-tb-summary ${statusClass}`}>
         <div className="draft-tb-summary-line">
           <span className="muted">PreDraft Σ</span>
-          <span className="draft-money">{fmt$(tbStats.totals.preDraftSum)}</span>
+          <span className="draft-money">
+            {fmt$(tbStats.totals.preDraftSum)}
+          </span>
           <span className="muted">Fair Σ</span>
           <span className="draft-money">{fmt$(tbStats.totals.fairSum)}</span>
           <span className="muted">Win Σ (open)</span>
-          <span className="draft-money">{fmt$(tbStats.totals.remainingWinBid)}</span>
+          <span className="draft-money">
+            {fmt$(tbStats.totals.remainingWinBid)}
+          </span>
           <span className="muted">Paid Σ (won)</span>
           <span className="draft-money">{fmt$(tbStats.totals.paidSum)}</span>
         </div>
@@ -2364,9 +2442,9 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
       <Panel className="draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Good to nominate</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
-          No vendor overrates — either every rookie's vendor price and
-          our board agree, or KTC / IDPTradeCalc values are missing
-          from the live contract.
+          No vendor overrates — either every rookie's vendor price and our board
+          agree, or KTC / IDPTradeCalc values are missing from the live
+          contract.
         </div>
       </Panel>
     );
@@ -2387,59 +2465,76 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
         </span>
       </div>
       <div className="draft-nbt-list">
-        {list.map(({ player, gap, gapPct, ourDollar, vendorDollar, vendorLabel, rationale }, i) => (
-          <div
-            key={player.id}
-            className={`draft-nbt-row${player.userTag === TAG_AVOID ? " draft-nbt-avoid" : ""}`}
-            title={rationale}
-          >
-            <span className="draft-nbt-rank">#{i + 1}</span>
-            <button
-              type="button"
-              className={`draft-tag-chip${
-                player.userTag ? ` draft-tag-${player.userTag}` : ""
-              }`}
-              onClick={() => onCycleTag(player.id)}
-              title="Cycle tag"
+        {list.map(
+          (
+            {
+              player,
+              gap,
+              gapPct,
+              ourDollar,
+              vendorDollar,
+              vendorLabel,
+              rationale,
+            },
+            i,
+          ) => (
+            <div
+              key={player.id}
+              className={`draft-nbt-row${player.userTag === TAG_AVOID ? " draft-nbt-avoid" : ""}`}
+              title={rationale}
             >
-              {player.userTag === TAG_TARGET
-                ? "★"
-                : player.userTag === TAG_AVOID
-                  ? "⊘"
-                  : "+"}
-            </button>
-            <span
-              className={`draft-tier-chip draft-tier-${player.tier}`}
-              title={`${TIER_LABELS[player.tier] || player.tier} tier`}
-            >
-              {player.tier}
-            </span>
-            <span className="draft-nbt-name" onClick={() => onDraft(player)}>
-              {player.name}
-            </span>
-            <span className="muted" style={{ fontSize: "0.68rem" }} title="Our board's pre-draft fair price">
-              ours {fmt$(ourDollar)}
-            </span>
-            <span
-              className="muted"
-              style={{ fontSize: "0.68rem" }}
-              title={`${vendorLabel}'s market value at the same scale`}
-            >
-              {vendorLabel.toLowerCase()} {fmt$(vendorDollar)}
-            </span>
-            <span
-              className="draft-rec-chip"
-              style={{
-                background: "rgba(34, 211, 238, 0.18)",
-                color: "var(--cyan, #22d3ee)",
-                fontWeight: 600,
-              }}
-              title={`${vendorLabel} overrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)}) — leaguemates following ${vendorLabel} will overpay`}
-            >
-              +{Math.round(gapPct * 100)}%
-            </span>
-          </div>
-        ))}
+              <span className="draft-nbt-rank">#{i + 1}</span>
+              <button
+                type="button"
+                className={`draft-tag-chip${
+                  player.userTag ? ` draft-tag-${player.userTag}` : ""
+                }`}
+                onClick={() => onCycleTag(player.id)}
+                title="Cycle tag"
+              >
+                {player.userTag === TAG_TARGET
+                  ? "★"
+                  : player.userTag === TAG_AVOID
+                    ? "⊘"
+                    : "+"}
+              </button>
+              <span
+                className={`draft-tier-chip draft-tier-${player.tier}`}
+                title={`${TIER_LABELS[player.tier] || player.tier} tier`}
+              >
+                {player.tier}
+              </span>
+              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+                {player.name}
+              </span>
+              <span
+                className="muted"
+                style={{ fontSize: "0.68rem" }}
+                title="Our board's pre-draft fair price"
+              >
+                ours {fmt$(ourDollar)}
+              </span>
+              <span
+                className="muted"
+                style={{ fontSize: "0.68rem" }}
+                title={`${vendorLabel}'s market value at the same scale`}
+              >
+                {vendorLabel.toLowerCase()} {fmt$(vendorDollar)}
+              </span>
+              <span
+                className="draft-rec-chip"
+                style={{
+                  background: "rgba(34, 211, 238, 0.18)",
+                  color: "var(--cyan, #22d3ee)",
+                  fontWeight: 600,
+                }}
+                title={`${vendorLabel} overrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)}) — leaguemates following ${vendorLabel} will overpay`}
+              >
+                +{Math.round(gapPct * 100)}%
+              </span>
+            </div>
+          ),
+        )}
       </div>
     </Panel>
   );
@@ -2453,19 +2548,16 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
  * proportionally smaller mismatches.
  */
 function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
-  const list = useMemo(
-    () => bestValueOnBoard(stats, { limit: 10 }),
-    [stats],
-  );
+  const list = useMemo(() => bestValueOnBoard(stats, { limit: 10 }), [stats]);
 
   if (list.length === 0) {
     return (
       <Panel className="draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Best value on the board</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
-          No vendor underrates — either every rookie's vendor price and
-          our board agree, or KTC / IDPTradeCalc values are missing
-          from the live contract.
+          No vendor underrates — either every rookie's vendor price and our
+          board agree, or KTC / IDPTradeCalc values are missing from the live
+          contract.
         </div>
       </Panel>
     );
@@ -2486,69 +2578,83 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
         </span>
       </div>
       <div className="draft-nbt-list">
-        {list.map(({ player, gap, gapPct, ourDollar, vendorDollar, vendorLabel, rationale }, i) => (
-          <div
-            key={player.id}
-            className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
-            title={rationale}
-          >
-            <span className="draft-nbt-rank">#{i + 1}</span>
-            <button
-              type="button"
-              className={`draft-tag-chip${
-                player.userTag ? ` draft-tag-${player.userTag}` : ""
-              }`}
-              onClick={() => onCycleTag(player.id)}
-              title="Cycle tag"
+        {list.map(
+          (
+            {
+              player,
+              gap,
+              gapPct,
+              ourDollar,
+              vendorDollar,
+              vendorLabel,
+              rationale,
+            },
+            i,
+          ) => (
+            <div
+              key={player.id}
+              className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
+              title={rationale}
             >
-              {player.userTag === TAG_TARGET
-                ? "★"
-                : player.userTag === TAG_AVOID
-                  ? "⊘"
-                  : "+"}
-            </button>
-            <span
-              className={`draft-tier-chip draft-tier-${player.tier}`}
-              title={`${TIER_LABELS[player.tier] || player.tier} tier`}
-            >
-              {player.tier}
-            </span>
-            <span className="draft-nbt-name" onClick={() => onDraft(player)}>
-              {player.name}
-            </span>
-            <span className="muted" style={{ fontSize: "0.68rem" }} title="Our board's pre-draft fair price">
-              ours {fmt$(ourDollar)}
-            </span>
-            <span
-              className="muted"
-              style={{ fontSize: "0.68rem" }}
-              title={`${vendorLabel}'s market value at the same scale`}
-            >
-              {vendorLabel.toLowerCase()} {fmt$(vendorDollar)}
-            </span>
-            <span
-              className="draft-rec-chip"
-              style={{
-                background: "rgba(74, 222, 128, 0.18)",
-                color: "var(--green, #4ade80)",
-                fontWeight: 600,
-              }}
-              title={`${vendorLabel} underrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)} board edge) — leaguemates following ${vendorLabel} will let this clear cheap`}
-            >
-              −{Math.round(gapPct * 100)}%
-            </span>
-          </div>
-        ))}
+              <span className="draft-nbt-rank">#{i + 1}</span>
+              <button
+                type="button"
+                className={`draft-tag-chip${
+                  player.userTag ? ` draft-tag-${player.userTag}` : ""
+                }`}
+                onClick={() => onCycleTag(player.id)}
+                title="Cycle tag"
+              >
+                {player.userTag === TAG_TARGET
+                  ? "★"
+                  : player.userTag === TAG_AVOID
+                    ? "⊘"
+                    : "+"}
+              </button>
+              <span
+                className={`draft-tier-chip draft-tier-${player.tier}`}
+                title={`${TIER_LABELS[player.tier] || player.tier} tier`}
+              >
+                {player.tier}
+              </span>
+              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+                {player.name}
+              </span>
+              <span
+                className="muted"
+                style={{ fontSize: "0.68rem" }}
+                title="Our board's pre-draft fair price"
+              >
+                ours {fmt$(ourDollar)}
+              </span>
+              <span
+                className="muted"
+                style={{ fontSize: "0.68rem" }}
+                title={`${vendorLabel}'s market value at the same scale`}
+              >
+                {vendorLabel.toLowerCase()} {fmt$(vendorDollar)}
+              </span>
+              <span
+                className="draft-rec-chip"
+                style={{
+                  background: "rgba(74, 222, 128, 0.18)",
+                  color: "var(--green, #4ade80)",
+                  fontWeight: 600,
+                }}
+                title={`${vendorLabel} underrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)} board edge) — leaguemates following ${vendorLabel} will let this clear cheap`}
+              >
+                −{Math.round(gapPct * 100)}%
+              </span>
+            </div>
+          ),
+        )}
       </div>
     </Panel>
   );
 }
 
 function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
-  const top = useMemo(
-    () => nextBestTargets(stats, { limit: 5 }),
-    [stats],
-  );
+  const top = useMemo(() => nextBestTargets(stats, { limit: 5 }), [stats]);
 
   if (top.length === 0) {
     return (
@@ -2709,9 +2815,7 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `draft-review-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
+    link.download = `draft-review-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2721,206 +2825,207 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
   return (
     <Modal open onClose={onClose} title="Draft review">
       <div className="draft-modal-body">
-          {review.myPicks.length === 0 ? (
-            <div className="muted" style={{ fontSize: "0.82rem" }}>
-              No picks recorded yet.  Run the draft — this panel
-              populates with every pick you made, the delta vs fair
-              at the time, and a portfolio-value rollup.
+        {review.myPicks.length === 0 ? (
+          <div className="muted" style={{ fontSize: "0.82rem" }}>
+            No picks recorded yet. Run the draft — this panel populates with
+            every pick you made, the delta vs fair at the time, and a
+            portfolio-value rollup.
+          </div>
+        ) : (
+          <>
+            {/* Portfolio headline */}
+            <div className="draft-review-portfolio">
+              <div>
+                <div className="muted" style={{ fontSize: "0.7rem" }}>
+                  You paid
+                </div>
+                <div className="draft-review-big">
+                  {fmt$(review.portfolio.paid)}
+                </div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: "0.7rem" }}>
+                  Fair value received
+                </div>
+                <div className="draft-review-big draft-money-win">
+                  {fmt$(review.portfolio.fairValue)}
+                </div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: "0.7rem" }}>
+                  Portfolio ratio
+                </div>
+                <div
+                  className="draft-review-big"
+                  style={{
+                    color:
+                      review.portfolio.ratio > 1.05
+                        ? "var(--green)"
+                        : review.portfolio.ratio < 0.95
+                          ? "var(--red)"
+                          : "var(--cyan)",
+                  }}
+                >
+                  {review.portfolio.ratio.toFixed(2)}×
+                </div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: "0.7rem" }}>
+                  Delta
+                </div>
+                <div
+                  className="draft-review-big"
+                  style={{
+                    color:
+                      review.portfolio.delta > 0
+                        ? "var(--green)"
+                        : "var(--red)",
+                  }}
+                >
+                  {review.portfolio.delta > 0 ? "+" : ""}
+                  {fmt$(review.portfolio.delta)}
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Portfolio headline */}
-              <div className="draft-review-portfolio">
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    You paid
-                  </div>
-                  <div className="draft-review-big">
-                    {fmt$(review.portfolio.paid)}
-                  </div>
-                </div>
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    Fair value received
-                  </div>
-                  <div className="draft-review-big draft-money-win">
-                    {fmt$(review.portfolio.fairValue)}
-                  </div>
-                </div>
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    Portfolio ratio
-                  </div>
-                  <div
-                    className="draft-review-big"
-                    style={{
-                      color:
-                        review.portfolio.ratio > 1.05
-                          ? "var(--green)"
-                          : review.portfolio.ratio < 0.95
-                            ? "var(--red)"
-                            : "var(--cyan)",
-                    }}
-                  >
-                    {review.portfolio.ratio.toFixed(2)}×
-                  </div>
-                </div>
-                <div>
-                  <div className="muted" style={{ fontSize: "0.7rem" }}>
-                    Delta
-                  </div>
-                  <div
-                    className="draft-review-big"
-                    style={{
-                      color:
-                        review.portfolio.delta > 0
-                          ? "var(--green)"
-                          : "var(--red)",
-                    }}
-                  >
-                    {review.portfolio.delta > 0 ? "+" : ""}
-                    {fmt$(review.portfolio.delta)}
-                  </div>
-                </div>
+
+            {/* Steal + overpay callouts */}
+            {review.bestSteal && (
+              <div className="draft-review-callout">
+                <span className="draft-rec-chip draft-rec-lock">
+                  BEST STEAL
+                </span>
+                <span>
+                  <strong>{review.bestSteal.playerName}</strong> — paid{" "}
+                  {fmt$(review.bestSteal.paid)}, fair{" "}
+                  {fmt$(review.bestSteal.fair)}{" "}
+                  <span className="draft-vs-fair-win">
+                    (+{fmt$(review.bestSteal.valueVsFair)})
+                  </span>
+                </span>
               </div>
+            )}
+            {review.worstOverpay && review.worstOverpay.valueVsFair < 0 && (
+              <div className="draft-review-callout">
+                <span className="draft-rec-chip draft-rec-avoid">
+                  WORST OVERPAY
+                </span>
+                <span>
+                  <strong>{review.worstOverpay.playerName}</strong> — paid{" "}
+                  {fmt$(review.worstOverpay.paid)}, fair{" "}
+                  {fmt$(review.worstOverpay.fair)}{" "}
+                  <span className="draft-vs-fair-lose">
+                    ({fmt$(review.worstOverpay.valueVsFair)})
+                  </span>
+                </span>
+              </div>
+            )}
 
-              {/* Steal + overpay callouts */}
-              {review.bestSteal && (
-                <div className="draft-review-callout">
-                  <span className="draft-rec-chip draft-rec-lock">
-                    BEST STEAL
-                  </span>
-                  <span>
-                    <strong>{review.bestSteal.playerName}</strong> —
-                    paid {fmt$(review.bestSteal.paid)}, fair{" "}
-                    {fmt$(review.bestSteal.fair)}{" "}
-                    <span className="draft-vs-fair-win">
-                      (+{fmt$(review.bestSteal.valueVsFair)})
-                    </span>
-                  </span>
-                </div>
-              )}
-              {review.worstOverpay && review.worstOverpay.valueVsFair < 0 && (
-                <div className="draft-review-callout">
-                  <span className="draft-rec-chip draft-rec-avoid">
-                    WORST OVERPAY
-                  </span>
-                  <span>
-                    <strong>{review.worstOverpay.playerName}</strong>{" "}
-                    — paid {fmt$(review.worstOverpay.paid)}, fair{" "}
-                    {fmt$(review.worstOverpay.fair)}{" "}
-                    <span className="draft-vs-fair-lose">
-                      ({fmt$(review.worstOverpay.valueVsFair)})
-                    </span>
-                  </span>
-                </div>
-              )}
-
-              {/* My picks table */}
-              <h4 style={{ margin: "10px 0 4px" }}>
-                My roster ({review.myPicks.length} picks)
-              </h4>
-              <div className="draft-review-table-wrap">
-                <table className="draft-review-table">
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left" }}>Player</th>
-                      <th>Tier</th>
-                      <th style={{ textAlign: "right" }}>Paid</th>
-                      <th style={{ textAlign: "right" }}>Fair</th>
-                      <th style={{ textAlign: "right" }}>Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {review.myPicks.map((r) => (
-                      <tr key={r.playerId}>
-                        <td>{r.playerName}</td>
-                        <td>
-                          <span
-                            className={`draft-tier-chip draft-tier-${r.tier}`}
-                          >
-                            {r.tier}
-                          </span>
-                        </td>
-                        <td className="draft-money">{fmt$(r.paid)}</td>
-                        <td className="draft-money">{fmt$(r.fair)}</td>
-                        <td
-                          className={`draft-money ${
-                            r.valueVsFair > 0
-                              ? "draft-vs-fair-win"
-                              : r.valueVsFair < 0
-                                ? "draft-vs-fair-lose"
-                                : ""
-                          }`}
+            {/* My picks table */}
+            <h4 style={{ margin: "10px 0 4px" }}>
+              My roster ({review.myPicks.length} picks)
+            </h4>
+            <div className="draft-review-table-wrap">
+              <table className="draft-review-table">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Player</th>
+                    <th>Tier</th>
+                    <th style={{ textAlign: "right" }}>Paid</th>
+                    <th style={{ textAlign: "right" }}>Fair</th>
+                    <th style={{ textAlign: "right" }}>Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {review.myPicks.map((r) => (
+                    <tr key={r.playerId}>
+                      <td>{r.playerName}</td>
+                      <td>
+                        <span
+                          className={`draft-tier-chip draft-tier-${r.tier}`}
                         >
-                          {r.valueVsFair > 0 ? "+" : ""}
-                          {fmt$(r.valueVsFair)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Per-team rankings */}
-              <h4 style={{ margin: "14px 0 4px" }}>
-                League draft efficiency
-              </h4>
-              <div className="draft-review-table-wrap">
-                <table className="draft-review-table">
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left" }}>Team</th>
-                      <th style={{ textAlign: "right" }}>Picks</th>
-                      <th style={{ textAlign: "right" }}>Paid</th>
-                      <th style={{ textAlign: "right" }}>Fair</th>
-                      <th style={{ textAlign: "right" }}>Ratio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {review.teamRankings.map((t, i) => (
-                      <tr
-                        key={t.idx}
-                        className={t.isMine ? "draft-row-mine" : ""}
+                          {r.tier}
+                        </span>
+                      </td>
+                      <td className="draft-money">{fmt$(r.paid)}</td>
+                      <td className="draft-money">{fmt$(r.fair)}</td>
+                      <td
+                        className={`draft-money ${
+                          r.valueVsFair > 0
+                            ? "draft-vs-fair-win"
+                            : r.valueVsFair < 0
+                              ? "draft-vs-fair-lose"
+                              : ""
+                        }`}
                       >
-                        <td>
-                          <span className="muted" style={{ fontSize: "0.7rem", marginRight: 4 }}>
-                            #{i + 1}
-                          </span>
-                          <strong>{t.name}</strong>
-                          {t.isMine && (
-                            <span
-                              className="draft-tag draft-tag-mine"
-                              style={{ marginLeft: 6, fontSize: "0.62rem" }}
-                            >
-                              mine
-                            </span>
-                          )}
-                        </td>
-                        <td className="draft-money">{t.count}</td>
-                        <td className="draft-money">{fmt$(t.paid)}</td>
-                        <td className="draft-money">{fmt$(t.fair)}</td>
-                        <td
-                          className="draft-money"
-                          style={{
-                            color:
-                              t.ratio > 1.05
-                                ? "var(--green)"
-                                : t.ratio < 0.95
-                                  ? "var(--red)"
-                                  : "var(--cyan)",
-                            fontWeight: 700,
-                          }}
+                        {r.valueVsFair > 0 ? "+" : ""}
+                        {fmt$(r.valueVsFair)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Per-team rankings */}
+            <h4 style={{ margin: "14px 0 4px" }}>League draft efficiency</h4>
+            <div className="draft-review-table-wrap">
+              <table className="draft-review-table">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Team</th>
+                    <th style={{ textAlign: "right" }}>Picks</th>
+                    <th style={{ textAlign: "right" }}>Paid</th>
+                    <th style={{ textAlign: "right" }}>Fair</th>
+                    <th style={{ textAlign: "right" }}>Ratio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {review.teamRankings.map((t, i) => (
+                    <tr
+                      key={t.idx}
+                      className={t.isMine ? "draft-row-mine" : ""}
+                    >
+                      <td>
+                        <span
+                          className="muted"
+                          style={{ fontSize: "0.7rem", marginRight: 4 }}
                         >
-                          {t.ratio.toFixed(2)}×
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+                          #{i + 1}
+                        </span>
+                        <strong>{t.name}</strong>
+                        {t.isMine && (
+                          <span
+                            className="draft-tag draft-tag-mine"
+                            style={{ marginLeft: 6, fontSize: "0.62rem" }}
+                          >
+                            mine
+                          </span>
+                        )}
+                      </td>
+                      <td className="draft-money">{t.count}</td>
+                      <td className="draft-money">{fmt$(t.paid)}</td>
+                      <td className="draft-money">{fmt$(t.fair)}</td>
+                      <td
+                        className="draft-money"
+                        style={{
+                          color:
+                            t.ratio > 1.05
+                              ? "var(--green)"
+                              : t.ratio < 0.95
+                                ? "var(--red)"
+                                : "var(--cyan)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {t.ratio.toFixed(2)}×
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
       <div className="draft-modal-footer">
         {review.rows.length > 0 && (
@@ -2932,6 +3037,15 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
   );
 }
 
+// ~360 lines of genuinely useful reference — every column defined,
+// every recommendation level explained, the inflation model, the
+// keyboard shortcuts.  It used to render as an <details open> at the
+// bottom of the page, so every draft session ended in a wall of ten
+// section headings below the board you were actually using.
+//
+// Same content, same ten collapsible sections, now behind a "How this
+// dashboard works" button in the page header — where you look when you
+// have a question, rather than permanently under the answer.
 function DraftGlossary() {
   const Section = ({ title, children }) => (
     <details className="draft-gloss-section">
@@ -2940,171 +3054,160 @@ function DraftGlossary() {
     </details>
   );
   return (
-    <Panel className="draft-gloss">
-      <details open>
-        <summary className="draft-gloss-head">
-          <h3 style={{ margin: 0, display: "inline" }}>
-            How this dashboard works
-          </h3>
-          <span className="muted" style={{ fontSize: "0.72rem", marginLeft: 8 }}>
-            click any section to expand
-          </span>
-        </summary>
-        <div className="draft-gloss-inner">
+    <HelpModal title="How this draft dashboard works" label="How this works">
+      <div className="draft-gloss-inner">
 
           <Section title="The rookie board, column by column">
             <p>
-              Every undrafted rookie shows up on the main board with
-              these live-updating numbers:
+              Every undrafted rookie shows up on the main board with these
+              live-updating numbers:
             </p>
             <ul>
               <li>
-                <strong>#</strong> — your personal rank (the order you
-                care about, inherited from the seed list; edit
-                PreDraft $ to re-sort by dollar value).
+                <strong>#</strong> — your personal rank (the order you care
+                about, inherited from the seed list; edit PreDraft $ to re-sort
+                by dollar value).
               </li>
               <li>
-                <strong>Tier</strong> — S (≥ $60 PreDraft) · A ($25–59) ·
-                B ($8–24) · C ($3–7) · D ($1–2).  Tier scarcity drives
-                the PUSH recommendation.
+                <strong>Tier</strong> — S (≥ $60 PreDraft) · A ($25–59) · B
+                ($8–24) · C ($3–7) · D ($1–2). Tier scarcity drives the PUSH
+                recommendation.
               </li>
               <li>
-                <strong>Tag</strong> — click to cycle: neutral → ★ target
-                → ⊘ avoid → neutral.  Drives the recommendation engine.
+                <strong>Tag</strong> — click to cycle: neutral → ★ target → ⊘
+                avoid → neutral. Drives the recommendation engine.
               </li>
               <li>
-                <strong>Rec</strong> — LOCK / STEAL / PUSH / BUY / SPEND /
-                AVOID / neutral.  See the "Recommendation levels"
-                section below.
+                <strong>Rec</strong> — LOCK / STEAL / PUSH / BUY / SPEND / AVOID
+                / neutral. See the "Recommendation levels" section below.
               </li>
               <li>
-                <strong>PreDraft $</strong> — your static projection
-                (editable inline).  Anchors every other number.
+                <strong>PreDraft $</strong> — your static projection (editable
+                inline). Anchors every other number.
               </li>
               <li>
-                <strong>Fair</strong> — PreDraft $ × inflation × tier
-                heat.  What the player is worth at this moment in the
-                draft.
+                <strong>Fair</strong> — PreDraft $ × inflation × tier heat. What
+                the player is worth at this moment in the draft.
               </li>
               <li>
-                <strong>Enforce</strong> — 80% of Fair by default.  If
-                a rival is bidding below this, push up to keep the
-                market honest (drains their budget even if you don't
-                ultimately win).
+                <strong>Enforce</strong> — 80% of Fair by default. If a rival is
+                bidding below this, push up to keep the market honest (drains
+                their budget even if you don't ultimately win).
               </li>
               <li>
-                <strong>Win at</strong> — lowest $ you'd actually need
-                to lock the player.  Capped at top rival's
-                slot-adjusted budget + $1.  The headline number for
-                bidding decisions.
+                <strong>Win at</strong> — lowest $ you'd actually need to lock
+                the player. Capped at top rival's slot-adjusted budget + $1. The
+                headline number for bidding decisions.
               </li>
               <li>
-                <strong>Max Bid</strong> — theoretical max if rivals
-                forced your ceiling.  Usually ≥ "Win at".  Treat it as
-                the hard stop.
+                <strong>Max Bid</strong> — theoretical max if rivals forced your
+                ceiling. Usually ≥ "Win at". Treat it as the hard stop.
               </li>
               <li>
-                <strong>Final</strong> — what the player actually sold
-                for (and green/red delta vs Fair once recorded).
+                <strong>Final</strong> — what the player actually sold for (and
+                green/red delta vs Fair once recorded).
               </li>
             </ul>
           </Section>
 
           <Section title="How prices adjust as the draft unfolds">
             <p>
-              Two multipliers on top of PreDraft $ move "Fair" around.
-              Both update after every pick you record.
+              Two multipliers on top of PreDraft $ move "Fair" around. Both
+              update after every pick you record.
             </p>
             <ul>
               <li>
-                <strong>Global inflation</strong> = remaining league $
-                ÷ (total budget − sum of PreDraft $ already sold).
-                Above 1.00× = remaining market is cheaper than
-                projected; below = market got hot.
+                <strong>Global inflation</strong> = remaining league $ ÷ (total
+                budget − sum of PreDraft $ already sold). Above 1.00× =
+                remaining market is cheaper than projected; below = market got
+                hot.
               </li>
               <li>
-                <strong>Tier heat</strong> = total $ paid in tier ÷
-                total PreDraft $ of players sold in that tier.
-                Blended with 1.00× under a sample-size confidence
-                weight (3 picks in a tier = full trust).  A hot S tier
-                marks up remaining S players even if global inflation
-                is flat.
+                <strong>Tier heat</strong> = total $ paid in tier ÷ total
+                PreDraft $ of players sold in that tier. Blended with 1.00×
+                under a sample-size confidence weight (3 picks in a tier = full
+                trust). A hot S tier marks up remaining S players even if global
+                inflation is flat.
               </li>
               <li>
-                <strong>Phase multiplier</strong> = 1 + (slot pressure
-                × 0.5).  Scales your Max Bid from 1.0× at draft start
-                to 1.5× at your last pick.  Prevents "unused $ = wasted
-                $" at the end of the draft.
+                <strong>Phase multiplier</strong> = 1 + (slot pressure × 0.5).
+                Scales your Max Bid from 1.0× at draft start to 1.5× at your
+                last pick. Prevents "unused $ = wasted $" at the end of the
+                draft.
               </li>
             </ul>
           </Section>
 
           <Section title="Competitor ceiling (why 'Win at' is usually lower than Max Bid)">
             <p>
-              In a real auction you only need to pay ONE dollar above
-              the next-highest bidder.  Knowing that ceiling saves
-              real money:
+              In a real auction you only need to pay ONE dollar above the
+              next-highest bidder. Knowing that ceiling saves real money:
             </p>
             <ul>
               <li>
-                <strong>Effective budget</strong> per team = remaining $
-                − $1 × (slots they still need to fill − 1).  A team
-                with $200 and 10 slots can only bid $191 on one player
-                and still afford the rest.
+                <strong>Effective budget</strong> per team = remaining $ − $1 ×
+                (slots they still need to fill − 1). A team with $200 and 10
+                slots can only bid $191 on one player and still afford the rest.
               </li>
               <li>
-                <strong>Top rival ceiling</strong> (shown in the stats
-                strip) = max effective budget across all other teams.
-                "Win at" = min(Max Bid, ceiling + $1).
+                <strong>Top rival ceiling</strong> (shown in the stats strip) =
+                max effective budget across all other teams. "Win at" = min(Max
+                Bid, ceiling + $1).
               </li>
               <li>
-                <strong>Bayesian ceiling</strong> — if you log
-                nominations (see next section), each team's ceiling for
-                a given tier decays based on how many players they've
-                nominated in that tier.  Lowers "Win at" below the naive
-                ceiling when rivals have signalled disinterest.
+                <strong>Bayesian ceiling</strong> — if you log nominations (see
+                next section), each team's ceiling for a given tier decays based
+                on how many players they've nominated in that tier. Lowers "Win
+                at" below the naive ceiling when rivals have signalled
+                disinterest.
               </li>
             </ul>
           </Section>
 
           <Section title="Recommendation levels">
             <p>
-              Every undrafted player gets one label based on tag +
-              market state.  Labels update live; the tooltip on each
-              chip explains the trigger.
+              Every undrafted player gets one label based on tag + market state.
+              Labels update live; the tooltip on each chip explains the trigger.
             </p>
             <ul>
               <li>
                 <strong className="draft-rec-chip draft-rec-lock">LOCK</strong>{" "}
-                — target + rivals collapsed.  Top rival can't afford
-                past 30% of PreDraft $.  Bid their ceiling + $1 and
-                you own it.
+                — target + rivals collapsed. Top rival can't afford past 30% of
+                PreDraft $. Bid their ceiling + $1 and you own it.
               </li>
               <li>
-                <strong className="draft-rec-chip draft-rec-steal">STEAL</strong>{" "}
-                — same collapse, untagged player.  Opportunistic grab
-                at fire-sale prices.
+                <strong className="draft-rec-chip draft-rec-steal">
+                  STEAL
+                </strong>{" "}
+                — same collapse, untagged player. Opportunistic grab at
+                fire-sale prices.
               </li>
               <li>
                 <strong className="draft-rec-chip draft-rec-push">PUSH</strong>{" "}
-                — target + tier drying up (&lt;30% of tier players
-                remaining).  Last shot; don't wait.
+                — target + tier drying up (&lt;30% of tier players remaining).
+                Last shot; don't wait.
               </li>
               <li>
-                <strong className="draft-rec-chip draft-rec-buy">BUY</strong>{" "}
-                — target, normal market.  Bid to your Win-at number.
+                <strong className="draft-rec-chip draft-rec-buy">BUY</strong> —
+                target, normal market. Bid to your Win-at number.
               </li>
               <li>
-                <strong className="draft-rec-chip draft-rec-spend">SPEND</strong>{" "}
-                — target + late draft (slot pressure ≥ 60%) + surplus
-                $/slot.  Time to splash before $ becomes unusable.
+                <strong className="draft-rec-chip draft-rec-spend">
+                  SPEND
+                </strong>{" "}
+                — target + late draft (slot pressure ≥ 60%) + surplus $/slot.
+                Time to splash before $ becomes unusable.
               </li>
               <li>
-                <strong className="draft-rec-chip draft-rec-avoid">AVOID</strong>{" "}
+                <strong className="draft-rec-chip draft-rec-avoid">
+                  AVOID
+                </strong>{" "}
                 — you flagged them as ⊘.
               </li>
               <li>
-                <strong className="draft-rec-chip draft-rec-neutral">neutral</strong>{" "}
+                <strong className="draft-rec-chip draft-rec-neutral">
+                  neutral
+                </strong>{" "}
                 — no strong signal.
               </li>
             </ul>
@@ -3112,26 +3215,25 @@ function DraftGlossary() {
 
           <Section title="Target Board (top of page)">
             <p>
-              Your explicit "these are my 6" short-list.  Track
-              whatever subset of your targets is most important for
-              portfolio accounting — you can still have 20+ players
-              tagged as targets overall.
+              Your explicit "these are my 6" short-list. Track whatever subset
+              of your targets is most important for portfolio accounting — you
+              can still have 20+ players tagged as targets overall.
             </p>
             <ul>
               <li>
-                Each slot shows PreDraft $, live Fair, Win-at, and
-                Paid (if you won them).
+                Each slot shows PreDraft $, live Fair, Win-at, and Paid (if you
+                won them).
               </li>
               <li>
-                <strong>Buffer</strong> = my remaining $ − sum of Win-at
-                for undrafted targets − $1 × other roster slots you
-                still need to fill.
+                <strong>Buffer</strong> = my remaining $ − sum of Win-at for
+                undrafted targets − $1 × other roster slots you still need to
+                fill.
               </li>
               <li>
                 <strong>On track (green)</strong>: buffer ≥ $10.{" "}
                 <strong>Tight (cyan)</strong>: 0 ≤ buffer &lt; $10.{" "}
-                <strong>Short (red)</strong>: buffer &lt; 0 — you can't
-                afford your own list, trim or lower a ceiling.
+                <strong>Short (red)</strong>: buffer &lt; 0 — you can't afford
+                your own list, trim or lower a ceiling.
               </li>
             </ul>
           </Section>
@@ -3139,58 +3241,55 @@ function DraftGlossary() {
           <Section title="Teams & budgets panel">
             <ul>
               <li>
-                <strong>Initial / Spent / Remaining</strong> — standard
-                auction accounting.  Initial is editable (Draft Capital
-                pre-fills it).
+                <strong>Initial / Spent / Remaining</strong> — standard auction
+                accounting. Initial is editable (Draft Capital pre-fills it).
               </li>
               <li>
-                <strong>Slots</strong> — rookie picks drafted / owned
-                by that team.  Pulled from /api/draft-capital's trade
-                graph.
+                <strong>Slots</strong> — rookie picks drafted / owned by that
+                team. Pulled from /api/draft-capital's trade graph.
               </li>
               <li>
-                <strong>Eff $</strong> — slot-adjusted effective budget
-                (see Competitor ceiling).  Red when &lt; $5.
+                <strong>Eff $</strong> — slot-adjusted effective budget (see
+                Competitor ceiling). Red when &lt; $5.
               </li>
               <li>
-                <strong>MDV</strong> — marginal dollar value = remaining
-                $ per slot left.  Heatmap: green ≥ $40/slot (flush),
-                muted $15–40 (normal), red &lt; $15 (pressed).
+                <strong>MDV</strong> — marginal dollar value = remaining $ per
+                slot left. Heatmap: green ≥ $40/slot (flush), muted $15–40
+                (normal), red &lt; $15 (pressed).
               </li>
               <li>
-                <strong>Over%</strong> — (Σ paid − Σ PreDraft $ at pick
-                time) ÷ Σ PreDraft.  Red &gt; +10% (overpayer), green
-                &lt; −10% (value hunter).  Shows who's chasing and
-                likely to overpay again.
+                <strong>Over%</strong> — (Σ paid − Σ PreDraft $ at pick time) ÷
+                Σ PreDraft. Red &gt; +10% (overpayer), green &lt; −10% (value
+                hunter). Shows who's chasing and likely to overpay again.
               </li>
             </ul>
           </Section>
 
           <Section title="Nominations + Bayesian inference (optional)">
             <p>
-              Teams usually nominate players they DON'T want — either
-              to drain rival budgets or to price-anchor a tier.
-              Logging nominations makes this signal usable:
+              Teams usually nominate players they DON'T want — either to drain
+              rival budgets or to price-anchor a tier. Logging nominations makes
+              this signal usable:
             </p>
             <ul>
               <li>
-                In the draft modal for any undrafted player: "Who
-                nominated this player?" → pick the team.
+                In the draft modal for any undrafted player: "Who nominated this
+                player?" → pick the team.
               </li>
               <li>
-                Each nomination multiplies that team's tier interest
-                by <strong>0.8</strong> (floor 0.2).  After 3 S-tier
-                noms: S interest ≈ 0.51.
+                Each nomination multiplies that team's tier interest by{" "}
+                <strong>0.8</strong> (floor 0.2). After 3 S-tier noms: S
+                interest ≈ 0.51.
               </li>
               <li>
-                Bayesian top-competitor ceiling per player reweights
-                each rival's effective budget by their tier interest
-                for THAT player's tier.  Lower ceiling → lower Win-at.
+                Bayesian top-competitor ceiling per player reweights each
+                rival's effective budget by their tier interest for THAT
+                player's tier. Lower ceiling → lower Win-at.
               </li>
               <li>
-                Noms are optional — no nominations logged means the
-                Bayesian ceiling collapses to the naive one.  Log
-                what you see; skip what you don't.
+                Noms are optional — no nominations logged means the Bayesian
+                ceiling collapses to the naive one. Log what you see; skip what
+                you don't.
               </li>
             </ul>
           </Section>
@@ -3198,17 +3297,15 @@ function DraftGlossary() {
           <Section title="Next Best Targets + Good to Nominate sidebars">
             <ul>
               <li>
-                <strong>Next Best Targets</strong> — top 5 undrafted
-                rookies by EV = max(0, Fair − Win-at) × tag weight +
-                tier scarcity boost.  Targets get a 1.5× tag weight;
-                Avoid players are excluded.
+                <strong>Next Best Targets</strong> — top 5 undrafted rookies by
+                EV = max(0, Fair − Win-at) × tag weight + tier scarcity boost.
+                Targets get a 1.5× tag weight; Avoid players are excluded.
               </li>
               <li>
-                <strong>Good to Nominate</strong> — top 5 drain
-                candidates.  Score = min(Fair, top rival ceiling) ×
-                tag weight × (1 − risk of accidentally winning).
-                Target-tagged players are NEVER in this list (never
-                nominate your own targets).
+                <strong>Good to Nominate</strong> — top 5 drain candidates.
+                Score = min(Fair, top rival ceiling) × tag weight × (1 − risk of
+                accidentally winning). Target-tagged players are NEVER in this
+                list (never nominate your own targets).
               </li>
             </ul>
           </Section>
@@ -3216,60 +3313,56 @@ function DraftGlossary() {
           <Section title="Inflation sparkline, progress bar, triage mode">
             <ul>
               <li>
-                <strong>Sparkline</strong> (in the Inflation stat card)
-                — inflation trajectory over picks.  Dashed reference
-                line at 1.00×; current value dot color-coded green
-                (&gt; 1.03) / red (&lt; 0.97) / muted.
+                <strong>Sparkline</strong> (in the Inflation stat card) —
+                inflation trajectory over picks. Dashed reference line at 1.00×;
+                current value dot color-coded green (&gt; 1.03) / red (&lt;
+                0.97) / muted.
               </li>
               <li>
-                <strong>Progress bar</strong> (top of page) — picks
-                recorded / total initial slots in the draft (normally
-                72).  Drives peripheral awareness of draft phase.
+                <strong>Progress bar</strong> (top of page) — picks recorded /
+                total initial slots in the draft (normally 72). Drives
+                peripheral awareness of draft phase.
               </li>
               <li>
-                <strong>Late-draft triage</strong> — when slot pressure
-                crosses 70%, the board auto-filters to your Targets
-                and pops a banner.  One-shot fire per session; dismiss
-                restores the full view.
+                <strong>Late-draft triage</strong> — when slot pressure crosses
+                70%, the board auto-filters to your Targets and pops a banner.
+                One-shot fire per session; dismiss restores the full view.
               </li>
             </ul>
           </Section>
 
           <Section title="Keyboard shortcuts">
-            <p>
-              Click any row to select it (cyan outline), then:
-            </p>
+            <p>Click any row to select it (cyan outline), then:</p>
             <ul>
               <li>
-                <kbd>/</kbd> focus search · <kbd>?</kbd> open this help
-                · <kbd>Esc</kbd> close help
+                <kbd>/</kbd> focus search · <kbd>?</kbd> open this help ·{" "}
+                <kbd>Esc</kbd> close help
               </li>
               <li>
-                <kbd>j</kbd>/<kbd>↓</kbd> next undrafted ·{" "}
-                <kbd>k</kbd>/<kbd>↑</kbd> previous
+                <kbd>j</kbd>/<kbd>↓</kbd> next undrafted · <kbd>k</kbd>/
+                <kbd>↑</kbd> previous
               </li>
               <li>
-                <kbd>D</kbd> open draft modal ·{" "}
-                <kbd>N</kbd> cycle tag (neutral → target → avoid)
+                <kbd>D</kbd> open draft modal · <kbd>N</kbd> cycle tag (neutral
+                → target → avoid)
               </li>
               <li>
-                <kbd>T</kbd> toggle target (never flips to avoid) ·{" "}
-                <kbd>B</kbd> add to Target Board
+                <kbd>T</kbd> toggle target (never flips to avoid) · <kbd>B</kbd>{" "}
+                add to Target Board
               </li>
             </ul>
             <p className="muted" style={{ fontSize: "0.72rem" }}>
-              Shortcuts are suppressed while typing in any input /
-              textarea / select, so name searches don't collide.
+              Shortcuts are suppressed while typing in any input / textarea /
+              select, so name searches don't collide.
             </p>
           </Section>
 
           <Section title="Bid simulator (in the draft modal)">
             <p>
-              Typing a team + amount in the draft modal previews the
-              exact state after the pick lands — League $, My
-              Remaining, BA, Inflation, Top Rival $, Slots left — with
-              arrow deltas so you can see "this pick drops my BA
-              from 5.85× to 3.24×" BEFORE committing.
+              Typing a team + amount in the draft modal previews the exact state
+              after the pick lands — League $, My Remaining, BA, Inflation, Top
+              Rival $, Slots left — with arrow deltas so you can see "this pick
+              drops my BA from 5.85× to 3.24×" BEFORE committing.
             </p>
           </Section>
 
@@ -3277,25 +3370,23 @@ function DraftGlossary() {
             <ul>
               <li>
                 Team budgets + owned-pick counts auto-load from
-                ``/api/draft-capital`` on first visit.  Click "Load
-                from Draft Capital" in the Teams panel to re-pull.
+                ``/api/draft-capital`` on first visit. Click "Load from Draft
+                Capital" in the Teams panel to re-pull.
               </li>
               <li>
-                Every edit (picks, tags, Target Board, nominations,
-                knobs) persists to localStorage under
-                ``next_draft_board_v1``.  Refresh mid-draft and your
-                state survives.
+                Every edit (picks, tags, Target Board, nominations, knobs)
+                persists to localStorage under ``next_draft_board_v1``. Refresh
+                mid-draft and your state survives.
               </li>
               <li>
-                Undo Last removes the newest pick; Reset wipes the
-                whole workspace back to defaults.
+                Undo Last removes the newest pick; Reset wipes the whole
+                workspace back to defaults.
               </li>
             </ul>
           </Section>
 
-        </div>
-      </details>
-    </Panel>
+      </div>
+    </HelpModal>
   );
 }
 
@@ -3314,7 +3405,10 @@ export default function DraftDashboardPage() {
   // resolved yet (cold boot) so pre-migration state still hydrates.
   const { selectedLeagueKey } = useLeague();
   const draftStorageKey = useMemo(
-    () => (selectedLeagueKey ? `${DRAFT_STORAGE_KEY}__${selectedLeagueKey}` : DRAFT_STORAGE_KEY),
+    () =>
+      selectedLeagueKey
+        ? `${DRAFT_STORAGE_KEY}__${selectedLeagueKey}`
+        : DRAFT_STORAGE_KEY,
     [selectedLeagueKey],
   );
 
@@ -3324,7 +3418,10 @@ export default function DraftDashboardPage() {
   // the workspace, but is independent of workspace state so the
   // Market column always shows current values even if the workspace
   // hydrates from stale localStorage before the auto-sync writes back.
-  const [marketDollars, setMarketDollars] = useState({ ktc: new Map(), idp: new Map() });
+  const [marketDollars, setMarketDollars] = useState({
+    ktc: new Map(),
+    idp: new Map(),
+  });
   const [hydrated, setHydrated] = useState(false);
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
@@ -3334,9 +3431,13 @@ export default function DraftDashboardPage() {
   // posture as the rankings gap column: the Fund gap column and the
   // pick-value panel exist only while /api/bdvm/values answers ok and
   // vanish silently on any 503 (flag off, no snapshot, wrong league).
-  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values");
+  const { data: bdvmData, failure: bdvmFailure } =
+    useBdvmEndpoint("/api/bdvm/values");
   const bdvmIndex = useMemo(
-    () => (!bdvmFailure && bdvmData?.status === "ok" ? buildBdvmIndex(bdvmData) : null),
+    () =>
+      !bdvmFailure && bdvmData?.status === "ok"
+        ? buildBdvmIndex(bdvmData)
+        : null,
     [bdvmData, bdvmFailure],
   );
   const bdvmPickRows = useMemo(
@@ -3477,7 +3578,9 @@ export default function DraftDashboardPage() {
         if (!capitalRes.ok) return;
         if (cancelled) return;
         const capitalData = await capitalRes.json();
-        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        const picks = Array.isArray(capitalData?.picks)
+          ? capitalData.picks
+          : [];
         if (picks.length === 0) return;
 
         const sortedPicks = [...picks].sort(
@@ -3519,15 +3622,18 @@ export default function DraftDashboardPage() {
           // when nothing changed between page loads.
           const existing = Array.isArray(ws.players) ? ws.players : [];
           const sameLength = existing.length === incoming.length;
-          const allMatch = sameLength && existing.every((p, i) => {
-            const inc = incoming[i];
-            return (
-              p.name === inc.name &&
-              Number(p.preDraft) === Number(inc.preDraft) &&
-              Number(p.ktcDollar ?? null) === Number(inc.ktcDollar ?? null) &&
-              Number(p.idpTradeCalcDollar ?? null) === Number(inc.idpTradeCalcDollar ?? null)
-            );
-          });
+          const allMatch =
+            sameLength &&
+            existing.every((p, i) => {
+              const inc = incoming[i];
+              return (
+                p.name === inc.name &&
+                Number(p.preDraft) === Number(inc.preDraft) &&
+                Number(p.ktcDollar ?? null) === Number(inc.ktcDollar ?? null) &&
+                Number(p.idpTradeCalcDollar ?? null) ===
+                  Number(inc.idpTradeCalcDollar ?? null)
+              );
+            });
           if (allMatch) return ws;
           const { workspace: next } = replacePlayerPool(ws, incoming);
           return next;
@@ -3594,10 +3700,7 @@ export default function DraftDashboardPage() {
         tierData.remaining > 0
       ) {
         const myInTier = cur.enrichedPlayers.filter(
-          (p) =>
-            !p.drafted &&
-            p.userTag === TAG_TARGET &&
-            p.tier === tierKey,
+          (p) => !p.drafted && p.userTag === TAG_TARGET && p.tier === tierKey,
         );
         const suffix =
           myInTier.length > 0
@@ -3631,8 +3734,7 @@ export default function DraftDashboardPage() {
             (p) => p.id === newest.playerId,
           );
           const teamName =
-            cur.teamStats[newest.teamIdx]?.name ||
-            `Team ${newest.teamIdx + 1}`;
+            cur.teamStats[newest.teamIdx]?.name || `Team ${newest.teamIdx + 1}`;
           const alert = push(
             `overpay-${newest.playerId}`,
             `${player?.name || newest.playerId} went to ${teamName} for $${paid} (+$${delta} over fair) — ${player?.tier || "?"} tier heating up`,
@@ -3656,9 +3758,7 @@ export default function DraftDashboardPage() {
     }
 
     // 4. Win-at just dropped substantially on an undrafted target.
-    const prevById = new Map(
-      prev.enrichedPlayers.map((p) => [p.id, p]),
-    );
+    const prevById = new Map(prev.enrichedPlayers.map((p) => [p.id, p]));
     for (const cp of cur.enrichedPlayers) {
       if (cp.drafted) continue;
       if (cp.userTag !== TAG_TARGET) continue;
@@ -3721,7 +3821,9 @@ export default function DraftDashboardPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data?.error) throw new Error(data.error);
-        const teamTotals = Array.isArray(data?.teamTotals) ? data.teamTotals : [];
+        const teamTotals = Array.isArray(data?.teamTotals)
+          ? data.teamTotals
+          : [];
         if (teamTotals.length === 0) {
           throw new Error("Draft capital feed had no team totals.");
         }
@@ -3736,11 +3838,14 @@ export default function DraftDashboardPage() {
           // row unconditionally.  Sync = auto-refresh: only rewrite
           // rows the user hasn't manually edited (feedBudget !==
           // initialBudget flags a manual override, which we preserve).
-          const { workspace: next, matched, added } = mergeDraftCapitalTeams(
-            ws,
-            teamTotals,
-            { picks: picksArray, mode: force ? "force" : "sync" },
-          );
+          const {
+            workspace: next,
+            matched,
+            added,
+          } = mergeDraftCapitalTeams(ws, teamTotals, {
+            picks: picksArray,
+            mode: force ? "force" : "sync",
+          });
           if (!quiet) {
             setCapitalStatus((s) => ({
               ...s,
@@ -3827,10 +3932,7 @@ export default function DraftDashboardPage() {
     (id, v) => setWorkspace((ws) => updatePlayerPreDraft(ws, id, v)),
     [],
   );
-  const onAdd = useCallback(
-    (p) => setWorkspace((ws) => addPlayer(ws, p)),
-    [],
-  );
+  const onAdd = useCallback((p) => setWorkspace((ws) => addPlayer(ws, p)), []);
   const onRemovePlayer = useCallback(
     (id) => setWorkspace((ws) => removePlayer(ws, id)),
     [],
@@ -3848,11 +3950,7 @@ export default function DraftDashboardPage() {
       setWorkspace((ws) => {
         const current = ws.tags?.[id] || null;
         // Toggle: target ↔ neutral (never flips to avoid via T key).
-        return setPlayerTag(
-          ws,
-          id,
-          current === TAG_TARGET ? null : TAG_TARGET,
-        );
+        return setPlayerTag(ws, id, current === TAG_TARGET ? null : TAG_TARGET);
       }),
     [],
   );
@@ -3888,8 +3986,7 @@ export default function DraftDashboardPage() {
     [],
   );
   const onMoveInParSheet = useCallback(
-    (id, direction) =>
-      setWorkspace((ws) => moveInParSheet(ws, id, direction)),
+    (id, direction) => setWorkspace((ws) => moveInParSheet(ws, id, direction)),
     [],
   );
   const onClearParSheet = useCallback(
@@ -3919,22 +4016,19 @@ export default function DraftDashboardPage() {
   // Takes a team idx + amount, applies recordPick, closes the form.
   // Separate from the full draft-modal submit path so the UI can
   // render a compact inline form without the modal overhead.
-  const recordQuickPick = useCallback(
-    (playerId, teamIdx, amount) => {
-      if (!playerId) return;
-      const amt = Math.max(0, Number(amount) || 0);
-      if (amt <= 0) return;
-      setWorkspace((ws) =>
-        recordPick(ws, {
-          playerId,
-          teamIdx: Number(teamIdx),
-          amount: amt,
-        }),
-      );
-      setQuickRecordingId(null);
-    },
-    [],
-  );
+  const recordQuickPick = useCallback((playerId, teamIdx, amount) => {
+    if (!playerId) return;
+    const amt = Math.max(0, Number(amount) || 0);
+    if (amt <= 0) return;
+    setWorkspace((ws) =>
+      recordPick(ws, {
+        playerId,
+        teamIdx: Number(teamIdx),
+        amount: amt,
+      }),
+    );
+    setQuickRecordingId(null);
+  }, []);
 
   // Live Sleeper auction sync: a pick arrives from the polling hook
   // and we auto-record it on the workspace.  Resolves Sleeper
@@ -3963,111 +4057,105 @@ export default function DraftDashboardPage() {
     sleeperTeamsLoadedRef.current = sleeperTeams !== null;
   }, [sleeperTeams]);
 
-  const handleLivePick = useCallback(
-    (pick) => {
-      if (!pick) return true;
-      // Transient: the sleeper.teams fetch hasn't resolved yet on
-      // first load.  Return false so the hook holds the cursor and
-      // re-delivers this pick on the next poll.  Without this guard
-      // a pick that lands during initial hydration would be silently
-      // dropped because the owner-id lookup is empty.
-      if (!sleeperTeamsLoadedRef.current) return false;
+  const handleLivePick = useCallback((pick) => {
+    if (!pick) return true;
+    // Transient: the sleeper.teams fetch hasn't resolved yet on
+    // first load.  Return false so the hook holds the cursor and
+    // re-delivers this pick on the next poll.  Without this guard
+    // a pick that lands during initial hydration would be silently
+    // dropped because the owner-id lookup is empty.
+    if (!sleeperTeamsLoadedRef.current) return false;
 
-      const playerName = String(pick.playerName || "").trim();
-      const sleeperPlayerId = String(pick.playerId || "");
-      const amount = Math.max(0, Number(pick.amount) || 0);
+    const playerName = String(pick.playerName || "").trim();
+    const sleeperPlayerId = String(pick.playerId || "");
+    const amount = Math.max(0, Number(pick.amount) || 0);
 
-      // Resolve team idx: prefer ownerId (the human winner); fall
-      // back to rosterId (covers commish picks / co-managers where
-      // picked_by may be blank).
-      const lookup = teamLookupRef.current || {};
-      let teamIdx = null;
-      const ownerId = String(pick.ownerId || "");
-      if (ownerId && lookup.byOwner?.has(ownerId)) {
-        teamIdx = lookup.byOwner.get(ownerId);
-      } else if (lookup.byRoster && Number.isFinite(Number(pick.rosterId))) {
-        const ri = Number(pick.rosterId);
-        if (lookup.byRoster.has(ri)) teamIdx = lookup.byRoster.get(ri);
-      }
+    // Resolve team idx: prefer ownerId (the human winner); fall
+    // back to rosterId (covers commish picks / co-managers where
+    // picked_by may be blank).
+    const lookup = teamLookupRef.current || {};
+    let teamIdx = null;
+    const ownerId = String(pick.ownerId || "");
+    if (ownerId && lookup.byOwner?.has(ownerId)) {
+      teamIdx = lookup.byOwner.get(ownerId);
+    } else if (lookup.byRoster && Number.isFinite(Number(pick.rosterId))) {
+      const ri = Number(pick.rosterId);
+      if (lookup.byRoster.has(ri)) teamIdx = lookup.byRoster.get(ri);
+    }
 
-      if (!Number.isInteger(teamIdx)) {
-        // No team match — push an alert so the user knows a pick
-        // landed they need to record manually.
-        const msg = playerName
-          ? `Live pick ${playerName} for $${amount}: couldn't map Sleeper team — record manually`
-          : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount}: couldn't map Sleeper team — record manually`;
+    if (!Number.isInteger(teamIdx)) {
+      // No team match — push an alert so the user knows a pick
+      // landed they need to record manually.
+      const msg = playerName
+        ? `Live pick ${playerName} for $${amount}: couldn't map Sleeper team — record manually`
+        : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount}: couldn't map Sleeper team — record manually`;
+      setAlerts((prior) => [
+        ...prior,
+        {
+          id: `live-unmapped-${pick.pickNo}`,
+          message: msg,
+          level: "warn",
+          ts: Date.now(),
+        },
+      ]);
+      return true;
+    }
+
+    // Resolve workspace player: match by name slug.  If the player
+    // isn't in the workspace pool, surface an alert so the user
+    // knows they need a "Sync rookies" or to add the player.
+    const slug = playerName ? playerSlug(playerName) : "";
+    setWorkspace((ws) => {
+      const players = Array.isArray(ws?.players) ? ws.players : [];
+      const row = slug ? players.find((p) => p.id === slug) : null;
+      if (!row) {
         setAlerts((prior) => [
           ...prior,
           {
-            id: `live-unmapped-${pick.pickNo}`,
-            message: msg,
+            id: `live-unknown-${pick.pickNo}`,
+            message: playerName
+              ? `Live pick ${playerName} for $${amount} — not in rookie pool; click "Sync rookies"`
+              : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount} — player not in pool`,
             level: "warn",
             ts: Date.now(),
           },
         ]);
-        return true;
+        return ws;
       }
-
-      // Resolve workspace player: match by name slug.  If the player
-      // isn't in the workspace pool, surface an alert so the user
-      // knows they need a "Sync rookies" or to add the player.
-      const slug = playerName ? playerSlug(playerName) : "";
-      setWorkspace((ws) => {
-        const players = Array.isArray(ws?.players) ? ws.players : [];
-        const row = slug
-          ? players.find((p) => p.id === slug)
-          : null;
-        if (!row) {
-          setAlerts((prior) => [
-            ...prior,
-            {
-              id: `live-unknown-${pick.pickNo}`,
-              message: playerName
-                ? `Live pick ${playerName} for $${amount} — not in rookie pool; click "Sync rookies"`
-                : `Live pick (Sleeper id ${sleeperPlayerId}) for $${amount} — player not in pool`,
-              level: "warn",
-              ts: Date.now(),
-            },
-          ]);
-          return ws;
-        }
-        // Conflict detection: existing pick with different amount or
-        // team idx.  Keep recordPick's de-dupe (Sleeper wins) and
-        // push a banner so the user can sanity-check + undo if needed.
-        const existing = (ws.picks || []).find((p) => p.playerId === row.id);
-        const conflict =
-          existing &&
-          (existing.teamIdx !== teamIdx ||
-            Math.abs((existing.amount || 0) - amount) > 0);
-        if (conflict) {
-          const prevTeamName =
-            ws.teams?.[existing.teamIdx]?.name || `Team ${existing.teamIdx + 1}`;
-          const newTeamName =
-            ws.teams?.[teamIdx]?.name || `Team ${teamIdx + 1}`;
-          setAlerts((prior) => [
-            ...prior,
-            {
-              id: `live-conflict-${pick.pickNo}-${row.id}`,
-              message: `Live sync corrected ${row.name}: $${existing.amount} → $${amount}${
-                existing.teamIdx !== teamIdx
-                  ? ` · ${prevTeamName} → ${newTeamName}`
-                  : ""
-              } — hit ↶ Undo last to revert`,
-              level: "warn",
-              ts: Date.now(),
-            },
-          ]);
-        }
-        return recordPick(ws, {
-          playerId: row.id,
-          teamIdx,
-          amount,
-        });
+      // Conflict detection: existing pick with different amount or
+      // team idx.  Keep recordPick's de-dupe (Sleeper wins) and
+      // push a banner so the user can sanity-check + undo if needed.
+      const existing = (ws.picks || []).find((p) => p.playerId === row.id);
+      const conflict =
+        existing &&
+        (existing.teamIdx !== teamIdx ||
+          Math.abs((existing.amount || 0) - amount) > 0);
+      if (conflict) {
+        const prevTeamName =
+          ws.teams?.[existing.teamIdx]?.name || `Team ${existing.teamIdx + 1}`;
+        const newTeamName = ws.teams?.[teamIdx]?.name || `Team ${teamIdx + 1}`;
+        setAlerts((prior) => [
+          ...prior,
+          {
+            id: `live-conflict-${pick.pickNo}-${row.id}`,
+            message: `Live sync corrected ${row.name}: $${existing.amount} → $${amount}${
+              existing.teamIdx !== teamIdx
+                ? ` · ${prevTeamName} → ${newTeamName}`
+                : ""
+            } — hit ↶ Undo last to revert`,
+            level: "warn",
+            ts: Date.now(),
+          },
+        ]);
+      }
+      return recordPick(ws, {
+        playerId: row.id,
+        teamIdx,
+        amount,
       });
-      return true;
-    },
-    [],
-  );
+    });
+    return true;
+  }, []);
 
   const liveSync = useSleeperDraftSync({
     leagueKey: selectedLeagueKey,
@@ -4104,7 +4192,8 @@ export default function DraftDashboardPage() {
       // capitalRes can be null (network failure) or a non-ok response
       // — fall back to the rescale path in either case so sync still
       // works when the workbook isn't available.
-      const capitalData = capitalRes && capitalRes.ok ? await capitalRes.json() : null;
+      const capitalData =
+        capitalRes && capitalRes.ok ? await capitalRes.json() : null;
       // Prefer the contract's ``playersArray`` (full view).  Fall
       // back to the legacy ``players`` dict — the runtime view
       // (``view=app``) strips playersArray but keeps the dict, and
@@ -4112,7 +4201,11 @@ export default function DraftDashboardPage() {
       // shapes carry the same per-row fields (``rookie``,
       // ``assetClass``, ``canonicalSiteValues``, ``values``).
       let pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
-      if (pa.length === 0 && data?.players && typeof data.players === "object") {
+      if (
+        pa.length === 0 &&
+        data?.players &&
+        typeof data.players === "object"
+      ) {
         pa = Object.values(data.players);
       }
       setAllPlayersArray(pa);
@@ -4152,7 +4245,9 @@ export default function DraftDashboardPage() {
       // it directly keeps a single source of truth for the rookie
       // pool and matches what the rookie panel on /draft renders.
       const serverPool = (() => {
-        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        const picks = Array.isArray(capitalData?.picks)
+          ? capitalData.picks
+          : [];
         if (picks.length === 0) return null;
         const sorted = [...picks].sort(
           (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
@@ -4167,9 +4262,11 @@ export default function DraftDashboardPage() {
             preDraft: dollar,
             pos: String(pk.rookiePos || "").toUpperCase() || null,
             ktcDollar: Number.isFinite(Number(pk.rookieKtcDollar))
-              ? Number(pk.rookieKtcDollar) : null,
+              ? Number(pk.rookieKtcDollar)
+              : null,
             idpTradeCalcDollar: Number.isFinite(Number(pk.rookieIdpDollar))
-              ? Number(pk.rookieIdpDollar) : null,
+              ? Number(pk.rookieIdpDollar)
+              : null,
           });
         }
         return out.length > 0 ? out : null;
@@ -4191,7 +4288,9 @@ export default function DraftDashboardPage() {
           }))
         : pa
             .filter((p) => p?.rookie === true)
-            .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
+            .filter(
+              (p) => p?.assetClass === "offense" || p?.assetClass === "idp",
+            )
             .map((p) => ({
               name: p.displayName || p.canonicalName || "",
               rawValue: readBlendedValue(p),
@@ -4206,14 +4305,18 @@ export default function DraftDashboardPage() {
               // ``ktc`` key for pre-#393 fixtures.
               ktcRawValue:
                 (typeof p?.rawSourceValues?.ktcSfTep === "number"
-                  ? p.rawSourceValues.ktcSfTep : null)
-                ?? (typeof p?.canonicalSiteValues?.ktcSfTep === "number"
-                  ? p.canonicalSiteValues.ktcSfTep : null)
-                ?? (typeof p?.canonicalSiteValues?.ktc === "number"
-                  ? p.canonicalSiteValues.ktc : null),
+                  ? p.rawSourceValues.ktcSfTep
+                  : null) ??
+                (typeof p?.canonicalSiteValues?.ktcSfTep === "number"
+                  ? p.canonicalSiteValues.ktcSfTep
+                  : null) ??
+                (typeof p?.canonicalSiteValues?.ktc === "number"
+                  ? p.canonicalSiteValues.ktc
+                  : null),
               idpTradeCalcRawValue:
                 typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
-                  ? p.canonicalSiteValues.idpTradeCalc : null,
+                  ? p.canonicalSiteValues.idpTradeCalc
+                  : null,
               pos: String(p?.position || p?.pos || "").toUpperCase(),
               assetClass: p?.assetClass,
             }))
@@ -4232,9 +4335,9 @@ export default function DraftDashboardPage() {
         ).length;
         throw new Error(
           `No rookies found in /api/data (players=${totalPlayers}, ` +
-          `rookie=${rookieCount}, offense+idp=${offIdpCount}).  Check ` +
-          `the backend contract — playersArray/players may be empty or ` +
-          `missing rookie/assetClass stamps.`,
+            `rookie=${rookieCount}, offense+idp=${offIdpCount}).  Check ` +
+            `the backend contract — playersArray/players may be empty or ` +
+            `missing rookie/assetClass stamps.`,
         );
       }
 
@@ -4245,7 +4348,9 @@ export default function DraftDashboardPage() {
       // picks evenly.  When the workbook isn't reachable, fall back
       // to rescaling raw blended values so sync still works.
       const slotDollarsByPick = (() => {
-        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        const picks = Array.isArray(capitalData?.picks)
+          ? capitalData.picks
+          : [];
         if (picks.length === 0) return null;
         const sorted = [...picks].sort(
           (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
@@ -4254,9 +4359,13 @@ export default function DraftDashboardPage() {
           .map((p) => Number(p?.originalDollarValue ?? p?.dollarValue))
           .filter((n) => Number.isFinite(n) && n > 0);
       })();
-      const scaled = (slotDollarsByPick && slotDollarsByPick.length >= rookies.length)
-        ? rookies.map((_, i) => slotDollarsByPick[i])
-        : rescaleValuesToBudget(rookies.map((r) => r.rawValue), 1200);
+      const scaled =
+        slotDollarsByPick && slotDollarsByPick.length >= rookies.length
+          ? rookies.map((_, i) => slotDollarsByPick[i])
+          : rescaleValuesToBudget(
+              rookies.map((r) => r.rawValue),
+              1200,
+            );
 
       // Per-vendor dollar values — slot-based when the workbook is
       // available, rescaled-to-$1200 otherwise.  The vendor's #N rookie
@@ -4285,7 +4394,9 @@ export default function DraftDashboardPage() {
         return m;
       };
       const ktcDollarsByName = vendorDollarsByName("ktcRawValue");
-      const idpTradeCalcDollarsByName = vendorDollarsByName("idpTradeCalcRawValue");
+      const idpTradeCalcDollarsByName = vendorDollarsByName(
+        "idpTradeCalcRawValue",
+      );
 
       const incoming = rookies.map((r, i) => ({
         name: r.name,
@@ -4302,7 +4413,9 @@ export default function DraftDashboardPage() {
         ktcDollar: Number.isFinite(Number(r.ktcDollarFromServer))
           ? Number(r.ktcDollarFromServer)
           : (ktcDollarsByName.get(r.name) ?? null),
-        idpTradeCalcDollar: Number.isFinite(Number(r.idpTradeCalcDollarFromServer))
+        idpTradeCalcDollar: Number.isFinite(
+          Number(r.idpTradeCalcDollarFromServer),
+        )
           ? Number(r.idpTradeCalcDollarFromServer)
           : (idpTradeCalcDollarsByName.get(r.name) ?? null),
       }));
@@ -4358,8 +4471,7 @@ export default function DraftDashboardPage() {
           setSleeperTeams(teams);
           const mine = teams.find(
             (t) =>
-              String(t.name || "").toLowerCase() ===
-              myTeamName.toLowerCase(),
+              String(t.name || "").toLowerCase() === myTeamName.toLowerCase(),
           );
           if (mine) setRosterPlayers(mine.players || []);
         })
@@ -4367,7 +4479,12 @@ export default function DraftDashboardPage() {
     } catch {
       /* ignore */
     }
-  }, [allPlayersArray, workspace?.settings?.myTeamIdx, workspace?.teams, selectedLeagueKey]);
+  }, [
+    allPlayersArray,
+    workspace?.settings?.myTeamIdx,
+    workspace?.teams,
+    selectedLeagueKey,
+  ]);
 
   // Global keyboard shortcuts.  Must be declared AFTER the callbacks
   // it depends on (onCycleTag / onToggleTarget / onAddToBoard) —
@@ -4473,31 +4590,28 @@ export default function DraftDashboardPage() {
     onAddToBoard,
   ]);
 
-  const handleModalSubmit = useCallback(
-    (payload) => {
-      if (payload?._remove) {
-        setWorkspace((ws) => removePick(ws, payload.playerId));
-      } else if (payload?._nominate) {
-        // Nomination logger — record + keep modal open so the user
-        // can continue setting up (e.g. still intends to bid on
-        // this player themselves).  No ``setModalPlayer(null)``.
-        setWorkspace((ws) =>
-          recordNomination(ws, {
-            playerId: payload.playerId,
-            nominatingTeamIdx: payload.teamIdx,
-          }),
-        );
-        return;
-      } else if (payload?._removeNomination) {
-        setWorkspace((ws) => removeNomination(ws, payload.playerId));
-        return;
-      } else {
-        setWorkspace((ws) => recordPick(ws, payload));
-      }
-      setModalPlayer(null);
-    },
-    [],
-  );
+  const handleModalSubmit = useCallback((payload) => {
+    if (payload?._remove) {
+      setWorkspace((ws) => removePick(ws, payload.playerId));
+    } else if (payload?._nominate) {
+      // Nomination logger — record + keep modal open so the user
+      // can continue setting up (e.g. still intends to bid on
+      // this player themselves).  No ``setModalPlayer(null)``.
+      setWorkspace((ws) =>
+        recordNomination(ws, {
+          playerId: payload.playerId,
+          nominatingTeamIdx: payload.teamIdx,
+        }),
+      );
+      return;
+    } else if (payload?._removeNomination) {
+      setWorkspace((ws) => removeNomination(ws, payload.playerId));
+      return;
+    } else {
+      setWorkspace((ws) => recordPick(ws, payload));
+    }
+    setModalPlayer(null);
+  }, []);
 
   function handleReset() {
     if (
@@ -4514,12 +4628,17 @@ export default function DraftDashboardPage() {
     return (
       <main className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="War room" title="Draft board" />
+        {/* Mirrors the SETTLED board's top-of-page bands, not a generic
+            table.  The real board renders a progress bar (26px), then
+            the stats strip (105px), then the teams/knobs grid — and
+            none of it exists while auth is resolving.  A generic
+            skeleton here meant ~131px of content appeared ABOVE the
+            team list when the board mounted, pushing the whole page
+            down: /draft's 0.32 CLS.  Heights are the measured settled
+            values. */}
+        <div style={{ minHeight: 26 }} aria-hidden="true" />
+        <div style={{ minHeight: 105 }} aria-hidden="true" />
         <Panel>
-          {/* Board-shaped and sized to match app/draft/loading.jsx
-              (10x5 table) so the route-loading -> auth-checking ->
-              real-board sequence doesn't step through three different
-              heights (the old 2-line skeleton was one of the /draft
-              CLS drivers). */}
           <SkeletonTable rows={10} columns={5} />
         </Panel>
       </main>
@@ -4539,11 +4658,12 @@ export default function DraftDashboardPage() {
   return (
     <main className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
-        eyebrow="War room"
-        title="Draft board"
+        eyebrow="My Team"
+        title="Draft Board"
         description="Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately."
         actions={
           <div className={styles.pageActions}>
+            <DraftGlossary />
             <LiveSyncToggle
               enabled={liveSyncEnabled}
               onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
@@ -4595,7 +4715,11 @@ export default function DraftDashboardPage() {
       <ValueBasisNote contract={rawData} />
 
       {syncError ? (
-        <Banner tone="negative" title="Sync error" onDismiss={() => setSyncError("")}>
+        <Banner
+          tone="negative"
+          title="Sync error"
+          onDismiss={() => setSyncError("")}
+        >
           {syncError}
         </Banner>
       ) : null}
@@ -4621,10 +4745,7 @@ export default function DraftDashboardPage() {
             .reverse()
             .slice(0, 5)
             .map((a) => (
-              <div
-                key={a.id}
-                className={`draft-alert draft-alert-${a.level}`}
-              >
+              <div key={a.id} className={`draft-alert draft-alert-${a.level}`}>
                 <span className="draft-alert-msg">{a.message}</span>
                 <button
                   type="button"
@@ -4704,8 +4825,7 @@ export default function DraftDashboardPage() {
           onDismiss={() => setTriageDismissed(true)}
         >
           Slot pressure {Math.round((stats.slotPressure || 0) * 100)}% —
-          auto-filtered to your Targets so you only see players you still
-          want.{" "}
+          auto-filtered to your Targets so you only see players you still want.{" "}
           <Button
             size="sm"
             variant="ghost"
@@ -4797,7 +4917,10 @@ export default function DraftDashboardPage() {
                 <tr>
                   <th style={{ textAlign: "left" }}>Pick</th>
                   <th style={{ width: 90, textAlign: "right" }}>EV</th>
-                  <th style={{ width: 80, textAlign: "right" }} title="Probability the pick returns a startable player">
+                  <th
+                    style={{ width: 80, textAlign: "right" }}
+                    title="Probability the pick returns a startable player"
+                  >
                     Hit %
                   </th>
                   <th style={{ width: 90, textAlign: "right" }}>Median</th>
@@ -4811,10 +4934,16 @@ export default function DraftDashboardPage() {
                     <td>{row.name}</td>
                     <td className="draft-money">{formatBdvmValue(row.ev)}</td>
                     <td className="draft-money">
-                      {row.pHit == null ? "—" : `${Math.round(row.pHit * 100)}%`}
+                      {row.pHit == null
+                        ? "—"
+                        : `${Math.round(row.pHit * 100)}%`}
                     </td>
-                    <td className="draft-money">{formatBdvmValue(row.median)}</td>
-                    <td className="draft-money">{formatBdvmValue(row.ceiling)}</td>
+                    <td className="draft-money">
+                      {formatBdvmValue(row.median)}
+                    </td>
+                    <td className="draft-money">
+                      {formatBdvmValue(row.ceiling)}
+                    </td>
                     <td
                       className="draft-money"
                       title={row.marketSource || undefined}
@@ -4826,14 +4955,18 @@ export default function DraftDashboardPage() {
               </tbody>
             </table>
           </div>
-          <p className="muted" style={{ margin: "var(--space-2) 0 0", fontSize: "var(--font-size-2xs)" }}>
+          <p
+            className="muted"
+            style={{
+              margin: "var(--space-2) 0 0",
+              fontSize: "var(--font-size-2xs)",
+            }}
+          >
             Fundamental (projection-driven) values — compared against the
             market, never merged into the auction math above.
           </p>
         </CollapsiblePanel>
       )}
-
-      <DraftGlossary />
 
       {modalPlayerEnriched && (
         <DraftModal
@@ -4851,69 +4984,67 @@ export default function DraftDashboardPage() {
           onClose={closeSyncPreview}
           title="Sync rookies from consensus rankings"
         >
-            <div className="draft-modal-body">
-              <div className="muted" style={{ fontSize: "0.78rem" }}>
-                Pulled top <strong>{syncPreview.incoming.length}</strong>{" "}
-                rookies from ``/api/data``, rescaled their consensus values
-                to total $1,200.  Applying will:
-              </div>
-              <ul style={{ fontSize: "0.82rem", margin: "8px 0" }}>
-                <li>
-                  <strong>Kept:</strong> {syncPreview.dry.kept} rookies
-                  already on your board (tags + Target Board slots
-                  preserved)
+          <div className="draft-modal-body">
+            <div className="muted" style={{ fontSize: "0.78rem" }}>
+              Pulled top <strong>{syncPreview.incoming.length}</strong> rookies
+              from ``/api/data``, rescaled their consensus values to total
+              $1,200. Applying will:
+            </div>
+            <ul style={{ fontSize: "0.82rem", margin: "8px 0" }}>
+              <li>
+                <strong>Kept:</strong> {syncPreview.dry.kept} rookies already on
+                your board (tags + Target Board slots preserved)
+              </li>
+              <li>
+                <strong>Added:</strong> {syncPreview.dry.added} new rookies
+              </li>
+              <li>
+                <strong>Dropped:</strong> {syncPreview.dry.dropped} rookies no
+                longer in the top {syncPreview.incoming.length}
+              </li>
+              {syncPreview.dry.orphanedPicks.length > 0 && (
+                <li style={{ color: "var(--red)" }}>
+                  <strong>
+                    {syncPreview.dry.orphanedPicks.length} recorded pick
+                    {syncPreview.dry.orphanedPicks.length === 1 ? "" : "s"}
+                  </strong>{" "}
+                  reference dropped players — those picks will be removed.
+                  Cancel if that's not what you want.
                 </li>
-                <li>
-                  <strong>Added:</strong> {syncPreview.dry.added} new
-                  rookies
-                </li>
-                <li>
-                  <strong>Dropped:</strong> {syncPreview.dry.dropped}{" "}
-                  rookies no longer in the top {syncPreview.incoming.length}
-                </li>
-                {syncPreview.dry.orphanedPicks.length > 0 && (
-                  <li style={{ color: "var(--red)" }}>
-                    <strong>
-                      {syncPreview.dry.orphanedPicks.length} recorded
-                      pick{syncPreview.dry.orphanedPicks.length === 1 ? "" : "s"}
-                    </strong>{" "}
-                    reference dropped players — those picks will be
-                    removed.  Cancel if that's not what you want.
-                  </li>
-                )}
-              </ul>
-              <div
-                className="muted"
-                style={{ fontSize: "0.72rem", marginTop: 6 }}
-              >
-                New rookie list (first 10 of {syncPreview.incoming.length}):
-                <div style={{ marginTop: 4 }}>
-                  {syncPreview.incoming.slice(0, 10).map((p, i) => (
-                    <div
-                      key={p.name}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "24px 1fr 48px 48px",
-                        gap: 6,
-                        padding: "2px 0",
-                        fontSize: "0.76rem",
-                      }}
-                    >
-                      <span>#{i + 1}</span>
-                      <span>{p.name}</span>
-                      <span className="muted">{p.pos || "—"}</span>
-                      <span className="draft-money">{fmt$(p.preDraft)}</span>
-                    </div>
-                  ))}
-                </div>
+              )}
+            </ul>
+            <div
+              className="muted"
+              style={{ fontSize: "0.72rem", marginTop: 6 }}
+            >
+              New rookie list (first 10 of {syncPreview.incoming.length}):
+              <div style={{ marginTop: 4 }}>
+                {syncPreview.incoming.slice(0, 10).map((p, i) => (
+                  <div
+                    key={p.name}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "24px 1fr 48px 48px",
+                      gap: 6,
+                      padding: "2px 0",
+                      fontSize: "0.76rem",
+                    }}
+                  >
+                    <span>#{i + 1}</span>
+                    <span>{p.name}</span>
+                    <span className="muted">{p.pos || "—"}</span>
+                    <span className="draft-money">{fmt$(p.preDraft)}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="draft-modal-footer">
-              <Button onClick={closeSyncPreview}>Cancel</Button>
-              <Button variant="primary" onClick={applySyncPreview}>
-                Apply sync
-              </Button>
-            </div>
+          </div>
+          <div className="draft-modal-footer">
+            <Button onClick={closeSyncPreview}>Cancel</Button>
+            <Button variant="primary" onClick={applySyncPreview}>
+              Apply sync
+            </Button>
+          </div>
         </Modal>
       )}
 
@@ -4926,88 +5057,91 @@ export default function DraftDashboardPage() {
       )}
 
       {helpOpen && (
-        <Modal open onClose={() => setHelpOpen(false)} title="Keyboard shortcuts">
-            <div className="draft-modal-body">
-              <table className="draft-help-table">
-                <tbody>
-                  <tr>
-                    <td>
-                      <kbd>/</kbd>
-                    </td>
-                    <td>Focus search</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>?</kbd>
-                    </td>
-                    <td>Open this help</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>Esc</kbd>
-                    </td>
-                    <td>Close modal / help</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>j</kbd> / <kbd>↓</kbd>
-                    </td>
-                    <td>Select next undrafted player</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>k</kbd> / <kbd>↑</kbd>
-                    </td>
-                    <td>Select previous undrafted player</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>D</kbd>
-                    </td>
-                    <td>Open Draft modal for selected</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>N</kbd>
-                    </td>
-                    <td>Cycle tag (neutral → target → avoid) on selected</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>T</kbd>
-                    </td>
-                    <td>Toggle target tag (neutral ↔ target) on selected</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>B</kbd>
-                    </td>
-                    <td>Add selected to Target Board</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <kbd>Q</kbd>
-                    </td>
-                    <td>
-                      Quick-record pick on selected (inline form;
-                      Enter saves, Esc cancels)
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <div
-                className="muted"
-                style={{ fontSize: "0.72rem", marginTop: 8 }}
-              >
-                Shortcuts are inactive while typing in any input,
-                textarea, or select.  Click a row on the Rookie Board
-                to select it (keyboard shortcuts target the selected
-                row).
-              </div>
+        <Modal
+          open
+          onClose={() => setHelpOpen(false)}
+          title="Keyboard shortcuts"
+        >
+          <div className="draft-modal-body">
+            <table className="draft-help-table">
+              <tbody>
+                <tr>
+                  <td>
+                    <kbd>/</kbd>
+                  </td>
+                  <td>Focus search</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>?</kbd>
+                  </td>
+                  <td>Open this help</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>Esc</kbd>
+                  </td>
+                  <td>Close modal / help</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>j</kbd> / <kbd>↓</kbd>
+                  </td>
+                  <td>Select next undrafted player</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>k</kbd> / <kbd>↑</kbd>
+                  </td>
+                  <td>Select previous undrafted player</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>D</kbd>
+                  </td>
+                  <td>Open Draft modal for selected</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>N</kbd>
+                  </td>
+                  <td>Cycle tag (neutral → target → avoid) on selected</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>T</kbd>
+                  </td>
+                  <td>Toggle target tag (neutral ↔ target) on selected</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>B</kbd>
+                  </td>
+                  <td>Add selected to Target Board</td>
+                </tr>
+                <tr>
+                  <td>
+                    <kbd>Q</kbd>
+                  </td>
+                  <td>
+                    Quick-record pick on selected (inline form; Enter saves, Esc
+                    cancels)
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div
+              className="muted"
+              style={{ fontSize: "0.72rem", marginTop: 8 }}
+            >
+              Shortcuts are inactive while typing in any input, textarea, or
+              select. Click a row on the Rookie Board to select it (keyboard
+              shortcuts target the selected row).
             </div>
-            <div className="draft-modal-footer">
-              <Button onClick={() => setHelpOpen(false)}>Close</Button>
-            </div>
+          </div>
+          <div className="draft-modal-footer">
+            <Button onClick={() => setHelpOpen(false)}>Close</Button>
+          </div>
         </Modal>
       )}
     </main>

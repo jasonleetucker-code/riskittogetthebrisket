@@ -23,17 +23,21 @@ function fmtValue(v) {
 }
 
 export default function TeamPhasePanel() {
-  // Deliberately NOT ``useApp()``.  This panel is the entire body of
-  // /league/phases, and AppShell refuses to hydrate the private
-  // contract anywhere under the ``/league`` prefix
-  // (PUBLIC_ONLY_ROUTE_PREFIXES) — so useApp() there is permanently
-  // ``{loading: false, rows: [], rawData: null}`` and the page could
-  // never render.  Reading the private contract directly is the
-  // established pattern for a private panel hosted under the public
-  // prefix; RosterComparePanel does the same thing on
-  // /league/franchise/[owner].  ``/api/data`` is auth-gated, so an
-  // anonymous visitor gets a 401 and the explicit message below
-  // rather than any leaked data.
+  // This panel is the entire body of /phases.  It used to live at
+  // /league/phases and needed this hook specifically because AppShell
+  // refuses to hydrate the private contract under the ``/league``
+  // prefix (PUBLIC_ONLY_ROUTE_PREFIXES), making ``useApp()`` there
+  // permanently ``{rows: [], rawData: null}``.  That is exactly why
+  // the route moved: contention classification is private analysis and
+  // had no business on a public-prefixed URL.
+  //
+  // On /phases ``useApp()`` would now work too.  Keeping the direct
+  // hook costs nothing — the fetch layer dedups and ``buildRows`` is
+  // shared by contract identity through a WeakMap — and it keeps the
+  // panel host-agnostic, which is the same reason RosterComparePanel
+  // reads it directly on /league/franchise/[owner].  ``/api/data`` is
+  // auth-gated, so an anonymous visitor gets a 401 and the explicit
+  // message below rather than any leaked data.
   const { rows, rawData, loading } = useDynastyData();
   const { state: userState } = useUserState();
 

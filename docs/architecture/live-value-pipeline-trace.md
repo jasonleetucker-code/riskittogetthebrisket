@@ -24,12 +24,28 @@ src/api/data_contract.py::_compute_unified_rankings   ← core value engine
 ```
 
 The `src/canonical/*` modules are **NOT** on the live path except for
-three imports (`rank_to_value`, Hill constants, and the `run_valuation`
-engine used by the data contract).  The offline canonical-build
-pipeline (`scripts/canonical_build.py`, `src/canonical/transform.py`,
-`src/canonical/pipeline.py`) and the `CANONICAL_DATA_MODE` env var
-were retired in PR #173 (2026-04-20); trade suggestions read the live
-contract directly via `build_asset_pool_from_contract`.
+what `data_contract.py` imports from `player_valuation.py`:
+
+- `percentile_to_value` + the eight `HILL_*_PERCENTILE_C/S` scope
+  masters — step 2→3 of the blend,
+- `detect_tiers` (returning `TierBoundary`) — tier ids,
+- `rank_to_value` / `rank_to_value_for_scope` — used **only** by the
+  reconstruction fallbacks in `terminal.py` and `rank_history.py`, not
+  by the blend.
+
+> **Corrected 2026-07-29 audit.** This paragraph used to name
+> "`run_valuation`, the engine used by the data contract" as one of the
+> three live imports. That was never true of the current pipeline —
+> `data_contract.py` contains zero references to `run_valuation` — and
+> the function has now been deleted along with the rest of the retired
+> offline engine (it had no production importer at all). Do not confuse
+> it with the live, unrelated `src/bdvm/service.py::run_valuation`.
+
+The offline canonical-build pipeline (`scripts/canonical_build.py`,
+`src/canonical/transform.py`, `src/canonical/pipeline.py`) and the
+`CANONICAL_DATA_MODE` env var were retired in PR #173 (2026-04-20);
+trade suggestions read the live contract directly via
+`build_asset_pool_from_contract`.
 
 ## Data sources (live)
 

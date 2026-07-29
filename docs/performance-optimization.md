@@ -195,8 +195,9 @@ source and by measurement before changing anything:
 
 Follow-up to the sitewide audit, taking its top three remaining items.
 
-**CLS (measured: `/` 0.72 → 0.088, `/draft` 0.34 → 0.005, `/waivers`
-0.20 → 0.063 — all in the "good" band):**
+**CLS (measured: `/` 0.72 → 0.088; `/draft` and `/waivers` claimed
+0.005 / 0.063 — SEE THE ROUND 3 CORRECTION BELOW, those two numbers
+were single-run flukes and the underlying shifts were not fixed):**
 - `/`'s dominant shift was the auth swap: `app/page.jsx` first-painted
   the ~200px landing card for EVERY visitor (auth resolves in an
   effect) and then replaced it with the ~4000px terminal.  The `null`
@@ -242,6 +243,94 @@ BOTH outcomes (match or no-match — a league with no default team must
 not hold forever) and `selectionTouched` is the deliberate-clear
 escape hatch.  All seven `useTerminal` call sites already gate on it
 via `skip`.
+
+## 2026-07-29 round 3 — CLS, honestly this time
+
+### First: a correction to round 2
+
+Round 2 reported `/draft` 0.34 → 0.005 and `/waivers` 0.20 → 0.063.
+**Both were wrong.**  They were single-run measurements, and CLS on a
+data-driven page is close to a coin flip run-to-run — it depends
+entirely on whether async data lands before or after paint.  Re-measured
+as a **5-run median**, the true post-round-2 values were `/draft` 0.336
+and `/waivers` 0.219: the round-2 skeleton changes on those two pages
+had essentially no effect on the real shift sources.
+
+**Rule going forward: CLS is reported as a 5-run median, and a fix is
+only "done" when the fixed element disappears from the browser's own
+layout-shift SOURCE ATTRIBUTION** — not when an aggregate number looks
+better.  Chrome's `LayoutShift.sources` (with `previousRect`/
+`currentRect`) is what actually identifies the culprit; every fix below
+was found that way, and two plausible-sounding fixes were discarded
+because attribution showed they moved nothing.
+
+### Measured (5-run medians, local prod-topology harness)
+
+| Route | After round 2 (real) | After round 3 |
+|---|---|---|
+| `/trade` | 0.139 | **0.004** |
+| `/draft` | 0.336 | **0.013** |
+| `/` | 0.093 | **0.069** |
+| `/waivers` | 0.219 | **0.208** — NOT fixed, see below |
+| `/draft-capital` TTFB | 1445ms | **87ms** |
+
+Every other route re-swept: CLS ≤ 0.076, LCP < 1s, no regressions.
+
+### What actually fixed it
+
+* **`/trade` (0.139 → 0.004).** The proactive-suggestions rail is
+  fetched after a 500ms debounce plus a round-trip, so it always
+  mounted *after* the page painted, inserting a 213px panel above the
+  trade controls and meter.  Two changes: the rail now reserves its
+  slot (`SuggestionsRailPlaceholder`, reusing the real `Panel` header so
+  only the body is bones) driven by a `suggestionsPending` flag that
+  **defaults true** — effects run post-commit, so a `false` default
+  still left one un-reserved frame — and the loading skeleton was
+  retuned from 6 rows (258px) to 4 (213px) so the loading→content
+  transition is height-neutral.  **Matching the heights exactly is what
+  mattered**: a reserved-but-wrong-height slot (233px vs 213px) still
+  shifted.
+* **`/draft` (0.336 → 0.013).** Three compounding inserts above the
+  ~440px team list: the button label swapping `"Loading…"` →
+  `"↻ Load from Draft Capital"` (wrapped to a 2nd line, and once
+  `nowrap`'d still re-wrapped the sibling description by changing
+  width — fixed with `nowrap` + a `minWidth` of the measured 223px
+  settled width); the Draft-Capital status line appearing (reserved
+  26px); and the progress bar + stats strip (26px + 105px) that exist
+  only after auth resolves, now reserved in the pre-auth skeleton.
+* **`/draft-capital` TTFB (1445ms → 87ms).** It was never a slow page —
+  it was an 11-line React component calling `redirect()`, so the first
+  leg cost a full route invocation and the number being measured was
+  really `/league`'s SSR.  Moved to a routing-layer 308 in
+  `next.config.mjs` and deleted the page.  `server.py::serve_draft_capital`
+  now returns a real `RedirectResponse` instead of proxying — its
+  `urllib`-based proxy follows redirects, so it would have served
+  `/league`'s HTML under the `/draft-capital` URL and blocked the event
+  loop for the whole SSR.
+* **`/waivers` `ManualAddDrop`.** Rendering a one-line "select a team"
+  message and then expanding to the full calculator grew that panel
+  150px → 646px.  It now holds a sized skeleton while
+  `useTeam().loading` is true.  This removed that source from the
+  attribution — but see below, it was not the page's dominant shift.
+
+### Tried and reverted (negative results, recorded so nobody retries them)
+
+* **`min-width` on the topbar league/team switchers.**  The switchers
+  grow when their labels resolve (`.shell-nav-right` 386px → 464px),
+  which slides its left-hand siblings — a real horizontal shift that
+  counts fully toward CLS.  Reserving their width made things
+  **measurably worse** (`/` 0.069 → 0.199) and was reverted.  Horizontal
+  reservation in a `margin-left: auto` flex row re-distributes space in
+  ways that create new shifts; if this is retried, the fix probably
+  belongs in the switcher's own label placeholder, not the toggle width.
+
+### Still open: `/waivers` 0.208
+
+The remaining shift attributes to two `BUTTON.shell-nav-link` elements
+at ~320ms — the same topbar-switcher growth described above, which
+manifests strongest on this route.  The `ManualAddDrop` fix is real and
+kept, but it was not the dominant source.  This needs the switcher
+label-placeholder approach, not another panel skeleton.
 
 ## Rejected (attempted, reverted)
 

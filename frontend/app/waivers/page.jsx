@@ -219,7 +219,7 @@ function BestMovesPanel({ moves }) {
           );
           return `$${hint.reasonable}`;
         },
-        headerTitle: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
+        headerInfo: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
       },
       {
         key: "tier",
@@ -488,7 +488,7 @@ export default function WaiversPage() {
   const { privateDataEnabled, rows, rawData } = useApp();
   const { authenticated } = useAuthContext();
   const { selectedLeague } = useLeague();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { settings } = useSettings();
   const [includeRookies, setIncludeRookies] = useState(false);
   const [position, setPosition] = useState("ALL");
@@ -582,7 +582,7 @@ export default function WaiversPage() {
   return (
     <main className={`main-shell ${styles.page} waivers-page`}>
       <PageHeader
-        eyebrow="Claim desk"
+        eyebrow="My Team"
         title="Waivers"
         description={
           selectedLeagueName
@@ -602,6 +602,7 @@ export default function WaiversPage() {
           includeRookies={includeRookies}
           settings={settings}
           leagueKey={selectedLeague?.key}
+          teamLoading={teamLoading}
         />
       ) : null}
 

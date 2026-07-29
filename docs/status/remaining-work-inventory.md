@@ -110,7 +110,7 @@ These items block the transition from legacy-only to canonical-engine-fed produc
 ## Technical Debt / Cleanup
 
 ### TD-1: Hardcoded default credentials
-- `server.py` line 93: `JASON_LOGIN_PASSWORD = "Elliott21!"` in source. Move to env-only with no default.
+- `server.py` line 93: `JASON_LOGIN_PASSWORD = "«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»"` in source. Move to env-only with no default.
 
 ### TD-2: Cookie security flag
 - `JASON_AUTH_COOKIE_SECURE = False` by default. Should be True in production.

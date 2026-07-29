@@ -6,6 +6,8 @@ import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 import { useDynastyData } from "@/components/useDynastyData";
+import { useApp } from "@/components/AppShell";
+import { PlayerNameButton } from "@/components/ds";
 
 // ── /idptc-rookies — Combined IDPTC + KTC rookie board ───────────────
 // Linked from /more → Lab.  Lists every player flagged ``rookie`` in
@@ -88,6 +90,7 @@ function downloadMarkdown(rows) {
 
 export default function IdptcRookiesPage() {
   const { loading, error, rows } = useDynastyData();
+  const { openPlayerPopup } = useApp();
   const [blurbs, setBlurbs] = useState({});
   const [blurbsLoading, setBlurbsLoading] = useState(true);
 
@@ -155,7 +158,7 @@ export default function IdptcRookiesPage() {
   return (
     <section>
       <PageHeader
-        title="Dynasty Rookie Board — IDPTC + KTC"
+        title="Rookie Board"
         subtitle={
           blurbsLoading
             ? "Every rookie on either source, ranked by max(IDPTC, KTC) value."
@@ -184,9 +187,13 @@ export default function IdptcRookiesPage() {
       />
 
       {ranked.length === 0 ? (
-        <EmptyState message="No rookies on either source yet." />
+        <EmptyState
+          title="No rookies yet"
+          message="Neither source has published a rookie board for this season yet."
+        />
       ) : (
         <div className="card" style={{ padding: 0 }}>
+          <div className="table-wrap">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -202,7 +209,9 @@ export default function IdptcRookiesPage() {
                 <tr key={`${r.name}-${idx}`} style={{ borderTop: "1px solid var(--border)" }}>
                   <td style={{ padding: "8px 12px", color: "var(--subtext)", verticalAlign: "top" }}>{idx + 1}</td>
                   <td style={{ padding: "8px 12px", verticalAlign: "top" }}>
-                    <div style={{ fontWeight: 600 }}>{r.name}</div>
+                    <div style={{ fontWeight: 600 }}>
+                      <PlayerNameButton name={r.name} onOpen={openPlayerPopup} />
+                    </div>
                     {r.blurb && (
                       <div
                         className="muted text-xs"
@@ -239,6 +248,7 @@ export default function IdptcRookiesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </section>

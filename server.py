@@ -2731,8 +2731,19 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/scaffold/status",
         # /league page is a public view — its draft-capital tab reads
         # this endpoint.  Payload is public Sleeper data (team names,
-        # pick dollar values, owners) already viewable on Sleeper; no
-        # private rankings / user state is leaked here.
+        # pick dollar values, owners) already viewable on Sleeper.
+        #
+        # It is public with a REDACTION, not because the raw payload is
+        # safe: each pick also carries ``rookieName`` / ``rookiePos`` /
+        # ``rookieKtcValue`` / ``rookieKtcDollar`` / ``rookieIdpDollar``,
+        # filled from ``_our_rookie_pool()`` — our contract's
+        # ``playersArray`` ordered by ``rankDerivedValue``.  That is the
+        # proprietary rookie board, and an earlier version of this
+        # comment asserted it wasn't here.  ``get_draft_capital`` strips
+        # those fields for unauthenticated callers; only the private
+        # /draft page consumes them.  See
+        # ``_redact_draft_capital_for_public`` and
+        # tests/api/test_draft_capital_public_redaction.py.
         "/api/draft-capital",
         # Aggregated public sports news (Sleeper trending + public
         # RSS/sitemap providers).  Zero league-private data — no
@@ -4903,6 +4914,14 @@ async def post_waiver_faab_recommend(request: Request):
     )
     arr = (contract or {}).get("playersArray") or []
 
+    # Loose trim+lowercase key (family 3 in the ``src/utils/name_clean``
+    # registry) — both sides of this join are contract/display names
+    # from the same vocabulary, so no stronger key is needed.  Local on
+    # purpose: the byte-equal twins in ``src/trade/waiver.py`` and
+    # ``src/api/source_history.py`` key unrelated domains.  Note this is
+    # NOT the key the KTC crowd FAAB map uses — that one is
+    # ``name_clean.compact_name_key`` and the recommender looks it up
+    # itself.
     def _norm(s: str) -> str:
         return str(s or "").strip().lower()
 
@@ -5104,6 +5123,19 @@ async def post_waiver_faab_recommend(request: Request):
     # KTC crowd-sourced bid map — Phase B7 bridge.  Bridge degrades
     # gracefully (returns empty dict) when the contract has no
     # ``ktcCrowd`` block, so this lookup is unconditional.
+    #
+    # The map is keyed by ``name_clean.compact_name_key``, NOT by the
+    # local ``_norm`` above; ``_ktc_crowd_blend`` applies that key to
+    # ``add_player_name`` itself.  Do not pre-normalize ``add_name``
+    # here — the raw display name is what the recommender expects.
+    #
+    # Two independent reasons this factor can be absent, worth knowing
+    # before debugging it: the contract only carries ``ktcCrowd`` when
+    # the scrape actually captured crowd data (the 2026-07-29 export has
+    # none), and the crowd names come from KTC's raw API vocabulary,
+    # which — unlike the Sleeper/contract vocabulary — has not been
+    # through ``clean_name``, so a KTC "Marvin Harrison Jr." still will
+    # not join a contract "Marvin Harrison" under the compact key.
     from src.adapters.ktc_crowd_faab import (  # noqa: PLC0415
         crowd_bid_map_from_contract,
     )
@@ -5847,7 +5879,13 @@ async def post_trade_suggestions(request: Request):
     # players in suggestion candidacy.  Sanitize to integer in
     # [50, 300]; out-of-range or missing falls back to the engine's
     # default constant.
-    from src.trade.suggestions import KTC_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
+    #
+    # The wire names stay ``ktc_top_n`` (request) / ``ktcTopNFilter``
+    # (response) — they are the published contract.  The engine-side
+    # constant is ``BOARD_TOP_N_FILTER``, because this gate ranks
+    # against OUR blended board and never consulted KTC; the
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.suggestions import BOARD_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n = body.get("ktc_top_n")
     try:
@@ -5954,7 +5992,11 @@ async def post_trade_finder(request: Request):
     if opponent_teams == ["all"] or not opponent_teams:
         opponent_teams = [t["name"] for t in sleeper_teams if t.get("name") != my_team]
 
-    from src.trade.finder import find_trades, KTC_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
+    # Wire name stays ``ktc_top_n``; the engine constant is
+    # ``MARKET_TOP_N_FILTER`` (the gate is per-market — ktcSfTep for
+    # offense + picks, idpTradeCalc for IDP — not KTC-only).  The
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.finder import find_trades, MARKET_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n_f = body.get("ktc_top_n")
     try:
@@ -6699,6 +6741,58 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _DRAFT_CAPITAL_CACHE: dict[str, tuple[float, dict]] = {}
 _DRAFT_CAPITAL_TTL_SEC = 300.0
 _DRAFT_CAPITAL_LOCKS: dict[str, asyncio.Lock] = {}
+
+# Per-pick fields that carry OUR board, not public Sleeper data.  They
+# are filled from ``_our_rookie_pool()``, which reads
+# ``latest_contract_data['playersArray']`` ordered by
+# ``rankDerivedValue`` — the same field the public-league payload guard
+# blocklists outright (src/public_league/public_contract.py).  So an
+# anonymous caller was receiving the full ordered top-72 proprietary
+# rookie board plus per-rookie derived dollars.
+_DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
+    "rookieName",
+    "rookiePos",
+    "rookieKtcValue",
+    "rookieKtcDollar",
+    "rookieIdpDollar",
+)
+
+
+def _redact_draft_capital_for_public(result):
+    """Strip the proprietary rookie board from a draft-capital payload.
+
+    ``/api/draft-capital`` is deliberately public: the public /league
+    page's draft-capital tab reads it for team names, pick ownership and
+    pick dollar values — all of it visible on Sleeper already.  What was
+    NOT public-safe is the rookie ranking stapled onto each pick.
+
+    Returns a COPY.  The caller must never mutate the cached object:
+    ``_DRAFT_CAPITAL_CACHE`` is shared across sessions, so redacting in
+    place would strip the fields from the authenticated /draft page too
+    for the rest of the TTL — a cache-poisoning bug with the same shape
+    as the leak it fixes.  Only the ``picks`` list is rebuilt; every
+    other branch is shared by reference and never written to.
+
+    The only consumer of these fields is the private /draft page
+    (frontend/app/draft/page.jsx); the public league section never reads
+    them, so redaction costs no functionality.
+    """
+    if not isinstance(result, dict):
+        return result
+    picks = result.get("picks")
+    if not isinstance(picks, list):
+        return result
+    redacted = dict(result)
+    redacted["picks"] = [
+        {k: v for k, v in pick.items() if k not in _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS}
+        if isinstance(pick, dict)
+        else pick
+        for pick in picks
+    ]
+    redacted["rookieBoardRedacted"] = True
+    return redacted
+
+
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
@@ -8083,10 +8177,16 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # misses (the /draft triple-fetch) coalesce onto one build, which
     # itself runs in the threadpool — never on the loop.
     now = time.time()
+    # The cache stores the FULL payload, including the proprietary rookie
+    # board.  Redaction is applied per-response, on a copy, so an
+    # anonymous request can never strip the fields from the cached object
+    # that the authenticated /draft page reads next.
+    viewer_is_authed = _is_authenticated(request)
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
+        cached = cache_slot[1]
         return JSONResponse(
-            content=cache_slot[1],
+            content=cached if viewer_is_authed else _redact_draft_capital_for_public(cached),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
 
@@ -8135,7 +8235,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                     result["leagueKey"] = league_cfg.key
                     _DRAFT_CAPITAL_CACHE[league_cfg.key] = (time.time(), result)
         return JSONResponse(
-            content=result,
+            content=result if viewer_is_authed else _redact_draft_capital_for_public(result),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
     except Exception as e:
@@ -9451,6 +9551,13 @@ async def auth_status(request: Request):
             "sleeperUserId": session.get("sleeper_user_id") or None,
             "avatar": session.get("avatar") or None,
             "authMethod": session.get("auth_method") or "password",
+            # Lets the shell hide operator surfaces (/admin, /tools/*)
+            # from users who would only get a 403 from them.  This is a
+            # UI affordance, NOT the access control: every admin
+            # endpoint still runs _require_admin_session independently,
+            # so a client that lies to itself about this flag gains
+            # nothing.
+            "isAdmin": str(session.get("username") or "").lower() in PRIVATE_APP_ALLOWED_USERNAMES,
         }
     )
 
@@ -10562,6 +10669,13 @@ async def post_test_create_session(request: Request):
         Bearer <secret>`` header
 
     In prod neither var is set, so this endpoint is invisible.
+
+    ``E2E_TEST_USERNAME`` is a THIRD requirement, and it fails
+    closed: there is no default.  An earlier revision fell back to
+    the operator's real username, so enabling E2E mode without
+    naming a test user minted a session for a real (allowlisted,
+    admin-capable) account.  The identity a test session assumes
+    must be stated explicitly, never inherited.
     """
     mode_raw = os.getenv("E2E_TEST_MODE", "").strip().lower()
     if mode_raw not in ("1", "true", "yes", "on"):
@@ -10571,7 +10685,26 @@ async def post_test_create_session(request: Request):
     provided = auth[len("Bearer ") :].strip() if auth.lower().startswith("bearer ") else ""
     if not expected or provided != expected:
         return JSONResponse(status_code=404, content={"error": "not_found"})
-    username = (os.getenv("E2E_TEST_USERNAME") or "jasonleetucker").strip().lower()
+    # Misconfiguration, reported only to a caller that already proved
+    # it holds the secret — so the message can be actionable without
+    # leaking the endpoint's existence to anyone else.
+    username = (os.getenv("E2E_TEST_USERNAME") or "").strip().lower()
+    if not username:
+        log.error(
+            "/api/test/create-session refused: E2E_TEST_MODE is on but "
+            "E2E_TEST_USERNAME is unset — refusing rather than defaulting "
+            "to a real account."
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "e2e_username_not_configured",
+                "message": (
+                    "E2E_TEST_USERNAME must be set to the throwaway username "
+                    "test sessions should assume.  There is no default."
+                ),
+            },
+        )
     session_id = _create_auth_session(
         username=username,
         sleeper_user_id=os.getenv("E2E_TEST_SLEEPER_USER_ID", "").strip() or None,
@@ -11786,7 +11919,23 @@ async def serve_finder(request: Request):
 
 @app.get("/trades", response_class=HTMLResponse)
 async def serve_trades(request: Request):
-    # Public page — no auth required
+    """Analyzed trade history — PRIVATE.
+
+    This was marked "public page, no auth required" in three places
+    (here, the app shell's PUBLIC_ROUTES, and robots.txt) while the page
+    itself renders per-side trade grades, cumulative net value and
+    manager tendencies computed from the private ``/api/data``
+    contract.  So it was simultaneously a broken empty page for
+    anonymous visitors (the data 401s) and a competitive-intelligence
+    surface advertised as public.
+
+    The public league hub has its own community-facing Trades tab
+    (/league?tab=activity), fed by the public pipeline, so gating this
+    route removes nothing from the public surface.
+    """
+    redirect = _require_auth_or_redirect(request, "/trades")
+    if redirect is not None:
+        return redirect
     return await _serve_app_shell("/trades")
 
 
@@ -11798,10 +11947,23 @@ async def serve_rosters(request: Request):
     return await _serve_app_shell("/rosters")
 
 
-@app.get("/draft-capital", response_class=HTMLResponse)
+@app.get("/draft-capital")
 async def serve_draft_capital(request: Request):
-    # Public page — no auth required
-    return await _serve_app_shell("/draft-capital")
+    """Legacy public route — permanently moved under /league.
+
+    Emit a real redirect rather than proxying.  ``_proxy_next`` uses
+    ``urllib`` with default redirect-following, so once the Next side
+    became a routing-layer 308 (frontend/next.config.mjs) this handler
+    would have chased it server-side and returned /league's HTML under
+    the /draft-capital URL — the address bar would lie and Next would
+    hydrate a /league flight payload at a mismatched pathname.  It also
+    blocked the event loop for the whole multi-second /league SSR.
+
+    Production never reaches this handler (nginx routes ``location /``
+    straight to the Next upstream); it is the dev / direct-to-backend
+    path, and it should behave the same way there.
+    """
+    return RedirectResponse(url="/league?tab=draft-capital", status_code=308)
 
 
 @app.get("/more", response_class=HTMLResponse)

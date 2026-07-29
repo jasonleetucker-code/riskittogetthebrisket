@@ -948,6 +948,21 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             >
               {onWatchlist ? "Watching" : "Watch"}
             </Button>
+            {/* The comparison page is URL-driven (?p1=&p2=) but nothing
+                in the product linked to it — it was reachable only from
+                the command palette, so you had to already know it
+                existed.  The popup is where someone is already looking
+                at one player and wondering how he stacks up. */}
+            <Button
+              as={Link}
+              href={`/players/compare?p1=${encodeURIComponent(row.name)}`}
+              size="sm"
+              variant="ghost"
+              onClick={() => onClose?.()}
+              aria-label={`Compare ${row.name} with another player`}
+            >
+              Compare
+            </Button>
             {onAddToTrade && (
               <Button
                 size="sm"

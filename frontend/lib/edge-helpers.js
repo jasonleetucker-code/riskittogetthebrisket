@@ -210,8 +210,82 @@ export const LENSES = [
 /**
  * Look up a lens by key.
  */
+/**
+ * SCREENS — the five saved questions that used to be their own page.
+ *
+ * /finder was a board filter with five presets, rendered on a second
+ * copy of the rankings table.  It computed nothing the board could not
+ * express: every workflow is a lens plus a position/class pre-filter.
+ * But the thresholds are NOT the same as the lenses above (WR Gaps
+ * cuts at spread > 15 and rank <= 250; Disagreements cuts at
+ * ${LENS_DISAGREEMENT_SPREAD}), so mapping the old page onto existing
+ * lenses would have silently changed what each preset returned.
+ *
+ * They are carried over verbatim instead, and now run on the real
+ * board — which means they inherit the source columns, tier
+ * segmenting, export and player popup the standalone page never had.
+ *
+ * Kept separate from LENSES because they render differently: lenses
+ * are the tab row ("how do I want to read the whole board"), screens
+ * are a dropdown ("show me this specific question").  Ten tabs would
+ * just be the old clutter in a new place.
+ */
+export const SCREENS = [
+  {
+    key: "wr-gaps",
+    label: "WR Gaps",
+    description:
+      "Wide receivers where ranking sources disagree most — buy-low or sell-high depending on which market you trust.",
+    filter: (r) =>
+      r.pos === "WR" &&
+      (r.sourceRankSpread ?? 0) > 15 &&
+      (r.rank ?? Infinity) <= 250 &&
+      !r.quarantined,
+    sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
+  },
+  {
+    key: "stable-idp",
+    label: "Stable IDP",
+    description:
+      "IDP players with high confidence and tight multi-source agreement — the safest IDP trade targets.",
+    filter: (r) =>
+      r.assetClass === "idp" &&
+      r.confidenceBucket === "high" &&
+      (r.sourceCount ?? 0) >= 2 &&
+      !r.quarantined,
+    sort: (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity),
+  },
+  {
+    key: "single-risk",
+    label: "1-Source Risk",
+    description:
+      "Players valued from only one ranking source — value could shift sharply if another source disagrees.",
+    filter: (r) => r.isSingleSource && (r.rank ?? Infinity) <= 300,
+    sort: (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity),
+  },
+  {
+    key: "rookie-spread",
+    label: "Rookie Spread",
+    description:
+      "Rookies where sources disagree — upside signal if one market sees value the other doesn't.",
+    filter: (r) =>
+      r.rookie &&
+      (r.sourceRankSpread ?? 0) > 10 &&
+      (r.rank ?? Infinity) <= 400 &&
+      !r.quarantined,
+    sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
+  },
+];
+
+/** Every view key the board can be put into — lenses plus screens. */
+const ALL_VIEWS = [...LENSES, ...SCREENS];
+
+export function isScreen(key) {
+  return SCREENS.some((s) => s.key === key);
+}
+
 export function getLens(key) {
-  return LENSES.find((l) => l.key === key) || LENSES[0];
+  return ALL_VIEWS.find((l) => l.key === key) || LENSES[0];
 }
 
 /**

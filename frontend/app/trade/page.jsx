@@ -48,6 +48,8 @@ import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanatio
 import {
   Banner,
   Button,
+  CollapsiblePanel,
+  InfoTip,
   Panel,
   PageHeader,
   SegmentedControl,
@@ -59,6 +61,7 @@ import {
   MobileQuickAddBar,
   PickTeamSelectors,
   ProactiveSuggestionsRail,
+  SuggestionsRailPlaceholder,
   SideCard,
   SimulationPanel,
   SuggestionsDesk,
@@ -119,6 +122,18 @@ export default function TradePage() {
   const [suggestions, setSuggestions] = useState(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(null);
+  // True from the moment we KNOW a proactive-suggestions fetch is
+  // coming until it resolves.  Distinct from ``suggestionsLoading``,
+  // which only flips inside ``fetchSuggestions`` — i.e. AFTER the 500ms
+  // debounce below.  The rail's reserved slot has to cover that
+  // debounce window too, otherwise the page renders without it and the
+  // rail still lands late (the 229px shove this exists to prevent).
+  // Defaults TRUE: effects run AFTER the commit, so initialising this
+  // false meant the first !loading paint had no reserved slot and the
+  // placeholder itself became the shift.  Starting reserved and letting
+  // the effect clear it (roster < 3, error, league mismatch) is the
+  // only ordering with no un-reserved frame.
+  const [suggestionsPending, setSuggestionsPending] = useState(true);
   const [suggestionTab, setSuggestionTab] = useState("sellHigh");
 
   // Sleeper team selection state
@@ -1388,15 +1403,20 @@ export default function TradePage() {
     };
     if (loading || error || leagueMismatch) {
       cancelPending();
+      setSuggestionsPending(false);
       return;
     }
     if (!rows || rows.length === 0) {
       cancelPending();
+      setSuggestionsPending(false);
       return;
     }
     const roster = parseRoster();
     if (roster.length < 3) {
       cancelPending();
+      // Fewer than 3 rostered players: no fetch will happen, so no
+      // slot is reserved and the rail simply never appears.
+      setSuggestionsPending(false);
       return;
     }
     const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
@@ -1410,6 +1430,7 @@ export default function TradePage() {
     // hit "Get Suggestions."
     setSuggestions(null);
     setSuggestionsError(null);
+    setSuggestionsPending(true);
     if (proactiveFetchRef.current.timer) {
       clearTimeout(proactiveFetchRef.current.timer);
     }
@@ -1440,6 +1461,7 @@ export default function TradePage() {
     const roster = parseRoster();
     if (roster.length < 3) {
       setSuggestionsError("Enter at least 3 player names to get suggestions.");
+      setSuggestionsPending(false);
       return;
     }
     setSuggestionsLoading(true);
@@ -1477,6 +1499,7 @@ export default function TradePage() {
       setSuggestionsError("Could not reach suggestion service.");
     } finally {
       setSuggestionsLoading(false);
+      setSuggestionsPending(false);
     }
   }
 
@@ -1561,8 +1584,8 @@ export default function TradePage() {
   return (
     <main className={`main-shell ${styles.page} trade-page`}>
       <PageHeader
-        eyebrow="Terminal"
-        title="Trade Builder"
+        eyebrow="Trades"
+        title="Trade Calculator"
         description="Multi-team trade calculator with live fairness visualization."
         actions={
           <SegmentedControl
@@ -1596,16 +1619,29 @@ export default function TradePage() {
           overlay object of its own. */}
       {valuationBasisOf(rawData) === "leagueAdjusted" ? (
         <Banner tone="info" title="Valued on your league's board">
-          Values and ranks are adjusted for positional scarcity measured from
-          this league&apos;s 12 rosters. Draft picks carry no scarcity
-          measurement, so they stay at market value while players move around
-          them.
+          Picks stay at market value.
+          <InfoTip label="your league&apos;s board">
+            <p>
+              Values and ranks are adjusted for positional scarcity measured
+              from this league&apos;s rosters.
+            </p>
+            <p>
+              Draft picks carry no scarcity measurement, so they hold their
+              market value while players move around them — which means a
+              player-for-pick trade reads differently here than on the market
+              board.
+            </p>
+          </InfoTip>
         </Banner>
       ) : null}
 
       {loading ? (
+        // 4 rows ~= 213px, the measured height of the suggestions rail
+        // that occupies this same slot once loading completes.  At 6
+        // rows it was 258px, so the loading -> content transition moved
+        // everything below it up 45px.
         <Panel flush>
-          <SkeletonTable rows={6} columns={4} />
+          <SkeletonTable rows={4} columns={4} />
         </Panel>
       ) : null}
       {loading ? (
@@ -1640,10 +1676,14 @@ export default function TradePage() {
         />
       ) : null}
 
-      {!loading &&
-      !error &&
-      !leagueMismatch &&
-      suggestions?.totalSuggestions > 0 ? (
+      {/* Three-state slot, same pattern as the dashboard's
+          TopSignalsRail: RESERVE while the suggestions fetch is
+          pending, RENDER once it lands, COLLAPSE if it resolves empty.
+          The rail arrives ~500ms (debounce) + one round-trip after the
+          rest of the page renders, so absence-then-presence inserted
+          213px + a 16px stack gap ABOVE the trade controls and meter,
+          shoving them down 229px — 79% of /trade's 0.139 CLS. */}
+      {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
         <ProactiveSuggestionsRail
           suggestions={suggestions}
           onApply={(s) => {
@@ -1651,6 +1691,8 @@ export default function TradePage() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
+      ) : !loading && !error && !leagueMismatch && suggestionsPending ? (
+        <SuggestionsRailPlaceholder />
       ) : null}
 
       {!loading && !error ? (
@@ -1773,69 +1815,13 @@ export default function TradePage() {
             />
           ) : null}
 
-          {/* Fairness verdict + the explanations behind it. */}
-          <TradeMeter
-            sides={sides}
-            sideTotals={sideTotals}
-            flows={sideFlows}
-            valueMode={valueMode}
-            settings={settings}
-          />
-
-          {/* Stack-effect transparency — never a silent verdict shift. */}
-          {stackContext &&
-          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
-            <p
-              className={styles.controlsNote}
-              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
-            >
-              Draft-capital stack effect —{" "}
-              {sideTotals
-                .map((t, i) => {
-                  const v = Math.round(t?.stackAdjustment || 0);
-                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
-                })
-                .join(" · ")}
-            </p>
-          ) : null}
-
-          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
-          <TradeSourceBreakdown
-            sides={sides}
-            settings={settings}
-            valueMode={valueMode}
-          />
-          <RosTradeFitPanel sides={sides} settings={settings} />
-          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
-
-          {sides.length === 2 ? (
-            <Panel>
-              <TradeDeltaHistogram
-                sides={[
-                  {
-                    label: `Side ${sides[0]?.label || "A"}`,
-                    total: sideTotals[0]?.adjusted || 0,
-                  },
-                  {
-                    label: `Side ${sides[1]?.label || "B"}`,
-                    total: sideTotals[1]?.adjusted || 0,
-                  },
-                ]}
-              />
-            </Panel>
-          ) : null}
-
-          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
-              already makes flow obvious for a 1-on-1 deal. */}
-          {sides.length >= 3 ? (
-            <MultiTradeFlow
-              sides={sides}
-              sideFlowAssets={sideFlowAssets}
-              valueMode={valueMode}
-              settings={settings}
-            />
-          ) : null}
-
+          {/* ── BUILD ────────────────────────────────────────────
+              The side cards are where a trade is actually assembled,
+              and they used to sit BELOW the verdict and six analysis
+              panels — you scrolled past every answer to reach the
+              question.  They lead now; the verdict follows as you fill
+              them, and the sticky tray keeps it on screen while you
+              edit. */}
           <div
             className={styles.sidesGrid}
             data-sides={String(Math.min(4, sides.length))}
@@ -1896,6 +1882,93 @@ export default function TradePage() {
               />
             ))}
           </div>
+
+
+          {/* ── VERDICT ──────────────────────────────────────────
+              The answer, and the one number this page exists to
+              produce. */}
+          {/* Fairness verdict + the explanations behind it. */}
+          <TradeMeter
+            sides={sides}
+            sideTotals={sideTotals}
+            flows={sideFlows}
+            valueMode={valueMode}
+            settings={settings}
+          />
+
+          {/* Stack-effect transparency — never a silent verdict shift. */}
+          {stackContext &&
+          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
+            <p
+              className={styles.controlsNote}
+              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+            >
+              Draft-capital stack effect —{" "}
+              {sideTotals
+                .map((t, i) => {
+                  const v = Math.round(t?.stackAdjustment || 0);
+                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
+                })
+                .join(" · ")}
+            </p>
+          ) : null}
+
+
+          {/* The plain-English reading of the meter above — it explains
+              the verdict, so it belongs with it rather than folded away
+              among the alternative-currency second opinions. */}
+          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
+
+          {/* ── SECOND OPINIONS ──────────────────────────────────
+              Panels that each re-answer "is this fair?" in a different
+              currency: per-vendor breakdown, rest-of-season fit, BDVM
+              fundamentals, and the value-delta chart.  Each
+              is worth having and none is the verdict, so they fold
+              away by default instead of pushing the builder off
+              screen.  Collapsed state is per-panel, so opening the one
+              you rely on sticks for the session. */}
+          <CollapsiblePanel
+            title="Second opinions"
+            subtitle="Per-source breakdown, rest-of-season fit, fundamentals and the value split"
+            defaultCollapsed
+          >
+          <TradeSourceBreakdown
+            sides={sides}
+            settings={settings}
+            valueMode={valueMode}
+          />
+          <RosTradeFitPanel sides={sides} settings={settings} />
+          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
+
+          {sides.length === 2 ? (
+            <Panel>
+              <TradeDeltaHistogram
+                sides={[
+                  {
+                    label: `Side ${sides[0]?.label || "A"}`,
+                    total: sideTotals[0]?.adjusted || 0,
+                  },
+                  {
+                    label: `Side ${sides[1]?.label || "B"}`,
+                    total: sideTotals[1]?.adjusted || 0,
+                  },
+                ]}
+              />
+            </Panel>
+          ) : null}
+
+          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
+              already makes flow obvious for a 1-on-1 deal. */}
+          {sides.length >= 3 ? (
+            <MultiTradeFlow
+              sides={sides}
+              sideFlowAssets={sideFlowAssets}
+              valueMode={valueMode}
+              settings={settings}
+            />
+          ) : null}
+
+          </CollapsiblePanel>
 
           <SuggestionsDesk
             sleeperTeams={sleeperTeams}

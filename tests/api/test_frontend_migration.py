@@ -204,7 +204,16 @@ class TestIdpRankings(unittest.TestCase):
 
 
 class TestEdgeAndFinderRoutes(unittest.TestCase):
-    """Server must have auth-gated routes for Edge and Finder pages."""
+    """Server must have auth-gated routes for Edge and Finder pages.
+
+    2026-07-29: the Finder page merged into /rankings.  It was a second
+    copy of the rankings table wearing five saved filters, computing
+    nothing the board could not express — so the presets moved onto the
+    board as ``SCREENS`` (carried over verbatim; their thresholds differ
+    from the board lenses) and /finder became a redirect shim.  The
+    route must keep resolving so saved links do not 404; what changed is
+    where the filtering lives.
+    """
 
     def test_server_has_edge_route(self):
         server_py = REPO_ROOT / "server.py"
@@ -225,23 +234,39 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
         self.assertIn("useDynastyData", text)
         self.assertIn("edge-helpers", text)
 
-    def test_finder_page_exists(self):
+    def test_finder_route_still_resolves_to_the_board(self):
         page = REPO_ROOT / "frontend" / "app" / "finder" / "page.jsx"
-        self.assertTrue(page.exists())
+        self.assertTrue(page.exists(), "/finder is gone — saved links now 404")
         text = page.read_text()
-        self.assertIn("useDynastyData", text)
-        self.assertIn("WORKFLOWS", text)
+        self.assertIn("/rankings", text)
+        # Every workflow key keeps a mapping, so a bookmarked preset
+        # lands on that preset rather than the default board.
+        for workflow in ("wr-gaps", "stable-idp", "single-risk", "rookie-spread"):
+            self.assertIn(workflow, text)
 
-    def test_nav_includes_edge_and_finder(self):
+    def test_the_screener_lives_on_the_board(self):
+        helpers = REPO_ROOT / "frontend" / "lib" / "edge-helpers.js"
+        text = helpers.read_text()
+        self.assertIn("export const SCREENS", text)
+        for workflow in ("wr-gaps", "stable-idp", "single-risk", "rookie-spread"):
+            self.assertIn(workflow, text)
+
+    def test_nav_includes_edge(self):
         # R1 moved the navigation IA out of AppShellWrapper.jsx into the
         # pure-data model in frontend/lib/nav-model.js — every nav
         # surface (top bar, mobile drawer, /more site map, command
         # palette) renders from it, so it is the source of truth for
         # "is a route in the nav".
+        #
+        # /finder is deliberately NOT here any more: it is a redirect
+        # shim, and a nav entry pointing at a redirect is a rung with
+        # nothing on it.  Its vocabulary ("screener", "signal blotter")
+        # lives on the /rankings entry's keywords so search still finds
+        # it.
         nav_model = REPO_ROOT / "frontend" / "lib" / "nav-model.js"
         text = nav_model.read_text()
         self.assertIn('"/edge"', text)
-        self.assertIn('"/finder"', text)
+        self.assertIn("screener", text)
 
 
 class TestDeployFrontendRestart(unittest.TestCase):

@@ -29,6 +29,8 @@ export {
   confidenceBucket,
 } from "./Badge";
 export { Tooltip } from "./Tooltip";
+export { InfoTip, HelpModal } from "./Help";
+export { PlayerNameButton } from "./PlayerNameButton";
 export { Modal, Drawer } from "./Dialog";
 export {
   Skeleton,

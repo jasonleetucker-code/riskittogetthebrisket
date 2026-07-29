@@ -28,6 +28,16 @@ amount of work in flight that it could not see. Treat every status below as a
 claim about a `main` that no longer exists, and check the PR column before
 picking anything up.
 
+> **2026-07-29 audit:** two entries were not merely stale but actively
+> misleading, and have been corrected in place (struck through, with the
+> evidence): **§1.1**, which called itself "the highest risk item in this
+> file" on the grounds that `/api/valuation/league-adjusted` had zero HTTP
+> tests (it has 22), and **§2.1**, which said the TE basis conversion was
+> not wired (it shipped 2026-07-27 and defaults on). A backlog that
+> misreports risk is worse than no backlog: anyone triaging this file
+> would have started with a non-problem. The remaining entries were not
+> re-verified one by one — treat them with the same suspicion.
+
 | item below | status here | actually |
 |---|---|---|
 | §1.1 endpoint has zero tests | NOT STARTED · *highest risk* | **#591** — 17 tests, incl. the 400/503/404 routing contract and in-place-mutation guard |
@@ -69,17 +79,17 @@ reading and what displaced it both stay legible.
 The toggle **works** and is merged (#586). It defaults to `market`, so nothing
 changed for you until you flip it. These are the gaps.
 
-### 1.1 Endpoint has zero tests — NOT STARTED · **highest risk item in this file**
+### 1.1 Endpoint has zero tests — ~~NOT STARTED~~ **DONE — this entry was false**
 
-`GET /api/valuation/league-adjusted` is live on `main` with **no test coverage of the
-HTTP path at all**. The payload builder (`build_league_adjusted_payload`) is well
-covered — 23 tests — but the route itself, its auth gating, its league-mismatch 503,
-and the Next.js dev proxy shim at `frontend/app/api/valuation/league-adjusted/route.js`
-are entirely unexercised. Verified by grep: zero test files reference the path or
-`get_league_adjusted_values`.
-
-**Why it matters:** this is the endpoint the toggle depends on. A regression in the
-route (not the builder) ships silently.
+> **CORRECTED 2026-07-29 audit.** This item claimed
+> `GET /api/valuation/league-adjusted` had "no test coverage of the HTTP
+> path at all" and called itself "the highest risk item in this file".
+> That is not true and appears to have been stale when written:
+> `tests/api/test_league_adjusted_endpoint.py` exists with **22 test
+> functions** covering the route, and `tests/api/test_valuation_mode_threading.py`
+> plus `tests/api/test_overrides_response_cache.py` also exercise the
+> path. Nothing to do. Kept (struck through) rather than deleted so the
+> correction is visible to anyone who read the old claim.
 
 ### 1.2 Hydration flash — NOT STARTED
 
@@ -176,12 +186,22 @@ with bytes/gzip/etag caches. Pure performance — no correctness impact.
 
 ## 2. TE premium — BUILT, NOT WIRED
 
-### 2.1 The TE basis wiring — BUILT, NOT WIRED · **now unblocked**
+### 2.1 The TE basis wiring — ~~BUILT, NOT WIRED~~ **SHIPPED 2026-07-27**
 
-`src/league_intel/te_premium.py`, `config/weights/te_premium_curve.json` and
-`scripts/audit/fit_ktc_tep_curve.py` are merged (#585), tested, and **deliberately not
-connected to `_compute_unified_rankings`**. The live path still uses the flat
-`_TE_BLANKET_NON_NATIVE_MULTIPLIER = 1.15`.
+> **CORRECTED 2026-07-29 audit.** This entry says the conversion is
+> "deliberately not connected to `_compute_unified_rankings`" and that
+> "the live path still uses the flat
+> `_TE_BLANKET_NON_NATIVE_MULTIPLIER = 1.15`". Both are false as of
+> 2026-07-27: the `te_basis_conversion` feature flag defaults **True**
+> (`src/api/feature_flags.py:141`, classified LIVE), and
+> `_compute_unified_rankings` calls `convert_te_value` in Phase 2a
+> (`data_contract.py:6456-6467` resolves it, Phase 2a applies it). See
+> ADR-015 in `docs/league-intelligence/DECISIONS.md`, CLAUDE.md step 5a,
+> and `tests/api/test_te_basis_conversion.py`. The flat 1.15 survives
+> only as the rollback path when the flag is off.
+>
+> The analysis below remains accurate as the RATIONALE for the change
+> that shipped; only its status is wrong.
 
 **The finding:** 1.15 sits **below the entire observed range** (1.209–2.053) of KTC's
 measured TE++ uplift. It **under-corrects every tight end**. Wiring it moves TE values

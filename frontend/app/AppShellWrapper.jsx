@@ -28,20 +28,22 @@ import ScreenshotFab from "@/components/ScreenshotFab";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import TopBar from "@/components/shell/TopBar";
 import { MobileTopBar, MobileTabBar } from "@/components/shell/MobileChrome";
+import { isPublicPath } from "@/lib/public-routes";
 
-// Routes that do NOT require auth (public pages).  /league is backed
-// by the isolated public pipeline in src/public_league/ and fetches
-// only from /api/public/league — it never reads the private /api/data
-// contract.  (Unchanged from the pre-R1 shell.)
-const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital", "/trades", "/league"]);
-
+// Which destinations a logged-out visitor sees in the nav.  The
+// definition is shared with middleware.js and robots.js — see
+// lib/public-routes.js for why it stopped living here as a local
+// exact-match Set (`/league/activity` is public but was being hidden,
+// and `/trades` was listed public while rendering private trade
+// grades).
 function isPublicRoute(href) {
-  return PUBLIC_ROUTES.has(href);
+  return isPublicPath(href);
 }
 
 // ── Auth context ─────────────────────────────────────────────────────────
 const AuthContext = createContext({
   authenticated: null,
+  isAdmin: false,
   checking: true,
   logout: () => {},
 });
@@ -69,7 +71,7 @@ function RouteFocusManager({ mainRef }) {
 }
 
 function ShellChrome({ children }) {
-  const { authenticated, logout } = useAuthContext();
+  const { authenticated, isAdmin, logout } = useAuthContext();
   const mainRef = useRef(null);
 
   // openSearch comes from AppShell's context — ShellChrome renders
@@ -83,6 +85,7 @@ function ShellChrome({ children }) {
           </a>
           <TopBar
             authenticated={authenticated}
+            isAdmin={isAdmin}
             isPublic={isPublicRoute}
             onSearch={openSearch}
             onLogout={logout}
@@ -100,6 +103,7 @@ function ShellChrome({ children }) {
           </main>
           <MobileTabBar
             authenticated={authenticated}
+            isAdmin={isAdmin}
             isPublic={isPublicRoute}
             onLogout={logout}
           />
