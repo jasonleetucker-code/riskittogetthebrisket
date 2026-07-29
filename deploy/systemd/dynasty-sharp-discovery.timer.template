@@ -1,0 +1,28 @@
+[Unit]
+Description=Daily Sharp Tracker manager-discovery crawl for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already
+# binds it, and a [Unit] Requires= would (a) start the service on every
+# boot regardless of OnCalendar and (b) let a service failure stop the
+# timer itself, killing the schedule.  Persistent=true below is the
+# intended catch-up mechanism for missed runs.
+
+[Timer]
+# Daily, 04:20 UTC.  Cadence rationale: the graph COMPOUNDS — each run
+# resumes the frontier the previous one left, so daily runs at a modest
+# per-run budget reach a large cohort faster and far more politely than
+# one enormous weekly crawl.  A measured run covered 356 managers and
+# 836 leagues in 200 calls, so a daily budget keeps growth steady while
+# staying an order of magnitude under Sleeper's rate ceiling.
+#
+# Slot rationale: 04:20 sits in the quiet window after the overnight
+# data refresh cycles and well before the 09:10 intel refresh, so the
+# two Sleeper consumers never overlap.  The randomized delay keeps us
+# off Sleeper's API on the same second every day.
+OnCalendar=*-*-* 04:20:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-discovery.service
+
+[Install]
+WantedBy=timers.target

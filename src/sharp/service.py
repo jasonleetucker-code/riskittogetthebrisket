@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.intel import ledger
+from src.sharp import discovery
 from src.sharp import score as sharp_score
 
 log = logging.getLogger(__name__)
@@ -58,13 +59,22 @@ def cohort_status() -> dict[str, Any]:
         log.exception("sharp: ledger coverage failed")
         coverage = {}
 
+    # Graph stats are the honest "observable" tier: every manager the
+    # discovery spiderweb has reached, which is strictly larger than the
+    # set with transactions in the ledger.
+    try:
+        graph = discovery.graph_stats()
+    except Exception:  # noqa: BLE001 — status must not 500
+        log.exception("sharp: graph stats failed")
+        graph = {}
+
     records = load_manager_records()
     scored = sharp_score.score_managers(records) if records else []
     tiers = (
         sharp_score.cohort_tiers(scored)
         if scored
         else {
-            "observableManagers": coverage.get("managerCount", 0),
+            "observableManagers": graph.get("observedUsers", coverage.get("managerCount", 0)),
             "evaluableManagers": 0,
             "qualifiedManagers": 0,
             "uncertainManagers": 0,
@@ -78,9 +88,16 @@ def cohort_status() -> dict[str, Any]:
         "generatedAt": _utc_now_iso(),
         "cohort": {
             **tiers,
-            "observedLeagues": coverage.get("leagueCount", 0),
+            "observedLeagues": graph.get("observedLeagues", coverage.get("leagueCount", 0)),
+            # Signal-eligible is reported separately from observed:
+            # redraft and best-ball leagues are traversed for the
+            # managers they introduce but never counted in the dynasty
+            # signal, so the two numbers legitimately differ.
+            "signalEligibleLeagues": graph.get("signalEligibleLeagues", 0),
+            "discoveryOnlyLeagues": graph.get("discoveryOnlyLeagues", 0),
             "observedTransactions": coverage.get("transactionCount", 0),
         },
+        "graph": graph,
         "coverage": coverage,
         "note": (
             "Sleeper publishes no global directory of users or leagues, so this "
