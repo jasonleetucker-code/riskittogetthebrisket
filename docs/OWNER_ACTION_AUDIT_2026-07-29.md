@@ -1,5 +1,39 @@
 # Manual-Action Audit
 
+> ## ⚠ Status update — 2026-07-29, later the same day
+>
+> The owner chose to **keep the repository public** (Decision D-1, option c),
+> made with the exposure understood. Every "make it private" instruction below
+> is superseded; treat OA-01 as **decided and closed**, not pending.
+>
+> **OA-03 is DONE.** PR #625 merged at 11:12 UTC after its conflicts were
+> resolved (`Validate PR` green on the merge commit `1e3563bd`). The anonymous
+> `/api/draft-capital` leak and the 200-serving private pages are fixed as of
+> the deploy that followed. Re-verify with §4 Block 8.
+>
+> Also closed by that work: **AC-01** (conflict resolution), **AC-02**
+> (a conflicted PR gets no `pull_request` runs at all — GitHub cannot build a
+> merge ref, so "no checks" and "checks passed" look identical on the merge
+> page; branch protection is the mitigation), **AC-04, AC-05, AC-06, AC-08,
+> AC-09, AC-11, AC-12, AC-14**.
+>
+> **Still open:** OA-02 · OA-05 through OA-17 · AC-03 (E2E specs, deliberately
+> after the #625 deploy per D-6) · AC-07 (Jenkins — needs D-8) · AC-10 (KTC
+> ID→name map — needs a live KTC payload) · AC-13 (upload-artifact bump —
+> Dependabot will do it with a verified version).
+>
+> Two findings were added after this document was written:
+> - **FootballGuys is fully retired.** `scripts/fetch_footballguys.py` does not
+>   exist and it is not one of the 21 registry sources. You can delete the
+>   `FOOTBALLGUYS_EMAIL` / `FOOTBALLGUYS_PASSWORD` repo secrets, and you may be
+>   paying for a subscription nothing reads. This resolves the "Unknown" row in
+>   §6 and the FootballGuys row in §7.
+> - **A predictable 404 was poisoning a shared circuit breaker.** nflverse only
+>   publishes a season's assets once it starts, so every `*_2026.csv` 404s all
+>   preseason — and three datasets fetched together hit the breaker's exact
+>   threshold, opening it against the working 2025 URLs. Fixed. This replaces
+>   the milder AC-11 description in §7.
+
 **Repository:** `jasonleetucker-code/riskittogetthebrisket`
 **Audited:** 2026-07-29, against `main` @ `bbd7091` and live production `https://chaseupside.com`
 **Method:** repository inspection, GitHub API (branches, PRs, issues, workflow runs, job logs), live unauthenticated HTTP probes against production.
