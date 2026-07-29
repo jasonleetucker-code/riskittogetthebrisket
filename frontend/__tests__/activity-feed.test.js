@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildActivityEvents, filterEvents, familyOfPos } from "@/lib/activity-feed";
+import { familyOf as moversFamilyOf } from "@/lib/movers";
+import { POS_FAMILY } from "@/lib/position-family";
 
 const FAKE_TEAMS = [
   { ownerId: "ownA", rosterId: "1", name: "Team A", players: ["Caleb Williams", "Bo Nix"] },
@@ -109,5 +111,23 @@ describe("familyOfPos", () => {
   it("maps IDP variants", () => {
     expect(familyOfPos("EDGE")).toBe("DL");
     expect(familyOfPos("CB")).toBe("DB");
+  });
+
+  // Regression: the activity feed used to carry its own POS_FAMILY
+  // literal that omitted K and DEF, so kickers/defences bucketed as
+  // "OTHER" here while /trending bucketed them correctly.  Both now
+  // read lib/position-family.
+  it("buckets K and DEF, not OTHER", () => {
+    expect(familyOfPos("K")).toBe("K");
+    expect(familyOfPos("DEF")).toBe("DEF");
+  });
+
+  it("agrees with /trending's familyOf for every mapped position", () => {
+    for (const pos of Object.keys(POS_FAMILY)) {
+      expect(familyOfPos(pos)).toBe(moversFamilyOf(pos));
+    }
+    // …and on the unmapped fallback.
+    expect(familyOfPos("XYZ")).toBe(moversFamilyOf("XYZ"));
+    expect(familyOfPos("")).toBe(moversFamilyOf(""));
   });
 });

@@ -10,6 +10,11 @@
  * mover records back.  Callable in tests without a render layer.
  */
 import { computeWindowTrend, normalizePoints } from "@/lib/value-history";
+import { familyOf } from "@/lib/position-family";
+
+// Re-exported so existing ``@/lib/movers`` importers keep working; the
+// map itself lives in lib/position-family (shared with activity-feed).
+export { familyOf };
 
 export const WINDOW_OPTIONS = Object.freeze([
   { key: "1d", label: "1 day", days: 1 },
@@ -22,18 +27,6 @@ export const DIRECTION_OPTIONS = Object.freeze([
   { key: "gainers", label: "Gainers" },
   { key: "losers", label: "Losers" },
 ]);
-
-const POS_FAMILY = {
-  QB: "QB", RB: "RB", FB: "RB", WR: "WR", TE: "TE",
-  K: "K", DEF: "DEF",
-  DL: "DL", DT: "DL", DE: "DL", EDGE: "DL", NT: "DL",
-  LB: "LB", ILB: "LB", OLB: "LB", MLB: "LB",
-  DB: "DB", CB: "DB", S: "DB", FS: "DB", SS: "DB",
-};
-
-export function familyOf(pos) {
-  return POS_FAMILY[String(pos || "").toUpperCase()] || "OTHER";
-}
 
 /**
  * Compute mover records for every row.  ``windowDays`` decides which

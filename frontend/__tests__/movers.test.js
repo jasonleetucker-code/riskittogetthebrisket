@@ -35,6 +35,11 @@ describe("familyOf", () => {
     expect(familyOf("CB")).toBe("DB");
   });
 
+  it("maps K and DEF (shared map — see activity-feed parity test)", () => {
+    expect(familyOf("K")).toBe("K");
+    expect(familyOf("DEF")).toBe("DEF");
+  });
+
   it("returns OTHER for unknown positions", () => {
     expect(familyOf("XYZ")).toBe("OTHER");
     expect(familyOf("")).toBe("OTHER");
