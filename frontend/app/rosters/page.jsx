@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
   POS_GROUPS,
@@ -45,7 +46,7 @@ const ASSET_SCOPES = [
 ];
 
 export default function RostersPage() {
-  const { rows, rawData, loading, error } = useApp();
+  const { rows, rawData, loading, error, openPlayerPopup } = useApp();
   const { settings, update } = useSettings();
   const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
@@ -108,7 +109,7 @@ export default function RostersPage() {
   if (!sleeperTeams.length) {
     return (
       <div className="card">
-        <PageHeader title="Roster Dashboard" subtitle="Team strength rankings with position breakdowns." />
+        <PageHeader title="Team Strength" subtitle="Team strength rankings with position breakdowns." />
         <EmptyState title="No league data" message="Load dynasty data with a Sleeper league to see roster rankings." />
       </div>
     );
@@ -118,7 +119,7 @@ export default function RostersPage() {
     <section>
       <div className="card">
         <PageHeader
-          title="Roster Dashboard"
+          title="Team Strength"
           subtitle="Power rankings, position breakdowns, waiver wire, and trade targets."
           actions={
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -298,28 +299,44 @@ export default function RostersPage() {
           }));
         return (
           <div className="card" style={{ padding: "var(--space-md)" }}>
-            <h2 className="section-title">Age curves</h2>
-            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
-              Typical value by age for each position (median of the live board).
-              Dots are players on your roster.  Use it to spot roster-aging risk:
-              a cluster of RBs past the position's value peak is a flag to sell;
-              a cluster before the peak is a sign you're set up for the window.
-            </p>
+            <h2 className="section-title">
+              Age curves
+              <InfoTip label="age curves">
+                <p>
+                  Typical value by age for each position, taken as the median of
+                  the live board. Dots are players on your roster.
+                </p>
+                <p>
+                  Use it to spot aging risk: a cluster of RBs past the
+                  position&apos;s peak is a flag to sell; a cluster before it
+                  means you are set up for the window.
+                </p>
+              </InfoTip>
+            </h2>
             <AgeCurveOverlay boardRows={boardRows} rosterRows={rosterRows} />
           </div>
         );
       })()}
 
       {/* Trade Targets */}
-      {myTeam && <TradeTargetsCard myTeam={myTeam} teams={sortedTeams} groupAvg={groupAvg} />}
+      {myTeam && (
+        <TradeTargetsCard
+          myTeam={myTeam}
+          teams={sortedTeams}
+          groupAvg={groupAvg}
+          onPlayerClick={openPlayerPopup}
+        />
+      )}
 
       {/* Waiver Wire Gems */}
-      {waiverGems.length > 0 && <WaiverWireCard gems={waiverGems} />}
+      {waiverGems.length > 0 && (
+        <WaiverWireCard gems={waiverGems} onPlayerClick={openPlayerPopup} />
+      )}
     </section>
   );
 }
 
-function TradeTargetsCard({ myTeam, teams, groupAvg }) {
+function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
   const myTeamData = teams.find((t) => t.name === myTeam);
   if (!myTeamData) return null;
 
@@ -411,7 +428,11 @@ function TradeTargetsCard({ myTeam, teams, groupAvg }) {
                 <span style={{ color: POS_GROUP_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                   {t.pos}
                 </span>
-                <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+                <PlayerNameButton
+                  name={t.name}
+                  onOpen={onPlayerClick}
+                  style={{ flex: 1, fontWeight: 600 }}
+                />
                 <span style={{ fontFamily: "var(--mono)", width: 60, textAlign: "right" }}>{t.meta.toLocaleString()}</span>
                 <span style={{ fontSize: "0.64rem", color: "var(--subtext)", minWidth: 100 }}>
                   {t.teamName}
@@ -461,9 +482,14 @@ function TeamTiersCard({ tiers, myTeam }) {
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>Contender / Rebuilder Tiers</div>
-      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
-        Teams scored by starter quality (70%), roster depth (20%), and pick surplus penalty (-10%).
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
+        Contender / Rebuilder Tiers
+        <InfoTip label="contender and rebuilder tiers">
+          <p>
+            Teams are scored on starter quality (70%), roster depth (20%), and a
+            pick-surplus penalty (-10%).
+          </p>
+        </InfoTip>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
         {tiers.map((t) => {
@@ -509,9 +535,16 @@ function LeagueEdgeCard({ edges }) {
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>League Edge Map</div>
-      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
-        Market vs. model edge per team. Sell = market overvalues their players. Buy = market undervalues.
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
+        League Edge Map
+        <InfoTip label="the league edge map">
+          <p>Market price vs. our model, per team.</p>
+          <p>
+            <strong>Sell</strong> means the market overvalues their players —
+            they are who you sell to. <strong>Buy</strong> means the market
+            undervalues them.
+          </p>
+        </InfoTip>
       </div>
       {edges.map((t) => {
         const sellPct = Math.round((t.sellEdge / maxEdge) * 100);
@@ -581,7 +614,7 @@ function LeagueEdgeCard({ edges }) {
   );
 }
 
-function WaiverWireCard({ gems }) {
+function WaiverWireCard({ gems, onPlayerClick }) {
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
       <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>Waiver Wire Gems</div>
@@ -612,7 +645,11 @@ function WaiverWireCard({ gems }) {
             <span style={{ color: POS_GROUP_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
               {p.pos}
             </span>
-            <span style={{ fontWeight: 600 }}>{p.name}</span>
+            <PlayerNameButton
+              name={p.name}
+              onOpen={onPlayerClick}
+              style={{ fontWeight: 600 }}
+            />
             <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{p.value.toLocaleString()}</span>
           </div>
         ))}

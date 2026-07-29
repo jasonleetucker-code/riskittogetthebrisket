@@ -335,7 +335,7 @@ corrected instead.
 | # | item | severity | risk | scope | before new features? |
 |---|---|---|---|---|---|
 | D1 | **≈9 backend + 4 frontend name normalizers** | High | Silent join failures assign data to the wrong player or drop it | Large | Yes — pick one per side and migrate |
-| D2 | **`buildTopWaiverPool` keys ownership with trim+lowercase** | High | Sleeper-vs-contract punctuation drift can make a rostered player look unrostered **league-wide** | Medium | Yes |
+| ~~D2~~ | ~~`buildTopWaiverPool` keys ownership with trim+lowercase~~ **REFUTED — see below** | ~~High~~ none | premise measured false | none | No |
 | D3 | **Buy/Sell/Hold implemented twice** (`terminal.py` + `signal-engine.js`), same 9 rules, no parity test | High | The two surfaces can disagree about the same player | Medium | Yes — at minimum add a parity test |
 | D4 | FAAB math duplicated JS/Python; JS `Math.round` is half-up, Python `round` is banker's | Medium | Off-by-one bids on exact halves | Small | No |
 | D5 | Tier boundaries + confidence thresholds mirrored by hand, no parity test | Medium | Frontend and backend disagree on tiers after a change | Small | No |
@@ -348,6 +348,52 @@ corrected instead.
 | D12 | mypy configured, never run; ruff check changed-files-only | Low | Type debt accumulates unseen | Medium | No |
 | D13 | ~205 pytest cases are `livedata`-advisory (`continue-on-error`) | Medium | Includes the primary blend test | Small | Re-litigate per module |
 | D14 | ADR numbers collide across two DECISIONS files (two ADR-008s) | Low | Ambiguous citations | Small | No |
+
+### D2 was wrong — recorded so it is not re-raised
+
+**Addendum 2026-07-29, after this report shipped.** D2 was raised as a
+High-severity correctness bug. It is not a bug, and the follow-up round
+proved it by measurement rather than by re-reading the code.
+
+The *mechanism* is exactly as D2 described: `buildTopWaiverPool`
+(`waiver-logic.js:753-756`) and `buildCandidatePool` (`:322-327`) gate
+roster ownership with `normalizeName` (trim + lowercase) on both sides,
+and `src/trade/waiver.py::_normalize_name` is byte-identical.
+
+The *premise* — that Sleeper roster strings and contract row names drift
+on punctuation — is false by construction. `Dynasty Scraper.py:1210`
+runs every Sleeper roster name through `clean_name()` before it reaches
+the contract, and `_canonical_map` forces contract keys onto that same
+Sleeper-derived vocabulary. A join harness over three real payloads
+spanning four months measured it:
+
+| payload | rows | rostered | join misses | collisions |
+|---|---|---|---|---|
+| `exports/latest/dynasty_data_2026-07-29.json` | 1076 | 665 | **0** | 0 |
+| `data/legacy_data_2026-03-22.json` | 1163 | 566 | **0** | 0 |
+| `audit/baseline/api_data.json` | 1069 | 564 | **0** | 0 |
+
+Zero misses under `normalizeName`, `normalizeNameCompact` *and*
+`normalizePlayerNameKey`. No code was changed and no test was added: a
+test asserting a punctuation variant "now resolves as rostered" would
+pin a fictional invariant and falsely imply this class of bug had been
+found and fixed.
+
+**The real hardening target, if one is wanted**, is elsewhere and was
+found while disproving this: `src/api/sleeper_overlay.py::_resolve_player_label`
+(`:788-804`) prefers the contract's `idToPlayer` map but falls back to
+the raw Sleeper `full_name` with no `clean_name` applied — a foreign
+vocabulary leaking into `sleeper.teams[].players`, which every
+name-keyed consumer reads. Measured live exposure today: 1 of 666
+rostered playerIds misses `idToPlayer`, and that id has no contract row,
+so it currently hides nothing. One function, and it would harden
+`waiver-logic.js`, `waiver.py`, `angle.py`, `replacement.py` and
+`faab_contention.py` at once with no parity break.
+
+**Lesson for future audit rounds:** D2 was derived from reading code and
+reasoning about what *could* drift. The drift never occurs because an
+upstream stage normalizes it away — a fact invisible at the call site.
+Verify the premise, not just the mechanism.
 
 ---
 
@@ -485,19 +531,38 @@ pipeline.
 
 ## 13. Next-upgrade roadmap
 
+> **Status update 2026-07-29 (follow-up round).** Items 2, 3 and 5 below
+> have been actioned: **D3 done** (parity test shipped, two real
+> divergences fixed), **D2 refuted** (see the addendum in §8), **D1 done**
+> (three merges, three live defects fixed). The follow-up also surfaced
+> **three NEW items**, listed under "Must complete" — they are bigger
+> than the ones they replaced.
+
 **Must complete before major new features**
 1. **Rotate the admin password** if not already done since April (C6).
-2. **D3 — Buy/Sell/Hold parity test.** Two engines, nine rules, no
-   guarantee they agree. Cheapest high-value fix on this list.
-3. **D2 — waiver ownership keying.** A rostered player looking
-   unrostered league-wide is a correctness bug, not cosmetics.
+2. **N1 — `signal-engine.js` history lookup is broken.** It looks up
+   history by bare lowercased name while `/api/data/rank-history`
+   returns composite `"Name::assetClass"` keys, so the frontend engine
+   sees **zero history for every player** and every verdict collapses to
+   HOLD. The Signals panel and TopSignalsRail are inert today. The fix
+   is `buildHistoryLookup` from `value-history.js` (already used by three
+   other call sites), but it changes what those panels show for
+   essentially every user — it needs its own review, which is why the
+   parity round did not fold it in.
+3. **N2 — `low_conf_unstable` is dead server-side.** `terminal.py:764`
+   reads `row["confidence"]`; contracts stamp `marketConfidence`. The
+   rule has never fired in the alert path, and MONITOR is in
+   `ACTIONABLE_SIGNALS` — so fixing it naively would email every user at
+   once on the first sweep. It needs the silent baseline-seeding pass
+   that `bdvm_signal_alerts.py` already models.
 4. **Decide the `coverageWeight` question** (§3.1). It is now honestly
    labelled, but leaving a published formula unapplied indefinitely
    invites the next reader to "fix" it and move every value.
 
 **Highest-value next upgrades**
-5. **D1 — one name normalizer per side.** Depends on nothing; unblocks
-   trustworthy joins everywhere, including BDVM.
+5. **N3 — `sleeper_overlay._resolve_player_label` fallback.** The real
+   name-hygiene target that disproving D2 uncovered (see §8 addendum).
+   One function; hardens five consumers at once.
 6. **Legacy-curve decision** (§3.2) using the committed backtest.
    Depends on 4 only in the sense that both are curve-governance calls.
 7. **BDVM end-to-end validation** once a projection snapshot exists.

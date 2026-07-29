@@ -42,49 +42,21 @@ const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 // Positions that may never enter the ranked board or user-facing surfaces.
 const UNSUPPORTED = new Set(["OL", "OT", "OG", "C", "G", "T", "LS"]);
 
-// ── Canonical name join key ──────────────────────────────────────────
-// Mirrors normalize_player_name() in src/utils/name_clean.py.  Collapses
-// punctuation, diacritics, apostrophes, casing, generational suffixes
-// (Jr / Sr / II-VI), and adjacent single-letter initials so
-// "T.J. Watt", "TJ Watt", and "t.j. watt" all produce "tj watt".
-// Exported for any consumer (tests, manual enrichment, dev-tools) that
-// needs to reproduce the backend join semantics.
-const _SUFFIX_RE = /\b(jr|sr|ii|iii|iv|v|dr)\b\.?/gi;
-const _NON_ALNUM_RE = /[^a-z0-9]+/g;
-
-export function normalizePlayerName(name) {
-  if (name === null || name === undefined) return "";
-  // NFKD-style ASCII fold.
-  const folded = String(name)
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, " and ");
-  let s = folded.replace(_SUFFIX_RE, "");
-  s = s.replace(_NON_ALNUM_RE, " ").trim();
-  s = s.replace(/\s+/g, " ");
-  // Collapse adjacent single-letter initials so "t j watt" → "tj watt".
-  const parts = s.split(" ").filter(Boolean);
-  const collapsed = [];
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].length === 1 && /[a-z]/.test(parts[i])) {
-      let initials = parts[i];
-      while (
-        i + 1 < parts.length &&
-        parts[i + 1].length === 1 &&
-        /[a-z]/.test(parts[i + 1])
-      ) {
-        i += 1;
-        initials += parts[i];
-      }
-      collapsed.push(initials);
-    } else {
-      collapsed.push(parts[i]);
-    }
-  }
-  return collapsed.join(" ");
-}
+// ── Canonical name join key — NOT HERE ─────────────────────────────
+// This file used to export a `normalizePlayerName` that claimed to
+// mirror `normalize_player_name()` in `src/utils/name_clean.py`.  It
+// did not: it was missing the apostrophe rule, so "Ja'Marr Chase"
+// produced "ja marr chase" where the backend produces "jamarr chase".
+// It also had zero production callers — only its own test file
+// imported it — so nothing ever caught the drift.  Removed 2026-07-29.
+//
+// The real, VERIFIED JS mirror is
+// `frontend/lib/player-name-match.js::normalizePlayerNameKey`, pinned
+// against the Python function by the shared fixture
+// `tests/fixtures/name_key_cases.json` (halves:
+// `frontend/__tests__/name-key-parity.test.js` and
+// `tests/utils/test_name_key_parity.py`).  Import that one — do not
+// re-add a second implementation here.
 
 // IDP position priority. When a Sleeper player is multi-position
 // eligible (fantasy_positions array, slash-joined string like "DL/LB",

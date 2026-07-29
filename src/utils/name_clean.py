@@ -19,6 +19,75 @@ This module is the *single* source of truth for:
 The contract layer (``src/api/data_contract.py``) and the identity
 layer (``src/identity/matcher.py``) both import from here so the same
 rules apply to every join, audit, and collision check in the pipeline.
+
+Name-key families — the registry
+--------------------------------
+There is more than one name key in this repo, deliberately.  They are
+NOT interchangeable: a ``set`` built with one is never hit by another,
+and swapping one for another silently changes which rows collide.  This
+list is the single Python-side statement of which key is which.  Its
+JS counterpart is the header of ``frontend/lib/player-name-match.js``.
+
+1. STRICT / canonical — :func:`normalize_player_name` (this module).
+   ASCII fold, apostrophes dropped without a space, generational
+   suffixes stripped, remaining punctuation → space, adjacent initials
+   merged.  ``"T.J. Watt" → "tj watt"``, ``"Ja'Marr Chase" →
+   "jamarr chase"``, ``"Kenneth Walker III" → "kenneth walker"``.
+   Consumers: every cross-source join in the contract pipeline, the
+   identity matcher, BDVM (injected as ``name_normalizer``), the
+   scraper bridge adapter.
+   Cross-language pair: ``player-name-match.js::normalizePlayerNameKey``
+   is a byte-for-byte mirror, pinned by
+   ``tests/utils/test_name_key_parity.py`` +
+   ``frontend/__tests__/name-key-parity.test.js`` against the shared
+   fixture ``tests/fixtures/name_key_cases.json``.  **Move both or
+   neither.**
+   Ladder on top of it: :func:`resolve_canonical_name` adds the
+   :data:`CANONICAL_NAME_ALIASES` nickname table (a deliberate
+   SUPERSET — not a drop-in swap in the collision-key direction), and
+   :func:`canonical_player_key` adds the position group.
+
+2. COMPACT — :func:`compact_name_key` (this module).  Lowercase, keep
+   only alphanumerics, drop everything else including spaces.
+   ``"D.J. Moore" → "djmoore"``.  Does NOT strip generational
+   suffixes, so ``"Kenneth Walker III" → "kennethwalkeriii"``.
+   Consumers: ``src/adapters/ktc_crowd_faab`` (crowd FAAB bid map),
+   ``src/trade/faab_recommender::_ktc_crowd_blend`` (the lookup side of
+   that same map), ``src/roster_intel/roster_source`` (value index +
+   roster join).
+   NOT a cross-language pair.  ``waiver-logic.js::normalizeNameCompact``
+   looks identical but is not: Python's ``str.isalnum()`` is
+   Unicode-aware and keeps ``é``, while the JS ``[^a-z0-9]`` strip
+   removes it, so ``"Juanyéh Thomas"`` yields ``"juanyéhthomas"`` here
+   and ``"juanyhthomas"`` there.  They join different populations and
+   are never compared, so this is documented rather than "fixed":
+   adding an ASCII fold here would change the roster_intel value join
+   and the crowd FAAB map for every accented name.
+
+3. LOOSE / trim — a bare ``str(x or "").strip().lower()``, defined
+   locally at four unrelated sites: ``src/trade/waiver.py::
+   _normalize_name`` (league roster-ownership set),
+   ``src/api/source_history.py::_norm_name_key`` (rolling snapshot log
+   keys, which additionally split ``"Name::assetClass"``),
+   ``server.py`` FAAB-endpoint local ``_norm`` (resolving add/drop rows
+   out of ``playersArray``), and ``waiver-logic.js::normalizeName``
+   (client waiver pool).  These ARE byte-equivalent, but they key four
+   domains that have no reason to know about each other, so they are
+   deliberately NOT hoisted into a shared helper — the honest
+   statement is this registry, not a false coupling.
+   Swapping any of them for family 1 changes roster-ownership
+   membership: ``"Marvin Harrison Jr."`` (Sleeper) would newly collide
+   with ``"Marvin Harrison"`` (contract), and any future
+   ``"Kenneth Walker"`` would collapse into ``"Kenneth Walker III"``.
+
+4. PRIVATE one-offs, intentionally outside all of the above:
+   ``src/trade/ktc_import.py::_norm_name`` (hyphen-preserving key over
+   KTC's own name vocabulary; never escapes that module),
+   ``scripts/_shared.py::_normalize_name`` (script-only, suffix strip
+   runs first, no ASCII fold), and the scraper-clean pair
+   ``clean_name`` / ``normalize_lookup_name`` in ``Dynasty Scraper.py``
+   mirrored as ``pool_clean_name`` / ``pool_normalize_lookup`` in
+   ``src/pool/builder.py``.
 """
 
 from __future__ import annotations
@@ -34,6 +103,66 @@ _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 # rule runs before :data:`_NON_ALNUM_RE` so the remaining punctuation
 # (hyphens, periods, etc.) can continue to split tokens.
 _APOSTROPHE_RE = re.compile(r"[\u2018\u2019\u201B\u02BC']")
+
+
+# ── NFL team codes (scraper-clean family) ───────────────────────────────
+# Scraped tables sometimes glue the team abbreviation onto the end of the
+# player name ("Caleb WilliamsJAC").  ``Dynasty Scraper.py::clean_name``
+# and its extracted twin ``src/pool/builder.py::pool_clean_name`` both
+# strip a trailing code in this set.
+#
+# The pool copy used to carry its own literal and had drifted 7 entries
+# behind the scraper's (GBP, JAC, KCC, LVR, NEP, SFO, TBB), so the two
+# "identical" cleaners disagreed.  The pool now imports this set, and
+# ``tests/utils/test_team_codes_parity.py`` asserts it still equals the
+# scraper's literal so the copies cannot drift again.
+#
+# Both long and short forms are present on purpose — different sources
+# publish "GB" vs "GBP", "KC" vs "KCC", "JAX" vs "JAC".
+NFL_TEAM_CODES: frozenset[str] = frozenset(
+    {
+        "ARI",
+        "ATL",
+        "BAL",
+        "BUF",
+        "CAR",
+        "CHI",
+        "CIN",
+        "CLE",
+        "DAL",
+        "DEN",
+        "DET",
+        "GB",
+        "GBP",
+        "HOU",
+        "IND",
+        "JAC",
+        "JAX",
+        "KC",
+        "KCC",
+        "LAC",
+        "LAR",
+        "LV",
+        "LVR",
+        "MIA",
+        "MIN",
+        "NE",
+        "NEP",
+        "NO",
+        "NYG",
+        "NYJ",
+        "PHI",
+        "PIT",
+        "SEA",
+        "SF",
+        "SFO",
+        "TB",
+        "TBB",
+        "TEN",
+        "WAS",
+        "FA",
+    }
+)
 
 
 # ── Canonical position aliases ──────────────────────────────────────────
@@ -279,6 +408,38 @@ def normalize_player_name(name: str | None) -> str:
     s = re.sub(r"\s+", " ", s)
     s = _collapse_initials(s)
     return s
+
+
+def compact_name_key(name: object) -> str:
+    """Lowercase, alphanumerics-only join key (family 2 in the module
+    registry above).
+
+    ``"D.J. Moore"``, ``"DJ Moore"`` and ``"djmoore"`` all collapse to
+    ``"djmoore"``.  Spaces are dropped along with every other
+    non-alphanumeric character.
+
+    This is NOT :func:`normalize_player_name` and is not a substitute
+    for it.  It does not strip generational suffixes
+    (``"Kenneth Walker III" → "kennethwalkeriii"``) and it does not
+    ASCII-fold (``str.isalnum()`` is Unicode-aware, so
+    ``"Juanyéh Thomas" → "juanyéhthomas"``).  Both properties are
+    load-bearing for its current consumers, which build and query the
+    key on the same side of the wire:
+
+      * ``src/adapters/ktc_crowd_faab.build_crowd_bid_map`` keys the
+        crowd FAAB bid map with it, and
+        ``src/trade/faab_recommender._ktc_crowd_blend`` looks that map
+        up with it.  These two MUST agree — they did not until
+        2026-07-29, which silently disabled the crowd calibration
+        factor for every name containing a space.
+      * ``src/roster_intel/roster_source`` keys its value index and
+        roster join with it.
+
+    Do not "fix" the accent behaviour without measuring: an ASCII fold
+    here changes the roster_intel join and the FAAB crowd map for every
+    accented player name.
+    """
+    return "".join(c for c in str(name or "").lower() if c.isalnum())
 
 
 def resolve_canonical_name(name: str | None) -> str:

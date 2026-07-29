@@ -188,10 +188,12 @@ export function computeTeamValueSeries({ rosterNames, history, valueFromRank }) 
   // Build per-player sorted point lists, keyed by lowercased name.
   // History keys are scoped ("Name::offense"), so use the shared
   // helper instead of bare ``history[name]`` (which misses every key).
+  // ``.trim()`` matches ``buildHistoryLookup``'s index side so a padded
+  // roster name dedupes against its unpadded twin.
   const lookup = buildHistoryLookup(history);
   const byName = new Map();
   for (const name of rosterNames) {
-    const key = String(name).toLowerCase();
+    const key = String(name).trim().toLowerCase();
     if (byName.has(key)) continue;
     byName.set(key, normalizePoints(lookup(name)));
   }
@@ -247,6 +249,19 @@ export function computeTeamValueSeries({ rosterNames, history, valueFromRank }) 
  * appears under multiple asset classes (rare offense/IDP collisions
  * — e.g. "Devin Singletary" if a defender ever shared the name), the
  * caller can disambiguate by passing ``assetClass``.
+ *
+ * KEY FAMILY: this is family 4 in the registry at the head of
+ * ``lib/player-name-match.js`` — trim + lowercase on both halves of
+ * ``"Name::scope"``.  Its BACKEND COUNTERPART is
+ * ``src/api/source_history.py::_norm_name_key``, which performs the
+ * same split against the payload this function consumes.  Neither file
+ * used to name the other; change the key format on one side and this
+ * chart silently goes blank.
+ *
+ * Index and lookup must trim identically.  Until 2026-07-29 the index
+ * side trimmed and the lookup side did not, so a row name carrying
+ * leading/trailing whitespace was stored under the trimmed key and
+ * queried under the untrimmed one — a guaranteed miss.
  */
 export function buildHistoryLookup(history) {
   if (!history || typeof history !== "object") return () => [];
@@ -271,8 +286,10 @@ export function buildHistoryLookup(history) {
   }
   return (name, assetClass) => {
     if (!name) return [];
-    const lowered = String(name).toLowerCase();
-    const ac = String(assetClass || "").toLowerCase();
+    // ``.trim()`` here mirrors the index side above — see the note in
+    // the docstring; without it a padded row name never hits.
+    const lowered = String(name).trim().toLowerCase();
+    const ac = String(assetClass || "").trim().toLowerCase();
     if (ac) {
       const scoped = byScoped.get(`${lowered}::${ac}`);
       if (scoped) return scoped;

@@ -76,6 +76,8 @@ import {
   Banner,
   Button,
   CollapsiblePanel,
+  HelpModal,
+  InfoTip,
   Icon,
   Modal,
   PageHeader,
@@ -104,6 +106,8 @@ function marketDollarFor(player) {
 // One constant, rendered by BOTH the auth-resolving skeleton header and
 // the settled header, so the two can never drift back into different
 // heights.  See the skeleton's comment for what that drift cost.
+const DRAFT_PAGE_EYEBROW = "My Team";
+const DRAFT_PAGE_TITLE = "Draft Board";
 const DRAFT_PAGE_DESCRIPTION =
   "Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately.";
 
@@ -405,14 +409,35 @@ function TeamPanel({
           <span>Spent</span>
           <span>Remaining</span>
           <span title="Slots drafted / initial slots owned">Slots</span>
-          <span title="Slot-adjusted effective $ — max single-bid this team can actually afford while still filling their other slots at $1 each.">
+          <span>
             Eff $
+            <InfoTip label="Eff $">
+              Slot-adjusted effective dollars — the most this team can bid on a
+              single player while still reserving $1 for each remaining slot.
+            </InfoTip>
           </span>
-          <span title="Marginal Dollar Value = remaining $ / slots remaining.  Higher = more $ per pick = buying power.  Shaded by pressure tier.">
+          <span>
             MDV
+            <InfoTip label="MDV">
+              <p>
+                Marginal Dollar Value — remaining dollars divided by remaining
+                slots. Higher means more money per pick, so more buying power.
+              </p>
+              <p>Shaded by pressure tier.</p>
+            </InfoTip>
           </span>
-          <span title="Overpay index = (Σ paid − Σ preDraft at pick time) / Σ preDraft. >0 overpayer, <0 value hunter, ~0 market-rational.">
+          <span>
             Over%
+            <InfoTip label="Over%">
+              <p>
+                Overpay index — how much a team has paid above what the board
+                said an asset was worth at the moment it was bought.
+              </p>
+              <p>
+                Above 0 is an overpayer, below 0 a value hunter, around 0
+                market-rational.
+              </p>
+            </InfoTip>
           </span>
         </div>
         {stats.teamStats.map((t) => {
@@ -1290,11 +1315,12 @@ export function RookieBoard({
           <thead>
             <tr>
               {th("#", "rank", 40)}
-              <th
-                style={{ width: 44 }}
-                title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2"
-              >
+              <th style={{ width: 44 }}>
                 Tier
+                <InfoTip label="Tier">
+                  Banded by PreDraft dollars — S is $60+, A $25–59, B $8–24,
+                  C $3–7, D $1–2.
+                </InfoTip>
               </th>
               <th
                 style={{ width: 70 }}
@@ -1307,11 +1333,13 @@ export function RookieBoard({
               </th>
               {th("Player", "name")}
               {th("PreDraft", "preDraft", 82)}
-              <th
-                style={{ width: 76, textAlign: "right" }}
-                title="Market value: KTC for offense, IDPTradeCalc for IDP — same $1200 scale as our PreDraft"
-              >
+              <th style={{ width: 76, textAlign: "right" }}>
                 Market
+                <InfoTip label="Market">
+                  What the retail market says — KTC for offense, IDP TradeCalc
+                  for defenders — converted to the same $1200 scale as our
+                  PreDraft column so the two are directly comparable.
+                </InfoTip>
               </th>
               {bdvmIndex ? th("Fund gap", "gap", 76) : null}
               {th("Fair", "inflatedFair", 70)}
@@ -3031,6 +3059,15 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
   );
 }
 
+// ~360 lines of genuinely useful reference — every column defined,
+// every recommendation level explained, the inflation model, the
+// keyboard shortcuts.  It used to render as an <details open> at the
+// bottom of the page, so every draft session ended in a wall of ten
+// section headings below the board you were actually using.
+//
+// Same content, same ten collapsible sections, now behind a "How this
+// dashboard works" button in the page header — where you look when you
+// have a question, rather than permanently under the answer.
 function DraftGlossary() {
   const Section = ({ title, children }) => (
     <details className="draft-gloss-section">
@@ -3039,20 +3076,9 @@ function DraftGlossary() {
     </details>
   );
   return (
-    <Panel className="draft-gloss">
-      <details open>
-        <summary className="draft-gloss-head">
-          <h3 style={{ margin: 0, display: "inline" }}>
-            How this dashboard works
-          </h3>
-          <span
-            className="muted"
-            style={{ fontSize: "0.72rem", marginLeft: 8 }}
-          >
-            click any section to expand
-          </span>
-        </summary>
-        <div className="draft-gloss-inner">
+    <HelpModal title="How this draft dashboard works" label="How this works">
+      <div className="draft-gloss-inner">
+
           <Section title="The rookie board, column by column">
             <p>
               Every undrafted rookie shows up on the main board with these
@@ -3380,9 +3406,9 @@ function DraftGlossary() {
               </li>
             </ul>
           </Section>
-        </div>
-      </details>
-    </Panel>
+
+      </div>
+    </HelpModal>
   );
 }
 
@@ -4623,16 +4649,19 @@ export default function DraftDashboardPage() {
   if (checking || authenticated == null) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        {/* Same description string as the settled header below — it is a
-            constant, not data, so rendering it here is the honest value
-            rather than a placeholder.  Omitting it made the header 45px
-            while auth resolved and 87px afterwards (the description wraps
-            to two lines at the 60ch measure), dropping 42px of content on
-            top of every band below it — the actual bulk of /draft's 0.32
-            CLS, which the band reservations underneath could not reach. */}
+        {/* Same three constants as the settled header below — they are
+            constants, not data, so rendering them here is the honest
+            value rather than a placeholder.  Omitting the description
+            made the header 45px while auth resolved and 87px afterwards
+            (it wraps to two lines at the 60ch measure), dropping 42px of
+            content on top of every band below it — the actual bulk of
+            /draft's 0.32 CLS, which the band reservations underneath
+            could not reach.  Shared constants rather than duplicated
+            literals so the two headers cannot drift back into different
+            heights when the copy is next revised. */}
         <PageHeader
-          eyebrow="War room"
-          title="Draft board"
+          eyebrow={DRAFT_PAGE_EYEBROW}
+          title={DRAFT_PAGE_TITLE}
           description={DRAFT_PAGE_DESCRIPTION}
         />
         {/* Mirrors the SETTLED board's top-of-page bands, not a generic
@@ -4665,11 +4694,12 @@ export default function DraftDashboardPage() {
   return (
     <main className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
-        eyebrow="War room"
-        title="Draft board"
+        eyebrow={DRAFT_PAGE_EYEBROW}
+        title={DRAFT_PAGE_TITLE}
         description={DRAFT_PAGE_DESCRIPTION}
         actions={
           <div className={styles.pageActions}>
+            <DraftGlossary />
             <LiveSyncToggle
               enabled={liveSyncEnabled}
               onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
@@ -4973,8 +5003,6 @@ export default function DraftDashboardPage() {
           </p>
         </CollapsiblePanel>
       )}
-
-      <DraftGlossary />
 
       {modalPlayerEnriched && (
         <DraftModal

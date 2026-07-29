@@ -22,6 +22,7 @@ import {
   Banner,
   DataTable,
   EmptyState,
+  InfoTip,
   PageHeader,
   Panel,
   Select,
@@ -254,9 +255,21 @@ export default function EdgePage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Market intelligence"
-        title="Edge"
-        description="Where the ranking sources agree, disagree, and flag issues. Every signal is derived from measurable properties of the data — coverage, agreement, divergence. Nothing is predicted."
+        eyebrow="Market"
+        title="Source Disagreement"
+        description={
+          <>
+            Where the ranking sources agree and disagree.
+            <InfoTip label="these signals">
+              <p>
+                Every signal here is derived from measurable properties of the
+                data — how many sources cover a player, how closely they agree,
+                how far apart the outliers sit.
+              </p>
+              <p>Nothing on this page is a prediction.</p>
+            </InfoTip>
+          </>
+        }
         actions={teamSelect}
       />
 
@@ -299,15 +312,24 @@ export default function EdgePage() {
           </div>
 
           <Panel
-            title="Value vs. source spread"
+            title={
+              <>
+                Value vs. source spread
+                <InfoTip label="this chart">
+                  <p>
+                    Each dot is a player: x is their value, y is how far apart
+                    the sources ranked them.
+                  </p>
+                  <p>
+                    High value plus high spread means a contested asset — worth
+                    selling high or buying low depending on which market you
+                    trust.
+                  </p>
+                </InfoTip>
+              </>
+            }
             subtitle="Top-200 ranked rows — the upper-right quadrant is the edge zone"
           >
-            <p className={styles.chartNote}>
-              Each dot is a player: x is the Hill value, y is how far apart the
-              sources ranked them. High value plus high spread means a contested
-              asset — worth selling high or buying low depending on which market
-              you trust.
-            </p>
             <ConfidenceValueScatter
               rows={eligible}
               topN={200}
@@ -473,12 +495,26 @@ function SignalPanel({
   emptyText,
   defaultSort,
 }) {
+  // The `note` used to render as a permanent footer paragraph under
+  // every panel — eight of them on this page, so each section carried
+  // title + subtitle + footnote and the methodology outweighed the
+  // data.  It moves to an InfoTip on the title: same words, same
+  // discoverability (the icon sits on the thing it explains), none of
+  // the vertical space.
   return (
     <Panel
-      title={title}
+      title={
+        note ? (
+          <>
+            {title}
+            <InfoTip label={title}>{note}</InfoTip>
+          </>
+        ) : (
+          title
+        )
+      }
       subtitle={subtitle}
       flush
-      footer={note ? <p className={styles.methodNote}>{note}</p> : null}
       actions={
         rows.length > 0 ? (
           <span className={styles.methodNote}>{rows.length} shown</span>

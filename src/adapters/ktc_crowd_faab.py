@@ -17,8 +17,14 @@ shape::
 
 The per-pair FAAB recommender (``src/trade/faab_recommender.py``)
 accepts an optional ``ktc_crowd_bids`` map of
-``normalized_name → median_bid_percentage_of_budget`` to blend
-into its calibration step.  This bridge produces that map.
+``compact_name_key(name) → median_bid_percentage_of_budget`` to
+blend into its calibration step.  This bridge produces that map.
+
+The key is ``src/utils/name_clean.compact_name_key`` — family 2 in
+that module's key registry.  The recommender must look the map up
+with the SAME function; anything else (a bare ``strip().lower()``,
+say) can only ever collide on single-token unpunctuated names, i.e.
+essentially no NFL player.
 
 Why a separate module?  Keeping the contract-shape sniff +
 percent parsing isolated here means the recommender stays a pure
@@ -32,13 +38,20 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
+from src.utils.name_clean import compact_name_key
 
-def _normalize_name(name: str) -> str:
-    """Lowercase + strip non-alphanumeric.  Mirrors the
-    normalization the frontend's ``waiver-logic.normalizeNameCompact``
-    uses for picker lookups so the bridge's keys agree byte-for-byte
-    with the name the API endpoint passes in."""
-    return "".join(c for c in str(name or "").lower() if c.isalnum())
+# Deprecated private alias.  The compact key now has exactly one
+# definition (``name_clean.compact_name_key``, family 2 in that
+# module's key registry) so the producer here and the consumer in
+# ``src/trade/faab_recommender._ktc_crowd_blend`` cannot drift apart
+# again — they did until 2026-07-29, and the crowd calibration factor
+# never fired in production as a result.
+# (A private ``_normalize_name = compact_name_key`` alias sat here after
+# the consolidation.  It was dead on arrival: this module calls
+# ``compact_name_key`` directly, it is private so no external caller can
+# depend on it, and a repo-wide grep found its only reference was a test
+# asserting it existed.  Removed 2026-07-29 — an alias nothing reads is a
+# promise the code does not keep.)
 
 
 def _parse_bid_pct(bid_pct_raw: Any, bid: Any, settings: dict | None = None) -> float | None:
@@ -115,7 +128,7 @@ def build_crowd_bid_map(
         added = w.get("added")
         if not added:
             continue
-        norm = _normalize_name(added)
+        norm = compact_name_key(added)
         if not norm:
             continue
         pct = _parse_bid_pct(

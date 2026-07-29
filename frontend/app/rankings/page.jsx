@@ -28,6 +28,8 @@ import {
 } from "@/lib/rankings-helpers";
 import {
   LENSES,
+  SCREENS,
+  isScreen,
   getLens,
   applyLens,
   actionLabel,
@@ -67,7 +69,9 @@ import {
   Button,
   DataTable,
   EmptyState,
+  HelpModal,
   Icon,
+  InfoTip,
   Input,
   Movement,
   PageHeader,
@@ -410,6 +414,21 @@ export default function RankingsPage() {
     setPosFilter(normalized);
     // Run once on mount only — subsequent filter changes go through
     // the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Seed the board view from ``?screen=`` / ``?lens=``.  The retired
+  // /finder route redirects here with its workflow key, so old links
+  // and bookmarks land on the same question they always did.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const requested = (params.get("screen") || params.get("lens") || "").trim();
+    if (!requested) return;
+    // Unknown keys fall through to the default board rather than
+    // wedging it on a view that resolves to nothing.
+    if (getLens(requested).key !== requested) return;
+    handleLensChange(requested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -985,7 +1004,7 @@ export default function RankingsPage() {
         sortable: true,
         numeric: true,
         width: 88,
-        headerTitle:
+        headerInfo:
           "Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better.",
         render: (row) => (
           <span
@@ -1041,7 +1060,7 @@ export default function RankingsPage() {
           numeric: true,
           hideBelow: "md",
           width: 96,
-          headerTitle: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
+          headerInfo: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
             src.isRankSignal
               ? "Hill curve from this source's ordinal rank"
               : "linear rescale of this source's native trade value"
@@ -1072,7 +1091,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         align: "center",
         width: 72,
-        headerTitle:
+        headerInfo:
           "Sources that matched this player / sources structurally eligible to cover the player's position.",
         render: (row) => {
           const srcCount =
@@ -1104,7 +1123,7 @@ export default function RankingsPage() {
         firstDirection: "desc",
         hideBelow: "md",
         align: "center",
-        headerTitle:
+        headerInfo:
           "High / Medium / Low confidence based on how many sources matched and how tightly they agree.",
         render: (row) => (
           <span
@@ -1121,7 +1140,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         align: "center",
         width: 120,
-        headerTitle:
+        headerInfo:
           "Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.",
         render: (row) => {
           const action_ = marketAction(row);
@@ -1145,7 +1164,7 @@ export default function RankingsPage() {
         sortable: true,
         hideBelow: "md",
         width: 110,
-        headerTitle:
+        headerInfo:
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
           "Visible only while the BDVM engine is enabled.",
@@ -1233,7 +1252,7 @@ export default function RankingsPage() {
   return (
     <section className={styles.page}>
       <PageHeader
-        eyebrow="Market"
+        eyebrow="Rankings"
         title="Rankings"
         description="Unified dynasty board — offense + IDP blended by consensus rank."
         actions={
@@ -1265,13 +1284,19 @@ export default function RankingsPage() {
             >
               {showEdgeRail ? "Hide edge" : "Show edge"}
             </Button>
+            {/* The nine-step prose lives in a modal now; this toggle
+                owns only the two charts, which are genuinely
+                page-sized and worth a deliberate reveal. */}
+            <HelpModal title="How rankings work" label="How rankings work">
+              <MethodologySection />
+            </HelpModal>
             <Button
               size="sm"
               variant={showMethodology ? "secondary" : "ghost"}
               aria-pressed={showMethodology}
               onClick={() => setShowMethodology((v) => !v)}
             >
-              Methodology
+              {showMethodology ? "Hide charts" : "Methodology charts"}
             </Button>
             <Button
               size="sm"
@@ -1458,16 +1483,26 @@ export default function RankingsPage() {
         </div>
       )}
 
-      {/* ── Methodology (expandable) ── */}
+      {/* ── Methodology charts (expandable) ── */}
       {showMethodology && (
         <>
-          <Panel dense title="How rankings work">
-            <MethodologySection />
-          </Panel>
           <Panel
             dense
-            title="Hill curve"
-            subtitle="Percentile → Hill value mapping with the live board overlaid as dots. The curve is the canonical rank-to-value shape; dots are where every rankable player actually lands after per-source aggregation."
+            title={
+              <>
+                Hill curve
+                <InfoTip label="the Hill curve">
+                  <p>
+                    Percentile → value mapping with the live board overlaid as
+                    dots.
+                  </p>
+                  <p>
+                    The curve is the canonical rank-to-value shape; each dot is
+                    where a player actually lands after per-source aggregation.
+                  </p>
+                </InfoTip>
+              </>
+            }
           >
             <HillCurveExplorer
               rows={rows}
@@ -1477,8 +1512,21 @@ export default function RankingsPage() {
           </Panel>
           <Panel
             dense
-            title="Tier gap waterfall"
-            subtitle="Top-120 descending value curve with inter-row gap bars overlaid. Tall gap bars mark tier cliffs — the natural tier boundaries the canonical engine detects via rolling-median gap analysis."
+            title={
+              <>
+                Tier gap waterfall
+                <InfoTip label="the tier gap waterfall">
+                  <p>
+                    Top-120 descending value curve with the gap between adjacent
+                    rows drawn as bars.
+                  </p>
+                  <p>
+                    Tall bars mark tier cliffs — the natural boundaries the
+                    engine detects by rolling-median gap analysis.
+                  </p>
+                </InfoTip>
+              </>
+            }
           >
             <TierGapWaterfall rows={rows} topN={120} />
           </Panel>
@@ -1520,13 +1568,34 @@ export default function RankingsPage() {
         <Panel flush>
           <div className={styles.boardControls}>
             {/* Lens tabs */}
-            <Tabs
-              idPrefix="lens"
-              label="Board lenses"
-              active={activeLens}
-              onChange={handleLensChange}
-              tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
-            />
+            <div className={styles.lensRow}>
+              <Tabs
+                idPrefix="lens"
+                label="Board lenses"
+                active={isScreen(activeLens) ? null : activeLens}
+                onChange={handleLensChange}
+                tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
+              />
+              {/* Screens — the five saved questions that used to be the
+                  /finder page.  A dropdown rather than five more tabs:
+                  lenses answer "how do I read the whole board", screens
+                  answer "show me this specific question", and ten tabs
+                  would just be the old clutter in a new place. */}
+              <Select
+                aria-label="Screen"
+                value={isScreen(activeLens) ? activeLens : ""}
+                onChange={(e) =>
+                  handleLensChange(e.target.value || "consensus")
+                }
+              >
+                <option value="">Screens…</option>
+                {SCREENS.map((sc) => (
+                  <option key={sc.key} value={sc.key}>
+                    {sc.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
             {activeLens !== "consensus" && (
               <p className={styles.lensDescription}>
                 {currentLens.description}

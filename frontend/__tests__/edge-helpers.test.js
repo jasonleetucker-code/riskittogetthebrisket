@@ -5,6 +5,9 @@ import {
   LENSES,
   getLens,
   applyLens,
+  SCREENS,
+  isScreen,
+  getLens,
   topRetailPremium,
   topConsensusPremium,
   topFlaggedCautions,
@@ -214,6 +217,91 @@ describe("applyLens", () => {
     expect(result).toHaveLength(2); // A (60) and C (80)
     expect(result[0].name).toBe("C"); // 80 > 60
     expect(result[1].name).toBe("A");
+  });
+});
+
+// ── SCREENS ──────────────────────────────────────────────────────────
+// The five saved filters that used to be the /finder page. They are
+// carried over VERBATIM: their thresholds differ from the lenses above
+// (WR Gaps cuts at spread > 15 and rank <= 250, Disagreements at a
+// different number), so mapping them onto existing lenses would have
+// silently changed what each preset returned. These tests pin the
+// thresholds, not just the presence of the keys.
+
+describe("SCREENS", () => {
+  it("exposes the five workflows the standalone page had", () => {
+    expect(SCREENS.map((s) => s.key)).toEqual([
+      "wr-gaps",
+      "stable-idp",
+      "single-risk",
+      "rookie-spread",
+    ]);
+  });
+
+  it("isScreen distinguishes screens from lenses", () => {
+    expect(isScreen("wr-gaps")).toBe(true);
+    expect(isScreen("disagreements")).toBe(false);
+    expect(isScreen("nonsense")).toBe(false);
+  });
+
+  it("getLens resolves screens as well as lenses", () => {
+    expect(getLens("stable-idp").key).toBe("stable-idp");
+    expect(getLens("consensus").key).toBe("consensus");
+    // Unknown keys still fall back to the default board.
+    expect(getLens("nope").key).toBe("consensus");
+  });
+
+  it("WR Gaps keeps its own thresholds: WR, spread > 15, rank <= 250", () => {
+    const rows = [
+      makeRow({ name: "wr-wide", pos: "WR", sourceRankSpread: 40, rank: 100 }),
+      makeRow({ name: "wr-tight", pos: "WR", sourceRankSpread: 10, rank: 100 }),
+      makeRow({ name: "wr-deep", pos: "WR", sourceRankSpread: 40, rank: 400 }),
+      makeRow({ name: "rb-wide", pos: "RB", sourceRankSpread: 40, rank: 100 }),
+    ];
+    expect(applyLens(rows, "wr-gaps").map((r) => r.name)).toEqual(["wr-wide"]);
+  });
+
+  it("1-Source Risk is single-source only, not the broader Fragile lens", () => {
+    const rows = [
+      makeRow({ name: "single", isSingleSource: true, rank: 50 }),
+      makeRow({ name: "single-deep", isSingleSource: true, rank: 900 }),
+      // Fragile would include this; 1-Source Risk must not.
+      makeRow({ name: "lowconf", confidenceBucket: "low", rank: 50 }),
+    ];
+    expect(applyLens(rows, "single-risk").map((r) => r.name)).toEqual(["single"]);
+  });
+
+  it("Rookie Spread cuts at spread > 10 and rank <= 400", () => {
+    const rows = [
+      makeRow({ name: "hit", rookie: true, sourceRankSpread: 20, rank: 200 }),
+      makeRow({ name: "tight", rookie: true, sourceRankSpread: 5, rank: 200 }),
+      makeRow({ name: "veteran", rookie: false, sourceRankSpread: 20, rank: 200 }),
+    ];
+    expect(applyLens(rows, "rookie-spread").map((r) => r.name)).toEqual(["hit"]);
+  });
+
+  it("Stable IDP wants high confidence and 2+ sources", () => {
+    const rows = [
+      makeRow({
+        name: "solid",
+        assetClass: "idp",
+        confidenceBucket: "high",
+        sourceCount: 3,
+      }),
+      makeRow({
+        name: "thin",
+        assetClass: "idp",
+        confidenceBucket: "high",
+        sourceCount: 1,
+      }),
+      makeRow({
+        name: "offense",
+        assetClass: "offense",
+        confidenceBucket: "high",
+        sourceCount: 3,
+      }),
+    ];
+    expect(applyLens(rows, "stable-idp").map((r) => r.name)).toEqual(["solid"]);
   });
 });
 

@@ -94,6 +94,80 @@ function newsToEvent(item) {
   };
 }
 
+/**
+ * Project one trade from the PUBLIC league payload
+ * (src/public_league/activity.py) into the same ActivityEvent shape
+ * ``tradeToEvent`` produces from the private contract.
+ *
+ * The two payloads describe the same trades with different vocabulary:
+ * the public one already resolves team names, owners and asset names
+ * server-side (and carries a public-safe ``grade`` block per side),
+ * so this projection is a rename rather than a re-derivation.
+ */
+function publicTradeToEvent(trade) {
+  const ts = tsOf(trade?.createdAt);
+  const sides = Array.isArray(trade?.sides) ? trade.sides : [];
+  const teamNames = sides.map((s) => s?.teamName).filter(Boolean);
+  const ownerIds = sides.map((s) => s?.ownerId).filter(Boolean);
+  const rosterIds = sides.map((s) => s?.rosterId).filter((r) => r != null);
+
+  const playerNames = [];
+  for (const side of sides) {
+    for (const asset of side?.receivedAssets || []) {
+      const name = asset?.name || asset?.label;
+      if (typeof name === "string" && name.trim()) playerNames.push(name);
+    }
+  }
+
+  const summary =
+    teamNames.length >= 2
+      ? `${teamNames[0]} ↔ ${teamNames.slice(1).join(", ")}`
+      : teamNames.join(", ") || "Trade";
+
+  return {
+    id: `trade::${trade?.transactionId || ts}`,
+    type: "trade",
+    ts,
+    title: summary,
+    detail: playerNames.length
+      ? playerNames.slice(0, 6).join(" · ")
+      : `Multi-asset trade between ${teamNames.length} teams`,
+    teamNames,
+    rosterIds,
+    ownerIds,
+    playerNames,
+    // Public-safe grade badges: letter + label + colour only, never
+    // the underlying per-side totals.
+    grades: sides
+      .map((s) => (s?.grade ? { teamName: s?.teamName, ...s.grade } : null))
+      .filter(Boolean),
+    url: null,
+    severity: "info",
+    season: trade?.season ?? null,
+  };
+}
+
+/**
+ * Build the feed from the PUBLIC league activity section + news.
+ *
+ * ``/league/activity`` lives under the public-only route prefix, where
+ * ``useApp()`` hard-codes ``rawData: null`` so the private contract can
+ * never hydrate.  The page was still calling ``buildActivityEvents``
+ * with that null, so its trade half was permanently empty — for
+ * signed-in users too.  This is the builder that route should use.
+ */
+export function buildPublicActivityEvents(publicTrades, newsItems) {
+  const events = [];
+  if (Array.isArray(publicTrades)) {
+    for (const t of publicTrades) events.push(publicTradeToEvent(t));
+  }
+  if (Array.isArray(newsItems)) {
+    for (const n of newsItems) events.push(newsToEvent(n));
+  }
+  events.sort((a, b) => b.ts - a.ts);
+  return events;
+}
+
 export function buildActivityEvents(rawData, newsItems) {
   const events = [];
   const trades = rawData?.sleeper?.trades || [];
@@ -107,19 +181,31 @@ export function buildActivityEvents(rawData, newsItems) {
   return events;
 }
 
-export function filterEvents(events, { scope = "league", rosterNames = [], type = "all" } = {}) {
+export function filterEvents(
+  events,
+  { scope = "league", rosterNames = [], type = "all", ownerId = null } = {},
+) {
   if (!Array.isArray(events)) return [];
   const lowerRoster = new Set(
     (rosterNames || [])
       .filter((n) => typeof n === "string" && n.length)
       .map((n) => n.toLowerCase()),
   );
+  const myOwner = ownerId == null ? null : String(ownerId);
   return events.filter((e) => {
     if (type !== "all" && e.type !== type) return false;
     if (scope === "roster") {
+      // A trade the user was party to is theirs regardless of whether
+      // the assets are still on their roster — owner match is both
+      // cheaper and more accurate than name matching, so prefer it
+      // when the event carries owner ids (public payload) and the
+      // caller knows who the user is.
+      if (myOwner && (e.ownerIds || []).some((o) => String(o) === myOwner)) {
+        return true;
+      }
       if (!lowerRoster.size) return false;
-      return (e.playerNames || []).some((n) =>
-        typeof n === "string" && lowerRoster.has(n.toLowerCase()),
+      return (e.playerNames || []).some(
+        (n) => typeof n === "string" && lowerRoster.has(n.toLowerCase()),
       );
     }
     return true;

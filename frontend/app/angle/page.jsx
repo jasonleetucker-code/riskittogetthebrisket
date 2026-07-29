@@ -413,7 +413,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.my_gain_pct,
         render: (c) => fmtSignedPct(c.my_gain_pct),
-        headerTitle: "How far the package beats your offer on your own board.",
+        headerInfo: "How far the package beats your offer on your own board.",
       },
       {
         key: "market_gain_pct",
@@ -422,7 +422,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.market_gain_pct,
         render: (c) => fmtSignedPct(c.market_gain_pct),
-        headerTitle: "How the package reads on the market the counterparty consults.",
+        headerInfo: "How the package reads on the market the counterparty consults.",
       },
       {
         key: "arb_score",
@@ -431,7 +431,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.arb_score,
         render: (c) => <Badge tone="accent">{fmtSignedPct(c.arb_score)}</Badge>,
-        headerTitle: "Arbitrage edge — your gain net of the market gap.",
+        headerInfo: "Arbitrage edge — your gain net of the market gap.",
       },
     ],
     [resultIsAcquire, targetTeam],
@@ -440,7 +440,7 @@ export default function AnglePage() {
   if (dataLoading) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <PageHeader eyebrow="Trades" title="Package Builder" />
         <Panel flush>
           <SkeletonTable rows={5} columns={4} />
         </Panel>
@@ -450,7 +450,7 @@ export default function AnglePage() {
   if (dataError) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <PageHeader eyebrow="Trades" title="Package Builder" />
         <Banner tone="negative" title="Failed to load data">
           {String(dataError)}
         </Banner>
@@ -461,8 +461,8 @@ export default function AnglePage() {
   return (
     <main className={`main-shell ${styles.page} angle-page`}>
       <PageHeader
-        eyebrow="Counter-pitch"
-        title="Trade Finder"
+        eyebrow="Trades"
+        title="Package Builder"
         description="Pick players to send and get ranked return packages — or pick players you want from a target team and find what you'd have to give up."
       />
 

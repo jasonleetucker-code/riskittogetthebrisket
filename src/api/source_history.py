@@ -499,6 +499,16 @@ def append_snapshot(
 def _norm_name_key(raw_key: str) -> tuple[str, str]:
     """``"Malik Nabers::offense"`` → ("malik nabers", "offense"). Split
     is permissive — keys without ``::`` resolve to asset ``""``.
+
+    Both halves use the loose trim+lowercase key (family 3 in the
+    ``src/utils/name_clean`` registry).  Its undocumented cross-language
+    counterpart is ``frontend/lib/value-history.js::buildHistoryLookup``,
+    which re-implements this exact ``"Name::scope"`` split against the
+    payload this module produces — change the key format here and that
+    chart goes blank.  Not merged with the other family-3 sites
+    (``src/trade/waiver.py::_normalize_name``, the FAAB endpoint's local
+    ``_norm``): they key unrelated domains and sharing a helper would
+    couple them for no behaviour change.
     """
     if "::" in raw_key:
         name, asset = raw_key.split("::", 1)

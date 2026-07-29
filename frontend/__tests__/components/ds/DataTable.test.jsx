@@ -187,21 +187,57 @@ describe("DataTable R2 extension props", () => {
     ).toBeTruthy();
   });
 
-  it("rowClassName adds caller classes; headerTitle lands on th", () => {
+  it("rowClassName adds caller classes", () => {
     render(
       <DataTable
         caption="t"
-        columns={[{ key: "name", header: "Player", headerTitle: "who dis" }]}
+        columns={[{ key: "name", header: "Player" }]}
         rows={ROWS}
         rowClassName={(row) => (row.id === "b" ? "is-flagged" : "")}
       />
     );
-    expect(screen.getByRole("columnheader", { name: "Player" })).toHaveAttribute(
-      "title",
-      "who dis"
-    );
     expect(screen.getByText("Jefferson").closest("tr")).toHaveClass("is-flagged");
     expect(screen.getByText("Chase").closest("tr")).not.toHaveClass("is-flagged");
+  });
+
+  it("headerInfo renders a tappable InfoTip instead of a native title", async () => {
+    // This replaced `headerTitle`, which set a native tooltip: invisible
+    // on touch and to screen readers, so on a phone a column header was
+    // an abbreviation with no way to find out what it meant.
+    const user = userEvent.setup();
+    render(
+      <DataTable
+        caption="t"
+        columns={[{ key: "name", header: "Player", headerInfo: "who dis" }]}
+        rows={ROWS}
+      />
+    );
+    const th = screen.getByRole("columnheader", { name: /Player/ });
+    expect(th).not.toHaveAttribute("title");
+    const trigger = screen.getByRole("button", { name: "What is Player?" });
+    expect(screen.queryByText("who dis")).toBeNull();
+    await user.click(trigger);
+    expect(screen.getByText("who dis")).toBeInTheDocument();
+  });
+
+  it("headerInfoLabel names the tip when the header is an abbreviation", () => {
+    render(
+      <DataTable
+        caption="t"
+        columns={[
+          {
+            key: "mdv",
+            header: "MDV",
+            headerInfo: "Marginal dollar value",
+            headerInfoLabel: "MDV (marginal dollar value)",
+          },
+        ]}
+        rows={ROWS}
+      />
+    );
+    expect(
+      screen.getByRole("button", { name: "What is MDV (marginal dollar value)?" })
+    ).toBeInTheDocument();
   });
 
   it("align center applies the center cell class to th and td", () => {

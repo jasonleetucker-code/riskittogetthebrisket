@@ -3,15 +3,29 @@
 /**
  * NavMenu — accessible top-bar dropdown for a nav group.
  *
- * Fixes the audit's hover-only dropdown: the trigger is a real BUTTON
- * (click toggles; hover still opens with a close delay for mouse
- * users), so keyboard and touch users have a reliable open path and
- * activating the trigger never navigates away. ArrowDown/Up rove
- * through role="menuitem" links, Escape closes and refocuses the
- * trigger, focus-out and route change close.
+ * SPLIT TRIGGER: a link to the group's primary destination plus a
+ * separate chevron button that opens the menu.  Hover still opens the
+ * menu (with a close delay) for mouse users.
+ *
+ * The whole trigger used to be one button, so clicking "Trade" did
+ * nothing but open a list — the top-level labels were signposts you
+ * could not actually walk through.  The nav model has always asserted
+ * that a group's href is one of its own items ("parent click lands
+ * in-group", pinned in __tests__/nav-model.test.js), so this makes the
+ * rendering honour a contract the data already declared.  It is also
+ * what lets high-traffic pages sit inside a group without paying an
+ * extra click: /rankings is one click from "Rankings", not two.
+ *
+ * A11y: the chevron owns aria-expanded/aria-haspopup, so screen
+ * readers get "Rankings, link" and "Rankings menu, collapsed, button"
+ * as separate, correctly-typed controls.  ArrowDown/Up from either
+ * half rove through role="menuitem" links, Escape closes and refocuses
+ * the disclosure, focus-out and route change close.
  *
  * Props:
  *   label       group label
+ *   href        group's primary destination (optional — omit for a
+ *               menu with no landing page, e.g. System)
  *   items       [{href, label, hint, section?}] — leaf destinations
  *   active      boolean — group contains the current route
  *   pathname    current pathname (for aria-current on items)
@@ -25,6 +39,7 @@ import { isNavActive } from "@/lib/nav-model";
 
 export default function NavMenu({
   label,
+  href = null,
   items,
   active = false,
   pathname,
@@ -105,12 +120,26 @@ export default function NavMenu({
       onKeyDown={onKeyDown}
       onBlur={onBlur}
     >
+      {href ? (
+        <Link
+          href={href}
+          className={`shell-nav-link shell-nav-link--group${active ? " shell-nav-link--active" : ""}`}
+          aria-current={active && isNavActive(href, pathname) ? "page" : undefined}
+        >
+          {label}
+        </Link>
+      ) : (
+        <span className={`shell-nav-link shell-nav-link--group${active ? " shell-nav-link--active" : ""}`}>
+          {label}
+        </span>
+      )}
       <button
         ref={triggerRef}
         type="button"
-        className={`shell-nav-link${active ? " shell-nav-link--active" : ""}`}
+        className={`shell-nav-caret-btn${active ? " shell-nav-link--active" : ""}`}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`${label} menu`}
         onClick={() => {
           if (!open) {
             openedByHover.current = false;
@@ -122,7 +151,6 @@ export default function NavMenu({
           }
         }}
       >
-        {label}
         <Icon name="chevron-down" size={10} className="shell-nav-caret" />
       </button>
       {open ? (

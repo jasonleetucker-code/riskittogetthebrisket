@@ -77,13 +77,30 @@ describe("BdvmPage states", () => {
     );
     render(<BdvmPage />);
     expect(
-      await screen.findByText("BDVM engine is switched off"),
+      await screen.findByText("Fundamental values are switched off"),
     ).toBeInTheDocument();
     // Never a generic error banner for a configuration state.
     expect(screen.queryByText("Fundamentals unavailable")).toBeNull();
   });
 
-  it("tells the operator what to run when no snapshot exists", async () => {
+  it("states the flag-off case without leaking backend configuration", async () => {
+    // The copy used to name the env var an operator would set
+    // (RISKIT_FEATURE_BDVM_ENGINE=1).  This page is behind login but
+    // guest-pass holders reach it too, and a deployment switch is not
+    // something any reader of this page can act on.  The runbook lives
+    // in CLAUDE.md, where the operator actually looks.
+    fetch.mockResolvedValue(
+      jsonResponse(503, { error: "feature_disabled", flag: "bdvm_engine" }),
+    );
+    render(<BdvmPage />);
+    await screen.findByText("Fundamental values are switched off");
+    expect(screen.queryByText(/RISKIT_FEATURE/)).toBeNull();
+    // It must still say the rest of the site is unaffected — that is
+    // the question a reader actually has.
+    expect(screen.getByText(/Nothing else changes/i)).toBeInTheDocument();
+  });
+
+  it("explains the missing-snapshot state in user terms", async () => {
     fetch.mockResolvedValue(
       jsonResponse(200, {
         status: "no_projection_snapshot",
@@ -99,9 +116,10 @@ describe("BdvmPage states", () => {
     expect(
       await screen.findByText("No projection snapshot yet"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/refresh_bdvm_projections/),
-    ).toBeInTheDocument();
+    // Says it recovers on its own rather than printing a script path
+    // the reader cannot run.
+    expect(screen.getByText(/refreshes automatically/i)).toBeInTheDocument();
+    expect(screen.queryByText(/refresh_bdvm_projections/)).toBeNull();
   });
 
   it("renders backend numbers verbatim on a real payload", async () => {

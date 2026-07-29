@@ -228,7 +228,7 @@ export default function NewsPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Wire"
+        eyebrow="News"
         title="News"
         description="Every source, deduplicated and combined per player. Rolling 7-day window."
       />
@@ -337,7 +337,7 @@ export default function NewsPage() {
           {!news.loading && news.unavailable && (
             <EmptyState
               title="No news to show"
-              message="The feed is offline right now — it will fill back in automatically."
+              description="The feed is offline right now — it will fill back in automatically."
             />
           )}
 

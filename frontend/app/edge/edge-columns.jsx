@@ -80,7 +80,7 @@ export function colSpread() {
     header: "Spread",
     numeric: true,
     sortable: true,
-    headerTitle: "How far apart the sources ranked this player (ordinal spread)",
+    headerInfo: "How far apart the sources ranked this player (ordinal spread)",
     accessor: (r) => r.sourceRankSpread ?? null,
     render: (r) =>
       r.sourceRankSpread != null ? `±${r.sourceRankSpread}` : EM_DASH,
@@ -97,7 +97,7 @@ export function colIdpGap() {
     header: "Gap",
     numeric: true,
     sortable: true,
-    headerTitle: "Ordinal distance between IDPTC and the IDP-expert consensus",
+    headerInfo: "Ordinal distance between IDPTC and the IDP-expert consensus",
     accessor: (r) => r.__idpGap ?? null,
     render: (r) => (r.__idpGap ? `${r.__idpGap}` : EM_DASH),
   };
@@ -108,7 +108,7 @@ export function colGapDirection() {
     key: "gap",
     header: "Higher",
     sortable: true,
-    headerTitle: "Which market has this player higher",
+    headerInfo: "Which market has this player higher",
     accessor: (r) => r.marketGapDirection || "",
     render: (r) => {
       if (r.marketGapDirection === "retail_premium") return "Sell";

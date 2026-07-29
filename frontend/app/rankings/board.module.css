@@ -401,3 +401,17 @@
   color: var(--text-tertiary);
   line-height: var(--line-height-snug);
 }
+
+/* Lens tabs and the Screens dropdown share one row: both choose what
+   the board shows, so they belong on the same line rather than the
+   dropdown floating into the filter rail below. */
+.lensRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.lensRow > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
