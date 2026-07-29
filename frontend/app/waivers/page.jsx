@@ -565,7 +565,7 @@ export default function WaiversPage() {
   return (
     <main className={`main-shell ${styles.page} waivers-page`}>
       <PageHeader
-        eyebrow="Claim desk"
+        eyebrow="My Team"
         title="Waivers"
         description={
           selectedLeagueName

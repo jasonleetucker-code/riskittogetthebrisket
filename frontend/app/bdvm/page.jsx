@@ -693,13 +693,13 @@ export default function BdvmPage() {
   return (
     <section className={styles.page}>
       <PageHeader
-        eyebrow="Intel"
-        title="Fundamentals"
+        eyebrow="Rankings"
+        title="Fundamental Values"
         description="BDVM projection-driven dynasty values — fundamentals first, market strictly after. A second value concept beside the market board, never merged into it."
       />
       <Tabs
         idPrefix="bdvm"
-        label="Fundamentals sections"
+        label="Fundamental Values sections"
         tabs={TABS}
         active={tab}
         onChange={setTab}

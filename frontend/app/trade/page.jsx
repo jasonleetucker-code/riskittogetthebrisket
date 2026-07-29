@@ -1561,8 +1561,8 @@ export default function TradePage() {
   return (
     <main className={`main-shell ${styles.page} trade-page`}>
       <PageHeader
-        eyebrow="Terminal"
-        title="Trade Builder"
+        eyebrow="Trades"
+        title="Trade Calculator"
         description="Multi-team trade calculator with live fairness visualization."
         actions={
           <SegmentedControl

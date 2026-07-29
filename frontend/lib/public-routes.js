@@ -51,6 +51,21 @@ const ALWAYS_ALLOWED_EXACT = new Set([
   "/sw.js",
 ]);
 
+/**
+ * Routes that moved, mapped old → new.
+ *
+ * These are served by the middleware rather than by a page-level
+ * `redirect()` shim.  A shim under `/league` does NOT produce an HTTP
+ * redirect: `app/league/loading.jsx` gives that segment a Suspense
+ * boundary, so Next streams a 200 and performs the redirect in the RSC
+ * payload — fine in a browser, useless to curl, crawlers, and link
+ * unfurlers, and it would leave a 200 sitting on a URL whose content
+ * moved behind auth.  Middleware answers with a real 308 before any of
+ * that.  (`/draft-capital`'s page-level shim still works because its
+ * segment has no loading boundary; it is left alone.)
+ */
+export const MOVED_ROUTES = new Map([["/league/phases", "/phases"]]);
+
 /** Is this a framework/metadata path that auth must not intercept? */
 export function isInfrastructurePath(pathname) {
   if (!pathname) return false;

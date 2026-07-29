@@ -40,6 +40,11 @@ const RETRY_BACKOFF_MS = [1000, 2000, 4000, 8000, 30000];
  */
 export function useAuth() {
   const [authenticated, setAuthenticated] = useState(null); // null = unknown
+  // Operator flag from /api/auth/status.  Purely a UI affordance: it
+  // hides the Ops section of the System menu from users the server
+  // would 403 anyway.  Never trusted for access control — every admin
+  // endpoint re-checks server-side.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
   // Exposed so a caller can tell "we never got an answer" apart from
   // "the answer was no" without re-deriving it from authenticated.
@@ -115,6 +120,7 @@ export function useAuth() {
         const authed = !!data.authenticated;
         // Authoritative: stop retrying and commit, in both directions.
         setAuthenticated(authed);
+        setIsAdmin(authed && !!data.isAdmin);
         setAuthUnknown(false);
         setChecking(false);
         writeAuthCache(authed);
@@ -182,6 +188,7 @@ export function useAuth() {
       sessionStorage.removeItem(AUTH_CHECK_KEY);
     } catch { /* sessionStorage unavailable — in-memory state still flips */ }
     setAuthenticated(false);
+    setIsAdmin(false);
     setAuthUnknown(false);
     window.location.href = "/";
   }, []);
@@ -206,5 +213,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { authenticated, checking, authUnknown, logout, onLoginSuccess };
+  return { authenticated, isAdmin, checking, authUnknown, logout, onLoginSuccess };
 }

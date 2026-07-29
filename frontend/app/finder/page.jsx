@@ -322,8 +322,8 @@ export default function FinderPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Discovery"
-        title="Finder"
+        eyebrow="Market"
+        title="Player Screener"
         description="Surface players by the shape of their source signals. Each workflow is a standing query over the board; layer position and confidence on top to narrow it."
       />
 

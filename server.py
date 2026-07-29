@@ -9436,6 +9436,14 @@ async def auth_status(request: Request):
             "sleeperUserId": session.get("sleeper_user_id") or None,
             "avatar": session.get("avatar") or None,
             "authMethod": session.get("auth_method") or "password",
+            # Lets the shell hide operator surfaces (/admin, /tools/*)
+            # from users who would only get a 403 from them.  This is a
+            # UI affordance, NOT the access control: every admin
+            # endpoint still runs _require_admin_session independently,
+            # so a client that lies to itself about this flag gains
+            # nothing.
+            "isAdmin": str(session.get("username") or "").lower()
+            in PRIVATE_APP_ALLOWED_USERNAMES,
         }
     )
 

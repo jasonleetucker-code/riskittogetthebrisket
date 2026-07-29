@@ -228,7 +228,7 @@ export default function NewsPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Wire"
+        eyebrow="News"
         title="News"
         description="Every source, deduplicated and combined per player. Rolling 7-day window."
       />

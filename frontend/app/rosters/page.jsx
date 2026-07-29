@@ -108,7 +108,7 @@ export default function RostersPage() {
   if (!sleeperTeams.length) {
     return (
       <div className="card">
-        <PageHeader title="Roster Dashboard" subtitle="Team strength rankings with position breakdowns." />
+        <PageHeader title="Team Strength" subtitle="Team strength rankings with position breakdowns." />
         <EmptyState title="No league data" message="Load dynasty data with a Sleeper league to see roster rankings." />
       </div>
     );
@@ -118,7 +118,7 @@ export default function RostersPage() {
     <section>
       <div className="card">
         <PageHeader
-          title="Roster Dashboard"
+          title="Team Strength"
           subtitle="Power rankings, position breakdowns, waiver wire, and trade targets."
           actions={
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

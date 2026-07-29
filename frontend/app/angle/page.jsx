@@ -440,7 +440,7 @@ export default function AnglePage() {
   if (dataLoading) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <PageHeader eyebrow="Trades" title="Package Builder" />
         <Panel flush>
           <SkeletonTable rows={5} columns={4} />
         </Panel>
@@ -450,7 +450,7 @@ export default function AnglePage() {
   if (dataError) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        <PageHeader eyebrow="Counter-pitch" title="Trade Finder" />
+        <PageHeader eyebrow="Trades" title="Package Builder" />
         <Banner tone="negative" title="Failed to load data">
           {String(dataError)}
         </Banner>
@@ -461,8 +461,8 @@ export default function AnglePage() {
   return (
     <main className={`main-shell ${styles.page} angle-page`}>
       <PageHeader
-        eyebrow="Counter-pitch"
-        title="Trade Finder"
+        eyebrow="Trades"
+        title="Package Builder"
         description="Pick players to send and get ranked return packages — or pick players you want from a target team and find what you'd have to give up."
       />
 

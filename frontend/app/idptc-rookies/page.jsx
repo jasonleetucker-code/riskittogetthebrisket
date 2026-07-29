@@ -155,7 +155,7 @@ export default function IdptcRookiesPage() {
   return (
     <section>
       <PageHeader
-        title="Dynasty Rookie Board — IDPTC + KTC"
+        title="Rookie Board"
         subtitle={
           blurbsLoading
             ? "Every rookie on either source, ranked by max(IDPTC, KTC) value."

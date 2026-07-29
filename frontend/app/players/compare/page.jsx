@@ -347,7 +347,7 @@ function ComparePageBody() {
     <section>
       <div className="card" style={{ marginBottom: "var(--space-md)" }}>
         <PageHeader
-          title="Player comparison"
+          title="Compare Players"
           subtitle="Side-by-side value, ranks, source agreement, and trajectory.  Share via URL."
         />
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8 }}>

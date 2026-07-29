@@ -25,6 +25,7 @@ import {
   SYSTEM_MODEL,
   isGroupActive,
   isNavActive,
+  systemItemsFor,
 } from "@/lib/nav-model";
 
 function visibleGroups(authenticated, isPublic) {
@@ -37,9 +38,10 @@ function visibleGroups(authenticated, isPublic) {
   }).filter(Boolean);
 }
 
-export default function TopBar({ authenticated, isPublic, onSearch, onLogout }) {
+export default function TopBar({ authenticated, isAdmin, isPublic, onSearch, onLogout }) {
   const pathname = usePathname();
   const groups = visibleGroups(authenticated, isPublic);
+  const systemItems = systemItemsFor({ isAdmin });
 
   return (
     <header className="shell-topbar" data-html2canvas-ignore>
@@ -56,6 +58,7 @@ export default function TopBar({ authenticated, isPublic, onSearch, onLogout }) 
               <NavMenu
                 key={group.key}
                 label={group.label}
+                href={group.href}
                 items={group.items}
                 active={isGroupActive(group, pathname)}
                 pathname={pathname}
@@ -93,8 +96,8 @@ export default function TopBar({ authenticated, isPublic, onSearch, onLogout }) 
           {authenticated && (
             <NavMenu
               label={SYSTEM_MODEL.label}
-              items={SYSTEM_MODEL.items}
-              active={SYSTEM_MODEL.items.some((i) => isNavActive(i.href, pathname))}
+              items={systemItems}
+              active={systemItems.some((i) => isNavActive(i.href, pathname))}
               pathname={pathname}
               align="right"
               renderExtra={
@@ -111,7 +114,7 @@ export default function TopBar({ authenticated, isPublic, onSearch, onLogout }) 
           )}
           {authenticated === false && (
             <Link href="/login" className="shell-nav-link">
-              Login
+              Sign in
             </Link>
           )}
         </div>

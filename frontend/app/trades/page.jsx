@@ -468,7 +468,7 @@ export default function TradesPage() {
   return (
     <main className={`main-shell ${styles.page} trades-page`}>
       <PageHeader
-        eyebrow="Ledger"
+        eyebrow="Trades"
         title="Trade History"
         description={
           // The count comes from the contract, so it is only true once

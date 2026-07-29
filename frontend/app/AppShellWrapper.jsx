@@ -43,6 +43,7 @@ function isPublicRoute(href) {
 // ── Auth context ─────────────────────────────────────────────────────────
 const AuthContext = createContext({
   authenticated: null,
+  isAdmin: false,
   checking: true,
   logout: () => {},
 });
@@ -70,7 +71,7 @@ function RouteFocusManager({ mainRef }) {
 }
 
 function ShellChrome({ children }) {
-  const { authenticated, logout } = useAuthContext();
+  const { authenticated, isAdmin, logout } = useAuthContext();
   const mainRef = useRef(null);
 
   // openSearch comes from AppShell's context — ShellChrome renders
@@ -84,6 +85,7 @@ function ShellChrome({ children }) {
           </a>
           <TopBar
             authenticated={authenticated}
+            isAdmin={isAdmin}
             isPublic={isPublicRoute}
             onSearch={openSearch}
             onLogout={logout}
@@ -101,6 +103,7 @@ function ShellChrome({ children }) {
           </main>
           <MobileTabBar
             authenticated={authenticated}
+            isAdmin={isAdmin}
             isPublic={isPublicRoute}
             onLogout={logout}
           />

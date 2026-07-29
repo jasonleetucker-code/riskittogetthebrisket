@@ -4534,8 +4534,8 @@ export default function DraftDashboardPage() {
   return (
     <main className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
-        eyebrow="War room"
-        title="Draft board"
+        eyebrow="My Team"
+        title="Draft Board"
         description="Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately."
         actions={
           <div className={styles.pageActions}>

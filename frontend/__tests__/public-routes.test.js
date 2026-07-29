@@ -8,7 +8,7 @@
  * again.
  */
 import { describe, expect, it } from "vitest";
-import { isInfrastructurePath, isPublicPath } from "@/lib/public-routes";
+import { MOVED_ROUTES, isInfrastructurePath, isPublicPath } from "@/lib/public-routes";
 
 describe("public pages", () => {
   it("the landing page and login are public", () => {
@@ -120,5 +120,22 @@ describe("defensive input handling", () => {
     expect(isPublicPath("")).toBe(false);
     expect(isPublicPath(null)).toBe(false);
     expect(isPublicPath(undefined)).toBe(false);
+  });
+});
+
+describe("moved routes", () => {
+  it("maps /league/phases to its new private home", () => {
+    // A page-level redirect() shim under /league cannot do this: that
+    // segment has a loading.jsx, so Next streams a 200 and redirects
+    // client-side — which leaves a 200 on a URL whose content moved
+    // behind auth, and never redirects a crawler at all.
+    expect(MOVED_ROUTES.get("/league/phases")).toBe("/phases");
+  });
+
+  it("every move target is a real destination, not another move", () => {
+    for (const [from, to] of MOVED_ROUTES) {
+      expect(to.startsWith("/"), from).toBe(true);
+      expect(MOVED_ROUTES.has(to), `${to} is itself a redirect`).toBe(false);
+    }
   });
 });

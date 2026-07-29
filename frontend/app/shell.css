@@ -131,6 +131,39 @@
   transform: rotate(180deg);
 }
 
+/* Split trigger: the label navigates, the caret opens the menu.  They
+   read as one nav entry — the gap between them is closed and hovering
+   either half lights both — but they are two controls, so a group
+   label is finally clickable as a destination. */
+.shell-nav-link--group {
+  padding-right: var(--space-1);
+}
+.shell-nav-caret-btn {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+.shell-nav-caret-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* Hover anywhere on the pair highlights the pair. */
+.shell-nav-item:hover .shell-nav-link--group,
+.shell-nav-item:hover .shell-nav-caret-btn {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+.shell-nav-item:hover .shell-nav-caret {
+  color: var(--text-primary);
+}
+
 /* ── Nav dropdown menus ────────────────────────────────────────────────── */
 .shell-nav-item {
   position: relative;

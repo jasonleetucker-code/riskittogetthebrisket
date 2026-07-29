@@ -30,12 +30,21 @@
  * so the three cannot drift — see lib/public-routes.js.
  */
 import { NextResponse } from "next/server";
-import { isPublicPath } from "@/lib/public-routes";
+import { MOVED_ROUTES, isPublicPath } from "@/lib/public-routes";
 
 const SESSION_COOKIE = "jason_session";
 
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;
+
+  // Moved routes first, so an old bookmark gets a real 308 and then
+  // meets the auth gate at its new location on the follow-up request.
+  const moved = MOVED_ROUTES.get(pathname);
+  if (moved) {
+    const url = request.nextUrl.clone();
+    url.pathname = moved;
+    return NextResponse.redirect(url, 308);
+  }
 
   if (isPublicPath(pathname)) return NextResponse.next();
   if (request.cookies.get(SESSION_COOKIE)) return NextResponse.next();

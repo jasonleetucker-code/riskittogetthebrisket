@@ -254,8 +254,8 @@ export default function EdgePage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Market intelligence"
-        title="Edge"
+        eyebrow="Market"
+        title="Source Disagreement"
         description="Where the ranking sources agree, disagree, and flag issues. Every signal is derived from measurable properties of the data — coverage, agreement, divergence. Nothing is predicted."
         actions={teamSelect}
       />

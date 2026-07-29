@@ -1207,7 +1207,7 @@ export default function RankingsPage() {
   return (
     <section className={styles.page}>
       <PageHeader
-        eyebrow="Market"
+        eyebrow="Rankings"
         title="Rankings"
         description="Unified dynasty board — offense + IDP blended by consensus rank."
         actions={
