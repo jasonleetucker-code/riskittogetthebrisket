@@ -35,7 +35,7 @@ import statistics
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from src.canonical.player_valuation import rank_to_value as _rank_to_value
+from src.canonical.player_valuation import rank_to_value_for_scope as _rank_to_value_for_scope
 from src.api import injury_impact as _injury_impact
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
@@ -120,11 +120,40 @@ def _row_name(row: dict[str, Any]) -> str:
     return str(row.get("displayName") or row.get("canonicalName") or row.get("name") or "")
 
 
+# Position families for the scope-aware rank→value fallback in
+# ``_row_value``.  Kept as a local frozenset rather than imported from
+# ``rank_history`` so the two modules stay decoupled; the shared thing
+# that matters — the curve selection — lives in
+# ``player_valuation.rank_to_value_for_scope``.
+_IDP_POSITIONS_FOR_SCOPE = frozenset(
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "FS", "SS"}
+)
+
+
+def _row_scope(row: dict[str, Any]) -> str:
+    """``"idp"`` for IDP rows, ``"offense"`` otherwise (picks included)."""
+    if row.get("assetClass") == "pick":
+        return "offense"
+    pos = str(row.get("position") or "").strip().upper()
+    return "idp" if pos in _IDP_POSITIONS_FOR_SCOPE else "offense"
+
+
 def _row_value(row: dict[str, Any]) -> float:
     # Prefer the server-stamped ``rankDerivedValue`` (part of the
     # canonical contract).  Fall back to ``values.full`` or rank-
     # derived Hill if neither is present, so we never render 0 for
     # a ranked player with a stamped rank.
+    #
+    # The final fallback is SCOPE-AWARE as of the 2026-07-29 audit.  It
+    # previously called the offense curve for every row, including IDP
+    # and picks, while ``rank_history.py`` answered the same question
+    # with scope-aware constants — two modules, one concept, two
+    # answers.  Both now share ``rank_to_value_for_scope``; on the live
+    # board that cuts IDP reconstruction RMSE from 826 to 79.
+    #
+    # This path is dormant on live data (0 of 740 ranked rows on the
+    # 2026-07-29 payload lack both value fields), so the fix is to a
+    # latent path, not an active one.
     v = row.get("rankDerivedValue")
     if isinstance(v, (int, float)) and v > 0:
         return float(v)
@@ -135,7 +164,7 @@ def _row_value(row: dict[str, Any]) -> float:
             return float(vf)
     rank = row.get("canonicalConsensusRank")
     if isinstance(rank, (int, float)) and rank > 0:
-        return float(_rank_to_value(float(rank)))
+        return float(_rank_to_value_for_scope(float(rank), _row_scope(row)))
     return 0.0
 
 
@@ -636,7 +665,16 @@ def _sum_roster_value_at_date(
         if chosen is None:
             continue
         sources_hit.add("rank")
-        total += int(_rank_to_value(float(chosen)))
+        # Scope-aware as of the 2026-07-29 audit.  ``row_index`` is keyed
+        # by lowercased display name, so the current row (hence position)
+        # is available even though the history point carries only a rank.
+        # A roster in this league starts nine IDP players; running them
+        # through the offense curve understated a historical roster sum
+        # by ~800 points per defender on the 9999 scale.  A player who
+        # has since left the board falls back to the offense curve —
+        # unchanged from the previous behaviour for that case.
+        _hist_row = row_index.get(name.strip().lower()) or {}
+        total += int(_rank_to_value_for_scope(float(chosen), _row_scope(_hist_row)))
         resolved += 1
 
     coverage = resolved / max(1, expected)

@@ -371,6 +371,52 @@ def rank_to_value(
     return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(raw)))
 
 
+def rank_to_value_for_scope(rank: float, scope: str) -> int:
+    """Scope-aware rank → value, for RECONSTRUCTION/FALLBACK paths only.
+
+    THE ONE implementation of "what would the board have said for this
+    rank?".  Two callers reconstruct a value when a real one is missing:
+
+      * ``src/api/rank_history.py`` — old log entries that persisted a
+        rank but not a value (per-source values only began persisting
+        2026-04-29).
+      * ``src/api/terminal.py`` — a ranked row carrying neither
+        ``rankDerivedValue`` nor ``values.full``.  Dormant on live data
+        (0 of 740 ranked rows on the 2026-07-29 payload) but reachable.
+
+    ``scope`` is ``"idp"`` for IDP rows, anything else for offense.
+    Picks take the offense curve: they are reconstructed rarely and the
+    board prices them by tethering, not by a rank curve, so no rank-form
+    curve is right for them (see the backtest note below).
+
+    NOT the live valuation path.  Live values come from
+    ``data_contract.py::_compute_unified_rankings``; this is only for
+    rows where that output is unavailable.
+
+    CALIBRATION (measured 2026-07-29,
+    ``scripts/backtest_legacy_rank_curve.py``, 740 ranked rows of the
+    live board, results in ``docs/measurements/``):
+
+        candidate                overall RMSE   idp    offense   pick
+        legacy_offense (was)         840.4     826.5    845.9   887.8
+        legacy_scope   (this)        670.3      78.7    845.9   887.8
+        percentile_global            238.4     164.9    278.8   193.4
+        best-fit rank-form            96.3      65.6    113.5    68.7
+
+    Routing by scope is a strict improvement and costs nothing — it uses
+    constants that already exist — so it is applied here.  Whether this
+    whole legacy rank-form family should be REPLACED (by the
+    registry-managed percentile masters, or by a refit) is an open
+    modeling decision, deliberately not taken inside an audit fix: the
+    candidates have inverted error profiles (percentile_global is far
+    better past rank 120 but ~2x worse in the top 24), and switching
+    changes user-visible history values.  See the audit report.
+    """
+    if str(scope).lower() == "idp":
+        return int(rank_to_value(float(rank), midpoint=IDP_HILL_MIDPOINT, slope=IDP_HILL_SLOPE))
+    return int(rank_to_value(float(rank), midpoint=HILL_MIDPOINT, slope=HILL_SLOPE))
+
+
 # Keep the old name as an alias for callers that imported base_value_curve
 # from this module; they should migrate to rank_to_value.
 def base_value_curve(consensus_rank: float, **_kwargs: object) -> float:  # type: ignore[return]

@@ -69,13 +69,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.canonical.player_valuation import (
-    HILL_MIDPOINT,
-    HILL_SLOPE,
-    IDP_HILL_MIDPOINT,
-    IDP_HILL_SLOPE,
-    rank_to_value,
-)
+from src.canonical.player_valuation import rank_to_value_for_scope
 
 HISTORY_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "rank_history.jsonl"
 
@@ -166,13 +160,13 @@ def _extract_values(contract: dict[str, Any]) -> dict[str, int]:
 def _value_from_rank(rank: int, scope: str) -> int:
     """Backfill a value for an old log entry that has rank but no val.
 
-    Uses the canonical Hill curve constants (offense vs IDP).  Picks
-    fall through to the offense curve — picks logged before this
-    schema bump are rare and the discrepancy is bounded.
+    Delegates to ``rank_to_value_for_scope`` — THE one implementation of
+    scope-aware rank → value reconstruction, shared with
+    ``terminal.py``.  It used to inline the constant selection here,
+    which let ``terminal.py`` answer the same question with a different
+    (offense-only) curve; see that helper's calibration note.
     """
-    midpoint = IDP_HILL_MIDPOINT if scope == "idp" else HILL_MIDPOINT
-    slope = IDP_HILL_SLOPE if scope == "idp" else HILL_SLOPE
-    return int(rank_to_value(float(rank), midpoint=midpoint, slope=slope))
+    return rank_to_value_for_scope(float(rank), scope)
 
 
 _OFFENSE_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
