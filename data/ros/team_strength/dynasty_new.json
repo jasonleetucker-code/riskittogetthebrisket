@@ -266,14 +266,14 @@
         "bye": false
       },
       {
-        "playerId": "13342",
-        "canonicalName": "john michael gyllenborg",
-        "position": "TE",
-        "rosValue": 2.3,
+        "playerId": "13329",
+        "canonicalName": "malik benson",
+        "position": "WR",
+        "rosValue": 6.54,
         "fantasyPositions": [
-          "TE"
+          "WR"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
