@@ -126,9 +126,9 @@ def test_the_nav_does_not_promise_arbitrage_from_the_board_filter():
     # the confusion).  What must never drift is the word landing on the
     # route that does not compute it.
     arbitrage_label = by_href.get("/arbitrage", "")
-    assert "arbitrage" in arbitrage_label.lower(), (
-        f"/arbitrage should carry the arbitrage label, got {arbitrage_label!r}"
-    )
+    assert (
+        "arbitrage" in arbitrage_label.lower()
+    ), f"/arbitrage should carry the arbitrage label, got {arbitrage_label!r}"
     finder_label = by_href.get("/finder", "")
     assert "arbitrage" not in finder_label.lower(), (
         f"/finder is labelled {finder_label!r}, which promises arbitrage it does "

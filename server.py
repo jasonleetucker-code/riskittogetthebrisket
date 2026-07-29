@@ -9442,8 +9442,7 @@ async def auth_status(request: Request):
             # endpoint still runs _require_admin_session independently,
             # so a client that lies to itself about this flag gains
             # nothing.
-            "isAdmin": str(session.get("username") or "").lower()
-            in PRIVATE_APP_ALLOWED_USERNAMES,
+            "isAdmin": str(session.get("username") or "").lower() in PRIVATE_APP_ALLOWED_USERNAMES,
         }
     )
 
