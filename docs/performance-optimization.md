@@ -191,6 +191,58 @@ source and by measurement before changing anything:
 | `/` LCP | 2.7s | 0.8s |
 | per-page transfer | 2.5–4.9 MB | 2.1–3.4 MB (and ~0 on repeat within 30s) |
 
+## 2026-07-29 round 2 — CLS, /league TTFB, terminal race
+
+Follow-up to the sitewide audit, taking its top three remaining items.
+
+**CLS (measured: `/` 0.72 → 0.088, `/draft` 0.34 → 0.005, `/waivers`
+0.20 → 0.063 — all in the "good" band):**
+- `/`'s dominant shift was the auth swap: `app/page.jsx` first-painted
+  the ~200px landing card for EVERY visitor (auth resolves in an
+  effect) and then replaced it with the ~4000px terminal.  The `null`
+  auth state now renders a terminal-shaped skeleton shell (command
+  stats + chart slot + ticker strip + rail + 3-col grid), with a 4s
+  cap falling back to the navigable landing if the probe stalls.
+- Terminal panels: chart slot always mounted with reserved height
+  (`TeamCommandHeader`), sized `SkeletonTable`s replacing one-line
+  string loaders (`MoversPanel`, `PortfolioSummary`, `BuySellHold`),
+  height-stable rail placeholder while the team resolves
+  (`TopSignalsRail`), `min-height` on `.ticker`.
+- `/draft` pre-auth skeleton now matches its `loading.jsx` geometry
+  (was 3 different heights in sequence); `/waivers` stubs the full
+  settled layout, not just the first panel.
+- Deliberately NOT reserved: the `StaleDataBanner` slot.  It renders
+  only in rare stale/stalled alert states (contributed ~0 to the
+  measured CLS on fresh data) and permanently reserving ~40px on every
+  healthy page is the wrong trade for an alert that is meant to
+  interrupt.
+
+**/league TTFB (measured: 2.5–4s → ~85ms warm):** `GET
+/api/public/league` rebuilt all 16 sections + double-safety-walked +
+`json.dumps`ed the multi-MB contract per request, while the identical
+contract was already built and discarded during every snapshot
+rebuild.  Now: `_PUBLIC_CONTRACT_BYTES_CACHE` — key
+`(root_league_id, snapshot.generated_at, latest_data_etag)` (private
+etag included because activity trade grades derive from the private
+board), value = pre-encoded response bytes, no TTL
+(generation-keyed), bound 4, seeded by the rebuild's persist step,
+`?refresh=1` bypasses the read.  Freshness identical to before — the
+300s snapshot SWR window governs, the memo never outlives a
+generation.  Also: duplicate `assert_public_payload_safe` walk
+dropped (the builder asserts internally), activity-valuation callable
+memoized per private generation, and `app/league/page.jsx` wraps its
+fetch in React `cache()` so `generateMetadata` + the page body share
+one backend call per render.
+
+**Terminal duplicate fetch (measured: 2 calls → 1, team pre-resolved):**
+`useTeam().loading` now means "team identity not yet answerable":
+`dataLoading || !settingsHydrated || autoAssignPending`, where
+`autoAssignPending` clears when the auto-assign effect completes for
+BOTH outcomes (match or no-match — a league with no default team must
+not hold forever) and `selectionTouched` is the deliberate-clear
+escape hatch.  All seven `useTerminal` call sites already gate on it
+via `skip`.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**

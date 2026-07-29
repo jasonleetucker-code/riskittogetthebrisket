@@ -5047,6 +5047,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 6px);
+  /* Height-stable across the quiet <-> live swap: the live marquee's
+     content height differed from the quiet strip, nudging the whole
+     dashboard when items arrived. */
+  min-height: 40px;
   padding: 6px var(--space-sm) 6px var(--space-md);
   overflow: hidden;
 }
