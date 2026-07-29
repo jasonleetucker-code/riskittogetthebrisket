@@ -324,13 +324,247 @@ Every other route re-swept: CLS ≤ 0.076, LCP < 1s, no regressions.
   ways that create new shifts; if this is retried, the fix probably
   belongs in the switcher's own label placeholder, not the toggle width.
 
-### Still open: `/waivers` 0.208
+### Still open: `/waivers` 0.208 — **CLOSED IN ROUND 4, and this diagnosis was wrong**
 
-The remaining shift attributes to two `BUTTON.shell-nav-link` elements
-at ~320ms — the same topbar-switcher growth described above, which
-manifests strongest on this route.  The `ManualAddDrop` fix is real and
-kept, but it was not the dominant source.  This needs the switcher
-label-placeholder approach, not another panel skeleton.
+> Kept as written because the correction is the lesson.  This section
+> read the shift's source-attribution list — two `BUTTON.shell-nav-link`
+> elements at ~320ms — as naming the *cause*, and concluded the fix was
+> a switcher label placeholder.
+>
+> Round 4 A/B-tested exactly that: pinning `.shell-nav-right` to its
+> settled width moved `/` from 0.0925 to 0.0889.  The rail was a
+> co-source, not the cause.  Those two buttons were moving because the
+> *nav item set changed* — `TopBar` answered "signed in?" with the
+> public nav while the answer was still unknown, then inserted four
+> items.  Fixing that, plus a wrapping page description, took
+> `/waivers` to 0.014.
+>
+> **Co-listed is not causal.** Attribution tells you what moved; only
+> an intervention tells you why.
+
+## 2026-07-29 round 4 — the last CLS, /league's payload, CSS scope, board growth
+
+Round 3 closed with one route outside Google's "good" CLS band and a
+hypothesis about why.  **The hypothesis was wrong**, and finding that
+out is most of what this round is.
+
+### Measurement environment: it was broken, and it lied quietly
+
+Every CLS reading at the start of this round was `0`, on every route,
+with LCP ~200ms.  Cause: `next start` was serving a `.next` directory
+that had been rebuilt underneath it, so the client requested chunk
+hashes the running server no longer had.  The pages rendered a shell
+and nothing else, which reads as "perfect CLS" rather than as an error.
+
+**Restart `next start` after every `npm run build`.** A stale server
+does not fail loudly; it reports excellent numbers for a page that
+never rendered.
+
+A second, subtler harness bug: the first A/B harness injected candidate
+CSS from an `addInitScript` `<style>` tag, and reported **CLS = 0 for
+every variant including the placebo**.  The injection itself perturbed
+paint timing.  The working harness routes the *stylesheet response*
+(`page.route("**/_next/static/css/*.css")`) and appends to its body —
+content changes, timing does not.  With that, placebo reproduced
+control to four decimals, and the A/B results below are trustworthy.
+
+Rule, alongside round 3's 5-run-median rule: **an A/B without a placebo
+arm is not an A/B.**
+
+### Results (5-run medians, prod topology)
+
+| Route | Round 3 end | Round 4 end |
+|---|---|---|
+| `/waivers` | 0.180 | **0.014** |
+| `/draft` | 0.316 | **0.073** |
+| `/trade` | 0.117 | **0.004** |
+| `/` | 0.094 | 0.093 |
+
+25-route sweep: every route CLS ≤ 0.091, LCP ≤ 1096ms, TTFB ≤ 92ms.
+
+### What was actually causing it
+
+**1. The shell nav guessed at auth.** `TopBar`'s `authenticated` prop is
+tri-state, and `visibleGroups` answered `null` ("not resolved yet") with
+the *public* nav.  Signed-in users got a 2-item nav on the first paint
+and then had four items inserted, sliding "Trade" 185→335px and
+"League" 266→586px — on **every route**, since this is the shell.  Now
+renders nothing until the answer arrives, which is free: the nav sits
+between a left-aligned brand and a `margin-left: auto` rail, so items
+appear without moving either neighbour.
+
+Round 3's guess — that `/waivers` needed a *switcher label placeholder*
+— was wrong twice over.  The switcher rail does grow (205→335→464px),
+but an A/B pinning `.shell-nav-right` to its settled width moved `/`
+only 0.0925→0.0889.  The rail is a co-source in the attribution list,
+not the cause.  **Co-listed is not causal**; only the intervention
+tells you which.
+
+**2. A 4px header growth was worth 0.24 CLS.** `/draft`'s reserved
+status-line slot had `min-height` but no block formatting context, so
+the status block's own `margin-top` collapsed *through* the slot and
+pushed it down 4px.  Four pixels — but they move the ~490px team list
+below, and the A/B measured that at 0.24 of the page's 0.315.
+`display: flow-root` keeps the margin inside the reservation.
+
+**Reserving a box is not reserving the space.** A `min-height`
+placeholder whose future children carry margins needs `flow-root`.
+
+**3. Two "we don't know yet" windows, collapsed instead of reserved.**
+`/trade` cleared `suggestionsPending` while `loading`, poisoning the
+first `!loading` paint; and again in the commit between `useTeam`
+resolving the team and `selectTeam` populating the page's roster
+mirror.  The second is why the page measured *bimodally* — 3 runs at
+0.226, 2 at 0.003, depending on whether the roster beat the paint.
+Topbar→page team resolution is now one derived value with a real
+three-way answer (`null` = not answerable yet).
+
+**A bimodal metric is a race, not noise.** Averaging it hides the bug.
+
+**4. `/waivers` completes its own page description.** The subtitle
+appends `— <league name>` when the league resolves, crossing the 60ch
+measure and wrapping to a second line: every panel on the page drops
+19px.  Opt-in `.ds-page-header--reserve-2-line-description`.
+
+### `/league`: 2.38 MB → 91 KB
+
+The route server-fetched the aggregate public contract (2.01 MB, 17
+sections) and passed the whole object to a client component, which
+serialized it into the RSC flight payload.
+
+| | before | after |
+|---|---|---|
+| `/league` document | 2,383,091 B | **91,346 B** |
+| total transfer time | 377ms | 34ms |
+| LCP (browser, warm) | 932ms | **276ms** |
+
+Two things made it worse than merely large:
+
+* **Two shipped sections are never read by this page.** The AI-article
+  tabs replaced the structured preview/recap views, so `weeklyRecap`
+  (378 KB) and `matchupPreview` (11 KB) were pure transfer.
+* **It could not be cached on the way in.** Next's Data Cache refuses
+  entries over 2 MB, so `revalidate: 60` on the aggregate was silently
+  inert and every render re-fetched and re-parsed 2 MB.  The build log
+  said so on every build; nobody had read it as a *correctness* notice
+  about the cache directive.
+
+Now: `page.jsx` fetches `overview` (the header's season label needs it
+on every tab) plus the landing tab's own section, so a deep link to any
+tab is still fully server-rendered and crawlers still see real content.
+`LeagueClient` fetches each remaining section when the visitor opens
+the tab that renders it.
+
+**Cache, per section entry:** Next Data Cache · key = the section URL ·
+revalidate 60s · invalidated by that window elapsing.  Stale reads are
+possible and bounded at ~60s of an already eventually-consistent public
+page — no private data, no trade math, nothing a user acts on.  A
+long-lived tab CAN hold two sections built from snapshots up to a
+minute apart; they are independent read-only views (Records vs
+Archives), never two halves of one number.
+
+Latent bug found on the way: the frontend's `PUBLIC_SECTION_KEYS` was
+missing `teamAssignment`, which the backend serves.  Nothing had ever
+requested that section individually, so `fetchPublicSection` would have
+thrown the first time anyone did.  A lockstep test now fails if a tab
+maps to a section the public API will not serve.
+
+Still open: `app/sitemap.js` fetches the aggregate, so the 2 MB
+Data-Cache warning persists for that route.  Crawler-only, not on any
+user path.
+
+### CSS: route-scope the draft board
+
+`globals.css` is imported by `app/layout.jsx`, so all ~70 routes
+downloaded and parsed 27 KB of `.draft-*` rules that only
+`app/draft/page.jsx` renders.
+
+| | before | after |
+|---|---|---|
+| globals CSS chunk | 112 KB | **92 KB** |
+| CSS per route (not `/draft`) | 194 KB | **174 KB** |
+
+Mechanical split: a rule moved only if its **entire** selector list
+references a `.draft-` class, with `@media` blocks split so their
+draft-only rules travel.  Zero rules mixed draft and non-draft
+selectors.
+
+Verified by full-page pixel diff of 15 routes at 1366×900 and 390×844:
+`/draft` byte-identical at both, every other route within
+text-antialiasing noise (3 mobile shots, 19–56 px, 0.001–0.017%).  That
+check is the point — extraction silently changes **cascade order**,
+because page CSS now loads *after* layout CSS, so any specificity tie
+between a moved `.draft-x` rule and a later global rule would flip.
+
+**Honest scope note.** "191 KB globals.css" overstates the cost.  The
+four render-blocking sheets gzip to **32.6 KB** total and nginx already
+serves `text/css` gzipped, so this saves ~4 KB on the wire per route.
+The real cost is CPU, and CSS is the smallest part of it — measured on
+a 6× throttled mobile CPU:
+
+| | script | layout | style recalc |
+|---|---|---|---|
+| `/` | 1301ms | 310ms | 255ms |
+| `/rankings` | 1829ms | 417ms | 321ms |
+
+That is why this stopped at one clean extraction rather than
+restructuring 7,200 lines.  Remaining movable families, all
+single-owner and mixed-free, ~32 KB combined: scouting / portfolio /
+pmm / ticker (terminal components), edge (`/rankings`), watchlist, tc.
+The splitter and the pixel-diff harness make it mechanical.
+
+### Rankings: the board freeze, and why it is not virtualized
+
+Measured first, on `/rankings` at 390×844:
+
+| CPU | rows | scroll FPS |
+|---|---|---|
+| 1× | 229 (default) | 61 |
+| 1× | 1,095 ("Show all") | 13 |
+| 4× | 229 | 14 |
+| 4× | 1,095 | 3 |
+| 6× | 229 | 10 |
+| 6× | 1,095 | 2 |
+
+"Show all" takes the board from 200 to ~1,095 rows at 36 DOM nodes
+each — 7,326 → 33,966 elements.  Committing that synchronously froze
+the tab.  `useTransition` fixes the freeze:
+
+| | control | with transition |
+|---|---|---|
+| 1× time-to-rows | 934ms | **473ms** |
+| 1× longest frame gap | 600ms | **54ms** |
+| 1× p95 frame gap | 600ms | **49ms** |
+| 6× time-to-rows | 7511ms | **5479ms** |
+| 6× longest frame gap | 5052ms | 3771ms |
+| 6× p95 frame gap | 5052ms | **60ms** |
+
+The p95 frame gap is the number that matters: 5052ms → 60ms at 6×
+throttle means the page paints throughout instead of going dead, and
+the button now says "Adding rows…" instead of looking broken.
+
+**Scroll FPS is unchanged** — the transition does not reduce DOM size.
+That needs real virtualization, and it is blocked on a prerequisite:
+
+* `components/ui/VirtualList.jsx` **cannot be used here.** Its own
+  docstring says div rows, not `<tr>`; the board is a real `<table>`.
+* `content-visibility: auto` **does not work on table internals** —
+  the containment spec excludes `table-row` / `table-row-group` from
+  size containment.  Measured on both `tr` and `tbody`: scroll stayed
+  at 2 FPS, settle unchanged.  Not a browser bug, a spec constraint.
+* Row windowing with spacer `<tr>`s needs stable column widths, and the
+  table is `table-layout: auto` with no `<colgroup>`.  Windowing it
+  as-is makes columns jump while scrolling.
+
+So the honest prerequisite is: **pin the board's column widths**
+(measure once, emit a `colgroup`, switch to `table-layout: fixed`,
+handle the responsive `ds-col-hide-*` columns), *then* window the rows.
+That is architectural work on the app's most complex surface, not a
+drive-by.
+
+Also worth knowing: an **active filter bypasses `rowLimit` entirely**
+(`hasActiveFilter ? ranked : ranked.slice(0, rowLimit)`), so a broad
+filter renders every match with no cap and no transition.
 
 ## Rejected (attempted, reverted)
 
@@ -363,14 +597,36 @@ tweak, so it is tracked separately rather than bundled here.
 
 ## Planned (prioritized)
 
-1. **Frontend bundle analysis + code-splitting** for the heaviest routes
-   (rankings, trade, league) to cut first-paint JS.
-2. **Render-path audit** of the rankings table and trade views:
-   memoization, virtualization for long lists, and avoiding recompute on
-   sort/filter/scroll.
-3. **Navigation** — ensure route transitions reuse cached data instead of
-   refetching/recomputing.
-4. **Client revalidation** — blocked on the auth-scoping work above.
+Reordered after round 4, because the throttled-CPU numbers say plainly
+where the remaining time goes.  On a 6× throttled mobile CPU the budget
+is **script 1301–1829ms, layout 310–417ms, style recalc 255–321ms** —
+script is 4–6× everything else, so JS is the whole ballgame now that
+payloads and layout shift are handled.
+
+1. **Cut first-paint JS on the heaviest routes** (`/league` 169 KB,
+   `/draft` 126 KB, `/trade` 78 KB — all within ~2 KB of their budgets).
+   This is the single biggest remaining lever on slow devices.
+2. **Pin the rankings board's column widths, then window its rows.**
+   Prerequisite, not optional: the table is `table-layout: auto` with no
+   `colgroup`, so spacer-row windowing makes columns jump.
+   `content-visibility` is ruled out (spec excludes table internals) and
+   `VirtualList.jsx` is div-only. Payoff: `/rankings` scrolls at 2–3 FPS
+   with 1,095 rows on a 4–6× throttled CPU, and 10–14 FPS even at the
+   default 200.
+3. **Cap filtered results the way unfiltered ones are capped.** An
+   active filter bypasses `rowLimit` entirely, so a broad filter renders
+   every match with no cap and no transition — the same freeze "Show
+   all" had before round 4.
+4. **The remaining CSS families** (~32 KB, single-owner, mixed-free):
+   scouting / portfolio / pmm / ticker / edge / watchlist / tc. The
+   splitter and pixel-diff harness from round 4 make it mechanical.
+   Small win — see round 4's scope note on why CSS is not the
+   bottleneck.
+5. **`app/sitemap.js` still fetches the 2 MB aggregate contract**, so it
+   keeps tripping Next's Data Cache size limit. Crawler-only path.
+6. **Navigation** — ensure route transitions reuse cached data instead
+   of refetching/recomputing.
+7. **Client revalidation** — blocked on the auth-scoping work above.
 
 ## Validation notes
 
