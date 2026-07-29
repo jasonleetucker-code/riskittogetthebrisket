@@ -1,0 +1,1316 @@
+/* Draft board styles — extracted from globals.css.
+ *
+ * Every rule here is exclusively about ``.draft-*`` classes, which
+ * app/draft/page.jsx is the only file in the app that renders.  They
+ * used to sit in globals.css, which app/layout.jsx imports, so all ~70
+ * routes downloaded and parsed 27 KB of draft-board CSS to render pages
+ * that have no draft board.  Imported by app/draft/page.jsx instead, so
+ * Next emits it in the /draft route chunk only.
+ *
+ * The split was mechanical: rules whose ENTIRE selector list references
+ * a ``.draft-`` class moved; anything mixing draft and non-draft
+ * selectors stayed (there were none).  Verified by full-page pixel
+ * diffing /draft at 1366x900 and 390x844 before and after — the one
+ * thing an extraction like this can silently change is cascade order,
+ * since page CSS now loads after layout CSS.
+ *
+ * Add new ``.draft-*`` rules HERE, not in globals.css.
+ */
+
+
+/* ── Draft dashboard ──────────────────────────────────────────────── */
+
+.draft-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.draft-page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.draft-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.draft-stat {
+  background: rgba(79, 155, 236, 0.04);
+  border: 1px solid rgba(79, 155, 236, 0.15);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.draft-stat-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.draft-stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--mono, monospace);
+  color: var(--cyan);
+}
+
+.draft-top-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 880px) {
+  .draft-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.draft-panel-header h3 {
+  margin: 0 0 4px;
+}
+.draft-team-list {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+.draft-team-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 62px 52px 64px 52px 56px 56px 46px;
+  gap: 5px;
+  align-items: center;
+  padding: 4px 0;
+}
+.draft-team-row-head {
+  color: var(--muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.draft-team-mine {
+  background: rgba(52, 211, 153, 0.05);
+  border-left: 2px solid var(--green);
+  padding-left: 6px;
+  margin-left: -8px;
+}
+.draft-radio {
+  display: flex;
+  justify-content: center;
+}
+.draft-inline-input {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  width: 100%;
+  min-width: 0;
+}
+.draft-inline-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+.draft-money-input {
+  font-family: var(--mono, monospace);
+  text-align: right;
+}
+.draft-money {
+  font-family: var(--mono, monospace);
+  text-align: right;
+}
+.draft-money-low {
+  color: var(--red);
+}
+.draft-money-max {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.draft-knobs h3 {
+  margin: 0 0 8px;
+}
+.draft-knob-row {
+  margin-bottom: 10px;
+}
+.draft-knob-row label {
+  display: block;
+  font-size: 0.8rem;
+}
+.draft-knob-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+.draft-knob-control input[type="range"] {
+  flex: 1;
+}
+.draft-knob-number {
+  width: 70px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: var(--mono, monospace);
+}
+
+.draft-board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.draft-board-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.draft-check {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.draft-add-inline {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.draft-table-wrap {
+  overflow-x: auto;
+}
+.draft-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.draft-table thead th {
+  text-align: left;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.draft-table tbody td {
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.4);
+  white-space: nowrap;
+}
+.draft-row-drafted {
+  opacity: 0.5;
+}
+.draft-row-mine {
+  background: rgba(52, 211, 153, 0.06);
+  opacity: 1;
+}
+.draft-row-mine td:first-child {
+  border-left: 2px solid var(--green);
+}
+.draft-row:hover {
+  background: rgba(79, 155, 236, 0.04);
+}
+
+.draft-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(153, 166, 200, 0.08);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+}
+.draft-tag-mine {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-vs-fair {
+  margin-left: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.draft-vs-fair-win { color: var(--green); }
+.draft-vs-fair-lose { color: var(--red); }
+
+.draft-row-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.draft-remove-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.draft-remove-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+/* Modal */
+.draft-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 22, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.draft-modal {
+  width: min(520px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.draft-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.draft-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.draft-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.draft-modal-close:hover { color: var(--red); }
+
+.draft-modal-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.draft-modal-refs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 14px;
+  font-size: 0.82rem;
+}
+.draft-modal-refs > div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed var(--border);
+  padding: 2px 0;
+}
+.draft-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+.draft-modal-field span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.draft-modal-live {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.draft-live-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.draft-live-badge {
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+.draft-live-idle    { color: var(--muted); }
+.draft-live-push    { color: var(--cyan); border-color: var(--cyan); background: rgba(79, 155, 236, 0.08); }
+.draft-live-target  { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
+.draft-live-pass    { color: var(--red); border-color: var(--red); background: rgba(248, 113, 113, 0.08); }
+.draft-live-mine    { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
+.draft-live-gone    { color: var(--muted); }
+
+.draft-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Tier 1: tier chips, winning-bid emphasis, overpay warning ─── */
+
+.draft-tier-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  min-width: 18px;
+  border: 1px solid var(--border);
+  font-family: var(--mono, monospace);
+}
+.draft-tier-S {
+  background: rgba(79, 155, 236, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-tier-A {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-tier-B {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+.draft-tier-C {
+  background: rgba(153, 166, 200, 0.1);
+  color: var(--muted);
+}
+.draft-tier-D {
+  background: rgba(153, 166, 200, 0.05);
+  color: var(--subtext);
+}
+
+.draft-money-win {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.draft-stat-green .draft-stat-value { color: var(--green); }
+.draft-stat-red .draft-stat-value { color: var(--red); }
+
+.draft-modal-warn {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--red);
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--red);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.draft-modal-warn strong {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  margin-right: 4px;
+}
+
+/* ── Tier 2: tags, recommendations, tier dividers, progress bar,
+      next best targets, simulator ──────────────────────────── */
+
+.draft-progress {
+  margin-bottom: 10px;
+}
+.draft-progress-bar {
+  height: 6px;
+  background: rgba(153, 166, 200, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.draft-progress-fill {
+  height: 100%;
+  /* Was a Vikings purple → gold → blush sweep — the last consumer of the
+     brand hexes. Terminal has no brand colours to parade, and a
+     three-hue gradient on a progress bar is decoration: the bar already
+     encodes progress by length, so the extra channel says nothing. Flat
+     accent instead. */
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+.draft-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* Tag filter tabs */
+.draft-tag-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 8px;
+  flex-wrap: wrap;
+}
+.draft-tag-tab {
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.draft-tag-tab:hover {
+  background: rgba(79, 155, 236, 0.05);
+}
+.draft-tag-tab-active {
+  font-weight: 600;
+}
+.draft-tag-tab-count {
+  font-family: var(--mono, monospace);
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
+/* Per-row tag chips */
+.draft-tag-chip {
+  width: 26px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.draft-tag-chip:hover {
+  background: rgba(79, 155, 236, 0.08);
+}
+.draft-tag-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.draft-tag-target {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-tag-avoid {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.draft-row-target td:first-child {
+  border-left: 2px solid var(--green);
+}
+.draft-row-avoid td:first-child {
+  border-left: 2px solid var(--red);
+}
+.draft-row-avoid {
+  opacity: 0.6;
+}
+
+/* Recommendation chip */
+.draft-rec-chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  text-align: center;
+  min-width: 48px;
+  font-family: var(--mono, monospace);
+}
+.draft-rec-lock {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-rec-steal {
+  background: rgba(79, 155, 236, 0.12);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-rec-push {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+.draft-rec-buy {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: var(--green);
+}
+.draft-rec-spend {
+  background: rgba(79, 155, 236, 0.1);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-rec-avoid {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+.draft-rec-neutral {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+/* Tier divider rows on the board */
+.draft-tier-divider td {
+  padding: 6px 8px !important;
+  background: rgba(153, 166, 200, 0.04);
+  border-bottom: 1px solid rgba(38, 58, 105, 0.5) !important;
+  letter-spacing: 0.02em;
+  font-size: 0.8rem;
+}
+
+/* Next Best Targets sidebar */
+.draft-nbt {
+  margin-bottom: 14px;
+}
+.draft-nbt-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.draft-nbt-row {
+  display: grid;
+  grid-template-columns: 32px 28px 36px 1fr 80px 90px 64px 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  background: rgba(153, 166, 200, 0.04);
+}
+.draft-nbt-row:hover {
+  background: rgba(79, 155, 236, 0.05);
+}
+.draft-nbt-target {
+  background: rgba(52, 211, 153, 0.06);
+}
+.draft-nbt-rank {
+  font-family: var(--mono, monospace);
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.draft-nbt-name {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.draft-nbt-name:hover {
+  color: var(--cyan);
+}
+
+/* Bid simulator in draft modal */
+.draft-modal-sim {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(52, 211, 153, 0.04);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+.draft-sim-grid {
+  display: grid;
+  gap: 3px;
+}
+.draft-sim-row {
+  display: grid;
+  grid-template-columns: 110px 70px 14px 70px 1fr;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.74rem;
+}
+.draft-sim-arrow {
+  color: var(--muted);
+  text-align: center;
+}
+.draft-sim-delta {
+  font-family: var(--mono, monospace);
+  font-size: 0.72rem;
+}
+.draft-sim-delta-up { color: var(--green); }
+.draft-sim-delta-down { color: var(--red); }
+.draft-sim-delta-muted { color: var(--muted); }
+
+/* ── Tier 3: sparkline, MDV heatmap, overpay colors, nomination
+      sidebar, triage banner ──────────────────────────────────── */
+
+.draft-sparkline {
+  display: block;
+  margin-top: 4px;
+}
+
+/* MDV heatmap cell backgrounds */
+.draft-mdv {
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 1.3;
+}
+.draft-mdv-high {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--green);
+}
+.draft-mdv-mid {
+  background: rgba(153, 166, 200, 0.08);
+  color: var(--muted);
+}
+.draft-mdv-low {
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--red);
+}
+.draft-mdv-empty {
+  color: var(--subtext);
+  opacity: 0.6;
+}
+
+/* Overpay index text coloring */
+.draft-money-overpay {
+  color: var(--red);
+  font-weight: 600;
+}
+.draft-money-value {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Sidebar grid holding NextBestTargets + NominationCandidates +
+   BestValueOnBoard */
+.draft-sidebar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1300px) {
+  .draft-sidebar-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .draft-sidebar-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.draft-nbt-avoid {
+  background: rgba(248, 113, 113, 0.05);
+}
+
+/* Triage banner */
+.draft-triage-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: rgba(79, 155, 236, 0.08);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+.draft-triage-banner strong {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--cyan);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.draft-triage-banner span {
+  color: var(--text);
+}
+
+/* ── Target Board + Bayesian nom + help modal + row selection ─── */
+
+.draft-target-board {
+  margin-bottom: 14px;
+}
+.draft-tb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.draft-tb-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.draft-tb-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 56px 56px 58px 66px 120px 74px;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(153, 166, 200, 0.04);
+}
+.draft-tb-row:hover {
+  background: rgba(79, 155, 236, 0.05);
+}
+.draft-tb-row-mine {
+  background: rgba(52, 211, 153, 0.08);
+  border-left: 2px solid var(--green);
+  padding-left: 4px;
+}
+.draft-tb-row-drafted:not(.draft-tb-row-mine) {
+  opacity: 0.5;
+}
+.draft-tb-row-head {
+  color: var(--muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent !important;
+  padding: 2px 6px;
+}
+.draft-tb-idx {
+  font-family: var(--mono, monospace);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.draft-tb-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.draft-tb-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.draft-tb-status-won {
+  color: var(--green);
+}
+.draft-tb-status-lost {
+  color: var(--red);
+}
+.draft-tb-status-open {
+  color: var(--cyan);
+}
+.draft-tb-controls {
+  display: inline-flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+.draft-tb-ctrl {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0;
+}
+.draft-tb-ctrl:hover:not(:disabled) {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.draft-tb-ctrl:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.draft-tb-ctrl-remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.draft-tb-summary {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+}
+.draft-tb-summary-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.76rem;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+.draft-tb-summary-line .muted {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.draft-tb-buffer {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.draft-tb-status-line {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.draft-tb-status-short {
+  border-color: var(--red);
+  background: rgba(248, 113, 113, 0.08);
+}
+.draft-tb-status-short .draft-tb-status-line {
+  color: var(--red);
+}
+.draft-tb-status-short .draft-tb-buffer {
+  color: var(--red);
+}
+.draft-tb-status-tight {
+  border-color: var(--cyan);
+  background: rgba(79, 155, 236, 0.06);
+}
+.draft-tb-status-tight .draft-tb-status-line {
+  color: var(--cyan);
+}
+.draft-tb-status-ok {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.05);
+}
+.draft-tb-status-ok .draft-tb-status-line {
+  color: var(--green);
+}
+.draft-tb-status-idle .draft-tb-status-line {
+  color: var(--muted);
+}
+
+.draft-tb-add {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.draft-tb-suggest {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* Par Sheet — same look as Target Board, 7-col grid (no Win column) */
+.draft-par-sheet {
+  margin-bottom: 14px;
+}
+.draft-ps-row {
+  grid-template-columns: 34px 1fr 70px 70px 70px 96px 74px;
+}
+.draft-ps-fv-edit {
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+  color: inherit;
+  font: inherit;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.draft-ps-fv-edit:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-ps-add {
+  align-items: center;
+}
+
+/* Nomination logger in draft modal */
+.draft-modal-nom {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Help modal */
+.draft-help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.draft-help-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+}
+.draft-help-table td:first-child {
+  width: 110px;
+  white-space: nowrap;
+}
+.draft-help-table kbd {
+  background: rgba(153, 166, 200, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  color: var(--cyan);
+}
+
+/* Row selection highlight */
+.draft-row-selected {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+  background: rgba(79, 155, 236, 0.08) !important;
+}
+
+/* ── Draft glossary ─────────────────────────────────────────────── */
+
+.draft-gloss {
+  margin-top: 16px;
+  margin-bottom: 32px;
+}
+.draft-gloss > details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding-bottom: 6px;
+  /* Blush-orange underline — the 4th Vikings palette color.  Only
+   * used here and on the progress-bar gradient end-stop, so the
+   * color stays a "peripheral trim" accent rather than dominating. */
+  border-bottom: 2px solid var(--blush);
+  margin-bottom: 10px;
+}
+.draft-gloss > details > summary::-webkit-details-marker {
+  display: none;
+}
+.draft-gloss-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.draft-gloss-inner {
+  display: grid;
+  gap: 4px;
+}
+.draft-gloss-section {
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+  padding: 4px 0;
+}
+.draft-gloss-section:last-child {
+  border-bottom: none;
+}
+.draft-gloss-section > summary {
+  cursor: pointer;
+  padding: 6px 4px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  list-style: none;
+  color: var(--text);
+  position: relative;
+  padding-left: 22px;
+}
+.draft-gloss-section > summary::-webkit-details-marker {
+  display: none;
+}
+.draft-gloss-section > summary::before {
+  content: "▸";
+  position: absolute;
+  left: 4px;
+  color: var(--muted);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.draft-gloss-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+.draft-gloss-section > summary:hover {
+  color: var(--cyan);
+}
+.draft-gloss-body {
+  padding: 4px 10px 10px 22px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+.draft-gloss-body p {
+  margin: 0 0 8px;
+}
+.draft-gloss-body ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.draft-gloss-body li {
+  margin-bottom: 4px;
+}
+.draft-gloss-body strong {
+  color: var(--text);
+}
+.draft-gloss-body kbd {
+  background: rgba(153, 166, 200, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 5px;
+  font-family: var(--mono, monospace);
+  font-size: 0.76rem;
+  color: var(--cyan);
+}
+.draft-gloss-body .draft-rec-chip {
+  display: inline-block;
+  margin: 0 2px;
+}
+
+/* ── Alerts / roster-gap / quick-record / review ─────────────── */
+
+.draft-alert-stack {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.draft-alert-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.draft-alert-clear {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  text-decoration: underline dotted;
+  padding: 0;
+}
+.draft-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  animation: draftAlertSlide 0.25s ease-out;
+}
+.draft-alert-info {
+  background: rgba(234, 191, 153, 0.1);
+  border: 1px solid var(--blush);
+  color: var(--text);
+}
+.draft-alert-warn {
+  background: rgba(79, 155, 236, 0.08);
+  border: 1px solid var(--cyan);
+  color: var(--text);
+}
+.draft-alert-danger {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--red);
+  color: var(--text);
+}
+.draft-alert-msg {
+  flex: 1;
+}
+.draft-alert-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+.draft-alert-close:hover {
+  opacity: 1;
+}
+
+/* Roster need strip */
+.draft-need-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(79, 33, 133, 0.12);
+  border: 1px solid rgba(79, 33, 133, 0.4);
+  font-size: 0.78rem;
+}
+.draft-need-chip {
+  background: rgba(234, 191, 153, 0.15);
+  color: var(--blush);
+  border: 1px solid var(--blush);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-family: var(--mono, monospace);
+  letter-spacing: 0.04em;
+}
+.draft-need-chip .draft-need-short {
+  opacity: 0.75;
+  font-size: 0.66rem;
+  margin-left: 2px;
+}
+.draft-need-chip-row {
+  display: inline-block;
+  background: rgba(234, 191, 153, 0.15);
+  color: var(--blush);
+  border: 1px solid var(--blush);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Quick-record inline row */
+.draft-quick-row td {
+  background: rgba(79, 155, 236, 0.06);
+  border-left: 2px solid var(--cyan) !important;
+  padding: 6px 10px;
+}
+.draft-quick-inner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Draft review modal */
+.draft-review-modal {
+  width: min(780px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.draft-review-portfolio {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 620px) {
+  .draft-review-portfolio {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.draft-review-portfolio > div {
+  padding: 10px 12px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.draft-review-big {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--mono, monospace);
+  margin-top: 3px;
+}
+.draft-review-callout {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(153, 166, 200, 0.04);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.draft-review-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+.draft-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.draft-review-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.draft-review-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+}
+
+/* ── R4 mobile-overflow fix: /draft dense list rows ──────────────────
+   Measured 2026-07-26 at 390px: /draft overflowed the document by
+   168px.  The rookie-board TABLE was already fine (.draft-table-wrap
+   scrolls it), so the cause was the two dense fixed-column grids that
+   have no scroll container of their own:
+
+     .draft-team-row  30px 1fr 62px 52px 64px 52px 56px 56px 46px
+                      → 458px minimum, 167px past a 324px panel body
+     .draft-nbt-row   32px 28px 36px 1fr 80px 90px 64px 60px
+                      → 446px minimum, ~200px past
+
+   Their panels shrink correctly (R2 gave .ds-panel min-width: 0), but
+   a non-scrolling child with a min-content width that large pushes the
+   whole document sideways — and the original design audit called
+   horizontal scroll "the entire mobile story" for this page.
+
+   Fix follows the pattern this page already uses for its table: scroll
+   the wide content inside its own container rather than reflowing it.
+   These rows are a war-room budget ledger and an EV-ranked target
+   board — dropping columns on mobile would remove the comparison the
+   surfaces exist to support, so they scroll and keep every column.
+   Additive rules only; the existing declarations are untouched. */
+.draft-team-list,
+.draft-nbt-list {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Without this the grid rows would compress to the scroller's width
+   instead of establishing the scrollable extent. */
+.draft-team-list > .draft-team-row,
+.draft-nbt-list > .draft-nbt-row {
+  min-width: max-content;
+}

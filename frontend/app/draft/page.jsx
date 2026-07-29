@@ -1,5 +1,9 @@
 "use client";
 
+// The board's own stylesheet — see draft.css for why it is not in
+// globals.css.  Route-scoped, so only /draft pays for it.
+import "./draft.css";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
