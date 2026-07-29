@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/ui";
+import { InfoTip } from "@/components/ds";
 import SourceHealthStrip from "@/components/SourceHealthStrip";
 
 /**
@@ -24,10 +25,19 @@ export default function SourceHealthPage() {
         />
         <SourceHealthStrip variant="page" />
         <p className="muted" style={{ marginTop: 14, fontSize: "0.72rem" }}>
-          Auto-refreshes every 60 seconds.  Green dot = last run OK and
-          recent (&lt;4h).  Amber = partial run OR stale (4-12h).
-          Red = failed or older than 12h.  Click the header to
-          expand per-source details.
+          Auto-refreshes every 60 seconds.
+          <InfoTip label="the status dots">
+            <p>
+              <strong>Green</strong> — last run OK and recent (under 4h).
+            </p>
+            <p>
+              <strong>Amber</strong> — partial run, or stale (4–12h).
+            </p>
+            <p>
+              <strong>Red</strong> — failed, or older than 12h.
+            </p>
+            <p>Click a header to expand that source&apos;s detail.</p>
+          </InfoTip>
         </p>
       </div>
     </section>

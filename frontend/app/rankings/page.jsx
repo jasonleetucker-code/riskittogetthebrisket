@@ -61,7 +61,9 @@ import {
   Button,
   DataTable,
   EmptyState,
+  HelpModal,
   Icon,
+  InfoTip,
   Input,
   Movement,
   PageHeader,
@@ -1239,13 +1241,19 @@ export default function RankingsPage() {
             >
               {showEdgeRail ? "Hide edge" : "Show edge"}
             </Button>
+            {/* The nine-step prose lives in a modal now; this toggle
+                owns only the two charts, which are genuinely
+                page-sized and worth a deliberate reveal. */}
+            <HelpModal title="How rankings work" label="How rankings work">
+              <MethodologySection />
+            </HelpModal>
             <Button
               size="sm"
               variant={showMethodology ? "secondary" : "ghost"}
               aria-pressed={showMethodology}
               onClick={() => setShowMethodology((v) => !v)}
             >
-              Methodology
+              {showMethodology ? "Hide charts" : "Methodology charts"}
             </Button>
             <Button
               size="sm"
@@ -1432,16 +1440,26 @@ export default function RankingsPage() {
         </div>
       )}
 
-      {/* ── Methodology (expandable) ── */}
+      {/* ── Methodology charts (expandable) ── */}
       {showMethodology && (
         <>
-          <Panel dense title="How rankings work">
-            <MethodologySection />
-          </Panel>
           <Panel
             dense
-            title="Hill curve"
-            subtitle="Percentile → Hill value mapping with the live board overlaid as dots. The curve is the canonical rank-to-value shape; dots are where every rankable player actually lands after per-source aggregation."
+            title={
+              <>
+                Hill curve
+                <InfoTip label="the Hill curve">
+                  <p>
+                    Percentile → value mapping with the live board overlaid as
+                    dots.
+                  </p>
+                  <p>
+                    The curve is the canonical rank-to-value shape; each dot is
+                    where a player actually lands after per-source aggregation.
+                  </p>
+                </InfoTip>
+              </>
+            }
           >
             <HillCurveExplorer
               rows={rows}
@@ -1451,8 +1469,21 @@ export default function RankingsPage() {
           </Panel>
           <Panel
             dense
-            title="Tier gap waterfall"
-            subtitle="Top-120 descending value curve with inter-row gap bars overlaid. Tall gap bars mark tier cliffs — the natural tier boundaries the canonical engine detects via rolling-median gap analysis."
+            title={
+              <>
+                Tier gap waterfall
+                <InfoTip label="the tier gap waterfall">
+                  <p>
+                    Top-120 descending value curve with the gap between adjacent
+                    rows drawn as bars.
+                  </p>
+                  <p>
+                    Tall bars mark tier cliffs — the natural boundaries the
+                    engine detects by rolling-median gap analysis.
+                  </p>
+                </InfoTip>
+              </>
+            }
           >
             <TierGapWaterfall rows={rows} topN={120} />
           </Panel>

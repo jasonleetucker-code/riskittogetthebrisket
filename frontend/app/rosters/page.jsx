@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { InfoTip } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
   POS_GROUPS,
@@ -298,13 +299,20 @@ export default function RostersPage() {
           }));
         return (
           <div className="card" style={{ padding: "var(--space-md)" }}>
-            <h2 className="section-title">Age curves</h2>
-            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
-              Typical value by age for each position (median of the live board).
-              Dots are players on your roster.  Use it to spot roster-aging risk:
-              a cluster of RBs past the position's value peak is a flag to sell;
-              a cluster before the peak is a sign you're set up for the window.
-            </p>
+            <h2 className="section-title">
+              Age curves
+              <InfoTip label="age curves">
+                <p>
+                  Typical value by age for each position, taken as the median of
+                  the live board. Dots are players on your roster.
+                </p>
+                <p>
+                  Use it to spot aging risk: a cluster of RBs past the
+                  position&apos;s peak is a flag to sell; a cluster before it
+                  means you are set up for the window.
+                </p>
+              </InfoTip>
+            </h2>
             <AgeCurveOverlay boardRows={boardRows} rosterRows={rosterRows} />
           </div>
         );
@@ -461,9 +469,14 @@ function TeamTiersCard({ tiers, myTeam }) {
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>Contender / Rebuilder Tiers</div>
-      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
-        Teams scored by starter quality (70%), roster depth (20%), and pick surplus penalty (-10%).
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
+        Contender / Rebuilder Tiers
+        <InfoTip label="contender and rebuilder tiers">
+          <p>
+            Teams are scored on starter quality (70%), roster depth (20%), and a
+            pick-surplus penalty (-10%).
+          </p>
+        </InfoTip>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
         {tiers.map((t) => {
@@ -509,9 +522,16 @@ function LeagueEdgeCard({ edges }) {
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>League Edge Map</div>
-      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
-        Market vs. model edge per team. Sell = market overvalues their players. Buy = market undervalues.
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
+        League Edge Map
+        <InfoTip label="the league edge map">
+          <p>Market price vs. our model, per team.</p>
+          <p>
+            <strong>Sell</strong> means the market overvalues their players —
+            they are who you sell to. <strong>Buy</strong> means the market
+            undervalues them.
+          </p>
+        </InfoTip>
       </div>
       {edges.map((t) => {
         const sellPct = Math.round((t.sellEdge / maxEdge) * 100);

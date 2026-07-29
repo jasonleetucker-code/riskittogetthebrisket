@@ -29,6 +29,7 @@ export {
   confidenceBucket,
 } from "./Badge";
 export { Tooltip } from "./Tooltip";
+export { InfoTip, HelpModal } from "./Help";
 export { Modal, Drawer } from "./Dialog";
 export {
   Skeleton,

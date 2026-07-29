@@ -48,6 +48,7 @@ import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanatio
 import {
   Banner,
   Button,
+  InfoTip,
   Panel,
   PageHeader,
   SegmentedControl,
@@ -1596,10 +1597,19 @@ export default function TradePage() {
           overlay object of its own. */}
       {valuationBasisOf(rawData) === "leagueAdjusted" ? (
         <Banner tone="info" title="Valued on your league's board">
-          Values and ranks are adjusted for positional scarcity measured from
-          this league&apos;s 12 rosters. Draft picks carry no scarcity
-          measurement, so they stay at market value while players move around
-          them.
+          Picks stay at market value.
+          <InfoTip label="your league&apos;s board">
+            <p>
+              Values and ranks are adjusted for positional scarcity measured
+              from this league&apos;s rosters.
+            </p>
+            <p>
+              Draft picks carry no scarcity measurement, so they hold their
+              market value while players move around them — which means a
+              player-for-pick trade reads differently here than on the market
+              board.
+            </p>
+          </InfoTip>
         </Banner>
       ) : null}
 

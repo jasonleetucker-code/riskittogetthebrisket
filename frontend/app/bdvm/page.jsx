@@ -18,6 +18,7 @@ import {
   Confidence,
   DataTable,
   EmptyState,
+  InfoTip,
   Input,
   PageHeader,
   Panel,
@@ -67,12 +68,11 @@ function BdvmFailure({ failure }) {
   if (failure.kind === "disabled") {
     return (
       <EmptyState
-        title="BDVM engine is switched off"
+        title="Fundamental values are switched off"
         description={
-          "Fundamentals are behind the bdvm_engine feature flag (default off). " +
-          "An operator can enable it with RISKIT_FEATURE_BDVM_ENGINE=1 on the " +
-          "backend once projection snapshots exist — nothing else on the site " +
-          "changes either way."
+          "This engine is turned off for the site right now. Nothing else " +
+          "changes while it is off — every other page prices players exactly " +
+          "as before."
         }
       />
     );
@@ -136,7 +136,25 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
   if (!active) return null;
   if (loading) {
     return (
-      <Panel flush title="Fundamental value board">
+      <Panel
+        flush
+        title={
+          <>
+            Fundamental value board
+            <InfoTip label="fundamental values">
+              <p>
+                Fundamentals are computed with zero market inputs; the market
+                column is compared strictly afterward.
+              </p>
+              <p>
+                Values marked <strong>proxy</strong> come from the reconstructed
+                baseline — realized production scored under this league&apos;s
+                settings — not a forward projection source.
+              </p>
+            </InfoTip>
+          </>
+        }
+      >
         <SkeletonTable rows={12} columns={8} />
       </Panel>
     );
@@ -147,10 +165,9 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
       <EmptyState
         title="No projection snapshot yet"
         description={
-          "BDVM prices players from immutable projection snapshots and none " +
-          "exists for this season. On the server, run " +
-          "scripts/refresh_bdvm_projections.py (the dynasty-bdvm-refresh " +
-          "timer does this weekly)."
+          "Fundamental values are priced from a weekly projection snapshot, " +
+          "and this season's hasn't been built yet. It refreshes " +
+          "automatically — check back after the next run."
         }
       />
     );
@@ -318,7 +335,25 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
         />
       </div>
 
-      <Panel flush title="Fundamental value board">
+      <Panel
+        flush
+        title={
+          <>
+            Fundamental value board
+            <InfoTip label="fundamental values">
+              <p>
+                Fundamentals are computed with zero market inputs; the market
+                column is compared strictly afterward.
+              </p>
+              <p>
+                Values marked <strong>proxy</strong> come from the reconstructed
+                baseline — realized production scored under this league&apos;s
+                settings — not a forward projection source.
+              </p>
+            </InfoTip>
+          </>
+        }
+      >
         <div className={styles.controls}>
           <SegmentedControl
             label="Strategy currency"
@@ -368,12 +403,6 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
             />
           }
         />
-        <p className={styles.footnote}>
-          Fundamentals compute with zero market inputs; the market column is
-          compared strictly afterward. Values marked proxy come from the
-          reconstructed baseline (realized production under this league&apos;s
-          scoring), not a forward projection source.
-        </p>
       </Panel>
 
       {pickRows.length > 0 ? (
@@ -410,7 +439,24 @@ function RostersTab({ active }) {
   if (!active) return null;
   if (loading) {
     return (
-      <Panel flush title="Roster strategy capitals">
+      <Panel
+      flush
+      title={
+        <>
+          Roster strategy capitals
+          <InfoTip label="strategy capitals">
+            <p>
+              Direction is league-relative — this roster&apos;s now/future ratio
+              against the league median.
+            </p>
+            <p>
+              Capitals sum each roster&apos;s player values in that
+              strategy&apos;s own currency; picks are listed but not summed.
+            </p>
+          </InfoTip>
+        </>
+      }
+    >
         <SkeletonTable rows={12} columns={7} />
       </Panel>
     );
@@ -488,7 +534,24 @@ function RostersTab({ active }) {
   ];
 
   return (
-    <Panel flush title="Roster strategy capitals">
+    <Panel
+      flush
+      title={
+        <>
+          Roster strategy capitals
+          <InfoTip label="strategy capitals">
+            <p>
+              Direction is league-relative — this roster&apos;s now/future ratio
+              against the league median.
+            </p>
+            <p>
+              Capitals sum each roster&apos;s player values in that
+              strategy&apos;s own currency; picks are listed but not summed.
+            </p>
+          </InfoTip>
+        </>
+      }
+    >
       <DataTable
         caption="Per-roster BDVM capitals, direction, and shape"
         columns={columns}
@@ -527,11 +590,6 @@ function RostersTab({ active }) {
           />
         }
       />
-      <p className={styles.footnote}>
-        Direction is league-relative (now/future ratio vs the league
-        median). Capitals sum each roster&apos;s player values in that
-        strategy&apos;s own currency; picks are listed but not summed.
-      </p>
     </Panel>
   );
 }
@@ -565,7 +623,26 @@ function TradesTab({ active }) {
   if (!active) return null;
   if (loading) {
     return (
-      <Panel flush title="Double-positive trade scan">
+      <Panel
+      flush
+      title={
+        <>
+          Double-positive trade scan
+          <InfoTip label="the double-positive scan">
+            <p>
+              Each side&apos;s gain is priced in its own strategy currency, so a
+              trade only shows up here if BOTH sides come out ahead by their own
+              measure.
+            </p>
+            <p>
+              Market fairness never sums KTC and IDP TradeCalc raw values on one
+              side — mixed-market packages fall back to the model&apos;s
+              trade-clearing basis.
+            </p>
+          </InfoTip>
+        </>
+      }
+    >
         <SkeletonTable rows={8} columns={5} />
       </Panel>
     );
@@ -643,7 +720,26 @@ function TradesTab({ active }) {
   ];
 
   return (
-    <Panel flush title="Double-positive trade scan">
+    <Panel
+      flush
+      title={
+        <>
+          Double-positive trade scan
+          <InfoTip label="the double-positive scan">
+            <p>
+              Each side&apos;s gain is priced in its own strategy currency, so a
+              trade only shows up here if BOTH sides come out ahead by their own
+              measure.
+            </p>
+            <p>
+              Market fairness never sums KTC and IDP TradeCalc raw values on one
+              side — mixed-market packages fall back to the model&apos;s
+              trade-clearing basis.
+            </p>
+          </InfoTip>
+        </>
+      }
+    >
       <div className={styles.controls}>
         <Select
           aria-label="Filter by team"
@@ -676,12 +772,6 @@ function TradesTab({ active }) {
           />
         }
       />
-      <p className={styles.footnote}>
-        Each side&apos;s gain is priced in its own strategy currency (CES
-        package math). Market fairness never sums KTC and IDP TradeCalc
-        raw values on one side — mixed-market packages fall back to the
-        model&apos;s trade-clearing basis.
-      </p>
     </Panel>
   );
 }

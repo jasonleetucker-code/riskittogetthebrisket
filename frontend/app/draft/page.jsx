@@ -72,6 +72,7 @@ import {
   Banner,
   Button,
   CollapsiblePanel,
+  HelpModal,
   Icon,
   Modal,
   PageHeader,
@@ -2932,6 +2933,15 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
   );
 }
 
+// ~360 lines of genuinely useful reference — every column defined,
+// every recommendation level explained, the inflation model, the
+// keyboard shortcuts.  It used to render as an <details open> at the
+// bottom of the page, so every draft session ended in a wall of ten
+// section headings below the board you were actually using.
+//
+// Same content, same ten collapsible sections, now behind a "How this
+// dashboard works" button in the page header — where you look when you
+// have a question, rather than permanently under the answer.
 function DraftGlossary() {
   const Section = ({ title, children }) => (
     <details className="draft-gloss-section">
@@ -2940,17 +2950,8 @@ function DraftGlossary() {
     </details>
   );
   return (
-    <Panel className="draft-gloss">
-      <details open>
-        <summary className="draft-gloss-head">
-          <h3 style={{ margin: 0, display: "inline" }}>
-            How this dashboard works
-          </h3>
-          <span className="muted" style={{ fontSize: "0.72rem", marginLeft: 8 }}>
-            click any section to expand
-          </span>
-        </summary>
-        <div className="draft-gloss-inner">
+    <HelpModal title="How this draft dashboard works" label="How this works">
+      <div className="draft-gloss-inner">
 
           <Section title="The rookie board, column by column">
             <p>
@@ -3293,9 +3294,8 @@ function DraftGlossary() {
             </ul>
           </Section>
 
-        </div>
-      </details>
-    </Panel>
+      </div>
+    </HelpModal>
   );
 }
 
@@ -4539,6 +4539,7 @@ export default function DraftDashboardPage() {
         description="Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately."
         actions={
           <div className={styles.pageActions}>
+            <DraftGlossary />
             <LiveSyncToggle
               enabled={liveSyncEnabled}
               onToggle={() => setLiveSyncEnabled(!liveSyncEnabled)}
@@ -4827,8 +4828,6 @@ export default function DraftDashboardPage() {
           </p>
         </CollapsiblePanel>
       )}
-
-      <DraftGlossary />
 
       {modalPlayerEnriched && (
         <DraftModal

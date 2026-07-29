@@ -300,12 +300,11 @@ export default function TradeSourceBreakdown({
           className="muted"
           style={{ padding: "10px 0", fontSize: "0.78rem", lineHeight: 1.45 }}
         >
-          No vendor coverage for this trade yet — add at least one player to
-          each side and the per-source breakdown will fill in.  If both sides
-          are populated and you still see this, the contract may be missing
-          per-source value stamps for those rows; check{" "}
-          <code style={{ fontSize: "0.72rem" }}>row.sourceRankMeta</code> in
-          DevTools.
+          No per-source coverage for this trade yet — add at least one player to
+          each side and the breakdown will fill in. If both sides already have
+          players, none of them carry per-source values on the current board,
+          which usually means they sit outside the sources&apos; published
+          range.
         </div>
       )}
       {hasRows && (
