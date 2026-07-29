@@ -164,8 +164,16 @@ export default function TradePage() {
   // state.  We use all three below to render the right picker
   // options, auto-attach the right league to trade suggestions,
   // and show a clear "data not ready" banner when needed.
-  const { selectedTeam, idpEnabled, leagueMismatch, selectedLeagueKey } =
-    useTeam();
+  const {
+    selectedTeam,
+    idpEnabled,
+    leagueMismatch,
+    selectedLeagueKey,
+    // ``useTeam`` resolves the team AFTER the contract lands, so
+    // ``loading`` here outlives ``useDynastyData().loading``.  The
+    // suggestions slot needs both: see the effect below.
+    loading: teamLoading,
+  } = useTeam();
 
   // Extract Sleeper teams from dynasty data
   const sleeperTeams = useMemo(() => {
@@ -374,12 +382,20 @@ export default function TradePage() {
   // the live ``sleeperTeams`` array (matching by ownerId first, name
   // second) and snaps the local picker — which in turn populates
   // ``rosterInput`` and triggers the suggestions auto-fetch.
-  useEffect(() => {
-    if (!sleeperTeams || sleeperTeams.length === 0) return;
-    if (!selectedTeam) return;
-    // Find the index of the topbar-selected team.  Owner-id is
-    // stable; name is fallback for legacy contracts that don't
-    // stamp ownerId.
+  //
+  // The resolution itself is a derived value rather than effect-local,
+  // because two things need the answer: this effect, which SNAPS the
+  // picker, and the suggestions effect, which needs to know whether a
+  // roster is still on its way.  ``null`` means "not answerable yet"
+  // (no sleeper teams loaded); ``-1`` means "answered: no match".
+  // Without that three-way distinction the suggestions effect read the
+  // not-yet-synced ``rosterInput``, saw fewer than 3 players, and
+  // collapsed the rail slot one commit before the roster arrived.
+  const topbarTeamIdx = useMemo(() => {
+    if (!sleeperTeams || sleeperTeams.length === 0) return null;
+    if (!selectedTeam) return -1;
+    // Owner-id is stable; name is fallback for legacy contracts that
+    // don't stamp ownerId.
     const ownerId = String(selectedTeam.ownerId || "");
     const name = String(selectedTeam.name || "")
       .trim()
@@ -396,15 +412,19 @@ export default function TradePage() {
             .toLowerCase() === name,
       );
     }
-    if (idx < 0) return;
-    if (idx === selectedTeamIdx) return;
+    return idx;
+  }, [selectedTeam, sleeperTeams]);
+
+  useEffect(() => {
+    if (topbarTeamIdx == null || topbarTeamIdx < 0) return;
+    if (topbarTeamIdx === selectedTeamIdx) return;
     // ``selectTeam`` writes localStorage + populates rosterInput +
     // builds the leagueRosters opponent map.  That's exactly the
     // state we need for the suggestions fetch to fire with the
     // right roster.
-    selectTeam(idx);
+    selectTeam(topbarTeamIdx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTeam, sleeperTeams]);
+  }, [topbarTeamIdx]);
 
   // Hydrate trade workspace from localStorage (with migration)
   useEffect(() => {
@@ -1399,7 +1419,25 @@ export default function TradePage() {
       }
       proactiveFetchRef.current.lastBody = null;
     };
-    if (loading || error || leagueMismatch) {
+    if (loading || teamLoading) {
+      cancelPending();
+      // Deliberately does NOT clear ``suggestionsPending``.  Loading
+      // means "we don't know yet", which is the RESERVE state, not the
+      // collapse state — and clearing it here is invisible in the same
+      // frame (both slot branches gate on ``!loading``) while poisoning
+      // the FIRST ``!loading`` paint: React commits that frame with an
+      // empty slot and only re-arms the flag post-commit.
+      //
+      // ``teamLoading`` is in this gate for the same reason and is the
+      // one that actually bites.  ``useTeam`` resolves the roster AFTER
+      // ``useDynastyData`` resolves the contract, so on the first
+      // ``!loading`` render the roster is still empty — which fell
+      // through to the "fewer than 3 rostered players" bail below and
+      // collapsed the slot for a team that was about to arrive.  That
+      // is what inserted 229px above ``trade-controls`` a beat later.
+      return;
+    }
+    if (error || leagueMismatch) {
       cancelPending();
       setSuggestionsPending(false);
       return;
@@ -1409,12 +1447,23 @@ export default function TradePage() {
       setSuggestionsPending(false);
       return;
     }
+    // A roster is still inbound while the topbar's team either has no
+    // answer yet (``null``) or has one the local picker hasn't adopted.
+    // ``selectTeam`` is what populates ``rosterInput``, and it runs
+    // post-commit from the sync effect above — so for one render
+    // ``parseRoster()`` is empty for a team that is definitely coming.
+    const rosterInbound =
+      topbarTeamIdx == null ||
+      (topbarTeamIdx >= 0 && topbarTeamIdx !== selectedTeamIdx);
     const roster = parseRoster();
     if (roster.length < 3) {
       cancelPending();
-      // Fewer than 3 rostered players: no fetch will happen, so no
-      // slot is reserved and the rail simply never appears.
-      setSuggestionsPending(false);
+      // Fewer than 3 rostered players: no fetch will happen, so the
+      // slot collapses and the rail simply never appears — but only
+      // once we know none is inbound.  Collapsing during the sync gap
+      // is what made this page's CLS bimodal: it depended on whether
+      // the roster beat the paint.
+      if (!rosterInbound) setSuggestionsPending(false);
       return;
     }
     const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
@@ -1441,7 +1490,17 @@ export default function TradePage() {
     // the unmount effect below tears down anything still in flight
     // on teardown.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+  }, [
+    loading,
+    teamLoading,
+    error,
+    leagueMismatch,
+    rows,
+    rosterInput,
+    selectedLeagueKey,
+    topbarTeamIdx,
+    selectedTeamIdx,
+  ]);
 
   // Unmount-only cleanup for the proactive-fetch debounce timer — kept
   // separate from the auto-fetch effect above so a dep-driven re-run

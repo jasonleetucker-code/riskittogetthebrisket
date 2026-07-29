@@ -29,6 +29,20 @@ import {
 
 function visibleGroups(authenticated, isPublic) {
   if (authenticated) return NAV_MODEL;
+  // ``authenticated`` is tri-state: null means "not resolved yet".  The
+  // public subset is the answer for a KNOWN signed-out visitor, not a
+  // safe default for an unknown one — every other consumer in this file
+  // already gates on the explicit booleans (`authenticated &&` for the
+  // switchers, `authenticated === false &&` for Login), and the nav was
+  // the one place that guessed.  Guessing cost real layout: signed-in
+  // users got a 2-item public nav on the first paint and then had four
+  // items INSERTED into it, sliding "Trade" 185px→335px and "League"
+  // 266px→586px (the horizontal half of /waivers' 0.180 CLS, and the
+  // same shift on every route since this is the shell).  Rendering
+  // nothing until we know is not a shift: the nav sits between a
+  // left-aligned brand and a `margin-left: auto` right rail, so items
+  // appearing fill their own space without moving either neighbour.
+  if (authenticated === null || authenticated === undefined) return [];
   return NAV_MODEL.map((group) => {
     if (!group.items) return isPublic(group.href) ? group : null;
     const items = group.items.filter((i) => isPublic(i.href));
