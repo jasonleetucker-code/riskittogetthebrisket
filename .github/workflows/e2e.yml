@@ -129,10 +129,17 @@ jobs:
           # signed-in specs skip, and an /api/auth/status 429 makes pages
           # render the logged-out shell, so they surface as bogus auth or
           # render failures.
+          #
+          # E2E_TEST_USERNAME is REQUIRED — /api/test/create-session
+          # fails closed without it rather than defaulting to a real
+          # account.  This throwaway name is deliberately NOT in the
+          # admin allowlist; signed-in-smoke.spec.js already accepts
+          # either 200 or 403 from the admin gate.
           mkdir -p /tmp/no-pw-browsers
           UPTIME_CHECK_ENABLED=false \
           ALLOW_DEFAULT_LOGIN_DEV=1 \
           E2E_TEST_MODE=1 \
+          E2E_TEST_USERNAME=e2e-test-user \
           RATE_LIMIT_BYPASS_IPS=127.0.0.1 \
           PLAYWRIGHT_BROWSERS_PATH=/tmp/no-pw-browsers \
           nohup python server.py > "$RUNNER_TEMP/backend.log" 2>&1 &

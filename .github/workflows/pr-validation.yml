@@ -34,6 +34,11 @@ jobs:
     # (full pytest + vitest + lint gates).  At 10 the runner killed
     # jobs during their final step and GitHub recorded them as
     # "cancelled", which looked like mystery cancellations.
+    #
+    # NOTE (2026-07-29 audit): the "+ vitest" in that sentence was
+    # aspirational until this date — no vitest step existed in any
+    # workflow.  It does now (see "Frontend unit tests" below), so the
+    # comment is finally accurate.  vitest adds ~20s.
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -198,6 +203,25 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
+
+      # Frontend unit tests (vitest).  ADDED 2026-07-29 audit.
+      #
+      # These 80+ files / ~1,390 assertions existed since the frontend
+      # was built and ran in NO workflow — not here, not in e2e.yml, not
+      # in deploy.yml, not in smoke-test.yml.  The comment at the top of
+      # this job claimed the gate was "full pytest + vitest + lint", so
+      # the gap read as covered.  Everything the frontend owns outright
+      # — buildRows materialization, the valuation overlay, waiver and
+      # trade math, the BDVM display layer — was unverified on every PR.
+      #
+      # Placed BEFORE the build: unit failures should surface in seconds
+      # rather than after a full Next.js compile.
+      - name: Frontend unit tests (vitest)
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          npm test
 
       - name: Frontend build + bundle-size budget
         shell: bash

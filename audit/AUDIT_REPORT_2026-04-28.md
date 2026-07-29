@@ -5,7 +5,7 @@
 **Overall health: solid.** 1,955 Python tests + 792 frontend tests pass. Bundle build clean. Live production stable, all critical pages return 200, auth gate works. Pipeline math is deterministic (0 drift on identical-input re-build). Multi-league registry, ROS engine, trade engines, and public-league snapshot all functioning.
 
 **Top risks at start of audit:**
-1. Hardcoded admin-login password default (`Elliott21!`) baked into `server.py`. Real password until rotated.
+1. Hardcoded admin-login password default (`«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»`) baked into `server.py`. Real password until rotated.
 2. Bundle-size budget enforced only on PR validation — direct merges to main bypassed the gate.
 3. `frontend/components/ServerStateSync.jsx` was 99 LOC of dead code with no importers.
 4. `src/league/__init__.py` empty placeholder with no doc — looked like an unfinished feature.
@@ -25,7 +25,7 @@
 
 | # | What | Where | How found | Why it matters | Fix | Status |
 |---|---|---|---|---|---|---|
-| C1 | `JASON_LOGIN_PASSWORD` defaulted to a real password (`Elliott21!`) baked in source. | `server.py:132` | grep on the line; verified prod `.env` had no override, so the live service was using the hardcoded default. | The default *was* the active password until rotated. Anyone with read access to the repo (clones, mirrors, history) had the password. | Migrated password to `.env`, made the env var required at import time, added `ALLOW_DEFAULT_LOGIN_DEV` escape hatch. | **Fixed (M1, commit 44d89b39)** |
+| C1 | `JASON_LOGIN_PASSWORD` defaulted to a real password (`«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»`) baked in source. | `server.py:132` | grep on the line; verified prod `.env` had no override, so the live service was using the hardcoded default. | The default *was* the active password until rotated. Anyone with read access to the repo (clones, mirrors, history) had the password. | Migrated password to `.env`, made the env var required at import time, added `ALLOW_DEFAULT_LOGIN_DEV` escape hatch. | **Fixed (M1, commit 44d89b39)** |
 
 ---
 

@@ -626,11 +626,13 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # Delta must be strictly smaller than full.
         self.assertLess(delta_bytes, full_bytes)
         # A generous cap to catch regressions: on the fixture the
-        # delta must fit in 50KB (the full contract is ~30KB but
+        # delta must fit in 55KB (the full contract is ~30KB but
         # includes playersArray + legacy dict).  In production the
         # delta is ~1.25MB vs ~4MB full.  The ratio matters more
-        # than the absolute bound; assert both.
-        self.assertLess(delta_bytes, 50_000)
+        # than the absolute bound; assert both.  (Bumped 50KB → 55KB
+        # 2026-07-29: the weighted-blend audit added the per-source
+        # ``appliedWeight`` stamp, +25 bytes on this fixture.)
+        self.assertLess(delta_bytes, 55_000)
         self.assertLess(delta_bytes / full_bytes, 0.60)
 
     def test_delta_carries_all_override_sensitive_fields(self) -> None:

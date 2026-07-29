@@ -1,5 +1,15 @@
 # KTC Production Validation Runbook
 
+> **⚠ PARTIALLY STALE — March 2026 runbook.**  Its step 1 instructs
+> `export CANONICAL_DATA_MODE=internal_primary`.  That env var and the
+> offline canonical-build path it gated were retired; the var is read
+> nowhere in the tree and setting it does nothing.  The live
+> `/api/data` contract is the single source of truth.  The rest of the
+> validation flow (KTC ingestion checks, spot-value comparison) still
+> reads correctly.  Banner added by the 2026-07-29 audit to match the
+> one already on `production-activation-runbook.md`, which documents
+> the same retirement.
+
 _Prepared: 2026-03-22 | Commit: c1559d4 | Phase: KTC validation_
 
 **Host:** `chaseupside.com` — resolve the current box from the `DEPLOY_HOST` repo secret. (A previous revision hardcoded a Hetzner IP that is no longer the production host, and named `riskittogetthebrisket.org`, which has since lapsed to a third party.)

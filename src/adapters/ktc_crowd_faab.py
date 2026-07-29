@@ -35,9 +35,9 @@ from typing import Any
 
 def _normalize_name(name: str) -> str:
     """Lowercase + strip non-alphanumeric.  Mirrors the
-    normalization the frontend's ``normName`` uses for picker
-    lookups so the bridge's keys agree byte-for-byte with the
-    name the API endpoint passes in."""
+    normalization the frontend's ``waiver-logic.normalizeNameCompact``
+    uses for picker lookups so the bridge's keys agree byte-for-byte
+    with the name the API endpoint passes in."""
     return "".join(c for c in str(name or "").lower() if c.isalnum())
 
 

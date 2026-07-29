@@ -5847,7 +5847,13 @@ async def post_trade_suggestions(request: Request):
     # players in suggestion candidacy.  Sanitize to integer in
     # [50, 300]; out-of-range or missing falls back to the engine's
     # default constant.
-    from src.trade.suggestions import KTC_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
+    #
+    # The wire names stay ``ktc_top_n`` (request) / ``ktcTopNFilter``
+    # (response) — they are the published contract.  The engine-side
+    # constant is ``BOARD_TOP_N_FILTER``, because this gate ranks
+    # against OUR blended board and never consulted KTC; the
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.suggestions import BOARD_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n = body.get("ktc_top_n")
     try:
@@ -5954,7 +5960,11 @@ async def post_trade_finder(request: Request):
     if opponent_teams == ["all"] or not opponent_teams:
         opponent_teams = [t["name"] for t in sleeper_teams if t.get("name") != my_team]
 
-    from src.trade.finder import find_trades, KTC_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
+    # Wire name stays ``ktc_top_n``; the engine constant is
+    # ``MARKET_TOP_N_FILTER`` (the gate is per-market — ktcSfTep for
+    # offense + picks, idpTradeCalc for IDP — not KTC-only).  The
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.finder import find_trades, MARKET_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n_f = body.get("ktc_top_n")
     try:
@@ -10562,6 +10572,13 @@ async def post_test_create_session(request: Request):
         Bearer <secret>`` header
 
     In prod neither var is set, so this endpoint is invisible.
+
+    ``E2E_TEST_USERNAME`` is a THIRD requirement, and it fails
+    closed: there is no default.  An earlier revision fell back to
+    the operator's real username, so enabling E2E mode without
+    naming a test user minted a session for a real (allowlisted,
+    admin-capable) account.  The identity a test session assumes
+    must be stated explicitly, never inherited.
     """
     mode_raw = os.getenv("E2E_TEST_MODE", "").strip().lower()
     if mode_raw not in ("1", "true", "yes", "on"):
@@ -10571,7 +10588,26 @@ async def post_test_create_session(request: Request):
     provided = auth[len("Bearer ") :].strip() if auth.lower().startswith("bearer ") else ""
     if not expected or provided != expected:
         return JSONResponse(status_code=404, content={"error": "not_found"})
-    username = (os.getenv("E2E_TEST_USERNAME") or "jasonleetucker").strip().lower()
+    # Misconfiguration, reported only to a caller that already proved
+    # it holds the secret — so the message can be actionable without
+    # leaking the endpoint's existence to anyone else.
+    username = (os.getenv("E2E_TEST_USERNAME") or "").strip().lower()
+    if not username:
+        log.error(
+            "/api/test/create-session refused: E2E_TEST_MODE is on but "
+            "E2E_TEST_USERNAME is unset — refusing rather than defaulting "
+            "to a real account."
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "e2e_username_not_configured",
+                "message": (
+                    "E2E_TEST_USERNAME must be set to the throwaway username "
+                    "test sessions should assume.  There is no default."
+                ),
+            },
+        )
     session_id = _create_auth_session(
         username=username,
         sleeper_user_id=os.getenv("E2E_TEST_SLEEPER_USER_ID", "").strip() or None,

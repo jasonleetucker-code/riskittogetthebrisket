@@ -65,7 +65,8 @@ _MULTI_FAMILY = {
 def normalize_name(name: Any) -> str:
     """Lowercase alphanumeric key.  Matches the convention the rest of
     the repo uses for name joins (``ktc_crowd_faab._normalize_name``,
-    the frontend's ``normName``), so keys agree across modules."""
+    the frontend's ``waiver-logic.normalizeNameCompact``), so keys
+    agree across modules."""
     return "".join(c for c in str(name or "").lower() if c.isalnum())
 
 

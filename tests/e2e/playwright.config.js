@@ -61,6 +61,9 @@ const chromiumExecutablePath = resolveChromiumPath();
 //   E2E_TEST_MODE + E2E_TEST_SECRET — unlock /api/test/create-session.
 //     Without them every signed-in spec skips and the run looks green
 //     while testing nothing.
+//   E2E_TEST_USERNAME — the throwaway identity test sessions assume.
+//     The endpoint fails closed without it (it used to default to the
+//     operator's real, admin-allowlisted username).
 //   RATE_LIMIT_BYPASS_IPS — the public-API limiter (60/min, 1000/hour
 //     per IP) drains mid-run; the 429s surface as bogus auth/render
 //     failures.
@@ -93,6 +96,7 @@ const backendEnv = {
   ALLOW_DEFAULT_LOGIN_DEV: "1",
   E2E_TEST_MODE: "1",
   E2E_TEST_SECRET: process.env.E2E_TEST_SECRET || "",
+  E2E_TEST_USERNAME: process.env.E2E_TEST_USERNAME || "e2e-test-user",
   RATE_LIMIT_BYPASS_IPS: "127.0.0.1",
   PLAYWRIGHT_BROWSERS_PATH: noScrapeBrowsersDir,
 };

@@ -514,13 +514,23 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("flagCounts", summary)
 
     def test_methodology_formula_matches_constants(self):
+        """The published formula block must describe the LIVE percentile-form
+        pipeline (scope-master Hill curves + fixed 500-rank percentile
+        reference), not the retired rank-form curve.  Before the 2026-07-29
+        audit this block published midpoint 45 / slope 1.10 — constants no
+        live code path used — and this test pinned the fossil."""
+        from src.api.data_contract import _PERCENTILE_REFERENCE_N
+
         payload = _payload_with_players(
             _make_player("Test QB", "QB", ktc=8000),
         )
         contract = build_api_data_contract(payload)
         formula = contract["methodology"]["formula"]
-        self.assertEqual(formula["midpoint"], 45)
-        self.assertEqual(formula["slope"], 1.10)
+        self.assertEqual(formula["referenceN"], _PERCENTILE_REFERENCE_N)
+        self.assertIn("percentile", formula["name"].lower())
+        self.assertIn("(p/c)^s", formula["expression"])
+        self.assertNotIn("midpoint", formula)
+        self.assertNotIn("slope", formula)
         self.assertEqual(formula["scaleMin"], 1)
         self.assertEqual(formula["scaleMax"], 9999)
 

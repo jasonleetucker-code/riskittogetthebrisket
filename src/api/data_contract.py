@@ -2673,12 +2673,12 @@ def _anchor_key_sets(
     pick markets (KTC + IDPTC) average as peers instead of KTC riding
     in the α=0.10 subgroup (2026-07-25 calculation audit, F-2).
 
-    NOTE: subgroup/flat votes are deliberately UNWEIGHTED (the Final
-    Framework's count-aware mean-median gives every covered source an
-    equal voice; weights gate membership, they do not scale values).
-    A weight-0-but-enabled source therefore still votes in the
-    subgroup — that pre-existing behavior is unchanged here and
-    applies to every source, not just anchors.
+    NOTE on weights (updated 2026-07-29 audit): subgroup/flat votes
+    are weighted by each source's DECLARED weight (all 1.0 by registry
+    default → equal voice; user overrides scale a source's vote — see
+    ``weighted_count_aware_mean_median_blend``).  A weight-0 source
+    does not vote anywhere: ``_active_sources`` drops it before the
+    blend ever sees it.
     """
     positively_weighted: set[str] = set()
     for s in active_sources:
@@ -2709,13 +2709,18 @@ def _active_sources(
     overrides are in play.
 
     A NON-POSITIVE effective weight also drops the source (Codex
-    review on PR #530): the Final Framework blend is unweighted —
-    every covered source votes with equal voice, weights gate
-    membership only — so "enabled with weight 0" has exactly one
+    review on PR #530): "enabled with weight 0" has exactly one
     coherent meaning: no vote.  Before this, a weight-0 source kept
     voting at full strength in the subgroup/flat blend (and, until
     the prior commit, anchoring).  Registry defaults are all 1.0, so
     this only affects explicit user overrides.
+
+    Weight semantics (2026-07-29 audit): a POSITIVE override weight is
+    now genuinely applied — the count-aware blend multiplies each
+    source's vote by its declared weight (see
+    ``weighted_count_aware_mean_median_blend``).  With every weight at
+    the 1.0 registry default the blend is exactly the historical
+    unweighted equal-voice blend.
     """
     if not source_overrides:
         return list(_RANKING_SOURCES)
@@ -5701,9 +5706,13 @@ def _resolve_league_context(
 ) -> dict[str, Any]:
     """Return the operator's Sleeper league context as a dict.
 
-    Reads ``SLEEPER_LEAGUE_ID`` from the environment and fetches
-    ``total_rosters`` + ``scoring_settings`` from Sleeper, cached for
-    an hour.  Returns a dict with keys:
+    Resolves the league ID **registry-first** —
+    ``league_registry.get_sleeper_league_id()`` reads
+    ``config/leagues/registry.json`` — and only falls back to the
+    ``SLEEPER_LEAGUE_ID`` env var when the registry yields nothing
+    (broken/absent registry module or no league configured).  Then
+    fetches ``total_rosters`` + ``scoring_settings`` from Sleeper,
+    cached for an hour.  Returns a dict with keys:
 
       * ``roster_count`` (int) — number of rosters in the league; the
         rookie-pick anchor uses this as N in ``(round-1)*N + slot``.
@@ -5714,9 +5723,9 @@ def _resolve_league_context(
         a live Sleeper fetch, False when it's a fallback dict.
 
     Returns a fallback dict (``roster_count=default``, ``bonus_rec_te=0.0``,
-    ``fetched_from_sleeper=False``) if the env var is unset, the fetch
-    fails, or Sleeper returns an unusable payload — so the pipeline
-    still produces output on a cold start / offline machine.
+    ``fetched_from_sleeper=False``) if no league resolves at all, the
+    fetch fails, or Sleeper returns an unusable payload — so the
+    pipeline still produces output on a cold start / offline machine.
 
     Public helper so tests can patch it; no side effects beyond
     the cache fill.
@@ -6188,6 +6197,87 @@ def count_aware_mean_median_blend(
         u_median = (used[m // 2 - 1] + used[m // 2]) / 2.0
     center = (u_mean + u_median) / 2.0
     mad_val = sum(abs(v - u_mean) for v in used) / len(used)
+    return center, mad_val
+
+
+def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
+    """Weighted median over ``(value, weight)`` pairs pre-sorted by value.
+
+    Standard cumulative-weight definition with midpoint interpolation
+    on an exact half split: the smallest value whose cumulative weight
+    reaches half the total; when the cumulative weight lands exactly on
+    the half point, average with the next value.  With equal weights
+    this reproduces the ordinary median (odd n → middle element, even
+    n → mean of the two middle elements).
+    """
+    half = total_weight / 2.0
+    cum = 0.0
+    eps = 1e-12 * max(total_weight, 1.0)
+    for i, (v, w) in enumerate(pairs):
+        cum += w
+        if cum > half + eps:
+            return v
+        if abs(cum - half) <= eps:
+            if i + 1 < len(pairs):
+                return (v + pairs[i + 1][0]) / 2.0
+            return v
+    return pairs[-1][0]
+
+
+def weighted_count_aware_mean_median_blend(
+    values: list[float],
+    weights: list[float],
+) -> tuple[float, float | None]:
+    """Weighted variant of :func:`count_aware_mean_median_blend`.
+
+    ``weights`` are the per-source DECLARED blend weights (registry
+    defaults are all 1.0; user overrides arrive via
+    ``POST /api/rankings/overrides``).  When every weight is equal —
+    the default board and any uniform slider setting — this delegates
+    to the unweighted blend, so the default output is bit-for-bit
+    identical to the historical pipeline.
+
+    With unequal weights the same count-aware shape applies, computed
+    on weighted statistics:
+
+      n == 1   → passthrough
+      n == 2   → weighted mean; MAD = weighted abs deviation
+      n == 3-4 → (weighted mean + weighted median) / 2, untrimmed
+      n ≥ 5    → drop the single min / max OBSERVATION, then
+                 (weighted mean + weighted median) / 2 over the rest
+
+    Trimming stays observation-based (one max + one min by value,
+    regardless of weight): the robustness rule targets extreme values,
+    and keeping it observation-based preserves exact equal-weight
+    parity with the unweighted blend.  Degenerate inputs (mismatched
+    lengths, non-positive total weight) fall back to the unweighted
+    blend rather than failing — a malformed override must never take
+    down the board.
+    """
+    if not values:
+        return 0.0, None
+    if len(weights) != len(values):
+        return count_aware_mean_median_blend(values)
+    ws = [max(0.0, float(w)) for w in weights]
+    if max(ws) - min(ws) <= 1e-9:
+        # Equal weights (including the all-1.0 default): exact parity.
+        return count_aware_mean_median_blend(values)
+    pairs = sorted(zip(values, ws))
+    k = len(pairs)
+    if k == 1:
+        return pairs[0][0], None
+    used = pairs[1:-1] if k >= 5 else pairs
+    total_w = sum(w for _, w in used)
+    if total_w <= 0:
+        return count_aware_mean_median_blend(values)
+    w_mean = sum(v * w for v, w in used) / total_w
+    if k == 2:
+        center = w_mean
+        mad_val = sum(abs(v - center) * w for v, w in used) / total_w
+        return center, mad_val
+    w_median = _weighted_median_sorted(used, total_w)
+    center = (w_mean + w_median) / 2.0
+    mad_val = sum(abs(v - w_mean) * w for v, w in used) / total_w
     return center, mad_val
 
 
@@ -6721,8 +6811,21 @@ def _compute_unified_rankings(
     # So ``csv_rank = _RANK_TO_SYNTHETIC_VALUE_OFFSET − (synthetic / 100)``.
     # Every ``is_cross_market=True`` source that carries a rank signal
     # natively (i.e. NOT routed through the DS combined-rank pre-pass
-    # above) falls into this bucket — currently just FBG SF + FBG IDP,
-    # but extensible to any future rank-signal cross-market source.
+    # above) falls into this bucket.
+    #
+    # DORMANT AS OF 2026-07-29 (audit): this set is currently EMPTY and
+    # the block below never executes.  All three cross-market sources
+    # are excluded by construction — ``draftSharks`` / ``draftSharksIdp``
+    # are ``ds_combined_rank_partner`` (handled by the pre-pass above)
+    # and ``idpTradeCalc`` is value-direct.  The only members it ever
+    # had were FootballGuys SF + FootballGuys IDP, which are no longer
+    # registered sources.
+    #
+    # KEPT, not deleted: the logic is generic rather than FBG-specific,
+    # it is guarded by the emptiness check so it costs nothing, and it
+    # would correctly auto-activate for any future rank-signal
+    # cross-market source.  The comment is what was misleading — it
+    # named FBG as a current member long after the source was removed.
     csv_rank_cross_market_keys: set[str] = {
         str(s.get("key") or "")
         for s in active_sources
@@ -6873,6 +6976,23 @@ def _compute_unified_rankings(
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
 
+    # Declared blend weight per source (2026-07-29).  Registry defaults
+    # are all 1.0, so the default board blends every covered source
+    # with equal voice — bit-for-bit identical to the historical
+    # unweighted pipeline (the weighted helper delegates to the
+    # unweighted one when all weights are equal).  A user weight
+    # override (``_active_sources`` copies the effective weight onto
+    # the source dict) scales that source's vote in the count-aware
+    # mean-median blend.  Weight ≤ 0 sources were already dropped by
+    # ``_active_sources``.  NOTE: this is the DECLARED weight only —
+    # the depth-based ``coverage_weight`` factor stays a stamped
+    # diagnostic (``sourceRankMeta.effectiveWeight``) and is NOT
+    # applied here; wiring it in would down-weight the three depth-50
+    # rookie sources and change the default board.
+    blend_weight_by_source: dict[str, float] = {
+        str(s.get("key") or ""): max(0.0, float(s.get("weight") or 1.0)) for s in active_sources
+    }
+
     # Cache which source keys are NOT TEP-native (non-TEP sources) and
     # which ARE TEP-native.  Both get a value-level correction on TE
     # rows during the Phase 2-3 blend, but with different multipliers:
@@ -6931,6 +7051,7 @@ def _compute_unified_rankings(
     ) = _partition_value_source_ranges(players_array)
 
     _trimmed_mean_median = count_aware_mean_median_blend
+    _weighted_trimmed_mean_median = weighted_count_aware_mean_median_blend
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
@@ -6951,6 +7072,11 @@ def _compute_unified_rankings(
         cross_market_values: list[float] = []
         subgroup_values: list[float] = []
         all_values: list[float] = []  # full set for MAD diagnostic
+        # Parallel per-source declared weights for the three lists
+        # above (all 1.0 unless the user overrode a slider).
+        cross_market_weights: list[float] = []
+        subgroup_weights: list[float] = []
+        all_weights: list[float] = []
         # Parallel (source_key, value, is_anchor) tracking so the
         # per-player Hampel filter below can identify which sources
         # produced which values and rebuild the three lists from the
@@ -7089,6 +7215,8 @@ def _compute_unified_rankings(
                     value = min(value * effective_native_multiplier, 9999.0)
                     tep_native_corrected = True
             all_values.append(value)
+            src_blend_weight = blend_weight_by_source.get(source_key, 1.0)
+            all_weights.append(src_blend_weight)
             # Pick rows use the widened anchor set (KTC joins IDPTC as
             # a peer pick market — audit F-2); player rows keep the
             # cross-market-only anchor membership.
@@ -7097,8 +7225,10 @@ def _compute_unified_rankings(
             all_value_pairs.append((source_key, value, is_anchor_source))
             if is_anchor_source:
                 cross_market_values.append(value)
+                cross_market_weights.append(src_blend_weight)
             else:
                 subgroup_values.append(value)
+                subgroup_weights.append(src_blend_weight)
             # Per-source audit stamps.
             meta = row_source_meta[row_idx].get(source_key, {})
             declared_weight = float(src_def.get("weight") or 1.0)
@@ -7111,7 +7241,14 @@ def _compute_unified_rankings(
                 and value_source_max.get(source_key, 0.0) > 0.0
                 else "rank_hill"
             )
+            # ``effectiveWeight`` is the depth-scaled coverage
+            # DIAGNOSTIC (declared × min(1, depth/60)) — stamped for
+            # transparency, never applied to the blend.
+            # ``appliedWeight`` is the declared weight the count-aware
+            # blend actually multiplies this source's vote by
+            # (registry default 1.0; user overrides move it).
             meta["effectiveWeight"] = round(effective_weight, 4)
+            meta["appliedWeight"] = round(src_blend_weight, 4)
             meta["isAnchor"] = is_anchor_source
             if tep_applied:
                 meta["tepBoostApplied"] = True
@@ -7149,6 +7286,21 @@ def _compute_unified_rankings(
                 all_values = [v for k, v, _ in all_value_pairs if k in kept_set]
                 cross_market_values = [v for k, v, a in all_value_pairs if k in kept_set and a]
                 subgroup_values = [v for k, v, a in all_value_pairs if k in kept_set and not a]
+                all_weights = [
+                    blend_weight_by_source.get(k, 1.0)
+                    for k, _v, _a in all_value_pairs
+                    if k in kept_set
+                ]
+                cross_market_weights = [
+                    blend_weight_by_source.get(k, 1.0)
+                    for k, _v, a in all_value_pairs
+                    if k in kept_set and a
+                ]
+                subgroup_weights = [
+                    blend_weight_by_source.get(k, 1.0)
+                    for k, _v, a in all_value_pairs
+                    if k in kept_set and not a
+                ]
                 for sk in hampel_dropped_keys:
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
@@ -7227,13 +7379,15 @@ def _compute_unified_rankings(
         # aggregation rule the subgroup uses on the other side of
         # the α-shrinkage combine.
         if cross_market_values:
-            anchor_value, _ = _trimmed_mean_median(cross_market_values)
+            anchor_value, _ = _weighted_trimmed_mean_median(
+                cross_market_values, cross_market_weights
+            )
         else:
             anchor_value = None
 
         subgroup_center: float | None
         if subgroup_values:
-            subgroup_center, _ = _trimmed_mean_median(subgroup_values)
+            subgroup_center, _ = _weighted_trimmed_mean_median(subgroup_values, subgroup_weights)
         else:
             subgroup_center = None
 
@@ -7250,15 +7404,21 @@ def _compute_unified_rankings(
                 center_value = 0.0
         else:
             # Offense (QB/RB/WR/TE): flat blend over all_values (every
-            # covered source gets equal voice, including cross-market
-            # ones).  No α-shrinkage against a single anchor.
+            # covered source votes at its declared weight — equal
+            # voice at the all-1.0 registry default — including
+            # cross-market ones).  No α-shrinkage against a single
+            # anchor.
             if all_values:
-                flat_center, _ = _trimmed_mean_median(all_values)
+                flat_center, _ = _weighted_trimmed_mean_median(all_values, all_weights)
                 center_value = flat_center
             else:
                 center_value = 0.0
 
         # Framework step 6: MAD across ALL contributing sources.
+        # Deliberately UNWEIGHTED: ``sourceSpread`` is a disagreement
+        # diagnostic over the covered sources' values; a user's weight
+        # slider should not make the sources look like they agree more
+        # or less than they do.
         _, source_mad = _trimmed_mean_median(all_values)
 
         if source_mad is not None and _MAD_PENALTY_LAMBDA > 0 and not row_is_pick:
@@ -8638,10 +8798,19 @@ def build_api_data_contract(
             for src in _RANKING_SOURCES
         ],
         "formula": {
-            "name": "Hill curve",
-            "expression": "value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))",
-            "midpoint": 45,
-            "slope": 1.10,
+            # Corrected 2026-07-29 audit: this block previously
+            # published the retired rank-form curve (midpoint 45 /
+            # slope 1.10) that no live code path used — the live
+            # conversion is the percentile-form Hill curve routed
+            # through the scope masters stamped in the ``hillCurves``
+            # contract block.
+            "name": "Hill curve (percentile form, scope masters)",
+            "expression": (
+                "p = clamp((rank-1)/(referenceN-1), 0, 1); "
+                "value = clamp(9999/(1 + (p/c)^s), 1, 9999)"
+            ),
+            "referenceN": _PERCENTILE_REFERENCE_N,
+            "scopeMasters": "see the hillCurves contract block for per-scope (c, s)",
             "scaleMin": 1,
             "scaleMax": 9999,
         },
@@ -8664,10 +8833,25 @@ def build_api_data_contract(
             ],
             "coverageWeight": {
                 "description": (
-                    "effective_weight = declared_weight * min(1, depth / min_full_depth)"
+                    "DIAGNOSTIC ONLY: effective_weight = declared_weight * "
+                    "min(1, depth / min_full_depth), stamped per source as "
+                    "sourceRankMeta.effectiveWeight.  It is never applied to "
+                    "the blend — applying it would down-weight the depth-50 "
+                    "rookie sources and change the default board."
                 ),
                 "minFullDepth": 60,
             },
+        },
+        "blendWeights": {
+            "description": (
+                "The count-aware mean-median blend multiplies each covered "
+                "source's vote by its declared weight "
+                "(sourceRankMeta.appliedWeight).  Registry defaults are all "
+                "1.0, so the default board gives every covered source an "
+                "equal voice; user weight overrides "
+                "(POST /api/rankings/overrides) scale a source's vote, and "
+                "weight 0 removes the source entirely."
+            ),
         },
         "confidenceBuckets": {
             "high": "2+ sources, sourceRankSpread <= 30",

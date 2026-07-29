@@ -9,7 +9,13 @@ Requires=__SERVICE_NAME__-custom-alerts.service
 # rule from re-firing during a sustained crossing — a rule that
 # matches now will not match again until tomorrow even if every
 # tick of this timer hits.
-OnCalendar=*-*-* 0/2:13:00
+#
+# Explicit UTC, like every other timer in deploy/systemd.  Without
+# the suffix systemd uses the host timezone, so a DST transition
+# silently shifts the schedule (and skips or doubles a tick on the
+# changeover day).  The fleet runs UTC today, which makes this a
+# no-op now and a guarantee later.
+OnCalendar=*-*-* 0/2:13:00 UTC
 RandomizedDelaySec=180
 Persistent=true
 Unit=__SERVICE_NAME__-custom-alerts.service

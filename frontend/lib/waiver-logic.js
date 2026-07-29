@@ -77,6 +77,29 @@ export function normalizeName(s) {
 }
 
 /**
+ * Punctuation-insensitive key: lowercase, then drop every
+ * non-alphanumeric character (spaces included), so "D.J. Moore",
+ * "DJ Moore" and "djmoore" all collapse to ``djmoore``.
+ *
+ * NOT backend parity — use ``normalizeName`` for anything that has to
+ * agree byte-for-byte with ``src/trade/waiver.py::_normalize_name``
+ * (the league ownership set, ``buildTopWaiverPool``'s owned/my-roster
+ * gates, ``computeWaiverAnalysis``).  Mixing the two silently breaks
+ * lookups: a Set built with one is never hit by the other.
+ *
+ * This one exists for the claim desk's LOCAL joins and typeahead —
+ * roster display-name strings from Sleeper joined against contract row
+ * names (two vocabularies that disagree on punctuation), and a search
+ * box where typing "djmoore" must find "D.J. Moore".  It lives here
+ * rather than in the component so there is exactly one definition.
+ */
+export function normalizeNameCompact(s) {
+  return String(s == null ? "" : s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/**
  * Build a normalized ``Set`` of every player rostered in the league.
  * The caller memoizes on the ``sleeperTeams`` reference; this function
  * runs in O(N) over all team players combined.
