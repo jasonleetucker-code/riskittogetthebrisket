@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
 import {
@@ -16,6 +17,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
+import { buildShareUrl } from "@/lib/trade-share";
 import styles from "./arbitrage.module.css";
 
 // ── /arbitrage — the board-vs-market arbitrage finder ─────────────────
@@ -67,9 +69,31 @@ function AssetList({ assets, tone }) {
   );
 }
 
-function TradeCard({ trade }) {
+function TradeCard({ trade, myTeam, opponent }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
+
+  // A found trade was a dead end: the engine surfaced it, and then you
+  // retyped both sides into the calculator by hand.  The share encoder
+  // already round-trips exactly this shape, so the hand-off is a link.
+  const openInCalculator = useMemo(() => {
+    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
+    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
+    if (!give.length && !receive.length) return null;
+    try {
+      return buildShareUrl({
+        sides: [
+          { name: myTeam || "You", players: give },
+          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+        ],
+      });
+    } catch {
+      // A trade we cannot encode simply loses the shortcut; the card
+      // itself still renders.
+      return null;
+    }
+  }, [trade, myTeam, opponent]);
+
   return (
     <Panel className={styles.tradeCard}>
       <div className={styles.tradeHead}>
@@ -107,6 +131,13 @@ function TradeCard({ trade }) {
           <AssetList assets={trade.receive} tone="receive" />
         </div>
       </div>
+      {openInCalculator ? (
+        <div className={styles.tradeFoot}>
+          <Button as={Link} href={openInCalculator} size="sm" variant="secondary">
+            Open in Trade Calculator
+          </Button>
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -260,7 +291,7 @@ export default function ArbitragePage() {
       {!running && result?.trades?.length ? (
         <div className={styles.trades}>
           {result.trades.map((t, i) => (
-            <TradeCard key={i} trade={t} />
+            <TradeCard key={i} trade={t} myTeam={effectiveTeam} opponent={opponent} />
           ))}
         </div>
       ) : null}

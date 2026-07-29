@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
-import { InfoTip } from "@/components/ds";
+import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
   POS_GROUPS,
@@ -46,7 +46,7 @@ const ASSET_SCOPES = [
 ];
 
 export default function RostersPage() {
-  const { rows, rawData, loading, error } = useApp();
+  const { rows, rawData, loading, error, openPlayerPopup } = useApp();
   const { settings, update } = useSettings();
   const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
@@ -319,15 +319,24 @@ export default function RostersPage() {
       })()}
 
       {/* Trade Targets */}
-      {myTeam && <TradeTargetsCard myTeam={myTeam} teams={sortedTeams} groupAvg={groupAvg} />}
+      {myTeam && (
+        <TradeTargetsCard
+          myTeam={myTeam}
+          teams={sortedTeams}
+          groupAvg={groupAvg}
+          onPlayerClick={openPlayerPopup}
+        />
+      )}
 
       {/* Waiver Wire Gems */}
-      {waiverGems.length > 0 && <WaiverWireCard gems={waiverGems} />}
+      {waiverGems.length > 0 && (
+        <WaiverWireCard gems={waiverGems} onPlayerClick={openPlayerPopup} />
+      )}
     </section>
   );
 }
 
-function TradeTargetsCard({ myTeam, teams, groupAvg }) {
+function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
   const myTeamData = teams.find((t) => t.name === myTeam);
   if (!myTeamData) return null;
 
@@ -419,7 +428,11 @@ function TradeTargetsCard({ myTeam, teams, groupAvg }) {
                 <span style={{ color: POS_GROUP_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                   {t.pos}
                 </span>
-                <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+                <PlayerNameButton
+                  name={t.name}
+                  onOpen={onPlayerClick}
+                  style={{ flex: 1, fontWeight: 600 }}
+                />
                 <span style={{ fontFamily: "var(--mono)", width: 60, textAlign: "right" }}>{t.meta.toLocaleString()}</span>
                 <span style={{ fontSize: "0.64rem", color: "var(--subtext)", minWidth: 100 }}>
                   {t.teamName}
@@ -601,7 +614,7 @@ function LeagueEdgeCard({ edges }) {
   );
 }
 
-function WaiverWireCard({ gems }) {
+function WaiverWireCard({ gems, onPlayerClick }) {
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
       <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>Waiver Wire Gems</div>
@@ -632,7 +645,11 @@ function WaiverWireCard({ gems }) {
             <span style={{ color: POS_GROUP_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
               {p.pos}
             </span>
-            <span style={{ fontWeight: 600 }}>{p.name}</span>
+            <PlayerNameButton
+              name={p.name}
+              onOpen={onPlayerClick}
+              style={{ fontWeight: 600 }}
+            />
             <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{p.value.toLocaleString()}</span>
           </div>
         ))}
