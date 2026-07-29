@@ -1,9 +1,24 @@
 """The Sharp Score — transparent, configurable, and explainable.
 
-Every weight and threshold lives in ``config/sharp/scoring_v1.json``;
+Every weight and threshold lives in ``config/sharp/scoring_v2.json``;
 nothing is hardcoded here.  Every scored manager keeps its component
 breakdown so the product can always answer "why did this manager
-qualify" with real numbers instead of a bare score.
+qualify" with real numbers instead of a bare score.  Full write-up in
+``docs/intel/SHARP_SCORE.md``.
+
+──────────────────────────────────────────────────────────────────────
+What counts as evidence (v2)
+──────────────────────────────────────────────────────────────────────
+DYNASTY LEAGUES ONLY, and only leagues at least TWO SEASONS OLD
+(``league_filter.is_sharp_eligible``).  Keeper leagues still inform
+Insider Trading — they are real evidence about a person you can trade
+with — but their trade behaviour is a hybrid, so they cannot certify
+dynasty skill.  A first-year dynasty league is startup-draft fallout:
+huge churn, no established market, no completed season to judge.
+
+``ManagerRecord.dynasty_leagues`` is already filtered on both counts
+upstream, and it — not ``observed_leagues`` — is what the multi-league
+gate reads.
 
 ──────────────────────────────────────────────────────────────────────
 Design rules, each guarding a specific failure
@@ -34,6 +49,19 @@ Design rules, each guarding a specific failure
 
 6. **The uncertainty penalty is explicit and subtracted**, so a
    2-season manager cannot tie a 6-season manager on equal rates.
+
+7. **The win-rate floor is a VIABILITY gate, not the selector.**  League
+   win% averages exactly 0.500 by construction, so 0.52 means
+   "demonstrably above average", not "good".  Set it much higher and it
+   silently becomes the real cutoff, fighting the percentile bar and
+   making cohort size unpredictable.
+
+8. **A championship is PREFERRED, not required.**  In a 12-team league
+   only ~1/12 of managers can win per season, so a hard title gate
+   would cut the cohort far below a top quarter and bar managers who
+   consistently make deep runs in strong leagues.  It is a bounded
+   bonus that is decisive at the margin and always named in
+   ``contributors``.
 """
 
 from __future__ import annotations
@@ -46,7 +74,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "scoring_v1.json"
+CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "scoring_v2.json"
 
 
 @lru_cache(maxsize=4)
@@ -57,7 +85,7 @@ def load_config(path: str | None = None) -> dict[str, Any]:
 
 
 def methodology_version(cfg: dict[str, Any] | None = None) -> str:
-    return str((cfg or load_config()).get("methodologyVersion") or "sharp-v1")
+    return str((cfg or load_config()).get("methodologyVersion") or "sharp-v2")
 
 
 # ── inputs ───────────────────────────────────────────────────────────
@@ -72,6 +100,11 @@ class ManagerRecord:
     user_id: str
     completed_seasons: int = 0
     observed_leagues: int = 0
+    # Dynasty leagues that ALSO clear the >= 2-season age bar
+    # (``league_filter.is_sharp_eligible``).  Keeper leagues and
+    # first-year dynasty leagues are deliberately excluded — see that
+    # module for why.  This, not ``observed_leagues``, is what the
+    # multi-league gate counts.
     dynasty_leagues: int = 0
     completed_games: int = 0
     wins: int = 0
@@ -124,7 +157,7 @@ class ManagerScore:
     contributors: list[str] = field(default_factory=list)
     ineligible_reasons: list[str] = field(default_factory=list)
     coverage: dict[str, Any] = field(default_factory=dict)
-    methodology_version: str = "sharp-v1"
+    methodology_version: str = "sharp-v2"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -192,18 +225,34 @@ def check_eligibility(rec: ManagerRecord, cfg: dict[str, Any] | None = None) -> 
             f"only {rec.completed_seasons} completed season(s); "
             f"{gates.get('minCompletedSeasons', 2)} required"
         )
-    if rec.observed_leagues < int(gates.get("minObservedLeagues", 2)):
+    # Multi-league, and specifically multi-DYNASTY-league: keeper
+    # leagues and first-year dynasty leagues are not evidence of sharp
+    # dynasty play.  ``dynasty_leagues`` is already age-filtered by
+    # ``league_filter.is_sharp_eligible`` upstream.
+    min_dynasty = int(gates.get("minDynastyLeagues", 2))
+    if rec.dynasty_leagues < min_dynasty:
+        min_age = int(gates.get("minLeagueAgeSeasons", 2))
         reasons.append(
-            f"only {rec.observed_leagues} observed league(s); "
-            f"{gates.get('minObservedLeagues', 2)} required"
+            f"only {rec.dynasty_leagues} qualifying dynasty league(s); "
+            f"{min_dynasty} required (dynasty only, >= {min_age} seasons old)"
         )
-    if rec.dynasty_leagues < int(gates.get("minDynastyLeagues", 1)):
-        reasons.append("no dynasty or keeper league observed")
-    if rec.completed_games < int(gates.get("minCompletedGames", 20)):
+    if rec.completed_games < int(gates.get("minCompletedGames", 24)):
         reasons.append(
             f"only {rec.completed_games} completed games; "
-            f"{gates.get('minCompletedGames', 20)} required"
+            f"{gates.get('minCompletedGames', 24)} required"
         )
+
+    # Win-percentage floor.  League win% averages EXACTLY 0.500 by
+    # construction, so this reads as "demonstrably above average"
+    # rather than "good" — it is a viability gate, and the percentile
+    # bar is what actually limits cohort size.
+    min_win = gates.get("minWinPct")
+    if min_win is not None:
+        win_pct = rec.win_pct
+        if win_pct is None:
+            reasons.append("no completed games, so win percentage is undefined")
+        elif win_pct < float(min_win):
+            reasons.append(f"win rate {win_pct:.1%} below the {float(min_win):.1%} floor")
     if rec.abandoned_rate > float(gates.get("maxAbandonedRosterRate", 0.34)):
         reasons.append(
             f"abandoned-roster rate {rec.abandoned_rate:.0%} exceeds "
@@ -373,6 +422,34 @@ def _activity_component(rec: ManagerRecord, cfg: dict[str, Any]) -> float:
     return value
 
 
+def _championship_bonus(rec: ManagerRecord, cfg: dict[str, Any]) -> tuple[float, list[str]]:
+    """ "Preferably they have won the league before" — as a bounded
+    bonus, not a hard gate.
+
+    A hard title requirement would be self-defeating: in a 12-team
+    league only ~1/12 of managers can win per season, so requiring one
+    cuts the cohort far below a top quartile and bars managers who
+    consistently make deep runs in strong leagues.  Instead a title is
+    worth a decisive nudge at the margin, additional titles add less
+    (diminishing, because the first is the one that proves it can
+    happen), and the total is capped so a lucky-title manager cannot
+    coast in on it alone.
+
+    Always named in ``contributors`` when it fires, so a qualification
+    that hinged on a championship says so.
+    """
+    block = cfg.get("championshipPreference") or {}
+    titles = max(0, int(rec.championships))
+    if titles <= 0:
+        return 0.0, []
+    first = float(block.get("bonusFirstTitle", 0.06))
+    extra = float(block.get("bonusPerAdditionalTitle", 0.02))
+    cap = float(block.get("maxBonus", 0.12))
+    bonus = min(cap, first + extra * (titles - 1))
+    label = "Won the league" if titles == 1 else f"Won the league {titles}x"
+    return bonus, [f"{label} in an observed dynasty season"]
+
+
 def _uncertainty_penalty(rec: ManagerRecord, cfg: dict[str, Any]) -> float:
     block = cfg.get("uncertaintyPenalty") or {}
     max_pen = float(block.get("maxPenalty", 0.25))
@@ -506,13 +583,15 @@ def score_managers(
         longevity = _longevity_component(rec, cfg)
         activity = _activity_component(rec, cfg)
         penalty = _uncertainty_penalty(rec, cfg)
+        title_bonus, title_notes = _championship_bonus(rec, cfg)
 
         total = (
-            float(weights.get("performance", 0.34)) * perf
-            + float(weights.get("rosterQuality", 0.24)) * roster
+            float(weights.get("performance", 0.36)) * perf
+            + float(weights.get("rosterQuality", 0.22)) * roster
             + float(weights.get("multiLeagueConsistency", 0.22)) * consistency
             + float(weights.get("longevity", 0.12)) * longevity
             + float(weights.get("activity", 0.08)) * activity
+            + title_bonus
         ) - penalty
         total = _clamp(total, 0.0, 1.0) * 100.0
 
@@ -530,9 +609,12 @@ def score_managers(
                     "multiLeagueConsistency": consistency,
                     "longevity": longevity,
                     "activity": activity,
+                    "championshipBonus": title_bonus,
                     "uncertaintyPenalty": -penalty,
                 },
-                contributors=[*perf_notes, *roster_notes, *cons_notes],
+                # Title first: it is the preference most likely to have
+                # decided a marginal qualification.
+                contributors=[*title_notes, *perf_notes, *roster_notes, *cons_notes],
                 coverage=coverage,
                 methodology_version=version,
             )
@@ -562,8 +644,20 @@ def score_managers(
     return scored
 
 
-def cohort_tiers(scored: Sequence[ManagerScore]) -> dict[str, int]:
-    """The four population tiers the brief requires be distinguished."""
+def cohort_tiers(scored: Sequence[ManagerScore]) -> dict[str, int | float | None]:
+    """The four population tiers, plus BOTH cohort-share framings.
+
+    "Top quarter" is ambiguous and the two readings differ a lot, so
+    both are reported rather than picking one silently:
+
+      * ``qualifiedShareOfEvaluable`` — the bar actually applied.  The
+        percentile is computed among managers who cleared every hard
+        gate, because a percentile over un-gated managers would be
+        dragged around by records too thin to judge.
+      * ``qualifiedShareOfObservable`` — the same cohort as a fraction
+        of everyone discovered.  Always the smaller number, since the
+        gates run first.
+    """
     observable = len(scored)
     evaluable = sum(1 for s in scored if s.evaluable)
     qualified = sum(1 for s in scored if s.qualified)
@@ -573,4 +667,6 @@ def cohort_tiers(scored: Sequence[ManagerScore]) -> dict[str, int]:
         "evaluableManagers": evaluable,
         "qualifiedManagers": qualified,
         "uncertainManagers": uncertain,
+        "qualifiedShareOfEvaluable": round(qualified / evaluable, 4) if evaluable else None,
+        "qualifiedShareOfObservable": round(qualified / observable, 4) if observable else None,
     }

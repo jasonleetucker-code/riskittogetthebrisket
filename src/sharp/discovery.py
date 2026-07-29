@@ -28,6 +28,14 @@ best seeds available.
     SIGNAL     "may this league's trades count as dynasty buy/sell?"
                → dynasty and keeper only (``league_filter.is_eligible``).
 
+    SHARP      "may this league certify someone as a sharp manager?"
+               → dynasty ONLY, and >= 2 seasons old
+                 (``league_filter.is_sharp_eligible``).
+
+Three gates, widening to narrowing. A league can be good enough to
+introduce managers, good enough to inform your own league-mates'
+tendencies, and still not good enough to certify anyone as sharp.
+
 A large redraft tournament is one of the *highest-yield* seeds there is:
 it places many otherwise-unrelated managers in one place, and most of
 them also play dynasty elsewhere. Its own transactions are never
@@ -145,11 +153,14 @@ class DiscoveryResult:
     leagues_discovered: int = 0
     leagues_expanded: int = 0
     signal_eligible_leagues: int = 0
+    # Stricter than signal-eligible: dynasty only, >= 2 seasons old.
+    sharp_eligible_leagues: int = 0
     discovery_only_leagues: int = 0
     calls_used: int = 0
     budget_exhausted: bool = False
     generations_completed: int = 0
     excluded_from_signal: dict[str, int] = field(default_factory=dict)
+    excluded_from_sharp: dict[str, int] = field(default_factory=dict)
     frontier_users: list[str] = field(default_factory=list)
     frontier_leagues: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -161,11 +172,13 @@ class DiscoveryResult:
             "leaguesDiscovered": self.leagues_discovered,
             "leaguesExpanded": self.leagues_expanded,
             "signalEligibleLeagues": self.signal_eligible_leagues,
+            "sharpEligibleLeagues": self.sharp_eligible_leagues,
             "discoveryOnlyLeagues": self.discovery_only_leagues,
             "callsUsed": self.calls_used,
             "budgetExhausted": self.budget_exhausted,
             "generationsCompleted": self.generations_completed,
             "excludedFromSignal": self.excluded_from_signal,
+            "excludedFromSharp": self.excluded_from_sharp,
             "frontierUsers": len(self.frontier_users),
             "frontierLeagues": len(self.frontier_leagues),
             "errors": self.errors,
@@ -334,6 +347,19 @@ def discover(
                         result.excluded_from_signal.get(label, 0) + 1
                     )
 
+                # SHARP eligibility is stricter still: dynasty only (no
+                # keeper) AND >= 2 seasons old.  Certifying someone as a
+                # sharp dynasty manager off a keeper league or a
+                # startup-year league would not be supportable.
+                sharp_ok = league_filter.is_sharp_eligible(lg)
+                if sharp_ok:
+                    result.sharp_eligible_leagues += 1
+                else:
+                    reason = league_filter.sharp_exclusion_reason(lg) or "unknown"
+                    result.excluded_from_sharp[reason] = (
+                        result.excluded_from_sharp.get(reason, 0) + 1
+                    )
+
                 settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
                 leagues_batch.append(
                     {
@@ -347,6 +373,8 @@ def discover(
                                 "type": settings.get("type"),
                                 "bestBall": settings.get("best_ball"),
                                 "signalEligible": signal_ok,
+                                "sharpEligible": sharp_ok,
+                                "ageSeasons": league_filter.league_age_seasons(lg),
                             }
                         ),
                     }
@@ -405,6 +433,28 @@ def signal_eligible_league_ids(
     return out
 
 
+def sharp_eligible_league_ids(*, ledger_path: Path | None = None) -> list[str]:
+    """Discovered leagues that may certify a manager as SHARP.
+
+    Strictly narrower than :func:`signal_eligible_league_ids`: dynasty
+    only (no keeper) and at least two seasons old.
+    """
+    conn = ledger.connect(ledger_path)
+    try:
+        rows = conn.execute("SELECT league_id, settings_json FROM leagues").fetchall()
+    finally:
+        conn.close()
+    out = []
+    for row in rows:
+        try:
+            settings = json.loads(row["settings_json"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        if settings.get("sharpEligible"):
+            out.append(str(row["league_id"]))
+    return out
+
+
 def graph_stats(*, ledger_path: Path | None = None) -> dict[str, Any]:
     """Honest coverage numbers for the Sharp Tracker onboarding copy."""
     conn = ledger.connect(ledger_path)
@@ -415,10 +465,12 @@ def graph_stats(*, ledger_path: Path | None = None) -> dict[str, Any]:
     finally:
         conn.close()
     eligible = len(signal_eligible_league_ids(ledger_path=ledger_path))
+    sharp_eligible = len(sharp_eligible_league_ids(ledger_path=ledger_path))
     return {
         "observedUsers": users,
         "observedLeagues": leagues,
         "signalEligibleLeagues": eligible,
+        "sharpEligibleLeagues": sharp_eligible,
         "discoveryOnlyLeagues": max(0, leagues - eligible),
         "memberships": memberships,
         "complete": False,

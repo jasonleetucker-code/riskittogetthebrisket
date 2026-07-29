@@ -51,7 +51,9 @@ def population(n=30):
 
 class TestEligibilityGates:
     def test_thin_history_is_not_evaluable_rather_than_badly_scored(self):
-        thin = rec("thin", completed_seasons=1, completed_games=14, observed_leagues=1)
+        thin = rec(
+            "thin", completed_seasons=1, completed_games=14, observed_leagues=1, dynasty_leagues=1
+        )
         [result] = [s for s in S.score_managers([thin, *population()]) if s.user_id == "thin"]
         assert result.evaluable is False
         assert result.score is None
@@ -59,15 +61,19 @@ class TestEligibilityGates:
         assert result.ineligible_reasons
 
     def test_ineligible_reasons_are_specific(self):
-        thin = rec("thin", completed_seasons=1, completed_games=10, observed_leagues=1)
+        thin = rec(
+            "thin", completed_seasons=1, completed_games=10, observed_leagues=1, dynasty_leagues=1
+        )
         reasons = " ".join(S.check_eligibility(thin))
         assert "completed season" in reasons
-        assert "observed league" in reasons
+        assert "qualifying dynasty league" in reasons
         assert "completed games" in reasons
 
     def test_no_dynasty_league_is_ineligible(self):
         r = rec("redraft_only", dynasty_leagues=0)
         assert any("dynasty" in x for x in S.check_eligibility(r))
+        # v2: keeper leagues no longer help — only dynasty >= 2 seasons old.
+        assert any("dynasty only" in x for x in S.check_eligibility(r))
 
     def test_abandoned_rosters_disqualify(self):
         r = rec("ghost", observed_leagues=4, abandoned_rosters=3)
@@ -90,9 +96,11 @@ class TestNoSingleSignalDominates:
             observed_leagues=40,
             dynasty_leagues=40,
             completed_seasons=4,
-            # …but mediocre everywhere.
-            wins=24,
-            losses=32,
+            # Just past the win-rate floor so they stay EVALUABLE — the
+            # point is that breadth alone must not qualify someone who
+            # clears every gate but is unremarkable everywhere.
+            wins=30,
+            losses=26,
             playoff_appearances=0,
             championships=0,
             finish_percentiles=[0.45] * 40,
@@ -212,22 +220,28 @@ class TestExplainability:
 
     def test_methodology_version_is_stamped(self):
         scored = S.score_managers(population())
-        assert all(s.methodology_version == "sharp-v1" for s in scored)
+        assert all(s.methodology_version == "sharp-v2" for s in scored)
 
 
 class TestCohortTiers:
     def test_four_tiers_are_distinguished(self):
-        thin = rec("thin", completed_seasons=1, completed_games=8, observed_leagues=1)
+        thin = rec(
+            "thin", completed_seasons=1, completed_games=8, observed_leagues=1, dynasty_leagues=1
+        )
         scored = S.score_managers([thin, *population()])
         tiers = S.cohort_tiers(scored)
         assert tiers["observableManagers"] == 31
-        assert tiers["evaluableManagers"] == 30
+        # v2 gates (dynasty-only, league age, win-rate floor) genuinely
+        # bite, so evaluable is now well below observable — assert the
+        # ordering, not a brittle exact count.
+        assert tiers["evaluableManagers"] < tiers["observableManagers"]
         assert tiers["qualifiedManagers"] < tiers["evaluableManagers"]
-        assert tiers["observableManagers"] > tiers["evaluableManagers"]
+        assert tiers["qualifiedManagers"] >= 1
 
     def test_qualification_bar_is_a_percentile_so_it_tightens_with_coverage(self):
         cfg = S.load_config()
-        assert cfg["qualification"]["minScorePercentile"] >= 0.8
+        # v2: top quartile (0.75) rather than v1's top 15%.
+        assert cfg["qualification"]["minScorePercentile"] >= 0.67
 
 
 class TestPercentileRank:

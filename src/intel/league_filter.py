@@ -43,6 +43,92 @@ _TYPE_LABELS = {
 # dynasty-adjacent.  Flip to just {DYNASTY} to tighten.
 ELIGIBLE_TYPES = frozenset({LEAGUE_TYPE_DYNASTY, LEAGUE_TYPE_KEEPER})
 
+# ── Sharp Tracker's stricter gate ────────────────────────────────────
+#
+# The Sharp cohort is a claim about SKILL, so its evidence bar is higher
+# than Insider Trading's.  Two extra restrictions, both deliberate:
+#
+#   1. DYNASTY ONLY — no keeper.  Keeper trade behaviour is a hybrid
+#      (most of the roster resets annually), so it is dynasty-adjacent
+#      enough to inform your own league-mates' tendencies but not clean
+#      enough to certify someone as a sharp dynasty manager.
+#
+#   2. LEAGUE AGE >= 2 SEASONS.  A first-year dynasty league is mostly
+#      startup-draft fallout: enormous early churn, no established
+#      market, and no completed season to judge anyone on.  Counting it
+#      would let a manager look prolific purely for having just drafted.
+#
+# Insider Trading deliberately keeps the looser ELIGIBLE_TYPES gate —
+# it answers "what do the managers in MY league do", where a keeper
+# league is real evidence about a real person you can trade with.
+SHARP_ELIGIBLE_TYPES = frozenset({LEAGUE_TYPE_DYNASTY})
+SHARP_MIN_LEAGUE_AGE_SEASONS = 2
+
+
+def league_age_seasons(league: dict[str, Any] | None) -> int:
+    """How many seasons this league has existed, from data already in
+    hand.
+
+    Sleeper chains seasons with ``previous_league_id``, so its presence
+    proves at least one prior season — i.e. age >= 2 — and that field
+    ships inside the ``/user/{id}/leagues`` payload the crawl already
+    fetches.  The age-2 check therefore costs ZERO extra API calls,
+    which is why 2 is the default bar.
+
+    Returns 2 as a floor-not-exact answer for any chained league:
+    establishing age >= 3 requires walking the chain one request per
+    link, and nothing currently needs that precision.  Callers wanting
+    an exact age must walk ``previous_league_id`` themselves.
+    """
+    if not isinstance(league, dict):
+        return 0
+    return 2 if str(league.get("previous_league_id") or "").strip() else 1
+
+
+def is_sharp_eligible(
+    league: dict[str, Any] | None,
+    *,
+    min_age_seasons: int = SHARP_MIN_LEAGUE_AGE_SEASONS,
+) -> bool:
+    """May this league's activity count toward SHARP qualification?
+
+    Stricter than :func:`is_eligible` on purpose — see the module note.
+    Unlike the discovery gate, an unknown league type is REJECTED here:
+    certifying a manager as sharp on a league we cannot confirm is
+    dynasty would be a claim we cannot support.
+    """
+    if not isinstance(league, dict):
+        return False
+    if is_best_ball(league):
+        return False
+    if league_type(league) not in SHARP_ELIGIBLE_TYPES:
+        return False
+    return league_age_seasons(league) >= int(min_age_seasons)
+
+
+def sharp_exclusion_reason(
+    league: dict[str, Any] | None,
+    *,
+    min_age_seasons: int = SHARP_MIN_LEAGUE_AGE_SEASONS,
+) -> str | None:
+    """Why a league is not sharp-eligible, or ``None`` when it is.
+
+    Reported rather than silently dropped, so a shrinking sharp pool is
+    always explainable.
+    """
+    if not isinstance(league, dict):
+        return "not_a_league"
+    if is_best_ball(league):
+        return "best_ball"
+    lt = league_type(league)
+    if lt is None:
+        return "unknown_type"
+    if lt not in SHARP_ELIGIBLE_TYPES:
+        return _TYPE_LABELS.get(lt, "unknown")
+    if league_age_seasons(league) < int(min_age_seasons):
+        return "too_new"
+    return None
+
 
 def league_type(league: dict[str, Any] | None) -> int | None:
     """Sleeper's ``settings.type``, or ``None`` when absent.
