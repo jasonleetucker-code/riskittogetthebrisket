@@ -40,7 +40,7 @@ import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
 import FaabRecommendation from "@/components/waivers/FaabRecommendation";
 import { MonteCarloButton, PlayerImage } from "@/components/ui";
-import { Badge, Button, Input, Panel, StatTile } from "@/components/ds";
+import { Badge, Button, Input, Panel, SkeletonTable, StatTile } from "@/components/ds";
 import styles from "@/app/waivers/waivers.module.css";
 
 // ── helpers ────────────────────────────────────────────────────
@@ -270,6 +270,7 @@ export default function ManualAddDrop({
   valueMode = "full",
   settings,
   leagueKey,
+  teamLoading = false,
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
@@ -361,7 +362,14 @@ export default function ManualAddDrop({
       subtitle="One player out, one in — the trade calculator's fairness bar and per-vendor breakdown, applied to a single transaction."
       aria-label="Manual add/drop calculator"
     >
-      {!selectedTeam ? (
+      {!selectedTeam && teamLoading ? (
+        // Hold the settled calculator's height while team identity
+        // resolves.  Rendering the short "select a team" message here
+        // and then expanding to the full calculator grew this panel
+        // 150px -> 646px and pushed the entire page down — the whole
+        // of /waivers' 0.22 CLS.
+        <SkeletonTable rows={12} columns={3} />
+      ) : !selectedTeam ? (
         <p className="muted">
           Select a team below to use the manual add/drop calculator.
         </p>

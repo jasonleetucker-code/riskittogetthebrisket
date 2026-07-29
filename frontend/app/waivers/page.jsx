@@ -488,7 +488,7 @@ export default function WaiversPage() {
   const { privateDataEnabled, rows, rawData } = useApp();
   const { authenticated } = useAuthContext();
   const { selectedLeague } = useLeague();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { settings } = useSettings();
   const [includeRookies, setIncludeRookies] = useState(false);
   const [position, setPosition] = useState("ALL");
@@ -602,6 +602,7 @@ export default function WaiversPage() {
           includeRookies={includeRookies}
           settings={settings}
           leagueKey={selectedLeague?.key}
+          teamLoading={teamLoading}
         />
       ) : null}
 

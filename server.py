@@ -11798,10 +11798,23 @@ async def serve_rosters(request: Request):
     return await _serve_app_shell("/rosters")
 
 
-@app.get("/draft-capital", response_class=HTMLResponse)
+@app.get("/draft-capital")
 async def serve_draft_capital(request: Request):
-    # Public page — no auth required
-    return await _serve_app_shell("/draft-capital")
+    """Legacy public route — permanently moved under /league.
+
+    Emit a real redirect rather than proxying.  ``_proxy_next`` uses
+    ``urllib`` with default redirect-following, so once the Next side
+    became a routing-layer 308 (frontend/next.config.mjs) this handler
+    would have chased it server-side and returned /league's HTML under
+    the /draft-capital URL — the address bar would lie and Next would
+    hydrate a /league flight payload at a mismatched pathname.  It also
+    blocked the event loop for the whole multi-second /league SSR.
+
+    Production never reaches this handler (nginx routes ``location /``
+    straight to the Next upstream); it is the dev / direct-to-backend
+    path, and it should behave the same way there.
+    """
+    return RedirectResponse(url="/league?tab=draft-capital", status_code=308)
 
 
 @app.get("/more", response_class=HTMLResponse)
