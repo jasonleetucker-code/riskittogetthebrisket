@@ -12,6 +12,7 @@ explanation copy.
 
 from __future__ import annotations
 
+from src.adapters.ktc_crowd_faab import build_crowd_bid_map
 from src.trade.faab_recommender import compute_confidence, recommend_faab
 
 
@@ -181,18 +182,41 @@ def test_league_summary_missing_marks_factor():
 
 
 # ── KTC crowd blend ─────────────────────────────────────────────
+#
+# These tests feed a map built by the REAL producer
+# (``ktc_crowd_faab.build_crowd_bid_map``) rather than a hand-written
+# literal.  A literal in the wrong key shape is exactly what masked
+# the 2026-07-29 defect: the producer keyed the map with the compact
+# alphanumeric key ("tjwatt") while the recommender looked it up with
+# ``strip().lower()`` ("t.j. watt"), so the factor never fired for any
+# name containing a space — i.e. every real player.
+
+
+def _crowd_map(name: str, pct_of_budget: float, *, budget: int = 100) -> dict[str, float]:
+    """Build a crowd map through the production bridge so the key shape
+    is pinned by the producer, not by this file."""
+    bid = pct_of_budget / 100.0 * budget
+    return build_crowd_bid_map(
+        {
+            "waivers": [
+                {"added": name, "bid": bid, "settings": {"waiver_budget": budget}},
+                {"added": name, "bid": bid, "settings": {"waiver_budget": budget}},
+            ]
+        }
+    )
 
 
 def test_ktc_crowd_blend_pulls_towards_crowd_bid():
     """KTC crowd reports 35% of budget for player → blend pulls
     standard towards $35 in a 100-budget league."""
+    crowd = _crowd_map("Test Player", 35.0)
     out = recommend_faab(
         add_player_value=2000,
         drop_player_value=500,
         add_player_position="WR",
         add_player_name="Test Player",
         league_budget=100,
-        ktc_crowd_bids={"test player": 35.0},
+        ktc_crowd_bids=crowd,
     )
     # Without crowd: ~$15; with 70/30 blend toward $35 → up.
     assert out["standard"] > 15
@@ -203,13 +227,40 @@ def test_ktc_crowd_blend_pulls_towards_crowd_bid():
     assert factor is not None
 
 
+def test_ktc_crowd_blend_fires_for_a_punctuated_spaced_name():
+    """Regression for the producer/consumer key mismatch.
+
+    ``T.J. Watt`` exercises both properties the old bare
+    ``strip().lower()`` lookup could not survive — a space and a
+    period.  The server passes the raw display name straight through
+    (``server.py`` FAAB endpoint → ``add_player_name``), so if this
+    ever regresses the crowd factor silently disappears in production
+    while every hand-keyed unit test keeps passing.
+    """
+    crowd = _crowd_map("T.J. Watt", 40.0)
+    assert list(crowd) == ["tjwatt"], "producer key shape changed"
+    out = recommend_faab(
+        add_player_value=2000,
+        drop_player_value=500,
+        add_player_position="DL",
+        add_player_name="T.J. Watt",
+        league_budget=100,
+        ktc_crowd_bids=crowd,
+    )
+    factor = next(
+        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
+        None,
+    )
+    assert factor is not None, "crowd factor did not fire for a spaced, punctuated name"
+
+
 def test_ktc_crowd_missing_player_is_noop():
     """Crowd map present but doesn't have the specific player ⇒
     no crowd factor is added (silent passthrough)."""
     out = recommend_faab(
         add_player_value=2000,
         add_player_name="Other Player",
-        ktc_crowd_bids={"different person": 25.0},
+        ktc_crowd_bids=_crowd_map("Different Person", 25.0),
     )
     factor = next(
         (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
@@ -266,13 +317,27 @@ def test_all_inputs_present_returns_high_confidence():
             },
         },
         sleeper_trending={"count": 8000},
-        ktc_crowd_bids={"hot pickup": 28.0},
+        # Built by the same producer the runtime uses.  A hand-written
+        # literal here used to read ``{"hot pickup": 28.0}`` — the OLD
+        # key shape — so after the 2026-07-29 compact-key fix the crowd
+        # factor silently did NOT fire and this test still passed on the
+        # loose ``in ("medium", "high")`` assertion, while its name
+        # claimed every input was present.  That is the exact masking
+        # pattern the key-registry comment in the producer warns about.
+        ktc_crowd_bids=_crowd_map("Hot Pickup", 28.0),
         league_budget=100,
     )
-    # All factors present (or actively contributing) ⇒ high
-    # confidence.  Allow medium too in case calibration registers
-    # as no-op.
-    assert out["confidence"] in ("medium", "high")
+    # Every factor must actually be present — assert the crowd factor
+    # fired rather than inferring it from the confidence bucket, which
+    # is what let the old wrong-key literal pass unnoticed.
+    crowd_factor = next(
+        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
+        None,
+    )
+    assert (
+        crowd_factor is not None
+    ), f"crowd factor did not fire; labels were {[f['label'] for f in out['factors']]}"
+    assert out["confidence"] == "high"
 
 
 def test_no_inputs_returns_low_confidence():

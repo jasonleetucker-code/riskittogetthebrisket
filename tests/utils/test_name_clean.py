@@ -6,6 +6,7 @@ import pytest
 
 from src.utils.name_clean import (
     CANONICAL_NAME_ALIASES,
+    compact_name_key,
     normalize_player_name,
     normalize_position_family,
     normalize_team,
@@ -424,3 +425,94 @@ class TestIdentitySweepAliases:
         for key, value in CANONICAL_NAME_ALIASES.items():
             assert normalize_player_name(value) == value, (key, value)
             assert CANONICAL_NAME_ALIASES.get(value, value) == value, (key, value)
+
+
+# ── compact_name_key (key family 2) ──────────────────────────────────
+
+
+class TestCompactNameKey:
+    """The compact key is a DIFFERENT family from ``normalize_player_name``.
+
+    It was previously defined twice, character-identically, in
+    ``src/adapters/ktc_crowd_faab.py`` and
+    ``src/roster_intel/roster_source.py``; both now delegate here.  These
+    tests pin the properties that make it non-interchangeable with the
+    strict key, so a future "consolidation" cannot quietly collapse the
+    two families.
+    """
+
+    def test_drops_punctuation_and_spaces(self):
+        assert compact_name_key("D.J. Moore") == "djmoore"
+        assert compact_name_key("DJ Moore") == "djmoore"
+        assert compact_name_key("djmoore") == "djmoore"
+        assert compact_name_key("Ja'Marr Chase") == "jamarrchase"
+
+    def test_null_and_empty(self):
+        assert compact_name_key(None) == ""
+        assert compact_name_key("") == ""
+        assert compact_name_key("   ") == ""
+
+    def test_does_not_strip_generational_suffixes(self):
+        # This is the property that makes it NOT a drop-in for the
+        # strict key.  Swapping the two changes which roster rows
+        # collide.
+        assert compact_name_key("Kenneth Walker III") == "kennethwalkeriii"
+        assert compact_name_key("Kenneth Walker") == "kennethwalker"
+        assert compact_name_key("Kenneth Walker III") != compact_name_key("Kenneth Walker")
+        assert normalize_player_name("Kenneth Walker III") == normalize_player_name(
+            "Kenneth Walker"
+        )
+
+    def test_does_not_ascii_fold(self):
+        # ``str.isalnum()`` is Unicode-aware, so accented characters
+        # survive.  The frontend's ``waiver-logic.normalizeNameCompact``
+        # strips them (``[^a-z0-9]``), which is why the two are
+        # documented as INDEPENDENT rather than as a parity pair — three
+        # docstrings used to claim byte-for-byte agreement and were
+        # wrong.  Changing this would move the roster_intel value join
+        # and the KTC crowd FAAB map for every accented name; measure
+        # first.
+        assert compact_name_key("Juanyéh Thomas") == "juanyéhthomas"
+        assert normalize_player_name("Juanyéh Thomas") == "juanyeh thomas"
+
+    def test_the_merged_call_sites_still_share_this_definition(self):
+        """``roster_source.normalize_name`` is a PUBLIC deprecated alias
+        (it is in that module's ``__all__``), so it is pinned here.
+
+        ``ktc_crowd_faab`` used to carry an equivalent ``_normalize_name``
+        alias and it is deliberately gone: private, unused by its own
+        module, and referenced only by this test — i.e. kept alive purely
+        by being asserted.  What actually matters there is that the
+        producer keys with this function, which
+        ``test_faab_producer_and_consumer_agree`` below pins directly.
+        """
+        from src.adapters import ktc_crowd_faab
+        from src.roster_intel import roster_source
+
+        assert roster_source.normalize_name is compact_name_key
+        assert not hasattr(
+            ktc_crowd_faab, "_normalize_name"
+        ), "the dead private alias is back; nothing should re-export it"
+
+    def test_faab_producer_and_consumer_agree(self):
+        """Regression for the live defect this consolidation surfaced.
+
+        ``build_crowd_bid_map`` keys with the compact key; the
+        recommender used to look up with ``strip().lower()``, so the
+        crowd calibration factor never fired for any name containing a
+        space — i.e. every real player.
+        """
+        from src.adapters.ktc_crowd_faab import build_crowd_bid_map
+        from src.trade.faab_recommender import _ktc_crowd_blend
+
+        crowd = build_crowd_bid_map(
+            {
+                "waivers": [
+                    {"added": "T.J. Watt", "bid": 20, "settings": {"waiver_budget": 100}},
+                    {"added": "T.J. Watt", "bid": 20, "settings": {"waiver_budget": 100}},
+                ]
+            }
+        )
+        assert crowd == {"tjwatt": 20.0}
+        # 0.7*10 + 0.3*20 = 13 — unchanged (10) would mean the lookup missed.
+        assert _ktc_crowd_blend(crowd, "T.J. Watt", 100, 10) == 13

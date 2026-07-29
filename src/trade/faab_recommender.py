@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.trade.waiver import _compute_faab_bid
+from src.utils.name_clean import compact_name_key
 
 
 # ── Tunables ───────────────────────────────────────────────────
@@ -242,13 +243,21 @@ def _ktc_crowd_blend(
     bid_estimate: int,
 ) -> int:
     """Blend with the KTC crowd-sourced waiver-bid % when present.
-    KTC's crowd data is keyed by normalized player name; the value
-    is a percent-of-budget median bid that league members assigned
-    to this player.  Returns ``bid_estimate`` unchanged when the
-    crowd map is empty or the player isn't covered."""
+    The value is a percent-of-budget median bid that league members
+    assigned to this player.  Returns ``bid_estimate`` unchanged when
+    the crowd map is empty or the player isn't covered.
+
+    The map is keyed by ``name_clean.compact_name_key`` — the key
+    ``src/adapters/ktc_crowd_faab.build_crowd_bid_map`` builds it with.
+    Until 2026-07-29 this looked up with a bare ``strip().lower()``
+    instead, which can only collide with the compact key on a
+    single-token unpunctuated name; the server passes a spaced display
+    name, so the crowd calibration factor never fired in production.
+    Producer and consumer now call the same helper — do not
+    re-introduce a local key here."""
     if not ktc_crowd_bids or not player_name:
         return bid_estimate
-    norm = str(player_name).strip().lower()
+    norm = compact_name_key(player_name)
     crowd_pct = ktc_crowd_bids.get(norm)
     if not isinstance(crowd_pct, (int, float)) or crowd_pct <= 0:
         return bid_estimate

@@ -96,6 +96,27 @@ def _compute_faab_bid(
 
 
 def _normalize_name(name: str) -> str:
+    """Loose trim+lowercase roster-ownership key.
+
+    Family 3 in the ``src/utils/name_clean`` key registry.  Byte-equal
+    counterparts, each keying an unrelated domain and therefore
+    deliberately NOT hoisted into one shared helper:
+
+      * ``frontend/lib/waiver-logic.js::normalizeName`` — the client
+        waiver pool.  This is a real parity pair: the owned/my-roster
+        Sets on both sides must key the same way.
+      * ``src/api/source_history.py::_norm_name_key`` — rolling
+        snapshot log keys (also splits ``"Name::assetClass"``).
+      * ``server.py`` FAAB endpoint local ``_norm`` — resolving
+        add/drop rows out of ``playersArray``.
+
+    Do NOT swap this for ``name_clean.normalize_player_name``.  The
+    strict key strips generational suffixes, so ``"Marvin Harrison
+    Jr."`` (Sleeper) would newly collide with ``"Marvin Harrison"``
+    (contract) and any future ``"Kenneth Walker"`` would collapse into
+    ``"Kenneth Walker III"`` — silently changing which players are
+    filtered out of the waiver add pool.
+    """
     return str(name or "").strip().lower()
 
 
