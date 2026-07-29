@@ -2,6 +2,9 @@
   "name": "dynasty-trade-calculator-frontend",
   "private": true,
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build && node scripts/check-bundle-sizes.mjs",

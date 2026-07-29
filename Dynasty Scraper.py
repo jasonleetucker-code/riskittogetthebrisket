@@ -289,12 +289,29 @@ SLEEPER_LEAGUE_ID = _registry_league_id or _env_str(
 # ─────────────────────────────────────────
 # TRADE MOVEMENT ALERTS — email when your roster players move 5%+
 # ─────────────────────────────────────────
-ALERT_EMAIL = _env_str("ALERT_EMAIL", "jasonleetucker@icloud.com")
+# Recipient. ``ALERT_TO`` is the canonical name — it is what server.py
+# reads, what .env.example documents, and what the systemd unit sets.
+# ``ALERT_EMAIL`` is kept as a deprecated alias so an existing prod .env
+# keeps working, mirroring how server.py already accepts
+# ``GMAIL_APP_PASSWORD`` alongside ``ALERT_PASSWORD``.
+#
+# The default used to be a hardcoded personal address. That is removed:
+# it put a real email in a public repo, and — because the send gate
+# below is ``not ALERT_ENABLED or not ALERT_EMAIL`` — it also meant the
+# recipient half of that gate was satisfied on every checkout whether or
+# not anyone had configured alerting.
+ALERT_EMAIL = _env_str("ALERT_TO", "") or _env_str("ALERT_EMAIL", "")
 try:
     ALERT_THRESHOLD = float(_env_str("ALERT_THRESHOLD", "5.0"))  # percent change to trigger alert
 except Exception:
     ALERT_THRESHOLD = 5.0
-ALERT_ENABLED = _env_str("ALERT_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+# Default OFF, matching server.py:_env_bool("ALERT_ENABLED", False) and the
+# documented contract (.env.example "# ALERT_ENABLED=true", and the
+# /api/alerts error string "Set environment variable ALERT_ENABLED=true").
+# This module defaulted it ON, so the same variable meant opposite things
+# in the two processes that read it. Alerting is opt-in; the opt-in
+# default is the one that agrees with everything written about it.
+ALERT_ENABLED = _env_str("ALERT_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ─────────────────────────────────────────

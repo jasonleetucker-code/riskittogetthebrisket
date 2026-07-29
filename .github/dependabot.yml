@@ -1,0 +1,113 @@
+# Dependabot — dependency update PRs.
+#
+# The file alone does nothing: Dependabot *alerts* and *security
+# updates* are repository settings a human enables at
+# Settings → Advanced Security. This configures the version-update
+# PRs once that is on.
+#
+# Why this matters here specifically: requirements.txt carries 76
+# dependency lines and ZERO `==` pins, so every install resolves
+# whatever is current at the time. That makes an unnoticed breaking
+# release a production incident with no diff to point at, and it means
+# nothing was watching for CVEs in the runtime deps.
+#
+# Grouping is deliberate. Ungrouped, four ecosystems on a weekly
+# cadence open enough PRs to bury the repo, and each one costs an
+# 11-minute `Validate PR` run. Patch and minor bumps ride together per
+# ecosystem; majors come as individual PRs because those are the ones
+# worth reading.
+
+version: 2
+
+updates:
+  # ── Python runtime + test deps ────────────────────────────────────
+  # requirements-dev.txt chains requirements.txt via `-r`, so pointing
+  # at the directory picks up both manifests.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # ── Next.js frontend ──────────────────────────────────────────────
+  # This is the one with a real blast radius: `npm run build` enforces
+  # per-page bundle budgets and three pages sit within 4 KB of theirs
+  # (/draft 2.2 KB, /league 1.4 KB, /trade 3.8 KB). A dependency bump
+  # can fail the build on size alone, which is exactly the signal we
+  # want a PR for rather than a surprise at deploy time.
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      frontend-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Next and React majors are migrations, not bumps. Dependabot
+      # opening them unprompted produces a PR nobody can review in
+      # isolation; do those deliberately.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # ── Root package.json (Playwright E2E harness only) ───────────────
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+      time: "09:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - e2e
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      e2e-harness:
+        patterns: ["*"]
+
+  # ── GitHub Actions ────────────────────────────────────────────────
+  # Every run currently warns that actions/upload-artifact@v4 targets
+  # Node 20, which Actions has deprecated. This is the mechanism that
+  # keeps that from recurring silently.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+      time: "09:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns: ["*"]

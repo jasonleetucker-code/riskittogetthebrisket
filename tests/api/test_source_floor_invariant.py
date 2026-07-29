@@ -121,8 +121,6 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # => allowlisted below until the named follow-up hardens it.
     # A2 (2026-05-17) — each now has a contract-aligned fail-loud,
     # preserve-last-good floor; resolvers read the real constant.
-    "footballGuysSf": lambda: _module_int_const("fetch_footballguys.py", "_FBG_SF_ROW_FLOOR"),
-    "footballGuysIdp": lambda: _module_int_const("fetch_footballguys.py", "_FBG_IDP_ROW_FLOOR"),
     "draftSharks": lambda: _module_int_const("fetch_draftsharks.py", "_DS_SF_ROW_FLOOR"),
     "draftSharksIdp": lambda: _module_int_const("fetch_draftsharks.py", "_DS_IDP_ROW_FLOOR"),
     "fantasyProsFitzmaurice": lambda: _module_int_const(

@@ -123,8 +123,6 @@ jobs:
           # via os.environ.  If a secret is missing the scraper logs
           # a warning and fails the fetch — handled as non-fatal by
           # the `|| echo` fallback below.
-          FOOTBALLGUYS_EMAIL: ${{ secrets.FOOTBALLGUYS_EMAIL }}
-          FOOTBALLGUYS_PASSWORD: ${{ secrets.FOOTBALLGUYS_PASSWORD }}
           DRAFTSHARKS_EMAIL: ${{ secrets.DRAFTSHARKS_EMAIL }}
           DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
           DLF_USERNAME: ${{ secrets.DLF_USERNAME }}
@@ -151,8 +149,8 @@ jobs:
           #
           # ``stamp_keys`` is a colon-separated list so a single
           # fetcher that produces multiple registry-keyed CSVs (e.g.
-          # ``fetch_footballguys.py`` writes both ``footballGuysSf``
-          # and ``footballGuysIdp``) stamps every registry key its
+          # ``fetch_draftsharks.py`` writes both ``draftSharks``
+          # and ``draftSharksIdp``) stamps every registry key its
           # output feeds.  ``_per_source_freshness`` in server.py
           # looks up stamps by *registry key*, not vendor name, so a
           # single ``footballGuys`` stamp left ``footballGuysSf`` /

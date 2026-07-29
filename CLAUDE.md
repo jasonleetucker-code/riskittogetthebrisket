@@ -827,7 +827,6 @@ Key variables (see `.env.example` for full list):
 | `FRONTEND_RUNTIME` | `next` (hardcoded) | `next` |
 | `FRONTEND_URL` | Next.js dev server URL | `http://127.0.0.1:3000` |
 | `SLEEPER_LEAGUE_ID` | Primary Sleeper league | -- |
-| `BASELINE_LEAGUE_ID` | Baseline comparison league | -- |
 
 ## Safety
 
