@@ -1170,7 +1170,6 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       {src.isTepPremium && (
                         <span
                           className="badge"
-                          title="This source's raw ranks already bake in TE premium, so the global TE Premium multiplier does not need to compensate for it."
                           style={{
                             fontSize: "0.58rem",
                             padding: "1px 5px",
@@ -1185,6 +1184,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                         >
                           TEP NATIVE
                         </span>
+                      )}
+                      {src.isTepPremium && (
+                        <InfoTip label="TEP NATIVE">
+                          This source&apos;s published ranks already bake in TE
+                          premium, so the global TE Premium multiplier does not
+                          need to compensate for it.
+                        </InfoTip>
                       )}
                     </div>
                     <div

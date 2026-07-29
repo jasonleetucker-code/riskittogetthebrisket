@@ -73,6 +73,7 @@ import {
   Button,
   CollapsiblePanel,
   HelpModal,
+  InfoTip,
   Icon,
   Modal,
   PageHeader,
@@ -350,20 +351,35 @@ function TeamPanel({
           <span>Spent</span>
           <span>Remaining</span>
           <span title="Slots drafted / initial slots owned">Slots</span>
-          <span
-            title="Slot-adjusted effective $ — max single-bid this team can actually afford while still filling their other slots at $1 each."
-          >
+          <span>
             Eff $
+            <InfoTip label="Eff $">
+              Slot-adjusted effective dollars — the most this team can bid on a
+              single player while still reserving $1 for each remaining slot.
+            </InfoTip>
           </span>
-          <span
-            title="Marginal Dollar Value = remaining $ / slots remaining.  Higher = more $ per pick = buying power.  Shaded by pressure tier."
-          >
+          <span>
             MDV
+            <InfoTip label="MDV">
+              <p>
+                Marginal Dollar Value — remaining dollars divided by remaining
+                slots. Higher means more money per pick, so more buying power.
+              </p>
+              <p>Shaded by pressure tier.</p>
+            </InfoTip>
           </span>
-          <span
-            title="Overpay index = (Σ paid − Σ preDraft at pick time) / Σ preDraft. >0 overpayer, <0 value hunter, ~0 market-rational."
-          >
+          <span>
             Over%
+            <InfoTip label="Over%">
+              <p>
+                Overpay index — how much a team has paid above what the board
+                said an asset was worth at the moment it was bought.
+              </p>
+              <p>
+                Above 0 is an overpayer, below 0 a value hunter, around 0
+                market-rational.
+              </p>
+            </InfoTip>
           </span>
         </div>
         {stats.teamStats.map((t) => {
@@ -1227,11 +1243,12 @@ export function RookieBoard({
           <thead>
             <tr>
               {th("#", "rank", 40)}
-              <th
-                style={{ width: 44 }}
-                title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2"
-              >
+              <th style={{ width: 44 }}>
                 Tier
+                <InfoTip label="Tier">
+                  Banded by PreDraft dollars — S is $60+, A $25–59, B $8–24,
+                  C $3–7, D $1–2.
+                </InfoTip>
               </th>
               <th
                 style={{ width: 70 }}
@@ -1244,11 +1261,13 @@ export function RookieBoard({
               </th>
               {th("Player", "name")}
               {th("PreDraft", "preDraft", 82)}
-              <th
-                style={{ width: 76, textAlign: "right" }}
-                title="Market value: KTC for offense, IDPTradeCalc for IDP — same $1200 scale as our PreDraft"
-              >
+              <th style={{ width: 76, textAlign: "right" }}>
                 Market
+                <InfoTip label="Market">
+                  What the retail market says — KTC for offense, IDP TradeCalc
+                  for defenders — converted to the same $1200 scale as our
+                  PreDraft column so the two are directly comparable.
+                </InfoTip>
               </th>
               {bdvmIndex ? th("Fund gap", "gap", 76) : null}
               {th("Fair", "inflatedFair", 70)}

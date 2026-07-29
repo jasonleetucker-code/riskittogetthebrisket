@@ -31,7 +31,6 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/trade",
   "/trades",
   "/arbitrage",
-  "/finder",
   "/angle",
   "/draft",
   "/waivers",
@@ -163,7 +162,6 @@ describe("naming canon", () => {
     "/draft": "Draft Board",
     "/phases": "Win-now vs Rebuild",
     "/edge": "Source Disagreement",
-    "/finder": "Player Screener",
     "/intel": "Manager Activity",
     "/league": "Hub",
     "/league/activity": "Activity",
@@ -194,6 +192,7 @@ describe("naming canon", () => {
   it("no label reuses a retired name", () => {
     const retired = [
       "Signal Blotter",
+      "Player Screener",
       "Counter-Pitch",
       "Sharp Tracker",
       "Rookie Lab",
@@ -265,7 +264,6 @@ describe("active matching", () => {
 describe("pageTitleFor", () => {
   it("derives titles from the model (no hand-maintained map)", () => {
     expect(pageTitleFor("/rankings")).toBe("Rankings");
-    expect(pageTitleFor("/finder")).toBe("Player Screener");
     expect(pageTitleFor("/arbitrage")).toBe("Arbitrage");
     expect(pageTitleFor("/tools/source-health")).toBe("Source Health");
     expect(pageTitleFor("/")).toBe("Home");
@@ -295,7 +293,7 @@ describe("flattenNav", () => {
     // /rankings is now a leaf of the Rankings group — grouping it costs
     // no click because the group label itself links there.
     expect(flat.some((i) => i.href === "/rankings" && i.group === "Rankings")).toBe(true);
-    expect(flat.some((i) => i.href === "/finder" && i.group === "Market")).toBe(true);
+    expect(flat.some((i) => i.href === "/edge" && i.group === "Market")).toBe(true);
   });
 
   it("extra palette targets keep Home reachable by name", () => {

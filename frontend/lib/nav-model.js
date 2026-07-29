@@ -54,7 +54,17 @@ export const NAV_MODEL = [
         href: "/rankings",
         label: "Rankings",
         hint: "The blended dynasty value board",
-        keywords: ["board", "values", "ranks"],
+        keywords: [
+          "board",
+          "values",
+          "ranks",
+          // The /finder screener merged in here as the Screens
+          // dropdown; keep its vocabulary searchable.
+          "screener",
+          "screen",
+          "filter",
+          "signal blotter",
+        ],
       },
       {
         href: "/trending",
@@ -171,12 +181,6 @@ export const NAV_MODEL = [
         label: "Source Disagreement",
         hint: "Where the ranking sources agree, disagree and flag issues",
         keywords: ["edge", "signals", "spread", "gaps"],
-      },
-      {
-        href: "/finder",
-        label: "Player Screener",
-        hint: "Filter the board by disagreement, confidence and rookie status",
-        keywords: ["signal blotter", "screen", "filter", "discovery"],
       },
       {
         href: "/intel",

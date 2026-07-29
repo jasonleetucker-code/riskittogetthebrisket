@@ -22,6 +22,8 @@ import {
 } from "@/lib/rankings-helpers";
 import {
   LENSES,
+  SCREENS,
+  isScreen,
   getLens,
   applyLens,
   actionLabel,
@@ -386,6 +388,21 @@ export default function RankingsPage() {
     setPosFilter(normalized);
     // Run once on mount only — subsequent filter changes go through
     // the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Seed the board view from ``?screen=`` / ``?lens=``.  The retired
+  // /finder route redirects here with its workflow key, so old links
+  // and bookmarks land on the same question they always did.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const requested = (params.get("screen") || params.get("lens") || "").trim();
+    if (!requested) return;
+    // Unknown keys fall through to the default board rather than
+    // wedging it on a view that resolves to nothing.
+    if (getLens(requested).key !== requested) return;
+    handleLensChange(requested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -961,7 +978,7 @@ export default function RankingsPage() {
         sortable: true,
         numeric: true,
         width: 88,
-        headerTitle:
+        headerInfo:
           "Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better.",
         render: (row) => (
           <span
@@ -1017,7 +1034,7 @@ export default function RankingsPage() {
           numeric: true,
           hideBelow: "md",
           width: 96,
-          headerTitle: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
+          headerInfo: `${src.displayName} — cell shows the source's 1–9,999 scale value (${
             src.isRankSignal
               ? "Hill curve from this source's ordinal rank"
               : "linear rescale of this source's native trade value"
@@ -1048,7 +1065,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         align: "center",
         width: 72,
-        headerTitle:
+        headerInfo:
           "Sources that matched this player / sources structurally eligible to cover the player's position.",
         render: (row) => {
           const srcCount =
@@ -1080,7 +1097,7 @@ export default function RankingsPage() {
         firstDirection: "desc",
         hideBelow: "md",
         align: "center",
-        headerTitle:
+        headerInfo:
           "High / Medium / Low confidence based on how many sources matched and how tightly they agree.",
         render: (row) => (
           <span
@@ -1097,7 +1114,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         align: "center",
         width: 120,
-        headerTitle:
+        headerInfo:
           "Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.",
         render: (row) => {
           const action_ = marketAction(row);
@@ -1121,7 +1138,7 @@ export default function RankingsPage() {
         sortable: true,
         hideBelow: "md",
         width: 110,
-        headerTitle:
+        headerInfo:
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
           "Visible only while the BDVM engine is enabled.",
@@ -1525,13 +1542,34 @@ export default function RankingsPage() {
         <Panel flush>
           <div className={styles.boardControls}>
             {/* Lens tabs */}
-            <Tabs
-              idPrefix="lens"
-              label="Board lenses"
-              active={activeLens}
-              onChange={handleLensChange}
-              tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
-            />
+            <div className={styles.lensRow}>
+              <Tabs
+                idPrefix="lens"
+                label="Board lenses"
+                active={isScreen(activeLens) ? null : activeLens}
+                onChange={handleLensChange}
+                tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
+              />
+              {/* Screens — the five saved questions that used to be the
+                  /finder page.  A dropdown rather than five more tabs:
+                  lenses answer "how do I read the whole board", screens
+                  answer "show me this specific question", and ten tabs
+                  would just be the old clutter in a new place. */}
+              <Select
+                aria-label="Screen"
+                value={isScreen(activeLens) ? activeLens : ""}
+                onChange={(e) =>
+                  handleLensChange(e.target.value || "consensus")
+                }
+              >
+                <option value="">Screens…</option>
+                {SCREENS.map((sc) => (
+                  <option key={sc.key} value={sc.key}>
+                    {sc.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
             {activeLens !== "consensus" && (
               <p className={styles.lensDescription}>
                 {currentLens.description}

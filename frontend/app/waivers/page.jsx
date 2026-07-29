@@ -219,7 +219,7 @@ function BestMovesPanel({ moves }) {
           );
           return `$${hint.reasonable}`;
         },
-        headerTitle: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
+        headerInfo: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
       },
       {
         key: "tier",

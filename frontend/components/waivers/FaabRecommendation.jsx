@@ -129,7 +129,7 @@ const RIVAL_COLUMNS = [
     sortable: true,
     accessor: (r) => r.expBid,
     render: (r) => fmtBid(r.expBid),
-    headerTitle: "Estimated bid: their value read × aggression × need × intel, capped by their remaining FAAB.",
+    headerInfo: "Estimated bid: their value read × aggression × need × intel, capped by their remaining FAAB.",
   },
   {
     key: "faabRemaining",
@@ -158,7 +158,7 @@ const RIVAL_COLUMNS = [
     hideBelow: "lg",
     accessor: (r) => r.aggression,
     render: (r) => `${Number(r.aggression ?? 1).toFixed(2)}×`,
-    headerTitle: "Their average winning bid ÷ the league median, clamped to 0.5-2.0×.",
+    headerInfo: "Their average winning bid ÷ the league median, clamped to 0.5-2.0×.",
   },
 ];
 

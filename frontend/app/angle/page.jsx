@@ -413,7 +413,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.my_gain_pct,
         render: (c) => fmtSignedPct(c.my_gain_pct),
-        headerTitle: "How far the package beats your offer on your own board.",
+        headerInfo: "How far the package beats your offer on your own board.",
       },
       {
         key: "market_gain_pct",
@@ -422,7 +422,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.market_gain_pct,
         render: (c) => fmtSignedPct(c.market_gain_pct),
-        headerTitle: "How the package reads on the market the counterparty consults.",
+        headerInfo: "How the package reads on the market the counterparty consults.",
       },
       {
         key: "arb_score",
@@ -431,7 +431,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.arb_score,
         render: (c) => <Badge tone="accent">{fmtSignedPct(c.arb_score)}</Badge>,
-        headerTitle: "Arbitrage edge — your gain net of the market gap.",
+        headerInfo: "Arbitrage edge — your gain net of the market gap.",
       },
     ],
     [resultIsAcquire, targetTeam],

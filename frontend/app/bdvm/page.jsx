@@ -209,7 +209,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "fpg",
       header: "FPG",
-      headerTitle: "Projected fantasy points per game under this league's scoring",
+      headerInfo: "Projected fantasy points per game under this league's scoring",
       numeric: true,
       sortable: true,
       hideBelow: "sm",
@@ -218,7 +218,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "tradeValue",
       header: "Fundamental",
-      headerTitle: "BDVM trade value in the selected strategy currency (0–10000)",
+      headerInfo: "BDVM trade value in the selected strategy currency (0–10000)",
       numeric: true,
       sortable: true,
       render: (r) => formatBdvmValue(r.tradeValue),
@@ -226,7 +226,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "marketValue",
       header: "Market",
-      headerTitle: "Market anchor (KTC / IDP TradeCalc)",
+      headerInfo: "Market anchor (KTC / IDP TradeCalc)",
       numeric: true,
       sortable: true,
       hideBelow: "sm",
@@ -235,7 +235,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "gap",
       header: "Gap",
-      headerTitle: "Fundamental (balanced) minus market — positive means the market underprices",
+      headerInfo: "Fundamental (balanced) minus market — positive means the market underprices",
       numeric: true,
       sortable: true,
       render: (r) => formatBdvmGap(r.gap),
@@ -256,7 +256,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "score",
       header: "Score",
-      headerTitle: "Percentile of balanced fundamental value among priced players (0–100)",
+      headerInfo: "Percentile of balanced fundamental value among priced players (0–100)",
       numeric: true,
       sortable: true,
       hideBelow: "lg",
@@ -265,7 +265,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "confidenceScore",
       header: "Conf",
-      headerTitle: "Model confidence (provisional by policy in v1)",
+      headerInfo: "Model confidence (provisional by policy in v1)",
       numeric: true,
       hideBelow: "lg",
       render: (r) => (
@@ -279,7 +279,7 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
     {
       key: "ev",
       header: "EV",
-      headerTitle: "Expected value of the pick's outcome distribution (selected strategy)",
+      headerInfo: "Expected value of the pick's outcome distribution (selected strategy)",
       numeric: true,
       sortable: true,
       render: (r) =>
@@ -487,7 +487,7 @@ function RostersTab({ active }) {
     {
       key: "contender",
       header: "Contender",
-      headerTitle: "Roster capital in the contender currency",
+      headerInfo: "Roster capital in the contender currency",
       numeric: true,
       sortable: true,
       render: (r) => formatBdvmValue(r.contender),
@@ -517,7 +517,7 @@ function RostersTab({ active }) {
     {
       key: "valueWeightedAge",
       header: "V-Age",
-      headerTitle: "Balanced-value-weighted roster age",
+      headerInfo: "Balanced-value-weighted roster age",
       numeric: true,
       sortable: true,
       hideBelow: "md",
@@ -674,7 +674,7 @@ function TradesTab({ active }) {
     {
       key: "aGain",
       header: "A gains",
-      headerTitle: "Side A's gain in its OWN strategy currency",
+      headerInfo: "Side A's gain in its OWN strategy currency",
       numeric: true,
       sortable: true,
       render: (r) => formatBdvmValue(r.aGain),
@@ -702,7 +702,7 @@ function TradesTab({ active }) {
     {
       key: "minGain",
       header: "Min gain",
-      headerTitle: "The smaller side's gain — how double-positive the package is",
+      headerInfo: "The smaller side's gain — how double-positive the package is",
       numeric: true,
       sortable: true,
       render: (r) => formatBdvmValue(r.minGain),
@@ -710,7 +710,7 @@ function TradesTab({ active }) {
     {
       key: "fairnessPct",
       header: "Fairness",
-      headerTitle: "Market-value imbalance of the package (single-market when both sides share one market)",
+      headerInfo: "Market-value imbalance of the package (single-market when both sides share one market)",
       numeric: true,
       sortable: true,
       hideBelow: "md",

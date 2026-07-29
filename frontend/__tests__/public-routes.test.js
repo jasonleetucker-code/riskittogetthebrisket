@@ -49,7 +49,6 @@ describe("private pages", () => {
       "/news",
       "/trade",
       "/arbitrage",
-      "/finder",
       "/angle",
       "/draft",
       "/waivers",

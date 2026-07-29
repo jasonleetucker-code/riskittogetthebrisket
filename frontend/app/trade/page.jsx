@@ -48,6 +48,7 @@ import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanatio
 import {
   Banner,
   Button,
+  CollapsiblePanel,
   InfoTip,
   Panel,
   PageHeader,
@@ -1783,69 +1784,13 @@ export default function TradePage() {
             />
           ) : null}
 
-          {/* Fairness verdict + the explanations behind it. */}
-          <TradeMeter
-            sides={sides}
-            sideTotals={sideTotals}
-            flows={sideFlows}
-            valueMode={valueMode}
-            settings={settings}
-          />
-
-          {/* Stack-effect transparency — never a silent verdict shift. */}
-          {stackContext &&
-          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
-            <p
-              className={styles.controlsNote}
-              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
-            >
-              Draft-capital stack effect —{" "}
-              {sideTotals
-                .map((t, i) => {
-                  const v = Math.round(t?.stackAdjustment || 0);
-                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
-                })
-                .join(" · ")}
-            </p>
-          ) : null}
-
-          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
-          <TradeSourceBreakdown
-            sides={sides}
-            settings={settings}
-            valueMode={valueMode}
-          />
-          <RosTradeFitPanel sides={sides} settings={settings} />
-          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
-
-          {sides.length === 2 ? (
-            <Panel>
-              <TradeDeltaHistogram
-                sides={[
-                  {
-                    label: `Side ${sides[0]?.label || "A"}`,
-                    total: sideTotals[0]?.adjusted || 0,
-                  },
-                  {
-                    label: `Side ${sides[1]?.label || "B"}`,
-                    total: sideTotals[1]?.adjusted || 0,
-                  },
-                ]}
-              />
-            </Panel>
-          ) : null}
-
-          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
-              already makes flow obvious for a 1-on-1 deal. */}
-          {sides.length >= 3 ? (
-            <MultiTradeFlow
-              sides={sides}
-              sideFlowAssets={sideFlowAssets}
-              valueMode={valueMode}
-              settings={settings}
-            />
-          ) : null}
-
+          {/* ── BUILD ────────────────────────────────────────────
+              The side cards are where a trade is actually assembled,
+              and they used to sit BELOW the verdict and six analysis
+              panels — you scrolled past every answer to reach the
+              question.  They lead now; the verdict follows as you fill
+              them, and the sticky tray keeps it on screen while you
+              edit. */}
           <div
             className={styles.sidesGrid}
             data-sides={String(Math.min(4, sides.length))}
@@ -1906,6 +1851,93 @@ export default function TradePage() {
               />
             ))}
           </div>
+
+
+          {/* ── VERDICT ──────────────────────────────────────────
+              The answer, and the one number this page exists to
+              produce. */}
+          {/* Fairness verdict + the explanations behind it. */}
+          <TradeMeter
+            sides={sides}
+            sideTotals={sideTotals}
+            flows={sideFlows}
+            valueMode={valueMode}
+            settings={settings}
+          />
+
+          {/* Stack-effect transparency — never a silent verdict shift. */}
+          {stackContext &&
+          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
+            <p
+              className={styles.controlsNote}
+              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+            >
+              Draft-capital stack effect —{" "}
+              {sideTotals
+                .map((t, i) => {
+                  const v = Math.round(t?.stackAdjustment || 0);
+                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
+                })
+                .join(" · ")}
+            </p>
+          ) : null}
+
+
+          {/* The plain-English reading of the meter above — it explains
+              the verdict, so it belongs with it rather than folded away
+              among the alternative-currency second opinions. */}
+          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
+
+          {/* ── SECOND OPINIONS ──────────────────────────────────
+              Panels that each re-answer "is this fair?" in a different
+              currency: per-vendor breakdown, rest-of-season fit, BDVM
+              fundamentals, and the value-delta chart.  Each
+              is worth having and none is the verdict, so they fold
+              away by default instead of pushing the builder off
+              screen.  Collapsed state is per-panel, so opening the one
+              you rely on sticks for the session. */}
+          <CollapsiblePanel
+            title="Second opinions"
+            subtitle="Per-source breakdown, rest-of-season fit, fundamentals and the value split"
+            defaultCollapsed
+          >
+          <TradeSourceBreakdown
+            sides={sides}
+            settings={settings}
+            valueMode={valueMode}
+          />
+          <RosTradeFitPanel sides={sides} settings={settings} />
+          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
+
+          {sides.length === 2 ? (
+            <Panel>
+              <TradeDeltaHistogram
+                sides={[
+                  {
+                    label: `Side ${sides[0]?.label || "A"}`,
+                    total: sideTotals[0]?.adjusted || 0,
+                  },
+                  {
+                    label: `Side ${sides[1]?.label || "B"}`,
+                    total: sideTotals[1]?.adjusted || 0,
+                  },
+                ]}
+              />
+            </Panel>
+          ) : null}
+
+          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
+              already makes flow obvious for a 1-on-1 deal. */}
+          {sides.length >= 3 ? (
+            <MultiTradeFlow
+              sides={sides}
+              sideFlowAssets={sideFlowAssets}
+              valueMode={valueMode}
+              settings={settings}
+            />
+          ) : null}
+
+          </CollapsiblePanel>
 
           <SuggestionsDesk
             sleeperTeams={sleeperTeams}
