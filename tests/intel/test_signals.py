@@ -60,7 +60,9 @@ class TestNoWindowSumming:
             "all": [{"assetId": "P1", "assetType": "player", **win(buys=1)}],
         }
         built = signals.build_asset_signals(
-            per_window, now_ms=NOW, primary_window="30d",
+            per_window,
+            now_ms=NOW,
+            primary_window="30d",
             windows=["7d", "30d", "90d", "all"],
         )
         assert len(built) == 1
@@ -178,9 +180,10 @@ class TestSorting:
         thin = self._sig("thin", 1, 0, 1)
         broad = self._sig("broad", 40, 39, 10)
         ordered = signals.sort_signals([thin, broad], sort="net", primary_window="30d")
-        assert [s.asset_id for s in ordered] == ["broad", "thin"], (
-            "equal net must be broken by volume, not by insertion order"
-        )
+        assert [s.asset_id for s in ordered] == [
+            "broad",
+            "thin",
+        ], "equal net must be broken by volume, not by insertion order"
 
     def test_volume_sort(self):
         a = self._sig("a", 2, 0, 1)

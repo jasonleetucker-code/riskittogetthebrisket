@@ -60,12 +60,16 @@ def cohort_status() -> dict[str, Any]:
 
     records = load_manager_records()
     scored = sharp_score.score_managers(records) if records else []
-    tiers = sharp_score.cohort_tiers(scored) if scored else {
-        "observableManagers": coverage.get("managerCount", 0),
-        "evaluableManagers": 0,
-        "qualifiedManagers": 0,
-        "uncertainManagers": 0,
-    }
+    tiers = (
+        sharp_score.cohort_tiers(scored)
+        if scored
+        else {
+            "observableManagers": coverage.get("managerCount", 0),
+            "evaluableManagers": 0,
+            "qualifiedManagers": 0,
+            "uncertainManagers": 0,
+        }
+    )
 
     status = STATUS_OK if tiers.get("qualifiedManagers", 0) > 0 else STATUS_BUILDING
     return {

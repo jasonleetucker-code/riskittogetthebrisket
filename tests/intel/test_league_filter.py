@@ -75,8 +75,12 @@ def _state():
     return {
         "memberNames": {"u1": "Alice", "u2": "Bob"},
         "leagues": {
-            "L1": {"name": "Dynasty A", "season": "2026", "totalRosters": 12,
-                   "memberOwnerIds": ["u1", "u2"]},
+            "L1": {
+                "name": "Dynasty A",
+                "season": "2026",
+                "totalRosters": 12,
+                "memberOwnerIds": ["u1", "u2"],
+            },
         },
         "events": [
             {

@@ -61,7 +61,6 @@ results and sums them.
 from __future__ import annotations
 
 import logging
-import re
 import sqlite3
 import threading
 import time
@@ -89,6 +88,7 @@ def default_path() -> Path:
     from src.intel import store
 
     return Path(store.DATA_DIR) / LEDGER_FILENAME
+
 
 SCHEMA_VERSION = 1
 

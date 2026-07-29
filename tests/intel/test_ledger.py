@@ -6,7 +6,6 @@ fixes.  Each class maps to a non-negotiable stated in the brief.
 
 from __future__ import annotations
 
-import time
 
 import pytest
 
@@ -160,12 +159,22 @@ class TestUnitSeparation:
         ledger.ingest_events(
             [
                 event(
-                    tx_id="tx1", owner="userA", asset="pick:2027:1", action="add",
-                    ts=ts, asset_type="pick", discriminator="o3",
+                    tx_id="tx1",
+                    owner="userA",
+                    asset="pick:2027:1",
+                    action="add",
+                    ts=ts,
+                    asset_type="pick",
+                    discriminator="o3",
                 ),
                 event(
-                    tx_id="tx1", owner="userA", asset="pick:2027:1", action="add",
-                    ts=ts, asset_type="pick", discriminator="o5",
+                    tx_id="tx1",
+                    owner="userA",
+                    asset="pick:2027:1",
+                    action="add",
+                    ts=ts,
+                    asset_type="pick",
+                    discriminator="o5",
                 ),
             ],
             conn=db,
@@ -179,32 +188,64 @@ class TestTradeVsWaiver:
 
     def test_waiver_add_is_not_a_trade_buy(self, db):
         ledger.ingest_events(
-            [event(tx_id="w1", owner="userA", asset="P1", action="add",
-                   ts=NOW - DAY_MS, tx_type="waiver")],
+            [
+                event(
+                    tx_id="w1",
+                    owner="userA",
+                    asset="P1",
+                    action="add",
+                    ts=NOW - DAY_MS,
+                    tx_type="waiver",
+                )
+            ],
             conn=db,
         )
         assert ledger.asset_signals(conn=db) == [], "waiver add must not appear in trade signals"
 
     def test_free_agent_add_is_not_a_trade_buy(self, db):
         ledger.ingest_events(
-            [event(tx_id="f1", owner="userA", asset="P1", action="add",
-                   ts=NOW - DAY_MS, tx_type="free_agent")],
+            [
+                event(
+                    tx_id="f1",
+                    owner="userA",
+                    asset="P1",
+                    action="add",
+                    ts=NOW - DAY_MS,
+                    tx_type="free_agent",
+                )
+            ],
             conn=db,
         )
         assert ledger.asset_signals(conn=db) == []
 
     def test_waiver_drop_is_not_a_trade_sell(self, db):
         ledger.ingest_events(
-            [event(tx_id="w1", owner="userA", asset="P1", action="drop",
-                   ts=NOW - DAY_MS, tx_type="waiver")],
+            [
+                event(
+                    tx_id="w1",
+                    owner="userA",
+                    asset="P1",
+                    action="drop",
+                    ts=NOW - DAY_MS,
+                    tx_type="waiver",
+                )
+            ],
             conn=db,
         )
         assert ledger.asset_signals(conn=db) == []
 
     def test_waiver_activity_still_queryable_when_explicitly_asked(self, db):
         ledger.ingest_events(
-            [event(tx_id="w1", owner="userA", asset="P1", action="add",
-                   ts=NOW - DAY_MS, tx_type="waiver")],
+            [
+                event(
+                    tx_id="w1",
+                    owner="userA",
+                    asset="P1",
+                    action="add",
+                    ts=NOW - DAY_MS,
+                    tx_type="waiver",
+                )
+            ],
             conn=db,
         )
         rows = ledger.asset_signals(tx_types=ledger.WAIVER_TX_TYPES, conn=db)
@@ -216,8 +257,9 @@ class TestTradeVsWaiver:
             [
                 event(tx_id="t1", owner="userA", asset="P1", action="add", ts=ts),
                 event(tx_id="w1", owner="userB", asset="P1", action="add", ts=ts, tx_type="waiver"),
-                event(tx_id="f1", owner="userC", asset="P1", action="add", ts=ts,
-                      tx_type="free_agent"),
+                event(
+                    tx_id="f1", owner="userC", asset="P1", action="add", ts=ts, tx_type="free_agent"
+                ),
             ],
             conn=db,
         )
@@ -319,7 +361,7 @@ class TestIdentity:
 
 class TestManagerActivity:
     def test_excludes_the_league_being_asked_about(self, db):
-        """"Bought elsewhere" must not count the current league."""
+        """ "Bought elsewhere" must not count the current league."""
         ts = NOW - DAY_MS
         ledger.ingest_events(
             [
@@ -374,6 +416,6 @@ class TestPruning:
         assert {r["assetId"] for r in ledger.asset_signals(conn=db)} == {"P2"}
 
     def test_retention_horizon_supports_90d(self, db):
-        assert ledger.MOVEMENT_RETENTION_DAYS >= 90, (
-            "a 90-day window is unanswerable if retention is shorter than it"
-        )
+        assert (
+            ledger.MOVEMENT_RETENTION_DAYS >= 90
+        ), "a 90-day window is unanswerable if retention is shorter than it"

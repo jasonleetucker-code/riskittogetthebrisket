@@ -36,7 +36,6 @@ observation can never render as a strong one.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
@@ -331,6 +330,7 @@ def sort_signals(
     ``net`` sorts by net but breaks ties on volume, so the thin asset
     never outranks the broad one at equal net.
     """
+
     def key(s: AssetSignal):
         win = s.windows.get(primary_window) or {}
         net = int(win.get("net") or 0)

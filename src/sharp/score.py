@@ -404,7 +404,9 @@ def compute_confidence(rec: ManagerRecord, cfg: dict[str, Any]) -> tuple[float, 
 # ── the public entry point ───────────────────────────────────────────
 
 
-def build_population(records: Sequence[ManagerRecord], cfg: dict[str, Any]) -> dict[str, list[float]]:
+def build_population(
+    records: Sequence[ManagerRecord], cfg: dict[str, Any]
+) -> dict[str, list[float]]:
     """Distributions used for percentile normalization.
 
     Built from the EVALUABLE population only — including thin records
@@ -443,7 +445,9 @@ def build_population(records: Sequence[ManagerRecord], cfg: dict[str, Any]) -> d
                 pop[pop_key].append(float(val))
 
     observed_base = _mean(pop["championshipRate"]) or base_champ
-    prior_n = float(((cfg.get("performance") or {}).get("championshipShrinkage") or {}).get("priorN", 6.0))
+    prior_n = float(
+        ((cfg.get("performance") or {}).get("championshipShrinkage") or {}).get("priorN", 6.0)
+    )
     for r in evaluable:
         pop["championshipRateShrunk"].append(
             _shrunk_rate(r.championships, r.completed_seasons, observed_base, prior_n)
