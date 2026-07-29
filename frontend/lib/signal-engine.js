@@ -4,6 +4,7 @@ import {
   normalizePoints,
   computeWindowTrend,
   computeVolatility,
+  buildHistoryLookup,
 } from "@/lib/value-history";
 
 /**
@@ -269,12 +270,26 @@ export function evaluateRoster({ rows, selectedTeam, history, newsItems }) {
   const rowByName = new Map();
   for (const r of rows) rowByName.set(String(r.name).toLowerCase(), r);
 
-  const histLower = new Map();
-  if (history && typeof history === "object") {
-    for (const k of Object.keys(history)) {
-      histLower.set(k.toLowerCase(), history[k]);
-    }
-  }
+  // History arrives from ``useRankHistory`` -> ``fetchRankHistory`` ->
+  // ``GET /api/data/rank-history``, whose keys are
+  // ``src/api/rank_history.py::_player_key`` — i.e. composite
+  // ``"Name::assetClass"`` ("Ja'Marr Chase::offense"), NOT bare names.
+  //
+  // FIXED 2026-07-29 (audit N1): this used to build a bare
+  // ``k.toLowerCase()`` map and probe it with the player name, which
+  // missed EVERY composite key. ``historyPoints`` was therefore [] for
+  // every player, trend7 / trend30 / volatility were all null, and every
+  // trend-driven rule declined to fire — so the Signals panel and
+  // TopSignalsRail collapsed to HOLD for the entire roster.
+  //
+  // ``buildHistoryLookup`` is the shared resolver written for exactly
+  // this bug elsewhere (its docstring records that the bare lookup "is
+  // why Top Gainers rendered as all-dashes"). portfolio-insights.js,
+  // PlayerMarketMovement.jsx and app/trades/page.jsx already use it;
+  // this was the last consumer on the naive path. It handles both key
+  // shapes, and disambiguates by assetClass when one display name spans
+  // two scopes rather than picking arbitrarily.
+  const historyLookup = buildHistoryLookup(history);
 
   const newsByPlayer = new Map();
   if (Array.isArray(newsItems)) {
@@ -293,7 +308,7 @@ export function evaluateRoster({ rows, selectedTeam, history, newsItems }) {
     const key = String(name).toLowerCase();
     const row = rowByName.get(key);
     if (!row) continue;
-    const historyPoints = normalizePoints(histLower.get(key) || history?.[name]);
+    const historyPoints = normalizePoints(historyLookup(name, row?.assetClass));
     const playerNews = newsByPlayer.get(key) || [];
     const context = buildContext({ row, historyPoints, newsItems: playerNews });
     const verdict = evaluate(context);
